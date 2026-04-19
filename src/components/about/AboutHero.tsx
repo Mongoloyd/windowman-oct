@@ -111,7 +111,7 @@ export default function AboutHero({ onTrack }: AboutHeroProps) {
               {/* Mock Data Signals */}
               <div className="space-y-4">
                 {/* Signal 1: Green Check */}
-                <div className="flex items-start gap-3 rounded-lg bg-emerald-50 p-3">
+                <div className="flex items-start gap-3 rounded-lg bg-emerald-50 p-3 border-2 border-double border-emerald-300">
                   <CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-emerald-600" />
                   <div>
                     <p className="text-sm font-semibold text-emerald-900">
@@ -124,7 +124,7 @@ export default function AboutHero({ onTrack }: AboutHeroProps) {
                 </div>
 
                 {/* Signal 2: Warning */}
-                <div className="flex items-start gap-3 rounded-lg bg-orange-50 p-3">
+                <div className="flex items-start gap-3 rounded-lg bg-orange-50 p-3 border-double border-2">
                   <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-orange-600" />
                   <div>
                     <p className="text-sm font-semibold text-orange-900">
@@ -137,7 +137,7 @@ export default function AboutHero({ onTrack }: AboutHeroProps) {
                 </div>
 
                 {/* Signal 3: Warning */}
-                <div className="flex items-start gap-3 rounded-lg bg-orange-50 p-3">
+                <div className="flex items-start gap-3 rounded-lg bg-orange-50 p-3 border-double border-2 border-surface">
                   <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-orange-600" />
                   <div>
                     <p className="text-sm font-semibold text-orange-900">
@@ -151,7 +151,7 @@ export default function AboutHero({ onTrack }: AboutHeroProps) {
               </div>
 
               {/* Mock Grade Output */}
-              <div className="relative mt-6 rounded-lg border-2 border-slate-200 bg-gradient-to-br from-slate-50 to-slate-100 p-4" style={{ boxShadow: "inset 0 2px 6px rgba(10,25,55,0.06), 0 1px 0 rgba(255,255,255,0.8)" }}>
+              <div className="relative mt-6 rounded-lg bg-gradient-to-br from-slate-50 to-slate-100 p-4 border-slate-400 border-double border-4" style={{ boxShadow: "inset 0 2px 6px rgba(10,25,55,0.06), 0 1px 0 rgba(255,255,255,0.8)" }}>
                 <div className="mb-2 text-center">
                   <span className="font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     Overall Grade
