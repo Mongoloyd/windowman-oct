@@ -208,7 +208,7 @@ Deno.serve(async (req) => {
     body = (await req.json()) as CAPIEvent;
 
     // Resolve pixel config
-    const config = await resolvePixelConfig(supabase, body.client_slug);
+    const config = await resolvePixelConfig(supabase as any, body.client_slug);
 
     if (!config) {
       // Graceful degradation: accept the event but don't fire it
@@ -296,7 +296,7 @@ Deno.serve(async (req) => {
 
     // Still attempt to log the failure if we have enough context
     if (resolvedPixelId && body) {
-      await supabase
+      await (supabase
         .from("capi_signal_logs")
         .insert({
           client_slug: body.client_slug ?? "default",
@@ -306,7 +306,7 @@ Deno.serve(async (req) => {
           payload: {},
           response: { error: String(err) },
           fired_at: new Date().toISOString(),
-        })
+        }) as unknown as Promise<unknown>)
         .catch(() => {}); // Don't let logging failure crash the handler
     }
 
