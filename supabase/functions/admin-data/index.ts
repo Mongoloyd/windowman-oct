@@ -18,7 +18,10 @@ type ActionName =
   | "fetch_needs_review" | "rescan_lead" | "update_lead_manual_entry"
   | "list_contractor_accounts" | "get_contractor_ledger"
   | "adjust_contractor_credits" | "get_contractor_unlocks"
-  | "list_invitations" | "create_invitation" | "revoke_invitation";
+  | "list_invitations" | "create_invitation" | "revoke_invitation"
+  // CAPI control-plane (Meta multi-pixel routing)
+  | "list_meta_configurations" | "create_meta_client_config"
+  | "set_meta_client_active"   | "preview_meta_route";
 
 const ACTION_ROLES: Record<ActionName, AppRole[]> = {
   fetch_leads: ["super_admin", "operator", "viewer"],
@@ -51,7 +54,24 @@ const ACTION_ROLES: Record<ActionName, AppRole[]> = {
   list_invitations: ["super_admin", "operator", "viewer"],
   create_invitation: ["super_admin", "operator"],
   revoke_invitation: ["super_admin", "operator"],
+  // CAPI control-plane — super_admin only for mutations; viewers may inspect & dry-run.
+  list_meta_configurations: ["super_admin", "operator", "viewer"],
+  create_meta_client_config: ["super_admin"],
+  set_meta_client_active:    ["super_admin"],
+  preview_meta_route:        ["super_admin", "operator", "viewer"],
 };
+
+// ── CAPI helpers ────────────────────────────────────────────────────────────
+// Token redaction so admin reads never leak access tokens.
+function redactToken(token: string | null | undefined): string | null {
+  if (!token) return null;
+  const t = String(token);
+  if (t.length <= 8) return "****";
+  return `${t.slice(0, 4)}…${t.slice(-4)}`;
+}
+
+const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
+const PIXEL_RE = /^[0-9]{6,20}$/;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -751,6 +771,219 @@ Deno.serve(async (req) => {
 
       if (error) throw error;
       return successResponse({ data: { success: true } });
+    }
+
+    // ─── CAPI CONTROL-PLANE ──────────────────────────────────────
+    // Read-only listing. Tokens are ALWAYS redacted before leaving the server.
+    if (action === "list_meta_configurations") {
+      const { data: configs, error } = await supabaseAdmin
+        .from("meta_configurations")
+        .select("id, client_id, pixel_id, access_token, test_event_code, is_default, updated_at")
+        .order("is_default", { ascending: false })
+        .order("updated_at",  { ascending: false });
+      if (error) throw error;
+
+      const { data: clients } = await supabaseAdmin
+        .from("clients")
+        .select("id, slug, name, is_active");
+      const clientMap = new Map((clients ?? []).map((c: any) => [c.id, c]));
+
+      const rows = (configs ?? []).map((c: any) => {
+        const client = c.client_id ? clientMap.get(c.client_id) : null;
+        return {
+          id: c.id,
+          role: c.is_default ? "default" : "client",
+          client_id: c.client_id,
+          client_slug: client?.slug ?? null,
+          client_name: client?.name ?? null,
+          client_is_active: client?.is_active ?? null,
+          pixel_id: c.pixel_id,
+          access_token_preview: redactToken(c.access_token),
+          test_event_code: c.test_event_code,
+          updated_at: c.updated_at,
+        };
+      });
+      return successResponse({ data: { rows } });
+    }
+
+    // Atomic create-or-update of a client + its meta_configuration row.
+    // Validation is done in code AND enforced by DB constraints.
+    if (action === "create_meta_client_config") {
+      const {
+        client_slug, client_name,
+        pixel_id, access_token, test_event_code = null,
+      } = payload ?? {};
+
+      if (typeof client_slug !== "string" || !SLUG_RE.test(client_slug)) {
+        return errorResponse(400, "invalid_slug",
+          "client_slug must be 1-40 chars, lowercase a-z, 0-9, hyphens.");
+      }
+      if (typeof client_name !== "string" || client_name.trim().length < 2) {
+        return errorResponse(400, "invalid_name", "client_name is required (min 2 chars).");
+      }
+      if (typeof pixel_id !== "string" || !PIXEL_RE.test(pixel_id)) {
+        return errorResponse(400, "invalid_pixel_id",
+          "pixel_id must be a 6-20 digit Meta Pixel ID.");
+      }
+      if (typeof access_token !== "string" || access_token.trim().length < 20) {
+        return errorResponse(400, "invalid_token",
+          "access_token must be a non-empty Meta CAPI token (min 20 chars).");
+      }
+
+      // Upsert client (slug is unique).
+      const { data: existingClient } = await supabaseAdmin
+        .from("clients").select("id, name, is_active").eq("slug", client_slug).maybeSingle();
+
+      let clientId: string;
+      if (existingClient) {
+        clientId = existingClient.id;
+        if (existingClient.name !== client_name || existingClient.is_active !== true) {
+          await supabaseAdmin.from("clients")
+            .update({ name: client_name, is_active: true })
+            .eq("id", clientId);
+        }
+      } else {
+        const { data: newClient, error: cErr } = await supabaseAdmin
+          .from("clients")
+          .insert({ slug: client_slug, name: client_name, is_active: true })
+          .select("id").single();
+        if (cErr) return errorResponse(400, "client_insert_failed", cErr.message);
+        clientId = newClient.id;
+      }
+
+      // Upsert config (one row per client_id, enforced by partial unique index).
+      const { data: existingCfg } = await supabaseAdmin
+        .from("meta_configurations")
+        .select("id").eq("client_id", clientId).maybeSingle();
+
+      const cfgPayload = {
+        client_id: clientId,
+        pixel_id,
+        access_token,
+        test_event_code: test_event_code || null,
+        is_default: false,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (existingCfg) {
+        const { error: uErr } = await supabaseAdmin
+          .from("meta_configurations").update(cfgPayload).eq("id", existingCfg.id);
+        if (uErr) return errorResponse(400, "config_update_failed", uErr.message);
+      } else {
+        const { error: iErr } = await supabaseAdmin
+          .from("meta_configurations").insert(cfgPayload);
+        if (iErr) return errorResponse(400, "config_insert_failed", iErr.message);
+      }
+
+      return successResponse({
+        data: {
+          success: true,
+          client_id: clientId,
+          client_slug,
+          mode: existingCfg ? "updated" : "created",
+        },
+      });
+    }
+
+    // Toggle a client's active flag. Inactive clients fall through to default/env.
+    if (action === "set_meta_client_active") {
+      const { client_slug, is_active } = payload ?? {};
+      if (typeof client_slug !== "string" || !SLUG_RE.test(client_slug)) {
+        return errorResponse(400, "invalid_slug", "client_slug is required.");
+      }
+      if (typeof is_active !== "boolean") {
+        return errorResponse(400, "invalid_flag", "is_active must be boolean.");
+      }
+      const { data, error } = await supabaseAdmin
+        .from("clients").update({ is_active }).eq("slug", client_slug)
+        .select("id, slug, is_active").maybeSingle();
+      if (error) return errorResponse(400, "update_failed", error.message);
+      if (!data)  return errorResponse(404, "client_not_found", `No client with slug "${client_slug}".`);
+      return successResponse({ data: { success: true, client: data } });
+    }
+
+    // Dry-run: replays resolvePixelConfig logic WITHOUT calling Meta.
+    // Returns which tier (client / default / env / degraded) would handle the event.
+    if (action === "preview_meta_route") {
+      const { client_slug } = payload ?? {};
+
+      // Tier 1 — client slug
+      if (client_slug && typeof client_slug === "string") {
+        const { data: client } = await supabaseAdmin
+          .from("clients").select("id, slug, name, is_active")
+          .eq("slug", client_slug).eq("is_active", true).maybeSingle();
+        if (client) {
+          const { data: cfg } = await supabaseAdmin
+            .from("meta_configurations")
+            .select("pixel_id, access_token, test_event_code")
+            .eq("client_id", client.id).maybeSingle();
+          if (cfg?.pixel_id && cfg?.access_token) {
+            return successResponse({
+              data: {
+                tier: "client",
+                resolved: true,
+                client_slug: client.slug,
+                pixel_id: cfg.pixel_id,
+                access_token_preview: redactToken(cfg.access_token),
+                test_event_code: cfg.test_event_code,
+                note: "Routes to this client's pixel.",
+              },
+            });
+          }
+        }
+      }
+
+      // Tier 2 — default DB row
+      const { data: def } = await supabaseAdmin
+        .from("meta_configurations")
+        .select("pixel_id, access_token, test_event_code")
+        .eq("is_default", true).maybeSingle();
+      if (def?.pixel_id && def?.access_token) {
+        return successResponse({
+          data: {
+            tier: "default",
+            resolved: true,
+            client_slug: client_slug ?? null,
+            pixel_id: def.pixel_id,
+            access_token_preview: redactToken(def.access_token),
+            test_event_code: def.test_event_code,
+            note: client_slug
+              ? "Client slug not active or missing config — falls through to default pixel."
+              : "No client slug provided — uses default pixel.",
+          },
+        });
+      }
+
+      // Tier 3 — env fallback
+      const envPixel = Deno.env.get("META_PIXEL_ID");
+      const envToken = Deno.env.get("META_CAPI_TOKEN");
+      const envTest  = Deno.env.get("META_TEST_EVENT_CODE") ?? null;
+      if (envPixel && envToken) {
+        return successResponse({
+          data: {
+            tier: "env",
+            resolved: true,
+            client_slug: client_slug ?? null,
+            pixel_id: envPixel,
+            access_token_preview: redactToken(envToken),
+            test_event_code: envTest,
+            note: "No DB config found — uses env vars META_PIXEL_ID / META_CAPI_TOKEN.",
+          },
+        });
+      }
+
+      // Tier 4 — degraded
+      return successResponse({
+        data: {
+          tier: "degraded",
+          resolved: false,
+          client_slug: client_slug ?? null,
+          pixel_id: null,
+          access_token_preview: null,
+          test_event_code: null,
+          note: "No client config, no default row, no env vars. Events would be HTTP 202 no-send.",
+        },
+      });
     }
 
     return errorResponse(400, "unhandled_action", `Action ${action} not implemented`);
