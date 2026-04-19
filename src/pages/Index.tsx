@@ -32,6 +32,7 @@ import { useHomepageVariant } from "@/hooks/useHomepageVariant";
 import { ScanFunnelProvider, useScanFunnelSafe, readPersistedFunnelSnapshot } from "@/state/scanFunnel";
 import { getVerifiedAccess, clearVerifiedAccess } from "@/lib/verifiedAccess";
 import { trackEvent } from "@/lib/trackEvent";
+import { useClientSlug } from "@/lib/useClientSlug";
 
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -226,12 +227,18 @@ const Index = () => {
   const reportFlags = activeData?.flags || [];
   const shouldShowReport = showReportFromDev || gradeRevealed;
 
-  // If already inside a ScanFunnelProvider (e.g. from /lp/:slug), don't double-wrap
+  // If already inside a ScanFunnelProvider (e.g. from /lp/:slug), don't double-wrap.
+  // Otherwise, resolve a `?client=<slug>` query param so paid traffic to `/?client=acme`
+  // also stamps `leads.client_slug` (canonical multi-tenant attribution).
   const existingFunnel = useScanFunnelSafe();
+  const { slug: queryClientSlug } = useClientSlug();
   const Wrapper = existingFunnel ? React.Fragment : ScanFunnelProvider;
+  const wrapperProps = existingFunnel
+    ? {}
+    : ({ initialClientSlug: queryClientSlug ?? undefined } as { initialClientSlug?: string });
 
   return (
-    <Wrapper>
+    <Wrapper {...wrapperProps}>
       <div className="min-h-screen bg-background relative overflow-hidden">
         <HomepageBackdrop />
         <div className="relative z-10">
