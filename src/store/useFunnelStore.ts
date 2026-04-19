@@ -18,6 +18,9 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { trackGtmEvent } from '@/lib/trackConversion';
+import { trackBusinessEvent } from '@/lib/tracking/trackBusinessEvent';
+import { BUSINESS_EVENTS } from '@/lib/tracking/events';
 
 // ── TYPES ─────────────────────────────────────────────────────────────────────
 
@@ -224,13 +227,8 @@ function deriveScreenFromFlow(flow: FlowType): FunnelScreen {
   return 'flow_c_leverage'; // C — most urgent
 }
 
-// ── PIXEL HELPER (safe — no-op if fbq not loaded) ──────────────────────────────
-
-function fbqTrack(eventName: string, params?: Record<string, unknown>) {
-  if (typeof window !== 'undefined' && (window as any).fbq) {
-    (window as any).fbq('trackCustom', eventName, params ?? {});
-  }
-}
+// ── (Browser Meta/fbq helpers removed — all tracking now flows through
+//     the canonical dataLayer via trackGtmEvent / trackBusinessEvent.) ─────────
 
 // ── THE STORE ─────────────────────────────────────────────────────────────────
 
@@ -243,18 +241,18 @@ export const useFunnelStore = create<FunnelState>()(
 
       setWindowCount: (count) => {
         set({ windowCount: count });
-        fbqTrack('wm_step1_complete', { window_count: count });
+        trackGtmEvent('wm_step1_complete', { window_count: count });
       },
 
       setProjectType: (type) => {
         set({ projectType: type });
-        fbqTrack('wm_step2_complete', { project_type: type });
+        trackGtmEvent('wm_step2_complete', { project_type: type });
       },
 
       setCounty: (name, slug) => {
         set({ county: name, countySlug: slug });
-        fbqTrack('wm_step3_complete', { county: name });
-        fbqTrack('wm_county_identified', { county: name });
+        trackGtmEvent('wm_step3_complete', { county: name });
+        trackGtmEvent('wm_county_identified', { county: name });
       },
 
       // ── THE HIDDEN FORK — most critical action ────────────────────────────────
@@ -272,13 +270,13 @@ export const useFunnelStore = create<FunnelState>()(
           highestStepReached: Math.max(get().highestStepReached, nextStp),
         });
 
-        fbqTrack('wm_step4_complete', {
+        trackGtmEvent('wm_step4_complete', {
           quote_range:   range,
           process_stage: processStage,
           flow,
           county:        get().county,
         });
-        fbqTrack('wm_flow_routed', { flow, county: get().county });
+        trackGtmEvent('wm_flow_routed', { flow, county: get().county });
       },
 
       // ── NAVIGATION ───────────────────────────────────────────────────────────
@@ -309,31 +307,30 @@ export const useFunnelStore = create<FunnelState>()(
 
       captureLead: () => {
         set({ isLeadCaptured: true });
-        if (typeof window !== 'undefined' && (window as any).fbq) {
-          (window as any).fbq('track', 'Lead');
-          (window as any).fbq('track', 'CompleteRegistration');
-        }
-        fbqTrack('wm_lead_submitted', { county: get().county, flow: get().assignedFlow });
+        trackGtmEvent('wm_lead_submitted', {
+          county: get().county,
+          flow:   get().assignedFlow,
+        });
       },
 
       completeUpload: () => {
         set({ isQuoteUploaded: true });
-        fbqTrack('wm_upload_completed', { county: get().county });
+        trackBusinessEvent(BUSINESS_EVENTS.quote_uploaded, {
+          county: get().county,
+        });
       },
 
       completeScan: () => {
         set({ isScanComplete: true });
-        fbqTrack('wm_scan_completed', { county: get().county });
+        trackGtmEvent('wm_scan_completed', { county: get().county });
       },
 
       setPhoneVerified: (verified) => {
         set({ phoneVerified: verified });
-        if (verified) {
-          fbqTrack('wm_otp_verified', { county: get().county, flow: get().assignedFlow });
-          if (typeof window !== 'undefined' && (window as any).fbq) {
-            (window as any).fbq('track', 'Purchase', { value: 0, currency: 'USD' });
-          }
-        }
+        // NOTE: Canonical `phone_verified` business event is owned by the
+        // post-scan reveal path (PostScanReportSwitcher). This setter only
+        // mirrors verification state into the funnel store and intentionally
+        // does NOT emit a duplicate browser event.
       },
 
       // ── SCAN RESULT SETTER ────────────────────────────────────────────────────
@@ -350,10 +347,10 @@ export const useFunnelStore = create<FunnelState>()(
           allFlags:       result.allFlags,
           isScanComplete: true,
         });
-        fbqTrack('wm_grade_revealed', {
-          grade:       result.grade,
+        trackGtmEvent('wm_grade_revealed', {
+          grade:        result.grade,
           dollar_delta: result.dollarDelta,
-          county:      get().county,
+          county:       get().county,
         });
       },
 
