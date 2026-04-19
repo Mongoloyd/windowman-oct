@@ -7,14 +7,19 @@
  * Run with:
  *   npx vitest run --config vitest.proof.config.ts
  */
-import { defineConfig, mergeConfig } from "vitest/config";
-import base from "./vitest.config";
+import { defineConfig } from "vitest/config";
+import react from "@vitejs/plugin-react-swc";
+import path from "path";
 
-export default mergeConfig(
-  base,
-  defineConfig({
-    test: {
-      include: ["scripts/pageview-dedupe-test.ts"],
-    },
-  })
-);
+export default defineConfig({
+  plugins: [react()],
+  test: {
+    environment: "jsdom",
+    globals: true,
+    setupFiles: ["./src/test/setup.ts"],
+    include: ["scripts/pageview-dedupe-test.ts"],
+  },
+  resolve: {
+    alias: { "@": path.resolve(__dirname, "./src") },
+  },
+});
