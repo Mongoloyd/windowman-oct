@@ -194,6 +194,171 @@ export async function resolvePixelConfig(
   return null; // Nothing configured — abort gracefully
 }
 
+// --- DIAGNOSTIC: Dry-run resolver for admin route preview ---
+// Reuses resolvePixelConfig() as the source of truth for routing precedence,
+// then traces *why* the chosen tier was selected by inspecting the same DB
+// state the controller would see. NEVER calls Meta. NEVER logs to capi_signal_logs.
+//
+// This is the single shared brain for the preview action — operators must not
+// build a parallel routing implementation. Reasons are deterministic enums so
+// downstream tooling can branch on them.
+//
+// Reason codes (stable contract — do not rename without updating tests + docs):
+//   client_resolved              client_slug matched an active client with a complete config
+//   client_slug_not_provided     no slug supplied; fell straight through to default tier
+//   client_not_found             slug did not match any clients row
+//   client_inactive              slug matched but clients.is_active = false
+//   client_config_missing        client row exists but no meta_configurations row
+//   client_config_missing_pixel  config row exists but pixel_id is null/empty
+//   client_config_missing_token  config row exists but access_token is null/empty
+//   default_resolved             fell through to is_default = true row
+//   default_missing              no default row present
+//   env_resolved                 fell through to META_PIXEL_ID + META_CAPI_TOKEN
+//   env_missing_pixel            META_PIXEL_ID not set
+//   env_missing_token            META_CAPI_TOKEN not set
+//   env_missing                  neither env var set
+//   degraded_no_route            no tier resolved — events would be HTTP 202 no-send
+export type RouteDiagnosticTier = "client" | "default" | "env" | "degraded";
+
+export interface RouteDiagnostic {
+  tier: RouteDiagnosticTier;
+  resolved: boolean;
+  is_send_safe: boolean;
+  client_slug: string | null;
+  resolved_pixel_id: string | null;
+  source: string | null;
+  uses_default: boolean;
+  uses_env_fallback: boolean;
+  degraded: boolean;
+  reasons: string[];
+  missing_fields: string[];
+}
+
+export async function diagnoseRoute(
+  supabase: ReturnType<typeof createClient>,
+  clientSlug?: string,
+): Promise<RouteDiagnostic> {
+  const reasons: string[] = [];
+  const missing_fields: string[] = [];
+
+  // Step 1 — explain the client tier outcome (passive inspection, no fetch retry).
+  if (!clientSlug || typeof clientSlug !== "string") {
+    reasons.push("client_slug_not_provided");
+  } else {
+    const { data: client } = (await supabase
+      .from("clients")
+      .select("id, is_active")
+      .eq("slug", clientSlug)
+      .maybeSingle()) as { data: { id: string; is_active: boolean } | null };
+
+    if (!client) {
+      reasons.push("client_not_found");
+    } else if (!client.is_active) {
+      reasons.push("client_inactive");
+    } else {
+      const { data: cfg } = (await supabase
+        .from("meta_configurations")
+        .select("pixel_id, access_token")
+        .eq("client_id", client.id)
+        .maybeSingle()) as { data: { pixel_id: string | null; access_token: string | null } | null };
+
+      if (!cfg) {
+        reasons.push("client_config_missing");
+        missing_fields.push("meta_configurations.pixel_id", "meta_configurations.access_token");
+      } else {
+        if (!cfg.pixel_id) {
+          reasons.push("client_config_missing_pixel");
+          missing_fields.push("meta_configurations.pixel_id");
+        }
+        if (!cfg.access_token) {
+          reasons.push("client_config_missing_token");
+          missing_fields.push("meta_configurations.access_token");
+        }
+      }
+    }
+  }
+
+  // Step 2 — delegate to the canonical resolver to get the actual chosen tier.
+  // This guarantees preview can never disagree with capi-event in production.
+  const config = await resolvePixelConfig(supabase, clientSlug);
+
+  if (config) {
+    let tier: RouteDiagnosticTier;
+    if (config.source.startsWith("client:")) {
+      tier = "client";
+      reasons.push("client_resolved");
+    } else if (config.source === "db:default") {
+      tier = "default";
+      reasons.push("default_resolved");
+    } else {
+      tier = "env";
+      reasons.push("env_resolved");
+    }
+
+    return {
+      tier,
+      resolved: true,
+      is_send_safe: true,
+      client_slug: clientSlug ?? null,
+      resolved_pixel_id: config.pixelId,
+      source: config.source,
+      uses_default: tier === "default",
+      uses_env_fallback: tier === "env",
+      degraded: false,
+      reasons,
+      missing_fields,
+    };
+  }
+
+  // Degraded — explain *which* fallback tiers were also empty.
+  // We re-inspect to give operators a precise checklist of what to fix.
+  const { data: defaultRow } = (await supabase
+    .from("meta_configurations")
+    .select("pixel_id, access_token")
+    .eq("is_default", true)
+    .maybeSingle()) as { data: { pixel_id: string | null; access_token: string | null } | null };
+
+  if (!defaultRow) {
+    reasons.push("default_missing");
+    missing_fields.push("meta_configurations.is_default_row");
+  } else {
+    if (!defaultRow.pixel_id) missing_fields.push("meta_configurations(default).pixel_id");
+    if (!defaultRow.access_token) missing_fields.push("meta_configurations(default).access_token");
+  }
+
+  const envPixel = Deno.env.get("META_PIXEL_ID");
+  const envToken = Deno.env.get("META_CAPI_TOKEN");
+  if (!envPixel && !envToken) {
+    reasons.push("env_missing");
+    missing_fields.push("env.META_PIXEL_ID", "env.META_CAPI_TOKEN");
+  } else {
+    if (!envPixel) {
+      reasons.push("env_missing_pixel");
+      missing_fields.push("env.META_PIXEL_ID");
+    }
+    if (!envToken) {
+      reasons.push("env_missing_token");
+      missing_fields.push("env.META_CAPI_TOKEN");
+    }
+  }
+
+  reasons.push("degraded_no_route");
+
+  return {
+    tier: "degraded",
+    resolved: false,
+    is_send_safe: false,
+    client_slug: clientSlug ?? null,
+    resolved_pixel_id: null,
+    source: null,
+    uses_default: false,
+    uses_env_fallback: false,
+    degraded: true,
+    reasons,
+    missing_fields,
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
