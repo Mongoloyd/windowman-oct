@@ -107,6 +107,18 @@ export async function buildHashedUserData(
   return hashedUserData;
 }
 
+// --- UTILITY: Extract client IP from proxy/CDN headers ---
+// Priority: cf-connecting-ip → first x-forwarded-for hop → x-real-ip → fallback.
+// Exported so regression tests can pin the header precedence.
+export function extractClientIp(headers: Headers): string {
+  return (
+    headers.get("cf-connecting-ip") ||
+    headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    headers.get("x-real-ip") ||
+    "0.0.0.0"
+  );
+}
+
 // --- UTILITY: Resolve which pixel config to use ---
 // Priority: clientSlug → default row → env vars
 // Returns source label for observability (never logs raw secrets)
