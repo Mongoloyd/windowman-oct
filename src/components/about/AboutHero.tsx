@@ -137,7 +137,7 @@ export default function AboutHero({ onTrack }: AboutHeroProps) {
                 </div>
 
                 {/* Signal 3: Warning */}
-                <div className="flex items-start gap-3 rounded-lg bg-orange-50 p-3 border-double border-2 border-surface">
+                <div className="flex items-start gap-3 rounded-lg bg-orange-50 p-3 border-destructive border border-solid">
                   <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-orange-600" />
                   <div>
                     <p className="text-sm font-semibold text-orange-900">
