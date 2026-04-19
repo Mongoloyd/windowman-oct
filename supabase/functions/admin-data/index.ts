@@ -1194,8 +1194,307 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ─── FLEET HEALTH (read-only aggregate across all clients) ─────
+    // Aggregates the last N hours of capi_signal_logs per client_slug,
+    // joins with clients + meta_configurations, and classifies each
+    // client into healthy / warning / incident with a recommended next
+    // step. Smoke traffic (client_slug LIKE 'smoke:%') is excluded so it
+    // never inflates production health signals.
+    //
+    // Hard rules:
+    //   • Read-only. Never mutates config or sends Meta traffic.
+    //   • Never returns access tokens. Pixel IDs are masked (last 4).
+    //   • Smoke rows are filtered out of business signals.
+    //   • Health states are evidence-backed (counts + thresholds), not vibes.
+    if (action === "summarize_meta_fleet_health") {
+      const { window_hours } = payload ?? {};
+      const hours = typeof window_hours === "number" && window_hours > 0 && window_hours <= 168
+        ? Math.floor(window_hours)
+        : 24;
+      const sinceIso = new Date(Date.now() - hours * 3600 * 1000).toISOString();
+
+      // 1. Load fleet inventory: every client + its config + the default row.
+      const { data: clients, error: clientsErr } = await supabaseAdmin
+        .from("clients")
+        .select("id, slug, name, is_active");
+      if (clientsErr) throw clientsErr;
+
+      const { data: configs, error: cfgErr } = await supabaseAdmin
+        .from("meta_configurations")
+        .select("client_id, pixel_id, access_token, is_default");
+      if (cfgErr) throw cfgErr;
+
+      const cfgByClientId = new Map<string, { pixel_id: string | null; token_present: boolean }>();
+      let defaultPixelId: string | null = null;
+      let defaultTokenPresent = false;
+      for (const c of configs ?? []) {
+        const tokenPresent = typeof c.access_token === "string" && c.access_token.trim().length >= 20;
+        if (c.is_default) {
+          defaultPixelId = c.pixel_id ?? null;
+          defaultTokenPresent = tokenPresent;
+        } else if (c.client_id) {
+          cfgByClientId.set(c.client_id, {
+            pixel_id: c.pixel_id ?? null,
+            token_present: tokenPresent,
+          });
+        }
+      }
+
+      // 2. Pull recent capi_signal_logs for production traffic only.
+      //    Smoke traffic is prefixed "smoke:" by smoke_send_meta_event and
+      //    must never inflate fleet health. NULL client_slug rows fall to
+      //    the default tier bucket.
+      const { data: logs, error: logsErr } = await supabaseAdmin
+        .from("capi_signal_logs")
+        .select("client_slug, pixel_id, status_code, fired_at, response")
+        .gte("fired_at", sinceIso)
+        .or("client_slug.is.null,client_slug.not.like.smoke:%")
+        .order("fired_at", { ascending: false })
+        .limit(10000);
+      if (logsErr) throw logsErr;
+
+      // 3. Bucket logs by client_slug (NULL → "__default__").
+      type Bucket = {
+        total: number;
+        success: number;          // 2xx
+        non_2xx: number;
+        meta_reject: number;      // classified as meta_rejected_payload / unknown_failure
+        token_failure: number;    // token_invalid_or_revoked / pixel_token_mismatch / token_permission_denied
+        rate_limited: number;
+        meta_server_error: number;
+        pixel_ids_seen: Set<string>;
+        last_seen_at: string | null;
+      };
+      const newBucket = (): Bucket => ({
+        total: 0, success: 0, non_2xx: 0, meta_reject: 0, token_failure: 0,
+        rate_limited: 0, meta_server_error: 0,
+        pixel_ids_seen: new Set(), last_seen_at: null,
+      });
+      const buckets = new Map<string, Bucket>();
+      for (const row of logs ?? []) {
+        const key = (row.client_slug as string | null) ?? "__default__";
+        let b = buckets.get(key);
+        if (!b) { b = newBucket(); buckets.set(key, b); }
+        b.total++;
+        const status = typeof row.status_code === "number" ? row.status_code : null;
+        if (status !== null && status >= 200 && status < 300) {
+          b.success++;
+        } else {
+          b.non_2xx++;
+          const failure = classifyMetaError(status ?? 0, row.response);
+          if (failure.class === "token_invalid_or_revoked"
+              || failure.class === "pixel_token_mismatch"
+              || failure.class === "token_permission_denied") {
+            b.token_failure++;
+          } else if (failure.class === "rate_limited") {
+            b.rate_limited++;
+          } else if (failure.class === "meta_server_error") {
+            b.meta_server_error++;
+          } else if (failure.class === "meta_rejected_payload"
+                     || failure.class === "unknown_failure") {
+            b.meta_reject++;
+          }
+        }
+        if (typeof row.pixel_id === "string") b.pixel_ids_seen.add(row.pixel_id);
+        if (!b.last_seen_at || (row.fired_at as string) > b.last_seen_at) {
+          b.last_seen_at = row.fired_at as string;
+        }
+      }
+
+      // 4. Per-client classification.
+      const maskPixel = (p: string | null) => (p ? `…${p.slice(-4)}` : null);
+
+      const summarizeClient = (
+        slug: string,
+        is_active: boolean,
+        expected_pixel: string | null,
+        token_present: boolean,
+        config_present: boolean,
+      ) => {
+        const b = buckets.get(slug);
+        const total = b?.total ?? 0;
+        const success = b?.success ?? 0;
+        const non_2xx = b?.non_2xx ?? 0;
+        const errPct = total > 0 ? non_2xx / total : 0;
+
+        // Determine dominant route from observed pixel_ids vs expected.
+        let dominant_route: "client" | "default" | "mixed" | "unknown" = "unknown";
+        let recent_fallback_count = 0;
+        if (b && b.pixel_ids_seen.size > 0) {
+          const seen = [...b.pixel_ids_seen];
+          const matchesExpected = expected_pixel
+            ? seen.filter((p) => p === expected_pixel)
+            : [];
+          const others = seen.filter((p) => p !== expected_pixel);
+          if (expected_pixel && matchesExpected.length > 0 && others.length === 0) {
+            dominant_route = "client";
+          } else if (!expected_pixel || matchesExpected.length === 0) {
+            dominant_route = "default";
+            recent_fallback_count = total;
+          } else {
+            dominant_route = "mixed";
+            // crude approximation: rows attributed to non-expected pixel
+            recent_fallback_count = Math.max(0, total - matchesExpected.length);
+          }
+        }
+
+        // Classify health.
+        let health_state: "healthy" | "warning" | "incident";
+        let suspected_issue_class: string;
+        let recommended_next_step: string;
+
+        if (!is_active) {
+          health_state = "warning";
+          suspected_issue_class = "client_inactive";
+          recommended_next_step = "Client is inactive — traffic falls to default. Re-run go-live gate before enabling.";
+        } else if (!config_present) {
+          health_state = "incident";
+          suspected_issue_class = "config_missing";
+          recommended_next_step = "Active client has no meta_configurations row. Run create_meta_client_config.";
+        } else if (!expected_pixel || !token_present) {
+          health_state = "incident";
+          suspected_issue_class = "config_incomplete";
+          recommended_next_step = "Config row missing pixel_id or access_token. Re-run create_meta_client_config.";
+        } else if (total === 0) {
+          health_state = "warning";
+          suspected_issue_class = "no_recent_traffic";
+          recommended_next_step = `No production events in last ${hours}h. Confirm caller traffic; run preview_meta_route + smoke_send_meta_event.`;
+        } else if (b!.token_failure > 0) {
+          health_state = "incident";
+          suspected_issue_class = "token_failure";
+          recommended_next_step = "Token rejected by Meta. Run diagnose_token_health, then rotate via create_meta_client_config.";
+        } else if (dominant_route === "default" || dominant_route === "mixed") {
+          health_state = "incident";
+          suspected_issue_class = "unexpected_fallback";
+          recommended_next_step = "Live traffic hitting non-expected pixel. Run preview_meta_route. See CAPI_PRODUCTION_RECOVERY_RUNBOOK §3.";
+        } else if (errPct >= 0.05) {
+          health_state = "incident";
+          suspected_issue_class = b!.meta_reject > 0 ? "meta_reject" : "elevated_errors";
+          recommended_next_step = "Non-2xx rate ≥5%. Inspect Edge Function logs + capi_signal_logs.response for this slug.";
+        } else if (errPct >= 0.01 || b!.rate_limited > 0 || b!.meta_server_error > 0) {
+          health_state = "warning";
+          suspected_issue_class = b!.rate_limited > 0 ? "rate_limited" : (b!.meta_server_error > 0 ? "meta_transient" : "elevated_errors");
+          recommended_next_step = "Non-2xx rate 1–5% or transient Meta errors. Watch per CAPI_POST_LAUNCH_WATCHTOWER §4.3.";
+        } else {
+          health_state = "healthy";
+          suspected_issue_class = "none";
+          recommended_next_step = "No action required. Continue scheduled watchtower checks.";
+        }
+
+        return {
+          client_slug: slug,
+          is_active,
+          config_present,
+          expected_pixel_masked: maskPixel(expected_pixel),
+          token_present,
+          health_state,
+          dominant_route,
+          recent_total_count: total,
+          recent_success_count: success,
+          recent_non_2xx_count: non_2xx,
+          recent_fallback_count,
+          recent_token_failure_count: b?.token_failure ?? 0,
+          recent_meta_reject_count: b?.meta_reject ?? 0,
+          recent_rate_limited_count: b?.rate_limited ?? 0,
+          recent_meta_server_error_count: b?.meta_server_error ?? 0,
+          last_seen_at: b?.last_seen_at ?? null,
+          suspected_issue_class,
+          recommended_next_step,
+        };
+      };
+
+      const clientRows = (clients ?? []).map((c: any) => {
+        const cfg = cfgByClientId.get(c.id);
+        return summarizeClient(
+          c.slug,
+          c.is_active === true,
+          cfg?.pixel_id ?? null,
+          cfg?.token_present ?? false,
+          !!cfg,
+        );
+      });
+
+      // 5. Default tier summary (NULL client_slug rows).
+      const defaultBucket = buckets.get("__default__");
+      const defaultTotal = defaultBucket?.total ?? 0;
+      const defaultSuccess = defaultBucket?.success ?? 0;
+      const defaultNon2xx = defaultBucket?.non_2xx ?? 0;
+      const defaultErrPct = defaultTotal > 0 ? defaultNon2xx / defaultTotal : 0;
+      let defaultHealth: "healthy" | "warning" | "incident";
+      let defaultIssue: string;
+      let defaultNextStep: string;
+      if (!defaultPixelId || !defaultTokenPresent) {
+        defaultHealth = "incident";
+        defaultIssue = "default_config_incomplete";
+        defaultNextStep = "Default tier missing pixel_id or access_token. This breaks every fallback. Repair immediately.";
+      } else if (defaultBucket && defaultBucket.token_failure > 0) {
+        defaultHealth = "incident";
+        defaultIssue = "token_failure";
+        defaultNextStep = "Default token rejected. Rotate via create_meta_client_config (is_default = true).";
+      } else if (defaultErrPct >= 0.05) {
+        defaultHealth = "incident";
+        defaultIssue = "elevated_errors";
+        defaultNextStep = "Default tier non-2xx ≥5%. Inspect logs + recovery runbook §3.";
+      } else if (defaultErrPct >= 0.01) {
+        defaultHealth = "warning";
+        defaultIssue = "elevated_errors";
+        defaultNextStep = "Default tier non-2xx 1–5%. Monitor.";
+      } else {
+        defaultHealth = "healthy";
+        defaultIssue = "none";
+        defaultNextStep = "Default tier healthy.";
+      }
+
+      const defaultSummary = {
+        tier: "default" as const,
+        config_present: !!defaultPixelId,
+        expected_pixel_masked: maskPixel(defaultPixelId),
+        token_present: defaultTokenPresent,
+        health_state: defaultHealth,
+        recent_total_count: defaultTotal,
+        recent_success_count: defaultSuccess,
+        recent_non_2xx_count: defaultNon2xx,
+        recent_token_failure_count: defaultBucket?.token_failure ?? 0,
+        recent_meta_reject_count: defaultBucket?.meta_reject ?? 0,
+        last_seen_at: defaultBucket?.last_seen_at ?? null,
+        suspected_issue_class: defaultIssue,
+        recommended_next_step: defaultNextStep,
+      };
+
+      // 6. Fleet roll-up.
+      const stateCounts = clientRows.reduce(
+        (acc, r) => { acc[r.health_state]++; return acc; },
+        { healthy: 0, warning: 0, incident: 0 } as Record<string, number>,
+      );
+
+      return successResponse({
+        data: {
+          window_hours: hours,
+          window_start: sinceIso,
+          generated_at: new Date().toISOString(),
+          fleet_summary: {
+            client_count: clientRows.length,
+            healthy: stateCounts.healthy,
+            warning: stateCounts.warning,
+            incident: stateCounts.incident,
+            total_events_observed: (logs ?? []).length,
+          },
+          default_tier: defaultSummary,
+          clients: clientRows.sort((a, b) => {
+            const order = { incident: 0, warning: 1, healthy: 2 } as const;
+            return order[a.health_state] - order[b.health_state];
+          }),
+          contract: {
+            tokens_returned: false,
+            pixel_mask_format: "…last4",
+            smoke_traffic_excluded: true,
+            data_source: "capi_signal_logs",
+          },
+        },
+      });
+    }
+
     return errorResponse(400, "unhandled_action", `Action ${action} not implemented`);
-  } catch (error) {
     const errMsg = error instanceof Error ? error.message : String(error);
     console.error(`[admin-data] Error:`, errMsg);
     return errorResponse(500, "server_error", "Internal server error");
