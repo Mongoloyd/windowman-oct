@@ -1,6 +1,14 @@
 import { corsHeaders, errorResponse, successResponse, validateAdminRequestWithRole, type AppRole } from "../_shared/adminAuth.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { diagnoseRoute, dispatchCapiEvent, resolvePixelConfig, type CAPIEvent } from "../_shared/capiRouting.ts";
+import {
+  classifyMetaError,
+  diagnoseRoute,
+  dispatchCapiEvent,
+  redactToken as sharedRedactToken,
+  resolvePixelConfig,
+  summarizeTokenPresence,
+  type CAPIEvent,
+} from "../_shared/capiRouting.ts";
 
 /**
  * admin-data v2.4
@@ -23,7 +31,7 @@ type ActionName =
   // CAPI control-plane (Meta multi-pixel routing)
   | "list_meta_configurations" | "create_meta_client_config"
   | "set_meta_client_active"   | "preview_meta_route"
-  | "smoke_send_meta_event";
+  | "smoke_send_meta_event" | "diagnose_token_health";
 
 const ACTION_ROLES: Record<ActionName, AppRole[]> = {
   fetch_leads: ["super_admin", "operator", "viewer"],
@@ -63,16 +71,14 @@ const ACTION_ROLES: Record<ActionName, AppRole[]> = {
   set_meta_client_active:    ["super_admin"],
   preview_meta_route:        ["super_admin", "operator", "viewer"],
   smoke_send_meta_event:     ["super_admin"],
+  diagnose_token_health:     ["super_admin", "operator", "viewer"],
 };
 
 // ── CAPI helpers ────────────────────────────────────────────────────────────
-// Token redaction so admin reads never leak access tokens.
-function redactToken(token: string | null | undefined): string | null {
-  if (!token) return null;
-  const t = String(token);
-  if (t.length <= 8) return "****";
-  return `${t.slice(0, 4)}…${t.slice(-4)}`;
-}
+// Token redaction is delegated to the shared module so admin-data, capi-event
+// and any future surface use ONE redaction implementation. Local alias kept
+// for backwards source-compatibility within this file only.
+const redactToken = sharedRedactToken;
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
 const PIXEL_RE = /^[0-9]{6,20}$/;
