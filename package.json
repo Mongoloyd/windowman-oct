@@ -12,6 +12,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:all": "vitest run && npx supabase functions test",
+    "typecheck": "tsc --noEmit",
+    "proof:pageview": "vitest run --config vitest.proof.config.ts",
     "typegen": "npx supabase gen types typescript --project-id wkrcyxcnzhwjtdpmfpaf > src/integrations/supabase/types.ts",
     "typegen:check": "npx supabase gen types typescript --project-id wkrcyxcnzhwjtdpmfpaf | diff - src/integrations/supabase/types.ts"
   },

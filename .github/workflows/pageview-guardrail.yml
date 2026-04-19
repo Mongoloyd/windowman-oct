@@ -1,0 +1,54 @@
+# Browser Meta PageView regression guardrail.
+#
+# This workflow enforces the invariants proven in:
+#   - scripts/pageview-dedupe-test.tsx
+#   - docs/measurement/BROWSER_META_DECOUPLING_COMPLETE.md
+#
+# It fails the PR / push if any of the following regress:
+#   1. TypeScript no longer compiles
+#   2. The production Vite build no longer succeeds
+#   3. Initial app mount stops emitting exactly one browser Meta `PageView`
+#   4. An SPA route change stops emitting exactly +1 PageView
+#   5. A forbidden browser-side Meta conversion event is introduced
+#      (Lead, CompleteRegistration, Purchase, SubmitApplication, Schedule)
+#   6. A browser-side call to `/functions/v1/capi-event` is introduced
+#
+# Scope is intentionally narrow — this workflow does NOT deploy, does NOT
+# touch Supabase Edge Functions, and does NOT run the full app test suite.
+# It is the minimum CI surface required to lock in the top-of-funnel
+# browser pixel contract.
+
+name: PageView Guardrail
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  pageview-guardrail:
+    name: Typecheck, build, and PageView dedupe proof
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript typecheck
+        run: npm run typecheck
+
+      - name: Production build
+        run: npm run build
+
+      - name: Browser Meta PageView dedupe proof
+        run: npm run proof:pageview
