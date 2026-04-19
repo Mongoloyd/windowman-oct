@@ -99,7 +99,7 @@ export default function HowWindowManWorksSection() {
                     </span>
                     <h3 className="font-display text-lg font-bold tracking-tight text-foreground">{step.title}</h3>
                   </div>
-                  <p className="text-sm leading-relaxed text-foreground/70">{step.body}</p>
+                  <p className="leading-relaxed text-foreground/70 text-lg">{step.body}</p>
                 </div>
 
                 {/* Connector — only between steps */}
