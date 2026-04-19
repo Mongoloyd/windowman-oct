@@ -24,7 +24,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-interface CAPIEvent {
+export interface CAPIEvent {
   event_name: "CompleteRegistration" | "ViewContent" | "Lead" | "PageView";
   event_id: string;
   event_time?: number;
@@ -47,7 +47,8 @@ interface CAPIEvent {
 }
 
 // --- UTILITY: SHA-256 hash any string ---
-async function sha256(value: string): Promise<string> {
+// Exported for regression testing (see index.test.ts). Behavior unchanged.
+export async function sha256(value: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(value.trim().toLowerCase());
   const hashBuffer = await crypto.subtle.digest("SHA-256", data);
@@ -57,7 +58,8 @@ async function sha256(value: string): Promise<string> {
 }
 
 // --- UTILITY: Normalize phone (strip all non-digits) then hash ---
-async function hashPhone(phone: string): Promise<string> {
+// Exported for regression testing. Behavior unchanged.
+export async function hashPhone(phone: string): Promise<string> {
   const normalized = phone.replace(/\D/g, "");
   return sha256(normalized);
 }
@@ -67,8 +69,54 @@ async function hashPhone(phone: string): Promise<string> {
 // before calling this function. Without this guard we would double-hash those
 // values and silently destroy match quality. Raw input from any other caller
 // continues to be normalized + hashed below.
-function isSha256Hex(value: string): boolean {
+// Exported for regression testing. Behavior unchanged.
+export function isSha256Hex(value: string): boolean {
   return /^[a-f0-9]{64}$/i.test(value);
+}
+
+// --- UTILITY: Build hashed user_data block from raw payload + request headers ---
+// Extracted from the request handler verbatim so it can be exercised by tests.
+// MUST behave identically to the inline implementation it replaces.
+export async function buildHashedUserData(
+  userData: CAPIEvent["user_data"],
+  headers: { clientIp: string; userAgent: string | null },
+): Promise<Record<string, unknown>> {
+  const hashedUserData: Record<string, unknown> = {
+    ...userData,
+    client_ip_address: headers.clientIp,
+  };
+
+  if (userData.em) {
+    const em = userData.em;
+    hashedUserData.em = [isSha256Hex(em) ? em.toLowerCase() : await sha256(em)];
+  }
+  if (userData.ph) {
+    const ph = userData.ph;
+    hashedUserData.ph = [isSha256Hex(ph) ? ph.toLowerCase() : await hashPhone(ph)];
+  }
+  if (userData.external_id) {
+    const ext = userData.external_id;
+    hashedUserData.external_id = isSha256Hex(ext) ? ext.toLowerCase() : await sha256(ext);
+  }
+
+  // Preserve client_user_agent: prefer payload value, fall back to request header.
+  if (!hashedUserData.client_user_agent && headers.userAgent) {
+    hashedUserData.client_user_agent = headers.userAgent;
+  }
+
+  return hashedUserData;
+}
+
+// --- UTILITY: Extract client IP from proxy/CDN headers ---
+// Priority: cf-connecting-ip → first x-forwarded-for hop → x-real-ip → fallback.
+// Exported so regression tests can pin the header precedence.
+export function extractClientIp(headers: Headers): string {
+  return (
+    headers.get("cf-connecting-ip") ||
+    headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    headers.get("x-real-ip") ||
+    "0.0.0.0"
+  );
 }
 
 // --- UTILITY: Resolve which pixel config to use ---
@@ -80,19 +128,19 @@ async function resolvePixelConfig(
 ): Promise<{ pixelId: string; accessToken: string; testEventCode?: string; source: string } | null> {
   // Tier 1: Client-specific pixel
   if (clientSlug) {
-    const { data: client } = await supabase
+    const { data: client } = (await supabase
       .from("clients")
       .select("id")
       .eq("slug", clientSlug)
       .eq("is_active", true)
-      .single();
+      .single()) as { data: { id: string } | null };
 
     if (client) {
-      const { data: config } = await supabase
+      const { data: config } = (await supabase
         .from("meta_configurations")
         .select("pixel_id, access_token, test_event_code")
         .eq("client_id", client.id)
-        .single();
+        .single()) as { data: { pixel_id: string; access_token: string; test_event_code: string | null } | null };
 
       if (config?.pixel_id && config?.access_token) {
         console.log(`[CAPI:RESOLVE] Using client-specific pixel for slug="${clientSlug}"`);
@@ -108,11 +156,18 @@ async function resolvePixelConfig(
   }
 
   // Tier 2: Platform default pixel
-  const { data: defaultConfig } = await supabase
+  const { data: defaultConfig } = (await supabase
     .from("meta_configurations")
     .select("id, pixel_id, access_token, test_event_code")
     .eq("is_default", true)
-    .single();
+    .single()) as {
+      data: {
+        id: string;
+        pixel_id: string;
+        access_token: string;
+        test_event_code: string | null;
+      } | null;
+    };
 
   if (defaultConfig?.pixel_id && defaultConfig?.access_token) {
     console.log(`[CAPI:RESOLVE] Loaded default meta_configuration id=${defaultConfig.id}`);
@@ -153,7 +208,7 @@ Deno.serve(async (req) => {
     body = (await req.json()) as CAPIEvent;
 
     // Resolve pixel config
-    const config = await resolvePixelConfig(supabase, body.client_slug);
+    const config = await resolvePixelConfig(supabase as any, body.client_slug);
 
     if (!config) {
       // Graceful degradation: accept the event but don't fire it
@@ -166,37 +221,16 @@ Deno.serve(async (req) => {
     console.log(`[CAPI:FIRE] event=${body.event_name} source=${config.source} pixel=…${config.pixelId.slice(-4)}`);
     resolvedPixelId = config.pixelId;
 
-    // Extract client IP
-    const clientIp =
-      req.headers.get("cf-connecting-ip") ||
-      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      req.headers.get("x-real-ip") ||
-      "0.0.0.0";
+    // Extract client IP via shared header-precedence helper
+    const clientIp = extractClientIp(req.headers);
 
-    // Hash PII — NEVER send raw email or phone to Meta
-    const hashedUserData: Record<string, unknown> = {
-      ...body.user_data,
-      client_ip_address: clientIp,
-    };
-
-    if (body.user_data.em) {
-      const em = body.user_data.em;
-      hashedUserData.em = [isSha256Hex(em) ? em.toLowerCase() : await sha256(em)];
-    }
-    if (body.user_data.ph) {
-      const ph = body.user_data.ph;
-      hashedUserData.ph = [isSha256Hex(ph) ? ph.toLowerCase() : await hashPhone(ph)];
-    }
-    if (body.user_data.external_id) {
-      const ext = body.user_data.external_id;
-      hashedUserData.external_id = isSha256Hex(ext) ? ext.toLowerCase() : await sha256(ext);
-    }
-
-    // Preserve client_user_agent: prefer payload value, fall back to request header.
-    if (!hashedUserData.client_user_agent) {
-      const ua = req.headers.get("user-agent");
-      if (ua) hashedUserData.client_user_agent = ua;
-    }
+    // Hash PII — NEVER send raw email or phone to Meta.
+    // Behavior is identical to the previous inline block; logic lives in
+    // buildHashedUserData() so it can be exercised by regression tests.
+    const hashedUserData = await buildHashedUserData(body.user_data, {
+      clientIp,
+      userAgent: req.headers.get("user-agent"),
+    });
 
     // Build final CAPI payload
     const eventData: Record<string, unknown> = {
@@ -262,7 +296,7 @@ Deno.serve(async (req) => {
 
     // Still attempt to log the failure if we have enough context
     if (resolvedPixelId && body) {
-      await supabase
+      await (supabase
         .from("capi_signal_logs")
         .insert({
           client_slug: body.client_slug ?? "default",
@@ -272,7 +306,7 @@ Deno.serve(async (req) => {
           payload: {},
           response: { error: String(err) },
           fired_at: new Date().toISOString(),
-        })
+        }) as unknown as Promise<unknown>)
         .catch(() => {}); // Don't let logging failure crash the handler
     }
 
