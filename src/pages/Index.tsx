@@ -283,8 +283,8 @@ const Index = () => {
                     marginBottom: 24,
                   }}
                 >
-                  Our scanner analyzed your document but couldn't identify it as a window or door quote. This might be a
-                  general invoice, contract, or unrelated document.
+                  Our Scanner Analyzed Your Document But Couldn't Identify It As A Window or Door Quote. This Might Be A
+                  General Invoice, Contract, or Unrelated Document.
                 </p>
                 <button
                   onClick={() => setDevState("none")}
@@ -353,8 +353,8 @@ const Index = () => {
                     marginBottom: 16,
                   }}
                 >
-                  The uploaded file is too blurry or low-resolution for our scanner to read accurately. For best
-                  results:
+                  The uploaded File is Too Blurry or Low-Resolution For Our Scanner To Read Accurately. For best
+                  Results:
                 </p>
                 <ul
                   style={{
