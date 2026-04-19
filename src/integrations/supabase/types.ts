@@ -1212,6 +1212,91 @@ export type Database = {
         }
         Relationships: []
       }
+      diagnosis_intakes: {
+        Row: {
+          analysis_id: string | null
+          attribution_snapshot: Json
+          confidence: string | null
+          counter_offer: Json
+          created_at: string
+          id: string
+          lead_id: string
+          other_text: string | null
+          prescription_path: string | null
+          primary_diagnosis: string
+          report_grade: string
+          scan_session_id: string
+          secondary_clarifiers: Json
+          source: string
+          status: string
+          top_insights_snapshot: Json
+          updated_at: string
+          window_intelligence: Json
+        }
+        Insert: {
+          analysis_id?: string | null
+          attribution_snapshot?: Json
+          confidence?: string | null
+          counter_offer?: Json
+          created_at?: string
+          id?: string
+          lead_id: string
+          other_text?: string | null
+          prescription_path?: string | null
+          primary_diagnosis: string
+          report_grade: string
+          scan_session_id: string
+          secondary_clarifiers?: Json
+          source?: string
+          status?: string
+          top_insights_snapshot?: Json
+          updated_at?: string
+          window_intelligence?: Json
+        }
+        Update: {
+          analysis_id?: string | null
+          attribution_snapshot?: Json
+          confidence?: string | null
+          counter_offer?: Json
+          created_at?: string
+          id?: string
+          lead_id?: string
+          other_text?: string | null
+          prescription_path?: string | null
+          primary_diagnosis?: string
+          report_grade?: string
+          scan_session_id?: string
+          secondary_clarifiers?: Json
+          source?: string
+          status?: string
+          top_insights_snapshot?: Json
+          updated_at?: string
+          window_intelligence?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "diagnosis_intakes_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "analyses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diagnosis_intakes_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diagnosis_intakes_scan_session_id_fkey"
+            columns: ["scan_session_id"]
+            isOneToOne: false
+            referencedRelation: "scan_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_logs: {
         Row: {
           created_at: string
@@ -1328,6 +1413,8 @@ export type Database = {
           critical_flag_count: number
           deal_status: string | null
           deal_value: number | null
+          diagnosis_completed_at: string | null
+          diagnosis_started_at: string | null
           email: string | null
           enriched_at: string | null
           enrichment_source: string | null
@@ -1461,6 +1548,8 @@ export type Database = {
           critical_flag_count?: number
           deal_status?: string | null
           deal_value?: number | null
+          diagnosis_completed_at?: string | null
+          diagnosis_started_at?: string | null
           email?: string | null
           enriched_at?: string | null
           enrichment_source?: string | null
@@ -1594,6 +1683,8 @@ export type Database = {
           critical_flag_count?: number
           deal_status?: string | null
           deal_value?: number | null
+          diagnosis_completed_at?: string | null
+          diagnosis_started_at?: string | null
           email?: string | null
           enriched_at?: string | null
           enrichment_source?: string | null

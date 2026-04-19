@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { trackGtmEvent } from '@/lib/trackConversion';
+import { trackEvent } from '@/lib/trackEvent';
+import { supabase } from '@/integrations/supabase/client';
 
 import { DIAGNOSTIC_MAP } from '../constants/diagnosticMap';
 import { generateConditionalStatement } from '../constants/branchChips';
-import { getSLAPromise } from '../lib/sla';
 import type { DiagnosisCode, DiagnosticContext, StepId } from '../types';
 
 /**
@@ -24,6 +26,8 @@ interface DiagnosisRouterState {
   email?: string | null;
   top_insights?: string[] | null;
   returnTo?: string | null;
+  /** Optional: passed when caller already knows the analysis id */
+  analysis_id?: string | null;
 }
 
 const EMPTY_CONTEXT: DiagnosticContext = {
@@ -35,6 +39,52 @@ const EMPTY_CONTEXT: DiagnosticContext = {
   phone: '',
   email: '',
 };
+
+/**
+ * Pull a cookie value by name (browser-only). Returns null when not present
+ * or when running outside a browser context.
+ */
+function readCookie(name: string): string | null {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie
+    .split('; ')
+    .find((row) => row.startsWith(`${name}=`));
+  return match ? decodeURIComponent(match.split('=').slice(1).join('=')) : null;
+}
+
+/**
+ * Build a minimal attribution snapshot from values that ALREADY exist in the
+ * browser. We do NOT introduce a new attribution architecture here — this
+ * just packages whatever the page already has so the diagnosis row can be
+ * joined back to a campaign later.
+ */
+function buildAttributionSnapshot(): Record<string, string> {
+  const snap: Record<string, string> = {};
+  if (typeof window !== 'undefined') {
+    const params = new URLSearchParams(window.location.search);
+    const utmKeys = [
+      'utm_source',
+      'utm_medium',
+      'utm_campaign',
+      'utm_content',
+      'utm_term',
+    ];
+    for (const k of utmKeys) {
+      const v = params.get(k);
+      if (v) snap[k] = v;
+    }
+    const clickIds = ['gclid', 'gbraid', 'wbraid', 'msclkid'];
+    for (const k of clickIds) {
+      const v = params.get(k);
+      if (v) snap[k] = v;
+    }
+  }
+  const fbp = readCookie('_fbp');
+  if (fbp) snap.fbp = fbp;
+  const fbc = readCookie('_fbc');
+  if (fbc) snap.fbc = fbc;
+  return snap;
+}
 
 export function useDiagnosticIntake() {
   const location = useLocation();
@@ -54,17 +104,17 @@ export function useDiagnosticIntake() {
   const [counterOfferFreeText, setCounterOfferFreeText] = useState('');
 
   const [context, setContext] = useState<DiagnosticContext>(EMPTY_CONTEXT);
+  const [analysisId, setAnalysisId] = useState<string | null>(null);
   const [hydrationStatus, setHydrationStatus] = useState<HydrationStatus>('pending');
   // returnTo is preserved separately so it survives refresh-driven recovery.
   const [returnTo, setReturnTo] = useState<string | null>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const pageTopRef = useRef<HTMLDivElement>(null);
 
   // ── Hydration: router state preferred, scan_session_id fallback ──────────
   useEffect(() => {
-    let cancelled = false;
-
     // 1. Router state (preferred — immediate, full context)
     if (incomingState?.scan_session_id) {
       const ctx: DiagnosticContext = {
@@ -77,21 +127,16 @@ export function useDiagnosticIntake() {
         email: incomingState.email ?? '',
       };
       setContext(ctx);
+      setAnalysisId(incomingState.analysis_id ?? null);
       setReturnTo(incomingState.returnTo ?? (ctx.scan_session_id ? `/report/classic/${ctx.scan_session_id}` : null));
       setHydrationStatus('ready');
-      return () => {
-        cancelled = true;
-      };
+      return;
     }
 
     // 2. Durable fallback: scan_session_id is not in router state.
     //    In this pass we do NOT read it from the URL (no public URL contract
     //    change). If router state is missing, we fail closed to the empty state.
     setHydrationStatus('failed');
-
-    return () => {
-      cancelled = true;
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- hydrate once on mount
   }, []);
 
@@ -126,7 +171,8 @@ export function useDiagnosticIntake() {
     setSecondaryClarifiers([]);
     setOtherFreeText('');
 
-    trackGtmEvent('DiagnosticStarted', {
+    // Internal step-level event (browser only — not an ad-platform conversion).
+    trackGtmEvent('diagnosis_primary_selected', {
       lead_id: context.lead_id,
       scan_session_id: context.scan_session_id,
       diagnosis: code,
@@ -139,7 +185,7 @@ export function useDiagnosticIntake() {
   const advanceToPrescription = () => {
     if (!primaryDiagnosis) return;
 
-    trackGtmEvent('DiagnosticClassified', {
+    trackGtmEvent('diagnosis_step_1_completed', {
       lead_id: context.lead_id,
       scan_session_id: context.scan_session_id,
       diagnosis: primaryDiagnosis,
@@ -208,15 +254,17 @@ export function useDiagnosticIntake() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!primaryDiagnosis || !hasCounterOffer) return;
-    if (!context.scan_session_id) {
-      console.warn('[Diagnosis] Submit blocked: missing scan_session_id (no continuity).');
+    if (!context.scan_session_id || !context.lead_id) {
+      const msg = 'Missing report context — please return to your report and try again.';
+      console.warn('[Diagnosis] Submit blocked: missing lead_id or scan_session_id.');
+      setSubmitError(msg);
+      toast.error(msg);
       return;
     }
 
     setIsSubmitting(true);
+    setSubmitError(null);
 
-    // Compute SLA at submit time (not render time) for accuracy
-    const sla = getSLAPromise(new Date());
     const conditionalStatement = generateConditionalStatement(
       DIAGNOSTIC_MAP[primaryDiagnosis].label,
       counterOfferTerms
@@ -227,15 +275,13 @@ export function useDiagnosticIntake() {
     const payload = {
       lead_id: context.lead_id,
       scan_session_id: context.scan_session_id,
-      report_grade: context.report_grade,
-      source: 'post_report_diagnostic_intake',
-      diagnosis: {
-        primary: primaryDiagnosis,
-        secondary_clarifiers: secondaryClarifiers,
-        other_text: otherFreeText || null,
-        confidence,
-        prescription_path: DIAGNOSTIC_MAP[primaryDiagnosis].prescriptionPath,
+      analysis_id: analysisId,
+      report_grade: context.report_grade || 'unknown',
+      primary_diagnosis: primaryDiagnosis,
+      secondary_clarifiers: {
+        codes: secondaryClarifiers,
       },
+      other_text: otherFreeText.trim() || null,
       window_intelligence: {
         styles: windowStyles,
         concerns: windowConcerns,
@@ -246,32 +292,70 @@ export function useDiagnosticIntake() {
         terms_free_text: counterOfferFreeText.trim() || null,
         conditional_close_statement: conditionalStatement,
       },
-      advisor_sla: {
-        promised_callback_by: sla.callbackIso,
-        urgency: sla.urgency,
-        hot_lead: true,
-      },
+      top_insights_snapshot: { items: context.top_insights ?? [] },
+      confidence: confidence.toFixed(2),
+      prescription_path: DIAGNOSTIC_MAP[primaryDiagnosis].prescriptionPath,
+      attribution_snapshot: buildAttributionSnapshot(),
     };
 
-    // TODO(arc-5): replace with real API submission
-    console.log('[API] Submitting close-ready brief:', payload);
+    try {
+      const { data, error } = await supabase.functions.invoke('submit-diagnosis-intake', {
+        body: payload,
+      });
 
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+      if (error || !data?.success) {
+        const msg =
+          (data && typeof data.error === 'string' && data.error) ||
+          'We could not save your diagnosis. Please try again.';
+        console.error('[Diagnosis] submit failed:', error || data);
+        setSubmitError(msg);
+        toast.error(msg);
+        setIsSubmitting(false);
+        return;
+      }
 
-    trackGtmEvent('Schedule', {
-      value: 1000,
-      currency: 'USD',
-      lead_id: context.lead_id,
-      scan_session_id: context.scan_session_id,
-      diagnosis: primaryDiagnosis,
-      prescription_path: DIAGNOSTIC_MAP[primaryDiagnosis].prescriptionPath,
-      counter_offer_terms_count: counterOfferTerms.length,
-      sla_urgency: sla.urgency,
-    });
+      const eventId: string | undefined = data.event_id ?? undefined;
 
-    setIsSubmitting(false);
-    setStep('success');
-    scrollToTop();
+      // Canonical browser conversion event — replaces the old `Schedule` push.
+      trackGtmEvent('diagnosis_completed', {
+        event_id: eventId,
+        lead_id: context.lead_id,
+        scan_session_id: context.scan_session_id,
+        analysis_id: analysisId ?? undefined,
+        diagnosis: primaryDiagnosis,
+        prescription_path: DIAGNOSTIC_MAP[primaryDiagnosis].prescriptionPath,
+        counter_offer_terms_count: counterOfferTerms.length,
+      });
+
+      // Operational telemetry mirror.
+      trackEvent({
+        event_name: 'diagnosis_completed',
+        session_id: context.scan_session_id,
+        metadata: {
+          lead_id: context.lead_id,
+          diagnosis_intake_id: data.diagnosis_intake_id ?? null,
+          event_id: eventId ?? null,
+          primary_diagnosis: primaryDiagnosis,
+        },
+      });
+
+      setIsSubmitting(false);
+      setStep('success');
+      scrollToTop();
+
+      // Internal-only success-view event.
+      trackGtmEvent('diagnosis_success_viewed', {
+        lead_id: context.lead_id,
+        scan_session_id: context.scan_session_id,
+        diagnosis: primaryDiagnosis,
+      });
+    } catch (err) {
+      console.error('[Diagnosis] submit threw:', err);
+      const msg = 'Connection error. Please try again.';
+      setSubmitError(msg);
+      toast.error(msg);
+      setIsSubmitting(false);
+    }
   };
 
   return {
@@ -287,6 +371,7 @@ export function useDiagnosticIntake() {
     counterOfferFreeText,
     context,
     isSubmitting,
+    submitError,
     hydrationStatus,
     returnTo,
 
