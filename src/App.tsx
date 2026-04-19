@@ -4,7 +4,7 @@ import { BrowserRouter, Route, Routes, Navigate, useParams } from "react-router-
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { FacebookConversionProvider } from "@/components/FacebookConversionProvider";
+import { AppTrackingProvider } from "@/components/AppTrackingProvider";
 import { HelmetProvider } from "react-helmet-async";
 import AdminSettings from "./pages/AdminSettings";
 import PublicLayout from "@/components/PublicLayout";
@@ -110,7 +110,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <FacebookConversionProvider>
+        <AppTrackingProvider>
           <RouteErrorBoundary>
             <Suspense fallback={<PageLoader />}>
               <Routes>
@@ -155,7 +155,7 @@ const App = () => (
               </Routes>
             </Suspense>
           </RouteErrorBoundary>
-        </FacebookConversionProvider>
+        </AppTrackingProvider>
       </BrowserRouter>
     </TooltipProvider>
     </HelmetProvider>
