@@ -175,7 +175,7 @@ export async function resolvePixelConfig(
     .single()) as {
       data: {
         id: string;
-        sharedPixelId: string;
+        pixel_id: string;
         access_token: string;
         test_event_code: string | null;
       } | null;
