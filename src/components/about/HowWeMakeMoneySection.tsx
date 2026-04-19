@@ -41,10 +41,10 @@ export default function HowWeMakeMoneySection() {
             <div className="flex flex-col gap-4 border-b border-slate-100 pb-8 md:border-b-0 md:border-r md:pb-0 md:pr-8">
               <div className="flex items-center gap-3">
                 <span className="h-1 w-8 rounded-full" style={{ background: "#06B6D4" }} aria-hidden="true" />
-                <span className="font-mono text-[10px] tracking-[0.12em] text-muted-foreground">HOMEOWNER</span>
+                <span className="font-mono tracking-[0.12em] text-muted-foreground text-base">HOMEOWNER</span>
               </div>
               <h3 className="font-display text-xl font-bold tracking-tight text-foreground">Always Free For You</h3>
-              <p className="text-sm leading-relaxed text-foreground/70">
+              <p className="leading-relaxed text-foreground/70 text-base">
                 Upload Your Quote, Get The Analysis, View Your Truth Report. We Dont Charge Homeowners. Our Model Only
                 Works If You Trust The Output, and That Trust Requires Us To Stay On Your Side Til The End.
               </p>
@@ -54,14 +54,14 @@ export default function HowWeMakeMoneySection() {
             <div className="flex flex-col gap-4 md:pl-8">
               <div className="flex items-center gap-3">
                 <span className="h-1 w-8 rounded-full bg-orange-400" aria-hidden="true" />
-                <span className="font-mono text-[10px] tracking-[0.12em] text-muted-foreground">
+                <span className="font-mono tracking-[0.12em] text-muted-foreground text-base">
                   CONTRACTOR REFERRAL
                 </span>
               </div>
               <h3 className="font-display text-xl font-bold tracking-tight text-foreground">
                 We Earn From Better Matches
               </h3>
-              <p className="text-sm leading-relaxed text-foreground/70">
+              <p className="leading-relaxed text-foreground/70 text-base">
                 If You Use Our Data To Move Forward With One Of Our Referred Contractor Partners, They May Pay Us a
                 Referral Fee. But They Cannot Simply Hide That Fee By Bloating The Quote, Because The Same Engine That
                 Created The Opportunity Is Also What Would Expose The Markup.
