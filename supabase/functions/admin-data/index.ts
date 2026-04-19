@@ -1,6 +1,6 @@
 import { corsHeaders, errorResponse, successResponse, validateAdminRequestWithRole, type AppRole } from "../_shared/adminAuth.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { diagnoseRoute, dispatchCapiEvent, resolvePixelConfig, type CAPIEvent } from "../capi-event/index.ts";
+import { diagnoseRoute, dispatchCapiEvent, resolvePixelConfig, type CAPIEvent } from "../_shared/capiRouting.ts";
 
 /**
  * admin-data v2.4
