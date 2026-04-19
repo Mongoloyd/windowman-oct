@@ -41,21 +41,82 @@ Deno.serve(async (req) => {
     );
 
     // ── 2. Select the latest pending phone_verifications row ────────────
-    const { data: pendingRow } = await supabase
-      .from("phone_verifications")
-      .select("id, phone_e164")
-      .eq("phone_e164", phone_e164)
-      .eq("status", "pending")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    // STRICT SESSION BINDING:
+    //   When a scan_session_id is provided, prefer the pending row that was
+    //   bound to THIS scan at send time. This prevents a pending row created
+    //   for Scan A from being verified-and-bound to Scan B in a follow-up
+    //   request body. We fall back to a session-less pending row only as a
+    //   last resort (legacy rows or send-otp calls without scan_session_id).
+    let pendingRow: { id: string; phone_e164: string; scan_session_id: string | null } | null = null;
+    let pendingRowSource: "scan_bound" | "scan_null_legacy" | "none" = "none";
+
+    if (scan_session_id) {
+      const { data: scanBound } = await supabase
+        .from("phone_verifications")
+        .select("id, phone_e164, scan_session_id")
+        .eq("phone_e164", phone_e164)
+        .eq("status", "pending")
+        .eq("scan_session_id", scan_session_id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (scanBound) {
+        pendingRow = scanBound as { id: string; phone_e164: string; scan_session_id: string | null };
+        pendingRowSource = "scan_bound";
+      }
+    }
+
+    if (!pendingRow) {
+      // Legacy fallback — only matches rows with NULL scan_session_id, so we
+      // never silently re-bind a pending row that belongs to a different scan.
+      const { data: legacyRow } = await supabase
+        .from("phone_verifications")
+        .select("id, phone_e164, scan_session_id")
+        .eq("phone_e164", phone_e164)
+        .eq("status", "pending")
+        .is("scan_session_id", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (legacyRow) {
+        pendingRow = legacyRow as { id: string; phone_e164: string; scan_session_id: string | null };
+        pendingRowSource = "scan_null_legacy";
+      }
+    }
 
     console.log("[VERIFY_OTP_FORENSIC]", JSON.stringify({
       phone_masked: "xxx-xxx-" + phone_e164.slice(-4),
       pendingRowFound: !!pendingRow,
       pendingRowId: pendingRow?.id ?? null,
+      pendingRowSource,
+      requestedScanSessionId: scan_session_id ?? null,
+      pendingRowScanSessionId: pendingRow?.scan_session_id ?? null,
       timestamp: new Date().toISOString(),
     }));
+
+    // Defensive sanity check: if a scan_session_id was requested AND we matched
+    // the legacy fallback, make sure we never have a mismatched non-null binding
+    // (the .is("scan_session_id", null) filter above should already guarantee
+    // this, but the explicit check defends against query-builder regressions).
+    if (
+      scan_session_id &&
+      pendingRow &&
+      pendingRow.scan_session_id &&
+      pendingRow.scan_session_id !== scan_session_id
+    ) {
+      console.error("[VERIFY_OTP_SESSION_MISMATCH]", JSON.stringify({
+        phone_masked: "xxx-xxx-" + phone_e164.slice(-4),
+        requested_scan_session_id: scan_session_id,
+        pending_scan_session_id: pendingRow.scan_session_id,
+      }));
+      return new Response(
+        JSON.stringify({
+          error: "Verification could not be matched to your scan. Please request a new code.",
+          verified: false,
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // The phone we send to Twilio: prefer DB value, fall back to normalized value
     const twilioPhone = pendingRow?.phone_e164 ?? phone_e164;
