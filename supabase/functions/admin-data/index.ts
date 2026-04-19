@@ -18,7 +18,10 @@ type ActionName =
   | "fetch_needs_review" | "rescan_lead" | "update_lead_manual_entry"
   | "list_contractor_accounts" | "get_contractor_ledger"
   | "adjust_contractor_credits" | "get_contractor_unlocks"
-  | "list_invitations" | "create_invitation" | "revoke_invitation";
+  | "list_invitations" | "create_invitation" | "revoke_invitation"
+  // CAPI control-plane (Meta multi-pixel routing)
+  | "list_meta_configurations" | "create_meta_client_config"
+  | "set_meta_client_active"   | "preview_meta_route";
 
 const ACTION_ROLES: Record<ActionName, AppRole[]> = {
   fetch_leads: ["super_admin", "operator", "viewer"],
@@ -51,7 +54,24 @@ const ACTION_ROLES: Record<ActionName, AppRole[]> = {
   list_invitations: ["super_admin", "operator", "viewer"],
   create_invitation: ["super_admin", "operator"],
   revoke_invitation: ["super_admin", "operator"],
+  // CAPI control-plane — super_admin only for mutations; viewers may inspect & dry-run.
+  list_meta_configurations: ["super_admin", "operator", "viewer"],
+  create_meta_client_config: ["super_admin"],
+  set_meta_client_active:    ["super_admin"],
+  preview_meta_route:        ["super_admin", "operator", "viewer"],
 };
+
+// ── CAPI helpers ────────────────────────────────────────────────────────────
+// Token redaction so admin reads never leak access tokens.
+function redactToken(token: string | null | undefined): string | null {
+  if (!token) return null;
+  const t = String(token);
+  if (t.length <= 8) return "****";
+  return `${t.slice(0, 4)}…${t.slice(-4)}`;
+}
+
+const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
+const PIXEL_RE = /^[0-9]{6,20}$/;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
