@@ -64,7 +64,7 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
               </div>
               <div className="flex-1">
                 <p className="wm-eyebrow uppercase text-muted-foreground mb-1">Your Audit Score</p>
-                <p className="text-sm text-foreground/80 mb-2">Here's what we flagged:</p>
+                <p className="text-sm text-foreground/80 mb-2">Here's What We Flagged:</p>
                 <ul className="space-y-1">
                   {context.top_insights.map((insight, i) => (
                     <li key={i} className="text-sm text-foreground/85 flex items-start gap-2">
@@ -88,13 +88,13 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
             }}
           >
             <Handshake className="w-4 h-4" />
-            This isn't a sales form. It's a consultation.
+            This Isn't a Sales Form. It's a Consultation.
           </div>
           <h1 className="font-display text-3xl md:text-5xl font-extrabold tracking-tight mb-5 leading-tight text-foreground">
             Before We Build Your Better Estimate, Tell Us What Didn't Feel Right.
           </h1>
           <p className="text-base md:text-lg text-foreground/75 max-w-2xl mx-auto leading-relaxed">
-            You can be completely honest—we work for you, not the contractor. One tap is all it takes to start.
+            You Can Be Completely Honest—We Work For You, Not The Contractor. One Tap Is All It Takes To Start.
           </p>
         </div>
 
@@ -121,10 +121,11 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
             })}
           </div>
           <p className="text-xs text-muted-foreground mt-5 italic">
-            Tap the one that hits closest. Don't Overthink It.
+            Tap The One That Hits Closest. Don't Overthink It.
           </p>
         </div>
       </div>
     </section>
   );
 }
+
