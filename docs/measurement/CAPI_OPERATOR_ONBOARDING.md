@@ -257,3 +257,130 @@ await invokeAdminData("smoke_send_meta_event", {
    a few seconds with the chosen `event_name`.
 4. If the event arrives at the **wrong** pixel, the routing is misconfigured —
    re-run `preview_meta_route` to debug.
+
+---
+
+## 7. Token rotation & secret hygiene
+
+### 7.1 Where tokens live
+
+| Tier        | Storage                                | Mutation path                                |
+| ----------- | -------------------------------------- | -------------------------------------------- |
+| Per-client  | `meta_configurations.access_token`     | `create_meta_client_config` (super_admin)    |
+| Default     | `meta_configurations` row, `is_default = true` | manual SQL (intentionally rare)       |
+| Env fallback| `META_PIXEL_ID` + `META_CAPI_TOKEN` secrets   | Supabase Secrets UI (super_admin)     |
+
+Tokens are **never** returned in plaintext from any admin action. All read
+paths (`list_meta_configurations`, `diagnose_token_health`) return only
+masked previews (`first4…last4`) and presence booleans.
+
+### 7.2 Rotate a client token (happy path)
+
+```ts
+// Step 1 — replace the stored token. Same upsert action as onboarding.
+await invokeAdminData("create_meta_client_config", {
+  client_slug:  "acme-windows",
+  client_name:  "Acme Windows LLC",
+  pixel_id:     "1234567890123456",
+  access_token: "EAA…NEW_TOKEN",
+});
+
+// Step 2 — verify the route still resolves to the client tier.
+await invokeAdminData("preview_meta_route", { client_slug: "acme-windows" });
+//   → expect: tier="client", is_send_safe=true
+
+// Step 3 — confirm the new token actually works against Meta.
+await invokeAdminData("smoke_send_meta_event", {
+  client_slug:     "acme-windows",
+  test_event_code: "TEST12345",
+});
+//   → expect: sent=true, failure_class="ok"
+```
+
+### 7.3 Recover from a revoked / invalid token
+
+If the live `capi-event` controller starts returning `failure_class:
+"token_invalid_or_revoked"` (visible in the function response and in
+`capi_signal_logs.response.error`), the recovery sequence is:
+
+1. **Diagnose** — confirm which tier is broken without exposing secrets:
+   ```ts
+   await invokeAdminData("diagnose_token_health", { client_slug: "acme-windows" });
+   ```
+   Inspect `tiers.client.presence` (or `.default` / `.env`). A tier with
+   `access_token_present: true` but a live `token_invalid_or_revoked` failure
+   means the stored token has been revoked at Meta — rotate it.
+
+2. **Rotate** — generate a new long-lived system-user token in Meta Business
+   Manager, then run `create_meta_client_config` (Step 1 above).
+
+3. **Re-validate** — run `preview_meta_route` then `smoke_send_meta_event`.
+   `smoke_send_meta_event` now returns `failure_class` directly so you do not
+   have to interpret raw Meta error codes.
+
+### 7.4 Failure-class enum (stable contract)
+
+The `capi-event` live response and `smoke_send_meta_event` both surface a
+stable `failure_class`. Use this — not raw Meta `error.code` values — when
+building dashboards, alerts, or runbooks:
+
+| `failure_class`             | Meaning                                                      | Operator action                                         |
+| --------------------------- | ------------------------------------------------------------ | ------------------------------------------------------- |
+| `ok`                        | Meta returned 2xx                                            | None                                                    |
+| `token_invalid_or_revoked`  | Token rejected (codes 190 / 102 / 463, or "token invalid")   | Rotate token (§7.2)                                     |
+| `token_permission_denied`   | Token alive but lacks scopes (200 / 10)                      | Re-issue with `ads_management` + asset permission       |
+| `pixel_token_mismatch`      | Token does not own the pixel                                 | Verify pixel belongs to token's Business Manager assets |
+| `rate_limited`              | App / user / pixel rate cap (4 / 17 / 32 / 613)              | Back off; investigate volume                            |
+| `meta_rejected_payload`     | 4xx unrelated to token (event schema, missing field)         | Inspect payload; fix sender                             |
+| `meta_server_error`         | 5xx from Meta                                                | Transient; safe to retry                                |
+| `network_error`             | Local fetch failure (DNS, TLS) — only seen in smoke-send     | Check network egress                                    |
+| `unknown_failure`           | Unclassified — inspect `meta_response`                       | File an issue with the raw response                     |
+
+### 7.5 Inspect token health without sending
+
+`diagnose_token_health` is a read-only inspector. It returns booleans +
+masked previews **only** — never raw secrets, never raw env values. Safe for
+`super_admin`, `operator`, and `viewer`.
+
+```ts
+const { data } = await invokeAdminData("diagnose_token_health", {
+  client_slug: "acme-windows", // optional; omit to inspect default + env only
+});
+```
+
+Response shape:
+
+```jsonc
+{
+  "client_slug": "acme-windows",
+  "effective_tier": "client",      // "client" | "default" | "env" | "degraded"
+  "is_send_safe": true,
+  "tiers": {
+    "client":  { "resolved": true,  "reason": "ok",                "presence": { /* booleans + masks */ } },
+    "default": { "resolved": true,  "reason": "ok",                "presence": { /* … */ } },
+    "env":     { "resolved": false, "reason": "env_missing_token", "presence": { /* … */ } }
+  },
+  "contract": {
+    "tokens_returned": false,
+    "env_values_returned": false,
+    "mask_format": "first4…last4"
+  }
+}
+```
+
+Use this before and after rotation to confirm presence without firing a Meta
+call. If you need to confirm the new token *works*, follow with
+`smoke_send_meta_event`.
+
+### 7.6 What operators must never do
+
+- **Never** paste a raw `access_token` into chat, tickets, screenshots, or
+  docs. Use `EAA…example` placeholders.
+- **Never** add a token to a public env var or commit one to git. Tokens live
+  in `meta_configurations.access_token` (DB) or Supabase Secrets only.
+- **Never** echo a token back to the browser. There is no client-side Meta
+  conversion path — the browser must remain `init + PageView` only.
+- **Never** infer that a Meta failure is "fine" because the call returned
+  HTTP 200 to your client — the controller intentionally returns 200 with
+  `success:false` + `failure_class` so the funnel keeps moving.
+
