@@ -304,7 +304,7 @@ export function StepPrescription({
               </p>
             </div>
             <h3 className="font-display text-2xl font-extrabold tracking-tight text-foreground mb-2">
-              What would get you to "yes"?
+              What Would Get You Saying "YES"? Here's Your Chance
             </h3>
             <p className="text-sm text-foreground/75 mb-5">
               Tap everything that would make you move forward. Your advisor walks into the contractor call with these as non-negotiables on your behalf.
