@@ -52,6 +52,7 @@ export async function fetchAnalysisPreview(
     return {
       ok: true,
       data: {
+        analysis_id: row.analysis_id ?? null,
         grade: row.grade,
         flag_count: row.flag_count ?? 0,
         flag_red_count: row.flag_red_count ?? 0,
@@ -87,11 +88,16 @@ export async function fetchAnalysisFull(
       return { ok: true, data: null };
     }
     if (row.grade === "__UNAUTHORIZED__") {
-      return { ok: false, code: "unauthorized", message: "Verification failed. Please re-verify your phone number." };
+      return {
+        ok: false,
+        code: "unauthorized",
+        message: "Verification failed. Please re-verify your phone number.",
+      };
     }
     return {
       ok: true,
       data: {
+        analysis_id: row.analysis_id ?? null,
         grade: row.grade,
         flags: row.flags,
         full_json: (row.full_json as Record<string, unknown>) ?? null,
@@ -127,6 +133,7 @@ export async function fetchFullViaDevBypass(
     return {
       ok: true,
       data: {
+        analysis_id: fnData.analysis_id ?? null,
         grade: fnData.grade,
         flags: fnData.flags,
         full_json: (fnData.full_json as Record<string, unknown>) ?? null,
