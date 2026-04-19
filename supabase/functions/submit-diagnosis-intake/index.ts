@@ -116,6 +116,76 @@ Deno.serve(async (req) => {
   const lead_id = body.lead_id as string;
   const scan_session_id = body.scan_session_id as string;
   const analysis_id = isUuid(body.analysis_id) ? (body.analysis_id as string) : null;
+
+  // ── Relationship validation (repo-truth FKs) ──────────────────────────
+  // scan_sessions.lead_id → leads.id
+  // analyses.scan_session_id → scan_sessions.id
+  // Reject mismatched ids before writing anything.
+  try {
+    const { data: scanRow, error: scanErr } = await supabase
+      .from("scan_sessions")
+      .select("id, lead_id")
+      .eq("id", scan_session_id)
+      .maybeSingle();
+    if (scanErr) {
+      console.error("[submit-diagnosis-intake] scan lookup failed:", scanErr);
+      return new Response(
+        JSON.stringify({ error: "Failed to validate report context" }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+    if (!scanRow || scanRow.lead_id !== lead_id) {
+      return new Response(
+        JSON.stringify({ error: "Invalid report context" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    if (analysis_id) {
+      const { data: analysisRow, error: analysisErr } = await supabase
+        .from("analyses")
+        .select("id, scan_session_id")
+        .eq("id", analysis_id)
+        .maybeSingle();
+      if (analysisErr) {
+        console.error(
+          "[submit-diagnosis-intake] analysis lookup failed:",
+          analysisErr,
+        );
+        return new Response(
+          JSON.stringify({ error: "Failed to validate report context" }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
+      if (!analysisRow || analysisRow.scan_session_id !== scan_session_id) {
+        return new Response(
+          JSON.stringify({ error: "Invalid report context" }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
+    }
+  } catch (e) {
+    console.error("[submit-diagnosis-intake] relationship validation threw:", e);
+    return new Response(
+      JSON.stringify({ error: "Failed to validate report context" }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
+  }
   const report_grade = (body.report_grade as string).trim();
   const primary_diagnosis = (body.primary_diagnosis as string).trim();
   const other_text = isStr(body.other_text) ? (body.other_text as string).trim() : null;

@@ -524,35 +524,47 @@ export function PostScanReportSwitcher(props: Props) {
 
     // Non-blocking server-side persistence of diagnosis_started.
     // Stamps lead.funnel_stage + diagnosis_started_at and writes a canonical
-    // lead_events row. Fire-and-forget — must NEVER block navigation.
+    // lead_events row via a hardened edge function (validates that
+    // scan_session_id belongs to lead_id before any write).
+    // Fire-and-forget — must NEVER block navigation.
     if (leadId) {
-      void (async () => {
-        try {
-          await supabase
-            .from("leads")
-            .update({
-              funnel_stage: "diagnosis_started",
-              diagnosis_started_at: new Date().toISOString(),
-            })
-            .eq("id", leadId);
-          await supabase.from("lead_events").insert({
+      void supabase.functions
+        .invoke("persist-diagnosis-start", {
+          body: {
             lead_id: leadId,
             scan_session_id: props.scanSessionId,
-            event_name: "diagnosis_started",
-            event_source: "unlocked_report_primary_cta",
-            status: "started",
-            metadata: { grade: props.grade, county: props.county },
-          });
-        } catch (err) {
-          console.warn("[PostScanReportSwitcher] diagnosis_started persistence failed:", err);
-        }
-      })();
+            // analysis_id is intentionally NOT fetched here — only passed
+            // when already available in current report context (not yet
+            // surfaced as a prop). See follow-ups.
+            grade: props.grade,
+            county: props.county,
+            source: "unlocked_report_primary_cta",
+          },
+        })
+        .then(({ error }) => {
+          if (error) {
+            console.warn(
+              "[PostScanReportSwitcher] persist-diagnosis-start failed:",
+              error,
+            );
+          }
+        })
+        .catch((err) => {
+          console.warn(
+            "[PostScanReportSwitcher] persist-diagnosis-start threw:",
+            err,
+          );
+        });
     }
 
     navigate("/diagnosis", {
       state: {
         lead_id: leadId,
         scan_session_id: props.scanSessionId,
+        // analysis_id is passed only when already available in current
+        // report context. It is NOT derived or fetched here — keeping
+        // scope narrow per the hardening sprint.
+        analysis_id: null,
         report_grade: leadGrade ?? props.grade,
         first_name: leadFirstName,
         phone: phoneE164,
