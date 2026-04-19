@@ -72,7 +72,7 @@ export default function InformationAsymmetrySection({ onTrack }: InformationAsym
           {/* Right Column: Buyer / Contractor split panel */}
           <div className="flex items-center justify-center">
             <div
-              className="card-raised w-full max-w-md overflow-hidden rounded-2xl border-double border-8 border-slate-200"
+              className="card-raised w-full max-w-md overflow-hidden rounded-2xl border-double border-8 border-emerald-100"
               style={{ boxShadow: "0 8px 32px rgba(15,30,60,0.12)" }}
             >
               {/* Tab header */}
