@@ -38,10 +38,10 @@ export default function SiteFooter({ className = "" }: SiteFooterProps) {
               className="inline-flex items-center gap-2 text-lg font-extrabold tracking-tight text-slate-900"
               aria-label="WindowMan home"
             >
-              <span className="rounded-md bg-slate-900 px-2 py-1 text-xs font-bold uppercase tracking-[0.14em] text-white">
-                WM
+              <span className="rounded-md px-2 py-1 font-bold uppercase tracking-[0.14em] text-white bg-white/0 text-xl">
+                🛡️
               </span>
-              <span>WindowMan</span>
+              <span>WINDOWMAN</span>
             </Link>
 
             <p className="mt-4 max-w-xs text-sm leading-6 text-slate-600">
