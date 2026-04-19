@@ -63,7 +63,7 @@ export default function ArbitrageEngineSection() {
                 style={{ background: "#06B6D4" }}
                 aria-hidden="true"
               />
-              <span className="font-mono text-[10px] tracking-[0.12em] text-muted-foreground">MECHANISM 01</span>
+              <span className="font-mono tracking-[0.12em] text-muted-foreground font-semibold text-xs">MECHANISM 01</span>
             </div>
             <h3 className="mb-4 font-display text-2xl font-bold tracking-tight text-foreground md:text-3xl">
               How We Create Pricing Pressure
@@ -101,7 +101,7 @@ export default function ArbitrageEngineSection() {
                 style={{ background: "#f97316" }}
                 aria-hidden="true"
               />
-              <span className="font-mono text-[10px] tracking-[0.12em] text-muted-foreground">MECHANISM 02</span>
+              <span className="font-mono tracking-[0.12em] text-muted-foreground font-semibold text-xs">MECHANISM 02</span>
             </div>
             <h3 className="mb-4 font-display text-2xl font-bold tracking-tight text-foreground md:text-3xl">
               This is the Arbitrage
