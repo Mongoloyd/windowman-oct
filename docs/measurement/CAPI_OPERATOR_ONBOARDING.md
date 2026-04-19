@@ -64,26 +64,67 @@ The action will:
 
 ---
 
-## 4. Validate before sending live traffic
+## 4. Validate before sending live traffic (dry-run)
+
+`preview_meta_route` is a deterministic dry-run that **delegates to the same
+`resolvePixelConfig()` used by `capi-event` in production**. It never fires to
+Meta and never writes to `capi_signal_logs`. Use it for onboarding validation,
+disable verification, and degraded-state debugging.
 
 ```ts
-const result = await invokeAdminData("preview_meta_route", {
+const { data } = await invokeAdminData("preview_meta_route", {
   client_slug: "acme-windows",
 });
-// → { tier: "client", resolved: true, pixel_id: "1234…", note: "Routes to this client's pixel." }
 ```
 
-Possible `tier` values:
-- `client` — slug matched an active client with a complete config row.
-- `default` — fell through to the `is_default = true` row.
-- `env`    — fell through to `META_PIXEL_ID` / `META_CAPI_TOKEN`.
-- `degraded` — no config anywhere; events will return HTTP 202 no-send.
+Response shape (`RouteDiagnostic`):
 
-Run the dry-run with **no slug** to verify the global default path:
+| Field                 | Meaning                                                      |
+| --------------------- | ------------------------------------------------------------ |
+| `tier`                | `"client"` \| `"default"` \| `"env"` \| `"degraded"`         |
+| `resolved`            | `true` if any tier produced a pixel + token                  |
+| `is_send_safe`        | `true` if a real event would be dispatched (not degraded)    |
+| `resolved_pixel_id`   | The pixel ID a real event would target (or `null`)           |
+| `masked_pixel_id`     | Last-4 mask for safe display (e.g. `…3456`)                  |
+| `source`              | Internal source label (`client:<slug>` / `db:default` / `env:fallback`) |
+| `uses_default`        | `true` when fallthrough hit the platform default row         |
+| `uses_env_fallback`   | `true` when fallthrough hit `META_PIXEL_ID`/`META_CAPI_TOKEN` |
+| `degraded`            | `true` when no tier resolved — events would be HTTP 202 no-send |
+| `reasons`             | Ordered list of stable reason enums (see below)              |
+| `missing_fields`      | Concrete fields the operator must populate to fix degraded routing |
+| `preview_only`        | Always `true` — guarantees this response represents no real send |
+
+### Reason enums (stable contract)
+
+| Reason                          | When it appears                                       |
+| ------------------------------- | ----------------------------------------------------- |
+| `client_resolved`               | Slug matched an active client with complete config    |
+| `client_slug_not_provided`      | Caller passed no slug                                 |
+| `client_not_found`              | Slug didn't match any `clients` row                   |
+| `client_inactive`               | Slug matched but `clients.is_active = false`          |
+| `client_config_missing`         | Client row exists but no `meta_configurations` row    |
+| `client_config_missing_pixel`   | Config row exists but `pixel_id` is null/empty        |
+| `client_config_missing_token`   | Config row exists but `access_token` is null/empty    |
+| `default_resolved`              | Fell through to the `is_default = true` row           |
+| `default_missing`               | No default row present                                |
+| `env_resolved`                  | Fell through to env vars                              |
+| `env_missing` / `env_missing_pixel` / `env_missing_token` | Env-tier gaps               |
+| `degraded_no_route`             | Final tier — events would be dropped (HTTP 202)       |
+
+### Common dry-runs
 
 ```ts
+// Verify a new client BEFORE flipping it live:
+await invokeAdminData("preview_meta_route", { client_slug: "acme-windows" });
+// Expect: tier === "client", is_send_safe === true
+
+// Verify the global default path (no slug):
 await invokeAdminData("preview_meta_route", {});
-// → { tier: "default" | "env" | "degraded", ... }
+// Expect: tier === "default" | "env" | "degraded"
+
+// Confirm a disabled client correctly falls back:
+await invokeAdminData("preview_meta_route", { client_slug: "acme-windows" });
+// Expect: tier === "default", reasons includes "client_inactive"
 ```
 
 ---

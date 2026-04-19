@@ -1,5 +1,6 @@
 import { corsHeaders, errorResponse, successResponse, validateAdminRequestWithRole, type AppRole } from "../_shared/adminAuth.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { diagnoseRoute } from "../capi-event/index.ts";
 
 /**
  * admin-data v2.4
@@ -902,86 +903,32 @@ Deno.serve(async (req) => {
       return successResponse({ data: { success: true, client: data } });
     }
 
-    // Dry-run: replays resolvePixelConfig logic WITHOUT calling Meta.
-    // Returns which tier (client / default / env / degraded) would handle the event.
+    // Dry-run: delegates to diagnoseRoute() which wraps the canonical
+    // resolvePixelConfig() used by capi-event. Preview NEVER calls Meta and
+    // NEVER writes to capi_signal_logs. Reasons are stable enums (see
+    // RouteDiagnostic in capi-event/index.ts).
     if (action === "preview_meta_route") {
       const { client_slug } = payload ?? {};
+      const slug = typeof client_slug === "string" && client_slug.length > 0 ? client_slug : undefined;
 
-      // Tier 1 — client slug
-      if (client_slug && typeof client_slug === "string") {
-        const { data: client } = await supabaseAdmin
-          .from("clients").select("id, slug, name, is_active")
-          .eq("slug", client_slug).eq("is_active", true).maybeSingle();
-        if (client) {
-          const { data: cfg } = await supabaseAdmin
-            .from("meta_configurations")
-            .select("pixel_id, access_token, test_event_code")
-            .eq("client_id", client.id).maybeSingle();
-          if (cfg?.pixel_id && cfg?.access_token) {
-            return successResponse({
-              data: {
-                tier: "client",
-                resolved: true,
-                client_slug: client.slug,
-                pixel_id: cfg.pixel_id,
-                access_token_preview: redactToken(cfg.access_token),
-                test_event_code: cfg.test_event_code,
-                note: "Routes to this client's pixel.",
-              },
-            });
-          }
-        }
+      // Validate slug shape only when present — empty/missing is a valid
+      // "preview the global default tier" request.
+      if (slug && !SLUG_RE.test(slug)) {
+        return errorResponse(400, "invalid_slug", "client_slug must match [a-z0-9-]{1,40}.");
       }
 
-      // Tier 2 — default DB row
-      const { data: def } = await supabaseAdmin
-        .from("meta_configurations")
-        .select("pixel_id, access_token, test_event_code")
-        .eq("is_default", true).maybeSingle();
-      if (def?.pixel_id && def?.access_token) {
-        return successResponse({
-          data: {
-            tier: "default",
-            resolved: true,
-            client_slug: client_slug ?? null,
-            pixel_id: def.pixel_id,
-            access_token_preview: redactToken(def.access_token),
-            test_event_code: def.test_event_code,
-            note: client_slug
-              ? "Client slug not active or missing config — falls through to default pixel."
-              : "No client slug provided — uses default pixel.",
-          },
-        });
-      }
+      const diagnostic = await diagnoseRoute(supabaseAdmin as never, slug);
 
-      // Tier 3 — env fallback
-      const envPixel = Deno.env.get("META_PIXEL_ID");
-      const envToken = Deno.env.get("META_CAPI_TOKEN");
-      const envTest  = Deno.env.get("META_TEST_EVENT_CODE") ?? null;
-      if (envPixel && envToken) {
-        return successResponse({
-          data: {
-            tier: "env",
-            resolved: true,
-            client_slug: client_slug ?? null,
-            pixel_id: envPixel,
-            access_token_preview: redactToken(envToken),
-            test_event_code: envTest,
-            note: "No DB config found — uses env vars META_PIXEL_ID / META_CAPI_TOKEN.",
-          },
-        });
-      }
+      // Mask the resolved pixel ID for logs/UI — last 4 digits only.
+      const masked_pixel_id = diagnostic.resolved_pixel_id
+        ? `…${diagnostic.resolved_pixel_id.slice(-4)}`
+        : null;
 
-      // Tier 4 — degraded
       return successResponse({
         data: {
-          tier: "degraded",
-          resolved: false,
-          client_slug: client_slug ?? null,
-          pixel_id: null,
-          access_token_preview: null,
-          test_event_code: null,
-          note: "No client config, no default row, no env vars. Events would be HTTP 202 no-send.",
+          ...diagnostic,
+          masked_pixel_id,
+          preview_only: true, // explicit marker — this never sent to Meta
         },
       });
     }
