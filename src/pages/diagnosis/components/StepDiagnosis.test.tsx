@@ -1,14 +1,44 @@
 import React, { useState } from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { StepDiagnosis } from './StepDiagnosis';
+import { StepDiagnosis, FINAL_CTA_DELAY_MS } from './StepDiagnosis';
 
 vi.mock('framer-motion', () => ({
   AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   motion: {
-    div: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-      <div {...props}>{children}</div>
-    ),
+    div: ({
+      children,
+      variants,
+      initial,
+      animate,
+      exit,
+      transition,
+      whileHover,
+      whileTap,
+      whileInView,
+      viewport,
+      layout,
+      layoutId,
+      drag,
+      dragConstraints,
+      custom,
+      ...props
+    }: React.HTMLAttributes<HTMLDivElement> & {
+      variants?: unknown;
+      initial?: unknown;
+      animate?: unknown;
+      exit?: unknown;
+      transition?: unknown;
+      whileHover?: unknown;
+      whileTap?: unknown;
+      whileInView?: unknown;
+      viewport?: unknown;
+      layout?: unknown;
+      layoutId?: unknown;
+      drag?: unknown;
+      dragConstraints?: unknown;
+      custom?: unknown;
+    }) => <div {...props}>{children}</div>,
   },
 }));
 
@@ -101,7 +131,7 @@ async function moveToStep4() {
   );
 }
 
-describe('StepDiagnosis — one-question consultation flow', () => {
+describe('StepDiagnosis — 4-step consultation flow', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -166,7 +196,7 @@ describe('StepDiagnosis — one-question consultation flow', () => {
   });
 
   it('reveals the final CTA on Step 4 only after a short delay', async () => {
-    vi.useFakeTimers();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     render(<TestHarness />);
 
     await moveToStep4();
@@ -181,7 +211,7 @@ describe('StepDiagnosis — one-question consultation flow', () => {
       screen.queryByRole('button', { name: /show me what's next/i })
     ).not.toBeInTheDocument();
 
-    vi.advanceTimersByTime(360);
+    vi.advanceTimersByTime(FINAL_CTA_DELAY_MS);
 
     await waitFor(() =>
       expect(
@@ -191,13 +221,13 @@ describe('StepDiagnosis — one-question consultation flow', () => {
   });
 
   it('calls onAdvance only after the final CTA is clicked on Step 4', async () => {
-    vi.useFakeTimers();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     render(<TestHarness onAdvance={mockOnAdvance} />);
 
     await moveToStep4();
 
     fireEvent.click(screen.getByRole('button', { name: /^vinyl$/i }));
-    vi.advanceTimersByTime(360);
+    vi.advanceTimersByTime(FINAL_CTA_DELAY_MS);
 
     const finalButton = await screen.findByRole('button', {
       name: /show me what's next/i,

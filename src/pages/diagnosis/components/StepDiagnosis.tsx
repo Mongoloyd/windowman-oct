@@ -40,6 +40,8 @@ interface StepDiagnosisProps {
 
 type ConsultationStep = 1 | 2 | 3 | 4;
 
+export const FINAL_CTA_DELAY_MS = 360;
+
 const shellStyle: CSSProperties = {
   background:
     'linear-gradient(180deg, rgba(255,255,255,0.88) 0%, rgba(255,255,255,0.78) 100%)',
@@ -142,6 +144,7 @@ function OptionGrid({
           <button
             key={option.value}
             type="button"
+            aria-pressed={isSelected}
             onClick={() => onToggle(option.value)}
             className={`${chipBase} ${isSelected ? chipSelectedText : chipUnselected}`}
             style={isSelected ? selectedStyle : undefined}
@@ -234,7 +237,7 @@ export function StepDiagnosis({
     }
     const timer = window.setTimeout(() => {
       setFinalActionVisible(true);
-    }, 360);
+    }, FINAL_CTA_DELAY_MS);
     return () => window.clearTimeout(timer);
   }, [activeStep, frameMaterial]);
 
@@ -326,6 +329,7 @@ export function StepDiagnosis({
 
       <div className="relative z-10 mx-auto max-w-5xl">
         <button
+          type="button"
           onClick={handleBack}
           className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition-colors hover:text-slate-700"
         >
@@ -455,6 +459,7 @@ export function StepDiagnosis({
                       <button
                         key={value}
                         type="button"
+                        aria-pressed={isSelected}
                         onClick={() => setFrameMaterial(isSelected ? '' : value)}
                         className={`${chipBase} ${isSelected ? chipSelectedText : chipUnselected}`}
                         style={isSelected ? frameSelectedStyle : undefined}
