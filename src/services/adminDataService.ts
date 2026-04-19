@@ -60,7 +60,11 @@ export type AdminAction =
   | "get_contractor_unlocks"
   | "list_invitations"
   | "create_invitation"
-  | "revoke_invitation";
+  | "revoke_invitation"
+  | "list_meta_configurations"
+  | "create_meta_client_config"
+  | "set_meta_client_active"
+  | "preview_meta_route";
 
 /**
  * Payload shapes for each admin action.
@@ -103,6 +107,17 @@ export interface AdminActionPayloads {
   list_invitations: Record<string, never>;
   create_invitation: { invited_email: string; contractor_id: string; initial_credits?: number; expires_in_days?: number };
   revoke_invitation: { invitation_id: string };
+  // CAPI control-plane (Meta multi-pixel routing)
+  list_meta_configurations: Record<string, never>;
+  create_meta_client_config: {
+    client_slug: string;
+    client_name: string;
+    pixel_id: string;
+    access_token: string;
+    test_event_code?: string | null;
+  };
+  set_meta_client_active: { client_slug: string; is_active: boolean };
+  preview_meta_route: { client_slug?: string };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
