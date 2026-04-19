@@ -13,12 +13,7 @@ const bullets = [
   "Without normalization, comparison is guesswork.",
 ];
 
-const buyerItems = [
-  "Total Price",
-  "Brand Name",
-  "Monthly Payment",
-  '"Looks Complete"',
-];
+const buyerItems = ["Total Price", "Brand Name", "Monthly Payment", '"Looks Complete"'];
 
 const contractorItems = [
   "Scope omissions",
@@ -29,9 +24,7 @@ const contractorItems = [
   "Change-order exposure",
 ];
 
-export default function InformationAsymmetrySection({
-  onTrack,
-}: InformationAsymmetrySectionProps) {
+export default function InformationAsymmetrySection({ onTrack }: InformationAsymmetrySectionProps) {
   const [activeTab, setActiveTab] = useState<"buyer" | "contractor">("buyer");
 
   const handleTabSwitch = (tab: "buyer" | "contractor") => {
@@ -50,7 +43,8 @@ export default function InformationAsymmetrySection({
           left: "-12%",
           width: "55%",
           height: "100%",
-          background: "radial-gradient(ellipse at 30% 50%, rgba(30,80,180,0.09) 0%, rgba(56,130,220,0.04) 50%, transparent 72%)",
+          background:
+            "radial-gradient(ellipse at 30% 50%, rgba(30,80,180,0.09) 0%, rgba(56,130,220,0.04) 50%, transparent 72%)",
           filter: "blur(40px)",
         }}
       />
@@ -59,25 +53,17 @@ export default function InformationAsymmetrySection({
           {/* Left Column: Narrative + Bullets */}
           <div className="flex flex-col justify-center">
             <SectionEyebrow className="mb-4">THE HIDDEN SYSTEM</SectionEyebrow>
-            <SectionHeading className="mb-6">
-              Most Buyers See a Price. Professionals See a Structure.
-            </SectionHeading>
+            <SectionHeading className="mb-6">Most Buyers See a Price. Professionals See a Structure.</SectionHeading>
             <p className="mb-8 text-base leading-relaxed text-foreground/80 md:text-lg">
-              Homeowners usually experience a quote as a final number.
-              Contractors experience it as a structured instrument made up of
-              scope, labor assumptions, exclusions, material choices, warranty
-              posture, and margin strategy.
+              Homeowners usually experience a quote as a final number. Contractors experience it as a structured
+              instrument made up of scope, labor assumptions, exclusions, material choices, warranty posture, and margin
+              strategy.
             </p>
             <ul className="space-y-3">
               {bullets.map((bullet) => (
                 <li key={bullet} className="flex items-start gap-3">
-                  <span
-                    className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-cyan-500"
-                    aria-hidden="true"
-                  />
-                  <span className="text-base leading-relaxed text-foreground/80">
-                    {bullet}
-                  </span>
+                  <span className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-cyan-500" aria-hidden="true" />
+                  <span className="text-base leading-relaxed text-foreground/80">{bullet}</span>
                 </li>
               ))}
             </ul>
@@ -105,7 +91,7 @@ export default function InformationAsymmetrySection({
                   onClick={() => handleTabSwitch("contractor")}
                   className={`flex-1 py-3 text-sm font-semibold tracking-wide transition-colors focus:outline-none ${
                     activeTab === "contractor"
-                      ? "border-b-2 border-cyan-500 bg-white text-foreground"
+                      ? "border-b-2 border-cyan-300 bg-white text-foreground"
                       : "bg-slate-50 text-foreground/50 hover:text-foreground/70"
                   }`}
                 >
@@ -123,9 +109,7 @@ export default function InformationAsymmetrySection({
                         className="flex items-center gap-3 rounded-lg border bg-slate-50 px-4 py-3 shadow-sm border-solid border-black"
                       >
                         <span className="h-2 w-2 flex-shrink-0 rounded-full bg-slate-300" />
-                        <span className="text-sm font-medium text-foreground/80">
-                          {item}
-                        </span>
+                        <span className="text-sm font-medium text-foreground/80">{item}</span>
                       </li>
                     ))}
                   </ul>
@@ -137,15 +121,11 @@ export default function InformationAsymmetrySection({
                         className="flex items-center gap-3 rounded-lg bg-cyan-50/60 px-4 py-3 shadow-sm border-2 border-emerald-400"
                       >
                         <span className="h-2 w-2 flex-shrink-0 rounded-full bg-cyan-500" />
-                        <span className="text-sm font-medium text-foreground/80">
-                          {item}
-                        </span>
+                        <span className="text-sm font-medium text-foreground/80">{item}</span>
                       </li>
                     ))}
                   </ul>
                 )}
-
-
               </div>
 
               {/* Footer label */}
