@@ -18,17 +18,20 @@ export default function HeroSection() {
           className="flex flex-col items-start gap-8"
         >
           <div className="space-y-4">
-            <span className="inline-block text-xs font-bold uppercase tracking-widest text-white/50">
+            <span className="inline-block text-xs font-bold uppercase tracking-widest text-white/80">
               Exclusive Territory Access &middot; One Contractor Per Market
             </span>
             <h1 className="text-5xl font-extrabold leading-[1.1] tracking-tight lg:text-6xl">
               Stop Losing Jobs to Worse Contractors.
             </h1>
             <p className="max-w-[65ch] text-lg leading-relaxed text-white/60 lg:text-xl">
-              WindowMan gets homeowners after they've already received quotes from your competitors. They upload those estimates, we show them what's wrong, and when they want a better option — that opportunity can become yours.
+              WindowMan gets homeowners after they've already received quotes from your competitors. They upload those
+              estimates, we show them what's wrong, and when they want a better option — that opportunity can become
+              yours.
             </p>
             <p className="max-w-[65ch] text-sm text-white/40">
-              These are not random leads. These are active buyers already comparing quotes and trying to decide who to trust.
+              These are not random leads. These are active buyers already comparing quotes and trying to decide who to
+              trust.
             </p>
           </div>
 
@@ -48,9 +51,7 @@ export default function HeroSection() {
               Call or Text {PAGE_CONFIG.phone.display}
             </a>
           </div>
-          <p className="text-xs text-white/40">
-            Or request territory access below — takes under 20 seconds.
-          </p>
+          <p className="text-xs text-white/40">Or request territory access below — takes under 20 seconds.</p>
 
           <div className="mt-8 flex w-full flex-col gap-6 border-t border-white/10 pt-8 sm:flex-row sm:justify-between lg:gap-4">
             <div className="flex flex-col gap-1">
@@ -75,7 +76,7 @@ export default function HeroSection() {
           className="relative lg:ml-auto w-full max-w-md"
         >
           <div className="absolute -inset-1 rounded-2xl bg-gradient-to-b from-white/10 to-transparent opacity-50 blur-xl" />
-          
+
           <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0c0c0e] shadow-2xl">
             <div className="flex items-center justify-between border-b border-white/[0.06] bg-white/[0.02] px-6 py-4">
               <h3 className="font-semibold text-white">Quote Analysis</h3>
@@ -88,7 +89,7 @@ export default function HeroSection() {
               </div>
             </div>
 
-            <motion.div 
+            <motion.div
               animate={{ y: [0, 260, 0] }}
               transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
               className="absolute left-0 right-0 top-[60px] h-[1px] w-full bg-gradient-to-r from-transparent via-emerald-400/50 to-transparent shadow-[0_0_10px_rgba(52,211,153,0.5)] z-10"
