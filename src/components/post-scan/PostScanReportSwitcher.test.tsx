@@ -329,8 +329,8 @@ describe("PostScanReportSwitcher — post-OTP unlock transition", () => {
       e164: "+13055551234",
       phoneVerifiedEventId: "evt-pv",
       reportRevealedEventId: "evt-rr",
-    });
-    onVerifiedMock = vi.fn();
+    }) as ReturnType<typeof vi.fn>;
+    onVerifiedMock = vi.fn() as ReturnType<typeof vi.fn>;
 
     mockUsePhonePipeline.mockReturnValue({
       displayValue: "(305) 555-1234",
