@@ -38,7 +38,7 @@ export default function HowWeMakeMoneySection() {
         >
           <div className="grid gap-8 md:grid-cols-2">
             {/* Left: Homeowner side */}
-            <div className="flex flex-col gap-4 border-b border-slate-100 pb-8 md:border-b-0 md:border-r md:pb-0 md:pr-8">
+            <div className="flex flex-col gap-4 border-b pb-8 md:border-b-0 md:border-r md:pb-0 md:pr-8 mx-0 my-0 px-[10px] border border-solid rounded-sm border-emerald-200 shadow-lg">
               <div className="flex items-center gap-3">
                 <span className="h-1 w-8 rounded-full" style={{ background: "#06B6D4" }} aria-hidden="true" />
                 <span className="font-mono tracking-[0.12em] text-muted-foreground text-base">HOMEOWNER</span>
@@ -51,7 +51,7 @@ export default function HowWeMakeMoneySection() {
             </div>
 
             {/* Right: Contractor/revenue side */}
-            <div className="flex flex-col gap-4 md:pl-8">
+            <div className="flex flex-col gap-4 md:pl-8 border-solid rounded-sm border shadow-inner">
               <div className="flex items-center gap-3">
                 <span className="h-1 w-8 rounded-full bg-orange-400" aria-hidden="true" />
                 <span className="font-mono tracking-[0.12em] text-muted-foreground text-base">
