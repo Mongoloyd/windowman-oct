@@ -69,7 +69,7 @@ export default function WhyPricesVarySection() {
               <h3 className="mb-3 font-display text-xl font-bold tracking-tight text-foreground">
                 {card.title}
               </h3>
-              <p className="text-sm leading-relaxed text-foreground/70">
+              <p className="text-sm leading-relaxed text-foreground/70 font-semibold px-[6px]">
                 {card.body}
               </p>
             </SkeuoCard>
@@ -105,7 +105,7 @@ export default function WhyPricesVarySection() {
                     {marker.label}
                   </span>
                 </div>
-                <p className="pl-6 text-sm text-foreground/60">{marker.note}</p>
+                <p className="pl-6 text-sm text-foreground/60 font-semibold">{marker.note}</p>
               </div>
             ))}
           </div>
