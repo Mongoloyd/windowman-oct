@@ -1495,8 +1495,11 @@ Deno.serve(async (req) => {
     }
 
     return errorResponse(400, "unhandled_action", `Action ${action} not implemented`);
+  } catch (error) {
     const errMsg = error instanceof Error ? error.message : String(error);
     console.error(`[admin-data] Error:`, errMsg);
     return errorResponse(500, "server_error", "Internal server error");
+  }
+});
   }
 });
