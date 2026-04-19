@@ -19,6 +19,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   buildHashedUserData,
+  classifyMetaError,
   dispatchCapiEvent,
   extractClientIp,
   resolvePixelConfig,
@@ -36,6 +37,7 @@ import {
 // Re-export for backward compatibility with any tests importing from this file
 export {
   buildHashedUserData,
+  classifyMetaError,
   dispatchCapiEvent,
   extractClientIp,
   resolvePixelConfig,
@@ -102,8 +104,17 @@ Deno.serve(async (req) => {
     });
 
     if (!dispatch.ok) {
-      console.error("CAPI error:", JSON.stringify(dispatch.response));
-      return new Response(JSON.stringify({ success: false, error: dispatch.response }), {
+      const failure = classifyMetaError(dispatch.status, dispatch.response);
+      console.error(`[CAPI:FAIL] class=${failure.class} status=${dispatch.status} pixel=…${config.pixelId.slice(-4)}`);
+      // Token bytes never appear in the response — only the documented Meta
+      // error and a stable failure_class enum. Operators run smoke_send to
+      // re-confirm and diagnose_token_health to inspect rotation state.
+      return new Response(JSON.stringify({
+        success: false,
+        failure_class: failure.class,
+        failure_subcode: failure.subcode,
+        error: dispatch.response,
+      }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
