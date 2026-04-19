@@ -41,7 +41,10 @@ export default function SiteFooter({ className = "" }: SiteFooterProps) {
               <span className="rounded-md px-2 py-1 font-bold uppercase tracking-[0.14em] text-white bg-white/0 text-xl">
                 🛡️
               </span>
-              <span>WINDOWMAN</span>
+              <span>
+                <span className="text-foreground">WINDOW</span>
+                <span style={{ color: "#448df7" }}>MAN</span>
+              </span>
             </Link>
 
             <p className="mt-4 max-w-xs text-sm leading-6 text-slate-600">

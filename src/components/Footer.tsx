@@ -5,7 +5,11 @@ export default function Footer() {
     <footer className="border-t border-border bg-card text-foreground">
       <div className="mx-auto grid max-w-7xl gap-10 px-6 py-12 md:grid-cols-[1.35fr_1fr_1fr] md:px-8">
         <div>
-          <div className="mb-3 text-lg font-semibold tracking-tight">WindowMan.PRO</div>
+          <div className="mb-3 text-lg font-semibold tracking-tight">
+            <span className="text-foreground">WINDOW</span>
+            <span style={{ color: "#448df7" }}>MAN</span>
+            <span className="text-foreground">.PRO</span>
+          </div>
           <p className="max-w-md text-sm leading-6 text-foreground/65">
             Forensic Quote Analysis for homeowners who want clarity before they sign.
           </p>
