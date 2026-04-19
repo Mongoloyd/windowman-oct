@@ -231,7 +231,17 @@ const Index = () => {
   // Otherwise, resolve a `?client=<slug>` query param so paid traffic to `/?client=acme`
   // also stamps `leads.client_slug` (canonical multi-tenant attribution).
   const existingFunnel = useScanFunnelSafe();
-  const { slug: queryClientSlug } = useClientSlug();
+  const { slug: queryClientSlug, ready: clientSlugReady } = useClientSlug();
+
+  // Race-condition guard: if no outer provider exists and `?client=` validation
+  // is still in flight, defer mounting the inner ScanFunnelProvider so that
+  // `initialClientSlug` is seeded with the validated slug (not null).
+  // Default traffic (no `?client=`) resolves `ready=true` synchronously on
+  // first effect tick, so this introduces no perceptible delay.
+  if (!existingFunnel && !clientSlugReady) {
+    return <div className="min-h-screen bg-background" aria-hidden />;
+  }
+
   const Wrapper = existingFunnel ? React.Fragment : ScanFunnelProvider;
   const wrapperProps = existingFunnel
     ? {}
