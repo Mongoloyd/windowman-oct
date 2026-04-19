@@ -62,6 +62,15 @@ async function hashPhone(phone: string): Promise<string> {
   return sha256(normalized);
 }
 
+// --- UTILITY: Detect already-hashed SHA-256 hex (64 lowercase hex chars) ---
+// The canonical server-side dispatch lane (mapToMeta) hashes em/ph/external_id
+// before calling this function. Without this guard we would double-hash those
+// values and silently destroy match quality. Raw input from any other caller
+// continues to be normalized + hashed below.
+function isSha256Hex(value: string): boolean {
+  return /^[a-f0-9]{64}$/i.test(value);
+}
+
 // --- UTILITY: Resolve which pixel config to use ---
 // Priority: clientSlug → default row → env vars
 // Returns source label for observability (never logs raw secrets)
@@ -171,13 +180,22 @@ Deno.serve(async (req) => {
     };
 
     if (body.user_data.em) {
-      hashedUserData.em = [await sha256(body.user_data.em)];
+      const em = body.user_data.em;
+      hashedUserData.em = [isSha256Hex(em) ? em.toLowerCase() : await sha256(em)];
     }
     if (body.user_data.ph) {
-      hashedUserData.ph = [await hashPhone(body.user_data.ph)];
+      const ph = body.user_data.ph;
+      hashedUserData.ph = [isSha256Hex(ph) ? ph.toLowerCase() : await hashPhone(ph)];
     }
     if (body.user_data.external_id) {
-      hashedUserData.external_id = await sha256(body.user_data.external_id);
+      const ext = body.user_data.external_id;
+      hashedUserData.external_id = isSha256Hex(ext) ? ext.toLowerCase() : await sha256(ext);
+    }
+
+    // Preserve client_user_agent: prefer payload value, fall back to request header.
+    if (!hashedUserData.client_user_agent) {
+      const ua = req.headers.get("user-agent");
+      if (ua) hashedUserData.client_user_agent = ua;
     }
 
     // Build final CAPI payload
