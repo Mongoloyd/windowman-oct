@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           analysis_status: string
           anonymized_lead_id: string | null
+          client_slug: string | null
           confidence_score: number | null
           contractor_brief: string | null
           contractor_brief_generated_at: string | null
@@ -46,6 +47,7 @@ export type Database = {
         Insert: {
           analysis_status?: string
           anonymized_lead_id?: string | null
+          client_slug?: string | null
           confidence_score?: number | null
           contractor_brief?: string | null
           contractor_brief_generated_at?: string | null
@@ -74,6 +76,7 @@ export type Database = {
         Update: {
           analysis_status?: string
           anonymized_lead_id?: string | null
+          client_slug?: string | null
           confidence_score?: number | null
           contractor_brief?: string | null
           contractor_brief_generated_at?: string | null
@@ -642,6 +645,7 @@ export type Database = {
           brief_json: Json | null
           brief_text: string | null
           brief_version: string | null
+          client_slug: string | null
           county: string | null
           created_at: string
           cta_source: string | null
@@ -687,6 +691,7 @@ export type Database = {
           brief_json?: Json | null
           brief_text?: string | null
           brief_version?: string | null
+          client_slug?: string | null
           county?: string | null
           created_at?: string
           cta_source?: string | null
@@ -732,6 +737,7 @@ export type Database = {
           brief_json?: Json | null
           brief_text?: string | null
           brief_version?: string | null
+          client_slug?: string | null
           county?: string | null
           created_at?: string
           cta_source?: string | null
