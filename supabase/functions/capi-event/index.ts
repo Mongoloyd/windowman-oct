@@ -214,12 +214,8 @@ Deno.serve(async (req) => {
     console.log(`[CAPI:FIRE] event=${body.event_name} source=${config.source} pixel=…${config.pixelId.slice(-4)}`);
     resolvedPixelId = config.pixelId;
 
-    // Extract client IP
-    const clientIp =
-      req.headers.get("cf-connecting-ip") ||
-      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      req.headers.get("x-real-ip") ||
-      "0.0.0.0";
+    // Extract client IP via shared header-precedence helper
+    const clientIp = extractClientIp(req.headers);
 
     // Hash PII — NEVER send raw email or phone to Meta.
     // Behavior is identical to the previous inline block; logic lives in
