@@ -1,0 +1,60 @@
+# Server-side Meta CAPI match-quality regression guardrail.
+#
+# This workflow enforces the invariants proven in:
+#   - supabase/functions/capi-event/index.test.ts
+#   - docs/measurement/CANONICAL_MEASUREMENT_ARCHITECTURE.md
+#
+# It fails the PR / push if any of the following regress in
+# `supabase/functions/capi-event/index.ts`:
+#
+#   1. Pre-hashed `em` (64-char SHA256 hex) gets double-hashed
+#   2. Pre-hashed `ph` (64-char SHA256 hex) gets double-hashed
+#   3. Pre-hashed `external_id` (64-char SHA256 hex) gets double-hashed
+#   4. Raw email is no longer normalized (lowercase/trim) + SHA256 hashed
+#   5. Raw phone is no longer digit-normalized + SHA256 hashed
+#   6. `fbp` / `fbc` no longer pass through unchanged
+#   7. `client_ip_address` header fallback chain regresses
+#      (cf-connecting-ip → x-forwarded-for first hop → x-real-ip)
+#   8. `client_user_agent` falls back from request headers when payload UA missing
+#   9. Conversion ownership shifts from server-side to browser-side
+#
+# Scope is intentionally narrow — this workflow does NOT deploy, does NOT
+# touch Twilio, OTP, or reveal logic, and does NOT modify runtime behavior.
+# It is the minimum CI surface required to lock in server-side Meta
+# match-quality and prevent the double-hash defect from silently returning.
+#
+# Conversion ownership remains server-side only.
+
+name: CAPI Event Match-Quality Guardrail
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/functions/capi-event/**"
+      - ".github/workflows/capi-event-guardrail.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "supabase/functions/capi-event/**"
+      - ".github/workflows/capi-event-guardrail.yml"
+
+jobs:
+  capi-event-guardrail:
+    name: capi-event regression proof (Deno)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+
+      - name: Deno typecheck (capi-event)
+        run: deno check supabase/functions/capi-event/index.ts
+
+      - name: capi-event match-quality regression tests
+        run: deno test --allow-net --allow-env supabase/functions/capi-event/index.test.ts
