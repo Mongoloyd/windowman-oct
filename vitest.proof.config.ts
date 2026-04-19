@@ -17,7 +17,7 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
-    include: ["scripts/pageview-dedupe-test.ts"],
+    include: ["scripts/pageview-dedupe-test.tsx"],
   },
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },
