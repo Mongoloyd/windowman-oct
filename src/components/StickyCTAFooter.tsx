@@ -78,7 +78,7 @@ export const StickyCTAFooter = ({
               </button>
               <button
                 onClick={onDemoClick}
-                className="flex-1 md:flex-none w-full max-w-[200px] btn-secondary-tactile"
+                className="flex-1 md:flex-none w-full max-w-[200px] btn-secondary-tactile border border-cyan-800"
                 style={{ padding: "12px 20px" }}
               >
                 View Live Demo
