@@ -1,5 +1,18 @@
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type Dispatch,
+  type SetStateAction,
+} from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
-import { WINDOW_STYLES, WINDOW_CONCERNS, FRAME_MATERIALS } from '../constants/windowOptions';
+import {
+  WINDOW_STYLES,
+  WINDOW_CONCERNS,
+  FRAME_MATERIALS,
+} from '../constants/windowOptions';
 import type { DiagnosisCode, DiagnosticConfig } from '../types';
 
 interface StepDiagnosisProps {
@@ -17,32 +30,180 @@ interface StepDiagnosisProps {
   setFrameMaterial: (v: string) => void;
   toggleInArray: (
     arr: string[],
-    setter: React.Dispatch<React.SetStateAction<string[]>>,
+    setter: Dispatch<SetStateAction<string[]>>,
     value: string
   ) => void;
-  setSecondaryClarifiers: React.Dispatch<React.SetStateAction<string[]>>;
-  setWindowStyles: React.Dispatch<React.SetStateAction<string[]>>;
-  setWindowConcerns: React.Dispatch<React.SetStateAction<string[]>>;
+  setSecondaryClarifiers: Dispatch<SetStateAction<string[]>>;
+  setWindowStyles: Dispatch<SetStateAction<string[]>>;
+  setWindowConcerns: Dispatch<SetStateAction<string[]>>;
 }
 
+type ConsultationStep = 1 | 2 | 3 | 4;
+
+export const FINAL_CTA_DELAY_MS = 360;
+
+const shellStyle: CSSProperties = {
+  background:
+    'linear-gradient(180deg, rgba(255,255,255,0.88) 0%, rgba(255,255,255,0.78) 100%)',
+  backdropFilter: 'blur(18px)',
+  WebkitBackdropFilter: 'blur(18px)',
+  boxShadow:
+    'inset 0 1px 0 rgba(255,255,255,0.95), inset 0 -1px 0 rgba(148,163,184,0.14), 0 18px 48px rgba(15,23,42,0.08), 0 2px 10px rgba(255,255,255,0.55)',
+  border: '1px solid rgba(255,255,255,0.85)',
+};
+
+const notePanelStyle: CSSProperties = {
+  background:
+    'linear-gradient(180deg, rgba(255,255,255,0.78) 0%, rgba(255,255,255,0.64) 100%)',
+  backdropFilter: 'blur(16px)',
+  WebkitBackdropFilter: 'blur(16px)',
+  boxShadow:
+    'inset 0 1px 0 rgba(255,255,255,0.9), inset 0 -1px 0 rgba(148,163,184,0.12), 0 14px 34px rgba(15,23,42,0.06)',
+  border: '1px solid rgba(255,255,255,0.78)',
+};
+
+const footerDividerStyle: CSSProperties = {
+  borderTop: '1px solid rgba(148,163,184,0.20)',
+  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.6)',
+};
+
+const silhouetteStyle: CSSProperties = {
+  background:
+    'linear-gradient(180deg, rgba(255,255,255,0.52) 0%, rgba(255,255,255,0.34) 100%)',
+  backdropFilter: 'blur(12px)',
+  WebkitBackdropFilter: 'blur(12px)',
+  boxShadow:
+    'inset 0 1px 0 rgba(255,255,255,0.85), 0 18px 36px rgba(15,23,42,0.04)',
+  border: '1px solid rgba(255,255,255,0.7)',
+};
+
 const chipBase =
-  'px-4 py-2 rounded-full text-sm font-medium border transition-all focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-cobalt/40';
+  'relative rounded-2xl px-4 py-3 text-sm font-medium text-left transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-cobalt/30';
 
 const chipUnselected =
-  'bg-white/80 border-border text-foreground/80 hover:border-cobalt/40 hover:bg-white';
+  'border border-slate-200/70 text-slate-700 hover:border-slate-300 hover:bg-white/70';
 
-const chipSelectedCobalt =
-  'border-cobalt text-white shadow-sm';
+const chipSelectedText = 'text-white';
 
-const cobaltSelectedStyle: React.CSSProperties = {
-  background: 'linear-gradient(180deg, #6bb8ff 0%, #3b82f6 40%, #1d4ed8 100%)',
-  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.3), 0 2px 6px rgba(37,99,235,0.22)',
+const blueSelectedStyle: CSSProperties = {
+  background:
+    'linear-gradient(180deg, #7dc4ff 0%, #4b93ff 38%, #2563eb 100%)',
+  boxShadow:
+    'inset 0 1px 0 rgba(255,255,255,0.34), inset 0 2px 10px rgba(12,74,190,0.28), 0 10px 24px rgba(37,99,235,0.20)',
+  transform: 'translateY(1px)',
 };
 
-const numberBadgeStyle: React.CSSProperties = {
-  background: 'linear-gradient(180deg, #6bb8ff 0%, #3b82f6 40%, #1d4ed8 100%)',
-  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.3), 0 2px 4px rgba(37,99,235,0.25)',
+const greenSelectedStyle: CSSProperties = {
+  background:
+    'linear-gradient(180deg, #7be0c4 0%, #34d399 42%, #059669 100%)',
+  boxShadow:
+    'inset 0 1px 0 rgba(255,255,255,0.34), inset 0 2px 10px rgba(5,150,105,0.26), 0 10px 24px rgba(5,150,105,0.18)',
+  transform: 'translateY(1px)',
 };
+
+const frameSelectedStyle: CSSProperties = {
+  background:
+    'linear-gradient(180deg, #9cc9ff 0%, #60a5fa 40%, #2563eb 100%)',
+  boxShadow:
+    'inset 0 1px 0 rgba(255,255,255,0.34), inset 0 2px 10px rgba(29,78,216,0.24), 0 10px 24px rgba(37,99,235,0.18)',
+  transform: 'translateY(1px)',
+};
+
+const stageVariants = {
+  initial: { opacity: 0, y: 14, filter: 'blur(3px)' },
+  animate: {
+    opacity: 1,
+    y: 0,
+    filter: 'blur(0px)',
+    transition: { duration: 0.42, ease: [0.22, 1, 0.36, 1] as const },
+  },
+  exit: {
+    opacity: 0,
+    y: -12,
+    filter: 'blur(2px)',
+    transition: { duration: 0.28, ease: [0.4, 0, 1, 1] as const },
+  },
+};
+
+function OptionGrid({
+  options,
+  selectedValues,
+  onToggle,
+  selectedStyle,
+}: {
+  options: { value: string; label: string }[];
+  selectedValues: string[];
+  onToggle: (value: string) => void;
+  selectedStyle: CSSProperties;
+}) {
+  return (
+    <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(170px,1fr))]">
+      {options.map((option) => {
+        const isSelected = selectedValues.includes(option.value);
+        return (
+          <button
+            key={option.value}
+            type="button"
+            aria-pressed={isSelected}
+            onClick={() => onToggle(option.value)}
+            className={`${chipBase} ${isSelected ? chipSelectedText : chipUnselected}`}
+            style={isSelected ? selectedStyle : undefined}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ReservedFooter({
+  visible,
+  label,
+  onClick,
+  helperText,
+}: {
+  visible: boolean;
+  label: string;
+  onClick: () => void;
+  helperText?: string;
+}) {
+  return (
+    <div className="mt-8 min-h-[96px] pt-5" style={footerDividerStyle}>
+      <AnimatePresence mode="wait" initial={false}>
+        {visible ? (
+          <motion.div
+            key={label}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0, transition: { duration: 0.32, ease: [0.22, 1, 0.36, 1] } }}
+            exit={{ opacity: 0, y: 4, transition: { duration: 0.18 } }}
+            className="flex flex-col items-stretch gap-3"
+          >
+            <button
+              type="button"
+              onClick={onClick}
+              className="btn-depth-primary inline-flex w-full items-center justify-center gap-2 px-6 py-4 text-base"
+            >
+              {label}
+              <ArrowRight className="h-5 w-5" />
+            </button>
+            {helperText ? (
+              <p className="text-center text-xs text-slate-500">{helperText}</p>
+            ) : null}
+          </motion.div>
+        ) : (
+          <motion.div
+            key="footer-placeholder"
+            initial={{ opacity: 0.45 }}
+            animate={{ opacity: 0.45 }}
+            exit={{ opacity: 0 }}
+            className="h-full"
+          />
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 export function StepDiagnosis({
   activeConfig,
@@ -62,233 +223,273 @@ export function StepDiagnosis({
   setWindowStyles,
   setWindowConcerns,
 }: StepDiagnosisProps) {
+  const [activeStep, setActiveStep] = useState<ConsultationStep>(1);
+  const [finalActionVisible, setFinalActionVisible] = useState(false);
+
+  useEffect(() => {
+    if (activeStep !== 4) {
+      setFinalActionVisible(false);
+      return;
+    }
+    if (!frameMaterial) {
+      setFinalActionVisible(false);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setFinalActionVisible(true);
+    }, FINAL_CTA_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [activeStep, frameMaterial]);
+
+  const canContinueCurrentStep = useMemo(() => {
+    switch (activeStep) {
+      case 1:
+        return canAdvanceFromDiagnosis;
+      case 2:
+        return windowStyles.length > 0;
+      case 3:
+        return windowConcerns.length > 0;
+      case 4:
+        return Boolean(frameMaterial);
+      default:
+        return false;
+    }
+  }, [
+    activeStep,
+    canAdvanceFromDiagnosis,
+    windowStyles.length,
+    windowConcerns.length,
+    frameMaterial,
+  ]);
+
+  const currentLabel = activeStep === 4 ? "Show Me What's Next" : "Continue";
+  const showCurrentAction =
+    activeStep === 4 ? finalActionVisible : canContinueCurrentStep;
+
+  const handleBack = () => {
+    if (activeStep === 1) {
+      onBack();
+      return;
+    }
+    setActiveStep((prev) => (prev > 1 ? ((prev - 1) as ConsultationStep) : prev));
+  };
+
+  const handleAdvance = () => {
+    if (!canContinueCurrentStep) return;
+    if (activeStep === 4) {
+      onAdvance();
+      return;
+    }
+    setActiveStep((prev) => ((prev + 1) as ConsultationStep));
+  };
+
+  const activeStepMeta = useMemo(() => {
+    switch (activeStep) {
+      case 1:
+        return {
+          eyebrow: 'Diagnostic',
+          title: activeConfig.secondaryQuestion,
+          subtitle:
+            primaryDiagnosis === 'other'
+              ? "Tell us what felt off in your own words."
+              : "Tap everything that applies.",
+        };
+      case 2:
+        return {
+          eyebrow: 'Window Types',
+          title: 'Which Window Styles Are Part of This Project?',
+          subtitle: 'Tap any that apply.',
+        };
+      case 3:
+        return {
+          eyebrow: 'Priorities',
+          title: 'What Matters Most To You?',
+          subtitle: "Choose everything that's important.",
+        };
+      case 4:
+      default:
+        return {
+          eyebrow: 'Frame Material',
+          title: 'Frame Material Preference?',
+          subtitle: 'Pick one. “Not Sure” is fine.',
+        };
+    }
+  }, [activeStep, activeConfig.secondaryQuestion, primaryDiagnosis]);
+
   return (
-    <section className="relative py-12 px-6 min-h-[calc(100vh-160px)]" style={{ background: 'transparent' }}>
-      {/* Soft cobalt ambient */}
+    <section className="relative px-5 py-10 md:px-6 md:py-12">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            'radial-gradient(ellipse at 20% 0%, rgba(30,80,180,0.07) 0%, transparent 55%), radial-gradient(ellipse at 80% 100%, rgba(6,182,212,0.06) 0%, transparent 55%)',
+            'radial-gradient(ellipse at 20% 0%, rgba(59,130,246,0.08) 0%, transparent 52%), radial-gradient(ellipse at 80% 100%, rgba(14,165,233,0.08) 0%, transparent 56%), linear-gradient(180deg, rgba(255,255,255,0.64) 0%, rgba(248,250,252,0.78) 100%)',
         }}
       />
-      <div className="max-w-3xl mx-auto relative z-10">
+
+      <div className="relative z-10 mx-auto max-w-5xl">
         <button
-          onClick={onBack}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground mb-6 transition-colors"
+          type="button"
+          onClick={handleBack}
+          className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition-colors hover:text-slate-700"
         >
-          <ArrowLeft className="w-4 h-4" /> Change My Answer
+          <ArrowLeft className="h-4 w-4" />
+          Back
         </button>
 
-        {/* Therapeutic Reflection Panel */}
-        <div className="card-raised-hero rounded-2xl p-6 md:p-8 mb-8">
+        <div
+          className="mb-8 rounded-[28px] px-6 py-5 md:px-7"
+          style={notePanelStyle}
+        >
           <div className="flex items-start gap-4">
             <div
-              className={`shrink-0 w-12 h-12 rounded-xl bg-white ${activeConfig.accentBorder} border-2 flex items-center justify-center`}
+              className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border-2 bg-white/80 ${activeConfig.accentBorder}`}
+              style={{
+                boxShadow:
+                  'inset 0 1px 0 rgba(255,255,255,0.95), 0 8px 18px rgba(15,23,42,0.05)',
+              }}
             >
-              <activeConfig.Icon className={`w-6 h-6 ${activeConfig.accent}`} />
+              <activeConfig.Icon className={`h-6 w-6 ${activeConfig.accent}`} />
             </div>
-            <div className="flex-1">
-              <h2 className={`font-display text-2xl font-extrabold tracking-tight ${activeConfig.accent} mb-3`}>
+
+            <div className="min-w-0">
+              <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                Consultation Notes
+              </p>
+              <h2 className={`mb-2 font-display text-2xl font-extrabold tracking-tight ${activeConfig.accent}`}>
                 {activeConfig.reflectionTitle}
               </h2>
-              <p className="text-foreground/85 text-base leading-relaxed">
+              <p className="max-w-3xl text-sm leading-7 text-slate-600 md:text-[15px]">
                 {activeConfig.reflectionBody}
               </p>
             </div>
           </div>
         </div>
 
-        <p className="text-center text-muted-foreground text-sm mb-6 italic">
-          A Few Quick Questions So We Can Shape Your Prescription. All Taps, No Typing.
-        </p>
-
-        {/* Question 1: Secondary Clarifier */}
-        <div className="card-raised rounded-2xl p-6 md:p-8 mb-5">
-          <div className="flex items-center gap-3 mb-3">
-            <div
-              className="w-7 h-7 rounded-full text-white flex items-center justify-center text-xs font-bold"
-              style={numberBadgeStyle}
+        <div className="mx-auto min-h-[580px] max-w-4xl md:min-h-[620px]">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeStep}
+              variants={stageVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              className="rounded-[32px] px-6 py-7 md:px-8 md:py-8"
+              style={shellStyle}
             >
-              1
-            </div>
-            <p className="wm-eyebrow uppercase text-muted-foreground">
-              Diagnostic
-            </p>
-          </div>
-          <h3 className="font-display text-lg font-extrabold tracking-tight text-foreground mb-4">
-            {activeConfig.secondaryQuestion}
-          </h3>
+              <div className="mb-6">
+                <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                  {activeStepMeta.eyebrow}
+                </p>
+                <h3 className="font-display text-2xl font-extrabold tracking-tight text-slate-900 md:text-[2rem]">
+                  {activeStepMeta.title}
+                </h3>
+                <p className="mt-2 text-sm leading-7 text-slate-500 md:text-[15px]">
+                  {activeStepMeta.subtitle}
+                </p>
+              </div>
 
-          {primaryDiagnosis === 'other' ? (
-            <textarea
-              value={otherFreeText}
-              onChange={(e) => setOtherFreeText(e.target.value)}
-              rows={4}
-              placeholder="Tell us what felt off. There's no wrong answer."
-              className="wm-input-well w-full px-4 py-3 outline-none transition-all resize-none text-foreground placeholder:text-muted-foreground"
-            />
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {activeConfig.secondaryOptions.map((option) => {
-                const isSelected = secondaryClarifiers.includes(option);
-                return (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() =>
-                      toggleInArray(secondaryClarifiers, setSecondaryClarifiers, option)
-                    }
-                    className={`${chipBase} ${isSelected ? chipSelectedCobalt : chipUnselected}`}
-                    style={isSelected ? cobaltSelectedStyle : undefined}
-                  >
-                    {option}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
+              {activeStep === 1 && (
+                <div className="space-y-4">
+                  {primaryDiagnosis === 'other' ? (
+                    <textarea
+                      value={otherFreeText}
+                      onChange={(e) => setOtherFreeText(e.target.value)}
+                      rows={5}
+                      placeholder="Tell us what felt off. There's no wrong answer."
+                      className="w-full rounded-[24px] border border-slate-200/80 bg-white/70 px-5 py-4 text-foreground outline-none transition-all placeholder:text-slate-400 focus:border-cobalt/40 focus:bg-white/80 focus:ring-2 focus:ring-cobalt/15"
+                      style={{
+                        boxShadow:
+                          'inset 0 1px 2px rgba(15,23,42,0.05), inset 0 -1px 0 rgba(255,255,255,0.7)',
+                      }}
+                    />
+                  ) : (
+                    <OptionGrid
+                      options={activeConfig.secondaryOptions.map((option) => ({
+                        value: option,
+                        label: option,
+                      }))}
+                      selectedValues={secondaryClarifiers}
+                      onToggle={(value) =>
+                        toggleInArray(
+                          secondaryClarifiers,
+                          setSecondaryClarifiers,
+                          value
+                        )
+                      }
+                      selectedStyle={blueSelectedStyle}
+                    />
+                  )}
+                </div>
+              )}
 
-        {/* Question 2: Window Styles */}
-        <div className="card-raised rounded-2xl p-6 md:p-8 mb-5">
-          <div className="flex items-center gap-3 mb-3">
-            <div
-              className="w-7 h-7 rounded-full text-white flex items-center justify-center text-xs font-bold"
-              style={numberBadgeStyle}
-            >
-              2
-            </div>
-            <p className="wm-eyebrow uppercase text-muted-foreground">
-              Window Types
-            </p>
-          </div>
-          <h3 className="font-display text-lg font-extrabold tracking-tight text-foreground mb-1">
-            Which Window Styles Are Part of this Project?
-          </h3>
-          <p className="text-sm text-muted-foreground mb-4">Tap Any That Apply.</p>
-          <div className="flex flex-wrap gap-2">
-            {WINDOW_STYLES.map((style) => {
-              const isSelected = windowStyles.includes(style);
-              return (
-                <button
-                  key={style}
-                  type="button"
-                  onClick={() => toggleInArray(windowStyles, setWindowStyles, style)}
-                  className={`${chipBase} ${isSelected ? chipSelectedCobalt : chipUnselected}`}
-                  style={isSelected ? cobaltSelectedStyle : undefined}
-                >
-                  {style}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Question 3: Concerns */}
-        <div className="card-raised rounded-2xl p-6 md:p-8 mb-5">
-          <div className="flex items-center gap-3 mb-3">
-            <div
-              className="w-7 h-7 rounded-full text-white flex items-center justify-center text-xs font-bold"
-              style={numberBadgeStyle}
-            >
-              3
-            </div>
-            <p className="wm-eyebrow uppercase text-muted-foreground">
-              Priorities
-            </p>
-          </div>
-          <h3 className="font-display text-lg font-extrabold tracking-tight text-foreground mb-1">
-            What Matters Most To You?
-          </h3>
-          <p className="text-sm text-muted-foreground mb-4">Tap Everything That's Important.</p>
-          <div className="flex flex-wrap gap-2">
-            {WINDOW_CONCERNS.map((concern) => {
-              const isSelected = windowConcerns.includes(concern);
-              return (
-                <button
-                  key={concern}
-                  type="button"
-                  onClick={() => toggleInArray(windowConcerns, setWindowConcerns, concern)}
-                  className={`${chipBase} ${
-                    isSelected
-                      ? 'border-emerald text-white shadow-sm'
-                      : chipUnselected
-                  }`}
-                  style={
-                    isSelected
-                      ? {
-                          background:
-                            'linear-gradient(180deg, hsl(160 75% 48%) 0%, hsl(160 84% 39%) 50%, hsl(160 84% 32%) 100%)',
-                          boxShadow:
-                            'inset 0 1px 0 rgba(255,255,255,0.3), 0 2px 6px hsla(160 84% 39% / 0.22)',
-                        }
-                      : undefined
+              {activeStep === 2 && (
+                <OptionGrid
+                  options={WINDOW_STYLES.map((style) => ({
+                    value: style,
+                    label: style,
+                  }))}
+                  selectedValues={windowStyles}
+                  onToggle={(value) =>
+                    toggleInArray(windowStyles, setWindowStyles, value)
                   }
-                >
-                  {concern}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+                  selectedStyle={blueSelectedStyle}
+                />
+              )}
 
-        {/* Question 4: Frame Material (single-select chips) */}
-        <div className="card-raised rounded-2xl p-6 md:p-8 mb-8">
-          <div className="flex items-center gap-3 mb-3">
+              {activeStep === 3 && (
+                <OptionGrid
+                  options={WINDOW_CONCERNS.map((concern) => ({
+                    value: concern,
+                    label: concern,
+                  }))}
+                  selectedValues={windowConcerns}
+                  onToggle={(value) =>
+                    toggleInArray(windowConcerns, setWindowConcerns, value)
+                  }
+                  selectedStyle={greenSelectedStyle}
+                />
+              )}
+
+              {activeStep === 4 && (
+                <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(170px,1fr))]">
+                  {FRAME_MATERIALS.map(({ value, label }) => {
+                    const isSelected = frameMaterial === value;
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        aria-pressed={isSelected}
+                        onClick={() => setFrameMaterial(isSelected ? '' : value)}
+                        className={`${chipBase} ${isSelected ? chipSelectedText : chipUnselected}`}
+                        style={isSelected ? frameSelectedStyle : undefined}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              <ReservedFooter
+                visible={showCurrentAction}
+                label={currentLabel}
+                onClick={handleAdvance}
+                helperText={
+                  activeStep === 4 && showCurrentAction
+                    ? activeConfig.prescriptionSetup
+                    : undefined
+                }
+              />
+            </motion.div>
+          </AnimatePresence>
+
+          {activeStep < 4 && (
             <div
-              className="w-7 h-7 rounded-full text-white flex items-center justify-center text-xs font-bold"
-              style={numberBadgeStyle}
-            >
-              4
-            </div>
-            <p className="wm-eyebrow uppercase text-muted-foreground">
-              Frame Material
-            </p>
-          </div>
-          <h3 className="font-display text-lg font-extrabold tracking-tight text-foreground mb-1">
-            Frame Material Preference?
-          </h3>
-          <p className="text-sm text-muted-foreground mb-4">Pick One. "Not Sure" is Fine.</p>
-          <div className="flex flex-wrap gap-2">
-            {FRAME_MATERIALS.map(({ value, label }) => {
-              const isSelected = frameMaterial === value;
-              return (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setFrameMaterial(isSelected ? '' : value)}
-                  className={`${chipBase} ${isSelected ? chipSelectedCobalt : chipUnselected}`}
-                  style={isSelected ? cobaltSelectedStyle : undefined}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Advance */}
-        <div className="card-raised-hero rounded-2xl p-6 md:p-8 border-double border-4 border-cobalt/15">
-          <p className="text-sm text-foreground/80 leading-relaxed mb-6">
-            {activeConfig.prescriptionSetup}
-          </p>
-          <button
-            onClick={onAdvance}
-            disabled={!canAdvanceFromDiagnosis}
-            className={`btn-depth-primary w-full inline-flex items-center justify-center gap-2 py-4 px-6 text-base ${
-              !canAdvanceFromDiagnosis ? 'opacity-50 cursor-not-allowed' : ''
-            }`}
-          >
-            See How We'll Fix This <ArrowRight className="w-5 h-5" />
-          </button>
-          {!canAdvanceFromDiagnosis && (
-            <p className="text-xs text-muted-foreground text-center mt-3">
-              {primaryDiagnosis === 'other'
-                ? 'Tell us a little more so we can tailor the prescription.'
-                : 'Pick at least one option from question 1 to continue.'}
-            </p>
+              aria-hidden="true"
+              className="mx-auto mt-4 h-14 w-[92%] rounded-[28px] opacity-60 blur-[1px]"
+              style={silhouetteStyle}
+            />
           )}
         </div>
       </div>
