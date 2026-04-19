@@ -359,6 +359,84 @@ export async function diagnoseRoute(
   };
 }
 
+// --- DISPATCH: Shared sender used by both the live controller and the
+// admin smoke-send action. Centralizing the Meta call here guarantees the
+// admin smoke-send tool exercises the EXACT same payload shape, headers,
+// URL, and response handling as production. There must be only one sender.
+//
+// Behavior:
+//   - hashes PII via buildHashedUserData()
+//   - includes test_event_code IFF the resolved config carries one
+//     (env / db / per-client) OR the caller passed forceTestEventCode
+//   - returns { ok, status, response, capiPayload, masked_pixel_id, mode }
+//   - NEVER throws on Meta-side failures — the caller decides how to react
+//
+// `mode` is "live" when no forceTestEventCode override is provided, and
+// "test" when the admin smoke-send path injects/forces a test_event_code.
+// Live callers should pass forceTestEventCode = undefined.
+export interface DispatchOptions {
+  clientIp: string;
+  userAgent: string | null;
+  forceTestEventCode?: string; // smoke-send only; takes precedence over config
+}
+
+export interface DispatchResult {
+  ok: boolean;
+  status: number;
+  response: unknown;
+  capiPayload: Record<string, unknown>;
+  masked_pixel_id: string;
+  mode: "live" | "test";
+  test_event_code_used: string | null;
+}
+
+export async function dispatchCapiEvent(
+  body: CAPIEvent,
+  config: { pixelId: string; accessToken: string; testEventCode?: string },
+  opts: DispatchOptions,
+): Promise<DispatchResult> {
+  const hashedUserData = await buildHashedUserData(body.user_data, {
+    clientIp: opts.clientIp,
+    userAgent: opts.userAgent,
+  });
+
+  const eventData: Record<string, unknown> = {
+    event_name: body.event_name,
+    event_time: body.event_time || Math.floor(Date.now() / 1000),
+    event_id: body.event_id,
+    event_source_url: body.event_source_url,
+    action_source: "website",
+    user_data: hashedUserData,
+  };
+  if (body.custom_data) eventData.custom_data = body.custom_data;
+
+  const capiPayload: Record<string, unknown> = { data: [eventData] };
+
+  // Forced test code (smoke-send) wins over config-resolved code so an
+  // operator can intentionally exercise Meta's Test Events tab regardless
+  // of what the live config carries.
+  const effectiveTestCode = opts.forceTestEventCode ?? config.testEventCode ?? null;
+  if (effectiveTestCode) capiPayload.test_event_code = effectiveTestCode;
+
+  const url = `https://graph.facebook.com/v19.0/${config.pixelId}/events?access_token=${config.accessToken}`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(capiPayload),
+  });
+  const result = await response.json().catch(() => ({}));
+
+  return {
+    ok: response.ok,
+    status: response.status,
+    response: result,
+    capiPayload,
+    masked_pixel_id: `…${config.pixelId.slice(-4)}`,
+    mode: opts.forceTestEventCode ? "test" : (config.testEventCode ? "test" : "live"),
+    test_event_code_used: effectiveTestCode,
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
