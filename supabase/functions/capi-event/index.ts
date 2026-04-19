@@ -17,6 +17,33 @@
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  buildHashedUserData,
+  dispatchCapiEvent,
+  extractClientIp,
+  resolvePixelConfig,
+  sha256,
+  hashPhone,
+  isSha256Hex,
+  type CAPIEvent,
+  type DispatchOptions,
+  type DispatchResult,
+  type RouteDiagnostic,
+  type RouteDiagnosticTier,
+} from "../_shared/capiRouting.ts";
+
+// Re-export for backward compatibility with any tests importing from this file
+export {
+  buildHashedUserData,
+  dispatchCapiEvent,
+  extractClientIp,
+  resolvePixelConfig,
+  sha256,
+  hashPhone,
+  isSha256Hex,
+  diagnoseRoute,
+} from "../_shared/capiRouting.ts";
+export type { CAPIEvent, DispatchOptions, DispatchResult, RouteDiagnostic, RouteDiagnosticTier } from "../_shared/capiRouting.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
