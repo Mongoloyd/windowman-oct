@@ -237,7 +237,7 @@ export function ArbitrageFlowDiagram() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1.2 }}
         >
-          <strong className="text-foreground">The Correction:</strong> They actively bid to correct the specific failures in your original quote.
+          <strong className="text-foreground">The Correction:</strong> They Actively Bid To Correct The Specific Failures In Your Original Quote.
         </motion.div>
       </div>
     </div>
