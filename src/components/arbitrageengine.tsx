@@ -1202,11 +1202,11 @@ export default function ArbitrageEngine({
                     </h2>
                     <div className="flex flex-col gap-3 mt-4 pb-4">
                       <OptionCard
-                        text="Yes, I have an estimate"
+                        text="Yes, I Have a Quote"
                         onClick={() => advance("comp_a", "hasEstimate", "Yes")}
                       />
                       <OptionCard
-                        text="No, I'm just starting"
+                        text="No, I'm Just Starting"
                         onClick={() => advance("contact", "hasEstimate", "No")}
                       />
                     </div>
