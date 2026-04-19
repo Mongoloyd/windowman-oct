@@ -23,6 +23,7 @@ export type ServiceResult<T> = ServiceOk<T> | ServiceErr;
 // ── Report service ──────────────────────────────────────────────────────────
 
 export interface RawPreviewRow {
+  analysis_id: string | null;
   grade: string;
   flag_count: number;
   flag_red_count: number;
@@ -35,6 +36,7 @@ export interface RawPreviewRow {
 }
 
 export interface RawFullRow {
+  analysis_id: string | null;
   grade: string;
   flags: unknown;
   full_json: Record<string, unknown> | null;
