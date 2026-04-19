@@ -6,14 +6,17 @@ const cards = [
   {
     title: "Quality Becomes Visible",
     body: "When scope and materials are exposed, a stronger quote no longer has to lose to a weaker one just because the paperwork was more confusing.",
+    icon: "🔨",
   },
   {
     title: "Less Friction",
     body: "Better-informed homeowners make faster, cleaner decisions. Less guesswork means fewer bad expectations and more productive sales conversations.",
+    icon: "⚖️",
   },
   {
     title: "Junk Competition Weakens",
     body: "WindowMan rewards structural clarity and punishes vague, padded, or low-information quoting. That helps honest contractors compete without playing the same games.",
+    icon: "🛡️",
   },
 ];
 
@@ -57,7 +60,7 @@ export default function ContractorBenefitSection() {
                 style={{ background: "#e0f7fa", color: "#06B6D4" }}
                 aria-hidden="true"
               >
-                <span className="text-base font-bold">✓</span>
+                <span className="text-base font-bold">{card.icon}</span>
               </div>
               <h3 className="font-display text-xl font-bold tracking-tight text-foreground">
                 {card.title}
