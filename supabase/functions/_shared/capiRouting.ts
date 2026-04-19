@@ -131,6 +131,131 @@ export function extractClientIp(headers: Headers): string {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Token Hygiene Helpers
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Mask an access token for safe display in admin UI / logs / API responses.
+ * Returns null for empty inputs. Never returns raw token bytes.
+ */
+export function redactToken(token: string | null | undefined): string | null {
+  if (!token) return null;
+  const t = String(token);
+  if (t.length <= 8) return "****";
+  return `${t.slice(0, 4)}…${t.slice(-4)}`;
+}
+
+/**
+ * Stable failure-class enum for token/Meta dispatch outcomes. Operators use
+ * this to distinguish a token problem from a routing problem from a Meta-side
+ * rejection. Never includes raw token bytes.
+ */
+export type MetaFailureClass =
+  | "ok"
+  | "token_invalid_or_revoked"   // OAuthException 190 / 102 / 463
+  | "token_permission_denied"    // OAuthException 200 / 10
+  | "pixel_token_mismatch"       // pixel ID does not match token's app/asset
+  | "rate_limited"               // 4 / 17 / 32 / 613
+  | "meta_rejected_payload"      // schema/event-data rejection (non-token)
+  | "meta_server_error"          // 5xx from Meta
+  | "network_error"              // local fetch failed (DNS/TLS/etc)
+  | "unknown_failure";
+
+/**
+ * Classify a Meta CAPI response (or local network error) into a stable
+ * failure-class enum. Reads only Meta's documented `error.code` /
+ * `error.message` fields. Does NOT read or echo the access token.
+ *
+ * Reference: https://developers.facebook.com/docs/marketing-api/error-reference
+ */
+export function classifyMetaError(
+  status: number,
+  response: unknown,
+): { class: MetaFailureClass; subcode: number | null; hint: string } {
+  if (status >= 200 && status < 300) {
+    return { class: "ok", subcode: null, hint: "Accepted by Meta." };
+  }
+
+  const err = (response as { error?: { code?: number; error_subcode?: number; message?: string; type?: string } })?.error;
+  const code = typeof err?.code === "number" ? err.code : null;
+  const subcode = typeof err?.error_subcode === "number" ? err.error_subcode : null;
+  const message = typeof err?.message === "string" ? err.message.toLowerCase() : "";
+
+  // Token-revocation / invalidation family
+  if (code === 190 || code === 102 || code === 463 || /access token|session has expired|token is invalid/.test(message)) {
+    return {
+      class: "token_invalid_or_revoked",
+      subcode,
+      hint: "Rotate the token via create_meta_client_config and re-run smoke_send_meta_event.",
+    };
+  }
+
+  // Permission-scope problems (token alive but lacks ads_management / capi)
+  if (code === 200 || code === 10) {
+    return {
+      class: "token_permission_denied",
+      subcode,
+      hint: "Token lacks required scopes. Generate a system-user token with the correct asset permissions.",
+    };
+  }
+
+  // Pixel/asset mismatch — token doesn't own this pixel
+  if (/pixel|dataset/i.test(message) && /(permission|access|not\s+(allowed|authorized))/i.test(message)) {
+    return {
+      class: "pixel_token_mismatch",
+      subcode,
+      hint: "The access token does not own this pixel_id. Verify the pixel belongs to the token's Business Manager asset group.",
+    };
+  }
+
+  if (code === 4 || code === 17 || code === 32 || code === 613) {
+    return { class: "rate_limited", subcode, hint: "Back off and retry; investigate volume." };
+  }
+
+  if (status >= 500) {
+    return { class: "meta_server_error", subcode, hint: "Transient Meta-side issue; safe to retry." };
+  }
+
+  if (status >= 400) {
+    return {
+      class: "meta_rejected_payload",
+      subcode,
+      hint: "Payload rejected by Meta (not a token issue). Check event_data / user_data schema.",
+    };
+  }
+
+  return { class: "unknown_failure", subcode, hint: "Unclassified failure — inspect raw response." };
+}
+
+/**
+ * Lightweight presence check used by the admin token-health diagnostic.
+ * Returns booleans only — never values. Safe to expose to operator/viewer roles.
+ */
+export interface TokenPresence {
+  pixel_id_present: boolean;
+  access_token_present: boolean;
+  test_event_code_present: boolean;
+  pixel_id_masked: string | null;
+  access_token_masked: string | null;
+}
+
+export function summarizeTokenPresence(row: {
+  pixel_id?: string | null;
+  access_token?: string | null;
+  test_event_code?: string | null;
+} | null | undefined): TokenPresence {
+  const pixel = row?.pixel_id ?? null;
+  const tok = row?.access_token ?? null;
+  return {
+    pixel_id_present: !!pixel,
+    access_token_present: !!tok,
+    test_event_code_present: !!row?.test_event_code,
+    pixel_id_masked: pixel ? `…${String(pixel).slice(-4)}` : null,
+    access_token_masked: redactToken(tok),
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Core Routing Logic
 // ═══════════════════════════════════════════════════════════════════════════
 
