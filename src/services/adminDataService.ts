@@ -64,7 +64,8 @@ export type AdminAction =
   | "list_meta_configurations"
   | "create_meta_client_config"
   | "set_meta_client_active"
-  | "preview_meta_route";
+  | "preview_meta_route"
+  | "smoke_send_meta_event";
 
 /**
  * Payload shapes for each admin action.
@@ -118,6 +119,12 @@ export interface AdminActionPayloads {
   };
   set_meta_client_active: { client_slug: string; is_active: boolean };
   preview_meta_route: { client_slug?: string };
+  smoke_send_meta_event: {
+    client_slug?: string;
+    test_event_code?: string;
+    event_name?: "PageView" | "ViewContent" | "Lead" | "CompleteRegistration";
+    event_source_url?: string;
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

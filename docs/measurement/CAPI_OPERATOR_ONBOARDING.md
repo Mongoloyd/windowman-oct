@@ -190,3 +190,70 @@ After onboarding, confirm with these signals:
 - Browser remains **init + PageView only** — never selects pixels.
 - Conversion ownership remains **server-side via `capi-event`**.
 - No SQL needed for routine onboarding — use the admin actions.
+
+---
+
+## 10. Smoke-send (operator-triggered test event)
+
+`smoke_send_meta_event` lets a `super_admin` intentionally fire a controlled
+**test-mode** event through the **real** server-side controller path
+(`resolvePixelConfig` + `dispatchCapiEvent`) — the exact same code production
+uses. This is the safest way to confirm a freshly-onboarded pixel before live
+traffic, or to verify Meta accepts a re-enabled client.
+
+### Hard guarantees
+
+- `super_admin` only — `operator` and `viewer` cannot invoke it.
+- Test mode is **mandatory**. The action refuses to send unless either:
+  - `payload.test_event_code` is provided, OR
+  - the resolved config row carries a `test_event_code`.
+- The dispatched event uses a namespaced `event_id` (`wm-smoke-<uuid>`) so it
+  can never collide with funnel telemetry.
+- `capi_signal_logs.client_slug` is prefixed with `smoke:` so business
+  reporting filters can exclude it trivially.
+- Tokens never appear in the response — only `masked_pixel_id` (last 4).
+
+### Invocation
+
+```ts
+await invokeAdminData("smoke_send_meta_event", {
+  client_slug:     "acme-windows",   // optional; omit to test the default tier
+  test_event_code: "TEST12345",      // optional if config row already has one
+  event_name:      "PageView",       // optional, default PageView
+});
+```
+
+### Response shape
+
+| Field                  | Meaning                                                       |
+| ---------------------- | ------------------------------------------------------------- |
+| `attempted`            | `true` if a Meta call was dispatched                          |
+| `sent`                 | `true` if Meta returned 2xx                                   |
+| `mode`                 | Always `"test"` for smoke-send                                |
+| `status`               | HTTP status returned by Meta                                  |
+| `meta_response`        | Raw Meta response body (e.g. `{ events_received: 1 }`)        |
+| `masked_pixel_id`      | Last-4 mask (e.g. `…3456`)                                    |
+| `test_event_code_used` | The actual code injected into the payload                     |
+| `event_id`             | The namespaced `wm-smoke-…` ID — search for it in Meta Test Events |
+| `route`                | Full `RouteDiagnostic` so you can see which tier resolved     |
+| `reason`               | When `attempted=false`: `"no_route_resolved"`                 |
+
+### Common smoke-send scenarios
+
+| Scenario                          | Expected outcome                                                     |
+| --------------------------------- | -------------------------------------------------------------------- |
+| Active client + `test_event_code` | `attempted=true, sent=true, route.tier="client"`                     |
+| Unknown slug                      | Falls through to default/env; route surfaces `client_not_found`      |
+| Inactive client                   | Falls through; `route.reasons` includes `client_inactive`            |
+| Malformed config                  | Falls through OR degraded; `route.missing_fields` lists what's wrong |
+| No `test_event_code` anywhere     | HTTP 400 `test_event_code_required` — refuses to send                |
+| Fully degraded (no route)         | `attempted=false, reason="no_route_resolved"`                        |
+
+### Confirming in Meta
+
+1. Open **Events Manager → Data Sources → \[your pixel\] → Test Events**.
+2. Run the smoke-send.
+3. Look for the `event_id` returned in the response — it should appear within
+   a few seconds with the chosen `event_name`.
+4. If the event arrives at the **wrong** pixel, the routing is misconfigured —
+   re-run `preview_meta_route` to debug.

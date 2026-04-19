@@ -359,6 +359,84 @@ export async function diagnoseRoute(
   };
 }
 
+// --- DISPATCH: Shared sender used by both the live controller and the
+// admin smoke-send action. Centralizing the Meta call here guarantees the
+// admin smoke-send tool exercises the EXACT same payload shape, headers,
+// URL, and response handling as production. There must be only one sender.
+//
+// Behavior:
+//   - hashes PII via buildHashedUserData()
+//   - includes test_event_code IFF the resolved config carries one
+//     (env / db / per-client) OR the caller passed forceTestEventCode
+//   - returns { ok, status, response, capiPayload, masked_pixel_id, mode }
+//   - NEVER throws on Meta-side failures — the caller decides how to react
+//
+// `mode` is "live" when no forceTestEventCode override is provided, and
+// "test" when the admin smoke-send path injects/forces a test_event_code.
+// Live callers should pass forceTestEventCode = undefined.
+export interface DispatchOptions {
+  clientIp: string;
+  userAgent: string | null;
+  forceTestEventCode?: string; // smoke-send only; takes precedence over config
+}
+
+export interface DispatchResult {
+  ok: boolean;
+  status: number;
+  response: unknown;
+  capiPayload: Record<string, unknown>;
+  masked_pixel_id: string;
+  mode: "live" | "test";
+  test_event_code_used: string | null;
+}
+
+export async function dispatchCapiEvent(
+  body: CAPIEvent,
+  config: { pixelId: string; accessToken: string; testEventCode?: string },
+  opts: DispatchOptions,
+): Promise<DispatchResult> {
+  const hashedUserData = await buildHashedUserData(body.user_data, {
+    clientIp: opts.clientIp,
+    userAgent: opts.userAgent,
+  });
+
+  const eventData: Record<string, unknown> = {
+    event_name: body.event_name,
+    event_time: body.event_time || Math.floor(Date.now() / 1000),
+    event_id: body.event_id,
+    event_source_url: body.event_source_url,
+    action_source: "website",
+    user_data: hashedUserData,
+  };
+  if (body.custom_data) eventData.custom_data = body.custom_data;
+
+  const capiPayload: Record<string, unknown> = { data: [eventData] };
+
+  // Forced test code (smoke-send) wins over config-resolved code so an
+  // operator can intentionally exercise Meta's Test Events tab regardless
+  // of what the live config carries.
+  const effectiveTestCode = opts.forceTestEventCode ?? config.testEventCode ?? null;
+  if (effectiveTestCode) capiPayload.test_event_code = effectiveTestCode;
+
+  const url = `https://graph.facebook.com/v19.0/${config.pixelId}/events?access_token=${config.accessToken}`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(capiPayload),
+  });
+  const result = await response.json().catch(() => ({}));
+
+  return {
+    ok: response.ok,
+    status: response.status,
+    response: result,
+    capiPayload,
+    masked_pixel_id: `…${config.pixelId.slice(-4)}`,
+    mode: opts.forceTestEventCode ? "test" : (config.testEventCode ? "test" : "live"),
+    test_event_code_used: effectiveTestCode,
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -387,76 +465,39 @@ Deno.serve(async (req) => {
     console.log(`[CAPI:FIRE] event=${body.event_name} source=${config.source} pixel=…${config.pixelId.slice(-4)}`);
     resolvedPixelId = config.pixelId;
 
-    // Extract client IP via shared header-precedence helper
-    const clientIp = extractClientIp(req.headers);
-
-    // Hash PII — NEVER send raw email or phone to Meta.
-    // Behavior is identical to the previous inline block; logic lives in
-    // buildHashedUserData() so it can be exercised by regression tests.
-    const hashedUserData = await buildHashedUserData(body.user_data, {
-      clientIp,
+    // Delegate to the shared dispatcher so the live controller and the
+    // admin smoke-send tool are guaranteed to use the same payload shape,
+    // hashing, headers, URL, and response handling.
+    const dispatch = await dispatchCapiEvent(body, config, {
+      clientIp: extractClientIp(req.headers),
       userAgent: req.headers.get("user-agent"),
+      // No forceTestEventCode in production — only smoke-send injects one.
     });
-
-    // Build final CAPI payload
-    const eventData: Record<string, unknown> = {
-      event_name: body.event_name,
-      event_time: body.event_time || Math.floor(Date.now() / 1000),
-      event_id: body.event_id,
-      event_source_url: body.event_source_url,
-      action_source: "website",
-      user_data: hashedUserData,
-    };
-
-    if (body.custom_data) {
-      eventData.custom_data = body.custom_data;
-    }
-
-    // Build the top-level payload
-    // test_event_code comes from DB config or env var — never hardcoded
-    const capiPayload: Record<string, unknown> = {
-      data: [eventData],
-    };
-
-    if (config.testEventCode) {
-      capiPayload.test_event_code = config.testEventCode;
-    }
-
-    // Fire to Meta
-    const capiUrl = `https://graph.facebook.com/v19.0/${config.pixelId}/events?access_token=${config.accessToken}`;
-
-    const response = await fetch(capiUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(capiPayload),
-    });
-
-    const result = await response.json();
 
     // Log to capi_signal_logs — always, success or failure
-    // Payload logged with PII already hashed (hashedUserData, not raw body.user_data)
+    // Payload logged with PII already hashed (lives inside dispatch.capiPayload).
     await supabase.from("capi_signal_logs").insert({
       client_slug: body.client_slug ?? "default",
       pixel_id: config.pixelId,
       event_name: body.event_name,
-      status_code: response.status,
-      payload: capiPayload, // Already hashed — safe to log
-      response: result,
+      status_code: dispatch.status,
+      payload: dispatch.capiPayload,
+      response: dispatch.response,
       fired_at: new Date().toISOString(),
     });
 
-    if (!response.ok) {
-      console.error("CAPI error:", JSON.stringify(result));
-      return new Response(JSON.stringify({ success: false, error: result }), {
+    if (!dispatch.ok) {
+      console.error("CAPI error:", JSON.stringify(dispatch.response));
+      return new Response(JSON.stringify({ success: false, error: dispatch.response }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    return new Response(JSON.stringify({ success: true, events_received: result.events_received }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ success: true, events_received: (dispatch.response as { events_received?: number })?.events_received }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   } catch (err) {
     console.error("CAPI function error:", err);
 

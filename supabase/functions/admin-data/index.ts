@@ -1,6 +1,6 @@
 import { corsHeaders, errorResponse, successResponse, validateAdminRequestWithRole, type AppRole } from "../_shared/adminAuth.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { diagnoseRoute } from "../capi-event/index.ts";
+import { diagnoseRoute, dispatchCapiEvent, resolvePixelConfig, type CAPIEvent } from "../capi-event/index.ts";
 
 /**
  * admin-data v2.4
@@ -22,7 +22,8 @@ type ActionName =
   | "list_invitations" | "create_invitation" | "revoke_invitation"
   // CAPI control-plane (Meta multi-pixel routing)
   | "list_meta_configurations" | "create_meta_client_config"
-  | "set_meta_client_active"   | "preview_meta_route";
+  | "set_meta_client_active"   | "preview_meta_route"
+  | "smoke_send_meta_event";
 
 const ACTION_ROLES: Record<ActionName, AppRole[]> = {
   fetch_leads: ["super_admin", "operator", "viewer"],
@@ -55,11 +56,13 @@ const ACTION_ROLES: Record<ActionName, AppRole[]> = {
   list_invitations: ["super_admin", "operator", "viewer"],
   create_invitation: ["super_admin", "operator"],
   revoke_invitation: ["super_admin", "operator"],
-  // CAPI control-plane — super_admin only for mutations; viewers may inspect & dry-run.
+  // CAPI control-plane — super_admin only for mutations & live-network sends;
+  // viewers may inspect & dry-run.
   list_meta_configurations: ["super_admin", "operator", "viewer"],
   create_meta_client_config: ["super_admin"],
   set_meta_client_active:    ["super_admin"],
   preview_meta_route:        ["super_admin", "operator", "viewer"],
+  smoke_send_meta_event:     ["super_admin"],
 };
 
 // ── CAPI helpers ────────────────────────────────────────────────────────────
@@ -929,6 +932,132 @@ Deno.serve(async (req) => {
           ...diagnostic,
           masked_pixel_id,
           preview_only: true, // explicit marker — this never sent to Meta
+        },
+      });
+    }
+
+    // Operator-only smoke-send — fires a controlled Meta event through the
+    // REAL controller code path (resolvePixelConfig + dispatchCapiEvent).
+    //
+    // Hard rules enforced here:
+    //   1. Caller MUST provide a test_event_code OR rely on the resolved
+    //      config carrying one. If neither is present, we refuse to send so
+    //      smoke traffic can never be silently logged as production traffic.
+    //   2. The event_id is namespaced ("wm-smoke-…") so it can never collide
+    //      with real funnel events.
+    //   3. capi_signal_logs.client_slug is prefixed with "smoke:" so logs
+    //      are easy to filter out of business reporting.
+    //   4. Tokens are NEVER returned. Only a masked pixel ID is exposed.
+    if (action === "smoke_send_meta_event") {
+      const {
+        client_slug,
+        test_event_code,
+        event_name = "PageView",
+        event_source_url = "https://wmmvp.lovable.app/__smoke__",
+      } = payload ?? {};
+
+      const slug = typeof client_slug === "string" && client_slug.length > 0 ? client_slug : undefined;
+      if (slug && !SLUG_RE.test(slug)) {
+        return errorResponse(400, "invalid_slug", "client_slug must match [a-z0-9-]{1,40}.");
+      }
+
+      const allowedEvents = new Set(["PageView", "ViewContent", "Lead", "CompleteRegistration"]);
+      if (!allowedEvents.has(event_name)) {
+        return errorResponse(400, "invalid_event_name",
+          `event_name must be one of: ${[...allowedEvents].join(", ")}`);
+      }
+
+      const overrideTestCode = typeof test_event_code === "string" && test_event_code.trim().length > 0
+        ? test_event_code.trim()
+        : undefined;
+
+      // Resolve the route using the SAME resolver used in production.
+      const config = await resolvePixelConfig(supabaseAdmin as never, slug);
+      const diagnostic = await diagnoseRoute(supabaseAdmin as never, slug);
+
+      if (!config) {
+        // Degraded — never attempt a send. Surface diagnostic so operator
+        // knows exactly what's missing.
+        return successResponse({
+          data: {
+            attempted: false,
+            sent: false,
+            mode: "test",
+            reason: "no_route_resolved",
+            route: diagnostic,
+            preview_only: true,
+          },
+        });
+      }
+
+      const effectiveTestCode = overrideTestCode ?? config.testEventCode;
+      if (!effectiveTestCode) {
+        // Refuse to send: explicit test mode is mandatory.
+        return errorResponse(400, "test_event_code_required",
+          "Smoke-send requires test_event_code (either passed in payload or configured on the resolved row).");
+      }
+
+      // Build a controlled, namespaced test event. event_id prefix ensures
+      // the smoke event can never collide with real funnel telemetry.
+      const eventId = `wm-smoke-${crypto.randomUUID()}`;
+      const event: CAPIEvent = {
+        event_name: event_name as CAPIEvent["event_name"],
+        event_id: eventId,
+        event_source_url,
+        action_source: "website",
+        client_slug: slug,
+        user_data: {
+          // Deterministic synthetic identity so Meta dedupes test sends per pixel.
+          external_id: `smoke-${slug ?? "default"}`,
+        },
+      };
+
+      let dispatch;
+      try {
+        dispatch = await dispatchCapiEvent(event, config, {
+          clientIp: req.headers.get("cf-connecting-ip") ?? "0.0.0.0",
+          userAgent: req.headers.get("user-agent"),
+          forceTestEventCode: effectiveTestCode,
+        });
+      } catch (sendErr) {
+        // Network-level failure (DNS, TLS, etc) — never silently swallowed.
+        return successResponse({
+          data: {
+            attempted: true,
+            sent: false,
+            mode: "test",
+            reason: "network_error",
+            error: String(sendErr),
+            route: { ...diagnostic, masked_pixel_id: `…${config.pixelId.slice(-4)}` },
+            test_event_code_used: effectiveTestCode,
+            event_id: eventId,
+          },
+        });
+      }
+
+      // Log to capi_signal_logs with a "smoke:" client_slug prefix so business
+      // reporting can filter it out trivially.
+      await supabaseAdmin.from("capi_signal_logs").insert({
+        client_slug: `smoke:${slug ?? "default"}`,
+        pixel_id: config.pixelId,
+        event_name,
+        status_code: dispatch.status,
+        payload: dispatch.capiPayload,
+        response: dispatch.response,
+        fired_at: new Date().toISOString(),
+      });
+
+      return successResponse({
+        data: {
+          attempted: true,
+          sent: dispatch.ok,
+          mode: dispatch.mode, // always "test" because forceTestEventCode set
+          status: dispatch.status,
+          meta_response: dispatch.response,
+          masked_pixel_id: dispatch.masked_pixel_id,
+          test_event_code_used: dispatch.test_event_code_used,
+          event_id: eventId,
+          route: { ...diagnostic, masked_pixel_id: dispatch.masked_pixel_id },
         },
       });
     }
