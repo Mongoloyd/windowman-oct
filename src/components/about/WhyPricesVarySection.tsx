@@ -55,9 +55,9 @@ export default function WhyPricesVarySection() {
             Why the Same Project Can Vary 20–50%
           </SectionHeading>
           <p className="mx-auto max-w-3xl text-base leading-relaxed text-foreground/80 md:text-lg">
-            Two proposals can describe the same home and still differ sharply in
-            scope clarity, specification quality, installation detail, warranty
-            strength, and final economics.
+            Two Proposals Can Describe The Same Home and Still Differ Sharply in
+            Scope Clarity, Specification Quality, Installation Detail, Warranty
+            Strength, and Final Economics.
           </p>
         </div>
 
@@ -111,8 +111,8 @@ export default function WhyPricesVarySection() {
           </div>
           <div className="border-t border-slate-200 bg-slate-50/80 px-6 py-4 text-center">
             <p className="text-sm italic text-foreground/60">
-              When these variables aren't normalized, price becomes a false
-              anchor.
+              When These Variables Aren't Normalized, Price Becomes a False
+              Anchor.
             </p>
           </div>
         </div>
