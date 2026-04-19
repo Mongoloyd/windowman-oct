@@ -69,12 +69,6 @@ const PublicNavbar = ({ ctaText = "Get Started Free", onCtaClick }: PublicNavbar
           <span className="font-display" style={{ fontWeight: 800, fontSize: 20, letterSpacing: "0.02em" }}>
             <span className="text-foreground">WINDOW</span>
             <span style={{ color: "#3e8fda" }}>MAN</span>
-            <sup
-              className="text-muted-foreground"
-              style={{ fontSize: 9, fontWeight: 400, letterSpacing: "0.15em", marginLeft: 2, verticalAlign: "super" }}
-            >
-              .PRO
-            </sup>
           </span>
         </Link>
 
