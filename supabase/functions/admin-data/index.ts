@@ -31,7 +31,8 @@ type ActionName =
   // CAPI control-plane (Meta multi-pixel routing)
   | "list_meta_configurations" | "create_meta_client_config"
   | "set_meta_client_active"   | "preview_meta_route"
-  | "smoke_send_meta_event" | "diagnose_token_health";
+  | "smoke_send_meta_event" | "diagnose_token_health"
+  | "summarize_meta_fleet_health";
 
 const ACTION_ROLES: Record<ActionName, AppRole[]> = {
   fetch_leads: ["super_admin", "operator", "viewer"],
@@ -72,6 +73,7 @@ const ACTION_ROLES: Record<ActionName, AppRole[]> = {
   preview_meta_route:        ["super_admin", "operator", "viewer"],
   smoke_send_meta_event:     ["super_admin"],
   diagnose_token_health:     ["super_admin", "operator", "viewer"],
+  summarize_meta_fleet_health: ["super_admin", "operator", "viewer"],
 };
 
 // ── CAPI helpers ────────────────────────────────────────────────────────────
