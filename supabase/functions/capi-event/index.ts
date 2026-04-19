@@ -47,7 +47,8 @@ interface CAPIEvent {
 }
 
 // --- UTILITY: SHA-256 hash any string ---
-async function sha256(value: string): Promise<string> {
+// Exported for regression testing (see index.test.ts). Behavior unchanged.
+export async function sha256(value: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(value.trim().toLowerCase());
   const hashBuffer = await crypto.subtle.digest("SHA-256", data);
@@ -57,7 +58,8 @@ async function sha256(value: string): Promise<string> {
 }
 
 // --- UTILITY: Normalize phone (strip all non-digits) then hash ---
-async function hashPhone(phone: string): Promise<string> {
+// Exported for regression testing. Behavior unchanged.
+export async function hashPhone(phone: string): Promise<string> {
   const normalized = phone.replace(/\D/g, "");
   return sha256(normalized);
 }
@@ -67,8 +69,42 @@ async function hashPhone(phone: string): Promise<string> {
 // before calling this function. Without this guard we would double-hash those
 // values and silently destroy match quality. Raw input from any other caller
 // continues to be normalized + hashed below.
-function isSha256Hex(value: string): boolean {
+// Exported for regression testing. Behavior unchanged.
+export function isSha256Hex(value: string): boolean {
   return /^[a-f0-9]{64}$/i.test(value);
+}
+
+// --- UTILITY: Build hashed user_data block from raw payload + request headers ---
+// Extracted from the request handler verbatim so it can be exercised by tests.
+// MUST behave identically to the inline implementation it replaces.
+export async function buildHashedUserData(
+  userData: CAPIEvent["user_data"],
+  headers: { clientIp: string; userAgent: string | null },
+): Promise<Record<string, unknown>> {
+  const hashedUserData: Record<string, unknown> = {
+    ...userData,
+    client_ip_address: headers.clientIp,
+  };
+
+  if (userData.em) {
+    const em = userData.em;
+    hashedUserData.em = [isSha256Hex(em) ? em.toLowerCase() : await sha256(em)];
+  }
+  if (userData.ph) {
+    const ph = userData.ph;
+    hashedUserData.ph = [isSha256Hex(ph) ? ph.toLowerCase() : await hashPhone(ph)];
+  }
+  if (userData.external_id) {
+    const ext = userData.external_id;
+    hashedUserData.external_id = isSha256Hex(ext) ? ext.toLowerCase() : await sha256(ext);
+  }
+
+  // Preserve client_user_agent: prefer payload value, fall back to request header.
+  if (!hashedUserData.client_user_agent && headers.userAgent) {
+    hashedUserData.client_user_agent = headers.userAgent;
+  }
+
+  return hashedUserData;
 }
 
 // --- UTILITY: Resolve which pixel config to use ---
