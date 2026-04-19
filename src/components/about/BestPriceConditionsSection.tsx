@@ -45,7 +45,7 @@ export default function BestPriceConditionsSection() {
         {/* Section Header */}
         <div className="mb-12 text-center md:mb-16">
           <SectionEyebrow className="mb-4">
-            WHY BETTER PRICES BECOME MORE LIKELY
+            How You Get Better Pricing
           </SectionEyebrow>
           <SectionHeading className="mb-6">
             No One Can Promise the Best Price Every Time. We Can Create the
