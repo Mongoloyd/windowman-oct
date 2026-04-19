@@ -51,7 +51,7 @@ export default function HowWeMakeMoneySection() {
             </div>
 
             {/* Right: Contractor/revenue side */}
-            <div className="flex flex-col gap-4 md:pl-8 border-solid rounded-sm border shadow-inner">
+            <div className="flex flex-col gap-4 md:pl-8 border-solid rounded-sm border shadow-lg">
               <div className="flex items-center gap-3">
                 <span className="h-1 w-8 rounded-full bg-orange-400" aria-hidden="true" />
                 <span className="font-mono tracking-[0.12em] text-muted-foreground text-base">

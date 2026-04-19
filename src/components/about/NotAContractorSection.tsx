@@ -60,7 +60,7 @@ export default function NotAContractorSection() {
             <SkeuoCard key={card.label} className="flex flex-col">
               <span className={`mb-4 inline-block h-1.5 w-8 rounded-full ${card.accent}`} aria-hidden="true" />
               <h3 className="mb-3 font-display text-lg font-bold tracking-tight text-foreground">{card.label}</h3>
-              <p className="text-sm leading-relaxed text-foreground/70">{card.body}</p>
+              <p className="text-sm leading-relaxed text-foreground/70 font-medium">{card.body}</p>
             </SkeuoCard>
           ))}
         </div>
