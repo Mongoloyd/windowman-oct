@@ -209,30 +209,13 @@ Deno.serve(async (req) => {
       req.headers.get("x-real-ip") ||
       "0.0.0.0";
 
-    // Hash PII — NEVER send raw email or phone to Meta
-    const hashedUserData: Record<string, unknown> = {
-      ...body.user_data,
-      client_ip_address: clientIp,
-    };
-
-    if (body.user_data.em) {
-      const em = body.user_data.em;
-      hashedUserData.em = [isSha256Hex(em) ? em.toLowerCase() : await sha256(em)];
-    }
-    if (body.user_data.ph) {
-      const ph = body.user_data.ph;
-      hashedUserData.ph = [isSha256Hex(ph) ? ph.toLowerCase() : await hashPhone(ph)];
-    }
-    if (body.user_data.external_id) {
-      const ext = body.user_data.external_id;
-      hashedUserData.external_id = isSha256Hex(ext) ? ext.toLowerCase() : await sha256(ext);
-    }
-
-    // Preserve client_user_agent: prefer payload value, fall back to request header.
-    if (!hashedUserData.client_user_agent) {
-      const ua = req.headers.get("user-agent");
-      if (ua) hashedUserData.client_user_agent = ua;
-    }
+    // Hash PII — NEVER send raw email or phone to Meta.
+    // Behavior is identical to the previous inline block; logic lives in
+    // buildHashedUserData() so it can be exercised by regression tests.
+    const hashedUserData = await buildHashedUserData(body.user_data, {
+      clientIp,
+      userAgent: req.headers.get("user-agent"),
+    });
 
     // Build final CAPI payload
     const eventData: Record<string, unknown> = {
