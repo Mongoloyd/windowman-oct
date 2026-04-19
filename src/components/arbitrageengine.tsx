@@ -779,7 +779,7 @@ export default function ArbitrageEngine({
                     {/* Grade Badge */}
                     <div className="relative z-10 flex flex-col items-center mb-6 sm:mb-8">
                       <span className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-3">
-                        Simplified Sample Truth Report™ Grade
+                        Simplified Sample Truth Report™
                       </span>
                       <div
                         className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border-2 flex items-center justify-center text-2xl sm:text-3xl font-black ${gradeColor(MOCK_ANALYSIS.grade)}`}
