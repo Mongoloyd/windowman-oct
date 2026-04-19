@@ -1,6 +1,6 @@
 import { corsHeaders, errorResponse, successResponse, validateAdminRequestWithRole, type AppRole } from "../_shared/adminAuth.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { diagnoseRoute } from "../capi-event/index.ts";
+import { diagnoseRoute, dispatchCapiEvent, resolvePixelConfig, type CAPIEvent } from "../capi-event/index.ts";
 
 /**
  * admin-data v2.4
@@ -22,7 +22,8 @@ type ActionName =
   | "list_invitations" | "create_invitation" | "revoke_invitation"
   // CAPI control-plane (Meta multi-pixel routing)
   | "list_meta_configurations" | "create_meta_client_config"
-  | "set_meta_client_active"   | "preview_meta_route";
+  | "set_meta_client_active"   | "preview_meta_route"
+  | "smoke_send_meta_event";
 
 const ACTION_ROLES: Record<ActionName, AppRole[]> = {
   fetch_leads: ["super_admin", "operator", "viewer"],
@@ -55,11 +56,13 @@ const ACTION_ROLES: Record<ActionName, AppRole[]> = {
   list_invitations: ["super_admin", "operator", "viewer"],
   create_invitation: ["super_admin", "operator"],
   revoke_invitation: ["super_admin", "operator"],
-  // CAPI control-plane — super_admin only for mutations; viewers may inspect & dry-run.
+  // CAPI control-plane — super_admin only for mutations & live-network sends;
+  // viewers may inspect & dry-run.
   list_meta_configurations: ["super_admin", "operator", "viewer"],
   create_meta_client_config: ["super_admin"],
   set_meta_client_active:    ["super_admin"],
   preview_meta_route:        ["super_admin", "operator", "viewer"],
+  smoke_send_meta_event:     ["super_admin"],
 };
 
 // ── CAPI helpers ────────────────────────────────────────────────────────────
