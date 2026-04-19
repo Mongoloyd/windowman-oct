@@ -144,7 +144,7 @@ export default function TrustProofSection({ stats }: TrustProofSectionProps) {
               }}
               aria-hidden="true"
             />
-            <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            <span className="font-mono text-[12px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               Sample Finding
             </span>
           </div>
