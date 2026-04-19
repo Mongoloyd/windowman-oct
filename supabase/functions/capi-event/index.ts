@@ -128,19 +128,19 @@ async function resolvePixelConfig(
 ): Promise<{ pixelId: string; accessToken: string; testEventCode?: string; source: string } | null> {
   // Tier 1: Client-specific pixel
   if (clientSlug) {
-    const { data: client } = await supabase
+    const { data: client } = (await supabase
       .from("clients")
       .select("id")
       .eq("slug", clientSlug)
       .eq("is_active", true)
-      .single();
+      .single()) as { data: { id: string } | null };
 
     if (client) {
-      const { data: config } = await supabase
+      const { data: config } = (await supabase
         .from("meta_configurations")
         .select("pixel_id, access_token, test_event_code")
         .eq("client_id", client.id)
-        .single();
+        .single()) as { data: { pixel_id: string; access_token: string; test_event_code: string | null } | null };
 
       if (config?.pixel_id && config?.access_token) {
         console.log(`[CAPI:RESOLVE] Using client-specific pixel for slug="${clientSlug}"`);
