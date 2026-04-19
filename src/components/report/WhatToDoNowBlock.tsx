@@ -7,9 +7,9 @@
  * back up to the CTA strip — never a primary button.
  *
  * Single-winner action picker (priority order):
- *   1. Replace / Re-bid — wins on grade D/F or redCount >= 3
- *   2. Negotiate       — wins on price band high/extreme, markup, or price_fairness flag
- *   3. Validate        — wins on missing items or fine_print/safety_code flags
+ * 1. Replace / Re-bid — wins on grade D/F or redCount >= 3
+ * 2. Negotiate       — wins on price band high/extreme, markup, or price_fairness flag
+ * 3. Validate        — wins on missing items or fine_print/safety_code flags
  */
 
 import { motion } from "framer-motion";
@@ -51,12 +51,12 @@ function buildQualified(props: WhatToDoNowBlockProps): QualifiedAction[] {
   if (isHighSeverityGrade || redCount >= 3) {
     const evidenceParts: string[] = [];
     if (isHighSeverityGrade) evidenceParts.push(`Grade ${grade}`);
-    if (redCount >= 3) evidenceParts.push(pluralize(redCount, "critical finding"));
+    if (redCount >= 3) evidenceParts.push(pluralize(redCount, "Critical Finding"));
     out.push({
       kind: "replace",
-      title: "Replace / re-bid this quote",
+      title: "Replace / Re-Bid This Quote",
       oneLiner:
-        "The risk pattern in this quote is severe enough that the strongest move is to get a competing quote before signing.",
+        "The Risk Pattern In This Quote is Severe Enough That The Strongest Move is to Get a Competing Quote Before Signing.",
       basedOn: evidenceParts.join(" · "),
       icon: RefreshCw,
       accent: "hsl(var(--color-danger))",
@@ -68,16 +68,16 @@ function buildQualified(props: WhatToDoNowBlockProps): QualifiedAction[] {
   const priceBandHigh = pricePerOpeningBand === "high" || pricePerOpeningBand === "extreme";
   if (priceFlags.length > 0 || markupEstimate || priceBandHigh) {
     const evidenceParts: string[] = [];
-    if (priceBandHigh) evidenceParts.push(`Price band: ${pricePerOpeningBand}`);
+    if (priceBandHigh) evidenceParts.push(`Price Band: ${pricePerOpeningBand}`);
     if (markupEstimate) evidenceParts.push(`Markup: ${markupEstimate}`);
     if (priceFlags.length > 0 && evidenceParts.length === 0) {
-      evidenceParts.push(pluralize(priceFlags.length, "price-fairness finding"));
+      evidenceParts.push(pluralize(priceFlags.length, "Price-Fairness Finding"));
     }
     out.push({
       kind: "negotiate",
-      title: "Negotiate this quote",
+      title: "Negotiate This Quote",
       oneLiner:
-        "Price evidence in your report supports renegotiating before you sign — there is room to push back on labor and materials.",
+        "Price Evidence in Your Report Supports Renegotiating Before You Sign — There's Room To Push Back on Labor and Materials.",
       basedOn: evidenceParts.join(" · "),
       icon: Scale,
       accent: "hsl(var(--color-caution))",
@@ -89,18 +89,18 @@ function buildQualified(props: WhatToDoNowBlockProps): QualifiedAction[] {
   const missingCount = (missingItems ?? []).length;
   if (missingCount > 0 || validateFlags.length > 0) {
     const evidenceParts: string[] = [];
-    if (missingCount > 0) evidenceParts.push(pluralize(missingCount, "missing scope item"));
+    if (missingCount > 0) evidenceParts.push(pluralize(missingCount, "Missing Scope Item"));
     if (validateFlags.length > 0) {
       const fineCount = validateFlags.filter((f) => f.pillar === "fine_print").length;
       const safetyCount = validateFlags.filter((f) => f.pillar === "safety_code").length;
-      if (safetyCount > 0) evidenceParts.push(pluralize(safetyCount, "safety/code finding"));
-      if (fineCount > 0) evidenceParts.push(pluralize(fineCount, "fine-print finding"));
+      if (safetyCount > 0) evidenceParts.push(pluralize(safetyCount, "Safety/Code Finding"));
+      if (fineCount > 0) evidenceParts.push(pluralize(fineCount, "Fine-Print Finding"));
     }
     out.push({
       kind: "validate",
-      title: "Validate this quote before signing",
+      title: "Validate This Quote Before Signing",
       oneLiner:
-        "Important scope, code, or fine-print items are unclear in this quote. Get them clarified in writing before you commit.",
+        "Important Scope, Code, or Fine-Print Items Are Unclear in This Quote. Get Them Clarified in Writing Before You Commit.",
       basedOn: evidenceParts.join(" · "),
       icon: ShieldCheck,
       accent: "hsl(var(--color-cyan))",
@@ -132,7 +132,7 @@ const WhatToDoNowBlock = (props: WhatToDoNowBlockProps) => {
             WHAT TO DO NOW
           </span>
           <h2 className="font-display text-foreground text-lg md:text-xl font-semibold mt-1">
-            Your recommended next move
+            Your Recommended Next Move
           </h2>
         </div>
 
