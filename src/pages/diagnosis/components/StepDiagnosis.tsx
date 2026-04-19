@@ -78,7 +78,7 @@ export function StepDiagnosis({
           onClick={onBack}
           className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground mb-6 transition-colors"
         >
-          <ArrowLeft className="w-4 h-4" /> Change my answer
+          <ArrowLeft className="w-4 h-4" /> Change My Answer
         </button>
 
         {/* Therapeutic Reflection Panel */}
@@ -101,7 +101,7 @@ export function StepDiagnosis({
         </div>
 
         <p className="text-center text-muted-foreground text-sm mb-6 italic">
-          A few quick questions so we can shape your prescription. All taps, no typing.
+          A Few Quick Questions So We Can Shape Your Prescription. All Taps, No Typing.
         </p>
 
         {/* Question 1: Secondary Clarifier */}
@@ -165,9 +165,9 @@ export function StepDiagnosis({
             </p>
           </div>
           <h3 className="font-display text-lg font-extrabold tracking-tight text-foreground mb-1">
-            Which window styles are part of this project?
+            Which Window Styles Are Part of this Project?
           </h3>
-          <p className="text-sm text-muted-foreground mb-4">Tap any that apply.</p>
+          <p className="text-sm text-muted-foreground mb-4">Tap Any That Apply.</p>
           <div className="flex flex-wrap gap-2">
             {WINDOW_STYLES.map((style) => {
               const isSelected = windowStyles.includes(style);
@@ -200,9 +200,9 @@ export function StepDiagnosis({
             </p>
           </div>
           <h3 className="font-display text-lg font-extrabold tracking-tight text-foreground mb-1">
-            What matters most to you?
+            What Matters Most To You?
           </h3>
-          <p className="text-sm text-muted-foreground mb-4">Tap everything that's important.</p>
+          <p className="text-sm text-muted-foreground mb-4">Tap Everything That's Important.</p>
           <div className="flex flex-wrap gap-2">
             {WINDOW_CONCERNS.map((concern) => {
               const isSelected = windowConcerns.includes(concern);
@@ -248,9 +248,9 @@ export function StepDiagnosis({
             </p>
           </div>
           <h3 className="font-display text-lg font-extrabold tracking-tight text-foreground mb-1">
-            Frame material preference?
+            Frame Material Preference?
           </h3>
-          <p className="text-sm text-muted-foreground mb-4">Pick one. "Not sure" is fine.</p>
+          <p className="text-sm text-muted-foreground mb-4">Pick One. "Not Sure" is Fine.</p>
           <div className="flex flex-wrap gap-2">
             {FRAME_MATERIALS.map(({ value, label }) => {
               const isSelected = frameMaterial === value;
