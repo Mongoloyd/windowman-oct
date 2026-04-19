@@ -1,5 +1,6 @@
 import SectionEyebrow from "./SectionEyebrow";
 import SectionHeading from "./SectionHeading";
+import { useTickerStats } from "@/hooks/useTickerStats";
 
 interface StatItem {
   label: string;
@@ -9,12 +10,6 @@ interface StatItem {
 interface TrustProofSectionProps {
   stats?: StatItem[];
 }
-
-const defaultStats: StatItem[] = [
-  { label: "Quotes Analyzed", value: "2,400+" },
-  { label: "Counties Tracked", value: "38" },
-  { label: "Hidden Risks Flagged", value: "6,100+" },
-];
 
 const proofItems = [
   "Scope detail",
@@ -26,6 +21,12 @@ const proofItems = [
 ];
 
 export default function TrustProofSection({ stats }: TrustProofSectionProps) {
+  const { total } = useTickerStats();
+  const defaultStats: StatItem[] = [
+    { label: "Quotes Analyzed", value: `${total.toLocaleString()}+` },
+    { label: "Counties Tracked", value: "38" },
+    { label: "Hidden Risks Flagged", value: "6,100+" },
+  ];
   const displayStats = stats ?? defaultStats;
 
   return (
