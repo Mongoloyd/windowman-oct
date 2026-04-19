@@ -546,7 +546,7 @@ const VerdictHologram = React.forwardRef<
             </div>
           </div>
 
-          <div className="mt-6 text-[10px] font-mono text-slate-500 uppercase tracking-widest opacity-80">
+          <div className="mt-6 text-[10px] font-mono uppercase tracking-widest opacity-80 text-slate-300">
             AI Audit ID: {auditIdRef.current} // v4.2 Compliance Engine
           </div>
         </div>
