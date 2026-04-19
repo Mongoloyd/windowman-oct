@@ -154,8 +154,12 @@ describe("PostScanReportSwitcher shared OTP status wiring", () => {
     renderSwitcher();
     // The auto-send effect must fire because phone is pre-hydrated and the
     // gate landed in send_code — this is the unlock path for returning leads.
+    // After the send completes, localGateOverride flips to enter_code so the
+    // user can immediately type the SMS code without an extra click.
     await waitFor(() => expect(submitPhoneMock).toHaveBeenCalledTimes(1));
-    expect(screen.getByTestId("gate-mode")).toHaveTextContent("send_code");
+    await waitFor(() =>
+      expect(screen.getByTestId("gate-mode")).toHaveTextContent("enter_code")
+    );
   });
 
   it("shows enter_phone mode when no phone exists", () => {
