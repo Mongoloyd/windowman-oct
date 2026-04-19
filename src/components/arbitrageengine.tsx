@@ -186,9 +186,19 @@ export type FunnelStep =
   | "secret_success";
 
 export const FUNNEL_STEPS: FunnelStep[] = [
-  "scope", "intent_filter", "status", "comp_a", "comp_b",
-  "contact", "identity", "intent", "call", "timeframe",
-  "done", "secret_capture", "secret_success",
+  "scope",
+  "intent_filter",
+  "status",
+  "comp_a",
+  "comp_b",
+  "contact",
+  "identity",
+  "intent",
+  "call",
+  "timeframe",
+  "done",
+  "secret_capture",
+  "secret_success",
 ];
 
 export type ArbitrageEngineProps = {
@@ -1106,7 +1116,7 @@ export default function ArbitrageEngine({
                     className="flex flex-col h-full w-full absolute inset-0 p-6 sm:p-8 overflow-y-auto custom-scrollbar"
                   >
                     <h2 className="text-xl sm:text-2xl font-bold mb-6 text-center text-white shrink-0">
-                      How many windows or doors are we auditing?
+                      How Many Windows or Doors are we Considering?
                     </h2>
                     <div className="flex flex-col gap-3 pb-4">
                       {["1-5", "6-10", "11-15", "15+"].map((opt) => (
