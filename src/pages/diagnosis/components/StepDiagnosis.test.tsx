@@ -172,20 +172,20 @@ describe('StepDiagnosis — one-question consultation flow', () => {
     await moveToStep4();
 
     expect(
-      screen.queryByRole('button', { name: /show me what’s next/i })
+      screen.queryByRole('button', { name: /show me what's next/i })
     ).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /vinyl/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^vinyl$/i }));
 
     expect(
-      screen.queryByRole('button', { name: /show me what’s next/i })
+      screen.queryByRole('button', { name: /show me what's next/i })
     ).not.toBeInTheDocument();
 
     vi.advanceTimersByTime(360);
 
     await waitFor(() =>
       expect(
-        screen.getByRole('button', { name: /show me what’s next/i })
+        screen.getByRole('button', { name: /show me what's next/i })
       ).toBeInTheDocument()
     );
   });
@@ -196,11 +196,11 @@ describe('StepDiagnosis — one-question consultation flow', () => {
 
     await moveToStep4();
 
-    fireEvent.click(screen.getByRole('button', { name: /vinyl/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^vinyl$/i }));
     vi.advanceTimersByTime(360);
 
     const finalButton = await screen.findByRole('button', {
-      name: /show me what’s next/i,
+      name: /show me what's next/i,
     });
 
     fireEvent.click(finalButton);
@@ -213,10 +213,9 @@ describe('StepDiagnosis — one-question consultation flow', () => {
 
     expect(screen.queryByRole('button', { name: /^continue$/i })).not.toBeInTheDocument();
 
-    fireEvent.change(
-      screen.getByPlaceholderText(/tell us what felt off/i),
-      { target: { value: 'The quote felt vague and too rushed.' } }
-    );
+    fireEvent.change(screen.getByPlaceholderText(/tell us what felt off/i), {
+      target: { value: 'The quote felt vague and too rushed.' },
+    });
 
     expect(screen.getByRole('button', { name: /^continue$/i })).toBeInTheDocument();
   });
