@@ -227,7 +227,6 @@ export async function diagnoseRoute(
       .maybeSingle()) as { data: { id: string; is_active: boolean } | null };
 
     if (!client) {
-      routes.push("client_not_found");
       reasons.push("client_not_found");
     } else if (!client.is_active) {
       reasons.push("client_inactive");
