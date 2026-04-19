@@ -2316,6 +2316,7 @@ export type Database = {
       get_analysis_full: {
         Args: { p_phone_e164: string; p_scan_session_id: string }
         Returns: {
+          analysis_id: string
           confidence_score: number
           document_type: string
           flags: Json
@@ -2329,6 +2330,7 @@ export type Database = {
       get_analysis_preview: {
         Args: { p_scan_session_id: string }
         Returns: {
+          analysis_id: string
           confidence_score: number
           document_type: string
           flag_amber_count: number

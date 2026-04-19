@@ -45,7 +45,7 @@ export async function fetchAnalysisPreview(
     if (rpcErr) {
       return { ok: false, code: "rpc_error", message: rpcErr.message };
     }
-    const row = Array.isArray(rows) ? rows[0] : rows;
+    const row = (Array.isArray(rows) ? rows[0] : rows) as any;
     if (!row || !row.grade) {
       return { ok: true, data: null };
     }
