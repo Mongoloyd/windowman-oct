@@ -102,6 +102,7 @@ export default function ReportClassic() {
     fetchFull,
     isLoadingFull,
     isFullLoaded,
+    fullFetchError,
     tryResume,
     isResuming,
   } = useAnalysisData(sessionId ?? null, !!sessionId);
@@ -400,6 +401,13 @@ export default function ReportClassic() {
   }
 
   // ── Build gateProps for LockedOverlay ───────────────────────────────────
+  // Surface fetchStalled / fullFetchError so refresh-after-OTP and any
+  // post-verify RPC stall on this route get the same retry path that
+  // PostScanReportSwitcher exposes on the in-page flow.
+  const handleRetryFetchFull = useCallback(() => {
+    if (!phoneE164) return;
+    fetchFull(phoneE164);
+  }, [phoneE164, fetchFull]);
 
   const gateProps: Omit<LockedOverlayProps, "grade" | "flagCount"> = {
     gateMode,
@@ -413,9 +421,11 @@ export default function ReportClassic() {
     onPhoneChange: pipeline.handlePhoneChange,
     onPhoneSubmit: handlePhoneSubmit,
     isLoading: pipeline.phoneStatus === "sending_otp" || pipeline.phoneStatus === "verifying" || isLoadingFull,
-    errorMsg: pipeline.errorMsg,
+    errorMsg: pipeline.errorMsg || fullFetchError || "",
     resendCooldown: pipeline.resendCooldown,
     onResend: handleResend,
+    fetchStalled: !!fullFetchError && !isFullLoaded,
+    onRetryFetchFull: handleRetryFetchFull,
   };
 
   // ── Render ─────────────────────────────────────────────────────────────
