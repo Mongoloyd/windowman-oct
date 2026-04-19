@@ -53,6 +53,8 @@ type Props = {
   negotiationLeverage?: string | null;
   onSecondScan: () => void;
   scanSessionId?: string | null;
+  /** Analysis ID — passed through to diagnosis handoff when available. */
+  analysisId?: string | null;
   /** Called after real OTP verification succeeds. Parent should call fetchFull(). */
   onVerified?: (phoneE164: string) => void;
   /** True when gated full data has been loaded */
