@@ -199,6 +199,13 @@ Deno.serve(async (req) => {
       if (resolvedLeadId) {
         updatePayload.lead_id = resolvedLeadId;
       }
+      // Persist the scan_session_id binding on the verified row so
+      // get_analysis_full can enforce strict session-bound authorization.
+      // If the pending row was created by send-otp without a scan_session_id
+      // (legacy flow) but the verify request carries one, stamp it now.
+      if (scan_session_id) {
+        updatePayload.scan_session_id = scan_session_id;
+      }
 
       const { error: updateErr } = await supabase
         .from("phone_verifications")
