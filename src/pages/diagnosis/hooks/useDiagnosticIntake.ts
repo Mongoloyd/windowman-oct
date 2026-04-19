@@ -262,6 +262,17 @@ export function useDiagnosticIntake() {
       return;
     }
 
+    // Internal step-level event — fires only when final pre-submit validation
+    // passes and a valid submit is actually being attempted. Browser-only;
+    // not routed to ad platforms.
+    trackGtmEvent('diagnosis_step_2_completed', {
+      lead_id: context.lead_id,
+      scan_session_id: context.scan_session_id,
+      diagnosis: primaryDiagnosis,
+      counter_offer_terms_count: counterOfferTerms.length,
+      prescription_path: DIAGNOSTIC_MAP[primaryDiagnosis].prescriptionPath,
+    });
+
     setIsSubmitting(true);
     setSubmitError(null);
 
