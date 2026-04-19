@@ -308,8 +308,8 @@ describe("PostScanReportSwitcher — Identity Ladder partial access (Level 0/1)"
 // ─────────────────────────────────────────────────────────────────────────
 describe("PostScanReportSwitcher — post-OTP unlock transition", () => {
   let funnelState: any;
-  let submitOtpMock: ReturnType<typeof vi.fn>;
-  let onVerifiedMock: ReturnType<typeof vi.fn>;
+  let submitOtpMock: any;
+  let onVerifiedMock: any;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -329,8 +329,8 @@ describe("PostScanReportSwitcher — post-OTP unlock transition", () => {
       e164: "+13055551234",
       phoneVerifiedEventId: "evt-pv",
       reportRevealedEventId: "evt-rr",
-    }) as ReturnType<typeof vi.fn>;
-    onVerifiedMock = vi.fn() as ReturnType<typeof vi.fn>;
+    });
+    onVerifiedMock = vi.fn();
 
     mockUsePhonePipeline.mockReturnValue({
       displayValue: "(305) 555-1234",
