@@ -122,7 +122,8 @@ export function extractClientIp(headers: Headers): string {
 // --- UTILITY: Resolve which pixel config to use ---
 // Priority: clientSlug → default row → env vars
 // Returns source label for observability (never logs raw secrets)
-async function resolvePixelConfig(
+// Exported for routing-matrix regression testing. Behavior unchanged.
+export async function resolvePixelConfig(
   supabase: ReturnType<typeof createClient>,
   clientSlug?: string,
 ): Promise<{ pixelId: string; accessToken: string; testEventCode?: string; source: string } | null> {
