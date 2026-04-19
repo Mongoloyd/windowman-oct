@@ -1,82 +1,103 @@
-# Browser-Side Meta Decoupling — Complete
+# Browser Meta Policy — Canonical Memo
 
-> Canonical closeout memo. Read before proposing any tracking, pixel, or
-> conversion-routing change.
+> Canonical reference for browser-side Meta behavior. Read before
+> proposing any tracking, pixel, or conversion-routing change.
+>
+> **This memo supersedes all earlier "browser Meta fully eliminated"
+> statements.** Browser Meta is no longer fully eliminated. It is now
+> permitted in exactly one narrow, intentional form described below.
 
 ---
 
 ## 1. Status
 
-**Browser-side Meta cleanup is complete.**
+**Browser-side Meta is allowed in one narrow, approved form: a single
+WindowMan-controlled pixel that fires `init` and `PageView` only.**
 
-The WindowMan frontend no longer ships, imports, initializes, or invokes any
-Meta/Facebook browser SDK code. All Meta conversion ownership has moved
-server-side. The frontend is vendor-agnostic and routes business events
-through GTM / `window.dataLayer` only.
+All conversion ownership remains server-side. The browser pixel exists
+solely to support top-of-funnel measurement (page-level reach,
+attribution cookie seeding) — it does not own any business event.
 
-This state is intentional and load-bearing. Do not regress it.
+This state is intentional and load-bearing. Do not regress it in either
+direction:
 
----
-
-## 2. What was removed
-
-The following browser-side Meta surfaces have been deleted or rewired:
-
-- Direct `fbq(...)` and `window.fbq(...)` calls anywhere in `src/`.
-- The `src/lib/metaPixel.ts` helper module (pixel init, `fbqTrack`,
-  `metaConversions`, browser → CAPI bridge).
-- The `src/lib/shadowPixel.ts` helper module.
-- The app-level `FacebookConversionProvider` wrapper component.
-- The `FacebookShareButton` component (orphaned consumer).
-- All browser-side `fetch(... /functions/v1/capi-event ...)` calls.
-- All frontend reads of `VITE_META_PIXEL_ID` / `META_PIXEL_ID`.
-- The `metaConversions.otpVerified(...)` calls inside the protected
-  `PhoneVerifyModal` and `VerifyGate` (replaced with the existing canonical
-  `trackGtmEvent("otp_verified", ...)` + `trackGtmEvent("report_revealed", ...)`
-  calls those files already emitted).
+- Do **not** delete the approved browser PageView pixel during future
+  cleanup sprints.
+- Do **not** broaden browser Meta beyond `init` + `PageView` without a
+  dedicated, explicitly scoped sprint.
 
 ---
 
-## 3. What remains true
+## 2. Current architecture
 
-- **OTP and reveal flows remain intact.** Phone verification and report
-  unlock behavior was not changed by the cleanup. Session-binding,
-  rate-limiting, and gate enforcement are unchanged.
-- **Meta conversion ownership is server-side.** Any Meta CAPI dispatch must
-  originate from a Supabase Edge Function (e.g., the `capi-event` /
-  canonical event dispatcher path), never from the browser.
-- **Frontend tracking is vendor-agnostic.** Components emit canonical
-  business events through `trackBusinessEvent` / `trackGtmEvent` /
-  `BUSINESS_EVENTS` only. Vendor routing is GTM's responsibility.
-- **GTM / `window.dataLayer` is the browser event layer.** No vendor SDK
-  may be loaded, queued, or invoked from app code.
-- **Protected files must not be casually refactored.** The OTP/reveal gate
-  is a monetization and trust boundary; touching it requires a dedicated,
-  explicitly scoped sprint.
+### Browser layer (allowed surface)
 
----
+The frontend is permitted to:
 
-## 4. Hard rules for future prompts
+- Initialize one WindowMan-controlled Meta pixel via
+  `fbq("init", VITE_META_PIXEL_ID)`.
+- Fire `fbq("track", "PageView")` on initial app mount.
+- Fire `fbq("track", "PageView")` on each SPA route change (exactly
+  once per navigation — see CI guardrail in
+  `.github/workflows/pageview-guardrail.yml` and proof in
+  `scripts/pageview-dedupe-test.tsx`).
+- Allow Meta's pixel to set and read the passive `_fbp` first-party
+  cookie.
+- Support passive `_fbc` cookie behavior via the existing `fbclid`
+  capture path (URL parameter capture only — no extra Meta SDK calls).
 
-The following are non-negotiable and apply to every future change:
+### Server layer (conversion ownership)
 
-- ❌ Do not reintroduce `fbq` or `window.fbq` anywhere in `src/`.
-- ❌ Do not reintroduce `metaPixel`, `metaConversions`, or any equivalent
-  browser Meta wrapper module.
-- ❌ Do not reintroduce `shadowPixel` or any "shadow" browser pixel helper.
-- ❌ Do not call `capi-event` (or any future server-side conversion endpoint)
-  directly from the browser.
-- ❌ Do not add frontend Meta pixel env vars (`VITE_META_PIXEL_ID`,
-  `META_PIXEL_ID`, or equivalents).
-- ❌ Do not load `https://connect.facebook.net/en_US/fbevents.js` from
-  the browser, including from `index.html`, providers, or dynamic injection.
-- ✅ Add new business events through the canonical tracking utilities only.
-- ✅ Any work that touches protected OTP/reveal files requires a dedicated
-  sprint with its own scope, success criteria, and rollback plan.
+All Meta conversion events remain server-side. The server owns:
+
+- All Meta CAPI dispatch (Lead, CompleteRegistration, Purchase, etc.).
+- OTP-verified events.
+- Report-revealed events.
+- Per-client Meta pixel routing (multi-tenant CAPI fan-out is a
+  server-side responsibility, not a browser one).
+- Deduplication, identity hashing, and `event_id` minting for CAPI.
+
+The browser must never originate a conversion event or call the
+server-side `capi-event` endpoint directly.
 
 ---
 
-## 5. Protected areas
+## 3. Hard rules
+
+### ✅ Allowed browser Meta behavior
+
+- One WindowMan-controlled pixel only.
+- `fbq("init", VITE_META_PIXEL_ID)` once per app mount.
+- `fbq("track", "PageView")` on initial mount and on each SPA route
+  change.
+- Passive `_fbp` cookie (set by Meta's pixel script).
+- Passive `_fbc` support via the existing `fbclid` URL capture path.
+- The `VITE_META_PIXEL_ID` frontend env var (publishable pixel ID
+  only — no access tokens).
+
+### ❌ Forbidden browser Meta behavior
+
+- ❌ Browser-side `Lead` event.
+- ❌ Browser-side `CompleteRegistration` event.
+- ❌ Browser-side `Purchase` event.
+- ❌ Browser-side `SubmitApplication` / `Schedule` / any other Meta
+  conversion event.
+- ❌ Browser-side OTP-verified events.
+- ❌ Browser-side report-revealed events.
+- ❌ Browser-side `fetch(... /functions/v1/capi-event ...)` calls or
+  any future server-conversion endpoint called from the browser.
+- ❌ Multi-pixel browser routing (more than one `fbq("init", ...)`
+  with different pixel IDs, or any client-side per-tenant pixel
+  switching).
+- ❌ Meta access tokens or any non-publishable Meta credentials in
+  frontend code, env vars, or bundled output.
+- ❌ Loading any additional Meta SDK beyond the standard
+  `fbevents.js` pixel script needed for the approved init/PageView
+  surface.
+
+---
+
+## 4. Protected areas
 
 The following files are part of the OTP / report-reveal monetization
 boundary. They are **not** to be edited as a side effect of tracking,
@@ -90,39 +111,65 @@ scoped sprint:
 - `src/components/TruthReportFindings/VerifyGate.tsx`
 - Any hook or service directly used by OTP success or report reveal.
 
----
-
-## 6. When work is allowed again
-
-Further browser-Meta or protected-path work is only justified when:
-
-- A new tracked issue appears (e.g., a real measurement gap shows up in
-  GA4, GTM, or Meta Events Manager and is documented), **or**
-- A deliberate server-side measurement change is explicitly approved
-  (e.g., adding a new server-side conversion event from a verified Edge
-  Function), **or**
-- A dedicated protected-file sprint is explicitly scoped, with frozen
-  files, success criteria, and rollback steps written up front.
-
-Cleanup, refactor, or "while we're here" tracking edits are **not**
-sufficient justification.
+These files do not own browser Meta behavior and must not be modified
+to add, remove, or "tidy" Meta calls.
 
 ---
 
-## 7. Operator instruction
+## 5. Audit rules
 
-When auditing the repo for Meta references in the future:
+When auditing the repo for Meta references in the future, classify
+results as follows:
 
-- If `grep` / search results contain **only** documentation references
-  (this memo, code comments asserting the absence of `fbq`/`capi-event`,
-  changelog entries, etc.), then **stop**. Do not refactor further. The
-  state is correct.
-- If `grep` / search results contain a **live runtime reference** in a
-  safe (non-protected) file, open a narrowly scoped cleanup sprint to
-  remove just that reference.
-- If `grep` / search results contain a **live runtime reference** in a
-  protected file, do **not** edit it ad-hoc. Open a dedicated
-  protected-file sprint instead.
+### Not a regression
+
+- `fbq("init", ...)` in the approved app-level pixel module
+  (`src/lib/metaBrowserPixel.ts`) or its provider
+  (`src/components/AppTrackingProvider.tsx`).
+- `fbq("track", "PageView")` in the approved app-level pixel module
+  or provider, including the SPA route-change effect.
+- References to `VITE_META_PIXEL_ID` in the approved pixel module or
+  provider.
+- Documentation references to any of the above (this memo, code
+  comments, changelog entries, CI guardrail workflow).
+
+### Regression — must be removed
+
+- Any browser-side `fbq("track", "Lead" | "CompleteRegistration" |
+  "Purchase" | "SubmitApplication" | "Schedule" | ...)` call.
+- Any browser-side `fetch` to `/functions/v1/capi-event` or an
+  equivalent server-conversion endpoint.
+- Any second `fbq("init", ...)` with a different pixel ID, or any
+  client-side per-tenant pixel switching.
+- Any reintroduced `metaConversions`, `shadowPixel`, or equivalent
+  browser conversion-bridge module.
+- Any Meta access token or non-publishable Meta credential in
+  frontend code or env.
+
+If a regression appears in a non-protected file, open a narrowly
+scoped cleanup sprint to remove just that reference. If a regression
+appears in a protected file (Section 4), do not edit ad-hoc — open a
+dedicated protected-file sprint.
+
+---
+
+## 6. Operator instruction
+
+When future prompts touch Meta, tracking, or pixel code:
+
+- **Do not delete** `fbq("init", ...)` or `fbq("track", "PageView")`
+  in the approved app-level pixel module / provider during cleanup
+  sprints. The PageView-only browser pixel is the approved policy.
+- **Do not broaden** browser Meta beyond `init` + `PageView` without
+  a dedicated sprint with explicit scope, success criteria, and
+  rollback plan.
+- **Do not move** conversion ownership back into the browser under
+  any framing ("just for testing", "just one event", "while we're
+  here", etc.).
+- **Do not edit protected files** (Section 4) as a side effect of
+  any tracking work.
+- **Do not add** Meta access tokens or per-tenant pixel routing to
+  the frontend. Multi-tenant CAPI routing is a server responsibility.
 
 ---
 
@@ -131,12 +178,21 @@ When auditing the repo for Meta references in the future:
 Use these exact patterns when verifying state:
 
 ```bash
-grep -rn "fbq\|window\.fbq" src/
-grep -rn "metaPixel\|metaConversions\|shadowPixel" src/
-grep -rn "fbevents\.js\|META_PIXEL_ID\|VITE_META_PIXEL" src/
-grep -rn "FacebookConversionProvider" src/
+# Approved surface — matches in the app-level pixel module / provider are OK.
+grep -rn 'fbq("init"\|fbq("track", "PageView")' src/
+
+# Forbidden surface — any match is a regression.
+grep -rn 'fbq("track", "Lead"\|fbq("track", "CompleteRegistration"\|fbq("track", "Purchase"\|fbq("track", "SubmitApplication"\|fbq("track", "Schedule"' src/
 grep -rn "capi-event" src/
+grep -rn "metaConversions\|shadowPixel\|FacebookConversionProvider" src/
+
+# Frontend env — publishable pixel ID only; never an access token.
+grep -rn "VITE_META_PIXEL_ID\|META_ACCESS_TOKEN\|FB_ACCESS_TOKEN" src/
 ```
 
-Expected: matches only inside documentation comments asserting these
-patterns must not exist. Any other match is a regression.
+Expected:
+
+- The first pattern matches only inside the approved app-level pixel
+  module and its provider.
+- All other patterns return no runtime matches. Documentation-only
+  references (this memo, comments asserting the rules) are fine.
