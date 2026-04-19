@@ -1,21 +1,21 @@
-import { ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { useDiagnosticIntake } from './diagnosis/hooks/useDiagnosticIntake';
-import { ProgressIndicator } from './diagnosis/components/ProgressIndicator';
-import { StepIntake } from './diagnosis/components/StepIntake';
-import { StepDiagnosis } from './diagnosis/components/StepDiagnosis';
-import { StepPrescription } from './diagnosis/components/StepPrescription';
-import { SuccessScreen } from './diagnosis/components/SuccessScreen';
-import { MarketingSections } from './diagnosis/components/MarketingSections';
+import { ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useDiagnosticIntake } from "./diagnosis/hooks/useDiagnosticIntake";
+import { ProgressIndicator } from "./diagnosis/components/ProgressIndicator";
+import { StepIntake } from "./diagnosis/components/StepIntake";
+import { StepDiagnosis } from "./diagnosis/components/StepDiagnosis";
+import { StepPrescription } from "./diagnosis/components/StepPrescription";
+import { SuccessScreen } from "./diagnosis/components/SuccessScreen";
+import { MarketingSections } from "./diagnosis/components/MarketingSections";
 
-const PAGE_BG = 'linear-gradient(170deg, #dce8f4 0%, #e4edf6 30%, #eaeff8 60%, #dde6f2 100%)';
+const PAGE_BG = "linear-gradient(170deg, #dce8f4 0%, #e4edf6 30%, #eaeff8 60%, #dde6f2 100%)";
 
 const Diagnosis = () => {
   const navigate = useNavigate();
   const intake = useDiagnosticIntake();
 
   // ── Hydration: pending ─────────────────────────────────────────────────────
-  if (intake.hydrationStatus === 'pending') {
+  if (intake.hydrationStatus === "pending") {
     return (
       <div
         className="min-h-screen flex items-center justify-center font-sans text-foreground"
@@ -23,14 +23,14 @@ const Diagnosis = () => {
       >
         <div className="flex flex-col items-center gap-3">
           <div className="h-8 w-8 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
-          <p className="text-xs text-muted-foreground font-mono">Loading your diagnosis…</p>
+          <p className="text-xs text-muted-foreground font-mono">Loading Your Diagnosis…</p>
         </div>
       </div>
     );
   }
 
   // ── Hydration: failed → safe empty state, route user back to start ─────────
-  if (intake.hydrationStatus === 'failed') {
+  if (intake.hydrationStatus === "failed") {
     return (
       <div
         className="min-h-screen flex items-center justify-center px-6 font-sans text-foreground"
@@ -39,11 +39,11 @@ const Diagnosis = () => {
         <div className="max-w-md text-center bg-white/70 backdrop-blur-md rounded-2xl border border-border/60 p-8 shadow-sm">
           <h1 className="font-display text-2xl font-bold mb-3">Start from your report</h1>
           <p className="text-sm text-muted-foreground mb-6">
-            Your diagnosis needs the context from your unlocked Truth Report. Head back to the report and
-            tap the primary CTA to continue from there.
+            Your Diagnosis Needs The Context From Your Unlocked Truth Report. Head Back To The Report and Tap The
+            Primary CTA to Continue From There.
           </p>
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate("/")}
             className="inline-flex items-center justify-center px-5 py-2.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
           >
             Back to Home
@@ -54,7 +54,7 @@ const Diagnosis = () => {
   }
 
   // ── Success state ─────────────────────────────────────────────────────────
-  if (intake.step === 'success') {
+  if (intake.step === "success") {
     return (
       <SuccessScreen
         context={intake.context}
@@ -76,7 +76,10 @@ const Diagnosis = () => {
         <div className="flex items-center gap-2">
           <div
             className="w-8 h-8 rounded-md flex items-center justify-center text-white font-bold text-xl"
-            style={{ background: 'linear-gradient(180deg, #6bb8ff 0%, #3b82f6 40%, #1d4ed8 100%)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.3), 0 2px 6px rgba(37,99,235,0.25)' }}
+            style={{
+              background: "linear-gradient(180deg, #6bb8ff 0%, #3b82f6 40%, #1d4ed8 100%)",
+              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.3), 0 2px 6px rgba(37,99,235,0.25)",
+            }}
           >
             W
           </div>
@@ -92,14 +95,11 @@ const Diagnosis = () => {
 
       <ProgressIndicator stepNumber={intake.stepNumber} />
 
-      {intake.step === 'intake' && (
-        <StepIntake
-          context={intake.context}
-          onSelectPrimary={intake.selectPrimaryDiagnosis}
-        />
+      {intake.step === "intake" && (
+        <StepIntake context={intake.context} onSelectPrimary={intake.selectPrimaryDiagnosis} />
       )}
 
-      {intake.step === 'diagnosis' && intake.activeConfig && intake.primaryDiagnosis && (
+      {intake.step === "diagnosis" && intake.activeConfig && intake.primaryDiagnosis && (
         <StepDiagnosis
           activeConfig={intake.activeConfig}
           primaryDiagnosis={intake.primaryDiagnosis}
@@ -120,7 +120,7 @@ const Diagnosis = () => {
         />
       )}
 
-      {intake.step === 'prescription' && intake.activeConfig && intake.primaryDiagnosis && (
+      {intake.step === "prescription" && intake.activeConfig && intake.primaryDiagnosis && (
         <StepPrescription
           activeConfig={intake.activeConfig}
           primaryDiagnosis={intake.primaryDiagnosis}
@@ -143,7 +143,7 @@ const Diagnosis = () => {
         />
       )}
 
-      {intake.step === 'intake' && <MarketingSections />}
+      {intake.step === "intake" && <MarketingSections />}
 
       <footer className="py-8 text-center text-muted-foreground text-sm border-t border-border/50 relative z-10">
         <p>&copy; {new Date().getFullYear()} WindowMan. All rights reserved.</p>
