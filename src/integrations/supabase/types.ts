@@ -1883,6 +1883,7 @@ export type Database = {
           ip_address: string | null
           lead_id: string | null
           phone_e164: string
+          scan_session_id: string | null
           status: string
           updated_at: string
           user_id: string | null
@@ -1894,6 +1895,7 @@ export type Database = {
           ip_address?: string | null
           lead_id?: string | null
           phone_e164: string
+          scan_session_id?: string | null
           status?: string
           updated_at?: string
           user_id?: string | null
@@ -1905,6 +1907,7 @@ export type Database = {
           ip_address?: string | null
           lead_id?: string | null
           phone_e164?: string
+          scan_session_id?: string | null
           status?: string
           updated_at?: string
           user_id?: string | null

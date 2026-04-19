@@ -200,10 +200,15 @@ Deno.serve(async (req) => {
       timestamp: new Date().toISOString(),
     }));
 
+    // Bind the pending row to its originating scan_session_id at send time.
+    // This is the foundation for strict session-bound unlock authorization
+    // in get_analysis_full — without it, a verified phone for one scan
+    // could authorize unlock of another scan owned by the same lead.
     const { error: insertErr } = await supabase.from("phone_verifications").insert({
       phone_e164,
       status: "pending",
       ip_address: clientIp,
+      scan_session_id: scan_session_id || null,
     });
     if (insertErr) {
       console.error("[SEND_OTP_DB_ERROR]", JSON.stringify({
