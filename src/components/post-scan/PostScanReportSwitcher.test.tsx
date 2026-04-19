@@ -148,12 +148,14 @@ describe("PostScanReportSwitcher shared OTP status wiring", () => {
     expect(screen.getByTestId("error-msg")).toHaveTextContent("Send or confirm your number to receive a code.");
   });
 
-  it("keeps send_code non-loading only for screened_valid (pre-send), not for in-flight sending_otp", () => {
+  it("auto-sends OTP when phone is pre-hydrated and status is screened_valid", async () => {
     funnelState.phoneE164 = "+13055551234";
     funnelState.phoneStatus = "screened_valid";
     renderSwitcher();
+    // The auto-send effect must fire because phone is pre-hydrated and the
+    // gate landed in send_code — this is the unlock path for returning leads.
+    await waitFor(() => expect(submitPhoneMock).toHaveBeenCalledTimes(1));
     expect(screen.getByTestId("gate-mode")).toHaveTextContent("send_code");
-    expect(screen.getByTestId("is-loading")).toHaveTextContent("false");
   });
 
   it("shows enter_phone mode when no phone exists", () => {
@@ -182,12 +184,19 @@ describe("PostScanReportSwitcher shared OTP status wiring", () => {
     expect(funnelState.setPhoneStatus).not.toHaveBeenCalledWith("send_failed");
   });
 
-  it("does not auto-send on mount from PostScanReportSwitcher", async () => {
+  it("auto-send fires exactly once for a pre-hydrated phone (no double-fire on re-render)", async () => {
     funnelState.phoneE164 = "+13055551234";
     funnelState.phoneStatus = "screened_valid";
-    renderSwitcher();
+    const { rerender } = renderSwitcher();
+    await waitFor(() => expect(submitPhoneMock).toHaveBeenCalledTimes(1));
+    rerender(
+      <MemoryRouter>
+        <PostScanReportSwitcher {...baseProps()} />
+      </MemoryRouter>
+    );
+    // The autoSendFiredRef guard must prevent a second send.
     await Promise.resolve();
-    expect(submitPhoneMock).not.toHaveBeenCalled();
+    expect(submitPhoneMock).toHaveBeenCalledTimes(1);
   });
 });
 
