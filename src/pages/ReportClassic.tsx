@@ -303,6 +303,13 @@ export default function ReportClassic() {
     navigate("/");
   }, [navigate]);
 
+  // Retry handler must be declared above early-return branches to keep
+  // hook order stable across renders.
+  const handleRetryFetchFull = useCallback(() => {
+    if (!phoneE164) return;
+    fetchFull(phoneE164);
+  }, [phoneE164, fetchFull]);
+
   // ── Loading state ──────────────────────────────────────────────────────
 
   if (isLoading) {
@@ -404,10 +411,6 @@ export default function ReportClassic() {
   // Surface fetchStalled / fullFetchError so refresh-after-OTP and any
   // post-verify RPC stall on this route get the same retry path that
   // PostScanReportSwitcher exposes on the in-page flow.
-  const handleRetryFetchFull = useCallback(() => {
-    if (!phoneE164) return;
-    fetchFull(phoneE164);
-  }, [phoneE164, fetchFull]);
 
   const gateProps: Omit<LockedOverlayProps, "grade" | "flagCount"> = {
     gateMode,
