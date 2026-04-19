@@ -99,7 +99,7 @@ export default function AboutHero({ onTrack }: AboutHeroProps) {
               <div className="mb-6">
                 <div className="mb-3 flex items-center gap-2">
                   <Shield className="h-5 w-5 text-cobalt" />
-                  <span className="font-mono text-xs font-semibold uppercase tracking-wider text-foreground">
+                  <span className="font-mono font-semibold uppercase tracking-wider text-foreground text-sm">
                     Quote Analysis Engine
                   </span>
                 </div>
