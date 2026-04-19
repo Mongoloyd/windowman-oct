@@ -212,7 +212,7 @@ const SampleGradeCard = () => {
         </span>
       </div>
       <div className="flex items-center justify-between mb-5 relative">
-        <p className="font-mono text-[10px] tracking-[0.12em] text-muted-foreground">SAMPLE GRADE REPORT</p>
+        <p className="font-mono tracking-[0.12em] font-bold text-sm text-[#005ef5]">WINDOW TRUTH REPORT</p>
         <span
           className="inline-flex items-center font-mono text-[9px] font-bold tracking-[0.08em] text-primary bg-primary/10 border border-primary/20 px-2 py-0.5"
           style={{ borderRadius: "var(--radius-input)" }}
