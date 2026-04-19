@@ -22,7 +22,7 @@
  * Must render INSIDE <BrowserRouter> because it uses `useLocation`.
  */
 
-import { createContext, useContext, useEffect, useMemo } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { useLeadId, getLeadId } from "@/lib/useLeadId";
 import {
@@ -87,20 +87,30 @@ export function AppTrackingProvider({ children }: { children: React.ReactNode })
 
 function RouteTracker() {
   const location = useLocation();
+  // Guards against double-firing the initial Meta PageView. The canonical
+  // owner of the FIRST browser Meta `PageView` is `initMetaBrowserPixel()`
+  // in `src/lib/metaBrowserPixel.ts`, which runs in the provider mount
+  // effect. This RouteTracker owns SPA route-change PageViews ONLY, so we
+  // must skip the very first effect run (which corresponds to the initial
+  // mount, not a navigation).
+  const isFirstRouteEffect = useRef(true);
 
   useEffect(() => {
-    // Canonical, vendor-agnostic SPA page-view signal.
-    // GTM owns any downstream routing (GA4, Ads, etc.).
+    // Canonical, vendor-agnostic SPA page-view signal — fires on every
+    // route change AND initial mount. GTM owns downstream routing.
     trackGtmEvent("virtual_page_view", {
       page_path: location.pathname,
       page_search: location.search,
       lead_id: getLeadId(),
     });
 
-    // Additive top-of-funnel browser PageView for the WindowMan Meta pixel.
-    // No-op if the pixel was never initialized. PageView only — never a
-    // conversion event. Skips the very first mount because `initMetaBrowserPixel`
-    // already fires PageView during init.
+    // Browser Meta PageView: skip the first effect run because
+    // `initMetaBrowserPixel` already fired the initial PageView.
+    // Subsequent runs correspond to real SPA navigations.
+    if (isFirstRouteEffect.current) {
+      isFirstRouteEffect.current = false;
+      return;
+    }
     trackMetaPageView();
   }, [location.pathname, location.search]);
 
