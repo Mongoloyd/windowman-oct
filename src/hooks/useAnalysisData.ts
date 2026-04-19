@@ -44,6 +44,7 @@ export interface PillarScore {
 }
 
 export interface AnalysisData {
+  analysisId: string | null;
   grade: string;
   flags: AnalysisFlag[];
   flagCount: number;
@@ -161,8 +162,10 @@ function normalizePreviewPillarEntry(entry: unknown): PreviewPillarEntry | undef
 
 function extractPillarScores(previewJson: unknown): PillarScore[] {
   const pillarScoresRaw = (previewJson as { pillar_scores?: unknown })?.pillar_scores;
-  const raw = pillarScoresRaw && typeof pillarScoresRaw === "object" && !Array.isArray(pillarScoresRaw)
-    ? (pillarScoresRaw as Record<string, unknown>) : undefined;
+  const raw =
+    pillarScoresRaw && typeof pillarScoresRaw === "object" && !Array.isArray(pillarScoresRaw)
+      ? (pillarScoresRaw as Record<string, unknown>)
+      : undefined;
 
   return PILLAR_DEFS.map((def) => {
     const entry = raw?.[def.key];
@@ -178,10 +181,10 @@ function extractPillarScoresWithFlags(previewJson: unknown, flags: AnalysisFlag[
   const base = extractPillarScores(previewJson);
   return base.map((def) => {
     if (def.status !== "pending") return def;
-    const pillarFlags = flags.filter(f => f.pillar === def.key);
+    const pillarFlags = flags.filter((f) => f.pillar === def.key);
     if (pillarFlags.length === 0) return def;
-    if (pillarFlags.some(f => f.severity === "red")) return { ...def, status: "fail" as const };
-    if (pillarFlags.some(f => f.severity === "amber")) return { ...def, status: "warn" as const };
+    if (pillarFlags.some((f) => f.severity === "red")) return { ...def, status: "fail" as const };
+    if (pillarFlags.some((f) => f.severity === "amber")) return { ...def, status: "warn" as const };
     return { ...def, status: "pass" as const };
   });
 }
@@ -196,6 +199,7 @@ function buildPreviewData(row: RawPreviewRow): AnalysisData {
   const hybridPreview = previewJson as unknown as HybridPreviewPayload | null;
 
   return {
+    analysisId: row.analysis_id ?? null,
     grade: row.grade,
     flags: [],
     flagCount: row.flag_count ?? 0,
@@ -208,9 +212,18 @@ function buildPreviewData(row: RawPreviewRow): AnalysisData {
     pageCount: typeof proofOfRead?.page_count === "number" ? proofOfRead.page_count : null,
     openingCount: typeof proofOfRead?.opening_count === "number" ? proofOfRead.opening_count : null,
     lineItemCount: typeof proofOfRead?.line_item_count === "number" ? proofOfRead.line_item_count : null,
-    qualityBand: qualityBandRaw && validBands.has(qualityBandRaw) ? (qualityBandRaw as "good" | "fair" | "poor") : null,
-    hasWarranty: typeof (previewJson as any)?.has_warranty === "boolean" ? (previewJson as any).has_warranty : null,
-    hasPermits: typeof (previewJson as any)?.has_permits === "boolean" ? (previewJson as any).has_permits : null,
+    qualityBand:
+      qualityBandRaw && validBands.has(qualityBandRaw)
+        ? (qualityBandRaw as "good" | "fair" | "poor")
+        : null,
+    hasWarranty:
+      typeof (previewJson as any)?.has_warranty === "boolean"
+        ? (previewJson as any).has_warranty
+        : null,
+    hasPermits:
+      typeof (previewJson as any)?.has_permits === "boolean"
+        ? (previewJson as any).has_permits
+        : null,
     analysisStatus: "complete",
     warnings: [],
     missingItems: [],
@@ -222,7 +235,10 @@ function buildPreviewData(row: RawPreviewRow): AnalysisData {
     paymentRiskDetected: Boolean(hybridPreview?.payment_risk_detected),
     scopeGapDetected: Boolean(hybridPreview?.scope_gap_detected),
     summaryTeaser: hybridPreview?.summary_teaser ?? null,
-    missingItemsCount: (typeof hybridPreview?.missing_items_count === "number" && hybridPreview.missing_items_count >= 0) ? hybridPreview.missing_items_count : 0,
+    missingItemsCount:
+      typeof hybridPreview?.missing_items_count === "number" && hybridPreview.missing_items_count >= 0
+        ? hybridPreview.missing_items_count
+        : 0,
   };
 }
 
@@ -240,11 +256,12 @@ function buildFullData(row: RawFullRow): AnalysisData {
   const fullMissingItems = Array.isArray(hybridFull?.missing_items) ? hybridFull.missing_items : [];
 
   return {
+    analysisId: row.analysis_id ?? null,
     grade: row.grade,
     flags,
     flagCount: flags.length,
-    flagRedCount: flags.filter(f => f.severity === "red").length,
-    flagAmberCount: flags.filter(f => f.severity === "amber").length,
+    flagRedCount: flags.filter((f) => f.severity === "red").length,
+    flagAmberCount: flags.filter((f) => f.severity === "amber").length,
     contractorName: (proofOfRead?.contractor_name as string) || null,
     confidenceScore: row.confidence_score ?? null,
     pillarScores: extractPillarScoresWithFlags(row.preview_json, flags),
@@ -252,9 +269,18 @@ function buildFullData(row: RawFullRow): AnalysisData {
     pageCount: typeof proofOfRead?.page_count === "number" ? proofOfRead.page_count : null,
     openingCount: typeof proofOfRead?.opening_count === "number" ? proofOfRead.opening_count : null,
     lineItemCount: typeof proofOfRead?.line_item_count === "number" ? proofOfRead.line_item_count : null,
-    qualityBand: qualityBandRaw && validBands.has(qualityBandRaw) ? (qualityBandRaw as "good" | "fair" | "poor") : null,
-    hasWarranty: typeof (previewJson as any)?.has_warranty === "boolean" ? (previewJson as any).has_warranty : null,
-    hasPermits: typeof (previewJson as any)?.has_permits === "boolean" ? (previewJson as any).has_permits : null,
+    qualityBand:
+      qualityBandRaw && validBands.has(qualityBandRaw)
+        ? (qualityBandRaw as "good" | "fair" | "poor")
+        : null,
+    hasWarranty:
+      typeof (previewJson as any)?.has_warranty === "boolean"
+        ? (previewJson as any).has_warranty
+        : null,
+    hasPermits:
+      typeof (previewJson as any)?.has_permits === "boolean"
+        ? (previewJson as any).has_permits
+        : null,
     analysisStatus: "complete",
     derivedMetrics,
     priceFairness: (fullJsonRaw?.price_fairness as string) || null,
@@ -265,7 +291,8 @@ function buildFullData(row: RawFullRow): AnalysisData {
     summary: hybridFull?.summary ?? null,
     topWarning: hybridFull?.top_warning ?? null,
     topMissingItem: hybridFull?.top_missing_item ?? null,
-    pricePerOpening: typeof hybridFull?.price_per_opening === "number" ? hybridFull.price_per_opening : null,
+    pricePerOpening:
+      typeof hybridFull?.price_per_opening === "number" ? hybridFull.price_per_opening : null,
     pricePerOpeningBand: hybridFull?.price_per_opening_band ?? null,
     paymentRiskDetected: Boolean(hybridFull?.payment_risk_detected),
     scopeGapDetected: Boolean(hybridFull?.scope_gap_detected),
@@ -276,13 +303,38 @@ function buildFullData(row: RawFullRow): AnalysisData {
 
 function buildTerminalData(sessionStatus: string): AnalysisData {
   return {
-    grade: "N/A", flags: [], flagCount: 0, flagRedCount: 0, flagAmberCount: 0,
-    contractorName: null, confidenceScore: null, pillarScores: PILLAR_DEFS.map(d => ({ ...d, score: null, status: "pending" as const })),
-    documentType: null, pageCount: null, openingCount: null, lineItemCount: null,
-    qualityBand: null, hasWarranty: null, hasPermits: null, analysisStatus: sessionStatus,
-    warnings: [], missingItems: [], summary: null, topWarning: null, topMissingItem: null,
-    pricePerOpening: null, pricePerOpeningBand: null, paymentRiskDetected: false,
-    scopeGapDetected: false, summaryTeaser: null, missingItemsCount: 0,
+    analysisId: null,
+    grade: "N/A",
+    flags: [],
+    flagCount: 0,
+    flagRedCount: 0,
+    flagAmberCount: 0,
+    contractorName: null,
+    confidenceScore: null,
+    pillarScores: PILLAR_DEFS.map((d) => ({
+      ...d,
+      score: null,
+      status: "pending" as const,
+    })),
+    documentType: null,
+    pageCount: null,
+    openingCount: null,
+    lineItemCount: null,
+    qualityBand: null,
+    hasWarranty: null,
+    hasPermits: null,
+    analysisStatus: sessionStatus,
+    warnings: [],
+    missingItems: [],
+    summary: null,
+    topWarning: null,
+    topMissingItem: null,
+    pricePerOpening: null,
+    pricePerOpeningBand: null,
+    paymentRiskDetected: false,
+    scopeGapDetected: false,
+    summaryTeaser: null,
+    missingItemsCount: 0,
   };
 }
 
@@ -368,25 +420,45 @@ export function useAnalysisData(
         if (!result.ok) {
           const err = result as ServiceErr;
           console.error("get_analysis_preview error:", err.message);
-          if (attempt < 8) { retryTimer = window.setTimeout(() => doFetch(attempt + 1), 2500); return; }
-          setError("Failed to load analysis."); setIsLoading(false); return;
+          if (attempt < 8) {
+            retryTimer = window.setTimeout(() => doFetch(attempt + 1), 2500);
+            return;
+          }
+          setError("Failed to load analysis.");
+          setIsLoading(false);
+          return;
         }
 
         if (!result.data) {
-          if (attempt < 8) { retryTimer = window.setTimeout(() => doFetch(attempt + 1), 2500); return; }
-          setError("Analysis not found."); setIsLoading(false); return;
+          if (attempt < 8) {
+            retryTimer = window.setTimeout(() => doFetch(attempt + 1), 2500);
+            return;
+          }
+          setError("Analysis not found.");
+          setIsLoading(false);
+          return;
         }
 
         previewFetchedRef.current = scanSessionId;
-        trackEvent({ event_name: "preview_rendered", session_id: scanSessionId, metadata: { grade: result.data.grade, flag_count: result.data.flag_count } });
+        trackEvent({
+          event_name: "preview_rendered",
+          session_id: scanSessionId,
+          metadata: { grade: result.data.grade, flag_count: result.data.flag_count },
+        });
 
-        if (isFullLoadedRef.current) { setIsLoading(false); return; }
+        if (isFullLoadedRef.current) {
+          setIsLoading(false);
+          return;
+        }
 
         setData(buildPreviewData(result.data));
       } catch (err) {
         if (cancelled) return;
         console.error("useAnalysisData exception:", err);
-        if (attempt < 8) { retryTimer = window.setTimeout(() => doFetch(attempt + 1), 2500); return; }
+        if (attempt < 8) {
+          retryTimer = window.setTimeout(() => doFetch(attempt + 1), 2500);
+          return;
+        }
         setError("Unexpected error loading analysis.");
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -394,7 +466,10 @@ export function useAnalysisData(
     };
 
     doFetch(0);
-    return () => { cancelled = true; if (retryTimer) clearTimeout(retryTimer); };
+    return () => {
+      cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
+    };
   }, [scanSessionId, enabled]);
 
   // ── Dev bypass helper ────────────────────────────────────────────────
@@ -417,62 +492,96 @@ export function useAnalysisData(
   );
 
   // ── Phase 2: Full gated fetch ──────────────────────────────────────────
-  const fetchFull = useCallback(async (phoneE164: string) => {
-
-    if (!scanSessionId || isFullLoaded || !UUID_RE.test(scanSessionId)) {
-      console.warn("[fetchFull] skipped — missing/invalid scanSessionId or already loaded", { scanSessionId, isFullLoaded });
-      return;
-    }
-    setIsLoadingFull(true);
-    setFullFetchError(null);
-
-    console.log("[FETCH_FULL_FORENSIC] start", JSON.stringify({
-      scanSessionId,
-      phone_last4: phoneE164?.slice(-4) ?? "null",
-      timestamp: new Date().toISOString(),
-    }));
-
-    try {
-      let fullRow: RawFullRow | null;
-
-      if (devBypassEnabled) {
-        console.info("[fetchFull] 🔓 DEV BYPASS — skipping get_analysis_full RPC");
-        fullRow = await doDevBypassFetch(scanSessionId);
-      } else {
-        const result = await fetchAnalysisFull(scanSessionId, phoneE164);
-        if (!result.ok) {
-          const err = result as ServiceErr;
-          console.error("[FETCH_FULL_FORENSIC] error", JSON.stringify({ scanSessionId, phone_last4: phoneE164?.slice(-4), code: err.code, message: err.message }));
-          setFullFetchError(err.code === "unauthorized"
-            ? err.message
-            : "Failed to unlock report.");
-          return;
-        }
-        fullRow = result.data;
-      }
-
-      if (!fullRow) {
-        console.error("[FETCH_FULL_FORENSIC] empty_result", JSON.stringify({ scanSessionId, phone_last4: phoneE164?.slice(-4) }));
-        setFullFetchError("Report data not found.");
+  const fetchFull = useCallback(
+    async (phoneE164: string) => {
+      if (!scanSessionId || isFullLoaded || !UUID_RE.test(scanSessionId)) {
+        console.warn("[fetchFull] skipped — missing/invalid scanSessionId or already loaded", {
+          scanSessionId,
+          isFullLoaded,
+        });
         return;
       }
+      setIsLoadingFull(true);
+      setFullFetchError(null);
 
-      console.log("[FETCH_FULL_FORENSIC] success", JSON.stringify({ scanSessionId, grade: fullRow.grade }));
+      console.log(
+        "[FETCH_FULL_FORENSIC] start",
+        JSON.stringify({
+          scanSessionId,
+          phone_last4: phoneE164?.slice(-4) ?? "null",
+          timestamp: new Date().toISOString(),
+        })
+      );
 
-      const assembled = buildFullData(fullRow);
-      setData(assembled);
-      setIsFullLoaded(true);
-      isFullLoadedRef.current = true;
-      saveVerifiedAccess(scanSessionId, phoneE164);
-      trackEvent({ event_name: "report_unlocked", session_id: scanSessionId, metadata: { grade: assembled.grade, flag_count: assembled.flags.length } });
+      try {
+        let fullRow: RawFullRow | null;
 
-    } catch (err) {
-      console.error("[FETCH_FULL_FORENSIC] exception", JSON.stringify({ scanSessionId, phone_last4: phoneE164?.slice(-4), error: String(err) }));
-      setFullFetchError("Unexpected error unlocking report.");
-    } finally {
-      setIsLoadingFull(false);
-    }
-  }, [scanSessionId, isFullLoaded, devBypassEnabled, doDevBypassFetch]);
+        if (devBypassEnabled) {
+          console.info("[fetchFull] 🔓 DEV BYPASS — skipping get_analysis_full RPC");
+          fullRow = await doDevBypassFetch(scanSessionId);
+        } else {
+          const result = await fetchAnalysisFull(scanSessionId, phoneE164);
+          if (!result.ok) {
+            const err = result as ServiceErr;
+            console.error(
+              "[FETCH_FULL_FORENSIC] error",
+              JSON.stringify({
+                scanSessionId,
+                phone_last4: phoneE164?.slice(-4),
+                code: err.code,
+                message: err.message,
+              })
+            );
+            setFullFetchError(
+              err.code === "unauthorized"
+                ? err.message
+                : "Failed to unlock report."
+            );
+            return;
+          }
+          fullRow = result.data;
+        }
+
+        if (!fullRow) {
+          console.error(
+            "[FETCH_FULL_FORENSIC] empty_result",
+            JSON.stringify({ scanSessionId, phone_last4: phoneE164?.slice(-4) })
+          );
+          setFullFetchError("Report data not found.");
+          return;
+        }
+
+        console.log(
+          "[FETCH_FULL_FORENSIC] success",
+          JSON.stringify({ scanSessionId, grade: fullRow.grade })
+        );
+
+        const assembled = buildFullData(fullRow);
+        setData(assembled);
+        setIsFullLoaded(true);
+        isFullLoadedRef.current = true;
+        saveVerifiedAccess(scanSessionId, phoneE164);
+        trackEvent({
+          event_name: "report_unlocked",
+          session_id: scanSessionId,
+          metadata: { grade: assembled.grade, flag_count: assembled.flags.length },
+        });
+      } catch (err) {
+        console.error(
+          "[FETCH_FULL_FORENSIC] exception",
+          JSON.stringify({
+            scanSessionId,
+            phone_last4: phoneE164?.slice(-4),
+            error: String(err),
+          })
+        );
+        setFullFetchError("Unexpected error unlocking report.");
+      } finally {
+        setIsLoadingFull(false);
+      }
+    },
+    [scanSessionId, isFullLoaded, devBypassEnabled, doDevBypassFetch]
+  );
 
   // ── Phase 3: Auto-resume for returning verified users ─────────────────
   const tryResume = useCallback(async (): Promise<boolean> => {
@@ -519,7 +628,11 @@ export function useAnalysisData(
       previewFetchedRef.current = scanSessionId;
       setIsFullLoaded(true);
       isFullLoadedRef.current = true;
-      trackEvent({ event_name: "resume_flow_triggered", session_id: scanSessionId, metadata: { grade: assembled.grade } });
+      trackEvent({
+        event_name: "resume_flow_triggered",
+        session_id: scanSessionId,
+        metadata: { grade: assembled.grade },
+      });
 
       return true;
     } catch (err) {
@@ -531,5 +644,15 @@ export function useAnalysisData(
     }
   }, [scanSessionId, isFullLoaded, devBypassEnabled, doDevBypassFetch]);
 
-  return { data, isLoading, error, fullFetchError, fetchFull, isLoadingFull, isFullLoaded, tryResume, isResuming };
+  return {
+    data,
+    isLoading,
+    error,
+    fullFetchError,
+    fetchFull,
+    isLoadingFull,
+    isFullLoaded,
+    tryResume,
+    isResuming,
+  };
 }
