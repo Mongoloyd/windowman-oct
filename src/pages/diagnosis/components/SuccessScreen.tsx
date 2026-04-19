@@ -1,6 +1,4 @@
-import { PhoneCall } from 'lucide-react';
-import { getSLAPromise } from '../lib/sla';
-import { maskPhone } from '../lib/formatters';
+import { CheckCircle2, FileText } from 'lucide-react';
 import type { DiagnosticConfig, DiagnosticContext } from '../types';
 
 interface SuccessScreenProps {
@@ -9,8 +7,7 @@ interface SuccessScreenProps {
   onReturn: () => void;
 }
 
-export function SuccessScreen({ context, activeConfig, onReturn }: SuccessScreenProps) {
-  const sla = getSLAPromise();
+export function SuccessScreen({ context: _context, activeConfig, onReturn }: SuccessScreenProps) {
   return (
     <div
       className="min-h-screen flex flex-col items-center justify-center p-6 text-center relative overflow-hidden"
@@ -34,46 +31,15 @@ export function SuccessScreen({ context, activeConfig, onReturn }: SuccessScreen
             boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.3), 0 4px 12px rgba(37,99,235,0.3)',
           }}
         >
-          <PhoneCall className="w-8 h-8 text-white" />
+          <CheckCircle2 className="w-8 h-8 text-white" />
         </div>
         <h2 className="font-display text-2xl font-extrabold tracking-tight text-foreground mb-3">
-          Your Advisor Has Been Notified
+          Diagnosis Saved
         </h2>
         <p className="text-foreground/75 mb-6">
-          We sent your full brief—diagnosis, preferences, and counter-offer terms—to your dedicated WindowMan advisor right now.
+          We now understand exactly what was off in your original estimate — and your replacement
+          brief is sharper, more specific, and tied to the gaps your report flagged.
         </p>
-
-        {/* Committed callback time */}
-        <div
-          className="rounded-xl p-5 mb-6 text-left"
-          style={{
-            background: 'linear-gradient(180deg, hsl(38 92% 96%) 0%, hsl(38 92% 92%) 100%)',
-            border: '1px solid hsl(38 92% 60%)',
-            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.7)',
-          }}
-        >
-          <div className="flex items-start gap-3">
-            <div
-              className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
-              style={{
-                background:
-                  'linear-gradient(180deg, hsl(38 92% 60%) 0%, hsl(38 92% 50%) 100%)',
-                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.3), 0 2px 6px hsla(38 92% 50% / 0.3)',
-              }}
-            >
-              <PhoneCall className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <p className="wm-eyebrow uppercase mb-1" style={{ color: 'hsl(38 92% 32%)' }}>
-                Calling You At
-              </p>
-              <p className="text-base font-semibold text-foreground leading-snug">
-                {maskPhone(context.phone)}
-              </p>
-              <p className="text-sm mt-1.5" style={{ color: 'hsl(38 92% 28%)' }}>{sla.text}</p>
-            </div>
-          </div>
-        </div>
 
         {activeConfig && (
           <div
@@ -85,9 +51,39 @@ export function SuccessScreen({ context, activeConfig, onReturn }: SuccessScreen
             <p className="font-semibold text-foreground">{activeConfig.guaranteeTitle}</p>
           </div>
         )}
-        <p className="text-foreground/75 mb-8 text-sm">
-          If we miss our callback window, we'll text an apology and a reschedule link. That's the guarantee.
-        </p>
+
+        <div
+          className="rounded-xl p-5 mb-6 text-left"
+          style={{
+            background: 'linear-gradient(180deg, hsl(210 40% 98%) 0%, hsl(210 40% 94%) 100%)',
+            border: '1px solid hsl(210 30% 80%)',
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.7)',
+          }}
+        >
+          <div className="flex items-start gap-3">
+            <div
+              className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
+              style={{
+                background: 'linear-gradient(180deg, #6bb8ff 0%, #3b82f6 40%, #1d4ed8 100%)',
+                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.3), 0 2px 6px rgba(37,99,235,0.3)',
+              }}
+            >
+              <FileText className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <p className="wm-eyebrow uppercase mb-1 text-muted-foreground">
+                Next Step
+              </p>
+              <p className="text-base font-semibold text-foreground leading-snug">
+                Return to your Truth Report
+              </p>
+              <p className="text-sm mt-1.5 text-muted-foreground">
+                Your diagnosis is now attached to this report. You can revisit it any time.
+              </p>
+            </div>
+          </div>
+        </div>
+
         <button
           onClick={onReturn}
           className="text-cobalt font-medium hover:text-cobalt-dim transition-colors"

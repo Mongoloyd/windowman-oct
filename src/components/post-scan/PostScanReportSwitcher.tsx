@@ -522,6 +522,33 @@ export function PostScanReportSwitcher(props: Props) {
       metadata: { source: "unlocked_report_primary_cta", lead_id: leadId ?? null },
     });
 
+    // Non-blocking server-side persistence of diagnosis_started.
+    // Stamps lead.funnel_stage + diagnosis_started_at and writes a canonical
+    // lead_events row. Fire-and-forget — must NEVER block navigation.
+    if (leadId) {
+      void (async () => {
+        try {
+          await supabase
+            .from("leads")
+            .update({
+              funnel_stage: "diagnosis_started",
+              diagnosis_started_at: new Date().toISOString(),
+            })
+            .eq("id", leadId);
+          await supabase.from("lead_events").insert({
+            lead_id: leadId,
+            scan_session_id: props.scanSessionId,
+            event_name: "diagnosis_started",
+            event_source: "unlocked_report_primary_cta",
+            status: "started",
+            metadata: { grade: props.grade, county: props.county },
+          });
+        } catch (err) {
+          console.warn("[PostScanReportSwitcher] diagnosis_started persistence failed:", err);
+        }
+      })();
+    }
+
     navigate("/diagnosis", {
       state: {
         lead_id: leadId,
