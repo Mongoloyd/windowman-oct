@@ -115,13 +115,13 @@ const stageVariants = {
     opacity: 1,
     y: 0,
     filter: 'blur(0px)',
-    transition: { duration: 0.42, ease: [0.22, 1, 0.36, 1] },
+    transition: { duration: 0.42, ease: [0.22, 1, 0.36, 1] as const },
   },
   exit: {
     opacity: 0,
     y: -12,
     filter: 'blur(2px)',
-    transition: { duration: 0.28, ease: [0.4, 0, 1, 1] },
+    transition: { duration: 0.28, ease: [0.4, 0, 1, 1] as const },
   },
 };
 
