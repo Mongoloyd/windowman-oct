@@ -1501,5 +1501,3 @@ Deno.serve(async (req) => {
     return errorResponse(500, "server_error", "Internal server error");
   }
 });
-  }
-});
