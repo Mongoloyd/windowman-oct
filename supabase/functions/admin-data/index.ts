@@ -1053,6 +1053,11 @@ Deno.serve(async (req) => {
         fired_at: new Date().toISOString(),
       });
 
+      // Classify Meta's response so operators can distinguish a token problem
+      // from a routing problem from a Meta-side payload rejection. Never
+      // includes raw token bytes — only the documented Meta error.code path.
+      const failure = classifyMetaError(dispatch.status, dispatch.response);
+
       return successResponse({
         data: {
           attempted: true,
@@ -1060,10 +1065,129 @@ Deno.serve(async (req) => {
           mode: dispatch.mode, // always "test" because forceTestEventCode set
           status: dispatch.status,
           meta_response: dispatch.response,
+          failure_class: failure.class,
+          failure_subcode: failure.subcode,
+          failure_hint: failure.hint,
           masked_pixel_id: dispatch.masked_pixel_id,
           test_event_code_used: dispatch.test_event_code_used,
           event_id: eventId,
           route: { ...diagnostic, masked_pixel_id: dispatch.masked_pixel_id },
+        },
+      });
+    }
+
+    // ─── TOKEN HYGIENE DIAGNOSTIC ──────────────────────────────────
+    // Read-only inspector for the operator to verify, without ever exposing
+    // raw secrets, whether each routing tier currently holds a usable token:
+    //
+    //   • per-client config (if client_slug provided)
+    //   • the global default row
+    //   • the env-fallback (META_PIXEL_ID + META_CAPI_TOKEN)
+    //
+    // Returns booleans + masked previews ONLY. Never returns raw tokens or
+    // raw env values. Safe for super_admin / operator / viewer.
+    if (action === "diagnose_token_health") {
+      const { client_slug } = payload ?? {};
+      const slug = typeof client_slug === "string" && client_slug.length > 0 ? client_slug : undefined;
+      if (slug && !SLUG_RE.test(slug)) {
+        return errorResponse(400, "invalid_slug", "client_slug must match [a-z0-9-]{1,40}.");
+      }
+
+      // Per-client tier (optional)
+      let clientTier: { resolved: boolean; reason: string; presence: ReturnType<typeof summarizeTokenPresence> | null } | null = null;
+      if (slug) {
+        const { data: client } = await supabaseAdmin
+          .from("clients").select("id, is_active").eq("slug", slug).maybeSingle();
+        if (!client) {
+          clientTier = { resolved: false, reason: "client_not_found", presence: null };
+        } else if (!(client as { is_active: boolean }).is_active) {
+          clientTier = { resolved: false, reason: "client_inactive", presence: null };
+        } else {
+          const { data: cfg } = await supabaseAdmin
+            .from("meta_configurations")
+            .select("pixel_id, access_token, test_event_code")
+            .eq("client_id", (client as { id: string }).id)
+            .maybeSingle();
+          const presence = summarizeTokenPresence(cfg as never);
+          clientTier = {
+            resolved: presence.pixel_id_present && presence.access_token_present,
+            reason: !cfg
+              ? "client_config_missing"
+              : !presence.pixel_id_present
+                ? "client_config_missing_pixel"
+                : !presence.access_token_present
+                  ? "client_config_missing_token"
+                  : "ok",
+            presence,
+          };
+        }
+      }
+
+      // Default tier
+      const { data: defaultRow } = await supabaseAdmin
+        .from("meta_configurations")
+        .select("pixel_id, access_token, test_event_code")
+        .eq("is_default", true)
+        .maybeSingle();
+      const defaultPresence = summarizeTokenPresence(defaultRow as never);
+      const defaultTier = {
+        resolved: defaultPresence.pixel_id_present && defaultPresence.access_token_present,
+        reason: !defaultRow
+          ? "default_missing"
+          : !defaultPresence.pixel_id_present
+            ? "default_missing_pixel"
+            : !defaultPresence.access_token_present
+              ? "default_missing_token"
+              : "ok",
+        presence: defaultPresence,
+      };
+
+      // Env tier — booleans only. We MUST NOT echo env values.
+      const envPixel = Deno.env.get("META_PIXEL_ID") ?? null;
+      const envToken = Deno.env.get("META_CAPI_TOKEN") ?? null;
+      const envTestCode = Deno.env.get("META_TEST_EVENT_CODE") ?? null;
+      const envPresence = summarizeTokenPresence({
+        pixel_id: envPixel,
+        access_token: envToken,
+        test_event_code: envTestCode,
+      });
+      const envTier = {
+        resolved: envPresence.pixel_id_present && envPresence.access_token_present,
+        reason: envPresence.pixel_id_present && envPresence.access_token_present
+          ? "ok"
+          : !envPresence.pixel_id_present && !envPresence.access_token_present
+            ? "env_missing"
+            : !envPresence.pixel_id_present
+              ? "env_missing_pixel"
+              : "env_missing_token",
+        presence: envPresence,
+      };
+
+      // Effective resolution mirrors capi-event precedence.
+      const effective_tier = clientTier?.resolved
+        ? "client"
+        : defaultTier.resolved
+          ? "default"
+          : envTier.resolved
+            ? "env"
+            : "degraded";
+
+      return successResponse({
+        data: {
+          client_slug: slug ?? null,
+          effective_tier,
+          is_send_safe: effective_tier !== "degraded",
+          tiers: {
+            client: clientTier,
+            default: defaultTier,
+            env: envTier,
+          },
+          // Reminder for operator UI — never display raw tokens anywhere.
+          contract: {
+            tokens_returned: false,
+            env_values_returned: false,
+            mask_format: "first4…last4",
+          },
         },
       });
     }
