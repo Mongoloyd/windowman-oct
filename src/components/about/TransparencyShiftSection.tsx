@@ -44,7 +44,7 @@ export default function TransparencyShiftSection() {
                 style={{ background: "#e0f7fa", color: "#06B6D4" }}
                 aria-hidden="true"
               >
-                ⌂
+                🏠
               </span>
               <h3 className="font-display text-xl font-bold tracking-tight text-foreground">
                 Homeowners Win
@@ -81,7 +81,7 @@ export default function TransparencyShiftSection() {
                 style={{ background: "#f0fdf4", color: "#16a34a" }}
                 aria-hidden="true"
               >
-                ✓
+                ✅
               </span>
               <h3 className="font-display text-xl font-bold tracking-tight text-foreground">
                 Good Contractors Win
