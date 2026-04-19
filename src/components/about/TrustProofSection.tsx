@@ -21,6 +21,12 @@ const proofItems = [
 ];
 
 export default function TrustProofSection({ stats }: TrustProofSectionProps) {
+  const { total } = useTickerStats();
+  const defaultStats: StatItem[] = [
+    { label: "Quotes Analyzed", value: `${total.toLocaleString()}+` },
+    { label: "Counties Tracked", value: "38" },
+    { label: "Hidden Risks Flagged", value: "6,100+" },
+  ];
   const displayStats = stats ?? defaultStats;
 
   return (
