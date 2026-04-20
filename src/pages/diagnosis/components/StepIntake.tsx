@@ -7,7 +7,25 @@ interface StepIntakeProps {
   onSelectPrimary: (code: DiagnosisCode) => void;
 }
 
+const GRADE_COLORS: Record<string, string> = {
+  A: "#15803D",
+  B: "#4D7C0F",
+  C: "#A16207",
+  D: "#C2410C",
+  F: "#B91C1C",
+};
+
 export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
+  const gradeKey = context.report_grade?.[0]?.toUpperCase() ?? "F";
+  const gradeColor = GRADE_COLORS[gradeKey] ?? GRADE_COLORS.F;
+  const insightCount = context.top_insights.length;
+  const gridColsClass =
+    insightCount <= 4
+      ? "grid-cols-1"
+      : insightCount <= 8
+        ? "grid-cols-1 md:grid-cols-2"
+        : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3";
+
   return (
     <section className="relative overflow-hidden px-6 pt-16 pb-20 md:px-8" style={{ background: "transparent" }}>
       {/* Depth L1 — deep cobalt radial field, upper-left */}
@@ -50,30 +68,68 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
 
       <div className="max-w-3xl mx-auto relative z-10">
         {context.report_grade && (
-          <div className="card-raised rounded-2xl p-5 mb-10">
-            <div className="flex items-start gap-4">
+          <div
+            className="bg-white rounded-2xl p-6 md:p-8 mb-10"
+            style={{
+              boxShadow: `0 20px 50px -12px ${gradeColor}33`,
+              border: `1px solid ${gradeColor}1A`,
+            }}
+          >
+            <div className="flex items-start gap-5 md:gap-6">
+              {/* Grade Stage */}
               <div
-                className="shrink-0 w-14 h-14 rounded-lg flex items-center justify-center"
+                className="shrink-0 aspect-square w-20 md:w-24 rounded-xl flex items-center justify-center"
                 style={{
-                  background: "linear-gradient(180deg, hsl(0 79% 96%) 0%, hsl(0 79% 92%) 100%)",
-                  border: "1px solid hsl(0 79% 78%)",
-                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.7)",
+                  background: `${gradeColor}0D`,
+                  border: `1px solid ${gradeColor}26`,
                 }}
               >
-                <span className="font-display text-2xl font-extrabold text-danger">{context.report_grade}</span>
+                <span
+                  className="font-display font-black text-5xl md:text-6xl leading-none"
+                  style={{ color: gradeColor }}
+                >
+                  {context.report_grade}
+                </span>
               </div>
-              <div className="flex-1">
-                <p className="wm-eyebrow uppercase text-muted-foreground mb-1">Your Audit Score</p>
-                <p className="text-sm text-foreground/80 mb-2">Here's What We Flagged:</p>
-                <ul className="space-y-1">
+
+              {/* Header + Smart Grid */}
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-black tracking-[0.2em] uppercase text-gray-500 mb-1">
+                  Your Audit Score
+                </p>
+                <p className="text-sm font-semibold text-foreground/70 mb-4">
+                  Here's What We Flagged
+                </p>
+                <ul className={`grid ${gridColsClass} gap-x-5 gap-y-2.5`}>
                   {context.top_insights.map((insight, i) => (
-                    <li key={i} className="text-sm text-foreground/85 flex items-start gap-2">
-                      <span className="text-danger mt-0.5">•</span>
+                    <li
+                      key={i}
+                      className="text-sm font-medium text-foreground/85 flex items-start gap-2 animate-fade-in"
+                      style={{
+                        animationDelay: `${Math.min(i, 9) * 200}ms`,
+                        animationFillMode: "both",
+                      }}
+                    >
+                      <span
+                        className="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0"
+                        style={{ background: gradeColor }}
+                      />
                       <span>{insight}</span>
                     </li>
                   ))}
                 </ul>
               </div>
+            </div>
+
+            {/* Reassurance Ribbon */}
+            <div className="border-t border-gray-200/60 mt-5 pt-4 flex items-center gap-3">
+              <span
+                className="block w-0.5 h-3.5 rounded-full"
+                style={{ background: gradeColor }}
+              />
+              <p className="font-mono text-[11px] tracking-wider uppercase text-gray-500">
+                We Have Your Quote · We Have Your Answers · Let's Build Your Counter-Offer
+              </p>
             </div>
           </div>
         )}
