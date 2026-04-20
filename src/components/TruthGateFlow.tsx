@@ -402,9 +402,10 @@ const TruthGateFlow = ({
         queryClientSlug ?? utm.client_slug ?? funnel?.clientSlug ?? null;
 
       const landingPageUrl =
-        typeof window !== "undefined"
+        utm.landing_page_url ??
+        (typeof window !== "undefined"
           ? `${window.location.pathname}${window.location.search}`
-          : utm.landing_page_url ?? utm.landing_page ?? null;
+          : null);
 
       const { error } = await supabase.from("leads").insert({
         session_id: sessionId,
