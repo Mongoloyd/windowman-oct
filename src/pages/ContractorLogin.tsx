@@ -496,5 +496,7 @@ export default function ContractorLogin() {
         </div>
       </div>
     </div>
+    <NativeBookingForm />
+    </>
   );
 }
