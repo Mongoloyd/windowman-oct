@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { usePartnerAuth } from "@/hooks/usePartnerAuth";
+import NativeBookingForm from "@/pages/contractors3/components/sections/NativeBookingForm";
 
 type View = "login" | "forgot" | "register" | "register-success";
 
@@ -441,6 +442,7 @@ export default function ContractorLogin() {
   };
 
   return (
+    <>
     <div className="min-h-screen bg-[hsl(222,47%,6%)] flex">
       <div className="hidden lg:flex lg:w-[45%] flex-col justify-between p-12 bg-[hsl(222,47%,8%)] border-r border-white/5">
         <div>
@@ -494,5 +496,7 @@ export default function ContractorLogin() {
         </div>
       </div>
     </div>
+    <NativeBookingForm />
+    </>
   );
 }
