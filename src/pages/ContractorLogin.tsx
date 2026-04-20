@@ -520,21 +520,7 @@ export default function ContractorLogin() {
               <p className="text-sm text-sky-300">Weaponized Competitive Intelligence</p>
             </div>
 
-            <div className="relative pt-0 md:pt-32 lg:pt-44 xl:pt-52">
-              {/* Floating WindowMan — bottom tucks behind the card */}
-              <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 z-0 hidden md:block -top-32 lg:-top-48 xl:-top-56 motion-reduce:animate-none animate-float-soft">
-                <img
-                  src="/images/wman-reading.avif"
-                  alt=""
-                  aria-hidden="true"
-                  width={688}
-                  height={423}
-                  fetchPriority="low"
-                  decoding="async"
-                  className="h-56 md:h-64 lg:h-80 xl:h-96 w-auto drop-shadow-[0_18px_36px_rgba(0,0,0,0.55)]"
-                  style={{ aspectRatio: "688 / 423" }}
-                />
-              </div>
+            <div className="relative">
               <div className="relative z-10 rounded-2xl bg-white/[0.02] backdrop-blur-xl border border-white/[0.08] shadow-[inset_0_1px_0_hsla(0,0%,100%,0.08),inset_0_-1px_0_hsla(0,0%,0%,0.4),0_40px_100px_-20px_rgba(0,0,0,0.7)]">
                 {/* Free Pro-Consumer Protection chip — sits on the seam between character and card */}
                 <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 -top-4 z-20 items-center gap-2 px-4 py-2 rounded-full bg-white/[0.04] backdrop-blur-md border border-white/[0.08] shadow-[0_8px_24px_rgba(0,0,0,0.4),inset_0_1px_0_hsla(0,0%,100%,0.08)] whitespace-nowrap">
