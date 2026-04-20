@@ -391,8 +391,8 @@ const TruthGateFlow = ({
       // was persisted before client_slug / landing_page_url existed in the schema.
       const utm = captureUtmFromUrl();
 
-      // Direct query param read as final backstop (in case captureUtmFromUrl
-      // somehow missed it due to timing or race conditions with localStorage).
+      // Prefer the LIVE query param at submit time over any stored/funnel state.
+      // This guarantees /?client=test always wins, even if storage is stale.
       const queryClientSlug =
         typeof window !== "undefined"
           ? new URLSearchParams(window.location.search).get("client")
