@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
-import { Shield, ArrowRight, Lock, ArrowLeft, CheckCircle2, Building2 } from "lucide-react";
+import { Shield, ShieldCheck, ArrowRight, Lock, ArrowLeft, CheckCircle2, Building2 } from "lucide-react";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
