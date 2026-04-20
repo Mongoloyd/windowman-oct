@@ -480,6 +480,14 @@ export default function ContractorLogin() {
                 Access real-time dossiers on in-market homeowners. See exactly what your competitor quoted,
                 where they cut corners, and how to win the deal.
               </p>
+              <div className="my-8 rounded-xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-md p-4 shadow-[inset_0_1px_0_hsla(0,0%,100%,0.06)]">
+                <img
+                  src="/images/flywheel-wman.avif"
+                  alt="WindowMan partner intelligence flywheel"
+                  loading="lazy"
+                  className="w-full h-auto object-contain"
+                />
+              </div>
             </div>
             <div className="space-y-4 mt-12">
               {[
