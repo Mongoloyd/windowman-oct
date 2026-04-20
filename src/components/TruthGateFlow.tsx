@@ -5,7 +5,7 @@ import { Check, Shield } from "lucide-react";
 import { useTickerStats } from "@/hooks/useTickerStats";
 import { supabase } from "@/integrations/supabase/client";
 import { useScanFunnelSafe } from "@/state/scanFunnel";
-import { getUtmData } from "@/lib/useUtmCapture";
+import { captureUtmFromUrl } from "@/lib/useUtmCapture";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STEP CONFIGURATION
@@ -385,11 +385,24 @@ const TruthGateFlow = ({
       // Normalize phone to E.164 before DB insert (matches server-side normalizePhone.ts)
       const phoneE164 = normalizePhoneToE164(answers.phone);
 
-      // Capture attribution data at moment of lead creation
-      const utm = getUtmData();
+      // Capture attribution FRESH from current URL at moment of lead creation.
+      // Using captureUtmFromUrl() (not getUtmData()) guarantees we re-read
+      // window.location.search and overwrite any stale localStorage entry that
+      // was persisted before client_slug / landing_page_url existed in the schema.
+      const utm = captureUtmFromUrl();
 
+      // Fallback chain: fresh URL capture → funnel context (set by LandingPage
+      // /lp/:slug after server-side validation, or by ScanFunnelProvider via
+      // useClientSlug for /?client= traffic) → null.
       const effectiveClientSlug = utm.client_slug ?? funnel?.clientSlug ?? null;
-      const landingPageUrl = utm.landing_page_url ?? utm.landing_page;
+
+      // Always prefer full path+query; fall back to live window URL if attribution
+      // capture somehow returned empty (defensive — should never trigger on real entry).
+      const landingPageUrl =
+        utm.landing_page_url ??
+        (typeof window !== "undefined"
+          ? `${window.location.pathname}${window.location.search}`
+          : null);
 
       const { error } = await supabase.from("leads").insert({
         session_id: sessionId,
