@@ -1,78 +1,118 @@
 
 
-## Goal
-Add the uploaded WindowMan-reading-a-report image above the "Secure Access" auth card with a subtle, slow vertical float (≈2–3mm). The bottom of the image should tuck **behind** the card so it visually anchors to the form, giving the impression of a small companion peeking out from behind the panel.
+## Goals
+1. **Bigger character on desktop** — show the full pill-sitting illustration at its native composition (with the in-image message visible), scaled up significantly. Proportional scale-down on tablet. Hide on mobile.
+2. **Fix CLS** — eliminate cumulative layout shift on `/partner/login` and across the site by reserving space for images that currently load without intrinsic dimensions.
 
-## Implementation
+---
 
-### 1. Add the asset
-Copy the upload to a stable public path:
-- `user-uploads://Screenshot_2026-04-15_012205.avif` → `public/images/wman-reading.avif`
-  (alpha-channel AVIF — perfect, no background plate to fight the cinematic blue)
+## Part 1 — Resize the floating WindowMan
 
-### 2. Add a slow float keyframe (`tailwind.config.ts`)
-The existing `fade-in` / `scale-in` are too fast and don't loop. Add one new utility:
-```ts
-keyframes: {
-  "float-soft": {
-    "0%, 100%": { transform: "translateY(0px)" },
-    "50%":      { transform: "translateY(-3px)" },   // ~2.5mm at 96dpi
-  },
-},
-animation: {
-  "float-soft": "float-soft 5s ease-in-out infinite",
-}
-```
-5s cycle = slow and "alive," not distracting. Respects `prefers-reduced-motion` via a Tailwind variant on the wrapper (`motion-reduce:animate-none`).
+### Current state (line 519–533)
+- `h-36 w-auto` (144px tall) — too small for desktop
+- `-top-8` — barely peeks above the card
+- `lazy` loading — also a CLS contributor (see Part 2)
 
-### 3. Place the image above the auth card (single edit, `src/pages/ContractorLogin.tsx`, ~line 519)
-Wrap the existing auth card in a `relative` container and insert the floating image as a sibling positioned above it, with the bottom ~25% overlapping behind the card via negative margin + `z-0`:
+### New responsive sizing
+Replace the image classes with a viewport-aware ladder so the **entire illustration** (pill + speech message baked into the AVIF) is visible at full glory on desktop:
 
 ```tsx
-<div className="relative">
-  {/* Floating WindowMan — bottom tucks behind the card */}
-  <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-28 z-0 motion-reduce:animate-none animate-float-soft">
-    <img
-      src="/images/wman-reading.avif"
-      alt=""
-      aria-hidden="true"
-      loading="lazy"
-      className="h-36 w-auto drop-shadow-[0_12px_24px_rgba(0,0,0,0.45)]"
-    />
-  </div>
-
-  {/* Existing auth card — bumped to z-10 so it covers the image's lower portion */}
-  <div className="relative z-10 rounded-2xl bg-white/[0.02] backdrop-blur-xl border border-white/[0.08] shadow-[inset_0_1px_0_hsla(0,0%,100%,0.08),inset_0_-1px_0_hsla(0,0%,0%,0.4),0_40px_100px_-20px_rgba(0,0,0,0.7)]">
-    {rightPanel()}
-  </div>
+<div className="pointer-events-none absolute left-1/2 -translate-x-1/2 z-0
+                hidden md:block
+                -top-40 lg:-top-56
+                motion-reduce:animate-none animate-float-soft">
+  <img
+    src="/images/wman-reading.avif"
+    alt=""
+    aria-hidden="true"
+    width="320"
+    height="320"
+    fetchpriority="low"
+    decoding="async"
+    className="h-56 md:h-64 lg:h-80 xl:h-96 w-auto drop-shadow-[0_18px_36px_rgba(0,0,0,0.55)]"
+  />
 </div>
 ```
 
-### 4. Spacing nudge
-Add `pt-20` (or increase top spacing of the auth column wrapper) so the floating figure has clearance and doesn't clip into the mobile WindowMan/Partner Portal header on `<lg` viewports. On desktop, the floating figure replaces some of that whitespace gracefully.
+Behavior:
+| Viewport | Image height | Visible? |
+|---|---|---|
+| Mobile (<md / <768px) | — | **Hidden** |
+| Tablet (md, 768–1023) | 256px (`h-64`) | Visible, scaled |
+| Desktop (lg, 1024–1279) | 320px (`h-80`) | Full glory |
+| Desktop (xl, ≥1280) | 384px (`h-96`) | Largest |
 
-## Behavior summary
-- Image floats up/down ~3px continuously, 5s loop, ease-in-out → reads as breathing/idle.
-- Bottom ~25% of the image is hidden behind the glass auth card (z-stacking + negative `top`).
-- Hidden from screen readers (`alt=""` + `aria-hidden`) — purely decorative.
-- Honors `prefers-reduced-motion` (no animation for users who request it).
-- Works on all viewports; image stays centered above the form on mobile/tablet/desktop.
+### Clearance adjustment
+The auth column wrapper currently has `pt-20` (80px). Bump for the bigger figure on `md+` only:
+```tsx
+<div className="relative pt-0 md:pt-44 lg:pt-60 xl:pt-72">
+```
+This reserves vertical space matching the negative-top offset, so the figure has room to float above without overlapping the mobile WindowMan/Partner Portal header (which is `lg:hidden` anyway, but the new spacing prevents collision on tablet).
+
+### Why this works for "the message in the image"
+The AVIF already contains the speech bubble baked into the artwork. Currently at `h-36`, that text is too small to read on a 1497px display. At `h-80`/`h-96`, the bubble becomes legible at a normal reading distance. Aspect ratio is preserved via `w-auto` so the composition (character + pill + bubble) stays intact.
+
+---
+
+## Part 2 — Fix CLS site-wide
+
+### Root causes (from a quick audit)
+1. **Images without `width`/`height` or aspect-ratio**: browser allocates 0 height initially, then jumps when the image decodes. The flywheel image and the new wman image are prime offenders.
+2. **`loading="lazy"` on above-the-fold images**: defers layout calculation past initial paint, causing late shifts.
+3. **Custom fonts via `@font-face`**: if `font-display: swap` is used without `size-adjust`, fallback→webfont swap reflows headings (FOUT shift). Already preloaded in `index.html`, but worth verifying `font-display`.
+4. **Glassmorphic auth card** with content that renders conditionally (loading states, view switch) — those are *user-initiated*, not initial CLS, so safe.
+
+### Fixes
+
+**A. Add intrinsic dimensions + `aspect-ratio` to the two `/partner/login` images**
+
+Floating wman (handled in Part 1 with `width="320" height="320"`).
+
+Flywheel image (line 553–558) — wrap or set aspect ratio:
+```tsx
+<img
+  src="/images/flywheel-wman.avif"
+  alt="WindowMan partner intelligence flywheel"
+  width="800"
+  height="600"
+  loading="lazy"
+  decoding="async"
+  className="w-full h-auto object-contain"
+  style={{ aspectRatio: "4 / 3" }}  // adjust to actual ratio
+/>
+```
+I'll measure the actual AVIF dimensions during implementation (via `identify` or by inspecting the file) to set the correct `width`/`height` attributes — that's what eliminates the shift.
+
+**B. Site-wide image audit**
+Run `grep -r "<img" src/` to find every raw `<img>` tag. For each one above the fold or inside a layout-affecting container, ensure both `width` and `height` attributes are present (or an explicit `aspect-ratio` CSS rule on the wrapper). I'll fix the top offenders in this same pass:
+- Hero images on `/`
+- Logo in `PublicNavbar` and partner header
+- Any `<img>` in `Footer`, `NativeBookingForm`, `ContractorLogin`
+
+**C. Font swap shift**
+Check `src/index.css` for `@font-face` blocks and add `font-display: optional` or `size-adjust` adjustments on the fallback if Barlow Condensed / DM Sans are still used. (Per `tailwind.config.ts` they've been removed in favor of system fonts, so this may already be clean — I'll verify.)
+
+**D. Reserve space for the seam-fade overlay**
+The `absolute bottom-0 ... h-32 bg-gradient-to-b` overlay (line 545–548) is `pointer-events-none` and absolute, so it doesn't cause CLS. Leaving as-is.
+
+### Verification approach
+After edits, I'll:
+1. Visually QA at 375 / 768 / 1024 / 1497 px.
+2. Use the browser performance profile tool to measure CLS before/after on `/partner/login` and `/`.
+3. Confirm the floating character is hidden on mobile, scaled on tablet, and full-size on desktop with the in-image bubble legible.
+
+---
 
 ## Files changed
 ```text
-public/images/wman-reading.avif      (new asset, copied from upload)
-tailwind.config.ts                   (add float-soft keyframe + animation)
-src/pages/ContractorLogin.tsx        (wrap auth card, insert floating image, spacing nudge)
+src/pages/ContractorLogin.tsx   (resize float wman, hide on mobile, add intrinsic dims to flywheel + wman, bump auth-column pt-* spacing)
+src/index.css                   (verify/adjust font-display if needed — only if a webfont @font-face exists)
+[other image files site-wide]   (add width/height attrs to top CLS offenders found in grep audit)
 ```
 
 ## Out of scope
-- No changes to the brand panel, flywheel image, NativeBookingForm, auth logic, or RLS.
-- No new components, no edge functions.
-
-## Verification
-1. Image appears centered above the "Secure Access" card on `/partner/login`.
-2. Bottom of the image is partially obscured by the glass card.
-3. Slow vertical breathing motion (~3px, 5s) is visible but not distracting.
-4. Mobile (375px), tablet (768px), desktop (1497px): no clipping, no horizontal overflow.
-5. With OS "Reduce motion" enabled, the image is static.
+- No layout/copy changes
+- No animation timing changes (5s float-soft stays)
+- No NativeBookingForm or auth logic changes
+- No new assets
 
