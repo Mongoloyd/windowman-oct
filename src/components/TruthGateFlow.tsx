@@ -391,18 +391,20 @@ const TruthGateFlow = ({
       // was persisted before client_slug / landing_page_url existed in the schema.
       const utm = captureUtmFromUrl();
 
-      // Fallback chain: fresh URL capture → funnel context (set by LandingPage
-      // /lp/:slug after server-side validation, or by ScanFunnelProvider via
-      // useClientSlug for /?client= traffic) → null.
-      const effectiveClientSlug = utm.client_slug ?? funnel?.clientSlug ?? null;
+      // Prefer the LIVE query param at submit time over any stored/funnel state.
+      // This guarantees /?client=test always wins, even if storage is stale.
+      const queryClientSlug =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search).get("client")
+          : null;
 
-      // Always prefer full path+query; fall back to live window URL if attribution
-      // capture somehow returned empty (defensive — should never trigger on real entry).
+      const effectiveClientSlug =
+        queryClientSlug ?? utm.client_slug ?? funnel?.clientSlug ?? null;
+
       const landingPageUrl =
-        utm.landing_page_url ??
-        (typeof window !== "undefined"
+        typeof window !== "undefined"
           ? `${window.location.pathname}${window.location.search}`
-          : null);
+          : utm.landing_page_url ?? utm.landing_page ?? null;
 
       const { error } = await supabase.from("leads").insert({
         session_id: sessionId,
