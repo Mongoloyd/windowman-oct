@@ -1344,8 +1344,12 @@ I'm ready to move forward if we can get these items addressed. What's the fastes
                 <img
                   src="/windowman-evaluates.avif"
                   alt="WindowMan evaluating quote with a clipboard"
+                  width={225}
+                  height={225}
                   loading="lazy"
+                  decoding="async"
                   className="w-40 md:w-48 h-auto object-contain mx-auto mt-6"
+                  style={{ aspectRatio: "1 / 1" }}
                 />
               </div>
               <div className="flex flex-col gap-3">

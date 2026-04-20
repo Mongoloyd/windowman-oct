@@ -47,9 +47,12 @@ const Contractors2 = () => {
         <img
           src="/images/ai-training-learning.avif"
           alt="WindowMan AI infrastructure — setup, learning, and growth stages"
+          width={1920}
+          height={1071}
           loading="lazy"
           decoding="async"
           className="w-full max-w-5xl mx-auto object-contain opacity-80"
+          style={{ aspectRatio: "1920 / 1071" }}
         />
       </div>
 
