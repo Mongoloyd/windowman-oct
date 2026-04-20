@@ -286,11 +286,10 @@ export default function ContractorLogin() {
         </div>
         <Button
           type="button"
-          variant="outline"
-          className="w-full h-11 border-white/10 text-slate-300 hover:bg-white/5"
+          className="w-full h-11 border border-white/10 bg-black text-white"
           onClick={() => setView("login")}
         >
-          Return to sign in
+          Return to Sign in
         </Button>
       </CardContent>
     </Card>
