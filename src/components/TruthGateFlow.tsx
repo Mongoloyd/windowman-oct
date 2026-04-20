@@ -379,14 +379,33 @@ const TruthGateFlow = ({
       // Capture attribution fresh from current URL
       const utm = captureUtmFromUrl();
 
-      // Query param wins, then captured UTM slug, then stored funnel slug
+      // Slug resolution priority (highest → lowest):
+      //   1. funnel.clientSlug — set by /lp/:slug route via ScanFunnelProvider (canonical white-label entry)
+      //   2. ?client= query param — explicit override on any page
+      //   3. utm.client_slug — captured earlier this session from URL
+      //   4. localStorage('wm_client_slug') — durability across refresh / tab switch
+      //   5. null — true direct/organic traffic
       const queryClientSlug =
         typeof window !== "undefined"
           ? new URLSearchParams(window.location.search).get("client")
           : null;
 
+      const lsClientSlug =
+        typeof window !== "undefined"
+          ? localStorage.getItem("wm_client_slug")
+          : null;
+
       const effectiveClientSlug =
-        queryClientSlug ?? utm.client_slug ?? funnel?.clientSlug ?? null;
+        funnel?.clientSlug ??
+        queryClientSlug ??
+        utm.client_slug ??
+        lsClientSlug ??
+        null;
+
+      // Persist for future sessions / refresh durability (Fix 2 from diagnosis)
+      if (effectiveClientSlug && typeof window !== "undefined") {
+        try { localStorage.setItem("wm_client_slug", effectiveClientSlug); } catch {}
+      }
 
       const landingPageUrl =
         utm.landing_page_url ??
