@@ -3,10 +3,10 @@
  *
  * Captures on page load from URL:
  * - utm_source, utm_medium, utm_campaign, utm_term, utm_content
- * - fbclid (Facebook Click ID → builds _fbc cookie)
+ * - fbclid (Facebook Click ID, used to derive fbc when present)
  * - gclid (Google Click ID)
- * - fbc (Facebook Click cookie, if set by pixel)
- * - client (WindowMan client slug)
+ * - fbc (Facebook Click identifier from URL, or derived from fbclid)
+ * - client (WindowMan client slug from URL)
  *
  * Persists to localStorage so attribution survives:
  * - SPA navigation
@@ -87,6 +87,7 @@ export function captureUtmFromUrl(): UtmData {
     "fbclid",
     "gclid",
     "client",
+    "fbc",
   ].some((key) => params.has(key));
 
   if (!hasAttributionParams) {
@@ -113,7 +114,7 @@ export function captureUtmFromUrl(): UtmData {
     gclid: params.get("gclid"),
     fbc,
     client_slug: params.get("client"),
-    landing_page: fullPathWithQuery,
+    landing_page: window.location.pathname,
     landing_page_url: fullPathWithQuery,
     captured_at: Date.now(),
   };
