@@ -5,7 +5,6 @@
  * - utm_source, utm_medium, utm_campaign, utm_term, utm_content
  * - fbclid (Facebook Click ID, used to derive fbc when present)
  * - gclid (Google Click ID)
- * - fbc (Facebook Click identifier from URL, or derived from fbclid)
  * - client (WindowMan client slug from URL)
  *
  * Persists to localStorage so attribution survives:
@@ -87,7 +86,6 @@ export function captureUtmFromUrl(): UtmData {
     "fbclid",
     "gclid",
     "client",
-    "fbc",
   ].some((key) => params.has(key));
 
   if (!hasAttributionParams) {
@@ -95,7 +93,7 @@ export function captureUtmFromUrl(): UtmData {
   }
 
   const fbclid = params.get("fbclid");
-  let fbc: string | null = params.get("fbc");
+  let fbc: string | null = null;
   if (fbclid) {
     fbc = `fb.1.${Date.now()}.${fbclid}`;
     const expires = new Date(Date.now() + 90 * 864e5).toUTCString();
@@ -114,7 +112,7 @@ export function captureUtmFromUrl(): UtmData {
     fbclid,
     gclid: params.get("gclid"),
     fbc,
-client_slug: params.get("client"),
+    client_slug: params.get("client"),
     landing_page: window.location.pathname,
     landing_page_url: fullPathWithQuery,
     captured_at: Date.now(),
@@ -125,7 +123,6 @@ client_slug: params.get("client"),
     utmData.client_slug = existing.client_slug;
   }
 
-  // Persist to localStorage
   try {
     localStorage.setItem(UTM_STORAGE_KEY, JSON.stringify(utmData));
   } catch {
