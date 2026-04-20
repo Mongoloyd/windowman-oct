@@ -76,7 +76,6 @@ export function captureUtmFromUrl(): UtmData {
   if (typeof window === "undefined") return EMPTY_UTM;
 
   const params = new URLSearchParams(window.location.search);
-
   const hasAttributionParams = [
     "utm_source",
     "utm_medium",
@@ -88,8 +87,10 @@ export function captureUtmFromUrl(): UtmData {
     "client",
   ].some((key) => params.has(key));
 
-  if (!hasAttributionParams) {
-    return getUtmData();
+  const existing = getUtmData();
+
+  if (!hasAttributionParams && existing.captured_at > 0) {
+    return existing;
   }
 
   const fbclid = params.get("fbclid");
@@ -101,17 +102,16 @@ export function captureUtmFromUrl(): UtmData {
   }
 
   const fullPathWithQuery = `${window.location.pathname}${window.location.search}`;
-  const existing = getUtmData();
 
   const utmData: UtmData = {
-    utm_source: params.get("utm_source"),
-    utm_medium: params.get("utm_medium"),
-    utm_campaign: params.get("utm_campaign"),
-    utm_term: params.get("utm_term"),
-    utm_content: params.get("utm_content"),
-    fbclid,
-    gclid: params.get("gclid"),
-    fbc,
+    utm_source: params.get("utm_source") || existing.utm_source,
+    utm_medium: params.get("utm_medium") || existing.utm_medium,
+    utm_campaign: params.get("utm_campaign") || existing.utm_campaign,
+    utm_term: params.get("utm_term") || existing.utm_term,
+    utm_content: params.get("utm_content") || existing.utm_content,
+    fbclid: fbclid || existing.fbclid,
+    gclid: params.get("gclid") || existing.gclid,
+    fbc: fbc || existing.fbc,
     client_slug: params.get("client"),
     landing_page: window.location.pathname,
     landing_page_url: fullPathWithQuery,
@@ -123,19 +123,24 @@ export function captureUtmFromUrl(): UtmData {
     utmData.client_slug = existing.client_slug;
   }
 
+  // Persist to local storage as intended by the file header
   try {
     localStorage.setItem(UTM_STORAGE_KEY, JSON.stringify(utmData));
-  } catch {
-    // ignore storage errors
+  } catch (e) {
+    // ignore storage limits
   }
 
   return utmData;
 }
 
 export function useUtmCapture(): UtmData {
-  const [utmData, setUtmData] = useState<UtmData>(EMPTY_UTM);
+  // Initialize state synchronously so it is NEVER empty on first render
+  const [utmData, setUtmData] = useState<UtmData>(() => {
+    return typeof window !== "undefined" ? captureUtmFromUrl() : EMPTY_UTM;
+  });
 
   useEffect(() => {
+    // Catch subsequent client-side URL updates
     const data = captureUtmFromUrl();
     setUtmData(data);
   }, []);
