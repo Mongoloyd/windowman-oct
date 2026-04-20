@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { usePartnerAuth } from "@/hooks/usePartnerAuth";
+import NativeBookingForm from "@/pages/contractors3/components/sections/NativeBookingForm";
 
 type View = "login" | "forgot" | "register" | "register-success";
 
