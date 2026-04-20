@@ -5,7 +5,7 @@ import { Check, Shield } from "lucide-react";
 import { useTickerStats } from "@/hooks/useTickerStats";
 import { supabase } from "@/integrations/supabase/client";
 import { useScanFunnelSafe } from "@/state/scanFunnel";
-import { captureUtmFromUrl } from "@/hooks/useUtmCapture"; // Fixed import path
+import { captureUtmFromUrl } from "@/lib/useUtmCapture";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STEP CONFIGURATION
@@ -372,9 +372,14 @@ const TruthGateFlow = ({
 
     try {
       const sessionId = crypto.randomUUID();
+
+      // Normalize phone to E.164 before DB insert
       const phoneE164 = normalizePhoneToE164(answers.phone);
+
+      // Capture attribution fresh from current URL
       const utm = captureUtmFromUrl();
 
+      // Query param wins, then captured UTM slug, then stored funnel slug
       const queryClientSlug =
         typeof window !== "undefined"
           ? new URLSearchParams(window.location.search).get("client")
@@ -399,14 +404,8 @@ const TruthGateFlow = ({
         window_count: parseWindowCount(answers.windowCount),
         quote_range: answers.quoteRange,
         source: "truth-gate",
-        
-        // --- 🚨 COMMENTED OUT TO FIX TYPE ERRORS TONIGHT 🚨 ---
-        // TODO: Uncomment these tomorrow after adding the columns to your Supabase `leads` table
-        // client_slug: effectiveClientSlug,
-        // fbc: utm.fbc,
-        // landing_page_url: landingPageUrl,
-        // first_page_path: utm.landing_page,
-        // ------------------------------------------------------
+
+        client_slug: effectiveClientSlug,
 
         utm_source: utm.utm_source,
         utm_medium: utm.utm_medium,
@@ -415,6 +414,9 @@ const TruthGateFlow = ({
         utm_content: utm.utm_content,
         fbclid: utm.fbclid,
         gclid: utm.gclid,
+        fbc: utm.fbc,
+        landing_page_url: landingPageUrl,
+        first_page_path: utm.landing_page,
         initial_referrer: typeof document !== "undefined" ? document.referrer || null : null,
       });
 
