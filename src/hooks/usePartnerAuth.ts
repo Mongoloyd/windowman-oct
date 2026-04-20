@@ -6,6 +6,8 @@
  * - unauthenticated: no session
  * - unlinked: authenticated but no contractor_profiles row (id = auth.uid())
  * - suspended: linked but contractor_profiles.status !== 'active'
+ *               (includes 'pending_review' for self-serve registrations —
+ *                PartnerGuard differentiates the copy via the `status` field)
  * - active: fully linked and active partner
  *
  * KEY: Uses `contractor_profiles` (RLS: auth.uid() = id) instead of
@@ -23,6 +25,7 @@ interface PartnerAuth {
   userId: string | null;
   contractorId: string | null;
   companyName: string | null;
+  status: string | null;
 }
 
 export function usePartnerAuth(): PartnerAuth {
@@ -31,6 +34,7 @@ export function usePartnerAuth(): PartnerAuth {
     userId: null,
     contractorId: null,
     companyName: null,
+    status: null,
   });
 
   useEffect(() => {
@@ -39,7 +43,7 @@ export function usePartnerAuth(): PartnerAuth {
     async function resolve() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) {
-        if (!cancelled) setAuth({ state: "unauthenticated", userId: null, contractorId: null, companyName: null });
+        if (!cancelled) setAuth({ state: "unauthenticated", userId: null, contractorId: null, companyName: null, status: null });
         return;
       }
 
@@ -53,7 +57,7 @@ export function usePartnerAuth(): PartnerAuth {
         .maybeSingle();
 
       if (!profile) {
-        if (!cancelled) setAuth({ state: "unlinked", userId, contractorId: null, companyName: null });
+        if (!cancelled) setAuth({ state: "unlinked", userId, contractorId: null, companyName: null, status: null });
         return;
       }
 
@@ -63,6 +67,7 @@ export function usePartnerAuth(): PartnerAuth {
           userId,
           contractorId: profile.id,
           companyName: profile.company_name,
+          status: profile.status,
         });
         return;
       }
@@ -72,6 +77,7 @@ export function usePartnerAuth(): PartnerAuth {
         userId,
         contractorId: profile.id,
         companyName: profile.company_name,
+        status: profile.status,
       });
     }
 
