@@ -25,10 +25,12 @@ export interface UtmData {
   utm_campaign: string | null;
   utm_term: string | null;
   utm_content: string | null;
+  client_slug: string | null;
   fbclid: string | null;
   gclid: string | null;
   fbc: string | null;
   landing_page: string | null;
+  landing_page_url: string | null;
   captured_at: number;
 }
 
@@ -38,10 +40,12 @@ const EMPTY_UTM: UtmData = {
   utm_campaign: null,
   utm_term: null,
   utm_content: null,
+  client_slug: null,
   fbclid: null,
   gclid: null,
   fbc: null,
   landing_page: null,
+  landing_page_url: null,
   captured_at: 0,
 };
 
@@ -75,7 +79,7 @@ export function captureUtmFromUrl(): UtmData {
 
   // Check if URL has any UTM or click ID params
   const hasUtmParams = [
-    "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
+    "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "client",
     "fbclid", "gclid",
   ].some((key) => params.has(key));
 
@@ -100,10 +104,12 @@ export function captureUtmFromUrl(): UtmData {
     utm_campaign: params.get("utm_campaign"),
     utm_term: params.get("utm_term"),
     utm_content: params.get("utm_content"),
+    client_slug: params.get("client"),
     fbclid,
     gclid: params.get("gclid"),
     fbc,
     landing_page: window.location.pathname,
+    landing_page_url: `${window.location.pathname}${window.location.search}`,
     captured_at: Date.now(),
   };
 
@@ -143,10 +149,12 @@ export function getUtmPayload(): Record<string, string> {
   if (data.utm_campaign) payload.utm_campaign = data.utm_campaign;
   if (data.utm_term) payload.utm_term = data.utm_term;
   if (data.utm_content) payload.utm_content = data.utm_content;
+  if (data.client_slug) payload.client_slug = data.client_slug;
   if (data.fbclid) payload.fbclid = data.fbclid;
   if (data.gclid) payload.gclid = data.gclid;
   if (data.fbc) payload.fbc = data.fbc;
   if (data.landing_page) payload.landing_page = data.landing_page;
+  if (data.landing_page_url) payload.landing_page_url = data.landing_page_url;
 
   return payload;
 }
