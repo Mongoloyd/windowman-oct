@@ -160,6 +160,10 @@ export default {
           "33%": { transform: "translate(-20px, -10px)" },
           "66%": { transform: "translate(25px, 15px)" },
         },
+        "float-soft": {
+          "0%, 100%": { transform: "translateY(0px)" },
+          "50%": { transform: "translateY(-3px)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.15s ease-out",
@@ -175,6 +179,7 @@ export default {
         "blob-drift-2": "blob-drift-2 30s ease-in-out infinite",
         "blob-drift-3": "blob-drift-3 28s ease-in-out infinite",
         "blob-drift-4": "blob-drift-4 22s ease-in-out infinite",
+        "float-soft": "float-soft 5s ease-in-out infinite",
       },
     },
   },
