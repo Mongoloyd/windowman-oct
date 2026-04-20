@@ -516,8 +516,20 @@ export default function ContractorLogin() {
               <p className="text-sm text-sky-300">Weaponized Competitive Intelligence</p>
             </div>
 
-            <div className="rounded-2xl bg-white/[0.02] backdrop-blur-xl border border-white/[0.08] shadow-[inset_0_1px_0_hsla(0,0%,100%,0.08),inset_0_-1px_0_hsla(0,0%,0%,0.4),0_40px_100px_-20px_rgba(0,0,0,0.7)]">
-              {rightPanel()}
+            <div className="relative pt-20">
+              {/* Floating WindowMan — bottom tucks behind the card */}
+              <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-8 z-0 motion-reduce:animate-none animate-float-soft">
+                <img
+                  src="/images/wman-reading.avif"
+                  alt=""
+                  aria-hidden="true"
+                  loading="lazy"
+                  className="h-36 w-auto drop-shadow-[0_12px_24px_rgba(0,0,0,0.45)]"
+                />
+              </div>
+              <div className="relative z-10 rounded-2xl bg-white/[0.02] backdrop-blur-xl border border-white/[0.08] shadow-[inset_0_1px_0_hsla(0,0%,100%,0.08),inset_0_-1px_0_hsla(0,0%,0%,0.4),0_40px_100px_-20px_rgba(0,0,0,0.7)]">
+                {rightPanel()}
+              </div>
             </div>
 
             <p className="text-center text-[11px] text-slate-400 mt-6">
