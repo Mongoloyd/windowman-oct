@@ -98,6 +98,8 @@ export function captureUtmFromUrl(): UtmData {
     document.cookie = `_fbc=${encodeURIComponent(fbc)};expires=${expires};path=/;SameSite=Lax`;
   }
 
+  const existing = getUtmData();
+
   const utmData: UtmData = {
     utm_source: params.get("utm_source"),
     utm_medium: params.get("utm_medium"),
@@ -108,10 +110,15 @@ export function captureUtmFromUrl(): UtmData {
     fbclid,
     gclid: params.get("gclid"),
     fbc,
-    landing_page: window.location.pathname,
+    landing_page: `${window.location.pathname}${window.location.search}`,
     landing_page_url: `${window.location.pathname}${window.location.search}`,
     captured_at: Date.now(),
   };
+
+  // Preserve first-touch client_slug if current URL doesn't include ?client=
+  if (!params.has("client") && existing.client_slug) {
+    utmData.client_slug = existing.client_slug;
+  }
 
   // Persist to localStorage
   try {
