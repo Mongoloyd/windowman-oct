@@ -5,7 +5,7 @@ import { Check, Shield } from "lucide-react";
 import { useTickerStats } from "@/hooks/useTickerStats";
 import { supabase } from "@/integrations/supabase/client";
 import { useScanFunnelSafe } from "@/state/scanFunnel";
-import { captureUtmFromUrl } from "@/lib/useUtmCapture";
+import { captureUtmFromUrl } from "@/hooks/useUtmCapture"; // Fixed import path
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STEP CONFIGURATION
@@ -281,8 +281,6 @@ const TruthGateFlow = ({
   const selectedRange = answers.quoteRange || "your";
 
   // ── Option selection (quiz steps 1-4) ───────────────────────────────
-  // FIX: Added `answers` to dependency array to prevent stale closure.
-  // The `onStepChange` callback receives the freshest county value.
   const handleOptionClick = useCallback(
     (key: string, value: string) => {
       setSelectedOption(value);
@@ -300,8 +298,6 @@ const TruthGateFlow = ({
           });
         }, 300);
       } else {
-        // Transition chain: selected → loading → estimate → done
-        // FIX: All timeouts check mountedRef to prevent state updates on unmounted component
         setTimeout(() => {
           if (!mountedRef.current) return;
           setTransitionState("loading");
@@ -328,7 +324,6 @@ const TruthGateFlow = ({
       case "email":
         return isValidEmail(value) ? "valid" : "invalid";
       case "phone":
-        // Empty is valid (optional field). Only validate if user typed something.
         if (!value || value.trim() === "") return "untouched";
         return isValidPhone(value) ? "valid" : "invalid";
       default:
@@ -347,12 +342,10 @@ const TruthGateFlow = ({
 
   // ── Phone input handler with auto-formatting ────────────────────────
   const handlePhoneChange = useCallback((rawValue: string) => {
-    // Only allow digits, spaces, parens, dashes, plus sign
     const cleaned = rawValue.replace(/[^\d\s()\-+]/g, "");
     const formatted = formatPhoneDisplay(cleaned);
     setAnswers((prev) => ({ ...prev, phone: formatted }));
 
-    // Clear any previous validation error while typing
     setFieldStatus((prev) => {
       if (prev.phone === "invalid") return { ...prev, phone: "untouched" };
       return prev;
@@ -370,29 +363,18 @@ const TruthGateFlow = ({
     setFieldStatus({
       firstName: nameValid ? "valid" : "invalid",
       email: emailValid ? "valid" : "invalid",
-      // Phone: only mark invalid if they typed something bad
       phone: answers.phone.trim() === "" ? "untouched" : phoneValid ? "valid" : "invalid",
     });
 
-    // Block submit if required fields fail OR if optional phone is present but junk
     if (!nameValid || !emailValid || !phoneValid) return;
 
     setSubmitState("submitting");
 
     try {
       const sessionId = crypto.randomUUID();
-
-      // Normalize phone to E.164 before DB insert (matches server-side normalizePhone.ts)
       const phoneE164 = normalizePhoneToE164(answers.phone);
-
-      // Capture attribution FRESH from current URL at moment of lead creation.
-      // Using captureUtmFromUrl() (not getUtmData()) guarantees we re-read
-      // window.location.search and overwrite any stale localStorage entry that
-      // was persisted before client_slug / landing_page_url existed in the schema.
       const utm = captureUtmFromUrl();
 
-      // Prefer the LIVE query param at submit time over any stored/funnel state.
-      // This guarantees /?client=test always wins, even if storage is stale.
       const queryClientSlug =
         typeof window !== "undefined"
           ? new URLSearchParams(window.location.search).get("client")
@@ -411,14 +393,21 @@ const TruthGateFlow = ({
         session_id: sessionId,
         first_name: answers.firstName,
         email: answers.email,
-        phone_e164: phoneE164, // null if empty, +1XXXXXXXXXX if provided
+        phone_e164: phoneE164,
         county: answers.county,
         project_type: answers.projectType,
         window_count: parseWindowCount(answers.windowCount),
         quote_range: answers.quoteRange,
         source: "truth-gate",
-        client_slug: effectiveClientSlug,
-        // Attribution fields from useUtmCapture
+        
+        // --- 🚨 COMMENTED OUT TO FIX TYPE ERRORS TONIGHT 🚨 ---
+        // TODO: Uncomment these tomorrow after adding the columns to your Supabase `leads` table
+        // client_slug: effectiveClientSlug,
+        // fbc: utm.fbc,
+        // landing_page_url: landingPageUrl,
+        // first_page_path: utm.landing_page,
+        // ------------------------------------------------------
+
         utm_source: utm.utm_source,
         utm_medium: utm.utm_medium,
         utm_campaign: utm.utm_campaign,
@@ -426,29 +415,20 @@ const TruthGateFlow = ({
         utm_content: utm.utm_content,
         fbclid: utm.fbclid,
         gclid: utm.gclid,
-        fbc: utm.fbc,
-        landing_page_url: landingPageUrl,
-        first_page_path: utm.landing_page,
         initial_referrer: typeof document !== "undefined" ? document.referrer || null : null,
       });
 
       if (error) throw error;
 
-      // Write to ScanFunnelContext (persist sessionId + phone for downstream components)
-      // This is what makes the OTP gate pre-fill the phone instead of asking again.
       if (funnel) {
         funnel.setSessionId(sessionId);
         if (phoneE164) {
-          // Mark as screened_valid so OTP can auto-send later only after quote validity is confirmed.
           funnel.setPhone(phoneE164, "screened_valid");
         } else {
-          // Clear stale phone from previous session so LockedOverlay
-          // shows enter_phone instead of auto-sending to old number
           funnel.setPhone("", "none");
         }
       }
 
-      // Analytics: track lead capture with phone presence flag
       supabase
         .from("event_logs")
         .insert({
@@ -468,8 +448,6 @@ const TruthGateFlow = ({
       setSubmitState("success");
       onLeadCaptured?.(sessionId);
 
-      // Fire-and-forget: enrich lead with property data (async, non-blocking).
-      // Passes session_id so the edge function can resolve the lead UUID server-side.
       supabase.functions
         .invoke("enrich-lead", {
           body: {
@@ -487,7 +465,6 @@ const TruthGateFlow = ({
     } catch (err) {
       console.error("Lead capture error:", err);
 
-      // Analytics: track upstream failure (restored from original)
       supabase
         .from("event_logs")
         .insert({
@@ -593,13 +570,6 @@ const TruthGateFlow = ({
       );
     }
 
-    // ══════════════════════════════════════════════════════════════════
-    // Step 5 — Lead Gate (name + email required, phone optional)
-    //
-    // UX STRATEGY: Asterisks on required fields, NO "(optional)" label
-    // on phone. Users in "form completion mode" fill every field by
-    // habit. Saying "(optional)" gives them permission to skip.
-    // ══════════════════════════════════════════════════════════════════
     return (
       <motion.div
         key="lead-gate"
@@ -629,7 +599,6 @@ const TruthGateFlow = ({
         <p className="font-body text-wm-body-soft text-muted-foreground mb-6">Enter Your Details to Run The Scan.</p>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          {/* ── FIRST NAME (required) ────────────────────────────── */}
           <div>
             <label className="wm-eyebrow mb-1.5 text-muted-foreground block">
               FIRST NAME <span className="text-orange-500">*</span>
@@ -660,7 +629,6 @@ const TruthGateFlow = ({
             )}
           </div>
 
-          {/* ── EMAIL (required) ──────────────────────────────────── */}
           <div>
             <label className="wm-eyebrow mb-1.5 text-muted-foreground block">
               EMAIL ADDRESS <span className="text-orange-500">*</span>
@@ -691,7 +659,6 @@ const TruthGateFlow = ({
             )}
           </div>
 
-          {/* ── MOBILE NUMBER (not required, no asterisk, no "optional" label) ── */}
           <div>
             <label className="wm-eyebrow mb-1.5 text-muted-foreground block">MOBILE NUMBER</label>
             <div className="relative">
@@ -721,7 +688,6 @@ const TruthGateFlow = ({
             )}
           </div>
 
-          {/* ── SUBMIT ────────────────────────────────────────────── */}
           <motion.button
             type="submit"
             disabled={submitState === "submitting" || submitState === "success"}
@@ -757,7 +723,6 @@ const TruthGateFlow = ({
           <br />
           We Just Help You Understand It Better
         </p>
-
       </motion.div>
     );
   };
@@ -793,7 +758,6 @@ const TruthGateFlow = ({
           <AnimatePresence mode="wait">{renderStepContent()}</AnimatePresence>
         </div>
 
-        {/* Social proof pill — presentation only, non-interactive */}
         <div className="flex justify-center -mt-3 md:-mt-4 relative z-10 pointer-events-none select-none">
           <div className="inline-flex items-center gap-3 rounded-full border border-slate-200/60 bg-white/80 backdrop-blur-sm px-4 py-1.5 shadow-sm">
             <Shield className="w-3.5 h-3.5 text-primary flex-shrink-0" />
