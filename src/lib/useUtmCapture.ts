@@ -103,6 +103,7 @@ export function captureUtmFromUrl(): UtmData {
   }
 
   const fullPathWithQuery = `${window.location.pathname}${window.location.search}`;
+  const existing = getUtmData();
 
   const utmData: UtmData = {
     utm_source: params.get("utm_source"),
@@ -113,12 +114,18 @@ export function captureUtmFromUrl(): UtmData {
     fbclid,
     gclid: params.get("gclid"),
     fbc,
-    client_slug: params.get("client"),
+client_slug: params.get("client"),
     landing_page: window.location.pathname,
     landing_page_url: fullPathWithQuery,
     captured_at: Date.now(),
   };
 
+  // Preserve first-touch client_slug if current URL doesn't include ?client=
+  if (!params.has("client") && existing.client_slug) {
+    utmData.client_slug = existing.client_slug;
+  }
+
+  // Persist to localStorage
   try {
     localStorage.setItem(UTM_STORAGE_KEY, JSON.stringify(utmData));
   } catch {
