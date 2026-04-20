@@ -398,19 +398,13 @@ const TruthGateFlow = ({
           ? new URLSearchParams(window.location.search).get("client")
           : null;
 
-      // Fallback chain: direct URL query → captured localStorage → funnel context
-      // (set by LandingPage /lp/:slug after server-side validation, or by
-      // ScanFunnelProvider via useClientSlug for /?client= traffic) → null.
       const effectiveClientSlug =
         queryClientSlug ?? utm.client_slug ?? funnel?.clientSlug ?? null;
 
-      // Always prefer full path+query; fall back to live window URL if attribution
-      // capture somehow returned empty (defensive — should never trigger on real entry).
       const landingPageUrl =
-        utm.landing_page_url ??
-        (typeof window !== "undefined"
+        typeof window !== "undefined"
           ? `${window.location.pathname}${window.location.search}`
-          : null);
+          : utm.landing_page_url ?? utm.landing_page ?? null;
 
       const { error } = await supabase.from("leads").insert({
         session_id: sessionId,

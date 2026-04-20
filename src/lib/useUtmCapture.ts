@@ -88,15 +88,16 @@ export function captureUtmFromUrl(): UtmData {
     return getUtmData();
   }
 
-  // Build _fbc cookie from fbclid
   const fbclid = params.get("fbclid");
-  let fbc: string | null = null;
+  let fbc: string | null = params.get("fbc");
   if (fbclid) {
     fbc = `fb.1.${Date.now()}.${fbclid}`;
-    // Set _fbc cookie for pixel
     const expires = new Date(Date.now() + 90 * 864e5).toUTCString();
     document.cookie = `_fbc=${encodeURIComponent(fbc)};expires=${expires};path=/;SameSite=Lax`;
   }
+
+  const fullPathWithQuery = `${window.location.pathname}${window.location.search}`;
+  const existing = getUtmData();
 
   const utmData: UtmData = {
     utm_source: params.get("utm_source"),
@@ -104,22 +105,18 @@ export function captureUtmFromUrl(): UtmData {
     utm_campaign: params.get("utm_campaign"),
     utm_term: params.get("utm_term"),
     utm_content: params.get("utm_content"),
-    client_slug: params.get("client"),
     fbclid,
     gclid: params.get("gclid"),
     fbc,
+    client_slug: params.get("client"),
     landing_page: window.location.pathname,
-    landing_page_url: `${window.location.pathname}${window.location.search}`,
+    landing_page_url: fullPathWithQuery,
     captured_at: Date.now(),
   };
 
-  // Preserve first-touch client_slug if current URL doesn't have ?client=
-  // This prevents utm_source-only visits from nulling out a previously captured client_slug
-  if (!params.has("client")) {
-    const existing = getUtmData();
-    if (existing.client_slug) {
-      utmData.client_slug = existing.client_slug;
-    }
+  // Preserve first-touch client_slug if current URL doesn't include ?client=
+  if (!params.has("client") && existing.client_slug) {
+    utmData.client_slug = existing.client_slug;
   }
 
   // Persist to localStorage
