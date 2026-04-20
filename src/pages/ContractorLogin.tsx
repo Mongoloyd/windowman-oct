@@ -443,58 +443,89 @@ export default function ContractorLogin() {
 
   return (
     <>
-    <div className="min-h-screen bg-[hsl(222,47%,6%)] flex">
-      <div className="hidden lg:flex lg:w-[45%] flex-col justify-between p-12 bg-[hsl(222,47%,8%)] border-r border-white/5">
-        <div>
-          <div className="flex items-center gap-3 mb-16">
-            <div className="h-9 w-9 rounded-lg bg-sky-500/20 flex items-center justify-center">
-              <Shield className="h-5 w-5 text-sky-400" />
+    <div className="relative min-h-screen overflow-hidden bg-gradient-to-b from-[hsl(215,55%,8%)] via-[hsl(218,50%,11%)] to-[hsl(220,45%,7%)]">
+      {/* Cinematic glow layers — eliminate hard divisions, blue blends edge to edge */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(60% 50% at 25% 30%, hsla(217,90%,55%,0.18), transparent 70%), radial-gradient(50% 40% at 80% 70%, hsla(28,90%,55%,0.10), transparent 70%), radial-gradient(40% 35% at 50% 100%, hsla(220,60%,20%,0.6), transparent 75%)",
+        }}
+      />
+      {/* Subtle film grain */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-[0.05] mix-blend-overlay"
+        style={{
+          backgroundImage:
+            "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.5 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")",
+        }}
+      />
+
+      <div className="relative flex min-h-screen flex-col lg:flex-row">
+        {/* Brand panel — floating glass, no border-r seam */}
+        <div className="hidden lg:flex lg:w-[45%] flex-col justify-between p-12">
+          <div className="flex flex-col justify-between h-full rounded-2xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-xl p-10 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.6)]">
+            <div>
+              <div className="flex items-center gap-3 mb-16">
+                <div className="h-10 w-10 rounded-xl bg-white/[0.06] backdrop-blur-md border border-white/10 shadow-inner flex items-center justify-center">
+                  <Shield className="h-5 w-5 text-sky-300" />
+                </div>
+                <span className="text-lg font-semibold tracking-tight text-white/90 font-mono">WindowMan</span>
+              </div>
+              <h1 className="text-4xl font-bold tracking-tight text-white leading-tight mb-4">Partner Portal</h1>
+              <p className="text-xl text-sky-300 font-medium mb-8">Weaponized Competitive Intelligence</p>
+              <p className="text-sm text-slate-300 leading-relaxed max-w-md">
+                Access real-time dossiers on in-market homeowners. See exactly what your competitor quoted,
+                where they cut corners, and how to win the deal.
+              </p>
             </div>
-            <span className="text-lg font-semibold tracking-tight text-white/90 font-mono">WindowMan</span>
+            <div className="space-y-4 mt-12">
+              {[
+                "Verified homeowner leads with quote intelligence",
+                "Forensic vulnerability reports on competitor quotes",
+                "Pay-per-lead — no monthly contracts",
+              ].map((line) => (
+                <div key={line} className="flex items-center gap-3">
+                  <div className="h-px w-6 bg-gradient-to-r from-amber-400/60 to-transparent shrink-0" />
+                  <p className="text-sm text-slate-300">{line}</p>
+                </div>
+              ))}
+            </div>
           </div>
-          <h1 className="text-4xl font-bold tracking-tight text-white leading-tight mb-4">Partner Portal</h1>
-          <p className="text-xl text-sky-400 font-medium mb-8">Weaponized Competitive Intelligence</p>
-          <p className="text-sm text-slate-400 leading-relaxed max-w-md">
-            Access real-time dossiers on in-market homeowners. See exactly what your competitor quoted,
-            where they cut corners, and how to win the deal.
-          </p>
         </div>
-        <div className="space-y-4">
-          <div className="flex items-start gap-3">
-            <div className="h-1.5 w-1.5 rounded-full bg-sky-500 mt-2 shrink-0" />
-            <p className="text-xs text-slate-500">Verified homeowner leads with quote intelligence</p>
-          </div>
-          <div className="flex items-start gap-3">
-            <div className="h-1.5 w-1.5 rounded-full bg-sky-500 mt-2 shrink-0" />
-            <p className="text-xs text-slate-500">Forensic vulnerability reports on competitor quotes</p>
-          </div>
-          <div className="flex items-start gap-3">
-            <div className="h-1.5 w-1.5 rounded-full bg-sky-500 mt-2 shrink-0" />
-            <p className="text-xs text-slate-500">Pay-per-lead — no monthly contracts</p>
+
+        {/* Auth column */}
+        <div className="flex-1 flex items-center justify-center px-6 py-12">
+          <div className="w-full max-w-md">
+            <div className="lg:hidden mb-10 text-center">
+              <div className="flex items-center justify-center gap-2 mb-4">
+                <Shield className="h-6 w-6 text-sky-300" />
+                <span className="text-lg font-semibold text-white/90 font-mono">WindowMan</span>
+              </div>
+              <h1 className="text-2xl font-bold text-white mb-1">Partner Portal</h1>
+              <p className="text-sm text-sky-300">Weaponized Competitive Intelligence</p>
+            </div>
+
+            <div className="rounded-2xl bg-white/[0.02] backdrop-blur-xl border border-white/[0.08] shadow-[inset_0_1px_0_hsla(0,0%,100%,0.08),inset_0_-1px_0_hsla(0,0%,0%,0.4),0_40px_100px_-20px_rgba(0,0,0,0.7)]">
+              {rightPanel()}
+            </div>
+
+            <p className="text-center text-[11px] text-slate-400 mt-6">
+              WindowMan Partner Portal is invitation-only.
+              <br />
+              Unauthorized access attempts are logged.
+            </p>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 flex items-center justify-center px-6 py-12">
-        <div className="w-full max-w-md">
-          <div className="lg:hidden mb-10 text-center">
-            <div className="flex items-center justify-center gap-2 mb-4">
-              <Shield className="h-6 w-6 text-sky-400" />
-              <span className="text-lg font-semibold text-white/90 font-mono">WindowMan</span>
-            </div>
-            <h1 className="text-2xl font-bold text-white mb-1">Partner Portal</h1>
-            <p className="text-sm text-sky-400">Weaponized Competitive Intelligence</p>
-          </div>
-
-          {rightPanel()}
-
-          <p className="text-center text-[11px] text-slate-600 mt-6">
-            WindowMan Partner Portal is invitation-only.
-            <br />
-            Unauthorized access attempts are logged.
-          </p>
-        </div>
-      </div>
+      {/* Seam fade — dissolves cinematic blue into the #0d0d0d booking section below */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-b from-transparent to-[#0d0d0d]"
+      />
     </div>
     <NativeBookingForm />
     </>
