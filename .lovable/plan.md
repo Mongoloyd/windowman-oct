@@ -1,73 +1,86 @@
 
 
 ## Goal
-Replace the small red `card-raised` audit-score block in `StepIntake.tsx` (lines 52–79) with a premium **Aura Diagnostic Card** that feels like a live forensic event on arrival.
+Wire `/partner/login` "Request Partner Access" → real registration → service-role creation of auth user + `contractor_profiles` row with `status='pending_review'` → `PartnerGuard` blocks until operator flips to `active`.
 
-## Scope
-- **One file edited:** `src/pages/diagnosis/components/StepIntake.tsx`
-- No schema, no routing, no data-shape changes. Pure presentational upgrade of an existing block that already receives `context.report_grade` and `context.top_insights`.
+## Verified repo truth (read in this loop + prior loops)
+- `ContractorLogin.tsx:169` → "Request Partner Access" button fires fake toast. ✅ confirmed.
+- `PartnerGuard.tsx` → already blocks `unlinked` (no profile) and `suspended` (status ≠ 'active'). ✅
+- `usePartnerAuth.ts` → reads `contractor_profiles` (id = auth.uid()) and exposes `state`, `userId`, `contractorId`, `companyName`. **Does not expose `status`** — needs adding to differentiate pending vs suspended.
+- `contractor_profiles` schema: `id uuid (=auth.uid())`, `company_name text NOT NULL`, `contact_email text NOT NULL`, `status text NOT NULL default 'active'`. RLS: select-own only; **no client INSERT policy** (correct — we use service role).
+- Invite flow writes `status='active'` via existing edge functions — untouched.
+- All required secrets present: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`.
 
-## Design Spec
+## Scope (fenced)
+**5 file ops · zero scanner/OTP/Twilio/lead/attribution code touched.**
 
-### Grade Color Map (added as local const inside the component)
-```text
-A → Emerald  #15803D
-B → Lime     #4D7C0F
-C → Gold     #A16207
-D → Orange   #C2410C
-F → Soft Red #B91C1C
+### 1. NEW: `supabase/functions/request-partner-access/index.ts`
+Public edge function (no JWT required). 
+- Validate input with zod: `companyName` (1–200), `email` (valid + ≤255), `password` (≥8), optional `contactName`.
+- Service-role client → `auth.admin.createUser({ email, password, email_confirm: true })`.
+- On success → `insert into contractor_profiles { id: user.id, company_name, contact_email: email, status: 'pending_review' }`.
+- On profile insert failure → `auth.admin.deleteUser(user.id)` rollback to avoid orphan auth users.
+- Insert `lead_events` row `{ event_name: 'partner_access_requested', event_source: 'partner_self_serve', metadata: { company_name, email_masked } }` for ops visibility (best-effort, not fatal).
+- Structured error codes: `email_taken`, `weak_password`, `invalid_email`, `missing_company`, `internal_error`.
+- CORS headers on every response (incl. errors).
+
+### 2. NEW migration: register function as public in `supabase/config.toml`
+Add:
+```toml
+[functions.request-partner-access]
+verify_jwt = false
 ```
-Resolver: take `context.report_grade?.[0]?.toUpperCase()` and look up. Fallback = Soft Red.
+**No DB migration needed.** `status` is free-text; `'pending_review'` is just a convention. RLS is already correct (no client insert; service role bypasses RLS). Existing invite flow unaffected.
 
-### The Aura Card
-- White rounded container, `rounded-2xl`, `p-6 md:p-8`
-- Aura shadow: `box-shadow: 0 20px 50px -12px {gradeColor}33` (≈20% opacity), plus a subtle inner border `1px solid {gradeColor}1A`
-- Replaces the existing `card-raised rounded-2xl p-5 mb-10` block
+### 3. EDIT: `src/hooks/usePartnerAuth.ts`
+- Add `status: string | null` to `PartnerAuth` interface.
+- Select `status` (already does) and pass it through in all return states.
+- No behavior change to state machine — just exposes the raw status string for the guard's copy branch.
 
-### The Grade Stage (left)
-- `aspect-square w-20 md:w-24` tile
-- Background: `{gradeColor}0D` (5% opacity)
-- Border: `1px solid {gradeColor}26`
-- Centered letter: `font-display font-black text-5xl md:text-6xl` in `{gradeColor}`
-- Mathematically centered via `flex items-center justify-center`
+### 4. EDIT: `src/components/auth/PartnerGuard.tsx`
+- Read `status` from hook.
+- When `state === 'suspended'` AND `status === 'pending_review'` → render "Account Pending Review" screen (sky Clock icon, neutral copy: "Your partner account request is under review. We'll email you within 1 business day once approved.").
+- All other non-active statuses → existing "Account Suspended" amber screen (unchanged).
+- `unauthenticated` and `unlinked` paths unchanged.
 
-### Header Typography (right column)
-- Eyebrow: `text-xs font-black tracking-[0.2em] uppercase text-gray-500` → "YOUR AUDIT SCORE"
-- Sub-line: `text-sm font-semibold text-foreground/70` → "Here's What We Flagged"
-- Fixes the current visual bug where the two strings collide on the screenshot.
+### 5. EDIT: `src/pages/ContractorLogin.tsx`
+- Extend `View` type: `"login" | "forgot" | "register" | "register-success"`.
+- Change line 169 button: `onClick={() => setView("register")}` (kill the fake toast).
+- Add `RegisterPanel` JSX inside `rightPanel()`:
+  - Fields: Company Name, Contact Email, Password, Confirm Password
+  - Client-side zod validation (mirrors edge function)
+  - Submit → `supabase.functions.invoke('request-partner-access', { body: {...} })`
+  - Loading state, inline errors, structured error → toast mapping
+  - Back-arrow returns to `login` view
+- Add `register-success` view: success card with copy "Request received. Your partner account is pending review. We'll email you once approved." + "Return to sign in" button.
+- Visual style matches existing `Card` shell exactly (`border-white/[0.06] bg-white/[0.02] shadow-2xl`, sky-500 buttons). Minimal diff.
 
-### The Smart Grid (flags)
+## Out of scope (will NOT touch)
+- `send-otp`, `verify-otp`, any Twilio code
+- Scan routes, report reveal, analyses, leads, attribution, `useUtmCapture`
+- Admin routes, contractor invite flow, RLS on any other table
+- Visual redesign of partner portal
+- Aura Diagnostic Card
+
+## Files changed
 ```text
-items.length <= 4  → grid-cols-1
-items.length <= 8  → grid-cols-1 md:grid-cols-2
-items.length >= 9  → grid-cols-1 md:grid-cols-2 lg:grid-cols-3
+supabase/functions/request-partner-access/index.ts   (new)
+supabase/config.toml                                  (edit: 2 lines added)
+src/hooks/usePartnerAuth.ts                           (edit: expose status)
+src/components/auth/PartnerGuard.tsx                  (edit: pending_review branch)
+src/pages/ContractorLogin.tsx                         (edit: register view + wire button)
 ```
-- `h-auto`, no scrollbars
-- Each flag: small dot in `{gradeColor}`, `text-sm font-medium text-foreground/85`, light divider between rows on mobile
 
-### The Waterfall Animation
-- Use existing Tailwind `animate-fade-in` keyframe (already in project per `<animations>` context) combined with inline `style={{ animationDelay: `${i * 200}ms`, animationFillMode: 'both' }}`
-- Add a 5px translateY via a small inline keyframe utility OR reuse `animate-fade-in` (which already includes a 10px translateY → close enough; spec says 5px so we'll override with a tiny inline `@keyframes` block in the component using a `<style>` tag is unnecessary — instead apply `animate-fade-in` since it already does fade + slide-up and matches the brief's intent)
-- Cap delay at `Math.min(i, 9) * 200` so a 10+ item list still lands in ~2s
+## Verification checklist (post-implementation)
+1. `/partner/login` → click "Request Partner Access →" → register form opens (no fake toast). ✅
+2. Submit valid form → success screen renders with pending-review copy. ✅
+3. SQL: `select id, company_name, contact_email, status from contractor_profiles order by created_at desc limit 1;` → `status='pending_review'`. ✅
+4. Sign in with new credentials → `PartnerGuard` shows "Account Pending Review" (sky), never lands on `/partner/opportunities`. ✅
+5. SQL: `update contractor_profiles set status='active' where id='<uuid>';` → next sign-in succeeds → opportunities dashboard. ✅
+6. Existing invite-flow contractors (status='active') unaffected. ✅
+7. Duplicate email submit → "This email is already registered" inline error. ✅
+8. No file in `supabase/functions/{send-otp,verify-otp}/` or any scan/Twilio path was modified. ✅
 
-### Reassurance Ribbon (idea 5, included)
-- Thin strip at the bottom of the card, `border-t border-gray-200/60 mt-5 pt-4`
-- `font-mono text-[11px] tracking-wider uppercase text-gray-500`
-- Copy: "We Have Your Quote · We Have Your Answers · Let's Build Your Counter-Offer"
-- A 2px wide accent bar in `{gradeColor}` on the left of the ribbon ties it to the aura
-
-## Implementation Plan
-1. Inside `StepIntake.tsx`, add a `GRADE_COLORS` const map and a `gradeColor` resolver at the top of the component body.
-2. Replace lines 52–79 with the new Aura Card structure: grade stage (left) + header + smart-grid flag list + reassurance ribbon.
-3. Compute `gridColsClass` from `context.top_insights.length`.
-4. Map flags with `style={{ animationDelay }}` + `animate-fade-in` class.
-5. Keep the existing conditional `{context.report_grade && (...)}` wrapper — no change to data contract.
-
-## Out of Scope (will not touch)
-- OTP, reveal, Twilio, Meta CAPI, schema, lead writer, attribution capture
-- The "Root Question" card below it
-- `MarketingSections`, progress indicator, nav
-
-## Risk
-Zero data-layer risk. Only visual changes to one presentational block. No new dependencies. Uses existing `animate-fade-in` keyframe already configured in Tailwind.
+## Risk: very low
+Additive only. Service-role insert keeps RLS surface unchanged for the browser. No schema migration. No touch to invite, OTP, scan, or homeowner code paths. Auth-user rollback on profile-insert failure prevents orphan accounts.
 
