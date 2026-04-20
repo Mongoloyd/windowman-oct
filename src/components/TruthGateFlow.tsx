@@ -391,10 +391,18 @@ const TruthGateFlow = ({
       // was persisted before client_slug / landing_page_url existed in the schema.
       const utm = captureUtmFromUrl();
 
-      // Fallback chain: fresh URL capture → funnel context (set by LandingPage
-      // /lp/:slug after server-side validation, or by ScanFunnelProvider via
-      // useClientSlug for /?client= traffic) → null.
-      const effectiveClientSlug = utm.client_slug ?? funnel?.clientSlug ?? null;
+      // Direct query param read as final backstop (in case captureUtmFromUrl
+      // somehow missed it due to timing or race conditions with localStorage).
+      const queryClientSlug =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search).get("client")
+          : null;
+
+      // Fallback chain: direct URL query → captured localStorage → funnel context
+      // (set by LandingPage /lp/:slug after server-side validation, or by
+      // ScanFunnelProvider via useClientSlug for /?client= traffic) → null.
+      const effectiveClientSlug =
+        queryClientSlug ?? utm.client_slug ?? funnel?.clientSlug ?? null;
 
       // Always prefer full path+query; fall back to live window URL if attribution
       // capture somehow returned empty (defensive — should never trigger on real entry).

@@ -113,6 +113,15 @@ export function captureUtmFromUrl(): UtmData {
     captured_at: Date.now(),
   };
 
+  // Preserve first-touch client_slug if current URL doesn't have ?client=
+  // This prevents utm_source-only visits from nulling out a previously captured client_slug
+  if (!params.has("client")) {
+    const existing = getUtmData();
+    if (existing.client_slug) {
+      utmData.client_slug = existing.client_slug;
+    }
+  }
+
   // Persist to localStorage
   try {
     localStorage.setItem(UTM_STORAGE_KEY, JSON.stringify(utmData));
