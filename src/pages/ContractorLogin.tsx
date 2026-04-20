@@ -484,8 +484,12 @@ export default function ContractorLogin() {
                 <img
                   src="/images/flywheel-wman.avif"
                   alt="WindowMan partner intelligence flywheel"
+                  width={959}
+                  height={883}
                   loading="lazy"
+                  decoding="async"
                   className="w-full h-auto object-contain"
+                  style={{ aspectRatio: "959 / 883" }}
                 />
               </div>
             </div>
@@ -516,15 +520,19 @@ export default function ContractorLogin() {
               <p className="text-sm text-sky-300">Weaponized Competitive Intelligence</p>
             </div>
 
-            <div className="relative pt-20">
+            <div className="relative pt-0 md:pt-44 lg:pt-60 xl:pt-72">
               {/* Floating WindowMan — bottom tucks behind the card */}
-              <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-8 z-0 motion-reduce:animate-none animate-float-soft">
+              <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 z-0 hidden md:block -top-40 lg:-top-56 motion-reduce:animate-none animate-float-soft">
                 <img
                   src="/images/wman-reading.avif"
                   alt=""
                   aria-hidden="true"
-                  loading="lazy"
-                  className="h-36 w-auto drop-shadow-[0_12px_24px_rgba(0,0,0,0.45)]"
+                  width={688}
+                  height={423}
+                  fetchPriority="low"
+                  decoding="async"
+                  className="h-56 md:h-64 lg:h-80 xl:h-96 w-auto drop-shadow-[0_18px_36px_rgba(0,0,0,0.55)]"
+                  style={{ aspectRatio: "688 / 423" }}
                 />
               </div>
               <div className="relative z-10 rounded-2xl bg-white/[0.02] backdrop-blur-xl border border-white/[0.08] shadow-[inset_0_1px_0_hsla(0,0%,100%,0.08),inset_0_-1px_0_hsla(0,0%,0%,0.4),0_40px_100px_-20px_rgba(0,0,0,0.7)]">
@@ -553,8 +561,12 @@ export default function ContractorLogin() {
           <img
             src="/images/flywheel-wman.avif"
             alt="WindowMan partner intelligence flywheel"
+            width={959}
+            height={883}
             loading="lazy"
+            decoding="async"
             className="w-full h-auto object-contain"
+            style={{ aspectRatio: "959 / 883" }}
           />
         </div>
       </div>
