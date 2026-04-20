@@ -1,118 +1,80 @@
 
 
-## Goals
-1. **Bigger character on desktop** — show the full pill-sitting illustration at its native composition (with the in-image message visible), scaled up significantly. Proportional scale-down on tablet. Hide on mobile.
-2. **Fix CLS** — eliminate cumulative layout shift on `/partner/login` and across the site by reserving space for images that currently load without intrinsic dimensions.
+## What I see in the screenshot
 
----
+Your reference shows a **much tighter, more deliberate composition** than what's currently rendered:
 
-## Part 1 — Resize the floating WindowMan
+1. **Character is significantly larger** — sits as the visual anchor, ~70-80% the width of the auth card below it
+2. **Character is centered directly above the auth card**, not floating off to the side or with huge gap
+3. **The "Free Pro-Consumer Protection Service" pill/chip** sits between the character and the auth card — looks like a tab/handle the character is "holding" the form by
+4. **Bottom of character (legs/pill he's sitting on) overlaps the top edge of the auth card** — tucked behind the chip and card, creating the "perched on top" effect
+5. **No left brand panel visible in this shot** — the auth column appears centered or the brand panel is below/hidden
+6. **Tighter vertical rhythm** — character → chip → card is one continuous stacked unit, not three floating pieces
 
-### Current state (line 519–533)
-- `h-36 w-auto` (144px tall) — too small for desktop
-- `-top-8` — barely peeks above the card
-- `lazy` loading — also a CLS contributor (see Part 2)
+## What's wrong with current state
 
-### New responsive sizing
-Replace the image classes with a viewport-aware ladder so the **entire illustration** (pill + speech message baked into the AVIF) is visible at full glory on desktop:
+Based on the previous resize, the character is now `h-80`/`h-96` but:
+- It's positioned at `-top-40 lg:-top-56` which lifts it too far above the card → big visual gap
+- No "Free Pro-Consumer Protection Service" pill/chip between character and card
+- The pill the character sits on isn't visually tucked behind the card — it's just floating above
+
+## Plan: Match the reference layout
+
+### Single file: `src/pages/ContractorLogin.tsx`
+
+**1. Tighten character positioning so its bottom tucks into the card**
+- Change `-top-40 lg:-top-56` → `-top-32 lg:-top-48 xl:-top-56` (less lift, so character's pill bottom overlaps the card's top edge)
+- Keep the responsive heights (`h-64 lg:h-80 xl:h-96`)
+- Reduce the auth column padding accordingly: `md:pt-32 lg:pt-44 xl:pt-52` (was `md:pt-44 lg:pt-60 xl:pt-72`)
+
+**2. Add the "Free Pro-Consumer Protection Service" chip**
+Insert a small glass pill between the character and the auth card. Sits on the seam where the character meets the card — same z-index logic (z-0 behind card top edge, but visually centered).
 
 ```tsx
-<div className="pointer-events-none absolute left-1/2 -translate-x-1/2 z-0
-                hidden md:block
-                -top-40 lg:-top-56
-                motion-reduce:animate-none animate-float-soft">
-  <img
-    src="/images/wman-reading.avif"
-    alt=""
-    aria-hidden="true"
-    width="320"
-    height="320"
-    fetchpriority="low"
-    decoding="async"
-    className="h-56 md:h-64 lg:h-80 xl:h-96 w-auto drop-shadow-[0_18px_36px_rgba(0,0,0,0.55)]"
-  />
+<div className="hidden md:flex absolute left-1/2 -translate-x-1/2 -top-5 z-20
+                items-center gap-2 px-4 py-2 rounded-full
+                bg-white/[0.04] backdrop-blur-md border border-white/[0.08]
+                shadow-[0_8px_24px_rgba(0,0,0,0.4),inset_0_1px_0_hsla(0,0%,100%,0.08)]">
+  <ShieldCheck className="h-3.5 w-3.5 text-sky-400" aria-hidden="true" />
+  <span className="text-xs font-medium tracking-wide text-white/85">
+    Free Pro-Consumer Protection Service
+  </span>
 </div>
 ```
 
-Behavior:
-| Viewport | Image height | Visible? |
-|---|---|---|
-| Mobile (<md / <768px) | — | **Hidden** |
-| Tablet (md, 768–1023) | 256px (`h-64`) | Visible, scaled |
-| Desktop (lg, 1024–1279) | 320px (`h-80`) | Full glory |
-| Desktop (xl, ≥1280) | 384px (`h-96`) | Largest |
+This chip is positioned on the auth card's `relative` wrapper at `-top-5`, so it sits half-on, half-off the top edge — exactly like the reference.
 
-### Clearance adjustment
-The auth column wrapper currently has `pt-20` (80px). Bump for the bigger figure on `md+` only:
-```tsx
-<div className="relative pt-0 md:pt-44 lg:pt-60 xl:pt-72">
-```
-This reserves vertical space matching the negative-top offset, so the figure has room to float above without overlapping the mobile WindowMan/Partner Portal header (which is `lg:hidden` anyway, but the new spacing prevents collision on tablet).
+**3. Z-stacking refinement**
+- Character: `z-0` (behind card)
+- Auth card: `z-10`
+- Chip: `z-20` (on top of card edge, in front of character's lower body)
 
-### Why this works for "the message in the image"
-The AVIF already contains the speech bubble baked into the artwork. Currently at `h-36`, that text is too small to read on a 1497px display. At `h-80`/`h-96`, the bubble becomes legible at a normal reading distance. Aspect ratio is preserved via `w-auto` so the composition (character + pill + bubble) stays intact.
+This recreates the layered depth: character behind → card in middle → chip in front, all sharing the same horizontal centerline.
 
----
+**4. Verify the pill-bottom overlap**
+After the `-top` adjustment, the character's seated pill should visually disappear behind the card's top ~30-40px. Will spot-check at 1280, 1440, 1811px (your current viewport).
 
-## Part 2 — Fix CLS site-wide
-
-### Root causes (from a quick audit)
-1. **Images without `width`/`height` or aspect-ratio**: browser allocates 0 height initially, then jumps when the image decodes. The flywheel image and the new wman image are prime offenders.
-2. **`loading="lazy"` on above-the-fold images**: defers layout calculation past initial paint, causing late shifts.
-3. **Custom fonts via `@font-face`**: if `font-display: swap` is used without `size-adjust`, fallback→webfont swap reflows headings (FOUT shift). Already preloaded in `index.html`, but worth verifying `font-display`.
-4. **Glassmorphic auth card** with content that renders conditionally (loading states, view switch) — those are *user-initiated*, not initial CLS, so safe.
-
-### Fixes
-
-**A. Add intrinsic dimensions + `aspect-ratio` to the two `/partner/login` images**
-
-Floating wman (handled in Part 1 with `width="320" height="320"`).
-
-Flywheel image (line 553–558) — wrap or set aspect ratio:
-```tsx
-<img
-  src="/images/flywheel-wman.avif"
-  alt="WindowMan partner intelligence flywheel"
-  width="800"
-  height="600"
-  loading="lazy"
-  decoding="async"
-  className="w-full h-auto object-contain"
-  style={{ aspectRatio: "4 / 3" }}  // adjust to actual ratio
-/>
-```
-I'll measure the actual AVIF dimensions during implementation (via `identify` or by inspecting the file) to set the correct `width`/`height` attributes — that's what eliminates the shift.
-
-**B. Site-wide image audit**
-Run `grep -r "<img" src/` to find every raw `<img>` tag. For each one above the fold or inside a layout-affecting container, ensure both `width` and `height` attributes are present (or an explicit `aspect-ratio` CSS rule on the wrapper). I'll fix the top offenders in this same pass:
-- Hero images on `/`
-- Logo in `PublicNavbar` and partner header
-- Any `<img>` in `Footer`, `NativeBookingForm`, `ContractorLogin`
-
-**C. Font swap shift**
-Check `src/index.css` for `@font-face` blocks and add `font-display: optional` or `size-adjust` adjustments on the fallback if Barlow Condensed / DM Sans are still used. (Per `tailwind.config.ts` they've been removed in favor of system fonts, so this may already be clean — I'll verify.)
-
-**D. Reserve space for the seam-fade overlay**
-The `absolute bottom-0 ... h-32 bg-gradient-to-b` overlay (line 545–548) is `pointer-events-none` and absolute, so it doesn't cause CLS. Leaving as-is.
-
-### Verification approach
-After edits, I'll:
-1. Visually QA at 375 / 768 / 1024 / 1497 px.
-2. Use the browser performance profile tool to measure CLS before/after on `/partner/login` and `/`.
-3. Confirm the floating character is hidden on mobile, scaled on tablet, and full-size on desktop with the in-image bubble legible.
-
----
+## What stays the same
+- `float-soft` 5s animation
+- `motion-reduce:animate-none`
+- Mobile: character + chip both hidden (`hidden md:block` / `hidden md:flex`)
+- All copy, fonts, colors, auth logic, brand panel, flywheel, NativeBookingForm
+- CLS fixes from previous pass (intrinsic dims, aspect ratios)
 
 ## Files changed
 ```text
-src/pages/ContractorLogin.tsx   (resize float wman, hide on mobile, add intrinsic dims to flywheel + wman, bump auth-column pt-* spacing)
-src/index.css                   (verify/adjust font-display if needed — only if a webfont @font-face exists)
-[other image files site-wide]   (add width/height attrs to top CLS offenders found in grep audit)
+src/pages/ContractorLogin.tsx   (tighten character -top offset, reduce column pt-*, add glass chip with ShieldCheck icon)
 ```
 
 ## Out of scope
-- No layout/copy changes
-- No animation timing changes (5s float-soft stays)
-- No NativeBookingForm or auth logic changes
 - No new assets
+- No animation changes
+- No edits to brand panel, booking form, or auth flow
+- No changes to the character image itself (using existing `/images/wman-reading.avif`)
+
+## Verification
+1. Desktop (1811px / your viewport): character sits directly above the card with its seated pill tucking behind the top edge; chip is centered on the seam reading "Free Pro-Consumer Protection Service"
+2. Tablet (768–1023px): same composition, scaled down (`h-64`)
+3. Mobile (<768px): character + chip hidden, auth card stands alone (unchanged)
+4. Float animation still loops smoothly without breaking the chip overlap
 
