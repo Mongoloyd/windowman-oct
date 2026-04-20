@@ -147,6 +147,10 @@ Deno.serve(async (req) => {
       ok: false,
       error_code: "internal_error",
       message: "Could not create partner profile.",
+      debug: {
+        code: (profileErr as { code?: string }).code ?? null,
+        message: profileErr.message ?? null,
+      },
     });
   }
 
