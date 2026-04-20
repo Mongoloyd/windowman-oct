@@ -1,59 +1,31 @@
 
 
-## Root cause (confirmed from edge function logs)
+## Goal
+Drop `NativeBookingForm` into `/partner/login` as its own full-width section below the existing hero/auth grid. Same dark `bg-[#0d0d0d]` styling as on the contractors3 page. Centered on all viewports (already is, via its internal `mx-auto max-w-6xl`).
 
-```
-code: "23514"
-message: 'new row for relation "contractor_profiles" violates check constraint "contractor_profiles_status_check"'
-details: 'Failing row contains (..., abcd window, petervsiclen@gmail.com, pending_review, ...)'
-```
+## Implementation
+Single-file edit to `src/pages/ContractorLogin.tsx`:
 
-The Supabase client **is** using the service role key (verified in `index.ts` line 76 — `createClient(supabaseUrl, serviceRoleKey, ...)`). RLS is not the problem.
-
-The real problem: there is a `CHECK` constraint on `contractor_profiles.status` that only permits a fixed set of values (almost certainly `'active'`, `'suspended'`, `'cancelled'`), and `'pending_review'` is not in that list. The insert is being rejected by Postgres before RLS is even consulted.
-
-## The fix (one migration, one tiny code touch)
-
-### 1. Migration — extend the CHECK constraint to allow `'pending_review'`
-```sql
-ALTER TABLE public.contractor_profiles
-  DROP CONSTRAINT IF EXISTS contractor_profiles_status_check;
-
-ALTER TABLE public.contractor_profiles
-  ADD CONSTRAINT contractor_profiles_status_check
-  CHECK (status IN ('active', 'pending_review', 'suspended', 'cancelled'));
-```
-- Additive only. Existing rows (all `'active'`) still satisfy the new constraint.
-- Does **not** change the column default (`'active'`) → invite-flow rows continue to land active.
-- No RLS changes. No new policies. No touch to OTP/Twilio/scan code.
-
-### 2. Edge function — surface DB errors in the response (debug aid, requested by user)
-In `supabase/functions/request-partner-access/index.ts`, expand the `profileErr` branch to include `error.message` and `error.code` in the JSON response (still 500, still rolls back the orphan auth user). Keeps the user-facing message generic but adds a `debug` field so future check-constraint mismatches surface immediately instead of requiring a log dive.
-
-```ts
-return json(500, {
-  ok: false,
-  error_code: "internal_error",
-  message: "Could not create partner profile.",
-  debug: { code: profileErr.code, message: profileErr.message },
-});
-```
-
-That's it. No client initialization change (already correct). No payload mapping change (already correct — `company_name`, `contact_email`, `id` all match the schema).
+1. Add import: `import NativeBookingForm from "@/pages/contractors3/components/sections/NativeBookingForm";`
+2. After the closing tag of the existing hero/grid section (the parent wrapper that contains the brand panel + auth card), insert:
+   ```tsx
+   <NativeBookingForm />
+   ```
+3. Nothing else changes — no prop wiring, no style overrides. The component already renders its own `<section bg-[#0d0d0d] py-24>` with centered `mx-auto max-w-6xl px-6`, so it will stack naturally below the hero on desktop, tablet, and mobile.
 
 ## Files changed
 ```text
-supabase/migrations/<ts>_allow_pending_review_status.sql   (new — 1 ALTER TABLE)
-supabase/functions/request-partner-access/index.ts         (edit — add debug field to one error response)
+src/pages/ContractorLogin.tsx   (edit: 1 import + 1 JSX line)
 ```
 
-## Verification after apply
-1. Click "Request Partner Access →" on `/partner/login`, submit valid form → success screen renders.
-2. SQL: `select id, company_name, status from contractor_profiles order by created_at desc limit 1;` → `status = 'pending_review'`.
-3. Sign in with new credentials → `PartnerGuard` shows "Account Pending Review" sky screen.
-4. SQL: `update contractor_profiles set status='active' where id='<uuid>';` → next sign-in lands on `/partner/opportunities`.
-5. Existing invite-created contractors (status='active') unaffected.
-
 ## Out of scope
-OTP, Twilio, scan, lead capture, attribution, RLS on any other table, visual redesign. Zero changes.
+- No edit to `NativeBookingForm` itself (preserves contractors3 parity)
+- No auth, edge function, RLS, OTP, scan, or `PartnerGuard` changes
+- The form's submit handler stays as-is (currently simulated success — no real persistence yet)
+
+## Verification
+1. `/partner/login` renders existing hero + auth card unchanged
+2. Below it, the dark booking section appears centered, identical to `/contractors3`
+3. Mobile (375px), tablet (768px), desktop (1497px) — section is centered and responsive
+4. Calendar, time slots, and form interactions work exactly as on contractors3
 
