@@ -442,6 +442,7 @@ export default function ContractorLogin() {
   };
 
   return (
+    <>
     <div className="min-h-screen bg-[hsl(222,47%,6%)] flex">
       <div className="hidden lg:flex lg:w-[45%] flex-col justify-between p-12 bg-[hsl(222,47%,8%)] border-r border-white/5">
         <div>
