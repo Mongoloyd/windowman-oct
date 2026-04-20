@@ -535,6 +535,18 @@ export default function ContractorLogin() {
         className="pointer-events-none absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-b from-transparent to-[#0d0d0d]"
       />
     </div>
+    <div className="hidden md:block lg:hidden bg-[hsl(218,50%,9%)]">
+      <div className="mx-auto max-w-2xl px-6 py-12">
+        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-md p-5 shadow-[inset_0_1px_0_hsla(0,0%,100%,0.06)]">
+          <img
+            src="/images/flywheel-wman.avif"
+            alt="WindowMan partner intelligence flywheel"
+            loading="lazy"
+            className="w-full h-auto object-contain"
+          />
+        </div>
+      </div>
+    </div>
     <NativeBookingForm />
     </>
   );
