@@ -388,6 +388,30 @@ const TruthGateFlow = ({
       // Capture attribution data at moment of lead creation
       const utm = getUtmData();
 
+      // Source `client_slug` from the same entry-context source that already
+      // produces `utm_source`: the URL query string. The provider/funnel state
+      // is kept only as a fallback because it can race on `/?client=...` traffic
+      // (provider mounts before async slug validation completes).
+      // Default traffic (no `?client=`) remains `client_slug = null`.
+      let urlClientSlug: string | null = null;
+      let landingPageUrlWithQuery: string | null = utm.landing_page;
+      if (typeof window !== "undefined") {
+        try {
+          const rawClient = new URLSearchParams(window.location.search).get("client");
+          const cleaned = rawClient?.trim().toLowerCase() ?? "";
+          if (cleaned && /^[a-z0-9][a-z0-9-]{0,63}$/.test(cleaned)) {
+            urlClientSlug = cleaned;
+          }
+          // Trivial cleanup: store path + query in landing_page_url so attribution
+          // rows aren't reduced to bare '/'. first_page_path stays path-only.
+          landingPageUrlWithQuery =
+            (window.location.pathname || "/") + (window.location.search || "");
+        } catch {
+          // Non-fatal — fall through to funnel-state fallback.
+        }
+      }
+      const effectiveClientSlug = urlClientSlug ?? funnel?.clientSlug ?? null;
+
       const { error } = await supabase.from("leads").insert({
         session_id: sessionId,
         first_name: answers.firstName,
@@ -398,7 +422,7 @@ const TruthGateFlow = ({
         window_count: parseWindowCount(answers.windowCount),
         quote_range: answers.quoteRange,
         source: "truth-gate",
-        client_slug: funnel?.clientSlug ?? null,
+        client_slug: effectiveClientSlug,
         // Attribution fields from useUtmCapture
         utm_source: utm.utm_source,
         utm_medium: utm.utm_medium,
@@ -408,7 +432,7 @@ const TruthGateFlow = ({
         fbclid: utm.fbclid,
         gclid: utm.gclid,
         fbc: utm.fbc,
-        landing_page_url: utm.landing_page,
+        landing_page_url: landingPageUrlWithQuery,
         first_page_path: utm.landing_page,
         initial_referrer: typeof document !== "undefined" ? document.referrer || null : null,
       });
