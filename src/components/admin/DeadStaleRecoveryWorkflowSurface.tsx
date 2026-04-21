@@ -386,29 +386,29 @@ export function DeadStaleRecoveryWorkflowSurface({ leads, onNavigateTab }: Props
         {openSection.definitions && (
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <Definition
-              icon={<CheckCircle2 className="h-4 w-4 text-emerald-600" />}
+              icon={<CheckCircle2 className="h-4 w-4 text-primary" />}
               label="Active"
               modeled
               text="Routed and showing recent downstream activity within the last 72h. No terminal signal yet."
             />
             <Definition
-              icon={<Clock className="h-4 w-4 text-amber-600" />}
+              icon={<Clock className="h-4 w-4 text-muted-foreground" />}
               label="Stale"
               text="Routed but no activity for >72h and no terminal signal. Operator-view derivation from route + lead timestamps."
             />
             <Definition
-              icon={<Skull className="h-4 w-4 text-rose-600" />}
+              icon={<Skull className="h-4 w-4 text-destructive" />}
               label="Dead"
               modeled
               text="Explicitly modeled: deal_status = 'dead' or closed_at is set. Written by the canonical mark_dead path only."
             />
             <Definition
-              icon={<LifeBuoy className="h-4 w-4 text-blue-600" />}
+              icon={<LifeBuoy className="h-4 w-4 text-primary" />}
               label="Recovery Candidate"
               text="Opportunity exists but the homeowner never phone_verified. Treat as homeowner recovery — see Ghost Recovery."
             />
             <Definition
-              icon={<HelpCircle className="h-4 w-4 text-violet-600" />}
+              icon={<HelpCircle className="h-4 w-4 text-muted-foreground" />}
               label="Ambiguous / Needs Review"
               text="Routed or released >7d ago with no clean downstream signal. Requires operator judgment before any clean label is applied."
             />
