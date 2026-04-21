@@ -24,6 +24,7 @@ import { OneContractorSummaryStrip } from "@/components/admin/OneContractorSumma
 import { MarketOpsFeed } from "@/components/admin/MarketOpsFeed";
 import { PilotReadiness } from "@/components/admin/PilotReadiness";
 import { PilotOpsLaunchControl } from "@/components/admin/PilotOpsLaunchControl";
+import { OutcomeTrackingReport } from "@/components/admin/OutcomeTrackingReport";
 
 import {
   invokeAdminData,
