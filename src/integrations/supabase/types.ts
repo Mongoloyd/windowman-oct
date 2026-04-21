@@ -2687,8 +2687,13 @@ export type Database = {
       }
       webhook_deliveries: {
         Row: {
+          assignment_id: string | null
           attempt_count: number
+          client_slug: string | null
+          contractor_id: string | null
           created_at: string
+          destination_snapshot: Json | null
+          dispatch_method: string | null
           event_type: string
           id: string
           last_attempt_at: string | null
@@ -2697,14 +2702,22 @@ export type Database = {
           lead_id: string
           max_attempts: number
           next_retry_at: string | null
+          no_route_reason: string | null
           payload_json: Json | null
+          resolved_at: string | null
           status: string
+          terminal_at: string | null
           updated_at: string
           webhook_url: string | null
         }
         Insert: {
+          assignment_id?: string | null
           attempt_count?: number
+          client_slug?: string | null
+          contractor_id?: string | null
           created_at?: string
+          destination_snapshot?: Json | null
+          dispatch_method?: string | null
           event_type: string
           id?: string
           last_attempt_at?: string | null
@@ -2713,14 +2726,22 @@ export type Database = {
           lead_id: string
           max_attempts?: number
           next_retry_at?: string | null
+          no_route_reason?: string | null
           payload_json?: Json | null
+          resolved_at?: string | null
           status?: string
+          terminal_at?: string | null
           updated_at?: string
           webhook_url?: string | null
         }
         Update: {
+          assignment_id?: string | null
           attempt_count?: number
+          client_slug?: string | null
+          contractor_id?: string | null
           created_at?: string
+          destination_snapshot?: Json | null
+          dispatch_method?: string | null
           event_type?: string
           id?: string
           last_attempt_at?: string | null
@@ -2729,12 +2750,110 @@ export type Database = {
           lead_id?: string
           max_attempts?: number
           next_retry_at?: string | null
+          no_route_reason?: string | null
           payload_json?: Json | null
+          resolved_at?: string | null
           status?: string
+          terminal_at?: string | null
           updated_at?: string
           webhook_url?: string | null
         }
         Relationships: []
+      }
+      webhook_delivery_attempts: {
+        Row: {
+          assignment_id: string | null
+          attempt_number: number
+          client_slug: string | null
+          contractor_id: string | null
+          created_at: string
+          delivery_id: string
+          destination_snapshot: Json
+          dispatch_method: string
+          duration_ms: number | null
+          error_class: string | null
+          error_message: string | null
+          id: string
+          lead_id: string
+          outcome: string
+          request_completed_at: string | null
+          request_started_at: string
+          response_body_snippet: string | null
+          response_status_code: number | null
+          success: boolean
+        }
+        Insert: {
+          assignment_id?: string | null
+          attempt_number: number
+          client_slug?: string | null
+          contractor_id?: string | null
+          created_at?: string
+          delivery_id: string
+          destination_snapshot: Json
+          dispatch_method: string
+          duration_ms?: number | null
+          error_class?: string | null
+          error_message?: string | null
+          id?: string
+          lead_id: string
+          outcome: string
+          request_completed_at?: string | null
+          request_started_at?: string
+          response_body_snippet?: string | null
+          response_status_code?: number | null
+          success: boolean
+        }
+        Update: {
+          assignment_id?: string | null
+          attempt_number?: number
+          client_slug?: string | null
+          contractor_id?: string | null
+          created_at?: string
+          delivery_id?: string
+          destination_snapshot?: Json
+          dispatch_method?: string
+          duration_ms?: number | null
+          error_class?: string | null
+          error_message?: string | null
+          id?: string
+          lead_id?: string
+          outcome?: string
+          request_completed_at?: string | null
+          request_started_at?: string
+          response_body_snippet?: string | null
+          response_status_code?: number | null
+          success?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_delivery_attempts_delivery_id_fkey"
+            columns: ["delivery_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_failed_deliveries"
+            referencedColumns: ["delivery_id"]
+          },
+          {
+            foreignKeyName: "webhook_delivery_attempts_delivery_id_fkey"
+            columns: ["delivery_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_legacy_vs_new_routing"
+            referencedColumns: ["legacy_delivery_id"]
+          },
+          {
+            foreignKeyName: "webhook_delivery_attempts_delivery_id_fkey"
+            columns: ["delivery_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_recent_deliveries"
+            referencedColumns: ["delivery_id"]
+          },
+          {
+            foreignKeyName: "webhook_delivery_attempts_delivery_id_fkey"
+            columns: ["delivery_id"]
+            isOneToOne: false
+            referencedRelation: "webhook_deliveries"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -2852,6 +2971,52 @@ export type Database = {
         }
         Relationships: []
       }
+      v_admin_deliveries_by_client: {
+        Row: {
+          client_slug: string | null
+          dead_letter: number | null
+          delivered: number | null
+          failed: number | null
+          most_recent_at: string | null
+          pending: number | null
+          processing: number | null
+          total: number | null
+          unroutable: number | null
+        }
+        Relationships: []
+      }
+      v_admin_deliveries_by_contractor: {
+        Row: {
+          company_name: string | null
+          contractor_id: string | null
+          delivered: number | null
+          distinct_clients: number | null
+          failed_or_dead: number | null
+          most_recent_at: string | null
+          pending: number | null
+          total: number | null
+        }
+        Relationships: []
+      }
+      v_admin_failed_deliveries: {
+        Row: {
+          attempt_count: number | null
+          attempt_log_count: number | null
+          client_slug: string | null
+          company_name: string | null
+          contractor_id: string | null
+          created_at: string | null
+          delivery_id: string | null
+          dispatch_method: string | null
+          last_attempt_at: string | null
+          last_error: string | null
+          last_http_status: number | null
+          lead_id: string | null
+          no_route_reason: string | null
+          status: string | null
+        }
+        Relationships: []
+      }
       v_admin_leads_direct_sentinel: {
         Row: {
           day: string | null
@@ -2952,6 +3117,28 @@ export type Database = {
           },
         ]
       }
+      v_admin_recent_deliveries: {
+        Row: {
+          assignment_id: string | null
+          attempt_count: number | null
+          client_slug: string | null
+          company_name: string | null
+          contractor_id: string | null
+          created_at: string | null
+          delivery_id: string | null
+          dispatch_method: string | null
+          event_type: string | null
+          last_attempt_at: string | null
+          last_http_status: number | null
+          lead_email: string | null
+          lead_first_name: string | null
+          lead_id: string | null
+          no_route_reason: string | null
+          status: string | null
+          terminal_at: string | null
+        }
+        Relationships: []
+      }
       v_admin_routing_resolution: {
         Row: {
           assignment_id: string | null
@@ -3025,6 +3212,21 @@ export type Database = {
           p_notes?: string
         }
         Returns: Json
+      }
+      claim_pending_deliveries: {
+        Args: { p_limit?: number }
+        Returns: {
+          assignment_id: string
+          attempt_count: number
+          client_slug: string
+          contractor_id: string
+          delivery_id: string
+          destination_snapshot: Json
+          dispatch_method: string
+          lead_id: string
+          payload_json: Json
+          webhook_url: string
+        }[]
       }
       fulfill_contractor_credit_purchase:
         | {
