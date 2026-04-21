@@ -1,80 +1,103 @@
 
 
-## What I see in the screenshot
+# Phase 6 — Single-Client Delivery Spine
 
-Your reference shows a **much tighter, more deliberate composition** than what's currently rendered:
+## Audit findings (canonical routing path)
 
-1. **Character is significantly larger** — sits as the visual anchor, ~70-80% the width of the auth card below it
-2. **Character is centered directly above the auth card**, not floating off to the side or with huge gap
-3. **The "Free Pro-Consumer Protection Service" pill/chip** sits between the character and the auth card — looks like a tab/handle the character is "holding" the form by
-4. **Bottom of character (legs/pill he's sitting on) overlaps the top edge of the auth card** — tucked behind the chip and card, creating the "perched on top" effect
-5. **No left brand panel visible in this shot** — the auth column appears centered or the brand panel is below/hidden
-6. **Tighter vertical rhythm** — character → chip → card is one continuous stacked unit, not three floating pieces
+Two backend writers touch `contractor_opportunities`. They are **complementary, not duplicate**:
 
-## What's wrong with current state
+| Action | Writes opportunity row | Writes route row | Sends email |
+|---|---|---|---|
+| `send-contractor-handoff` (edge fn) | ✅ upsert, status=`sent_to_contractor`, sets `lead.latest_opportunity_id` | ❌ | ✅ Resend |
+| `route_opportunity` (admin-data) | ✅ update status=`sent_to_contractor`, `routed_at` | ✅ inserts `contractor_opportunity_routes` | ❌ |
 
-Based on the previous resize, the character is now `h-80`/`h-96` but:
-- It's positioned at `-top-40 lg:-top-56` which lifts it too far above the card → big visual gap
-- No "Free Pro-Consumer Protection Service" pill/chip between character and card
-- The pill the character sits on isn't visually tucked behind the card — it's just floating above
+**Decision:** Treat the **opportunity row** as the canonical handoff fact. The opportunity is created/upserted by `send-contractor-handoff`; `route_opportunity` then attaches the formal route + audit trail. Both belong inside one operator action.
 
-## Plan: Match the reference layout
+**Unification rule:** Introduce a single helper `routeLeadToContractor(leadId, contractorId)` in `adminDataService.ts` that:
+1. Calls `sendContractorHandoff(leadId)` → guarantees the opportunity exists and the email is dispatched, returns `opportunity_id`.
+2. Calls `invokeAdminData("route_opportunity", { opportunity_id, contractor_id, scan_session_id })` → records the route row + sets `routed_at`.
 
-### Single file: `src/pages/ContractorLogin.tsx`
+Both `RoutingDesk` and `LeadDossierSheet` call this helper only. The legacy "Send to Contractor" button in `LeadDossierSheet` is rewired to call this same helper (passing the canonical contractor) — no parallel path.
 
-**1. Tighten character positioning so its bottom tucks into the card**
-- Change `-top-40 lg:-top-56` → `-top-32 lg:-top-48 xl:-top-56` (less lift, so character's pill bottom overlaps the card's top edge)
-- Keep the responsive heights (`h-64 lg:h-80 xl:h-96`)
-- Reduce the auth column padding accordingly: `md:pt-32 lg:pt-44 xl:pt-52` (was `md:pt-44 lg:pt-60 xl:pt-72`)
+---
 
-**2. Add the "Free Pro-Consumer Protection Service" chip**
-Insert a small glass pill between the character and the auth card. Sits on the seam where the character meets the card — same z-index logic (z-0 behind card top edge, but visually centered).
+## What we'll build
 
-```tsx
-<div className="hidden md:flex absolute left-1/2 -translate-x-1/2 -top-5 z-20
-                items-center gap-2 px-4 py-2 rounded-full
-                bg-white/[0.04] backdrop-blur-md border border-white/[0.08]
-                shadow-[0_8px_24px_rgba(0,0,0,0.4),inset_0_1px_0_hsla(0,0%,100%,0.08)]">
-  <ShieldCheck className="h-3.5 w-3.5 text-sky-400" aria-hidden="true" />
-  <span className="text-xs font-medium tracking-wide text-white/85">
-    Free Pro-Consumer Protection Service
-  </span>
-</div>
-```
+### 1. `src/services/adminDataService.ts` — additive only
+Add typed wrappers (no new actions, no new endpoints):
+- `fetchOpportunities()`, `fetchRoutes(opportunityId?)`, `fetchContractors()`
+- `routeOpportunity({ opportunity_id, contractor_id, scan_session_id })`
+- `markOpportunityDead({ opportunity_id, scan_session_id })`
+- `routeLeadToContractor(leadId, contractorId)` — **the canonical unified mutation** (handoff → route)
 
-This chip is positioned on the auth card's `relative` wrapper at `-top-5`, so it sits half-on, half-off the top edge — exactly like the reference.
+### 2. New `RoutingDesk.tsx` tab
+TanStack Query–driven operator surface. Three **operator-derived UI groupings** (clearly labeled as derived, not backend statuses):
 
-**3. Z-stacking refinement**
-- Character: `z-0` (behind card)
-- Auth card: `z-10`
-- Chip: `z-20` (on top of card edge, in front of character's lower body)
+- **Ready to Route** — `contractor_opportunities.status IN ('intro_requested')` AND no route row yet
+- **Routed** — `routed_at != null`, sub-grouped by latest `contractor_opportunity_routes.route_status` (sent / viewed / interested / declined)
+- **Stale (derived)** — routed >7d ago with no `responded_at` AND no `last_call_completed_at` on parent lead. Label includes "(operator view)" so it's never mistaken for a backend status.
+- **Reactivation Candidates (derived)** — `report_unlocked_at` >14d ago AND `routed_to_contractor_at IS NULL`. Same "(operator view)" label.
 
-This recreates the layered depth: character behind → card in middle → chip in front, all sharing the same horizontal centerline.
+Per-row controls (all repo-real):
+- "Route to [Contractor ▾]" → `routeLeadToContractor` (single-contractor dropdown from `fetch_contractors`)
+- "Mark Dead" → `markOpportunityDead`
+- "Trigger Voice Follow-up" → existing `trigger_voice_followup`
+- "Open Dossier" → opens existing `LeadDossierSheet`
 
-**4. Verify the pill-bottom overlap**
-After the `-top` adjustment, the character's seated pill should visually disappear behind the card's top ~30-40px. Will spot-check at 1280, 1440, 1811px (your current viewport).
+### 3. New `OpportunityRouteTimeline.tsx`
+Operator-safe handoff context block, embedded in dossier + RoutingDesk row-expand. Reads `contractor_opportunities` + latest `contractor_opportunity_routes` + `contractors`. Renders:
+- Assigned Contractor / Partner (`contractors.company_name`)
+- Handoff Status (mapped: Ready / Sent / Viewed / Interested / Declined / Released / Closed)
+- Routed At
+- Activity timeline (sent_at → viewed_at → responded_at → interested_at → contact_released_at)
+- Contractor Brief Summary — renders `contractor_opportunities.brief_text` only (operator-safe; no `brief_json` raw, no prompts, no rubric weights)
+- One-line "Strongest closing angle" from `brief_json.closing_angles[0]` if present (string only)
 
-## What stays the same
-- `float-soft` 5s animation
-- `motion-reduce:animate-none`
-- Mobile: character + chip both hidden (`hidden md:block` / `hidden md:flex`)
-- All copy, fonts, colors, auth logic, brand panel, flywheel, NativeBookingForm
-- CLS fixes from previous pass (intrinsic dims, aspect ratios)
+### 4. New `OneContractorSummaryStrip.tsx` — operational only
+Five tiles on the Command Center. **No revenue, no close rate, no contractor score, no fake analytics.** Counts only:
+- Leads Routed (`routed_at != null`)
+- Contacted (route w/ `viewed_at` OR `responded_at`)
+- Booked (`leads.appointment_booked_at != null`)
+- Stale (operator derivation, same rule as RoutingDesk)
+- Reactivation Candidates (operator derivation, same rule as RoutingDesk)
+
+### 5. `LeadDossierSheet.tsx` — additive
+- Insert **"Contractor Delivery"** section between "Project Specs" and "Truth Engine Audit". Renders `<OpportunityRouteTimeline opportunityId={lead.latest_opportunity_id} />`.
+- Insert **"Follow-up Status"** strip below "Call History" — reads `last_call_*`, `appointment_booked_at`, `replacement_quote_submitted_at`, `deal_status` from the `CRMLead` already in memory.
+- **Rewire** the existing "Send to Contractor" button: replace its current `sendContractorHandoff` call with `routeLeadToContractor(lead.id, canonicalContractorId)` so dossier and RoutingDesk share one path. The canonical contractor is the single active `contractors` row (Phase 6 = one paying contractor); if multiple exist, dossier opens the same Contractor select as RoutingDesk.
+
+### 6. `AdminDashboard.tsx` — minimal
+- Add `<TabsTrigger value="routing">Routing</TabsTrigger>` between Pipeline and Ghosts.
+- Mount `<RoutingDesk />` in new `<TabsContent value="routing">`.
+- Mount `<OneContractorSummaryStrip />` at the top of the existing `command` tab (above `<CommandCenter />`).
+- Tab grid changes from `grid-cols-7` → `grid-cols-8`.
+
+---
+
+## Constraints honored
+
+- ✅ **One canonical routing path** via `routeLeadToContractor` helper. No parallel writes.
+- ✅ **Stale & Reactivation are operator-derived UI groupings only** — never written back to the DB, labeled "(operator view)".
+- ✅ **Summary strip is operational only** — counts of repo-real timestamps; no revenue/score/analytics.
+- ✅ Stays inside `AdminDashboard.tsx` tab architecture; uses existing `invokeAdminData` pattern with bearer token.
+- ✅ No new edge functions, no migrations, no schema changes.
+- ✅ No OTP / Twilio / scanner / tracking / public funnel / multi-client changes.
+- ✅ No "cartel" language anywhere — Contractor / Partner / Network only.
+- ✅ TanStack Query for server state; shadcn/ui + lucide-react + Tailwind only.
 
 ## Files changed
-```text
-src/pages/ContractorLogin.tsx   (tighten character -top offset, reduce column pt-*, add glass chip with ShieldCheck icon)
+
+```
+NEW   src/types/routingDesk.ts
+NEW   src/components/admin/RoutingDesk.tsx
+NEW   src/components/admin/OpportunityRouteTimeline.tsx
+NEW   src/components/admin/OneContractorSummaryStrip.tsx
+EDIT  src/services/adminDataService.ts          (typed wrappers + routeLeadToContractor unified helper)
+EDIT  src/components/AdminDashboard.tsx         (Routing tab + summary strip mount; grid-cols-8)
+EDIT  src/components/admin/LeadDossierSheet.tsx (Contractor Delivery block, Follow-up strip, rewire Send button to unified helper)
 ```
 
 ## Out of scope
-- No new assets
-- No animation changes
-- No edits to brand panel, booking form, or auth flow
-- No changes to the character image itself (using existing `/images/wman-reading.avif`)
 
-## Verification
-1. Desktop (1811px / your viewport): character sits directly above the card with its seated pill tucking behind the top edge; chip is centered on the seam reading "Free Pro-Consumer Protection Service"
-2. Tablet (768–1023px): same composition, scaled down (`h-64`)
-3. Mobile (<768px): character + chip hidden, auth card stands alone (unchanged)
-4. Float animation still loops smoothly without breaking the chip overlap
+Multi-client routing, round-robin, network release automation, contractor self-serve portal, billing UI, master pixel controls, fake CRM sync, schema/state-machine changes, homeowner-side polish, live delivery test button, admin-data new actions.
 
