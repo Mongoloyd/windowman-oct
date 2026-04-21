@@ -212,6 +212,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "billable_intros_contractor_id_fkey"
+            columns: ["contractor_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_active_contractors_unassigned"
+            referencedColumns: ["contractor_id"]
+          },
+          {
+            foreignKeyName: "billable_intros_contractor_id_fkey"
+            columns: ["contractor_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_assignments_by_contractor"
+            referencedColumns: ["contractor_id"]
+          },
+          {
             foreignKeyName: "billable_intros_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
@@ -327,6 +341,104 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "contractor_leads"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      contractor_client_assignments: {
+        Row: {
+          client_id: string
+          contractor_id: string
+          created_at: string
+          crm_email: string | null
+          crm_webhook_url: string | null
+          dispatch_method: string
+          id: string
+          is_primary: boolean
+          notes: string | null
+          priority: number
+          receives_leads: boolean
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          contractor_id: string
+          created_at?: string
+          crm_email?: string | null
+          crm_webhook_url?: string | null
+          dispatch_method?: string
+          id?: string
+          is_primary?: boolean
+          notes?: string | null
+          priority?: number
+          receives_leads?: boolean
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          contractor_id?: string
+          created_at?: string
+          crm_email?: string | null
+          crm_webhook_url?: string | null
+          dispatch_method?: string
+          id?: string
+          is_primary?: boolean
+          notes?: string | null
+          priority?: number
+          receives_leads?: boolean
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contractor_client_assignments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contractor_client_assignments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_active_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contractor_client_assignments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_assignments_by_client"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "contractor_client_assignments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_unassigned_active_clients"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "contractor_client_assignments_contractor_id_fkey"
+            columns: ["contractor_id"]
+            isOneToOne: false
+            referencedRelation: "contractors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contractor_client_assignments_contractor_id_fkey"
+            columns: ["contractor_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_active_contractors_unassigned"
+            referencedColumns: ["contractor_id"]
+          },
+          {
+            foreignKeyName: "contractor_client_assignments_contractor_id_fkey"
+            columns: ["contractor_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_assignments_by_contractor"
+            referencedColumns: ["contractor_id"]
           },
         ]
       }
@@ -831,6 +943,20 @@ export type Database = {
             referencedRelation: "contractors"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "contractor_opportunities_suggested_contractor_id_fkey"
+            columns: ["suggested_contractor_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_active_contractors_unassigned"
+            referencedColumns: ["contractor_id"]
+          },
+          {
+            foreignKeyName: "contractor_opportunities_suggested_contractor_id_fkey"
+            columns: ["suggested_contractor_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_assignments_by_contractor"
+            referencedColumns: ["contractor_id"]
+          },
         ]
       }
       contractor_opportunity_routes: {
@@ -907,6 +1033,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "contractors"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contractor_opportunity_routes_contractor_id_fkey"
+            columns: ["contractor_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_active_contractors_unassigned"
+            referencedColumns: ["contractor_id"]
+          },
+          {
+            foreignKeyName: "contractor_opportunity_routes_contractor_id_fkey"
+            columns: ["contractor_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_assignments_by_contractor"
+            referencedColumns: ["contractor_id"]
           },
           {
             foreignKeyName: "contractor_opportunity_routes_opportunity_id_fkey"
@@ -992,6 +1132,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "contractors"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contractor_outcomes_contractor_id_fkey"
+            columns: ["contractor_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_active_contractors_unassigned"
+            referencedColumns: ["contractor_id"]
+          },
+          {
+            foreignKeyName: "contractor_outcomes_contractor_id_fkey"
+            columns: ["contractor_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_assignments_by_contractor"
+            referencedColumns: ["contractor_id"]
           },
           {
             foreignKeyName: "contractor_outcomes_opportunity_id_fkey"
@@ -1913,6 +2067,20 @@ export type Database = {
             referencedRelation: "v_admin_active_clients"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "meta_configurations_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_assignments_by_client"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "meta_configurations_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_unassigned_active_clients"
+            referencedColumns: ["client_id"]
+          },
         ]
       }
       otp_failures: {
@@ -2446,6 +2614,58 @@ export type Database = {
         }
         Relationships: []
       }
+      v_admin_active_contractors_unassigned: {
+        Row: {
+          company_name: string | null
+          contractor_id: string | null
+          created_at: string | null
+          email: string | null
+          has_auth_user: boolean | null
+          is_vetted: boolean | null
+        }
+        Insert: {
+          company_name?: string | null
+          contractor_id?: string | null
+          created_at?: string | null
+          email?: string | null
+          has_auth_user?: never
+          is_vetted?: boolean | null
+        }
+        Update: {
+          company_name?: string | null
+          contractor_id?: string | null
+          created_at?: string | null
+          email?: string | null
+          has_auth_user?: never
+          is_vetted?: boolean | null
+        }
+        Relationships: []
+      }
+      v_admin_assignments_by_client: {
+        Row: {
+          active_receivers: number | null
+          assignments: Json | null
+          client_id: string | null
+          client_is_active: boolean | null
+          client_name: string | null
+          client_slug: string | null
+          has_primary: boolean | null
+          total_assignments: number | null
+        }
+        Relationships: []
+      }
+      v_admin_assignments_by_contractor: {
+        Row: {
+          active_client_count: number | null
+          assignments: Json | null
+          company_name: string | null
+          contractor_id: string | null
+          contractor_status: string | null
+          is_vetted: boolean | null
+          total_assignments: number | null
+        }
+        Relationships: []
+      }
       v_admin_leads_direct_sentinel: {
         Row: {
           day: string | null
@@ -2481,6 +2701,30 @@ export type Database = {
           session_id?: string | null
           utm_campaign?: string | null
           utm_source?: string | null
+        }
+        Relationships: []
+      }
+      v_admin_unassigned_active_clients: {
+        Row: {
+          client_id: string | null
+          client_name: string | null
+          client_slug: string | null
+          created_at: string | null
+          lead_count: number | null
+        }
+        Insert: {
+          client_id?: string | null
+          client_name?: string | null
+          client_slug?: string | null
+          created_at?: string | null
+          lead_count?: never
+        }
+        Update: {
+          client_id?: string | null
+          client_name?: string | null
+          client_slug?: string | null
+          created_at?: string | null
+          lead_count?: never
         }
         Relationships: []
       }
@@ -2625,6 +2869,22 @@ export type Database = {
       }
       has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
       is_internal_operator: { Args: never; Returns: boolean }
+      resolve_contractors_for_client_slug: {
+        Args: { p_client_slug: string }
+        Returns: {
+          assignment_id: string
+          client_id: string
+          client_name: string
+          client_slug: string
+          company_name: string
+          contractor_id: string
+          crm_email: string
+          crm_webhook_url: string
+          dispatch_method: string
+          is_primary: boolean
+          priority: number
+        }[]
+      }
       unlock_contractor_lead: {
         Args: { p_contractor_id: string; p_lead_id: string }
         Returns: Json
