@@ -201,7 +201,7 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
               <TableHead className="w-[80px] text-center">Grade</TableHead>
               <TableHead className="w-[80px] text-center">Windows</TableHead>
               <TableHead className="w-[120px]">Status</TableHead>
-              <TableHead className="w-[120px]">Partner</TableHead>
+              <TableHead className="w-[120px]">Owner</TableHead>
               <TableHead className="w-[90px] text-right">Age</TableHead>
             </TableRow>
           </TableHeader>
