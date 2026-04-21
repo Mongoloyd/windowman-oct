@@ -39,6 +39,7 @@ import {
   type AppRole,
   type AdminActionResponses,
 } from "@/services/adminDataService";
+import { SharedMarketReadinessSection } from "@/components/admin/SharedMarketReadinessSection";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -669,6 +670,11 @@ function AdminSettingsContent() {
             )}
           </div>
         </div>
+
+        {/* Phase 8 — Shared Market Network: informational-only future direction.
+            Mounted here so super-admins can see where future shared-market
+            controls will live. No interactive controls; no backend wiring. */}
+        <SharedMarketReadinessSection />
       </main>
     </div>
   );

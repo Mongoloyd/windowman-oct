@@ -151,7 +151,11 @@ export function MarketOpsFeed({ leads }: Props) {
       contractorId: string | null = null,
       idSalt = "",
     ) => {
+      // Skip silently when required fields are missing — never crash the feed.
       if (!at || !leadId) return;
+      // Validate timestamp before sorting on it; skip invalid dates safely.
+      const ts = new Date(at).getTime();
+      if (Number.isNaN(ts)) return;
       const lead = leadById.get(leadId);
       if (!lead) return;
       events.push({
@@ -206,7 +210,12 @@ export function MarketOpsFeed({ leads }: Props) {
       pushEvent("release_reviewed",  r.release_reviewed_at, opp.lead_id, r.contractor_id, `r:${r.id}`);
     }
 
-    events.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+    // Sort newest first; pushEvent already validated timestamps.
+    events.sort((a, b) => {
+      const tb = new Date(b.at).getTime();
+      const ta = new Date(a.at).getTime();
+      return tb - ta;
+    });
 
     // Market counts (post-derivation, pre-filter) for the dropdown.
     const counts = new Map<string, number>();

@@ -344,7 +344,9 @@ export function RoutingDesk({ leads }: Props) {
               No active contractor
             </Badge>
           )}
-          {/* Phase 8 — Market filter (county). Pure UI grouping; no routing implied. */}
+          {/* Phase 8 — Market filter (county). Pure UI grouping; no routing implied.
+              Always exposes an explicit "Unknown County" option as a safe fallback
+              for null/empty geography, even when no current rows match. */}
           <Select value={marketFilter} onValueChange={setMarketFilter}>
             <SelectTrigger className="h-8 w-[180px] text-xs">
               <SelectValue placeholder="All Markets" />
@@ -356,6 +358,9 @@ export function RoutingDesk({ leads }: Props) {
                   {market} ({count})
                 </SelectItem>
               ))}
+              {!marketOptions.some(([m]) => m === UNKNOWN_COUNTY) && (
+                <SelectItem value={UNKNOWN_COUNTY}>{UNKNOWN_COUNTY} (0)</SelectItem>
+              )}
             </SelectContent>
           </Select>
         </div>
@@ -382,10 +387,10 @@ export function RoutingDesk({ leads }: Props) {
 
         {(["ready_to_route", "routed", "stale_operator_view"] as OperatorBucket[]).map((b) => (
           <TabsContent key={b} value={b} className="space-y-2">
-            {rowsByBucket[b].length === 0 ? (
+            {filteredRowsByBucket[b].length === 0 ? (
               <EmptyBucket bucket={b} />
             ) : (
-              rowsByBucket[b].map((row) => {
+              filteredRowsByBucket[b].map((row) => {
                 const lead = leads.find((l) => l.id === row.opportunity.lead_id);
                 const isExpanded = expandedRow === row.opportunity.id;
                 const isPending = pendingRow === row.opportunity.id;
@@ -419,9 +424,10 @@ export function RoutingDesk({ leads }: Props) {
                               {row.opportunity.grade}
                             </Badge>
                           )}
-                          {row.opportunity.county && (
-                            <span className="text-[11px] text-muted-foreground">{row.opportunity.county}</span>
-                          )}
+                          {/* Phase 8 — Always render a county label, with safe fallback. */}
+                          <span className="text-[11px] text-muted-foreground">
+                            {marketLabel(row.opportunity.county)}
+                          </span>
                           {row.opportunity.window_count != null && (
                             <span className="text-[11px] text-muted-foreground">
                               {row.opportunity.window_count} windows
@@ -553,10 +559,10 @@ export function RoutingDesk({ leads }: Props) {
 
         {/* ── Reactivation Candidates ── */}
         <TabsContent value="reactivation_operator_view" className="space-y-2">
-          {reactivationLeads.length === 0 ? (
+          {filteredReactivationLeads.length === 0 ? (
             <EmptyBucket bucket="reactivation_operator_view" />
           ) : (
-            reactivationLeads.map((lc) => {
+            filteredReactivationLeads.map((lc) => {
               const fullLead = leads.find((l) => l.id === lc.id);
               return (
                 <div key={lc.id} className="rounded-lg border border-border bg-card p-3 flex flex-wrap items-center gap-3">
@@ -565,7 +571,7 @@ export function RoutingDesk({ leads }: Props) {
                       {[lc.first_name, lc.last_name].filter(Boolean).join(" ") || "Unknown"}
                     </p>
                     <p className="text-[11px] text-muted-foreground">
-                      {lc.county ?? "—"} · Unlocked {lc.report_unlocked_at ? format(new Date(lc.report_unlocked_at), "MMM d") : "—"} · Never routed
+                      {marketLabel(lc.county)} · Unlocked {lc.report_unlocked_at ? format(new Date(lc.report_unlocked_at), "MMM d") : "—"} · Never routed
                     </p>
                   </div>
                   <Button

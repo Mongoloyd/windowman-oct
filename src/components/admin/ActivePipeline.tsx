@@ -212,6 +212,8 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
             <SelectItem value="recovery_candidate">Recovery Candidate (operator view)</SelectItem>
           </SelectContent>
         </Select>
+        {/* Phase 8 — Always exposes an explicit "Unknown County" option as a safe
+            fallback for null/empty geography, even when no current leads match. */}
         <Select value={marketFilter} onValueChange={setMarketFilter}>
           <SelectTrigger className="w-[180px] h-9 text-sm">
             <SelectValue placeholder="All Markets" />
@@ -223,6 +225,9 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
                 {market} ({count})
               </SelectItem>
             ))}
+            {!marketOptions.some(([m]) => m === UNKNOWN_COUNTY) && (
+              <SelectItem value={UNKNOWN_COUNTY}>{UNKNOWN_COUNTY} (0)</SelectItem>
+            )}
           </SelectContent>
         </Select>
         <span className="text-xs text-muted-foreground">
