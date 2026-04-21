@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
     const googleDispatchUrl = Deno.env.get("GOOGLE_ADS_DISPATCH_URL") ?? "";
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const googleDispatchAuthToken = Deno.env.get("GOOGLE_ADS_DISPATCH_AUTH_TOKEN");
-    const eventSourceUrl = Deno.env.get("WM_EVENT_SOURCE_URL") ?? "https://windowman.pro";
+    const eventSourceUrl = Deno.env.get("WM_EVENT_SOURCE_URL") ?? "https://windowman.app";
 
     const workerResult = await runDispatchWorker({
       db: supabase,

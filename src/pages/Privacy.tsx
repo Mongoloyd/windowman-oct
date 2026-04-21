@@ -36,7 +36,7 @@ export default function Privacy() {
                 Your Data is Protected
               </h2>
               <p className="text-sm leading-6 text-gray-600">
-                At WindowMan.PRO, your privacy is paramount.{" "}
+                At WindowMan.app, your privacy is paramount.{" "}
                 <strong className="text-gray-900">
                   All uploaded quotes are protected with industry-standard encryption
                 </strong>
@@ -78,7 +78,7 @@ export default function Privacy() {
         <div className="rounded-2xl border border-slate-200/60 bg-white/70 p-6 shadow-sm backdrop-blur-sm md:p-8">
           <article className="prose prose-slate max-w-none text-base leading-7 text-gray-600">
             <p>
-              WindowMan.PRO ("we," "us," or "our") provides AI-assisted forensic
+              WindowMan.app ("we," "us," or "our") provides AI-assisted forensic
               quote analysis for homeowners evaluating impact window proposals
               in South Florida. This Privacy Policy explains how we collect,
               use, store, and protect your information.
@@ -122,7 +122,7 @@ export default function Privacy() {
             <p className="mt-4 rounded-lg border-l-4 border-blue-500 bg-blue-50 py-3 pl-4 pr-3 text-sm font-medium text-gray-700">
               <strong>Critical guarantee:</strong> We never share your uploaded
               quote with the original contractor who provided it. Your use of
-              WindowMan.PRO is completely confidential — contractors will never
+              WindowMan.app is completely confidential — contractors will never
               know you scanned their quote.
             </p>
 
@@ -198,7 +198,7 @@ export default function Privacy() {
               Children's Privacy
             </h2>
             <p>
-              WindowMan.PRO is not directed to children under 13, and we do not
+              WindowMan.app is not directed to children under 13, and we do not
               knowingly collect personal information from children under 13.
             </p>
 
@@ -217,10 +217,10 @@ export default function Privacy() {
             <p>
               Questions about this policy may be sent to{" "}
               <a
-                href="mailto:support@windowman.pro"
+                href="mailto:support@windowman.app"
                 className="font-medium text-blue-600 hover:text-blue-700"
               >
-                support@windowman.pro
+                support@windowman.app
               </a>
               .
             </p>

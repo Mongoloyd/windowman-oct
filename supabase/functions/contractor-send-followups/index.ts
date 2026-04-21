@@ -15,7 +15,7 @@
  *   SUPABASE_SERVICE_ROLE_KEY
  *
  * Optional env:
- *   RESEND_FROM_EMAIL    — Verified sender (default: noreply@windowman.pro)
+ *   RESEND_FROM_EMAIL    — Verified sender (default: noreply@windowman.app)
  *
  * Returns: { attempted, sent, failed }
  */
@@ -300,7 +300,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   const fromEmail =
-    Deno.env.get("RESEND_FROM_EMAIL") ?? "noreply@windowman.pro";
+    Deno.env.get("RESEND_FROM_EMAIL") ?? "noreply@windowman.app";
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 

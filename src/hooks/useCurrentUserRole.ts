@@ -35,7 +35,7 @@ export function useCurrentUserRole(): UseCurrentUserRoleResult {
     return {
       role: "super_admin",
       userId: "dev-sandbox-user",
-      email: "dev@windowman.pro",
+      email: "dev@windowman.app",
       isLoading: false,
       error: null,
       isSuperAdmin: true,

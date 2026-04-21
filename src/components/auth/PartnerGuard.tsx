@@ -106,7 +106,7 @@ export default function PartnerGuard({ children }: PartnerGuardProps) {
       <StatusScreen
         icon={<AlertTriangle className="h-8 w-8 text-amber-400" />}
         title="Account Suspended"
-        description="Your partner account has been suspended. Please contact ops@windowman.pro for assistance."
+        description="Your partner account has been suspended. Please contact ops@windowman.app for assistance."
         action={
           <Button
             variant="outline"

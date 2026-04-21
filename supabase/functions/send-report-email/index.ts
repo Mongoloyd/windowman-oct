@@ -22,7 +22,7 @@
  *
  * Required secrets:
  *   RESEND_API_KEY     — Resend.com API key
- *   REPORT_FROM_EMAIL  — Verified sender (e.g. reports@windowman.pro)
+ *   REPORT_FROM_EMAIL  — Verified sender (e.g. reports@windowman.app)
  *   REPORT_BASE_URL    — App URL for the /estimate CTA (e.g. https://wmmvp.lovable.app)
  */
 

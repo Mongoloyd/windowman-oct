@@ -253,7 +253,7 @@ async function validateAndExtractUser(
     const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey);
     return {
       ok: true,
-      email: "dev-sandbox@windowman.pro",
+      email: "dev-sandbox@windowman.app",
       userId: "dev-sandbox-bypass",
       role: "super_admin",
       supabaseAdmin,

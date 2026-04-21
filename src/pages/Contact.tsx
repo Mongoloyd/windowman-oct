@@ -38,14 +38,14 @@ export default function Contact() {
               </h2>
               <p className="mb-6 text-sm leading-6 text-gray-600">
                 For support, account questions, or general inquiries about
-                WindowMan.PRO and our forensic quote analysis tools, email our
+                WindowMan.app and our forensic quote analysis tools, email our
                 team directly.
               </p>
               <a
-                href="mailto:support@windowman.pro"
+                href="mailto:support@windowman.app"
                 className="inline-flex items-center justify-center rounded-lg bg-gray-900 px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-gray-800"
               >
-                support@windowman.pro
+                support@windowman.app
               </a>
               <p className="mt-4 text-xs text-gray-500">
                 We typically respond within 24 hours.
