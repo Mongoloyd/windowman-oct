@@ -39,6 +39,10 @@ import {
   fetchOpportunities, fetchRoutes, fetchContractors,
   routeLeadToContractor, markOpportunityDead, invokeAdminData,
 } from "@/services/adminDataService";
+import {
+  fetchClientResolutions, describeNoRouteReason,
+  type ClientResolutionRow,
+} from "@/services/dispatchHealth";
 import type {
   RoutingOpportunity, RoutingRoute, RoutingContractor,
   RoutingDeskRow, OperatorBucket, RoutingLeadContext,
@@ -46,6 +50,7 @@ import type {
 import type { CRMLead } from "@/components/admin/types";
 import { OpportunityRouteTimeline } from "./OpportunityRouteTimeline";
 import { LeadDossierSheet } from "./LeadDossierSheet";
+import { DispatchHealthCard } from "./DispatchHealthCard";
 import { deriveOwnershipBadges } from "./OwnershipBlock";
 import type { OwnershipBadge } from "@/types/routingDesk";
 
@@ -131,8 +136,23 @@ export function RoutingDesk({ leads }: Props) {
     staleTime: 60_000,
   });
 
+  // Repo-real per-client resolver state — used to explain WHY an opportunity
+  // is stuck (e.g. client_inactive, no_active_assignment). Cheap; cached 60s.
+  const resolutionsQuery = useQuery({
+    queryKey: ["admin", "client-resolutions"],
+    queryFn: fetchClientResolutions,
+    staleTime: 60_000,
+  });
+
   const isLoading = oppsQuery.isLoading || routesQuery.isLoading || contractorsQuery.isLoading;
   const error = oppsQuery.error || routesQuery.error || contractorsQuery.error;
+
+  // Map client_slug → resolver row. Falls back gracefully when missing.
+  const resolutionBySlug = useMemo(() => {
+    const map = new Map<string, ClientResolutionRow>();
+    for (const r of (resolutionsQuery.data ?? [])) map.set(r.client_slug, r);
+    return map;
+  }, [resolutionsQuery.data]);
 
   // ── Derive rows + buckets ──────────────────────────────────────────────
   const { rowsByBucket, reactivationLeads } = useMemo(() => {
@@ -165,7 +185,10 @@ export function RoutingDesk({ leads }: Props) {
 
       let bucket: OperatorBucket | null = null;
 
-      if (opp.status === "intro_requested" && !route) {
+      // Ready-to-route covers BOTH `intro_requested` AND `brief_ready`
+      // (the brief generator's terminal state) — neither is "routed yet".
+      // Without this, brief_ready opps stayed invisible to operators.
+      if (!route && (opp.status === "intro_requested" || opp.status === "brief_ready")) {
         bucket = "ready_to_route";
       } else if (opp.routed_at) {
         bucket = "routed";
@@ -330,7 +353,9 @@ export function RoutingDesk({ leads }: Props) {
   // ── Render ─────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
-      {/* Header */}
+      {/* Live dispatch healthcheck — reads webhook_deliveries directly.
+          NOT a new tab; it sits inside the existing Routing surface. */}
+      <DispatchHealthCard />
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h2 className="text-lg font-bold">Routing Desk</h2>
@@ -472,6 +497,28 @@ export function RoutingDesk({ leads }: Props) {
                                   {ownershipBadgeLabel(b)}
                                 </Badge>
                               ));
+                          })()}
+
+                          {/* Blocked-reason chip — only shown for ready-to-route rows
+                              that have no contractor route AND no resolved tenant.
+                              Reason text comes from the canonical resolver
+                              (v_admin_routing_resolution). NEVER invented. */}
+                          {b === "ready_to_route" && !row.latestRoute && (() => {
+                            const slug = row.opportunity.client_slug ?? (lead as any)?.client_slug ?? null;
+                            const res = slug ? resolutionBySlug.get(slug) : undefined;
+                            // Routable ⇒ no chip needed (operator just needs to click Route).
+                            if (res?.resolved) return null;
+                            const reason = res?.no_route_reason ?? (slug ? null : "lead_has_no_slug");
+                            return (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] border-destructive/50 text-destructive bg-destructive/5"
+                                title={describeNoRouteReason(reason)}
+                              >
+                                <AlertCircle className="h-3 w-3 mr-1" />
+                                Blocked: {describeNoRouteReason(reason)}
+                              </Badge>
+                            );
                           })()}
                         </div>
                       </div>
