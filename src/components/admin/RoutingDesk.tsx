@@ -504,7 +504,7 @@ export function RoutingDesk({ leads }: Props) {
                               Reason text comes from the canonical resolver
                               (v_admin_routing_resolution). NEVER invented. */}
                           {b === "ready_to_route" && !row.latestRoute && (() => {
-                            const slug = row.opportunity.client_slug ?? lead?.client_slug ?? null;
+                            const slug = row.opportunity.client_slug ?? (lead as any)?.client_slug ?? null;
                             const res = slug ? resolutionBySlug.get(slug) : undefined;
                             // Routable ⇒ no chip needed (operator just needs to click Route).
                             if (res?.resolved) return null;
