@@ -78,6 +78,10 @@ type OwnershipFilter = "all" | "assigned" | "unassigned" | "booked" | "closed" |
 
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 
+// Phase 8 — safe operator-facing fallback for null/empty geography.
+// Never block the UI on missing county data.
+const UNKNOWN_COUNTY = "Unknown County";
+
 /* ── Component ───────────────────────────────────────────────────────── */
 
 export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
@@ -85,6 +89,18 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [ownershipFilter, setOwnershipFilter] = useState<OwnershipFilter>("all");
+  const [marketFilter, setMarketFilter] = useState<string>("all");
+
+  // Phase 8 — distinct county list for dropdown, with safe Unknown fallback.
+  const marketOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const l of leads) {
+      const county = l.county?.trim();
+      const key = county && county.length > 0 ? county : UNKNOWN_COUNTY;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  }, [leads]);
 
   /* ── Canonical derived filtered list ── */
   const filteredLeads = useMemo(() => {
@@ -116,6 +132,15 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
       });
     }
 
+    // Phase 8 — Market filter (county). Safe fallback for null/empty county.
+    if (marketFilter !== "all") {
+      result = result.filter((lead) => {
+        const county = lead.county?.trim();
+        const key = county && county.length > 0 ? county : UNKNOWN_COUNTY;
+        return key === marketFilter;
+      });
+    }
+
     // Search filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -128,7 +153,7 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
     }
 
     return result;
-  }, [leads, statusFilter, ownershipFilter, searchQuery]);
+  }, [leads, statusFilter, ownershipFilter, marketFilter, searchQuery]);
 
   if (isLoading && leads.length === 0) {
     return (
@@ -185,6 +210,19 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
             <SelectItem value="booked">Appointment Booked</SelectItem>
             <SelectItem value="closed">Closed</SelectItem>
             <SelectItem value="recovery_candidate">Recovery Candidate (operator view)</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={marketFilter} onValueChange={setMarketFilter}>
+          <SelectTrigger className="w-[180px] h-9 text-sm">
+            <SelectValue placeholder="All Markets" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Markets</SelectItem>
+            {marketOptions.map(([market, count]) => (
+              <SelectItem key={market} value={market}>
+                {market} ({count})
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <span className="text-xs text-muted-foreground">

@@ -52,6 +52,14 @@ import type { OwnershipBadge } from "@/types/routingDesk";
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 
+// Phase 8 — safe operator-facing fallback for null/empty geography.
+const UNKNOWN_COUNTY = "Unknown County";
+
+function marketLabel(county: string | null | undefined): string {
+  const c = county?.trim();
+  return c && c.length > 0 ? c : UNKNOWN_COUNTY;
+}
+
 interface Props {
   leads: CRMLead[];
 }
@@ -103,6 +111,7 @@ export function RoutingDesk({ leads }: Props) {
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [dossierLead, setDossierLead] = useState<CRMLead | null>(null);
   const [dossierOpen, setDossierOpen] = useState(false);
+  const [marketFilter, setMarketFilter] = useState<string>("all");
 
   const oppsQuery = useQuery({
     queryKey: ["admin", "opportunities"],
@@ -187,6 +196,40 @@ export function RoutingDesk({ leads }: Props) {
 
     return { rowsByBucket: buckets, reactivationLeads: reactivation };
   }, [oppsQuery.data, routesQuery.data, contractorsQuery.data, leads]);
+
+  // Phase 8 — Market options derived from opportunities + reactivation leads.
+  // Uses safe Unknown County fallback. Pure UI grouping; no routing implied.
+  const marketOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const bucket of Object.values(rowsByBucket)) {
+      for (const row of bucket) {
+        const key = marketLabel(row.opportunity.county);
+        counts.set(key, (counts.get(key) ?? 0) + 1);
+      }
+    }
+    for (const lc of reactivationLeads) {
+      const key = marketLabel(lc.county);
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  }, [rowsByBucket, reactivationLeads]);
+
+  // Phase 8 — Apply market filter to bucket rows + reactivation list.
+  const filteredRowsByBucket = useMemo(() => {
+    if (marketFilter === "all") return rowsByBucket;
+    const out: Record<OperatorBucket, RoutingDeskRow[]> = {
+      ready_to_route: [], routed: [], stale_operator_view: [], reactivation_operator_view: [],
+    };
+    for (const [b, rows] of Object.entries(rowsByBucket) as [OperatorBucket, RoutingDeskRow[]][]) {
+      out[b] = rows.filter((row) => marketLabel(row.opportunity.county) === marketFilter);
+    }
+    return out;
+  }, [rowsByBucket, marketFilter]);
+
+  const filteredReactivationLeads = useMemo(() => {
+    if (marketFilter === "all") return reactivationLeads;
+    return reactivationLeads.filter((lc) => marketLabel(lc.county) === marketFilter);
+  }, [reactivationLeads, marketFilter]);
 
   const contractors = (contractorsQuery.data as RoutingContractor[] | undefined) ?? [];
   const activeContractors = contractors.filter((c) => c.status === "active");
@@ -295,19 +338,35 @@ export function RoutingDesk({ leads }: Props) {
             Single-client delivery spine — route verified leads to {activeContractors[0]?.company_name ?? "your contractor"}.
           </p>
         </div>
-        {activeContractors.length === 0 && (
-          <Badge variant="destructive" className="text-[10px]">
-            No active contractor
-          </Badge>
-        )}
+        <div className="flex items-center gap-2">
+          {activeContractors.length === 0 && (
+            <Badge variant="destructive" className="text-[10px]">
+              No active contractor
+            </Badge>
+          )}
+          {/* Phase 8 — Market filter (county). Pure UI grouping; no routing implied. */}
+          <Select value={marketFilter} onValueChange={setMarketFilter}>
+            <SelectTrigger className="h-8 w-[180px] text-xs">
+              <SelectValue placeholder="All Markets" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Markets</SelectItem>
+              {marketOptions.map(([market, count]) => (
+                <SelectItem key={market} value={market}>
+                  {market} ({count})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <Tabs defaultValue="ready_to_route" className="space-y-4">
         <TabsList className="grid grid-cols-2 lg:grid-cols-4 w-full max-w-3xl">
           {(Object.keys(BUCKET_LABEL) as OperatorBucket[]).map((b) => {
             const count = b === "reactivation_operator_view"
-              ? reactivationLeads.length
-              : rowsByBucket[b].length;
+              ? filteredReactivationLeads.length
+              : filteredRowsByBucket[b].length;
             return (
               <TabsTrigger key={b} value={b} className="text-xs gap-1.5">
                 {BUCKET_LABEL[b]}

@@ -21,6 +21,7 @@ import { AttributionTab } from "@/components/admin/AttributionTab";
 import { ContractorAccountsTab } from "@/components/admin/ContractorAccountsTab";
 import { RoutingDesk } from "@/components/admin/RoutingDesk";
 import { OneContractorSummaryStrip } from "@/components/admin/OneContractorSummaryStrip";
+import { MarketOpsFeed } from "@/components/admin/MarketOpsFeed";
 
 import {
   invokeAdminData,
@@ -257,9 +258,10 @@ function DashboardContent() {
             <TabsTrigger value="attribution">Attribution</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="command">
+          <TabsContent value="command" className="space-y-6">
             <OneContractorSummaryStrip leads={leads} />
             <CommandCenter kpis={kpis} isLoading={false} leads={leads} />
+            <MarketOpsFeed leads={leads} />
           </TabsContent>
 
           <TabsContent value="routing">
