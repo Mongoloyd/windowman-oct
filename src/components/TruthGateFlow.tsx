@@ -619,7 +619,7 @@ const TruthGateFlow = ({
         </h2>
         <p className="font-body text-wm-body-soft text-muted-foreground mb-6">Enter Your Details to Run The Scan.</p>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
           <div>
             <label className="wm-eyebrow mb-1.5 text-muted-foreground block">
               FIRST NAME <span className="text-orange-500">*</span>
