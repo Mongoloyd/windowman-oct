@@ -44,7 +44,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import {
-  Map,
+  Map as MapIcon,
   MapPin,
   Users,
   Building2,
