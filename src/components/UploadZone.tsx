@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -57,11 +57,34 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
   const [activeScanSessionId, setActiveScanSessionId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  // ── Idempotency guards ───────────────────────────────────────────────
+  // inFlightRef: synchronous lock that beats React's async setState. Prevents
+  // double-fire from rapid clicks before `uploading` propagates.
+  const inFlightRef = useRef(false);
+  // uploadedOnceRef: once the fresh upload path has succeeded (storage +
+  // quote_files + scan_sessions inserted), every subsequent click MUST take
+  // the retry path. Guarantees no duplicate quote_files / scan_sessions
+  // rows for the same user intent, even if React state is stale.
+  const uploadedOnceRef = useRef(false);
 
   // Live scan status — only polled once we have a real session id.
   const { status: liveStatus } = useScanPolling({ scanSessionId: activeScanSessionId });
   const progress = STATUS_PROGRESS[liveStatus] ?? STATUS_PROGRESS.idle;
   const showProgress = uploading || (activeScanSessionId !== null && liveStatus !== "idle" && liveStatus !== "error");
+
+  // Unified "busy" — single source of truth for disabling the CTA. Covers:
+  //   - active upload/RPC in flight
+  //   - scan session exists and is mid-pipeline (no error to retry)
+  // Prevents the error/retry/loading states from racing into inconsistent UI.
+  const busy = useMemo(() => {
+    if (uploading) return true;
+    if (activeScanSessionId && !uploadError) {
+      if (["uploading", "processing", "preview_ready", "complete"].includes(liveStatus)) {
+        return true;
+      }
+    }
+    return false;
+  }, [uploading, activeScanSessionId, uploadError, liveStatus]);
 
   useEffect(() => {
     if (isVisible && containerRef.current) {
@@ -151,47 +174,55 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
   };
 
   const handleScan = async () => {
-    if (!file || uploading) return;
+    // ── Synchronous re-entry guard ────────────────────────────────────
+    // setUploading is async; back-to-back clicks (touch double-tap, fast
+    // re-render) can both pass `if (uploading)` before state propagates.
+    // The ref check + set is atomic from React's perspective.
+    if (!file) return;
+    if (inFlightRef.current) return;
+    if (uploading) return;
+    inFlightRef.current = true;
     setUploading(true);
     setUploadError(null);
 
-    // ── Retry path: same scanSessionId already exists; just re-invoke the
-    //    edge function. Avoids duplicate storage upload + duplicate rows.
-    if (activeScanSessionId) {
-      try {
-        // Look up existing quote_file via scan_sessions to keep ledger consistent.
+    try {
+      // ── Retry path ──────────────────────────────────────────────────
+      // Triggered when EITHER:
+      //   (a) we already have an activeScanSessionId in state, OR
+      //   (b) uploadedOnceRef says the fresh path already ran (defends
+      //       against state being cleared/reset out from under us).
+      // Both bind strictly to the existing scan_session_id — never a new one.
+      if (activeScanSessionId || uploadedOnceRef.current) {
+        const boundScanSessionId = activeScanSessionId;
+        if (!boundScanSessionId) {
+          // Defensive: uploadedOnceRef true but state lost. Refuse to
+          // create a second scan_session — surface error instead.
+          setUploadError("Scan session lost. Please refresh and try again.");
+          return;
+        }
         const { data: ss } = await supabase
           .from("scan_sessions")
           .select("quote_file_id, lead_id")
-          .eq("id", activeScanSessionId)
+          .eq("id", boundScanSessionId)
           .maybeSingle();
         const ok = await invokeScan(
-          activeScanSessionId,
+          boundScanSessionId,
           (ss?.lead_id as string | null) ?? null,
           (ss?.quote_file_id as string | null) ?? "",
         );
         if (ok) {
-          // Re-emit scan_started so parent re-mounts theatrics if needed.
-          onScanStart?.(file.name, activeScanSessionId);
+          onScanStart?.(file.name, boundScanSessionId);
         }
-      } catch (err) {
-        console.error("Retry error:", err);
-        setUploadError("Retry failed. Please try again.");
-      } finally {
-        setUploading(false);
+        return;
       }
-      return;
-    }
 
-    // ── Fresh path ────────────────────────────────────────────────────
-    try {
+      // ── Fresh path ────────────────────────────────────────────────────
       const filePath = `${sessionId || crypto.randomUUID()}/${Date.now()}_${file.name}`;
       const { error: storageErr } = await supabase.storage.from("quotes").upload(filePath, file);
       if (storageErr) {
         console.error("Storage upload failed:", storageErr);
         setUploadError("Upload failed. Please try again.");
         toast.error("Upload failed. Please try again.");
-        setUploading(false);
         return;
       }
 
@@ -210,7 +241,6 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
           console.error("Failed to create fallback lead:", leadErr);
           setUploadError("Failed to initialize session. Please try again.");
           toast.error("Failed to initialize session. Please try again.");
-          setUploading(false);
           return;
         }
         leadId = fallbackLeadId;
@@ -224,7 +254,6 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
         console.error("quote_files insert failed:", qfError);
         setUploadError("Failed to register your file. Please try again.");
         toast.error("Failed to register your file. Please try again.");
-        setUploading(false);
         return;
       }
       const newScanSessionId = crypto.randomUUID();
@@ -235,11 +264,14 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
         console.error("scan_sessions insert failed:", ssError);
         setUploadError("Failed to start scan session. Please try again.");
         toast.error("Failed to start scan session. Please try again.");
-        setUploading(false);
         return;
       }
 
-      // Persist scan session id locally so retry stays bound to it.
+      // ── Commit identity ──────────────────────────────────────────────
+      // Persist scan_session_id locally AND flip uploadedOnceRef BEFORE
+      // invokeScan so any race on the same render cycle takes the retry
+      // path, not a second fresh upload.
+      uploadedOnceRef.current = true;
       setActiveScanSessionId(newScanSessionId);
 
       trackEvent({
@@ -256,6 +288,7 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
       toast.error("Something went wrong. Please try again.");
     } finally {
       setUploading(false);
+      inFlightRef.current = false;
     }
   };
 
@@ -361,11 +394,16 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
                 <p className="font-body text-[13px] text-destructive text-center font-medium mb-2">{uploadError}</p>
                 <button
                   onClick={handleScan}
-                  disabled={uploading}
+                  disabled={busy}
                   className="btn-depth-primary w-full"
-                  style={{ height: 44, fontSize: 14 }}
+                  style={{
+                    height: 44,
+                    fontSize: 14,
+                    opacity: busy ? 0.7 : 1,
+                    cursor: busy ? "not-allowed" : "pointer",
+                  }}
                 >
-                  Retry Scan →
+                  {uploading ? "Retrying..." : "Retry Scan →"}
                 </button>
               </div>
             )}
@@ -376,13 +414,13 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.15 }}
                 onClick={handleScan}
-                disabled={uploading || activeScanSessionId !== null}
+                disabled={busy}
                 className="btn-depth-primary w-full mt-5"
                 style={{
                   height: 54,
                   fontSize: 17,
-                  opacity: uploading || activeScanSessionId !== null ? 0.7 : 1,
-                  cursor: uploading || activeScanSessionId !== null ? "not-allowed" : "pointer",
+                  opacity: busy ? 0.7 : 1,
+                  cursor: busy ? "not-allowed" : "pointer",
                 }}
               >
                 {uploading
