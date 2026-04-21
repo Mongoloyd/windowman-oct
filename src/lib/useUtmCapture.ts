@@ -7,10 +7,21 @@
  * - gclid (Google Click ID)
  * - client (WindowMan client slug from URL)
  *
+ * Captures from cookies (passively seeded by Meta Pixel / GTM):
+ * - _fbp (Facebook browser ID — required for CAPI match quality)
+ * - _fbc (Facebook click ID cookie — used when no ?fbclid is present
+ *         in the URL but the user landed from a prior Meta-attributed session)
+ *
  * Persists to localStorage so attribution survives:
  * - SPA navigation
  * - Multi-step funnel completion
  * - Page refresh during OTP flow
+ *
+ * NOTE: Adding `fbp` to the captured payload does NOT change tracking
+ * architecture or introduce browser-side conversion sends. It only ensures
+ * the `leads.fbp` column (already in schema) is actually populated when
+ * the existing intake forms write attribution. Without this, every
+ * downstream server-side CAPI dispatch loses match quality.
  */
 
 import { useEffect, useState } from "react";
@@ -27,6 +38,7 @@ export interface UtmData {
   fbclid: string | null;
   gclid: string | null;
   fbc: string | null;
+  fbp: string | null;
   client_slug: string | null;
   landing_page: string | null;
   landing_page_url: string | null;
@@ -42,14 +54,42 @@ const EMPTY_UTM: UtmData = {
   fbclid: null,
   gclid: null,
   fbc: null,
+  fbp: null,
   client_slug: null,
   landing_page: null,
   landing_page_url: null,
   captured_at: 0,
 };
 
+/**
+ * Read a cookie value by name. Returns null if absent or in a non-browser
+ * context. Decodes URL-encoded values (Meta writes `_fbc` as encoded).
+ */
+function readCookie(name: string): string | null {
+  if (typeof document === "undefined") return null;
+  const target = `${name}=`;
+  const parts = document.cookie ? document.cookie.split("; ") : [];
+  for (const part of parts) {
+    if (part.startsWith(target)) {
+      const raw = part.slice(target.length);
+      try {
+        return decodeURIComponent(raw);
+      } catch {
+        return raw;
+      }
+    }
+  }
+  return null;
+}
+
 export function getUtmData(): UtmData {
   if (typeof window === "undefined") return EMPTY_UTM;
+
+  // Always re-read fbp/fbc cookies on access — they may have been
+  // seeded AFTER the last localStorage write (e.g., Pixel script loaded
+  // late, or GTM consent granted mid-session).
+  const fbpCookie = readCookie("_fbp");
+  const fbcCookie = readCookie("_fbc");
 
   try {
     const stored = localStorage.getItem(UTM_STORAGE_KEY);
@@ -62,11 +102,25 @@ export function getUtmData(): UtmData {
         return {
           ...EMPTY_UTM,
           ...parsed,
+          // Cookie values always win over stale localStorage copies.
+          fbp: fbpCookie || parsed.fbp || null,
+          fbc: fbcCookie || parsed.fbc || null,
         };
       }
     }
   } catch {
     // ignore corrupted storage
+  }
+
+  // No stored UTM yet, but cookies may still exist (organic Meta traffic
+  // with the Pixel firing on first visit). Surface them anyway so leads
+  // captured before the URL-driven capture path runs still get fbp/fbc.
+  if (fbpCookie || fbcCookie) {
+    return {
+      ...EMPTY_UTM,
+      fbp: fbpCookie,
+      fbc: fbcCookie,
+    };
   }
 
   return EMPTY_UTM;
@@ -89,7 +143,27 @@ export function captureUtmFromUrl(): UtmData {
 
   const existing = getUtmData();
 
+  // Even on a "no-new-attribution" visit, refresh fbp/fbc from cookies
+  // before returning — the Pixel may have just dropped them on this load.
   if (!hasAttributionParams && existing.captured_at > 0) {
+    const fbpCookie = readCookie("_fbp");
+    const fbcCookie = readCookie("_fbc");
+    if (
+      (fbpCookie && fbpCookie !== existing.fbp) ||
+      (fbcCookie && fbcCookie !== existing.fbc)
+    ) {
+      const refreshed: UtmData = {
+        ...existing,
+        fbp: fbpCookie || existing.fbp,
+        fbc: fbcCookie || existing.fbc,
+      };
+      try {
+        localStorage.setItem(UTM_STORAGE_KEY, JSON.stringify(refreshed));
+      } catch {
+        // ignore storage limits
+      }
+      return refreshed;
+    }
     return existing;
   }
 
@@ -101,6 +175,9 @@ export function captureUtmFromUrl(): UtmData {
     document.cookie = `_fbc=${encodeURIComponent(fbc)};expires=${expires};path=/;SameSite=Lax`;
   }
 
+  const fbpCookie = readCookie("_fbp");
+  const fbcCookie = readCookie("_fbc");
+
   const fullPathWithQuery = `${window.location.pathname}${window.location.search}`;
 
   const utmData: UtmData = {
@@ -111,7 +188,10 @@ export function captureUtmFromUrl(): UtmData {
     utm_content: params.get("utm_content") || existing.utm_content,
     fbclid: fbclid || existing.fbclid,
     gclid: params.get("gclid") || existing.gclid,
-    fbc: fbc || existing.fbc,
+    // Prefer freshly synthesized fbc from this visit's fbclid, then the
+    // existing cookie (which Meta keeps in sync), then any stale stored value.
+    fbc: fbc || fbcCookie || existing.fbc,
+    fbp: fbpCookie || existing.fbp,
     client_slug: params.get("client"),
     landing_page: window.location.pathname,
     landing_page_url: fullPathWithQuery,
@@ -160,6 +240,7 @@ export function getUtmPayload(): Record<string, string> {
   if (data.fbclid) payload.fbclid = data.fbclid;
   if (data.gclid) payload.gclid = data.gclid;
   if (data.fbc) payload.fbc = data.fbc;
+  if (data.fbp) payload.fbp = data.fbp;
   if (data.client_slug) payload.client_slug = data.client_slug;
   if (data.landing_page) payload.landing_page = data.landing_page;
   if (data.landing_page_url) payload.landing_page_url = data.landing_page_url;
