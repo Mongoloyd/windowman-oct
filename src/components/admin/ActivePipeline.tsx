@@ -84,14 +84,36 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
   const [selectedLead, setSelectedLead] = useState<CRMLead | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [ownershipFilter, setOwnershipFilter] = useState<OwnershipFilter>("all");
 
   /* ── Canonical derived filtered list ── */
   const filteredLeads = useMemo(() => {
     let result = leads;
+    const now = Date.now();
 
     // Status filter
     if (statusFilter !== "all") {
       result = result.filter((lead) => derivePipelineStatus(lead) === statusFilter);
+    }
+
+    // Ownership filter (repo-real lifecycle fields + one operator-derived)
+    if (ownershipFilter !== "all") {
+      result = result.filter((lead) => {
+        const routedAt = lead.routed_to_contractor_at ?? null;
+        const bookedAt = lead.appointment_booked_at ?? null;
+        const closedAt = lead.closed_at ?? null;
+        const unlockedAt = lead.report_unlocked_at ?? null;
+        switch (ownershipFilter) {
+          case "assigned": return !!routedAt;
+          case "unassigned": return !routedAt;
+          case "booked": return !!bookedAt;
+          case "closed": return !!closedAt;
+          case "recovery_candidate":
+            return !!unlockedAt && !routedAt &&
+              now - new Date(unlockedAt).getTime() > FOURTEEN_DAYS_MS;
+          default: return true;
+        }
+      });
     }
 
     // Search filter
@@ -106,7 +128,7 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
     }
 
     return result;
-  }, [leads, statusFilter, searchQuery]);
+  }, [leads, statusFilter, ownershipFilter, searchQuery]);
 
   if (isLoading && leads.length === 0) {
     return (
