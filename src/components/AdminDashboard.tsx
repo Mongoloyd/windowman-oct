@@ -304,6 +304,10 @@ function DashboardContent() {
             <ContractorAccountsTab />
           </TabsContent>
 
+          <TabsContent value="outcomes" className="w-full px-2 sm:px-6 pt-4">
+            <OutcomeTrackingReport leads={leads} onNavigateTab={setActiveTab} />
+          </TabsContent>
+
           <TabsContent value="attribution">
             <AttributionTab leads={leads} isLoading={false} />
           </TabsContent>
