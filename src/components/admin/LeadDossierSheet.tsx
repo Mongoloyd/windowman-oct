@@ -27,8 +27,10 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 
 import type { CRMLead, AnalysisFlag, LeadAnalysisData } from "./types";
-import { fetchLeadAnalysis, fetchLeadVoiceFollowups, invokeAdminData, sendContractorHandoff } from "@/services/adminDataService";
+import { fetchLeadAnalysis, fetchLeadVoiceFollowups, invokeAdminData, routeLeadToContractor, fetchContractors } from "@/services/adminDataService";
 import type { VoiceFollowup } from "@/services/adminDataService";
+import { OpportunityRouteTimeline } from "./OpportunityRouteTimeline";
+import { useQuery } from "@tanstack/react-query";
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
 
@@ -231,21 +233,36 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
     .filter((f) => f.severity === "High" || f.severity === "Critical")
     .slice(0, 3);
 
-  // ── Handoff confirm handler ──
+  // Load contractors so we can pick the canonical one for the unified routing helper.
+  const { data: contractorsList } = useQuery({
+    queryKey: ["admin", "contractors"],
+    queryFn: fetchContractors,
+    enabled: open,
+    staleTime: 60_000,
+  });
+  const activeContractors = (contractorsList ?? []).filter((c: any) => c.status === "active");
+  const canonicalContractorId = activeContractors.length >= 1 ? activeContractors[0].id : null;
+
+  // ── Handoff confirm handler — uses canonical unified routing helper ──
   const handleHandoffConfirm = async () => {
+    if (!canonicalContractorId) {
+      toast.error("No active contractor configured");
+      return;
+    }
     setHandoffSending(true);
     try {
-      const result = await sendContractorHandoff(lead.id);
-      if (result.success && !result.warning) {
-        toast.success("Dossier sent to contractor");
-        setLocalSentToContractor(true);
-        setHandoffModalOpen(false);
-      } else if (result.success && result.warning) {
-        toast.warning(result.warning);
+      const result = await routeLeadToContractor(
+        lead.id,
+        canonicalContractorId,
+        lead.latest_scan_session_id ?? undefined,
+      );
+      if (result.success) {
+        if (result.warning) toast.warning(result.warning);
+        else toast.success("Routed to contractor");
         setLocalSentToContractor(true);
         setHandoffModalOpen(false);
       } else {
-        toast.error("Handoff failed");
+        toast.error(result.warning ?? "Handoff failed");
       }
     } catch (err: any) {
       toast.error(err?.message ?? "Handoff failed");
