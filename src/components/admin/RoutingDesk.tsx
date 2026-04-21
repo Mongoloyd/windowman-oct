@@ -353,7 +353,9 @@ export function RoutingDesk({ leads }: Props) {
   // ── Render ─────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
-      {/* Header */}
+      {/* Live dispatch healthcheck — reads webhook_deliveries directly.
+          NOT a new tab; it sits inside the existing Routing surface. */}
+      <DispatchHealthCard />
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h2 className="text-lg font-bold">Routing Desk</h2>
@@ -495,6 +497,28 @@ export function RoutingDesk({ leads }: Props) {
                                   {ownershipBadgeLabel(b)}
                                 </Badge>
                               ));
+                          })()}
+
+                          {/* Blocked-reason chip — only shown for ready-to-route rows
+                              that have no contractor route AND no resolved tenant.
+                              Reason text comes from the canonical resolver
+                              (v_admin_routing_resolution). NEVER invented. */}
+                          {b === "ready_to_route" && !row.latestRoute && (() => {
+                            const slug = row.opportunity.client_slug ?? lead?.client_slug ?? null;
+                            const res = slug ? resolutionBySlug.get(slug) : undefined;
+                            // Routable ⇒ no chip needed (operator just needs to click Route).
+                            if (res?.resolved) return null;
+                            const reason = res?.no_route_reason ?? (slug ? null : "lead_has_no_slug");
+                            return (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] border-destructive/50 text-destructive bg-destructive/5"
+                                title={describeNoRouteReason(reason)}
+                              >
+                                <AlertCircle className="h-3 w-3 mr-1" />
+                                Blocked: {describeNoRouteReason(reason)}
+                              </Badge>
+                            );
                           })()}
                         </div>
                       </div>
