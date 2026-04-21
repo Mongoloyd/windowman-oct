@@ -197,6 +197,40 @@ export function RoutingDesk({ leads }: Props) {
     return { rowsByBucket: buckets, reactivationLeads: reactivation };
   }, [oppsQuery.data, routesQuery.data, contractorsQuery.data, leads]);
 
+  // Phase 8 — Market options derived from opportunities + reactivation leads.
+  // Uses safe Unknown County fallback. Pure UI grouping; no routing implied.
+  const marketOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const bucket of Object.values(rowsByBucket)) {
+      for (const row of bucket) {
+        const key = marketLabel(row.opportunity.county);
+        counts.set(key, (counts.get(key) ?? 0) + 1);
+      }
+    }
+    for (const lc of reactivationLeads) {
+      const key = marketLabel(lc.county);
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  }, [rowsByBucket, reactivationLeads]);
+
+  // Phase 8 — Apply market filter to bucket rows + reactivation list.
+  const filteredRowsByBucket = useMemo(() => {
+    if (marketFilter === "all") return rowsByBucket;
+    const out: Record<OperatorBucket, RoutingDeskRow[]> = {
+      ready_to_route: [], routed: [], stale_operator_view: [], reactivation_operator_view: [],
+    };
+    for (const [b, rows] of Object.entries(rowsByBucket) as [OperatorBucket, RoutingDeskRow[]][]) {
+      out[b] = rows.filter((row) => marketLabel(row.opportunity.county) === marketFilter);
+    }
+    return out;
+  }, [rowsByBucket, marketFilter]);
+
+  const filteredReactivationLeads = useMemo(() => {
+    if (marketFilter === "all") return reactivationLeads;
+    return reactivationLeads.filter((lc) => marketLabel(lc.county) === marketFilter);
+  }, [reactivationLeads, marketFilter]);
+
   const contractors = (contractorsQuery.data as RoutingContractor[] | undefined) ?? [];
   const activeContractors = contractors.filter((c) => c.status === "active");
   const canonicalContractorId = activeContractors.length === 1 ? activeContractors[0].id : null;
