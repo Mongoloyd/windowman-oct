@@ -45,6 +45,7 @@ import { OperatorScenarioDrillsSurface } from "@/components/admin/OperatorScenar
 import { ExpansionPreconditionsMarketEntryReadinessSurface } from "@/components/admin/ExpansionPreconditionsMarketEntryReadinessSurface";
 import { TechnicalDebtRefactorReadinessReviewSurface } from "@/components/admin/TechnicalDebtRefactorReadinessReviewSurface";
 import { CrossSurfaceConsistencyStatusAlignmentAuditSurface } from "@/components/admin/CrossSurfaceConsistencyStatusAlignmentAuditSurface";
+import { AdminInformationArchitectureNavigationSimplificationSurface } from "@/components/admin/AdminInformationArchitectureNavigationSimplificationSurface";
 
 import {
   invokeAdminData,
