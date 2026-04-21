@@ -376,7 +376,7 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
             fileName: file.name,
             fileType: file.type || null,
             fileSize: file.size,
-            upsert: true,
+            upsert: useUpsert,
             isRetry,
           },
         });
