@@ -300,6 +300,7 @@ function DashboardContent() {
             <TabsTrigger value="drills" className="flex-1 min-w-[110px]">Scenario Drills</TabsTrigger>
             <TabsTrigger value="expansion" className="flex-1 min-w-[110px]">Expansion</TabsTrigger>
             <TabsTrigger value="tech-debt" className="flex-1 min-w-[110px]">Tech Debt</TabsTrigger>
+            <TabsTrigger value="consistency" className="flex-1 min-w-[120px]">Consistency</TabsTrigger>
             <TabsTrigger value="attribution" className="flex-1 min-w-[100px]">Attribution</TabsTrigger>
             <TabsTrigger value="pilot" className="flex-1 min-w-[120px]">Pilot Readiness</TabsTrigger>
           </TabsList>
