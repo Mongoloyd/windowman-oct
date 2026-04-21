@@ -4,6 +4,7 @@ import { Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { trackEvent } from "@/lib/trackEvent";
 import { trackGtmEvent } from "@/lib/trackConversion";
+import { useScanPolling } from "@/hooks/useScanPolling";
 // Forever rule: event_id is an opaque UUID v4. Never descriptive, never
 // concatenated with metadata, never allowed to block a scan. Metadata
 // (event_name, lead_id, scan_session_id, …) rides in separate fields.
@@ -17,6 +18,19 @@ function makeTransportEventId(): string {
   return id;
 }
 import { toast } from "sonner";
+
+// Map real backend scan_sessions.status → user-facing progress percentage.
+// Percentages are tied to real lifecycle states only — no fake animation.
+const STATUS_PROGRESS: Record<string, { pct: number; label: string }> = {
+  uploading: { pct: 15, label: "Uploading your quote..." },
+  processing: { pct: 55, label: "Scanning the document..." },
+  preview_ready: { pct: 100, label: "Scan ready" },
+  complete: { pct: 100, label: "Scan complete" },
+  invalid_document: { pct: 100, label: "Document not recognized" },
+  needs_better_upload: { pct: 100, label: "We need a clearer image" },
+  error: { pct: 0, label: "Something went wrong" },
+  idle: { pct: 0, label: "" },
+};
 
 interface UploadZoneProps {
   isVisible: boolean;
