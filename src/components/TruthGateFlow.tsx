@@ -434,6 +434,7 @@ const TruthGateFlow = ({
         fbclid: utm.fbclid,
         gclid: utm.gclid,
         fbc: utm.fbc,
+        fbp: utm.fbp,
         landing_page_url: landingPageUrl,
         first_page_path: utm.landing_page,
         initial_referrer: typeof document !== "undefined" ? document.referrer || null : null,

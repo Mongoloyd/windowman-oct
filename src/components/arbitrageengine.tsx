@@ -322,6 +322,7 @@ export default function ArbitrageEngine({
         fbclid: utm.fbclid,
         gclid: utm.gclid,
         fbc: utm.fbc,
+        fbp: utm.fbp,
         landing_page_url: utm.landing_page,
         status: "new",
       });
