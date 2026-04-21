@@ -45,6 +45,7 @@ import { OperatorScenarioDrillsSurface } from "@/components/admin/OperatorScenar
 import { ExpansionPreconditionsMarketEntryReadinessSurface } from "@/components/admin/ExpansionPreconditionsMarketEntryReadinessSurface";
 import { TechnicalDebtRefactorReadinessReviewSurface } from "@/components/admin/TechnicalDebtRefactorReadinessReviewSurface";
 import { CrossSurfaceConsistencyStatusAlignmentAuditSurface } from "@/components/admin/CrossSurfaceConsistencyStatusAlignmentAuditSurface";
+import { AdminInformationArchitectureNavigationSimplificationSurface } from "@/components/admin/AdminInformationArchitectureNavigationSimplificationSurface";
 
 import {
   invokeAdminData,
@@ -258,6 +259,7 @@ function DashboardContent() {
       <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="flex w-full flex-wrap h-auto gap-1 max-w-6xl">
+            <TabsTrigger value="surface-map" className="flex-1 min-w-[110px]">Surface Map</TabsTrigger>
             <TabsTrigger value="launch" className="flex-1 min-w-[110px]">Launch Control</TabsTrigger>
             <TabsTrigger value="command" className="flex-1 min-w-[110px]">Command Center</TabsTrigger>
             <TabsTrigger value="pipeline" className="flex-1 min-w-[110px]">Active Pipeline</TabsTrigger>
@@ -304,6 +306,13 @@ function DashboardContent() {
             <TabsTrigger value="attribution" className="flex-1 min-w-[100px]">Attribution</TabsTrigger>
             <TabsTrigger value="pilot" className="flex-1 min-w-[120px]">Pilot Readiness</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="surface-map" className="w-full px-2 sm:px-6 pt-4">
+            <AdminInformationArchitectureNavigationSimplificationSurface
+              onNavigateTab={setActiveTab}
+              activeTab={activeTab}
+            />
+          </TabsContent>
 
           <TabsContent value="launch" className="w-full px-2 sm:px-6 pt-4">
             <PilotOpsLaunchControl leads={leads} onNavigateTab={setActiveTab} />
