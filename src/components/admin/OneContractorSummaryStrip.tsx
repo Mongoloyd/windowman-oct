@@ -90,8 +90,23 @@ export function OneContractorSummaryStrip({ leads }: Props) {
     return { routed, contacted, booked, staleOperatorView, reactivationOperatorView };
   }, [opps, routes, leads]);
 
+  // Phase 8 — Market-aware tile.
+  // Counties Covered = distinct non-empty `lead.county` values across leads
+  // that have at least one repo-real lifecycle event (unlocked OR routed OR
+  // a verified analysis). Operator-view metric only — no routing logic.
+  const countiesCovered = useMemo(() => {
+    const set = new Set<string>();
+    for (const l of leads) {
+      const hasActivity = !!(l.report_unlocked_at || l.routed_to_contractor_at || l.latest_analysis_id);
+      if (!hasActivity) continue;
+      const county = l.county?.trim();
+      if (county && county.length > 0) set.add(county);
+    }
+    return set.size;
+  }, [leads]);
+
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
       <Tile icon={Send} label="Leads Routed" value={counts.routed} tone="cyan" />
       <Tile icon={Eye} label="Contacted" value={counts.contacted} tone="cyan" />
       <Tile icon={CalendarCheck} label="Booked" value={counts.booked} tone="emerald" />
@@ -108,6 +123,13 @@ export function OneContractorSummaryStrip({ leads }: Props) {
         sublabel="(operator view)"
         value={counts.reactivationOperatorView}
         tone="amber"
+      />
+      <Tile
+        icon={MapPin}
+        label="Counties Covered"
+        sublabel="(active markets)"
+        value={countiesCovered}
+        tone="cyan"
       />
     </div>
   );
