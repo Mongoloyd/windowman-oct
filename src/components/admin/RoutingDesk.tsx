@@ -338,19 +338,35 @@ export function RoutingDesk({ leads }: Props) {
             Single-client delivery spine — route verified leads to {activeContractors[0]?.company_name ?? "your contractor"}.
           </p>
         </div>
-        {activeContractors.length === 0 && (
-          <Badge variant="destructive" className="text-[10px]">
-            No active contractor
-          </Badge>
-        )}
+        <div className="flex items-center gap-2">
+          {activeContractors.length === 0 && (
+            <Badge variant="destructive" className="text-[10px]">
+              No active contractor
+            </Badge>
+          )}
+          {/* Phase 8 — Market filter (county). Pure UI grouping; no routing implied. */}
+          <Select value={marketFilter} onValueChange={setMarketFilter}>
+            <SelectTrigger className="h-8 w-[180px] text-xs">
+              <SelectValue placeholder="All Markets" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Markets</SelectItem>
+              {marketOptions.map(([market, count]) => (
+                <SelectItem key={market} value={market}>
+                  {market} ({count})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <Tabs defaultValue="ready_to_route" className="space-y-4">
         <TabsList className="grid grid-cols-2 lg:grid-cols-4 w-full max-w-3xl">
           {(Object.keys(BUCKET_LABEL) as OperatorBucket[]).map((b) => {
             const count = b === "reactivation_operator_view"
-              ? reactivationLeads.length
-              : rowsByBucket[b].length;
+              ? filteredReactivationLeads.length
+              : filteredRowsByBucket[b].length;
             return (
               <TabsTrigger key={b} value={b} className="text-xs gap-1.5">
                 {BUCKET_LABEL[b]}
