@@ -46,6 +46,40 @@ const formatSize = (bytes: number) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
+/**
+ * Normalize a file name into a Storage-safe segment.
+ * - lowercases
+ * - replaces any run of non [a-z0-9._-] with "_"
+ * - collapses repeats
+ * - clamps length so the resulting object key never explodes
+ *
+ * Determinism matters: the same File chosen twice (same name + size) MUST
+ * produce the same normalized segment so retry linkage between Storage
+ * and `quote_files.storage_path` stays coherent even when state is lost.
+ */
+const normalizeFileSegment = (name: string): string => {
+  const cleaned = (name || "file")
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^[._-]+|[._-]+$/g, "");
+  const safe = cleaned.length > 0 ? cleaned : "file";
+  return safe.length > 80 ? safe.slice(0, 80) : safe;
+};
+
+/**
+ * Build a deterministic Storage key for a (sessionId, file) pair.
+ *
+ * Determinism rule: same sessionId + same file (name+size) ⇒ same path.
+ * This lets a retry resolve back to the original Storage object and
+ * `quote_files` row without duplicating either.
+ *
+ * Layout: `${sessionId}/${size}_${normalizedName}`
+ */
+const buildDeterministicStoragePath = (sessionId: string, file: File): string => {
+  return `${sessionId}/${file.size}_${normalizeFileSegment(file.name)}`;
+};
+
 const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
   const [file, setFile] = useState<File | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
