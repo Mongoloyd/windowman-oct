@@ -629,6 +629,9 @@ const TruthGateFlow = ({
                 type="text"
                 placeholder="Your first name"
                 autoComplete="given-name"
+                maxLength={100}
+                required
+                aria-invalid={fieldStatus.firstName === "invalid"}
                 value={answers.firstName}
                 onChange={(e) => setAnswers((p) => ({ ...p, firstName: e.target.value }))}
                 className={`wm-input-well w-full h-12 px-4 font-body text-[15px] text-foreground outline-none ${
