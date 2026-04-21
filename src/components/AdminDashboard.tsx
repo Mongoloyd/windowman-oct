@@ -44,6 +44,7 @@ import { MinimumViableGovernanceDecisionBoundariesSurface } from "@/components/a
 import { OperatorScenarioDrillsSurface } from "@/components/admin/OperatorScenarioDrillsSurface";
 import { ExpansionPreconditionsMarketEntryReadinessSurface } from "@/components/admin/ExpansionPreconditionsMarketEntryReadinessSurface";
 import { TechnicalDebtRefactorReadinessReviewSurface } from "@/components/admin/TechnicalDebtRefactorReadinessReviewSurface";
+import { CrossSurfaceConsistencyStatusAlignmentAuditSurface } from "@/components/admin/CrossSurfaceConsistencyStatusAlignmentAuditSurface";
 
 import {
   invokeAdminData,
@@ -299,6 +300,7 @@ function DashboardContent() {
             <TabsTrigger value="drills" className="flex-1 min-w-[110px]">Scenario Drills</TabsTrigger>
             <TabsTrigger value="expansion" className="flex-1 min-w-[110px]">Expansion</TabsTrigger>
             <TabsTrigger value="tech-debt" className="flex-1 min-w-[110px]">Tech Debt</TabsTrigger>
+            <TabsTrigger value="consistency" className="flex-1 min-w-[120px]">Consistency</TabsTrigger>
             <TabsTrigger value="attribution" className="flex-1 min-w-[100px]">Attribution</TabsTrigger>
             <TabsTrigger value="pilot" className="flex-1 min-w-[120px]">Pilot Readiness</TabsTrigger>
           </TabsList>
@@ -420,6 +422,10 @@ function DashboardContent() {
 
           <TabsContent value="tech-debt" className="w-full px-2 sm:px-6 pt-4">
             <TechnicalDebtRefactorReadinessReviewSurface onNavigateTab={setActiveTab} />
+          </TabsContent>
+
+          <TabsContent value="consistency" className="w-full px-2 sm:px-6 pt-4">
+            <CrossSurfaceConsistencyStatusAlignmentAuditSurface onNavigateTab={setActiveTab} />
           </TabsContent>
 
           <TabsContent value="attribution">
