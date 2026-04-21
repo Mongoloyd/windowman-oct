@@ -63,6 +63,17 @@ export interface CRMLead {
   // ─── Timeline Timestamps ──────────────────────────────────────────
   report_unlocked_at: string | null;
   intro_requested_at: string | null;
+
+  // ─── Phase 7 — Ownership / Lifecycle (all repo-real on `leads`) ─
+  routed_to_contractor_at: string | null;
+  appointment_booked_at: string | null;
+  replacement_quote_submitted_at: string | null;
+  closed_at: string | null;
+  reactivation_email_sent_at: string | null;
+  last_call_completed_at: string | null;
+  last_call_status: string | null;
+  last_call_outcome: string | null;
+  last_call_summary: string | null;
 }
 
 /** Derive pipeline status from raw lead data */

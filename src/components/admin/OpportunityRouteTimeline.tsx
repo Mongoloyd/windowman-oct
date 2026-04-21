@@ -139,8 +139,20 @@ export function OpportunityRouteTimeline({ opportunityId }: OpportunityRouteTime
   const statusMeta = STATUS_LABEL[opp.status] ?? { label: opp.status ?? "Unknown", tone: "neutral" as const };
   const closingAngle = pickClosingAngle(opp.brief_json);
 
+  // Phase 7 — full assignment history (oldest first), not just latest.
+  const assignmentHistory = [...oppRoutes].sort(
+    (a, b) => new Date(a.sent_at ?? a.created_at).getTime()
+            - new Date(b.sent_at ?? b.created_at).getTime(),
+  );
+
   return (
     <div className="space-y-3">
+      {/* ── Phase 7: Ownership block (current + prior owners + badges) ── */}
+      <OwnershipBlock
+        routes={oppRoutes}
+        contractors={(contractors as RoutingContractor[] | undefined) ?? []}
+      />
+
       {/* ── Header row: contractor + status ── */}
       <div className="flex flex-wrap items-center gap-2">
         <Badge className={`text-[10px] uppercase tracking-wide border ${toneClass(statusMeta.tone)}`}>
@@ -162,17 +174,58 @@ export function OpportunityRouteTimeline({ opportunityId }: OpportunityRouteTime
         )}
       </div>
 
-      {/* ── Activity timeline (only if route exists) ── */}
+      {/* ── Latest route activity ── */}
       {latestRoute && (
         <div className="rounded-lg border border-border/50 bg-muted/20 p-3 space-y-1.5">
           <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mb-1">
-            Route Activity
+            Latest Route Activity
           </p>
           <ActivityRow icon={Send} label="Sent" timestamp={latestRoute.sent_at} />
           <ActivityRow icon={Eye} label="Viewed" timestamp={latestRoute.viewed_at} />
           <ActivityRow icon={MessageSquare} label="Responded" timestamp={latestRoute.responded_at} />
           <ActivityRow icon={ThumbsUp} label="Interested" timestamp={latestRoute.interested_at} />
           <ActivityRow icon={Unlock} label="Contact Released" timestamp={latestRoute.contact_released_at} />
+        </div>
+      )}
+
+      {/* ── Phase 7: Assignment History (multi-row, repo-real ledger) ── */}
+      {assignmentHistory.length > 1 && (
+        <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 p-3 space-y-2">
+          <p className="text-[10px] uppercase tracking-wide text-violet-700 font-semibold">
+            Assignment History ({assignmentHistory.length} assignments)
+          </p>
+          <ol className="space-y-1.5">
+            {assignmentHistory.map((r, i) => {
+              const c = (contractors as RoutingContractor[] | undefined)?.find((x) => x.id === r.contractor_id);
+              const isLatest = r.id === latestRoute?.id;
+              return (
+                <li key={r.id} className="flex items-start gap-2 text-xs">
+                  <span className="font-mono text-[10px] text-muted-foreground w-5 shrink-0">#{i + 1}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <Building2 className="h-3 w-3 text-cyan-600" />
+                      <span className="font-medium">{c?.company_name ?? "Unknown contractor"}</span>
+                      <Badge variant="outline" className="text-[10px]">{r.route_status}</Badge>
+                      {isLatest && (
+                        <Badge className="text-[10px] bg-cyan-500/15 text-cyan-700 border-cyan-500/30 border" variant="outline">
+                          Current
+                        </Badge>
+                      )}
+                      {(r.contact_released || r.release_status === "approved") && (
+                        <Badge className="text-[10px] bg-emerald-500/15 text-emerald-700 border-emerald-500/30 border" variant="outline">
+                          Released
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground font-mono">
+                      {fmtTs(r.sent_at ?? r.created_at)}
+                      {r.routing_reason && <span className="italic"> · {r.routing_reason}</span>}
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
         </div>
       )}
 
