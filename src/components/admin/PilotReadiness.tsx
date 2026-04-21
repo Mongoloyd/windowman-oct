@@ -168,7 +168,7 @@ export function PilotReadiness({ leads }: Props) {
           </p>
         </CardHeader>
         <CardContent>
-          <div className="flex items-stretch gap-2 overflow-x-auto pb-2">
+          <div className="flex flex-col sm:flex-row items-stretch gap-2 pb-2">
             <FlowStep label="Captured" value={flowCounts.captured} />
             <FlowArrow />
             <FlowStep label="Verified" value={flowCounts.verified} />
@@ -204,7 +204,7 @@ export function PilotReadiness({ leads }: Props) {
               No county-level activity yet.
             </p>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
               {marketCoverage.map(([county, count]) => (
                 <div
                   key={county}
@@ -301,7 +301,7 @@ function FlowStep({
 }) {
   return (
     <div
-      className={`shrink-0 min-w-[120px] rounded-lg border p-3 flex flex-col items-center justify-center text-center ${
+      className={`w-full sm:w-auto sm:shrink-0 min-w-[120px] rounded-lg border p-3 flex flex-col items-center justify-center text-center ${
         accent
           ? "border-cyan-500/30 bg-cyan-500/5"
           : "border-border bg-card"
@@ -317,8 +317,8 @@ function FlowStep({
 
 function FlowArrow() {
   return (
-    <div className="shrink-0 flex items-center justify-center">
-      <ArrowRight className="h-4 w-4 text-muted-foreground" />
+    <div className="shrink-0 flex items-center justify-center py-1 sm:py-0">
+      <ArrowRight className="h-4 w-4 text-muted-foreground rotate-90 sm:rotate-0" />
     </div>
   );
 }
