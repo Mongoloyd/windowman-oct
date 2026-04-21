@@ -19,6 +19,8 @@ import { InternalCRMDesk } from "@/components/admin/InternalCRMDesk";
 import { NeedsReviewTab, type NeedsReviewLead } from "@/components/admin/NeedsReviewTab";
 import { AttributionTab } from "@/components/admin/AttributionTab";
 import { ContractorAccountsTab } from "@/components/admin/ContractorAccountsTab";
+import { RoutingDesk } from "@/components/admin/RoutingDesk";
+import { OneContractorSummaryStrip } from "@/components/admin/OneContractorSummaryStrip";
 
 import {
   invokeAdminData,
@@ -220,9 +222,10 @@ function DashboardContent() {
       {/* Tabs */}
       <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6">
         <Tabs defaultValue="command" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-7 max-w-4xl">
+          <TabsList className="grid w-full grid-cols-8 max-w-5xl">
             <TabsTrigger value="command">Command Center</TabsTrigger>
             <TabsTrigger value="pipeline">Active Pipeline</TabsTrigger>
+            <TabsTrigger value="routing">Routing</TabsTrigger>
             <TabsTrigger value="ghosts" className="relative">
               Ghost Recovery
               {ghosts.length > 0 && (
@@ -245,7 +248,12 @@ function DashboardContent() {
           </TabsList>
 
           <TabsContent value="command">
+            <OneContractorSummaryStrip leads={leads} />
             <CommandCenter kpis={kpis} isLoading={false} leads={leads} />
+          </TabsContent>
+
+          <TabsContent value="routing">
+            <RoutingDesk leads={leads} />
           </TabsContent>
 
           <TabsContent value="pipeline">

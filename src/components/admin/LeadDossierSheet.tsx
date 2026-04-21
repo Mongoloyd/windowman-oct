@@ -27,8 +27,10 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 
 import type { CRMLead, AnalysisFlag, LeadAnalysisData } from "./types";
-import { fetchLeadAnalysis, fetchLeadVoiceFollowups, invokeAdminData, sendContractorHandoff } from "@/services/adminDataService";
+import { fetchLeadAnalysis, fetchLeadVoiceFollowups, invokeAdminData, routeLeadToContractor, fetchContractors } from "@/services/adminDataService";
 import type { VoiceFollowup } from "@/services/adminDataService";
+import { OpportunityRouteTimeline } from "./OpportunityRouteTimeline";
+import { useQuery } from "@tanstack/react-query";
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
 
@@ -231,21 +233,36 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
     .filter((f) => f.severity === "High" || f.severity === "Critical")
     .slice(0, 3);
 
-  // ── Handoff confirm handler ──
+  // Load contractors so we can pick the canonical one for the unified routing helper.
+  const { data: contractorsList } = useQuery({
+    queryKey: ["admin", "contractors"],
+    queryFn: fetchContractors,
+    enabled: open,
+    staleTime: 60_000,
+  });
+  const activeContractors = (contractorsList ?? []).filter((c: any) => c.status === "active");
+  const canonicalContractorId = activeContractors.length >= 1 ? activeContractors[0].id : null;
+
+  // ── Handoff confirm handler — uses canonical unified routing helper ──
   const handleHandoffConfirm = async () => {
+    if (!canonicalContractorId) {
+      toast.error("No active contractor configured");
+      return;
+    }
     setHandoffSending(true);
     try {
-      const result = await sendContractorHandoff(lead.id);
-      if (result.success && !result.warning) {
-        toast.success("Dossier sent to contractor");
-        setLocalSentToContractor(true);
-        setHandoffModalOpen(false);
-      } else if (result.success && result.warning) {
-        toast.warning(result.warning);
+      const result = await routeLeadToContractor(
+        lead.id,
+        canonicalContractorId,
+        lead.latest_scan_session_id ?? undefined,
+      );
+      if (result.success) {
+        if (result.warning) toast.warning(result.warning);
+        else toast.success("Routed to contractor");
         setLocalSentToContractor(true);
         setHandoffModalOpen(false);
       } else {
-        toast.error("Handoff failed");
+        toast.error(result.warning ?? "Handoff failed");
       }
     } catch (err: any) {
       toast.error(err?.message ?? "Handoff failed");
@@ -337,6 +354,12 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
           <InfoRow label="Quote Range" value={lead.quote_range} />
           <InfoRow label="Quote Amount" icon={DollarSign} value={lead.quote_amount ? `$${Number(lead.quote_amount).toLocaleString()}` : null} />
         </div>
+
+        <Separator className="my-3" />
+
+        {/* ── Contractor Delivery (Phase 6) ─────────────────────────── */}
+        <SectionTitle>Contractor Delivery</SectionTitle>
+        <OpportunityRouteTimeline opportunityId={lead.latest_opportunity_id} />
 
         <Separator className="my-3" />
 
@@ -685,7 +708,29 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
 
         <Separator className="my-3" />
 
-        {/* ── 4. Attribution ───────────────────────────────────────── */}
+        {/* ── Follow-up Status (Phase 6) ────────────────────────────── */}
+        <SectionTitle>Follow-up Status</SectionTitle>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
+          <InfoRow label="Last Call Intent" value={lead.last_call_intent} />
+          <InfoRow label="Last Call Status" value={(lead as any).last_call_status} />
+          <InfoRow label="Last Call Outcome" value={(lead as any).last_call_outcome} />
+          <InfoRow
+            label="Last Call Completed"
+            value={(lead as any).last_call_completed_at ? format(new Date((lead as any).last_call_completed_at), "MMM d, h:mm a") : null}
+          />
+          <InfoRow
+            label="Appointment Booked"
+            value={(lead as any).appointment_booked_at ? format(new Date((lead as any).appointment_booked_at), "MMM d, h:mm a") : null}
+          />
+          <InfoRow
+            label="Replacement Quote Submitted"
+            value={(lead as any).replacement_quote_submitted_at ? format(new Date((lead as any).replacement_quote_submitted_at), "MMM d") : null}
+          />
+          <InfoRow label="Deal Status" value={lead.deal_status} />
+        </div>
+
+        <Separator className="my-3" />
+
         <SectionTitle>Attribution & Source</SectionTitle>
         <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
           <InfoRow label="UTM Source" icon={Globe} value={lead.utm_source} />
