@@ -1,10 +1,11 @@
-import React from "react";
+import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { TrustBullets } from "./TrustBullets";
 import SampleGradeCard from "./SampleGradeCard";
 import { useTickerStats } from "@/hooks/useTickerStats";
 import { Shield, TrendingDown, BarChart3 } from "lucide-react";
 import scanOcrImg from "@/assets/scan_ocr_hero.avif";
+import PowerToolButton from "./PowerToolButton";
 
 const PowerToolFlow = React.lazy(() => import("./PowerToolDemo"));
 
@@ -30,6 +31,7 @@ const AuditHero = ({
 }: AuditHeroProps) => {
   const { total } = useTickerStats();
   const savingsFound = ((total * 3800) / 1_000_000).toFixed(1);
+  const [mounted, setMounted] = useState(false);
 
   const trustPillContent = (
     <>
@@ -138,17 +140,17 @@ const AuditHero = ({
             </motion.div>
 
             <h1
-              className="font-display text-4xl md:text-5xl lg:text-6xl font-extrabold uppercase leading-[1.08] tracking-tight text-foreground mb-5"
+              className="font-display text-4xl md:text-5xl lg:text-6xl font-extrabold leading-[1.08] tracking-tight text-foreground mb-5"
             >
               {variantHeadline ? (
                 variantHeadline
               ) : (
                 <>
-                  YOUR QUOTE LOOKS LEGITIMATE.
+                  Your Quote Looks Legitimate.
                   <br />
-                  THAT'S EXACTLY WHAT{" "}
+                  That's Exactly What{" "}
                   <span className="text-destructive" style={{ textShadow: "0 0 20px hsla(25, 95%, 53%, 0.15)" }}>
-                    THEY'RE COUNTING ON.
+                    They're Counting On.
                   </span>
                 </>
               )}
@@ -179,14 +181,21 @@ const AuditHero = ({
                 Scan My Quote<span className="inline sm:hidden lg:inline"> — It's Free</span>
               </button>
 
-              <React.Suspense fallback={<div className="h-[54px]" />}>
+              <PowerToolButton onClick={() => setMounted(true)} />
+            </div>
+
+            {(mounted || triggerPowerTool) && (
+              <React.Suspense fallback={null}>
                 <PowerToolFlow
                   onUploadQuote={onUploadQuote}
-                  triggerOpen={triggerPowerTool}
-                  onToolClose={onPowerToolClose}
+                  triggerOpen
+                  onToolClose={() => {
+                    setMounted(false);
+                    onPowerToolClose?.();
+                  }}
                 />
               </React.Suspense>
-            </div>
+            )}
 
             <TrustBullets />
 
