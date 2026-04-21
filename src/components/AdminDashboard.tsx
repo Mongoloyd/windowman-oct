@@ -406,6 +406,10 @@ function DashboardContent() {
             <MinimumViableGovernanceDecisionBoundariesSurface onNavigateTab={setActiveTab} />
           </TabsContent>
 
+          <TabsContent value="drills" className="w-full px-2 sm:px-6 pt-4">
+            <OperatorScenarioDrillsSurface onNavigateTab={setActiveTab} />
+          </TabsContent>
+
           <TabsContent value="attribution">
             <AttributionTab leads={leads} isLoading={false} />
           </TabsContent>
