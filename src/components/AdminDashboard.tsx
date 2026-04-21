@@ -22,6 +22,7 @@ import { ContractorAccountsTab } from "@/components/admin/ContractorAccountsTab"
 import { RoutingDesk } from "@/components/admin/RoutingDesk";
 import { OneContractorSummaryStrip } from "@/components/admin/OneContractorSummaryStrip";
 import { MarketOpsFeed } from "@/components/admin/MarketOpsFeed";
+import { PilotReadiness } from "@/components/admin/PilotReadiness";
 
 import {
   invokeAdminData,
@@ -233,11 +234,11 @@ function DashboardContent() {
       {/* Tabs */}
       <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6">
         <Tabs defaultValue="command" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-8 max-w-5xl">
-            <TabsTrigger value="command">Command Center</TabsTrigger>
-            <TabsTrigger value="pipeline">Active Pipeline</TabsTrigger>
-            <TabsTrigger value="routing">Routing</TabsTrigger>
-            <TabsTrigger value="ghosts" className="relative">
+          <TabsList className="flex w-full flex-wrap h-auto gap-1 max-w-6xl">
+            <TabsTrigger value="command" className="flex-1 min-w-[110px]">Command Center</TabsTrigger>
+            <TabsTrigger value="pipeline" className="flex-1 min-w-[110px]">Active Pipeline</TabsTrigger>
+            <TabsTrigger value="routing" className="flex-1 min-w-[90px]">Routing</TabsTrigger>
+            <TabsTrigger value="ghosts" className="relative flex-1 min-w-[120px]">
               Ghost Recovery
               {ghosts.length > 0 && (
                 <Badge variant="destructive" className="ml-1.5 h-5 min-w-[20px] px-1 text-[10px]">
@@ -245,7 +246,7 @@ function DashboardContent() {
                 </Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="needs-review" className="relative">
+            <TabsTrigger value="needs-review" className="relative flex-1 min-w-[110px]">
               Needs Review
               {needsReview.length > 0 && (
                 <span className="ml-1.5 inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold bg-destructive text-destructive-foreground">
@@ -253,9 +254,10 @@ function DashboardContent() {
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="engine">Dialer Desk</TabsTrigger>
-            <TabsTrigger value="contractors">Contractors</TabsTrigger>
-            <TabsTrigger value="attribution">Attribution</TabsTrigger>
+            <TabsTrigger value="engine" className="flex-1 min-w-[100px]">Dialer Desk</TabsTrigger>
+            <TabsTrigger value="contractors" className="flex-1 min-w-[110px]">Contractors</TabsTrigger>
+            <TabsTrigger value="attribution" className="flex-1 min-w-[100px]">Attribution</TabsTrigger>
+            <TabsTrigger value="pilot" className="flex-1 min-w-[120px]">Pilot Readiness</TabsTrigger>
           </TabsList>
 
           <TabsContent value="command" className="space-y-6">
@@ -295,6 +297,10 @@ function DashboardContent() {
 
           <TabsContent value="attribution">
             <AttributionTab leads={leads} isLoading={false} />
+          </TabsContent>
+
+          <TabsContent value="pilot">
+            <PilotReadiness leads={leads} />
           </TabsContent>
         </Tabs>
       </div>
