@@ -424,6 +424,10 @@ function DashboardContent() {
             <TechnicalDebtRefactorReadinessReviewSurface onNavigateTab={setActiveTab} />
           </TabsContent>
 
+          <TabsContent value="consistency" className="w-full px-2 sm:px-6 pt-4">
+            <CrossSurfaceConsistencyStatusAlignmentAuditSurface onNavigateTab={setActiveTab} />
+          </TabsContent>
+
           <TabsContent value="attribution">
             <AttributionTab leads={leads} isLoading={false} />
           </TabsContent>
