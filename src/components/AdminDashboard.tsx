@@ -79,6 +79,16 @@ function toLeadCRM(raw: Record<string, any>): CRMLead {
     initial_referrer: raw.initial_referrer ?? null,
     report_unlocked_at: raw.report_unlocked_at ?? null,
     intro_requested_at: raw.intro_requested_at ?? null,
+    // Phase 7 — Ownership / Lifecycle (repo-real columns on `leads`)
+    routed_to_contractor_at: raw.routed_to_contractor_at ?? null,
+    appointment_booked_at: raw.appointment_booked_at ?? null,
+    replacement_quote_submitted_at: raw.replacement_quote_submitted_at ?? null,
+    closed_at: raw.closed_at ?? null,
+    reactivation_email_sent_at: raw.reactivation_email_sent_at ?? null,
+    last_call_completed_at: raw.last_call_completed_at ?? null,
+    last_call_status: raw.last_call_status ?? null,
+    last_call_outcome: raw.last_call_outcome ?? null,
+    last_call_summary: raw.last_call_summary ?? null,
   };
 }
 
