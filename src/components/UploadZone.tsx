@@ -219,8 +219,18 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
     setUploading(true);
     setUploadError(null);
 
+    // ── Unified failure surface ─────────────────────────────────────────
+    // Every failure stage funnels through this one helper so the user sees
+    // exactly one message and one retry button — never a stack of toasts
+    // from cascading partial failures (storage / quote_files / scan_sessions).
+    const failWith = (stage: string, message: string, err?: unknown) => {
+      console.error(`[UploadZone] ${stage} failed:`, err);
+      setUploadError(message);
+      toast.error(message);
+    };
+
     try {
-      // ── Retry path ──────────────────────────────────────────────────
+      // ── Retry path (in-memory) ───────────────────────────────────────
       // Triggered when EITHER:
       //   (a) we already have an activeScanSessionId in state, OR
       //   (b) uploadedOnceRef says the fresh path already ran (defends
@@ -229,9 +239,7 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
       if (activeScanSessionId || uploadedOnceRef.current) {
         const boundScanSessionId = activeScanSessionId;
         if (!boundScanSessionId) {
-          // Defensive: uploadedOnceRef true but state lost. Refuse to
-          // create a second scan_session — surface error instead.
-          setUploadError("Scan session lost. Please refresh and try again.");
+          failWith("retry_session_lost", "Scan session lost. Please refresh and try again.");
           return;
         }
         const { data: ss } = await supabase
@@ -251,12 +259,66 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
       }
 
       // ── Fresh path ────────────────────────────────────────────────────
-      const filePath = `${sessionId || crypto.randomUUID()}/${Date.now()}_${file.name}`;
-      const { error: storageErr } = await supabase.storage.from("quotes").upload(filePath, file);
+      // Storage path is deterministic per (sessionId, file). Means a retry
+      // that has lost in-memory state but kept the same sessionId can
+      // resolve back to the original Storage object + quote_files row
+      // instead of duplicating either.
+      const sessionScope = sessionId || crypto.randomUUID();
+      const filePath = buildDeterministicStoragePath(sessionScope, file);
+
+      // ── Cross-component retry guard (DB-side) ─────────────────────────
+      // Before doing any inserts, look for an existing scan_session bound
+      // to this exact storage_path. If one exists, this is a retry of an
+      // upload whose component state was lost (page refresh, route
+      // change). Re-bind to it instead of duplicating rows.
+      let existingScanSessionId: string | null = null;
+      let existingLeadId: string | null = null;
+      let existingQuoteFileId: string | null = null;
+
+      try {
+        const { data: existingFiles } = await supabase
+          .from("quote_files")
+          .select("id, lead_id")
+          .eq("storage_path", filePath)
+          .order("created_at", { ascending: false })
+          .limit(1);
+        const ef = existingFiles?.[0];
+        if (ef?.id) {
+          existingQuoteFileId = ef.id as string;
+          existingLeadId = (ef.lead_id as string | null) ?? null;
+          const { data: existingSessions } = await supabase
+            .from("scan_sessions")
+            .select("id")
+            .eq("quote_file_id", existingQuoteFileId)
+            .order("created_at", { ascending: false })
+            .limit(1);
+          existingScanSessionId = (existingSessions?.[0]?.id as string | null) ?? null;
+        }
+      } catch (lookupErr) {
+        // Lookup failure must not block fresh path — log and continue.
+        // Worst case we'd attempt a fresh upload; storage upsert and the
+        // client guards below still keep retry coherent.
+        console.warn("[UploadZone] retry-by-path lookup failed:", lookupErr);
+      }
+
+      if (existingScanSessionId && existingQuoteFileId) {
+        // Re-bind to the existing mapping — this is the canonical retry.
+        uploadedOnceRef.current = true;
+        setActiveScanSessionId(existingScanSessionId);
+        const ok = await invokeScan(existingScanSessionId, existingLeadId, existingQuoteFileId);
+        if (ok) {
+          onScanStart?.(file.name, existingScanSessionId);
+        }
+        return;
+      }
+
+      // Storage upload — `upsert: true` makes re-uploads of the same
+      // deterministic path idempotent at the Storage layer.
+      const { error: storageErr } = await supabase.storage
+        .from("quotes")
+        .upload(filePath, file, { upsert: true, contentType: file.type || undefined });
       if (storageErr) {
-        console.error("Storage upload failed:", storageErr);
-        setUploadError("Upload failed. Please try again.");
-        toast.error("Upload failed. Please try again.");
+        failWith("storage_upload", "Upload failed. Please try again.", storageErr);
         return;
       }
 
@@ -267,14 +329,12 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
       }
       if (!leadId) {
         const fallbackLeadId = crypto.randomUUID();
-        const fallbackSessionId = sessionId || crypto.randomUUID();
+        const fallbackSessionId = sessionId || sessionScope;
         const { error: leadErr } = await supabase
           .from("leads")
           .insert({ id: fallbackLeadId, session_id: fallbackSessionId, source: "direct_upload" });
         if (leadErr) {
-          console.error("Failed to create fallback lead:", leadErr);
-          setUploadError("Failed to initialize session. Please try again.");
-          toast.error("Failed to initialize session. Please try again.");
+          failWith("lead_create", "Failed to initialize session. Please try again.", leadErr);
           return;
         }
         leadId = fallbackLeadId;
@@ -285,9 +345,7 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
         .from("quote_files")
         .insert({ id: quoteFileId, lead_id: leadId, storage_path: filePath, status: "pending" });
       if (qfError) {
-        console.error("quote_files insert failed:", qfError);
-        setUploadError("Failed to register your file. Please try again.");
-        toast.error("Failed to register your file. Please try again.");
+        failWith("quote_files_insert", "Failed to register your file. Please try again.", qfError);
         return;
       }
       const newScanSessionId = crypto.randomUUID();
@@ -295,9 +353,7 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
         .from("scan_sessions")
         .insert({ id: newScanSessionId, status: "uploading", lead_id: leadId, quote_file_id: quoteFileId });
       if (ssError) {
-        console.error("scan_sessions insert failed:", ssError);
-        setUploadError("Failed to start scan session. Please try again.");
-        toast.error("Failed to start scan session. Please try again.");
+        failWith("scan_sessions_insert", "Failed to start scan session. Please try again.", ssError);
         return;
       }
 
@@ -317,9 +373,7 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
 
       await invokeScan(newScanSessionId, leadId, quoteFileId);
     } catch (err) {
-      console.error("Scan error:", err);
-      setUploadError("Something went wrong. Please try again.");
-      toast.error("Something went wrong. Please try again.");
+      failWith("unexpected", "Something went wrong. Please try again.", err);
     } finally {
       setUploading(false);
       inFlightRef.current = false;
