@@ -5,6 +5,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useTickerStats } from "@/hooks/useTickerStats";
 import { formatPhoneDisplay, stripNonDigits, isValidUSPhone } from "@/utils/formatPhone";
+import PowerToolButton from "./PowerToolButton";
 
 const DS = {
   fontUI: "'Inter', system-ui, sans-serif",
