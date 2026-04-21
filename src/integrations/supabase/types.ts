@@ -205,6 +205,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "billable_intros_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_analyses_slug_mismatch"
+            referencedColumns: ["analysis_id"]
+          },
+          {
             foreignKeyName: "billable_intros_contractor_id_fkey"
             columns: ["contractor_id"]
             isOneToOne: false
@@ -245,6 +252,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "contractor_opportunities"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billable_intros_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_opportunities_slug_mismatch"
+            referencedColumns: ["opportunity_id"]
           },
           {
             foreignKeyName: "billable_intros_route_id_fkey"
@@ -916,6 +930,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "contractor_opportunities_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_analyses_slug_mismatch"
+            referencedColumns: ["analysis_id"]
+          },
+          {
             foreignKeyName: "contractor_opportunities_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
@@ -1055,6 +1076,13 @@ export type Database = {
             referencedRelation: "contractor_opportunities"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "contractor_opportunity_routes_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_opportunities_slug_mismatch"
+            referencedColumns: ["opportunity_id"]
+          },
         ]
       }
       contractor_outcomes: {
@@ -1153,6 +1181,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "contractor_opportunities"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contractor_outcomes_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_opportunities_slug_mismatch"
+            referencedColumns: ["opportunity_id"]
           },
           {
             foreignKeyName: "contractor_outcomes_route_id_fkey"
@@ -1481,6 +1516,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "analyses"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diagnosis_intakes_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_analyses_slug_mismatch"
+            referencedColumns: ["analysis_id"]
           },
           {
             foreignKeyName: "diagnosis_intakes_lead_id_fkey"
@@ -2641,6 +2683,31 @@ export type Database = {
         }
         Relationships: []
       }
+      v_admin_analyses_slug_mismatch: {
+        Row: {
+          analysis_id: string | null
+          analysis_slug: string | null
+          created_at: string | null
+          lead_id: string | null
+          lead_slug: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analyses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "analyses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unknown_slug"
+            referencedColumns: ["lead_id"]
+          },
+        ]
+      }
       v_admin_assignments_by_client: {
         Row: {
           active_receivers: number | null
@@ -2701,6 +2768,38 @@ export type Database = {
           session_id?: string | null
           utm_campaign?: string | null
           utm_source?: string | null
+        }
+        Relationships: []
+      }
+      v_admin_opportunities_slug_mismatch: {
+        Row: {
+          created_at: string | null
+          lead_id: string | null
+          lead_slug: string | null
+          opportunity_id: string | null
+          opportunity_slug: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contractor_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contractor_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unknown_slug"
+            referencedColumns: ["lead_id"]
+          },
+        ]
+      }
+      v_admin_slug_backfill_pending: {
+        Row: {
+          pending_count: number | null
+          table_name: string | null
         }
         Relationships: []
       }
