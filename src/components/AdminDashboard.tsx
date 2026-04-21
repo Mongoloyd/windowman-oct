@@ -46,6 +46,7 @@ import { ExpansionPreconditionsMarketEntryReadinessSurface } from "@/components/
 import { TechnicalDebtRefactorReadinessReviewSurface } from "@/components/admin/TechnicalDebtRefactorReadinessReviewSurface";
 import { CrossSurfaceConsistencyStatusAlignmentAuditSurface } from "@/components/admin/CrossSurfaceConsistencyStatusAlignmentAuditSurface";
 import { AdminInformationArchitectureNavigationSimplificationSurface } from "@/components/admin/AdminInformationArchitectureNavigationSimplificationSurface";
+import { StrategicPrioritizationNextBuildDecisionFrameworkSurface } from "@/components/admin/StrategicPrioritizationNextBuildDecisionFrameworkSurface";
 
 import {
   invokeAdminData,
@@ -305,12 +306,19 @@ function DashboardContent() {
             <TabsTrigger value="consistency" className="flex-1 min-w-[120px]">Consistency</TabsTrigger>
             <TabsTrigger value="attribution" className="flex-1 min-w-[100px]">Attribution</TabsTrigger>
             <TabsTrigger value="pilot" className="flex-1 min-w-[120px]">Pilot Readiness</TabsTrigger>
+            <TabsTrigger value="prioritization" className="flex-1 min-w-[120px]">Prioritization</TabsTrigger>
           </TabsList>
 
           <TabsContent value="surface-map" className="w-full px-2 sm:px-6 pt-4">
             <AdminInformationArchitectureNavigationSimplificationSurface
               onNavigateTab={setActiveTab}
               activeTab={activeTab}
+            />
+          </TabsContent>
+
+          <TabsContent value="prioritization" className="w-full px-2 sm:px-6 pt-4">
+            <StrategicPrioritizationNextBuildDecisionFrameworkSurface
+              onNavigateTab={setActiveTab}
             />
           </TabsContent>
 
