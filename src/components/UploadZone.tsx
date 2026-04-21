@@ -369,9 +369,15 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
         session_id: sessionId,
         metadata: { scan_session_id: newScanSessionId, file_name: file.name, file_size: file.size },
       });
-      onScanStart?.(file.name, newScanSessionId);
 
-      await invokeScan(newScanSessionId, leadId, quoteFileId);
+      // Gate the UI advance on a successful scan-quote invocation. If the
+      // edge function fails, invokeScan has already surfaced uploadError +
+      // toast; the user stays on UploadZone and the existing retry button
+      // re-binds to this scan_session_id (uploadedOnceRef is true).
+      const ok = await invokeScan(newScanSessionId, leadId, quoteFileId);
+      if (ok) {
+        onScanStart?.(file.name, newScanSessionId);
+      }
     } catch (err) {
       failWith("unexpected", "Something went wrong. Please try again.", err);
     } finally {
