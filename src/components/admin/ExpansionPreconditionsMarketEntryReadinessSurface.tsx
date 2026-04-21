@@ -562,7 +562,7 @@ export function ExpansionPreconditionsMarketEntryReadinessSurface({
         <CardHeader>
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <div className="flex items-center gap-2">
-              <Map className="h-4 w-4 text-muted-foreground" />
+              <MapIcon className="h-4 w-4 text-muted-foreground" />
               <CardTitle className="text-base">
                 Observed coverage / market footprint
               </CardTitle>
