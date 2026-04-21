@@ -36,6 +36,7 @@ import { LaunchReadinessSurface } from "@/components/admin/LaunchReadinessSurfac
 import { OperatorTrainingSOPSurface } from "@/components/admin/OperatorTrainingSOPSurface";
 import { RolloutPlanningReadinessSurface } from "@/components/admin/RolloutPlanningReadinessSurface";
 import { DataQualityFieldIntegritySurface } from "@/components/admin/DataQualityFieldIntegritySurface";
+import { ExceptionHandlingManualEscalationSurface } from "@/components/admin/ExceptionHandlingManualEscalationSurface";
 
 import {
   invokeAdminData,
@@ -283,6 +284,7 @@ function DashboardContent() {
             <TabsTrigger value="training" className="flex-1 min-w-[110px]">Training / SOP</TabsTrigger>
             <TabsTrigger value="rollout" className="flex-1 min-w-[110px]">Rollout</TabsTrigger>
             <TabsTrigger value="data-quality" className="flex-1 min-w-[120px]">Data Quality</TabsTrigger>
+            <TabsTrigger value="exceptions" className="flex-1 min-w-[110px]">Exceptions</TabsTrigger>
             <TabsTrigger value="attribution" className="flex-1 min-w-[100px]">Attribution</TabsTrigger>
             <TabsTrigger value="pilot" className="flex-1 min-w-[120px]">Pilot Readiness</TabsTrigger>
           </TabsList>
@@ -372,6 +374,10 @@ function DashboardContent() {
 
           <TabsContent value="data-quality" className="w-full px-2 sm:px-6 pt-4">
             <DataQualityFieldIntegritySurface leads={leads} onNavigateTab={setActiveTab} />
+          </TabsContent>
+
+          <TabsContent value="exceptions" className="w-full px-2 sm:px-6 pt-4">
+            <ExceptionHandlingManualEscalationSurface leads={leads} onNavigateTab={setActiveTab} />
           </TabsContent>
 
           <TabsContent value="attribution">
