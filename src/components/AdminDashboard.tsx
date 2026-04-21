@@ -27,6 +27,7 @@ import { PilotOpsLaunchControl } from "@/components/admin/PilotOpsLaunchControl"
 import { OutcomeTrackingReport } from "@/components/admin/OutcomeTrackingReport";
 import { ContractorOnboardingSurface } from "@/components/admin/ContractorOnboardingSurface";
 import { OperatorReportingSurface } from "@/components/admin/OperatorReportingSurface";
+import { DeadStaleRecoveryWorkflowSurface } from "@/components/admin/DeadStaleRecoveryWorkflowSurface";
 
 import {
   invokeAdminData,
