@@ -515,7 +515,7 @@ function SurfaceCard({
             </span>
             {surface.primary && (
               <Star
-                className="h-3 w-3 text-amber-500 shrink-0"
+                className="h-3 w-3 text-primary shrink-0 fill-current"
                 aria-label="Core surface"
               />
             )}
