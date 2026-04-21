@@ -51,8 +51,17 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  // Persist scanSessionId so a retry can re-invoke the edge function without
+  // re-uploading the file or duplicating scan_sessions / quote_files rows.
+  const [activeScanSessionId, setActiveScanSessionId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Live scan status — only polled once we have a real session id.
+  const { status: liveStatus } = useScanPolling({ scanSessionId: activeScanSessionId });
+  const progress = STATUS_PROGRESS[liveStatus] ?? STATUS_PROGRESS.idle;
+  const showProgress = uploading || (activeScanSessionId !== null && liveStatus !== "idle" && liveStatus !== "error");
 
   useEffect(() => {
     if (isVisible && containerRef.current) {
@@ -64,6 +73,7 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
 
   const handleFile = useCallback((f: File) => {
     setFileError(null);
+    setUploadError(null);
     if (f.size > MAX_FILE_SIZE) {
       setFileError("File too large. Maximum size is 10MB.");
       return;
@@ -77,11 +87,11 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
   }, []);
 
   const handleDropzoneClick = useCallback(() => {
-    if (inputRef.current) {
+    if (!uploading && inputRef.current) {
       inputRef.current.value = "";
       inputRef.current.click();
     }
-  }, []);
+  }, [uploading]);
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
