@@ -43,6 +43,7 @@ import { ChangeManagementSafeUpdateReadinessSurface } from "@/components/admin/C
 import { MinimumViableGovernanceDecisionBoundariesSurface } from "@/components/admin/MinimumViableGovernanceDecisionBoundariesSurface";
 import { OperatorScenarioDrillsSurface } from "@/components/admin/OperatorScenarioDrillsSurface";
 import { ExpansionPreconditionsMarketEntryReadinessSurface } from "@/components/admin/ExpansionPreconditionsMarketEntryReadinessSurface";
+import { TechnicalDebtRefactorReadinessReviewSurface } from "@/components/admin/TechnicalDebtRefactorReadinessReviewSurface";
 
 import {
   invokeAdminData,
