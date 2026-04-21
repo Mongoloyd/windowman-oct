@@ -52,6 +52,14 @@ import type { OwnershipBadge } from "@/types/routingDesk";
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 
+// Phase 8 — safe operator-facing fallback for null/empty geography.
+const UNKNOWN_COUNTY = "Unknown County";
+
+function marketLabel(county: string | null | undefined): string {
+  const c = county?.trim();
+  return c && c.length > 0 ? c : UNKNOWN_COUNTY;
+}
+
 interface Props {
   leads: CRMLead[];
 }
@@ -103,6 +111,7 @@ export function RoutingDesk({ leads }: Props) {
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [dossierLead, setDossierLead] = useState<CRMLead | null>(null);
   const [dossierOpen, setDossierOpen] = useState(false);
+  const [marketFilter, setMarketFilter] = useState<string>("all");
 
   const oppsQuery = useQuery({
     queryKey: ["admin", "opportunities"],
