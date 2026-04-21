@@ -55,7 +55,7 @@ const PublicNavbar = ({ ctaText = "Get Started Free", onCtaClick }: PublicNavbar
         <Link
           to="/"
           className="select-none group relative inline-flex items-center gap-2"
-          aria-label="WindowMan.PRO home"
+          aria-label="WindowMan.app home"
         >
           <span className="relative overflow-hidden inline-flex">
             <span

@@ -13,7 +13,7 @@ export default function Disclaimer() {
 
         <article className="prose prose-invert max-w-none text-base leading-7 text-foreground/90">
           <p>
-            WindowMan.PRO provides AI-driven educational estimates, quote review
+            WindowMan.app provides AI-driven educational estimates, quote review
             assistance, and informational analysis only.
           </p>
 
@@ -26,14 +26,14 @@ export default function Disclaimer() {
           </p>
 
           <p>
-            Any quote analysis presented by WindowMan.PRO is intended to help
+            Any quote analysis presented by WindowMan.app is intended to help
             homeowners ask better questions and make more informed decisions. It
             does not replace review by a licensed attorney, engineer, inspector,
             accountant, contractor, or other qualified professional.
           </p>
 
           <p>
-            WindowMan.PRO does not guarantee pricing, code compliance, permitting
+            WindowMan.app does not guarantee pricing, code compliance, permitting
             outcomes, product suitability, installation quality, savings, or
             project performance. Real-world conditions, local regulations,
             contract terms, and field measurements may materially affect actual

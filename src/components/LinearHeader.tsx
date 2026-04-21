@@ -31,7 +31,7 @@ const LinearHeader = ({ ctaText = "Get Started Free", onCtaClick }: LinearHeader
         <a
           href="/"
           className="select-none group relative inline-flex items-center gap-1.5 sm:gap-2 max-w-[45%] sm:max-w-none"
-          aria-label="WindowMan.PRO home"
+          aria-label="WindowMan.app home"
         >
           <span className="relative overflow-hidden inline-flex">
             <span
