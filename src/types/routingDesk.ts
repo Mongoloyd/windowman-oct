@@ -60,12 +60,29 @@ export interface RoutingRoute {
   interested_at: string | null;
   contact_released: boolean;
   contact_released_at: string | null;
-  release_status: string;
+  release_status: string; // none | requested | approved | denied
   release_requested_at: string | null;
+  release_reviewed_at: string | null;
+  release_reviewed_by: string | null;
+  release_denial_reason: string | null;
   routing_reason: string | null;
   response_notes: string | null;
+  assigned_by: string | null;
   created_at: string;
 }
+
+/**
+ * Phase 7 — Ownership-aware operator badges.
+ * All values are *derived* from repo-real timestamps on
+ * `contractor_opportunity_routes` and the parent lead. They are NOT
+ * backend statuses. Always render with operator-facing language.
+ */
+export type OwnershipBadge =
+  | "currently_assigned"      // an active route exists, contact not released
+  | "released"                // route.contact_released = true OR release_status = 'approved'
+  | "previously_assigned"     // ≥2 routes for this opportunity (history present)
+  | "recovery_candidate"      // operator-derived (report_unlocked >14d, never routed)
+  | "reassignable";           // released OR (no active route AND prior route exists)
 
 /**
  * Operator-derived UI groupings — NOT backend statuses.
