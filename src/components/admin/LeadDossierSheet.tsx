@@ -30,6 +30,7 @@ import type { CRMLead, AnalysisFlag, LeadAnalysisData } from "./types";
 import { fetchLeadAnalysis, fetchLeadVoiceFollowups, invokeAdminData, routeLeadToContractor, fetchContractors } from "@/services/adminDataService";
 import type { VoiceFollowup } from "@/services/adminDataService";
 import { OpportunityRouteTimeline } from "./OpportunityRouteTimeline";
+import { LeadLifecycleTimeline } from "./LeadLifecycleTimeline";
 import { useQuery } from "@tanstack/react-query";
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
