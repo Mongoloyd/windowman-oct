@@ -164,23 +164,23 @@ export function DataQualityFieldIntegritySurface({
 
   const opportunitiesQuery = useQuery<RoutingOpportunity[]>({
     queryKey: ["dq.opportunities"],
-    queryFn: fetchOpportunities,
+    queryFn: () => fetchOpportunities(),
     staleTime: 60_000,
   });
   const routesQuery = useQuery<RoutingRoute[]>({
     queryKey: ["dq.routes"],
-    queryFn: fetchRoutes,
+    queryFn: () => fetchRoutes(),
     staleTime: 60_000,
   });
   const contractorsQuery = useQuery<RoutingContractor[]>({
     queryKey: ["dq.contractors"],
-    queryFn: fetchContractors,
+    queryFn: () => fetchContractors(),
     staleTime: 60_000,
   });
 
-  const opportunities = opportunitiesQuery.data ?? [];
-  const routes = routesQuery.data ?? [];
-  const contractors = contractorsQuery.data ?? [];
+  const opportunities: RoutingOpportunity[] = opportunitiesQuery.data ?? [];
+  const routes: RoutingRoute[] = routesQuery.data ?? [];
+  const contractors: RoutingContractor[] = contractorsQuery.data ?? [];
 
   const refetchAll = () => {
     opportunitiesQuery.refetch();
@@ -353,31 +353,10 @@ export function DataQualityFieldIntegritySurface({
             total: contractorTotal,
           },
           {
-            key: "contractor.phone",
-            label: "Phone (E.164)",
-            detail: "Used for live coordination + voice handoff.",
-            present: countContractors((c) => nonEmpty(c.phone_e164)),
-            total: contractorTotal,
-          },
-          {
-            key: "contractor.counties",
-            label: "Service counties configured",
-            detail: "Drives market-aware routing suggestions.",
-            present: countContractors((c) => Array.isArray(c.service_counties) && c.service_counties.length > 0),
-            total: contractorTotal,
-          },
-          {
-            key: "contractor.project_types",
-            label: "Project types configured",
-            detail: "Operator-view filter when matching opportunities.",
-            present: countContractors((c) => Array.isArray(c.project_types) && c.project_types.length > 0),
-            total: contractorTotal,
-          },
-          {
-            key: "contractor.vetted",
-            label: "Vetted",
-            detail: "Indicates the contractor passed manual operator vetting.",
-            present: countContractors((c) => c.is_vetted === true),
+            key: "contractor.status_active",
+            label: "Status active",
+            detail: "Indicates the contractor is currently routable.",
+            present: countContractors((c) => c.status === "active"),
             total: contractorTotal,
           },
         ],
