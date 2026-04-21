@@ -249,17 +249,8 @@ function FadeIn({ children, delay = 0 }) {
   );
 }
 
-function PowerToolButton({ onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      className="btn-depth-destructive w-full sm:w-auto whitespace-nowrap"
-      style={{ fontSize: 18, padding: "20px 40px" }}
-    >
-      No Quote Yet? Start Here
-    </button>
-  );
-}
+// PowerToolButton extracted to ./PowerToolButton.tsx for static import in AuditHero
+// (avoids first-paint desync from lazy chunk).
 
 /* ============================================================
    LeadModal — Single step: Name + Email only
