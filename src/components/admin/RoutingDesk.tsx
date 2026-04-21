@@ -46,6 +46,8 @@ import type {
 import type { CRMLead } from "@/components/admin/types";
 import { OpportunityRouteTimeline } from "./OpportunityRouteTimeline";
 import { LeadDossierSheet } from "./LeadDossierSheet";
+import { deriveOwnershipBadges } from "./OwnershipBlock";
+import type { OwnershipBadge } from "@/types/routingDesk";
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
