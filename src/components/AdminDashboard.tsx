@@ -44,6 +44,7 @@ import { MinimumViableGovernanceDecisionBoundariesSurface } from "@/components/a
 import { OperatorScenarioDrillsSurface } from "@/components/admin/OperatorScenarioDrillsSurface";
 import { ExpansionPreconditionsMarketEntryReadinessSurface } from "@/components/admin/ExpansionPreconditionsMarketEntryReadinessSurface";
 import { TechnicalDebtRefactorReadinessReviewSurface } from "@/components/admin/TechnicalDebtRefactorReadinessReviewSurface";
+import { CrossSurfaceConsistencyStatusAlignmentAuditSurface } from "@/components/admin/CrossSurfaceConsistencyStatusAlignmentAuditSurface";
 
 import {
   invokeAdminData,
