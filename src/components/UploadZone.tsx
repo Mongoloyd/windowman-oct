@@ -394,11 +394,16 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
                 <p className="font-body text-[13px] text-destructive text-center font-medium mb-2">{uploadError}</p>
                 <button
                   onClick={handleScan}
-                  disabled={uploading}
+                  disabled={busy}
                   className="btn-depth-primary w-full"
-                  style={{ height: 44, fontSize: 14 }}
+                  style={{
+                    height: 44,
+                    fontSize: 14,
+                    opacity: busy ? 0.7 : 1,
+                    cursor: busy ? "not-allowed" : "pointer",
+                  }}
                 >
-                  Retry Scan →
+                  {uploading ? "Retrying..." : "Retry Scan →"}
                 </button>
               </div>
             )}
@@ -409,13 +414,13 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.15 }}
                 onClick={handleScan}
-                disabled={uploading || activeScanSessionId !== null}
+                disabled={busy}
                 className="btn-depth-primary w-full mt-5"
                 style={{
                   height: 54,
                   fontSize: 17,
-                  opacity: uploading || activeScanSessionId !== null ? 0.7 : 1,
-                  cursor: uploading || activeScanSessionId !== null ? "not-allowed" : "pointer",
+                  opacity: busy ? 0.7 : 1,
+                  cursor: busy ? "not-allowed" : "pointer",
                 }}
               >
                 {uploading
