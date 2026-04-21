@@ -57,11 +57,34 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
   const [activeScanSessionId, setActiveScanSessionId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  // ── Idempotency guards ───────────────────────────────────────────────
+  // inFlightRef: synchronous lock that beats React's async setState. Prevents
+  // double-fire from rapid clicks before `uploading` propagates.
+  const inFlightRef = useRef(false);
+  // uploadedOnceRef: once the fresh upload path has succeeded (storage +
+  // quote_files + scan_sessions inserted), every subsequent click MUST take
+  // the retry path. Guarantees no duplicate quote_files / scan_sessions
+  // rows for the same user intent, even if React state is stale.
+  const uploadedOnceRef = useRef(false);
 
   // Live scan status — only polled once we have a real session id.
   const { status: liveStatus } = useScanPolling({ scanSessionId: activeScanSessionId });
   const progress = STATUS_PROGRESS[liveStatus] ?? STATUS_PROGRESS.idle;
   const showProgress = uploading || (activeScanSessionId !== null && liveStatus !== "idle" && liveStatus !== "error");
+
+  // Unified "busy" — single source of truth for disabling the CTA. Covers:
+  //   - active upload/RPC in flight
+  //   - scan session exists and is mid-pipeline (no error to retry)
+  // Prevents the error/retry/loading states from racing into inconsistent UI.
+  const busy = useMemo(() => {
+    if (uploading) return true;
+    if (activeScanSessionId && !uploadError) {
+      if (["uploading", "processing", "preview_ready", "complete"].includes(liveStatus)) {
+        return true;
+      }
+    }
+    return false;
+  }, [uploading, activeScanSessionId, uploadError, liveStatus]);
 
   useEffect(() => {
     if (isVisible && containerRef.current) {
