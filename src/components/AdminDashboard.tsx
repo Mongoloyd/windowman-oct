@@ -34,6 +34,7 @@ import { ClientFacingReportingPrepSurface } from "@/components/admin/ClientFacin
 import { PilotToPlatformAuditSurface } from "@/components/admin/PilotToPlatformAuditSurface";
 import { LaunchReadinessSurface } from "@/components/admin/LaunchReadinessSurface";
 import { OperatorTrainingSOPSurface } from "@/components/admin/OperatorTrainingSOPSurface";
+import { RolloutPlanningReadinessSurface } from "@/components/admin/RolloutPlanningReadinessSurface";
 
 import {
   invokeAdminData,
@@ -279,6 +280,7 @@ function DashboardContent() {
             <TabsTrigger value="audit" className="flex-1 min-w-[110px]">Audit</TabsTrigger>
             <TabsTrigger value="readiness" className="flex-1 min-w-[120px]">Health Check</TabsTrigger>
             <TabsTrigger value="training" className="flex-1 min-w-[110px]">Training / SOP</TabsTrigger>
+            <TabsTrigger value="rollout" className="flex-1 min-w-[110px]">Rollout</TabsTrigger>
             <TabsTrigger value="attribution" className="flex-1 min-w-[100px]">Attribution</TabsTrigger>
             <TabsTrigger value="pilot" className="flex-1 min-w-[120px]">Pilot Readiness</TabsTrigger>
           </TabsList>
@@ -360,6 +362,10 @@ function DashboardContent() {
 
           <TabsContent value="training" className="w-full px-2 sm:px-6 pt-4">
             <OperatorTrainingSOPSurface onNavigateTab={setActiveTab} />
+          </TabsContent>
+
+          <TabsContent value="rollout" className="w-full px-2 sm:px-6 pt-4">
+            <RolloutPlanningReadinessSurface onNavigateTab={setActiveTab} />
           </TabsContent>
 
           <TabsContent value="attribution">
