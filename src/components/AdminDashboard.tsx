@@ -260,6 +260,7 @@ function DashboardContent() {
             </TabsTrigger>
             <TabsTrigger value="engine" className="flex-1 min-w-[100px]">Dialer Desk</TabsTrigger>
             <TabsTrigger value="contractors" className="flex-1 min-w-[110px]">Contractors</TabsTrigger>
+            <TabsTrigger value="outcomes" className="flex-1 min-w-[110px]">Outcomes</TabsTrigger>
             <TabsTrigger value="attribution" className="flex-1 min-w-[100px]">Attribution</TabsTrigger>
             <TabsTrigger value="pilot" className="flex-1 min-w-[120px]">Pilot Readiness</TabsTrigger>
           </TabsList>
