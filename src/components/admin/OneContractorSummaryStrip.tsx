@@ -16,7 +16,7 @@
 
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Send, Eye, CalendarCheck, Clock, RotateCcw } from "lucide-react";
+import { Send, Eye, CalendarCheck, Clock, RotateCcw, MapPin } from "lucide-react";
 import { fetchOpportunities, fetchRoutes } from "@/services/adminDataService";
 import type { RoutingOpportunity, RoutingRoute, OneContractorSummaryCounts } from "@/types/routingDesk";
 import type { CRMLead } from "@/components/admin/types";
