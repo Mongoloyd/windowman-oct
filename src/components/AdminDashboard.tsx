@@ -307,6 +307,13 @@ function DashboardContent() {
             <TabsTrigger value="pilot" className="flex-1 min-w-[120px]">Pilot Readiness</TabsTrigger>
           </TabsList>
 
+          <TabsContent value="surface-map" className="w-full px-2 sm:px-6 pt-4">
+            <AdminInformationArchitectureNavigationSimplificationSurface
+              onNavigateTab={setActiveTab}
+              activeTab={activeTab}
+            />
+          </TabsContent>
+
           <TabsContent value="launch" className="w-full px-2 sm:px-6 pt-4">
             <PilotOpsLaunchControl leads={leads} onNavigateTab={setActiveTab} />
           </TabsContent>
