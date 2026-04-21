@@ -32,6 +32,7 @@ import { ContractorFeedbackLoopSurface } from "@/components/admin/ContractorFeed
 import { SharedMarketManualControlsSurface } from "@/components/admin/SharedMarketManualControlsSurface";
 import { ClientFacingReportingPrepSurface } from "@/components/admin/ClientFacingReportingPrepSurface";
 import { PilotToPlatformAuditSurface } from "@/components/admin/PilotToPlatformAuditSurface";
+import { LaunchReadinessSurface } from "@/components/admin/LaunchReadinessSurface";
 
 import {
   invokeAdminData,
@@ -275,6 +276,7 @@ function DashboardContent() {
             <TabsTrigger value="shared-market" className="flex-1 min-w-[130px]">Shared Market</TabsTrigger>
             <TabsTrigger value="report-prep" className="flex-1 min-w-[120px]">Report Prep</TabsTrigger>
             <TabsTrigger value="audit" className="flex-1 min-w-[110px]">Audit</TabsTrigger>
+            <TabsTrigger value="readiness" className="flex-1 min-w-[120px]">Health Check</TabsTrigger>
             <TabsTrigger value="attribution" className="flex-1 min-w-[100px]">Attribution</TabsTrigger>
             <TabsTrigger value="pilot" className="flex-1 min-w-[120px]">Pilot Readiness</TabsTrigger>
           </TabsList>
@@ -348,6 +350,10 @@ function DashboardContent() {
 
           <TabsContent value="audit" className="w-full px-2 sm:px-6 pt-4">
             <PilotToPlatformAuditSurface leads={leads} onNavigateTab={setActiveTab} />
+          </TabsContent>
+
+          <TabsContent value="readiness" className="w-full px-2 sm:px-6 pt-4">
+            <LaunchReadinessSurface leads={leads} onNavigateTab={setActiveTab} />
           </TabsContent>
 
           <TabsContent value="attribution">
