@@ -1,5 +1,5 @@
 {
-  "nodeModulesDir": "auto",
+  "nodeModulesDir": true,
   "imports": {
     "npm:@supabase/supabase-js@2": "npm:@supabase/supabase-js@2.45.0",
     "npm:stripe@17.7.0": "npm:stripe@17.7.0"
