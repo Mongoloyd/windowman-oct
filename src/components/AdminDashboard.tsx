@@ -27,6 +27,7 @@ import { PilotOpsLaunchControl } from "@/components/admin/PilotOpsLaunchControl"
 import { OutcomeTrackingReport } from "@/components/admin/OutcomeTrackingReport";
 import { ContractorOnboardingSurface } from "@/components/admin/ContractorOnboardingSurface";
 import { OperatorReportingSurface } from "@/components/admin/OperatorReportingSurface";
+import { DeadStaleRecoveryWorkflowSurface } from "@/components/admin/DeadStaleRecoveryWorkflowSurface";
 
 import {
   invokeAdminData,
@@ -265,6 +266,7 @@ function DashboardContent() {
             <TabsTrigger value="onboarding" className="flex-1 min-w-[120px]">Onboarding</TabsTrigger>
             <TabsTrigger value="outcomes" className="flex-1 min-w-[110px]">Outcomes</TabsTrigger>
             <TabsTrigger value="reporting" className="flex-1 min-w-[100px]">Reporting</TabsTrigger>
+            <TabsTrigger value="lifecycle" className="flex-1 min-w-[110px]">Lifecycle</TabsTrigger>
             <TabsTrigger value="attribution" className="flex-1 min-w-[100px]">Attribution</TabsTrigger>
             <TabsTrigger value="pilot" className="flex-1 min-w-[120px]">Pilot Readiness</TabsTrigger>
           </TabsList>
@@ -318,6 +320,10 @@ function DashboardContent() {
 
           <TabsContent value="reporting" className="w-full px-2 sm:px-6 pt-4">
             <OperatorReportingSurface leads={leads} onNavigateTab={setActiveTab} />
+          </TabsContent>
+
+          <TabsContent value="lifecycle" className="w-full px-2 sm:px-6 pt-4">
+            <DeadStaleRecoveryWorkflowSurface leads={leads} onNavigateTab={setActiveTab} />
           </TabsContent>
 
           <TabsContent value="attribution">
