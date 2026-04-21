@@ -40,6 +40,7 @@ import { ExceptionHandlingManualEscalationSurface } from "@/components/admin/Exc
 import { DocumentationHandoffReadinessSurface } from "@/components/admin/DocumentationHandoffReadinessSurface";
 import { PostPilotLearningsDecisionSupportSurface } from "@/components/admin/PostPilotLearningsDecisionSupportSurface";
 import { ChangeManagementSafeUpdateReadinessSurface } from "@/components/admin/ChangeManagementSafeUpdateReadinessSurface";
+import { MinimumViableGovernanceDecisionBoundariesSurface } from "@/components/admin/MinimumViableGovernanceDecisionBoundariesSurface";
 
 import {
   invokeAdminData,
@@ -291,6 +292,7 @@ function DashboardContent() {
             <TabsTrigger value="docs" className="flex-1 min-w-[110px]">Docs / Handoff</TabsTrigger>
             <TabsTrigger value="learnings" className="flex-1 min-w-[120px]">Pilot Learnings</TabsTrigger>
             <TabsTrigger value="change-mgmt" className="flex-1 min-w-[130px]">Change Mgmt</TabsTrigger>
+            <TabsTrigger value="governance" className="flex-1 min-w-[110px]">Governance</TabsTrigger>
             <TabsTrigger value="attribution" className="flex-1 min-w-[100px]">Attribution</TabsTrigger>
             <TabsTrigger value="pilot" className="flex-1 min-w-[120px]">Pilot Readiness</TabsTrigger>
           </TabsList>
@@ -396,6 +398,10 @@ function DashboardContent() {
 
           <TabsContent value="change-mgmt" className="w-full px-2 sm:px-6 pt-4">
             <ChangeManagementSafeUpdateReadinessSurface onNavigateTab={setActiveTab} />
+          </TabsContent>
+
+          <TabsContent value="governance" className="w-full px-2 sm:px-6 pt-4">
+            <MinimumViableGovernanceDecisionBoundariesSurface onNavigateTab={setActiveTab} />
           </TabsContent>
 
           <TabsContent value="attribution">
