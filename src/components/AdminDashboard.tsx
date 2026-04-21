@@ -266,6 +266,7 @@ function DashboardContent() {
             <TabsTrigger value="onboarding" className="flex-1 min-w-[120px]">Onboarding</TabsTrigger>
             <TabsTrigger value="outcomes" className="flex-1 min-w-[110px]">Outcomes</TabsTrigger>
             <TabsTrigger value="reporting" className="flex-1 min-w-[100px]">Reporting</TabsTrigger>
+            <TabsTrigger value="lifecycle" className="flex-1 min-w-[110px]">Lifecycle</TabsTrigger>
             <TabsTrigger value="attribution" className="flex-1 min-w-[100px]">Attribution</TabsTrigger>
             <TabsTrigger value="pilot" className="flex-1 min-w-[120px]">Pilot Readiness</TabsTrigger>
           </TabsList>
