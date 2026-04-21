@@ -655,13 +655,15 @@ function Stat({
   value: number;
   tone?: "default" | "emerald" | "amber" | "rose" | "blue" | "violet";
 }) {
+  // Map operator-view buckets to semantic foreground tones. We keep
+  // tone variation modest so reporting stays neutral.
   const toneCls: Record<string, string> = {
     default: "text-foreground",
-    emerald: "text-emerald-600",
-    amber: "text-amber-600",
-    rose: "text-rose-600",
-    blue: "text-blue-600",
-    violet: "text-violet-600",
+    emerald: "text-foreground",
+    amber: "text-foreground",
+    rose: "text-destructive",
+    blue: "text-primary",
+    violet: "text-foreground",
   };
   return (
     <div className="rounded-md border bg-card px-3 py-2">
