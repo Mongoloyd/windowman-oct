@@ -317,10 +317,18 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
       // request shape sent to supabase.storage so we can correlate any
       // failure to the request inputs (path / MIME / upsert / retry).
       const isRetry = uploadedOnceRef.current === true;
+      // Use upsert ONLY on retry. The private `quotes` bucket has no anon
+      // SELECT policy, so an unconditional upsert (which performs INSERT ...
+      // ON CONFLICT DO UPDATE and requires SELECT visibility on the existing
+      // row) gets rejected by RLS as "new row violates row-level security
+      // policy". A plain INSERT on the first attempt matches the existing
+      // anon INSERT policy and succeeds. Retries reuse the deterministic path
+      // and need upsert to overwrite the prior object.
+      const useUpsert = isRetry;
       console.info("[UploadZone] storage.upload →", {
         bucket: "quotes",
         filePath,
-        upsert: true,
+        upsert: useUpsert,
         contentType: file.type,
         fileName: file.name,
         fileSize: file.size,
@@ -328,11 +336,11 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
         sessionId: sessionScope,
       });
 
-      // Storage upload — `upsert: true` makes re-uploads of the same
-      // deterministic path idempotent at the Storage layer.
+      // Storage upload — first write is a plain INSERT; retries upsert to
+      // overwrite the same deterministic path idempotently.
       const { error: storageErr } = await supabase.storage
         .from("quotes")
-        .upload(filePath, file, { upsert: true, contentType: file.type || undefined });
+        .upload(filePath, file, { upsert: useUpsert, contentType: file.type || undefined });
       if (storageErr) {
         // ── DIAGNOSTIC: full structured error capture ─────────────────
         // Surface every field the SDK exposes (message / name / status /
@@ -368,7 +376,7 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
             fileName: file.name,
             fileType: file.type || null,
             fileSize: file.size,
-            upsert: true,
+            upsert: useUpsert,
             isRetry,
           },
         });
