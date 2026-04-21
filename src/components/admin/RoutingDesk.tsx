@@ -39,6 +39,10 @@ import {
   fetchOpportunities, fetchRoutes, fetchContractors,
   routeLeadToContractor, markOpportunityDead, invokeAdminData,
 } from "@/services/adminDataService";
+import {
+  fetchClientResolutions, describeNoRouteReason,
+  type ClientResolutionRow,
+} from "@/services/dispatchHealth";
 import type {
   RoutingOpportunity, RoutingRoute, RoutingContractor,
   RoutingDeskRow, OperatorBucket, RoutingLeadContext,
@@ -46,6 +50,7 @@ import type {
 import type { CRMLead } from "@/components/admin/types";
 import { OpportunityRouteTimeline } from "./OpportunityRouteTimeline";
 import { LeadDossierSheet } from "./LeadDossierSheet";
+import { DispatchHealthCard } from "./DispatchHealthCard";
 import { deriveOwnershipBadges } from "./OwnershipBlock";
 import type { OwnershipBadge } from "@/types/routingDesk";
 
