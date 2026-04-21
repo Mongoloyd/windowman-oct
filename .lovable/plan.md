@@ -1,82 +1,112 @@
 
 
-## Hero CTA Render Desync Fix
+## Quote Upload Fix — Both Root Causes Confirmed
 
-### Problem
-On first paint, the blue "Scan My Quote" CTA appears immediately while the orange "No Quote Yet?" CTA pops in ~200-400ms later. Cause: `PowerToolFlow` is `React.lazy(...)` wrapped in `<Suspense fallback={<div className="h-[54px]" />}>`. The fallback only reserves height (no width), and the heavy 1641-line module must download + parse before the orange button can render. Two visible problems result:
+I validated both hypotheses against the live code and DB. **Both are real and both need to be fixed in the same pass.**
 
-1. The orange button paints later than the blue one (desync).
-2. The fallback is height-only, so even the layout reserve is wrong on desktop (CTAs reflow horizontally).
+---
 
-Plus: H1 still uses `uppercase` + ALL-CAPS source text instead of the Title-Case version.
+### Issue 1 — Storage RLS (CONFIRMED, primary cause)
 
-### Strategy
-Split the lightweight visible button away from the heavy modal/scan logic. The button renders synchronously in the same paint as the blue CTA; the 1600-line modal flow stays lazy and loads on click. This kills the desync without bloating the initial JS bundle.
+Live policy audit on `storage.objects` for the `quotes` bucket returned **exactly one** policy:
 
-### Change scope
-**3 files, ~30 lines of net change.**
-
-1. **`src/components/PowerToolButton.tsx`** — NEW small file (~15 lines)
-   Extract the existing `PowerToolButton` component (currently inline in `PowerToolDemo.tsx` lines 252–262) into its own module. Pure styled button, zero deps beyond React. This is the only thing that needs to render in the first paint.
-
-2. **`src/components/PowerToolDemo.tsx`** — minimal edit
-   - Remove the inline `PowerToolButton` definition (it now lives in its own file).
-   - Import it from the new file and continue using it inside `PowerToolFlow`'s render so the lazy modal path is unchanged.
-
-3. **`src/components/AuditHero.tsx`** — the real fix
-   - Static import the lightweight button: `import PowerToolButton from "./PowerToolButton"`.
-   - Keep the heavy flow lazy but **only mount it when the user actually clicks** (or when `triggerPowerTool` flips true). Use a small `mounted` state so we never download `PowerToolDemo.tsx` until needed.
-   - In the CTA row, render `<PowerToolButton onClick={...} />` directly next to the blue CTA → identical render cycle, zero desync, zero layout shift.
-   - On click (or when `triggerPowerTool` becomes true), set `mounted=true` and render the lazy `PowerToolFlow` with `triggerOpen` set, wrapped in `Suspense` with a `null` fallback (it's a portal modal, no inline footprint to reserve).
-   - Drop the height-only Suspense placeholder since the visible button is no longer behind Suspense.
-
-4. **H1 cleanup in `AuditHero.tsx`** (lines 140–155)
-   - Remove `uppercase` from the H1 className.
-   - Replace the all-caps default headline with the Title-Case version:
-     `Your Quote Looks Legitimate. / That's Exactly What `**`They're Counting On.`**` ` (orange word unchanged in styling).
-   - No copy meaning change, no layout change beyond the case shift.
-
-### Final CTA row (AuditHero.tsx)
-```tsx
-<div className="flex flex-col sm:flex-row items-center lg:items-start gap-3 sm:gap-4 w-full sm:w-auto">
-  <button
-    onClick={() => onUploadQuote?.()}
-    className="btn-depth-primary w-full sm:w-auto whitespace-nowrap"
-    style={{ fontSize: 18, padding: "20px 40px" }}
-  >
-    Scan My Quote<span className="inline sm:hidden lg:inline"> — It's Free</span>
-  </button>
-
-  <PowerToolButton onClick={() => setMounted(true)} />
-</div>
-
-{(mounted || triggerPowerTool) && (
-  <React.Suspense fallback={null}>
-    <PowerToolFlow
-      onUploadQuote={onUploadQuote}
-      triggerOpen
-      onToolClose={() => { setMounted(false); onPowerToolClose?.(); }}
-    />
-  </React.Suspense>
-)}
+```
+"Allow anonymous uploads to quotes bucket"
+  command: INSERT
+  roles:   { anon }
+  check:   bucket_id = 'quotes'
 ```
 
-### Why this is the right tradeoff
-- **No desync**: both buttons are static imports rendering in the same React commit.
-- **No layout shift**: orange button is always present at full footprint from frame 1.
-- **No bundle bloat**: the 1641-line `PowerToolDemo` still ships as its own chunk and loads on click — exactly the original lazy goal, just gated correctly.
-- **`triggerPowerTool` prop preserved**: external triggers still work via the `mounted || triggerPowerTool` condition.
+No UPDATE policy. `UploadZone.tsx` line 319 calls `.upload(filePath, file, { upsert: true, ... })`. With `upsert: true`, Supabase Storage routes any "object already exists" case (and certain metadata writes) through PostgREST UPDATE on `storage.objects` → blocked → "Upload failed. Please try again." Bucket privacy stays intact (no SELECT added).
+
+### Issue 2 — UploadZone sequencing (CONFIRMED, secondary cause)
+
+Lines 360–374 of `UploadZone.tsx`:
+
+```ts
+uploadedOnceRef.current = true;
+setActiveScanSessionId(newScanSessionId);
+trackEvent({ event_name: "upload_completed", ... });
+onScanStart?.(file.name, newScanSessionId);   // ← UI advances here
+await invokeScan(newScanSessionId, leadId, quoteFileId);  // ← scan invoked AFTER
+```
+
+`onScanStart` advances the parent UI to the scanning view BEFORE `scan-quote` is invoked. If the edge function then fails (rate limit, transient, payload), the user is already on the next screen with `quote_files` + `scan_sessions` rows committed but no actual scan running. Result: stuck "Scanning…" state with no recovery path from this surface.
+
+---
+
+### Fix plan — narrow scope, two surgical changes
+
+#### A) Migration: add the missing UPDATE policy (and authenticated mirrors)
+
+Strictly scoped to `bucket_id = 'quotes'`. Preserves bucket privacy (no SELECT). Mirrors INSERT for `authenticated` so signed-in vault uploads also work.
+
+```sql
+CREATE POLICY "Allow anonymous upsert updates to quotes bucket"
+ON storage.objects FOR UPDATE TO anon
+USING  (bucket_id = 'quotes')
+WITH CHECK (bucket_id = 'quotes');
+
+CREATE POLICY "Allow authenticated upsert updates to quotes bucket"
+ON storage.objects FOR UPDATE TO authenticated
+USING  (bucket_id = 'quotes')
+WITH CHECK (bucket_id = 'quotes');
+
+CREATE POLICY "Allow authenticated uploads to quotes bucket"
+ON storage.objects FOR INSERT TO authenticated
+WITH CHECK (bucket_id = 'quotes');
+```
+
+#### B) `src/components/UploadZone.tsx` — sequence fix (single block edit, ~6 lines)
+
+Move `onScanStart` to fire **only after** `invokeScan` returns truthy — same pattern already used by the retry path on lines 255–257 and 308–311. This is a 1-line reorder + 1 conditional, no logic redesign.
+
+**Before (lines 364–374):**
+```ts
+uploadedOnceRef.current = true;
+setActiveScanSessionId(newScanSessionId);
+trackEvent({ event_name: "upload_completed", ... });
+onScanStart?.(file.name, newScanSessionId);   // fires too early
+await invokeScan(newScanSessionId, leadId, quoteFileId);
+```
+
+**After:**
+```ts
+uploadedOnceRef.current = true;
+setActiveScanSessionId(newScanSessionId);
+trackEvent({ event_name: "upload_completed", ... });
+const ok = await invokeScan(newScanSessionId, leadId, quoteFileId);
+if (ok) {
+  onScanStart?.(file.name, newScanSessionId);
+}
+// On !ok, invokeScan has already set uploadError + toast; the user
+// stays on UploadZone with the existing retry button bound to the
+// already-persisted scan_session_id (uploadedOnceRef = true).
+```
+
+Rationale:
+- `quote_files` + `scan_sessions` rows still get persisted (canonical path preserved → retry can re-bind by `storage_path`).
+- Retry button on the same surface re-invokes `invokeScan` against the existing session — no duplicate rows, no orphaned UI advance.
+- Existing `failWith` / toast / `uploadError` plumbing inside `invokeScan` already handles user-facing errors.
+
+---
 
 ### What does NOT change
-- No backend logic, routing, GTM, scanner, OTP, admin code touched.
-- Button styling, copy ("Scan My Quote" / "No Quote Yet? Start Here"), spacing, click behavior — all preserved exactly.
-- Mascot, grade card, trust pill, stats strip, OCR image — all untouched.
-- `PowerToolDemo.tsx` internal modal/scan logic — untouched (only the small button definition is extracted).
-- `useTickerStats`, `SampleGradeCard`, `TrustBullets`, `motion` animations — untouched.
 
-### Verification
-- TypeScript clean (`tsc --noEmit`).
-- Visually confirm both CTAs paint together on initial load (no orange pop-in).
-- Click orange CTA → modal still opens (lazy chunk loads on demand).
-- `triggerPowerTool` external trigger still opens modal.
+- Bucket stays private (`public: false`). No SELECT policy added.
+- No frontend redesign — only the order of two existing statements changes.
+- No changes to: `scan-quote`, `send-otp`, `verify-otp`, OTP flow, scoring, scanner architecture, admin, GTM, hero CTAs, routing, RLS on `leads` / `quote_files` / `scan_sessions` / `analyses`, or any other policy.
+- File size + MIME enforcement remain on the bucket (`10MB`, pdf/jpeg/png/webp/heic).
+
+### Files touched
+
+1. **New migration** — adds the 3 storage policies.
+2. **`src/components/UploadZone.tsx`** — reorder lines 372–374 to gate `onScanStart` behind `invokeScan` success (matches the existing retry-path pattern).
+
+### Verification after deploy
+
+1. Homepage → Scan My Quote → answer questions → upload PDF → confirm UI only advances when scan actually starts (status pill goes `Uploading… → Scanning…`).
+2. Re-upload same file in same session → retry path takes over, no duplicate rows.
+3. Force a scan-quote failure (e.g. invalid payload) → user stays on UploadZone with the retry button, no orphan advance.
+4. `event_logs` should show `upload_completed` followed by `scan-quote` invocation, not the reverse with a hanging session.
 
