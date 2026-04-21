@@ -25,6 +25,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { getUtmData } from "@/lib/useUtmCapture";
+import { readLateFbCookies } from "@/lib/attribution/fbCookies";
 import { toE164 } from "@/utils/formatPhone";
 
 // ── Mock 5-Pillar Analysis Data ──────────────────────────────────────────────
@@ -305,6 +306,15 @@ export default function ArbitrageEngine({
       const scopeMap: Record<string, number> = { "1-5": 3, "6-10": 8, "11-15": 13, "15+": 20 };
       const windowCount = scopeMap[formData.scope] ?? null;
 
+      // Late re-read of `_fbp` / `_fbc` cookies right before insert so
+      // late-seeded values (Pixel/GTM dropped after `getUtmData()` ran)
+      // still land on `leads.fbp` / `leads.fbc`. Malformed cookies fire
+      // ONE diagnostic per session and resolve to null — never garbage.
+      const fb = readLateFbCookies(
+        { fbp: utm.fbp, fbc: utm.fbc },
+        { surface: "arbitrage_engine", sessionId },
+      );
+
       const { error } = await supabase.from("leads").insert({
         session_id: sessionId,
         first_name: formData.name.trim(),
@@ -321,8 +331,8 @@ export default function ArbitrageEngine({
         utm_content: utm.utm_content,
         fbclid: utm.fbclid,
         gclid: utm.gclid,
-        fbc: utm.fbc,
-        fbp: utm.fbp,
+        fbc: fb.fbc,
+        fbp: fb.fbp,
         landing_page_url: utm.landing_page,
         status: "new",
       });

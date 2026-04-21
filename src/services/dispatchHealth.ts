@@ -182,3 +182,60 @@ export function describeNoRouteReason(reason: NoRouteReason | null): string {
       return "Routable — awaiting dispatch.";
   }
 }
+
+// ─── 24h attribution freshness ─────────────────────────────────────────────
+// Read-only count of how many leads created in the last 24 hours actually
+// have `fbp` / `fbc` populated. Pure aggregation against `public.leads`.
+//
+// Used by the existing DispatchHealthCard — does NOT add a new admin tab.
+
+export interface AttributionFreshnessSnapshot {
+  /** Total leads created in the last 24 hours. */
+  total24h: number;
+  /** Of those, how many have a non-null fbp value. */
+  withFbp: number;
+  /** Of those, how many have a non-null fbc value. */
+  withFbc: number;
+  /** Of those, how many have at least one of fbp / fbc. */
+  withEither: number;
+  /** ISO timestamp of the most recent lead in the window, or null. */
+  mostRecentLeadAt: string | null;
+}
+
+export async function fetchAttributionFreshness(): Promise<AttributionFreshnessSnapshot> {
+  const since = new Date(Date.now() - 24 * 60 * 60_000).toISOString();
+
+  const { data, error } = await supabase
+    .from("leads")
+    .select("created_at, fbp, fbc")
+    .gte("created_at", since)
+    .order("created_at", { ascending: false })
+    .limit(1000);
+
+  if (error) throw error;
+
+  const rows = (data ?? []) as Array<{
+    created_at: string;
+    fbp: string | null;
+    fbc: string | null;
+  }>;
+
+  let withFbp = 0;
+  let withFbc = 0;
+  let withEither = 0;
+  for (const r of rows) {
+    const hasFbp = typeof r.fbp === "string" && r.fbp.length > 0;
+    const hasFbc = typeof r.fbc === "string" && r.fbc.length > 0;
+    if (hasFbp) withFbp += 1;
+    if (hasFbc) withFbc += 1;
+    if (hasFbp || hasFbc) withEither += 1;
+  }
+
+  return {
+    total24h: rows.length,
+    withFbp,
+    withFbc,
+    withEither,
+    mostRecentLeadAt: rows[0]?.created_at ?? null,
+  };
+}

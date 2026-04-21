@@ -103,6 +103,37 @@ Deno.serve(async (req) => {
       fired_at: new Date().toISOString(),
     });
 
+    // Mirror into event_logs so the existing operator/smoke-test surfaces
+    // can confirm end-to-end CAPI landing keyed by lead_id (passed via
+    // user_data.external_id by upstream callers). Best-effort — never
+    // blocks the response.
+    try {
+      const externalId = typeof body.user_data?.external_id === "string"
+        ? body.user_data.external_id
+        : null;
+      const looksLikeUuid =
+        externalId !== null &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(externalId);
+
+      await supabase.from("event_logs").insert({
+        event_name: `capi_${body.event_name.toLowerCase()}_dispatched`,
+        lead_id: looksLikeUuid ? externalId : null,
+        flow_type: "capi",
+        route: "capi-event",
+        metadata: {
+          event_id: body.event_id,
+          client_slug: body.client_slug ?? "default",
+          masked_pixel_id: dispatch.masked_pixel_id,
+          status_code: dispatch.status,
+          ok: dispatch.ok,
+          mode: dispatch.mode,
+          test_event_code_used: dispatch.test_event_code_used,
+        },
+      });
+    } catch (logErr) {
+      console.warn("[CAPI:EVENT_LOG_FAIL]", logErr);
+    }
+
     if (!dispatch.ok) {
       const failure = classifyMetaError(dispatch.status, dispatch.response);
       console.error(`[CAPI:FAIL] class=${failure.class} status=${dispatch.status} pixel=…${config.pixelId.slice(-4)}`);

@@ -22,7 +22,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
-  fetchDispatchHealth, type DispatchHealthState,
+  fetchDispatchHealth, fetchAttributionFreshness,
+  type DispatchHealthState, type AttributionFreshnessSnapshot,
 } from "@/services/dispatchHealth";
 
 const STATE_TONE: Record<DispatchHealthState, string> = {
@@ -63,6 +64,13 @@ export function DispatchHealthCard() {
     queryFn: fetchDispatchHealth,
     refetchInterval: 30_000,
     staleTime: 15_000,
+  });
+
+  const attrQuery = useQuery({
+    queryKey: ["admin", "attribution-freshness-24h"],
+    queryFn: fetchAttributionFreshness,
+    refetchInterval: 60_000,
+    staleTime: 30_000,
   });
 
   if (healthQuery.isLoading) {
@@ -132,16 +140,87 @@ export function DispatchHealthCard() {
         <CountTile label="Dead-letter" value={h.counts.dead_letter} tone="text-destructive" />
         <CountTile label="Unroutable"  value={h.counts.unroutable}  tone="text-destructive" />
       </div>
+
+      <AttributionStrip
+        snapshot={attrQuery.data}
+        isLoading={attrQuery.isLoading}
+        error={attrQuery.error}
+      />
     </Card>
   );
 }
 
-function CountTile({ label, value, tone }: { label: string; value: number; tone: string }) {
+// ─── 24h fbp/fbc population check ──────────────────────────────────────────
+// Reads `public.leads` directly via the existing internal-operator RLS.
+// NOT a new analytics dashboard — a single inline strip inside the card.
+
+function AttributionStrip({
+  snapshot, isLoading, error,
+}: {
+  snapshot: AttributionFreshnessSnapshot | undefined;
+  isLoading: boolean;
+  error: unknown;
+}) {
+  if (isLoading) {
+    return (
+      <div className="mt-3 pt-3 border-t border-border/40 flex items-center gap-2 text-[11px] text-muted-foreground">
+        <Loader2 className="h-3 w-3 animate-spin" />
+        Loading 24h fbp / fbc population…
+      </div>
+    );
+  }
+  if (error || !snapshot) {
+    return (
+      <div className="mt-3 pt-3 border-t border-border/40 text-[11px] text-destructive">
+        Attribution check unavailable.
+      </div>
+    );
+  }
+  if (snapshot.total24h === 0) {
+    return (
+      <div className="mt-3 pt-3 border-t border-border/40 text-[11px] text-muted-foreground">
+        No leads in the last 24h — fbp / fbc population check idle.
+      </div>
+    );
+  }
+
+  const fbpPct = Math.round((snapshot.withFbp / snapshot.total24h) * 100);
+  const fbcPct = Math.round((snapshot.withFbc / snapshot.total24h) * 100);
+  const eitherPct = Math.round((snapshot.withEither / snapshot.total24h) * 100);
+
+  // Tone — green if either ≥ 60%, amber 30-59%, red < 30%
+  const tone =
+    eitherPct >= 60 ? "text-emerald-700"
+    : eitherPct >= 30 ? "text-amber-700"
+    : "text-destructive";
+
+  return (
+    <div className="mt-3 pt-3 border-t border-border/40">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+          24h Attribution Population
+        </span>
+        <span className="text-[11px] font-mono text-muted-foreground">
+          {snapshot.total24h} new leads
+        </span>
+      </div>
+      <div className="grid grid-cols-3 gap-2 mt-1.5">
+        <CountTile label="with fbp"   value={snapshot.withFbp}    tone={tone} suffix={`${fbpPct}%`} />
+        <CountTile label="with fbc"   value={snapshot.withFbc}    tone={tone} suffix={`${fbcPct}%`} />
+        <CountTile label="either"     value={snapshot.withEither} tone={tone} suffix={`${eitherPct}%`} />
+      </div>
+    </div>
+  );
+}
+
+function CountTile({
+  label, value, tone, suffix,
+}: { label: string; value: number; tone: string; suffix?: string }) {
   return (
     <div className="rounded-md border border-border/60 bg-card px-2 py-1.5 flex flex-col items-center">
       <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</span>
       <span className={`text-base font-bold font-mono tabular-nums ${value > 0 ? tone : "text-muted-foreground"}`}>
-        {value}
+        {value}{suffix ? <span className="text-[10px] ml-1 font-normal opacity-70">{suffix}</span> : null}
       </span>
     </div>
   );
