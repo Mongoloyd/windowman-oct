@@ -41,6 +41,7 @@ import { DocumentationHandoffReadinessSurface } from "@/components/admin/Documen
 import { PostPilotLearningsDecisionSupportSurface } from "@/components/admin/PostPilotLearningsDecisionSupportSurface";
 import { ChangeManagementSafeUpdateReadinessSurface } from "@/components/admin/ChangeManagementSafeUpdateReadinessSurface";
 import { MinimumViableGovernanceDecisionBoundariesSurface } from "@/components/admin/MinimumViableGovernanceDecisionBoundariesSurface";
+import { OperatorScenarioDrillsSurface } from "@/components/admin/OperatorScenarioDrillsSurface";
 
 import {
   invokeAdminData,
