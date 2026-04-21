@@ -708,7 +708,29 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
 
         <Separator className="my-3" />
 
-        {/* ── 4. Attribution ───────────────────────────────────────── */}
+        {/* ── Follow-up Status (Phase 6) ────────────────────────────── */}
+        <SectionTitle>Follow-up Status</SectionTitle>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
+          <InfoRow label="Last Call Intent" value={lead.last_call_intent} />
+          <InfoRow label="Last Call Status" value={(lead as any).last_call_status} />
+          <InfoRow label="Last Call Outcome" value={(lead as any).last_call_outcome} />
+          <InfoRow
+            label="Last Call Completed"
+            value={(lead as any).last_call_completed_at ? format(new Date((lead as any).last_call_completed_at), "MMM d, h:mm a") : null}
+          />
+          <InfoRow
+            label="Appointment Booked"
+            value={(lead as any).appointment_booked_at ? format(new Date((lead as any).appointment_booked_at), "MMM d, h:mm a") : null}
+          />
+          <InfoRow
+            label="Replacement Quote Submitted"
+            value={(lead as any).replacement_quote_submitted_at ? format(new Date((lead as any).replacement_quote_submitted_at), "MMM d") : null}
+          />
+          <InfoRow label="Deal Status" value={lead.deal_status} />
+        </div>
+
+        <Separator className="my-3" />
+
         <SectionTitle>Attribution & Source</SectionTitle>
         <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
           <InfoRow label="UTM Source" icon={Globe} value={lead.utm_source} />
