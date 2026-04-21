@@ -7,6 +7,10 @@
  *
  * POST body: { pack_code: string, origin?: string }
  * Returns:   { url: string, session_id: string }
+ *
+ * Supported modes:
+ *   "payment"      — one-off credit pack (price_data built dynamically)
+ *   "subscription" — recurring seat fee (uses hardcoded Stripe Price ID)
  */
 
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -29,11 +33,14 @@ function json(body: unknown, status = 200) {
 
 /* ── Credit Pack Config ──────────────────────────────────────────────── */
 
+// ── SYNDICATE: added mode + price_id fields ───────────────────────────
 interface CreditPack {
   code: string;
   label: string;
-  credits: number;
-  amount_cents: number;
+  credits: number;       // 0 for subscription tiers (access-based, not credit-based)
+  amount_cents: number;  // display price; for subscriptions, Stripe Price ID governs billing
+  mode: "payment" | "subscription";
+  price_id?: string;     // Stripe Price ID — required for mode: "subscription"
 }
 
 const CREDIT_PACKS: Record<string, CreditPack> = {
@@ -42,27 +49,34 @@ const CREDIT_PACKS: Record<string, CreditPack> = {
     label: "10 Lead Credits",
     credits: 10,
     amount_cents: 50000,
+    mode: "payment",
   },
   pack_25_credits: {
     code: "pack_25_credits",
     label: "25 Lead Credits",
     credits: 25,
     amount_cents: 112500,
+    mode: "payment",
   },
   pack_50_credits: {
     code: "pack_50_credits",
     label: "50 Lead Credits",
     credits: 50,
     amount_cents: 200000,
+    mode: "payment",
+  },
+  // ── SYNDICATE: Broward County recurring seat fee ──────────────────
+  syndicate_broward: {
+    code: "syndicate_broward",
+    label: "WindowMan Syndicate Access — Broward County",
+    credits: 0,            // Access-based tier; credits field unused for subscriptions
+    amount_cents: 100000,  // $1,000/mo (for display only — Stripe Price ID governs)
+    mode: "subscription",
+    price_id: "price_1TOUYxEt4CZTlrNuhXhwkqWW",
   },
 };
 
 /* ── Resolve contractor identity ─────────────────────────────────────── */
-
-interface ResolvedContractor {
-  contractorId: string;
-  isPreview: boolean;
-}
 
 /**
  * Resolves the contractor identity from auth JWT or preview fallback.
@@ -88,7 +102,6 @@ async function resolveContractorIdentity(
 
   // ── Preview fallback (server-side only, env-gated) ────────────────
   const previewEnabled = Deno.env.get("PREVIEW_CHECKOUT_ENABLED")?.trim().toLowerCase();
-  // Support renamed secret with backward compat
   const previewContractorId = (
     Deno.env.get("PREVIEW_CONTRACTOR_PROFILE_ID")?.trim() ||
     Deno.env.get("PREVIEW_CONTRACTOR_ID")?.trim()
@@ -205,6 +218,8 @@ Deno.serve(async (req) => {
       credits_row_exists: false,
       credits_balance: null,
       ready: false,
+      // ── SYNDICATE: surface available packs in diagnostic ─────────
+      available_packs: Object.keys(CREDIT_PACKS),
     };
 
     if (contractorId) {
@@ -289,10 +304,16 @@ Deno.serve(async (req) => {
       }, 400);
     }
 
+    // ── SYNDICATE: validate subscription packs have a price_id ────
+    if (pack.mode === "subscription" && !pack.price_id) {
+      console.error(`[create-checkout-session] Subscription pack ${packCode} missing price_id`);
+      return json({ error: "config_error", message: "Subscription product not configured." }, 500);
+    }
+
     // ── 5. Build URLs ─────────────────────────────────────────────
     const origin = (body.origin as string) || Deno.env.get("REPORT_BASE_URL") || "https://wmmvp.lovable.app";
     const successUrl = `${origin}/partner/opportunities?payment=success&session_id={CHECKOUT_SESSION_ID}`;
-    const cancelUrl = `${origin}/partner/opportunities?payment=cancel`;
+    const cancelUrl  = `${origin}/partner/opportunities?payment=cancel`;
 
     // ── 6. Create Stripe Checkout Session ─────────────────────────
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
@@ -303,30 +324,52 @@ Deno.serve(async (req) => {
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2024-12-18.acacia" });
 
+    const sharedMetadata = {
+      contractor_id: contractorId,
+      credit_pack_code: pack.code,
+      credits_purchased: String(pack.credits),
+      ...(isPreview ? { preview_purchase: "true" } : {}),
+    };
+
+    // ── SYNDICATE: dynamic line_items and mode based on pack.mode ─
+    const isSubscription = pack.mode === "subscription";
+
     const session = await stripe.checkout.sessions.create({
-      mode: "payment",
+      mode: pack.mode,
       payment_method_types: ["card"],
-      line_items: [
-        {
-          price_data: {
-            currency: "usd",
-            unit_amount: pack.amount_cents,
-            product_data: {
-              name: pack.label,
-              description: `${pack.credits} lead unlock credits for WindowMan.PRO`,
+
+      line_items: isSubscription
+        // Subscription: reference the pre-built Stripe Price directly
+        ? [{ price: pack.price_id!, quantity: 1 }]
+        // One-off: build price_data dynamically (no pre-built Stripe Price needed)
+        : [
+            {
+              price_data: {
+                currency: "usd",
+                unit_amount: pack.amount_cents,
+                product_data: {
+                  name: pack.label,
+                  description: `${pack.credits} lead unlock credits for WindowMan.PRO`,
+                },
+              },
+              quantity: 1,
             },
-          },
-          quantity: 1,
-        },
-      ],
-      metadata: {
-        contractor_id: contractorId,
-        credit_pack_code: pack.code,
-        credits_purchased: String(pack.credits),
-        ...(isPreview ? { preview_purchase: "true" } : {}),
-      },
+          ],
+
+      metadata: sharedMetadata,
+
+      // ── SYNDICATE: propagate contractor_id into subscription metadata
+      // so stripe-webhook can identify the subscriber on renewal events
+      ...(isSubscription
+        ? {
+            subscription_data: {
+              metadata: sharedMetadata,
+            },
+          }
+        : {}),
+
       success_url: successUrl,
-      cancel_url: cancelUrl,
+      cancel_url:  cancelUrl,
     });
 
     if (!session.url) {
@@ -335,20 +378,26 @@ Deno.serve(async (req) => {
     }
 
     // ── 7. Insert pending purchase row (FAIL CLOSED) ──────────────
+    // Must succeed before returning the Stripe URL. If this fails,
+    // we expire the orphaned Stripe session so no payment occurs.
     const { error: insertErr } = await svc
       .from("contractor_credit_purchases")
       .insert({
-        contractor_id: contractorId,
+        contractor_id:             contractorId,
         stripe_checkout_session_id: session.id,
-        credit_pack_code: pack.code,
-        credits_purchased: pack.credits,
-        amount_total_cents: pack.amount_cents,
-        currency: "usd",
-        status: "pending",
+        credit_pack_code:          pack.code,
+        credits_purchased:         pack.credits,
+        amount_total_cents:        pack.amount_cents,
+        currency:                  "usd",
+        status:                    "pending",
+        mode:                      pack.mode,  // ── SYNDICATE: new column
       });
 
     if (insertErr) {
-      console.error("[create-checkout-session] FAIL CLOSED — pending purchase insert failed:", JSON.stringify(insertErr));
+      console.error(
+        "[create-checkout-session] FAIL CLOSED — pending purchase insert failed:",
+        JSON.stringify(insertErr),
+      );
 
       // Best-effort: expire the orphaned Stripe session
       try {
@@ -359,14 +408,15 @@ Deno.serve(async (req) => {
       }
 
       return json({
-        error: "purchase_record_failed",
+        error:   "purchase_record_failed",
         message: "Failed to record purchase. Payment was not initiated. Please try again.",
       }, 500);
     }
 
     // ── 8. Return checkout URL (only after confirmed insert) ──────
     console.log(
-      `[create-checkout-session] Created session ${session.id} for contractor ${contractorId}${isPreview ? " (preview)" : ""}, pack ${pack.code}`,
+      `[create-checkout-session] Created ${pack.mode} session ${session.id}` +
+      ` for contractor ${contractorId}${isPreview ? " (preview)" : ""}, pack ${pack.code}`,
     );
 
     return json({ url: session.url, session_id: session.id });
