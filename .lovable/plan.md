@@ -1,45 +1,82 @@
 
 
-## FOUC / App Shell Paint Fix
+## Hero CTA Render Desync Fix
 
-Inject critical inline CSS at the very top of `<head>` in `index.html` so the first paint already matches the WindowMan light shell — eliminating the white/Times-flash before React + Tailwind hydrate.
+### Problem
+On first paint, the blue "Scan My Quote" CTA appears immediately while the orange "No Quote Yet?" CTA pops in ~200-400ms later. Cause: `PowerToolFlow` is `React.lazy(...)` wrapped in `<Suspense fallback={<div className="h-[54px]" />}>`. The fallback only reserves height (no width), and the heavy 1641-line module must download + parse before the orange button can render. Two visible problems result:
+
+1. The orange button paints later than the blue one (desync).
+2. The fallback is height-only, so even the layout reserve is wrong on desktop (CTAs reflow horizontally).
+
+Plus: H1 still uses `uppercase` + ALL-CAPS source text instead of the Title-Case version.
+
+### Strategy
+Split the lightweight visible button away from the heavy modal/scan logic. The button renders synchronously in the same paint as the blue CTA; the 1600-line modal flow stays lazy and loads on click. This kills the desync without bloating the initial JS bundle.
 
 ### Change scope
-**One file only:** `index.html`
+**3 files, ~30 lines of net change.**
 
-### What changes
+1. **`src/components/PowerToolButton.tsx`** — NEW small file (~15 lines)
+   Extract the existing `PowerToolButton` component (currently inline in `PowerToolDemo.tsx` lines 252–262) into its own module. Pure styled button, zero deps beyond React. This is the only thing that needs to render in the first paint.
 
-1. Move a critical inline `<style>` block to be the **first child of `<head>`** (before GTM, before any other tag). Browsers apply this synchronously on the very first paint.
-2. Replace the existing late-in-head `<style>` (lines 90-93) with a stronger, exact-match version that sets:
-   - `html, body` background → `hsl(214 35% 95%)` (the canonical `--background` token from `src/index.css`, light blue-white shell — matches the live app exactly, replacing the slightly-off `#EEF2F8`)
-   - `html, body` text color → `hsl(210 45% 11%)` (canonical `--foreground` token)
-   - `html, body` font-family → native system stack: `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif` (matches `--wm-font-body`)
-   - `html, body, #root` `min-height: 100%`
-   - `body { margin: 0 }`
-3. Update `<meta name="theme-color">` from `#EEF2F8` → `#EBF0F6` (the actual hex of `hsl(214 35% 95%)`) so the mobile chrome bar matches the shell.
+2. **`src/components/PowerToolDemo.tsx`** — minimal edit
+   - Remove the inline `PowerToolButton` definition (it now lives in its own file).
+   - Import it from the new file and continue using it inside `PowerToolFlow`'s render so the lazy modal path is unchanged.
 
-### What does NOT change
-- No `class="dark"` added anywhere
-- No new components, no loading screen, no JS
-- Tailwind tokens, theme, routes, GTM script, OTP/Twilio/scanner flow — all untouched
-- `src/index.css`, `tailwind.config.ts`, all React code — untouched
+3. **`src/components/AuditHero.tsx`** — the real fix
+   - Static import the lightweight button: `import PowerToolButton from "./PowerToolButton"`.
+   - Keep the heavy flow lazy but **only mount it when the user actually clicks** (or when `triggerPowerTool` flips true). Use a small `mounted` state so we never download `PowerToolDemo.tsx` until needed.
+   - In the CTA row, render `<PowerToolButton onClick={...} />` directly next to the blue CTA → identical render cycle, zero desync, zero layout shift.
+   - On click (or when `triggerPowerTool` becomes true), set `mounted=true` and render the lazy `PowerToolFlow` with `triggerOpen` set, wrapped in `Suspense` with a `null` fallback (it's a portal modal, no inline footprint to reserve).
+   - Drop the height-only Suspense placeholder since the visible button is no longer behind Suspense.
 
-### Final inline CSS block (placed as first child of `<head>`)
-```html
-<style>
-  html, body, #root { min-height: 100%; }
-  html, body {
-    margin: 0;
-    background: hsl(214 35% 95%);
-    color: hsl(210 45% 11%);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    text-rendering: optimizeLegibility;
-  }
-</style>
+4. **H1 cleanup in `AuditHero.tsx`** (lines 140–155)
+   - Remove `uppercase` from the H1 className.
+   - Replace the all-caps default headline with the Title-Case version:
+     `Your Quote Looks Legitimate. / That's Exactly What `**`They're Counting On.`**` ` (orange word unchanged in styling).
+   - No copy meaning change, no layout change beyond the case shift.
+
+### Final CTA row (AuditHero.tsx)
+```tsx
+<div className="flex flex-col sm:flex-row items-center lg:items-start gap-3 sm:gap-4 w-full sm:w-auto">
+  <button
+    onClick={() => onUploadQuote?.()}
+    className="btn-depth-primary w-full sm:w-auto whitespace-nowrap"
+    style={{ fontSize: 18, padding: "20px 40px" }}
+  >
+    Scan My Quote<span className="inline sm:hidden lg:inline"> — It's Free</span>
+  </button>
+
+  <PowerToolButton onClick={() => setMounted(true)} />
+</div>
+
+{(mounted || triggerPowerTool) && (
+  <React.Suspense fallback={null}>
+    <PowerToolFlow
+      onUploadQuote={onUploadQuote}
+      triggerOpen
+      onToolClose={() => { setMounted(false); onPowerToolClose?.(); }}
+    />
+  </React.Suspense>
+)}
 ```
 
-### Result
-First browser paint = correct WindowMan light shell color, native system font already applied, full-height layout. No white flash. No Times Roman flash. No dark flash. Diff is ~10 lines in one file.
+### Why this is the right tradeoff
+- **No desync**: both buttons are static imports rendering in the same React commit.
+- **No layout shift**: orange button is always present at full footprint from frame 1.
+- **No bundle bloat**: the 1641-line `PowerToolDemo` still ships as its own chunk and loads on click — exactly the original lazy goal, just gated correctly.
+- **`triggerPowerTool` prop preserved**: external triggers still work via the `mounted || triggerPowerTool` condition.
+
+### What does NOT change
+- No backend logic, routing, GTM, scanner, OTP, admin code touched.
+- Button styling, copy ("Scan My Quote" / "No Quote Yet? Start Here"), spacing, click behavior — all preserved exactly.
+- Mascot, grade card, trust pill, stats strip, OCR image — all untouched.
+- `PowerToolDemo.tsx` internal modal/scan logic — untouched (only the small button definition is extracted).
+- `useTickerStats`, `SampleGradeCard`, `TrustBullets`, `motion` animations — untouched.
+
+### Verification
+- TypeScript clean (`tsc --noEmit`).
+- Visually confirm both CTAs paint together on initial load (no orange pop-in).
+- Click orange CTA → modal still opens (lazy chunk loads on demand).
+- `triggerPowerTool` external trigger still opens modal.
 
