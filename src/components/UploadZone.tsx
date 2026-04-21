@@ -312,12 +312,67 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
         return;
       }
 
+      // ── DIAGNOSTIC: pre-upload structured trace ─────────────────────
+      // Instrumentation-only. No behavior change. Captures the exact
+      // request shape sent to supabase.storage so we can correlate any
+      // failure to the request inputs (path / MIME / upsert / retry).
+      const isRetry = uploadedOnceRef.current === true;
+      console.info("[UploadZone] storage.upload →", {
+        bucket: "quotes",
+        filePath,
+        upsert: true,
+        contentType: file.type,
+        fileName: file.name,
+        fileSize: file.size,
+        isRetry,
+        sessionId: sessionScope,
+      });
+
       // Storage upload — `upsert: true` makes re-uploads of the same
       // deterministic path idempotent at the Storage layer.
       const { error: storageErr } = await supabase.storage
         .from("quotes")
         .upload(filePath, file, { upsert: true, contentType: file.type || undefined });
       if (storageErr) {
+        // ── DIAGNOSTIC: full structured error capture ─────────────────
+        // Surface every field the SDK exposes (message / name / status /
+        // statusCode / nested error / cause) AND the raw object so the
+        // DevTools tree shows anything we missed.
+        const anyErr = storageErr as unknown as Record<string, unknown>;
+        console.error("[UploadZone] storage.upload FAILED", {
+          message: storageErr?.message,
+          name: storageErr?.name,
+          statusCode: anyErr?.statusCode,
+          status: anyErr?.status,
+          error: anyErr?.error,
+          cause: anyErr?.cause,
+          raw: storageErr,
+        });
+
+        // ── DIAGNOSTIC: server-side telemetry into event_logs ─────────
+        // Fire-and-forget. trackEvent already swallows its own errors so
+        // it cannot block the existing failWith() toast or retry path.
+        trackEvent({
+          event_name: "storage_upload_failed",
+          session_id: sessionScope,
+          metadata: {
+            message: storageErr?.message ?? null,
+            name: storageErr?.name ?? null,
+            statusCode:
+              (anyErr?.statusCode as number | string | undefined) ??
+              (anyErr?.status as number | string | undefined) ??
+              null,
+            errorBody: anyErr?.error ?? null,
+            bucket: "quotes",
+            filePath,
+            fileName: file.name,
+            fileType: file.type || null,
+            fileSize: file.size,
+            upsert: true,
+            isRetry,
+          },
+        });
+
         failWith("storage_upload", "Upload failed. Please try again.", storageErr);
         return;
       }
