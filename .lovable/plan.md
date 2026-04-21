@@ -1,103 +1,68 @@
 
 
-# Phase 6 — Single-Client Delivery Spine
+# Phase 7 Fix + Finish Wiring
 
-## Audit findings (canonical routing path)
+## Audit summary
 
-Two backend writers touch `contractor_opportunities`. They are **complementary, not duplicate**:
+**Build break (1 missing import):**
+- `src/components/admin/OpportunityRouteTimeline.tsx` line 151 references `<OwnershipBlock>` but never imports it. The file lives at `src/components/admin/OwnershipBlock.tsx` and exports both `OwnershipBlock` and `deriveOwnershipBadges`.
 
-| Action | Writes opportunity row | Writes route row | Sends email |
-|---|---|---|---|
-| `send-contractor-handoff` (edge fn) | ✅ upsert, status=`sent_to_contractor`, sets `lead.latest_opportunity_id` | ❌ | ✅ Resend |
-| `route_opportunity` (admin-data) | ✅ update status=`sent_to_contractor`, `routed_at` | ✅ inserts `contractor_opportunity_routes` | ❌ |
+**Phase 7 wiring status:**
+- ✅ `OwnershipBlock` + `LeadLifecycleTimeline` components created (operator-safe, repo-real only)
+- ✅ Types extended (`OwnershipBadge`, lifecycle timestamps on `CRMLead`)
+- ✅ `OpportunityRouteTimeline` already attempts to render `<OwnershipBlock>` — just missing the import
+- ❌ `LeadLifecycleTimeline` is created but never mounted anywhere
+- ❌ `RoutingDesk` row headers don't show ownership badges (only the expanded section gets the timeline)
+- ❌ `ActivePipeline` has no ownership-aware filters
+- ❌ `LeadDossierSheet` has no lifecycle timeline block
 
-**Decision:** Treat the **opportunity row** as the canonical handoff fact. The opportunity is created/upserted by `send-contractor-handoff`; `route_opportunity` then attaches the formal route + audit trail. Both belong inside one operator action.
+## Changes (smallest safe diff)
 
-**Unification rule:** Introduce a single helper `routeLeadToContractor(leadId, contractorId)` in `adminDataService.ts` that:
-1. Calls `sendContractorHandoff(leadId)` → guarantees the opportunity exists and the email is dispatched, returns `opportunity_id`.
-2. Calls `invokeAdminData("route_opportunity", { opportunity_id, contractor_id, scan_session_id })` → records the route row + sets `routed_at`.
+### 1. Fix the build break
+**`src/components/admin/OpportunityRouteTimeline.tsx`**
+- Add `import { OwnershipBlock } from "./OwnershipBlock";`
+- Pass `reportUnlockedAt` and `routedToContractorAt` from the parent lead (already loaded via `opps` query — find the lead match through the existing `leads` array or skip if not in scope; safer to leave those props optional as they already are).
 
-Both `RoutingDesk` and `LeadDossierSheet` call this helper only. The legacy "Send to Contractor" button in `LeadDossierSheet` is rewired to call this same helper (passing the canonical contractor) — no parallel path.
+### 2. Mount `LeadLifecycleTimeline` in the dossier
+**`src/components/admin/LeadDossierSheet.tsx`**
+- Import `LeadLifecycleTimeline`.
+- Replace the existing terse "Activity Timeline" block (lines 757–765) with `<LeadLifecycleTimeline lead={lead} />`. Keep the `<SectionTitle>Activity Timeline</SectionTitle>` header. The new component renders the full repo-real lifecycle (created → verified → unlocked → routed → viewed → responded → interested → released → booked → closed) and filters out empty milestones.
 
----
+### 3. Ownership badges on `RoutingDesk` row headers
+**`src/components/admin/RoutingDesk.tsx`**
+- Import `deriveOwnershipBadges` from `./OwnershipBlock`.
+- For each row, compute badges from that opportunity's full route history (filter `routesQuery.data` by `opportunity_id`, plus the lead's `report_unlocked_at` / `routed_to_contractor_at`).
+- Render the resulting badges as a small inline strip in the row header (next to the existing route_status badge). This makes the ledger visible at-a-glance without expanding.
 
-## What we'll build
-
-### 1. `src/services/adminDataService.ts` — additive only
-Add typed wrappers (no new actions, no new endpoints):
-- `fetchOpportunities()`, `fetchRoutes(opportunityId?)`, `fetchContractors()`
-- `routeOpportunity({ opportunity_id, contractor_id, scan_session_id })`
-- `markOpportunityDead({ opportunity_id, scan_session_id })`
-- `routeLeadToContractor(leadId, contractorId)` — **the canonical unified mutation** (handoff → route)
-
-### 2. New `RoutingDesk.tsx` tab
-TanStack Query–driven operator surface. Three **operator-derived UI groupings** (clearly labeled as derived, not backend statuses):
-
-- **Ready to Route** — `contractor_opportunities.status IN ('intro_requested')` AND no route row yet
-- **Routed** — `routed_at != null`, sub-grouped by latest `contractor_opportunity_routes.route_status` (sent / viewed / interested / declined)
-- **Stale (derived)** — routed >7d ago with no `responded_at` AND no `last_call_completed_at` on parent lead. Label includes "(operator view)" so it's never mistaken for a backend status.
-- **Reactivation Candidates (derived)** — `report_unlocked_at` >14d ago AND `routed_to_contractor_at IS NULL`. Same "(operator view)" label.
-
-Per-row controls (all repo-real):
-- "Route to [Contractor ▾]" → `routeLeadToContractor` (single-contractor dropdown from `fetch_contractors`)
-- "Mark Dead" → `markOpportunityDead`
-- "Trigger Voice Follow-up" → existing `trigger_voice_followup`
-- "Open Dossier" → opens existing `LeadDossierSheet`
-
-### 3. New `OpportunityRouteTimeline.tsx`
-Operator-safe handoff context block, embedded in dossier + RoutingDesk row-expand. Reads `contractor_opportunities` + latest `contractor_opportunity_routes` + `contractors`. Renders:
-- Assigned Contractor / Partner (`contractors.company_name`)
-- Handoff Status (mapped: Ready / Sent / Viewed / Interested / Declined / Released / Closed)
-- Routed At
-- Activity timeline (sent_at → viewed_at → responded_at → interested_at → contact_released_at)
-- Contractor Brief Summary — renders `contractor_opportunities.brief_text` only (operator-safe; no `brief_json` raw, no prompts, no rubric weights)
-- One-line "Strongest closing angle" from `brief_json.closing_angles[0]` if present (string only)
-
-### 4. New `OneContractorSummaryStrip.tsx` — operational only
-Five tiles on the Command Center. **No revenue, no close rate, no contractor score, no fake analytics.** Counts only:
-- Leads Routed (`routed_at != null`)
-- Contacted (route w/ `viewed_at` OR `responded_at`)
-- Booked (`leads.appointment_booked_at != null`)
-- Stale (operator derivation, same rule as RoutingDesk)
-- Reactivation Candidates (operator derivation, same rule as RoutingDesk)
-
-### 5. `LeadDossierSheet.tsx` — additive
-- Insert **"Contractor Delivery"** section between "Project Specs" and "Truth Engine Audit". Renders `<OpportunityRouteTimeline opportunityId={lead.latest_opportunity_id} />`.
-- Insert **"Follow-up Status"** strip below "Call History" — reads `last_call_*`, `appointment_booked_at`, `replacement_quote_submitted_at`, `deal_status` from the `CRMLead` already in memory.
-- **Rewire** the existing "Send to Contractor" button: replace its current `sendContractorHandoff` call with `routeLeadToContractor(lead.id, canonicalContractorId)` so dossier and RoutingDesk share one path. The canonical contractor is the single active `contractors` row (Phase 6 = one paying contractor); if multiple exist, dossier opens the same Contractor select as RoutingDesk.
-
-### 6. `AdminDashboard.tsx` — minimal
-- Add `<TabsTrigger value="routing">Routing</TabsTrigger>` between Pipeline and Ghosts.
-- Mount `<RoutingDesk />` in new `<TabsContent value="routing">`.
-- Mount `<OneContractorSummaryStrip />` at the top of the existing `command` tab (above `<CommandCenter />`).
-- Tab grid changes from `grid-cols-7` → `grid-cols-8`.
-
----
+### 4. Ownership-aware filters on `ActivePipeline`
+**`src/components/admin/ActivePipeline.tsx`**
+- Add a second `Select` (Ownership filter) with options backed by repo-real `CRMLead` fields only:
+  - `all` (default)
+  - `assigned` — `routed_to_contractor_at != null`
+  - `unassigned` — `routed_to_contractor_at == null`
+  - `booked` — `appointment_booked_at != null`
+  - `closed` — `closed_at != null`
+  - `recovery_candidate` — `report_unlocked_at` >14d ago AND no `routed_to_contractor_at` (operator view, label includes "(operator view)")
+- Add a small "Owner" column to the table showing `assigned_partner` already exists — rename the column header from "Partner" to "Owner" for clarity, no logic change.
+- All filters apply via the existing `filteredLeads` `useMemo`.
 
 ## Constraints honored
-
-- ✅ **One canonical routing path** via `routeLeadToContractor` helper. No parallel writes.
-- ✅ **Stale & Reactivation are operator-derived UI groupings only** — never written back to the DB, labeled "(operator view)".
-- ✅ **Summary strip is operational only** — counts of repo-real timestamps; no revenue/score/analytics.
-- ✅ Stays inside `AdminDashboard.tsx` tab architecture; uses existing `invokeAdminData` pattern with bearer token.
-- ✅ No new edge functions, no migrations, no schema changes.
-- ✅ No OTP / Twilio / scanner / tracking / public funnel / multi-client changes.
-- ✅ No "cartel" language anywhere — Contractor / Partner / Network only.
-- ✅ TanStack Query for server state; shadcn/ui + lucide-react + Tailwind only.
+- ✅ No new backend endpoints, no schema changes, no migrations
+- ✅ No OTP / Twilio / scanner / tracking / public funnel changes
+- ✅ All ownership signals derived from repo-real `contractor_opportunity_routes` rows + repo-real `leads` lifecycle timestamps
+- ✅ "Recovery Candidate" / "Reassignable" remain operator-derived UI labels, not backend statuses
+- ✅ Centralized `invokeAdminData` / TanStack Query pattern preserved
+- ✅ No "cartel" language; uses Ownership / Owner / Recovery Candidate
+- ✅ No Phase 8 work, no token/style polish
 
 ## Files changed
-
 ```
-NEW   src/types/routingDesk.ts
-NEW   src/components/admin/RoutingDesk.tsx
-NEW   src/components/admin/OpportunityRouteTimeline.tsx
-NEW   src/components/admin/OneContractorSummaryStrip.tsx
-EDIT  src/services/adminDataService.ts          (typed wrappers + routeLeadToContractor unified helper)
-EDIT  src/components/AdminDashboard.tsx         (Routing tab + summary strip mount; grid-cols-8)
-EDIT  src/components/admin/LeadDossierSheet.tsx (Contractor Delivery block, Follow-up strip, rewire Send button to unified helper)
+EDIT  src/components/admin/OpportunityRouteTimeline.tsx   (add OwnershipBlock import — fixes build)
+EDIT  src/components/admin/LeadDossierSheet.tsx           (mount LeadLifecycleTimeline)
+EDIT  src/components/admin/RoutingDesk.tsx                (ownership badges in row headers)
+EDIT  src/components/admin/ActivePipeline.tsx             (ownership filter dropdown + column rename)
 ```
 
-## Out of scope
-
-Multi-client routing, round-robin, network release automation, contractor self-serve portal, billing UI, master pixel controls, fake CRM sync, schema/state-machine changes, homeowner-side polish, live delivery test button, admin-data new actions.
+## Verification
+After edits: `npx tsc --noEmit` should exit clean. The previously failing `OpportunityRouteTimeline.tsx(151,8): error TS2304` resolves with the import on line 1 fix.
 
