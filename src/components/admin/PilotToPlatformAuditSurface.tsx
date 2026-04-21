@@ -323,7 +323,7 @@ export function PilotToPlatformAuditSurface({ leads, onNavigateTab }: Props) {
   });
   const { data: routes } = useQuery({
     queryKey: ["admin", "routes"],
-    queryFn: fetchRoutes,
+    queryFn: () => fetchRoutes(),
     staleTime: 30_000,
   });
 
