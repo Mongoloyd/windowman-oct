@@ -41,7 +41,7 @@ function mockValidSession() {
     data: {
       session: {
         access_token: MOCK_ACCESS_TOKEN,
-        user: { id: "test-user-id", email: "admin@windowman.pro" },
+        user: { id: "test-user-id", email: "admin@windowman.app" },
       },
     },
     error: null,

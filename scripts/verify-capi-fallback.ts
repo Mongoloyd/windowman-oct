@@ -65,7 +65,7 @@ async function run() {
     body: JSON.stringify({
       event_name: "PageView",
       event_id: `qa-db-priority-${Date.now()}`,
-      event_source_url: "https://windowman.pro/qa-e2e",
+      event_source_url: "https://windowman.app/qa-e2e",
       action_source: "website",
       user_data: { em: "e2e@test.com" },
     }),
@@ -114,7 +114,7 @@ async function verifyFallback() {
     body: JSON.stringify({
       event_name: "PageView",
       event_id: `qa-fallback-${Date.now()}`,
-      event_source_url: "https://windowman.pro/qa-fallback",
+      event_source_url: "https://windowman.app/qa-fallback",
       action_source: "website",
       user_data: { em: "fallback@test.com" },
     }),

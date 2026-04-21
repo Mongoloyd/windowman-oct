@@ -118,7 +118,7 @@ describe("runDispatchWorker", () => {
 
     await runDispatchWorker({
       db: mock as unknown as DBLike,
-      metaEventSourceUrl: "https://windowman.pro",
+      metaEventSourceUrl: "https://windowman.app",
       sendToMeta: async () => ({ ok: true }),
       sendToGoogle: async () => ({ ok: true }),
     });
@@ -133,7 +133,7 @@ describe("runDispatchWorker", () => {
 
     await runDispatchWorker({
       db: mock as unknown as DBLike,
-      metaEventSourceUrl: "https://windowman.pro",
+      metaEventSourceUrl: "https://windowman.app",
       sendToMeta: async () => ({ ok: true, statusCode: 200, responseBody: { success: true } }),
       sendToGoogle: async () => ({ ok: true }),
     });
@@ -150,7 +150,7 @@ describe("runDispatchWorker", () => {
     await runDispatchWorker({
       db: mock as unknown as DBLike,
       now: () => now,
-      metaEventSourceUrl: "https://windowman.pro",
+      metaEventSourceUrl: "https://windowman.app",
       sendToMeta: async () => ({
         ok: false,
         retryable: true,
@@ -171,7 +171,7 @@ describe("runDispatchWorker", () => {
 
     await runDispatchWorker({
       db: mock as unknown as DBLike,
-      metaEventSourceUrl: "https://windowman.pro",
+      metaEventSourceUrl: "https://windowman.app",
       sendToMeta: async () => ({
         ok: false,
         retryable: true,
@@ -192,7 +192,7 @@ describe("runDispatchWorker", () => {
 
     await runDispatchWorker({
       db: mock as unknown as DBLike,
-      metaEventSourceUrl: "https://windowman.pro",
+      metaEventSourceUrl: "https://windowman.app",
       sendToMeta: async () => ({
         ok: false,
         retryable: false,
@@ -214,7 +214,7 @@ describe("runDispatchWorker", () => {
 
     await runDispatchWorker({
       db: mock as unknown as DBLike,
-      metaEventSourceUrl: "https://windowman.pro",
+      metaEventSourceUrl: "https://windowman.app",
       sendToMeta: async () => {
         calls += 1;
         return { ok: true };

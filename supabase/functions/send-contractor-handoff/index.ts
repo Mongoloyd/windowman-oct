@@ -281,7 +281,7 @@ ${pillarRowsHtml ? `<tr><td style="padding:0 32px 20px;">
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          from: "WindowMan <no-reply@windowman.pro>",
+          from: "WindowMan <no-reply@windowman.app>",
           to: [contractorEmail],
           subject,
           html,

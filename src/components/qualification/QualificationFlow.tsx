@@ -120,7 +120,7 @@ export default function QualificationFlow({ isOpen, onClose }: QualificationFlow
       try {
         // Create lead with qualification data (email will be added later for LOW tier)
         const lead = await createContractorLead({
-          email: `pending-${Date.now()}@qualification.windowman.pro`,
+          email: `pending-${Date.now()}@qualification.windowman.app`,
           ...mapAnswersToLeadInput(answers),
           source: "contractors2_page",
         });

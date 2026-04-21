@@ -349,7 +349,7 @@ Deno.serve(async (req) => {
                 unit_amount: pack.amount_cents,
                 product_data: {
                   name: pack.label,
-                  description: `${pack.credits} lead unlock credits for WindowMan.PRO`,
+                  description: `${pack.credits} lead unlock credits for WindowMan.app`,
                 },
               },
               quantity: 1,

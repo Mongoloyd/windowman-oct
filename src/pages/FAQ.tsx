@@ -40,7 +40,7 @@ const faqs = [
     id: "advice",
     question: "Is this legal or engineering advice?",
     answer:
-      "No. WindowMan.PRO provides AI-assisted educational analysis and estimate guidance. It is not legal, financial, insurance, or structural engineering advice. Always consult licensed professionals for binding decisions.",
+      "No. WindowMan.app provides AI-assisted educational analysis and estimate guidance. It is not legal, financial, insurance, or structural engineering advice. Always consult licensed professionals for binding decisions.",
   },
 ];
 
@@ -62,7 +62,7 @@ export default function FAQ() {
             Common Questions
           </h1>
           <p className="mt-4 max-w-2xl text-base leading-7 text-gray-600">
-            Everything you need to know about WindowMan.PRO and how our free
+            Everything you need to know about WindowMan.app and how our free
             quote analysis works.
           </p>
         </div>
