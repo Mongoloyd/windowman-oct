@@ -111,6 +111,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "analyses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unknown_slug"
+            referencedColumns: ["lead_id"]
+          },
+          {
             foreignKeyName: "analyses_scan_session_id_fkey"
             columns: ["scan_session_id"]
             isOneToOne: false
@@ -210,6 +217,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "leads"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billable_intros_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unknown_slug"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "billable_intros_opportunity_id_fkey"
@@ -797,6 +811,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "contractor_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unknown_slug"
+            referencedColumns: ["lead_id"]
+          },
+          {
             foreignKeyName: "contractor_opportunities_scan_session_id_fkey"
             columns: ["scan_session_id"]
             isOneToOne: true
@@ -1046,6 +1067,13 @@ export type Database = {
             referencedRelation: "leads"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "contractor_unlocked_leads_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unknown_slug"
+            referencedColumns: ["lead_id"]
+          },
         ]
       }
       contractors: {
@@ -1170,6 +1198,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "leads"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversion_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unknown_slug"
+            referencedColumns: ["lead_id"]
           },
         ]
       }
@@ -1301,6 +1336,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "diagnosis_intakes_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unknown_slug"
+            referencedColumns: ["lead_id"]
+          },
+          {
             foreignKeyName: "diagnosis_intakes_scan_session_id_fkey"
             columns: ["scan_session_id"]
             isOneToOne: false
@@ -1350,6 +1392,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "leads"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unknown_slug"
+            referencedColumns: ["lead_id"]
           },
         ]
       }
@@ -1403,6 +1452,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "leads"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unknown_slug"
+            referencedColumns: ["lead_id"]
           },
         ]
       }
@@ -1850,6 +1906,13 @@ export type Database = {
             referencedRelation: "clients"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "meta_configurations_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_active_clients"
+            referencedColumns: ["id"]
+          },
         ]
       }
       otp_failures: {
@@ -1933,6 +1996,13 @@ export type Database = {
             referencedRelation: "leads"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "phone_verifications_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unknown_slug"
+            referencedColumns: ["lead_id"]
+          },
         ]
       }
       quote_analyses: {
@@ -1967,6 +2037,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "leads"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quote_analyses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unknown_slug"
+            referencedColumns: ["lead_id"]
           },
         ]
       }
@@ -2006,6 +2083,13 @@ export type Database = {
             referencedRelation: "leads"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "quote_comparisons_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unknown_slug"
+            referencedColumns: ["lead_id"]
+          },
         ]
       }
       quote_files: {
@@ -2037,6 +2121,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "leads"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quote_files_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unknown_slug"
+            referencedColumns: ["lead_id"]
           },
         ]
       }
@@ -2075,6 +2166,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "leads"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scan_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unknown_slug"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "scan_sessions_quote_file_id_fkey"
@@ -2256,6 +2354,13 @@ export type Database = {
             referencedRelation: "leads"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "voice_followups_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unknown_slug"
+            referencedColumns: ["lead_id"]
+          },
         ]
       }
       webhook_deliveries: {
@@ -2311,7 +2416,86 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_admin_active_clients: {
+        Row: {
+          created_at: string | null
+          id: string | null
+          is_active: boolean | null
+          lead_count_total: number | null
+          lead_count_verified: number | null
+          name: string | null
+          slug: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          lead_count_total?: never
+          lead_count_verified?: never
+          name?: string | null
+          slug?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          lead_count_total?: never
+          lead_count_verified?: never
+          name?: string | null
+          slug?: string | null
+        }
+        Relationships: []
+      }
+      v_admin_leads_direct_sentinel: {
+        Row: {
+          day: string | null
+          direct_lead_count: number | null
+          verified_count: number | null
+        }
+        Relationships: []
+      }
+      v_admin_leads_unknown_slug: {
+        Row: {
+          client_slug: string | null
+          created_at: string | null
+          lead_id: string | null
+          phone_verified: boolean | null
+          session_id: string | null
+          utm_campaign: string | null
+          utm_source: string | null
+        }
+        Insert: {
+          client_slug?: string | null
+          created_at?: string | null
+          lead_id?: string | null
+          phone_verified?: boolean | null
+          session_id?: string | null
+          utm_campaign?: string | null
+          utm_source?: string | null
+        }
+        Update: {
+          client_slug?: string | null
+          created_at?: string | null
+          lead_id?: string | null
+          phone_verified?: boolean | null
+          session_id?: string | null
+          utm_campaign?: string | null
+          utm_source?: string | null
+        }
+        Relationships: []
+      }
+      v_admin_webhook_health_7d: {
+        Row: {
+          avg_attempts: number | null
+          delivery_count: number | null
+          event_type: string | null
+          http_error_count: number | null
+          most_recent_attempt: string | null
+          status: string | null
+          success_count: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       admin_adjust_contractor_credits: {
