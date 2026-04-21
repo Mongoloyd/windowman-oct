@@ -29,6 +29,7 @@ import { ContractorOnboardingSurface } from "@/components/admin/ContractorOnboar
 import { OperatorReportingSurface } from "@/components/admin/OperatorReportingSurface";
 import { DeadStaleRecoveryWorkflowSurface } from "@/components/admin/DeadStaleRecoveryWorkflowSurface";
 import { ContractorFeedbackLoopSurface } from "@/components/admin/ContractorFeedbackLoopSurface";
+import { SharedMarketManualControlsSurface } from "@/components/admin/SharedMarketManualControlsSurface";
 
 import {
   invokeAdminData,
@@ -269,6 +270,7 @@ function DashboardContent() {
             <TabsTrigger value="reporting" className="flex-1 min-w-[100px]">Reporting</TabsTrigger>
             <TabsTrigger value="lifecycle" className="flex-1 min-w-[110px]">Lifecycle</TabsTrigger>
             <TabsTrigger value="feedback" className="flex-1 min-w-[110px]">Feedback</TabsTrigger>
+            <TabsTrigger value="shared-market" className="flex-1 min-w-[130px]">Shared Market</TabsTrigger>
             <TabsTrigger value="attribution" className="flex-1 min-w-[100px]">Attribution</TabsTrigger>
             <TabsTrigger value="pilot" className="flex-1 min-w-[120px]">Pilot Readiness</TabsTrigger>
           </TabsList>
@@ -330,6 +332,10 @@ function DashboardContent() {
 
           <TabsContent value="feedback" className="w-full px-2 sm:px-6 pt-4">
             <ContractorFeedbackLoopSurface leads={leads} onNavigateTab={setActiveTab} />
+          </TabsContent>
+
+          <TabsContent value="shared-market" className="w-full px-2 sm:px-6 pt-4">
+            <SharedMarketManualControlsSurface leads={leads} onNavigateTab={setActiveTab} />
           </TabsContent>
 
           <TabsContent value="attribution">
