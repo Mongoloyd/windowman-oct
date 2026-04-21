@@ -58,3 +58,7 @@ WindowMan.PRO design system and architecture constraints
 - `src/shared/matchReasons.ts` — shared match reason taxonomy
 - AdminDashboard shows suggested match panel (contractor, confidence, reasons, call intent, webhook status)
 - Secret needed: PHONECALL_BOT_WEBHOOK_URL (optional — gracefully skips)
+
+## Memories
+- [Sprint 1 — Tenant Lockdown](mem://revenue-os/sprint-1-tenant-lockdown) — direct sentinel, slug-integrity trigger, idempotent fire_crm_handoff, four v_admin_* views
+- [Sprint 2 — Contractor↔Client Bridge](mem://revenue-os/sprint-2-contractor-client-bridge) — contractor_client_assignments table, resolve_contractors_for_client_slug, four v_admin_assignments_* views
