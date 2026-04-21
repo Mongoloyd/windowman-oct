@@ -337,22 +337,59 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
               <p className="font-body text-[13px] text-destructive text-center mt-3 font-medium">{fileError}</p>
             )}
 
-            {file && (
+            {/* ── Live progress (tied to real scan_sessions.status) ── */}
+            {showProgress && (
+              <div className="mt-5">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="font-body text-[12px] text-muted-foreground font-medium">{progress.label}</span>
+                  <span className="font-mono text-[12px] text-primary tabular-nums">{progress.pct}%</span>
+                </div>
+                <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                  <motion.div
+                    className="h-full rounded-full"
+                    style={{ background: "linear-gradient(90deg, #4DA3FF, #2563EB)" }}
+                    animate={{ width: `${progress.pct}%` }}
+                    transition={{ duration: 0.4, ease: "easeOut" }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* ── Error + retry (only after a scan was attempted) ── */}
+            {uploadError && !uploading && (
+              <div className="mt-4 p-3 rounded-md border border-destructive/30 bg-destructive/5">
+                <p className="font-body text-[13px] text-destructive text-center font-medium mb-2">{uploadError}</p>
+                <button
+                  onClick={handleScan}
+                  disabled={uploading}
+                  className="btn-depth-primary w-full"
+                  style={{ height: 44, fontSize: 14 }}
+                >
+                  Retry Scan →
+                </button>
+              </div>
+            )}
+
+            {file && !uploadError && (
               <motion.button
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.15 }}
                 onClick={handleScan}
-                disabled={uploading}
+                disabled={uploading || activeScanSessionId !== null}
                 className="btn-depth-primary w-full mt-5"
                 style={{
                   height: 54,
                   fontSize: 17,
-                  opacity: uploading ? 0.7 : 1,
-                  cursor: uploading ? "not-allowed" : "pointer",
+                  opacity: uploading || activeScanSessionId !== null ? 0.7 : 1,
+                  cursor: uploading || activeScanSessionId !== null ? "not-allowed" : "pointer",
                 }}
               >
-                {uploading ? "Uploading..." : "Start My AI Scan →"}
+                {uploading
+                  ? "Uploading..."
+                  : activeScanSessionId !== null
+                    ? "Scanning..."
+                    : "Start My AI Scan →"}
               </motion.button>
             )}
 
