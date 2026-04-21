@@ -3402,6 +3402,10 @@ export type Database = {
         Args: { p_contractor_id: string; p_lead_id: string }
         Returns: Json
       }
+      vault_upsert_dispatch_secrets: {
+        Args: { p_secret: string; p_url: string }
+        Returns: undefined
+      }
     }
     Enums: {
       contractor_activity_type:
