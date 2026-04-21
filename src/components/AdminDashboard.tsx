@@ -322,6 +322,10 @@ function DashboardContent() {
             <OperatorReportingSurface leads={leads} onNavigateTab={setActiveTab} />
           </TabsContent>
 
+          <TabsContent value="lifecycle" className="w-full px-2 sm:px-6 pt-4">
+            <DeadStaleRecoveryWorkflowSurface leads={leads} onNavigateTab={setActiveTab} />
+          </TabsContent>
+
           <TabsContent value="attribution">
             <AttributionTab leads={leads} isLoading={false} />
           </TabsContent>
