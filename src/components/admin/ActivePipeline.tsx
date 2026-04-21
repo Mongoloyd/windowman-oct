@@ -174,6 +174,19 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
             <SelectItem value="ghost">Ghost</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={ownershipFilter} onValueChange={(v) => setOwnershipFilter(v as OwnershipFilter)}>
+          <SelectTrigger className="w-[210px] h-9 text-sm">
+            <SelectValue placeholder="All Ownership" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Ownership</SelectItem>
+            <SelectItem value="assigned">Assigned</SelectItem>
+            <SelectItem value="unassigned">Unassigned</SelectItem>
+            <SelectItem value="booked">Appointment Booked</SelectItem>
+            <SelectItem value="closed">Closed</SelectItem>
+            <SelectItem value="recovery_candidate">Recovery Candidate (operator view)</SelectItem>
+          </SelectContent>
+        </Select>
         <span className="text-xs text-muted-foreground">
           {filteredLeads.length} of {leads.length} leads
         </span>
