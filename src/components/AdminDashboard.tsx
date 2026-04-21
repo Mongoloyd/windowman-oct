@@ -141,6 +141,7 @@ function DashboardContent() {
   const [needsReview, setNeedsReview] = useState<NeedsReviewLead[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
+  const [activeTab, setActiveTab] = useState<string>("launch");
   const [, setTick] = useState(0); // force re-render for relative time
   const initialLoadDone = useRef(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
