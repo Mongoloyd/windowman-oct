@@ -357,6 +357,12 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
 
         <Separator className="my-3" />
 
+        {/* ── Contractor Delivery (Phase 6) ─────────────────────────── */}
+        <SectionTitle>Contractor Delivery</SectionTitle>
+        <OpportunityRouteTimeline opportunityId={lead.latest_opportunity_id} />
+
+        <Separator className="my-3" />
+
         {/* ── 3. Truth Engine Audit ────────────────────────────────── */}
         <Collapsible open={auditOpen} onOpenChange={setAuditOpen}>
           <CollapsibleTrigger className="flex items-center justify-between w-full py-1 group">
