@@ -136,8 +136,23 @@ export function RoutingDesk({ leads }: Props) {
     staleTime: 60_000,
   });
 
+  // Repo-real per-client resolver state — used to explain WHY an opportunity
+  // is stuck (e.g. client_inactive, no_active_assignment). Cheap; cached 60s.
+  const resolutionsQuery = useQuery({
+    queryKey: ["admin", "client-resolutions"],
+    queryFn: fetchClientResolutions,
+    staleTime: 60_000,
+  });
+
   const isLoading = oppsQuery.isLoading || routesQuery.isLoading || contractorsQuery.isLoading;
   const error = oppsQuery.error || routesQuery.error || contractorsQuery.error;
+
+  // Map client_slug → resolver row. Falls back gracefully when missing.
+  const resolutionBySlug = useMemo(() => {
+    const map = new Map<string, ClientResolutionRow>();
+    for (const r of (resolutionsQuery.data ?? [])) map.set(r.client_slug, r);
+    return map;
+  }, [resolutionsQuery.data]);
 
   // ── Derive rows + buckets ──────────────────────────────────────────────
   const { rowsByBucket, reactivationLeads } = useMemo(() => {
@@ -170,7 +185,10 @@ export function RoutingDesk({ leads }: Props) {
 
       let bucket: OperatorBucket | null = null;
 
-      if (opp.status === "intro_requested" && !route) {
+      // Ready-to-route covers BOTH `intro_requested` AND `brief_ready`
+      // (the brief generator's terminal state) — neither is "routed yet".
+      // Without this, brief_ready opps stayed invisible to operators.
+      if (!route && (opp.status === "intro_requested" || opp.status === "brief_ready")) {
         bucket = "ready_to_route";
       } else if (opp.routed_at) {
         bucket = "routed";
