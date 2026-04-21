@@ -46,6 +46,8 @@ import type {
 import type { CRMLead } from "@/components/admin/types";
 import { OpportunityRouteTimeline } from "./OpportunityRouteTimeline";
 import { LeadDossierSheet } from "./LeadDossierSheet";
+import { deriveOwnershipBadges } from "./OwnershipBlock";
+import type { OwnershipBadge } from "@/types/routingDesk";
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
@@ -82,6 +84,16 @@ function leadCtxFromCRM(lead: CRMLead): RoutingLeadContext {
     latest_opportunity_id: lead.latest_opportunity_id,
     latest_scan_session_id: lead.latest_scan_session_id,
   };
+}
+
+function ownershipBadgeLabel(b: OwnershipBadge): string {
+  switch (b) {
+    case "currently_assigned": return "Assigned";
+    case "released": return "Released";
+    case "previously_assigned": return "Has Prior Owner";
+    case "recovery_candidate": return "Recovery Candidate";
+    case "reassignable": return "Reassignable";
+  }
 }
 
 export function RoutingDesk({ leads }: Props) {
@@ -357,7 +369,7 @@ export function RoutingDesk({ leads }: Props) {
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-2 mt-0.5">
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                           {row.contractor && (
                             <span className="inline-flex items-center gap-1 text-[11px] text-cyan-700">
                               <Building2 className="h-3 w-3" />
@@ -375,6 +387,27 @@ export function RoutingDesk({ leads }: Props) {
                               {row.latestRoute.route_status}
                             </Badge>
                           )}
+                          {/* Phase 7: Ownership badges derived from full route history */}
+                          {(() => {
+                            const allRoutes = (routesQuery.data as RoutingRoute[] | undefined) ?? [];
+                            const oppRoutes = allRoutes.filter((r) => r.opportunity_id === row.opportunity.id);
+                            const badges = deriveOwnershipBadges({
+                              routes: oppRoutes,
+                              reportUnlockedAt: lead?.report_unlocked_at ?? null,
+                              routedToContractorAt: (lead as any)?.routed_to_contractor_at ?? null,
+                            });
+                            return badges
+                              .filter((b: OwnershipBadge) => b !== "currently_assigned") // already shown via contractor name
+                              .map((b: OwnershipBadge) => (
+                                <Badge
+                                  key={b}
+                                  variant="outline"
+                                  className="text-[10px] border-violet-500/40 text-violet-700 bg-violet-500/10"
+                                >
+                                  {ownershipBadgeLabel(b)}
+                                </Badge>
+                              ));
+                          })()}
                         </div>
                       </div>
 

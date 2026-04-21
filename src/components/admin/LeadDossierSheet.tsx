@@ -30,6 +30,7 @@ import type { CRMLead, AnalysisFlag, LeadAnalysisData } from "./types";
 import { fetchLeadAnalysis, fetchLeadVoiceFollowups, invokeAdminData, routeLeadToContractor, fetchContractors } from "@/services/adminDataService";
 import type { VoiceFollowup } from "@/services/adminDataService";
 import { OpportunityRouteTimeline } from "./OpportunityRouteTimeline";
+import { LeadLifecycleTimeline } from "./LeadLifecycleTimeline";
 import { useQuery } from "@tanstack/react-query";
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
@@ -754,15 +755,9 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
 
         <Separator className="my-3" />
 
-        {/* ── 5. Activity Timeline ─────────────────────────────────── */}
+        {/* ── 5. Activity Timeline (Phase 7: real lifecycle) ───────── */}
         <SectionTitle>Activity Timeline</SectionTitle>
-        <div className="space-y-0.5">
-          <TimelineEntry label="Lead Created" timestamp={lead.created_at} />
-          <TimelineEntry label="Phone Verified" timestamp={lead.phone_verified_at} />
-          <TimelineEntry label="Report Unlocked" timestamp={lead.report_unlocked_at} />
-          <TimelineEntry label="Intro Requested" timestamp={lead.intro_requested_at} />
-          <TimelineEntry label="Last Updated" timestamp={lead.updated_at} />
-        </div>
+        <LeadLifecycleTimeline lead={lead} />
 
         <div className="h-8" />
       </SheetContent>

@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchOpportunities, fetchRoutes, fetchContractors } from "@/services/adminDataService";
 import type { RoutingOpportunity, RoutingRoute, RoutingContractor } from "@/types/routingDesk";
+import { OwnershipBlock } from "./OwnershipBlock";
 
 interface OpportunityRouteTimelineProps {
   opportunityId: string | null;

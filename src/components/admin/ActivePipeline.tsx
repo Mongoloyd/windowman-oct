@@ -74,6 +74,9 @@ function timeAgo(dateStr: string): string {
 }
 
 type StatusFilter = "all" | PipelineStatus;
+type OwnershipFilter = "all" | "assigned" | "unassigned" | "booked" | "closed" | "recovery_candidate";
+
+const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 
 /* ── Component ───────────────────────────────────────────────────────── */
 
@@ -81,14 +84,36 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
   const [selectedLead, setSelectedLead] = useState<CRMLead | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [ownershipFilter, setOwnershipFilter] = useState<OwnershipFilter>("all");
 
   /* ── Canonical derived filtered list ── */
   const filteredLeads = useMemo(() => {
     let result = leads;
+    const now = Date.now();
 
     // Status filter
     if (statusFilter !== "all") {
       result = result.filter((lead) => derivePipelineStatus(lead) === statusFilter);
+    }
+
+    // Ownership filter (repo-real lifecycle fields + one operator-derived)
+    if (ownershipFilter !== "all") {
+      result = result.filter((lead) => {
+        const routedAt = lead.routed_to_contractor_at ?? null;
+        const bookedAt = lead.appointment_booked_at ?? null;
+        const closedAt = lead.closed_at ?? null;
+        const unlockedAt = lead.report_unlocked_at ?? null;
+        switch (ownershipFilter) {
+          case "assigned": return !!routedAt;
+          case "unassigned": return !routedAt;
+          case "booked": return !!bookedAt;
+          case "closed": return !!closedAt;
+          case "recovery_candidate":
+            return !!unlockedAt && !routedAt &&
+              now - new Date(unlockedAt).getTime() > FOURTEEN_DAYS_MS;
+          default: return true;
+        }
+      });
     }
 
     // Search filter
@@ -103,7 +128,7 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
     }
 
     return result;
-  }, [leads, statusFilter, searchQuery]);
+  }, [leads, statusFilter, ownershipFilter, searchQuery]);
 
   if (isLoading && leads.length === 0) {
     return (
@@ -149,6 +174,19 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
             <SelectItem value="ghost">Ghost</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={ownershipFilter} onValueChange={(v) => setOwnershipFilter(v as OwnershipFilter)}>
+          <SelectTrigger className="w-[210px] h-9 text-sm">
+            <SelectValue placeholder="All Ownership" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Ownership</SelectItem>
+            <SelectItem value="assigned">Assigned</SelectItem>
+            <SelectItem value="unassigned">Unassigned</SelectItem>
+            <SelectItem value="booked">Appointment Booked</SelectItem>
+            <SelectItem value="closed">Closed</SelectItem>
+            <SelectItem value="recovery_candidate">Recovery Candidate (operator view)</SelectItem>
+          </SelectContent>
+        </Select>
         <span className="text-xs text-muted-foreground">
           {filteredLeads.length} of {leads.length} leads
         </span>
@@ -163,7 +201,7 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
               <TableHead className="w-[80px] text-center">Grade</TableHead>
               <TableHead className="w-[80px] text-center">Windows</TableHead>
               <TableHead className="w-[120px]">Status</TableHead>
-              <TableHead className="w-[120px]">Partner</TableHead>
+              <TableHead className="w-[120px]">Owner</TableHead>
               <TableHead className="w-[90px] text-right">Age</TableHead>
             </TableRow>
           </TableHeader>
