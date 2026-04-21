@@ -694,6 +694,8 @@ const TruthGateFlow = ({
                 placeholder="(555) 555-5555"
                 autoComplete="tel"
                 inputMode="tel"
+                maxLength={20}
+                aria-invalid={fieldStatus.phone === "invalid"}
                 value={answers.phone}
                 onChange={(e) => handlePhoneChange(e.target.value)}
                 className={`wm-input-well w-full h-12 px-4 font-body text-[15px] text-foreground outline-none ${
