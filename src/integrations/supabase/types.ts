@@ -373,10 +373,12 @@ export type Database = {
           currency: string
           fulfilled_at: string | null
           id: string
+          mode: string
           status: string
           stripe_checkout_session_id: string
           stripe_customer_id: string | null
           stripe_payment_intent_id: string | null
+          stripe_subscription_id: string | null
         }
         Insert: {
           amount_total_cents: number
@@ -387,10 +389,12 @@ export type Database = {
           currency?: string
           fulfilled_at?: string | null
           id?: string
+          mode?: string
           status?: string
           stripe_checkout_session_id: string
           stripe_customer_id?: string | null
           stripe_payment_intent_id?: string | null
+          stripe_subscription_id?: string | null
         }
         Update: {
           amount_total_cents?: number
@@ -401,10 +405,12 @@ export type Database = {
           currency?: string
           fulfilled_at?: string | null
           id?: string
+          mode?: string
           status?: string
           stripe_checkout_session_id?: string
           stripe_customer_id?: string | null
           stripe_payment_intent_id?: string | null
+          stripe_subscription_id?: string | null
         }
         Relationships: [
           {
@@ -2318,10 +2324,21 @@ export type Database = {
         }
         Returns: Json
       }
-      fulfill_contractor_credit_purchase: {
-        Args: { p_payment_intent_id?: string; p_session_id: string }
-        Returns: Json
-      }
+      fulfill_contractor_credit_purchase:
+        | {
+            Args: {
+              p_amount_total_cents: number
+              p_contractor_id: string
+              p_credits: number
+              p_purchase_id: string
+              p_stripe_payment_intent_id: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: { p_payment_intent_id?: string; p_session_id: string }
+            Returns: Json
+          }
       get_analysis_full: {
         Args: { p_phone_e164: string; p_scan_session_id: string }
         Returns: {
