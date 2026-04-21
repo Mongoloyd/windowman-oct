@@ -662,6 +662,9 @@ const TruthGateFlow = ({
                 type="email"
                 placeholder="your@email.com"
                 autoComplete="email"
+                maxLength={255}
+                required
+                aria-invalid={fieldStatus.email === "invalid"}
                 value={answers.email}
                 onChange={(e) => setAnswers((p) => ({ ...p, email: e.target.value }))}
                 className={`wm-input-well w-full h-12 px-4 font-body text-[15px] text-foreground outline-none ${
