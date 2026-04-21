@@ -118,6 +118,13 @@ export type Database = {
             referencedColumns: ["lead_id"]
           },
           {
+            foreignKeyName: "analyses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unrouted"
+            referencedColumns: ["lead_id"]
+          },
+          {
             foreignKeyName: "analyses_scan_session_id_fkey"
             columns: ["scan_session_id"]
             isOneToOne: false
@@ -244,6 +251,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "v_admin_leads_unknown_slug"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "billable_intros_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unrouted"
             referencedColumns: ["lead_id"]
           },
           {
@@ -424,6 +438,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "v_admin_assignments_by_client"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "contractor_client_assignments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_routing_resolution"
             referencedColumns: ["client_id"]
           },
           {
@@ -951,6 +972,13 @@ export type Database = {
             referencedColumns: ["lead_id"]
           },
           {
+            foreignKeyName: "contractor_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unrouted"
+            referencedColumns: ["lead_id"]
+          },
+          {
             foreignKeyName: "contractor_opportunities_scan_session_id_fkey"
             columns: ["scan_session_id"]
             isOneToOne: true
@@ -1263,6 +1291,13 @@ export type Database = {
             referencedRelation: "v_admin_leads_unknown_slug"
             referencedColumns: ["lead_id"]
           },
+          {
+            foreignKeyName: "contractor_unlocked_leads_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unrouted"
+            referencedColumns: ["lead_id"]
+          },
         ]
       }
       contractors: {
@@ -1393,6 +1428,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "v_admin_leads_unknown_slug"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "conversion_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unrouted"
             referencedColumns: ["lead_id"]
           },
         ]
@@ -1539,6 +1581,13 @@ export type Database = {
             referencedColumns: ["lead_id"]
           },
           {
+            foreignKeyName: "diagnosis_intakes_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unrouted"
+            referencedColumns: ["lead_id"]
+          },
+          {
             foreignKeyName: "diagnosis_intakes_scan_session_id_fkey"
             columns: ["scan_session_id"]
             isOneToOne: false
@@ -1594,6 +1643,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "v_admin_leads_unknown_slug"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "event_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unrouted"
             referencedColumns: ["lead_id"]
           },
         ]
@@ -1654,6 +1710,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "v_admin_leads_unknown_slug"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unrouted"
             referencedColumns: ["lead_id"]
           },
         ]
@@ -2120,6 +2183,13 @@ export type Database = {
             foreignKeyName: "meta_configurations_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
+            referencedRelation: "v_admin_routing_resolution"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "meta_configurations_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_unassigned_active_clients"
             referencedColumns: ["client_id"]
           },
@@ -2213,6 +2283,13 @@ export type Database = {
             referencedRelation: "v_admin_leads_unknown_slug"
             referencedColumns: ["lead_id"]
           },
+          {
+            foreignKeyName: "phone_verifications_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unrouted"
+            referencedColumns: ["lead_id"]
+          },
         ]
       }
       quote_analyses: {
@@ -2253,6 +2330,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "v_admin_leads_unknown_slug"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "quote_analyses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unrouted"
             referencedColumns: ["lead_id"]
           },
         ]
@@ -2300,6 +2384,13 @@ export type Database = {
             referencedRelation: "v_admin_leads_unknown_slug"
             referencedColumns: ["lead_id"]
           },
+          {
+            foreignKeyName: "quote_comparisons_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unrouted"
+            referencedColumns: ["lead_id"]
+          },
         ]
       }
       quote_files: {
@@ -2337,6 +2428,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "v_admin_leads_unknown_slug"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "quote_files_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unrouted"
             referencedColumns: ["lead_id"]
           },
         ]
@@ -2382,6 +2480,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "v_admin_leads_unknown_slug"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "scan_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unrouted"
             referencedColumns: ["lead_id"]
           },
           {
@@ -2571,6 +2676,13 @@ export type Database = {
             referencedRelation: "v_admin_leads_unknown_slug"
             referencedColumns: ["lead_id"]
           },
+          {
+            foreignKeyName: "voice_followups_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unrouted"
+            referencedColumns: ["lead_id"]
+          },
         ]
       }
       webhook_deliveries: {
@@ -2706,6 +2818,13 @@ export type Database = {
             referencedRelation: "v_admin_leads_unknown_slug"
             referencedColumns: ["lead_id"]
           },
+          {
+            foreignKeyName: "analyses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unrouted"
+            referencedColumns: ["lead_id"]
+          },
         ]
       }
       v_admin_assignments_by_client: {
@@ -2771,6 +2890,36 @@ export type Database = {
         }
         Relationships: []
       }
+      v_admin_leads_unrouted: {
+        Row: {
+          client_id: string | null
+          client_name: string | null
+          client_slug: string | null
+          created_at: string | null
+          latest_analysis_id: string | null
+          lead_id: string | null
+          no_route_reason: string | null
+          phone_verified: boolean | null
+        }
+        Relationships: []
+      }
+      v_admin_legacy_vs_new_routing: {
+        Row: {
+          client_slug: string | null
+          coexistence_state: string | null
+          lead_id: string | null
+          legacy_created_at: string | null
+          legacy_delivery_id: string | null
+          legacy_event_type: string | null
+          legacy_status: string | null
+          new_chosen_company: string | null
+          new_chosen_contractor_id: string | null
+          new_dispatch_method: string | null
+          new_resolver_reason: string | null
+          new_resolver_resolved: boolean | null
+        }
+        Relationships: []
+      }
       v_admin_opportunities_slug_mismatch: {
         Row: {
           created_at: string | null
@@ -2794,7 +2943,33 @@ export type Database = {
             referencedRelation: "v_admin_leads_unknown_slug"
             referencedColumns: ["lead_id"]
           },
+          {
+            foreignKeyName: "contractor_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unrouted"
+            referencedColumns: ["lead_id"]
+          },
         ]
+      }
+      v_admin_routing_resolution: {
+        Row: {
+          assignment_id: string | null
+          client_id: string | null
+          client_is_active: boolean | null
+          client_name: string | null
+          client_slug: string | null
+          company_name: string | null
+          contractor_id: string | null
+          dispatch_method: string | null
+          has_crm_email: boolean | null
+          has_webhook_url: boolean | null
+          is_primary: boolean | null
+          no_route_reason: string | null
+          priority: number | null
+          resolved: boolean | null
+        }
+        Relationships: []
       }
       v_admin_slug_backfill_pending: {
         Row: {
@@ -2982,6 +3157,43 @@ export type Database = {
           dispatch_method: string
           is_primary: boolean
           priority: number
+        }[]
+      }
+      resolve_route_for_lead: {
+        Args: { p_lead_id: string }
+        Returns: {
+          assignment_id: string
+          client_id: string
+          client_name: string
+          client_slug: string
+          company_name: string
+          contractor_id: string
+          crm_email: string
+          crm_webhook_url: string
+          dispatch_method: string
+          is_primary: boolean
+          lead_id: string
+          no_route_reason: string
+          priority: number
+          resolved: boolean
+        }[]
+      }
+      resolve_route_for_slug: {
+        Args: { p_client_slug: string }
+        Returns: {
+          assignment_id: string
+          client_id: string
+          client_name: string
+          client_slug: string
+          company_name: string
+          contractor_id: string
+          crm_email: string
+          crm_webhook_url: string
+          dispatch_method: string
+          is_primary: boolean
+          no_route_reason: string
+          priority: number
+          resolved: boolean
         }[]
       }
       unlock_contractor_lead: {
