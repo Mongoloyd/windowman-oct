@@ -223,7 +223,8 @@ const Index = () => {
   // Resolve active data: dev fixtures override real backend data
   const activeData = showReportFromDev ? devConfig!.analysisData : analysisData;
 
-  const reportGrade = activeData?.grade || "C";
+  // Pass real grade through; downstream components handle null/missing without inventing one.
+  const reportGrade = activeData?.grade ?? "";
   const reportFlags = activeData?.flags || [];
   const shouldShowReport = showReportFromDev || gradeRevealed;
 

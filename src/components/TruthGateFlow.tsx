@@ -619,7 +619,7 @@ const TruthGateFlow = ({
         </h2>
         <p className="font-body text-wm-body-soft text-muted-foreground mb-6">Enter Your Details to Run The Scan.</p>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
           <div>
             <label className="wm-eyebrow mb-1.5 text-muted-foreground block">
               FIRST NAME <span className="text-orange-500">*</span>
@@ -629,6 +629,9 @@ const TruthGateFlow = ({
                 type="text"
                 placeholder="Your first name"
                 autoComplete="given-name"
+                maxLength={100}
+                required
+                aria-invalid={fieldStatus.firstName === "invalid"}
                 value={answers.firstName}
                 onChange={(e) => setAnswers((p) => ({ ...p, firstName: e.target.value }))}
                 className={`wm-input-well w-full h-12 px-4 font-body text-[15px] text-foreground outline-none ${
@@ -659,6 +662,9 @@ const TruthGateFlow = ({
                 type="email"
                 placeholder="your@email.com"
                 autoComplete="email"
+                maxLength={255}
+                required
+                aria-invalid={fieldStatus.email === "invalid"}
                 value={answers.email}
                 onChange={(e) => setAnswers((p) => ({ ...p, email: e.target.value }))}
                 className={`wm-input-well w-full h-12 px-4 font-body text-[15px] text-foreground outline-none ${
@@ -688,6 +694,8 @@ const TruthGateFlow = ({
                 placeholder="(555) 555-5555"
                 autoComplete="tel"
                 inputMode="tel"
+                maxLength={20}
+                aria-invalid={fieldStatus.phone === "invalid"}
                 value={answers.phone}
                 onChange={(e) => handlePhoneChange(e.target.value)}
                 className={`wm-input-well w-full h-12 px-4 font-body text-[15px] text-foreground outline-none ${
