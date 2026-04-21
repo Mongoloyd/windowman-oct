@@ -103,14 +103,93 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
     [handleFile],
   );
 
+  /**
+   * Invoke the scan-quote edge function. Used by both the initial scan and
+   * the retry button. Idempotent on the backend per scan_session_id.
+   */
+  const invokeScan = async (
+    scanSessionId: string,
+    leadId: string | null,
+    quoteFileId: string,
+  ): Promise<boolean> => {
+    const quoteUploadedEventId = makeTransportEventId();
+    trackGtmEvent("quote_uploaded", {
+      event_id: quoteUploadedEventId,
+      value: 250,
+      currency: "USD",
+      scan_session_id: scanSessionId,
+      lead_id: leadId || undefined,
+      file_size: file?.size,
+      file_type: file?.type,
+    });
+    const { data: fnData, error: fnError } = await supabase.functions.invoke("scan-quote", {
+      body: { scan_session_id: scanSessionId, event_id: quoteUploadedEventId },
+    });
+    if (fnError) {
+      const isRateLimited = fnData?.error === "rate_limit_exceeded";
+      const msg = isRateLimited
+        ? fnData?.message ||
+          "You've reached the limit for free scans this hour. Please try again in a bit."
+        : "Scan encountered an issue. Tap retry to try again.";
+      setUploadError(msg);
+      toast.error(msg);
+      await supabase.from("event_logs").insert({
+        event_name: isRateLimited ? "scan_rate_limited" : "scan_invoke_failed",
+        session_id: sessionId || null,
+        metadata: {
+          scan_session_id: scanSessionId,
+          quote_file_id: quoteFileId,
+          error_message: fnError.message || String(fnError),
+          file_name: file?.name,
+          file_size: file?.size,
+          timestamp: new Date().toISOString(),
+        },
+      });
+      return false;
+    }
+    return true;
+  };
+
   const handleScan = async () => {
     if (!file || uploading) return;
     setUploading(true);
+    setUploadError(null);
+
+    // ── Retry path: same scanSessionId already exists; just re-invoke the
+    //    edge function. Avoids duplicate storage upload + duplicate rows.
+    if (activeScanSessionId) {
+      try {
+        // Look up existing quote_file via scan_sessions to keep ledger consistent.
+        const { data: ss } = await supabase
+          .from("scan_sessions")
+          .select("quote_file_id, lead_id")
+          .eq("id", activeScanSessionId)
+          .maybeSingle();
+        const ok = await invokeScan(
+          activeScanSessionId,
+          (ss?.lead_id as string | null) ?? null,
+          (ss?.quote_file_id as string | null) ?? "",
+        );
+        if (ok) {
+          // Re-emit scan_started so parent re-mounts theatrics if needed.
+          onScanStart?.(file.name, activeScanSessionId);
+        }
+      } catch (err) {
+        console.error("Retry error:", err);
+        setUploadError("Retry failed. Please try again.");
+      } finally {
+        setUploading(false);
+      }
+      return;
+    }
+
+    // ── Fresh path ────────────────────────────────────────────────────
     try {
       const filePath = `${sessionId || crypto.randomUUID()}/${Date.now()}_${file.name}`;
-      const { error: uploadError } = await supabase.storage.from("quotes").upload(filePath, file);
-      if (uploadError) {
-        console.error("Storage upload failed:", uploadError);
+      const { error: storageErr } = await supabase.storage.from("quotes").upload(filePath, file);
+      if (storageErr) {
+        console.error("Storage upload failed:", storageErr);
+        setUploadError("Upload failed. Please try again.");
         toast.error("Upload failed. Please try again.");
         setUploading(false);
         return;
@@ -129,6 +208,7 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
           .insert({ id: fallbackLeadId, session_id: fallbackSessionId, source: "direct_upload" });
         if (leadErr) {
           console.error("Failed to create fallback lead:", leadErr);
+          setUploadError("Failed to initialize session. Please try again.");
           toast.error("Failed to initialize session. Please try again.");
           setUploading(false);
           return;
@@ -142,71 +222,37 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
         .insert({ id: quoteFileId, lead_id: leadId, storage_path: filePath, status: "pending" });
       if (qfError) {
         console.error("quote_files insert failed:", qfError);
+        setUploadError("Failed to register your file. Please try again.");
         toast.error("Failed to register your file. Please try again.");
         setUploading(false);
         return;
       }
-      const scanSessionId = crypto.randomUUID();
+      const newScanSessionId = crypto.randomUUID();
       const { error: ssError } = await supabase
         .from("scan_sessions")
-        .insert({ id: scanSessionId, status: "uploading", lead_id: leadId, quote_file_id: quoteFileId });
+        .insert({ id: newScanSessionId, status: "uploading", lead_id: leadId, quote_file_id: quoteFileId });
       if (ssError) {
         console.error("scan_sessions insert failed:", ssError);
+        setUploadError("Failed to start scan session. Please try again.");
         toast.error("Failed to start scan session. Please try again.");
         setUploading(false);
         return;
       }
+
+      // Persist scan session id locally so retry stays bound to it.
+      setActiveScanSessionId(newScanSessionId);
+
       trackEvent({
         event_name: "upload_completed",
         session_id: sessionId,
-        metadata: { scan_session_id: scanSessionId, file_name: file.name, file_size: file.size },
+        metadata: { scan_session_id: newScanSessionId, file_name: file.name, file_size: file.size },
       });
-      onScanStart?.(file.name, scanSessionId);
+      onScanStart?.(file.name, newScanSessionId);
 
-      // Forever rule: opaque UUID v4 reused for the same event instance
-      // (GTM browser fire + scan-quote invoke). Metadata stays in separate
-      // fields. Bad ids cannot block the scan — backend tolerates and
-      // substitutes. See supabase/functions/scan-quote/requestSchema.ts.
-      const quoteUploadedEventId = makeTransportEventId();
-
-      trackGtmEvent("quote_uploaded", {
-        event_id: quoteUploadedEventId,
-        value: 250,
-        currency: "USD",
-        scan_session_id: scanSessionId,
-        lead_id: leadId || undefined,
-        file_size: file.size,
-        file_type: file.type,
-      });
-
-      const { data: fnData, error: fnError } = await supabase.functions.invoke("scan-quote", {
-        body: { scan_session_id: scanSessionId, event_id: quoteUploadedEventId },
-      });
-      if (fnError) {
-        const isRateLimited = fnData?.error === "rate_limit_exceeded";
-        if (isRateLimited) {
-          toast.error(
-            fnData?.message ||
-              "You've reached the limit for free scans this hour. Please try again in a bit or contact us for a bulk review.",
-          );
-        } else {
-          toast.error("Scan encountered an issue. We'll retry automatically.");
-        }
-        await supabase.from("event_logs").insert({
-          event_name: isRateLimited ? "scan_rate_limited" : "scan_invoke_failed",
-          session_id: sessionId || null,
-          metadata: {
-            scan_session_id: scanSessionId,
-            quote_file_id: quoteFileId,
-            error_message: fnError.message || String(fnError),
-            file_name: file.name,
-            file_size: file.size,
-            timestamp: new Date().toISOString(),
-          },
-        });
-      }
+      await invokeScan(newScanSessionId, leadId, quoteFileId);
     } catch (err) {
       console.error("Scan error:", err);
+      setUploadError("Something went wrong. Please try again.");
       toast.error("Something went wrong. Please try again.");
     } finally {
       setUploading(false);
