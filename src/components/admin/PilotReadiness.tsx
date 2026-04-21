@@ -84,7 +84,7 @@ export function PilotReadiness({ leads }: Props) {
   }, [leads]);
 
   return (
-    <div className="space-y-6">
+    <div className="w-full space-y-6">
       {/* ── Header strip ────────────────────────────────────────────── */}
       <Card>
         <CardHeader className="pb-3">

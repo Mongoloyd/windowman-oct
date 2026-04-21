@@ -299,7 +299,7 @@ function DashboardContent() {
             <AttributionTab leads={leads} isLoading={false} />
           </TabsContent>
 
-          <TabsContent value="pilot">
+          <TabsContent value="pilot" className="w-full px-2 sm:px-6 pt-4">
             <PilotReadiness leads={leads} />
           </TabsContent>
         </Tabs>
