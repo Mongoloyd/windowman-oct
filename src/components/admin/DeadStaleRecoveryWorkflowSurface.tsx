@@ -516,7 +516,7 @@ export function DeadStaleRecoveryWorkflowSurface({ leads, onNavigateTab }: Props
           onClick={() => toggleSection("ambiguous")}
         >
           <CardTitle className="text-sm flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-violet-600" />
+            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
             Ambiguous / Needs Operator Review
             <Badge variant="outline" className="ml-2 h-5 text-[10px]">
               {ambiguousRows.length}
