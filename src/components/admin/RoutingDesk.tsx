@@ -359,7 +359,7 @@ export function RoutingDesk({ leads }: Props) {
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-2 mt-0.5">
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                           {row.contractor && (
                             <span className="inline-flex items-center gap-1 text-[11px] text-cyan-700">
                               <Building2 className="h-3 w-3" />
@@ -377,6 +377,27 @@ export function RoutingDesk({ leads }: Props) {
                               {row.latestRoute.route_status}
                             </Badge>
                           )}
+                          {/* Phase 7: Ownership badges derived from full route history */}
+                          {(() => {
+                            const allRoutes = (routesQuery.data as RoutingRoute[] | undefined) ?? [];
+                            const oppRoutes = allRoutes.filter((r) => r.opportunity_id === row.opportunity.id);
+                            const badges = deriveOwnershipBadges({
+                              routes: oppRoutes,
+                              reportUnlockedAt: lead?.report_unlocked_at ?? null,
+                              routedToContractorAt: (lead as any)?.routed_to_contractor_at ?? null,
+                            });
+                            return badges
+                              .filter((b: OwnershipBadge) => b !== "currently_assigned") // already shown via contractor name
+                              .map((b: OwnershipBadge) => (
+                                <Badge
+                                  key={b}
+                                  variant="outline"
+                                  className="text-[10px] border-violet-500/40 text-violet-700 bg-violet-500/10"
+                                >
+                                  {ownershipBadgeLabel(b)}
+                                </Badge>
+                              ));
+                          })()}
                         </div>
                       </div>
 
