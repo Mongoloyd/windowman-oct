@@ -199,7 +199,7 @@ export default function MarketBaselineTool({ onLeadCaptured }: MarketBaselineToo
       `  3. What is the labor warranty period?`,
       `  4. What installation method are you using (fin or full frame)?`,
       ``,
-      `Powered by WindowMan.pro — AI-Powered Impact Window Quote Intelligence`,
+      `Powered by WindowMan.app — AI-Powered Impact Window Quote Intelligence`,
     ].join('\n');
 
     const blob    = new Blob([text], { type: 'text/plain' });

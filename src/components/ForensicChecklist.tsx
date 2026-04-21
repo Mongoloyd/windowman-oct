@@ -28,7 +28,7 @@ const ForensicChecklist = ({ onUploadQuote, onSetReminder }: ForensicChecklistPr
           </div>
 
           <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-muted border-b border-border px-7 py-4">
-            <div className="shrink-0"><p className="font-mono text-[13px] text-destructive font-bold tracking-[0.15em]">WINDOWMAN.PRO</p><p className="font-mono text-[10px] text-muted-foreground">Forensic Intelligence Division</p></div>
+            <div className="shrink-0"><p className="font-mono text-[13px] text-destructive font-bold tracking-[0.15em]">WINDOWMAN.APP</p><p className="font-mono text-[10px] text-muted-foreground">Forensic Intelligence Division</p></div>
             <div className="text-left sm:text-center flex-1"><p className="font-mono text-xs text-foreground font-bold">HOMEOWNER'S FORENSIC CHECKLIST</p><p className="font-mono text-[10px] text-muted-foreground">Pre-Quote Site Visit Edition</p></div>
             <div className="shrink-0"><div className="bg-destructive/10 border border-destructive/30 px-2.5 py-1"><p className="font-mono text-[10px] text-destructive font-bold tracking-[0.08em]">CONFIDENTIAL</p></div></div>
           </div>
