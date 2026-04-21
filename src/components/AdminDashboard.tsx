@@ -298,6 +298,10 @@ function DashboardContent() {
           <TabsContent value="attribution">
             <AttributionTab leads={leads} isLoading={false} />
           </TabsContent>
+
+          <TabsContent value="pilot">
+            <PilotReadiness leads={leads} />
+          </TabsContent>
         </Tabs>
       </div>
     </div>
