@@ -86,6 +86,16 @@ function leadCtxFromCRM(lead: CRMLead): RoutingLeadContext {
   };
 }
 
+function ownershipBadgeLabel(b: OwnershipBadge): string {
+  switch (b) {
+    case "currently_assigned": return "Assigned";
+    case "released": return "Released";
+    case "previously_assigned": return "Has Prior Owner";
+    case "recovery_candidate": return "Recovery Candidate";
+    case "reassignable": return "Reassignable";
+  }
+}
+
 export function RoutingDesk({ leads }: Props) {
   const queryClient = useQueryClient();
   const [selectedContractor, setSelectedContractor] = useState<Record<string, string>>({});
