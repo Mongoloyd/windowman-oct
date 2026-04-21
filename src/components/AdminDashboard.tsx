@@ -42,6 +42,7 @@ import { PostPilotLearningsDecisionSupportSurface } from "@/components/admin/Pos
 import { ChangeManagementSafeUpdateReadinessSurface } from "@/components/admin/ChangeManagementSafeUpdateReadinessSurface";
 import { MinimumViableGovernanceDecisionBoundariesSurface } from "@/components/admin/MinimumViableGovernanceDecisionBoundariesSurface";
 import { OperatorScenarioDrillsSurface } from "@/components/admin/OperatorScenarioDrillsSurface";
+import { ExpansionPreconditionsMarketEntryReadinessSurface } from "@/components/admin/ExpansionPreconditionsMarketEntryReadinessSurface";
 
 import {
   invokeAdminData,
@@ -295,6 +296,7 @@ function DashboardContent() {
             <TabsTrigger value="change-mgmt" className="flex-1 min-w-[130px]">Change Mgmt</TabsTrigger>
             <TabsTrigger value="governance" className="flex-1 min-w-[110px]">Governance</TabsTrigger>
             <TabsTrigger value="drills" className="flex-1 min-w-[110px]">Scenario Drills</TabsTrigger>
+            <TabsTrigger value="expansion" className="flex-1 min-w-[110px]">Expansion</TabsTrigger>
             <TabsTrigger value="attribution" className="flex-1 min-w-[100px]">Attribution</TabsTrigger>
             <TabsTrigger value="pilot" className="flex-1 min-w-[120px]">Pilot Readiness</TabsTrigger>
           </TabsList>
