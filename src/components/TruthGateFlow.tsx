@@ -6,6 +6,7 @@ import { useTickerStats } from "@/hooks/useTickerStats";
 import { supabase } from "@/integrations/supabase/client";
 import { useScanFunnelSafe } from "@/state/scanFunnel";
 import { captureUtmFromUrl } from "@/lib/useUtmCapture";
+import { readLateFbCookies } from "@/lib/attribution/fbCookies";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STEP CONFIGURATION
@@ -378,6 +379,16 @@ const TruthGateFlow = ({
 
       // Capture attribution fresh from current URL
       const utm = captureUtmFromUrl();
+
+      // Late re-read of `_fbp` / `_fbc` cookies right before insert.
+      // The Pixel may have seeded them AFTER `captureUtmFromUrl()` ran
+      // (script loaded late, consent granted mid-funnel). Only validated
+      // values are written — malformed cookies log one diagnostic and
+      // resolve to null, never garbage. Never blocks submission.
+      const fb = readLateFbCookies(
+        { fbp: utm.fbp, fbc: utm.fbc },
+        { surface: "truth_gate_flow", sessionId },
+      );
 
       // Slug resolution priority (highest → lowest):
       //   1. funnel.clientSlug — set by /lp/:slug route via ScanFunnelProvider (canonical white-label entry)
