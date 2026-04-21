@@ -259,6 +259,7 @@ function DashboardContent() {
       <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="flex w-full flex-wrap h-auto gap-1 max-w-6xl">
+            <TabsTrigger value="surface-map" className="flex-1 min-w-[110px]">Surface Map</TabsTrigger>
             <TabsTrigger value="launch" className="flex-1 min-w-[110px]">Launch Control</TabsTrigger>
             <TabsTrigger value="command" className="flex-1 min-w-[110px]">Command Center</TabsTrigger>
             <TabsTrigger value="pipeline" className="flex-1 min-w-[110px]">Active Pipeline</TabsTrigger>
