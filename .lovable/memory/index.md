@@ -63,3 +63,4 @@ WindowMan.PRO design system and architecture constraints
 - [Sprint 1 — Tenant Lockdown](mem://revenue-os/sprint-1-tenant-lockdown) — direct sentinel, slug-integrity trigger, idempotent fire_crm_handoff, four v_admin_* views
 - [Sprint 2 — Contractor↔Client Bridge](mem://revenue-os/sprint-2-contractor-client-bridge) — contractor_client_assignments table, resolve_contractors_for_client_slug, four v_admin_assignments_* views
 - [Sprint 3 — Tenant Propagation](mem://revenue-os/sprint-3-tenant-propagation) — analyses + contractor_opportunities auto-inherit client_slug from parent lead via BEFORE INSERT/UPDATE triggers; three v_admin_*_slug_* views
+- [Sprint 4 — Routing Resolver](mem://revenue-os/sprint-4-routing-resolver) — resolve_route_for_lead/slug return single chosen receiver (primary → priority ASC → created_at ASC) with typed no_route_reason; three v_admin_routing_* views; read-only, no delivery
