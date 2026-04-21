@@ -1,68 +1,47 @@
 
+# Pilot Readiness — Mobile Layout Pass
 
-# Phase 7 Fix + Finish Wiring
+Tighten only the two sections that fail at narrow widths. Cards and badges keep their current size; only the **stacking direction** and **breakpoints** change.
 
-## Audit summary
+## Changes (single file: `src/components/admin/PilotReadiness.tsx`)
 
-**Build break (1 missing import):**
-- `src/components/admin/OpportunityRouteTimeline.tsx` line 151 references `<OwnershipBlock>` but never imports it. The file lives at `src/components/admin/OwnershipBlock.tsx` and exports both `OwnershipBlock` and `deriveOwnershipBadges`.
+### 1. Routing Flow — vertical-on-mobile, horizontal-on-desktop
+Currently a single `flex` row with `overflow-x-auto`, so on mobile the right half of the funnel (Routed → Booked → Closed) is hidden behind a scroll. Switch to:
 
-**Phase 7 wiring status:**
-- ✅ `OwnershipBlock` + `LeadLifecycleTimeline` components created (operator-safe, repo-real only)
-- ✅ Types extended (`OwnershipBadge`, lifecycle timestamps on `CRMLead`)
-- ✅ `OpportunityRouteTimeline` already attempts to render `<OwnershipBlock>` — just missing the import
-- ❌ `LeadLifecycleTimeline` is created but never mounted anywhere
-- ❌ `RoutingDesk` row headers don't show ownership badges (only the expanded section gets the timeline)
-- ❌ `ActivePipeline` has no ownership-aware filters
-- ❌ `LeadDossierSheet` has no lifecycle timeline block
+- `flex flex-col sm:flex-row` on the container
+- `FlowArrow` rotates: `rotate-90 sm:rotate-0` (down arrow on mobile, right arrow on desktop)
+- `FlowStep` keeps its `min-w-[120px]` but becomes `w-full sm:w-auto` so each step fills the mobile row instead of being cramped
+- Drop `overflow-x-auto` — no longer needed
 
-## Changes (smallest safe diff)
+Result: on mobile the 6 steps stack vertically with down arrows between them; on `sm+` the existing horizontal layout returns unchanged.
 
-### 1. Fix the build break
-**`src/components/admin/OpportunityRouteTimeline.tsx`**
-- Add `import { OwnershipBlock } from "./OwnershipBlock";`
-- Pass `reportUnlockedAt` and `routedToContractorAt` from the parent lead (already loaded via `opps` query — find the lead match through the existing `leads` array or skip if not in scope; safer to leave those props optional as they already are).
+### 2. Market Coverage — single column on mobile
+Currently `grid-cols-2` at base width truncates most Florida county names ("Miami-Dade", "Palm Beach", "Hillsborough"). Change grid to:
 
-### 2. Mount `LeadLifecycleTimeline` in the dossier
-**`src/components/admin/LeadDossierSheet.tsx`**
-- Import `LeadLifecycleTimeline`.
-- Replace the existing terse "Activity Timeline" block (lines 757–765) with `<LeadLifecycleTimeline lead={lead} />`. Keep the `<SectionTitle>Activity Timeline</SectionTitle>` header. The new component renders the full repo-real lifecycle (created → verified → unlocked → routed → viewed → responded → interested → released → booked → closed) and filters out empty milestones.
+- `grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4`
 
-### 3. Ownership badges on `RoutingDesk` row headers
-**`src/components/admin/RoutingDesk.tsx`**
-- Import `deriveOwnershipBadges` from `./OwnershipBlock`.
-- For each row, compute badges from that opportunity's full route history (filter `routesQuery.data` by `opportunity_id`, plus the lead's `report_unlocked_at` / `routed_to_contractor_at`).
-- Render the resulting badges as a small inline strip in the row header (next to the existing route_status badge). This makes the ledger visible at-a-glance without expanding.
+Each county tile keeps its existing padding, border, badge size, and `truncate` rule — but at the smallest width each tile gets the full row, so the name renders in full.
 
-### 4. Ownership-aware filters on `ActivePipeline`
-**`src/components/admin/ActivePipeline.tsx`**
-- Add a second `Select` (Ownership filter) with options backed by repo-real `CRMLead` fields only:
-  - `all` (default)
-  - `assigned` — `routed_to_contractor_at != null`
-  - `unassigned` — `routed_to_contractor_at == null`
-  - `booked` — `appointment_booked_at != null`
-  - `closed` — `closed_at != null`
-  - `recovery_candidate` — `report_unlocked_at` >14d ago AND no `routed_to_contractor_at` (operator view, label includes "(operator view)")
-- Add a small "Owner" column to the table showing `assigned_partner` already exists — rename the column header from "Partner" to "Owner" for clarity, no logic change.
-- All filters apply via the existing `filteredLeads` `useMemo`.
+### 3. Header card — minor wrap fix
+The header row uses `flex items-center gap-2 flex-wrap` already, which is correct. No change.
+
+### Sections explicitly NOT changed
+- `OneContractorSummaryStrip` (reused component, owns its own responsive grid)
+- `MarketOpsFeed` (reused, owns its own layout)
+- `SharedMarketReadinessSection` (reused)
+- `ExplainerCard` grid (`grid-cols-1 sm:grid-cols-2 lg:grid-cols-4`) — already correct
+- `ReceiveRow` grid (`grid-cols-1 sm:grid-cols-2`) — already correct
+- All card padding, badge sizes, font sizes, icon sizes — unchanged
 
 ## Constraints honored
-- ✅ No new backend endpoints, no schema changes, no migrations
-- ✅ No OTP / Twilio / scanner / tracking / public funnel changes
-- ✅ All ownership signals derived from repo-real `contractor_opportunity_routes` rows + repo-real `leads` lifecycle timestamps
-- ✅ "Recovery Candidate" / "Reassignable" remain operator-derived UI labels, not backend statuses
-- ✅ Centralized `invokeAdminData` / TanStack Query pattern preserved
-- ✅ No "cartel" language; uses Ownership / Owner / Recovery Candidate
-- ✅ No Phase 8 work, no token/style polish
 
-## Files changed
-```
-EDIT  src/components/admin/OpportunityRouteTimeline.tsx   (add OwnershipBlock import — fixes build)
-EDIT  src/components/admin/LeadDossierSheet.tsx           (mount LeadLifecycleTimeline)
-EDIT  src/components/admin/RoutingDesk.tsx                (ownership badges in row headers)
-EDIT  src/components/admin/ActivePipeline.tsx             (ownership filter dropdown + column rename)
-```
+- Read-only surface; no handlers, no state, no new data, no new types
+- No font-size shrinking, no badge shrinking, no card padding reduction
+- Pure Tailwind responsive class adjustments
+- One file touched: `src/components/admin/PilotReadiness.tsx`
 
-## Verification
-After edits: `npx tsc --noEmit` should exit clean. The previously failing `OpportunityRouteTimeline.tsx(151,8): error TS2304` resolves with the import on line 1 fix.
+## Verification after change
 
+- At 375px width: routing flow stacks vertically with all 6 steps visible; county tiles render one-per-row with full names
+- At ≥640px (`sm`): layout matches the current desktop appearance exactly
+- `npx tsc --noEmit` clean (no type changes)
