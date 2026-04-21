@@ -23,6 +23,7 @@ import { RoutingDesk } from "@/components/admin/RoutingDesk";
 import { OneContractorSummaryStrip } from "@/components/admin/OneContractorSummaryStrip";
 import { MarketOpsFeed } from "@/components/admin/MarketOpsFeed";
 import { PilotReadiness } from "@/components/admin/PilotReadiness";
+import { PilotOpsLaunchControl } from "@/components/admin/PilotOpsLaunchControl";
 
 import {
   invokeAdminData,
