@@ -74,6 +74,9 @@ function timeAgo(dateStr: string): string {
 }
 
 type StatusFilter = "all" | PipelineStatus;
+type OwnershipFilter = "all" | "assigned" | "unassigned" | "booked" | "closed" | "recovery_candidate";
+
+const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 
 /* ── Component ───────────────────────────────────────────────────────── */
 
