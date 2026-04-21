@@ -475,6 +475,116 @@ export async function updateLeadManualEntry(params: {
   return invokeAdminData("update_lead_manual_entry", params);
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Phase 6 — Single-Client Delivery Spine: Routing wrappers
+// All actions below are existing repo-real admin-data actions; these are
+// just typed convenience wrappers. No new endpoints, no new payload shapes.
+// ═══════════════════════════════════════════════════════════════════════════
+
+import type {
+  RoutingOpportunity,
+  RoutingRoute,
+  RoutingContractor,
+} from "@/types/routingDesk";
+
+/** List all contractor opportunities (operator+). */
+export async function fetchOpportunities(): Promise<RoutingOpportunity[]> {
+  const result = await invokeAdminData("fetch_opportunities");
+  return (result ?? []) as RoutingOpportunity[];
+}
+
+/** List route rows, optionally filtered by opportunity_id (operator+). */
+export async function fetchRoutes(opportunityId?: string): Promise<RoutingRoute[]> {
+  const payload = opportunityId ? { opportunity_id: opportunityId } : {};
+  const result = await invokeAdminData("fetch_routes", payload as any);
+  return (result ?? []) as RoutingRoute[];
+}
+
+/** List contractors (operator+). */
+export async function fetchContractors(): Promise<RoutingContractor[]> {
+  const result = await invokeAdminData("fetch_contractors");
+  return (result ?? []) as RoutingContractor[];
+}
+
+/** Mark an opportunity as dead (operator+). */
+export async function markOpportunityDead(args: {
+  opportunity_id: string;
+  scan_session_id?: string;
+}): Promise<{ success: boolean }> {
+  return invokeAdminData("mark_dead", args);
+}
+
+/**
+ * Direct route_opportunity wrapper — used internally by routeLeadToContractor.
+ * Prefer the unified helper below for new call sites.
+ */
+export async function routeOpportunity(args: {
+  opportunity_id: string;
+  contractor_id: string;
+  scan_session_id?: string;
+}): Promise<{ success: boolean }> {
+  return invokeAdminData("route_opportunity", args);
+}
+
+/**
+ * ⭐ CANONICAL UNIFIED ROUTING HELPER ⭐
+ *
+ * One operator action = one canonical writer chain. Both RoutingDesk and
+ * LeadDossierSheet call this — no parallel paths.
+ *
+ * Step 1: send-contractor-handoff — guarantees the opportunity row exists,
+ *         dispatches the email, and sets lead.latest_opportunity_id. Returns
+ *         opportunity_id we can attach a route to.
+ * Step 2: route_opportunity — inserts the formal contractor_opportunity_routes
+ *         row + sets routed_at on the opportunity (audit trail).
+ *
+ * If step 2 fails after step 1 succeeded, the opportunity still exists and
+ * the email was sent; we surface a soft warning rather than throw, so the
+ * operator can retry routing without re-emailing the contractor.
+ */
+export async function routeLeadToContractor(
+  leadId: string,
+  contractorId: string,
+  scanSessionId?: string,
+): Promise<{
+  success: boolean;
+  opportunity_id?: string;
+  warning?: string;
+  handoff_warning?: string;
+}> {
+  // 1. Handoff: upsert opportunity + send email.
+  const handoff = await sendContractorHandoff(leadId);
+  if (!handoff.success || !handoff.opportunity_id) {
+    return {
+      success: false,
+      warning: handoff.warning ?? "Handoff did not return an opportunity_id",
+    };
+  }
+
+  // 2. Attach formal route row + audit trail.
+  try {
+    await routeOpportunity({
+      opportunity_id: handoff.opportunity_id,
+      contractor_id: contractorId,
+      ...(scanSessionId ? { scan_session_id: scanSessionId } : {}),
+    });
+  } catch (err) {
+    // Opportunity exists, email sent, but route audit failed — surface as warning.
+    return {
+      success: true,
+      opportunity_id: handoff.opportunity_id,
+      handoff_warning: handoff.warning,
+      warning: getErrorMessage(err),
+    };
+  }
+
+  return {
+    success: true,
+    opportunity_id: handoff.opportunity_id,
+    handoff_warning: handoff.warning,
+  };
+}
+
 /**
  * Response type map for admin actions.
  */
