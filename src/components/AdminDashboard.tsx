@@ -39,6 +39,7 @@ import { DataQualityFieldIntegritySurface } from "@/components/admin/DataQuality
 import { ExceptionHandlingManualEscalationSurface } from "@/components/admin/ExceptionHandlingManualEscalationSurface";
 import { DocumentationHandoffReadinessSurface } from "@/components/admin/DocumentationHandoffReadinessSurface";
 import { PostPilotLearningsDecisionSupportSurface } from "@/components/admin/PostPilotLearningsDecisionSupportSurface";
+import { ChangeManagementSafeUpdateReadinessSurface } from "@/components/admin/ChangeManagementSafeUpdateReadinessSurface";
 
 import {
   invokeAdminData,
