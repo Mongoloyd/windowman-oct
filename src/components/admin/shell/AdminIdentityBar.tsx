@@ -13,23 +13,7 @@ import { LogOut, LogIn, ShieldCheck, ShieldAlert, Eye, Wrench } from "lucide-rea
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-
-type JwtRole = "super_admin" | "admin" | "operator" | "viewer" | null;
-
-function decodeJwtRole(accessToken: string | undefined): JwtRole {
-  if (!accessToken) return null;
-  try {
-    const payload = accessToken.split(".")[1];
-    const json = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
-    const role = json?.app_metadata?.role ?? json?.role ?? null;
-    if (role === "super_admin" || role === "admin" || role === "operator" || role === "viewer") {
-      return role;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
+import { decodeJwtRole, type JwtRole } from "@/components/admin/auth/decodeJwtRole";
 
 function RolePill({ role, devBypass }: { role: JwtRole; devBypass: boolean }) {
   if (devBypass) {

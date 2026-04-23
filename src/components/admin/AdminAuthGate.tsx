@@ -17,6 +17,7 @@ import { Loader2, ShieldAlert } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import { decodeJwtRole, isAdminRole, type JwtRole } from "@/components/admin/auth/decodeJwtRole";
 
 interface AdminAuthGateProps {
   children: ReactNode;
@@ -29,31 +30,40 @@ export function AdminAuthGate({ children }: AdminAuthGateProps) {
   return <ProductionAdminAuthGate>{children}</ProductionAdminAuthGate>;
 }
 
+type GateStatus = "checking" | "anonymous" | "unauthorized" | "authorized";
+
 function ProductionAdminAuthGate({ children }: AdminAuthGateProps) {
   const location = useLocation();
-  const [checking, setChecking] = useState(true);
-  const [authenticated, setAuthenticated] = useState(false);
+  const [status, setStatus] = useState<GateStatus>("checking");
+  const [decodedRole, setDecodedRole] = useState<JwtRole>(null);
 
   useEffect(() => {
     let mounted = true;
 
+    const apply = (
+      session: Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"]
+    ) => {
+      if (!mounted) return;
+      if (!session?.user) {
+        setDecodedRole(null);
+        setStatus("anonymous");
+        return;
+      }
+      const role = decodeJwtRole(session.access_token);
+      setDecodedRole(role);
+      setStatus(isAdminRole(role) ? "authorized" : "unauthorized");
+    };
+
     supabase.auth
       .getSession()
-      .then(({ data }) => {
-        if (!mounted) return;
-        setAuthenticated(!!data?.session?.user);
-        setChecking(false);
-      })
+      .then(({ data }) => apply(data.session))
       .catch(() => {
         if (!mounted) return;
-        setAuthenticated(false);
-        setChecking(false);
+        setDecodedRole(null);
+        setStatus("anonymous");
       });
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!mounted) return;
-      setAuthenticated(!!session?.user);
-    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => apply(session));
 
     return () => {
       mounted = false;
@@ -61,7 +71,7 @@ function ProductionAdminAuthGate({ children }: AdminAuthGateProps) {
     };
   }, []);
 
-  if (checking) {
+  if (status === "checking") {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
@@ -72,12 +82,24 @@ function ProductionAdminAuthGate({ children }: AdminAuthGateProps) {
     );
   }
 
-  if (!authenticated) {
+  if (status === "anonymous") {
     return (
       <Navigate
         to="/admin/login"
         replace
         state={{ from: location.pathname + location.search }}
+      />
+    );
+  }
+
+  if (status === "unauthorized") {
+    return (
+      <AdminUnauthorizedPanel
+        message={
+          decodedRole
+            ? `Your account is signed in with role "${decodedRole}", which does not grant operator access. Ask a super admin to upgrade your role.`
+            : "Your account is signed in but does not carry an operator role. Ask a super admin to grant you access."
+        }
       />
     );
   }
