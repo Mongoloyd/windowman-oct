@@ -14,7 +14,11 @@ const points = [
   "Controlled intake",
 ] as const;
 
-const ExclusivitySection = () => (
+interface ExclusivitySectionProps {
+  onOpenQualification?: () => void;
+}
+
+const ExclusivitySection = ({ onOpenQualification }: ExclusivitySectionProps) => (
   <section className="py-24 bg-black">
     <div className="max-w-4xl mx-auto px-6 text-center">
       <motion.h2 {...fadeUp} className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-white mb-6">
@@ -30,11 +34,12 @@ const ExclusivitySection = () => (
       </motion.ul>
       <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.15 }}>
         <motion.button
+          onClick={onOpenQualification}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           className="inline-flex items-center justify-center bg-white text-black px-8 py-4 rounded-full font-bold text-lg hover:bg-zinc-200 transition-colors"
         >
-          Request Access
+          See If You Qualify
         </motion.button>
       </motion.div>
     </div>
