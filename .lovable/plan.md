@@ -1,110 +1,96 @@
 
 
-## Hero CTA restructure + 4 contextual modal triggers on `/contractors2`
+## Wire `/contractors3` to canonical lead-capture modal + contextual CRO CTAs
 
-All buttons open the existing `QualificationFlow` modal already wired in `src/pages/Contractors2.tsx` via `qualOpen` state. No new components, no schema changes, no `/contractors3` impact.
+Mirror the `/contractors2` CTA architecture on the dark `/contractors3` page. Replace the dummy `.jsx` modal with the canonical TSX `QualificationFlow` (saves to `contractor_leads`), lift state into `Contractors3.tsx`, mount the floating pill, restructure the hero, and inject 4 contextual modal triggers. All new buttons share one primary style tuned for the dark theme.
 
-### Approach: lift `setQualOpen` into the sections that need it
+### 1. Data layer — canonicalize the form
 
-Each target section will accept a single optional `onOpenQualification: () => void` prop (matching the pattern already used by `QualificationStripSection`). `Contractors2.tsx` passes `() => setQualOpen(true)` to each.
+**Delete** the dummy contractors3 qualification stack (these have no other importers — confirmed via grep, only `Contractors3.tsx` references them):
+- `src/pages/contractors3/components/qualification/QualificationFlow.jsx`
+- `src/pages/contractors3/components/qualification/StepCard.jsx`
+- `src/pages/contractors3/components/qualification/OptionButton.jsx`
 
-All 5 section files (`HeroSection`, `CompetitorQuoteSection`, `ArbitrageModelSection`, `FlywheelSection`, `ExclusivitySection`) are imported only by `Contractors2.tsx` — confirmed via grep. Adding an optional prop is non-breaking elsewhere.
-
----
-
-### Change 1 — `src/components/sections/HeroSection.tsx`
-
-**Hero CTA cluster (lines 60–79):**
-
-- Add prop: `onOpenQualification?: () => void`
-- Replace the two `<a>` tags with:
-  - **Primary** (button, opens modal): `Get Window Buyers` — same white/black styling as current primary, swap to `<button onClick={onOpenQualification}>`
-  - **Secondary** (link to Calendly, demoted to outline style): `Book a 10-Minute Walkthrough` — switch to the outlined `border border-white/10 text-white` styling currently used by "Call or Text"
-- **Delete** the "Call or Text" anchor entirely
-- Remove now-unused `PAGE_CONFIG.phone` reference if no longer needed (keep `PAGE_CONFIG.calendly`)
-
-### Change 2 — `src/components/sections/CompetitorQuoteSection.tsx`
-
-Section: "We Don't Generate Demand. We Intercept It."
-
-- Add prop: `onOpenQualification?: () => void`
-- Inside the bottom conclusion card (after the `<p>` on line 81–84), add a centered primary button:
-  - Text: **`Intercept Active Buyers`**
-  - Style: matches hero primary — `inline-flex items-center justify-center rounded-xl bg-white text-slate-950 font-semibold text-sm px-7 py-3.5 hover:bg-white/90 transition-colors mt-5`
-  - Wrap with `motion.button` for parity, `onClick={onOpenQualification}`
-
-### Change 3 — `src/components/sections/ArbitrageModelSection.tsx`
-
-Section: "Our Arbitrage Model"
-
-- Add prop: `onOpenQualification?: () => void`
-- Add a centered CTA block after the closing of the inner grid `</div>` on line 165, **inside** the rounded panel, with top border separator:
-  - Text: **`Capture This Margin`**
-  - Style: same white primary as above (sits well on the dark grid panel)
-  - `onClick={onOpenQualification}`
-
-### Change 4 — `src/components/sections/FlywheelSection.tsx`
-
-Section: "The Compounding Pricing Monopoly" (this is where it actually lives — the user's description matches this section, not a separate one)
-
-- Add prop: `onOpenQualification?: () => void`
-- Append a primary button at the end of the left column's `space-y-8` block (after the third bullet, line 45):
-  - Text: **`Leverage Our County Data`**
-  - Style: same white primary, with `mt-2` for breathing room from the bullets
-  - `onClick={onOpenQualification}`
-
-### Change 5 — `src/components/sections/ExclusivitySection.tsx`
-
-Section: "Not Every Contractor Is a Fit"
-
-- Add prop: `onOpenQualification?: () => void`
-- Existing button (lines 32–38):
-  - Change text: `Request Access` → **`See If You Qualify`**
-  - Add `onClick={onOpenQualification}` to the existing `motion.button`
-  - Keep all current styling (rounded-full pill, `bg-white text-black px-8 py-4`)
-
-### Change 6 — `src/pages/Contractors2.tsx`
-
-Wire the prop through to the five sections:
-
+**`src/pages/contractors3/Contractors3.tsx`** — swap the import:
 ```tsx
-<HeroSection onOpenQualification={() => setQualOpen(true)} />
-<MarketTruthSection />
-<CinematicDivider />
-<CompetitorQuoteSection onOpenQualification={() => setQualOpen(true)} />
-...
-<ArbitrageModelSection onOpenQualification={() => setQualOpen(true)} />
-...
-<FlywheelSection onOpenQualification={() => setQualOpen(true)} />
-...
-<ExclusivitySection onOpenQualification={() => setQualOpen(true)} />
+// remove:
+import QualificationFlow from "./components/qualification/QualificationFlow.jsx";
+// add:
+import QualificationFlow from "@/components/qualification/QualificationFlow";
+import CTAFloatPill from "@/components/contractors/CTAFloatPill";
+import { WarmIntentProvider } from "@/hooks/useWarmIntent";
 ```
 
-`QualificationFlow` mount and `QualificationStripSection` ("Check Your Territory") remain unchanged — they already work.
+State already lifted (`qualOpen` / `setQualOpen`). Pass `onOpenQualification={() => setQualOpen(true)}` to: `HeroSection`, `CompetitorQuoteSection`, `EconomicsSection`, `DifferentiationSection`, `ExclusivitySection`. (`QualificationStripSection` already wired.)
 
----
+### 2. Floating sticky CTA
 
-### Files touched
+Wrap the page in `<WarmIntentProvider>` (required by `useWarmIntent` inside `CTAFloatPill`) and mount the pill inside it:
+```tsx
+<WarmIntentProvider>
+  <div className="contractors3-page">
+    {/* existing PageWrapper + sections */}
+    <CTAFloatPill onRequestAccess={() => setQualOpen(true)} />
+  </div>
+</WarmIntentProvider>
+```
+The mobile bottom-bar "Check Your Territory" button stays as-is and also opens the modal.
 
-1. `src/components/sections/HeroSection.tsx`
-2. `src/components/sections/CompetitorQuoteSection.tsx`
-3. `src/components/sections/ArbitrageModelSection.tsx`
-4. `src/components/sections/FlywheelSection.tsx`
-5. `src/components/sections/ExclusivitySection.tsx`
-6. `src/pages/Contractors2.tsx`
+### 3. Hero restructure — `src/pages/contractors3/components/sections/HeroSection.jsx`
 
-### Out of scope (explicit)
+- Add `onOpenQualification` prop.
+- Replace the Calendly `<a>` (currently "Book a 10-Minute Walkthrough") **with a primary `<button>` "Get Window Buyers"** wired to `onClick={onOpenQualification}`.
+- Demote the Calendly link to secondary outline style (border `border-white/20 bg-transparent text-white`) and keep label "Book a 10-Minute Walkthrough".
+- **Remove** the "Call or Text {phone}" anchor entirely.
+- Update the helper microcopy below to: `Or talk to us by phone — see footer.` (small, neutral) so we don't lose the phone option entirely without a redirect surprise.
 
-- No new components extracted
-- No DB / schema changes; no `source_cta` attribution this pass
-- `/contractors3`, `/contractors`, `QualificationFlow.tsx` internals — untouched
-- Sticky footer, GTM, OTP, scanner, backend — untouched
+### 4. Contextual inline CTAs
+
+All buttons reuse this single primary style (matches new hero + the page's existing white-on-black pill convention):
+
+```
+inline-flex items-center justify-center rounded-full bg-white px-8 py-4
+text-base font-bold text-black transition-all hover:bg-white/90 active:scale-[0.98]
+```
+
+Each section gets `onOpenQualification?: () => void` prop and a centered button after the section's main content:
+
+| Section file | Button label | Placement |
+|---|---|---|
+| `CompetitorQuoteSection.jsx` ("We Don't Generate Generic Demand…") | **Intercept Active Buyers** | New `<div className="mt-10 flex justify-center">` after the closing blockquote (line 108) |
+| `EconomicsSection.jsx` ("Fewer Leads. Better Timing…") | **Access Higher-Intent Buyers** | New centered block after the Conservative Math card (after line 67) |
+| `DifferentiationSection.jsx` ("This Is Not Shared Lead Gen.") | **Stop Buying Shared Leads** | New `<div className="mt-10 flex justify-center">` after the closing quote (after line 58) |
+| `ExclusivitySection.jsx` ("One Contractor Per Territory.") | **See If Your Territory Is Open** | Replace the existing Calendly `<a>` (lines 22–25) with a `<button>` triggering `onOpenQualification`. Label already matches the spec. |
+
+Each section file gets a minimal prop signature change:
+```jsx
+export default function CompetitorQuoteSection({ onOpenQualification }) { … }
+```
+
+### 5. File diff summary
+
+**Modified (6):**
+1. `src/pages/contractors3/Contractors3.tsx` — swap modal import, add `WarmIntentProvider`, mount `CTAFloatPill`, pass prop to 4 more sections
+2. `src/pages/contractors3/components/sections/HeroSection.jsx` — primary button + demote Calendly + remove phone CTA
+3. `src/pages/contractors3/components/sections/CompetitorQuoteSection.jsx` — prop + button
+4. `src/pages/contractors3/components/sections/EconomicsSection.jsx` — prop + button
+5. `src/pages/contractors3/components/sections/DifferentiationSection.jsx` — prop + button
+6. `src/pages/contractors3/components/sections/ExclusivitySection.jsx` — prop + replace anchor with button
+
+**Deleted (3):**
+- `src/pages/contractors3/components/qualification/QualificationFlow.jsx`
+- `src/pages/contractors3/components/qualification/StepCard.jsx`
+- `src/pages/contractors3/components/qualification/OptionButton.jsx`
+
+### Out of scope
+- DB schema, `contractor_leads` payload (no `sourcePage`/`sourceCta` attribution this pass)
+- `/contractors`, `/contractors2`, canonical `QualificationFlow.tsx` internals — untouched
+- No new components extracted; no theme inversion of the modal (canonical modal renders on its own dark overlay and works fine on the black page)
 
 ### Verification after apply
-
-- `/contractors2` hero shows two buttons: `Get Window Buyers` (primary, white) + `Book a 10-Minute Walkthrough` (secondary, outline). No "Call or Text" button.
-- Clicking `Get Window Buyers` opens the same modal as "Check Your Territory" lower on the page.
-- Each of the four new contextual buttons opens the same modal.
-- `ExclusivitySection` button now reads "See If You Qualify" and opens the modal (was a dead button before).
-- `git diff` touches only the 6 files above.
+- `/contractors3` hero shows **Get Window Buyers** (white primary, opens modal) + **Book a 10-Minute Walkthrough** (outline). No "Call or Text" button.
+- All 4 contextual buttons + the Exclusivity button + the existing mobile sticky + the new floating pill (after warm-intent triggers) open the same canonical 6-step `QualificationFlow` that writes to `contractor_leads`.
+- Submitting the modal from `/contractors3` produces a row in `contractor_leads` (same path as `/contractors2`).
+- TypeScript + grep show no remaining importers of the deleted `.jsx` qualification files.
+- `git diff` touches only the 6 modified + 3 deleted files above.
 
