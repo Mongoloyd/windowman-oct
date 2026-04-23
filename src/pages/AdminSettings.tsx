@@ -542,42 +542,27 @@ function AdminSettingsContent() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="bg-white border-b border-slate-100 shadow-sm sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-5 space-y-3">
-          <AdminBackLink />
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-11 h-11 rounded-2xl bg-gradient-to-b from-blue-500 to-blue-600 shadow-lg shadow-blue-200/50 flex items-center justify-center">
-                <UserCog className="w-5.5 h-5.5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-lg font-extrabold text-slate-900 tracking-tight">
-                  Access Control
-                </h1>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  {users.length} user{users.length !== 1 ? "s" : ""} with assigned roles
-                </p>
-              </div>
-            </div>
-            <Button
-              onClick={() => {
-                fetchUsers();
-                fetchAuditLog();
-              }}
-              className="bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:shadow-md rounded-xl shadow-sm transition-all duration-200 px-4"
-            >
-              <RefreshCw
-                className={`w-4 h-4 mr-2 ${isLoadingUsers ? "animate-spin" : ""}`}
-              />
-              Refresh
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+    <AdminShell
+      eyebrow="Admin · Access Control"
+      title="Role Management"
+      subtitle={`${users.length} user${users.length !== 1 ? "s" : ""} with assigned roles`}
+      backTo="/admin"
+      belowHeader={
+        <Button
+          onClick={() => {
+            fetchUsers();
+            fetchAuditLog();
+          }}
+          variant="outline"
+          size="sm"
+          className="h-9"
+        >
+          <RefreshCw className={`w-4 h-4 mr-2 ${isLoadingUsers ? "animate-spin" : ""}`} />
+          Refresh
+        </Button>
+      }
+    >
+      <div className="max-w-5xl mx-auto space-y-8">
         {/* Role Stat Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {(Object.keys(ROLE_CONFIG) as AppRole[]).map((roleKey) => (
