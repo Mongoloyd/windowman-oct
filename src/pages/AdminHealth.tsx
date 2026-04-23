@@ -22,6 +22,7 @@ interface RouteCheck {
 const REQUIRED_ROUTES: Array<Pick<RouteCheck, "path" | "label">> = [
   { path: "/admin/login", label: "Admin login (public)" },
   { path: "/admin", label: "Admin shell (gated)" },
+  { path: "/admin/leads", label: "Lead inbox (gated)" },
   { path: "/admin/forgot-password", label: "Password recovery" },
   { path: "/admin/reset-password", label: "Password reset" },
 ];

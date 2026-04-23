@@ -26,6 +26,8 @@ const AdminLogin = lazy(() => import("./pages/AdminLogin.tsx"));
 const AdminForgotPassword = lazy(() => import("./pages/AdminForgotPassword.tsx"));
 const AdminResetPassword = lazy(() => import("./pages/AdminResetPassword.tsx"));
 const AdminHealth = lazy(() => import("./pages/AdminHealth.tsx"));
+const AdminLeadInbox = lazy(() => import("./pages/AdminLeadInbox.tsx"));
+const AdminLeadDossierPage = lazy(() => import("./pages/AdminLeadDossierPage.tsx"));
 const DevReportPreview = lazy(() => import("./pages/DevReportPreview.tsx"));
 const DevTesting = lazy(() => import("./pages/DevTesting.tsx"));
 const DevTesting2 = lazy(() => import("./pages/DevTesting2.tsx"));
@@ -133,6 +135,8 @@ const App = () => (
                 <Route path="/admin/health" element={<AdminHealth />} />
                 {/* ── Admin shell (gated) ── */}
                 <Route path="/admin" element={<AdminAuthGate><AdminDashboard /></AdminAuthGate>} />
+                <Route path="/admin/leads" element={<AdminAuthGate><AdminLeadInbox /></AdminAuthGate>} />
+                <Route path="/admin/leads/:id" element={<AdminAuthGate><AdminLeadDossierPage /></AdminAuthGate>} />
                 <Route path="/admin/settings" element={<AdminAuthGate><AdminSettings /></AdminAuthGate>} />
                 <Route path="/admin/partners" element={<AdminAuthGate><AdminPartners /></AdminAuthGate>} />
                 <Route path="/demo-classic" element={<DemoClassic />} />
