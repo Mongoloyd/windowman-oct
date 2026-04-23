@@ -1,99 +1,66 @@
+## Typography-only hero cleanup
 
+Smallest-safe-diff pass on two files. No theme, layout, or logic changes.
 
-## DEV-only client bypass via `localStorage` prompt — no backend changes
+### File 1: `src/components/AuditHero.tsx`
 
-Replace every `import.meta.env.VITE_DEV_BYPASS_SECRET` reference with a runtime `localStorage` lookup that prompts once per browser. `VerifyGate` short-circuits in DEV when a secret is present. Production is untouched because every code path is wrapped in `import.meta.env.DEV`.
+**H1 (currently lines ~146–148):**
 
-### New file
-
-**`src/lib/devSecret.ts`** (~30 lines)
-```ts
-const KEY = 'wm_dev_secret';
-
-export function getDevSecret(): string | null {
-  if (!import.meta.env.DEV) return null;
-  try {
-    let v = localStorage.getItem(KEY);
-    if (v) return v;
-    const entered = window.prompt('Enter DEV_BYPASS_SECRET (cancel to use normal OTP flow):');
-    if (entered && entered.trim()) {
-      v = entered.trim();
-      localStorage.setItem(KEY, v);
-      return v;
-    }
-    return null; // user cancelled → fall back to normal flow
-  } catch {
-    return null;
-  }
-}
-
-export function peekDevSecret(): string | null {
-  if (!import.meta.env.DEV) return null;
-  try { return localStorage.getItem(KEY); } catch { return null; }
-}
-
-export function clearDevSecret(): void {
-  try { localStorage.removeItem(KEY); } catch {}
-}
+```
+className="font-display text-4xl md:text-5xl lg:text-6xl font-extrabold leading-[1.08] tracking-tight text-foreground mb-5"
 ```
 
-Two accessors on purpose:
-- `getDevSecret()` — may prompt. Used by explicit user actions (clicking a DEV scenario button, manually requesting unlock).
-- `peekDevSecret()` — never prompts. Used by `VerifyGate` auto-skip and by passive admin fetches so we don't pop a prompt on every page load.
+→
 
-### File changes
+```
+className="font-display text-5xl lg:text-6xl font-extrabold leading-[1.1] tracking-tight text-foreground mb-5"
+```
 
-**1. `src/components/TruthReportFindings/VerifyGate.tsx`**
-- Add `useEffect` on mount: if `import.meta.env.DEV` and `peekDevSecret()` returns a value, call `onVerified()` immediately and return.
-- Do **not** call `send-otp` or `verify-otp` in that branch. No prompt — if no secret is stored, the gate behaves exactly as today (normal OTP flow).
-- Production build: `import.meta.env.DEV` is false, the effect bails, behavior is identical to today.
+**Paragraph (currently lines ~163–165):**
 
-**2. `src/hooks/useAnalysisData.ts`**
-- Replace all `import.meta.env.VITE_DEV_BYPASS_SECRET` reads with `peekDevSecret()`.
-- The dev-bypass fetch path activates only when both `import.meta.env.DEV` is true and `peekDevSecret()` returns a string.
-- Real-user `fetchFull(phoneE164)` path unchanged.
+```
+className="font-body text-base md:text-lg leading-relaxed text-foreground/80 mb-8"
+```
 
-**3. `src/services/adminDataService.ts`**
-- Replace `const devSecret = import.meta.env.DEV ? import.meta.env.VITE_DEV_BYPASS_SECRET : undefined;` with `const devSecret = peekDevSecret();` in `invokeAdminData`, `dialLead`, `sendContractorHandoff`.
-- Header still sent as `x-dev-secret` exactly as today, so the existing server-side `DEV_BYPASS_SECRET` check in `admin-data`/`dial-lead`/`send-contractor-handoff` keeps working unchanged.
-- Production session-JWT path unchanged.
+→
 
-**4. `src/components/dev/DevQuoteGenerator.tsx`**
-- Remove the module-level `const DEV_SECRET = import.meta.env.VITE_DEV_BYPASS_SECRET ...`.
-- Inside `runScenario`, call `getDevSecret()` (the prompting variant — user explicitly clicked a scenario button, so a one-time prompt is fine).
-- If it returns `null` (user cancelled), set `result.error = 'DEV bypass cancelled'` and return.
-- Status text updates: `peekDevSecret() ? 'Bypass: ✓ secret stored in localStorage' : '⚠️ Click a scenario to be prompted for DEV_BYPASS_SECRET'`.
-- Component is already wrapped in `if (!import.meta.env.DEV) return null;` — production never renders it.
+```
+className="font-body max-w-[65ch] text-lg lg:text-xl leading-relaxed text-foreground/80 mb-8"
+```
 
-**5. `.env.example`**
-- Remove the `VITE_DEV_BYPASS_SECRET=...` line.
-- Add a one-line comment: `# DEV bypass: stored in browser localStorage at runtime via window.prompt — see src/lib/devSecret.ts`.
+Nothing else in this file is touched: trust pill, ticker stats strip, mascot, grade card, CTAs, PowerTool, TrustBullets, OCR image, and JSX fallback content all stay byte-identical.
 
-**6. `.lovable/memory/features/dev-bypass.md`**
-- Update Secrets section: drop `VITE_DEV_BYPASS_SECRET`. Document that the client side now prompts once and stores in `localStorage.wm_dev_secret`. Server-side `DEV_BYPASS_SECRET` remains the only real enforcement.
+### File 2: `src/config/homepageVariants.ts`
 
-### What is NOT touched (confirmed)
+`badgeText` values: untouched (per request).
+`weight`, `id`, `ACTIVE_VARIANTS`, `ALL_VARIANTS` keys: untouched.
 
-- No new edge functions, no token server, no HMAC/JWT, no host allowlist.
-- No changes to `send-otp`, `verify-otp`, `scan-quote`, `dev-report-unlock`, `admin-data`, `dial-lead`, `send-contractor-handoff`, or any other backend file.
-- No changes to Twilio config, OTP rate limits, upload, scanner, scoring, GTM, CAPI, report email, or homeowner flow.
-- No DB/RLS changes.
-- Existing server-side `DEV_BYPASS_SECRET` env var stays exactly as it is — it remains the only real enforcement boundary.
+Headlines normalized from ALL CAPS → title/sentence case. Subheadlines only edited where capitalization is awkward (the `pre_sign` subheadline currently has Title-Cased every word — it gets normalized to sentence case).
 
-### How you use it in preview
 
-1. Open the preview URL, navigate to any OTP-gated shell (`/diagnosis` post-scan, report view, admin pages).
-2. The first explicit DEV action (clicking a scenario in `DevQuoteGenerator`, or manually clearing storage and reloading on a gated page) prompts: `"Enter DEV_BYPASS_SECRET (cancel to use normal OTP flow):"`. Paste the same secret you set for the server-side `DEV_BYPASS_SECRET`. It persists in `localStorage.wm_dev_secret`.
-3. From that point on, `VerifyGate` auto-skips on every page load, admin fetches send the `x-dev-secret` header, and DEV scenarios run without burning Twilio.
-4. To revert to real OTP testing in DEV: open DevTools console, run `localStorage.removeItem('wm_dev_secret')`, reload. (Or call `clearDevSecret()` from a future DEV button if you want one.)
-5. Cancel the prompt at any time → falls back cleanly to the normal Twilio OTP flow with zero errors.
+| variant         | new headline                                                                         | subheadline change                                                                                                                                              |
+| --------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `accusation`    | `""` (unchanged — JSX fallback)                                                      | unchanged                                                                                                                                                       |
+| `direct_action` | `Scan your quote. Beat your contractors.`                                            | unchanged                                                                                                                                                       |
+| `loss_aversion` | `The average Florida homeowner overpays $4,800 on impact windows. Don't be average.` | unchanged                                                                                                                                                       |
+| `fine_print`    | `Your contractor hopes you don't read the fine print. We read it for you.`           | unchanged                                                                                                                                                       |
+| `pre_sign`      | `Before you sign that quote, let AI check the math.`                                 | `Upload your estimate. In seconds, our AI forensically grades it across 5 key areas: safety, scope, pricing, fine print, and warranty. Best of all, it's Free.` |
+| `question`      | `Is your contractor overcharging you? Find out in 60 seconds.`                       | unchanged                                                                                                                                                       |
+| `free_audit`    | `Free AI audit: see exactly where your quote is overpriced.`                         | unchanged                                                                                                                                                       |
 
-### Definition of done checklist
 
-- [ ] `grep -r "VITE_DEV_BYPASS_SECRET" src/` returns zero hits.
-- [ ] `.env.example` no longer mentions `VITE_DEV_BYPASS_SECRET`.
-- [ ] In DEV with secret stored: `VerifyGate` auto-completes, no `send-otp`/`verify-otp` calls in Network tab.
-- [ ] In DEV with no secret stored (or user cancelled): normal OTP flow runs unchanged.
-- [ ] In production build (`wmmvp.lovable.app`): `import.meta.env.DEV` is false, every dev branch is dead code, OTP flow runs as today.
-- [ ] Server-side `DEV_BYPASS_SECRET` check in existing edge functions is the sole authority — rotating it instantly invalidates every browser's stored secret.
+Note: this normalizes `pre_sign` to sentence case (matching the rest of the variants after this pass), superseding the earlier Title Case edit. If you want `pre_sign` to remain in Title Case as an outlier, say so and I'll keep `"Before You Sign That Quote, Let AI Check The Math"` instead.
 
+### Out of scope (explicitly not touched)
+
+- Ticker stats strip
+- Trust pill / floating badge
+- "THE SCANNER", "STEP 1 OF 4 · CONFIGURE YOUR SCAN", "How it works" — none of these live in `AuditHero.tsx` anyway
+- Any other section, OTP, scanner, GTM, backend, or routing logic
+- `badgeText` strings
+
+### Verification after apply
+
+- `git diff` touches only the two files listed
+- Hero H1 and paragraph render with new sizing/measure on the live preview
+- Variant rotation still works; no key renamed
