@@ -26,6 +26,8 @@ const AdminLogin = lazy(() => import("./pages/AdminLogin.tsx"));
 const AdminForgotPassword = lazy(() => import("./pages/AdminForgotPassword.tsx"));
 const AdminResetPassword = lazy(() => import("./pages/AdminResetPassword.tsx"));
 const AdminHealth = lazy(() => import("./pages/AdminHealth.tsx"));
+const AdminLeadInbox = lazy(() => import("./pages/AdminLeadInbox.tsx"));
+const AdminLeadDossierPage = lazy(() => import("./pages/AdminLeadDossierPage.tsx"));
 const DevReportPreview = lazy(() => import("./pages/DevReportPreview.tsx"));
 const DevTesting = lazy(() => import("./pages/DevTesting.tsx"));
 const DevTesting2 = lazy(() => import("./pages/DevTesting2.tsx"));
