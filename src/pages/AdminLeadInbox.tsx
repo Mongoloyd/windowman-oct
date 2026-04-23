@@ -362,7 +362,7 @@ function LeadTable({ leads, onView }: { leads: CRMLead[]; onView: (id: string) =
                       to={`/admin/leads/${l.id}`}
                       onClick={(e) => e.stopPropagation()}
                       className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
-                      aria-label={`View lead ${name}`}
+                      aria-label={`View details for ${name}`}
                     >
                       View
                       <ChevronRight className="h-3.5 w-3.5" />
