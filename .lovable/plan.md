@@ -1,96 +1,81 @@
 
 
-## Wire `/contractors3` to canonical lead-capture modal + contextual CRO CTAs
+## Plan: Read-only Session Diagnostic Panel
 
-Mirror the `/contractors2` CTA architecture on the dark `/contractors3` page. Replace the dummy `.jsx` modal with the canonical TSX `QualificationFlow` (saves to `contractor_leads`), lift state into `Contractors3.tsx`, mount the floating pill, restructure the hero, and inject 4 contextual modal triggers. All new buttons share one primary style tuned for the dark theme.
+### Goal
+Surface the live browser auth/session truth inside the admin shell so we can prove which of these is the real PR-1 blocker: no session, stale JWT, wrong user, broken `/signin`, missing `app_metadata.role`, or DEV-bypass masking the real state.
 
-### 1. Data layer — canonicalize the form
+### Constraints honored
+- Read-only. No writes (no `user_roles`, no `auth.users`, no schema, no RPCs).
+- No protected-path edits (no changes to `phoneVerificationService.ts`, `PhoneVerifyModal.tsx`, `VerifyGate.tsx`, `AuthGuard.tsx`, `useCurrentUserRole.ts`, edge functions, or RLS).
+- No PR-2 work.
+- New code is additive only.
 
-**Delete** the dummy contractors3 qualification stack (these have no other importers — confirmed via grep, only `Contractors3.tsx` references them):
-- `src/pages/contractors3/components/qualification/QualificationFlow.jsx`
-- `src/pages/contractors3/components/qualification/StepCard.jsx`
-- `src/pages/contractors3/components/qualification/OptionButton.jsx`
+---
 
-**`src/pages/contractors3/Contractors3.tsx`** — swap the import:
-```tsx
-// remove:
-import QualificationFlow from "./components/qualification/QualificationFlow.jsx";
-// add:
-import QualificationFlow from "@/components/qualification/QualificationFlow";
-import CTAFloatPill from "@/components/contractors/CTAFloatPill";
-import { WarmIntentProvider } from "@/hooks/useWarmIntent";
-```
+### Files
 
-State already lifted (`qualOpen` / `setQualOpen`). Pass `onOpenQualification={() => setQualOpen(true)}` to: `HeroSection`, `CompetitorQuoteSection`, `EconomicsSection`, `DifferentiationSection`, `ExclusivitySection`. (`QualificationStripSection` already wired.)
+**Add:** `src/components/admin/diagnostics/SessionDiagnosticPanel.tsx`
+A self-contained component that reads the live browser auth state and renders it. No props. No mutations. Re-runs on `onAuthStateChange` and on a manual "Refresh" button.
 
-### 2. Floating sticky CTA
+**Modify (minimal):** `src/components/AdminDashboard.tsx`
+- Add one tab trigger: `<TabsTrigger value="session-diag">Session Diag</TabsTrigger>`
+- Add one matching `<TabsContent value="session-diag">` rendering `<SessionDiagnosticPanel />`
+- No other changes.
 
-Wrap the page in `<WarmIntentProvider>` (required by `useWarmIntent` inside `CTAFloatPill`) and mount the pill inside it:
-```tsx
-<WarmIntentProvider>
-  <div className="contractors3-page">
-    {/* existing PageWrapper + sections */}
-    <CTAFloatPill onRequestAccess={() => setQualOpen(true)} />
-  </div>
-</WarmIntentProvider>
-```
-The mobile bottom-bar "Check Your Territory" button stays as-is and also opens the modal.
+That's it — 2 files, one new and one tab-only addition.
 
-### 3. Hero restructure — `src/pages/contractors3/components/sections/HeroSection.jsx`
+---
 
-- Add `onOpenQualification` prop.
-- Replace the Calendly `<a>` (currently "Book a 10-Minute Walkthrough") **with a primary `<button>` "Get Window Buyers"** wired to `onClick={onOpenQualification}`.
-- Demote the Calendly link to secondary outline style (border `border-white/20 bg-transparent text-white`) and keep label "Book a 10-Minute Walkthrough".
-- **Remove** the "Call or Text {phone}" anchor entirely.
-- Update the helper microcopy below to: `Or talk to us by phone — see footer.` (small, neutral) so we don't lose the phone option entirely without a redirect surprise.
+### What the panel will show (live, from the browser)
 
-### 4. Contextual inline CTAs
+Rendered as a single read-only card with labeled rows:
 
-All buttons reuse this single primary style (matches new hero + the page's existing white-on-black pill convention):
+1. **Session presence** — `supabase.auth.getSession()` → has `data.session` (yes/no), error if any.
+2. **`auth.uid`** — `session.user.id` or `(none)`.
+3. **Email** — `session.user.email` or `(none)`.
+4. **Access token presence** — `!!session.access_token` and token length (no token printed).
+5. **Decoded JWT `app_metadata.role`** — base64-decode the JWT payload client-side and surface `app_metadata.role` (and `role`, `aud`, `exp`). This is the exact field `is_internal_operator()` reads.
+6. **Anonymous vs authenticated** — derived: `aud === 'authenticated' && uid present`.
+7. **App's "is internal operator" judgment** — what `useCurrentUserRole` currently returns in this browser (role, isSuperAdmin, isOperator, hasWriteAccess, isLoading, error). Includes a banner if `import.meta.env.DEV` is true so we can SEE that the dev-bypass is masking real state.
+8. **Live RLS probe** — one read-only `select id from public.contractors limit 1` so the panel surfaces the exact `permission denied` error code (e.g. `42501`) and message under the live session, without going through the Inspector.
+9. **JWT expiry** — `exp` decoded to a human time + "expires in N minutes" so a stale token is obvious.
+10. **Refresh button** — calls `supabase.auth.getSession()` again and re-runs the contractors probe.
 
-```
-inline-flex items-center justify-center rounded-full bg-white px-8 py-4
-text-base font-bold text-black transition-all hover:bg-white/90 active:scale-[0.98]
-```
+### Defensive details
 
-Each section gets `onOpenQualification?: () => void` prop and a centered button after the section's main content:
+- JWT decode is pure client-side (`atob(payload)`), wrapped in try/catch; never throws.
+- All values rendered as strings; `null`/`undefined` shown as `(none)`.
+- No secrets printed (token value masked, only length + first 6 chars).
+- Component handles `onAuthStateChange` cleanup properly.
+- Uses semantic tokens (`bg-card`, `text-muted-foreground`, `border`, `text-destructive`) — no hardcoded colors.
+- Mounts under a new tab so it does not displace any existing surface.
 
-| Section file | Button label | Placement |
-|---|---|---|
-| `CompetitorQuoteSection.jsx` ("We Don't Generate Generic Demand…") | **Intercept Active Buyers** | New `<div className="mt-10 flex justify-center">` after the closing blockquote (line 108) |
-| `EconomicsSection.jsx` ("Fewer Leads. Better Timing…") | **Access Higher-Intent Buyers** | New centered block after the Conservative Math card (after line 67) |
-| `DifferentiationSection.jsx` ("This Is Not Shared Lead Gen.") | **Stop Buying Shared Leads** | New `<div className="mt-10 flex justify-center">` after the closing quote (after line 58) |
-| `ExclusivitySection.jsx` ("One Contractor Per Territory.") | **See If Your Territory Is Open** | Replace the existing Calendly `<a>` (lines 22–25) with a `<button>` triggering `onOpenQualification`. Label already matches the spec. |
+### Critical finding the panel will make obvious
 
-Each section file gets a minimal prop signature change:
-```jsx
-export default function CompetitorQuoteSection({ onOpenQualification }) { … }
-```
+`AuthGuard` and `useCurrentUserRole` both have hard `import.meta.env.DEV` short-circuits that pretend the user is `super_admin` with no real session. The live preview at `id-preview--…lovable.app` runs with `DEV=true`, so:
 
-### 5. File diff summary
+- `AuthGuard` lets ANY visitor through.
+- `useCurrentUserRole` returns a fabricated `super_admin` role.
+- But the actual `supabase.auth` session in the browser may be **anonymous** (no JWT, no `app_metadata.role`).
+- `is_internal_operator()` runs against the REAL JWT in the network call → returns `false` → `permission denied for table contractors`.
 
-**Modified (6):**
-1. `src/pages/contractors3/Contractors3.tsx` — swap modal import, add `WarmIntentProvider`, mount `CTAFloatPill`, pass prop to 4 more sections
-2. `src/pages/contractors3/components/sections/HeroSection.jsx` — primary button + demote Calendly + remove phone CTA
-3. `src/pages/contractors3/components/sections/CompetitorQuoteSection.jsx` — prop + button
-4. `src/pages/contractors3/components/sections/EconomicsSection.jsx` — prop + button
-5. `src/pages/contractors3/components/sections/DifferentiationSection.jsx` — prop + button
-6. `src/pages/contractors3/components/sections/ExclusivitySection.jsx` — prop + replace anchor with button
+The panel surfaces this gap directly: "App thinks: super_admin (DEV bypass) | Real JWT: anonymous | RLS probe: 42501". That is the diagnosis.
 
-**Deleted (3):**
-- `src/pages/contractors3/components/qualification/QualificationFlow.jsx`
-- `src/pages/contractors3/components/qualification/StepCard.jsx`
-- `src/pages/contractors3/components/qualification/OptionButton.jsx`
+### What I will NOT touch
+- `AuthGuard.tsx` — DEV bypass stays.
+- `useCurrentUserRole.ts` — DEV bypass stays.
+- `phoneVerificationService.ts`, `PhoneVerifyModal.tsx`, `VerifyGate.tsx`.
+- Inspector components.
+- Any RLS policy or DB function.
+- `/signin` route (you flagged it as broken — out of scope for this diagnostic).
 
-### Out of scope
-- DB schema, `contractor_leads` payload (no `sourcePage`/`sourceCta` attribution this pass)
-- `/contractors`, `/contractors2`, canonical `QualificationFlow.tsx` internals — untouched
-- No new components extracted; no theme inversion of the modal (canonical modal renders on its own dark overlay and works fine on the black page)
+### PR-1 status statement
+PR-1 remains **not done**. The diagnostic panel is the instrument we use to determine what to fix next. I will not declare PR-1 done until the Inspector reads real rows under a real, non-bypassed admin browser session.
 
-### Verification after apply
-- `/contractors3` hero shows **Get Window Buyers** (white primary, opens modal) + **Book a 10-Minute Walkthrough** (outline). No "Call or Text" button.
-- All 4 contextual buttons + the Exclusivity button + the existing mobile sticky + the new floating pill (after warm-intent triggers) open the same canonical 6-step `QualificationFlow` that writes to `contractor_leads`.
-- Submitting the modal from `/contractors3` produces a row in `contractor_leads` (same path as `/contractors2`).
-- TypeScript + grep show no remaining importers of the deleted `.jsx` qualification files.
-- `git diff` touches only the 6 modified + 3 deleted files above.
+### Acceptance for this step
+- Build clean (`tsc --noEmit` exit 0).
+- `/admin` → "Session Diag" tab renders the 10 rows above without crashing.
+- The contractors probe row shows either real rows or the exact Postgres error code/message under the live session.
+- No protected paths modified.
 
