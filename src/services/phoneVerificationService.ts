@@ -1,8 +1,10 @@
 /**
  * phoneVerificationService — Supabase transport for OTP send/verify.
  *
- * Owns function invocation, response parsing, and error normalization.
- * Hooks call these functions instead of touching supabase directly.
+ * SOLE TRANSPORT for `send-otp` / `verify-otp`. Do not invoke these edge
+ * functions directly from components — extend this service or
+ * `usePhonePipeline` instead. Payload shape is locked by
+ * `usePhonePipeline.test.ts`.
  */
 
 import { supabase } from "@/integrations/supabase/client";

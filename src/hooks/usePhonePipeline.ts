@@ -1,5 +1,9 @@
 /**
- * usePhonePipeline — Shared hook for all phone-bearing forms.
+ * usePhonePipeline — Single OTP orchestration hook for all phone-bearing forms.
+ *
+ * Adding a new OTP UI? Consume this hook — do not call
+ * `supabase.functions.invoke('send-otp' | 'verify-otp')` directly.
+ * Payload shape is locked by `usePhonePipeline.test.ts`.
  *
  * Two modes:
  *   validate_only        — screen + normalize, no OTP
