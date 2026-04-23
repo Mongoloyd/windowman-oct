@@ -32,7 +32,12 @@ type ActionName =
   | "list_meta_configurations" | "create_meta_client_config"
   | "set_meta_client_active"   | "preview_meta_route"
   | "smoke_send_meta_event" | "diagnose_token_health"
-  | "summarize_meta_fleet_health";
+  | "summarize_meta_fleet_health"
+  // Lead workspace (Sprint 4 + 5)
+  | "fetch_lead_detail"
+  | "update_lead_funnel_stage"
+  | "list_lead_notes" | "create_lead_note" | "delete_lead_note"
+  | "list_lead_tasks" | "create_lead_task" | "update_lead_task" | "delete_lead_task";
 
 const ACTION_ROLES: Record<ActionName, AppRole[]> = {
   fetch_leads: ["super_admin", "operator", "viewer"],
@@ -74,7 +79,26 @@ const ACTION_ROLES: Record<ActionName, AppRole[]> = {
   smoke_send_meta_event:     ["super_admin"],
   diagnose_token_health:     ["super_admin", "operator", "viewer"],
   summarize_meta_fleet_health: ["super_admin", "operator", "viewer"],
+  // Lead workspace
+  fetch_lead_detail:        ["super_admin", "operator", "viewer"],
+  update_lead_funnel_stage: ["super_admin", "operator"],
+  list_lead_notes:          ["super_admin", "operator", "viewer"],
+  create_lead_note:         ["super_admin", "operator"],
+  delete_lead_note:         ["super_admin", "operator"],
+  list_lead_tasks:          ["super_admin", "operator", "viewer"],
+  create_lead_task:         ["super_admin", "operator"],
+  update_lead_task:         ["super_admin", "operator"],
+  delete_lead_task:         ["super_admin", "operator"],
 };
+
+// Allowed funnel stages (Sprint 5 — kept in sync with frontend constants)
+const ALLOWED_FUNNEL_STAGES = new Set([
+  "new", "qualified", "analyzing", "routed",
+  "contacted", "booked", "closed", "stale", "ghost",
+]);
+const ALLOWED_NOTE_CATEGORIES = new Set([
+  "general", "call", "email", "sms", "meeting", "internal",
+]);
 
 // ── CAPI helpers ────────────────────────────────────────────────────────────
 // Token redaction is delegated to the shared module so admin-data, capi-event
