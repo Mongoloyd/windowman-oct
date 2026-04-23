@@ -60,10 +60,12 @@ vi.mock("sonner", () => ({
 }));
 
 // Stub framer-motion to avoid AnimatePresence height transitions in jsdom.
+// Preserve the underlying tag (motion.button → button, motion.div → div).
 vi.mock("framer-motion", () => {
-  const Comp = ({ children, ...rest }: any) => React.createElement("div", rest, children);
+  const make = (tag: string) => ({ children, ...rest }: any) =>
+    React.createElement(tag, rest, children);
   return {
-    motion: new Proxy({}, { get: () => Comp }),
+    motion: new Proxy({}, { get: (_, key: string) => make(key) }),
     AnimatePresence: ({ children }: any) => React.createElement(React.Fragment, null, children),
   };
 });
