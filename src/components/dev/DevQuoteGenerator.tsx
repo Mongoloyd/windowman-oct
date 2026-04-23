@@ -6,6 +6,7 @@ import { SCENARIO_FIXTURES, type ScenarioFixture } from "@/test/createMockQuote"
 import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { getDevSecret, peekDevSecret } from "@/lib/devSecret";
 
 interface RunResult {
   scenarioKey: string;
@@ -26,7 +27,6 @@ interface DevQuoteGeneratorProps {
   onScanStart?: (fileName: string, scanSessionId: string) => void;
 }
 
-const DEV_SECRET = import.meta.env.VITE_DEV_BYPASS_SECRET as string | undefined;
 
 export function DevQuoteGenerator({ sessionId, onScanStart }: DevQuoteGeneratorProps) {
   const [results, setResults] = useState<RunResult[]>([]);
@@ -48,8 +48,10 @@ export function DevQuoteGenerator({ sessionId, onScanStart }: DevQuoteGeneratorP
     };
 
     try {
-      if (!DEV_SECRET) {
-        result.error = "VITE_DEV_BYPASS_SECRET not set in .env";
+      // Prompts once per browser if not yet stored. Cancel → fall back cleanly.
+      const devSecret = getDevSecret();
+      if (!devSecret) {
+        result.error = "DEV bypass cancelled (no secret stored)";
         return result;
       }
 
