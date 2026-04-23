@@ -25,13 +25,7 @@ interface PhoneVerifyModalProps {
 
 type Step = "phone" | "sending" | "otp" | "verifying" | "error";
 
-export function PhoneVerifyModal({
-  open,
-  onClose,
-  onVerified,
-  issueCount,
-  scanSessionId,
-}: PhoneVerifyModalProps) {
+export function PhoneVerifyModal({ open, onClose, onVerified, issueCount, scanSessionId }: PhoneVerifyModalProps) {
   const { displayValue, rawDigits, e164, isValid, handleChange } = usePhoneInput();
   const [otpValue, setOtpValue] = useState("");
   const [step, setStep] = useState<Step>("phone");
@@ -98,10 +92,7 @@ export function PhoneVerifyModal({
         className="fixed inset-0 z-50 flex items-center justify-center px-4"
       >
         {/* Backdrop */}
-        <div
-          className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-          onClick={onClose}
-        />
+        <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
 
         {/* Modal */}
         <motion.div
@@ -150,9 +141,7 @@ export function PhoneVerifyModal({
               <h2 className="font-heading text-xl sm:text-2xl font-black text-foreground leading-tight mb-2">
                 We found {issueCount} issue{issueCount !== 1 ? "s" : ""} in your quote.
               </h2>
-              <p className="text-sm text-muted-foreground">
-                Verify your number to see the full details.
-              </p>
+              <p className="text-sm text-muted-foreground">Verify your number to see the full details.</p>
             </div>
 
             {/* Error message */}
@@ -192,11 +181,9 @@ export function PhoneVerifyModal({
                         borderColor: isValid
                           ? "hsl(var(--gold))"
                           : digitCount > 0
-                          ? "hsl(var(--surface-border))"
-                          : "transparent",
-                        boxShadow: isValid
-                          ? "0 0 0 4px hsl(var(--gold) / 0.15)"
-                          : "none",
+                            ? "hsl(var(--surface-border))"
+                            : "transparent",
+                        boxShadow: isValid ? "0 0 0 4px hsl(var(--gold) / 0.15)" : "none",
                       }}
                     />
                     {digitCount > 0 && digitCount < 10 && (
@@ -224,13 +211,9 @@ export function PhoneVerifyModal({
                         ? "linear-gradient(135deg, hsl(var(--gold)), #E2B04A)"
                         : "hsl(var(--gold) / 0.2)",
                       color: isValid ? "white" : "hsl(var(--foreground) / 0.4)",
-                      border: isValid
-                        ? "1px solid hsl(var(--gold) / 0.3)"
-                        : "1px solid transparent",
+                      border: isValid ? "1px solid hsl(var(--gold) / 0.3)" : "1px solid transparent",
                       cursor: isValid && step !== "sending" ? "pointer" : "not-allowed",
-                      boxShadow: isValid
-                        ? "0 6px 24px hsl(var(--gold) / 0.4)"
-                        : "none",
+                      boxShadow: isValid ? "0 6px 24px hsl(var(--gold) / 0.4)" : "none",
                     }}
                   >
                     {step === "sending" ? (
@@ -239,7 +222,9 @@ export function PhoneVerifyModal({
                         Sending Code…
                       </>
                     ) : (
-                      <>🔓 Reveal {issueCount} Issue{issueCount !== 1 ? "s" : ""}</>
+                      <>
+                        🔓 Reveal {issueCount} Issue{issueCount !== 1 ? "s" : ""}
+                      </>
                     )}
                   </button>
                 </motion.div>
@@ -255,9 +240,7 @@ export function PhoneVerifyModal({
                   transition={{ duration: 0.25 }}
                   className="flex flex-col items-center gap-4"
                 >
-                  <p className="text-sm text-muted-foreground">
-                    Enter The 6-Digit Code Sent To Your Phone
-                  </p>
+                  <p className="text-sm text-muted-foreground">Enter The 6-Digit Code Sent To Your Phone</p>
 
                   <InputOTP maxLength={6} value={otpValue} onChange={setOtpValue}>
                     <InputOTPGroup>
@@ -280,22 +263,10 @@ export function PhoneVerifyModal({
                         otpValue.length === 6
                           ? "linear-gradient(135deg, hsl(var(--gold)), #E2B04A)"
                           : "hsl(var(--gold) / 0.2)",
-                      color:
-                        otpValue.length === 6
-                          ? "white"
-                          : "hsl(var(--foreground) / 0.4)",
-                      border:
-                        otpValue.length === 6
-                          ? "1px solid hsl(var(--gold) / 0.3)"
-                          : "1px solid transparent",
-                      cursor:
-                        otpValue.length === 6 && step !== "verifying"
-                          ? "pointer"
-                          : "not-allowed",
-                      boxShadow:
-                        otpValue.length === 6
-                          ? "0 6px 24px hsl(var(--gold) / 0.4)"
-                          : "none",
+                      color: otpValue.length === 6 ? "white" : "hsl(var(--foreground) / 0.4)",
+                      border: otpValue.length === 6 ? "1px solid hsl(var(--gold) / 0.3)" : "1px solid transparent",
+                      cursor: otpValue.length === 6 && step !== "verifying" ? "pointer" : "not-allowed",
+                      boxShadow: otpValue.length === 6 ? "0 6px 24px hsl(var(--gold) / 0.4)" : "none",
                     }}
                   >
                     {step === "verifying" ? (
