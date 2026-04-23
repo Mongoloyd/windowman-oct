@@ -1,7 +1,7 @@
 
 import React from "react";
 import { motion } from "framer-motion";
-import { PAGE_CONFIG } from "../../config/page.config.js";
+
 
 export default function ExclusivitySection({ onOpenQualification }) {
   return (
