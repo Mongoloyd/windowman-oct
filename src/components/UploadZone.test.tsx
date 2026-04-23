@@ -140,13 +140,21 @@ async function selectFile(file: File) {
 }
 
 async function findStartButton(): Promise<HTMLElement> {
-  const el = await screen.findByText(/Start My AI Scan/i);
-  return (el.tagName === "BUTTON" ? el : el.closest("button"))! as HTMLElement;
+  return await waitFor(() => {
+    const buttons = Array.from(document.querySelectorAll("button"));
+    const btn = buttons.find((b) => /Start My AI Scan/i.test(b.textContent || ""));
+    if (!btn) throw new Error("Start button not found");
+    return btn as HTMLElement;
+  });
 }
 
 async function findRetryButton(): Promise<HTMLElement> {
-  const el = await screen.findByText(/Retry Scan/i);
-  return (el.tagName === "BUTTON" ? el : el.closest("button"))! as HTMLElement;
+  return await waitFor(() => {
+    const buttons = Array.from(document.querySelectorAll("button"));
+    const btn = buttons.find((b) => /Retry Scan/i.test(b.textContent || ""));
+    if (!btn) throw new Error("Retry button not found");
+    return btn as HTMLElement;
+  });
 }
 
 // ── Tests ───────────────────────────────────────────────────────────────
