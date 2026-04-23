@@ -55,7 +55,7 @@ export const ALL_VARIANTS: Record<string, HomepageVariant> = {
   pre_sign: {
     id: "pre_sign",
     badgeText: "FREE AI QUOTE AUDIT",
-    headline: "BEFORE YOU SIGN THAT QUOTE, LET AI CHECK THE MATH.",
+    headline: "Before You Sign That Quote, Let AI Check The Math",
     subheadline:
       "Upload Your Estimate. In Seconds, Our AI Forensically Grades it Across 5 Key Areas: Safety, Scope, Pricing, Fine Print, and Warranty. Best of All It's Free.",
     weight: 1,
