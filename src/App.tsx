@@ -135,6 +135,8 @@ const App = () => (
                 <Route path="/admin/health" element={<AdminHealth />} />
                 {/* ── Admin shell (gated) ── */}
                 <Route path="/admin" element={<AdminAuthGate><AdminDashboard /></AdminAuthGate>} />
+                <Route path="/admin/leads" element={<AdminAuthGate><AdminLeadInbox /></AdminAuthGate>} />
+                <Route path="/admin/leads/:id" element={<AdminAuthGate><AdminLeadDossierPage /></AdminAuthGate>} />
                 <Route path="/admin/settings" element={<AdminAuthGate><AdminSettings /></AdminAuthGate>} />
                 <Route path="/admin/partners" element={<AdminAuthGate><AdminPartners /></AdminAuthGate>} />
                 <Route path="/demo-classic" element={<DemoClassic />} />
