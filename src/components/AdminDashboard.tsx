@@ -233,86 +233,33 @@ function DashboardContent() {
     ? `Updated ${formatDistanceToNow(lastSyncedAt, { addSuffix: true })}`
     : "Loading…";
 
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="border-b bg-card">
-        <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div>
-              <h1 className="text-xl font-bold tracking-tight">Lead Sniper CRM</h1>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {leads.length} leads · {lastSyncLabel}
-              </p>
-            </div>
-            {leads.length === 0 && initialLoadDone.current && <PreviewModeBadge />}
-          </div>
-          <div className="flex items-center gap-3">
-            <Link
-              to="/admin/settings"
-              className="rounded-md p-2 hover:bg-muted transition-colors"
-              title="Admin Settings"
-            >
-              <Settings className="h-5 w-5 text-muted-foreground" />
-            </Link>
-          </div>
-        </div>
-      </div>
+  const previewBadge =
+    leads.length === 0 && initialLoadDone.current ? <PreviewModeBadge /> : null;
 
-      {/* Tabs */}
-      <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="flex w-full flex-wrap h-auto gap-1 max-w-6xl">
-            <TabsTrigger value="surface-map" className="flex-1 min-w-[110px]">Surface Map</TabsTrigger>
-            <TabsTrigger value="launch" className="flex-1 min-w-[110px]">Launch Control</TabsTrigger>
-            <TabsTrigger value="command" className="flex-1 min-w-[110px]">Command Center</TabsTrigger>
-            <TabsTrigger value="pipeline" className="flex-1 min-w-[110px]">Active Pipeline</TabsTrigger>
-            <TabsTrigger value="routing" className="flex-1 min-w-[90px]">Routing</TabsTrigger>
-            <TabsTrigger value="ghosts" className="relative flex-1 min-w-[120px]">
-              Ghost Recovery
-              {ghosts.length > 0 && (
-                <Badge variant="destructive" className="ml-1.5 h-5 min-w-[20px] px-1 text-[10px]">
-                  {ghosts.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="needs-review" className="relative flex-1 min-w-[110px]">
-              Needs Review
-              {needsReview.length > 0 && (
-                <span className="ml-1.5 inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold bg-destructive text-destructive-foreground">
-                  {needsReview.length > 9 ? "9+" : needsReview.length}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="engine" className="flex-1 min-w-[100px]">Dialer Desk</TabsTrigger>
-            <TabsTrigger value="contractors" className="flex-1 min-w-[110px]">Contractors</TabsTrigger>
-            <TabsTrigger value="onboarding" className="flex-1 min-w-[120px]">Onboarding</TabsTrigger>
-            <TabsTrigger value="outcomes" className="flex-1 min-w-[110px]">Outcomes</TabsTrigger>
-            <TabsTrigger value="reporting" className="flex-1 min-w-[100px]">Reporting</TabsTrigger>
-            <TabsTrigger value="lifecycle" className="flex-1 min-w-[110px]">Lifecycle</TabsTrigger>
-            <TabsTrigger value="feedback" className="flex-1 min-w-[110px]">Feedback</TabsTrigger>
-            <TabsTrigger value="shared-market" className="flex-1 min-w-[130px]">Shared Market</TabsTrigger>
-            <TabsTrigger value="report-prep" className="flex-1 min-w-[120px]">Report Prep</TabsTrigger>
-            <TabsTrigger value="audit" className="flex-1 min-w-[110px]">Audit</TabsTrigger>
-            <TabsTrigger value="readiness" className="flex-1 min-w-[120px]">Health Check</TabsTrigger>
-            <TabsTrigger value="training" className="flex-1 min-w-[110px]">Training / SOP</TabsTrigger>
-            <TabsTrigger value="rollout" className="flex-1 min-w-[110px]">Rollout</TabsTrigger>
-            <TabsTrigger value="data-quality" className="flex-1 min-w-[120px]">Data Quality</TabsTrigger>
-            <TabsTrigger value="exceptions" className="flex-1 min-w-[110px]">Exceptions</TabsTrigger>
-            <TabsTrigger value="docs" className="flex-1 min-w-[110px]">Docs / Handoff</TabsTrigger>
-            <TabsTrigger value="learnings" className="flex-1 min-w-[120px]">Pilot Learnings</TabsTrigger>
-            <TabsTrigger value="change-mgmt" className="flex-1 min-w-[130px]">Change Mgmt</TabsTrigger>
-            <TabsTrigger value="governance" className="flex-1 min-w-[110px]">Governance</TabsTrigger>
-            <TabsTrigger value="drills" className="flex-1 min-w-[110px]">Scenario Drills</TabsTrigger>
-            <TabsTrigger value="expansion" className="flex-1 min-w-[110px]">Expansion</TabsTrigger>
-            <TabsTrigger value="tech-debt" className="flex-1 min-w-[110px]">Tech Debt</TabsTrigger>
-            <TabsTrigger value="consistency" className="flex-1 min-w-[120px]">Consistency</TabsTrigger>
-            <TabsTrigger value="attribution" className="flex-1 min-w-[100px]">Attribution</TabsTrigger>
-            <TabsTrigger value="pilot" className="flex-1 min-w-[120px]">Pilot Readiness</TabsTrigger>
-            <TabsTrigger value="prioritization" className="flex-1 min-w-[120px]">Prioritization</TabsTrigger>
-            <TabsTrigger value="delivery-inspector" className="flex-1 min-w-[140px]">Delivery Inspector</TabsTrigger>
-            <TabsTrigger value="session-diag" className="flex-1 min-w-[120px]">Session Diag</TabsTrigger>
-          </TabsList>
+  return (
+    <AdminShell
+      eyebrow="Lead Sniper · Admin"
+      title="Operator Command Center"
+      subtitle={`${leads.length} leads · ${lastSyncLabel}`}
+      belowHeader={
+        <div className="flex items-center gap-3">
+          {previewBadge}
+          <Link
+            to="/admin/settings"
+            className="ml-auto inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            title="Admin Settings"
+          >
+            <Settings className="h-4 w-4" />
+            Settings
+          </Link>
+        </div>
+      }
+    >
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <AdminPrimaryTabs
+          ghostCount={ghosts.length}
+          needsReviewCount={needsReview.length}
+        />
 
           <TabsContent value="surface-map" className="w-full px-2 sm:px-6 pt-4">
             <AdminInformationArchitectureNavigationSimplificationSurface
