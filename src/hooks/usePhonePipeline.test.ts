@@ -99,6 +99,8 @@ describe("usePhonePipeline submitOtp", () => {
     expect(verifyResult).toEqual({
       status: "verified",
       e164: "+13055550000",
+      phoneVerifiedEventId: null,
+      reportRevealedEventId: null,
     });
     expect(result.current.phoneStatus).toBe("verified");
     expect(onVerified).toHaveBeenCalledTimes(1);
