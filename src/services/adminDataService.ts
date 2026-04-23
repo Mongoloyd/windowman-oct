@@ -15,6 +15,7 @@
  */
 
 import { supabase } from "@/integrations/supabase/client";
+import { peekDevSecret } from "@/lib/devSecret";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -235,7 +236,7 @@ export async function invokeAdminData<T extends AdminAction>(
   payload: AdminActionPayloads[T] = {} as AdminActionPayloads[T],
 ): Promise<any> {
   // ── DEV BYPASS: Use direct fetch to avoid supabase auto-attaching anon key ──
-  const devSecret = import.meta.env.DEV ? import.meta.env.VITE_DEV_BYPASS_SECRET : undefined;
+  const devSecret = peekDevSecret();
   if (devSecret) {
     console.log(`[adminDataService] DEV BYPASS: Using direct fetch for action "${action}"`);
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -374,7 +375,7 @@ export async function fetchLeadVoiceFollowups(leadId: string): Promise<VoiceFoll
  * Uses the same dev-bypass / session JWT pattern as invokeAdminData.
  */
 export async function dialLead(leadId: string): Promise<{ success: boolean; followup_id: string; webhook_status: string }> {
-  const devSecret = import.meta.env.DEV ? import.meta.env.VITE_DEV_BYPASS_SECRET : undefined;
+  const devSecret = peekDevSecret();
 
   if (devSecret) {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -416,7 +417,7 @@ export async function dialLead(leadId: string): Promise<{ success: boolean; foll
  * Uses the same dev-bypass / session JWT pattern as dialLead.
  */
 export async function sendContractorHandoff(leadId: string): Promise<{ success: boolean; opportunity_id?: string; warning?: string }> {
-  const devSecret = import.meta.env.DEV ? import.meta.env.VITE_DEV_BYPASS_SECRET : undefined;
+  const devSecret = peekDevSecret();
 
   if (devSecret) {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;

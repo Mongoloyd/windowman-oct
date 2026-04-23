@@ -24,6 +24,7 @@ import {
   fetchAnalysisFull,
   fetchFullViaDevBypass as fetchFullViaDevBypassService,
 } from "@/services/reportService";
+import { peekDevSecret } from "@/lib/devSecret";
 
 // ── Public types ─────────────────────────────────────────────────────────────
 
@@ -473,15 +474,15 @@ export function useAnalysisData(
   }, [scanSessionId, enabled]);
 
   // ── Dev bypass helper ────────────────────────────────────────────────
-  const devBypassEnabled =
-    import.meta.env.DEV && !!import.meta.env.VITE_DEV_BYPASS_SECRET;
+  // Reads runtime secret from localStorage (no prompt, no env). Inactive
+  // in production builds and when the user has not stored a secret.
+  const devBypassEnabled = import.meta.env.DEV && !!peekDevSecret();
 
   const doDevBypassFetch = useCallback(
     async (sessionId: string): Promise<RawFullRow | null> => {
-      const result = await fetchFullViaDevBypassService(
-        sessionId,
-        import.meta.env.VITE_DEV_BYPASS_SECRET
-      );
+      const devSecret = peekDevSecret();
+      if (!devSecret) return null;
+      const result = await fetchFullViaDevBypassService(sessionId, devSecret);
       if (!result.ok) {
         const err = result as ServiceErr;
         throw new Error(err.message);
