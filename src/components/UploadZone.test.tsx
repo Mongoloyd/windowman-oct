@@ -167,7 +167,7 @@ describe("UploadZone — idempotency", () => {
     let resolveUpload: ((v: any) => void) | null = null;
     storageUpload.mockImplementationOnce(() => new Promise((r) => { resolveUpload = r; }));
 
-    const btn = await screen.findByRole("button", { name: /Start My AI Scan/i });
+    const btn = await findStartButton();
 
     await act(async () => {
       fireEvent.click(btn);
@@ -187,7 +187,7 @@ describe("UploadZone — idempotency", () => {
     render(<UploadZone isVisible sessionId="00000000-0000-0000-0000-000000000002" />);
     await selectFile(makeFile("quote.pdf", 2048));
 
-    const btn = await screen.findByRole("button", { name: /Start My AI Scan/i });
+    const btn = await findStartButton();
     await act(async () => { fireEvent.click(btn); });
 
     await waitFor(() => expect(storageUpload).toHaveBeenCalled());
@@ -226,7 +226,7 @@ describe("UploadZone — idempotency", () => {
 
     render(<UploadZone isVisible sessionId="00000000-0000-0000-0000-000000000003" />);
     await selectFile(makeFile());
-    const btn = await screen.findByRole("button", { name: /Start My AI Scan/i });
+    const btn = await findStartButton();
     await act(async () => { fireEvent.click(btn); });
 
     await waitFor(() => {
@@ -246,11 +246,11 @@ describe("UploadZone — idempotency", () => {
     render(<UploadZone isVisible sessionId="00000000-0000-0000-0000-000000000004" />);
     await selectFile(makeFile());
 
-    const btn = await screen.findByRole("button", { name: /Start My AI Scan/i });
+    const btn = await findStartButton();
     await act(async () => { fireEvent.click(btn); });
 
     // Retry button surfaces from the scan-quote failure
-    const retryBtn = await screen.findByRole("button", { name: /Retry Scan/i });
+    const retryBtn = await findRetryButton();
 
     // Second invokeScan should succeed; storage.upload must NOT be called again
     invokeMock.mockResolvedValueOnce({ data: { ok: true }, error: null });
