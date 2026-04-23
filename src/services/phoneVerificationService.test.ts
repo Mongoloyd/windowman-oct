@@ -15,6 +15,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { OtpServiceErr } from "@/types/serviceResults";
 
 const { mockInvoke } = vi.hoisted(() => ({ mockInvoke: vi.fn() }));
 
@@ -44,8 +45,9 @@ describe("phoneVerificationService — sendOtp shape (consumed by VerifyGate, Ph
     const r = await sendOtp("+13055551234");
     expect(r.ok).toBe(false);
     if (!r.ok) {
-      expect(r.message).toBe("Phone number invalid.");
-      expect(typeof r.errorCode).toBe("string");
+      const err = r as OtpServiceErr;
+      expect(err.message).toBe("Phone number invalid.");
+      expect(typeof err.errorCode).toBe("string");
     }
   });
 
@@ -56,7 +58,10 @@ describe("phoneVerificationService — sendOtp shape (consumed by VerifyGate, Ph
     });
     const r = await sendOtp("+13055551234");
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.message).toBe("Phone not reachable.");
+    if (!r.ok) {
+      const err = r as OtpServiceErr;
+      expect(err.message).toBe("Phone not reachable.");
+    }
   });
 
   it("on network exception returns ok:false with a non-empty message (network category)", async () => {
@@ -64,8 +69,9 @@ describe("phoneVerificationService — sendOtp shape (consumed by VerifyGate, Ph
     const r = await sendOtp("+13055551234");
     expect(r.ok).toBe(false);
     if (!r.ok) {
-      expect(r.message.length).toBeGreaterThan(0);
-      expect(r.errorCode).toBe("network");
+      const err = r as OtpServiceErr;
+      expect(err.message.length).toBeGreaterThan(0);
+      expect(err.errorCode).toBe("network");
     }
   });
 
@@ -102,8 +108,9 @@ describe("phoneVerificationService — verifyOtp shape (consumed by VerifyGate, 
     const r = await verifyOtp("+13055551234", "000000");
     expect(r.ok).toBe(false);
     if (!r.ok) {
-      expect(r.message).toBe("Code does not match.");
-      expect(r.errorCode).toBe("invalid_code");
+      const err = r as OtpServiceErr;
+      expect(err.message).toBe("Code does not match.");
+      expect(err.errorCode).toBe("invalid_code");
     }
   });
 
@@ -116,7 +123,10 @@ describe("phoneVerificationService — verifyOtp shape (consumed by VerifyGate, 
     });
     const r = await verifyOtp("+13055551234", "000000");
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.message).toBe("Invalid verification code");
+    if (!r.ok) {
+      const err = r as OtpServiceErr;
+      expect(err.message).toBe("Invalid verification code");
+    }
   });
 
   it("forwards scan_session_id when provided (matches Modal/VerifyGate wire shape)", async () => {

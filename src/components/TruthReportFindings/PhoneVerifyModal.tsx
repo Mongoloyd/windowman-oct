@@ -45,7 +45,8 @@ export function PhoneVerifyModal({ open, onClose, onVerified, issueCount, scanSe
     // match prior wire payload. Service maps body.error → result.message.
     const result = await sendOtp(e164);
     if (!result.ok) {
-      setErrorMsg(result.message || "Failed to send code. Try again.");
+      const err = result as import("@/types/serviceResults").OtpServiceErr;
+      setErrorMsg(err.message || "Failed to send code. Try again.");
       setStep("phone");
       return;
     }
@@ -59,7 +60,8 @@ export function PhoneVerifyModal({ open, onClose, onVerified, issueCount, scanSe
 
     const result = await verifyOtp(e164, otpValue, scanSessionId || undefined);
     if (!result.ok) {
-      setErrorMsg(result.message || "Invalid or expired code.");
+      const err = result as import("@/types/serviceResults").OtpServiceErr;
+      setErrorMsg(err.message || "Invalid or expired code.");
       setStep("otp");
       return;
     }
