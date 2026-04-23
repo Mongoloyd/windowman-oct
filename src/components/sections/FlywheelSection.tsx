@@ -11,7 +11,11 @@ const flywheelSteps = [
   { id: 6, title: "Compounding Growth", name: "More Uploads" },
 ] as const;
 
-const FlywheelSection = () => (
+interface FlywheelSectionProps {
+  onOpenQualification?: () => void;
+}
+
+const FlywheelSection = ({ onOpenQualification }: FlywheelSectionProps) => (
   <section className="py-24 bg-black">
     <div className="max-w-7xl mx-auto px-6">
       <div className="bg-slate-950 text-white p-8 md:p-16 rounded-3xl [background-image:linear-gradient(rgba(2,6,23,1)_0%,rgba(10,25,47,0.8)_100%),radial-gradient(#0f172a_1px,transparent_1px)] [background-size:100%_100%,20px_20px] overflow-hidden">
@@ -43,6 +47,15 @@ const FlywheelSection = () => (
                 </p>
               </div>
             </div>
+            {onOpenQualification && (
+              <button
+                type="button"
+                onClick={onOpenQualification}
+                className="inline-flex items-center justify-center rounded-xl bg-white text-slate-950 font-semibold text-sm px-7 py-3.5 hover:bg-white/90 transition-colors mt-2"
+              >
+                Leverage Our County Data
+              </button>
+            )}
           </div>
 
           {/* Right Column: Flywheel Diagram */}

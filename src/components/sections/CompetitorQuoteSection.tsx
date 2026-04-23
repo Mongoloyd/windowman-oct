@@ -22,7 +22,11 @@ const windowmanDoes = [
   "Surfaces risks and red flags",
 ];
 
-const CompetitorQuoteSection = () => (
+interface CompetitorQuoteSectionProps {
+  onOpenQualification?: () => void;
+}
+
+const CompetitorQuoteSection = ({ onOpenQualification }: CompetitorQuoteSectionProps) => (
   <section className="py-24">
     <div className="max-w-6xl mx-auto px-6">
       <motion.h2
@@ -82,6 +86,15 @@ const CompetitorQuoteSection = () => (
           WindowMan meets the buyer at the exact moment they start questioning
           what they've been sold.
         </p>
+        {onOpenQualification && (
+          <button
+            type="button"
+            onClick={onOpenQualification}
+            className="inline-flex items-center justify-center rounded-xl bg-white text-slate-950 font-semibold text-sm px-7 py-3.5 hover:bg-white/90 transition-colors mt-5"
+          >
+            Intercept Active Buyers
+          </button>
+        )}
       </motion.div>
     </div>
   </section>

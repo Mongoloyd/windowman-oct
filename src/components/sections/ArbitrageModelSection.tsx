@@ -41,7 +41,11 @@ const Connector = ({ icon: Icon }: { icon: React.ElementType }) => (
   </div>
 );
 
-const ArbitrageModelSection = () => {
+interface ArbitrageModelSectionProps {
+  onOpenQualification?: () => void;
+}
+
+const ArbitrageModelSection = ({ onOpenQualification }: ArbitrageModelSectionProps) => {
   return (
     <section className="py-24 bg-black">
       <div className="max-w-4xl mx-auto px-4 sm:px-6">
@@ -163,6 +167,18 @@ const ArbitrageModelSection = () => {
             </div>
 
           </div>
+
+          {onOpenQualification && (
+            <div className="mt-12 pt-8 border-t border-slate-700/50 flex justify-center">
+              <button
+                type="button"
+                onClick={onOpenQualification}
+                className="inline-flex items-center justify-center rounded-xl bg-white text-slate-950 font-semibold text-sm px-7 py-3.5 hover:bg-white/90 transition-colors"
+              >
+                Capture This Margin
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </section>

@@ -11,7 +11,11 @@ const fadeUp = {
   transition: { duration: 0.5, ease },
 };
 
-const HeroSection = () => (
+interface HeroSectionProps {
+  onOpenQualification?: () => void;
+}
+
+const HeroSection = ({ onOpenQualification }: HeroSectionProps) => (
   <section className="min-h-screen flex items-center py-24">
     <div className="max-w-[90rem] mx-auto px-6 w-full flex flex-col items-center">
       {/* Apex — character image */}
@@ -62,19 +66,20 @@ const HeroSection = () => (
             transition={{ ...fadeUp.transition, delay: 0.2 }}
             className="flex flex-col sm:flex-row gap-4"
           >
+            <button
+              type="button"
+              onClick={onOpenQualification}
+              className="inline-flex items-center justify-center rounded-xl bg-white text-slate-950 font-semibold text-sm px-7 py-3.5 hover:bg-white/90 transition-colors"
+            >
+              Get Window Buyers
+            </button>
             <a
               href={PAGE_CONFIG.calendly.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center justify-center rounded-xl bg-white text-slate-950 font-semibold text-sm px-7 py-3.5 hover:bg-white/90 transition-colors"
-            >
-              Book a 10-Minute Walkthrough
-            </a>
-            <a
-              href={PAGE_CONFIG.phone.href}
               className="inline-flex items-center justify-center rounded-xl border border-white/10 text-white font-medium text-sm px-7 py-3.5 hover:border-white/20 transition-colors"
             >
-              Call or Text
+              Book a 10-Minute Walkthrough
             </a>
           </motion.div>
         </div>

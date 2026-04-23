@@ -25,17 +25,17 @@ const Contractors2 = () => {
 
   return (
     <PageWrapper>
-      <HeroSection />
+      <HeroSection onOpenQualification={() => setQualOpen(true)} />
       <MarketTruthSection />
       <CinematicDivider />
-      <CompetitorQuoteSection />
+      <CompetitorQuoteSection onOpenQualification={() => setQualOpen(true)} />
       <BuyerReadinessSection />
       <HowItWorksSection />
-      <ArbitrageModelSection />
+      <ArbitrageModelSection onOpenQualification={() => setQualOpen(true)} />
       <EconomicsSection />
-      <FlywheelSection />
+      <FlywheelSection onOpenQualification={() => setQualOpen(true)} />
       <DifferentiationSection />
-      <ExclusivitySection />
+      <ExclusivitySection onOpenQualification={() => setQualOpen(true)} />
       <VideoSection />
       <BookingSection />
 
