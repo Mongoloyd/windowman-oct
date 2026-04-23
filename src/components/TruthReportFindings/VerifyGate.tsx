@@ -13,6 +13,7 @@ import { usePhoneInput } from "@/hooks/usePhoneInput";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { supabase } from "@/integrations/supabase/client";
 import { trackGtmEvent } from "@/lib/trackConversion";
+import { peekDevSecret } from "@/lib/devSecret";
 
 interface VerifyGateProps {
   issueCount: number;
@@ -42,11 +43,14 @@ export function VerifyGate({ issueCount, onVerified, scanSessionId }: VerifyGate
   const otpContainerRef = useRef<HTMLDivElement>(null);
 
   // ── Dev bypass: auto-skip the entire gate in DEV mode ──────────────
-  const devBypassActive = import.meta.env.DEV && !!import.meta.env.VITE_DEV_BYPASS_SECRET;
+  // Reads localStorage WITHOUT prompting. If no secret is stored (or in
+  // production), this is false and the normal OTP flow runs unchanged.
+  // Never calls send-otp / verify-otp on the bypass path.
+  const devBypassActive = import.meta.env.DEV && !!peekDevSecret();
 
   useEffect(() => {
     if (devBypassActive) {
-      console.info("[VerifyGate] 🔓 DEV BYPASS — auto-verifying");
+      console.info("[VerifyGate] 🔓 DEV BYPASS — skipping OTP send/verify");
       onVerified();
     }
   }, [devBypassActive, onVerified]);
