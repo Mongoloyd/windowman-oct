@@ -6,7 +6,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
-import { Settings } from "lucide-react";
+import { Settings, Inbox } from "lucide-react";
 import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { AdminShell } from "@/components/admin/shell/AdminShell";
@@ -244,14 +244,24 @@ function DashboardContent() {
       belowHeader={
         <div className="flex items-center gap-3">
           {previewBadge}
-          <Link
-            to="/admin/settings"
-            className="ml-auto inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            title="Admin Settings"
-          >
-            <Settings className="h-4 w-4" />
-            Settings
-          </Link>
+          <div className="ml-auto flex items-center gap-1">
+            <Link
+              to="/admin/leads"
+              className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              title="Lead Inbox"
+            >
+              <Inbox className="h-4 w-4" />
+              Lead Inbox
+            </Link>
+            <Link
+              to="/admin/settings"
+              className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              title="Admin Settings"
+            >
+              <Settings className="h-4 w-4" />
+              Settings
+            </Link>
+          </div>
         </div>
       }
     >
