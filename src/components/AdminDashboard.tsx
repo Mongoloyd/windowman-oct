@@ -47,6 +47,7 @@ import { TechnicalDebtRefactorReadinessReviewSurface } from "@/components/admin/
 import { CrossSurfaceConsistencyStatusAlignmentAuditSurface } from "@/components/admin/CrossSurfaceConsistencyStatusAlignmentAuditSurface";
 import { AdminInformationArchitectureNavigationSimplificationSurface } from "@/components/admin/AdminInformationArchitectureNavigationSimplificationSurface";
 import { StrategicPrioritizationNextBuildDecisionFrameworkSurface } from "@/components/admin/StrategicPrioritizationNextBuildDecisionFrameworkSurface";
+import { DeliveryInspectorPage } from "@/components/admin/deliveries/DeliveryInspectorPage";
 
 import {
   invokeAdminData,
@@ -307,6 +308,7 @@ function DashboardContent() {
             <TabsTrigger value="attribution" className="flex-1 min-w-[100px]">Attribution</TabsTrigger>
             <TabsTrigger value="pilot" className="flex-1 min-w-[120px]">Pilot Readiness</TabsTrigger>
             <TabsTrigger value="prioritization" className="flex-1 min-w-[120px]">Prioritization</TabsTrigger>
+            <TabsTrigger value="delivery-inspector" className="flex-1 min-w-[140px]">Delivery Inspector</TabsTrigger>
           </TabsList>
 
           <TabsContent value="surface-map" className="w-full px-2 sm:px-6 pt-4">
@@ -451,6 +453,10 @@ function DashboardContent() {
 
           <TabsContent value="pilot" className="w-full px-2 sm:px-6 pt-4">
             <PilotReadiness leads={leads} />
+          </TabsContent>
+
+          <TabsContent value="delivery-inspector" className="w-full px-2 sm:px-6 pt-4">
+            <DeliveryInspectorPage />
           </TabsContent>
         </Tabs>
       </div>
