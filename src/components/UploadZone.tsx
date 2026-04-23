@@ -179,6 +179,10 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
     return true;
   };
 
+  // ── Idempotency-critical path ─────────────────────────────────────────
+  // `inFlightRef` + `uploadedOnceRef` + the deterministic storage key are
+  // load-bearing. Behavior locked by `UploadZone.test.tsx`. Do not change
+  // these guards casually.
   const handleScan = async () => {
     // ── Synchronous re-entry guard ────────────────────────────────────
     // setUploading is async; back-to-back clicks (touch double-tap, fast
