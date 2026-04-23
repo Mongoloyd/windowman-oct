@@ -140,7 +140,7 @@ const AuditHero = ({
             </motion.div>
 
             <h1
-              className="font-display text-4xl md:text-5xl lg:text-6xl font-extrabold leading-[1.08] tracking-tight text-foreground mb-5"
+              className="font-display text-5xl lg:text-6xl font-extrabold leading-[1.1] tracking-tight text-foreground mb-5"
             >
               {variantHeadline ? (
                 variantHeadline
@@ -157,7 +157,7 @@ const AuditHero = ({
             </h1>
 
             <p
-              className="font-body text-base md:text-lg leading-relaxed text-foreground/80 mb-8"
+              className="font-body max-w-[65ch] text-lg lg:text-xl leading-relaxed text-foreground/80 mb-8"
             >
               {variantSubheadline ? (
                 variantSubheadline
