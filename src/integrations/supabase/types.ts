@@ -1721,6 +1721,131 @@ export type Database = {
           },
         ]
       }
+      lead_notes: {
+        Row: {
+          body: string
+          category: string | null
+          created_at: string
+          created_by: string | null
+          created_by_email: string | null
+          id: string
+          lead_id: string
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_email?: string | null
+          id?: string
+          lead_id: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_email?: string | null
+          id?: string
+          lead_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_notes_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_notes_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unknown_slug"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_notes_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unrouted"
+            referencedColumns: ["lead_id"]
+          },
+        ]
+      }
+      lead_tasks: {
+        Row: {
+          assigned_to: string | null
+          completed: boolean
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          created_by: string | null
+          created_by_email: string | null
+          details: string | null
+          due_at: string | null
+          id: string
+          lead_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          completed?: boolean
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_email?: string | null
+          details?: string | null
+          due_at?: string | null
+          id?: string
+          lead_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          completed?: boolean
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_email?: string | null
+          details?: string | null
+          due_at?: string | null
+          id?: string
+          lead_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_tasks_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_tasks_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unknown_slug"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_tasks_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unrouted"
+            referencedColumns: ["lead_id"]
+          },
+        ]
+      }
       leads: {
         Row: {
           amber_flag_count: number
