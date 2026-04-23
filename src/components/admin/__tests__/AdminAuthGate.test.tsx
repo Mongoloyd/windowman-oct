@@ -118,6 +118,7 @@ describe("AdminAuthGate (production mode — DEV bypass disabled)", () => {
     // Force the production code path: AdminAuthGate short-circuits when
     // import.meta.env.DEV is true. vi.stubEnv flips it to false so
     // ProductionAdminAuthGate runs.
+    // @ts-expect-error vitest accepts string for env stubbing despite Vite's boolean DEV typing
     vi.stubEnv("DEV", "");
     mockState.session = null;
     mockState.listeners = [];
