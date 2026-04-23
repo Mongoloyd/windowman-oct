@@ -66,7 +66,17 @@ export type AdminAction =
   | "create_meta_client_config"
   | "set_meta_client_active"
   | "preview_meta_route"
-  | "smoke_send_meta_event";
+  | "smoke_send_meta_event"
+  // Lead workspace (Sprint 4 + 5)
+  | "fetch_lead_detail"
+  | "update_lead_funnel_stage"
+  | "list_lead_notes"
+  | "create_lead_note"
+  | "delete_lead_note"
+  | "list_lead_tasks"
+  | "create_lead_task"
+  | "update_lead_task"
+  | "delete_lead_task";
 
 /**
  * Payload shapes for each admin action.
@@ -126,6 +136,22 @@ export interface AdminActionPayloads {
     event_name?: "PageView" | "ViewContent" | "Lead" | "CompleteRegistration";
     event_source_url?: string;
   };
+  // Lead workspace (Sprint 4 + 5)
+  fetch_lead_detail: { lead_id: string };
+  update_lead_funnel_stage: { lead_id: string; funnel_stage: string };
+  list_lead_notes: { lead_id: string };
+  create_lead_note: { lead_id: string; body: string; category?: string };
+  delete_lead_note: { note_id: string };
+  list_lead_tasks: { lead_id: string };
+  create_lead_task: { lead_id: string; title: string; details?: string; due_at?: string | null };
+  update_lead_task: {
+    task_id: string;
+    completed?: boolean;
+    title?: string;
+    details?: string;
+    due_at?: string | null;
+  };
+  delete_lead_task: { task_id: string };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -592,3 +618,90 @@ export async function routeLeadToContractor(
 export type AdminActionResponses = {
   [K in AdminAction]: any;
 };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Lead workspace wrappers (Sprint 4 + 5)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface LeadNote {
+  id: string;
+  lead_id: string;
+  body: string;
+  category: string | null;
+  created_by: string | null;
+  created_by_email: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LeadTask {
+  id: string;
+  lead_id: string;
+  title: string;
+  details: string | null;
+  due_at: string | null;
+  completed: boolean;
+  completed_at: string | null;
+  completed_by: string | null;
+  assigned_to: string | null;
+  created_by: string | null;
+  created_by_email: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function fetchLeadDetail(leadId: string): Promise<any> {
+  return invokeAdminData("fetch_lead_detail", { lead_id: leadId });
+}
+
+export async function updateLeadFunnelStage(
+  leadId: string,
+  funnelStage: string,
+): Promise<{ id: string; funnel_stage: string; updated_at: string }> {
+  return invokeAdminData("update_lead_funnel_stage", { lead_id: leadId, funnel_stage: funnelStage });
+}
+
+export async function listLeadNotes(leadId: string): Promise<LeadNote[]> {
+  const result = await invokeAdminData("list_lead_notes", { lead_id: leadId });
+  return (result ?? []) as LeadNote[];
+}
+
+export async function createLeadNote(
+  leadId: string,
+  body: string,
+  category?: string,
+): Promise<LeadNote> {
+  return invokeAdminData("create_lead_note", { lead_id: leadId, body, category });
+}
+
+export async function deleteLeadNote(noteId: string): Promise<{ success: boolean }> {
+  return invokeAdminData("delete_lead_note", { note_id: noteId });
+}
+
+export async function listLeadTasks(leadId: string): Promise<LeadTask[]> {
+  const result = await invokeAdminData("list_lead_tasks", { lead_id: leadId });
+  return (result ?? []) as LeadTask[];
+}
+
+export async function createLeadTask(args: {
+  lead_id: string;
+  title: string;
+  details?: string;
+  due_at?: string | null;
+}): Promise<LeadTask> {
+  return invokeAdminData("create_lead_task", args);
+}
+
+export async function updateLeadTask(args: {
+  task_id: string;
+  completed?: boolean;
+  title?: string;
+  details?: string;
+  due_at?: string | null;
+}): Promise<LeadTask> {
+  return invokeAdminData("update_lead_task", args);
+}
+
+export async function deleteLeadTask(taskId: string): Promise<{ success: boolean }> {
+  return invokeAdminData("delete_lead_task", { task_id: taskId });
+}

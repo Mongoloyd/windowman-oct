@@ -32,7 +32,12 @@ type ActionName =
   | "list_meta_configurations" | "create_meta_client_config"
   | "set_meta_client_active"   | "preview_meta_route"
   | "smoke_send_meta_event" | "diagnose_token_health"
-  | "summarize_meta_fleet_health";
+  | "summarize_meta_fleet_health"
+  // Lead workspace (Sprint 4 + 5)
+  | "fetch_lead_detail"
+  | "update_lead_funnel_stage"
+  | "list_lead_notes" | "create_lead_note" | "delete_lead_note"
+  | "list_lead_tasks" | "create_lead_task" | "update_lead_task" | "delete_lead_task";
 
 const ACTION_ROLES: Record<ActionName, AppRole[]> = {
   fetch_leads: ["super_admin", "operator", "viewer"],
@@ -74,7 +79,26 @@ const ACTION_ROLES: Record<ActionName, AppRole[]> = {
   smoke_send_meta_event:     ["super_admin"],
   diagnose_token_health:     ["super_admin", "operator", "viewer"],
   summarize_meta_fleet_health: ["super_admin", "operator", "viewer"],
+  // Lead workspace
+  fetch_lead_detail:        ["super_admin", "operator", "viewer"],
+  update_lead_funnel_stage: ["super_admin", "operator"],
+  list_lead_notes:          ["super_admin", "operator", "viewer"],
+  create_lead_note:         ["super_admin", "operator"],
+  delete_lead_note:         ["super_admin", "operator"],
+  list_lead_tasks:          ["super_admin", "operator", "viewer"],
+  create_lead_task:         ["super_admin", "operator"],
+  update_lead_task:         ["super_admin", "operator"],
+  delete_lead_task:         ["super_admin", "operator"],
 };
+
+// Allowed funnel stages (Sprint 5 — kept in sync with frontend constants)
+const ALLOWED_FUNNEL_STAGES = new Set([
+  "new", "qualified", "analyzing", "routed",
+  "contacted", "booked", "closed", "stale", "ghost",
+]);
+const ALLOWED_NOTE_CATEGORIES = new Set([
+  "general", "call", "email", "sms", "meeting", "internal",
+]);
 
 // ── CAPI helpers ────────────────────────────────────────────────────────────
 // Token redaction is delegated to the shared module so admin-data, capi-event
@@ -1492,6 +1516,190 @@ Deno.serve(async (req) => {
           },
         },
       });
+    }
+
+    // ─── LEAD WORKSPACE: DETAIL + STATUS + NOTES + TASKS ─────────────
+
+    if (action === "fetch_lead_detail") {
+      const { lead_id } = payload;
+      if (!lead_id) return errorResponse(400, "missing_param", "lead_id is required");
+      const { data, error } = await supabaseAdmin
+        .from("leads")
+        .select("*")
+        .eq("id", lead_id)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return errorResponse(404, "not_found", "Lead not found");
+      return successResponse({ data });
+    }
+
+    if (action === "update_lead_funnel_stage") {
+      const { lead_id, funnel_stage } = payload;
+      if (!lead_id || !funnel_stage) {
+        return errorResponse(400, "missing_param", "lead_id and funnel_stage are required");
+      }
+      if (!ALLOWED_FUNNEL_STAGES.has(funnel_stage)) {
+        return errorResponse(400, "invalid_stage", `funnel_stage must be one of: ${[...ALLOWED_FUNNEL_STAGES].join(", ")}`);
+      }
+      const { data, error } = await supabaseAdmin
+        .from("leads")
+        .update({ funnel_stage, updated_at: now })
+        .eq("id", lead_id)
+        .select("id, funnel_stage, updated_at")
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return errorResponse(404, "not_found", "Lead not found");
+
+      // Audit trail in lead_events
+      await supabaseAdmin.from("lead_events").insert({
+        lead_id,
+        event_name: "funnel_stage_changed",
+        event_source: "admin_console",
+        metadata: { funnel_stage, actor: userId },
+      });
+
+      return successResponse({ data });
+    }
+
+    if (action === "list_lead_notes") {
+      const { lead_id } = payload;
+      if (!lead_id) return errorResponse(400, "missing_param", "lead_id is required");
+      const { data, error } = await supabaseAdmin
+        .from("lead_notes")
+        .select("*")
+        .eq("lead_id", lead_id)
+        .order("created_at", { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      return successResponse({ data: data ?? [] });
+    }
+
+    if (action === "create_lead_note") {
+      const { lead_id, body: noteBody, category } = payload;
+      if (!lead_id || !noteBody || typeof noteBody !== "string") {
+        return errorResponse(400, "missing_param", "lead_id and body are required");
+      }
+      const trimmed = noteBody.trim();
+      if (trimmed.length === 0 || trimmed.length > 4000) {
+        return errorResponse(400, "invalid_body", "Note body must be 1–4000 characters");
+      }
+      if (category && !ALLOWED_NOTE_CATEGORIES.has(category)) {
+        return errorResponse(400, "invalid_category", "Invalid category");
+      }
+
+      // Resolve actor email (best-effort)
+      const { data: actor } = await supabaseAdmin.auth.admin.getUserById(userId);
+      const actorEmail = actor?.user?.email ?? null;
+
+      const { data, error } = await supabaseAdmin
+        .from("lead_notes")
+        .insert({
+          lead_id,
+          body: trimmed,
+          category: category ?? "general",
+          created_by: userId,
+          created_by_email: actorEmail,
+        })
+        .select("*")
+        .maybeSingle();
+      if (error) throw error;
+      return successResponse({ data });
+    }
+
+    if (action === "delete_lead_note") {
+      const { note_id } = payload;
+      if (!note_id) return errorResponse(400, "missing_param", "note_id is required");
+      const { error } = await supabaseAdmin.from("lead_notes").delete().eq("id", note_id);
+      if (error) throw error;
+      return successResponse({ data: { success: true } });
+    }
+
+    if (action === "list_lead_tasks") {
+      const { lead_id } = payload;
+      if (!lead_id) return errorResponse(400, "missing_param", "lead_id is required");
+      const { data, error } = await supabaseAdmin
+        .from("lead_tasks")
+        .select("*")
+        .eq("lead_id", lead_id)
+        .order("completed", { ascending: true })
+        .order("due_at", { ascending: true, nullsFirst: false })
+        .order("created_at", { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      return successResponse({ data: data ?? [] });
+    }
+
+    if (action === "create_lead_task") {
+      const { lead_id, title, details, due_at } = payload;
+      if (!lead_id || !title || typeof title !== "string") {
+        return errorResponse(400, "missing_param", "lead_id and title are required");
+      }
+      const trimmedTitle = title.trim();
+      if (trimmedTitle.length === 0 || trimmedTitle.length > 200) {
+        return errorResponse(400, "invalid_title", "Title must be 1–200 characters");
+      }
+      if (details && (typeof details !== "string" || details.length > 4000)) {
+        return errorResponse(400, "invalid_details", "Details must be ≤4000 characters");
+      }
+      if (due_at && typeof due_at !== "string") {
+        return errorResponse(400, "invalid_due_at", "due_at must be an ISO string");
+      }
+
+      const { data: actor } = await supabaseAdmin.auth.admin.getUserById(userId);
+      const actorEmail = actor?.user?.email ?? null;
+
+      const { data, error } = await supabaseAdmin
+        .from("lead_tasks")
+        .insert({
+          lead_id,
+          title: trimmedTitle,
+          details: details?.trim() || null,
+          due_at: due_at || null,
+          created_by: userId,
+          created_by_email: actorEmail,
+        })
+        .select("*")
+        .maybeSingle();
+      if (error) throw error;
+      return successResponse({ data });
+    }
+
+    if (action === "update_lead_task") {
+      const { task_id, completed, title, details, due_at } = payload;
+      if (!task_id) return errorResponse(400, "missing_param", "task_id is required");
+      const patch: Record<string, unknown> = { updated_at: now };
+      if (typeof completed === "boolean") {
+        patch.completed = completed;
+        patch.completed_at = completed ? now : null;
+        patch.completed_by = completed ? userId : null;
+      }
+      if (typeof title === "string") {
+        const t = title.trim();
+        if (t.length === 0 || t.length > 200) {
+          return errorResponse(400, "invalid_title", "Title must be 1–200 characters");
+        }
+        patch.title = t;
+      }
+      if (typeof details === "string") patch.details = details.trim() || null;
+      if (typeof due_at !== "undefined") patch.due_at = due_at || null;
+
+      const { data, error } = await supabaseAdmin
+        .from("lead_tasks")
+        .update(patch)
+        .eq("id", task_id)
+        .select("*")
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return errorResponse(404, "not_found", "Task not found");
+      return successResponse({ data });
+    }
+
+    if (action === "delete_lead_task") {
+      const { task_id } = payload;
+      if (!task_id) return errorResponse(400, "missing_param", "task_id is required");
+      const { error } = await supabaseAdmin.from("lead_tasks").delete().eq("id", task_id);
+      if (error) throw error;
+      return successResponse({ data: { success: true } });
     }
 
     return errorResponse(400, "unhandled_action", `Action ${action} not implemented`);
