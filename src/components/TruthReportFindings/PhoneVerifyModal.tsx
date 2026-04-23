@@ -10,7 +10,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Loader2, Lock } from "lucide-react";
 import { usePhoneInput } from "@/hooks/usePhoneInput";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
-import { supabase } from "@/integrations/supabase/client";
+// Transport invariant: never call supabase.functions.invoke('send-otp'|'verify-otp')
+// from this component. All OTP traffic flows through phoneVerificationService.
+import { sendOtp, verifyOtp } from "@/services/phoneVerificationService";
 import { trackGtmEvent } from "@/lib/trackConversion";
 
 interface PhoneVerifyModalProps {
@@ -45,21 +47,15 @@ export function PhoneVerifyModal({
     setStep("sending");
     setErrorMsg("");
 
-    try {
-      const { data, error } = await supabase.functions.invoke("send-otp", {
-        body: { phone_e164: e164 },
-      });
-
-      if (error || !data?.success) {
-        setErrorMsg(data?.error || "Failed to send code. Try again.");
-        setStep("phone");
-        return;
-      }
-      setStep("otp");
-    } catch {
-      setErrorMsg("Network error. Please try again.");
+    // Behavior preserved: scan_session_id intentionally omitted on send to
+    // match prior wire payload. Service maps body.error → result.message.
+    const result = await sendOtp(e164);
+    if (!result.ok) {
+      setErrorMsg(result.message || "Failed to send code. Try again.");
       setStep("phone");
+      return;
     }
+    setStep("otp");
   };
 
   const handleVerify = async () => {
@@ -67,20 +63,13 @@ export function PhoneVerifyModal({
     setStep("verifying");
     setErrorMsg("");
 
-    try {
-      const { data, error } = await supabase.functions.invoke("verify-otp", {
-        body: {
-          phone_e164: e164,
-          code: otpValue,
-          scan_session_id: scanSessionId || undefined,
-        },
-      });
-
-      if (error || !data?.verified) {
-        setErrorMsg(data?.error || "Invalid or expired code.");
-        setStep("otp");
-        return;
-      }
+    const result = await verifyOtp(e164, otpValue, scanSessionId || undefined);
+    if (!result.ok) {
+      setErrorMsg(result.message || "Invalid or expired code.");
+      setStep("otp");
+      return;
+    }
+    {
       trackGtmEvent("otp_verified", {
         scan_session_id: scanSessionId || undefined,
         phone_e164_last4: e164 ? e164.slice(-4) : undefined,
