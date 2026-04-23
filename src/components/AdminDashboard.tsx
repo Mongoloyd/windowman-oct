@@ -48,6 +48,7 @@ import { CrossSurfaceConsistencyStatusAlignmentAuditSurface } from "@/components
 import { AdminInformationArchitectureNavigationSimplificationSurface } from "@/components/admin/AdminInformationArchitectureNavigationSimplificationSurface";
 import { StrategicPrioritizationNextBuildDecisionFrameworkSurface } from "@/components/admin/StrategicPrioritizationNextBuildDecisionFrameworkSurface";
 import { DeliveryInspectorPage } from "@/components/admin/deliveries/DeliveryInspectorPage";
+import { SessionDiagnosticPanel } from "@/components/admin/diagnostics/SessionDiagnosticPanel";
 
 import {
   invokeAdminData,
@@ -309,6 +310,7 @@ function DashboardContent() {
             <TabsTrigger value="pilot" className="flex-1 min-w-[120px]">Pilot Readiness</TabsTrigger>
             <TabsTrigger value="prioritization" className="flex-1 min-w-[120px]">Prioritization</TabsTrigger>
             <TabsTrigger value="delivery-inspector" className="flex-1 min-w-[140px]">Delivery Inspector</TabsTrigger>
+            <TabsTrigger value="session-diag" className="flex-1 min-w-[120px]">Session Diag</TabsTrigger>
           </TabsList>
 
           <TabsContent value="surface-map" className="w-full px-2 sm:px-6 pt-4">

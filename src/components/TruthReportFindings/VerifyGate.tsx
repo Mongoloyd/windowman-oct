@@ -108,7 +108,8 @@ export function VerifyGate({ issueCount, onVerified, scanSessionId }: VerifyGate
     // match prior wire payload. Service maps body.error → result.message.
     const result = await sendOtp(e164);
     if (!result.ok) {
-      setError(result.message || "Failed to send code.");
+      const err = result as import("@/types/serviceResults").OtpServiceErr;
+      setError(err.message || "Failed to send code.");
       setStep("phone");
       return;
     }
@@ -123,7 +124,8 @@ export function VerifyGate({ issueCount, onVerified, scanSessionId }: VerifyGate
     setCooldown(RESEND_COOLDOWN);
     const result = await sendOtp(e164);
     if (!result.ok) {
-      setError(result.message || "Failed to resend code.");
+      const err = result as import("@/types/serviceResults").OtpServiceErr;
+      setError(err.message || "Failed to resend code.");
       setCooldown(0);
     }
   };
@@ -139,7 +141,8 @@ export function VerifyGate({ issueCount, onVerified, scanSessionId }: VerifyGate
     try {
       const result = await verifyOtp(e164, otpValue, scanSessionId || undefined);
       if (!result.ok) {
-        setError(result.message || "Invalid or expired code.");
+        const err = result as import("@/types/serviceResults").OtpServiceErr;
+        setError(err.message || "Invalid or expired code.");
         setStep("otp");
         // Shake + auto-clear
         setShakeKey((k) => k + 1);
