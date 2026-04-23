@@ -28,7 +28,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AuthGuard } from "@/components/auth/AuthGuard";
-import { AdminBackLink } from "@/components/admin/AdminBackLink";
+import { AdminShell } from "@/components/admin/shell/AdminShell";
 import { useCurrentUserRole } from "@/hooks/useCurrentUserRole";
 import {
   listUserRoles,
@@ -675,8 +675,8 @@ function AdminSettingsContent() {
             Mounted here so super-admins can see where future shared-market
             controls will live. No interactive controls; no backend wiring. */}
         <SharedMarketReadinessSection />
-      </main>
-    </div>
+      </div>
+    </AdminShell>
   );
 }
 
