@@ -16,7 +16,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { AdminAuthGate } from "@/components/admin/AdminAuthGate";
 
@@ -198,7 +198,9 @@ describe("AdminAuthGate (production mode — DEV bypass disabled)", () => {
 
       // Simulate the user signing out from another tab / explicit sign-out.
       mockState.session = null;
-      mockState.listeners.forEach((cb) => cb("SIGNED_OUT", null));
+      act(() => {
+        mockState.listeners.forEach((cb) => cb("SIGNED_OUT", null));
+      });
 
       await waitFor(() => {
         expect(screen.getByTestId("login-page")).toBeInTheDocument();
@@ -219,7 +221,9 @@ describe("AdminAuthGate (production mode — DEV bypass disabled)", () => {
         user: { email: "test@example.com" },
         access_token: buildJwt("operator"),
       };
-      mockState.listeners.forEach((cb) => cb("TOKEN_REFRESHED", mockState.session));
+      act(() => {
+        mockState.listeners.forEach((cb) => cb("TOKEN_REFRESHED", mockState.session));
+      });
 
       await waitFor(() => {
         expect(screen.getByTestId("admin-dashboard")).toBeInTheDocument();
