@@ -1,66 +1,110 @@
-## Typography-only hero cleanup
 
-Smallest-safe-diff pass on two files. No theme, layout, or logic changes.
 
-### File 1: `src/components/AuditHero.tsx`
+## Hero CTA restructure + 4 contextual modal triggers on `/contractors2`
 
-**H1 (currently lines ~146–148):**
+All buttons open the existing `QualificationFlow` modal already wired in `src/pages/Contractors2.tsx` via `qualOpen` state. No new components, no schema changes, no `/contractors3` impact.
 
+### Approach: lift `setQualOpen` into the sections that need it
+
+Each target section will accept a single optional `onOpenQualification: () => void` prop (matching the pattern already used by `QualificationStripSection`). `Contractors2.tsx` passes `() => setQualOpen(true)` to each.
+
+All 5 section files (`HeroSection`, `CompetitorQuoteSection`, `ArbitrageModelSection`, `FlywheelSection`, `ExclusivitySection`) are imported only by `Contractors2.tsx` — confirmed via grep. Adding an optional prop is non-breaking elsewhere.
+
+---
+
+### Change 1 — `src/components/sections/HeroSection.tsx`
+
+**Hero CTA cluster (lines 60–79):**
+
+- Add prop: `onOpenQualification?: () => void`
+- Replace the two `<a>` tags with:
+  - **Primary** (button, opens modal): `Get Window Buyers` — same white/black styling as current primary, swap to `<button onClick={onOpenQualification}>`
+  - **Secondary** (link to Calendly, demoted to outline style): `Book a 10-Minute Walkthrough` — switch to the outlined `border border-white/10 text-white` styling currently used by "Call or Text"
+- **Delete** the "Call or Text" anchor entirely
+- Remove now-unused `PAGE_CONFIG.phone` reference if no longer needed (keep `PAGE_CONFIG.calendly`)
+
+### Change 2 — `src/components/sections/CompetitorQuoteSection.tsx`
+
+Section: "We Don't Generate Demand. We Intercept It."
+
+- Add prop: `onOpenQualification?: () => void`
+- Inside the bottom conclusion card (after the `<p>` on line 81–84), add a centered primary button:
+  - Text: **`Intercept Active Buyers`**
+  - Style: matches hero primary — `inline-flex items-center justify-center rounded-xl bg-white text-slate-950 font-semibold text-sm px-7 py-3.5 hover:bg-white/90 transition-colors mt-5`
+  - Wrap with `motion.button` for parity, `onClick={onOpenQualification}`
+
+### Change 3 — `src/components/sections/ArbitrageModelSection.tsx`
+
+Section: "Our Arbitrage Model"
+
+- Add prop: `onOpenQualification?: () => void`
+- Add a centered CTA block after the closing of the inner grid `</div>` on line 165, **inside** the rounded panel, with top border separator:
+  - Text: **`Capture This Margin`**
+  - Style: same white primary as above (sits well on the dark grid panel)
+  - `onClick={onOpenQualification}`
+
+### Change 4 — `src/components/sections/FlywheelSection.tsx`
+
+Section: "The Compounding Pricing Monopoly" (this is where it actually lives — the user's description matches this section, not a separate one)
+
+- Add prop: `onOpenQualification?: () => void`
+- Append a primary button at the end of the left column's `space-y-8` block (after the third bullet, line 45):
+  - Text: **`Leverage Our County Data`**
+  - Style: same white primary, with `mt-2` for breathing room from the bullets
+  - `onClick={onOpenQualification}`
+
+### Change 5 — `src/components/sections/ExclusivitySection.tsx`
+
+Section: "Not Every Contractor Is a Fit"
+
+- Add prop: `onOpenQualification?: () => void`
+- Existing button (lines 32–38):
+  - Change text: `Request Access` → **`See If You Qualify`**
+  - Add `onClick={onOpenQualification}` to the existing `motion.button`
+  - Keep all current styling (rounded-full pill, `bg-white text-black px-8 py-4`)
+
+### Change 6 — `src/pages/Contractors2.tsx`
+
+Wire the prop through to the five sections:
+
+```tsx
+<HeroSection onOpenQualification={() => setQualOpen(true)} />
+<MarketTruthSection />
+<CinematicDivider />
+<CompetitorQuoteSection onOpenQualification={() => setQualOpen(true)} />
+...
+<ArbitrageModelSection onOpenQualification={() => setQualOpen(true)} />
+...
+<FlywheelSection onOpenQualification={() => setQualOpen(true)} />
+...
+<ExclusivitySection onOpenQualification={() => setQualOpen(true)} />
 ```
-className="font-display text-4xl md:text-5xl lg:text-6xl font-extrabold leading-[1.08] tracking-tight text-foreground mb-5"
-```
 
-→
+`QualificationFlow` mount and `QualificationStripSection` ("Check Your Territory") remain unchanged — they already work.
 
-```
-className="font-display text-5xl lg:text-6xl font-extrabold leading-[1.1] tracking-tight text-foreground mb-5"
-```
+---
 
-**Paragraph (currently lines ~163–165):**
+### Files touched
 
-```
-className="font-body text-base md:text-lg leading-relaxed text-foreground/80 mb-8"
-```
+1. `src/components/sections/HeroSection.tsx`
+2. `src/components/sections/CompetitorQuoteSection.tsx`
+3. `src/components/sections/ArbitrageModelSection.tsx`
+4. `src/components/sections/FlywheelSection.tsx`
+5. `src/components/sections/ExclusivitySection.tsx`
+6. `src/pages/Contractors2.tsx`
 
-→
+### Out of scope (explicit)
 
-```
-className="font-body max-w-[65ch] text-lg lg:text-xl leading-relaxed text-foreground/80 mb-8"
-```
-
-Nothing else in this file is touched: trust pill, ticker stats strip, mascot, grade card, CTAs, PowerTool, TrustBullets, OCR image, and JSX fallback content all stay byte-identical.
-
-### File 2: `src/config/homepageVariants.ts`
-
-`badgeText` values: untouched (per request).
-`weight`, `id`, `ACTIVE_VARIANTS`, `ALL_VARIANTS` keys: untouched.
-
-Headlines normalized from ALL CAPS → title/sentence case. Subheadlines only edited where capitalization is awkward (the `pre_sign` subheadline currently has Title-Cased every word — it gets normalized to sentence case).
-
-
-| variant         | new headline                                                                         | subheadline change                                                                                                                                              |
-| --------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `accusation`    | `""` (unchanged — JSX fallback)                                                      | unchanged                                                                                                                                                       |
-| `direct_action` | `Scan your quote. Beat your contractors.`                                            | unchanged                                                                                                                                                       |
-| `loss_aversion` | `The average Florida homeowner overpays $4,800 on impact windows. Don't be average.` | unchanged                                                                                                                                                       |
-| `fine_print`    | `Your contractor hopes you don't read the fine print. We read it for you.`           | unchanged                                                                                                                                                       |
-| `pre_sign`      | `Before you sign that quote, let AI check the math.`                                 | `Upload your estimate. In seconds, our AI forensically grades it across 5 key areas: safety, scope, pricing, fine print, and warranty. Best of all, it's Free.` |
-| `question`      | `Is your contractor overcharging you? Find out in 60 seconds.`                       | unchanged                                                                                                                                                       |
-| `free_audit`    | `Free AI audit: see exactly where your quote is overpriced.`                         | unchanged                                                                                                                                                       |
-
-
-Note: this normalizes `pre_sign` to sentence case (matching the rest of the variants after this pass), superseding the earlier Title Case edit. If you want `pre_sign` to remain in Title Case as an outlier, say so and I'll keep `"Before You Sign That Quote, Let AI Check The Math"` instead.
-
-### Out of scope (explicitly not touched)
-
-- Ticker stats strip
-- Trust pill / floating badge
-- "THE SCANNER", "STEP 1 OF 4 · CONFIGURE YOUR SCAN", "How it works" — none of these live in `AuditHero.tsx` anyway
-- Any other section, OTP, scanner, GTM, backend, or routing logic
-- `badgeText` strings
+- No new components extracted
+- No DB / schema changes; no `source_cta` attribution this pass
+- `/contractors3`, `/contractors`, `QualificationFlow.tsx` internals — untouched
+- Sticky footer, GTM, OTP, scanner, backend — untouched
 
 ### Verification after apply
 
-- `git diff` touches only the two files listed
-- Hero H1 and paragraph render with new sizing/measure on the live preview
-- Variant rotation still works; no key renamed
+- `/contractors2` hero shows two buttons: `Get Window Buyers` (primary, white) + `Book a 10-Minute Walkthrough` (secondary, outline). No "Call or Text" button.
+- Clicking `Get Window Buyers` opens the same modal as "Check Your Territory" lower on the page.
+- Each of the four new contextual buttons opens the same modal.
+- `ExclusivitySection` button now reads "See If You Qualify" and opens the modal (was a dead button before).
+- `git diff` touches only the 6 files above.
+
