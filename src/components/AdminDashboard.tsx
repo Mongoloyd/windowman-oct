@@ -5,11 +5,12 @@
  */
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Settings } from "lucide-react";
 import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
+import { AdminShell } from "@/components/admin/shell/AdminShell";
+import { AdminPrimaryTabs } from "@/components/admin/shell/AdminPrimaryTabs";
 
 import { PreviewModeBadge } from "@/components/PreviewModeBadge";
 import { CommandCenter } from "@/components/admin/CommandCenter";
