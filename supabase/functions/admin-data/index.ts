@@ -1518,6 +1518,190 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ─── LEAD WORKSPACE: DETAIL + STATUS + NOTES + TASKS ─────────────
+
+    if (action === "fetch_lead_detail") {
+      const { lead_id } = payload;
+      if (!lead_id) return errorResponse(400, "missing_param", "lead_id is required");
+      const { data, error } = await supabaseAdmin
+        .from("leads")
+        .select("*")
+        .eq("id", lead_id)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return errorResponse(404, "not_found", "Lead not found");
+      return successResponse({ data });
+    }
+
+    if (action === "update_lead_funnel_stage") {
+      const { lead_id, funnel_stage } = payload;
+      if (!lead_id || !funnel_stage) {
+        return errorResponse(400, "missing_param", "lead_id and funnel_stage are required");
+      }
+      if (!ALLOWED_FUNNEL_STAGES.has(funnel_stage)) {
+        return errorResponse(400, "invalid_stage", `funnel_stage must be one of: ${[...ALLOWED_FUNNEL_STAGES].join(", ")}`);
+      }
+      const { data, error } = await supabaseAdmin
+        .from("leads")
+        .update({ funnel_stage, updated_at: now })
+        .eq("id", lead_id)
+        .select("id, funnel_stage, updated_at")
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return errorResponse(404, "not_found", "Lead not found");
+
+      // Audit trail in lead_events
+      await supabaseAdmin.from("lead_events").insert({
+        lead_id,
+        event_name: "funnel_stage_changed",
+        event_source: "admin_console",
+        metadata: { funnel_stage, actor: userId },
+      });
+
+      return successResponse({ data });
+    }
+
+    if (action === "list_lead_notes") {
+      const { lead_id } = payload;
+      if (!lead_id) return errorResponse(400, "missing_param", "lead_id is required");
+      const { data, error } = await supabaseAdmin
+        .from("lead_notes")
+        .select("*")
+        .eq("lead_id", lead_id)
+        .order("created_at", { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      return successResponse({ data: data ?? [] });
+    }
+
+    if (action === "create_lead_note") {
+      const { lead_id, body: noteBody, category } = payload;
+      if (!lead_id || !noteBody || typeof noteBody !== "string") {
+        return errorResponse(400, "missing_param", "lead_id and body are required");
+      }
+      const trimmed = noteBody.trim();
+      if (trimmed.length === 0 || trimmed.length > 4000) {
+        return errorResponse(400, "invalid_body", "Note body must be 1–4000 characters");
+      }
+      if (category && !ALLOWED_NOTE_CATEGORIES.has(category)) {
+        return errorResponse(400, "invalid_category", "Invalid category");
+      }
+
+      // Resolve actor email (best-effort)
+      const { data: actor } = await supabaseAdmin.auth.admin.getUserById(userId);
+      const actorEmail = actor?.user?.email ?? null;
+
+      const { data, error } = await supabaseAdmin
+        .from("lead_notes")
+        .insert({
+          lead_id,
+          body: trimmed,
+          category: category ?? "general",
+          created_by: userId,
+          created_by_email: actorEmail,
+        })
+        .select("*")
+        .maybeSingle();
+      if (error) throw error;
+      return successResponse({ data });
+    }
+
+    if (action === "delete_lead_note") {
+      const { note_id } = payload;
+      if (!note_id) return errorResponse(400, "missing_param", "note_id is required");
+      const { error } = await supabaseAdmin.from("lead_notes").delete().eq("id", note_id);
+      if (error) throw error;
+      return successResponse({ data: { success: true } });
+    }
+
+    if (action === "list_lead_tasks") {
+      const { lead_id } = payload;
+      if (!lead_id) return errorResponse(400, "missing_param", "lead_id is required");
+      const { data, error } = await supabaseAdmin
+        .from("lead_tasks")
+        .select("*")
+        .eq("lead_id", lead_id)
+        .order("completed", { ascending: true })
+        .order("due_at", { ascending: true, nullsFirst: false })
+        .order("created_at", { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      return successResponse({ data: data ?? [] });
+    }
+
+    if (action === "create_lead_task") {
+      const { lead_id, title, details, due_at } = payload;
+      if (!lead_id || !title || typeof title !== "string") {
+        return errorResponse(400, "missing_param", "lead_id and title are required");
+      }
+      const trimmedTitle = title.trim();
+      if (trimmedTitle.length === 0 || trimmedTitle.length > 200) {
+        return errorResponse(400, "invalid_title", "Title must be 1–200 characters");
+      }
+      if (details && (typeof details !== "string" || details.length > 4000)) {
+        return errorResponse(400, "invalid_details", "Details must be ≤4000 characters");
+      }
+      if (due_at && typeof due_at !== "string") {
+        return errorResponse(400, "invalid_due_at", "due_at must be an ISO string");
+      }
+
+      const { data: actor } = await supabaseAdmin.auth.admin.getUserById(userId);
+      const actorEmail = actor?.user?.email ?? null;
+
+      const { data, error } = await supabaseAdmin
+        .from("lead_tasks")
+        .insert({
+          lead_id,
+          title: trimmedTitle,
+          details: details?.trim() || null,
+          due_at: due_at || null,
+          created_by: userId,
+          created_by_email: actorEmail,
+        })
+        .select("*")
+        .maybeSingle();
+      if (error) throw error;
+      return successResponse({ data });
+    }
+
+    if (action === "update_lead_task") {
+      const { task_id, completed, title, details, due_at } = payload;
+      if (!task_id) return errorResponse(400, "missing_param", "task_id is required");
+      const patch: Record<string, unknown> = { updated_at: now };
+      if (typeof completed === "boolean") {
+        patch.completed = completed;
+        patch.completed_at = completed ? now : null;
+        patch.completed_by = completed ? userId : null;
+      }
+      if (typeof title === "string") {
+        const t = title.trim();
+        if (t.length === 0 || t.length > 200) {
+          return errorResponse(400, "invalid_title", "Title must be 1–200 characters");
+        }
+        patch.title = t;
+      }
+      if (typeof details === "string") patch.details = details.trim() || null;
+      if (typeof due_at !== "undefined") patch.due_at = due_at || null;
+
+      const { data, error } = await supabaseAdmin
+        .from("lead_tasks")
+        .update(patch)
+        .eq("id", task_id)
+        .select("*")
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return errorResponse(404, "not_found", "Task not found");
+      return successResponse({ data });
+    }
+
+    if (action === "delete_lead_task") {
+      const { task_id } = payload;
+      if (!task_id) return errorResponse(400, "missing_param", "task_id is required");
+      const { error } = await supabaseAdmin.from("lead_tasks").delete().eq("id", task_id);
+      if (error) throw error;
+      return successResponse({ data: { success: true } });
+    }
+
     return errorResponse(400, "unhandled_action", `Action ${action} not implemented`);
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : String(error);
