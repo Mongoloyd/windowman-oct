@@ -8,6 +8,7 @@ import { AppTrackingProvider } from "@/components/AppTrackingProvider";
 import { HelmetProvider } from "react-helmet-async";
 import AdminSettings from "./pages/AdminSettings";
 import PublicLayout from "@/components/PublicLayout";
+import { AdminAuthGate } from "@/components/admin/AdminAuthGate";
 import { ScanFunnelProvider } from "@/state/scanFunnel";
 
 // ── Static import for critical home route ────────────────────────────────────
@@ -21,6 +22,9 @@ const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 const DemoClassic = lazy(() => import("./pages/DemoClassic.tsx"));
 const AdminDashboard = lazy(() => import("./components/AdminDashboard.tsx"));
 const AdminPartners = lazy(() => import("./pages/AdminPartners.tsx"));
+const AdminLogin = lazy(() => import("./pages/AdminLogin.tsx"));
+const AdminForgotPassword = lazy(() => import("./pages/AdminForgotPassword.tsx"));
+const AdminResetPassword = lazy(() => import("./pages/AdminResetPassword.tsx"));
 const DevReportPreview = lazy(() => import("./pages/DevReportPreview.tsx"));
 const DevTesting = lazy(() => import("./pages/DevTesting.tsx"));
 const DevTesting2 = lazy(() => import("./pages/DevTesting2.tsx"));
@@ -121,10 +125,14 @@ const App = () => (
                 <Route path="/report/classic/:sessionId" element={<ScanFunnelProvider><ReportClassic /></ScanFunnelProvider>} />
                 {/* Legacy V2 route → permanent redirect to Classic */}
                 <Route path="/report/:sessionId" element={<ReportRedirect />} />
-                {/* Internal/dev only — zero production CTAs point here */}
-                <Route path="/admin" element={<AdminDashboard />} />
-                <Route path="/admin/settings" element={<AdminSettings />} />
-                <Route path="/admin/partners" element={<AdminPartners />} />
+                {/* ── Admin auth (public) ── */}
+                <Route path="/admin/login" element={<AdminLogin />} />
+                <Route path="/admin/forgot-password" element={<AdminForgotPassword />} />
+                <Route path="/admin/reset-password" element={<AdminResetPassword />} />
+                {/* ── Admin shell (gated) ── */}
+                <Route path="/admin" element={<AdminAuthGate><AdminDashboard /></AdminAuthGate>} />
+                <Route path="/admin/settings" element={<AdminAuthGate><AdminSettings /></AdminAuthGate>} />
+                <Route path="/admin/partners" element={<AdminAuthGate><AdminPartners /></AdminAuthGate>} />
                 <Route path="/demo-classic" element={<DemoClassic />} />
                 <Route path="/dev/report-preview" element={<DevReportPreview />} />
                 <Route path="/devtesting" element={<DevTesting />} />
