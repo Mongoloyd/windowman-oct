@@ -11,8 +11,8 @@
  *   - SIGNED_OUT events fired mid-session evict the user immediately.
  *
  * Each scenario is run against every admin route (/admin, /admin/settings,
- * /admin/partners) so future routes added through AdminAuthGate inherit
- * the same coverage matrix.
+ * /admin/partners, /admin/leads, /admin/leads/:id) so future routes added
+ * through AdminAuthGate inherit the same coverage matrix.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -98,6 +98,22 @@ function renderGated(initialPath: string) {
           }
         />
         <Route
+          path="/admin/leads"
+          element={
+            <AdminAuthGate>
+              <div data-testid="admin-leads">Admin Lead Inbox</div>
+            </AdminAuthGate>
+          }
+        />
+        <Route
+          path="/admin/leads/:id"
+          element={
+            <AdminAuthGate>
+              <div data-testid="admin-lead-dossier">Admin Lead Dossier</div>
+            </AdminAuthGate>
+          }
+        />
+        <Route
           path="/admin/login"
           element={<div data-testid="login-page">Login Page</div>}
         />
@@ -106,11 +122,19 @@ function renderGated(initialPath: string) {
   );
 }
 
-const ADMIN_ROUTES = ["/admin", "/admin/settings", "/admin/partners"] as const;
+const ADMIN_ROUTES = [
+  "/admin",
+  "/admin/settings",
+  "/admin/partners",
+  "/admin/leads",
+  "/admin/leads/abc-123",
+] as const;
 const ROUTE_TESTID: Record<(typeof ADMIN_ROUTES)[number], string> = {
   "/admin": "admin-dashboard",
   "/admin/settings": "admin-settings",
   "/admin/partners": "admin-partners",
+  "/admin/leads": "admin-leads",
+  "/admin/leads/abc-123": "admin-lead-dossier",
 };
 
 describe("AdminAuthGate (production mode — DEV bypass disabled)", () => {

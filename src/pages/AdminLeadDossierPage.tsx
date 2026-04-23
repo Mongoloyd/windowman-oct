@@ -11,7 +11,7 @@ import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   Loader2, AlertCircle, Mail, Phone, MapPin, Hash, DollarSign,
-  CheckCircle2, ExternalLink, FileText, Flag,
+  CheckCircle2, ExternalLink, FileText, Flag, ArrowLeft,
 } from "lucide-react";
 import { format } from "date-fns";
 import { AdminShell } from "@/components/admin/shell/AdminShell";
@@ -23,6 +23,7 @@ import { LeadNotesPanel } from "@/components/admin/lead-workspace/LeadNotesPanel
 import { LeadTasksPanel } from "@/components/admin/lead-workspace/LeadTasksPanel";
 import { LeadTimelinePanel } from "@/components/admin/lead-workspace/LeadTimelinePanel";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 function gradeColor(grade: string | null): string {
   switch (grade) {
@@ -112,6 +113,17 @@ export default function AdminLeadDossierPage() {
       backTo="/admin/leads"
       backLabel="Back to inbox"
     >
+      {/* Prominent "Back to Inbox" affordance — the AdminShell breadcrumb is small;
+          this is the canonical exit so operators can't miss it on the dossier page. */}
+      <div className="mb-5 flex items-center justify-between">
+        <Button asChild variant="outline" size="sm">
+          <Link to="/admin/leads" className="inline-flex items-center gap-1.5">
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back to Inbox
+          </Link>
+        </Button>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* ── Left column: Intake + Scan + Timeline ─────────────────── */}
         <div className="lg:col-span-2 space-y-5">
