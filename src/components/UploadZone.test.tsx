@@ -137,6 +137,16 @@ async function selectFile(file: File) {
   });
 }
 
+async function findStartButton(): Promise<HTMLElement> {
+  const el = await screen.findByText(/Start My AI Scan/i);
+  return (el.tagName === "BUTTON" ? el : el.closest("button"))! as HTMLElement;
+}
+
+async function findRetryButton(): Promise<HTMLElement> {
+  const el = await screen.findByText(/Retry Scan/i);
+  return (el.tagName === "BUTTON" ? el : el.closest("button"))! as HTMLElement;
+}
+
 // ── Tests ───────────────────────────────────────────────────────────────
 
 describe("UploadZone — idempotency", () => {
