@@ -408,9 +408,12 @@ function DashboardContent() {
           <TabsContent value="delivery-inspector" className="w-full px-2 sm:px-6 pt-4">
             <DeliveryInspectorPage />
           </TabsContent>
-        </Tabs>
-      </div>
-    </div>
+
+          <TabsContent value="session-diag" className="w-full px-2 sm:px-6 pt-4">
+            <SessionDiagnosticPanel />
+          </TabsContent>
+      </Tabs>
+    </AdminShell>
   );
 }
 
