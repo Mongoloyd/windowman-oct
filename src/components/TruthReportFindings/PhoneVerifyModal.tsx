@@ -69,21 +69,16 @@ export function PhoneVerifyModal({
       setStep("otp");
       return;
     }
-    {
-      trackGtmEvent("otp_verified", {
-        scan_session_id: scanSessionId || undefined,
-        phone_e164_last4: e164 ? e164.slice(-4) : undefined,
-        source: "modal",
-      });
-      trackGtmEvent("report_revealed", {
-        scan_session_id: scanSessionId || undefined,
-        source: "modal",
-      });
-      onVerified();
-    } catch {
-      setErrorMsg("Network error. Please try again.");
-      setStep("otp");
-    }
+    trackGtmEvent("otp_verified", {
+      scan_session_id: scanSessionId || undefined,
+      phone_e164_last4: e164 ? e164.slice(-4) : undefined,
+      source: "modal",
+    });
+    trackGtmEvent("report_revealed", {
+      scan_session_id: scanSessionId || undefined,
+      source: "modal",
+    });
+    onVerified();
   };
 
   const handleReset = () => {
