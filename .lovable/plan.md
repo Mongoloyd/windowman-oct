@@ -1,156 +1,83 @@
 
 
-## Admin Foundation Pass — Audit & Plan
+## Verification Plan: Admin Auth End-to-End
 
-### A. What exists today (admin-related)
+### What the audit found
 
-| Path | File | Status |
-|---|---|---|
-| `/admin` | `src/components/AdminDashboard.tsx` | Renders, **no auth guard wired in `App.tsx`**. Header is a thin strip with title + tiny gear icon. No identity, no sign-out. **35 tabs** in one wrapped row. |
-| `/admin/settings` | `src/pages/AdminSettings.tsx` | Wraps itself in `AuthGuard` + `useCurrentUserRole`. Polished trust-centric design (good reference). |
-| `/admin/partners` | `src/pages/AdminPartners.tsx` | Wraps itself in `AuthGuard` + `useCurrentUserRole`. Functional CRUD. |
-| `/admin/login` | — | **Missing.** |
-| `/admin/forgot-password` | — | **Missing.** |
-| `/admin/reset-password` | — | **Missing.** |
-| `AuthGuard` | `src/components/auth/AuthGuard.tsx` | Exists. **DEV bypass active**. Redirects to `/` when unauthenticated (wrong target for admin). |
-| `useCurrentUserRole` | `src/hooks/useCurrentUserRole.ts` | Reads `user_roles` table. **DEV bypass returns fake `super_admin`**. |
-| Partner login | `src/pages/ContractorLogin.tsx` | Has email/password + forgot-password in one component. Partner-branded ("Partner Portal", sky-blue dark theme). |
-| Partner reset | `src/pages/PartnerResetPassword.tsx` | Clean Supabase recovery loop. Partner-branded. |
-| RLS gate | `is_internal_operator()` | Reads `auth.jwt().app_metadata.role IN ('operator','admin','super_admin')`. This is the real backend gate. |
+I read every piece of the new admin auth surface — `AdminAuthGate`, `AdminIdentityBar` (incl. its JWT decoder), `AdminLogin`, `AdminForgotPassword`, `AdminResetPassword`, the `App.tsx` route wiring — and queried the database for real admin accounts.
 
-### B. What's safe to reuse from partner auth
+**Two real gaps must be closed before "verified" can be claimed.** The plan below first fixes those gaps, then runs the actual end-to-end verification.
 
-- **Logic patterns only** — `signInWithPassword`, `resetPasswordForEmail({ redirectTo })`, `onAuthStateChange('PASSWORD_RECOVERY')`, `updateUser({ password })`. Lifted as logic into new admin components.
-- **Not reused**: partner branding, dark sky-blue theme, "Partner Portal" copy, `usePartnerAuth` hook (it routes to contractor opportunities). Admin gets its own light, premium shell that matches `AdminSettings`/`/about` typography direction.
+### Gap 1 — `AdminAuthGate` does NOT block non-admin users
 
-### C. Admin tab inventory & recommendation
+The current gate (`src/components/admin/AdminAuthGate.tsx`) only checks "is there a session?" — it accepts any authenticated Supabase user, including a homeowner who signed up via the public site. The file even acknowledges this:
 
-The current `AdminDashboard` exposes **35 tabs** in one wrapped row. Most are speculative scaffolding:
+> "Role-level enforcement (operator/admin/super_admin) is left to backend RLS via is_internal_operator()"
 
-**Keep as primary (real, meaningful):**
-- Launch Control · Command Center · Active Pipeline · Routing · Ghost Recovery · Needs Review · Dialer Desk · Contractors · Onboarding · Outcomes · Attribution · Delivery Inspector · Session Diag
+That is not a gate. A non-admin user lands inside the admin shell and only fails when individual queries error out. The user explicitly asked us to confirm non-admins are blocked — today they aren't.
 
-**Demote to a secondary "Ops Tools" group (functional but secondary):**
-- Reporting · Lifecycle · Feedback · Shared Market · Report Prep · Audit · Health Check · Data Quality · Exceptions · Pilot Readiness
+**Fix:** add a role check to `AdminAuthGate` after the session check:
+- decode `session.access_token` with the same logic already present in `AdminIdentityBar` (`app_metadata.role`)
+- if role is not in `('operator','admin','super_admin')` → render `<AdminUnauthorizedPanel />` (already exists in the same file)
+- if role IS valid → render children
+- keep DEV bypass untouched
 
-**Hide from primary nav (planning surfaces / decision frameworks — not operator workflow):**
-- Surface Map · Training / SOP · Rollout · Docs / Handoff · Pilot Learnings · Change Mgmt · Governance · Scenario Drills · Expansion · Tech Debt · Consistency · Prioritization
+This reuses the existing `decodeJwtRole` function — extract it into a small shared helper `src/components/admin/auth/decodeJwtRole.ts` so both `AdminAuthGate` and `AdminIdentityBar` share one source of truth.
 
-These are not deleted — components stay in the file, just removed from the visible tab strip. Re-introduce them deliberately later via a "More" menu or a separate `/admin/playbooks` page if/when they become real.
+### Gap 2 — Verifying the identity-bar pill matches the live JWT
 
-### D. Files added
+The decoder in `AdminIdentityBar` reads `payload.app_metadata.role`. The DB confirms one real admin exists:
 
-1. `src/pages/AdminLogin.tsx` — `/admin/login`. Email + password form. Inline "Forgot password?" link toggles to recovery view (single page, like `ContractorLogin`). Calls `signInWithPassword`; on success → `/admin`. If already authenticated, redirects to `/admin`.
-2. `src/pages/AdminForgotPassword.tsx` — `/admin/forgot-password`. Standalone route the user can be linked to directly. Calls `resetPasswordForEmail(email, { redirectTo: ${origin}/admin/reset-password })`. Success state with "Check your email" confirmation.
-3. `src/pages/AdminResetPassword.tsx` — `/admin/reset-password`. Mirrors `PartnerResetPassword` logic (PASSWORD_RECOVERY listener, hash detection, `updateUser({ password })`), but with admin styling and redirects to `/admin/login` on success.
-4. `src/components/admin/AdminAuthGate.tsx` — Wraps admin routes. Honors existing DEV bypass (no behavior change in sandbox). In production: no session → `<Navigate to="/admin/login" replace />`. Optional role check via `is_internal_operator` RPC; failure renders an "Unauthorized" panel with sign-out + "Use a different account" actions (does not redirect to `/`).
-5. `src/components/admin/shell/AdminShell.tsx` — Shared shell layout: sticky top header (page title + breadcrumb slot + identity bar), light surface, consistent spacing. Used by `AdminDashboard`, `AdminSettings`, `AdminPartners`.
-6. `src/components/admin/shell/AdminIdentityBar.tsx` — Right side of header. Shows `email` + role badge (`Super Admin` / `Operator` / `Viewer` / `DEV bypass`), session-alive dot, sign-out button. Click → `signOut()` → `/admin/login`.
-7. `src/components/admin/shell/AdminPrimaryTabs.tsx` — Curated tab strip with only the **kept primary** tabs from §C. Wraps the existing `<Tabs>` from `AdminDashboard` so the underlying content components are unchanged. Tabs use real focus rings, hover states, and high-contrast active state.
-
-### E. Files modified (minimal)
-
-8. `src/App.tsx`
-   - Add lazy imports for `AdminLogin`, `AdminForgotPassword`, `AdminResetPassword`.
-   - Add 3 public routes: `/admin/login`, `/admin/forgot-password`, `/admin/reset-password`.
-   - Wrap the 3 existing admin routes with `<AdminAuthGate>`.
-   - No other route changes.
-
-9. `src/components/AdminDashboard.tsx`
-   - Replace inline header `<div className="border-b bg-card">…` with `<AdminShell title="Lead Sniper CRM" subtitle="…leads · Updated…">`.
-   - Replace the 35-tab `TabsList` with `<AdminPrimaryTabs activeTab={activeTab} onTabChange={setActiveTab} ghostCount={…} needsReviewCount={…} />`.
-   - Hidden tabs' `<TabsContent>` blocks remain in the file (still mounted via `<Tabs>` value), so no logic is lost — they simply have no trigger in the visible strip. Or, cleaner: gate the hidden `<TabsContent>` behind a `showAdvanced` toggle later. For this pass, just remove the triggers.
-
-10. `src/pages/AdminSettings.tsx` & `src/pages/AdminPartners.tsx`
-    - Swap the existing custom header/back link for `<AdminShell title="Role Management" backTo="/admin">…children…</AdminShell>` so all three admin pages share the same chrome.
-    - No business logic changes, no API call changes.
-
-### F. Visual hierarchy (admin shell)
-
-```text
-┌──────────────────────────────────────────────────────────────────┐
-│ AdminShell (sticky, bg-card, border-b, shadow-sm)                │
-│ ┌──────────────┐                          ┌──────────────────┐   │
-│ │ Eyebrow      │                          │ Identity bar     │   │
-│ │ "ADMIN"      │   Page title (display)   │ email · role     │   │
-│ │ Subtitle     │   Subtitle (muted)       │ ● session · Out  │   │
-│ └──────────────┘                          └──────────────────┘   │
-├──────────────────────────────────────────────────────────────────┤
-│ AdminPrimaryTabs (12-13 curated tabs, pill style, focus rings)   │
-├──────────────────────────────────────────────────────────────────┤
-│ <main> page content (consistent max-width, padding)              │
-└──────────────────────────────────────────────────────────────────┘
+```
+mongoloyd@protonmail.com  →  app_metadata.role = "operator"
 ```
 
-### G. Typography & contrast tokens
+After Gap 1 is fixed and that account signs in on the production preview, the pill should render **Operator** (blue). To make this provable rather than visual-only, add a dev-time `console.debug` in the shared `decodeJwtRole` helper that logs the decoded role exactly once per session change. This gives us a reproducible signal in `code--read_console_logs` instead of relying on a screenshot.
 
-Reusing the `/about` hero direction and existing tokens — no new fonts, no hardcoded colors:
+### Gap 3 — Test account for "non-admin should be blocked"
 
-| Surface | Class |
-|---|---|
-| Page title | `font-display text-3xl md:text-4xl font-extrabold leading-tight tracking-tight text-foreground` |
-| Section heading | `font-display text-xl md:text-2xl font-bold tracking-tight text-foreground` |
-| Eyebrow / metadata label | `text-[11px] font-bold uppercase tracking-widest text-muted-foreground` |
-| Body | `text-sm leading-relaxed text-foreground/80` |
-| Identity email | `text-sm font-semibold text-foreground` |
-| Role badge | reuse `RoleBadge` pattern from `AdminSettings` (rose/blue/emerald pills) |
-| Tab trigger (default) | `text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60` |
-| Tab trigger (active) | `bg-card text-foreground shadow-sm border border-border` |
-| Tab trigger (focus) | `focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2` |
-| Primary button | existing `Button` default (already passes contrast) |
-| Disabled controls | `opacity-60 cursor-not-allowed` (intentional, not washed-out) |
-| Empty state | centered card with icon + single-sentence explanation + one action |
+We have one operator account but no proven non-admin auth user readily available to log in as. To verify the block, the user needs to either:
+- (a) provide credentials for any non-admin Supabase user they already control, or
+- (b) tell us to create a throwaway account via `supabase.auth.signUp` from the preview (no `app_metadata.role`), then test the block
 
-All colors via semantic tokens (`--foreground`, `--muted-foreground`, `--card`, `--border`, `--ring`, `--destructive`). No raw `slate-400` etc. introduced.
+I'll ask which they prefer before running the live test.
 
-### H. Auth flow (end to end)
+### Execution sequence (default mode, after approval)
 
-```text
-visitor → /admin
-  AdminAuthGate
-    DEV?  → render (existing bypass, unchanged)
-    PROD: no session  → <Navigate to="/admin/login">
-    PROD: session, role ok → render <AdminShell><AdminDashboard/>
-    PROD: session, no operator role → "Unauthorized" panel + Sign out
+1. Create `src/components/admin/auth/decodeJwtRole.ts` (single shared decoder, optional debug log)
+2. Update `AdminIdentityBar.tsx` to import from it (drop the local copy)
+3. Update `AdminAuthGate.tsx`:
+   - keep DEV bypass
+   - production: session check → role check → render children OR `<AdminUnauthorizedPanel />`
+   - covers `SIGNED_OUT` and JWT refresh via existing `onAuthStateChange`
+4. `npx tsc --noEmit` must exit 0
+5. Live verification on the production preview (`https://wmmvp.lovable.app`) using browser tools:
+   - **Test A — Admin sign-in path:** navigate `/admin` while signed out → asserts redirect to `/admin/login` → fill `mongoloyd@protonmail.com` + password the user provides → asserts land on `/admin` → screenshot identity bar → assert pill text is **Operator** → assert console log `decoded admin role: operator` → click Sign Out → asserts redirect to `/admin/login`
+   - **Test B — Forgot-password loop:** `/admin/login` → "Forgot password?" → submit email → asserts "Check your inbox" → (manual) open email link → assert lands on `/admin/reset-password` with form ready → set new password → assert redirect to `/admin/login` → assert sign-in with new password works
+   - **Test C — Non-admin block:** sign in as the non-admin account → navigate `/admin` → asserts `<AdminUnauthorizedPanel />` renders, NOT the dashboard → click Sign Out works
+   - **Test D — Direct deep-link:** `/admin/forgot-password` while signed out renders correctly; `/admin/reset-password` without a recovery hash shows the "Invalid or expired link" panel after the 3s grace
+6. Capture results in a single summary: pass/fail per test, with screenshots and the decoded-role console line for each.
 
-visitor → /admin/login
-  signed in? → <Navigate to="/admin">
-  email+password → signInWithPassword → /admin
-  "Forgot password?" → switch in-page OR link to /admin/forgot-password
+### What this plan does NOT touch
 
-/admin/forgot-password → resetPasswordForEmail → "Check your email"
-recovery email link → /admin/reset-password
-  onAuthStateChange('PASSWORD_RECOVERY') → show new-password form
-  updateUser({password}) → /admin/login
-```
+- `is_internal_operator()` RPC, RLS policies, schema
+- `phoneVerificationService.ts`, OTP flow, Twilio
+- Partner auth, homeowner flow, Inspector, Session Diag panel
+- DEV bypasses in `AuthGuard.tsx` / `useCurrentUserRole.ts`
+- The 35→13 tab curation already in place
+- Any edge function
 
-### I. States covered
+### Inputs needed from you (before live tests)
 
-- **Empty**: intentional empty-state cards in dashboard (icon + sentence + single action).
-- **Unauthorized**: dedicated panel inside `AdminAuthGate`, never blank.
-- **Expired session**: `onAuthStateChange('SIGNED_OUT')` in `AdminAuthGate` → redirect to `/admin/login` with toast "Your session has expired".
-- **Errors**: all auth surfaces use existing `useToast` with human-readable messages; no `[object Object]`.
-- **Responsive**: `AdminShell` header stacks identity below title under `md`. `AdminPrimaryTabs` becomes horizontally scrollable on narrow widths instead of wrapping into 4 rows.
-- **Focus/keyboard**: every interactive element has a real `focus-visible` ring (uses `--ring` token).
+1. **Admin password** for `mongoloyd@protonmail.com` (or a different real operator account to use)
+2. **Non-admin verification approach** — either provide existing non-admin credentials, or approve creating a throwaway signup for Test C
+3. **Permission to send a real password-reset email** to that operator address (Test B will trigger one)
 
-### J. What is explicitly NOT touched
+### Acceptance
 
-- `phoneVerificationService.ts`, `PhoneVerifyModal.tsx`, `VerifyGate.tsx`
-- All OTP / Twilio / homeowner upload paths
-- `is_internal_operator()`, RLS, edge functions, schema, `auth.users`
-- `ContractorLogin.tsx`, `PartnerResetPassword.tsx`, partner routes
-- `SessionDiagnosticPanel.tsx`, `DeliveryInspectorPage.tsx`
-- DEV bypass behavior in `AuthGuard` and `useCurrentUserRole` (left intact, just no longer the only thing standing between `/admin` and the world)
-- PR-2 delivery work
-
-### K. Acceptance
-
-- `tsc --noEmit` exit 0.
-- Visiting `/admin` while signed out (production build) → `/admin/login`. In sandbox DEV, existing bypass still works.
-- `/admin/login`, `/admin/forgot-password`, `/admin/reset-password` all render, complete the round trip, and route into `/admin`.
-- Admin shell on `/admin`, `/admin/settings`, `/admin/partners` shares one header + identity bar + sign-out.
-- Identity bar always shows current email/role (or "DEV bypass" badge when applicable).
-- Primary tab strip shows ~12-13 curated tabs, not 35.
-- All headings use `font-display`/`font-extrabold`/`tracking-tight`. All controls have visible hover/focus/active states. No washed-out gray-on-gray.
-- No protected paths modified.
+- `tsc --noEmit` exit 0
+- `AdminAuthGate` blocks any signed-in user whose JWT `app_metadata.role` is not operator/admin/super_admin (Test C green)
+- `AdminIdentityBar` pill matches the decoded role for the live admin session, confirmed by both screenshot and console log (Test A green)
+- All three new routes complete a real end-to-end round trip on the production preview (Tests A, B, D green)
+- No protected paths modified
 
