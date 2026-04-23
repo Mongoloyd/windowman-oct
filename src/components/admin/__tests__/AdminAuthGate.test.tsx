@@ -1,0 +1,229 @@
+/**
+ * AdminAuthGate — integration tests
+ *
+ * Verifies that in production mode (DEV bypass off):
+ *   - Anonymous users on any /admin route are redirected to /admin/login
+ *     (with the original path captured in router state).
+ *   - Authenticated users with a non-admin JWT role land on the
+ *     <AdminUnauthorizedPanel /> instead of the protected children.
+ *   - Authenticated users with an admin role (operator/admin/super_admin)
+ *     see the protected children.
+ *   - SIGNED_OUT events fired mid-session evict the user immediately.
+ *
+ * Each scenario is run against every admin route (/admin, /admin/settings,
+ * /admin/partners) so future routes added through AdminAuthGate inherit
+ * the same coverage matrix.
+ */
+
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { AdminAuthGate } from "@/components/admin/AdminAuthGate";
+
+// ── Hoisted mock state — required because vi.mock factories run before imports
+const mockState = vi.hoisted(() => {
+  type Listener = (event: string, session: unknown) => void;
+  return {
+    session: null as null | { user: { email: string }; access_token: string },
+    listeners: [] as Listener[],
+  };
+});
+
+vi.mock("@/integrations/supabase/client", () => ({
+  supabase: {
+    auth: {
+      getSession: vi.fn(async () => ({ data: { session: mockState.session } })),
+      onAuthStateChange: vi.fn((cb: (event: string, session: unknown) => void) => {
+        mockState.listeners.push(cb);
+        return { data: { subscription: { unsubscribe: vi.fn() } } };
+      }),
+      signOut: vi.fn(async () => ({ error: null })),
+    },
+  },
+}));
+
+/**
+ * Build a fake JWT whose payload encodes app_metadata.role. We do NOT need
+ * a valid signature — decodeJwtRole only base64-decodes the payload segment.
+ */
+function buildJwt(role: string | null): string {
+  const header = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+  const payload = btoa(
+    JSON.stringify({
+      sub: "user-uuid",
+      email: "test@example.com",
+      app_metadata: role === null ? {} : { role },
+    }),
+  );
+  return `${header}.${payload}.fake-signature`;
+}
+
+function setSession(role: string | null | "anonymous") {
+  if (role === "anonymous") {
+    mockState.session = null;
+  } else {
+    mockState.session = {
+      user: { email: "test@example.com" },
+      access_token: buildJwt(role),
+    };
+  }
+}
+
+function renderGated(initialPath: string) {
+  return render(
+    <MemoryRouter initialEntries={[initialPath]}>
+      <Routes>
+        <Route
+          path="/admin"
+          element={
+            <AdminAuthGate>
+              <div data-testid="admin-dashboard">Admin Dashboard</div>
+            </AdminAuthGate>
+          }
+        />
+        <Route
+          path="/admin/settings"
+          element={
+            <AdminAuthGate>
+              <div data-testid="admin-settings">Admin Settings</div>
+            </AdminAuthGate>
+          }
+        />
+        <Route
+          path="/admin/partners"
+          element={
+            <AdminAuthGate>
+              <div data-testid="admin-partners">Admin Partners</div>
+            </AdminAuthGate>
+          }
+        />
+        <Route
+          path="/admin/login"
+          element={<div data-testid="login-page">Login Page</div>}
+        />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+const ADMIN_ROUTES = ["/admin", "/admin/settings", "/admin/partners"] as const;
+const ROUTE_TESTID: Record<(typeof ADMIN_ROUTES)[number], string> = {
+  "/admin": "admin-dashboard",
+  "/admin/settings": "admin-settings",
+  "/admin/partners": "admin-partners",
+};
+
+describe("AdminAuthGate (production mode — DEV bypass disabled)", () => {
+  beforeEach(() => {
+    // Force the production code path: AdminAuthGate short-circuits when
+    // import.meta.env.DEV is true. vi.stubEnv flips it to false so
+    // ProductionAdminAuthGate runs.
+    vi.stubEnv("DEV", "");
+    mockState.session = null;
+    mockState.listeners = [];
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.clearAllMocks();
+  });
+
+  describe("anonymous users", () => {
+    it.each(ADMIN_ROUTES)("redirects %s to /admin/login", async (route) => {
+      setSession("anonymous");
+      renderGated(route);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("login-page")).toBeInTheDocument();
+      });
+      expect(screen.queryByTestId(ROUTE_TESTID[route])).not.toBeInTheDocument();
+    });
+  });
+
+  describe("non-admin authenticated users", () => {
+    const NON_ADMIN_ROLES = [
+      "viewer", // recognized but not in ADMIN_ROLES
+      "homeowner", // unrecognized → decoded as null
+      "contractor", // unrecognized → decoded as null
+      null, // signed in with no app_metadata.role at all
+    ] as const;
+
+    for (const role of NON_ADMIN_ROLES) {
+      describe(`role = ${role === null ? "<none>" : `"${role}"`}`, () => {
+        it.each(ADMIN_ROUTES)("blocks %s with the unauthorized panel", async (route) => {
+          setSession(role);
+          renderGated(route);
+
+          await waitFor(() => {
+            expect(screen.getByText(/not authorized/i)).toBeInTheDocument();
+          });
+          // Children of the protected route MUST NOT render.
+          expect(screen.queryByTestId(ROUTE_TESTID[route])).not.toBeInTheDocument();
+          // Anonymous redirect MUST NOT fire — the user is signed in,
+          // they just lack the role. Show the panel, not the login page.
+          expect(screen.queryByTestId("login-page")).not.toBeInTheDocument();
+        });
+      });
+    }
+  });
+
+  describe("admin authenticated users", () => {
+    const ADMIN_ROLES = ["operator", "admin", "super_admin"] as const;
+
+    for (const role of ADMIN_ROLES) {
+      describe(`role = "${role}"`, () => {
+        it.each(ADMIN_ROUTES)("renders the protected children at %s", async (route) => {
+          setSession(role);
+          renderGated(route);
+
+          await waitFor(() => {
+            expect(screen.getByTestId(ROUTE_TESTID[route])).toBeInTheDocument();
+          });
+          expect(screen.queryByText(/not authorized/i)).not.toBeInTheDocument();
+          expect(screen.queryByTestId("login-page")).not.toBeInTheDocument();
+        });
+      });
+    }
+  });
+
+  describe("session lifecycle", () => {
+    it("evicts an authorized admin when SIGNED_OUT fires mid-session", async () => {
+      setSession("operator");
+      renderGated("/admin");
+
+      await waitFor(() => {
+        expect(screen.getByTestId("admin-dashboard")).toBeInTheDocument();
+      });
+
+      // Simulate the user signing out from another tab / explicit sign-out.
+      mockState.session = null;
+      mockState.listeners.forEach((cb) => cb("SIGNED_OUT", null));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("login-page")).toBeInTheDocument();
+      });
+      expect(screen.queryByTestId("admin-dashboard")).not.toBeInTheDocument();
+    });
+
+    it("upgrades a non-admin to admin if their JWT changes mid-session", async () => {
+      setSession("viewer");
+      renderGated("/admin");
+
+      await waitFor(() => {
+        expect(screen.getByText(/not authorized/i)).toBeInTheDocument();
+      });
+
+      // Backend grants the operator role; client receives a refreshed token.
+      mockState.session = {
+        user: { email: "test@example.com" },
+        access_token: buildJwt("operator"),
+      };
+      mockState.listeners.forEach((cb) => cb("TOKEN_REFRESHED", mockState.session));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("admin-dashboard")).toBeInTheDocument();
+      });
+      expect(screen.queryByText(/not authorized/i)).not.toBeInTheDocument();
+    });
+  });
+});
