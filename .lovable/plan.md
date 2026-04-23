@@ -1,57 +1,99 @@
 
 
-## Rotate `DEV_BYPASS_SECRET` end-to-end (no `.env`, no committed values)
+## DEV-only client bypass via `localStorage` prompt — no backend changes
 
-### Step 1 — Lovable client secret (I trigger the secure input)
+Replace every `import.meta.env.VITE_DEV_BYPASS_SECRET` reference with a runtime `localStorage` lookup that prompts once per browser. `VerifyGate` short-circuits in DEV when a secret is present. Production is untouched because every code path is wrapped in `import.meta.env.DEV`.
 
-I'll invoke the secure secret-entry tool for **`VITE_DEV_BYPASS_SECRET`**. A secure paste field appears in the chat. You paste your saved value there. Lovable stores it encrypted; it's never written to any file or echoed back.
+### New file
 
-Constraints for the value:
-- no square brackets `[ ]`
-- no surrounding quotes
-- no leading/trailing spaces
-- exact same string you'll paste into Supabase in Step 3
+**`src/lib/devSecret.ts`** (~30 lines)
+```ts
+const KEY = 'wm_dev_secret';
 
-### Step 2 — `.env.example` cleanup (code change, no secrets)
+export function getDevSecret(): string | null {
+  if (!import.meta.env.DEV) return null;
+  try {
+    let v = localStorage.getItem(KEY);
+    if (v) return v;
+    const entered = window.prompt('Enter DEV_BYPASS_SECRET (cancel to use normal OTP flow):');
+    if (entered && entered.trim()) {
+      v = entered.trim();
+      localStorage.setItem(KEY, v);
+      return v;
+    }
+    return null; // user cancelled → fall back to normal flow
+  } catch {
+    return null;
+  }
+}
 
-Edit `.env.example` only:
+export function peekDevSecret(): string | null {
+  if (!import.meta.env.DEV) return null;
+  try { return localStorage.getItem(KEY); } catch { return null; }
+}
 
-- **Remove** the line `VITE_ADMIN_SECRET="your-secret-here"` (legacy, zero references in codebase)
-- **Update** the comment above `VITE_DEV_BYPASS_SECRET` to read:
-  ```
-  # ═══ Dev Bypass Secret ═══
-  # MUST match DEV_BYPASS_SECRET in Supabase Edge Function secrets exactly.
-  # No brackets, no quotes, no surrounding whitespace.
-  # Used by: supabase/functions/dev-report-unlock + client dev panel.
-  VITE_DEV_BYPASS_SECRET="your-secret-here"
-  ```
+export function clearDevSecret(): void {
+  try { localStorage.removeItem(KEY); } catch {}
+}
+```
 
-No other files touched. No application code changes.
+Two accessors on purpose:
+- `getDevSecret()` — may prompt. Used by explicit user actions (clicking a DEV scenario button, manually requesting unlock).
+- `peekDevSecret()` — never prompts. Used by `VerifyGate` auto-skip and by passive admin fetches so we don't pop a prompt on every page load.
 
-### Step 3 — Supabase server secret (you do this manually)
+### File changes
 
-After Step 1 completes:
+**1. `src/components/TruthReportFindings/VerifyGate.tsx`**
+- Add `useEffect` on mount: if `import.meta.env.DEV` and `peekDevSecret()` returns a value, call `onVerified()` immediately and return.
+- Do **not** call `send-otp` or `verify-otp` in that branch. No prompt — if no secret is stored, the gate behaves exactly as today (normal OTP flow).
+- Production build: `import.meta.env.DEV` is false, the effect bails, behavior is identical to today.
 
-1. Open Supabase → Project → Edge Functions → **Manage secrets**
-2. Find **`DEV_BYPASS_SECRET`** (already exists)
-3. Click edit → paste the **exact same value** you pasted in Step 1
-4. Save
+**2. `src/hooks/useAnalysisData.ts`**
+- Replace all `import.meta.env.VITE_DEV_BYPASS_SECRET` reads with `peekDevSecret()`.
+- The dev-bypass fetch path activates only when both `import.meta.env.DEV` is true and `peekDevSecret()` returns a string.
+- Real-user `fetchFull(phoneE164)` path unchanged.
 
-That's it. The edge function `dev-report-unlock` reads `Deno.env.get("DEV_BYPASS_SECRET")` and will pick up the new value on next invocation.
+**3. `src/services/adminDataService.ts`**
+- Replace `const devSecret = import.meta.env.DEV ? import.meta.env.VITE_DEV_BYPASS_SECRET : undefined;` with `const devSecret = peekDevSecret();` in `invokeAdminData`, `dialLead`, `sendContractorHandoff`.
+- Header still sent as `x-dev-secret` exactly as today, so the existing server-side `DEV_BYPASS_SECRET` check in `admin-data`/`dial-lead`/`send-contractor-handoff` keeps working unchanged.
+- Production session-JWT path unchanged.
 
-### What is NOT changing
+**4. `src/components/dev/DevQuoteGenerator.tsx`**
+- Remove the module-level `const DEV_SECRET = import.meta.env.VITE_DEV_BYPASS_SECRET ...`.
+- Inside `runScenario`, call `getDevSecret()` (the prompting variant — user explicitly clicked a scenario button, so a one-time prompt is fine).
+- If it returns `null` (user cancelled), set `result.error = 'DEV bypass cancelled'` and return.
+- Status text updates: `peekDevSecret() ? 'Bypass: ✓ secret stored in localStorage' : '⚠️ Click a scenario to be prompted for DEV_BYPASS_SECRET'`.
+- Component is already wrapped in `if (!import.meta.env.DEV) return null;` — production never renders it.
 
-- `VITE_ADMIN_SECRET` stays removed from `.env.example`; it's not deleted from the Lovable secret store in this pass (dormant, harmless, separate cleanup if you want it later)
-- No changes to: upload, OTP, scan-quote, admin logic, GTM/CAPI tracking, report reveal, RLS, or any edge function code
-- No `.env` file created
-- No secret value written to any tracked file or chat message
+**5. `.env.example`**
+- Remove the `VITE_DEV_BYPASS_SECRET=...` line.
+- Add a one-line comment: `# DEV bypass: stored in browser localStorage at runtime via window.prompt — see src/lib/devSecret.ts`.
 
-### Verification after rotation
+**6. `.lovable/memory/features/dev-bypass.md`**
+- Update Secrets section: drop `VITE_DEV_BYPASS_SECRET`. Document that the client side now prompts once and stores in `localStorage.wm_dev_secret`. Server-side `DEV_BYPASS_SECRET` remains the only real enforcement.
 
-- Client: dev panel actions that use the bypass should keep working in preview
-- Server: `dev-report-unlock` should return data when called with the new `dev_secret`; calls with the old value should now return `403 Forbidden`
+### What is NOT touched (confirmed)
 
-### Rollback
+- No new edge functions, no token server, no HMAC/JWT, no host allowlist.
+- No changes to `send-otp`, `verify-otp`, `scan-quote`, `dev-report-unlock`, `admin-data`, `dial-lead`, `send-contractor-handoff`, or any other backend file.
+- No changes to Twilio config, OTP rate limits, upload, scanner, scoring, GTM, CAPI, report email, or homeowner flow.
+- No DB/RLS changes.
+- Existing server-side `DEV_BYPASS_SECRET` env var stays exactly as it is — it remains the only real enforcement boundary.
 
-If anything breaks: re-paste the previous value into both `VITE_DEV_BYPASS_SECRET` (Lovable) and `DEV_BYPASS_SECRET` (Supabase). No code rollback needed because no code logic changes.
+### How you use it in preview
+
+1. Open the preview URL, navigate to any OTP-gated shell (`/diagnosis` post-scan, report view, admin pages).
+2. The first explicit DEV action (clicking a scenario in `DevQuoteGenerator`, or manually clearing storage and reloading on a gated page) prompts: `"Enter DEV_BYPASS_SECRET (cancel to use normal OTP flow):"`. Paste the same secret you set for the server-side `DEV_BYPASS_SECRET`. It persists in `localStorage.wm_dev_secret`.
+3. From that point on, `VerifyGate` auto-skips on every page load, admin fetches send the `x-dev-secret` header, and DEV scenarios run without burning Twilio.
+4. To revert to real OTP testing in DEV: open DevTools console, run `localStorage.removeItem('wm_dev_secret')`, reload. (Or call `clearDevSecret()` from a future DEV button if you want one.)
+5. Cancel the prompt at any time → falls back cleanly to the normal Twilio OTP flow with zero errors.
+
+### Definition of done checklist
+
+- [ ] `grep -r "VITE_DEV_BYPASS_SECRET" src/` returns zero hits.
+- [ ] `.env.example` no longer mentions `VITE_DEV_BYPASS_SECRET`.
+- [ ] In DEV with secret stored: `VerifyGate` auto-completes, no `send-otp`/`verify-otp` calls in Network tab.
+- [ ] In DEV with no secret stored (or user cancelled): normal OTP flow runs unchanged.
+- [ ] In production build (`wmmvp.lovable.app`): `import.meta.env.DEV` is false, every dev branch is dead code, OTP flow runs as today.
+- [ ] Server-side `DEV_BYPASS_SECRET` check in existing edge functions is the sole authority — rotating it instantly invalidates every browser's stored secret.
 
