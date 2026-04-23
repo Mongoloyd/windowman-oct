@@ -101,7 +101,7 @@ export function DevQuoteGenerator({ sessionId, onScanStart }: DevQuoteGeneratorP
         body: {
           scan_session_id: scanSessionId,
           dev_extraction_override: fixture.extraction,
-          dev_secret: DEV_SECRET,
+          dev_secret: devSecret,
         },
       });
 
@@ -218,9 +218,9 @@ export function DevQuoteGenerator({ sessionId, onScanStart }: DevQuoteGeneratorP
       </div>
 
       <p style={{ color: "#999", fontSize: 12, marginBottom: 12 }}>
-        {DEV_SECRET
-          ? `Bypass secret: ✓ configured | Session: ${sessionId ? sessionId.slice(0, 8) + "…" : "none (will create records without lead)"}`
-          : "⚠️ VITE_DEV_BYPASS_SECRET not set — add it to .env"}
+        {peekDevSecret()
+          ? `Bypass secret: ✓ stored in localStorage | Session: ${sessionId ? sessionId.slice(0, 8) + "…" : "none (will create records without lead)"}`
+          : "⚠️ Click a scenario — you'll be prompted once for DEV_BYPASS_SECRET (stored in localStorage.wm_dev_secret)"}
       </p>
 
       {/* Scenario buttons */}

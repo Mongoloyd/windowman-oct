@@ -7,8 +7,18 @@ Dev OCR bypass system for deterministic testing of the scoring pipeline.
 - Produces identical DB records as a real scan
 
 ## Secrets
-- `DEV_BYPASS_SECRET` — Supabase edge function secret (runtime)
-- `VITE_DEV_BYPASS_SECRET` — in `.env` for client-side dev panel
+- `DEV_BYPASS_SECRET` — Supabase edge function secret (runtime). **Only real enforcement boundary.**
+- Client side: NO build-time env var. The browser stores the dev secret in
+  `localStorage.wm_dev_secret`, prompted once via `window.prompt()` on the
+  first explicit DEV action (e.g. clicking a scenario in `DevQuoteGenerator`).
+  See `src/lib/devSecret.ts` (`getDevSecret` prompts; `peekDevSecret` does not).
+  Cancel the prompt → normal OTP flow runs unchanged.
+
+## Client consumers (all DEV-gated via `import.meta.env.DEV`)
+- `src/hooks/useAnalysisData.ts` — `peekDevSecret()` for full report fetch
+- `src/components/dev/DevQuoteGenerator.tsx` — `getDevSecret()` (prompts on click)
+- `src/components/TruthReportFindings/VerifyGate.tsx` — `peekDevSecret()` auto-skip; never calls `send-otp`/`verify-otp` on bypass path
+- `src/services/adminDataService.ts` — `peekDevSecret()` → `x-dev-secret` header
 
 ## Fixtures
 - 14 scenarios in `src/test/createMockQuote.ts` as `SCENARIO_FIXTURES`
