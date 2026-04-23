@@ -136,6 +136,22 @@ export interface AdminActionPayloads {
     event_name?: "PageView" | "ViewContent" | "Lead" | "CompleteRegistration";
     event_source_url?: string;
   };
+  // Lead workspace (Sprint 4 + 5)
+  fetch_lead_detail: { lead_id: string };
+  update_lead_funnel_stage: { lead_id: string; funnel_stage: string };
+  list_lead_notes: { lead_id: string };
+  create_lead_note: { lead_id: string; body: string; category?: string };
+  delete_lead_note: { note_id: string };
+  list_lead_tasks: { lead_id: string };
+  create_lead_task: { lead_id: string; title: string; details?: string; due_at?: string | null };
+  update_lead_task: {
+    task_id: string;
+    completed?: boolean;
+    title?: string;
+    details?: string;
+    due_at?: string | null;
+  };
+  delete_lead_task: { task_id: string };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
