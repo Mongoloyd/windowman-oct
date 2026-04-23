@@ -66,7 +66,17 @@ export type AdminAction =
   | "create_meta_client_config"
   | "set_meta_client_active"
   | "preview_meta_route"
-  | "smoke_send_meta_event";
+  | "smoke_send_meta_event"
+  // Lead workspace (Sprint 4 + 5)
+  | "fetch_lead_detail"
+  | "update_lead_funnel_stage"
+  | "list_lead_notes"
+  | "create_lead_note"
+  | "delete_lead_note"
+  | "list_lead_tasks"
+  | "create_lead_task"
+  | "update_lead_task"
+  | "delete_lead_task";
 
 /**
  * Payload shapes for each admin action.
