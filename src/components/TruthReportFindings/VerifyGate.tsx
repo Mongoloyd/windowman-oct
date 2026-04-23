@@ -11,7 +11,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Lock, Loader2, ShieldOff, Clock, WifiOff, AlertCircle } from "lucide-react";
 import { usePhoneInput } from "@/hooks/usePhoneInput";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
-import { supabase } from "@/integrations/supabase/client";
+// Transport invariant: never call supabase.functions.invoke('send-otp'|'verify-otp')
+// from this component. All OTP traffic flows through phoneVerificationService.
+import { sendOtp, verifyOtp } from "@/services/phoneVerificationService";
 import { trackGtmEvent } from "@/lib/trackConversion";
 import { peekDevSecret } from "@/lib/devSecret";
 
@@ -102,21 +104,16 @@ export function VerifyGate({ issueCount, onVerified, scanSessionId }: VerifyGate
     if (!isValid || !e164) return;
     setStep("sending");
     setErrorMsg("");
-    try {
-      const { data, error } = await supabase.functions.invoke("send-otp", {
-        body: { phone_e164: e164 },
-      });
-      if (error || !data?.success) {
-        setError(data?.error || "Failed to send code.");
-        setStep("phone");
-        return;
-      }
-      setStep("otp");
-      setCooldown(RESEND_COOLDOWN);
-    } catch {
-      setError("Network error. Try again.");
+    // Behavior preserved: scan_session_id intentionally omitted on send to
+    // match prior wire payload. Service maps body.error → result.message.
+    const result = await sendOtp(e164);
+    if (!result.ok) {
+      setError(result.message || "Failed to send code.");
       setStep("phone");
+      return;
     }
+    setStep("otp");
+    setCooldown(RESEND_COOLDOWN);
   };
 
   const handleResend = async () => {
@@ -124,16 +121,9 @@ export function VerifyGate({ issueCount, onVerified, scanSessionId }: VerifyGate
     setErrorMsg("");
     setErrorCategory("generic");
     setCooldown(RESEND_COOLDOWN);
-    try {
-      const { data, error } = await supabase.functions.invoke("send-otp", {
-        body: { phone_e164: e164 },
-      });
-      if (error || !data?.success) {
-        setError(data?.error || "Failed to resend code.");
-        setCooldown(0);
-      }
-    } catch {
-      setError("Network error. Try again.");
+    const result = await sendOtp(e164);
+    if (!result.ok) {
+      setError(result.message || "Failed to resend code.");
       setCooldown(0);
     }
   };
@@ -147,11 +137,9 @@ export function VerifyGate({ issueCount, onVerified, scanSessionId }: VerifyGate
     setErrorMsg("");
     setErrorCategory("generic");
     try {
-      const { data, error } = await supabase.functions.invoke("verify-otp", {
-        body: { phone_e164: e164, code: otpValue, scan_session_id: scanSessionId || undefined },
-      });
-      if (error || !data?.verified) {
-        setError(data?.error || "Invalid or expired code.");
+      const result = await verifyOtp(e164, otpValue, scanSessionId || undefined);
+      if (!result.ok) {
+        setError(result.message || "Invalid or expired code.");
         setStep("otp");
         // Shake + auto-clear
         setShakeKey((k) => k + 1);
@@ -168,13 +156,6 @@ export function VerifyGate({ issueCount, onVerified, scanSessionId }: VerifyGate
         scan_session_id: scanSessionId || undefined,
       });
       onVerified();
-    } catch {
-      setError("Network error. Try again.");
-      setStep("otp");
-      setShakeKey((k) => k + 1);
-      setTimeout(() => {
-        setOtpValue("");
-      }, 600);
     } finally {
       verifyLockRef.current = false;
     }

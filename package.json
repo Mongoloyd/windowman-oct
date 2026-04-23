@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:critical": "vitest run src/hooks/usePhonePipeline.test.ts src/hooks/useAnalysisData.fetchFull.test.ts src/components/UploadZone.test.tsx src/components/uploadZone/storagePath.test.ts src/services/phoneVerificationService.test.ts",
     "test:all": "vitest run && npx supabase functions test",
     "typecheck": "tsc --noEmit",
     "proof:pageview": "vitest run --config vitest.proof.config.ts",

@@ -99,6 +99,8 @@ describe("usePhonePipeline submitOtp", () => {
     expect(verifyResult).toEqual({
       status: "verified",
       e164: "+13055550000",
+      phoneVerifiedEventId: null,
+      reportRevealedEventId: null,
     });
     expect(result.current.phoneStatus).toBe("verified");
     expect(onVerified).toHaveBeenCalledTimes(1);
@@ -439,7 +441,10 @@ describe("usePhonePipeline submitOtp — edge cases and security guards", () => 
       verifyResult = await result.current.submitOtp("123456");
     });
 
-    expect(verifyResult?.status).toBe("error");
+    // Service catches network exception and surfaces it as OtpServiceErr
+    // with errorCode='network'. submitOtp maps that into the controlled
+    // invalid_code branch (so the user can retry the same code).
+    expect(verifyResult?.status).toBe("invalid_code");
     expect(result.current.errorType).toBe("network");
     expect(result.current.phoneStatus).toBe("otp_sent"); // allows retry
   });
@@ -555,5 +560,183 @@ describe("usePhonePipeline reset", () => {
     expect(result.current.phoneStatus).toBe("idle");
     expect(result.current.errorMsg).toBe("");
     expect(result.current.errorType).toBeNull();
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// Contract — payload shape (regression lock)
+// ════════════════════════════════════════════════════════════════════════════
+describe("usePhonePipeline — Contract — payload shape", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUsePhoneInput.mockReturnValue({
+      displayValue: "(305) 555-1234",
+      rawDigits: "3055551234",
+      e164: "+13055551234",
+      isValid: true,
+      handleChange: vi.fn(),
+      setValue: vi.fn(),
+    });
+    mockInvoke.mockResolvedValue({ data: { success: true }, error: null });
+  });
+
+  it("send-otp payload includes phone_e164 and scan_session_id when present", async () => {
+    const { result } = renderHook(() =>
+      usePhonePipeline("validate_and_send_otp", {
+        externalPhoneE164: "+13055551234",
+        scanSessionId: "session_abc",
+      })
+    );
+    await act(async () => { await result.current.submitPhone(); });
+    expect(mockInvoke).toHaveBeenCalledWith("send-otp", {
+      body: { phone_e164: "+13055551234", scan_session_id: "session_abc" },
+    });
+  });
+
+  it("send-otp payload sets scan_session_id to undefined when absent", async () => {
+    const { result } = renderHook(() =>
+      usePhonePipeline("validate_and_send_otp", {
+        externalPhoneE164: "+13055551234",
+      })
+    );
+    await act(async () => { await result.current.submitPhone(); });
+    expect(mockInvoke).toHaveBeenCalledWith("send-otp", {
+      body: { phone_e164: "+13055551234", scan_session_id: undefined },
+    });
+  });
+
+  it("verify-otp returns the SERVER-CANONICAL phone, not the input", async () => {
+    mockInvoke.mockResolvedValue({
+      data: { verified: true, phone_e164: "+13055550000" },
+      error: null,
+    });
+    const onVerified = vi.fn();
+    const { result } = renderHook(() =>
+      usePhonePipeline("validate_and_send_otp", {
+        externalPhoneE164: "+13055551234",
+        scanSessionId: "session_abc",
+        onVerified,
+      })
+    );
+    let verifyResult: Awaited<ReturnType<typeof result.current.submitOtp>> | null = null;
+    await act(async () => {
+      verifyResult = await result.current.submitOtp("123456");
+    });
+    expect(verifyResult?.e164).toBe("+13055550000");
+    expect(verifyResult?.e164).not.toBe("+13055551234");
+    expect(onVerified).toHaveBeenCalledTimes(1);
+  });
+
+  it("resend forwards a per-call scanSessionId override", async () => {
+    const { result } = renderHook(() =>
+      usePhonePipeline("validate_and_send_otp", {
+        externalPhoneE164: "+13055551234",
+        scanSessionId: "session_default",
+      })
+    );
+    await act(async () => {
+      await result.current.resend({ scanSessionId: "session_override" });
+    });
+    expect(mockInvoke).toHaveBeenCalledWith("send-otp", {
+      body: { phone_e164: "+13055551234", scan_session_id: "session_override" },
+    });
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// Concurrency guards
+// ════════════════════════════════════════════════════════════════════════════
+describe("usePhonePipeline — Concurrency guards", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUsePhoneInput.mockReturnValue({
+      displayValue: "(305) 555-1234",
+      rawDigits: "3055551234",
+      e164: "+13055551234",
+      isValid: true,
+      handleChange: vi.fn(),
+      setValue: vi.fn(),
+    });
+  });
+
+  it("submitOtp twice in rapid succession invokes verify-otp exactly once", async () => {
+    let resolveFirst: ((v: any) => void) | null = null;
+    mockInvoke.mockImplementationOnce(
+      () => new Promise((res) => { resolveFirst = res; })
+    );
+
+    const { result } = renderHook(() =>
+      usePhonePipeline("validate_and_send_otp", {
+        externalPhoneE164: "+13055551234",
+        scanSessionId: "session_abc",
+      })
+    );
+
+    let secondResult: Awaited<ReturnType<typeof result.current.submitOtp>> | null = null;
+    await act(async () => {
+      const firstPromise = result.current.submitOtp("123456");
+      secondResult = await result.current.submitOtp("123456");
+      resolveFirst!({ data: { verified: true, phone_e164: "+13055551234" }, error: null });
+      await firstPromise;
+    });
+
+    expect(mockInvoke).toHaveBeenCalledTimes(1);
+    expect(secondResult?.status).toBe("error");
+  });
+
+  it("submitPhone twice in rapid succession invokes send-otp exactly once", async () => {
+    let resolveFirst: ((v: any) => void) | null = null;
+    mockInvoke.mockImplementationOnce(
+      () => new Promise((res) => { resolveFirst = res; })
+    );
+
+    const { result } = renderHook(() =>
+      usePhonePipeline("validate_and_send_otp", {
+        externalPhoneE164: "+13055551234",
+      })
+    );
+
+    let secondResult: Awaited<ReturnType<typeof result.current.submitPhone>> | null = null;
+    await act(async () => {
+      const firstPromise = result.current.submitPhone();
+      secondResult = await result.current.submitPhone();
+      resolveFirst!({ data: { success: true }, error: null });
+      await firstPromise;
+    });
+
+    expect(mockInvoke).toHaveBeenCalledTimes(1);
+    expect(secondResult?.status).toBe("error");
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// Resend cooldown — does NOT invoke send-otp when blocked
+// ════════════════════════════════════════════════════════════════════════════
+describe("usePhonePipeline — Resend cooldown invocation guard", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUsePhoneInput.mockReturnValue({
+      displayValue: "(305) 555-1234",
+      rawDigits: "3055551234",
+      e164: "+13055551234",
+      isValid: true,
+      handleChange: vi.fn(),
+      setValue: vi.fn(),
+    });
+    mockInvoke.mockResolvedValue({ data: { success: true }, error: null });
+  });
+
+  it("a second resend within cooldown does NOT call send-otp again", async () => {
+    const { result } = renderHook(() =>
+      usePhonePipeline("validate_and_send_otp", { externalPhoneE164: "+13055551234" })
+    );
+    await act(async () => { await result.current.resend(); });
+    expect(mockInvoke).toHaveBeenCalledTimes(1);
+
+    let blocked: Awaited<ReturnType<typeof result.current.resend>> | null = null;
+    await act(async () => { blocked = await result.current.resend(); });
+
+    expect(blocked?.status).toBe("blocked");
+    expect(mockInvoke).toHaveBeenCalledTimes(1);
   });
 });
