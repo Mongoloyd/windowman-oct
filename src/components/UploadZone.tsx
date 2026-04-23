@@ -19,7 +19,6 @@ function makeTransportEventId(): string {
 }
 import { toast } from "sonner";
 import {
-  normalizeFileSegment,
   buildDeterministicStoragePath,
 } from "@/components/uploadZone/storagePath";
 
