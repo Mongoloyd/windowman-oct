@@ -1,83 +1,51 @@
 
 
-## Verification Plan: Admin Auth End-to-End
+## Verification result
 
-### What the audit found
+### What works
+- **TypeScript**: `tsc --noEmit -p tsconfig.app.json` exits clean — zero type errors across the new files (`AdminLeadInbox.tsx`, `AdminLeadDossierPage.tsx`, `LeadStatusPanel.tsx`, `LeadNotesPanel.tsx`, `LeadTasksPanel.tsx`, `LeadTimelinePanel.tsx`, `leadWorkflow.ts`, updated `adminDataService.ts`, regenerated `supabase/types.ts`).
+- **Vite dev server**: started in 637 ms, no HMR errors, no module-resolution failures in `/tmp/dev-server-logs/dev-server.log`.
+- **Edge function**: `admin-data` extensions compile alongside the rest of the project.
 
-I read every piece of the new admin auth surface — `AdminAuthGate`, `AdminIdentityBar` (incl. its JWT decoder), `AdminLogin`, `AdminForgotPassword`, `AdminResetPassword`, the `App.tsx` route wiring — and queried the database for real admin accounts.
+### What's broken in preview
+- **`/admin/leads` and `/admin/leads/:id` are not routed.** `src/App.tsx` has no `lazy()` import for `AdminLeadInbox` or `AdminLeadDossierPage` and no `<Route>` entries inside the `<AdminAuthGate>` block. Hitting either URL in preview today renders the `NotFound` catch-all — so the pages never mount and we can't actually confirm they render at runtime.
+- Because nothing currently links to them either, an operator has no way to reach the new workspace from the existing admin shell.
 
-**Two real gaps must be closed before "verified" can be claimed.** The plan below first fixes those gaps, then runs the actual end-to-end verification.
+### Plan to make verification pass
 
-### Gap 1 — `AdminAuthGate` does NOT block non-admin users
+1. **Wire the routes in `src/App.tsx`**
+   - Add two `lazy()` imports next to the existing admin imports:
+     ```ts
+     const AdminLeadInbox = lazy(() => import("./pages/AdminLeadInbox.tsx"));
+     const AdminLeadDossierPage = lazy(() => import("./pages/AdminLeadDossierPage.tsx"));
+     ```
+   - Add two gated routes alongside `/admin`, `/admin/settings`, `/admin/partners`:
+     ```tsx
+     <Route path="/admin/leads" element={<AdminAuthGate><AdminLeadInbox /></AdminAuthGate>} />
+     <Route path="/admin/leads/:id" element={<AdminAuthGate><AdminLeadDossierPage /></AdminAuthGate>} />
+     ```
 
-The current gate (`src/components/admin/AdminAuthGate.tsx`) only checks "is there a session?" — it accepts any authenticated Supabase user, including a homeowner who signed up via the public site. The file even acknowledges this:
+2. **Add a navigation entry point** so operators can actually reach `/admin/leads`:
+   - Add a "Lead Inbox" tab to `AdminPrimaryTabs` (or the admin shell's nav source) pointing at `/admin/leads`. Keep the existing 13 surfaces; this is a 14th curated tab.
+   - In `AdminLeadInbox`, ensure each row's "View" action navigates to `/admin/leads/${lead.id}` (already implemented via `useNavigate`, just confirm).
 
-> "Role-level enforcement (operator/admin/super_admin) is left to backend RLS via is_internal_operator()"
+3. **Runtime smoke verification** (after the routes land)
+   - Restart-check the dev-server log for compile errors (`grep -nE 'error|warn|failed' /tmp/dev-server-logs/dev-server.log | tail`).
+   - Re-run `npx tsc --noEmit -p tsconfig.app.json` — must stay clean.
+   - Run the existing Vitest suite (`AdminAuthGate.test.tsx`, `adminDataService.test.ts`) to confirm no regression in the gate or data-service contracts.
+   - Hit `/admin/health` to confirm the health page still reports the admin route set as deployed (and extend the required-route list to include `/admin/leads` and `/admin/leads/:id` so future deploys catch missing wiring automatically).
 
-That is not a gate. A non-admin user lands inside the admin shell and only fails when individual queries error out. The user explicitly asked us to confirm non-admins are blocked — today they aren't.
+4. **Sanity-check the data path** without going to production
+   - Confirm `invokeAdminData('fetch_leads', …)` and `fetchLeadDetail` resolve against the deployed `admin-data` edge function (the migration and function deploy already happened in the previous loop).
+   - If `fetch_lead_detail` returns 4xx/5xx in preview, capture the edge-function log and fix the action handler before declaring the dossier page "renders correctly."
 
-**Fix:** add a role check to `AdminAuthGate` after the session check:
-- decode `session.access_token` with the same logic already present in `AdminIdentityBar` (`app_metadata.role`)
-- if role is not in `('operator','admin','super_admin')` → render `<AdminUnauthorizedPanel />` (already exists in the same file)
-- if role IS valid → render children
-- keep DEV bypass untouched
+### Out of scope for this verification pass
+- The seven Supabase security findings shown in the security view (conversion_events RLS, realtime row filters, quotes-bucket update policy, `resolve_route_for_*` grants, `function_search_path_mutable`). These are pre-existing and unrelated to the lead-workspace work; they should be tracked as their own hardening sprint.
 
-This reuses the existing `decodeJwtRole` function — extract it into a small shared helper `src/components/admin/auth/decodeJwtRole.ts` so both `AdminAuthGate` and `AdminIdentityBar` share one source of truth.
+### Files to change
+- `src/App.tsx` — 2 `lazy()` imports + 2 `<Route>` entries.
+- `src/components/admin/AdminPrimaryTabs.tsx` (or equivalent nav source) — 1 new tab entry pointing at `/admin/leads`.
+- `src/pages/AdminHealth.tsx` — extend the required-route list with the two new paths.
 
-### Gap 2 — Verifying the identity-bar pill matches the live JWT
-
-The decoder in `AdminIdentityBar` reads `payload.app_metadata.role`. The DB confirms one real admin exists:
-
-```
-mongoloyd@protonmail.com  →  app_metadata.role = "operator"
-```
-
-After Gap 1 is fixed and that account signs in on the production preview, the pill should render **Operator** (blue). To make this provable rather than visual-only, add a dev-time `console.debug` in the shared `decodeJwtRole` helper that logs the decoded role exactly once per session change. This gives us a reproducible signal in `code--read_console_logs` instead of relying on a screenshot.
-
-### Gap 3 — Test account for "non-admin should be blocked"
-
-We have one operator account but no proven non-admin auth user readily available to log in as. To verify the block, the user needs to either:
-- (a) provide credentials for any non-admin Supabase user they already control, or
-- (b) tell us to create a throwaway account via `supabase.auth.signUp` from the preview (no `app_metadata.role`), then test the block
-
-I'll ask which they prefer before running the live test.
-
-### Execution sequence (default mode, after approval)
-
-1. Create `src/components/admin/auth/decodeJwtRole.ts` (single shared decoder, optional debug log)
-2. Update `AdminIdentityBar.tsx` to import from it (drop the local copy)
-3. Update `AdminAuthGate.tsx`:
-   - keep DEV bypass
-   - production: session check → role check → render children OR `<AdminUnauthorizedPanel />`
-   - covers `SIGNED_OUT` and JWT refresh via existing `onAuthStateChange`
-4. `npx tsc --noEmit` must exit 0
-5. Live verification on the production preview (`https://wmmvp.lovable.app`) using browser tools:
-   - **Test A — Admin sign-in path:** navigate `/admin` while signed out → asserts redirect to `/admin/login` → fill `mongoloyd@protonmail.com` + password the user provides → asserts land on `/admin` → screenshot identity bar → assert pill text is **Operator** → assert console log `decoded admin role: operator` → click Sign Out → asserts redirect to `/admin/login`
-   - **Test B — Forgot-password loop:** `/admin/login` → "Forgot password?" → submit email → asserts "Check your inbox" → (manual) open email link → assert lands on `/admin/reset-password` with form ready → set new password → assert redirect to `/admin/login` → assert sign-in with new password works
-   - **Test C — Non-admin block:** sign in as the non-admin account → navigate `/admin` → asserts `<AdminUnauthorizedPanel />` renders, NOT the dashboard → click Sign Out works
-   - **Test D — Direct deep-link:** `/admin/forgot-password` while signed out renders correctly; `/admin/reset-password` without a recovery hash shows the "Invalid or expired link" panel after the 3s grace
-6. Capture results in a single summary: pass/fail per test, with screenshots and the decoded-role console line for each.
-
-### What this plan does NOT touch
-
-- `is_internal_operator()` RPC, RLS policies, schema
-- `phoneVerificationService.ts`, OTP flow, Twilio
-- Partner auth, homeowner flow, Inspector, Session Diag panel
-- DEV bypasses in `AuthGuard.tsx` / `useCurrentUserRole.ts`
-- The 35→13 tab curation already in place
-- Any edge function
-
-### Inputs needed from you (before live tests)
-
-1. **Admin password** for `mongoloyd@protonmail.com` (or a different real operator account to use)
-2. **Non-admin verification approach** — either provide existing non-admin credentials, or approve creating a throwaway signup for Test C
-3. **Permission to send a real password-reset email** to that operator address (Test B will trigger one)
-
-### Acceptance
-
-- `tsc --noEmit` exit 0
-- `AdminAuthGate` blocks any signed-in user whose JWT `app_metadata.role` is not operator/admin/super_admin (Test C green)
-- `AdminIdentityBar` pill matches the decoded role for the live admin session, confirmed by both screenshot and console log (Test A green)
-- All three new routes complete a real end-to-end round trip on the production preview (Tests A, B, D green)
-- No protected paths modified
+No new files, no DB changes, no edge-function changes.
 
