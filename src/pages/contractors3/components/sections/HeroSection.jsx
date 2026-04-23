@@ -2,7 +2,7 @@ import React from "react";
 import { motion } from "framer-motion";
 import { PAGE_CONFIG } from "../../config/page.config.js";
 
-export default function HeroSection() {
+export default function HeroSection({ onOpenQualification }) {
   return (
     <section className="relative flex min-h-[100dvh] w-full flex-col justify-center py-20 lg:py-0">
       <div className="pointer-events-none absolute inset-0 -z-10 flex items-center justify-center overflow-hidden">
@@ -36,22 +36,23 @@ export default function HeroSection() {
           </div>
 
           <div className="flex w-full flex-col gap-4 sm:flex-row sm:items-center">
+            <button
+              type="button"
+              onClick={onOpenQualification}
+              className="inline-flex items-center justify-center rounded-full bg-white px-8 py-4 text-base font-bold text-black transition-all hover:bg-white/90 active:scale-[0.98]"
+            >
+              Get Window Buyers
+            </button>
             <a
               href={PAGE_CONFIG.calendly.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center justify-center rounded-full bg-white px-8 py-4 text-base font-bold text-black transition-all hover:bg-white/90 active:scale-[0.98]"
+              className="inline-flex items-center justify-center rounded-full border border-white/20 bg-transparent px-8 py-4 text-base font-semibold text-white transition-all hover:bg-white/5 active:scale-[0.98]"
             >
               Book a 10-Minute Walkthrough
             </a>
-            <a
-              href={PAGE_CONFIG.phone.href}
-              className="inline-flex items-center justify-center rounded-full border border-white/20 bg-transparent px-8 py-4 text-base font-semibold text-white transition-all hover:bg-white/5 active:scale-[0.98]"
-            >
-              Call or Text {PAGE_CONFIG.phone.display}
-            </a>
           </div>
-          <p className="text-xs text-white/40">Or request territory access below — takes under 20 seconds.</p>
+          <p className="text-xs text-white/40">Takes under 60 seconds — no obligation.</p>
 
           <div className="mt-8 flex w-full flex-col gap-6 border-t border-white/10 pt-8 sm:flex-row sm:justify-between lg:gap-4">
             <div className="flex flex-col gap-1">

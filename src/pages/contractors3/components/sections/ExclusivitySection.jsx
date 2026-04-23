@@ -1,9 +1,9 @@
 
 import React from "react";
 import { motion } from "framer-motion";
-import { PAGE_CONFIG } from "../../config/page.config.js";
 
-export default function ExclusivitySection() {
+
+export default function ExclusivitySection({ onOpenQualification }) {
   return (
     <section className="mx-auto w-full max-w-2xl py-20 text-center">
       <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-50px" }} className="flex flex-col items-center">
@@ -24,10 +24,13 @@ export default function ExclusivitySection() {
 
         <p className="mb-8 text-sm text-white/50">Active territories fill and close permanently. Availability is confirmed on the call.</p>
 
-        <a href={PAGE_CONFIG.calendly.url} target="_blank" rel="noopener noreferrer"
-          className="inline-flex items-center justify-center rounded-full bg-white px-8 py-4 text-base font-bold text-black transition-colors hover:bg-white/90 active:scale-[0.98]">
+        <button
+          type="button"
+          onClick={onOpenQualification}
+          className="inline-flex items-center justify-center rounded-full bg-white px-8 py-4 text-base font-bold text-black transition-colors hover:bg-white/90 active:scale-[0.98]"
+        >
           See If Your Territory Is Open
-        </a>
+        </button>
       </motion.div>
     </section>
   );

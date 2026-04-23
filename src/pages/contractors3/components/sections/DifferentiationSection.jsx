@@ -2,7 +2,7 @@
 import React from "react";
 import { motion } from "framer-motion";
 
-export default function DifferentiationSection() {
+export default function DifferentiationSection({ onOpenQualification }) {
   const notItems = [
     "Generic Facebook or Google leads", "Random homeowner traffic", "Shared lead marketplaces",
     "Volume-based tire-kicker lists", "Cold contacts with no intent signal"
@@ -55,6 +55,15 @@ export default function DifferentiationSection() {
           <p className="mx-auto max-w-3xl text-lg font-medium leading-relaxed text-white/60 md:text-xl">
             "If you want volume, this is not for you. If you want timing, this might be the best decision you make."
           </p>
+          <div className="mt-10 flex justify-center">
+            <button
+              type="button"
+              onClick={onOpenQualification}
+              className="inline-flex items-center justify-center rounded-full bg-white px-8 py-4 text-base font-bold text-black transition-all hover:bg-white/90 active:scale-[0.98]"
+            >
+              Stop Buying Shared Leads
+            </button>
+          </div>
         </div>
       </div>
     </section>

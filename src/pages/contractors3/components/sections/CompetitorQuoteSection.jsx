@@ -1,7 +1,7 @@
 import React from "react";
 import { motion } from "framer-motion";
 
-export default function CompetitorQuoteSection() {
+export default function CompetitorQuoteSection({ onOpenQualification }) {
   const leftPanelVariants = {
     hidden: { opacity: 0, x: -30 },
     visible: { opacity: 1, x: 0, transition: { duration: 0.7, ease: "easeOut" } },
@@ -105,6 +105,15 @@ export default function CompetitorQuoteSection() {
         <blockquote className="mx-auto max-w-4xl text-2xl font-medium leading-tight text-white/80 lg:text-3xl">
           "By The Time The Homeowner Wants a Better Option, WindowMan Has Already Shown Them Exactly Why."
         </blockquote>
+        <div className="mt-10 flex justify-center">
+          <button
+            type="button"
+            onClick={onOpenQualification}
+            className="inline-flex items-center justify-center rounded-full bg-white px-8 py-4 text-base font-bold text-black transition-all hover:bg-white/90 active:scale-[0.98]"
+          >
+            Intercept Active Buyers
+          </button>
+        </div>
       </div>
     </section>
   );

@@ -3,7 +3,7 @@ import React from "react";
 import { motion } from "framer-motion";
 import { ArrowDown } from "lucide-react";
 
-export default function EconomicsSection() {
+export default function EconomicsSection({ onOpenQualification }) {
   return (
     <section className="mx-auto w-full max-w-5xl py-24">
       <div className="mb-16 flex flex-col items-center text-center">
@@ -65,6 +65,16 @@ export default function EconomicsSection() {
           </div>
         </div>
       </motion.div>
+
+      <div className="mt-12 flex justify-center">
+        <button
+          type="button"
+          onClick={onOpenQualification}
+          className="inline-flex items-center justify-center rounded-full bg-white px-8 py-4 text-base font-bold text-black transition-all hover:bg-white/90 active:scale-[0.98]"
+        >
+          Access Higher-Intent Buyers
+        </button>
+      </div>
     </section>
   );
 }
