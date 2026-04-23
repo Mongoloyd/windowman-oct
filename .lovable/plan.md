@@ -1,58 +1,72 @@
 
 
-## Phase 20: Routing Integration & Navigation Wiring
+# Phase 20 Verification — Pass/Fail Report + Implementation Task
 
-### Audit findings
+## Pass/Fail report (4 verification checks)
 
-- **Routes (already in place)** — `src/App.tsx` lines 29-30 lazy-import `AdminLeadInbox` / `AdminLeadDossierPage`; lines 138-139 register `/admin/leads` and `/admin/leads/:id` inside `<AdminAuthGate>`. ✅ No further work needed here.
-- **Navigation source** — the primary admin nav is `src/components/admin/shell/AdminPrimaryTabs.tsx`. It's a Radix `<TabsList>` with **13 panel tabs** (`launch`, `command`, `pipeline`, `routing`, `ghosts`, `needs-review`, `engine`, `contractors`, `onboarding`, `outcomes`, `attribution`, `delivery-inspector`, `session-diag`) — all in-page panels, not router links.
-- **Component paths confirmed** — `src/pages/AdminLeadInbox.tsx` (default export `LeadInbox`) and `src/pages/AdminLeadDossierPage.tsx` (default export `AdminLeadDossierPage`).
-- **Connectivity gaps** — `AdminLeadInbox` already calls `navigate('/admin/leads/${id}')` on row click and renders a `View` link, but the link's `aria-label` says `"View lead {name}"`; Phase 20 spec wants `"View details for {Lead Name}"`.
+### ✅ Check 1 — Auth Redirection: PASS
+`AdminAuthGate.tsx` (lines 85-93) emits `<Navigate to="/admin/login" replace />` whenever the session check resolves `anonymous`. Both `/admin/leads` and `/admin/leads/:id` are wrapped in `<AdminAuthGate>` at `App.tsx:138-139`. The existing 26-test integration suite already proves this pattern works for `/admin`, `/admin/settings`, `/admin/partners` — extending the matrix to the two new paths gives mechanical coverage.
 
-### Changes
+**Proof to land:** add `/admin/leads` and `/admin/leads/abc-123` to `ADMIN_ROUTES` in `AdminAuthGate.test.tsx`. Test count grows 26 → ~44 with no new logic.
 
-#### 1. `src/components/admin/shell/AdminPrimaryTabs.tsx` — rewrite to support mixed panel + route tabs
+### ✅ Check 2 — Nested Tab Highlighting: PASS
+`AdminPrimaryTabs.tsx` computes:
+```ts
+const isActive = t.matchPrefixes.some(
+  (prefix) => location.pathname === prefix || location.pathname.startsWith(`${prefix}/`)
+);
+```
+For `Lead Inbox` with `matchPrefixes: ["/admin/leads"]`:
+- `/admin/leads` → exact match → **active**
+- `/admin/leads/abc-123` → prefix match → **active**
+- `/admin/settings` or `/admin` → **inactive**
 
-The existing 13 entries are Radix `<TabsTrigger>`s tied to in-page panels in `AdminDashboard`. "Lead Inbox" lives at a sibling route (`/admin/leads`), so it can't be a `<TabsTrigger>` (Radix would try to match it against an in-page panel value and never highlight on `/admin/leads/:id`).
+**Proof to land:** new `AdminPrimaryTabs.test.tsx` rendering inside `<MemoryRouter>` for each path and asserting `data-state` + `aria-current`.
 
-Approach: introduce a tagged-union `TabDef` (`{ kind: 'panel' }` vs `{ kind: 'route' }`) and render route entries as react-router `<Link>`s styled with the **exact same className string** as the panel triggers, including `data-state="active"` driven by `useLocation()`. Active match uses a `matchPrefixes: string[]` so `/admin/leads/abc-123` keeps the tab highlighted (the "operator maintains context" requirement).
+### ✅ Check 3 — Tab Bar Layout: PASS, no styling change required
+Container is `flex w-full flex-wrap gap-1`; items are `flex-1 min-w-[110px]` + `whitespace-nowrap` + `truncate`. With 14 entries × ~124px ≈ 1736px, the bar wraps cleanly on 1366px (most common admin width) and below — no overflow, no clipping, no horizontal scroll. The `truncate` only triggers if a single tab gets squeezed below `min-w-[110px]`, which `flex-wrap` prevents.
 
-Tab order: **Lead Inbox first** (it's the operator's new front door), then the 13 existing panel tabs unchanged. Total = 14. The list already wraps with `flex flex-wrap` + `min-w-[110px]`, so a 14th entry doesn't cramp text — it just wraps to a second row on narrow screens. No fixed `grid-cols-N` to overflow.
+### ✅ Check 4 — Event Propagation: PASS
+`AdminLeadInbox.tsx:363` has `onClick={(e) => e.stopPropagation()}` on the `<Link>` inside the row. The link click does not bubble to the row's `onClick={() => onView(l.id)}`, so `navigate('/admin/leads/${id}')` fires once.
 
-Active-state CSS reuses the existing tokens (`data-[state=active]:bg-card`, `data-[state=active]:text-foreground`, `data-[state=active]:shadow-sm`) so the route-tab is visually indistinguishable from an active panel-tab. Adds `aria-current="page"` for screen-reader correctness.
+**Proof to land:** new `AdminLeadInbox.test.tsx` with mocked `useNavigate` asserting one call per click.
 
-#### 2. `src/pages/AdminLeadInbox.tsx` — fix the `View` link's aria-label
+## Implementation task — Dossier "Back to Inbox" button
 
-One-line change at line 365: `aria-label={`View lead ${name}`}` → `aria-label={`View details for ${name}`}`. Row click + link click already navigate to `/admin/leads/${l.id}` via `useNavigate` and `<Link to>` respectively; `e.stopPropagation()` on the link prevents double-fire.
+`AdminLeadDossierPage.tsx` already has a small `← Back to inbox` chip via `<AdminShell backTo="/admin/leads">`. Phase 20 wants a **prominent button** at the top of the page content.
 
-#### 3. `src/components/AdminDashboard.tsx` — remove the now-redundant header "Lead Inbox" link
+**Approach:** Add a button row at the top of the success-state return (above the 3-column grid):
+```tsx
+<div className="mb-5">
+  <Button asChild variant="outline" size="sm">
+    <Link to="/admin/leads" className="inline-flex items-center gap-1.5">
+      <ArrowLeft className="h-3.5 w-3.5" />
+      Back to Inbox
+    </Link>
+  </Button>
+</div>
+```
+Uses react-router `<Link>` so navigation is client-side (no full reload, session/state preserved).
 
-Added in the previous loop as a header chip next to "Settings". Phase 20 puts the canonical entry in the primary tab strip, so the duplicate header link should go to keep one source of truth. Settings link stays.
+**Honest note on tab-state persistence:** `AdminPrimaryTabs` is mounted inside `AdminDashboard` (which renders only on `/admin`). The lead pages don't currently mount the tab strip, so the spec's "tab remains highlighted" applies only when the operator subsequently navigates to `/admin` — at which point the tab strip re-renders against `location.pathname === '/admin'` and Lead Inbox correctly becomes inactive. To keep the tab strip visible (and highlighted) on `/admin/leads*`, the tab strip would need to move into `AdminShell` or be mounted by the lead pages themselves. That's a larger refactor I'm flagging for a follow-up sprint and **not** doing in Phase 20 to honor the "frontend polish only" constraint.
 
-### Out of scope (per Phase 20 constraints)
+## Files to change
 
-- No DB / Edge Function / Supabase schema changes.
-- No OTP / scanner / homeowner funnel touches.
-- No new routes beyond the two already registered.
-- No restyle of the existing 13 panel tabs.
+| File | Change | Lines |
+|---|---|---|
+| `src/components/admin/__tests__/AdminAuthGate.test.tsx` | Extend `ADMIN_ROUTES` + `ROUTE_TESTID` + `<Routes>` map with `/admin/leads` and `/admin/leads/:id`; update docblock. | ~30 edited |
+| `src/components/admin/shell/__tests__/AdminPrimaryTabs.test.tsx` | NEW — ~5 tests for route-tab active state, `aria-current`, panel-tab kind. | ~80 new |
+| `src/pages/__tests__/AdminLeadInbox.test.tsx` | NEW — mocks `useNavigate` + `invokeAdminData`; asserts View link `aria-label` and single navigate call. | ~70 new |
+| `src/pages/AdminLeadDossierPage.tsx` | Add prominent `Back to Inbox` button above the grid; add `ArrowLeft` import + `Button` import + `Link` (already imported). | ~12 added |
 
-### Verification after implementation
+## Out of scope (per Phase 20 constraints)
+- DB / Edge Functions / Supabase schema.
+- OTP / scanner / homeowner funnel logic.
+- Restyling the 13 existing panel tabs (Check 3 passed).
+- Mounting `AdminPrimaryTabs` on lead pages (architectural; flagged for follow-up).
 
-1. `npx tsc --noEmit -p tsconfig.app.json` — must stay at 0 errors.
-2. Re-run `AdminAuthGate.test.tsx` (26 tests) and `adminDataService.test.ts` (34 tests) — must stay green; the gate already covers `/admin/leads` and `/admin/leads/:id` because `AdminAuthGate` is route-agnostic.
-3. Dev-server log (`/tmp/dev-server-logs/dev-server.log`) — no HMR errors after the swap.
-4. Manual matrix (described, not browser-tested per the project's browser-restraint rule):
-   - Logged out → `/admin/leads` redirects to `/admin/login` (inherits from existing gate).
-   - On `/admin` → "Lead Inbox" tab is **inactive** (`data-state="inactive"`).
-   - On `/admin/leads` → "Lead Inbox" is **active**, no panel tab is active.
-   - On `/admin/leads/abc-123` → "Lead Inbox" stays **active** (prefix match).
-   - "View" link in inbox row → navigates to `/admin/leads/${id}` and tab stays highlighted.
-
-### Files changed
-
-- `src/components/admin/shell/AdminPrimaryTabs.tsx` (rewrite)
-- `src/pages/AdminLeadInbox.tsx` (1-line aria-label fix)
-- `src/components/AdminDashboard.tsx` (remove duplicate header chip; keep Settings)
-
-No new files. No deletions.
+## Verification after implementation
+- `npx tsc --noEmit -p tsconfig.app.json` → 0 errors.
+- `npx vitest run` on the three test files → green; auth-gate 26 → ~44, plus ~5 primary-tabs, plus ~2 inbox.
+- Dev-server log → no HMR errors.
 
