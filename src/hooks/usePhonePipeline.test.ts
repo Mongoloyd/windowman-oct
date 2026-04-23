@@ -441,7 +441,10 @@ describe("usePhonePipeline submitOtp — edge cases and security guards", () => 
       verifyResult = await result.current.submitOtp("123456");
     });
 
-    expect(verifyResult?.status).toBe("error");
+    // Service catches network exception and surfaces it as OtpServiceErr
+    // with errorCode='network'. submitOtp maps that into the controlled
+    // invalid_code branch (so the user can retry the same code).
+    expect(verifyResult?.status).toBe("invalid_code");
     expect(result.current.errorType).toBe("network");
     expect(result.current.phoneStatus).toBe("otp_sent"); // allows retry
   });
