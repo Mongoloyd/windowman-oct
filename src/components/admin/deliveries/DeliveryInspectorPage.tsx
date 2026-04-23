@@ -60,9 +60,17 @@ export function DeliveryInspectorPage() {
       setByContractor(bk);
       setLastSyncedAt(new Date());
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      // Surface real Supabase / Postgres errors instead of "[object Object]".
+      const anyErr = err as { message?: string; code?: string; details?: string; hint?: string } | null;
+      const parts = [
+        anyErr?.message,
+        anyErr?.code ? `code=${anyErr.code}` : null,
+        anyErr?.details,
+        anyErr?.hint,
+      ].filter(Boolean);
+      const msg = parts.length > 0 ? parts.join(" · ") : JSON.stringify(err);
       setError(msg);
-      console.warn("[DeliveryInspector] fetch error:", msg);
+      console.warn("[DeliveryInspector] fetch error:", err);
     } finally {
       setIsLoading(false);
     }
