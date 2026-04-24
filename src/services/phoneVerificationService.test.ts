@@ -316,7 +316,7 @@ describe("phoneVerificationService — Sprint 1: send-otp contract hardening", (
 // service still returns the SERVER value, not the input.
 // ════════════════════════════════════════════════════════════════════════════
 describe("phoneVerificationService — Sprint 2: verify-otp contract + canonical handoff", () => {
-  beforeEach(() => mockInvoke.mockReset());
+  beforeEach(() => vi.clearAllMocks());
 
   it("wire-shape lock: exact body keys { phone_e164, code, scan_session_id }", async () => {
     mockInvoke.mockResolvedValue({
