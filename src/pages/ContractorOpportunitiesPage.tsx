@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
-  Shield,
   CreditCard,
   Search,
   Lock,
@@ -13,8 +12,6 @@ import {
   Target,
   Filter,
   LayoutGrid,
-  Plus,
-  Loader2,
   Check,
   Clock,
   Phone,
@@ -22,8 +19,8 @@ import {
   Sparkles,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { PreviewModeBadge } from "@/components/PreviewModeBadge";
 import { toast } from "sonner";
+import { usePartnerPortal } from "@/components/partner/PartnerPortalContext";
 import {
   formatRelativeTime,
   getBuyerSeriousness,
