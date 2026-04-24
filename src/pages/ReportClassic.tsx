@@ -17,6 +17,7 @@ import { useAnalysisData } from "@/hooks/useAnalysisData";
 import { usePhonePipeline } from "@/hooks/usePhonePipeline";
 import { useReportAccess } from "@/hooks/useReportAccess";
 import { useScanFunnelSafe } from "@/state/scanFunnel";
+import { isValidScanSessionId } from "@/lib/routeIdGuards";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import TruthReportClassic from "@/components/TruthReportClassic";
@@ -48,8 +49,7 @@ function useCountyForSession(sessionId: string | undefined): string {
   const [county, setCounty] = useState("Your County");
 
   useEffect(() => {
-    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!sessionId || !UUID_RE.test(sessionId)) return;
+    if (!isValidScanSessionId(sessionId)) return;
     let cancelled = false;
 
     async function fetchCounty() {
@@ -85,6 +85,7 @@ function useCountyForSession(sessionId: string | undefined): string {
 export default function ReportClassic() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
+  const sessionIdValid = isValidScanSessionId(sessionId);
 
   // ── Funnel context (safe — null when outside provider) ─────────────────
   const funnel = useScanFunnelSafe();
@@ -105,7 +106,7 @@ export default function ReportClassic() {
     fullFetchError,
     tryResume,
     isResuming,
-  } = useAnalysisData(sessionId ?? null, !!sessionId);
+  } = useAnalysisData(sessionId ?? null, sessionIdValid);
 
   // ── Auto-resume: dev bypass or returning verified user ─────────────
   useEffect(() => {
@@ -314,10 +315,8 @@ export default function ReportClassic() {
   // The Truth Report is keyed strictly by a UUID scan_session_id. If the
   // route param is missing, malformed, or not a UUID, fail loud instead of
   // spinning forever. All callers (Admin Dossier, PostScanReportSwitcher,
-  // diagnosis flow) MUST pass a UUID v4 from `scan_sessions.id`.
-  const SESSION_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  const sessionIdValid = !!sessionId && SESSION_UUID_RE.test(sessionId);
-
+  // diagnosis flow) MUST pass a canonical UUID from `scan_sessions.id`;
+  // isValidScanSessionId is version-agnostic to match Postgres `uuid` storage.
   if (!sessionIdValid) {
     return (
       <div className="bg-background min-h-screen flex items-center justify-center px-4">

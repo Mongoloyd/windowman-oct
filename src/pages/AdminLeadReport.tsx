@@ -28,10 +28,12 @@ import {
 } from "@/services/adminDataService";
 import TruthReportClassic from "@/components/TruthReportClassic";
 import { buildFullData } from "@/hooks/useAnalysisData";
+import { isValidLeadId, isValidScanSessionId } from "@/lib/routeIdGuards";
 import type { RawFullRow } from "@/types/serviceResults";
 
 export default function AdminLeadReport() {
   const { id: leadId } = useParams<{ id: string }>();
+  const leadIdValid = isValidLeadId(leadId);
 
   useEffect(() => {
     document.title = "Truth Report · Admin";
@@ -40,7 +42,7 @@ export default function AdminLeadReport() {
   const { data: lead, isLoading: leadLoading, isError: leadErr, error: leadErrObj } = useQuery({
     queryKey: ["admin", "lead-detail", leadId],
     queryFn: () => fetchLeadDetail(leadId!),
-    enabled: !!leadId,
+    enabled: leadIdValid,
   });
 
   const analysisId: string | null = lead?.latest_analysis_id ?? null;
@@ -74,12 +76,21 @@ export default function AdminLeadReport() {
     return buildFullData(row);
   }, [analysis, analysisId]);
 
-  const backTo = leadId ? `/admin/leads/${leadId}` : "/admin/leads";
+  const backTo = leadIdValid ? `/admin/leads/${leadId}` : "/admin/leads";
 
-  if (!leadId) {
+  if (!leadIdValid) {
     return (
-      <AdminShell title="Lead not found" backTo="/admin/leads" backLabel="Back to inbox">
-        <p className="text-sm text-muted-foreground">No lead ID provided.</p>
+      <AdminShell title="Invalid lead ID" backTo="/admin/leads" backLabel="Back to inbox">
+        <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          <AlertCircle className="h-5 w-5 mt-0.5 shrink-0" />
+          <div>
+            <p className="font-semibold">Invalid lead ID</p>
+            <p className="mt-0.5 opacity-90">
+              This admin URL does not contain a valid lead UUID.
+              {leadId ? <> Received: <code className="break-all rounded bg-muted px-1 py-0.5 font-mono text-xs">{leadId}</code></> : null}
+            </p>
+          </div>
+        </div>
       </AdminShell>
     );
   }
@@ -154,7 +165,7 @@ export default function AdminLeadReport() {
           <span className="font-semibold">Admin view</span> · OTP gate bypassed via admin RBAC.
           Homeowner-facing route remains verify-to-reveal.
         </span>
-        {lead.latest_scan_session_id && (
+        {isValidScanSessionId(lead.latest_scan_session_id) ? (
           <Link
             to={`/report/classic/${lead.latest_scan_session_id}`}
             target="_blank"
@@ -163,7 +174,7 @@ export default function AdminLeadReport() {
           >
             Open homeowner view ↗
           </Link>
-        )}
+        ) : null}
       </div>
 
       <div className="rounded-2xl border border-border bg-background overflow-hidden">

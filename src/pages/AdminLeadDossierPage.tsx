@@ -18,6 +18,7 @@ import { AdminShell } from "@/components/admin/shell/AdminShell";
 import {
   fetchLeadDetail, fetchLeadAnalysis, getErrorMessage,
 } from "@/services/adminDataService";
+import { isValidLeadId, isValidScanSessionId } from "@/lib/routeIdGuards";
 import { LeadStatusPanel } from "@/components/admin/lead-workspace/LeadStatusPanel";
 import { LeadNotesPanel } from "@/components/admin/lead-workspace/LeadNotesPanel";
 import { LeadTasksPanel } from "@/components/admin/lead-workspace/LeadTasksPanel";
@@ -53,6 +54,7 @@ function InfoCell({
 
 export default function AdminLeadDossierPage() {
   const { id: leadId } = useParams<{ id: string }>();
+  const leadIdValid = isValidLeadId(leadId);
 
   useEffect(() => {
     document.title = "Lead Dossier · WindowMan Admin";
@@ -61,7 +63,7 @@ export default function AdminLeadDossierPage() {
   const { data: lead, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["admin", "lead-detail", leadId],
     queryFn: () => fetchLeadDetail(leadId!),
-    enabled: !!leadId,
+    enabled: leadIdValid,
   });
 
   const { data: analysis } = useQuery({
@@ -70,10 +72,19 @@ export default function AdminLeadDossierPage() {
     enabled: !!lead?.latest_analysis_id,
   });
 
-  if (!leadId) {
+  if (!leadIdValid) {
     return (
-      <AdminShell title="Lead not found" backTo="/admin/leads" backLabel="Back to inbox">
-        <p className="text-sm text-muted-foreground">No lead ID provided.</p>
+      <AdminShell title="Invalid lead ID" backTo="/admin/leads" backLabel="Back to inbox">
+        <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          <AlertCircle className="h-5 w-5 mt-0.5 shrink-0" />
+          <div>
+            <p className="font-semibold">Invalid lead ID</p>
+            <p className="mt-0.5 opacity-90">
+              This admin URL does not contain a valid lead UUID.
+              {leadId ? <> Received: <code className="break-all rounded bg-muted px-1 py-0.5 font-mono text-xs">{leadId}</code></> : null}
+            </p>
+          </div>
+        </div>
       </AdminShell>
     );
   }
@@ -232,7 +243,7 @@ export default function AdminLeadDossierPage() {
                       <FileText className="h-3.5 w-3.5" />
                       Open Truth Report
                     </Link>
-                    {lead.latest_scan_session_id && (
+                    {isValidScanSessionId(lead.latest_scan_session_id) ? (
                       <Link
                         to={`/report/classic/${lead.latest_scan_session_id}`}
                         target="_blank"
@@ -242,6 +253,10 @@ export default function AdminLeadDossierPage() {
                         Homeowner view
                         <ExternalLink className="h-3 w-3" />
                       </Link>
+                    ) : (
+                      <span className="text-[11px] italic text-muted-foreground">
+                        No valid homeowner report link
+                      </span>
                     )}
                   </div>
                 ) : null}
