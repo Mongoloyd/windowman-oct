@@ -310,6 +310,46 @@ export default function ReportClassic() {
     fetchFull(phoneE164);
   }, [phoneE164, fetchFull]);
 
+  // ── Session ID guard ───────────────────────────────────────────────────
+  // The Truth Report is keyed strictly by a UUID scan_session_id. If the
+  // route param is missing, malformed, or not a UUID, fail loud instead of
+  // spinning forever. All callers (Admin Dossier, PostScanReportSwitcher,
+  // diagnosis flow) MUST pass a UUID v4 from `scan_sessions.id`.
+  const SESSION_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const sessionIdValid = !!sessionId && SESSION_UUID_RE.test(sessionId);
+
+  if (!sessionIdValid) {
+    return (
+      <div className="bg-background min-h-screen flex items-center justify-center px-4">
+        <div className="max-w-md w-full rounded-2xl border border-destructive/30 bg-destructive/5 p-6 text-center">
+          <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </div>
+          <h1 className="font-display text-lg font-semibold text-foreground">
+            Report link is incomplete
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            This Truth Report URL is missing a valid <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">session_id</code>.
+            Truth Reports are keyed by a unique scan session UUID — without it,
+            we can't locate the analysis.
+          </p>
+          {sessionId && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Received: <code className="break-all rounded bg-muted px-1 py-0.5 font-mono">{sessionId}</code>
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={() => navigate("/")}
+            className="mt-5 inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+          >
+            Start a new scan
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // ── Loading state ──────────────────────────────────────────────────────
 
   if (isLoading) {
