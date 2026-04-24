@@ -24,6 +24,8 @@ interface PanelTabDef {
   label: string;
   count?: number;
   variant?: "destructive" | "default";
+  /** Optional pathname that should also highlight this panel tab when active. */
+  routeAlias?: string;
 }
 
 interface RouteTabDef {
@@ -63,7 +65,7 @@ export function AdminPrimaryTabs({
       matchPrefixes: ["/admin/leads"],
       label: "Lead Inbox",
     },
-    { kind: "panel", value: "mission-control", label: "Mission Control" },
+    { kind: "panel", value: "mission-control", label: "Mission Control", routeAlias: "/admin/command-center" },
     { kind: "panel", value: "launch", label: "Launch Control" },
     { kind: "panel", value: "command", label: "Command Center" },
     { kind: "panel", value: "pipeline", label: "Active Pipeline" },

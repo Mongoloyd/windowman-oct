@@ -74,6 +74,10 @@ export interface CRMLead {
   last_call_status: string | null;
   last_call_outcome: string | null;
   last_call_summary: string | null;
+
+  // ─── Phase 25 — Revenue (repo-real on `leads`) ─────────────────────
+  deal_value: number | null;
+  revenue_amount: number | null;
 }
 
 /** Derive pipeline status from raw lead data */

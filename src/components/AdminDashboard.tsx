@@ -119,6 +119,9 @@ function toLeadCRM(raw: Record<string, any>): CRMLead {
     last_call_status: raw.last_call_status ?? null,
     last_call_outcome: raw.last_call_outcome ?? null,
     last_call_summary: raw.last_call_summary ?? null,
+    // Phase 25 — Revenue fields (repo-real on `leads`)
+    deal_value: raw.deal_value ?? null,
+    revenue_amount: raw.revenue_amount ?? null,
   };
 }
 
@@ -161,14 +164,18 @@ function computeKPIs(leads: CRMLead[], deliveries: WebhookDelivery[]): CommandCe
 
 /* ── Dashboard Shell ─────────────────────────────────────────────────── */
 
-function DashboardContent() {
+interface DashboardContentProps {
+  initialTab?: string;
+}
+
+function DashboardContent({ initialTab }: DashboardContentProps) {
   const [leads, setLeads] = useState<CRMLead[]>([]);
   const [deliveries, setDeliveries] = useState<WebhookDelivery[]>([]);
   const [latestFollowups, setLatestFollowups] = useState<Record<string, VoiceFollowupSummary>>({});
   const [needsReview, setNeedsReview] = useState<NeedsReviewLead[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
-  const [activeTab, setActiveTab] = useState<string>("mission-control");
+  const [activeTab, setActiveTab] = useState<string>(initialTab ?? "mission-control");
   const [, setTick] = useState(0); // force re-render for relative time
   const initialLoadDone = useRef(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -430,6 +437,10 @@ function DashboardContent() {
 
 /* ── Exported — renders publicly, data-fetch failures show preview ──── */
 
-export default function AdminDashboard() {
-  return <DashboardContent />;
+interface AdminDashboardProps {
+  initialTab?: string;
+}
+
+export default function AdminDashboard({ initialTab }: AdminDashboardProps = {}) {
+  return <DashboardContent initialTab={initialTab} />;
 }
