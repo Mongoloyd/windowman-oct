@@ -1,0 +1,85 @@
+# Edge Functions Deno Typecheck Guardrail
+#
+# Fails the build if ANY file under supabase/functions/ fails `deno check`.
+#
+# This protects the public funnel (TruthGateFlow → capture-truth-gate-lead →
+# UploadZone → start-upload-scan-session → scan-quote) and every other Edge
+# Function from typecheck regressions sneaking into main.
+#
+# Scope: typecheck only. No deploy, no runtime behavior change, no policy
+# change. Test files (*.test.ts) are typechecked too — they are part of
+# the source tree and have caught real defects historically.
+
+name: Edge Functions Deno Typecheck
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/functions/**"
+      - "deno.json"
+      - ".github/workflows/edge-functions-typecheck.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "supabase/functions/**"
+      - "deno.json"
+      - ".github/workflows/edge-functions-typecheck.yml"
+
+jobs:
+  deno-typecheck:
+    name: deno check supabase/functions
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+
+      - name: Typecheck every Edge Function file
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Collect every .ts / .tsx file under supabase/functions/.
+          # Exclude node_modules in case of local dev artifacts.
+          mapfile -t files < <(find supabase/functions \
+            -type f \
+            \( -name "*.ts" -o -name "*.tsx" \) \
+            -not -path "*/node_modules/*" \
+            | sort)
+
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No Edge Function files found — nothing to check."
+            exit 0
+          fi
+
+          echo "Typechecking ${#files[@]} file(s) with deno check..."
+
+          failed=0
+          failed_files=()
+
+          for f in "${files[@]}"; do
+            echo "::group::deno check $f"
+            if ! deno check "$f"; then
+              failed=$((failed + 1))
+              failed_files+=("$f")
+              echo "::error file=$f::deno check failed"
+            fi
+            echo "::endgroup::"
+          done
+
+          if [ "$failed" -gt 0 ]; then
+            echo ""
+            echo "❌ deno check failed for $failed file(s):"
+            for f in "${failed_files[@]}"; do
+              echo "  - $f"
+            done
+            exit 1
+          fi
+
+          echo "✅ All ${#files[@]} Edge Function file(s) passed deno check."
