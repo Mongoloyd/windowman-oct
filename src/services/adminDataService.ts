@@ -76,7 +76,9 @@ export type AdminAction =
   | "list_lead_tasks"
   | "create_lead_task"
   | "update_lead_task"
-  | "delete_lead_task";
+  | "delete_lead_task"
+  // Phase 10 — Human Context Layer
+  | "update_lead_human_context";
 
 /**
  * Payload shapes for each admin action.
@@ -152,6 +154,13 @@ export interface AdminActionPayloads {
     due_at?: string | null;
   };
   delete_lead_task: { task_id: string };
+  // Phase 10
+  update_lead_human_context: {
+    lead_id: string;
+    property_type_detail?: string | null;
+    hoa_or_condo_complexity?: string | null;
+    handoff_consent_status?: string | null;
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -704,4 +713,14 @@ export async function updateLeadTask(args: {
 
 export async function deleteLeadTask(taskId: string): Promise<{ success: boolean }> {
   return invokeAdminData("delete_lead_task", { task_id: taskId });
+}
+
+// ── Phase 10 — Human Context ───────────────────────────────────────────
+export async function updateLeadHumanContext(args: {
+  lead_id: string;
+  property_type_detail?: string | null;
+  hoa_or_condo_complexity?: string | null;
+  handoff_consent_status?: string | null;
+}): Promise<{ id: string; updated_at: string }> {
+  return invokeAdminData("update_lead_human_context", args);
 }

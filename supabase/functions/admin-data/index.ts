@@ -37,7 +37,9 @@ type ActionName =
   | "fetch_lead_detail"
   | "update_lead_funnel_stage"
   | "list_lead_notes" | "create_lead_note" | "delete_lead_note"
-  | "list_lead_tasks" | "create_lead_task" | "update_lead_task" | "delete_lead_task";
+  | "list_lead_tasks" | "create_lead_task" | "update_lead_task" | "delete_lead_task"
+  // Phase 10 — Human Context Layer
+  | "update_lead_human_context";
 
 const ACTION_ROLES: Record<ActionName, AppRole[]> = {
   fetch_leads: ["super_admin", "operator", "viewer"],
@@ -89,6 +91,8 @@ const ACTION_ROLES: Record<ActionName, AppRole[]> = {
   create_lead_task:         ["super_admin", "operator"],
   update_lead_task:         ["super_admin", "operator"],
   delete_lead_task:         ["super_admin", "operator"],
+  // Phase 10
+  update_lead_human_context: ["super_admin", "operator"],
 };
 
 // Allowed funnel stages (Sprint 5 — kept in sync with frontend constants)
@@ -1523,13 +1527,120 @@ Deno.serve(async (req) => {
     if (action === "fetch_lead_detail") {
       const { lead_id } = payload;
       if (!lead_id) return errorResponse(400, "missing_param", "lead_id is required");
-      const { data, error } = await supabaseAdmin
+
+      // Lead row (canonical)
+      const { data: lead, error: leadErr } = await supabaseAdmin
         .from("leads")
         .select("*")
         .eq("id", lead_id)
         .maybeSingle();
+      if (leadErr) throw leadErr;
+      if (!lead) return errorResponse(404, "not_found", "Lead not found");
+
+      // Phase 10 — joined human-context payload (single round-trip).
+      // Each is best-effort: failure to fetch any one of these must not
+      // break the dossier load. Operators always get the lead row.
+      let diagnosis_intake: any = null;
+      try {
+        const { data } = await supabaseAdmin
+          .from("diagnosis_intakes")
+          .select("primary_diagnosis, secondary_clarifiers, other_text, window_intelligence, counter_offer, prescription_path, confidence, created_at")
+          .eq("lead_id", lead_id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        diagnosis_intake = data ?? null;
+      } catch (e) {
+        console.warn("[fetch_lead_detail] diagnosis_intakes fetch failed", e);
+      }
+
+      let latest_opportunity: any = null;
+      let latest_route: any = null;
+      try {
+        const { data: opp } = await supabaseAdmin
+          .from("contractor_opportunities")
+          .select("*")
+          .eq("lead_id", lead_id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        latest_opportunity = opp ?? null;
+
+        if (latest_opportunity?.id) {
+          const { data: route } = await supabaseAdmin
+            .from("contractor_opportunity_routes")
+            .select("*, contractors:contractor_id(company_name)")
+            .eq("opportunity_id", latest_opportunity.id)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (route) {
+            latest_route = {
+              ...route,
+              contractor_company_name:
+                (route as any).contractors?.company_name ?? null,
+            };
+            delete latest_route.contractors;
+          }
+        }
+      } catch (e) {
+        console.warn("[fetch_lead_detail] opportunity/route fetch failed", e);
+      }
+
+      return successResponse({
+        data: {
+          ...lead,
+          diagnosis_intake,
+          latest_opportunity,
+          latest_route,
+        },
+      });
+    }
+
+    if (action === "update_lead_human_context") {
+      const { lead_id, property_type_detail, hoa_or_condo_complexity, handoff_consent_status } = payload;
+      if (!lead_id) return errorResponse(400, "missing_param", "lead_id is required");
+
+      const ALLOWED_PROPERTY = new Set(["single_family","condo","townhouse_villa","high_rise","multifamily_investment"]);
+      const ALLOWED_HOA = new Set(["none","hoa_simple","hoa_complex","high_rise_engineering","unknown"]);
+      const ALLOWED_CONSENT = new Set(["accepted_today","accepted_tomorrow","text_or_email_first","report_only","unknown"]);
+
+      const update: Record<string, unknown> = { updated_at: now };
+      if (property_type_detail !== undefined) {
+        if (property_type_detail !== null && !ALLOWED_PROPERTY.has(property_type_detail)) {
+          return errorResponse(400, "invalid_value", "invalid property_type_detail");
+        }
+        update.property_type_detail = property_type_detail;
+      }
+      if (hoa_or_condo_complexity !== undefined) {
+        if (hoa_or_condo_complexity !== null && !ALLOWED_HOA.has(hoa_or_condo_complexity)) {
+          return errorResponse(400, "invalid_value", "invalid hoa_or_condo_complexity");
+        }
+        update.hoa_or_condo_complexity = hoa_or_condo_complexity;
+      }
+      if (handoff_consent_status !== undefined) {
+        if (handoff_consent_status !== null && !ALLOWED_CONSENT.has(handoff_consent_status)) {
+          return errorResponse(400, "invalid_value", "invalid handoff_consent_status");
+        }
+        update.handoff_consent_status = handoff_consent_status;
+      }
+
+      const { data, error } = await supabaseAdmin
+        .from("leads")
+        .update(update)
+        .eq("id", lead_id)
+        .select("id, property_type_detail, hoa_or_condo_complexity, handoff_consent_status, updated_at")
+        .maybeSingle();
       if (error) throw error;
       if (!data) return errorResponse(404, "not_found", "Lead not found");
+
+      await supabaseAdmin.from("lead_events").insert({
+        lead_id,
+        event_name: "human_context_updated",
+        event_source: "admin_console",
+        metadata: { actor: userId, ...update },
+      });
+
       return successResponse({ data });
     }
 

@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { CheckCircle2, FileText } from 'lucide-react';
 import type { DiagnosticConfig, DiagnosticContext } from '../types';
+import { PropertyAndConsentStep } from '@/components/HomeownerHumanContext/PropertyAndConsentStep';
 
 interface SuccessScreenProps {
   context: DiagnosticContext;
@@ -7,7 +9,12 @@ interface SuccessScreenProps {
   onReturn: () => void;
 }
 
-export function SuccessScreen({ context: _context, activeConfig, onReturn }: SuccessScreenProps) {
+export function SuccessScreen({ context, activeConfig, onReturn }: SuccessScreenProps) {
+  // Phase 10 — Human Context capture is shown ONLY after the diagnosis was
+  // successfully saved (which itself runs after report unlock + OTP). This
+  // keeps Verify-to-Reveal intact: capture never gates report access.
+  const [contextCaptured, setContextCaptured] = useState(false);
+  const canCapture = !!context.lead_id && !!context.scan_session_id;
   return (
     <div
       className="min-h-screen flex flex-col items-center justify-center p-6 text-center relative overflow-hidden"
@@ -91,6 +98,19 @@ export function SuccessScreen({ context: _context, activeConfig, onReturn }: Suc
           Return to your audit report
         </button>
       </div>
+
+      {/* Phase 10 — optional human-context capture, shown beneath the main card.
+          Skippable, never blocking. */}
+      {canCapture && !contextCaptured && (
+        <div className="relative z-10 mt-6 max-w-md w-full">
+          <PropertyAndConsentStep
+            leadId={context.lead_id!}
+            scanSessionId={context.scan_session_id!}
+            onSubmitted={() => setContextCaptured(true)}
+            onSkipped={() => setContextCaptured(true)}
+          />
+        </div>
+      )}
     </div>
   );
 }

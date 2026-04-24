@@ -53,6 +53,11 @@ import { LeadDossierSheet } from "./LeadDossierSheet";
 import { DispatchHealthCard } from "./DispatchHealthCard";
 import { deriveOwnershipBadges } from "./OwnershipBlock";
 import type { OwnershipBadge } from "@/types/routingDesk";
+import {
+  timelineShortChip,
+  handoffConsentLabel,
+  motivationLabelFromDiagnosis,
+} from "@/lib/humanContext";
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
@@ -477,6 +482,66 @@ export function RoutingDesk({ leads }: Props) {
                               {row.latestRoute.route_status}
                             </Badge>
                           )}
+                          {/* Phase 10 — Human Context compact badges (sales-ready signals). */}
+                          {(() => {
+                            const tl = timelineShortChip((lead as any)?.timeline_bucket);
+                            const consent = handoffConsentLabel((lead as any)?.handoff_consent_status);
+                            const propDetail = (lead as any)?.property_type_detail as string | null;
+                            const hoa = (lead as any)?.hoa_or_condo_complexity as string | null;
+                            const motiv = motivationLabelFromDiagnosis(
+                              (lead as any)?.primary_diagnosis ?? null,
+                            );
+                            const isReportOnly = (lead as any)?.handoff_consent_status === "report_only";
+                            return (
+                              <>
+                                {tl && (
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-[10px] ${
+                                      tl === "ASAP" || tl === "This month"
+                                        ? "border-orange-400/60 text-orange-700 bg-orange-50"
+                                        : "border-border"
+                                    }`}
+                                    title={`Timeline: ${tl}`}
+                                  >
+                                    {tl}
+                                  </Badge>
+                                )}
+                                {(propDetail === "condo" || propDetail === "high_rise" ||
+                                  hoa === "hoa_complex" || hoa === "high_rise_engineering") && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[10px] border-amber-400/60 text-amber-800 bg-amber-50"
+                                    title="Complex approval path — confirm HOA/engineering before quoting."
+                                  >
+                                    {propDetail === "high_rise" ? "High-rise" : "Condo / HOA"}
+                                  </Badge>
+                                )}
+                                {consent && (
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-[10px] ${
+                                      isReportOnly
+                                        ? "border-destructive/40 text-destructive bg-destructive/5"
+                                        : "border-emerald-500/40 text-emerald-700 bg-emerald-50"
+                                    }`}
+                                    title={consent.full}
+                                  >
+                                    {consent.short}
+                                  </Badge>
+                                )}
+                                {motiv && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[10px] border-cyan-500/30 text-cyan-700 bg-cyan-500/5"
+                                    title={motiv.long}
+                                  >
+                                    {motiv.short}
+                                  </Badge>
+                                )}
+                              </>
+                            );
+                          })()}
                           {/* Phase 7: Ownership badges derived from full route history */}
                           {(() => {
                             const allRoutes = (routesQuery.data as RoutingRoute[] | undefined) ?? [];
