@@ -310,6 +310,7 @@ const MOCK_META: Meta = { credit_balance: 5, contractor_status: "preview", total
 export default function ContractorOpportunitiesPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { setCreditBalance, setIsPreview: publishPreview } = usePartnerPortal();
   const [opportunities, setOpportunities] = useState<Opportunity[]>(FORCE_PREVIEW_MODE ? MOCK_OPPORTUNITIES : []);
   const [meta, setMeta] = useState<Meta | null>(FORCE_PREVIEW_MODE ? MOCK_META : null);
   const [isPreview, setIsPreview] = useState(FORCE_PREVIEW_MODE);
@@ -317,8 +318,17 @@ export default function ContractorOpportunitiesPage() {
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
   const [countyFilter, setCountyFilter] = useState("");
   const [sortMode, setSortMode] = useState<SortMode>("best_unlock");
-  const [checkoutLoading, setCheckoutLoading] = useState(false);
   const paymentHandled = useRef(false);
+
+  /* ── Publish credit balance + preview state up to the layout chrome ── */
+  useEffect(() => {
+    setCreditBalance(meta?.credit_balance ?? null);
+  }, [meta?.credit_balance, setCreditBalance]);
+
+  useEffect(() => {
+    publishPreview(isPreview);
+  }, [isPreview, publishPreview]);
+
 
   const fallbackToMock = useCallback(() => {
     setOpportunities(MOCK_OPPORTUNITIES);
