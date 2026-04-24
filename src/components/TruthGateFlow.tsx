@@ -523,22 +523,9 @@ const TruthGateFlow = ({
         });
     } catch (err) {
       console.error("Lead capture error:", err);
-
-      supabase
-        .from("event_logs")
-        .insert({
-          event_name: "lead_capture_failed",
-          session_id: funnel?.sessionId || null,
-          metadata: {
-            error_message: err instanceof Error ? err.message : String(err),
-            stage: "lead_capture",
-            timestamp: new Date().toISOString(),
-          },
-        })
-        .then(({ error: evtErr }) => {
-          if (evtErr) console.warn("event_log insert failed:", evtErr);
-        });
-
+      // Failure telemetry is written server-side by the edge function when
+      // the request reaches it; if the request itself failed we deliberately
+      // do not retry from the browser to avoid RLS noise.
       setSubmitState("error");
     }
   };
