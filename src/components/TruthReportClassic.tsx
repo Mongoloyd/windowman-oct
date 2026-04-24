@@ -1,17 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   Copy,
   Check,
   ChevronDown,
   ChevronUp,
-  Users,
-  Phone,
-  Loader2,
-  ChevronRight,
-  MapPin,
-  Wrench,
-  Award,
 } from "lucide-react";
 import ForensicPillarSection from "@/components/report/ForensicPillarSection";
 import RiskSummaryHeader from "@/components/report/RiskSummaryHeader";
@@ -33,7 +26,7 @@ import { selectTopViolation } from "@/utils/selectTopViolation";
 import { mapFlagToExhibit } from "@/utils/evidenceMapping";
 import { resolveEffectiveSeverity } from "@/utils/resolveEffectiveSeverity";
 import type { AnalysisFlag, PillarScore } from "@/hooks/useAnalysisData";
-import { MATCH_REASON_HOMEOWNER, type MatchReasonKey, type MatchConfidence } from "@/shared/matchReasons";
+import type { MatchConfidence } from "@/shared/matchReasons";
 
 export interface SuggestedMatch {
   confidence: MatchConfidence;
@@ -205,13 +198,9 @@ const TruthReportClassic = ({
   flagRedCount: flagRedCountProp,
   flagAmberCount: flagAmberCountProp,
   onContractorMatchClick,
-  onReportHelpCall,
-  onSecondScan,
   gateProps,
   introRequested = false,
-  reportCallRequested = false,
   isCtaLoading = false,
-  suggestedMatch = null,
   derivedMetrics,
   priceFairness,
   markupEstimate,
@@ -227,7 +216,6 @@ const TruthReportClassic = ({
   scopeGapDetected,
   summaryTeaser,
   missingItemsCount,
-  ctaLabel = "Get a Better Quote",
 }: TruthReportProps) => {
   const config = gradeConfig[grade] || gradeConfig.C;
   const isFull = accessLevel === "full";
