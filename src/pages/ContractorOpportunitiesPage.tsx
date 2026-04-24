@@ -37,7 +37,9 @@ import {
   getCreditCost,
   getCreditCostLine,
   getUnlockIncludes,
+  getCompetitionSignal,
   type HandoffTone,
+  type CompetitionTone,
 } from "@/lib/contractorOpportunitySignals";
 
 /* ── Types ──────────────────────────────────────────────────────── */
@@ -501,38 +503,45 @@ export default function ContractorOpportunitiesPage() {
     <div className="min-h-screen bg-background text-foreground font-sans">
       {/* ─── Header ────────────────────────────────────────────── */}
       <header className="border-b bg-card sticky top-0 z-30">
-        <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-lg bg-sky-100 flex items-center justify-center">
-              <Shield className="h-5 w-5 text-sky-600" />
+        <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="h-9 w-9 rounded-lg bg-sky-100 flex items-center justify-center shrink-0">
+              <Shield className="h-5 w-5 text-sky-600" aria-hidden />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg font-bold tracking-tight leading-none">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-base sm:text-lg font-bold tracking-tight leading-none">
                   Opportunity Command Center
                 </h1>
                 {isPreview && <PreviewModeBadge />}
               </div>
-              <p className="text-xs text-muted-foreground mt-0.5">WindowMan Partner Portal</p>
+              <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
+                WindowMan Partner Portal
+              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-muted border">
-              <CreditCard className="h-3.5 w-3.5 text-sky-600" />
-              <span className="text-xs font-mono text-foreground">
+          <div className="flex items-center gap-2 self-stretch sm:self-auto">
+            <div
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-muted border flex-1 sm:flex-initial justify-center"
+              aria-label={`Credit balance: ${meta?.credit_balance ?? 0}`}
+            >
+              <CreditCard className="h-3.5 w-3.5 text-sky-600" aria-hidden />
+              <span className="text-xs font-mono text-foreground whitespace-nowrap">
                 {meta?.credit_balance ?? 0} credit{(meta?.credit_balance ?? 0) !== 1 ? "s" : ""}
               </span>
             </div>
             <button
+              type="button"
               onClick={handleAddCredits}
               disabled={checkoutLoading}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              aria-label="Add credits"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 whitespace-nowrap"
             >
               {checkoutLoading ? (
-                <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Connecting…</>
+                <><Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Connecting…</>
               ) : (
-                <><Plus className="h-3.5 w-3.5" /> Add Credits</>
+                <><Plus className="h-3.5 w-3.5" aria-hidden /> Add Credits</>
               )}
             </button>
           </div>
@@ -548,14 +557,41 @@ export default function ContractorOpportunitiesPage() {
           <StatCard icon={<CreditCard className="h-4 w-4 text-violet-600" />} label="Credits" value={meta?.credit_balance ?? 0} />
         </div>
 
-        {/* ─── Filters ─────────────────────────────────────────── */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-1 bg-muted rounded-lg border p-1">
+        {/* ─── Tactical buying-logic explainer (compact, dashboard-native) ── */}
+        <div
+          className="rounded-lg border bg-muted/40 px-4 py-3"
+          aria-label="How to use Best Unlock"
+        >
+          <p className="text-xs sm:text-sm text-foreground">
+            <span className="font-semibold">Use Best Unlock</span> to prioritize verified, urgent,
+            warm-handoff leads — not just bad competitor quotes.
+          </p>
+          <p className="text-[11px] text-muted-foreground mt-1">
+            Best Unlock ranks opportunities by buyer seriousness, urgency, handoff warmth, and
+            project value.
+            {isPreview && (
+              <span className="ml-1 italic">
+                Preview data uses sample credit signals for demonstration.
+              </span>
+            )}
+          </p>
+        </div>
+
+        {/* ─── Filters & Sort ─────────────────────────────────────── */}
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div
+            className="flex items-center gap-1 bg-muted rounded-lg border p-1 overflow-x-auto max-w-full"
+            role="tablist"
+            aria-label="Opportunity filter"
+          >
             {FILTER_TABS.map((tab) => (
               <button
                 key={tab.key}
+                type="button"
+                role="tab"
+                aria-selected={activeFilter === tab.key}
                 onClick={() => setActiveFilter(tab.key)}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all whitespace-nowrap focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                   activeFilter === tab.key
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
@@ -568,11 +604,13 @@ export default function ContractorOpportunitiesPage() {
 
           {uniqueCounties.length > 1 && (
             <div className="flex items-center gap-2">
-              <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+              <Filter className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+              <label className="sr-only" htmlFor="county-filter">Filter by county</label>
               <select
+                id="county-filter"
                 value={countyFilter}
                 onChange={(e) => setCountyFilter(e.target.value)}
-                className="bg-background border rounded-md text-xs px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
+                className="bg-background border rounded-md text-xs px-2 py-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 aria-label="Filter by county"
               >
                 <option value="">All Counties</option>
@@ -584,11 +622,17 @@ export default function ContractorOpportunitiesPage() {
           )}
 
           <div className="flex items-center gap-2">
-            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Sort</span>
+            <label
+              htmlFor="sort-mode"
+              className="text-[10px] uppercase tracking-widest text-muted-foreground"
+            >
+              Sort
+            </label>
             <select
+              id="sort-mode"
               value={sortMode}
               onChange={(e) => setSortMode(e.target.value as SortMode)}
-              className="bg-background border rounded-md text-xs px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
+              className="bg-background border rounded-md text-xs px-2 py-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               aria-label="Sort opportunities"
             >
               {SORT_OPTIONS.map((s) => (
@@ -597,34 +641,47 @@ export default function ContractorOpportunitiesPage() {
             </select>
           </div>
 
-          <span className="text-xs text-muted-foreground ml-auto">
+          <span className="text-xs text-muted-foreground sm:ml-auto whitespace-nowrap">
             Showing {sortedOpportunities.length} of {totalCount}
           </span>
         </div>
 
-        {/* Tactical microcopy */}
-        <p className="text-xs text-muted-foreground -mt-2">
-          Sort by <span className="font-medium text-foreground">Best Unlock</span> to prioritize
-          verified, urgent, warm-handoff leads — not just bad competitor quotes.
-        </p>
-
         {/* ─── Opportunity List ─────────────────────────────────── */}
         {sortedOpportunities.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <Search className="h-12 w-12 text-muted-foreground/40 mb-4" />
-            <h3 className="text-lg font-semibold text-muted-foreground mb-1">
-              {totalCount === 0 ? "No opportunities yet" : "No matches for current filter"}
+          <div className="flex flex-col items-center justify-center py-16 sm:py-20 text-center px-4">
+            <Search className="h-12 w-12 text-muted-foreground/40 mb-4" aria-hidden />
+            <h3 className="text-base sm:text-lg font-semibold text-muted-foreground mb-1">
+              {totalCount === 0 ? "No opportunities yet" : "No matches for current filters"}
             </h3>
             <p className="text-sm text-muted-foreground max-w-md">
               {totalCount === 0
-                ? "When homeowners scan their quotes and match your service area, opportunities will appear here."
-                : "Try adjusting your filters to see more opportunities."}
+                ? "When homeowners in your territory scan quotes and match your service profile, opportunities will appear here."
+                : "Clear filters or switch back to Best Unlock to see more leads."}
             </p>
+            {totalCount > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveFilter("all");
+                  setCountyFilter("");
+                  setSortMode("best_unlock");
+                }}
+                className="mt-4 px-4 py-2 rounded-md bg-muted border text-xs font-medium text-foreground hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
+              >
+                Reset filters
+              </button>
+            )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-3 sm:gap-4">
             {sortedOpportunities.map((opp) => (
-              <OpportunityCard key={opp.opportunity_id} opp={opp} meta={meta} navigate={navigate} />
+              <OpportunityCard
+                key={opp.opportunity_id}
+                opp={opp}
+                meta={meta}
+                isPreview={isPreview}
+                navigate={navigate}
+              />
             ))}
           </div>
         )}
@@ -679,10 +736,12 @@ function resolveUnlockState(opp: Opportunity, meta: Meta | null): UnlockState {
 function OpportunityCard({
   opp,
   meta,
+  isPreview,
   navigate,
 }: {
   opp: Opportunity;
   meta: Meta | null;
+  isPreview: boolean;
   navigate: (path: string) => void;
 }) {
   const bss = getBuyerSeriousness(opp);
@@ -695,10 +754,19 @@ function OpportunityCard({
   const freshness = formatRelativeTime(opp.created_at);
   const unlockIncludes = getUnlockIncludes();
   const creditCostLine = getCreditCostLine(opp, meta);
+  // Competition/exclusivity — only when explicit fields exist (anti-fake-scarcity)
+  const competition = getCompetitionSignal(opp, isPreview);
 
   const unlockState = resolveUnlockState(opp, meta);
   const isReportOnly = opp.handoff_consent_status === "report_only";
   const locationLabel = [opp.city, opp.county].filter(Boolean).join(", ") || "Florida";
+
+  const COMPETITION_TONE: Record<CompetitionTone, string> = {
+    exclusive: "bg-violet-50 text-violet-700 border-violet-200",
+    warm: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    competitive: "bg-amber-50 text-amber-800 border-amber-200",
+    muted: "bg-muted text-muted-foreground border-border",
+  };
 
   // CTA copy + tone per state (no transactional language unless safely backed)
   const ctaConfig: { label: string; tone: "primary" | "success" | "muted" | "warning" } =
@@ -769,6 +837,14 @@ function OpportunityCard({
               ) : (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-muted border text-muted-foreground">
                   <Lock className="h-3 w-3" aria-hidden /> Locked
+                </span>
+              )}
+              {competition && (
+                <span
+                  className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold border ${COMPETITION_TONE[competition.tone]}`}
+                  aria-label={`Competition signal: ${competition.label}`}
+                >
+                  {competition.label}
                 </span>
               )}
             </div>

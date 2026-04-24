@@ -287,3 +287,62 @@ export function getBestUnlockScore(opp: OpportunitySignalFields): number {
 
   return Math.max(0, Math.min(130, score));
 }
+
+/* ── 13. getCompetitionSignal — anti-fake-scarcity guardrail ─────── */
+/**
+ * Returns a competition/exclusivity label ONLY when:
+ *  - We are in preview mode and the mock opportunity carries explicit fields, OR
+ *  - We are in live mode AND the opportunity actually carries explicit
+ *    backend fields (`exclusive_status`, `contractor_view_count`,
+ *    `unlocked_by_other_count`).
+ *
+ * Hard rule: missing fields render NOTHING. Never infer scarcity from
+ * absence. No fake timers. No fake first-look windows. No fake competition.
+ */
+export type CompetitionTone = "exclusive" | "warm" | "competitive" | "muted";
+
+export function getCompetitionSignal(
+  opp: OpportunitySignalFields & {
+    exclusive_status?: string | null;
+    contractor_view_count?: number | null;
+    unlocked_by_other_count?: number | null;
+  },
+  isPreview: boolean,
+): { label: string; tone: CompetitionTone } | null {
+  const hasExplicit =
+    opp.exclusive_status != null ||
+    typeof opp.contractor_view_count === "number" ||
+    typeof opp.unlocked_by_other_count === "number";
+
+  // In live mode, render NOTHING unless explicit fields exist.
+  if (!isPreview && !hasExplicit) return null;
+  // In preview mode without any explicit field, also render nothing —
+  // we never invent scarcity even for mocks.
+  if (isPreview && !hasExplicit) return null;
+
+  const unlockedByOthers = opp.unlocked_by_other_count ?? 0;
+  if (unlockedByOthers > 0) {
+    return {
+      label: `${unlockedByOthers} contractor${unlockedByOthers === 1 ? "" : "s"} unlocked`,
+      tone: "competitive",
+    };
+  }
+
+  switch (opp.exclusive_status) {
+    case "first_look":
+      return { label: "First Look", tone: "exclusive" };
+    case "exclusive_preview":
+      return { label: "Exclusive Preview", tone: "exclusive" };
+    case "no_contractor_unlocked":
+      return { label: "No contractor unlocked yet", tone: "warm" };
+    default:
+      break;
+  }
+
+  const views = opp.contractor_view_count ?? 0;
+  if (views > 0) {
+    return { label: `${views} contractor${views === 1 ? "" : "s"} viewed`, tone: "muted" };
+  }
+
+  return null;
+}
