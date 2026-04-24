@@ -91,7 +91,7 @@ interface AttemptResult {
 }
 
 // ─── Vault bootstrap (one-time, idempotent) ───────────────────────────────
-async function ensureVaultSeeded(supabase: ReturnType<typeof createClient>) {
+async function ensureVaultSeeded(supabase: AnySupabaseClient) {
   const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/dispatch-lead`;
   const secret = Deno.env.get("DISPATCH_LEAD_SECRET");
   if (!secret) return;
@@ -294,7 +294,7 @@ function nextRetryAt(attemptNumber: number): string | null {
 
 // ─── Per-row pipeline ─────────────────────────────────────────────────────
 async function processDelivery(
-  supabase: ReturnType<typeof createClient>,
+  supabase: AnySupabaseClient,
   delivery: ClaimedDelivery,
 ): Promise<{ delivery_id: string; final_status: string; success: boolean }> {
   const attemptNumber = (delivery.attempt_count ?? 0) + 1;
@@ -431,7 +431,7 @@ async function processDelivery(
 }
 
 async function buildOutboundPayload(
-  supabase: ReturnType<typeof createClient>,
+  supabase: AnySupabaseClient,
   delivery: ClaimedDelivery,
 ): Promise<Record<string, unknown>> {
   const base = (delivery.payload_json ?? {}) as Record<string, unknown>;
