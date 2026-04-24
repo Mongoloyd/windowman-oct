@@ -205,10 +205,83 @@ Deno.serve(async (req) => {
       proof_of_read: analysis.proof_of_read,
     };
 
+    // ── Resolve marketplace contractor record + outcome (additive) ──
+    // contractor_profiles.id == auth_user_id; the marketplace contractor row
+    // is keyed by contractors.auth_user_id. contractor_outcomes.contractor_id
+    // points at contractors.id, NOT at contractor_profiles.id, so we must
+    // resolve the bridge before reading outcome state.
+    let outcome:
+      | {
+          id: string;
+          opportunity_id: string;
+          lead_id: string | null;
+          contractor_id: string;
+          disposition_state: string;
+          disposition_reason_code: string | null;
+          projected_value_cents: number | null;
+          final_value_cents: number | null;
+          signed_contract_url: string | null;
+          last_partner_action_at: string | null;
+        }
+      | null = null;
+    let opportunityId: string | null = null;
+
+    if (leadId) {
+      const { data: marketplaceContractor } = await svc
+        .from("contractors")
+        .select("id")
+        .eq("auth_user_id", contractorId)
+        .maybeSingle();
+
+      const marketplaceContractorId = marketplaceContractor?.id as string | undefined;
+
+      if (marketplaceContractorId) {
+        // Find the opportunity row that links this lead to this contractor
+        const { data: oppRow } = await svc
+          .from("contractor_opportunities")
+          .select("id")
+          .eq("lead_id", leadId)
+          .or(
+            `suggested_contractor_id.eq.${marketplaceContractorId},routed_at.not.is.null`,
+          )
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (oppRow?.id) {
+          opportunityId = oppRow.id as string;
+          const { data: outcomeRow } = await svc
+            .from("contractor_outcomes")
+            .select(
+              "id, opportunity_id, contractor_id, disposition_state, disposition_reason_code, projected_value_cents, final_value_cents, signed_contract_url, last_partner_action_at",
+            )
+            .eq("opportunity_id", opportunityId)
+            .eq("contractor_id", marketplaceContractorId)
+            .maybeSingle();
+
+          if (outcomeRow) {
+            outcome = {
+              id: outcomeRow.id as string,
+              opportunity_id: outcomeRow.opportunity_id as string,
+              lead_id: leadId,
+              contractor_id: outcomeRow.contractor_id as string,
+              disposition_state: (outcomeRow.disposition_state as string) ?? "new",
+              disposition_reason_code: (outcomeRow.disposition_reason_code as string) ?? null,
+              projected_value_cents: (outcomeRow.projected_value_cents as number) ?? null,
+              final_value_cents: (outcomeRow.final_value_cents as number) ?? null,
+              signed_contract_url: (outcomeRow.signed_contract_url as string) ?? null,
+              last_partner_action_at: (outcomeRow.last_partner_action_at as string) ?? null,
+            };
+          }
+        }
+      }
+    }
+
     const meta = {
       analysis_id: analysis.id,
       lead_id: leadId,
       contractor_id: contractorId,
+      opportunity_id: opportunityId,
       credit_balance: creditBalance,
       already_unlocked: alreadyUnlocked,
       can_unlock: canUnlock,
@@ -216,7 +289,7 @@ Deno.serve(async (req) => {
       masked,
     };
 
-    return json({ dossier, meta });
+    return json({ dossier, meta, outcome });
   } catch (err) {
     console.error("[get-contractor-dossier] Unhandled error:", err);
     return json({ error: "internal_error", message: "Internal server error." }, 500);

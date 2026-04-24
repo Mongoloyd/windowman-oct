@@ -27,6 +27,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { PreviewModeBadge } from "@/components/PreviewModeBadge";
 import { usePartnerPortal } from "@/components/partner/PartnerPortalContext";
+import { PartnerActionCenter, type PartnerOutcome } from "@/components/partner/PartnerActionCenter";
 
 /* ── tiny helpers ─────────────────────────────────────────────── */
 const fmt = (v: number | null | undefined) =>
@@ -118,11 +119,24 @@ const MOCK_DOSSIER = {
     analysis_id: "mock-analysis-id",
     lead_id: "mock-lead-id",
     contractor_id: null,
+    opportunity_id: "mock-opportunity-id",
     credit_balance: 5,
     already_unlocked: false,
     can_unlock: false,
     contractor_status: "demo",
     masked: true,
+  },
+  outcome: {
+    id: "mock-outcome-id",
+    opportunity_id: "mock-opportunity-id",
+    lead_id: "mock-lead-id",
+    contractor_id: "mock-contractor-id",
+    disposition_state: "new" as const,
+    disposition_reason_code: null,
+    projected_value_cents: null,
+    final_value_cents: null,
+    signed_contract_url: null,
+    last_partner_action_at: null,
   },
 };
 
@@ -131,6 +145,7 @@ interface DossierMeta {
   analysis_id: string;
   lead_id: string | null;
   contractor_id: string | null;
+  opportunity_id?: string | null;
   credit_balance: number;
   already_unlocked: boolean;
   can_unlock: boolean;
@@ -156,6 +171,7 @@ export default function PartnerDossier() {
 
   const [dossier, setDossier] = useState<DossierData | null>(null);
   const [meta, setMeta] = useState<DossierMeta | null>(null);
+  const [outcome, setOutcome] = useState<PartnerOutcome | null>(null);
   const [unlocking, setUnlocking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPreview, setIsPreview] = useState(false);
@@ -175,6 +191,7 @@ export default function PartnerDossier() {
   const fallbackToMock = useCallback(() => {
     setDossier(MOCK_DOSSIER.dossier as any);
     setMeta(MOCK_DOSSIER.meta as any);
+    setOutcome(MOCK_DOSSIER.outcome as PartnerOutcome);
     setIsPreview(true);
   }, []);
 
@@ -200,6 +217,7 @@ export default function PartnerDossier() {
     if (data.dossier && data.meta) {
       setDossier(data.dossier);
       setMeta(data.meta);
+      setOutcome((data.outcome as PartnerOutcome | null) ?? null);
       setIsPreview(false);
     } else {
       fallbackToMock();
@@ -351,6 +369,16 @@ export default function PartnerDossier() {
           </button>
         </div>
 
+        {/* ═══════════════════════════════════════════════════════
+            § 0 — PARTNER ACTION CENTER (Sprint 1D)
+            ═══════════════════════════════════════════════════════ */}
+        <PartnerActionCenter
+          outcome={outcome}
+          opportunityId={(meta as any)?.opportunity_id ?? outcome?.opportunity_id ?? null}
+          isPreview={isPreview}
+          isLocked={!isUnlockedState(deriveDisplayState(isPreview, meta.masked))}
+          onUpdated={() => { void fetchDossier(); }}
+        />
 
         {/* ═══════════════════════════════════════════════════════
             § 1 — LEAD PROVENANCE
