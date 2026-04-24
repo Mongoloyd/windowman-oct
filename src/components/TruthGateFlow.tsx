@@ -370,6 +370,7 @@ const TruthGateFlow = ({
     if (!nameValid || !emailValid || !phoneValid) return;
 
     setSubmitState("submitting");
+    setSubmitError(null);
 
     try {
       const sessionId = crypto.randomUUID();
