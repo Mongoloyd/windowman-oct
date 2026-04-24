@@ -280,8 +280,13 @@ Deno.serve(async (req) => {
 
       if (disposition_state === "sold_closed") {
         // A confirmed sale always wins at the lead level.
+        // Mirror to revenue_amount so the admin rollup
+        // COALESCE(deal_value, revenue_amount, 0) stays consistent
+        // regardless of which field downstream consumers read.
+        const dealValue = final_value_cents! / 100;
         leadUpdate.deal_status = "won";
-        leadUpdate.deal_value = final_value_cents! / 100;
+        leadUpdate.deal_value = dealValue;
+        leadUpdate.revenue_amount = dealValue;
         leadUpdate.closed_at = now;
       } else if (disposition_state === "lost_dead") {
         // Only write "lost" to the lead when every other contractor outcome for
