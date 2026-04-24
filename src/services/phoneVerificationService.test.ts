@@ -149,7 +149,7 @@ describe("phoneVerificationService — verifyOtp shape (consumed by VerifyGate, 
 // of these breaks Twilio Verify integration AND the consumer error UX.
 // ════════════════════════════════════════════════════════════════════════════
 describe("phoneVerificationService — Sprint 1: send-otp contract hardening", () => {
-  beforeEach(() => mockInvoke.mockReset());
+  beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.useRealTimers());
 
   it("wire-shape lock: exact body keys when scan_session_id provided", async () => {
