@@ -74,18 +74,22 @@ import {
   type PostRouteBucket,
 } from "@/components/admin/OutcomeTrackingReport";
 import { downloadSnapshotCsv } from "@/components/admin/missionControl/exportSnapshot";
+import {
+  computeFunnelMetrics,
+  computeTodayRevenue,
+  CLOSED_STATUSES,
+  type Scope,
+  type StageKey,
+  type FunnelMetrics,
+  type StageMetric,
+} from "@/components/admin/missionControl/funnelMetrics";
+import { TruthStripDrilldown } from "@/components/admin/TruthStripDrilldown";
+import { LeadDossierSheet } from "@/components/admin/LeadDossierSheet";
+import type { StageLeadRow } from "@/components/admin/types";
 
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 const DAILY_GOAL_KEY = "wm_admin_daily_revenue_goal";
 const DEFAULT_DAILY_GOAL = 25_000;
-// Sprint 1 backend canonical: `sold_closed`. Legacy synonyms kept for older rows.
-const CLOSED_STATUSES = new Set([
-  "sold_closed",
-  "won",
-  "closed_won",
-  "sold",
-  "closed",
-]);
 
 interface MasterCommandCenterProps {
   leads: CRMLead[];
