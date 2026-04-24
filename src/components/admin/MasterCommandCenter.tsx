@@ -74,18 +74,22 @@ import {
   type PostRouteBucket,
 } from "@/components/admin/OutcomeTrackingReport";
 import { downloadSnapshotCsv } from "@/components/admin/missionControl/exportSnapshot";
+import {
+  computeFunnelMetrics,
+  computeTodayRevenue,
+  CLOSED_STATUSES,
+  type Scope,
+  type StageKey,
+  type FunnelMetrics,
+  type StageMetric,
+} from "@/components/admin/missionControl/funnelMetrics";
+import { TruthStripDrilldown } from "@/components/admin/TruthStripDrilldown";
+import { LeadDossierSheet } from "@/components/admin/LeadDossierSheet";
+import type { StageLeadRow } from "@/components/admin/types";
 
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 const DAILY_GOAL_KEY = "wm_admin_daily_revenue_goal";
 const DEFAULT_DAILY_GOAL = 25_000;
-// Sprint 1 backend canonical: `sold_closed`. Legacy synonyms kept for older rows.
-const CLOSED_STATUSES = new Set([
-  "sold_closed",
-  "won",
-  "closed_won",
-  "sold",
-  "closed",
-]);
 
 interface MasterCommandCenterProps {
   leads: CRMLead[];
@@ -143,18 +147,7 @@ function toneForStatus(status: ReadinessStatus) {
   };
 }
 
-/* ─── Truth Strip types ──────────────────────────────────────────────── */
-type Scope = "today" | "7d" | "all";
-
-interface StageMetric {
-  count: number;
-  prevCount: number;
-  delta: number;
-  deltaPct: number | null; // null when prior window is empty (no baseline)
-  convPct: number | null;  // null for the baseline (Captured)
-}
-type StageKey = "captured" | "verified" | "scanned" | "routed" | "booked" | "closed";
-type FunnelMetrics = Record<StageKey, StageMetric>;
+/* ─── Truth Strip types — imported from funnelMetrics (canonical engine) ─ */
 
 /* ─── KPI tile (interactive, glass) ──────────────────────────────────── */
 interface KpiTileProps {
@@ -241,24 +234,7 @@ function readGoal(): number {
   return Number.isFinite(n) && n > 0 ? n : DEFAULT_DAILY_GOAL;
 }
 
-/** Returns [windowStart, prevWindowStart] in ms. `all` => [0, 0]. */
-function scopeWindows(scope: Scope): { start: number; prevStart: number; prevEnd: number } {
-  const now = Date.now();
-  if (scope === "today") {
-    const start = startOfTodayMs();
-    const span = now - start;
-    return { start, prevStart: start - span, prevEnd: start };
-  }
-  if (scope === "7d") {
-    const span = 7 * 24 * 60 * 60 * 1000;
-    const start = now - span;
-    return { start, prevStart: start - span, prevEnd: start };
-  }
-  // all-time: compare last 30d vs prior 30d for a meaningful delta
-  const span = 30 * 24 * 60 * 60 * 1000;
-  const start = now - span;
-  return { start: 0, prevStart: start - span, prevEnd: start };
-}
+/* scopeWindows + stage probes now live in funnelMetrics.ts (canonical engine). */
 
 export function MasterCommandCenter({
   leads,
@@ -291,71 +267,11 @@ export function MasterCommandCenter({
   const routes = (routesQ.data as RoutingRoute[] | undefined) ?? [];
   const contractors = (contractorsQ.data as RoutingContractor[] | undefined) ?? [];
 
-  /* ── Truth Strip metrics (windowed by scope, with prior-period delta) */
-  const funnelMetrics: FunnelMetrics = useMemo(() => {
-    const { start, prevStart, prevEnd } = scopeWindows(scope);
-
-    const ts = (s: string | null | undefined): number | null => {
-      if (!s) return null;
-      const t = new Date(s).getTime();
-      return Number.isNaN(t) ? null : t;
-    };
-
-    // For each stage, capture the timestamp that marks entry into that stage.
-    type Probe = (l: CRMLead) => number | null | undefined;
-    const probes: Record<StageKey, Probe> = {
-      captured: (l) => ts(l.created_at),
-      verified: (l) => ts(l.phone_verified_at),
-      // Scanned has no dedicated column; use updated_at as a proxy when an analysis is attached.
-      scanned: (l) => (l.latest_analysis_id ? ts(l.updated_at) : null),
-      routed: (l) => ts(l.routed_to_contractor_at),
-      booked: (l) => ts(l.appointment_booked_at),
-      closed: (l) => {
-        if (!l.closed_at) return null;
-        const status = (l.deal_status ?? "").toLowerCase();
-        if (!CLOSED_STATUSES.has(status)) return null;
-        return ts(l.closed_at);
-      },
-    };
-
-    const stageKeys: StageKey[] = ["captured", "verified", "scanned", "routed", "booked", "closed"];
-    const result = {} as FunnelMetrics;
-    const counts: Record<StageKey, number> = {
-      captured: 0, verified: 0, scanned: 0, routed: 0, booked: 0, closed: 0,
-    };
-    const prevCounts: Record<StageKey, number> = {
-      captured: 0, verified: 0, scanned: 0, routed: 0, booked: 0, closed: 0,
-    };
-
-    for (const l of leads) {
-      for (const k of stageKeys) {
-        const t = probes[k](l);
-        if (t == null) continue;
-        if (t >= start) counts[k]++;
-        if (t >= prevStart && t < prevEnd) prevCounts[k]++;
-      }
-    }
-
-    const priorOf: Record<StageKey, StageKey | null> = {
-      captured: null,
-      verified: "captured",
-      scanned: "captured",
-      routed: "verified",
-      booked: "routed",
-      closed: "booked",
-    };
-
-    for (const k of stageKeys) {
-      const c = counts[k];
-      const p = prevCounts[k];
-      const delta = c - p;
-      const deltaPct = p === 0 ? null : (delta / p) * 100;
-      const prior = priorOf[k];
-      const convPct = prior == null ? null : pct(c, counts[prior]);
-      result[k] = { count: c, prevCount: p, delta, deltaPct, convPct };
-    }
-    return result;
-  }, [leads, scope]);
+  /* ── Truth Strip metrics — shared canonical engine (Phase 26) ────── */
+  const funnelMetrics: FunnelMetrics = useMemo(
+    () => computeFunnelMetrics(leads, scope),
+    [leads, scope],
+  );
 
   /* Backward-compat shape used by signals & snapshot exporter. */
   const flow = useMemo(
@@ -370,23 +286,19 @@ export function MasterCommandCenter({
     [funnelMetrics],
   );
 
-  /* ── Daily Revenue (closed today) ────────────────────────────────── */
-  const revenueToday = useMemo(() => {
-    const since = startOfTodayMs();
-    let volume = 0;
-    let count = 0;
-    for (const l of leads) {
-      if (!l.closed_at) continue;
-      const t = new Date(l.closed_at).getTime();
-      if (Number.isNaN(t) || t < since) continue;
-      const status = (l.deal_status ?? "").toLowerCase();
-      if (!CLOSED_STATUSES.has(status)) continue;
-      const v = l.deal_value ?? l.revenue_amount ?? 0;
-      volume += Number.isFinite(v as number) ? Number(v) : 0;
-      count++;
-    }
-    return { volume, count };
-  }, [leads]);
+  /* ── Phase 26 — Drilldown + Dossier state ─────────────────────────── */
+  const [drilldownStage, setDrilldownStage] = useState<StageKey | null>(null);
+  const [dossierLead, setDossierLead] = useState<CRMLead | null>(null);
+
+  const handleJumpToDossier = (row: StageLeadRow) => {
+    const full = leads.find((l) => l.id === row.id) ?? null;
+    setDrilldownStage(null);
+    if (full) setDossierLead(full);
+  };
+
+  /* ── Daily Revenue (closed today) — shared canonical engine ──────── */
+  const revenueToday = useMemo(() => computeTodayRevenue(leads), [leads]);
+
 
   const goalPct = pct(revenueToday.volume, dailyGoal);
   const goalFillTone =
@@ -710,6 +622,14 @@ export function MasterCommandCenter({
     downloadSnapshotCsv({
       generatedAt: new Date(),
       funnel: flow,
+      funnelDelta: {
+        captured: { delta: funnelMetrics.captured.delta, prevCount: funnelMetrics.captured.prevCount, convPct: funnelMetrics.captured.convPct },
+        verified: { delta: funnelMetrics.verified.delta, prevCount: funnelMetrics.verified.prevCount, convPct: funnelMetrics.verified.convPct },
+        scanned:  { delta: funnelMetrics.scanned.delta,  prevCount: funnelMetrics.scanned.prevCount,  convPct: funnelMetrics.scanned.convPct  },
+        routed:   { delta: funnelMetrics.routed.delta,   prevCount: funnelMetrics.routed.prevCount,   convPct: funnelMetrics.routed.convPct   },
+        booked:   { delta: funnelMetrics.booked.delta,   prevCount: funnelMetrics.booked.prevCount,   convPct: funnelMetrics.booked.convPct   },
+        closed:   { delta: funnelMetrics.closed.delta,   prevCount: funnelMetrics.closed.prevCount,   convPct: funnelMetrics.closed.convPct   },
+      },
       revenue: {
         goal: dailyGoal,
         todayClosedVolume: revenueToday.volume,
@@ -972,48 +892,12 @@ export function MasterCommandCenter({
           </div>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-          <KpiTile
-            label="Captured"
-            metric={funnelMetrics.captured}
-            hint=""
-            icon={Inbox}
-            onClick={() => onNavigateTab("pipeline")}
-          />
-          <KpiTile
-            label="Verified"
-            metric={funnelMetrics.verified}
-            hint="of Captured"
-            icon={ShieldCheck}
-            onClick={() => onNavigateTab("pipeline")}
-          />
-          <KpiTile
-            label="Scanned"
-            metric={funnelMetrics.scanned}
-            hint="of Captured"
-            icon={ScanSearch}
-            onClick={() => onNavigateTab("pipeline")}
-          />
-          <KpiTile
-            label="Routed"
-            metric={funnelMetrics.routed}
-            hint="of Verified"
-            icon={Send}
-            onClick={() => onNavigateTab("routing")}
-          />
-          <KpiTile
-            label="Booked"
-            metric={funnelMetrics.booked}
-            hint="of Routed"
-            icon={CalendarCheck}
-            onClick={() => onNavigateTab("outcomes")}
-          />
-          <KpiTile
-            label="Closed"
-            metric={funnelMetrics.closed}
-            hint="of Booked"
-            icon={CheckCircle2}
-            onClick={() => onNavigateTab("outcomes")}
-          />
+          <KpiTile label="Captured" metric={funnelMetrics.captured} hint=""           icon={Inbox}        onClick={() => setDrilldownStage("captured")} />
+          <KpiTile label="Verified" metric={funnelMetrics.verified} hint="of Captured" icon={ShieldCheck}  onClick={() => setDrilldownStage("verified")} />
+          <KpiTile label="Scanned"  metric={funnelMetrics.scanned}  hint="of Captured" icon={ScanSearch}   onClick={() => setDrilldownStage("scanned")} />
+          <KpiTile label="Routed"   metric={funnelMetrics.routed}   hint="of Verified" icon={Send}         onClick={() => setDrilldownStage("routed")} />
+          <KpiTile label="Booked"   metric={funnelMetrics.booked}   hint="of Routed"   icon={CalendarCheck} onClick={() => setDrilldownStage("booked")} />
+          <KpiTile label="Closed"   metric={funnelMetrics.closed}   hint="of Booked"   icon={CheckCircle2} onClick={() => setDrilldownStage("closed")} />
         </div>
       </div>
 
@@ -1249,6 +1133,18 @@ export function MasterCommandCenter({
           </CardContent>
         </Card>
       </div>
+      <TruthStripDrilldown
+        open={drilldownStage != null}
+        onOpenChange={(o) => { if (!o) setDrilldownStage(null); }}
+        stage={drilldownStage}
+        scope={scope}
+        onJumpToDossier={handleJumpToDossier}
+      />
+      <LeadDossierSheet
+        lead={dossierLead}
+        open={dossierLead != null}
+        onOpenChange={(o) => { if (!o) setDossierLead(null); }}
+      />
     </div>
   );
 }

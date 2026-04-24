@@ -78,7 +78,10 @@ export type AdminAction =
   | "update_lead_task"
   | "delete_lead_task"
   // Phase 10 — Human Context Layer
-  | "update_lead_human_context";
+  | "update_lead_human_context"
+  // Phase 26 — Mission Control Truth Strip drilldown
+  | "fetch_quote_evidence"
+  | "fetch_stage_leads";
 
 /**
  * Payload shapes for each admin action.
@@ -160,6 +163,13 @@ export interface AdminActionPayloads {
     property_type_detail?: string | null;
     hoa_or_condo_complexity?: string | null;
     handoff_consent_status?: string | null;
+  };
+  // Phase 26 — Mission Control Truth Strip drilldown
+  fetch_quote_evidence: { lead_id: string };
+  fetch_stage_leads: {
+    stage: "captured" | "verified" | "scanned" | "routed" | "booked" | "closed";
+    scope: "today" | "7d" | "all";
+    limit?: number;
   };
 }
 
@@ -723,4 +733,19 @@ export async function updateLeadHumanContext(args: {
   handoff_consent_status?: string | null;
 }): Promise<{ id: string; updated_at: string }> {
   return invokeAdminData("update_lead_human_context", args);
+}
+
+// ── Phase 26 — Mission Control Truth Strip drilldown ────────────────────
+import type { StageLeadRow, QuoteEvidence } from "@/components/admin/types";
+
+export async function fetchQuoteEvidence(leadId: string): Promise<QuoteEvidence> {
+  return invokeAdminData("fetch_quote_evidence", { lead_id: leadId });
+}
+
+export async function fetchStageLeads(
+  stage: AdminActionPayloads["fetch_stage_leads"]["stage"],
+  scope: AdminActionPayloads["fetch_stage_leads"]["scope"],
+  limit?: number,
+): Promise<{ leads: StageLeadRow[] }> {
+  return invokeAdminData("fetch_stage_leads", { stage, scope, limit });
 }

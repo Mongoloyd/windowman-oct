@@ -297,8 +297,17 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
           </TabsContent>
 
           <TabsContent value="command" className="space-y-6">
+            {/* Phase 26 — legacy <CommandCenter /> removed; canonical Mission
+                Control engine renders here so funnel counts cannot disagree
+                across tabs. OneContractorSummaryStrip + MarketOpsFeed retained. */}
             <OneContractorSummaryStrip leads={leads} />
-            <CommandCenter kpis={kpis} isLoading={false} leads={leads} />
+            <MasterCommandCenter
+              leads={leads}
+              deliveries={deliveries}
+              ghosts={ghosts}
+              needsReviewCount={needsReview.length}
+              onNavigateTab={setActiveTab}
+            />
             <MarketOpsFeed leads={leads} />
           </TabsContent>
 

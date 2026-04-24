@@ -39,7 +39,9 @@ type ActionName =
   | "list_lead_notes" | "create_lead_note" | "delete_lead_note"
   | "list_lead_tasks" | "create_lead_task" | "update_lead_task" | "delete_lead_task"
   // Phase 10 — Human Context Layer
-  | "update_lead_human_context";
+  | "update_lead_human_context"
+  // Phase 26 — Mission Control Truth Strip drilldown
+  | "fetch_quote_evidence" | "fetch_stage_leads";
 
 const ACTION_ROLES: Record<ActionName, AppRole[]> = {
   fetch_leads: ["super_admin", "operator", "viewer"],
@@ -93,6 +95,9 @@ const ACTION_ROLES: Record<ActionName, AppRole[]> = {
   delete_lead_task:         ["super_admin", "operator"],
   // Phase 10
   update_lead_human_context: ["super_admin", "operator"],
+  // Phase 26 — Mission Control Truth Strip drilldown
+  fetch_quote_evidence: ["super_admin", "operator", "viewer"],
+  fetch_stage_leads:    ["super_admin", "operator", "viewer"],
 };
 
 // Allowed funnel stages (Sprint 5 — kept in sync with frontend constants)
@@ -1811,6 +1816,154 @@ Deno.serve(async (req) => {
       const { error } = await supabaseAdmin.from("lead_tasks").delete().eq("id", task_id);
       if (error) throw error;
       return successResponse({ data: { success: true } });
+    }
+
+    // ─── PHASE 26 — TRUTH STRIP DRILLDOWN ────────────────────────────
+    // Forensic surface for the Mission Control Truth Strip. Read-only.
+    // Mirrors the exact quote-file resolution path used by fetch_needs_review:
+    //   leads.id -> quote_files.lead_id (latest by created_at) -> storage signed URL.
+    // Storage bucket "quotes" — already private; we only mint a 1h signed URL.
+
+    if (action === "fetch_quote_evidence") {
+      const { lead_id } = payload;
+      if (!lead_id) return errorResponse(400, "missing_param", "lead_id is required");
+
+      // Pull the lead's latest scan session (for the operator's context only)
+      const { data: lead } = await supabaseAdmin
+        .from("leads")
+        .select("latest_scan_session_id")
+        .eq("id", lead_id)
+        .maybeSingle();
+
+      const scan_session_id = lead?.latest_scan_session_id ?? null;
+
+      // Resolve the latest quote_file for this lead — column set verified:
+      // (id, created_at, lead_id, storage_path, status). No filename column on
+      // this table, so file_name is intentionally null.
+      const { data: file } = await supabaseAdmin
+        .from("quote_files")
+        .select("id, storage_path, created_at")
+        .eq("lead_id", lead_id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!file?.storage_path) {
+        return successResponse({
+          data: {
+            signed_url: null,
+            file_name: null,
+            scan_session_id,
+            expires_in: 3600,
+          },
+        });
+      }
+
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const storageClient = createClient(supabaseUrl, serviceRoleKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+
+      const { data: signed } = await storageClient.storage
+        .from("quotes")
+        .createSignedUrl(file.storage_path, 3600);
+
+      return successResponse({
+        data: {
+          signed_url: signed?.signedUrl ?? null,
+          file_name: null,
+          scan_session_id,
+          expires_in: 3600,
+        },
+      });
+    }
+
+    if (action === "fetch_stage_leads") {
+      const { stage, scope, limit } = payload as {
+        stage?: string; scope?: string; limit?: number;
+      };
+      if (!stage)  return errorResponse(400, "missing_param", "stage is required");
+      if (!scope)  return errorResponse(400, "missing_param", "scope is required");
+
+      const ALLOWED_STAGES = new Set([
+        "captured", "verified", "scanned", "routed", "booked", "closed",
+      ]);
+      if (!ALLOWED_STAGES.has(stage)) {
+        return errorResponse(400, "invalid_stage", `Unknown stage: ${stage}`);
+      }
+      if (!["today", "7d", "all"].includes(scope)) {
+        return errorResponse(400, "invalid_scope", `Unknown scope: ${scope}`);
+      }
+
+      // Compute window
+      let sinceIso: string | null = null;
+      if (scope === "today") {
+        const d = new Date();
+        d.setUTCHours(0, 0, 0, 0);
+        sinceIso = d.toISOString();
+      } else if (scope === "7d") {
+        sinceIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      }
+
+      const cap = Math.min(Math.max(typeof limit === "number" ? limit : 200, 1), 500);
+
+      // Compact column projection
+      const cols = `
+        id, first_name, last_name, city, county,
+        grade, flag_count, red_flag_count,
+        latest_analysis_id, latest_scan_session_id, latest_opportunity_id,
+        deal_value, revenue_amount, deal_status,
+        created_at, phone_verified_at, updated_at,
+        routed_to_contractor_at, appointment_booked_at, closed_at, scan_count
+      `;
+
+      let q = supabaseAdmin.from("leads").select(cols).limit(cap);
+
+      // Stage-specific predicates — canonical timestamps only
+      if (stage === "captured") {
+        if (sinceIso) q = q.gte("created_at", sinceIso);
+        q = q.order("created_at", { ascending: false });
+      } else if (stage === "verified") {
+        q = q.not("phone_verified_at", "is", null);
+        if (sinceIso) q = q.gte("phone_verified_at", sinceIso);
+        q = q.order("phone_verified_at", { ascending: false });
+      } else if (stage === "scanned") {
+        // Repo-real Scanned predicate: scan_count > 0 AND updated_at in scope.
+        q = q.gt("scan_count", 0);
+        if (sinceIso) q = q.gte("updated_at", sinceIso);
+        q = q.order("updated_at", { ascending: false });
+      } else if (stage === "routed") {
+        q = q.not("routed_to_contractor_at", "is", null);
+        if (sinceIso) q = q.gte("routed_to_contractor_at", sinceIso);
+        q = q.order("routed_to_contractor_at", { ascending: false });
+      } else if (stage === "booked") {
+        q = q.not("appointment_booked_at", "is", null);
+        if (sinceIso) q = q.gte("appointment_booked_at", sinceIso);
+        q = q.order("appointment_booked_at", { ascending: false });
+      } else if (stage === "closed") {
+        q = q.not("closed_at", "is", null)
+             .in("deal_status", ["won", "sold", "sold_closed", "closed_won", "closed"]);
+        if (sinceIso) q = q.gte("closed_at", sinceIso);
+        q = q.order("closed_at", { ascending: false });
+      }
+
+      const { data, error } = await q;
+      if (error) throw error;
+
+      // Tag each row with the stage_timestamp that matched (for UI display)
+      const stamped = (data ?? []).map((l: any) => {
+        const ts =
+          stage === "captured" ? l.created_at :
+          stage === "verified" ? l.phone_verified_at :
+          stage === "scanned"  ? l.updated_at :
+          stage === "routed"   ? l.routed_to_contractor_at :
+          stage === "booked"   ? l.appointment_booked_at :
+          stage === "closed"   ? l.closed_at : null;
+        return { ...l, stage_timestamp: ts };
+      });
+
+      return successResponse({ data: { leads: stamped } });
     }
 
     return errorResponse(400, "unhandled_action", `Action ${action} not implemented`);
