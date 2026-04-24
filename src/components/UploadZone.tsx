@@ -361,40 +361,41 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
         return;
       }
 
-      let leadId: string | null = null;
-      if (sessionId) {
-        const { data: leads } = await supabase.rpc("get_lead_by_session", { p_session_id: sessionId });
-        leadId = leads?.[0]?.id || null;
-      }
-      if (!leadId) {
-        const fallbackLeadId = crypto.randomUUID();
-        const fallbackSessionId = sessionId || sessionScope;
-        const { error: leadErr } = await supabase
-          .from("leads")
-          .insert({ id: fallbackLeadId, session_id: fallbackSessionId, source: "direct_upload" });
-        if (leadErr) {
-          failWith("lead_create", "Failed to initialize session. Please try again.", leadErr);
-          return;
-        }
-        leadId = fallbackLeadId;
+      // ── Server-authoritative scan session bootstrap ─────────────────
+      // Direct browser inserts into `leads` and `scan_sessions` are RLS-anon
+      // only. When the same browser holds an admin/operator JWT (the user is
+      // logged into the back-office), Postgres returns 42501 and the user
+      // sees "Failed to start scan session." The edge function performs all
+      // three writes (leads / quote_files / scan_sessions) with the service
+      // role and is idempotent on `storage_path`, so retries don't duplicate.
+      const bootstrapSessionId = sessionId || sessionScope;
+      const { data: bootstrapData, error: bootstrapError } =
+        await supabase.functions.invoke("start-upload-scan-session", {
+          body: {
+            session_id: bootstrapSessionId,
+            storage_path: filePath,
+            file_name: file.name,
+            file_size: file.size,
+            file_type: file.type || null,
+          },
+        });
+
+      if (bootstrapError || !bootstrapData?.success) {
+        // Surface the original "scan_sessions_insert" failure stage so the
+        // visible UX (orange retry panel) is unchanged. Diagnostic detail
+        // goes to the console, never the user.
+        const fnDetails = (bootstrapData ?? {}) as Record<string, unknown>;
+        failWith(
+          "scan_sessions_insert",
+          "Failed to start scan session. Please try again.",
+          bootstrapError ?? fnDetails,
+        );
+        return;
       }
 
-      const quoteFileId = crypto.randomUUID();
-      const { error: qfError } = await supabase
-        .from("quote_files")
-        .insert({ id: quoteFileId, lead_id: leadId, storage_path: filePath, status: "pending" });
-      if (qfError) {
-        failWith("quote_files_insert", "Failed to register your file. Please try again.", qfError);
-        return;
-      }
-      const newScanSessionId = crypto.randomUUID();
-      const { error: ssError } = await supabase
-        .from("scan_sessions")
-        .insert({ id: newScanSessionId, status: "uploading", lead_id: leadId, quote_file_id: quoteFileId });
-      if (ssError) {
-        failWith("scan_sessions_insert", "Failed to start scan session. Please try again.", ssError);
-        return;
-      }
+      const newScanSessionId = bootstrapData.scan_session_id as string;
+      const quoteFileId = bootstrapData.quote_file_id as string;
+      const leadId = (bootstrapData.lead_id as string | null) ?? null;
 
       // ── Commit identity ──────────────────────────────────────────────
       // Persist scan_session_id locally AND flip uploadedOnceRef BEFORE
