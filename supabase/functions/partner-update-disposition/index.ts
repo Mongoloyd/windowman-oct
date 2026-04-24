@@ -75,13 +75,11 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } },
     );
 
-    const { data: claimsData, error: claimsErr } = await anonClient.auth.getClaims(
-      authHeader.replace("Bearer ", ""),
-    );
-    if (claimsErr || !claimsData?.claims?.sub) {
+    const { data: { user }, error: userErr } = await anonClient.auth.getUser();
+    if (userErr || !user) {
       return json({ error: "unauthenticated", message: "Invalid auth token." }, 401);
     }
-    const authUserId = claimsData.claims.sub as string;
+    const authUserId = user.id;
 
     // ── Service client ───────────────────────────────────────────
     const svc = createClient(
@@ -172,10 +170,10 @@ Deno.serve(async (req) => {
         message: "final_value_cents is required when marking a lead as sold_closed.",
       }, 422);
     }
-    if (projected_value_cents != null && (typeof projected_value_cents !== "number" || projected_value_cents < 0)) {
+    if (projected_value_cents != null && (!Number.isInteger(projected_value_cents) || projected_value_cents < 0)) {
       return json({ error: "invalid_input", message: "projected_value_cents must be a non-negative integer." }, 422);
     }
-    if (final_value_cents != null && (typeof final_value_cents !== "number" || final_value_cents < 0)) {
+    if (final_value_cents != null && (!Number.isInteger(final_value_cents) || final_value_cents < 0)) {
       return json({ error: "invalid_input", message: "final_value_cents must be a non-negative integer." }, 422);
     }
 
@@ -246,14 +244,39 @@ Deno.serve(async (req) => {
     // ── Lead rollup ───────────────────────────────────────────────
     if (leadId) {
       const leadUpdate: Record<string, unknown> = {};
+
       if (disposition_state === "sold_closed") {
+        // A confirmed sale always wins at the lead level.
         leadUpdate.deal_status = "won";
         leadUpdate.deal_value = final_value_cents! / 100;
         leadUpdate.closed_at = now;
       } else if (disposition_state === "lost_dead") {
-        leadUpdate.deal_status = "lost";
-        leadUpdate.closed_at = now;
+        // Only write "lost" to the lead when every other contractor outcome for
+        // this lead is also terminal (sold_closed or lost_dead). If another
+        // contractor is still active the lead should not be closed.
+        const { data: allOpps } = await svc
+          .from("contractor_opportunities")
+          .select("id")
+          .eq("lead_id", leadId);
+
+        const allOppIds = (allOpps ?? []).map((o) => o.id as string);
+
+        if (allOppIds.length > 0) {
+          const { count: activeCount } = await svc
+            .from("contractor_outcomes")
+            .select("id", { count: "exact", head: true })
+            .in("opportunity_id", allOppIds)
+            .neq("id", outcome.id) // exclude the row we just updated
+            .not("disposition_state", "eq", "sold_closed")
+            .not("disposition_state", "eq", "lost_dead");
+
+          if (activeCount === 0) {
+            leadUpdate.deal_status = "lost";
+            leadUpdate.closed_at = now;
+          }
+        }
       }
+
       if (Object.keys(leadUpdate).length > 0) {
         const { error: leadErr } = await svc
           .from("leads")

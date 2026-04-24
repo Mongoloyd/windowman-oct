@@ -7,7 +7,14 @@
 -- → sold_closed | lost_dead).
 --
 -- RLS is NOT changed — table remains service-role only.
+--
+-- Order matters:
+--   1. Add columns (no cross-column constraints yet)
+--   2. Backfill existing terminal rows from deal_status
+--   3. Add constraints (backfill satisfies them)
 -- ============================================================
+
+-- ── Step 1: Add columns ───────────────────────────────────────
 
 ALTER TABLE public.contractor_outcomes
   ADD COLUMN IF NOT EXISTS disposition_state        TEXT NOT NULL DEFAULT 'new',
@@ -17,7 +24,22 @@ ALTER TABLE public.contractor_outcomes
   ADD COLUMN IF NOT EXISTS signed_contract_url      TEXT,
   ADD COLUMN IF NOT EXISTS last_partner_action_at   TIMESTAMPTZ;
 
--- ── Constraints ──────────────────────────────────────────────
+-- ── Step 2: Backfill from existing deal_status ────────────────
+-- Won deals → sold_closed; copy deal_value into final_value_cents (cents)
+UPDATE public.contractor_outcomes
+SET
+  disposition_state = 'sold_closed',
+  final_value_cents = COALESCE(ROUND(deal_value * 100)::integer, 0)
+WHERE deal_status = 'won';
+
+-- Lost/dead deals → lost_dead; use 'other' as legacy reason code
+UPDATE public.contractor_outcomes
+SET
+  disposition_state = 'lost_dead',
+  disposition_reason_code = 'other'
+WHERE deal_status IN ('lost', 'dead');
+
+-- ── Step 3: Constraints (safe to add after backfill) ──────────
 
 ALTER TABLE public.contractor_outcomes
   ADD CONSTRAINT contractor_outcomes_disposition_state_check
