@@ -550,6 +550,7 @@ export default function ContractorOpportunitiesPage() {
                 value={countyFilter}
                 onChange={(e) => setCountyFilter(e.target.value)}
                 className="bg-background border rounded-md text-xs px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
+                aria-label="Filter by county"
               >
                 <option value="">All Counties</option>
                 {uniqueCounties.sort().map((c) => (
@@ -559,13 +560,33 @@ export default function ContractorOpportunitiesPage() {
             </div>
           )}
 
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Sort</span>
+            <select
+              value={sortMode}
+              onChange={(e) => setSortMode(e.target.value as SortMode)}
+              className="bg-background border rounded-md text-xs px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
+              aria-label="Sort opportunities"
+            >
+              {SORT_OPTIONS.map((s) => (
+                <option key={s.value} value={s.value}>{s.label}</option>
+              ))}
+            </select>
+          </div>
+
           <span className="text-xs text-muted-foreground ml-auto">
-            Showing {filteredOpportunities.length} of {totalCount}
+            Showing {sortedOpportunities.length} of {totalCount}
           </span>
         </div>
 
+        {/* Tactical microcopy */}
+        <p className="text-xs text-muted-foreground -mt-2">
+          Sort by <span className="font-medium text-foreground">Best Unlock</span> to prioritize
+          verified, urgent, warm-handoff leads — not just bad competitor quotes.
+        </p>
+
         {/* ─── Opportunity List ─────────────────────────────────── */}
-        {filteredOpportunities.length === 0 ? (
+        {sortedOpportunities.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <Search className="h-12 w-12 text-muted-foreground/40 mb-4" />
             <h3 className="text-lg font-semibold text-muted-foreground mb-1">
@@ -579,7 +600,7 @@ export default function ContractorOpportunitiesPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-3">
-            {filteredOpportunities.map((opp) => (
+            {sortedOpportunities.map((opp) => (
               <OpportunityCard key={opp.opportunity_id} opp={opp} navigate={navigate} />
             ))}
           </div>
