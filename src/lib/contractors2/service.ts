@@ -4,6 +4,7 @@
  */
 
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import type {
   ContractorActivityLog,
   ContractorActivityType,
@@ -20,6 +21,8 @@ import type {
   ContractorPipelineStage,
   ContractorFollowupStatus,
 } from "@/types/contractorLead";
+
+type ContractorFollowupDbUpdate = Database["public"]["Tables"]["contractor_followups"]["Update"];
 
 type JsonObject = Record<string, unknown>;
 
