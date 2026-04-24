@@ -402,6 +402,45 @@ export default function ContractorOpportunitiesPage() {
     return result;
   }, [opportunities, activeFilter, countyFilter]);
 
+  /* ── Sorted view (sorting happens AFTER filtering; original array not mutated) ── */
+  const sortedOpportunities = useMemo(() => {
+    const arr = filteredOpportunities.slice();
+    switch (sortMode) {
+      case "best_unlock":
+        return arr.sort((a, b) => getBestUnlockScore(b) - getBestUnlockScore(a));
+      case "highest_bss": {
+        const score = (o: Opportunity) =>
+          o.buyer_seriousness_score ?? o.priority_score ?? -Infinity;
+        return arr.sort((a, b) => score(b) - score(a));
+      }
+      case "newest":
+        return arr.sort(
+          (a, b) => Date.parse(b.created_at || "") - Date.parse(a.created_at || ""),
+        );
+      case "largest_project":
+        return arr.sort((a, b) => {
+          const av = parseQuoteMidpoint(a.quote_range) || (a.window_count ?? 0);
+          const bv = parseQuoteMidpoint(b.quote_range) || (b.window_count ?? 0);
+          return bv - av;
+        });
+      case "most_red_flags":
+        return arr.sort((a, b) => {
+          const dr = (b.red_flag_count ?? 0) - (a.red_flag_count ?? 0);
+          if (dr !== 0) return dr;
+          return (b.amber_flag_count ?? 0) - (a.amber_flag_count ?? 0);
+        });
+      case "ready_this_month": {
+        const rank = (o: Opportunity) =>
+          o.timeline_bucket && TIMELINE_RANK[o.timeline_bucket] != null
+            ? TIMELINE_RANK[o.timeline_bucket]
+            : 99;
+        return arr.sort((a, b) => rank(a) - rank(b));
+      }
+      default:
+        return arr;
+    }
+  }, [filteredOpportunities, sortMode]);
+
   /* ── Derived stats from full dataset (not affected by county filter) ── */
   const totalCount = opportunities.length;
   const unlockedCount = opportunities.filter((o) => o.already_unlocked).length;
