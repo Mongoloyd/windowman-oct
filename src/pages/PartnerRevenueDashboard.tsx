@@ -1,33 +1,171 @@
 /**
  * PartnerRevenueDashboard — `/partner/revenue`
  *
- * Third primary surface in the partner portal (alongside Opportunity Market
- * and the Dossier child detail view). This is the partner-facing CRM/Revenue
- * destination.
+ * Sprint 1C — Partner CRM dashboard.
+ * Three sections: KPI strip, weekly lead board (current local week), pipeline
+ * table. Hover preview on each card opens a compact summary with an Open
+ * Dossier CTA (route: /partner/dossier/{analysis_id} — same contract as the
+ * opportunities feed `dossier_href`).
  *
- * Sprint 1A — Information Architecture Foundation:
- *   Static placeholder shell only. No data fetching, no React Query, no
- *   Supabase calls, no mutations. Subsequent sprints will fill in:
- *     - KPI strip values (managed revenue, closing ratio, …)
- *     - Weekly lead board (current local week, hover quick preview)
- *     - Managed leads pipeline table
+ * Data sources (partner-safe, contractor-scoped via auth.uid() bridge):
+ *   - rpc("partner_outcomes_with_lead_context")  → per-row pipeline
+ *   - rpc("partner_outcome_summary")             → KPI rollup totals
  *
- * Shell ownership: PartnerLayout (sticky header, credit pill, primary nav).
+ * No new dependencies. Uses installed Radix HoverCard + date-fns.
  */
 
 import { Helmet } from "react-helmet-async";
-import { TrendingUp, CalendarDays, Table as TableIcon, Sparkles } from "lucide-react";
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
+import {
+  TrendingUp,
+  CalendarDays,
+  Table as TableIcon,
+  ArrowUpRight,
+  Clock,
+  AlertCircle,
+  Loader2,
+  Inbox,
+} from "lucide-react";
+import {
+  startOfWeek,
+  endOfWeek,
+  addDays,
+  format,
+  isSameDay,
+  differenceInDays,
+  formatDistanceToNowStrict,
+} from "date-fns";
 
-const KPI_PLACEHOLDERS = [
-  { label: "Managed Revenue", hint: "Sum of closed deal value" },
-  { label: "Closing Ratio", hint: "Sold ÷ (Sold + Lost)" },
-  { label: "Sold This Period", hint: "Closed-won outcomes" },
-  { label: "Avg. Days to Close", hint: "Quote → sold latency" },
-  { label: "Leads Needing Action", hint: "Untouched > 24h or due this week" },
-] as const;
+import { supabase } from "@/integrations/supabase/client";
+import {
+  HoverCard,
+  HoverCardTrigger,
+  HoverCardContent,
+} from "@/components/ui/hover-card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
-const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
+// ─── Types ─────────────────────────────────────────────────────
+type Disposition =
+  | "new"
+  | "attempting_contact"
+  | "meeting_scheduled"
+  | "quote_delivered"
+  | "sold_closed"
+  | "lost_dead";
 
+type OutcomeRow = {
+  outcome_id: string;
+  opportunity_id: string;
+  lead_id: string;
+  analysis_id: string | null;
+  disposition_state: Disposition;
+  disposition_reason_code: string | null;
+  projected_value_cents: number | null;
+  final_value_cents: number | null;
+  signed_contract_url: string | null;
+  last_partner_action_at: string | null;
+  outcome_created_at: string;
+  outcome_updated_at: string;
+  closed_at: string | null;
+  appointment_booked_at: string | null;
+  homeowner_first_name: string | null;
+  city: string | null;
+  county: string | null;
+  project_type: string | null;
+  window_count: number | null;
+  quote_range: string | null;
+  grade: string | null;
+  red_flag_count: number | null;
+  amber_flag_count: number | null;
+  flag_count: number | null;
+};
+
+type SummaryRow = {
+  disposition_state: Disposition;
+  outcome_count: number;
+  total_final_value_cents: number;
+  total_projected_value_cents: number;
+};
+
+const ACTIVE_DISPOSITIONS: Disposition[] = [
+  "new",
+  "attempting_contact",
+  "meeting_scheduled",
+  "quote_delivered",
+];
+const TERMINAL_DISPOSITIONS: Disposition[] = ["sold_closed", "lost_dead"];
+
+const DISPOSITION_LABEL: Record<Disposition, string> = {
+  new: "New",
+  attempting_contact: "Contacting",
+  meeting_scheduled: "Meeting set",
+  quote_delivered: "Quote sent",
+  sold_closed: "Sold",
+  lost_dead: "Lost",
+};
+
+const DISPOSITION_COLOR: Record<Disposition, string> = {
+  new: "bg-slate-100 text-slate-700 border-slate-200",
+  attempting_contact: "bg-amber-50 text-amber-800 border-amber-200",
+  meeting_scheduled: "bg-sky-50 text-sky-800 border-sky-200",
+  quote_delivered: "bg-violet-50 text-violet-800 border-violet-200",
+  sold_closed: "bg-emerald-50 text-emerald-800 border-emerald-200",
+  lost_dead: "bg-rose-50 text-rose-800 border-rose-200",
+};
+
+// "Needs touch" threshold for the active-leads KPI: an active lead whose last
+// partner action (or creation) is older than this is considered overdue.
+const NEEDS_TOUCH_DAYS = 3;
+
+// ─── Helpers ──────────────────────────────────────────────────
+function formatCents(cents: number | null | undefined): string {
+  if (cents == null) return "—";
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(cents / 100);
+}
+
+function formatPercent(num: number, denom: number): string {
+  if (denom <= 0) return "—";
+  return `${Math.round((num / denom) * 100)}%`;
+}
+
+function displayName(row: OutcomeRow): string {
+  return row.homeowner_first_name?.trim() || "Homeowner";
+}
+
+function locationLabel(row: OutcomeRow): string | null {
+  return row.city || row.county || null;
+}
+
+/**
+ * Weekly grouping timestamp (priority order):
+ *   1. last_partner_action_at
+ *   2. appointment_booked_at
+ *   3. closed_at
+ *   4. outcome_created_at
+ */
+function weeklyAnchor(row: OutcomeRow): Date {
+  const ts =
+    row.last_partner_action_at ??
+    row.appointment_booked_at ??
+    row.closed_at ??
+    row.outcome_created_at;
+  return new Date(ts);
+}
+
+function lastActionAge(row: OutcomeRow): string {
+  const ts = row.last_partner_action_at ?? row.outcome_created_at;
+  return formatDistanceToNowStrict(new Date(ts), { addSuffix: true });
+}
+
+// ─── Sub-components ───────────────────────────────────────────
 function SectionHeader({
   icon: Icon,
   title,
@@ -54,7 +192,321 @@ function SectionHeader({
   );
 }
 
+function KpiCard({
+  label,
+  value,
+  hint,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-lg border bg-card p-4 flex flex-col gap-1.5",
+        highlight && "border-sky-300 bg-sky-50/40",
+      )}
+    >
+      <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </span>
+      <span className="text-xl sm:text-2xl font-bold tracking-tight tabular-nums">
+        {value}
+      </span>
+      {hint && (
+        <span className="text-[11px] text-muted-foreground leading-tight">
+          {hint}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function LeadHoverCard({ row }: { row: OutcomeRow }) {
+  const dossierHref = row.analysis_id
+    ? `/partner/dossier/${row.analysis_id}`
+    : null;
+
+  return (
+    <HoverCardContent className="w-72 p-4" align="start" sideOffset={6}>
+      <div className="space-y-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="font-semibold truncate">{displayName(row)}</div>
+            {locationLabel(row) && (
+              <div className="text-xs text-muted-foreground">
+                {locationLabel(row)}
+              </div>
+            )}
+          </div>
+          <Badge
+            variant="outline"
+            className={cn("text-[10px]", DISPOSITION_COLOR[row.disposition_state])}
+          >
+            {DISPOSITION_LABEL[row.disposition_state]}
+          </Badge>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          {row.grade && (
+            <div>
+              <div className="text-muted-foreground">Grade</div>
+              <div className="font-semibold">{row.grade}</div>
+            </div>
+          )}
+          {(row.red_flag_count ?? 0) + (row.amber_flag_count ?? 0) > 0 && (
+            <div>
+              <div className="text-muted-foreground">Flags</div>
+              <div className="font-semibold flex items-center gap-1">
+                {(row.red_flag_count ?? 0) > 0 && (
+                  <span className="text-rose-600">
+                    {row.red_flag_count}R
+                  </span>
+                )}
+                {(row.amber_flag_count ?? 0) > 0 && (
+                  <span className="text-amber-600">
+                    {row.amber_flag_count}A
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+          {row.quote_range && (
+            <div className="col-span-2">
+              <div className="text-muted-foreground">Quote range</div>
+              <div className="font-semibold truncate">{row.quote_range}</div>
+            </div>
+          )}
+          {row.projected_value_cents != null && (
+            <div>
+              <div className="text-muted-foreground">Projected</div>
+              <div className="font-semibold tabular-nums">
+                {formatCents(row.projected_value_cents)}
+              </div>
+            </div>
+          )}
+          {row.final_value_cents != null && (
+            <div>
+              <div className="text-muted-foreground">Final</div>
+              <div className="font-semibold tabular-nums text-emerald-700">
+                {formatCents(row.final_value_cents)}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between gap-2 pt-1 border-t">
+          <span className="text-[10px] text-muted-foreground">
+            Last action {lastActionAge(row)}
+          </span>
+          {dossierHref && (
+            <Button
+              asChild
+              size="sm"
+              variant="default"
+              className="h-7 px-2 text-xs"
+            >
+              <Link to={dossierHref}>
+                Open <ArrowUpRight className="ml-1 h-3 w-3" />
+              </Link>
+            </Button>
+          )}
+        </div>
+      </div>
+    </HoverCardContent>
+  );
+}
+
+function LeadCard({ row }: { row: OutcomeRow }) {
+  const dossierHref = row.analysis_id
+    ? `/partner/dossier/${row.analysis_id}`
+    : null;
+
+  const inner = (
+    <div className="rounded-md border bg-card p-2.5 hover:border-sky-300 hover:shadow-sm transition cursor-pointer">
+      <div className="flex items-start justify-between gap-1.5">
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-semibold truncate">{displayName(row)}</div>
+          {locationLabel(row) && (
+            <div className="text-[10px] text-muted-foreground truncate">
+              {locationLabel(row)}
+            </div>
+          )}
+        </div>
+        {row.grade && (
+          <span className="text-[10px] font-bold text-slate-600 shrink-0">
+            {row.grade}
+          </span>
+        )}
+      </div>
+      <div className="mt-1.5 flex items-center justify-between gap-1.5">
+        <Badge
+          variant="outline"
+          className={cn(
+            "text-[9px] py-0 px-1.5",
+            DISPOSITION_COLOR[row.disposition_state],
+          )}
+        >
+          {DISPOSITION_LABEL[row.disposition_state]}
+        </Badge>
+        <span className="text-[9px] text-muted-foreground tabular-nums">
+          {row.final_value_cents != null
+            ? formatCents(row.final_value_cents)
+            : row.projected_value_cents != null
+              ? formatCents(row.projected_value_cents)
+              : ""}
+        </span>
+      </div>
+    </div>
+  );
+
+  return (
+    <HoverCard openDelay={120} closeDelay={80}>
+      <HoverCardTrigger asChild>
+        {dossierHref ? (
+          <Link to={dossierHref} className="block focus:outline-none focus:ring-2 focus:ring-sky-400 rounded-md">
+            {inner}
+          </Link>
+        ) : (
+          <div tabIndex={0} className="focus:outline-none focus:ring-2 focus:ring-sky-400 rounded-md">
+            {inner}
+          </div>
+        )}
+      </HoverCardTrigger>
+      <LeadHoverCard row={row} />
+    </HoverCard>
+  );
+}
+
+// ─── Main page ────────────────────────────────────────────────
 export default function PartnerRevenueDashboard() {
+  const outcomesQ = useQuery({
+    queryKey: ["partner-outcomes-rows"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc(
+        "partner_outcomes_with_lead_context" as never,
+      );
+      if (error) throw error;
+      return (data ?? []) as OutcomeRow[];
+    },
+    staleTime: 60_000,
+  });
+
+  const summaryQ = useQuery({
+    queryKey: ["partner-outcome-summary"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc(
+        "partner_outcome_summary" as never,
+      );
+      if (error) throw error;
+      return (data ?? []) as SummaryRow[];
+    },
+    staleTime: 60_000,
+  });
+
+  const rows = outcomesQ.data ?? [];
+  const summary = summaryQ.data ?? [];
+  const isLoading = outcomesQ.isLoading || summaryQ.isLoading;
+  const error = outcomesQ.error ?? summaryQ.error;
+
+  // ─── KPI calculations ────────────────────────────────────────
+  const kpis = useMemo(() => {
+    const byState = new Map<Disposition, SummaryRow>();
+    summary.forEach((s) => byState.set(s.disposition_state, s));
+
+    const sold = byState.get("sold_closed");
+    const lost = byState.get("lost_dead");
+
+    const soldCount = sold?.outcome_count ?? 0;
+    const lostCount = lost?.outcome_count ?? 0;
+    const managedRevenueCents = sold?.total_final_value_cents ?? 0;
+
+    // Avg days to close: closed_at - outcome_created_at on sold rows.
+    // outcome_created_at is the first actionable timestamp we can rely on
+    // partner-side (the moment the contractor's outcome row was provisioned).
+    const soldRows = rows.filter(
+      (r) => r.disposition_state === "sold_closed" && r.closed_at,
+    );
+    const avgDays =
+      soldRows.length > 0
+        ? Math.round(
+            soldRows.reduce(
+              (acc, r) =>
+                acc +
+                Math.max(
+                  0,
+                  differenceInDays(
+                    new Date(r.closed_at as string),
+                    new Date(r.outcome_created_at),
+                  ),
+                ),
+              0,
+            ) / soldRows.length,
+          )
+        : null;
+
+    // Leads needing action: still active AND last action older than threshold
+    const now = Date.now();
+    const needsAction = rows.filter((r) => {
+      if (!ACTIVE_DISPOSITIONS.includes(r.disposition_state)) return false;
+      const ts = new Date(
+        r.last_partner_action_at ?? r.outcome_created_at,
+      ).getTime();
+      return (now - ts) / (1000 * 60 * 60 * 24) >= NEEDS_TOUCH_DAYS;
+    }).length;
+
+    return {
+      managedRevenue: formatCents(managedRevenueCents),
+      closingRatio: formatPercent(soldCount, soldCount + lostCount),
+      soldCount,
+      lostCount,
+      avgDaysToClose: avgDays == null ? "—" : `${avgDays}d`,
+      needsAction,
+    };
+  }, [rows, summary]);
+
+  // ─── Weekly grouping ─────────────────────────────────────────
+  const week = useMemo(() => {
+    const start = startOfWeek(new Date(), { weekStartsOn: 1 }); // Mon
+    const end = endOfWeek(new Date(), { weekStartsOn: 1 });
+    const days = Array.from({ length: 7 }, (_, i) => addDays(start, i));
+
+    const inWeek = rows.filter((r) => {
+      const a = weeklyAnchor(r);
+      return a >= start && a <= end;
+    });
+
+    const buckets: { day: Date; rows: OutcomeRow[] }[] = days.map((d) => ({
+      day: d,
+      rows: inWeek
+        .filter((r) => isSameDay(weeklyAnchor(r), d))
+        .sort(
+          (a, b) =>
+            weeklyAnchor(b).getTime() - weeklyAnchor(a).getTime(),
+        ),
+    }));
+
+    return { start, end, buckets };
+  }, [rows]);
+
+  // ─── Pipeline (active rows, most recent action first) ────────
+  const pipeline = useMemo(() => {
+    return rows
+      .filter((r) => ACTIVE_DISPOSITIONS.includes(r.disposition_state))
+      .sort((a, b) => {
+        const ta = new Date(
+          a.last_partner_action_at ?? a.outcome_created_at,
+        ).getTime();
+        const tb = new Date(
+          b.last_partner_action_at ?? b.outcome_created_at,
+        ).getTime();
+        return tb - ta;
+      });
+  }, [rows]);
+
   return (
     <>
       <Helmet>
@@ -65,25 +517,35 @@ export default function PartnerRevenueDashboard() {
         />
       </Helmet>
 
-      <main className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 sm:py-8 space-y-6 sm:space-y-8 overflow-x-hidden">
-        {/* ─── Page header ─────────────────────────────────────── */}
+      <main
+        className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 sm:py-8 space-y-6 sm:space-y-8 overflow-x-hidden"
+        aria-busy={isLoading}
+      >
+        {/* ─── Page header ───────────────────────────────────── */}
         <header className="flex flex-col gap-1.5">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
-              Revenue Dashboard
-            </h1>
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-sky-100 border border-sky-200 text-[10px] font-medium text-sky-600 uppercase tracking-wide">
-              <Sparkles className="h-3 w-3" aria-hidden />
-              Coming soon
-            </span>
-          </div>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
+            Revenue Dashboard
+          </h1>
           <p className="text-sm text-muted-foreground max-w-2xl">
-            Track every lead you&apos;re actively working — weekly board, closing
-            ratio, and managed revenue, all in one place.
+            Your active pipeline, weekly board, and closed revenue —{" "}
+            {format(week.start, "MMM d")} – {format(week.end, "MMM d")}.
           </p>
         </header>
 
-        {/* ─── KPI strip placeholder ───────────────────────────── */}
+        {/* ─── Error banner ──────────────────────────────────── */}
+        {error && (
+          <div className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 flex items-start gap-2">
+            <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" aria-hidden />
+            <div className="min-w-0">
+              <div className="font-semibold">Could not load dashboard</div>
+              <div className="text-xs">
+                {error instanceof Error ? error.message : "Unknown error"}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─── KPI strip ─────────────────────────────────────── */}
         <section aria-labelledby="kpi-strip-heading">
           <SectionHeader
             icon={TrendingUp}
@@ -93,116 +555,247 @@ export default function PartnerRevenueDashboard() {
           <h2 id="kpi-strip-heading" className="sr-only">
             Performance KPIs
           </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            {KPI_PLACEHOLDERS.map((kpi) => (
-              <div
-                key={kpi.label}
-                className="rounded-lg border bg-card p-4 flex flex-col gap-2"
-                aria-busy="true"
-              >
-                <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
-                  {kpi.label}
-                </div>
+          {isLoading ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              {Array.from({ length: 6 }).map((_, i) => (
                 <div
-                  className="h-7 w-20 rounded bg-muted animate-pulse"
-                  aria-hidden
+                  key={i}
+                  className="rounded-lg border bg-muted/30 h-24 animate-pulse"
                 />
-                <div className="text-[11px] text-muted-foreground/80">
-                  {kpi.hint}
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              <KpiCard
+                label="Managed Revenue"
+                value={kpis.managedRevenue}
+                hint="Sum of closed deals"
+              />
+              <KpiCard
+                label="Closing Ratio"
+                value={kpis.closingRatio}
+                hint="Sold ÷ (Sold + Lost)"
+              />
+              <KpiCard
+                label="Sold"
+                value={String(kpis.soldCount)}
+                hint="Closed-won outcomes"
+              />
+              <KpiCard
+                label="Lost"
+                value={String(kpis.lostCount)}
+                hint="Closed-lost outcomes"
+              />
+              <KpiCard
+                label="Avg. Days to Close"
+                value={kpis.avgDaysToClose}
+                hint="Outcome → sold latency"
+              />
+              <KpiCard
+                label="Needs Action"
+                value={String(kpis.needsAction)}
+                hint={`Active & untouched > ${NEEDS_TOUCH_DAYS}d`}
+                highlight={kpis.needsAction > 0}
+              />
+            </div>
+          )}
         </section>
 
-        {/* ─── Weekly lead board placeholder ────────────────────── */}
+        {/* ─── Weekly board ──────────────────────────────────── */}
         <section aria-labelledby="weekly-board-heading">
           <SectionHeader
             icon={CalendarDays}
             title="This Week"
-            subtitle="Your active leads, grouped by day"
+            subtitle="Leads grouped by your most recent action this week"
           />
           <h2 id="weekly-board-heading" className="sr-only">
             Weekly lead board
           </h2>
-          <div className="rounded-lg border bg-card overflow-hidden">
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 divide-y sm:divide-y-0 sm:divide-x">
-              {DAY_LABELS.map((day) => (
+          {isLoading ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2.5">
+              {Array.from({ length: 7 }).map((_, i) => (
                 <div
-                  key={day}
-                  className="p-3 min-h-[140px] flex flex-col gap-2"
-                  aria-busy="true"
-                >
-                  <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                    {day}
-                  </div>
-                  <div className="flex-1 flex items-center justify-center">
-                    <div
-                      className="h-16 w-full rounded bg-muted/40 border border-dashed"
-                      aria-hidden
-                    />
-                  </div>
-                </div>
+                  key={i}
+                  className="rounded-md border bg-muted/30 h-32 animate-pulse"
+                />
               ))}
             </div>
-            <div className="p-4 border-t text-center text-xs text-muted-foreground">
-              Weekly board will render your active leads here.
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2.5">
+              {week.buckets.map(({ day, rows: dayRows }) => {
+                const isToday = isSameDay(day, new Date());
+                return (
+                  <div
+                    key={day.toISOString()}
+                    className={cn(
+                      "rounded-md border bg-card p-2 min-h-[8rem] flex flex-col gap-1.5",
+                      isToday && "border-sky-400 bg-sky-50/30",
+                    )}
+                  >
+                    <div className="flex items-baseline justify-between">
+                      <span
+                        className={cn(
+                          "text-[10px] font-semibold uppercase tracking-wide",
+                          isToday ? "text-sky-700" : "text-muted-foreground",
+                        )}
+                      >
+                        {format(day, "EEE")}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground tabular-nums">
+                        {format(day, "MMM d")}
+                      </span>
+                    </div>
+                    {dayRows.length === 0 ? (
+                      <div className="flex-1 flex items-center justify-center text-[10px] text-muted-foreground/60">
+                        —
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-1.5">
+                        {dayRows.map((r) => (
+                          <LeadCard key={r.outcome_id} row={r} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-          </div>
+          )}
         </section>
 
-        {/* ─── Managed leads table placeholder ──────────────────── */}
-        <section aria-labelledby="managed-leads-heading">
+        {/* ─── Pipeline table ────────────────────────────────── */}
+        <section aria-labelledby="pipeline-heading">
           <SectionHeader
             icon={TableIcon}
-            title="Managed Leads"
-            subtitle="Every lead you currently own"
+            title="Active Pipeline"
+            subtitle="Every active lead, sorted by most recent activity"
           />
-          <h2 id="managed-leads-heading" className="sr-only">
-            Managed leads pipeline
+          <h2 id="pipeline-heading" className="sr-only">
+            Active pipeline
           </h2>
-          <div className="rounded-lg border bg-card overflow-hidden">
-            <div className="grid grid-cols-12 gap-2 px-4 py-3 border-b bg-muted/40 text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
-              <div className="col-span-4">Lead</div>
-              <div className="col-span-2 hidden sm:block">City</div>
-              <div className="col-span-2">Status</div>
-              <div className="col-span-2 hidden sm:block">Last Action</div>
-              <div className="col-span-2 text-right">Value</div>
-            </div>
-            <div className="divide-y">
+          {isLoading ? (
+            <div className="rounded-lg border bg-card overflow-hidden">
               {Array.from({ length: 4 }).map((_, i) => (
                 <div
                   key={i}
-                  className="grid grid-cols-12 gap-2 px-4 py-3 items-center"
-                  aria-busy="true"
-                >
-                  <div className="col-span-4">
-                    <div className="h-4 w-32 rounded bg-muted animate-pulse" aria-hidden />
-                  </div>
-                  <div className="col-span-2 hidden sm:block">
-                    <div className="h-3 w-20 rounded bg-muted animate-pulse" aria-hidden />
-                  </div>
-                  <div className="col-span-2">
-                    <div className="h-5 w-20 rounded-full bg-muted animate-pulse" aria-hidden />
-                  </div>
-                  <div className="col-span-2 hidden sm:block">
-                    <div className="h-3 w-16 rounded bg-muted animate-pulse" aria-hidden />
-                  </div>
-                  <div className="col-span-2 flex justify-end">
-                    <div className="h-4 w-16 rounded bg-muted animate-pulse" aria-hidden />
-                  </div>
-                </div>
+                  className="h-12 border-b last:border-b-0 bg-muted/20 animate-pulse"
+                />
               ))}
             </div>
-            <div className="p-6 border-t text-center">
-              <p className="text-sm font-medium text-foreground">No managed leads yet</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Once you start working leads from the Opportunity Market, they&apos;ll
-                appear here.
+          ) : pipeline.length === 0 ? (
+            <div className="rounded-lg border border-dashed bg-card p-8 flex flex-col items-center text-center gap-2">
+              <Inbox className="h-8 w-8 text-muted-foreground/50" aria-hidden />
+              <div className="text-sm font-medium">No active leads</div>
+              <p className="text-xs text-muted-foreground max-w-sm">
+                Once you start working leads from the Opportunity Market, they
+                will appear here grouped by status.
               </p>
+              <Button asChild size="sm" variant="outline" className="mt-1">
+                <Link to="/partner/opportunities">
+                  Browse opportunities
+                  <ArrowUpRight className="ml-1 h-3 w-3" />
+                </Link>
+              </Button>
             </div>
-          </div>
+          ) : (
+            <div className="rounded-lg border bg-card overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground">
+                    <tr>
+                      <th className="text-left font-medium px-3 py-2">Lead</th>
+                      <th className="text-left font-medium px-3 py-2 hidden md:table-cell">
+                        Location
+                      </th>
+                      <th className="text-left font-medium px-3 py-2">Status</th>
+                      <th className="text-left font-medium px-3 py-2 hidden lg:table-cell">
+                        Last action
+                      </th>
+                      <th className="text-right font-medium px-3 py-2 hidden sm:table-cell">
+                        Projected
+                      </th>
+                      <th className="text-right font-medium px-3 py-2 hidden sm:table-cell">
+                        Final
+                      </th>
+                      <th className="text-right font-medium px-3 py-2"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pipeline.map((r) => {
+                      const dossierHref = r.analysis_id
+                        ? `/partner/dossier/${r.analysis_id}`
+                        : null;
+                      return (
+                        <tr
+                          key={r.outcome_id}
+                          className="border-t hover:bg-muted/30 transition"
+                        >
+                          <td className="px-3 py-2">
+                            <div className="font-medium truncate">
+                              {displayName(r)}
+                            </div>
+                            {r.grade && (
+                              <div className="text-[10px] text-muted-foreground">
+                                Grade {r.grade}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-muted-foreground hidden md:table-cell">
+                            {locationLabel(r) ?? "—"}
+                          </td>
+                          <td className="px-3 py-2">
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-[10px]",
+                                DISPOSITION_COLOR[r.disposition_state],
+                              )}
+                            >
+                              {DISPOSITION_LABEL[r.disposition_state]}
+                            </Badge>
+                          </td>
+                          <td className="px-3 py-2 text-xs text-muted-foreground hidden lg:table-cell">
+                            <span className="inline-flex items-center gap-1">
+                              <Clock className="h-3 w-3" aria-hidden />
+                              {lastActionAge(r)}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-right tabular-nums hidden sm:table-cell">
+                            {formatCents(r.projected_value_cents)}
+                          </td>
+                          <td className="px-3 py-2 text-right tabular-nums text-emerald-700 hidden sm:table-cell">
+                            {formatCents(r.final_value_cents)}
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            {dossierHref && (
+                              <Button
+                                asChild
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 px-2 text-xs"
+                              >
+                                <Link to={dossierHref}>
+                                  Open
+                                  <ArrowUpRight className="ml-1 h-3 w-3" />
+                                </Link>
+                              </Button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </section>
+
+        {isLoading && (
+          <div className="sr-only" role="status">
+            <Loader2 className="animate-spin" /> Loading dashboard…
+          </div>
+        )}
       </main>
     </>
   );
