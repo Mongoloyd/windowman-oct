@@ -488,6 +488,11 @@ Rules:
 Return ONLY valid JSON matching this exact schema — no markdown, no explanation:
 {
   "document_type": "string",
+  "document_authenticity": "real_estimate | real_estimate_screenshot | windowman_ui_artifact | sample_mockup | unrelated | insufficient",
+  "is_real_contractor_estimate": boolean,
+  "ui_artifact_detected": boolean,
+  "rejection_reason": "string | null",
+  "estimate_artifacts_present": ["string"],
   "is_window_door_related": boolean,
   "confidence": number,
   "page_count": number | null,
