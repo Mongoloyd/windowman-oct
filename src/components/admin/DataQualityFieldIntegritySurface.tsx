@@ -101,7 +101,7 @@ const QUICK_LINKS: Array<{ tab: string; label: string; desc: string }> = [
  * Strong ≥ 80%, Partial ≥ 40%, Sparse otherwise. No samples → n/a.
  * This is operator-view only and intentionally simple.
  */
-function classify(present: number, total: number): Completeness {
+export function classify(present: number, total: number): Completeness {
   if (total === 0) return "n/a";
   const ratio = present / total;
   if (ratio >= 0.8) return "strong";
@@ -109,7 +109,7 @@ function classify(present: number, total: number): Completeness {
   return "sparse";
 }
 
-function nonEmpty(v: unknown): boolean {
+export function nonEmpty(v: unknown): boolean {
   if (v === null || v === undefined) return false;
   if (typeof v === "string") return v.trim().length > 0;
   if (typeof v === "number") return Number.isFinite(v);

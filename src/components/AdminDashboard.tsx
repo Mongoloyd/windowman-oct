@@ -14,6 +14,7 @@ import { AdminPrimaryTabs } from "@/components/admin/shell/AdminPrimaryTabs";
 
 import { PreviewModeBadge } from "@/components/PreviewModeBadge";
 import { CommandCenter } from "@/components/admin/CommandCenter";
+import { MasterCommandCenter } from "@/components/admin/MasterCommandCenter";
 import { ActivePipeline } from "@/components/admin/ActivePipeline";
 import { GhostRecovery } from "@/components/admin/GhostRecovery";
 import { InternalCRMDesk } from "@/components/admin/InternalCRMDesk";
@@ -167,7 +168,7 @@ function DashboardContent() {
   const [needsReview, setNeedsReview] = useState<NeedsReviewLead[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
-  const [activeTab, setActiveTab] = useState<string>("launch");
+  const [activeTab, setActiveTab] = useState<string>("mission-control");
   const [, setTick] = useState(0); // force re-render for relative time
   const initialLoadDone = useRef(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -260,6 +261,16 @@ function DashboardContent() {
           ghostCount={ghosts.length}
           needsReviewCount={needsReview.length}
         />
+
+          <TabsContent value="mission-control" className="w-full px-2 sm:px-6 pt-4">
+            <MasterCommandCenter
+              leads={leads}
+              deliveries={deliveries}
+              ghosts={ghosts}
+              needsReviewCount={needsReview.length}
+              onNavigateTab={setActiveTab}
+            />
+          </TabsContent>
 
           <TabsContent value="surface-map" className="w-full px-2 sm:px-6 pt-4">
             <AdminInformationArchitectureNavigationSimplificationSurface

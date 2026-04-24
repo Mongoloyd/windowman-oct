@@ -1,80 +1,125 @@
+# Phase 25 — Master Command Center / Final Synthesis
 
-## Partner Portal Sitemap (what exists today)
+## What's already built (do not rebuild)
 
-Every `/partner/*` route already in `src/App.tsx`:
+The repo's "Mission Control" surface area is unusually mature. Existing pieces I will compose:
+
+| Need | Existing real asset |
+|---|---|
+| Operator shell + tabs | `AdminShell` + `AdminPrimaryTabs` (panel + route tabs, badge counts) |
+| Funnel KPIs (captured/verified/scanned/routed/booked/closed) | `PilotReadiness.flowCounts` derivation; `OneContractorSummaryStrip` (Routed/Contacted/Booked/Stale/Reactivation); `CommandCenter` (North Star rate, Total Scans, Verified, Ghost) |
+| Global event feed | `MarketOpsFeed` — chronological multi-event feed across leads + opportunities + routes |
+| Health / readiness signal | `LaunchReadinessSurface` health signals (`operational` / `attention` / `unknown`); `DispatchHealthCard`; webhook health in `CommandCenter` |
+| Data-quality snapshot | `DataQualityFieldIntegritySurface` (strong/partial/sparse classifier across leads, opps, routes, contractors) |
+| Revenue-integrity / outcome snapshot | `OutcomeTrackingReport` (post-route buckets: stale_unresolved, interested_not_booked, booked, closed, dead) |
+| Quick actions into surfaces | `AdminPrimaryTabs` already supports `onNavigateTab(tab)` everywhere |
+| Data hooks | `invokeAdminData("fetch_leads")`, `fetchOpportunities`, `fetchRoutes`, `fetchContractors`, `fetchWebhookDeliveries` (all already cached via TanStack with `["admin", …]` keys) |
+
+**Implication:** Phase 25 is a new **synthesis tab**, not a new system. Smallest safe diff.
+
+## What I will build
+
+### 1. New surface: `MasterCommandCenter.tsx`
+One file at `src/components/admin/MasterCommandCenter.tsx`. Pure read-and-compose. Layout, top to bottom:
 
 ```text
-PUBLIC (no PartnerLayout, no auth required)
-  /partner/login                 → ContractorLogin.tsx        Sign in / request access
-  /partner/reset-password        → PartnerResetPassword.tsx   Password reset landing
-  /partner/accept-invite?token=  → AcceptInvite.tsx           One-time invite redemption
-  /partner/onboarding            → ContractorOnboarding.tsx   Routing/territory wizard
-                                                              (only shown right after invite accept
-                                                               or from approval modal)
-
-IN-PORTAL (wrapped by PartnerLayout — header + PartnerPortalNav + Outlet)
-  /partner/opportunities         → ContractorOpportunitiesPage.tsx   Lead market (the home)
-  /partner/dossier/:id?          → PartnerDossier.tsx                Per-lead intelligence detail
+┌────────────────────────────────────────────────────────────────┐
+│ READINESS BANNER  [● System Healthy / ▲ Needs Attention]      │
+│ Derived: roll-up of {contractors loaded, routes loaded,        │
+│ opportunities loaded, webhook dead-letter ==0, ghost <30%}     │
+├────────────────────────────────────────────────────────────────┤
+│ TOP-LEVEL KPI STRIP (6 tiles)                                  │
+│ Captured │ Verified │ Scanned │ Routed │ Booked │ Closed       │
+│ (real lead-level timestamps; reuses PilotReadiness derivation) │
+├──────────────────────────────────┬─────────────────────────────┤
+│ LEFT (2/3): Global Ops Feed      │ RIGHT (1/3): Quick Actions  │
+│   <MarketOpsFeed leads={leads}/> │   - Routing Desk            │
+│   (already a high-density feed)  │   - Active Pipeline         │
+│                                  │   - Lead Inbox  (route)     │
+│                                  │   - Needs Review            │
+│                                  │   - Outcomes                │
+│                                  │   - Data Quality            │
+│                                  │   - Launch Readiness        │
+│                                  │   - Settings    (route)     │
+├──────────────────────────────────┴─────────────────────────────┤
+│ BOTTOM ROW (2 cards side-by-side)                              │
+│ ┌─ Data Quality Snapshot ─┐  ┌─ Revenue Integrity Snapshot ─┐ │
+│ │ Sparse field count      │  │ Stale unresolved             │ │
+│ │ Fallback labels         │  │ Interested-not-booked        │ │
+│ │ Linkage mismatches      │  │ Booked / Closed / Dead       │ │
+│ │ → Open Data Quality     │  │ Recent handoffs (24h)        │ │
+│ └─────────────────────────┘  │ → Open Outcomes              │ │
+│                              └──────────────────────────────┘  │
+└────────────────────────────────────────────────────────────────┘
 ```
 
-Identity model (from `usePartnerAuth.ts`): a logged-in partner is one `auth.users` row linked 1:1 to a `contractor_profiles` row (`status='active'`). Everything they see is filtered server-side by `auth.uid()` via RLS — there are no client-specific URLs, no `/partner/:tenantId/...` segments. That's correct and stays that way.
+Every section has explicit **loading**, **empty**, and **derived/source-of-truth** labels. Tone is operational (no "ROI", no "revenue projection").
 
-So a **logged-in partner today** has exactly two product surfaces they navigate between:
+### 2. New tab in `AdminPrimaryTabs`
+Insert `{ kind: "panel", value: "mission-control", label: "Mission Control" }` as the **first panel tab** (right after the `Lead Inbox` route tab). The existing `command` Command Center tab stays — it's the detail surface; Mission Control is the compression layer above it.
 
-1. **Opportunity Market** (`/partner/opportunities`) — the list of leads available to them
-2. **Lead Dossier** (`/partner/dossier/:id`) — the detail view for one lead, reached by clicking a card in the market
+### 3. Wire it into `AdminDashboard.tsx`
+- Add the import.
+- Add one `<TabsContent value="mission-control">` block: `<MasterCommandCenter leads={leads} deliveries={deliveries} ghosts={ghosts} needsReview={needsReview} onNavigateTab={setActiveTab} />`.
+- Set `useState<string>("mission-control")` as default `activeTab` (replaces current `"launch"`) so operators land on the synthesis screen.
 
-Everything else (`login`, `reset-password`, `accept-invite`, `onboarding`) is a **pre-portal flow** — a partner only sees those once and should never need a nav link to them.
+That's it. No edge functions. No new tables. No new hooks. No mutation of any of the protected truth surfaces.
 
----
+## Readiness signal derivation (explicit)
 
-## What's missing right now
+Single function `deriveReadiness({contractors, opportunities, routes, deliveries, leads, ghosts})` returns one of:
 
-The `PartnerPortalNav` only exposes one tab ("Opportunity Market") plus a `mailto:` Support link. That's fine for the current product surface, BUT:
+- **`operational`** (green): all four core reads returned, dead_letter == 0, ghost_rate < 30%, ≥1 active contractor
+- **`attention`** (amber): any of {dead_letter > 0, ghost_rate ≥ 30%, no active contractors, ≥1 sparse data-quality field, ≥5 stale_unresolved opportunities}
+- **`unknown`** (gray): any read still loading / failed (preview/auth-expired)
 
-- From inside a **Dossier**, there is no nav-level "← back to Market" affordance other than the (already-active) top tab.
-- There is no surfaced **Account / Sign Out** control inside the portal shell — once logged in, the only way to sign out is to manually visit `/partner/login`.
-- The brand logo links to `/partner/opportunities` but that isn't obvious.
+Each signal contributing to the roll-up is listed inline so the operator sees *why* the badge is what it is. Pattern is borrowed from `LaunchReadinessSurface.SignalStatus` to stay consistent.
 
-These are the only real navigation gaps for a logged-in partner.
+## Data-quality + revenue-integrity compression rules
 
----
+These two cards are **summaries** of the existing surfaces, not duplicates of their full content:
 
-## Proposed changes (UI-only, no new routes, no backend)
+- **Data Quality card** counts: # `sparse` field rows, # `partial` field rows, # records using fallback labels (e.g. `Unknown County`). Numbers come from the same classifier used in `DataQualityFieldIntegritySurface` — I will export the classifier helpers from that file so we don't duplicate logic.
+- **Revenue Integrity card** counts: # `stale_unresolved`, # `interested_not_booked`, # `booked`, # `closed`, # `dead`, plus # contact-released in last 24h (handoff candidates). Reuses `OutcomeTrackingReport`'s `deriveBucket` — same export pattern.
 
-### 1. `src/components/partner/PartnerPortalNav.tsx`
-Keep the single primary tab (Opportunity Market) — it correctly stays highlighted on `/partner/dossier/*` thanks to the existing `matchPrefixes` logic. Add two right-aligned utility items so partners always have an exit and a help channel:
+Both cards have a **"→ Open …"** button that calls `onNavigateTab("data-quality")` / `onNavigateTab("outcomes")`.
 
-- **Support** — keep existing `mailto:partners@windowman.pro`
-- **Sign Out** — new button; calls `supabase.auth.signOut()` then `window.location.href = "/partner/login"`
+## Files changed
 
-(No "Account Settings" page exists yet, so we will not add a dead link. If/when one is built, it slots in here.)
+1. **NEW** `src/components/admin/MasterCommandCenter.tsx` (~350–400 LOC, single component, pure synthesis)
+2. **EDIT** `src/components/admin/DataQualityFieldIntegritySurface.tsx` — export `classify`, `nonEmpty` helpers (no behavior change)
+3. **EDIT** `src/components/admin/OutcomeTrackingReport.tsx` — export `deriveBucket`, `pickLatestRoute`, `STALE_HOURS` (no behavior change)
+4. **EDIT** `src/components/admin/shell/AdminPrimaryTabs.tsx` — add one tab entry
+5. **EDIT** `src/components/AdminDashboard.tsx` — import, add `<TabsContent>`, change default `activeTab` to `"mission-control"`
 
-### 2. `src/pages/PartnerDossier.tsx` (small addition only)
-Add a single "← Back to Opportunity Market" link at the top of the dossier body (under the layout header), using `<Link to="/partner/opportunities">`. This matches the existing subpage-navigation memory pattern (`mem://layout/subpage-navigation-patterns`) used elsewhere in the admin/partner shells.
+No other files touched.
 
-### 3. No changes to
-- `App.tsx` routes (sitemap is complete for the current product scope)
-- `PartnerLayout.tsx` chrome (header already correct)
-- `usePartnerAuth.ts` / RLS / any edge function
-- The pre-portal pages (`login`, `reset-password`, `accept-invite`, `onboarding`)
+## Protected surfaces — explicitly NOT touched
+- `scan-quote`, `send-otp`, `verify-otp`, Twilio Verify, capi-event
+- Deterministic scoring / report compilation
+- Preview-vs-full report gating
+- Upload flow, `quotes` storage bucket
+- Attribution truth (`leads.utm_*`, `gclid`, `fbc`, `fbp`)
+- Billing, `contractor_credits`, `billable_intros`
+- Partner shell (`PartnerLayout`, `PartnerPortalNav`) and partner routes
+- RLS policies, edge functions, db functions, triggers
 
----
+This phase is read-only synthesis on the admin side; partner portal is unaffected.
 
-## Multi-tenant safety confirmation
+## Acceptance verification I will perform
 
-- No client/tenant ID is added to any URL — partner scoping stays 100% server-side via `contractor_profiles.id = auth.uid()` and the existing RLS policies on `contractor_credits`, `contractor_unlocked_leads`, `contractor_opportunity_routes`, etc.
-- Sign Out simply clears the Supabase session; the next request to any `/partner/*` in-portal route will be re-evaluated by the existing auth check.
-- No new data fetches, no new tables, no schema changes.
+- `npx tsc --noEmit` returns zero errors
+- Admin tab strip still renders, all existing tabs still mount
+- Mission Control loads with KPI strip, readiness banner, ops feed, snapshots, quick actions
+- Quick actions navigate to existing tabs / routes
+- Empty state renders cleanly when leads array is empty (preview mode)
+- Loading skeletons render while `useQuery` is fetching
+- No partner-portal regression (no shared imports changed)
 
----
+## Build sequence inside the next loop
+1. Add helper exports in DataQuality + Outcome surfaces
+2. Write `MasterCommandCenter.tsx`
+3. Wire tab + dashboard
+4. Run `tsc --noEmit`, fix any types, report green
 
-## Definition of Done
-
-- [ ] Logged-in partner on `/partner/opportunities` sees: Opportunity Market (active), Support, Sign Out.
-- [ ] Logged-in partner on `/partner/dossier/:id` sees: Opportunity Market (still active), Support, Sign Out, **and** a "← Back to Opportunity Market" link inside the page body.
-- [ ] Sign Out returns the user to `/partner/login` with no session.
-- [ ] No new routes added; no backend, RLS, edge function, or auth logic touched.
-- [ ] `npm run typecheck` passes.
-
-Approve and I'll switch to default mode and implement the two file edits above.
+Approve and I'll execute as a single smallest-safe-diff implementation.
