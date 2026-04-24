@@ -116,9 +116,11 @@ jobs:
           #   YYYYMMDDHHMMSS_description.sql   (full timestamp)
           #   YYYYMMDD_description.sql         (date-only — also valid)
           # Anything else is malformed.
+          # Supabase CLI accepts both YYYYMMDDHHMMSS_*.sql and YYYYMMDD_*.sql.
           fmt_re='^[0-9]{8}([0-9]{6})?_[A-Za-z0-9._-]+\.sql$'
           bad=0
-          declare -A timestamps=()
+          declare -A seen_full=()
+          declare -A seen_full_ts=()
           for f in "${files[@]}"; do
             base="$(basename "$f")"
             if ! [[ "$base" =~ $fmt_re ]]; then
@@ -126,12 +128,26 @@ jobs:
               bad=$((bad + 1))
               continue
             fi
-            ts="${base%%_*}"
-            if [ -n "${timestamps[$ts]:-}" ]; then
-              echo "::error file=$f::Duplicate migration timestamp: $ts (also seen in ${timestamps[$ts]})"
+            # Duplicate detection:
+            #   - Two files with the EXACT same basename are a hard duplicate.
+            #   - Two files sharing a 14-digit YYYYMMDDHHMMSS timestamp prefix
+            #     collide on Supabase's ordering slot — also a duplicate.
+            #   - Date-only YYYYMMDD prefixes are NOT treated as collisions
+            #     (Supabase CLI orders them lexicographically by full name).
+            if [ -n "${seen_full[$base]:-}" ]; then
+              echo "::error file=$f::Duplicate migration filename: $base"
               bad=$((bad + 1))
             else
-              timestamps[$ts]="$base"
+              seen_full[$base]=1
+            fi
+            ts="${base%%_*}"
+            if [ "${#ts}" -eq 14 ]; then
+              if [ -n "${seen_full_ts[$ts]:-}" ]; then
+                echo "::error file=$f::Duplicate full timestamp: $ts (also in ${seen_full_ts[$ts]})"
+                bad=$((bad + 1))
+              else
+                seen_full_ts[$ts]="$base"
+              fi
             fi
             if [ ! -s "$f" ]; then
               echo "::error file=$f::Migration file is empty: $base"
