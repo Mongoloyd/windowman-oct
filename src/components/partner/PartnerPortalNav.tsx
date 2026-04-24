@@ -13,7 +13,7 @@
  */
 
 import { Link, useLocation } from "react-router-dom";
-import { LayoutGrid, LifeBuoy, LogOut } from "lucide-react";
+import { LayoutGrid, LifeBuoy, LogOut, TrendingUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -30,6 +30,12 @@ const NAV_ITEMS: NavItem[] = [
     matchPrefixes: ["/partner/opportunities", "/partner/dossier"],
     label: "Opportunity Market",
     icon: LayoutGrid,
+  },
+  {
+    to: "/partner/revenue",
+    matchPrefixes: ["/partner/revenue"],
+    label: "Revenue",
+    icon: TrendingUp,
   },
 ];
 
