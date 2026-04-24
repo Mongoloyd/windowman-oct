@@ -148,9 +148,7 @@ export function MarketingSections() {
 
       <section className="relative py-20 px-6" style={{ background: "transparent" }}>
         <div className="max-w-4xl mx-auto text-center relative z-10">
-          <h2 className="wm-title-section font-display text-3xl md:text-4xl mb-8 text-foreground">
-            Why I'm a No-Brainer for You
-          </h2>
+          <h2 className="wm-title-section font-display text-3xl md:text-4xl mb-8 text-foreground">It's a No-Brainer</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
               {
