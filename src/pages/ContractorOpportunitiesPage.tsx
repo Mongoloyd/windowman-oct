@@ -294,6 +294,7 @@ export default function ContractorOpportunitiesPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
   const [countyFilter, setCountyFilter] = useState("");
+  const [sortMode, setSortMode] = useState<SortMode>("best_unlock");
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const paymentHandled = useRef(false);
 
