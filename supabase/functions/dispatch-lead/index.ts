@@ -33,6 +33,14 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
+// Local loose alias. The Deno typecheck infers ReturnType<typeof createClient>
+// as SupabaseClient<unknown, never, GenericSchema>, which is incompatible with
+// the actual SupabaseClient<any, "public", any> the runtime constructs. We use
+// `any` here strictly to keep helper signatures permissive without altering
+// any runtime behavior.
+// deno-lint-ignore no-explicit-any
+type AnySupabaseClient = any;
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -83,7 +91,7 @@ interface AttemptResult {
 }
 
 // ─── Vault bootstrap (one-time, idempotent) ───────────────────────────────
-async function ensureVaultSeeded(supabase: ReturnType<typeof createClient>) {
+async function ensureVaultSeeded(supabase: AnySupabaseClient) {
   const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/dispatch-lead`;
   const secret = Deno.env.get("DISPATCH_LEAD_SECRET");
   if (!secret) return;
@@ -286,7 +294,7 @@ function nextRetryAt(attemptNumber: number): string | null {
 
 // ─── Per-row pipeline ─────────────────────────────────────────────────────
 async function processDelivery(
-  supabase: ReturnType<typeof createClient>,
+  supabase: AnySupabaseClient,
   delivery: ClaimedDelivery,
 ): Promise<{ delivery_id: string; final_status: string; success: boolean }> {
   const attemptNumber = (delivery.attempt_count ?? 0) + 1;
@@ -423,7 +431,7 @@ async function processDelivery(
 }
 
 async function buildOutboundPayload(
-  supabase: ReturnType<typeof createClient>,
+  supabase: AnySupabaseClient,
   delivery: ClaimedDelivery,
 ): Promise<Record<string, unknown>> {
   const base = (delivery.payload_json ?? {}) as Record<string, unknown>;

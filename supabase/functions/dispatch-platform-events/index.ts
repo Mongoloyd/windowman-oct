@@ -71,7 +71,12 @@ Deno.serve(async (req) => {
     const eventSourceUrl = Deno.env.get("WM_EVENT_SOURCE_URL") ?? "https://windowman.app";
 
     const workerResult = await runDispatchWorker({
-      db: supabase,
+      // The real SupabaseClient runtime shape (`<any, "public", any>`) is
+      // structurally compatible with the narrower DBLike contract used by the
+      // canonical worker, but TS cannot prove it through Promise return-type
+      // variance on rpc(). Cast through unknown to keep runtime behavior
+      // identical without weakening the worker's DBLike contract.
+      db: supabase as unknown as Parameters<typeof runDispatchWorker>[0]["db"],
       metaEventSourceUrl: eventSourceUrl,
       sendToMeta: async (payload) => {
         try {
