@@ -37,7 +37,9 @@ import {
   getCreditCost,
   getCreditCostLine,
   getUnlockIncludes,
+  getCompetitionSignal,
   type HandoffTone,
+  type CompetitionTone,
 } from "@/lib/contractorOpportunitySignals";
 
 /* ── Types ──────────────────────────────────────────────────────── */
