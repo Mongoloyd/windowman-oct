@@ -1,72 +1,71 @@
 
 
-# Phase 20 Verification — Pass/Fail Report + Implementation Task
+## Hotfix: VerifyGate / PhoneVerifyModal — pass server-canonical `phone_e164` to `onVerified`
 
-## Pass/Fail report (4 verification checks)
+### Root cause confirmed (audit)
 
-### ✅ Check 1 — Auth Redirection: PASS
-`AdminAuthGate.tsx` (lines 85-93) emits `<Navigate to="/admin/login" replace />` whenever the session check resolves `anonymous`. Both `/admin/leads` and `/admin/leads/:id` are wrapped in `<AdminAuthGate>` at `App.tsx:138-139`. The existing 26-test integration suite already proves this pattern works for `/admin`, `/admin/settings`, `/admin/partners` — extending the matrix to the two new paths gives mechanical coverage.
+The verify-otp service already returns the server-canonical phone:
+- `src/services/phoneVerificationService.ts:127-135` → `OtpVerifyResult.phone_e164` (server-normalized E.164).
 
-**Proof to land:** add `/admin/leads` and `/admin/leads/abc-123` to `ADMIN_ROUTES` in `AdminAuthGate.test.tsx`. Test count grows 26 → ~44 with no new logic.
+But two consumers throw it away:
 
-### ✅ Check 2 — Nested Tab Highlighting: PASS
-`AdminPrimaryTabs.tsx` computes:
-```ts
-const isActive = t.matchPrefixes.some(
-  (prefix) => location.pathname === prefix || location.pathname.startsWith(`${prefix}/`)
-);
-```
-For `Lead Inbox` with `matchPrefixes: ["/admin/leads"]`:
-- `/admin/leads` → exact match → **active**
-- `/admin/leads/abc-123` → prefix match → **active**
-- `/admin/settings` or `/admin` → **inactive**
+| File | Line | Current | Bug |
+|---|---|---|---|
+| `VerifyGate.tsx` | 22, 161 | `onVerified: () => void` then `onVerified()` | No phone passed up |
+| `PhoneVerifyModal.tsx` | 21, 77 | `onVerified: () => void` then `onVerified()` | No phone passed up |
 
-**Proof to land:** new `AdminPrimaryTabs.test.tsx` rendering inside `<MemoryRouter>` for each path and asserting `data-state` + `aria-current`.
+Meanwhile the **parent contract already expects a phone string**:
+- `PostScanReportSwitcher.tsx:59` → `onVerified?: (phoneE164: string) => void;`
+- `Index.tsx:616-618` → `(phoneE164) => fetchFull(phoneE164)`
 
-### ✅ Check 3 — Tab Bar Layout: PASS, no styling change required
-Container is `flex w-full flex-wrap gap-1`; items are `flex-1 min-w-[110px]` + `whitespace-nowrap` + `truncate`. With 14 entries × ~124px ≈ 1736px, the bar wraps cleanly on 1366px (most common admin width) and below — no overflow, no clipping, no horizontal scroll. The `truncate` only triggers if a single tab gets squeezed below `min-w-[110px]`, which `flex-wrap` prevents.
+So `fetchFull(undefined)` → backend cannot match `phone_verifications.status='verified'` → `__UNAUTHORIZED__`.
 
-### ✅ Check 4 — Event Propagation: PASS
-`AdminLeadInbox.tsx:363` has `onClick={(e) => e.stopPropagation()}` on the `<Link>` inside the row. The link click does not bubble to the row's `onClick={() => onView(l.id)}`, so `navigate('/admin/leads/${id}')` fires once.
+`PostScanReportSwitcher.tsx:359` already does this correctly with `props.onVerified?.(result.e164)` — confirming the canonical pattern.
 
-**Proof to land:** new `AdminLeadInbox.test.tsx` with mocked `useNavigate` asserting one call per click.
+### Fix (4 surgical edits, 2 files)
 
-## Implementation task — Dossier "Back to Inbox" button
+**1) `src/components/TruthReportFindings/VerifyGate.tsx`**
+- Line 22: change prop type to `onVerified: (phoneE164: string) => void;`
+- Line 56 (dev bypass): pass `e164` if present, else fall back to a sentinel handled by the dev path; safest is to keep dev bypass passing `e164` once available — but bypass fires on mount before phone exists, so leave dev bypass calling `onVerified("")` only if dev bypass actually short-circuits the gate. (Dev bypass already skips OTP entirely; downstream `fetchFull` is gated by `peekDevSecret()` in `useAnalysisData`, so empty string is acceptable here. We will pass `""` and add a brief comment.)
+- Line 161: replace `onVerified()` with `onVerified(result.data.phone_e164)` — using the server-canonical value from the successful `verifyOtp` response.
 
-`AdminLeadDossierPage.tsx` already has a small `← Back to inbox` chip via `<AdminShell backTo="/admin/leads">`. Phase 20 wants a **prominent button** at the top of the page content.
+**2) `src/components/TruthReportFindings/PhoneVerifyModal.tsx`**
+- Line 21: change prop type to `onVerified: (phoneE164: string) => void;`
+- Line 77: replace `onVerified()` with `onVerified(result.data.phone_e164)`.
 
-**Approach:** Add a button row at the top of the success-state return (above the 3-column grid):
-```tsx
-<div className="mb-5">
-  <Button asChild variant="outline" size="sm">
-    <Link to="/admin/leads" className="inline-flex items-center gap-1.5">
-      <ArrowLeft className="h-3.5 w-3.5" />
-      Back to Inbox
-    </Link>
-  </Button>
-</div>
-```
-Uses react-router `<Link>` so navigation is client-side (no full reload, session/state preserved).
+### What we are NOT touching
 
-**Honest note on tab-state persistence:** `AdminPrimaryTabs` is mounted inside `AdminDashboard` (which renders only on `/admin`). The lead pages don't currently mount the tab strip, so the spec's "tab remains highlighted" applies only when the operator subsequently navigates to `/admin` — at which point the tab strip re-renders against `location.pathname === '/admin'` and Lead Inbox correctly becomes inactive. To keep the tab strip visible (and highlighted) on `/admin/leads*`, the tab strip would need to move into `AdminShell` or be mounted by the lead pages themselves. That's a larger refactor I'm flagging for a follow-up sprint and **not** doing in Phase 20 to honor the "frontend polish only" constraint.
+- `phoneVerificationService.ts` — already correct.
+- `usePhonePipeline.ts` — already passes `canonicalPhone` correctly.
+- `PostScanReportSwitcher.tsx` — already forwards `result.e164` correctly.
+- `Index.tsx` / `ReportClassic.tsx` — already wire `phoneE164 → fetchFull`.
+- OTP edge functions, scoring, RLS, scan-quote — untouched (per WindowMan guardrails).
+- `phoneVerificationService.test.ts` — phantom TS cache errors will be ignored as instructed.
 
-## Files to change
+### Simulated post-fix flow
 
-| File | Change | Lines |
-|---|---|---|
-| `src/components/admin/__tests__/AdminAuthGate.test.tsx` | Extend `ADMIN_ROUTES` + `ROUTE_TESTID` + `<Routes>` map with `/admin/leads` and `/admin/leads/:id`; update docblock. | ~30 edited |
-| `src/components/admin/shell/__tests__/AdminPrimaryTabs.test.tsx` | NEW — ~5 tests for route-tab active state, `aria-current`, panel-tab kind. | ~80 new |
-| `src/pages/__tests__/AdminLeadInbox.test.tsx` | NEW — mocks `useNavigate` + `invokeAdminData`; asserts View link `aria-label` and single navigate call. | ~70 new |
-| `src/pages/AdminLeadDossierPage.tsx` | Add prominent `Back to Inbox` button above the grid; add `ArrowLeft` import + `Button` import + `Link` (already imported). | ~12 added |
+1. User enters `(305) 555-1234` → `usePhoneInput` produces `e164 = "+13055551234"`.
+2. `verifyOtp(e164, code, scanSessionId)` → server returns `{ verified: true, phone_e164: "+13055551234" }` (server-canonical, possibly re-normalized).
+3. `result.data.phone_e164` is captured and passed: `onVerified("+13055551234")`.
+4. `Index.tsx` receives the string and calls `fetchFull("+13055551234")`.
+5. `useAnalysisData.fetchFull` posts to backend with the **same** canonical phone the server stored in `phone_verifications` → row matches → `full_json` returned.
 
-## Out of scope (per Phase 20 constraints)
-- DB / Edge Functions / Supabase schema.
-- OTP / scanner / homeowner funnel logic.
-- Restyling the 13 existing panel tabs (Check 3 passed).
-- Mounting `AdminPrimaryTabs` on lead pages (architectural; flagged for follow-up).
+### Simulated test results
 
-## Verification after implementation
-- `npx tsc --noEmit -p tsconfig.app.json` → 0 errors.
-- `npx vitest run` on the three test files → green; auth-gate 26 → ~44, plus ~5 primary-tabs, plus ~2 inbox.
-- Dev-server log → no HMR errors.
+- ✅ `VerifyGate` happy path: phone propagates end-to-end; `__UNAUTHORIZED__` no longer reproducible.
+- ✅ `PhoneVerifyModal` happy path: same.
+- ✅ Existing return-shape contract test (`phoneVerificationService.test.ts`) unchanged — service surface untouched.
+- ✅ TypeScript: parent contracts already require `(phoneE164: string) => void`; widening the child prop types brings them into alignment (currently the parents pass a wider callback into a narrower slot, which TS allows; after fix the types are exactly aligned).
+- ✅ Dev bypass path still short-circuits without invoking OTP transport.
+
+### Answer to "Do you see the problem being fixed?"
+
+**Yes.** The handoff variable was the only break in the chain — the server already returns the canonical phone, the parents already wire `phoneE164 → fetchFull`, and the only gap is `VerifyGate` / `PhoneVerifyModal` discarding `result.data.phone_e164` and invoking `onVerified()` with no argument. Forwarding that one value closes the loop.
+
+### Files changed
+
+- `src/components/TruthReportFindings/VerifyGate.tsx` (prop type + 1 call site, plus dev-bypass call site comment)
+- `src/components/TruthReportFindings/PhoneVerifyModal.tsx` (prop type + 1 call site)
+
+No new files. No deletions. No service / edge-function / RLS changes.
 
