@@ -28,6 +28,7 @@ const AdminResetPassword = lazy(() => import("./pages/AdminResetPassword.tsx"));
 const AdminHealth = lazy(() => import("./pages/AdminHealth.tsx"));
 const AdminLeadInbox = lazy(() => import("./pages/AdminLeadInbox.tsx"));
 const AdminLeadDossierPage = lazy(() => import("./pages/AdminLeadDossierPage.tsx"));
+const AdminLeadReport = lazy(() => import("./pages/AdminLeadReport.tsx"));
 const DevReportPreview = lazy(() => import("./pages/DevReportPreview.tsx"));
 const DevTesting = lazy(() => import("./pages/DevTesting.tsx"));
 const DevTesting2 = lazy(() => import("./pages/DevTesting2.tsx"));
@@ -153,6 +154,7 @@ const App = () => (
                 <Route path="/admin/session-diag" element={<AdminAuthGate><AdminDashboard initialTab="session-diag" /></AdminAuthGate>} />
                 <Route path="/admin/leads" element={<AdminAuthGate><AdminLeadInbox /></AdminAuthGate>} />
                 <Route path="/admin/leads/:id" element={<AdminAuthGate><AdminLeadDossierPage /></AdminAuthGate>} />
+                <Route path="/admin/leads/:id/report" element={<AdminAuthGate><AdminLeadReport /></AdminAuthGate>} />
                 <Route path="/admin/settings" element={<AdminAuthGate><AdminSettings /></AdminAuthGate>} />
                 {/* NOTE: /admin/partners = white-label client / Meta pixel management.
                     Contractor account management lives under the "Contractors" tab (/admin/contractors).
