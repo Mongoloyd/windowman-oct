@@ -15,7 +15,7 @@
  */
 
 import { describe, it, expect, expectTypeOf, vi, beforeEach, afterEach } from "vitest";
-import type { OtpServiceErr, OtpServiceResult } from "@/types/serviceResults";
+import type { OtpServiceErr } from "@/types/serviceResults";
 
 const { mockInvoke } = vi.hoisted(() => ({ mockInvoke: vi.fn() }));
 
