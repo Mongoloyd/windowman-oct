@@ -1,0 +1,367 @@
+name: Supabase Migration Integrity
+
+# CI-only workflow.
+# Validates that the local Supabase migration chain in supabase/migrations/
+# applies cleanly to a CLEAN, EPHEMERAL Postgres database and produces the
+# canonical WindowMan scanner schema.
+#
+# HARD GUARANTEES (see acceptance criteria in commit message / spec):
+#   - This workflow NEVER connects to the production Supabase project.
+#   - This workflow NEVER reads or uses production secrets
+#     (SUPABASE_SERVICE_ROLE_KEY, SUPABASE_DB_URL, etc. are NOT referenced).
+#   - This workflow NEVER mutates any remote database.
+#   - All schema work happens against a throwaway Postgres container
+#     (services.postgres) that is destroyed when the job ends.
+#   - The optional staging smoke check uses ONLY a dedicated
+#     SUPABASE_STAGING_DB_URL secret and runs READ-ONLY assertions.
+#     It is skipped entirely if that secret is absent.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  migration-integrity:
+    name: Validate migration chain on clean DB
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # Local ephemeral DB only. NOT production.
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+      LOCAL_DB_URL: postgresql://postgres:postgres@localhost:5432/postgres
+
+    steps:
+      - name: Safety guard — refuse to run if production secrets are exposed
+        run: |
+          # This workflow MUST NOT see production credentials. We do not
+          # reference them anywhere; this guard exists so an accidental
+          # future edit that leaks them will fail loudly here.
+          if [ -n "${SUPABASE_SERVICE_ROLE_KEY:-}" ] || \
+             [ -n "${SUPABASE_DB_URL:-}" ] || \
+             [ -n "${SUPABASE_PROD_DB_URL:-}" ]; then
+            echo "::error::Production Supabase secrets must not be present in this workflow."
+            exit 1
+          fi
+          echo "OK — no production secrets in environment."
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install psql client
+        run: |
+          sudo apt-get update -y >/dev/null
+          sudo apt-get install -y --no-install-recommends postgresql-client >/dev/null
+          psql --version
+
+      - name: Wait for Postgres to be ready
+        run: |
+          for i in $(seq 1 30); do
+            if pg_isready -h localhost -p 5432 -U postgres >/dev/null 2>&1; then
+              echo "Postgres is ready."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::Postgres service did not become ready in time."
+          exit 1
+
+      # ------------------------------------------------------------------
+      # CHECK 1 — Migration file sanity
+      # ------------------------------------------------------------------
+      - name: Check 1 — Migration file sanity
+        id: file_sanity
+        run: |
+          set -euo pipefail
+          MIG_DIR="supabase/migrations"
+
+          if [ ! -d "$MIG_DIR" ]; then
+            echo "::error::supabase/migrations/ directory is missing."
+            exit 1
+          fi
+
+          mapfile -t files < <(find "$MIG_DIR" -maxdepth 1 -type f -name "*.sql" | sort)
+
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "::error::No .sql migration files found in $MIG_DIR."
+            exit 1
+          fi
+
+          echo "Found ${#files[@]} migration file(s)."
+
+          # Validate filename format. Supabase CLI accepts:
+          #   YYYYMMDDHHMMSS_description.sql   (full timestamp)
+          #   YYYYMMDD_description.sql         (date-only — also valid)
+          # Anything else is malformed.
+          # Supabase CLI accepts both YYYYMMDDHHMMSS_*.sql and YYYYMMDD_*.sql.
+          fmt_re='^[0-9]{8}([0-9]{6})?_[A-Za-z0-9._-]+\.sql$'
+          bad=0
+          declare -A seen_full=()
+          declare -A seen_full_ts=()
+          for f in "${files[@]}"; do
+            base="$(basename "$f")"
+            if ! [[ "$base" =~ $fmt_re ]]; then
+              echo "::error file=$f::Malformed migration filename: $base (expected YYYYMMDDHHMMSS_description.sql or YYYYMMDD_description.sql)"
+              bad=$((bad + 1))
+              continue
+            fi
+            # Duplicate detection:
+            #   - Two files with the EXACT same basename are a hard duplicate.
+            #   - Two files sharing a 14-digit YYYYMMDDHHMMSS timestamp prefix
+            #     collide on Supabase's ordering slot — also a duplicate.
+            #   - Date-only YYYYMMDD prefixes are NOT treated as collisions
+            #     (Supabase CLI orders them lexicographically by full name).
+            if [ -n "${seen_full[$base]:-}" ]; then
+              echo "::error file=$f::Duplicate migration filename: $base"
+              bad=$((bad + 1))
+            else
+              seen_full[$base]=1
+            fi
+            ts="${base%%_*}"
+            if [ "${#ts}" -eq 14 ]; then
+              if [ -n "${seen_full_ts[$ts]:-}" ]; then
+                echo "::error file=$f::Duplicate full timestamp: $ts (also in ${seen_full_ts[$ts]})"
+                bad=$((bad + 1))
+              else
+                seen_full_ts[$ts]="$base"
+              fi
+            fi
+            if [ ! -s "$f" ]; then
+              echo "::error file=$f::Migration file is empty: $base"
+              bad=$((bad + 1))
+            fi
+          done
+
+          if [ "$bad" -gt 0 ]; then
+            echo "::error::Migration file sanity failed with $bad issue(s)."
+            exit 1
+          fi
+          echo "Migration file sanity: PASS"
+
+      # ------------------------------------------------------------------
+      # CHECK 2 — Apply migrations to a clean database
+      # ------------------------------------------------------------------
+      # We deliberately do NOT use `supabase db reset` here because that
+      # requires a full Supabase CLI stack. Instead we replay every SQL
+      # file in chronological filename order against the clean Postgres
+      # service, which is the same ordering Supabase CLI uses.
+      #
+      # We pre-create the minimum set of Supabase-managed objects that
+      # project migrations may reference (auth schema/users table, the
+      # `vault` schema, common roles), so migrations can apply against a
+      # clean container without fabricating Supabase internals.
+      - name: Check 2 — Apply migrations to clean Postgres
+        run: |
+          set -euo pipefail
+          export PSQL="psql -v ON_ERROR_STOP=1 -X -q -h $PGHOST -p $PGPORT -U $PGUSER -d $PGDATABASE"
+
+          echo "Bootstrapping Supabase-compatible scaffolding on clean DB…"
+          $PSQL <<'SQL'
+          -- Roles commonly referenced by Supabase-generated migrations.
+          DO $$ BEGIN
+            CREATE ROLE anon NOLOGIN NOINHERIT;
+          EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+          DO $$ BEGIN
+            CREATE ROLE authenticated NOLOGIN NOINHERIT;
+          EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+          DO $$ BEGIN
+            CREATE ROLE service_role NOLOGIN NOINHERIT BYPASSRLS;
+          EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+          DO $$ BEGIN
+            CREATE ROLE supabase_admin NOLOGIN NOINHERIT BYPASSRLS;
+          EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+          -- Extensions used by Supabase projects.
+          CREATE EXTENSION IF NOT EXISTS pgcrypto;
+          CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+          CREATE SCHEMA IF NOT EXISTS extensions;
+
+          -- Minimal auth schema so migrations referencing auth.users / auth.uid() apply.
+          CREATE SCHEMA IF NOT EXISTS auth;
+          CREATE TABLE IF NOT EXISTS auth.users (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            email text,
+            phone text,
+            created_at timestamptz NOT NULL DEFAULT now()
+          );
+          CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid
+            LANGUAGE sql STABLE AS $fn$ SELECT NULL::uuid $fn$;
+          CREATE OR REPLACE FUNCTION auth.role() RETURNS text
+            LANGUAGE sql STABLE AS $fn$ SELECT 'anon'::text $fn$;
+          CREATE OR REPLACE FUNCTION auth.jwt() RETURNS jsonb
+            LANGUAGE sql STABLE AS $fn$ SELECT '{}'::jsonb $fn$;
+
+          -- Minimal vault schema for migrations that touch vault.secrets.
+          CREATE SCHEMA IF NOT EXISTS vault;
+          CREATE TABLE IF NOT EXISTS vault.secrets (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            name text UNIQUE,
+            description text,
+            secret text
+          );
+          CREATE OR REPLACE VIEW vault.decrypted_secrets AS
+            SELECT id, name, description, secret AS decrypted_secret FROM vault.secrets;
+
+          -- Storage scaffolding (objects/buckets often referenced by RLS policies).
+          CREATE SCHEMA IF NOT EXISTS storage;
+          CREATE TABLE IF NOT EXISTS storage.buckets (
+            id text PRIMARY KEY,
+            name text NOT NULL,
+            public boolean NOT NULL DEFAULT false
+          );
+          CREATE TABLE IF NOT EXISTS storage.objects (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            bucket_id text REFERENCES storage.buckets(id),
+            name text,
+            owner uuid,
+            created_at timestamptz DEFAULT now()
+          );
+          SQL
+
+          echo "Applying migrations in chronological filename order…"
+          mapfile -t files < <(find supabase/migrations -maxdepth 1 -type f -name "*.sql" | sort)
+          fail=0
+          for f in "${files[@]}"; do
+            echo "── apply $(basename "$f")"
+            if ! $PSQL -f "$f"; then
+              echo "::error file=$f::Migration failed to apply on clean DB"
+              fail=$((fail + 1))
+              # Stop on first failure — later migrations almost certainly
+              # depend on this one's schema state.
+              break
+            fi
+          done
+          if [ "$fail" -gt 0 ]; then
+            echo "::error::Migration chain failed on clean database."
+            exit 1
+          fi
+          echo "Migration chain applied cleanly."
+
+      # ------------------------------------------------------------------
+      # CHECK 3 — Required schema assertions
+      # ------------------------------------------------------------------
+      - name: Check 3 — Assert canonical scanner schema
+        run: |
+          set -euo pipefail
+          export PSQL="psql -v ON_ERROR_STOP=1 -X -q -t -A -h $PGHOST -p $PGPORT -U $PGUSER -d $PGDATABASE"
+
+          assert_table() {
+            local schema="$1" table="$2"
+            local n
+            n=$($PSQL -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${schema}' AND table_name='${table}';")
+            if [ "$n" != "1" ]; then
+              echo "::error::Missing required table: ${schema}.${table}"
+              return 1
+            fi
+            echo "  ✓ table ${schema}.${table}"
+            return 0
+          }
+
+          assert_column() {
+            local schema="$1" table="$2" col="$3"
+            local n
+            n=$($PSQL -c "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='${schema}' AND table_name='${table}' AND column_name='${col}';")
+            if [ "$n" != "1" ]; then
+              echo "::error::Missing required column: ${schema}.${table}.${col}"
+              return 1
+            fi
+            echo "  ✓ column ${schema}.${table}.${col}"
+            return 0
+          }
+
+          fail=0
+
+          echo "Asserting required tables…"
+          for t in leads quote_files scan_sessions analyses; do
+            assert_table public "$t" || fail=$((fail+1))
+          done
+
+          echo "Asserting required columns on public.leads…"
+          for c in id session_id latest_scan_session_id latest_analysis_id email phone_e164 created_at; do
+            assert_column public leads "$c" || fail=$((fail+1))
+          done
+
+          echo "Asserting required columns on public.quote_files…"
+          for c in id lead_id storage_path file_name file_size mime_type created_at; do
+            assert_column public quote_files "$c" || fail=$((fail+1))
+          done
+
+          echo "Asserting required columns on public.scan_sessions…"
+          for c in id lead_id quote_file_id status created_at updated_at; do
+            assert_column public scan_sessions "$c" || fail=$((fail+1))
+          done
+
+          echo "Asserting required columns on public.analyses…"
+          for c in id lead_id scan_session_id grade analysis_status full_json created_at; do
+            assert_column public analyses "$c" || fail=$((fail+1))
+          done
+
+          if [ "$fail" -gt 0 ]; then
+            echo "::error::Schema assertions failed: $fail missing object(s)."
+            exit 1
+          fi
+          echo "All required tables and columns present."
+
+      # ------------------------------------------------------------------
+      # CHECK 4 — Optional, READ-ONLY staging smoke check
+      # ------------------------------------------------------------------
+      - name: Check 4 — Optional staging smoke (read-only, skipped if unset)
+        env:
+          SUPABASE_STAGING_DB_URL: ${{ secrets.SUPABASE_STAGING_DB_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_STAGING_DB_URL:-}" ]; then
+            echo "ℹ️  SUPABASE_STAGING_DB_URL not set — skipping staging smoke check."
+            exit 0
+          fi
+
+          # Defensive: refuse anything that even smells like the production
+          # project ref, so a misconfigured secret cannot accidentally point
+          # at production.
+          if echo "$SUPABASE_STAGING_DB_URL" | grep -qiE 'wkrcyxcnzhwjtdpmfpaf'; then
+            echo "::error::SUPABASE_STAGING_DB_URL must not reference the production project ref."
+            exit 1
+          fi
+
+          echo "Running READ-ONLY schema assertions against staging…"
+          # Force read-only transaction. Any attempted write will error.
+          psql "$SUPABASE_STAGING_DB_URL" -v ON_ERROR_STOP=1 -X -q <<'SQL'
+          BEGIN READ ONLY;
+          DO $$
+          DECLARE
+            missing text := '';
+          BEGIN
+            IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='leads')          THEN missing := missing || ' public.leads'; END IF;
+            IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='quote_files')    THEN missing := missing || ' public.quote_files'; END IF;
+            IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='scan_sessions')  THEN missing := missing || ' public.scan_sessions'; END IF;
+            IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='analyses')       THEN missing := missing || ' public.analyses'; END IF;
+            IF length(missing) > 0 THEN
+              RAISE EXCEPTION 'Staging missing required tables:%', missing;
+            END IF;
+          END $$;
+          ROLLBACK;
+          SQL
+          echo "Staging smoke check: PASS"
