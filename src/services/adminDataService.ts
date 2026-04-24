@@ -78,7 +78,10 @@ export type AdminAction =
   | "update_lead_task"
   | "delete_lead_task"
   // Phase 10 — Human Context Layer
-  | "update_lead_human_context";
+  | "update_lead_human_context"
+  // Phase 26 — Mission Control Truth Strip drilldown
+  | "fetch_quote_evidence"
+  | "fetch_stage_leads";
 
 /**
  * Payload shapes for each admin action.
@@ -160,6 +163,13 @@ export interface AdminActionPayloads {
     property_type_detail?: string | null;
     hoa_or_condo_complexity?: string | null;
     handoff_consent_status?: string | null;
+  };
+  // Phase 26 — Mission Control Truth Strip drilldown
+  fetch_quote_evidence: { lead_id: string };
+  fetch_stage_leads: {
+    stage: "captured" | "verified" | "scanned" | "routed" | "booked" | "closed";
+    scope: "today" | "7d" | "all";
+    limit?: number;
   };
 }
 
