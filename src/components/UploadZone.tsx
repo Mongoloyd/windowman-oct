@@ -197,6 +197,7 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
     inFlightRef.current = true;
     setUploading(true);
     setUploadError(null);
+    setUploadErrorDiag(null);
 
     // ── Unified failure surface ─────────────────────────────────────────
     // Every failure stage funnels through this one helper so the user sees
