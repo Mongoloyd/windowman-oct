@@ -58,6 +58,9 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
   const [uploading, setUploading] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  // Dev/preview-only diagnostic: short non-PII "[code] message" rendered
+  // beneath the orange retry panel. Production UI stays generic.
+  const [uploadErrorDiag, setUploadErrorDiag] = useState<string | null>(null);
   // Persist scanSessionId so a retry can re-invoke the edge function without
   // re-uploading the file or duplicating scan_sessions / quote_files rows.
   const [activeScanSessionId, setActiveScanSessionId] = useState<string | null>(null);
@@ -194,6 +197,7 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
     inFlightRef.current = true;
     setUploading(true);
     setUploadError(null);
+    setUploadErrorDiag(null);
 
     // ── Unified failure surface ─────────────────────────────────────────
     // Every failure stage funnels through this one helper so the user sees
@@ -385,6 +389,15 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
         // visible UX (orange retry panel) is unchanged. Diagnostic detail
         // goes to the console, never the user.
         const fnDetails = (bootstrapData ?? {}) as Record<string, unknown>;
+        const diagCode =
+          (fnDetails.code as string | undefined) ??
+          bootstrapError?.name ??
+          "scan_session_create_failed";
+        const diagMsg =
+          (fnDetails.message as string | undefined) ??
+          bootstrapError?.message ??
+          "Failed to start scan session.";
+        setUploadErrorDiag(`[${diagCode}] ${diagMsg}`);
         failWith(
           "scan_sessions_insert",
           "Failed to start scan session. Please try again.",
@@ -539,6 +552,12 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
                 >
                   {uploading ? "Retrying..." : "Retry Scan →"}
                 </button>
+                {/* Dev/preview-only diagnostic. Never rendered in prod. */}
+                {uploadErrorDiag && import.meta.env.DEV && (
+                  <p className="font-mono text-[11px] text-muted-foreground text-center mt-2 break-all">
+                    {uploadErrorDiag}
+                  </p>
+                )}
               </div>
             )}
 

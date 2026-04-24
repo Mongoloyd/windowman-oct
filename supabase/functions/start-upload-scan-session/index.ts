@@ -23,7 +23,13 @@
 //     semantics the table is policy-shaped around.
 //   - Idempotent: repeated calls with the same `storage_path` reuse the
 //     same quote_files + scan_sessions rows. No duplicates.
-//   - No PII is logged.
+//   - No PII is logged. Audit events log structured non-PII metadata only.
+//
+// Audit logging
+//   Every meaningful stage emits a structured `audit()` event with timestamp,
+//   stage, status, session_id, ids (when known), error_code/message (when
+//   applicable), and safe size/type metadata. Telemetry/audit insert failures
+//   NEVER block funnel success.
 //
 // Contract
 //   Method: POST
@@ -31,7 +37,9 @@
 //   Resp  : { success: true,  scan_session_id, quote_file_id, lead_id }
 //         | { success: false, code, message, details? }
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+
+const FUNCTION_NAME = "start-upload-scan-session";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -49,6 +57,72 @@ interface BootstrapPayload {
   file_name?: string | null;
   file_size?: number | null;
   file_type?: string | null;
+}
+
+type AuditStatus = "started" | "succeeded" | "failed" | "reused" | "skipped";
+
+interface AuditEvent {
+  ts: string;
+  fn: string;
+  stage: string;
+  status: AuditStatus;
+  session_id?: string | null;
+  lead_id?: string | null;
+  quote_file_id?: string | null;
+  scan_session_id?: string | null;
+  error_code?: string | null;
+  error_message?: string | null;
+  file_size?: number | null;
+  file_type?: string | null;
+  has_file_name?: boolean;
+  http_status?: number;
+}
+
+/**
+ * Emit a structured audit event. Always console-logged at the appropriate
+ * level. Best-effort write to event_logs — failures are caught and logged
+ * only; they cannot block funnel success.
+ *
+ * Strictly non-PII: never accepts raw file_name, raw payloads, or secrets.
+ * file_name is reduced to a `has_file_name` boolean.
+ */
+function audit(
+  admin: SupabaseClient | null,
+  evt: Omit<AuditEvent, "ts" | "fn">,
+): void {
+  const fullEvt: AuditEvent = {
+    ...evt,
+    ts: new Date().toISOString(),
+    fn: FUNCTION_NAME,
+  };
+
+  if (evt.status === "failed") {
+    console.error(`[${FUNCTION_NAME}:audit]`, fullEvt);
+  } else if (evt.status === "skipped") {
+    console.warn(`[${FUNCTION_NAME}:audit]`, fullEvt);
+  } else {
+    console.info(`[${FUNCTION_NAME}:audit]`, fullEvt);
+  }
+
+  if (admin) {
+    admin
+      .from("event_logs")
+      .insert({
+        event_name: "upload_bootstrap_audit",
+        session_id: evt.session_id ?? null,
+        route: "/",
+        metadata: fullEvt as unknown as Record<string, unknown>,
+      })
+      .then(({ error }) => {
+        if (error) {
+          console.warn(`[${FUNCTION_NAME}:audit] event_logs insert failed`, {
+            stage: evt.stage,
+            code: error.code,
+            message: error.message,
+          });
+        }
+      });
+  }
 }
 
 function jsonResponse(status: number, body: Record<string, unknown>): Response {
@@ -97,6 +171,9 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
+
+  audit(null, { stage: "request_received", status: "started" });
+
   if (req.method !== "POST") {
     return jsonResponse(405, { success: false, code: "method_not_allowed", message: "POST only" });
   }
@@ -105,11 +182,23 @@ Deno.serve(async (req: Request) => {
   try {
     raw = await req.json();
   } catch {
+    audit(null, {
+      stage: "validation_failed",
+      status: "failed",
+      error_code: "invalid_json",
+      error_message: "Request body must be valid JSON.",
+    });
     return badRequest("invalid_json", "Request body must be valid JSON.");
   }
 
   const parsed = parsePayload(raw);
   if (!parsed.ok) {
+    audit(null, {
+      stage: "validation_failed",
+      status: "failed",
+      error_code: "invalid_payload",
+      error_message: `Payload validation failed: ${parsed.reason}`,
+    });
     return badRequest("invalid_payload", `Payload validation failed: ${parsed.reason}`);
   }
   const { session_id, storage_path, file_name, file_size, file_type } = parsed.value;
@@ -117,6 +206,13 @@ Deno.serve(async (req: Request) => {
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
   const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (!SUPABASE_URL || !SERVICE_ROLE) {
+    audit(null, {
+      stage: "unexpected_error",
+      status: "failed",
+      session_id,
+      error_code: "server_misconfigured",
+      error_message: "Service credentials missing.",
+    });
     return serverError("server_misconfigured", "Service credentials missing.");
   }
 
@@ -124,149 +220,271 @@ Deno.serve(async (req: Request) => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  // ── 1. Resolve or create the parent lead bound to this session_id ─────────
-  let lead_id: string | null = null;
+  // Wrap the entire pipeline so any throw is captured as `unexpected_error`.
   try {
-    const { data: existingLeads, error: rpcErr } = await admin.rpc("get_lead_by_session", {
-      p_session_id: session_id,
+    // ── 1. Resolve or create the parent lead bound to this session_id ───────
+    let lead_id: string | null = null;
+
+    audit(admin, {
+      stage: "lead_resolve_started",
+      status: "started",
+      session_id,
+      file_size,
+      file_type,
+      has_file_name: Boolean(file_name),
     });
-    if (rpcErr) {
-      console.error("[start-upload-scan-session] get_lead_by_session failed", {
-        code: rpcErr.code, message: rpcErr.message,
-      });
-    } else if (Array.isArray(existingLeads) && existingLeads.length > 0) {
-      lead_id = (existingLeads[0]?.id as string) ?? null;
-    }
-  } catch (e) {
-    console.error("[start-upload-scan-session] get_lead_by_session threw", { error: String(e) });
-  }
 
-  if (!lead_id) {
-    // Mirror the previous browser-fallback insert: minimal lead, safe defaults.
-    const { data: newLead, error: leadErr } = await admin
-      .from("leads")
-      .insert({
+    try {
+      const { data: existingLeads, error: rpcErr } = await admin.rpc("get_lead_by_session", {
+        p_session_id: session_id,
+      });
+      if (rpcErr) {
+        audit(admin, {
+          stage: "lead_resolve_failed",
+          status: "failed",
+          session_id,
+          error_code: rpcErr.code,
+          error_message: rpcErr.message,
+        });
+      } else if (Array.isArray(existingLeads) && existingLeads.length > 0) {
+        lead_id = (existingLeads[0]?.id as string) ?? null;
+      }
+    } catch (e) {
+      audit(admin, {
+        stage: "lead_resolve_failed",
+        status: "failed",
         session_id,
-        source: "direct_upload",
-        status: "new",
-        phone_verified: false,
-        otp_failure_count: 0,
-      })
-      .select("id")
-      .single();
-
-    if (leadErr || !newLead?.id) {
-      console.error("[start-upload-scan-session] lead insert failed", {
-        code: leadErr?.code, message: leadErr?.message, hint: leadErr?.hint,
-      });
-      return serverError("lead_create_failed", "Failed to initialize session.", {
-        code: leadErr?.code ?? null, message: leadErr?.message ?? null,
+        error_message: String(e),
       });
     }
-    lead_id = newLead.id as string;
-  }
 
-  // ── 2. Resolve or create the quote_files row keyed by storage_path ────────
-  let quote_file_id: string | null = null;
-  {
-    const { data: existingFiles, error: qfLookupErr } = await admin
-      .from("quote_files")
-      .select("id, lead_id")
-      .eq("storage_path", storage_path)
-      .order("created_at", { ascending: false })
-      .limit(1);
-
-    if (qfLookupErr) {
-      console.error("[start-upload-scan-session] quote_files lookup failed", {
-        code: qfLookupErr.code, message: qfLookupErr.message,
-      });
-    } else if (existingFiles && existingFiles.length > 0) {
-      quote_file_id = (existingFiles[0].id as string) ?? null;
-      // Honor the existing lead binding when one is present — never re-parent.
-      const existingLeadId = (existingFiles[0].lead_id as string | null) ?? null;
-      if (existingLeadId) lead_id = existingLeadId;
-    }
-  }
-
-  if (!quote_file_id) {
-    const { data: newFile, error: qfInsertErr } = await admin
-      .from("quote_files")
-      .insert({
+    if (lead_id) {
+      audit(admin, {
+        stage: "lead_resolved",
+        status: "reused",
+        session_id,
         lead_id,
-        storage_path,
-        status: "pending",
-      })
-      .select("id")
-      .single();
-
-    if (qfInsertErr || !newFile?.id) {
-      console.error("[start-upload-scan-session] quote_files insert failed", {
-        code: qfInsertErr?.code, message: qfInsertErr?.message, hint: qfInsertErr?.hint,
       });
-      return serverError("quote_file_create_failed", "Failed to register your file.", {
-        code: qfInsertErr?.code ?? null, message: qfInsertErr?.message ?? null,
+    } else {
+      // Mirror the previous browser-fallback insert: minimal lead, safe defaults.
+      const { data: newLead, error: leadErr } = await admin
+        .from("leads")
+        .insert({
+          session_id,
+          source: "direct_upload",
+          status: "new",
+          phone_verified: false,
+          otp_failure_count: 0,
+        })
+        .select("id")
+        .single();
+
+      if (leadErr || !newLead?.id) {
+        audit(admin, {
+          stage: "lead_resolve_failed",
+          status: "failed",
+          session_id,
+          error_code: leadErr?.code ?? "lead_create_failed",
+          error_message: leadErr?.message ?? "Failed to initialize session.",
+        });
+        return serverError("lead_create_failed", "Failed to initialize session.", {
+          code: leadErr?.code ?? null,
+          message: leadErr?.message ?? null,
+        });
+      }
+      lead_id = newLead.id as string;
+      audit(admin, {
+        stage: "lead_created",
+        status: "succeeded",
+        session_id,
+        lead_id,
       });
     }
-    quote_file_id = newFile.id as string;
-  }
 
-  // ── 3. Resolve or create the scan_sessions row keyed by quote_file_id ─────
-  let scan_session_id: string | null = null;
-  {
-    const { data: existingSessions, error: ssLookupErr } = await admin
-      .from("scan_sessions")
-      .select("id")
-      .eq("quote_file_id", quote_file_id)
-      .order("created_at", { ascending: false })
-      .limit(1);
+    // ── 2. Resolve or create the quote_files row keyed by storage_path ──────
+    let quote_file_id: string | null = null;
 
-    if (ssLookupErr) {
-      console.error("[start-upload-scan-session] scan_sessions lookup failed", {
-        code: ssLookupErr.code, message: ssLookupErr.message,
-      });
-    } else if (existingSessions && existingSessions.length > 0) {
-      scan_session_id = (existingSessions[0].id as string) ?? null;
+    audit(admin, {
+      stage: "quote_file_lookup_started",
+      status: "started",
+      session_id,
+      lead_id,
+    });
+
+    {
+      const { data: existingFiles, error: qfLookupErr } = await admin
+        .from("quote_files")
+        .select("id, lead_id")
+        .eq("storage_path", storage_path)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (qfLookupErr) {
+        audit(admin, {
+          stage: "quote_file_lookup_started",
+          status: "failed",
+          session_id,
+          lead_id,
+          error_code: qfLookupErr.code,
+          error_message: qfLookupErr.message,
+        });
+      } else if (existingFiles && existingFiles.length > 0) {
+        quote_file_id = (existingFiles[0].id as string) ?? null;
+        const existingLeadId = (existingFiles[0].lead_id as string | null) ?? null;
+        if (existingLeadId) lead_id = existingLeadId;
+      }
     }
-  }
 
-  if (!scan_session_id) {
-    const { data: newSession, error: ssInsertErr } = await admin
-      .from("scan_sessions")
-      .insert({
-        status: "uploading",
+    if (quote_file_id) {
+      audit(admin, {
+        stage: "quote_file_reused",
+        status: "reused",
+        session_id,
         lead_id,
         quote_file_id,
-        // user_id intentionally NULL — preserves anon ownership semantics
-        // the existing RLS policy is shaped around.
-        user_id: null,
-      })
-      .select("id")
-      .single();
-
-    if (ssInsertErr || !newSession?.id) {
-      console.error("[start-upload-scan-session] scan_sessions insert failed", {
-        code: ssInsertErr?.code, message: ssInsertErr?.message, hint: ssInsertErr?.hint,
       });
-      return serverError("scan_session_create_failed", "Failed to start scan session.", {
-        code: ssInsertErr?.code ?? null, message: ssInsertErr?.message ?? null,
+    } else {
+      const { data: newFile, error: qfInsertErr } = await admin
+        .from("quote_files")
+        .insert({
+          lead_id,
+          storage_path,
+          status: "pending",
+        })
+        .select("id")
+        .single();
+
+      if (qfInsertErr || !newFile?.id) {
+        audit(admin, {
+          stage: "quote_file_created",
+          status: "failed",
+          session_id,
+          lead_id,
+          error_code: qfInsertErr?.code ?? "quote_file_create_failed",
+          error_message: qfInsertErr?.message ?? "Failed to register your file.",
+        });
+        return serverError("quote_file_create_failed", "Failed to register your file.", {
+          code: qfInsertErr?.code ?? null,
+          message: qfInsertErr?.message ?? null,
+        });
+      }
+      quote_file_id = newFile.id as string;
+      audit(admin, {
+        stage: "quote_file_created",
+        status: "succeeded",
+        session_id,
+        lead_id,
+        quote_file_id,
       });
     }
-    scan_session_id = newSession.id as string;
+
+    // ── 3. Resolve or create the scan_sessions row keyed by quote_file_id ───
+    let scan_session_id: string | null = null;
+
+    audit(admin, {
+      stage: "scan_session_lookup_started",
+      status: "started",
+      session_id,
+      lead_id,
+      quote_file_id,
+    });
+
+    {
+      const { data: existingSessions, error: ssLookupErr } = await admin
+        .from("scan_sessions")
+        .select("id")
+        .eq("quote_file_id", quote_file_id)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (ssLookupErr) {
+        audit(admin, {
+          stage: "scan_session_lookup_started",
+          status: "failed",
+          session_id,
+          lead_id,
+          quote_file_id,
+          error_code: ssLookupErr.code,
+          error_message: ssLookupErr.message,
+        });
+      } else if (existingSessions && existingSessions.length > 0) {
+        scan_session_id = (existingSessions[0].id as string) ?? null;
+      }
+    }
+
+    if (scan_session_id) {
+      audit(admin, {
+        stage: "scan_session_reused",
+        status: "reused",
+        session_id,
+        lead_id,
+        quote_file_id,
+        scan_session_id,
+      });
+    } else {
+      const { data: newSession, error: ssInsertErr } = await admin
+        .from("scan_sessions")
+        .insert({
+          status: "uploading",
+          lead_id,
+          quote_file_id,
+          user_id: null,
+        })
+        .select("id")
+        .single();
+
+      if (ssInsertErr || !newSession?.id) {
+        audit(admin, {
+          stage: "scan_session_created",
+          status: "failed",
+          session_id,
+          lead_id,
+          quote_file_id,
+          error_code: ssInsertErr?.code ?? "scan_session_create_failed",
+          error_message: ssInsertErr?.message ?? "Failed to start scan session.",
+        });
+        return serverError("scan_session_create_failed", "Failed to start scan session.", {
+          code: ssInsertErr?.code ?? null,
+          message: ssInsertErr?.message ?? null,
+        });
+      }
+      scan_session_id = newSession.id as string;
+      audit(admin, {
+        stage: "scan_session_created",
+        status: "succeeded",
+        session_id,
+        lead_id,
+        quote_file_id,
+        scan_session_id,
+      });
+    }
+
+    audit(admin, {
+      stage: "response_sent",
+      status: "succeeded",
+      session_id,
+      lead_id,
+      quote_file_id,
+      scan_session_id,
+      file_size,
+      file_type,
+      has_file_name: Boolean(file_name),
+      http_status: 200,
+    });
+
+    return jsonResponse(200, {
+      success: true,
+      scan_session_id,
+      quote_file_id,
+      lead_id,
+    });
+  } catch (e) {
+    audit(admin, {
+      stage: "unexpected_error",
+      status: "failed",
+      session_id,
+      error_message: String(e),
+    });
+    return serverError("unexpected_error", "An unexpected error occurred.");
   }
-
-  // ── Telemetry (non-PII) ───────────────────────────────────────────────────
-  console.info("[start-upload-scan-session] ok", {
-    session_id_short: session_id.slice(0, 8),
-    lead_id_short: lead_id?.slice(0, 8),
-    quote_file_id_short: quote_file_id?.slice(0, 8),
-    scan_session_id_short: scan_session_id?.slice(0, 8),
-    file_size, file_type, has_file_name: Boolean(file_name),
-  });
-
-  return jsonResponse(200, {
-    success: true,
-    scan_session_id,
-    quote_file_id,
-    lead_id,
-  });
 });

@@ -17,7 +17,13 @@
 //   - Public RLS posture for `leads` is unchanged.
 //   - OTP / verified-state columns are forced to safe defaults — this path
 //     can never elevate a lead to phone_verified.
-//   - No PII is logged.
+//   - No PII is logged. Audit events log structured non-PII metadata only.
+//
+// Audit logging
+//   Every meaningful stage emits a structured `audit()` event with timestamp,
+//   stage, status, session_id, lead_id (when known), error_code/message
+//   (when applicable), and safe boolean flags (has_phone, has_client_slug).
+//   Telemetry/audit insert failures NEVER block funnel success.
 //
 // Contract
 //   Method: POST
@@ -25,7 +31,9 @@
 //   Resp  : { success, lead_id, session_id } on 200
 //           { success: false, code, message, details? } on 4xx/5xx
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+
+const FUNCTION_NAME = "capture-truth-gate-lead";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -65,6 +73,69 @@ interface CapturePayload {
   landing_page_url: string | null;
   first_page_path: string | null;
   initial_referrer: string | null;
+}
+
+type AuditStatus = "started" | "succeeded" | "failed" | "reused" | "skipped";
+
+interface AuditEvent {
+  ts: string;
+  fn: string;
+  stage: string;
+  status: AuditStatus;
+  session_id?: string | null;
+  lead_id?: string | null;
+  error_code?: string | null;
+  error_message?: string | null;
+  has_phone?: boolean;
+  has_client_slug?: boolean;
+  http_status?: number;
+}
+
+/**
+ * Emit a structured audit event. Always console-logged at the appropriate
+ * level. Best-effort write to event_logs — failures are caught and logged
+ * only; they cannot block funnel success.
+ *
+ * Strictly non-PII: never accepts raw email, phone, name, or file content.
+ */
+function audit(
+  admin: SupabaseClient | null,
+  evt: Omit<AuditEvent, "ts" | "fn">,
+): void {
+  const fullEvt: AuditEvent = {
+    ...evt,
+    ts: new Date().toISOString(),
+    fn: FUNCTION_NAME,
+  };
+
+  if (evt.status === "failed") {
+    console.error(`[${FUNCTION_NAME}:audit]`, fullEvt);
+  } else if (evt.status === "skipped") {
+    console.warn(`[${FUNCTION_NAME}:audit]`, fullEvt);
+  } else {
+    console.info(`[${FUNCTION_NAME}:audit]`, fullEvt);
+  }
+
+  // Best-effort persist to event_logs. Never block on this.
+  if (admin) {
+    admin
+      .from("event_logs")
+      .insert({
+        event_name: "truthgate_capture_audit",
+        session_id: evt.session_id ?? null,
+        route: "/",
+        metadata: fullEvt as unknown as Record<string, unknown>,
+      })
+      .then(({ error }) => {
+        if (error) {
+          console.warn(`[${FUNCTION_NAME}:audit] event_logs insert failed`, {
+            stage: evt.stage,
+            code: error.code,
+            message: error.message,
+          });
+        }
+      });
+  }
 }
 
 function jsonResponse(body: unknown, status: number): Response {
@@ -177,6 +248,9 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // request_received audit (no admin client yet — console-only)
+  audit(null, { stage: "request_received", status: "started" });
+
   if (req.method !== "POST") {
     return jsonResponse(
       { success: false, code: "method_not_allowed", message: "Use POST." },
@@ -188,6 +262,12 @@ Deno.serve(async (req) => {
   try {
     bodyJson = await req.json();
   } catch {
+    audit(null, {
+      stage: "validation_failed",
+      status: "failed",
+      error_code: "invalid_json",
+      error_message: "Body must be valid JSON.",
+    });
     return jsonResponse(
       { success: false, code: "invalid_json", message: "Body must be valid JSON." },
       400,
@@ -196,6 +276,12 @@ Deno.serve(async (req) => {
 
   const parsed = parseAndValidate(bodyJson);
   if (!parsed.ok) {
+    audit(null, {
+      stage: "validation_failed",
+      status: "failed",
+      error_code: parsed.code,
+      error_message: parsed.message,
+    });
     return jsonResponse(
       {
         success: false,
@@ -212,7 +298,14 @@ Deno.serve(async (req) => {
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
   const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (!SUPABASE_URL || !SERVICE_ROLE) {
-    console.error("[capture-truth-gate-lead] missing service-role env");
+    console.error(`[${FUNCTION_NAME}] missing service-role env`);
+    audit(null, {
+      stage: "lead_insert_failed",
+      status: "failed",
+      session_id: payload.session_id,
+      error_code: "server_misconfigured",
+      error_message: "Service credentials missing.",
+    });
     return jsonResponse(
       {
         success: false,
@@ -225,6 +318,14 @@ Deno.serve(async (req) => {
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
     auth: { persistSession: false },
+  });
+
+  audit(admin, {
+    stage: "lead_insert_started",
+    status: "started",
+    session_id: payload.session_id,
+    has_phone: !!payload.phone_e164,
+    has_client_slug: !!payload.client_slug,
   });
 
   // Force OTP-gate-safe defaults — this path must never elevate a lead.
@@ -247,16 +348,14 @@ Deno.serve(async (req) => {
     .single();
 
   if (error) {
-    // Non-PII diagnostic logging
-    console.error("[capture-truth-gate-lead] insert failed", {
-      code: error.code,
-      message: error.message,
-      details: error.details,
-      hint: error.hint,
-      payload_keys: Object.keys(payload),
+    audit(admin, {
+      stage: "lead_insert_failed",
+      status: "failed",
+      session_id: payload.session_id,
+      error_code: error.code || "insert_failed",
+      error_message: error.message || "Lead insert failed.",
       has_phone: !!payload.phone_e164,
       has_client_slug: !!payload.client_slug,
-      session_id: payload.session_id,
     });
 
     return jsonResponse(
@@ -271,9 +370,18 @@ Deno.serve(async (req) => {
     );
   }
 
-  // Best-effort telemetry — never block success.
+  audit(admin, {
+    stage: "lead_insert_succeeded",
+    status: "succeeded",
+    session_id: payload.session_id,
+    lead_id: data?.id ?? null,
+    has_phone: !!payload.phone_e164,
+    has_client_slug: !!payload.client_slug,
+  });
+
+  // Best-effort business telemetry — never block success.
   try {
-    await admin.from("event_logs").insert({
+    const { error: telemetryErr } = await admin.from("event_logs").insert({
       event_name: payload.phone_e164
         ? "lead_captured_with_phone"
         : "lead_captured_no_phone",
@@ -288,9 +396,33 @@ Deno.serve(async (req) => {
         timestamp: new Date().toISOString(),
       },
     });
+    if (telemetryErr) {
+      audit(admin, {
+        stage: "telemetry_failed",
+        status: "skipped",
+        session_id: payload.session_id,
+        lead_id: data?.id ?? null,
+        error_code: telemetryErr.code,
+        error_message: telemetryErr.message,
+      });
+    }
   } catch (telemetryErr) {
-    console.warn("[capture-truth-gate-lead] event_logs insert failed", telemetryErr);
+    audit(admin, {
+      stage: "telemetry_failed",
+      status: "skipped",
+      session_id: payload.session_id,
+      lead_id: data?.id ?? null,
+      error_message: String(telemetryErr),
+    });
   }
+
+  audit(admin, {
+    stage: "response_sent",
+    status: "succeeded",
+    session_id: payload.session_id,
+    lead_id: data?.id ?? null,
+    http_status: 200,
+  });
 
   return jsonResponse(
     {
