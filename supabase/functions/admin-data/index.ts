@@ -690,7 +690,7 @@ Deno.serve(async (req) => {
       }
 
       // Fetch auth bridge from contractors table
-      let authBridgeMap: Record<string, { contractor_record_id: string; company_name: string } | null> = {};
+      let authBridgeMap: Record<string, { contractor_record_id: string; company_name: string; routing_setup_completed_at: string | null } | null> = {};
       if (profileIds.length > 0) {
         const { data: contractors } = await supabaseAdmin
           .from("contractors")
