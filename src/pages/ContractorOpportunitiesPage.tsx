@@ -387,37 +387,7 @@ export default function ContractorOpportunitiesPage() {
     }
   }, [searchParams, setSearchParams, fetchOpportunities]);
 
-  /* ── Add Credits handler ── */
-  const handleAddCredits = async () => {
-    setCheckoutLoading(true);
-    try {
-      const origin = window.location.origin;
-      const res = await supabase.functions.invoke("create-checkout-session", {
-        body: { pack_code: "pack_10_credits", origin },
-      });
-
-      if (res.error) {
-        console.error("[AddCredits] invoke error:", res.error);
-        toast.error("Failed to start checkout. Please try again.");
-        setCheckoutLoading(false);
-        return;
-      }
-
-      const data = res.data as { url?: string; error?: string; message?: string };
-      if (!data?.url) {
-        toast.error(data?.message ?? "Failed to create checkout session.");
-        setCheckoutLoading(false);
-        return;
-      }
-
-      // Redirect to Stripe
-      window.location.href = data.url;
-    } catch (err) {
-      console.error("[AddCredits] unhandled error:", err);
-      toast.error("Something went wrong. Please try again.");
-      setCheckoutLoading(false);
-    }
-  };
+  // Add Credits CTA + checkout invocation now lives in PartnerLayout chrome.
 
   /* ── Canonical derived filtered list ── */
   const filteredOpportunities = useMemo(() => {
@@ -507,53 +477,7 @@ export default function ContractorOpportunitiesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-sans">
-      {/* ─── Header ────────────────────────────────────────────── */}
-      <header className="border-b bg-card sticky top-0 z-30">
-        <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="h-9 w-9 rounded-lg bg-sky-100 flex items-center justify-center shrink-0">
-              <Shield className="h-5 w-5 text-sky-600" aria-hidden />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-base sm:text-lg font-bold tracking-tight leading-none">
-                  Opportunity Command Center
-                </h1>
-                {isPreview && <PreviewModeBadge />}
-              </div>
-              <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
-                WindowMan Partner Portal
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 self-stretch sm:self-auto">
-            <div
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-muted border flex-1 sm:flex-initial justify-center"
-              aria-label={`Credit balance: ${meta?.credit_balance ?? 0}`}
-            >
-              <CreditCard className="h-3.5 w-3.5 text-sky-600" aria-hidden />
-              <span className="text-xs font-mono text-foreground whitespace-nowrap">
-                {meta?.credit_balance ?? 0} credit{(meta?.credit_balance ?? 0) !== 1 ? "s" : ""}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={handleAddCredits}
-              disabled={checkoutLoading}
-              aria-label="Add credits"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 whitespace-nowrap"
-            >
-              {checkoutLoading ? (
-                <><Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Connecting…</>
-              ) : (
-                <><Plus className="h-3.5 w-3.5" aria-hidden /> Add Credits</>
-              )}
-            </button>
-          </div>
-        </div>
-      </header>
+    <>
 
       <main className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 space-y-6">
         {/* ─── Stats Row ───────────────────────────────────────── */}
