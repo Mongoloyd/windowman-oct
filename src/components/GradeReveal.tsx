@@ -119,7 +119,7 @@ const GradeReveal = ({
           <motion.div {...stagger(2.5)} style={{ background: config.bg, border: `1px solid ${config.color}`, borderRadius: 0, padding: "6px 20px", marginTop: 20 }}>
             <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 700, color: config.color, letterSpacing: "0.1em" }}>GRADE {grade} — {config.label}</span>
           </motion.div>
-          <motion.p {...stagger(3.3)} style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "clamp(17px, 2vw, 19px)", color: "#E5E7EB", marginTop: 12 }}>{config.message}</motion.p>
+          <motion.p {...stagger(3.3)} className="text-surface" style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "clamp(17px, 2vw, 19px)", color: "#E5E7EB", marginTop: 12 }}>{config.message}</motion.p>
         </div>
       </section>
 
