@@ -47,6 +47,17 @@ const VALID_STATES = new Set([
   "lost_dead",
 ]);
 
+// Valid reason codes — must stay in sync with DISPOSITION_REASON_CODE in src/lib/statusConstants.ts
+const VALID_REASON_CODES = new Set([
+  "price_too_high",
+  "chose_competitor",
+  "no_longer_interested",
+  "unresponsive",
+  "project_canceled",
+  "out_of_service_area",
+  "other",
+]);
+
 // Legal transitions: key = current state, value = allowed next states
 const TRANSITIONS: Record<string, string[]> = {
   new: ["attempting_contact", "lost_dead"],
@@ -164,6 +175,13 @@ Deno.serve(async (req) => {
         message: "disposition_reason_code is required when marking a lead as lost_dead.",
       }, 422);
     }
+    if (disposition_reason_code != null && !VALID_REASON_CODES.has(disposition_reason_code)) {
+      return json({
+        error: "invalid_reason_code",
+        message: `disposition_reason_code '${disposition_reason_code}' is not a valid reason code.`,
+        valid_reason_codes: [...VALID_REASON_CODES],
+      }, 422);
+    }
     if (disposition_state === "sold_closed" && (final_value_cents == null)) {
       return json({
         error: "value_required",
@@ -210,7 +228,9 @@ Deno.serve(async (req) => {
 
     const now = new Date().toISOString();
 
-    // ── Update contractor_outcomes ────────────────────────────────
+    // ── Update contractor_outcomes (optimistic concurrency guard) ──
+    // Include .eq("disposition_state", currentState) so a concurrent write that
+    // already moved the state will cause 0 rows to match, detected below.
     const updatePayload: Record<string, unknown> = {
       disposition_state,
       last_partner_action_at: now,
@@ -221,25 +241,38 @@ Deno.serve(async (req) => {
     if (signed_contract_url != null) updatePayload.signed_contract_url = signed_contract_url;
     if (notes != null) updatePayload.outcome_notes = notes;
 
-    const { error: updateErr } = await svc
+    const { data: updatedRows, error: updateErr } = await svc
       .from("contractor_outcomes")
       .update(updatePayload)
-      .eq("id", outcome.id);
+      .eq("id", outcome.id)
+      .eq("disposition_state", currentState)
+      .select("id");
 
     if (updateErr) {
       console.error("[partner-update-disposition] Outcome update error:", updateErr);
       return json({ error: "update_error", message: "Failed to update outcome." }, 500);
     }
+    if (!updatedRows || updatedRows.length === 0) {
+      return json({
+        error: "state_changed",
+        message: "Outcome state was changed concurrently; refetch and retry.",
+      }, 409);
+    }
 
     // ── Resolve lead_id via contractor_opportunities ──────────────
     // contractor_outcomes has no direct lead_id column; join through opportunity
-    const { data: opportunity } = await svc
+    let lead_rollup_succeeded = false;
+    const { data: oppRow, error: oppErr } = await svc
       .from("contractor_opportunities")
       .select("lead_id")
       .eq("id", opportunity_id)
       .maybeSingle();
 
-    const leadId = opportunity?.lead_id as string | null;
+    if (oppErr) {
+      console.error("[partner-update-disposition] Opportunity lookup error:", oppErr, { opportunity_id });
+    }
+
+    const leadId = oppRow?.lead_id as string | null;
 
     // ── Lead rollup ───────────────────────────────────────────────
     if (leadId) {
@@ -284,8 +317,12 @@ Deno.serve(async (req) => {
           .eq("id", leadId);
         if (leadErr) {
           console.error("[partner-update-disposition] Lead rollup error:", leadErr);
-          // Non-fatal: log and continue
+        } else {
+          lead_rollup_succeeded = true;
         }
+      } else {
+        // No lead fields changed (e.g. non-terminal state update) — not a failure
+        lead_rollup_succeeded = true;
       }
     }
 
@@ -296,6 +333,9 @@ Deno.serve(async (req) => {
           {
             eventName: "sold",
             leadId,
+            // marginUsd drives optimization_value_usd in the canonical pipeline.
+            // We pass gross sale value here as the closest available proxy;
+            // actual margin is not available at this layer.
             marginUsd: final_value_cents / 100,
             payload: {
               identity: { leadId },
@@ -323,6 +363,7 @@ Deno.serve(async (req) => {
       outcome_id: outcome.id,
       disposition_state,
       lead_id: leadId,
+      lead_rollup_succeeded,
     });
   } catch (err) {
     console.error("[partner-update-disposition] Unhandled error:", err);

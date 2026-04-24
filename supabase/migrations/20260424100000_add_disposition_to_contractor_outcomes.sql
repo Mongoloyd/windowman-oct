@@ -77,10 +77,29 @@ ALTER TABLE public.contractor_outcomes
   ADD CONSTRAINT contractor_outcomes_final_value_non_negative
     CHECK (final_value_cents IS NULL OR final_value_cents >= 0);
 
+-- Reason code must be a known value when present (secondary safeguard;
+-- primary validation happens in the edge function)
+ALTER TABLE public.contractor_outcomes
+  ADD CONSTRAINT contractor_outcomes_disposition_reason_code_check
+    CHECK (
+      disposition_reason_code IS NULL
+      OR disposition_reason_code IN (
+        'price_too_high',
+        'chose_competitor',
+        'no_longer_interested',
+        'unresponsive',
+        'project_canceled',
+        'out_of_service_area',
+        'other'
+      )
+    );
+
 -- ── Indexes ───────────────────────────────────────────────────
 
-CREATE INDEX IF NOT EXISTS idx_contractor_outcomes_disposition_state
-  ON public.contractor_outcomes (disposition_state);
+-- Composite index for the common partner-scoped query: outcomes for a
+-- contractor filtered by state (e.g. all 'new' leads for contractor X)
+CREATE INDEX IF NOT EXISTS idx_contractor_outcomes_contractor_disposition
+  ON public.contractor_outcomes (contractor_id, disposition_state);
 
 CREATE INDEX IF NOT EXISTS idx_contractor_outcomes_last_partner_action
   ON public.contractor_outcomes (last_partner_action_at DESC NULLS LAST);

@@ -146,7 +146,7 @@ export const DISPOSITION_REASON_CODE = {
 export type DispositionReasonCode = typeof DISPOSITION_REASON_CODE[keyof typeof DISPOSITION_REASON_CODE];
 
 // ── Legal disposition state transitions ──
-export const DISPOSITION_TRANSITIONS: Record<string, string[]> = {
+export const DISPOSITION_TRANSITIONS: Record<DispositionState, DispositionState[]> = {
   new: ['attempting_contact', 'lost_dead'],
   attempting_contact: ['meeting_scheduled', 'lost_dead'],
   meeting_scheduled: ['quote_delivered', 'lost_dead'],
