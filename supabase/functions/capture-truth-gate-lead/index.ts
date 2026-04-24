@@ -92,9 +92,23 @@ interface AuditEvent {
 }
 
 /**
+ * Stages that are persisted to `event_logs`. All other stages remain
+ * console-only. This keeps the persisted audit trail focused on outcomes
+ * and failures, not internal step-by-step noise.
+ */
+const PERSISTED_STAGES = new Set<string>([
+  "validation_failed",
+  "lead_insert_failed",
+  "lead_insert_succeeded",
+  "lead_reused",
+  "unexpected_error",
+  "response_sent",
+]);
+
+/**
  * Emit a structured audit event. Always console-logged at the appropriate
- * level. Best-effort write to event_logs — failures are caught and logged
- * only; they cannot block funnel success.
+ * level. Persists to `event_logs` only for summary/failure stages
+ * (see PERSISTED_STAGES). Persistence failures NEVER block funnel success.
  *
  * Strictly non-PII: never accepts raw email, phone, name, or file content.
  */
@@ -116,8 +130,8 @@ function audit(
     console.info(`[${FUNCTION_NAME}:audit]`, fullEvt);
   }
 
-  // Best-effort persist to event_logs. Never block on this.
-  if (admin) {
+  // Persist only summary / failure / validation stages. Best-effort.
+  if (admin && PERSISTED_STAGES.has(evt.stage)) {
     admin
       .from("event_logs")
       .insert({
