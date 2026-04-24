@@ -234,24 +234,7 @@ function readGoal(): number {
   return Number.isFinite(n) && n > 0 ? n : DEFAULT_DAILY_GOAL;
 }
 
-/** Returns [windowStart, prevWindowStart] in ms. `all` => [0, 0]. */
-function scopeWindows(scope: Scope): { start: number; prevStart: number; prevEnd: number } {
-  const now = Date.now();
-  if (scope === "today") {
-    const start = startOfTodayMs();
-    const span = now - start;
-    return { start, prevStart: start - span, prevEnd: start };
-  }
-  if (scope === "7d") {
-    const span = 7 * 24 * 60 * 60 * 1000;
-    const start = now - span;
-    return { start, prevStart: start - span, prevEnd: start };
-  }
-  // all-time: compare last 30d vs prior 30d for a meaningful delta
-  const span = 30 * 24 * 60 * 60 * 1000;
-  const start = now - span;
-  return { start: 0, prevStart: start - span, prevEnd: start };
-}
+/* scopeWindows + stage probes now live in funnelMetrics.ts (canonical engine). */
 
 export function MasterCommandCenter({
   leads,
