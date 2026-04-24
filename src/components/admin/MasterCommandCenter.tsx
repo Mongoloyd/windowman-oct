@@ -37,6 +37,8 @@ import {
   ShieldAlert,
   ShieldCheck,
   Target,
+  TrendingDown,
+  TrendingUp,
   Unlock,
   Users,
   XCircle,
