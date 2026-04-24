@@ -624,7 +624,7 @@ export default function ContractorOpportunitiesPage() {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-3">
             {sortedOpportunities.map((opp) => (
-              <OpportunityCard key={opp.opportunity_id} opp={opp} navigate={navigate} />
+              <OpportunityCard key={opp.opportunity_id} opp={opp} meta={meta} navigate={navigate} />
             ))}
           </div>
         )}
