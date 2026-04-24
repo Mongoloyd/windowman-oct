@@ -380,7 +380,8 @@ export default function PartnerDossier() {
           onUpdated={() => { void fetchDossier(); }}
         />
 
-
+        {/* ═══════════════════════════════════════════════════════
+            § 1 — LEAD PROVENANCE
             ═══════════════════════════════════════════════════════ */}
         <section className={`rounded-xl p-6 transition-colors duration-500 ${
           unlocked
