@@ -734,3 +734,18 @@ export async function updateLeadHumanContext(args: {
 }): Promise<{ id: string; updated_at: string }> {
   return invokeAdminData("update_lead_human_context", args);
 }
+
+// ── Phase 26 — Mission Control Truth Strip drilldown ────────────────────
+import type { StageLeadRow, QuoteEvidence } from "@/components/admin/types";
+
+export async function fetchQuoteEvidence(leadId: string): Promise<QuoteEvidence> {
+  return invokeAdminData("fetch_quote_evidence", { lead_id: leadId });
+}
+
+export async function fetchStageLeads(
+  stage: AdminActionPayloads["fetch_stage_leads"]["stage"],
+  scope: AdminActionPayloads["fetch_stage_leads"]["scope"],
+  limit?: number,
+): Promise<{ leads: StageLeadRow[] }> {
+  return invokeAdminData("fetch_stage_leads", { stage, scope, limit });
+}
