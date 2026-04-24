@@ -264,7 +264,7 @@ export async function updateContractorLead(
 ): Promise<ContractorLead> {
   const { data, error } = await supabase
     .from("contractor_leads")
-    .update(updates as JsonObject)
+    .update(updates)
     .eq("id", leadId)
     .select()
     .single();
@@ -481,7 +481,7 @@ export async function updateFollowupStatus(
 
   const { data, error } = await supabase
     .from("contractor_followups")
-    .update(updates as JsonObject)
+    .update(updates)
     .eq("id", followupId)
     .select()
     .single();
@@ -506,7 +506,7 @@ export async function cancelPendingFollowups(
 ): Promise<number> {
   let query = supabase
     .from("contractor_followups")
-    .update({ status: "canceled" } as JsonObject)
+    .update({ status: "canceled" } as ContractorFollowupUpdate)
     .eq("contractor_lead_id", leadId)
     .eq("status", "pending");
 
