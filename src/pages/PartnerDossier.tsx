@@ -615,6 +615,11 @@ export default function PartnerDossier() {
         )}
 
         {/* ═══════════════════════════════════════════════════════
+            § 3c — FORENSIC FINDINGS (37+ extracted signals)
+            ═══════════════════════════════════════════════════════ */}
+        <ForensicFindingsPanel extraction={ext} locked={!unlocked} />
+
+        {/* ═══════════════════════════════════════════════════════
             § 4 — ATTACK SURFACE & VULNERABILITIES
             ═══════════════════════════════════════════════════════ */}
         <section className="rounded-xl border border-destructive/20 bg-destructive/[0.03] p-6">
