@@ -138,9 +138,23 @@ const App = () => (
                 {/* ── Admin shell (gated) ── */}
                 <Route path="/admin" element={<AdminAuthGate><AdminDashboard /></AdminAuthGate>} />
                 <Route path="/admin/command-center" element={<AdminAuthGate><AdminDashboard initialTab="mission-control" /></AdminAuthGate>} />
+                {/* ── Tab aliases: mount AdminDashboard with the matching initialTab ── */}
+                <Route path="/admin/launch" element={<AdminAuthGate><AdminDashboard initialTab="launch" /></AdminAuthGate>} />
+                <Route path="/admin/command" element={<AdminAuthGate><AdminDashboard initialTab="command" /></AdminAuthGate>} />
+                <Route path="/admin/pipeline" element={<AdminAuthGate><AdminDashboard initialTab="pipeline" /></AdminAuthGate>} />
+                <Route path="/admin/routing" element={<AdminAuthGate><AdminDashboard initialTab="routing" /></AdminAuthGate>} />
+                <Route path="/admin/ghosts" element={<AdminAuthGate><AdminDashboard initialTab="ghosts" /></AdminAuthGate>} />
+                <Route path="/admin/needs-review" element={<AdminAuthGate><AdminDashboard initialTab="needs-review" /></AdminAuthGate>} />
+                <Route path="/admin/contractors" element={<AdminAuthGate><AdminDashboard initialTab="contractors" /></AdminAuthGate>} />
+                <Route path="/admin/outcomes" element={<AdminAuthGate><AdminDashboard initialTab="outcomes" /></AdminAuthGate>} />
+                <Route path="/admin/attribution" element={<AdminAuthGate><AdminDashboard initialTab="attribution" /></AdminAuthGate>} />
+                <Route path="/admin/dialer" element={<AdminAuthGate><AdminDashboard initialTab="engine" /></AdminAuthGate>} />
                 <Route path="/admin/leads" element={<AdminAuthGate><AdminLeadInbox /></AdminAuthGate>} />
                 <Route path="/admin/leads/:id" element={<AdminAuthGate><AdminLeadDossierPage /></AdminAuthGate>} />
                 <Route path="/admin/settings" element={<AdminAuthGate><AdminSettings /></AdminAuthGate>} />
+                {/* NOTE: /admin/partners = white-label client / Meta pixel management.
+                    Contractor account management lives under the "Contractors" tab (/admin/contractors).
+                    Do not merge these systems. */}
                 <Route path="/admin/partners" element={<AdminAuthGate><AdminPartners /></AdminAuthGate>} />
                 <Route path="/demo-classic" element={<DemoClassic />} />
                 <Route path="/dev/report-preview" element={<DevReportPreview />} />
