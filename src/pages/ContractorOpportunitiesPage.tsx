@@ -617,12 +617,8 @@ export default function ContractorOpportunitiesPage() {
           </div>
         )}
       </main>
+    </>
 
-      {/* ─── Footer ────────────────────────────────────────────── */}
-      <footer className="text-center text-[11px] text-muted-foreground py-8">
-        WindowMan Partner Portal — Contractor Eyes Only
-      </footer>
-    </div>
   );
 }
 
