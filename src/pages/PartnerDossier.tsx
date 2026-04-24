@@ -27,6 +27,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { PreviewModeBadge } from "@/components/PreviewModeBadge";
 import { usePartnerPortal } from "@/components/partner/PartnerPortalContext";
+import { PartnerActionCenter, type PartnerOutcome } from "@/components/partner/PartnerActionCenter";
 
 /* ── tiny helpers ─────────────────────────────────────────────── */
 const fmt = (v: number | null | undefined) =>
