@@ -6,6 +6,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { useCurrentUserRole } from "@/hooks/useCurrentUserRole";
 import { toast } from "sonner";
