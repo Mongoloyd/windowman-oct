@@ -39,7 +39,9 @@ type ActionName =
   | "list_lead_notes" | "create_lead_note" | "delete_lead_note"
   | "list_lead_tasks" | "create_lead_task" | "update_lead_task" | "delete_lead_task"
   // Phase 10 — Human Context Layer
-  | "update_lead_human_context";
+  | "update_lead_human_context"
+  // Phase 26 — Mission Control Truth Strip drilldown
+  | "fetch_quote_evidence" | "fetch_stage_leads";
 
 const ACTION_ROLES: Record<ActionName, AppRole[]> = {
   fetch_leads: ["super_admin", "operator", "viewer"],
@@ -93,6 +95,9 @@ const ACTION_ROLES: Record<ActionName, AppRole[]> = {
   delete_lead_task:         ["super_admin", "operator"],
   // Phase 10
   update_lead_human_context: ["super_admin", "operator"],
+  // Phase 26 — Mission Control Truth Strip drilldown
+  fetch_quote_evidence: ["super_admin", "operator", "viewer"],
+  fetch_stage_leads:    ["super_admin", "operator", "viewer"],
 };
 
 // Allowed funnel stages (Sprint 5 — kept in sync with frontend constants)
