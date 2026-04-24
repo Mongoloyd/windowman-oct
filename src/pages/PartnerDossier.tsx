@@ -145,6 +145,7 @@ interface DossierMeta {
   analysis_id: string;
   lead_id: string | null;
   contractor_id: string | null;
+  opportunity_id?: string | null;
   credit_balance: number;
   already_unlocked: boolean;
   can_unlock: boolean;
