@@ -243,7 +243,7 @@ function buildPreviewData(row: RawPreviewRow): AnalysisData {
   };
 }
 
-function buildFullData(row: RawFullRow): AnalysisData {
+export function buildFullData(row: RawFullRow): AnalysisData {
   const proofOfRead = row.proof_of_read;
   const previewJson = row.preview_json;
   const fullJsonRaw = row.full_json;
