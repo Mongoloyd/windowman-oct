@@ -271,6 +271,7 @@ const TruthGateFlow = ({
   const [selectedOption, setSelectedOption] = useState<string>("");
   const [transitionState, setTransitionState] = useState<TransitionState>("idle");
   const [submitState, setSubmitState] = useState<SubmitState>("idle");
+  const [submitError, setSubmitError] = useState<{ code?: string; message?: string } | null>(null);
   const [fieldStatus, setFieldStatus] = useState<Record<string, FieldStatus>>({
     firstName: "untouched",
     email: "untouched",
