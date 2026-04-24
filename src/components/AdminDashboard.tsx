@@ -119,6 +119,9 @@ function toLeadCRM(raw: Record<string, any>): CRMLead {
     last_call_status: raw.last_call_status ?? null,
     last_call_outcome: raw.last_call_outcome ?? null,
     last_call_summary: raw.last_call_summary ?? null,
+    // Phase 25 — Revenue fields (repo-real on `leads`)
+    deal_value: raw.deal_value ?? null,
+    revenue_amount: raw.revenue_amount ?? null,
   };
 }
 
