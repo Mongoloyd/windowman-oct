@@ -480,12 +480,16 @@ function LostModal({
       setError("Please select a reason.");
       return;
     }
+    const trimmed = notes.trim();
+    if (!trimmed) {
+      setError("A typed loss reason is required.");
+      return;
+    }
     setError(null);
-    const payload: { disposition_reason_code: DispositionReasonCode; notes?: string } = {
+    onSubmit({
       disposition_reason_code: reason,
-    };
-    if (notes.trim()) payload.notes = notes.trim();
-    onSubmit(payload);
+      notes: trimmed,
+    });
   }
 
   return (
@@ -528,16 +532,20 @@ function LostModal({
 
         <div className="space-y-1">
           <label htmlFor="lost-notes" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Notes (optional)
+            What happened? <span className="text-destructive">*</span>
           </label>
           <textarea
             id="lost-notes"
             rows={3}
+            required
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="Context for this loss…"
+            placeholder="Describe what happened with this lead (required)…"
             className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
           />
+          <p className="text-[10px] text-muted-foreground">
+            A typed explanation is required so we can learn from lost deals.
+          </p>
         </div>
 
         {error && (
