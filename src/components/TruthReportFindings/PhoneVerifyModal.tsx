@@ -18,7 +18,13 @@ import { trackGtmEvent } from "@/lib/trackConversion";
 interface PhoneVerifyModalProps {
   open: boolean;
   onClose: () => void;
-  onVerified: () => void;
+  /**
+   * Fires after a successful OTP verify. Receives the SERVER-CANONICAL phone
+   * (E.164) returned by `verify-otp`, which the parent must pass into
+   * `fetchFull(phoneE164)`. Passing the user-typed phone breaks the backend
+   * `phone_verifications` lookup → `__UNAUTHORIZED__`.
+   */
+  onVerified: (phoneE164: string) => void;
   issueCount: number;
   scanSessionId?: string | null;
 }
@@ -65,16 +71,21 @@ export function PhoneVerifyModal({ open, onClose, onVerified, issueCount, scanSe
       setStep("otp");
       return;
     }
+    // Canonical phone handoff: ALWAYS pass the server-returned phone_e164.
+    // Using the locally-typed `e164` would risk normalization drift between
+    // the browser's input and the row stored by `verify-otp`, breaking the
+    // `phone_verifications` lookup in `fetchFull` (→ `__UNAUTHORIZED__`).
+    const canonicalPhone = result.data.phone_e164;
     trackGtmEvent("otp_verified", {
       scan_session_id: scanSessionId || undefined,
-      phone_e164_last4: e164 ? e164.slice(-4) : undefined,
+      phone_e164_last4: canonicalPhone ? canonicalPhone.slice(-4) : undefined,
       source: "modal",
     });
     trackGtmEvent("report_revealed", {
       scan_session_id: scanSessionId || undefined,
       source: "modal",
     });
-    onVerified();
+    onVerified(canonicalPhone);
   };
 
   const handleReset = () => {
