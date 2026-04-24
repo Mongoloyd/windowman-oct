@@ -119,3 +119,38 @@ export const EVENTS = {
   MANIFESTO_SECTION_VIEWED: 'manifesto_section_viewed',
   MANIFESTO_PAGE_OPENED: 'manifesto_page_opened',
 } as const;
+
+// ── Disposition states (partner CRM workflow) ──
+export const DISPOSITION_STATE = {
+  NEW: 'new',
+  ATTEMPTING_CONTACT: 'attempting_contact',
+  MEETING_SCHEDULED: 'meeting_scheduled',
+  QUOTE_DELIVERED: 'quote_delivered',
+  SOLD_CLOSED: 'sold_closed',
+  LOST_DEAD: 'lost_dead',
+} as const;
+
+export type DispositionState = typeof DISPOSITION_STATE[keyof typeof DISPOSITION_STATE];
+
+// ── Disposition reason codes (required when lost_dead) ──
+export const DISPOSITION_REASON_CODE = {
+  PRICE_TOO_HIGH: 'price_too_high',
+  CHOSE_COMPETITOR: 'chose_competitor',
+  NO_LONGER_INTERESTED: 'no_longer_interested',
+  UNRESPONSIVE: 'unresponsive',
+  PROJECT_CANCELED: 'project_canceled',
+  OUT_OF_SERVICE_AREA: 'out_of_service_area',
+  OTHER: 'other',
+} as const;
+
+export type DispositionReasonCode = typeof DISPOSITION_REASON_CODE[keyof typeof DISPOSITION_REASON_CODE];
+
+// ── Legal disposition state transitions ──
+export const DISPOSITION_TRANSITIONS: Record<DispositionState, DispositionState[]> = {
+  new: ['attempting_contact', 'lost_dead'],
+  attempting_contact: ['meeting_scheduled', 'lost_dead'],
+  meeting_scheduled: ['quote_delivered', 'lost_dead'],
+  quote_delivered: ['sold_closed', 'lost_dead'],
+  sold_closed: [],
+  lost_dead: [],
+};
