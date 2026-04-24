@@ -92,9 +92,11 @@ function audit(
   evt: Omit<AuditEvent, "ts" | "fn">,
 ): void {
   const fullEvt: AuditEvent = {
+    ...evt,
     ts: new Date().toISOString(),
     fn: FUNCTION_NAME,
-    ...evt,
+    stage: evt.stage,
+    status: evt.status,
   };
 
   if (evt.status === "failed") {
