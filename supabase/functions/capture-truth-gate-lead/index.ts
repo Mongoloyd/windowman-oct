@@ -123,7 +123,14 @@ function parseAndValidate(input: unknown):
     };
   }
 
-  const email = asRequiredString(b.email, 255)?.toLowerCase() ?? null;
+  const rawEmail = asRequiredString(b.email, 255);
+  const email = rawEmail ? rawEmail.toLowerCase() : null;
+  console.log("[capture-truth-gate-lead] email check", {
+    raw_typeof: typeof b.email,
+    raw_email: b.email,
+    parsed: email,
+    re_test: email ? EMAIL_RE.test(email) : null,
+  });
   if (!email || !EMAIL_RE.test(email)) {
     return {
       ok: false,
