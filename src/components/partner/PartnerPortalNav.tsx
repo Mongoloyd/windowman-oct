@@ -1,16 +1,21 @@
 /**
  * PartnerPortalNav — primary nav strip for the partner portal.
  *
- * Mirrors the AdminPrimaryTabs visual pattern (rounded muted strip,
- * shadcn-style active state) so the partner shell feels native to the
- * existing admin/SaaS surface rather than a separate app.
+ * Layout:
+ *   [ Opportunity Market ]              ........  [ Support ] [ Sign Out ]
+ *
+ * Multi-tenant note: there are NO client/tenant IDs in any of these URLs.
+ * Partner scoping is enforced server-side via RLS keyed on auth.uid().
  *
  * Dossier is intentionally NOT a primary nav item — it's a child detail
- * view reached from the Opportunity Market.
+ * view reached from the Opportunity Market. Its active state is folded
+ * into the Opportunity Market tab via `matchPrefixes`.
  */
 
 import { Link, useLocation } from "react-router-dom";
-import { LayoutGrid, LifeBuoy } from "lucide-react";
+import { LayoutGrid, LifeBuoy, LogOut } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface NavItem {
   to: string;
@@ -39,6 +44,18 @@ const TAB_CLASSES = [
 export function PartnerPortalNav() {
   const location = useLocation();
 
+  const handleSignOut = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error("[PartnerPortalNav] signOut error:", err);
+      toast.error("Sign out failed. Please try again.");
+      return;
+    }
+    // Hard nav so all in-memory partner state (queries, contexts) is dropped.
+    window.location.href = "/partner/login";
+  };
+
   return (
     <nav
       aria-label="Partner portal"
@@ -65,14 +82,27 @@ export function PartnerPortalNav() {
         );
       })}
 
-      <a
-        href="mailto:partners@windowman.pro"
-        className={`${TAB_CLASSES} ml-auto`}
-        data-state="inactive"
-      >
-        <LifeBuoy className="h-3.5 w-3.5" aria-hidden />
-        <span className="truncate">Support</span>
-      </a>
+      {/* Right-aligned utility cluster */}
+      <div className="ml-auto flex items-center gap-1">
+        <a
+          href="mailto:partners@windowman.pro"
+          className={TAB_CLASSES}
+          data-state="inactive"
+        >
+          <LifeBuoy className="h-3.5 w-3.5" aria-hidden />
+          <span className="truncate">Support</span>
+        </a>
+        <button
+          type="button"
+          onClick={handleSignOut}
+          className={TAB_CLASSES}
+          data-state="inactive"
+          aria-label="Sign out of partner portal"
+        >
+          <LogOut className="h-3.5 w-3.5" aria-hidden />
+          <span className="truncate">Sign Out</span>
+        </button>
+      </div>
     </nav>
   );
 }

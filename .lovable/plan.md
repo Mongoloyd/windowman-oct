@@ -1,67 +1,80 @@
 
+## Partner Portal Sitemap (what exists today)
 
-## Hotfix: Resolve TS2345 type-drift in 5 Supabase mutation call sites
+Every `/partner/*` route already in `src/App.tsx`:
 
-### Root cause (analysis)
+```text
+PUBLIC (no PartnerLayout, no auth required)
+  /partner/login                 → ContractorLogin.tsx        Sign in / request access
+  /partner/reset-password        → PartnerResetPassword.tsx   Password reset landing
+  /partner/accept-invite?token=  → AcceptInvite.tsx           One-time invite redemption
+  /partner/onboarding            → ContractorOnboarding.tsx   Routing/territory wizard
+                                                              (only shown right after invite accept
+                                                               or from approval modal)
 
-Supabase's generated `Database` types use `RejectExcessProperties<ExactShape, Provided>`. This intersects `Provided` with `{ [x: string]: never }` to forbid unknown columns. Any payload typed with an **index signature** (`Record<string, any>`, `JsonObject = Record<string, unknown>`) collapses to `never` per-key under that intersection → "string index signatures are incompatible".
-
-Casting to `JsonObject` made the problem *worse* than passing the raw typed object, because `ContractorLeadUpdate` and `ContractorFollowupUpdate` are already the correct exact-shape types.
-
-### Why prior fix failed
-
-Lines 267, 484, 509 cast a perfectly valid `ContractorLeadUpdate` / `ContractorFollowupUpdate` to `JsonObject` — discarding the exact shape and triggering the index-signature rejection. The cast is pure noise; removing it fixes those three errors.
-
-Lines 205, 209 in `AdminPartners.tsx` build `metaPayload` as `Record<string, any>`, which hits the same index-signature wall.
-
-### The fix (5 surgical edits, types only)
-
-**`src/lib/contractors2/service.ts`**
-
-| Line | Before | After |
-|------|--------|-------|
-| 267  | `.update(updates as JsonObject)` | `.update(updates)` |
-| 484  | `.update(updates as JsonObject)` | `.update(updates)` |
-| 509  | `.update({ status: "canceled" } as JsonObject)` | `.update({ status: "canceled" satisfies ContractorFollowupStatus } as ContractorFollowupUpdate)` |
-
-`updates` already has type `ContractorLeadUpdate` / `ContractorFollowupUpdate` — these *are* the Supabase-generated exact-shape Update types re-exported via `@/types/contractorLead`. Removing the bad cast restores the exact shape and the compiler accepts it.
-
-**`src/pages/AdminPartners.tsx`**
-
-Replace the `Record<string, any>` declaration with the generated Supabase `Update` type (which is structurally compatible with the `Insert` call site on line 209 because all fields used are also valid Insert columns):
-
-```ts
-type MetaConfigUpdate = Database['public']['Tables']['meta_configurations']['Update'];
-const metaPayload: MetaConfigUpdate = {
-  client_id: clientId,
-  pixel_id: sanitize(pixelId),
-  test_event_code: testEventCode.trim() ? sanitize(testEventCode) : null,
-};
+IN-PORTAL (wrapped by PartnerLayout — header + PartnerPortalNav + Outlet)
+  /partner/opportunities         → ContractorOpportunitiesPage.tsx   Lead market (the home)
+  /partner/dossier/:id?          → PartnerDossier.tsx                Per-lead intelligence detail
 ```
 
-Then on line 209, the insert path needs the `Insert` shape — cast at the call site:
-```ts
-.insert(metaPayload as Database['public']['Tables']['meta_configurations']['Insert'])
-```
+Identity model (from `usePartnerAuth.ts`): a logged-in partner is one `auth.users` row linked 1:1 to a `contractor_profiles` row (`status='active'`). Everything they see is filtered server-side by `auth.uid()` via RLS — there are no client-specific URLs, no `/partner/:tenantId/...` segments. That's correct and stays that way.
 
-This is safe because every field assigned (`client_id`, `pixel_id`, `test_event_code`, optional `access_token`) exists on the Insert type.
+So a **logged-in partner today** has exactly two product surfaces they navigate between:
 
-### Simulation — does this eliminate the error?
+1. **Opportunity Market** (`/partner/opportunities`) — the list of leads available to them
+2. **Lead Dossier** (`/partner/dossier/:id`) — the detail view for one lead, reached by clicking a card in the market
 
-**Yes.** Reasoning:
+Everything else (`login`, `reset-password`, `accept-invite`, `onboarding`) is a **pre-portal flow** — a partner only sees those once and should never need a nav link to them.
 
-1. **Lines 267/484** — `ContractorLeadUpdate` / `ContractorFollowupUpdate` are imported from `@/types/contractorLead`, which mirrors the Supabase generated `Update` shape. They have no index signature. `RejectExcessProperties<Exact, ContractorLeadUpdate>` reduces to `ContractorLeadUpdate` (no excess keys to reject). ✅
-2. **Line 509** — `{ status: "canceled" }` cast to `ContractorFollowupUpdate` is a single known column on the exact Update shape — no index signature, no rejection. ✅
-3. **Lines 205/209** — Replacing `Record<string, any>` with the generated `Update`/`Insert` types removes the `[x: string]: any` index signature that triggers `Type 'any' is not assignable to type 'never'`. ✅
+---
 
-**Logic preserved:** zero runtime changes. Only static type annotations / removed casts.
+## What's missing right now
 
-**Risk of regression:** none — if any previously-tolerated extra field existed on `metaPayload`, the compiler will now correctly flag it (which is the desired outcome under WindowMan's "fail-closed" rule).
+The `PartnerPortalNav` only exposes one tab ("Opportunity Market") plus a `mailto:` Support link. That's fine for the current product surface, BUT:
 
-### Files changed
+- From inside a **Dossier**, there is no nav-level "← back to Market" affordance other than the (already-active) top tab.
+- There is no surfaced **Account / Sign Out** control inside the portal shell — once logged in, the only way to sign out is to manually visit `/partner/login`.
+- The brand logo links to `/partner/opportunities` but that isn't obvious.
 
-- `src/lib/contractors2/service.ts` (3 line edits, no imports added)
-- `src/pages/AdminPartners.tsx` (1 type alias + 2 line edits, add `Database` import from `@/integrations/supabase/types` if not already present)
+These are the only real navigation gaps for a logged-in partner.
 
-No service / RLS / edge-function / migration changes. No new files. No deletions.
+---
 
+## Proposed changes (UI-only, no new routes, no backend)
+
+### 1. `src/components/partner/PartnerPortalNav.tsx`
+Keep the single primary tab (Opportunity Market) — it correctly stays highlighted on `/partner/dossier/*` thanks to the existing `matchPrefixes` logic. Add two right-aligned utility items so partners always have an exit and a help channel:
+
+- **Support** — keep existing `mailto:partners@windowman.pro`
+- **Sign Out** — new button; calls `supabase.auth.signOut()` then `window.location.href = "/partner/login"`
+
+(No "Account Settings" page exists yet, so we will not add a dead link. If/when one is built, it slots in here.)
+
+### 2. `src/pages/PartnerDossier.tsx` (small addition only)
+Add a single "← Back to Opportunity Market" link at the top of the dossier body (under the layout header), using `<Link to="/partner/opportunities">`. This matches the existing subpage-navigation memory pattern (`mem://layout/subpage-navigation-patterns`) used elsewhere in the admin/partner shells.
+
+### 3. No changes to
+- `App.tsx` routes (sitemap is complete for the current product scope)
+- `PartnerLayout.tsx` chrome (header already correct)
+- `usePartnerAuth.ts` / RLS / any edge function
+- The pre-portal pages (`login`, `reset-password`, `accept-invite`, `onboarding`)
+
+---
+
+## Multi-tenant safety confirmation
+
+- No client/tenant ID is added to any URL — partner scoping stays 100% server-side via `contractor_profiles.id = auth.uid()` and the existing RLS policies on `contractor_credits`, `contractor_unlocked_leads`, `contractor_opportunity_routes`, etc.
+- Sign Out simply clears the Supabase session; the next request to any `/partner/*` in-portal route will be re-evaluated by the existing auth check.
+- No new data fetches, no new tables, no schema changes.
+
+---
+
+## Definition of Done
+
+- [ ] Logged-in partner on `/partner/opportunities` sees: Opportunity Market (active), Support, Sign Out.
+- [ ] Logged-in partner on `/partner/dossier/:id` sees: Opportunity Market (still active), Support, Sign Out, **and** a "← Back to Opportunity Market" link inside the page body.
+- [ ] Sign Out returns the user to `/partner/login` with no session.
+- [ ] No new routes added; no backend, RLS, edge function, or auth logic touched.
+- [ ] `npm run typecheck` passes.
+
+Approve and I'll switch to default mode and implement the two file edits above.
