@@ -271,6 +271,7 @@ const TruthGateFlow = ({
   const [selectedOption, setSelectedOption] = useState<string>("");
   const [transitionState, setTransitionState] = useState<TransitionState>("idle");
   const [submitState, setSubmitState] = useState<SubmitState>("idle");
+  const [submitError, setSubmitError] = useState<{ code?: string; message?: string } | null>(null);
   const [fieldStatus, setFieldStatus] = useState<Record<string, FieldStatus>>({
     firstName: "untouched",
     email: "untouched",
@@ -370,6 +371,7 @@ const TruthGateFlow = ({
     if (!nameValid || !emailValid || !phoneValid) return;
 
     setSubmitState("submitting");
+    setSubmitError(null);
 
     try {
       const sessionId = crypto.randomUUID();
@@ -424,7 +426,8 @@ const TruthGateFlow = ({
           ? `${window.location.pathname}${window.location.search}`
           : null);
 
-      const { error } = await supabase.from("leads").insert({
+      // Build the full intake payload as a named object for clean diagnostics.
+      const leadInsertPayload = {
         session_id: sessionId,
         first_name: answers.firstName,
         email: answers.email,
@@ -449,9 +452,44 @@ const TruthGateFlow = ({
         landing_page_url: landingPageUrl,
         first_page_path: utm.landing_page,
         initial_referrer: typeof document !== "undefined" ? document.referrer || null : null,
-      });
+      };
 
-      if (error) throw error;
+      // Route through the dedicated edge function. This avoids the
+      // anon-vs-authenticated RLS mismatch on `public.leads` (browser sessions
+      // can carry an admin/operator JWT, which previously caused a 42501).
+      const { data: captureData, error: captureError } = await supabase.functions.invoke(
+        "capture-truth-gate-lead",
+        { body: leadInsertPayload },
+      );
+
+      if (captureError || !captureData?.success) {
+        const errBody = (captureData ?? {}) as {
+          code?: string;
+          message?: string;
+          details?: unknown;
+          hint?: string;
+        };
+        const code = errBody.code || captureError?.name || "lead_capture_failed";
+        const message =
+          errBody.message ||
+          captureError?.message ||
+          "Lead capture failed.";
+
+        // Structured non-PII diagnostic
+        console.error("[TruthGateFlow] leads capture failed", {
+          code,
+          message,
+          details: errBody.details ?? null,
+          hint: errBody.hint ?? null,
+          payload_keys: Object.keys(leadInsertPayload),
+          has_phone: !!phoneE164,
+          has_client_slug: !!effectiveClientSlug,
+          session_id: sessionId,
+        });
+
+        setSubmitError({ code, message });
+        throw new Error(message);
+      }
 
       if (funnel) {
         funnel.setSessionId(sessionId);
@@ -462,21 +500,9 @@ const TruthGateFlow = ({
         }
       }
 
-      supabase
-        .from("event_logs")
-        .insert({
-          event_name: phoneE164 ? "lead_captured_with_phone" : "lead_captured_no_phone",
-          session_id: sessionId,
-          metadata: {
-            first_name: answers.firstName,
-            county: answers.county,
-            has_phone: !!phoneE164,
-            timestamp: new Date().toISOString(),
-          },
-        })
-        .then(({ error: evtErr }) => {
-          if (evtErr) console.warn("event_log insert failed:", evtErr);
-        });
+      // Note: success telemetry is written server-side by the edge function.
+      // No browser-side event_logs insert here — it would race with the
+      // anon-only RLS policy when an admin/operator session is present.
 
       setSubmitState("success");
       onLeadCaptured?.(sessionId);
@@ -497,22 +523,9 @@ const TruthGateFlow = ({
         });
     } catch (err) {
       console.error("Lead capture error:", err);
-
-      supabase
-        .from("event_logs")
-        .insert({
-          event_name: "lead_capture_failed",
-          session_id: funnel?.sessionId || null,
-          metadata: {
-            error_message: err instanceof Error ? err.message : String(err),
-            stage: "lead_capture",
-            timestamp: new Date().toISOString(),
-          },
-        })
-        .then(({ error: evtErr }) => {
-          if (evtErr) console.warn("event_log insert failed:", evtErr);
-        });
-
+      // Failure telemetry is written server-side by the edge function when
+      // the request reaches it; if the request itself failed we deliberately
+      // do not retry from the browser to avoid RLS noise.
       setSubmitState("error");
     }
   };
@@ -757,6 +770,14 @@ const TruthGateFlow = ({
             )}
             {submitState === "error" && "Something went wrong — Try Again"}
           </motion.button>
+
+          {/* Dev/preview-only diagnostic. Production users still see only the
+              generic error copy on the button above. */}
+          {submitState === "error" && import.meta.env.DEV && submitError && (
+            <p className="font-mono text-xs text-orange-500 mt-2 text-center break-words">
+              [{submitError.code || "error"}] {submitError.message || "Lead capture failed."}
+            </p>
+          )}
         </form>
 
         <p className="font-body text-wm-body-soft text-muted-foreground leading-relaxed text-center mt-4">
