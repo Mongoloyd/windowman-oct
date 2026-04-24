@@ -206,8 +206,9 @@ describe("phoneVerificationService — Sprint 1: send-otp contract hardening", (
     const r = await sendOtp("+13055551234");
     expect(r.ok).toBe(false);
     if (!r.ok) {
-      expect(r.errorCode).toBe("rate_limit");
-      expect(r.message.length).toBeGreaterThan(0);
+      const err = r as OtpServiceErr;
+      expect(err.errorCode).toBe("rate_limit");
+      expect(err.message.length).toBeGreaterThan(0);
     }
   });
 
@@ -226,7 +227,7 @@ describe("phoneVerificationService — Sprint 1: send-otp contract hardening", (
     });
     const r = await sendOtp("+13055551234");
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.errorCode).toBe("blocked_prefix");
+    if (!r.ok) expect((r as OtpServiceErr).errorCode).toBe("blocked_prefix");
   });
 
   it("expired_session via 'expired' message → errorCode='expired_session'", async () => {
@@ -241,7 +242,7 @@ describe("phoneVerificationService — Sprint 1: send-otp contract hardening", (
     });
     const r = await sendOtp("+13055551234");
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.errorCode).toBe("expired_session");
+    if (!r.ok) expect((r as OtpServiceErr).errorCode).toBe("expired_session");
   });
 
   it("context.json() throws → falls back cleanly to errorCode='generic' (no unhandled rejection)", async () => {
@@ -257,8 +258,9 @@ describe("phoneVerificationService — Sprint 1: send-otp contract hardening", (
     const r = await sendOtp("+13055551234");
     expect(r.ok).toBe(false);
     if (!r.ok) {
-      expect(r.errorCode).toBe("generic");
-      expect(r.message.length).toBeGreaterThan(0);
+      const err = r as OtpServiceErr;
+      expect(err.errorCode).toBe("generic");
+      expect(err.message.length).toBeGreaterThan(0);
     }
   });
 
@@ -267,8 +269,9 @@ describe("phoneVerificationService — Sprint 1: send-otp contract hardening", (
     const r = await sendOtp("+13055551234");
     expect(r.ok).toBe(false);
     if (!r.ok) {
-      expect(r.errorCode).toBe("generic");
-      expect(r.message.length).toBeGreaterThan(0);
+      const err = r as OtpServiceErr;
+      expect(err.errorCode).toBe("generic");
+      expect(err.message.length).toBeGreaterThan(0);
     }
   });
 
@@ -276,7 +279,7 @@ describe("phoneVerificationService — Sprint 1: send-otp contract hardening", (
     mockInvoke.mockRejectedValue(new Error("fetch failed"));
     const r = await sendOtp("+13055551234");
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.errorCode).toBe("network");
+    if (!r.ok) expect((r as OtpServiceErr).errorCode).toBe("network");
   });
 
   it("no hidden retries: invokes exactly once even after 60s of fake timers", async () => {
@@ -287,10 +290,15 @@ describe("phoneVerificationService — Sprint 1: send-otp contract hardening", (
     expect(mockInvoke).toHaveBeenCalledTimes(1);
   });
 
-  it("type-safety: sendOtp return type is OtpServiceResult<{ success: true }>", () => {
-    expectTypeOf(sendOtp).returns.resolves.toEqualTypeOf<
-      OtpServiceResult<{ success: true }>
+  it("type-safety: sendOtp success branch returns { success: true }", () => {
+    type S = Awaited<ReturnType<typeof sendOtp>>;
+    type Ok = Extract<S, { ok: true }>;
+    type Err = Extract<S, { ok: false }>;
+    expectTypeOf<Ok["data"]>().toEqualTypeOf<{ success: true }>();
+    expectTypeOf<Err["errorCode"]>().toEqualTypeOf<
+      "rate_limit" | "blocked_prefix" | "expired_session" | "invalid_code" | "network" | "generic"
     >();
+    expectTypeOf<Err["message"]>().toEqualTypeOf<string>();
   });
 });
 
