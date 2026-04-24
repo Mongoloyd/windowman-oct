@@ -736,10 +736,12 @@ function resolveUnlockState(opp: Opportunity, meta: Meta | null): UnlockState {
 function OpportunityCard({
   opp,
   meta,
+  isPreview,
   navigate,
 }: {
   opp: Opportunity;
   meta: Meta | null;
+  isPreview: boolean;
   navigate: (path: string) => void;
 }) {
   const bss = getBuyerSeriousness(opp);
@@ -752,10 +754,19 @@ function OpportunityCard({
   const freshness = formatRelativeTime(opp.created_at);
   const unlockIncludes = getUnlockIncludes();
   const creditCostLine = getCreditCostLine(opp, meta);
+  // Competition/exclusivity — only when explicit fields exist (anti-fake-scarcity)
+  const competition = getCompetitionSignal(opp, isPreview);
 
   const unlockState = resolveUnlockState(opp, meta);
   const isReportOnly = opp.handoff_consent_status === "report_only";
   const locationLabel = [opp.city, opp.county].filter(Boolean).join(", ") || "Florida";
+
+  const COMPETITION_TONE: Record<CompetitionTone, string> = {
+    exclusive: "bg-violet-50 text-violet-700 border-violet-200",
+    warm: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    competitive: "bg-amber-50 text-amber-800 border-amber-200",
+    muted: "bg-muted text-muted-foreground border-border",
+  };
 
   // CTA copy + tone per state (no transactional language unless safely backed)
   const ctaConfig: { label: string; tone: "primary" | "success" | "muted" | "warning" } =
