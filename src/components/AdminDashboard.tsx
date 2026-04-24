@@ -262,6 +262,16 @@ function DashboardContent() {
           needsReviewCount={needsReview.length}
         />
 
+          <TabsContent value="mission-control" className="w-full px-2 sm:px-6 pt-4">
+            <MasterCommandCenter
+              leads={leads}
+              deliveries={deliveries}
+              ghosts={ghosts}
+              needsReviewCount={needsReview.length}
+              onNavigateTab={setActiveTab}
+            />
+          </TabsContent>
+
           <TabsContent value="surface-map" className="w-full px-2 sm:px-6 pt-4">
             <AdminInformationArchitectureNavigationSimplificationSurface
               onNavigateTab={setActiveTab}
