@@ -19,7 +19,13 @@ import { peekDevSecret } from "@/lib/devSecret";
 
 interface VerifyGateProps {
   issueCount: number;
-  onVerified: () => void;
+  /**
+   * Fires after a successful OTP verify. Receives the SERVER-CANONICAL phone
+   * (E.164) returned by `verify-otp`, which the parent must pass into
+   * `fetchFull(phoneE164)`. Passing the user-typed phone breaks the backend
+   * `phone_verifications` lookup → `__UNAUTHORIZED__`.
+   */
+  onVerified: (phoneE164: string) => void;
   scanSessionId?: string | null;
 }
 
@@ -53,7 +59,9 @@ export function VerifyGate({ issueCount, onVerified, scanSessionId }: VerifyGate
   useEffect(() => {
     if (devBypassActive) {
       console.info("[VerifyGate] 🔓 DEV BYPASS — skipping OTP send/verify");
-      onVerified();
+      // Dev bypass short-circuits OTP entirely; downstream `fetchFull` is
+      // gated by `peekDevSecret()` in `useAnalysisData`, so phone is unused.
+      onVerified("");
     }
   }, [devBypassActive, onVerified]);
 
@@ -151,14 +159,19 @@ export function VerifyGate({ issueCount, onVerified, scanSessionId }: VerifyGate
         }, 600);
         return;
       }
+      // Canonical phone handoff: ALWAYS pass the server-returned phone_e164.
+      // Using the locally-typed `e164` would risk normalization drift between
+      // the browser's input and the row stored by `verify-otp`, breaking the
+      // `phone_verifications` lookup in `fetchFull` (→ `__UNAUTHORIZED__`).
+      const canonicalPhone = result.data.phone_e164;
       trackGtmEvent("otp_verified", {
         scan_session_id: scanSessionId || undefined,
-        phone_e164_last4: e164 ? e164.slice(-4) : undefined,
+        phone_e164_last4: canonicalPhone ? canonicalPhone.slice(-4) : undefined,
       });
       trackGtmEvent("report_revealed", {
         scan_session_id: scanSessionId || undefined,
       });
-      onVerified();
+      onVerified(canonicalPhone);
     } finally {
       verifyLockRef.current = false;
     }
