@@ -1,0 +1,73 @@
+# Edge Functions Deno Lint + Format Guardrail
+#
+# Fails the build if ANY file under supabase/functions/ violates
+# `deno lint` or `deno fmt --check`.
+#
+# Scope: lint + format only. No deploy, no runtime behavior change,
+# no policy change. Pairs with edge-functions-typecheck.yml which
+# enforces `deno check` over the same surface.
+#
+# Why both lint AND fmt:
+#   - `deno lint`   → catches code-quality issues (unused vars, no-explicit-any
+#                     escapes, etc.) that have historically masked real defects
+#                     in the public funnel functions.
+#   - `deno fmt --check` → enforces consistent formatting so diffs in the
+#                     hardened funnel functions (capture-truth-gate-lead,
+#                     start-upload-scan-session, scan-quote, send-otp,
+#                     verify-otp) stay reviewable.
+#
+# Test files (*.test.ts) are included — they are part of the source tree.
+
+name: Edge Functions Deno Lint + Format
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/functions/**"
+      - "deno.json"
+      - ".github/workflows/edge-functions-lint.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "supabase/functions/**"
+      - "deno.json"
+      - ".github/workflows/edge-functions-lint.yml"
+
+jobs:
+  deno-lint-fmt:
+    name: deno lint + fmt supabase/functions
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+
+      - name: deno lint (strict)
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Running deno lint over supabase/functions/..."
+          # `deno lint` exits non-zero on any violation. Compact reporter
+          # gives one-line-per-issue output that GitHub renders cleanly.
+          deno lint --compact supabase/functions/
+
+      - name: deno fmt --check (strict)
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Running deno fmt --check over supabase/functions/..."
+          # `deno fmt --check` exits non-zero if any file would be
+          # reformatted. It does NOT modify files in CI.
+          if ! deno fmt --check supabase/functions/; then
+            echo ""
+            echo "❌ Formatting violations found."
+            echo "   Run locally: deno fmt supabase/functions/"
+            exit 1
+          fi
+          echo "✅ All Edge Function files pass deno lint + deno fmt."
