@@ -557,14 +557,41 @@ export default function ContractorOpportunitiesPage() {
           <StatCard icon={<CreditCard className="h-4 w-4 text-violet-600" />} label="Credits" value={meta?.credit_balance ?? 0} />
         </div>
 
-        {/* ─── Filters ─────────────────────────────────────────── */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-1 bg-muted rounded-lg border p-1">
+        {/* ─── Tactical buying-logic explainer (compact, dashboard-native) ── */}
+        <div
+          className="rounded-lg border bg-muted/40 px-4 py-3"
+          aria-label="How to use Best Unlock"
+        >
+          <p className="text-xs sm:text-sm text-foreground">
+            <span className="font-semibold">Use Best Unlock</span> to prioritize verified, urgent,
+            warm-handoff leads — not just bad competitor quotes.
+          </p>
+          <p className="text-[11px] text-muted-foreground mt-1">
+            Best Unlock ranks opportunities by buyer seriousness, urgency, handoff warmth, and
+            project value.
+            {isPreview && (
+              <span className="ml-1 italic">
+                Preview data uses sample credit signals for demonstration.
+              </span>
+            )}
+          </p>
+        </div>
+
+        {/* ─── Filters & Sort ─────────────────────────────────────── */}
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div
+            className="flex items-center gap-1 bg-muted rounded-lg border p-1 overflow-x-auto max-w-full"
+            role="tablist"
+            aria-label="Opportunity filter"
+          >
             {FILTER_TABS.map((tab) => (
               <button
                 key={tab.key}
+                type="button"
+                role="tab"
+                aria-selected={activeFilter === tab.key}
                 onClick={() => setActiveFilter(tab.key)}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all whitespace-nowrap focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                   activeFilter === tab.key
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
@@ -577,11 +604,13 @@ export default function ContractorOpportunitiesPage() {
 
           {uniqueCounties.length > 1 && (
             <div className="flex items-center gap-2">
-              <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+              <Filter className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+              <label className="sr-only" htmlFor="county-filter">Filter by county</label>
               <select
+                id="county-filter"
                 value={countyFilter}
                 onChange={(e) => setCountyFilter(e.target.value)}
-                className="bg-background border rounded-md text-xs px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
+                className="bg-background border rounded-md text-xs px-2 py-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 aria-label="Filter by county"
               >
                 <option value="">All Counties</option>
@@ -593,11 +622,17 @@ export default function ContractorOpportunitiesPage() {
           )}
 
           <div className="flex items-center gap-2">
-            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Sort</span>
+            <label
+              htmlFor="sort-mode"
+              className="text-[10px] uppercase tracking-widest text-muted-foreground"
+            >
+              Sort
+            </label>
             <select
+              id="sort-mode"
               value={sortMode}
               onChange={(e) => setSortMode(e.target.value as SortMode)}
-              className="bg-background border rounded-md text-xs px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
+              className="bg-background border rounded-md text-xs px-2 py-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               aria-label="Sort opportunities"
             >
               {SORT_OPTIONS.map((s) => (
@@ -606,34 +641,47 @@ export default function ContractorOpportunitiesPage() {
             </select>
           </div>
 
-          <span className="text-xs text-muted-foreground ml-auto">
+          <span className="text-xs text-muted-foreground sm:ml-auto whitespace-nowrap">
             Showing {sortedOpportunities.length} of {totalCount}
           </span>
         </div>
 
-        {/* Tactical microcopy */}
-        <p className="text-xs text-muted-foreground -mt-2">
-          Sort by <span className="font-medium text-foreground">Best Unlock</span> to prioritize
-          verified, urgent, warm-handoff leads — not just bad competitor quotes.
-        </p>
-
         {/* ─── Opportunity List ─────────────────────────────────── */}
         {sortedOpportunities.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <Search className="h-12 w-12 text-muted-foreground/40 mb-4" />
-            <h3 className="text-lg font-semibold text-muted-foreground mb-1">
-              {totalCount === 0 ? "No opportunities yet" : "No matches for current filter"}
+          <div className="flex flex-col items-center justify-center py-16 sm:py-20 text-center px-4">
+            <Search className="h-12 w-12 text-muted-foreground/40 mb-4" aria-hidden />
+            <h3 className="text-base sm:text-lg font-semibold text-muted-foreground mb-1">
+              {totalCount === 0 ? "No opportunities yet" : "No matches for current filters"}
             </h3>
             <p className="text-sm text-muted-foreground max-w-md">
               {totalCount === 0
-                ? "When homeowners scan their quotes and match your service area, opportunities will appear here."
-                : "Try adjusting your filters to see more opportunities."}
+                ? "When homeowners in your territory scan quotes and match your service profile, opportunities will appear here."
+                : "Clear filters or switch back to Best Unlock to see more leads."}
             </p>
+            {totalCount > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveFilter("all");
+                  setCountyFilter("");
+                  setSortMode("best_unlock");
+                }}
+                className="mt-4 px-4 py-2 rounded-md bg-muted border text-xs font-medium text-foreground hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
+              >
+                Reset filters
+              </button>
+            )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-3 sm:gap-4">
             {sortedOpportunities.map((opp) => (
-              <OpportunityCard key={opp.opportunity_id} opp={opp} meta={meta} navigate={navigate} />
+              <OpportunityCard
+                key={opp.opportunity_id}
+                opp={opp}
+                meta={meta}
+                isPreview={isPreview}
+                navigate={navigate}
+              />
             ))}
           </div>
         )}
