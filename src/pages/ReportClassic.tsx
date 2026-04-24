@@ -546,6 +546,7 @@ export default function ReportClassic() {
       flagRedCount={analysisData.flagRedCount}
       flagAmberCount={analysisData.flagAmberCount}
       onContractorMatchClick={handleContractorMatchClick}
+      onStartDiagnosisFlow={handleStartDiagnosisFlow}
       onReportHelpCall={handleReportHelpCall}
       onSecondScan={handleSecondScan}
       gateProps={accessLevel === "preview" ? gateProps : undefined}
