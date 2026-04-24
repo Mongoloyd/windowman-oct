@@ -147,18 +147,7 @@ function toneForStatus(status: ReadinessStatus) {
   };
 }
 
-/* ─── Truth Strip types ──────────────────────────────────────────────── */
-type Scope = "today" | "7d" | "all";
-
-interface StageMetric {
-  count: number;
-  prevCount: number;
-  delta: number;
-  deltaPct: number | null; // null when prior window is empty (no baseline)
-  convPct: number | null;  // null for the baseline (Captured)
-}
-type StageKey = "captured" | "verified" | "scanned" | "routed" | "booked" | "closed";
-type FunnelMetrics = Record<StageKey, StageMetric>;
+/* ─── Truth Strip types — imported from funnelMetrics (canonical engine) ─ */
 
 /* ─── KPI tile (interactive, glass) ──────────────────────────────────── */
 interface KpiTileProps {
