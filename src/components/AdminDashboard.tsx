@@ -178,6 +178,15 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
   const [activeTab, setActiveTab] = useState<string>(initialTab ?? "mission-control");
+
+  // Route-reactive sync: when a parent route remounts this component with a new
+  // `initialTab` (e.g. navigating /admin/launch → /admin/pipeline) React may reuse
+  // the same instance. Mirror prop changes into local state so the visible tab
+  // tracks the URL alias.
+  useEffect(() => {
+    if (initialTab) setActiveTab(initialTab);
+  }, [initialTab]);
+
   const [, setTick] = useState(0); // force re-render for relative time
   const initialLoadDone = useRef(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
