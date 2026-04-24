@@ -14,8 +14,8 @@
  * envelope per call. Locked here.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import type { OtpServiceErr } from "@/types/serviceResults";
+import { describe, it, expect, expectTypeOf, vi, beforeEach, afterEach } from "vitest";
+import type { OtpServiceErr, OtpServiceResult } from "@/types/serviceResults";
 
 const { mockInvoke } = vi.hoisted(() => ({ mockInvoke: vi.fn() }));
 
