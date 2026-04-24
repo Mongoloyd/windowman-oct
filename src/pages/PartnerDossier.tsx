@@ -171,6 +171,7 @@ export default function PartnerDossier() {
 
   const [dossier, setDossier] = useState<DossierData | null>(null);
   const [meta, setMeta] = useState<DossierMeta | null>(null);
+  const [outcome, setOutcome] = useState<PartnerOutcome | null>(null);
   const [unlocking, setUnlocking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPreview, setIsPreview] = useState(false);
@@ -190,6 +191,7 @@ export default function PartnerDossier() {
   const fallbackToMock = useCallback(() => {
     setDossier(MOCK_DOSSIER.dossier as any);
     setMeta(MOCK_DOSSIER.meta as any);
+    setOutcome(MOCK_DOSSIER.outcome as PartnerOutcome);
     setIsPreview(true);
   }, []);
 
@@ -215,6 +217,7 @@ export default function PartnerDossier() {
     if (data.dossier && data.meta) {
       setDossier(data.dossier);
       setMeta(data.meta);
+      setOutcome((data.outcome as PartnerOutcome | null) ?? null);
       setIsPreview(false);
     } else {
       fallbackToMock();
