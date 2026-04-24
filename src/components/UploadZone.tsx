@@ -58,6 +58,9 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
   const [uploading, setUploading] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  // Dev/preview-only diagnostic: short non-PII "[code] message" rendered
+  // beneath the orange retry panel. Production UI stays generic.
+  const [uploadErrorDiag, setUploadErrorDiag] = useState<string | null>(null);
   // Persist scanSessionId so a retry can re-invoke the edge function without
   // re-uploading the file or duplicating scan_sessions / quote_files rows.
   const [activeScanSessionId, setActiveScanSessionId] = useState<string | null>(null);
@@ -385,6 +388,15 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
         // visible UX (orange retry panel) is unchanged. Diagnostic detail
         // goes to the console, never the user.
         const fnDetails = (bootstrapData ?? {}) as Record<string, unknown>;
+        const diagCode =
+          (fnDetails.code as string | undefined) ??
+          bootstrapError?.name ??
+          "scan_session_create_failed";
+        const diagMsg =
+          (fnDetails.message as string | undefined) ??
+          bootstrapError?.message ??
+          "Failed to start scan session.";
+        setUploadErrorDiag(`[${diagCode}] ${diagMsg}`);
         failWith(
           "scan_sessions_insert",
           "Failed to start scan session. Please try again.",
