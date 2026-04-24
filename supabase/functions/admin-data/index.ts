@@ -41,7 +41,9 @@ type ActionName =
   // Phase 10 — Human Context Layer
   | "update_lead_human_context"
   // Phase 26 — Mission Control Truth Strip drilldown
-  | "fetch_quote_evidence" | "fetch_stage_leads";
+  | "fetch_quote_evidence" | "fetch_stage_leads"
+  // Sprint 1D — Partner outcome rollup (read-only admin bridge)
+  | "fetch_partner_outcome_rollup";
 
 const ACTION_ROLES: Record<ActionName, AppRole[]> = {
   fetch_leads: ["super_admin", "operator", "viewer"],
