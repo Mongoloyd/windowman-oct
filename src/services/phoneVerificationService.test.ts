@@ -362,7 +362,7 @@ describe("phoneVerificationService — Sprint 2: verify-otp contract + canonical
     });
     const r = await verifyOtp("+13055551234", "123456", "sess_1");
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.errorCode).toBe("expired_session");
+    if (!r.ok) expect((r as OtpServiceErr).errorCode).toBe("expired_session");
   });
 
   it("invalid_code: err branch carries no `data` field (discriminated union holds)", async () => {
@@ -373,9 +373,10 @@ describe("phoneVerificationService — Sprint 2: verify-otp contract + canonical
     const r = await verifyOtp("+13055551234", "000000");
     expect(r.ok).toBe(false);
     if (!r.ok) {
-      expect(r.errorCode).toBe("invalid_code");
-      // @ts-expect-error — `data` must NOT exist on the err branch
-      expect(r.data).toBeUndefined();
+      const err = r as OtpServiceErr;
+      expect(err.errorCode).toBe("invalid_code");
+      // The err branch type does not include `data` — accessing it returns undefined.
+      expect((err as unknown as { data?: unknown }).data).toBeUndefined();
     }
   });
 
