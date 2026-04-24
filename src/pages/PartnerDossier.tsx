@@ -28,6 +28,7 @@ import { toast } from "sonner";
 import { PreviewModeBadge } from "@/components/PreviewModeBadge";
 import { usePartnerPortal } from "@/components/partner/PartnerPortalContext";
 import { PartnerActionCenter, type PartnerOutcome } from "@/components/partner/PartnerActionCenter";
+import ForensicFindingsPanel from "@/components/dossier/ForensicFindingsPanel";
 
 /* ── tiny helpers ─────────────────────────────────────────────── */
 const fmt = (v: number | null | undefined) =>
@@ -105,6 +106,58 @@ const MOCK_DOSSIER = {
       total_opening_count: 12,
       project_type: "Full Home Replacement",
       company_name: "••••••••",
+      page_count: 3,
+      line_item_count: 12,
+      // Forensic signals — preview-mode showcase
+      hvhz_zone: true,
+      items_without_dp_rating: 12,
+      items_without_noa: 12,
+      code_compliance_install_statement_present: false,
+      manufacturer_install_compliance_stated: false,
+      opening_level_glass_specs_present: false,
+      blanket_glass_language_present: true,
+      mixed_glass_package_visibility: false,
+      items_with_incomplete_glass: 8,
+      opening_schedule_present: true,
+      opening_schedule_room_labels_present: false,
+      opening_schedule_dimensions_complete: true,
+      opening_schedule_product_assignments_present: false,
+      bulk_scope_blob_present: true,
+      anchor_spacing_specified: false,
+      fastener_type_specified: false,
+      sealant_specified: true,
+      disposal_included: true,
+      engineering_mentioned: false,
+      engineering_fees_included: false,
+      warranty_labor_years: 1,
+      warranty_manufacturer_years: 10,
+      warranty_transferable: false,
+      warranty_execution_details_present: false,
+      warranty_service_provider_type: "contractor",
+      leak_callback_sla_days: null,
+      post_install_stucco_excluded: true,
+      post_install_paint_excluded: true,
+      water_intrusion_damage_excluded: false,
+      permits_included: false,
+      permits_responsible_party: "homeowner",
+      permit_fees_itemized: false,
+      stucco_repair_included: false,
+      drywall_repair_included: false,
+      paint_touchup_included: false,
+      debris_removal_included: true,
+      deposit_percent: 0.5,
+      deposit_amount: 11250,
+      final_payment_before_inspection: true,
+      subject_to_remeasure_present: true,
+      remeasure_price_adjustment_cap_present: false,
+      written_change_order_required: false,
+      homeowner_approval_required_for_change_orders: false,
+      unilateral_price_adjustment_allowed: true,
+      insurance_proof_mentioned: false,
+      licensing_proof_mentioned: true,
+      lead_paint_disclosure_present: false,
+      terms_conditions_present: true,
+      generic_product_description_present: true,
     },
     pillar_scores: { safety: 45, install: 38, price: 52, fine_print: 28, warranty: 20 },
     flags: [
@@ -560,6 +613,11 @@ export default function PartnerDossier() {
             </div>
           </section>
         )}
+
+        {/* ═══════════════════════════════════════════════════════
+            § 3c — FORENSIC FINDINGS (37+ extracted signals)
+            ═══════════════════════════════════════════════════════ */}
+        <ForensicFindingsPanel extraction={ext} locked={!unlocked} />
 
         {/* ═══════════════════════════════════════════════════════
             § 4 — ATTACK SURFACE & VULNERABILITIES

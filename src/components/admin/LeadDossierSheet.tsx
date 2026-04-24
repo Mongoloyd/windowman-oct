@@ -30,6 +30,7 @@ import type { CRMLead, AnalysisFlag, LeadAnalysisData } from "./types";
 import { fetchLeadAnalysis, fetchLeadVoiceFollowups, invokeAdminData, routeLeadToContractor, fetchContractors } from "@/services/adminDataService";
 import type { VoiceFollowup } from "@/services/adminDataService";
 import { OpportunityRouteTimeline } from "./OpportunityRouteTimeline";
+import ForensicFindingsPanel from "@/components/dossier/ForensicFindingsPanel";
 import { LeadLifecycleTimeline } from "./LeadLifecycleTimeline";
 import { useQuery } from "@tanstack/react-query";
 
@@ -546,6 +547,15 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
                     )}
                   </div>
                 )}
+
+                {/* ── Forensic Findings (37+ extracted signals) ── */}
+                <div className="mt-3">
+                  <ForensicFindingsPanel
+                    extraction={extraction as Record<string, unknown> | null}
+                    locked={false}
+                    defaultCollapsed
+                  />
+                </div>
               </>
             )}
           </CollapsibleContent>
