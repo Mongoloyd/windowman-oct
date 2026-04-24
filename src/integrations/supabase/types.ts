@@ -3506,6 +3506,35 @@ export type Database = {
           total_projected_value_cents: number
         }[]
       }
+      partner_outcomes_with_lead_context: {
+        Args: never
+        Returns: {
+          amber_flag_count: number
+          analysis_id: string
+          appointment_booked_at: string
+          city: string
+          closed_at: string
+          county: string
+          disposition_reason_code: string
+          disposition_state: string
+          final_value_cents: number
+          flag_count: number
+          grade: string
+          homeowner_first_name: string
+          last_partner_action_at: string
+          lead_id: string
+          opportunity_id: string
+          outcome_created_at: string
+          outcome_id: string
+          outcome_updated_at: string
+          project_type: string
+          projected_value_cents: number
+          quote_range: string
+          red_flag_count: number
+          signed_contract_url: string
+          window_count: number
+        }[]
+      }
       resolve_contractors_for_client_slug: {
         Args: { p_client_slug: string }
         Returns: {
