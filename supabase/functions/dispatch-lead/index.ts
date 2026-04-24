@@ -33,6 +33,14 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
+// Local loose alias. The Deno typecheck infers ReturnType<typeof createClient>
+// as SupabaseClient<unknown, never, GenericSchema>, which is incompatible with
+// the actual SupabaseClient<any, "public", any> the runtime constructs. We use
+// `any` here strictly to keep helper signatures permissive without altering
+// any runtime behavior.
+// deno-lint-ignore no-explicit-any
+type AnySupabaseClient = any;
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
