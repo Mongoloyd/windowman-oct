@@ -66,18 +66,18 @@ import type {
 } from "@/types/routingDesk";
 import type { CRMLead } from "@/components/admin/types";
 
-const STALE_HOURS = 72;
+export const STALE_HOURS = 72;
 
 // ─── Helpers ───────────────────────────────────────────────────────────
 
-function hoursSince(ts: string | null | undefined): number | null {
+export function hoursSince(ts: string | null | undefined): number | null {
   if (!ts) return null;
   const t = new Date(ts).getTime();
   if (Number.isNaN(t)) return null;
   return (Date.now() - t) / (1000 * 60 * 60);
 }
 
-function pickLatestRoute(routes: RoutingRoute[]): RoutingRoute | null {
+export function pickLatestRoute(routes: RoutingRoute[]): RoutingRoute | null {
   if (routes.length === 0) return null;
   return [...routes].sort((a, b) => {
     const at = a.sent_at ?? a.created_at;
@@ -88,7 +88,7 @@ function pickLatestRoute(routes: RoutingRoute[]): RoutingRoute | null {
 
 // ─── Per-opportunity derivation (operator-view, frontend-only) ────────
 
-type PostRouteBucket =
+export type PostRouteBucket =
   | "sent_not_viewed"
   | "viewed_no_response"
   | "responded_not_interested"
@@ -109,7 +109,7 @@ interface OutcomeRow {
   ageHours: number | null;
 }
 
-function deriveBucket(
+export function deriveBucket(
   opp: RoutingOpportunity,
   latestRoute: RoutingRoute | null,
   lead: CRMLead | null,
