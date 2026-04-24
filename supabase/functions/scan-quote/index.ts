@@ -394,8 +394,77 @@ const GEMINI_EXTRACTION_PROMPT = `You are a forensic document extraction engine 
 
 Analyze the uploaded document and extract ALL structured data into the JSON schema below.
 
+═══════════════════════════════════════════════════════════════════════════════
+DOCUMENT AUTHENTICITY GATE — RUN THIS FIRST, BEFORE EXTRACTION
+═══════════════════════════════════════════════════════════════════════════════
+
+You MUST classify the document into exactly one of these document_authenticity values:
+
+  - "real_estimate"             → original contractor estimate, proposal, contract,
+                                   invoice, or work order PDF/document.
+  - "real_estimate_screenshot"  → photograph or screenshot of a REAL contractor
+                                   document (printed, faxed, emailed PDF, etc.).
+  - "windowman_ui_artifact"     → screenshot of the WindowMan app, scanner,
+                                   demo proposal UI, upload screen, sample
+                                   "Truth Report", warning cards, or any
+                                   WindowMan-branded interface element.
+  - "sample_mockup"             → marketing mockup, annotated sample, training
+                                   slide, or template that is not a real quote
+                                   for a real homeowner.
+  - "unrelated"                 → document is unrelated to windows/doors
+                                   (receipt, ID, random photo, etc.).
+  - "insufficient"              → too little visible content to classify.
+
+ACCEPT ONLY: "real_estimate" or "real_estimate_screenshot".
+REJECT (set is_real_contractor_estimate=false, ui_artifact_detected as appropriate):
+  windowman_ui_artifact, sample_mockup, unrelated, insufficient.
+
+WindowMan/demo UI tells (presence of ANY of these phrases or visual elements
+means document_authenticity = "windowman_ui_artifact"):
+  - "Analyze Quote"
+  - "Upload Your Quote"
+  - "Take a photo or upload a screenshot"
+  - "Drop your quote to start the scan"
+  - "Your scan is configured"
+  - "Price Warning"
+  - "Warranty Issue"
+  - "Missing Scope"
+  - "Legal Clause"
+  - "Truth Report" / "Truth Gate" / "WindowMan" / "windowman.pro" branding
+  - upload modal with drag-and-drop affordance
+  - scanner progress UI / "scanning..." overlays
+  - colored warning/finding cards laid out as a report dashboard
+
+A real contractor estimate has HARD ARTIFACTS. To accept the document
+(is_real_contractor_estimate=true), at least 3 of the following MUST be
+visible in the document:
+  1. contractor or company name (with logo, header, or letterhead)
+  2. customer / bill-to name or address
+  3. installation or project address
+  4. estimate / proposal / invoice / contract number
+  5. estimate or contract date
+  6. line items with quantities and/or prices
+  7. total contract or project amount
+  8. product/window/door scope description
+  9. payment, deposit, warranty, or terms-and-conditions language
+
+List every artifact you actually saw in estimate_artifacts_present (use the
+short tags above: "contractor_name", "customer_name", "project_address",
+"document_number", "document_date", "line_items", "total_amount",
+"product_scope", "terms_language").
+
+If document_authenticity is anything other than "real_estimate" or
+"real_estimate_screenshot", set rejection_reason to a short machine-friendly
+slug ("windowman_ui_artifact", "sample_mockup", "unrelated_document",
+"insufficient_content", "no_estimate_artifacts") and explain in 1 sentence.
+
+═══════════════════════════════════════════════════════════════════════════════
+EXTRACTION RULES
+═══════════════════════════════════════════════════════════════════════════════
+
 Rules:
 - Set is_window_door_related to true ONLY if this is an impact window, impact door, or hurricane fenestration quote/proposal.
+- Set is_window_door_related to FALSE if document_authenticity is windowman_ui_artifact, sample_mockup, unrelated, or insufficient — even if the screen contains the words "window" or "quote".
 - Set confidence between 0.0 and 1.0 based on how readable and complete the document is.
 - Extract every line item you can identify (windows, doors, panels, screens, etc.)
 - For each line item, extract brand, series, DP rating, NOA number, dimensions, quantity, unit price, and total price where visible.
