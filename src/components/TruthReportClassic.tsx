@@ -52,6 +52,7 @@ interface TruthReportProps {
   flagRedCount?: number;
   flagAmberCount?: number;
   onContractorMatchClick: () => void;
+  onStartDiagnosisFlow?: (source: "local_heroes" | "second_quote") => void;
   onReportHelpCall: () => void;
   onSecondScan: () => void;
   gateProps?: Omit<LockedOverlayProps, "grade" | "flagCount">;
@@ -198,6 +199,7 @@ const TruthReportClassic = ({
   flagRedCount: flagRedCountProp,
   flagAmberCount: flagAmberCountProp,
   onContractorMatchClick,
+  onStartDiagnosisFlow,
   gateProps,
   introRequested = false,
   isCtaLoading = false,
@@ -536,6 +538,7 @@ I'm ready to move forward if we can get these items addressed. What's the fastes
           flags={flags}
           pricePerOpeningBand={pricePerOpeningBand}
           onContractorMatchClick={onContractorMatchClick}
+          onStartDiagnosisFlow={onStartDiagnosisFlow}
           isCtaLoading={isCtaLoading}
           introRequested={introRequested}
         />
