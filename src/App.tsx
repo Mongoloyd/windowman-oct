@@ -149,6 +149,8 @@ const App = () => (
                 <Route path="/admin/outcomes" element={<AdminAuthGate><AdminDashboard initialTab="outcomes" /></AdminAuthGate>} />
                 <Route path="/admin/attribution" element={<AdminAuthGate><AdminDashboard initialTab="attribution" /></AdminAuthGate>} />
                 <Route path="/admin/dialer" element={<AdminAuthGate><AdminDashboard initialTab="engine" /></AdminAuthGate>} />
+                <Route path="/admin/delivery-inspector" element={<AdminAuthGate><AdminDashboard initialTab="delivery-inspector" /></AdminAuthGate>} />
+                <Route path="/admin/session-diag" element={<AdminAuthGate><AdminDashboard initialTab="session-diag" /></AdminAuthGate>} />
                 <Route path="/admin/leads" element={<AdminAuthGate><AdminLeadInbox /></AdminAuthGate>} />
                 <Route path="/admin/leads/:id" element={<AdminAuthGate><AdminLeadDossierPage /></AdminAuthGate>} />
                 <Route path="/admin/settings" element={<AdminAuthGate><AdminSettings /></AdminAuthGate>} />
