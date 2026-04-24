@@ -92,9 +92,23 @@ interface AuditEvent {
 }
 
 /**
+ * Stages that are persisted to `event_logs`. All other stages remain
+ * console-only. This keeps the persisted audit trail focused on outcomes
+ * and failures, not internal step-by-step noise.
+ */
+const PERSISTED_STAGES = new Set<string>([
+  "validation_failed",
+  "lead_insert_failed",
+  "lead_insert_succeeded",
+  "lead_reused",
+  "unexpected_error",
+  "response_sent",
+]);
+
+/**
  * Emit a structured audit event. Always console-logged at the appropriate
- * level. Best-effort write to event_logs — failures are caught and logged
- * only; they cannot block funnel success.
+ * level. Persists to `event_logs` only for summary/failure stages
+ * (see PERSISTED_STAGES). Persistence failures NEVER block funnel success.
  *
  * Strictly non-PII: never accepts raw email, phone, name, or file content.
  */
@@ -116,8 +130,8 @@ function audit(
     console.info(`[${FUNCTION_NAME}:audit]`, fullEvt);
   }
 
-  // Best-effort persist to event_logs. Never block on this.
-  if (admin) {
+  // Persist only summary / failure / validation stages. Best-effort.
+  if (admin && PERSISTED_STAGES.has(evt.stage)) {
     admin
       .from("event_logs")
       .insert({
@@ -327,6 +341,54 @@ Deno.serve(async (req) => {
     has_phone: !!payload.phone_e164,
     has_client_slug: !!payload.client_slug,
   });
+
+  // ── Idempotency: lookup existing lead bound to this session_id ───────────
+  // If found, reuse it. Do not insert a duplicate. Do not update OTP /
+  // verified state. Do not overwrite PII in this pass.
+  try {
+    const { data: existing, error: lookupErr } = await admin.rpc(
+      "get_lead_by_session",
+      { p_session_id: payload.session_id },
+    );
+
+    if (lookupErr) {
+      // Lookup failure is non-fatal — fall through to insert. Postgres unique
+      // constraints (if any) will still protect against true duplicates.
+      console.warn(`[${FUNCTION_NAME}] session lookup failed`, {
+        code: lookupErr.code,
+        message: lookupErr.message,
+      });
+    } else if (Array.isArray(existing) && existing.length > 0 && existing[0]?.id) {
+      const reusedLeadId = existing[0].id as string;
+      audit(admin, {
+        stage: "lead_reused",
+        status: "reused",
+        session_id: payload.session_id,
+        lead_id: reusedLeadId,
+        has_phone: !!payload.phone_e164,
+        has_client_slug: !!payload.client_slug,
+      });
+      audit(admin, {
+        stage: "response_sent",
+        status: "succeeded",
+        session_id: payload.session_id,
+        lead_id: reusedLeadId,
+        http_status: 200,
+      });
+      return jsonResponse(
+        {
+          success: true,
+          lead_id: reusedLeadId,
+          session_id: payload.session_id,
+          reused: true,
+        },
+        200,
+      );
+    }
+  } catch (e) {
+    // Non-fatal — proceed to insert path.
+    console.warn(`[${FUNCTION_NAME}] session lookup threw`, String(e));
+  }
 
   // Force OTP-gate-safe defaults — this path must never elevate a lead.
   const insertRow = {

@@ -79,9 +79,24 @@ interface AuditEvent {
 }
 
 /**
+ * Stages persisted to `event_logs`. All other stages remain console-only.
+ * This keeps the persisted trail focused on outcomes/failures.
+ */
+const PERSISTED_STAGES = new Set<string>([
+  "validation_failed",
+  "storage_object_missing",
+  "storage_path_scope_mismatch",
+  "lead_resolve_failed",
+  "quote_file_create_failed",
+  "scan_session_create_failed",
+  "unexpected_error",
+  "response_sent",
+]);
+
+/**
  * Emit a structured audit event. Always console-logged at the appropriate
- * level. Best-effort write to event_logs — failures are caught and logged
- * only; they cannot block funnel success.
+ * level. Persists to `event_logs` only for summary/failure stages
+ * (see PERSISTED_STAGES). Persistence failures NEVER block funnel success.
  *
  * Strictly non-PII: never accepts raw file_name, raw payloads, or secrets.
  * file_name is reduced to a `has_file_name` boolean.
@@ -104,7 +119,7 @@ function audit(
     console.info(`[${FUNCTION_NAME}:audit]`, fullEvt);
   }
 
-  if (admin) {
+  if (admin && PERSISTED_STAGES.has(evt.stage)) {
     admin
       .from("event_logs")
       .insert({
@@ -123,6 +138,39 @@ function audit(
         }
       });
   }
+}
+
+const STORAGE_BUCKET = "quotes";
+
+/**
+ * Strict scope check: storage_path must be `${session_id}/...filename`.
+ * Rejects path traversal, leading slashes, double slashes, and empty
+ * filename segments.
+ */
+function validateStoragePathScope(
+  storage_path: string,
+  session_id: string,
+): { ok: true } | { ok: false; reason: string } {
+  if (!storage_path) return { ok: false, reason: "empty_path" };
+  if (storage_path.startsWith("/")) return { ok: false, reason: "leading_slash" };
+  if (storage_path.includes("//")) return { ok: false, reason: "double_slash" };
+  if (storage_path.includes("../") || storage_path.includes("..\\")) {
+    return { ok: false, reason: "path_traversal" };
+  }
+  const requiredPrefix = `${session_id}/`;
+  if (!storage_path.startsWith(requiredPrefix)) {
+    return { ok: false, reason: "prefix_mismatch" };
+  }
+  const remainder = storage_path.slice(requiredPrefix.length);
+  if (remainder.length === 0) return { ok: false, reason: "empty_filename" };
+  // Reject any empty segment (e.g. "sess/sub//file.pdf" — covered above —
+  // and trailing slash).
+  if (remainder.endsWith("/")) return { ok: false, reason: "trailing_slash" };
+  const segments = remainder.split("/");
+  if (segments.some((s) => s.length === 0)) {
+    return { ok: false, reason: "empty_segment" };
+  }
+  return { ok: true };
 }
 
 function jsonResponse(status: number, body: Record<string, unknown>): Response {
@@ -219,6 +267,63 @@ Deno.serve(async (req: Request) => {
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+
+  // ── Storage path scope check ───────────────────────────────────────────────
+  // storage_path MUST be scoped to `${session_id}/...filename`. Reject path
+  // traversal, leading/double slashes, empty filename segments.
+  const scopeCheck = validateStoragePathScope(storage_path, session_id);
+  if (!scopeCheck.ok) {
+    audit(admin, {
+      stage: "storage_path_scope_mismatch",
+      status: "failed",
+      session_id,
+      error_code: "storage_path_scope_mismatch",
+      error_message: `storage_path scope rejected: ${scopeCheck.reason}`,
+    });
+    return jsonResponse(400, {
+      success: false,
+      code: "storage_path_scope_mismatch",
+      message: "storage_path must be scoped to the supplied session_id.",
+    });
+  }
+
+  // ── Storage object existence check ─────────────────────────────────────────
+  // Verify the uploaded object actually exists in the private quotes bucket
+  // before any DB row creation. Use a signed URL probe (service-role bypasses
+  // bucket RLS, so success implies the object is materialized).
+  try {
+    const { data: signed, error: signErr } = await admin.storage
+      .from(STORAGE_BUCKET)
+      .createSignedUrl(storage_path, 60);
+
+    if (signErr || !signed?.signedUrl) {
+      audit(admin, {
+        stage: "storage_object_missing",
+        status: "failed",
+        session_id,
+        error_code: "storage_object_missing",
+        error_message: signErr?.message ?? "Object not found in private bucket.",
+      });
+      return jsonResponse(400, {
+        success: false,
+        code: "storage_object_missing",
+        message: "Uploaded file was not found.",
+      });
+    }
+  } catch (e) {
+    audit(admin, {
+      stage: "storage_object_missing",
+      status: "failed",
+      session_id,
+      error_code: "storage_object_missing",
+      error_message: String(e),
+    });
+    return jsonResponse(400, {
+      success: false,
+      code: "storage_object_missing",
+      message: "Uploaded file was not found.",
+    });
+  }
 
   // Wrap the entire pipeline so any throw is captured as `unexpected_error`.
   try {
