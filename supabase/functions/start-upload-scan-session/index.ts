@@ -268,6 +268,63 @@ Deno.serve(async (req: Request) => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
+  // ── Storage path scope check ───────────────────────────────────────────────
+  // storage_path MUST be scoped to `${session_id}/...filename`. Reject path
+  // traversal, leading/double slashes, empty filename segments.
+  const scopeCheck = validateStoragePathScope(storage_path, session_id);
+  if (!scopeCheck.ok) {
+    audit(admin, {
+      stage: "storage_path_scope_mismatch",
+      status: "failed",
+      session_id,
+      error_code: "storage_path_scope_mismatch",
+      error_message: `storage_path scope rejected: ${scopeCheck.reason}`,
+    });
+    return jsonResponse(400, {
+      success: false,
+      code: "storage_path_scope_mismatch",
+      message: "storage_path must be scoped to the supplied session_id.",
+    });
+  }
+
+  // ── Storage object existence check ─────────────────────────────────────────
+  // Verify the uploaded object actually exists in the private quotes bucket
+  // before any DB row creation. Use a signed URL probe (service-role bypasses
+  // bucket RLS, so success implies the object is materialized).
+  try {
+    const { data: signed, error: signErr } = await admin.storage
+      .from(STORAGE_BUCKET)
+      .createSignedUrl(storage_path, 60);
+
+    if (signErr || !signed?.signedUrl) {
+      audit(admin, {
+        stage: "storage_object_missing",
+        status: "failed",
+        session_id,
+        error_code: "storage_object_missing",
+        error_message: signErr?.message ?? "Object not found in private bucket.",
+      });
+      return jsonResponse(400, {
+        success: false,
+        code: "storage_object_missing",
+        message: "Uploaded file was not found.",
+      });
+    }
+  } catch (e) {
+    audit(admin, {
+      stage: "storage_object_missing",
+      status: "failed",
+      session_id,
+      error_code: "storage_object_missing",
+      error_message: String(e),
+    });
+    return jsonResponse(400, {
+      success: false,
+      code: "storage_object_missing",
+      message: "Uploaded file was not found.",
+    });
+  }
+
   // Wrap the entire pipeline so any throw is captured as `unexpected_error`.
   try {
     // ── 1. Resolve or create the parent lead bound to this session_id ───────
