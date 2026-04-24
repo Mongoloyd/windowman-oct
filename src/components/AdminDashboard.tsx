@@ -13,7 +13,9 @@ import { AdminShell } from "@/components/admin/shell/AdminShell";
 import { AdminPrimaryTabs } from "@/components/admin/shell/AdminPrimaryTabs";
 
 import { PreviewModeBadge } from "@/components/PreviewModeBadge";
-import { CommandCenter } from "@/components/admin/CommandCenter";
+// Phase 26 — legacy <CommandCenter /> removed. Canonical Mission Control
+// engine is <MasterCommandCenter />. The legacy file is kept on disk as
+// @deprecated for archaeology but is no longer imported anywhere.
 import { MasterCommandCenter } from "@/components/admin/MasterCommandCenter";
 import { ActivePipeline } from "@/components/admin/ActivePipeline";
 import { GhostRecovery } from "@/components/admin/GhostRecovery";
