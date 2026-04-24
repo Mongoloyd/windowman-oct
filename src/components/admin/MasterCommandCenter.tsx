@@ -622,6 +622,14 @@ export function MasterCommandCenter({
     downloadSnapshotCsv({
       generatedAt: new Date(),
       funnel: flow,
+      funnelDelta: {
+        captured: { delta: funnelMetrics.captured.delta, prevCount: funnelMetrics.captured.prevCount, convPct: funnelMetrics.captured.convPct },
+        verified: { delta: funnelMetrics.verified.delta, prevCount: funnelMetrics.verified.prevCount, convPct: funnelMetrics.verified.convPct },
+        scanned:  { delta: funnelMetrics.scanned.delta,  prevCount: funnelMetrics.scanned.prevCount,  convPct: funnelMetrics.scanned.convPct  },
+        routed:   { delta: funnelMetrics.routed.delta,   prevCount: funnelMetrics.routed.prevCount,   convPct: funnelMetrics.routed.convPct   },
+        booked:   { delta: funnelMetrics.booked.delta,   prevCount: funnelMetrics.booked.prevCount,   convPct: funnelMetrics.booked.convPct   },
+        closed:   { delta: funnelMetrics.closed.delta,   prevCount: funnelMetrics.closed.prevCount,   convPct: funnelMetrics.closed.convPct   },
+      },
       revenue: {
         goal: dailyGoal,
         todayClosedVolume: revenueToday.volume,
@@ -884,48 +892,12 @@ export function MasterCommandCenter({
           </div>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-          <KpiTile
-            label="Captured"
-            metric={funnelMetrics.captured}
-            hint=""
-            icon={Inbox}
-            onClick={() => onNavigateTab("pipeline")}
-          />
-          <KpiTile
-            label="Verified"
-            metric={funnelMetrics.verified}
-            hint="of Captured"
-            icon={ShieldCheck}
-            onClick={() => onNavigateTab("pipeline")}
-          />
-          <KpiTile
-            label="Scanned"
-            metric={funnelMetrics.scanned}
-            hint="of Captured"
-            icon={ScanSearch}
-            onClick={() => onNavigateTab("pipeline")}
-          />
-          <KpiTile
-            label="Routed"
-            metric={funnelMetrics.routed}
-            hint="of Verified"
-            icon={Send}
-            onClick={() => onNavigateTab("routing")}
-          />
-          <KpiTile
-            label="Booked"
-            metric={funnelMetrics.booked}
-            hint="of Routed"
-            icon={CalendarCheck}
-            onClick={() => onNavigateTab("outcomes")}
-          />
-          <KpiTile
-            label="Closed"
-            metric={funnelMetrics.closed}
-            hint="of Booked"
-            icon={CheckCircle2}
-            onClick={() => onNavigateTab("outcomes")}
-          />
+          <KpiTile label="Captured" metric={funnelMetrics.captured} hint=""           icon={Inbox}        onClick={() => setDrilldownStage("captured")} />
+          <KpiTile label="Verified" metric={funnelMetrics.verified} hint="of Captured" icon={ShieldCheck}  onClick={() => setDrilldownStage("verified")} />
+          <KpiTile label="Scanned"  metric={funnelMetrics.scanned}  hint="of Captured" icon={ScanSearch}   onClick={() => setDrilldownStage("scanned")} />
+          <KpiTile label="Routed"   metric={funnelMetrics.routed}   hint="of Verified" icon={Send}         onClick={() => setDrilldownStage("routed")} />
+          <KpiTile label="Booked"   metric={funnelMetrics.booked}   hint="of Routed"   icon={CalendarCheck} onClick={() => setDrilldownStage("booked")} />
+          <KpiTile label="Closed"   metric={funnelMetrics.closed}   hint="of Booked"   icon={CheckCircle2} onClick={() => setDrilldownStage("closed")} />
         </div>
       </div>
 
@@ -1161,6 +1133,18 @@ export function MasterCommandCenter({
           </CardContent>
         </Card>
       </div>
+      <TruthStripDrilldown
+        open={drilldownStage != null}
+        onOpenChange={(o) => { if (!o) setDrilldownStage(null); }}
+        stage={drilldownStage}
+        scope={scope}
+        onJumpToDossier={handleJumpToDossier}
+      />
+      <LeadDossierSheet
+        lead={dossierLead}
+        open={dossierLead != null}
+        onOpenChange={(o) => { if (!o) setDossierLead(null); }}
+      />
     </div>
   );
 }
