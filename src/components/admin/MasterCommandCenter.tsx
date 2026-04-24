@@ -262,12 +262,11 @@ export function MasterCommandCenter({
       else if (c === "strong") strong++;
     }
 
-    // Contractor-level
+    // Contractor-level (only fields surfaced by RoutingContractor type)
     if (contractors.length > 0) {
       const contractorFields: Array<(c: RoutingContractor) => unknown> = [
         (c) => c.email,
-        (c) => c.phone_e164,
-        (c) => c.service_counties,
+        (c) => c.contact_name,
       ];
       for (const get of contractorFields) {
         const present = contractors.filter((c) => nonEmpty(get(c))).length;
