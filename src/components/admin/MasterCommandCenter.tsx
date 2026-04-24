@@ -143,31 +143,77 @@ function toneForStatus(status: ReadinessStatus) {
   };
 }
 
-/* ─── KPI tile ───────────────────────────────────────────────────────── */
+/* ─── Truth Strip types ──────────────────────────────────────────────── */
+type Scope = "today" | "7d" | "all";
+
+interface StageMetric {
+  count: number;
+  prevCount: number;
+  delta: number;
+  deltaPct: number | null; // null when prior window is empty (no baseline)
+  convPct: number | null;  // null for the baseline (Captured)
+}
+type StageKey = "captured" | "verified" | "scanned" | "routed" | "booked" | "closed";
+type FunnelMetrics = Record<StageKey, StageMetric>;
+
+/* ─── KPI tile (interactive, glass) ──────────────────────────────────── */
 interface KpiTileProps {
   label: string;
-  value: number;
-  hint: string;
+  metric: StageMetric;
+  hint: string;        // prior-stage label, e.g. "of Captured" — empty for baseline
   icon: typeof Activity;
+  onClick: () => void;
 }
-function KpiTile({ label, value, hint, icon: Icon }: KpiTileProps) {
+function KpiTile({ label, metric, hint, icon: Icon, onClick }: KpiTileProps) {
+  const { count, delta, deltaPct, convPct } = metric;
+  const deltaTone =
+    deltaPct === null
+      ? "text-muted-foreground"
+      : delta > 0
+      ? "text-emerald-600 dark:text-emerald-400"
+      : delta < 0
+      ? "text-rose-600 dark:text-rose-400"
+      : "text-muted-foreground";
+  const DeltaIcon =
+    deltaPct === null || delta === 0
+      ? null
+      : delta > 0
+      ? TrendingUp
+      : TrendingDown;
+  const deltaLabel =
+    deltaPct === null
+      ? "—"
+      : `${delta > 0 ? "+" : ""}${Math.round(deltaPct)}%`;
+  const convLabel =
+    convPct === null
+      ? hint || "baseline"
+      : `${convPct}% ${hint}`;
+
   return (
-    <Card className="relative overflow-hidden">
-      <CardHeader className="flex flex-row items-center justify-between pb-1.5">
-        <CardTitle className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`${label}: ${count.toLocaleString()} leads, ${deltaLabel} vs prior period, ${convLabel}`}
+      className="group relative overflow-hidden rounded-lg border border-border/60 bg-card/95 backdrop-blur-sm px-3 py-2.5 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+    >
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground truncate">
           {label}
-        </CardTitle>
-        <Icon className="h-4 w-4 text-muted-foreground" />
-      </CardHeader>
-      <CardContent className="pt-0">
-        <div className="text-2xl font-bold tabular-nums tracking-tight">
-          {value.toLocaleString()}
-        </div>
-        <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">
-          {hint}
-        </p>
-      </CardContent>
-    </Card>
+        </span>
+        <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+      </div>
+      <div className="text-2xl font-bold tabular-nums tracking-tight leading-none mb-1.5">
+        {count.toLocaleString()}
+      </div>
+      <div className="flex items-center gap-1.5 text-[10px] leading-tight">
+        <span className={`inline-flex items-center gap-0.5 font-semibold ${deltaTone}`}>
+          {DeltaIcon ? <DeltaIcon className="h-3 w-3" aria-hidden /> : null}
+          {deltaLabel}
+        </span>
+        <span className="text-muted-foreground/60">·</span>
+        <span className="text-muted-foreground truncate">{convLabel}</span>
+      </div>
+    </button>
   );
 }
 
@@ -193,6 +239,25 @@ function readGoal(): number {
   const raw = window.localStorage.getItem(DAILY_GOAL_KEY);
   const n = raw ? parseInt(raw, 10) : NaN;
   return Number.isFinite(n) && n > 0 ? n : DEFAULT_DAILY_GOAL;
+}
+
+/** Returns [windowStart, prevWindowStart] in ms. `all` => [0, 0]. */
+function scopeWindows(scope: Scope): { start: number; prevStart: number; prevEnd: number } {
+  const now = Date.now();
+  if (scope === "today") {
+    const start = startOfTodayMs();
+    const span = now - start;
+    return { start, prevStart: start - span, prevEnd: start };
+  }
+  if (scope === "7d") {
+    const span = 7 * 24 * 60 * 60 * 1000;
+    const start = now - span;
+    return { start, prevStart: start - span, prevEnd: start };
+  }
+  // all-time: compare last 30d vs prior 30d for a meaningful delta
+  const span = 30 * 24 * 60 * 60 * 1000;
+  const start = now - span;
+  return { start: 0, prevStart: start - span, prevEnd: start };
 }
 
 export function MasterCommandCenter({
