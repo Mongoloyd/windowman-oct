@@ -62,7 +62,7 @@ export function MarketingSections() {
                 <li className="flex items-start gap-3">
                   <span className="text-cobalt mt-1">•</span>
                   <span className="text-foreground/80">
-                    We share your audit findings upfront—contractors know exactly what to fix.
+                    We share your findings upfront so our contractors know exactly what to fix.
                   </span>
                 </li>
                 <li className="flex items-start gap-3">
