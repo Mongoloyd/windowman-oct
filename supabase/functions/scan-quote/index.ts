@@ -41,6 +41,7 @@ import {
 } from "./scoring.ts";
 import { compileReportOutput } from "./reportCompiler.ts";
 import { detectFlags, type Flag } from "./flagging.ts";
+import { evaluateDocumentAuthenticity } from "./authenticity.ts";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SECTION 1: SCHEMA (Zod-like runtime validation — manual for Deno compat)
