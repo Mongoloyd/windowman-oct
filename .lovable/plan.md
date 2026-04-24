@@ -1,124 +1,45 @@
-## Plan: Redesign `/diagnosis` Step 1
+Plan: Diagnosis CTA Refinement + Phone-Call Intent Tracking
 
-I will surgically redesign `src/pages/diagnosis/components/StepIntake.tsx` only, with one optional type-safe constants update if needed for answer descriptions.
+Scope: `src/pages/diagnosis/components/StepIntake.tsx` only unless typecheck exposes a local import issue. This is visual-only plus frontend dataLayer tracking. No Supabase writes, backend calls, routing changes, modal creation, OTP/Twilio changes, scan logic, report logic, storage, or diagnosis state behavior changes.
 
-### 1. Rebuild StepIntake layout
-Render the page in the required order:
+1. Replace the heavy sticky CTA
+- Remove the fixed dark slab CTA (`bg-slate-950/95`) and blue button (`bg-blue-600`).
+- Add a compact floating white/orange consultation ticket:
+  - Mobile: centered bottom, `left-1/2`, `-translate-x-1/2`, `w-[calc(100%-32px)]`, `max-w-[360px]`.
+  - Desktop: bottom-right, `md:left-auto`, `md:right-6`, `md:translate-x-0`, `md:max-w-[340px]`.
+- Use a warm orange radial glow wrapper, amber border, white/glass surface, tactile orange/slate shadow, dark text, and `ArrowRight` on the right.
 
-```text
-Forensic Audit Card
-Short Hero Copy
-Root Question Card
-Symmetrical Answer Card Grid
-Sticky Bottom CTA Bar
-```
+2. Remove dishonest scroll behavior
+- Remove `useRef`, `rootQuestionRef`, and the `handleStickyCta` scroll-to-question behavior.
+- Keep the CTA label “Schedule Free Measurement,” but do not pretend to schedule or scroll.
+- Add the requested local TODO comment:
+  - `// TODO: wire this CTA to the PhoneCaptureForm / scheduling modal.`
+  - `// For now, this click only records phone-call intent tracking.`
 
-The existing diagnosis state machine and `onSelectPrimary(code)` handler will stay intact.
+3. Add frontend conversion tracking only
+- Use the existing canonical business-event helper `trackGtmEvent` from `@/lib/trackConversion` because it pushes vendor-agnostic events into `window.dataLayer` and does not write to Supabase.
+- On CTA click, generate `eventId` with `crypto.randomUUID()` and call:
+  - event name: `wm_phone_call_cta_click`
+  - top-level fields: `event_id`, `category`, `source`, `conversion_type`, `value: 200`, `currency: "USD"`
+  - metadata: `category: "opt"`, `funnel_step: "diagnosis_step_1"`, `cta_label`, `report_grade`, `top_insight_count`
+- Do not include PII: no email, phone, lead ID, or homeowner identity.
+- Do not call Meta Pixel, Google Ads, Supabase, or any backend function directly.
 
-### 2. Replace the audit score block
-Convert the weak white grade panel into a premium glass forensic result card:
-- rounded 28px glass container
-- subtle blue top glow
-- compact grade tile on the left
-- “Audit Result” eyebrow
-- “High-risk quote signals found” title
-- short explanatory body copy
-- top 3 findings displayed as rounded chips instead of bullets
-- blue-tinted next-step info strip replacing the mono ribbon
+4. Mobile polish
+- Change section padding from mobile `pb-28` to `pb-40`, keeping desktop `md:pb-32`, so the floating ticket does not cover answer cards.
+- Compact the audit card on mobile by reducing mobile padding/gaps and making the “Next” strip smaller while preserving the premium glass style.
+- Keep the answer grid symmetrical.
+- Change answer label typography from `font-bold` to `font-semibold`.
 
-Grade color will remain derived from `context.report_grade`, with F/D using red risk styling and safer grades using trust-oriented green/blue accents.
-
-### 3. Simplify hero copy
-Replace the long headline with:
-
-> Tell Us What Felt Wrong.
-
-Subhead:
-
-> We’ll use your audit findings to build the right next move: negotiate, compare, or walk away.
-
-Remove the large consultation pill and add the small trust note below the hero:
-
-> Private consultation. No contractor sees this.
-
-### 4. Replace root question styling
-Remove `card-raised-hero`, `border-double`, flex-wrap behavior, and italic helper text.
-
-New card will use:
-- premium white/glass styling
-- `Step 1 · Root Concern` eyebrow
-- `What frustrated you most about this quote?`
-- helper copy: `Pick the answer that feels closest. You can refine it later.`
-
-### 5. Make answer buttons symmetrical
-Replace:
-
-```tsx
-<div className="flex flex-wrap gap-3">
-```
-
-with:
-
-```tsx
-<div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
-```
-
-Each answer becomes an equal-width, equal-height card with:
-- icon tile
-- bold label
-- short description
-- premium hover/focus state
-- no gold styling
-- no staggered wrapping
-
-### 6. Add answer descriptions safely
-`diagnosticMap.ts` currently has labels and longer downstream copy but no short answer-card descriptions.
-
-I will either:
-- keep descriptions as a local `Record<DiagnosisCode, string>` inside `StepIntake.tsx` to avoid widening shared types, or
-- if preferred by TypeScript clarity, add `shortDescription?: string` to `DiagnosticConfig` and populate it in `diagnosticMap.ts`.
-
-Default implementation will favor the local map to keep changes surgical and avoid affecting other diagnosis steps.
-
-### 7. Add sticky bottom CTA bar
-Add a fixed bottom CTA bar for Step 1:
-- slate/navy glass container
-- blue CTA button
-- desktop copy: “Ready for a locked-in price?” / “Schedule a free phone measurement.”
-- mobile-friendly full-width button behavior
-
-Because this step advances by choosing an answer, the CTA will be a safe non-backend placeholder action that scrolls/focuses attention to the root question area rather than creating new backend behavior. No routing or funnel logic will be introduced.
-
-### 8. Background and spacing cleanup
-Update StepIntake’s internal section background to a smooth blue/navy trust aesthetic:
-- soft slate/blue gradient
-- subtle radial blue/cyan glows
-- breathable mobile-first spacing
-- bottom padding to account for the fixed CTA bar
-
-### 9. Validation and final grading
-After implementation, I will run the relevant checks available in build mode:
-- TypeScript/build or project test command as appropriate
-- confirm no backend/Supabase/OTP/Twilio/routing files changed
-- inspect the StepIntake source for no remaining flex-wrap answer layout, no italics, no gold CTA styling
-
-I will also provide the requested Senior CRO UX scorecard across 10 categories, explaining the final result category-by-category.
-
-## Files intended to change
-
-Primary:
-- `src/pages/diagnosis/components/StepIntake.tsx`
-
-Optional only if necessary:
-- `src/pages/diagnosis/constants/diagnosticMap.ts`
-- `src/pages/diagnosis/types.ts`
-
-## Files explicitly not touched
-
-- backend files
-- Supabase migrations/functions
-- OTP/Twilio files
-- scan/report generation logic
-- routing
-- diagnosis state machine
-- admin/partner pages
+5. Validation
+- Run typecheck after implementation.
+- Final report will include:
+  1. files changed
+  2. CTA visual changes
+  3. CTA action decision
+  4. tracking event name
+  5. tracking payload fields
+  6. confirmation no PII is tracked
+  7. confirmation no Supabase/backend code was added
+  8. mobile polish changes
+  9. typecheck result
