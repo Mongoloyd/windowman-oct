@@ -839,6 +839,14 @@ function OpportunityCard({
                   <Lock className="h-3 w-3" aria-hidden /> Locked
                 </span>
               )}
+              {competition && (
+                <span
+                  className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold border ${COMPETITION_TONE[competition.tone]}`}
+                  aria-label={`Competition signal: ${competition.label}`}
+                >
+                  {competition.label}
+                </span>
+              )}
             </div>
           </div>
         </div>
