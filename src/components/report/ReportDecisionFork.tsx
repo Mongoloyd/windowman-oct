@@ -15,6 +15,7 @@ interface DecisionForkCopyInput {
 
 interface ReportDecisionForkProps extends DecisionForkCopyInput {
   onContractorMatchClick: () => void;
+  onStartDiagnosisFlow?: (source: "local_heroes" | "second_quote") => void;
   isCtaLoading?: boolean;
   introRequested?: boolean;
 }
@@ -89,6 +90,7 @@ const ReportDecisionFork = ({
   flags,
   pricePerOpeningBand,
   onContractorMatchClick,
+  onStartDiagnosisFlow,
   isCtaLoading = false,
   introRequested = false,
 }: ReportDecisionForkProps) => {
@@ -134,6 +136,10 @@ const ReportDecisionFork = ({
         price_per_opening_band: pricePerOpeningBand ?? null,
       },
     });
+    if (onStartDiagnosisFlow) {
+      onStartDiagnosisFlow("local_heroes");
+      return;
+    }
     onContractorMatchClick();
   };
 
@@ -155,6 +161,10 @@ const ReportDecisionFork = ({
         price_per_opening_band: pricePerOpeningBand ?? null,
       },
     });
+    if (onStartDiagnosisFlow) {
+      onStartDiagnosisFlow("second_quote");
+      return;
+    }
     onContractorMatchClick();
   };
 
