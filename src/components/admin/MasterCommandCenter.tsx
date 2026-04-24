@@ -76,7 +76,14 @@ import { downloadSnapshotCsv } from "@/components/admin/missionControl/exportSna
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 const DAILY_GOAL_KEY = "wm_admin_daily_revenue_goal";
 const DEFAULT_DAILY_GOAL = 25_000;
-const CLOSED_STATUSES = new Set(["won", "closed_won", "sold", "closed"]);
+// Sprint 1 backend canonical: `sold_closed`. Legacy synonyms kept for older rows.
+const CLOSED_STATUSES = new Set([
+  "sold_closed",
+  "won",
+  "closed_won",
+  "sold",
+  "closed",
+]);
 
 interface MasterCommandCenterProps {
   leads: CRMLead[];
