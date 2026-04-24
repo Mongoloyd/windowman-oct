@@ -1885,7 +1885,9 @@ export type Database = {
           gclid: string | null
           grade: string | null
           grade_score: number | null
+          handoff_consent_status: string | null
           has_estimate: boolean | null
+          hoa_or_condo_complexity: string | null
           homeowner: boolean | null
           id: string
           initial_referrer: string | null
@@ -1935,6 +1937,7 @@ export type Database = {
           pricing_posture: string | null
           project_type: string | null
           property_type: string | null
+          property_type_detail: string | null
           property_value_high: number | null
           property_value_low: number | null
           qualification_answers_json: Json
@@ -2020,7 +2023,9 @@ export type Database = {
           gclid?: string | null
           grade?: string | null
           grade_score?: number | null
+          handoff_consent_status?: string | null
           has_estimate?: boolean | null
+          hoa_or_condo_complexity?: string | null
           homeowner?: boolean | null
           id?: string
           initial_referrer?: string | null
@@ -2070,6 +2075,7 @@ export type Database = {
           pricing_posture?: string | null
           project_type?: string | null
           property_type?: string | null
+          property_type_detail?: string | null
           property_value_high?: number | null
           property_value_low?: number | null
           qualification_answers_json?: Json
@@ -2155,7 +2161,9 @@ export type Database = {
           gclid?: string | null
           grade?: string | null
           grade_score?: number | null
+          handoff_consent_status?: string | null
           has_estimate?: boolean | null
+          hoa_or_condo_complexity?: string | null
           homeowner?: boolean | null
           id?: string
           initial_referrer?: string | null
@@ -2205,6 +2213,7 @@ export type Database = {
           pricing_posture?: string | null
           project_type?: string | null
           property_type?: string | null
+          property_type_detail?: string | null
           property_value_high?: number | null
           property_value_low?: number | null
           qualification_answers_json?: Json
