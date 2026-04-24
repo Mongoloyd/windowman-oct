@@ -172,3 +172,41 @@ export interface VoiceFollowupSummary {
   call_outcome: string | null;
   created_at: string;
 }
+
+// ─── Phase 26 — Truth Strip Drilldown ──────────────────────────────────
+// Compact lead row returned by `fetch_stage_leads` for in-place forensic
+// triage from Mission Control. Mirrors the canonical timestamp predicates
+// used by the shared funnelMetrics engine.
+
+export interface StageLeadRow {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  city: string | null;
+  county: string | null;
+  grade: string | null;
+  flag_count: number | null;
+  red_flag_count: number | null;
+  latest_analysis_id: string | null;
+  latest_scan_session_id: string | null;
+  latest_opportunity_id: string | null;
+  deal_value: number | null;
+  revenue_amount: number | null;
+  deal_status: string | null;
+  created_at: string;
+  updated_at: string;
+  phone_verified_at: string | null;
+  routed_to_contractor_at: string | null;
+  appointment_booked_at: string | null;
+  closed_at: string | null;
+  scan_count: number | null;
+  /** Whichever stage timestamp matched the requested stage. */
+  stage_timestamp: string | null;
+}
+
+export interface QuoteEvidence {
+  signed_url: string | null;
+  file_name: string | null;
+  scan_session_id: string | null;
+  expires_in: number;
+}
