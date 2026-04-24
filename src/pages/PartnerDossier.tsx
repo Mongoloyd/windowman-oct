@@ -13,7 +13,6 @@ import {
   TrendingDown,
   TrendingUp,
   Minus,
-  CreditCard,
   AlertTriangle,
   ClipboardList,
   Building2,
@@ -27,6 +26,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { PreviewModeBadge } from "@/components/PreviewModeBadge";
+import { usePartnerPortal } from "@/components/partner/PartnerPortalContext";
 
 /* ── tiny helpers ─────────────────────────────────────────────── */
 const fmt = (v: number | null | undefined) =>
@@ -152,6 +152,7 @@ interface DossierData {
    ══════════════════════════════════════════════════════════════════ */
 export default function PartnerDossier() {
   const { id } = useParams<{ id: string }>();
+  const { setCreditBalance, setIsPreview: publishPreview } = usePartnerPortal();
 
   const [dossier, setDossier] = useState<DossierData | null>(null);
   const [meta, setMeta] = useState<DossierMeta | null>(null);
@@ -159,6 +160,16 @@ export default function PartnerDossier() {
   const [error, setError] = useState<string | null>(null);
   const [isPreview, setIsPreview] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+
+  /* ── Publish credit balance + preview state up to the layout chrome ── */
+  useEffect(() => {
+    setCreditBalance(meta?.credit_balance ?? null);
+  }, [meta?.credit_balance, setCreditBalance]);
+
+  useEffect(() => {
+    publishPreview(isPreview);
+  }, [isPreview, publishPreview]);
+
 
   /* ── Fallback helper ── */
   const fallbackToMock = useCallback(() => {
@@ -292,67 +303,54 @@ export default function PartnerDossier() {
      Render
      ══════════════════════════════════════════════════════════════ */
   return (
-    <div className="min-h-screen bg-background text-foreground font-sans">
-      {/* ─── Sticky Header ─────────────────────────────────────── */}
-      <header className="border-b bg-card sticky top-0 z-30 shadow-sm">
-        <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+    <>
+      <main className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 sm:py-8 space-y-6 sm:space-y-8">
+        {/* ─── Page header (breadcrumb + title + primary action) ── */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
             <Link
               to="/partner/opportunities"
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors mr-1"
+              className="mb-2 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Opportunities</span>
+              Opportunity Market
             </Link>
-            <Crosshair className="h-6 w-6 text-primary" />
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg font-bold tracking-tight leading-none font-[var(--font-headline)]">
-                  Intelligence Dossier
-                </h1>
-                {isPreview && <PreviewModeBadge />}
-              </div>
-              <p className="text-[11px] text-muted-foreground font-mono mt-0.5">
-                ID&nbsp;{(meta.analysis_id ?? id ?? "demo").slice(0, 8)}…
-              </p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Crosshair className="h-5 w-5 text-primary" />
+              <h1 className="font-display text-xl sm:text-2xl font-extrabold leading-tight tracking-tight text-foreground">
+                Intelligence Dossier
+              </h1>
+              {isPreview && <PreviewModeBadge />}
             </div>
+            <p className="text-[11px] text-muted-foreground font-mono mt-1">
+              ID&nbsp;{(meta.analysis_id ?? id ?? "demo").slice(0, 8)}…
+            </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-muted border">
-              <CreditCard className="h-3.5 w-3.5 text-primary" />
-              <span className="text-xs font-mono">
-                {meta.credit_balance} credit{meta.credit_balance !== 1 ? "s" : ""}
-              </span>
-            </div>
-
-            {/* ── Unlock / Unlocked CTA ── */}
-            <button
-              onClick={handleUnlock}
-              disabled={unlocked || unlocking || (!isPreview && !meta.can_unlock)}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all
-                ${unlocked
-                  ? "bg-emerald-50 text-emerald-700 border border-emerald-300 cursor-default"
-                  : unlocking
-                    ? "bg-primary/10 text-primary cursor-wait"
-                    : (isPreview || meta.can_unlock)
-                      ? "bg-primary text-white hover:bg-primary/90 shadow-md active:scale-[0.98]"
-                      : "bg-muted text-muted-foreground cursor-not-allowed border"
-                }`}
-            >
-              {unlocked ? (
-                <><ShieldCheck className="h-4 w-4" /> Lead Unlocked</>
-              ) : unlocking ? (
-                <><div className="h-4 w-4 rounded-full border-2 border-primary/40 border-t-transparent animate-spin" /> Unlocking…</>
-              ) : (
-                <><Lock className="h-4 w-4" /> Unlock Lead · 1 Credit</>
-              )}
-            </button>
-          </div>
+          {/* Page-local primary action (NOT global chrome) */}
+          <button
+            onClick={handleUnlock}
+            disabled={unlocked || unlocking || (!isPreview && !meta.can_unlock)}
+            className={`flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all shrink-0
+              ${unlocked
+                ? "bg-emerald-50 text-emerald-700 border border-emerald-300 cursor-default"
+                : unlocking
+                  ? "bg-primary/10 text-primary cursor-wait"
+                  : (isPreview || meta.can_unlock)
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-md active:scale-[0.98]"
+                    : "bg-muted text-muted-foreground cursor-not-allowed border"
+              }`}
+          >
+            {unlocked ? (
+              <><ShieldCheck className="h-4 w-4" /> Lead Unlocked</>
+            ) : unlocking ? (
+              <><div className="h-4 w-4 rounded-full border-2 border-primary/40 border-t-transparent animate-spin" /> Unlocking…</>
+            ) : (
+              <><Lock className="h-4 w-4" /> Unlock Lead · 1 Credit</>
+            )}
+          </button>
         </div>
-      </header>
 
-      <main className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-8 space-y-8">
 
         {/* ═══════════════════════════════════════════════════════
             § 1 — LEAD PROVENANCE
@@ -610,7 +608,8 @@ export default function PartnerDossier() {
           <p className="text-muted-foreground/60">WindowMan Intelligence — Contractor Eyes Only</p>
         </footer>
       </main>
-    </div>
+    </>
+
   );
 }
 

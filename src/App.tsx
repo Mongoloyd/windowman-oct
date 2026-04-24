@@ -49,6 +49,7 @@ const ContractorOpportunitiesPage = lazy(() => import("./pages/ContractorOpportu
 const AcceptInvite = lazy(() => import("./pages/AcceptInvite.tsx"));
 const PartnerResetPassword = lazy(() => import("./pages/PartnerResetPassword.tsx"));
 const ContractorOnboarding = lazy(() => import("./pages/ContractorOnboarding.tsx"));
+const PartnerLayout = lazy(() => import("./components/partner/PartnerLayout.tsx"));
 const LandingPage = lazy(() => import("./pages/LandingPage.tsx"));
 const Estimate = lazy(() => import("./pages/Estimate.tsx"));
 const Diagnosis = lazy(() => import("./pages/Diagnosis.tsx"));
@@ -162,8 +163,10 @@ const App = () => (
                 <Route path="/partner/reset-password" element={<PartnerResetPassword />} />
                 <Route path="/partner/accept-invite" element={<AcceptInvite />} />
                 <Route path="/partner/onboarding" element={<ContractorOnboarding />} />
-                <Route path="/partner/opportunities" element={<ContractorOpportunitiesPage />} />
-                <Route path="/partner/dossier/:id?" element={<PartnerDossier />} />
+                <Route element={<PartnerLayout />}>
+                  <Route path="/partner/opportunities" element={<ContractorOpportunitiesPage />} />
+                  <Route path="/partner/dossier/:id?" element={<PartnerDossier />} />
+                </Route>
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
