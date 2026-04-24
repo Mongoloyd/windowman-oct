@@ -193,7 +193,8 @@ function ClientDossierModal({ open, onClose, client, metaConfig, existingSlugs, 
       }
 
       if (pixelId.trim()) {
-        const metaPayload: Record<string, any> = {
+        type MetaConfigInsert = Database["public"]["Tables"]["meta_configurations"]["Insert"];
+        const metaPayload: MetaConfigInsert = {
           client_id: clientId,
           pixel_id: sanitize(pixelId),
           test_event_code: testEventCode.trim() ? sanitize(testEventCode) : null,
