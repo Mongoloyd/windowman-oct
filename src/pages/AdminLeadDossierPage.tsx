@@ -22,6 +22,7 @@ import { LeadStatusPanel } from "@/components/admin/lead-workspace/LeadStatusPan
 import { LeadNotesPanel } from "@/components/admin/lead-workspace/LeadNotesPanel";
 import { LeadTasksPanel } from "@/components/admin/lead-workspace/LeadTasksPanel";
 import { LeadTimelinePanel } from "@/components/admin/lead-workspace/LeadTimelinePanel";
+import { LeadHumanContextPanel } from "@/components/admin/lead-workspace/LeadHumanContextPanel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -237,6 +238,23 @@ export default function AdminLeadDossierPage() {
               </div>
             )}
           </section>
+
+          {/* Phase 10 — Human Context Layer (motivation, property, timeline,
+              handoff consent, fit warnings, deterministic opening script). */}
+          <LeadHumanContextPanel
+            lead={{
+              first_name: lead.first_name,
+              last_name: lead.last_name,
+              county: lead.county,
+              property_type_detail: (lead as any).property_type_detail ?? null,
+              hoa_or_condo_complexity: (lead as any).hoa_or_condo_complexity ?? null,
+              handoff_consent_status: (lead as any).handoff_consent_status ?? null,
+              timeline_bucket: (lead as any).timeline_bucket ?? null,
+            }}
+            diagnosisIntake={(lead as any).diagnosis_intake ?? null}
+            analysis={analysis ?? null}
+            latestRoute={(lead as any).latest_route ?? null}
+          />
 
           <LeadTimelinePanel leadId={leadId} />
         </div>
