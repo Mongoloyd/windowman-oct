@@ -552,6 +552,12 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
                 >
                   {uploading ? "Retrying..." : "Retry Scan →"}
                 </button>
+                {/* Dev/preview-only diagnostic. Never rendered in prod. */}
+                {uploadErrorDiag && import.meta.env.DEV && (
+                  <p className="font-mono text-[11px] text-muted-foreground text-center mt-2 break-all">
+                    {uploadErrorDiag}
+                  </p>
+                )}
               </div>
             )}
 
