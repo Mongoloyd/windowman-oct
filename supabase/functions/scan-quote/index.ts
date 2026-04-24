@@ -1107,6 +1107,93 @@ Deno.serve(async (req: Request) => {
       if (classCheck.success) {
         const classData = classCheck.data;
 
+        // 8a-PRE. AUTHENTICITY GATE — reject WindowMan UI artifacts, mockups,
+        //         unrelated docs, or anything that is not a real contractor
+        //         estimate. This runs BEFORE the window/door related gate so a
+        //         screenshot of our own demo proposal can never reach scoring.
+        const documentAuthenticity = typeof classData.document_authenticity === "string"
+          ? (classData.document_authenticity as string)
+          : null;
+        const isRealEstimate = classData.is_real_contractor_estimate === true;
+        const uiArtifactDetected = classData.ui_artifact_detected === true;
+        const estimateArtifacts = Array.isArray(classData.estimate_artifacts_present)
+          ? (classData.estimate_artifacts_present as unknown[]).filter((v) => typeof v === "string")
+          : [];
+        const rejectedAuthenticity =
+          documentAuthenticity === "windowman_ui_artifact" ||
+          documentAuthenticity === "sample_mockup" ||
+          documentAuthenticity === "unrelated" ||
+          documentAuthenticity === "insufficient";
+
+        const authenticityFails =
+          uiArtifactDetected ||
+          rejectedAuthenticity ||
+          (documentAuthenticity !== null && !isRealEstimate) ||
+          (documentAuthenticity !== null && estimateArtifacts.length < 3 &&
+           (documentAuthenticity === "real_estimate" || documentAuthenticity === "real_estimate_screenshot"));
+
+        if (authenticityFails) {
+          const rejectionReason = uiArtifactDetected || documentAuthenticity === "windowman_ui_artifact"
+            ? "windowman_ui_artifact"
+            : (typeof classData.rejection_reason === "string" && classData.rejection_reason)
+              ? (classData.rejection_reason as string)
+              : (documentAuthenticity ?? "not_a_real_estimate");
+
+          console.log(
+            `[scan-quote] authenticity gate rejected session=${scan_session_id} ` +
+            `authenticity=${documentAuthenticity} ui_artifact=${uiArtifactDetected} ` +
+            `is_real=${isRealEstimate} artifacts=${estimateArtifacts.length} ` +
+            `reason=${rejectionReason}`,
+          );
+
+          const authInvalidPayload = {
+            scan_session_id,
+            lead_id: session.lead_id,
+            analysis_status: "invalid_document",
+            document_is_window_door_related: false,
+            document_type: classData.document_type as string,
+            confidence_score: classData.confidence as number,
+            rubric_version: RUBRIC_VERSION,
+          };
+          const authInvalidUpsert = await upsertAnalysisRecord(
+            supabase,
+            authInvalidPayload,
+            "analyses upsert failed",
+            {
+              error: "Failed to persist analysis state",
+              scan_session_id,
+              analysis_status: "processing",
+              scan_session_status: "processing",
+            },
+          );
+          if (!authInvalidUpsert.success) return authInvalidUpsert.response;
+
+          const authInvalidStatus = await updateScanSessionStatus(
+            supabase,
+            scan_session_id,
+            "invalid_document",
+            "scan_sessions invalid_document update failed",
+            {
+              error: "Failed to persist scan session state",
+              scan_session_id,
+              analysis_status: "invalid_document",
+              scan_session_status: "processing",
+            },
+          );
+          if (!authInvalidStatus.success) return authInvalidStatus.response;
+
+          return jsonResponse({
+            scan_session_id,
+            analysis_status: "invalid_document",
+            scan_session_status: "invalid_document",
+            rejection_reason: rejectionReason,
+            document_authenticity: documentAuthenticity,
+            reason: rejectionReason === "windowman_ui_artifact"
+              ? "This looks like a screenshot of the WindowMan app, not a real contractor estimate. Please upload your actual contractor's quote, proposal, or invoice (PDF or photo)."
+              : "This file doesn't look like a real contractor estimate. Please upload your contractor's quote, proposal, or invoice (PDF or photo of the document).",
+          }, 200);
+        }
+
         // 8a. Invalid document gate (not window/door related)
         if (classData.is_window_door_related === false) {
           const invalidDocumentUpsertPayload = {
