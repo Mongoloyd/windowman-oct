@@ -100,6 +100,8 @@ const ACTION_ROLES: Record<ActionName, AppRole[]> = {
   // Phase 26 — Mission Control Truth Strip drilldown
   fetch_quote_evidence: ["super_admin", "operator", "viewer"],
   fetch_stage_leads:    ["super_admin", "operator", "viewer"],
+  // Sprint 1D — read-only partner outcome rollup
+  fetch_partner_outcome_rollup: ["super_admin", "operator", "viewer"],
 };
 
 // Allowed funnel stages (Sprint 5 — kept in sync with frontend constants)
