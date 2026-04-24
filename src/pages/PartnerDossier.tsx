@@ -369,9 +369,18 @@ export default function PartnerDossier() {
           </button>
         </div>
 
-
         {/* ═══════════════════════════════════════════════════════
-            § 1 — LEAD PROVENANCE
+            § 0 — PARTNER ACTION CENTER (Sprint 1D)
+            ═══════════════════════════════════════════════════════ */}
+        <PartnerActionCenter
+          outcome={outcome}
+          opportunityId={(meta as any)?.opportunity_id ?? outcome?.opportunity_id ?? null}
+          isPreview={isPreview}
+          isLocked={!isUnlockedState(deriveDisplayState(isPreview, meta.masked))}
+          onUpdated={() => { void fetchDossier(); }}
+        />
+
+
             ═══════════════════════════════════════════════════════ */}
         <section className={`rounded-xl p-6 transition-colors duration-500 ${
           unlocked
