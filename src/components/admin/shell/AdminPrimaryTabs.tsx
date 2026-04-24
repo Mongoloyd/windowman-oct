@@ -24,6 +24,8 @@ interface PanelTabDef {
   label: string;
   count?: number;
   variant?: "destructive" | "default";
+  /** Optional pathname that should also highlight this panel tab when active. */
+  routeAlias?: string;
 }
 
 interface RouteTabDef {
