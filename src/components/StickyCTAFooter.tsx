@@ -76,13 +76,14 @@ export const StickyCTAFooter = ({
               >
                 Scan My Quote
               </button>
-              <button
-                onClick={onDemoClick}
-                className="flex-1 md:flex-none w-full max-w-[200px] btn-secondary-tactile border border-cyan-800"
-                style={{ padding: "12px 20px" }}
-              >
-                View Live Demo
-              </button>
+              <div className="flex flex-1 md:flex-none w-full max-w-[200px] rounded-xl bg-gradient-to-tr from-orange-400 to-blue-400 p-[2px] shadow-lg transition-transform hover:-translate-y-0.5">
+                <button
+                  onClick={onDemoClick}
+                  className="flex-1 rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-slate-900"
+                >
+                  View Live Demo
+                </button>
+              </div>
             </div>
           </>
         )}
