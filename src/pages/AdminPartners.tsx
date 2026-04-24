@@ -6,6 +6,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { useCurrentUserRole } from "@/hooks/useCurrentUserRole";
 import { toast } from "sonner";
@@ -193,7 +194,8 @@ function ClientDossierModal({ open, onClose, client, metaConfig, existingSlugs, 
       }
 
       if (pixelId.trim()) {
-        const metaPayload: Record<string, any> = {
+        type MetaConfigInsert = Database["public"]["Tables"]["meta_configurations"]["Insert"];
+        const metaPayload: MetaConfigInsert = {
           client_id: clientId,
           pixel_id: sanitize(pixelId),
           test_event_code: testEventCode.trim() ? sanitize(testEventCode) : null,
