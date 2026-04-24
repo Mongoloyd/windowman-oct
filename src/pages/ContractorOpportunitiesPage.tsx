@@ -20,6 +20,18 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { PreviewModeBadge } from "@/components/PreviewModeBadge";
 import { toast } from "sonner";
+import {
+  formatRelativeTime,
+  getBuyerSeriousness,
+  getPropertyBadge,
+  getTimelineBadge,
+  getMotivationBadge,
+  getHandoffSignal,
+  getBestSalesAngle,
+  getRecommendedAction,
+  getBestUnlockScore,
+  type HandoffTone,
+} from "@/lib/contractorOpportunitySignals";
 
 /* ── Types ──────────────────────────────────────────────────────── */
 interface Opportunity {
@@ -45,6 +57,24 @@ interface Opportunity {
   dossier_href: string;
   has_document: boolean;
   created_at: string;
+
+  /* ── Sprint 1: optional frontend-only signal fields (nullable-safe) ── */
+  buyer_seriousness_score?: number | null;
+  buyer_seriousness_band?: "A" | "B" | "C" | "D" | null;
+  property_type_detail?: string | null;
+  hoa_or_condo_complexity?: string | null;
+  timeline_bucket?: string | null;
+  motivation_reason?: string | null;
+  handoff_consent_status?: string | null;
+  last_activity_at?: string | null;
+  phone_verified_at?: string | null;
+  report_viewed_at?: string | null;
+  best_sales_angle?: string | null;
+  recommended_action?: string | null;
+  exclusive_status?: string | null;
+  contractor_view_count?: number | null;
+  unlocked_by_other_count?: number | null;
+  credit_cost?: number | null;
 }
 
 interface Meta {
@@ -54,6 +84,48 @@ interface Meta {
 }
 
 type FilterTab = "all" | "unlocked" | "pending" | "released";
+
+type SortMode =
+  | "best_unlock"
+  | "highest_bss"
+  | "newest"
+  | "largest_project"
+  | "most_red_flags"
+  | "ready_this_month";
+
+const SORT_OPTIONS: { value: SortMode; label: string }[] = [
+  { value: "best_unlock", label: "Best Unlock" },
+  { value: "highest_bss", label: "Highest BSS" },
+  { value: "newest", label: "Newest" },
+  { value: "largest_project", label: "Largest Project" },
+  { value: "most_red_flags", label: "Most Red Flags" },
+  { value: "ready_this_month", label: "Ready Soonest" },
+];
+
+const TIMELINE_RANK: Record<string, number> = {
+  asap: 0,
+  this_month: 1,
+  one_to_three_months: 2,
+  three_to_six_months: 3,
+  researching: 4,
+};
+
+function parseQuoteMidpoint(range: string | null | undefined): number {
+  if (!range) return 0;
+  const nums = range.replace(/,/g, "").match(/\d+(?:\.\d+)?/g);
+  if (!nums || nums.length === 0) return 0;
+  const vals = nums.map((n) => Number(n)).filter((n) => Number.isFinite(n));
+  if (vals.length === 0) return 0;
+  if (vals.length === 1) return vals[0];
+  return (vals[0] + vals[vals.length - 1]) / 2;
+}
+
+const HANDOFF_TONE_CLASSES: Record<HandoffTone, string> = {
+  hot: "bg-red-50 border-red-200 text-red-700",
+  warm: "bg-amber-50 border-amber-200 text-amber-700",
+  caution: "bg-sky-50 border-sky-200 text-sky-700",
+  muted: "bg-muted border-border text-muted-foreground",
+};
 
 /* ── Helpers ────────────────────────────────────────────────────── */
 const gradeColor = (g: string | null) => {
