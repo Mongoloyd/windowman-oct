@@ -200,7 +200,7 @@ export function PropertyAndConsentStep({
         <p className="text-sm font-medium text-foreground">
           Any HOA or building approval to worry about?
         </p>
-        <ChipGroup options={HOA_OPTIONS} value={hoa} onChange={setHoa} ariaLabel="HOA complexity" />
+        <ChipGroup options={HOA_OPTIONS} value={hoa} onChange={(v) => setHoa(v)} ariaLabel="HOA complexity" />
       </div>
 
       <div className="space-y-2">
@@ -210,7 +210,7 @@ export function PropertyAndConsentStep({
         <ChipGroup
           options={CONSENT_OPTIONS}
           value={consent}
-          onChange={setConsent}
+          onChange={(v) => setConsent(v)}
           ariaLabel="Handoff consent"
         />
       </div>
