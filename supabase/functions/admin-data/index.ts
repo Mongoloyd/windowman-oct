@@ -226,6 +226,7 @@ Deno.serve(async (req) => {
     }
 
 
+    if (action === "fetch_voice_followups") {
       const { data, error } = await supabaseAdmin.from("voice_followups").select("*").order("created_at", { ascending: false }).limit(100);
       if (error) throw error;
       return successResponse({ data: data });
