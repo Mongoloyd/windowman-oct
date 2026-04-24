@@ -632,10 +632,19 @@ function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string
 }
 
 function OpportunityCard({ opp, navigate }: { opp: Opportunity; navigate: (path: string) => void }) {
+  const bss = getBuyerSeriousness(opp);
+  const propertyBadge = getPropertyBadge(opp);
+  const timelineBadge = getTimelineBadge(opp);
+  const motivationBadge = getMotivationBadge(opp);
+  const handoff = getHandoffSignal(opp);
+  const angle = getBestSalesAngle(opp);
+  const action = getRecommendedAction(opp);
+  const freshness = formatRelativeTime(opp.created_at);
+
   return (
     <button
       onClick={() => navigate(opp.dossier_href)}
-      className="w-full text-left bg-card border rounded-xl p-5 hover:border-primary/30 hover:shadow-md transition-all group"
+      className="w-full text-left bg-card border rounded-xl p-5 hover:border-primary/30 hover:shadow-md transition-all group focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <div className="flex items-start justify-between gap-4">
         {/* Left: info */}
@@ -687,6 +696,40 @@ function OpportunityCard({ opp, navigate }: { opp: Opportunity; navigate: (path:
                 <FileText className="h-3 w-3" /> Doc
               </span>
             )}
+          </div>
+
+          {/* ─── Sprint 1: Signal preview strip (compact) ─────────── */}
+          <div className="pt-2 border-t border-border/60 space-y-2">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {bss.label && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
+                  {bss.label}
+                </span>
+              )}
+              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-muted text-foreground border">
+                {propertyBadge}
+              </span>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-muted text-foreground border">
+                {timelineBadge}
+              </span>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-muted text-foreground border">
+                {motivationBadge}
+              </span>
+              <span
+                className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold border ${HANDOFF_TONE_CLASSES[handoff.tone]}`}
+                aria-label={`Handoff status: ${handoff.label}`}
+              >
+                {handoff.label}
+              </span>
+            </div>
+            <p className="text-[11px] text-muted-foreground leading-snug">
+              {freshness && <>{freshness} · </>}
+              <span className="text-foreground font-medium">{angle}</span>
+              {" · "}
+              <span className={handoff.isCallReady ? "text-foreground" : "text-muted-foreground italic"}>
+                {action}
+              </span>
+            </p>
           </div>
         </div>
 
