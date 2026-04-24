@@ -19,8 +19,7 @@ import ExecutiveSummaryStrip from "@/components/report/ExecutiveSummaryStrip";
 import RedFlagsList from "@/components/report/RedFlagsList";
 import MissingItemsList from "@/components/report/MissingItemsList";
 import TopRisksBlock from "@/components/report/TopRisksBlock";
-import TopRisksCTAStrip from "@/components/report/TopRisksCTAStrip";
-import WhatToDoNowBlock from "@/components/report/WhatToDoNowBlock";
+import ReportDecisionFork from "@/components/report/ReportDecisionFork";
 import FixItCTA from "@/components/report/FixItCTA";
 import GapFixModule from "@/components/report/GapFixModule";
 import GreenChecklistModule from "@/components/report/GreenChecklistModule";
@@ -540,15 +539,17 @@ I'm ready to move forward if we can get these items addressed. What's the fastes
         </section>
       )}
 
-      {/* ─── PRIMARY CTA STRIP (full only) — authoritative commercial action ───
-          Sticky bottom CTA mirrors this exact wording (CTA_LABEL constant). */}
+      {/* ─── FULL REPORT DECISION FORK ─── */}
       {isFull && (
-        <TopRisksCTAStrip
-          ctaLabel={ctaLabel}
+        <ReportDecisionFork
+          grade={grade}
+          redCount={redCount}
+          amberCount={amberCount}
+          flags={flags}
+          pricePerOpeningBand={pricePerOpeningBand}
           onContractorMatchClick={onContractorMatchClick}
           isCtaLoading={isCtaLoading}
           introRequested={introRequested}
-          findingsCount={flags.length}
         />
       )}
 
