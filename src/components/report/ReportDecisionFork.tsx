@@ -182,7 +182,7 @@ const ReportDecisionFork = ({
             className="relative overflow-hidden rounded-3xl p-5 md:p-6 min-h-[320px] flex flex-col border"
             style={{
               background:
-                "linear-gradient(145deg, hsl(222 72% 16%) 0%, hsl(var(--primary)) 58%, hsl(217 91% 34%) 100%)",
+                "linear-gradient(145deg, hsl(var(--foreground)) 0%, hsl(var(--primary)) 58%, hsl(var(--color-cobalt-dim)) 100%)",
               borderColor: "hsl(var(--primary) / 0.36)",
               boxShadow: "0 22px 60px hsl(var(--primary) / 0.28), inset 0 1px 0 hsl(var(--primary-foreground) / 0.2)",
               color: "hsl(var(--primary-foreground))",
