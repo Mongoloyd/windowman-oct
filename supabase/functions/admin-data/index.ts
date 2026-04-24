@@ -180,7 +180,52 @@ Deno.serve(async (req) => {
       return successResponse({ intros, outcomes, data: { intros, outcomes } });
     }
 
-    if (action === "fetch_voice_followups") {
+    // Sprint 1D — Read-only partner outcome rollup for admin (Mission Control bridge)
+    // Returns aggregate truth pulled from contractor_outcomes. Read-only, no writes.
+    if (action === "fetch_partner_outcome_rollup") {
+      const { data: outcomes, error: rollupErr } = await supabaseAdmin
+        .from("contractor_outcomes")
+        .select("id, contractor_id, disposition_state, final_value_cents, signed_contract_url, last_partner_action_at, created_at, updated_at");
+      if (rollupErr) throw rollupErr;
+
+      const rows = outcomes ?? [];
+      const nowMs = Date.now();
+      const DAY_MS = 86_400_000;
+
+      const partner_sold_count = rows.filter((r) => r.disposition_state === "sold_closed").length;
+      const partner_lost_count = rows.filter((r) => r.disposition_state === "lost_dead").length;
+      const managed_revenue_cents = rows.reduce(
+        (sum, r) => sum + ((r.disposition_state === "sold_closed" && typeof r.final_value_cents === "number") ? r.final_value_cents : 0),
+        0,
+      );
+      const untouched_new_over_24h = rows.filter((r) => {
+        if (r.disposition_state !== "new") return false;
+        const anchor = (r.last_partner_action_at as string | null) ?? (r.created_at as string | null);
+        if (!anchor) return false;
+        return (nowMs - new Date(anchor).getTime()) > DAY_MS;
+      }).length;
+      const sold_missing_value = rows.filter(
+        (r) => r.disposition_state === "sold_closed" && (r.final_value_cents == null || r.final_value_cents <= 0),
+      ).length;
+      const sold_missing_proof = rows.filter(
+        (r) => r.disposition_state === "sold_closed" && !r.signed_contract_url,
+      ).length;
+
+      return successResponse({
+        data: {
+          partner_sold_count,
+          partner_lost_count,
+          managed_revenue_cents,
+          managed_revenue_dollars: Math.round(managed_revenue_cents / 100),
+          untouched_new_over_24h,
+          sold_missing_value,
+          sold_missing_proof,
+          total_outcome_rows: rows.length,
+        },
+      });
+    }
+
+
       const { data, error } = await supabaseAdmin.from("voice_followups").select("*").order("created_at", { ascending: false }).limit(100);
       if (error) throw error;
       return successResponse({ data: data });
