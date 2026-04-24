@@ -37,6 +37,8 @@ import {
   ShieldAlert,
   ShieldCheck,
   Target,
+  TrendingDown,
+  TrendingUp,
   Unlock,
   Users,
   XCircle,
@@ -141,31 +143,77 @@ function toneForStatus(status: ReadinessStatus) {
   };
 }
 
-/* ─── KPI tile ───────────────────────────────────────────────────────── */
+/* ─── Truth Strip types ──────────────────────────────────────────────── */
+type Scope = "today" | "7d" | "all";
+
+interface StageMetric {
+  count: number;
+  prevCount: number;
+  delta: number;
+  deltaPct: number | null; // null when prior window is empty (no baseline)
+  convPct: number | null;  // null for the baseline (Captured)
+}
+type StageKey = "captured" | "verified" | "scanned" | "routed" | "booked" | "closed";
+type FunnelMetrics = Record<StageKey, StageMetric>;
+
+/* ─── KPI tile (interactive, glass) ──────────────────────────────────── */
 interface KpiTileProps {
   label: string;
-  value: number;
-  hint: string;
+  metric: StageMetric;
+  hint: string;        // prior-stage label, e.g. "of Captured" — empty for baseline
   icon: typeof Activity;
+  onClick: () => void;
 }
-function KpiTile({ label, value, hint, icon: Icon }: KpiTileProps) {
+function KpiTile({ label, metric, hint, icon: Icon, onClick }: KpiTileProps) {
+  const { count, delta, deltaPct, convPct } = metric;
+  const deltaTone =
+    deltaPct === null
+      ? "text-muted-foreground"
+      : delta > 0
+      ? "text-emerald-600 dark:text-emerald-400"
+      : delta < 0
+      ? "text-rose-600 dark:text-rose-400"
+      : "text-muted-foreground";
+  const DeltaIcon =
+    deltaPct === null || delta === 0
+      ? null
+      : delta > 0
+      ? TrendingUp
+      : TrendingDown;
+  const deltaLabel =
+    deltaPct === null
+      ? "—"
+      : `${delta > 0 ? "+" : ""}${Math.round(deltaPct)}%`;
+  const convLabel =
+    convPct === null
+      ? hint || "baseline"
+      : `${convPct}% ${hint}`;
+
   return (
-    <Card className="relative overflow-hidden">
-      <CardHeader className="flex flex-row items-center justify-between pb-1.5">
-        <CardTitle className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`${label}: ${count.toLocaleString()} leads, ${deltaLabel} vs prior period, ${convLabel}`}
+      className="group relative overflow-hidden rounded-lg border border-border/60 bg-card/95 backdrop-blur-sm px-3 py-2.5 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+    >
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground truncate">
           {label}
-        </CardTitle>
-        <Icon className="h-4 w-4 text-muted-foreground" />
-      </CardHeader>
-      <CardContent className="pt-0">
-        <div className="text-2xl font-bold tabular-nums tracking-tight">
-          {value.toLocaleString()}
-        </div>
-        <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">
-          {hint}
-        </p>
-      </CardContent>
-    </Card>
+        </span>
+        <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+      </div>
+      <div className="text-2xl font-bold tabular-nums tracking-tight leading-none mb-1.5">
+        {count.toLocaleString()}
+      </div>
+      <div className="flex items-center gap-1.5 text-[10px] leading-tight">
+        <span className={`inline-flex items-center gap-0.5 font-semibold ${deltaTone}`}>
+          {DeltaIcon ? <DeltaIcon className="h-3 w-3" aria-hidden /> : null}
+          {deltaLabel}
+        </span>
+        <span className="text-muted-foreground/60">·</span>
+        <span className="text-muted-foreground truncate">{convLabel}</span>
+      </div>
+    </button>
   );
 }
 
@@ -193,6 +241,25 @@ function readGoal(): number {
   return Number.isFinite(n) && n > 0 ? n : DEFAULT_DAILY_GOAL;
 }
 
+/** Returns [windowStart, prevWindowStart] in ms. `all` => [0, 0]. */
+function scopeWindows(scope: Scope): { start: number; prevStart: number; prevEnd: number } {
+  const now = Date.now();
+  if (scope === "today") {
+    const start = startOfTodayMs();
+    const span = now - start;
+    return { start, prevStart: start - span, prevEnd: start };
+  }
+  if (scope === "7d") {
+    const span = 7 * 24 * 60 * 60 * 1000;
+    const start = now - span;
+    return { start, prevStart: start - span, prevEnd: start };
+  }
+  // all-time: compare last 30d vs prior 30d for a meaningful delta
+  const span = 30 * 24 * 60 * 60 * 1000;
+  const start = now - span;
+  return { start: 0, prevStart: start - span, prevEnd: start };
+}
+
 export function MasterCommandCenter({
   leads,
   deliveries,
@@ -201,6 +268,7 @@ export function MasterCommandCenter({
   onNavigateTab,
 }: MasterCommandCenterProps) {
   const [dailyGoal, setDailyGoal] = useState<number>(readGoal);
+  const [scope, setScope] = useState<Scope>("all");
 
   /* ── Live reads (TanStack — same cache keys as other surfaces) ───── */
   const oppsQ = useQuery({
@@ -223,24 +291,84 @@ export function MasterCommandCenter({
   const routes = (routesQ.data as RoutingRoute[] | undefined) ?? [];
   const contractors = (contractorsQ.data as RoutingContractor[] | undefined) ?? [];
 
-  /* ── KPI funnel (lead-level repo-real timestamps) ────────────────── */
-  const flow = useMemo(() => {
-    let captured = 0;
-    let verified = 0;
-    let scanned = 0;
-    let routed = 0;
-    let booked = 0;
-    let closed = 0;
+  /* ── Truth Strip metrics (windowed by scope, with prior-period delta) */
+  const funnelMetrics: FunnelMetrics = useMemo(() => {
+    const { start, prevStart, prevEnd } = scopeWindows(scope);
+
+    const ts = (s: string | null | undefined): number | null => {
+      if (!s) return null;
+      const t = new Date(s).getTime();
+      return Number.isNaN(t) ? null : t;
+    };
+
+    // For each stage, capture the timestamp that marks entry into that stage.
+    type Probe = (l: CRMLead) => number | null | undefined;
+    const probes: Record<StageKey, Probe> = {
+      captured: (l) => ts(l.created_at),
+      verified: (l) => ts(l.phone_verified_at),
+      // Scanned has no dedicated column; use updated_at as a proxy when an analysis is attached.
+      scanned: (l) => (l.latest_analysis_id ? ts(l.updated_at) : null),
+      routed: (l) => ts(l.routed_to_contractor_at),
+      booked: (l) => ts(l.appointment_booked_at),
+      closed: (l) => {
+        if (!l.closed_at) return null;
+        const status = (l.deal_status ?? "").toLowerCase();
+        if (!CLOSED_STATUSES.has(status)) return null;
+        return ts(l.closed_at);
+      },
+    };
+
+    const stageKeys: StageKey[] = ["captured", "verified", "scanned", "routed", "booked", "closed"];
+    const result = {} as FunnelMetrics;
+    const counts: Record<StageKey, number> = {
+      captured: 0, verified: 0, scanned: 0, routed: 0, booked: 0, closed: 0,
+    };
+    const prevCounts: Record<StageKey, number> = {
+      captured: 0, verified: 0, scanned: 0, routed: 0, booked: 0, closed: 0,
+    };
+
     for (const l of leads) {
-      captured++;
-      if (l.phone_verified_at) verified++;
-      if (l.latest_analysis_id) scanned++;
-      if (l.routed_to_contractor_at) routed++;
-      if (l.appointment_booked_at) booked++;
-      if (l.closed_at) closed++;
+      for (const k of stageKeys) {
+        const t = probes[k](l);
+        if (t == null) continue;
+        if (t >= start) counts[k]++;
+        if (t >= prevStart && t < prevEnd) prevCounts[k]++;
+      }
     }
-    return { captured, verified, scanned, routed, booked, closed };
-  }, [leads]);
+
+    const priorOf: Record<StageKey, StageKey | null> = {
+      captured: null,
+      verified: "captured",
+      scanned: "captured",
+      routed: "verified",
+      booked: "routed",
+      closed: "booked",
+    };
+
+    for (const k of stageKeys) {
+      const c = counts[k];
+      const p = prevCounts[k];
+      const delta = c - p;
+      const deltaPct = p === 0 ? null : (delta / p) * 100;
+      const prior = priorOf[k];
+      const convPct = prior == null ? null : pct(c, counts[prior]);
+      result[k] = { count: c, prevCount: p, delta, deltaPct, convPct };
+    }
+    return result;
+  }, [leads, scope]);
+
+  /* Backward-compat shape used by signals & snapshot exporter. */
+  const flow = useMemo(
+    () => ({
+      captured: funnelMetrics.captured.count,
+      verified: funnelMetrics.verified.count,
+      scanned: funnelMetrics.scanned.count,
+      routed: funnelMetrics.routed.count,
+      booked: funnelMetrics.booked.count,
+      closed: funnelMetrics.closed.count,
+    }),
+    [funnelMetrics],
+  );
 
   /* ── Daily Revenue (closed today) ────────────────────────────────── */
   const revenueToday = useMemo(() => {
@@ -805,47 +933,86 @@ export function MasterCommandCenter({
         </CardContent>
       </Card>
 
-      {/* ── KPI strip ──────────────────────────────────────────────── */}
+      {/* ── Truth Strip — interactive funnel ──────────────────────── */}
       <div>
-        <div className="flex items-center justify-between mb-2 px-1">
-          <h2 className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-            Funnel — last all-time
-          </h2>
-          <span className="text-[10px] text-muted-foreground font-mono">
-            {leads.length} leads in scope
-          </span>
+        <div className="flex items-center justify-between gap-3 mb-2 px-1 flex-wrap">
+          <div className="flex items-center gap-2 min-w-0">
+            <h2 className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+              Truth Strip — Funnel
+            </h2>
+            <span className="text-[10px] text-muted-foreground font-mono">
+              {scope === "today" ? "today" : scope === "7d" ? "last 7 days" : "all-time · Δ vs prior 30d"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div
+              role="group"
+              aria-label="Time scope"
+              className="inline-flex rounded-md border border-border/60 bg-card/95 backdrop-blur-sm p-0.5"
+            >
+              {(["today", "7d", "all"] as Scope[]).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setScope(s)}
+                  aria-pressed={scope === s}
+                  className={`px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider rounded-sm transition-colors ${
+                    scope === s
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {s === "today" ? "Today" : s === "7d" ? "7D" : "All"}
+                </button>
+              ))}
+            </div>
+            <span className="text-[10px] text-muted-foreground font-mono hidden sm:inline">
+              {leads.length} leads in scope
+            </span>
+          </div>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <KpiTile label="Captured" value={flow.captured} hint="All leads recorded" icon={Inbox} />
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+          <KpiTile
+            label="Captured"
+            metric={funnelMetrics.captured}
+            hint=""
+            icon={Inbox}
+            onClick={() => onNavigateTab("pipeline")}
+          />
           <KpiTile
             label="Verified"
-            value={flow.verified}
-            hint={`${pct(flow.verified, flow.captured)}% of captured`}
+            metric={funnelMetrics.verified}
+            hint="of Captured"
             icon={ShieldCheck}
+            onClick={() => onNavigateTab("pipeline")}
           />
           <KpiTile
             label="Scanned"
-            value={flow.scanned}
-            hint={`${pct(flow.scanned, flow.captured)}% of captured`}
+            metric={funnelMetrics.scanned}
+            hint="of Captured"
             icon={ScanSearch}
+            onClick={() => onNavigateTab("pipeline")}
           />
           <KpiTile
             label="Routed"
-            value={flow.routed}
-            hint={`${pct(flow.routed, flow.verified)}% of verified`}
+            metric={funnelMetrics.routed}
+            hint="of Verified"
             icon={Send}
+            onClick={() => onNavigateTab("routing")}
           />
           <KpiTile
             label="Booked"
-            value={flow.booked}
-            hint={`${pct(flow.booked, flow.routed)}% of routed`}
+            metric={funnelMetrics.booked}
+            hint="of Routed"
             icon={CalendarCheck}
+            onClick={() => onNavigateTab("outcomes")}
           />
           <KpiTile
             label="Closed"
-            value={flow.closed}
-            hint={`${pct(flow.closed, flow.booked)}% of booked`}
+            metric={funnelMetrics.closed}
+            hint="of Booked"
             icon={CheckCircle2}
+            onClick={() => onNavigateTab("outcomes")}
           />
         </div>
       </div>
