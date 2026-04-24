@@ -1,3 +1,9 @@
+/**
+ * @deprecated Phase 26 — Replaced by `MasterCommandCenter` + the canonical
+ * `funnelMetrics` engine. Kept on disk for archaeology only; no longer
+ * imported by `AdminDashboard.tsx`. Do not re-mount: it uses the legacy
+ * `latest_analysis_id` proxy and will disagree with Mission Control.
+ */
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";

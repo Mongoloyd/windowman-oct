@@ -1,3 +1,9 @@
+/**
+ * @deprecated Phase 26 — Funnel counts are now produced by the canonical
+ * `computeFunnelMetrics` engine in `missionControl/funnelMetrics.ts` and
+ * rendered by `MasterCommandCenter`. This legacy view uses the
+ * `latest_analysis_id` proxy and is no longer mounted anywhere.
+ */
 import type { CRMLead } from "./types";
 
 interface ConversionFunnelProps {

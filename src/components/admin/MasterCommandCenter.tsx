@@ -77,7 +77,6 @@ import { downloadSnapshotCsv } from "@/components/admin/missionControl/exportSna
 import {
   computeFunnelMetrics,
   computeTodayRevenue,
-  CLOSED_STATUSES,
   type Scope,
   type StageKey,
   type FunnelMetrics,
