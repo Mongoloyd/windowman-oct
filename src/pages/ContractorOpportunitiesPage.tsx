@@ -11,11 +11,15 @@ import {
   AlertTriangle,
   MapPin,
   Target,
-  TrendingUp,
   Filter,
   LayoutGrid,
   Plus,
   Loader2,
+  Check,
+  Clock,
+  Phone,
+  Eye,
+  Sparkles,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PreviewModeBadge } from "@/components/PreviewModeBadge";
@@ -30,6 +34,9 @@ import {
   getBestSalesAngle,
   getRecommendedAction,
   getBestUnlockScore,
+  getCreditCost,
+  getCreditCostLine,
+  getUnlockIncludes,
   type HandoffTone,
 } from "@/lib/contractorOpportunitySignals";
 
