@@ -41,6 +41,7 @@ import {
 } from "./scoring.ts";
 import { compileReportOutput } from "./reportCompiler.ts";
 import { detectFlags, type Flag } from "./flagging.ts";
+import { evaluateDocumentAuthenticity } from "./authenticity.ts";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SECTION 1: SCHEMA (Zod-like runtime validation — manual for Deno compat)
@@ -286,6 +287,10 @@ function computeDerivedMetrics(data: ExtractionResult, countyName?: string | nul
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// SECTION 4c: DOCUMENT AUTHENTICITY GATE — see ./authenticity.ts
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // SECTION 5: ORCHESTRATION (HTTP handler)
 type ScanSessionStatus = "idle" | "uploading" | "processing" | "preview_ready" | "complete" | "invalid_document" | "needs_better_upload" | "error";
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -394,8 +399,77 @@ const GEMINI_EXTRACTION_PROMPT = `You are a forensic document extraction engine 
 
 Analyze the uploaded document and extract ALL structured data into the JSON schema below.
 
+═══════════════════════════════════════════════════════════════════════════════
+DOCUMENT AUTHENTICITY GATE — RUN THIS FIRST, BEFORE EXTRACTION
+═══════════════════════════════════════════════════════════════════════════════
+
+You MUST classify the document into exactly one of these document_authenticity values:
+
+  - "real_estimate"             → original contractor estimate, proposal, contract,
+                                   invoice, or work order PDF/document.
+  - "real_estimate_screenshot"  → photograph or screenshot of a REAL contractor
+                                   document (printed, faxed, emailed PDF, etc.).
+  - "windowman_ui_artifact"     → screenshot of the WindowMan app, scanner,
+                                   demo proposal UI, upload screen, sample
+                                   "Truth Report", warning cards, or any
+                                   WindowMan-branded interface element.
+  - "sample_mockup"             → marketing mockup, annotated sample, training
+                                   slide, or template that is not a real quote
+                                   for a real homeowner.
+  - "unrelated"                 → document is unrelated to windows/doors
+                                   (receipt, ID, random photo, etc.).
+  - "insufficient"              → too little visible content to classify.
+
+ACCEPT ONLY: "real_estimate" or "real_estimate_screenshot".
+REJECT (set is_real_contractor_estimate=false, ui_artifact_detected as appropriate):
+  windowman_ui_artifact, sample_mockup, unrelated, insufficient.
+
+WindowMan/demo UI tells (presence of ANY of these phrases or visual elements
+means document_authenticity = "windowman_ui_artifact"):
+  - "Analyze Quote"
+  - "Upload Your Quote"
+  - "Take a photo or upload a screenshot"
+  - "Drop your quote to start the scan"
+  - "Your scan is configured"
+  - "Price Warning"
+  - "Warranty Issue"
+  - "Missing Scope"
+  - "Legal Clause"
+  - "Truth Report" / "Truth Gate" / "WindowMan" / "windowman.pro" branding
+  - upload modal with drag-and-drop affordance
+  - scanner progress UI / "scanning..." overlays
+  - colored warning/finding cards laid out as a report dashboard
+
+A real contractor estimate has HARD ARTIFACTS. To accept the document
+(is_real_contractor_estimate=true), at least 3 of the following MUST be
+visible in the document:
+  1. contractor or company name (with logo, header, or letterhead)
+  2. customer / bill-to name or address
+  3. installation or project address
+  4. estimate / proposal / invoice / contract number
+  5. estimate or contract date
+  6. line items with quantities and/or prices
+  7. total contract or project amount
+  8. product/window/door scope description
+  9. payment, deposit, warranty, or terms-and-conditions language
+
+List every artifact you actually saw in estimate_artifacts_present (use the
+short tags above: "contractor_name", "customer_name", "project_address",
+"document_number", "document_date", "line_items", "total_amount",
+"product_scope", "terms_language").
+
+If document_authenticity is anything other than "real_estimate" or
+"real_estimate_screenshot", set rejection_reason to a short machine-friendly
+slug ("windowman_ui_artifact", "sample_mockup", "unrelated_document",
+"insufficient_content", "no_estimate_artifacts") and explain in 1 sentence.
+
+═══════════════════════════════════════════════════════════════════════════════
+EXTRACTION RULES
+═══════════════════════════════════════════════════════════════════════════════
+
 Rules:
 - Set is_window_door_related to true ONLY if this is an impact window, impact door, or hurricane fenestration quote/proposal.
+- Set is_window_door_related to FALSE if document_authenticity is windowman_ui_artifact, sample_mockup, unrelated, or insufficient — even if the screen contains the words "window" or "quote".
 - Set confidence between 0.0 and 1.0 based on how readable and complete the document is.
 - Extract every line item you can identify (windows, doors, panels, screens, etc.)
 - For each line item, extract brand, series, DP rating, NOA number, dimensions, quantity, unit price, and total price where visible.
@@ -419,6 +493,11 @@ Rules:
 Return ONLY valid JSON matching this exact schema — no markdown, no explanation:
 {
   "document_type": "string",
+  "document_authenticity": "real_estimate | real_estimate_screenshot | windowman_ui_artifact | sample_mockup | unrelated | insufficient",
+  "is_real_contractor_estimate": boolean,
+  "ui_artifact_detected": boolean,
+  "rejection_reason": "string | null",
+  "estimate_artifacts_present": ["string"],
   "is_window_door_related": boolean,
   "confidence": number,
   "page_count": number | null,
@@ -1032,6 +1111,68 @@ Deno.serve(async (req: Request) => {
 
       if (classCheck.success) {
         const classData = classCheck.data;
+
+        // 8a-PRE. AUTHENTICITY GATE — reject WindowMan UI artifacts, mockups,
+        //         unrelated docs, or anything that is not a real contractor
+        //         estimate. This runs BEFORE the window/door related gate so a
+        //         screenshot of our own demo proposal can never reach scoring.
+        const authVerdict = evaluateDocumentAuthenticity(classData);
+        if (!authVerdict.accepted) {
+          console.log(
+            `[scan-quote] authenticity gate rejected session=${scan_session_id} ` +
+            `authenticity=${authVerdict.document_authenticity} ` +
+            `ui_artifact=${authVerdict.ui_artifact_detected} ` +
+            `artifacts=${authVerdict.estimate_artifact_count} ` +
+            `reason=${authVerdict.rejection_reason}`,
+          );
+
+          const authInvalidPayload = {
+            scan_session_id,
+            lead_id: session.lead_id,
+            analysis_status: "invalid_document",
+            document_is_window_door_related: false,
+            document_type: classData.document_type as string,
+            confidence_score: classData.confidence as number,
+            rubric_version: RUBRIC_VERSION,
+          };
+          const authInvalidUpsert = await upsertAnalysisRecord(
+            supabase,
+            authInvalidPayload,
+            "analyses upsert failed",
+            {
+              error: "Failed to persist analysis state",
+              scan_session_id,
+              analysis_status: "processing",
+              scan_session_status: "processing",
+            },
+          );
+          if (!authInvalidUpsert.success) return authInvalidUpsert.response;
+
+          const authInvalidStatus = await updateScanSessionStatus(
+            supabase,
+            scan_session_id,
+            "invalid_document",
+            "scan_sessions invalid_document update failed",
+            {
+              error: "Failed to persist scan session state",
+              scan_session_id,
+              analysis_status: "invalid_document",
+              scan_session_status: "processing",
+            },
+          );
+          if (!authInvalidStatus.success) return authInvalidStatus.response;
+
+          return jsonResponse({
+            scan_session_id,
+            analysis_status: "invalid_document",
+            scan_session_status: "invalid_document",
+            rejection_reason: authVerdict.rejection_reason,
+            document_authenticity: authVerdict.document_authenticity,
+            reason: authVerdict.rejection_reason === "windowman_ui_artifact"
+              ? "This looks like a screenshot of the WindowMan app, not a real contractor estimate. Please upload your actual contractor's quote, proposal, or invoice (PDF or photo)."
+              : "This file doesn't look like a real contractor estimate. Please upload your contractor's quote, proposal, or invoice (PDF or photo of the document).",
+          }, 200);
+        }
 
         // 8a. Invalid document gate (not window/door related)
         if (classData.is_window_door_related === false) {
