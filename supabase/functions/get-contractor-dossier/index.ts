@@ -178,14 +178,129 @@ Deno.serve(async (req) => {
       ).length,
     };
 
+    // ── Forensic signals (37+ extracted fields) ───────────────────
+    // Most signals are descriptive booleans / counts and contain no PII —
+    // they are safe to render in the locked preview as "sales ammunition".
+    // Identifying fields (competitor name, raw quoted phone numbers in
+    // line-item text, etc.) remain masked until unlock.
+    const lineItems = Array.isArray(extraction.line_items) ? extraction.line_items : [];
+    const itemsWithoutDp = lineItems.filter(
+      (i: Record<string, unknown>) => !i?.dp_rating || String(i.dp_rating).trim() === "",
+    ).length;
+    const itemsWithoutNoa = lineItems.filter(
+      (i: Record<string, unknown>) => !i?.noa_number || String(i.noa_number).trim() === "",
+    ).length;
+    const itemsWithIncompleteGlass = lineItems.filter(
+      (i: Record<string, unknown>) => i?.glass_spec_complete !== true,
+    ).length;
+
     const dossierExtraction = {
+      // ── Pricing & scope (always safe) ─────────────────────────
       total_quoted_price: extraction.total_quoted_price ?? null,
-      total_opening_count: extraction.total_opening_count ?? null,
+      total_opening_count: extraction.total_opening_count ?? extraction.opening_count ?? null,
       project_type: extraction.project_type ?? null,
-      // Mask competitor name
+      page_count: extraction.page_count ?? null,
+      line_item_count: lineItems.length,
+
+      // Mask competitor name when locked
       company_name: masked
         ? maskString(extraction.company_name as string, 0)
         : extraction.company_name ?? null,
+      contractor_name: masked
+        ? maskString((extraction.contractor_name as string) ?? null, 0)
+        : extraction.contractor_name ?? null,
+
+      // ── Pricing intelligence ──────────────────────────────────
+      price_fairness: extraction.price_fairness ?? null,
+      markup_estimate: extraction.markup_estimate ?? null,
+      negotiation_leverage: extraction.negotiation_leverage ?? null,
+
+      // ── Code / compliance ─────────────────────────────────────
+      hvhz_zone: extraction.hvhz_zone ?? null,
+      items_without_dp_rating: itemsWithoutDp,
+      items_without_noa: itemsWithoutNoa,
+
+      // ── Glass package ─────────────────────────────────────────
+      opening_level_glass_specs_present: extraction.opening_level_glass_specs_present ?? null,
+      blanket_glass_language_present: extraction.blanket_glass_language_present ?? null,
+      mixed_glass_package_visibility: extraction.mixed_glass_package_visibility ?? null,
+      items_with_incomplete_glass: itemsWithIncompleteGlass,
+
+      // ── Opening schedule ──────────────────────────────────────
+      opening_schedule_present: extraction.opening_schedule_present ?? null,
+      opening_schedule_room_labels_present: extraction.opening_schedule_room_labels_present ?? null,
+      opening_schedule_dimensions_complete: extraction.opening_schedule_dimensions_complete ?? null,
+      opening_schedule_product_assignments_present:
+        extraction.opening_schedule_product_assignments_present ?? null,
+      bulk_scope_blob_present: extraction.bulk_scope_blob_present ?? null,
+
+      // ── Installation method ───────────────────────────────────
+      anchor_spacing_specified: extraction.anchor_spacing_specified ?? null,
+      fastener_type_specified: extraction.fastener_type_specified ?? null,
+      sealant_specified: extraction.sealant_specified ?? null,
+      manufacturer_install_compliance_stated:
+        extraction.manufacturer_install_compliance_stated ?? null,
+      code_compliance_install_statement_present:
+        extraction.code_compliance_install_statement_present ?? null,
+
+      // ── Warranty execution ────────────────────────────────────
+      warranty_labor_years: (extraction.warranty as Record<string, unknown> | undefined)
+        ?.labor_years ?? null,
+      warranty_manufacturer_years: (extraction.warranty as Record<string, unknown> | undefined)
+        ?.manufacturer_years ?? null,
+      warranty_transferable: (extraction.warranty as Record<string, unknown> | undefined)
+        ?.transferable ?? null,
+      warranty_execution_details_present:
+        extraction.warranty_execution_details_present ?? null,
+      warranty_service_provider_type: extraction.warranty_service_provider_type ?? null,
+      leak_callback_sla_days: extraction.leak_callback_sla_days ?? null,
+      labor_service_sla_days: extraction.labor_service_sla_days ?? null,
+      post_install_stucco_excluded: extraction.post_install_stucco_excluded ?? null,
+      post_install_paint_excluded: extraction.post_install_paint_excluded ?? null,
+      water_intrusion_damage_excluded: extraction.water_intrusion_damage_excluded ?? null,
+
+      // ── Permits ───────────────────────────────────────────────
+      permits_included: (extraction.permits as Record<string, unknown> | undefined)?.included
+        ?? null,
+      permits_responsible_party:
+        (extraction.permits as Record<string, unknown> | undefined)?.responsible_party ?? null,
+      permit_fees_itemized: extraction.permit_fees_itemized ?? null,
+
+      // ── Scope gaps ────────────────────────────────────────────
+      stucco_repair_included: extraction.stucco_repair_included ?? null,
+      drywall_repair_included: extraction.drywall_repair_included ?? null,
+      paint_touchup_included: extraction.paint_touchup_included ?? null,
+      debris_removal_included: extraction.debris_removal_included ?? null,
+      disposal_included:
+        (extraction.installation as Record<string, unknown> | undefined)?.disposal_included
+        ?? null,
+      engineering_mentioned: extraction.engineering_mentioned ?? null,
+      engineering_fees_included: extraction.engineering_fees_included ?? null,
+
+      // ── Payment traps ─────────────────────────────────────────
+      deposit_percent: extraction.deposit_percent ?? null,
+      deposit_amount: extraction.deposit_amount ?? null,
+      final_payment_before_inspection: extraction.final_payment_before_inspection ?? null,
+      subject_to_remeasure_present: extraction.subject_to_remeasure_present ?? null,
+
+      // ── Change-order protections ──────────────────────────────
+      written_change_order_required: extraction.written_change_order_required ?? null,
+      homeowner_approval_required_for_change_orders:
+        extraction.homeowner_approval_required_for_change_orders ?? null,
+      unilateral_price_adjustment_allowed: extraction.unilateral_price_adjustment_allowed ?? null,
+      remeasure_price_adjustment_cap_present:
+        extraction.remeasure_price_adjustment_cap_present ?? null,
+
+      // ── Trust signals ─────────────────────────────────────────
+      insurance_proof_mentioned: extraction.insurance_proof_mentioned ?? null,
+      licensing_proof_mentioned: extraction.licensing_proof_mentioned ?? null,
+      lead_paint_disclosure_present: extraction.lead_paint_disclosure_present ?? null,
+      generic_product_description_present:
+        extraction.generic_product_description_present ?? null,
+      terms_conditions_present: extraction.terms_conditions_present ?? null,
+      completion_timeline_text: masked
+        ? null
+        : (extraction.completion_timeline_text ?? null),
     };
 
     const dossierFlags = flags.map((f: Record<string, unknown>) => ({
