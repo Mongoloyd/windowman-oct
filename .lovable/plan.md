@@ -1,125 +1,124 @@
-# Phase 25 — Master Command Center / Final Synthesis
+## Master Polish — Operator Command Center
 
-## What's already built (do not rebuild)
+A surgical upgrade of the existing `MasterCommandCenter` (Mission Control) surface. No schema changes, no new edge functions. Every metric stays bound to repo-real columns on `leads`, `contractor_opportunities`, `contractor_opportunity_routes`, and `webhook_deliveries`.
 
-The repo's "Mission Control" surface area is unusually mature. Existing pieces I will compose:
+**Architectural Acknowledgement & CoT Protocol**
 
-| Need | Existing real asset |
-|---|---|
-| Operator shell + tabs | `AdminShell` + `AdminPrimaryTabs` (panel + route tabs, badge counts) |
-| Funnel KPIs (captured/verified/scanned/routed/booked/closed) | `PilotReadiness.flowCounts` derivation; `OneContractorSummaryStrip` (Routed/Contacted/Booked/Stale/Reactivation); `CommandCenter` (North Star rate, Total Scans, Verified, Ghost) |
-| Global event feed | `MarketOpsFeed` — chronological multi-event feed across leads + opportunities + routes |
-| Health / readiness signal | `LaunchReadinessSurface` health signals (`operational` / `attention` / `unknown`); `DispatchHealthCard`; webhook health in `CommandCenter` |
-| Data-quality snapshot | `DataQualityFieldIntegritySurface` (strong/partial/sparse classifier across leads, opps, routes, contractors) |
-| Revenue-integrity / outcome snapshot | `OutcomeTrackingReport` (post-route buckets: stale_unresolved, interested_not_booked, booked, closed, dead) |
-| Quick actions into surfaces | `AdminPrimaryTabs` already supports `onNavigateTab(tab)` everywhere |
-| Data hooks | `invokeAdminData("fetch_leads")`, `fetchOpportunities`, `fetchRoutes`, `fetchContractors`, `fetchWebhookDeliveries` (all already cached via TanStack with `["admin", …]` keys) |
+- **Environment:** WindowMan MVP (Production Admin Shell).
+- **Hard Limitations:** No schema changes, no new edge functions, no modifications to `auth` middleware or Twilio/OTP logic.
+- **Blast Radius:** Low. This is a UI/UX synthesis task localized to the `/admin` surface.
+- **Chain of Thought (CoT):** Before writing code, map the current `CRMLead` type and ensure the addition of `deal_value` and `revenue_amount` doesn't conflict with any existing local state management.
 
-**Implication:** Phase 25 is a new **synthesis tab**, not a new system. Smallest safe diff.
+### Scope
 
-## What I will build
+- Reuses: `MasterCommandCenter.tsx`, `AdminDashboard.tsx`, `AdminPrimaryTabs.tsx`, `MarketOpsFeed`, `DeliveryInspectorPage`, existing TanStack queries (`opps`, `routes`, `contractors`).
+- Out of scope: contractor portal, new edge functions, new tables, scanner/OTP/Twilio/scoring flows.
 
-### 1. New surface: `MasterCommandCenter.tsx`
-One file at `src/components/admin/MasterCommandCenter.tsx`. Pure read-and-compose. Layout, top to bottom:
+---
 
-```text
-┌────────────────────────────────────────────────────────────────┐
-│ READINESS BANNER  [● System Healthy / ▲ Needs Attention]      │
-│ Derived: roll-up of {contractors loaded, routes loaded,        │
-│ opportunities loaded, webhook dead-letter ==0, ghost <30%}     │
-├────────────────────────────────────────────────────────────────┤
-│ TOP-LEVEL KPI STRIP (6 tiles)                                  │
-│ Captured │ Verified │ Scanned │ Routed │ Booked │ Closed       │
-│ (real lead-level timestamps; reuses PilotReadiness derivation) │
-├──────────────────────────────────┬─────────────────────────────┤
-│ LEFT (2/3): Global Ops Feed      │ RIGHT (1/3): Quick Actions  │
-│   <MarketOpsFeed leads={leads}/> │   - Routing Desk            │
-│   (already a high-density feed)  │   - Active Pipeline         │
-│                                  │   - Lead Inbox  (route)     │
-│                                  │   - Needs Review            │
-│                                  │   - Outcomes                │
-│                                  │   - Data Quality            │
-│                                  │   - Launch Readiness        │
-│                                  │   - Settings    (route)     │
-├──────────────────────────────────┴─────────────────────────────┤
-│ BOTTOM ROW (2 cards side-by-side)                              │
-│ ┌─ Data Quality Snapshot ─┐  ┌─ Revenue Integrity Snapshot ─┐ │
-│ │ Sparse field count      │  │ Stale unresolved             │ │
-│ │ Fallback labels         │  │ Interested-not-booked        │ │
-│ │ Linkage mismatches      │  │ Booked / Closed / Dead       │ │
-│ │ → Open Data Quality     │  │ Recent handoffs (24h)        │ │
-│ └─────────────────────────┘  │ → Open Outcomes              │ │
-│                              └──────────────────────────────┘  │
-└────────────────────────────────────────────────────────────────┘
-```
+## What changes
 
-Every section has explicit **loading**, **empty**, and **derived/source-of-truth** labels. Tone is operational (no "ROI", no "revenue projection").
+### 1. Deep-link route `/admin/command-center`
 
-### 2. New tab in `AdminPrimaryTabs`
-Insert `{ kind: "panel", value: "mission-control", label: "Mission Control" }` as the **first panel tab** (right after the `Lead Inbox` route tab). The existing `command` Command Center tab stays — it's the detail surface; Mission Control is the compression layer above it.
+- Add a route in `src/App.tsx`:
+  - `/admin/command-center` → renders `<AdminDashboard initialTab="mission-control" />`.
+- `AdminDashboard.tsx`: accept optional `initialTab` prop; if `useLocation().pathname === "/admin/command-center"`, force `activeTab = "mission-control"` on mount.
+- `AdminPrimaryTabs.tsx`: keep "Mission Control" as a panel tab (current behaviour) but also treat `/admin/command-center` as an active-state match for it.
+- Keeps existing `/admin` entry point unchanged; `/admin/command-center` is the canonical shareable link.
 
-### 3. Wire it into `AdminDashboard.tsx`
-- Add the import.
-- Add one `<TabsContent value="mission-control">` block: `<MasterCommandCenter leads={leads} deliveries={deliveries} ghosts={ghosts} needsReview={needsReview} onNavigateTab={setActiveTab} />`.
-- Set `useState<string>("mission-control")` as default `activeTab` (replaces current `"launch"`) so operators land on the synthesis screen.
+### 2. Daily Revenue Target strip
 
-That's it. No edge functions. No new tables. No new hooks. No mutation of any of the protected truth surfaces.
+- New section directly under the readiness banner, above the funnel KPI tiles.
+- Sources of truth (already on `leads` per schema):
+  - "Today's Closed Volume" = `SUM(deal_value)` for leads where `closed_at >= start_of_today_local` AND `deal_status` ∈ {`won`, `closed_won`, `sold`}. Falls back to `revenue_amount` when `deal_value` is null.
+  - "Today's Closed Count" = same filter, count of leads.
+- Daily goal: persisted to `localStorage` key `wm_admin_daily_revenue_goal` (default `25000`). Inline editable via small pencil-icon button → prompt; no DB write.
+- UI: wide card containing
+  - Left: "$X,XXX of $YY,YYY closed today" + small "Edit goal" affordance.
+  - Right: shadcn `<Progress>` bar with high-contrast fill. Color tier: <50% muted, 50–99% amber, ≥100% emerald.
+  - Footer microcopy: count of closes today + delta vs goal.
+- Requires extending `CRMLead` type and `toLeadCRM` mapper to include `deal_value: number | null` and `revenue_amount: number | null`. Both columns already exist on `leads`.
 
-## Readiness signal derivation (explicit)
+### 3. Webhook Dead-Letter = CRITICAL tier
 
-Single function `deriveReadiness({contractors, opportunities, routes, deliveries, leads, ghosts})` returns one of:
+- Introduce a third readiness status: `"critical"` alongside `operational | attention | unknown`.
+- Tone tokens: red/rose palette (`bg-rose-500/10`, `text-rose-700`, `XCircle` icon).
+- Computation in `signals` memo:
+  - `webhook.dead > 0` → `critical` (was `attention`).
+  - `webhook.failed > 0` and `dead === 0` → `attention`.
+  - Else `operational`.
+- Aggregate readiness rollup: any `critical` → overall `critical` (overrides `attention`).
+- Add a small webhook legend chip row inside the readiness banner: Pending / Delivered / Failed / Dead-Letter (Critical) — counts pulled from the existing `webhook` memo.
 
-- **`operational`** (green): all four core reads returned, dead_letter == 0, ghost_rate < 30%, ≥1 active contractor
-- **`attention`** (amber): any of {dead_letter > 0, ghost_rate ≥ 30%, no active contractors, ≥1 sparse data-quality field, ≥5 stale_unresolved opportunities}
-- **`unknown`** (gray): any read still loading / failed (preview/auth-expired)
+### 4. Expandable readiness signals with "the why"
 
-Each signal contributing to the roll-up is listed inline so the operator sees *why* the badge is what it is. Pattern is borrowed from `LaunchReadinessSurface.SignalStatus` to stay consistent.
+- Replace the current static signal chips with shadcn `<Popover>` (or simple click-to-expand inline panel) per signal.
+- Each non-green signal exposes:
+  - Threshold rule that fired (e.g. "Dead-letter > 0", "Stale unresolved ≥ 5", "Ghost rate ≥ 50%").
+  - Numeric detail (already in `s.detail`).
+  - "Open source" deep link → routes/tabs:
+    - `webhooks` → `delivery-inspector` panel tab
+    - `stale` → `outcomes` tab
+    - `ghosts` → `ghosts` tab
+    - `data-quality` → `data-quality` tab
+    - `contractors` → `contractors` tab
+    - `opps` / `routes` → `routing` tab
+- Operational signals stay collapsed by default but remain clickable to jump to source.
 
-## Data-quality + revenue-integrity compression rules
+### 5. Quick-Action HUD reshuffle
 
-These two cards are **summaries** of the existing surfaces, not duplicates of their full content:
+Slim the existing 8-item list to the 4 the brief calls out, in order:
 
-- **Data Quality card** counts: # `sparse` field rows, # `partial` field rows, # records using fallback labels (e.g. `Unknown County`). Numbers come from the same classifier used in `DataQualityFieldIntegritySurface` — I will export the classifier helpers from that file so we don't duplicate logic.
-- **Revenue Integrity card** counts: # `stale_unresolved`, # `interested_not_booked`, # `booked`, # `closed`, # `dead`, plus # contact-released in last 24h (handoff candidates). Reuses `OutcomeTrackingReport`'s `deriveBucket` — same export pattern.
+1. Routing → `routing` tab
+2. Data Quality → `data-quality` tab
+3. Revenue Integrity → `outcomes` tab
+4. Readiness / SOPs → `readiness` tab
 
-Both cards have a **"→ Open …"** button that calls `onNavigateTab("data-quality")` / `onNavigateTab("outcomes")`.
+Keep "Lead Inbox" (route) and "Settings" (route) as a secondary row underneath.
 
-## Files changed
+### 6. One-Click Operator Snapshot (CSV export)
 
-1. **NEW** `src/components/admin/MasterCommandCenter.tsx` (~350–400 LOC, single component, pure synthesis)
-2. **EDIT** `src/components/admin/DataQualityFieldIntegritySurface.tsx` — export `classify`, `nonEmpty` helpers (no behavior change)
-3. **EDIT** `src/components/admin/OutcomeTrackingReport.tsx` — export `deriveBucket`, `pickLatestRoute`, `STALE_HOURS` (no behavior change)
-4. **EDIT** `src/components/admin/shell/AdminPrimaryTabs.tsx` — add one tab entry
-5. **EDIT** `src/components/AdminDashboard.tsx` — import, add `<TabsContent>`, change default `activeTab` to `"mission-control"`
+- New "Export Snapshot" button in the readiness banner header (right side).
+- Pure client-side: builds a CSV in-memory and triggers download via Blob — no edge function, no PDF dep.
+- Filename: `wm-operator-snapshot-YYYY-MM-DD-HHmm.csv`.
+- Sections (one per row group with a separator row):
+  - Funnel: Captured / Verified / Scanned / Routed / Booked / Closed (counts + % of prior stage).
+  - Daily Revenue: goal, today's closed volume, today's closed count, % of goal.
+  - Readiness rollup: each signal label, status, detail.
+  - Webhook health: pending / delivered / failed / dead-letter.
+  - Outcome rollup: booked / closed / stale / unresolved / recent handoffs (24h).
+  - Data quality: strong / partial / sparse / missing-county / orphaned-opps.
+- PDF deferred — CSV satisfies the "Operator Snapshot" requirement and stays scope-safe.
 
-No other files touched.
+### 7. Density / aesthetic polish
 
-## Protected surfaces — explicitly NOT touched
-- `scan-quote`, `send-otp`, `verify-otp`, Twilio Verify, capi-event
-- Deterministic scoring / report compilation
-- Preview-vs-full report gating
-- Upload flow, `quotes` storage bucket
-- Attribution truth (`leads.utm_*`, `gclid`, `fbc`, `fbp`)
-- Billing, `contractor_credits`, `billable_intros`
-- Partner shell (`PartnerLayout`, `PartnerPortalNav`) and partner routes
-- RLS policies, edge functions, db functions, triggers
+- Tighten readiness banner chip grid to fit on one row at `lg`.
+- Card surface: keep current border-l accent, add subtle `backdrop-blur-sm bg-card/95` on the readiness banner only (glassmorphic touch, no theme overhaul).
+- Native system stack already used via tailwind defaults — no font change.
 
-This phase is read-only synthesis on the admin side; partner portal is unaffected.
+---
 
-## Acceptance verification I will perform
+## Files touched
 
-- `npx tsc --noEmit` returns zero errors
-- Admin tab strip still renders, all existing tabs still mount
-- Mission Control loads with KPI strip, readiness banner, ops feed, snapshots, quick actions
-- Quick actions navigate to existing tabs / routes
-- Empty state renders cleanly when leads array is empty (preview mode)
-- Loading skeletons render while `useQuery` is fetching
-- No partner-portal regression (no shared imports changed)
+- `src/App.tsx` — register `/admin/command-center` route.
+- `src/components/AdminDashboard.tsx` — accept `initialTab` prop, derive from pathname; thread `deal_value` / `revenue_amount` into `toLeadCRM`.
+- `src/components/admin/types.ts` — extend `CRMLead` with `deal_value` and `revenue_amount`.
+- `src/components/admin/MasterCommandCenter.tsx` — add Revenue Target strip, critical tier, expandable signals + deep links, snapshot exporter, slimmed quick actions, webhook legend.
+- `src/components/admin/shell/AdminPrimaryTabs.tsx` — match `/admin/command-center` as active for Mission Control tab.
+- New helper: `src/components/admin/missionControl/exportSnapshot.ts` — pure CSV builder + downloader (no deps).
 
-## Build sequence inside the next loop
-1. Add helper exports in DataQuality + Outcome surfaces
-2. Write `MasterCommandCenter.tsx`
-3. Wire tab + dashboard
-4. Run `tsc --noEmit`, fix any types, report green
+> **STRICT NON-INTERFERENCE GUARDRAILS:**
+>
+> 1. **Scanner/OCR Integrity:** Do not touch any components or hooks related to `ScannerCore`, `OCRUpload`, or `AnalysisEngine`.
+> 2. **Twilio/OTP Security:** Do not modify any files in `src/integrations/supabase/edge-functions` or the Twilio verification UI.
+> 3. **Revenue Logic:** This is a READ-ONLY polish for the dashboard. Do not implement any logic that writes `deal_value` to the database; use `localStorage` strictly for the "Daily Goal."
+> 4. **Verification:** Run `npx tsc --noEmit` after implementation to ensure the extended `CRMLead` type is correctly propagated without breaking existing components.
 
-Approve and I'll execute as a single smallest-safe-diff implementation.
+## Verification
+
+- `npx tsc --noEmit` returns zero.
+- `/admin/command-center` lands directly on Mission Control; `/admin` still defaults to Mission Control.
+- Inserting a single `webhook_deliveries` row with `status='dead_letter'` flips overall readiness to **CRITICAL** (red).
+- Closing a lead with `deal_value=10000` and `closed_at=now()` increments today's closed volume in the progress bar without a refresh cycle (next 120s poll).
+- Existing tabs (Routing, Pipeline, Ghost, Needs Review, Contractors, Outcomes, Data Quality, Delivery Inspector, Session Diag, Settings) all still mount and render unchanged.
+- Scanner / OTP / Twilio / scoring code paths are not modified.
