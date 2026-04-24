@@ -770,6 +770,14 @@ const TruthGateFlow = ({
             )}
             {submitState === "error" && "Something went wrong — Try Again"}
           </motion.button>
+
+          {/* Dev/preview-only diagnostic. Production users still see only the
+              generic error copy on the button above. */}
+          {submitState === "error" && import.meta.env.DEV && submitError && (
+            <p className="font-mono text-xs text-orange-500 mt-2 text-center break-words">
+              [{submitError.code || "error"}] {submitError.message || "Lead capture failed."}
+            </p>
+          )}
         </form>
 
         <p className="font-body text-wm-body-soft text-muted-foreground leading-relaxed text-center mt-4">
