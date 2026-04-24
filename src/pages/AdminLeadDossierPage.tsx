@@ -223,18 +223,28 @@ export default function AdminLeadDossierPage() {
                   </div>
                 )}
 
-                {lead.latest_scan_session_id && (
-                  <Link
-                    to={`/report/classic/${lead.latest_scan_session_id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline mt-2"
-                  >
-                    <FileText className="h-3.5 w-3.5" />
-                    Open Truth Report
-                    <ExternalLink className="h-3 w-3" />
-                  </Link>
-                )}
+                {lead.latest_analysis_id ? (
+                  <div className="flex flex-wrap items-center gap-3 mt-2">
+                    <Link
+                      to={`/admin/leads/${leadId}/report`}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+                    >
+                      <FileText className="h-3.5 w-3.5" />
+                      Open Truth Report
+                    </Link>
+                    {lead.latest_scan_session_id && (
+                      <Link
+                        to={`/report/classic/${lead.latest_scan_session_id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground hover:underline"
+                      >
+                        Homeowner view
+                        <ExternalLink className="h-3 w-3" />
+                      </Link>
+                    )}
+                  </div>
+                ) : null}
               </div>
             )}
           </section>
