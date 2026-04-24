@@ -608,7 +608,8 @@ export default function PartnerDossier() {
           <p className="text-muted-foreground/60">WindowMan Intelligence — Contractor Eyes Only</p>
         </footer>
       </main>
-    </div>
+    </>
+
   );
 }
 
