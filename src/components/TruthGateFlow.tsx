@@ -500,21 +500,9 @@ const TruthGateFlow = ({
         }
       }
 
-      supabase
-        .from("event_logs")
-        .insert({
-          event_name: phoneE164 ? "lead_captured_with_phone" : "lead_captured_no_phone",
-          session_id: sessionId,
-          metadata: {
-            first_name: answers.firstName,
-            county: answers.county,
-            has_phone: !!phoneE164,
-            timestamp: new Date().toISOString(),
-          },
-        })
-        .then(({ error: evtErr }) => {
-          if (evtErr) console.warn("event_log insert failed:", evtErr);
-        });
+      // Note: success telemetry is written server-side by the edge function.
+      // No browser-side event_logs insert here — it would race with the
+      // anon-only RLS policy when an admin/operator session is present.
 
       setSubmitState("success");
       onLeadCaptured?.(sessionId);
