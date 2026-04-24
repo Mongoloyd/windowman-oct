@@ -20,6 +20,18 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { PreviewModeBadge } from "@/components/PreviewModeBadge";
 import { toast } from "sonner";
+import {
+  formatRelativeTime,
+  getBuyerSeriousness,
+  getPropertyBadge,
+  getTimelineBadge,
+  getMotivationBadge,
+  getHandoffSignal,
+  getBestSalesAngle,
+  getRecommendedAction,
+  getBestUnlockScore,
+  type HandoffTone,
+} from "@/lib/contractorOpportunitySignals";
 
 /* ── Types ──────────────────────────────────────────────────────── */
 interface Opportunity {
@@ -45,6 +57,24 @@ interface Opportunity {
   dossier_href: string;
   has_document: boolean;
   created_at: string;
+
+  /* ── Sprint 1: optional frontend-only signal fields (nullable-safe) ── */
+  buyer_seriousness_score?: number | null;
+  buyer_seriousness_band?: "A" | "B" | "C" | "D" | null;
+  property_type_detail?: string | null;
+  hoa_or_condo_complexity?: string | null;
+  timeline_bucket?: string | null;
+  motivation_reason?: string | null;
+  handoff_consent_status?: string | null;
+  last_activity_at?: string | null;
+  phone_verified_at?: string | null;
+  report_viewed_at?: string | null;
+  best_sales_angle?: string | null;
+  recommended_action?: string | null;
+  exclusive_status?: string | null;
+  contractor_view_count?: number | null;
+  unlocked_by_other_count?: number | null;
+  credit_cost?: number | null;
 }
 
 interface Meta {
@@ -54,6 +84,48 @@ interface Meta {
 }
 
 type FilterTab = "all" | "unlocked" | "pending" | "released";
+
+type SortMode =
+  | "best_unlock"
+  | "highest_bss"
+  | "newest"
+  | "largest_project"
+  | "most_red_flags"
+  | "ready_this_month";
+
+const SORT_OPTIONS: { value: SortMode; label: string }[] = [
+  { value: "best_unlock", label: "Best Unlock" },
+  { value: "highest_bss", label: "Highest BSS" },
+  { value: "newest", label: "Newest" },
+  { value: "largest_project", label: "Largest Project" },
+  { value: "most_red_flags", label: "Most Red Flags" },
+  { value: "ready_this_month", label: "Ready Soonest" },
+];
+
+const TIMELINE_RANK: Record<string, number> = {
+  asap: 0,
+  this_month: 1,
+  one_to_three_months: 2,
+  three_to_six_months: 3,
+  researching: 4,
+};
+
+function parseQuoteMidpoint(range: string | null | undefined): number {
+  if (!range) return 0;
+  const nums = range.replace(/,/g, "").match(/\d+(?:\.\d+)?/g);
+  if (!nums || nums.length === 0) return 0;
+  const vals = nums.map((n) => Number(n)).filter((n) => Number.isFinite(n));
+  if (vals.length === 0) return 0;
+  if (vals.length === 1) return vals[0];
+  return (vals[0] + vals[vals.length - 1]) / 2;
+}
+
+const HANDOFF_TONE_CLASSES: Record<HandoffTone, string> = {
+  hot: "bg-red-50 border-red-200 text-red-700",
+  warm: "bg-amber-50 border-amber-200 text-amber-700",
+  caution: "bg-sky-50 border-sky-200 text-sky-700",
+  muted: "bg-muted border-border text-muted-foreground",
+};
 
 /* ── Helpers ────────────────────────────────────────────────────── */
 const gradeColor = (g: string | null) => {
@@ -94,15 +166,122 @@ const statusPill = (status: string) => {
 const FORCE_PREVIEW_MODE = true;
 
 /* ── Mock data for preview mode ────────────────────────────────── */
+const NOW = Date.now();
 const MOCK_OPPORTUNITIES: Opportunity[] = [
-  { opportunity_id: "mock-1", route_id: "r1", analysis_id: "a1", lead_id: "l1", county: "Broward", city: "Fort Lauderdale", project_type: "Full Home Replacement", window_count: 12, quote_range: "$18,000–$24,000", grade: "D", flag_count: 4, red_flag_count: 2, amber_flag_count: 2, priority_score: 85, status: "intro_requested", release_status: "pending", already_unlocked: false, can_unlock: false, credit_balance: 5, dossier_href: "/partner/dossier", has_document: true, created_at: new Date().toISOString() },
-  { opportunity_id: "mock-2", route_id: "r2", analysis_id: "a2", lead_id: "l2", county: "Miami-Dade", city: "Miami", project_type: "Partial Replacement", window_count: 6, quote_range: "$8,500–$12,000", grade: "C", flag_count: 2, red_flag_count: 1, amber_flag_count: 1, priority_score: 72, status: "contractor_interested", release_status: "pending", already_unlocked: true, can_unlock: true, credit_balance: 5, dossier_href: "/partner/dossier", has_document: true, created_at: new Date(Date.now() - 86400000).toISOString() },
-  { opportunity_id: "mock-3", route_id: "r3", analysis_id: "a3", lead_id: "l3", county: "Palm Beach", city: "Boca Raton", project_type: "Impact Door + Windows", window_count: 18, quote_range: "$32,000–$45,000", grade: "F", flag_count: 7, red_flag_count: 4, amber_flag_count: 3, priority_score: 94, status: "intro_requested", release_status: "pending", already_unlocked: false, can_unlock: false, credit_balance: 5, dossier_href: "/partner/dossier", has_document: false, created_at: new Date(Date.now() - 172800000).toISOString() },
-  { opportunity_id: "mock-4", route_id: "r4", analysis_id: "a4", lead_id: "l4", county: "Hillsborough", city: "Tampa", project_type: "Full Home Replacement", window_count: 22, quote_range: "$28,000–$38,000", grade: "B", flag_count: 1, red_flag_count: 0, amber_flag_count: 1, priority_score: 60, status: "homeowner_contact_released", release_status: "released", already_unlocked: true, can_unlock: true, credit_balance: 5, dossier_href: "/partner/dossier", has_document: true, created_at: new Date(Date.now() - 259200000).toISOString() },
-  { opportunity_id: "mock-5", route_id: "r5", analysis_id: "a5", lead_id: "l5", county: "Duval", city: "Jacksonville", project_type: "Storefront Impact Glazing", window_count: 8, quote_range: "$14,000–$19,500", grade: "C", flag_count: 3, red_flag_count: 1, amber_flag_count: 2, priority_score: 68, status: "intro_requested", release_status: "pending", already_unlocked: false, can_unlock: false, credit_balance: 5, dossier_href: "/partner/dossier", has_document: true, created_at: new Date(Date.now() - 345600000).toISOString() },
-  { opportunity_id: "mock-6", route_id: "r6", analysis_id: "a6", lead_id: "l6", county: "Lee", city: "Cape Coral", project_type: "Hurricane Retrofit", window_count: 15, quote_range: "$22,000–$30,000", grade: "D", flag_count: 5, red_flag_count: 3, amber_flag_count: 2, priority_score: 81, status: "contractor_interested", release_status: "pending", already_unlocked: false, can_unlock: false, credit_balance: 5, dossier_href: "/partner/dossier", has_document: false, created_at: new Date(Date.now() - 432000000).toISOString() },
-  { opportunity_id: "mock-7", route_id: "r7", analysis_id: "a7", lead_id: "l7", county: "Orange", city: "Orlando", project_type: "Sliding Glass Door + Windows", window_count: 10, quote_range: "$16,000–$21,000", grade: "A", flag_count: 0, red_flag_count: 0, amber_flag_count: 0, priority_score: 45, status: "closed_won", release_status: "released", already_unlocked: true, can_unlock: true, credit_balance: 5, dossier_href: "/partner/dossier", has_document: true, created_at: new Date(Date.now() - 518400000).toISOString() },
-  { opportunity_id: "mock-8", route_id: "r8", analysis_id: "a8", lead_id: "l8", county: "Pinellas", city: "St. Petersburg", project_type: "Full Home Replacement", window_count: 20, quote_range: "$26,000–$35,000", grade: "F", flag_count: 8, red_flag_count: 5, amber_flag_count: 3, priority_score: 97, status: "intro_requested", release_status: "pending", already_unlocked: false, can_unlock: false, credit_balance: 5, dossier_href: "/partner/dossier", has_document: true, created_at: new Date(Date.now() - 604800000).toISOString() },
+  // 1. Hot single-family lead — should rise to top under Best Unlock
+  {
+    opportunity_id: "mock-1", route_id: "r1", analysis_id: "a1", lead_id: "l1",
+    county: "Broward", city: "Fort Lauderdale", project_type: "Full Home Replacement",
+    window_count: 12, quote_range: "$18,000–$24,000", grade: "D",
+    flag_count: 4, red_flag_count: 2, amber_flag_count: 2, priority_score: 85,
+    status: "intro_requested", release_status: "pending",
+    already_unlocked: false, can_unlock: false, credit_balance: 5,
+    dossier_href: "/partner/dossier", has_document: true,
+    created_at: new Date(NOW - 12 * 60_000).toISOString(),
+    buyer_seriousness_score: 92, buyer_seriousness_band: "A",
+    property_type_detail: "single_family", timeline_bucket: "this_month",
+    motivation_reason: "price_shock", handoff_consent_status: "accepted_today",
+    phone_verified_at: new Date(NOW - 30 * 60_000).toISOString(),
+    report_viewed_at: new Date(NOW - 20 * 60_000).toISOString(),
+    last_activity_at: new Date(NOW - 10 * 60_000).toISOString(),
+    exclusive_status: "first_look", contractor_view_count: 0,
+    unlocked_by_other_count: 0, credit_cost: 1,
+  },
+  {
+    opportunity_id: "mock-2", route_id: "r2", analysis_id: "a2", lead_id: "l2",
+    county: "Miami-Dade", city: "Miami", project_type: "Partial Replacement",
+    window_count: 6, quote_range: "$8,500–$12,000", grade: "C",
+    flag_count: 2, red_flag_count: 1, amber_flag_count: 1, priority_score: 72,
+    status: "contractor_interested", release_status: "pending",
+    already_unlocked: true, can_unlock: true, credit_balance: 5,
+    dossier_href: "/partner/dossier", has_document: true,
+    created_at: new Date(NOW - 86_400_000).toISOString(),
+  },
+  // 2. Complex condo/high-rise — caution tone, HOA constraints
+  {
+    opportunity_id: "mock-3", route_id: "r3", analysis_id: "a3", lead_id: "l3",
+    county: "Palm Beach", city: "Boca Raton", project_type: "Impact Door + Windows",
+    window_count: 18, quote_range: "$32,000–$45,000", grade: "F",
+    flag_count: 7, red_flag_count: 4, amber_flag_count: 3, priority_score: 78,
+    status: "intro_requested", release_status: "pending",
+    already_unlocked: false, can_unlock: false, credit_balance: 5,
+    dossier_href: "/partner/dossier", has_document: false,
+    created_at: new Date(NOW - 172_800_000).toISOString(),
+    buyer_seriousness_score: 78, buyer_seriousness_band: "B",
+    property_type_detail: "high_rise",
+    hoa_or_condo_complexity: "high_rise_engineering",
+    timeline_bucket: "one_to_three_months",
+    motivation_reason: "insurance_or_inspection_pressure",
+    handoff_consent_status: "text_or_email_first",
+    credit_cost: 1,
+  },
+  {
+    opportunity_id: "mock-4", route_id: "r4", analysis_id: "a4", lead_id: "l4",
+    county: "Hillsborough", city: "Tampa", project_type: "Full Home Replacement",
+    window_count: 22, quote_range: "$28,000–$38,000", grade: "B",
+    flag_count: 1, red_flag_count: 0, amber_flag_count: 1, priority_score: 60,
+    status: "homeowner_contact_released", release_status: "released",
+    already_unlocked: true, can_unlock: true, credit_balance: 5,
+    dossier_href: "/partner/dossier", has_document: true,
+    created_at: new Date(NOW - 259_200_000).toISOString(),
+  },
+  // 3. Report-only nurture — must look muted, NOT a hot-call lead
+  {
+    opportunity_id: "mock-5", route_id: "r5", analysis_id: "a5", lead_id: "l5",
+    county: "Duval", city: "Jacksonville", project_type: "Storefront Impact Glazing",
+    window_count: 8, quote_range: "$14,000–$19,500", grade: "C",
+    flag_count: 3, red_flag_count: 1, amber_flag_count: 2, priority_score: 55,
+    status: "intro_requested", release_status: "pending",
+    already_unlocked: false, can_unlock: false, credit_balance: 5,
+    dossier_href: "/partner/dossier", has_document: true,
+    created_at: new Date(NOW - 345_600_000).toISOString(),
+    buyer_seriousness_score: 55, buyer_seriousness_band: "C",
+    property_type_detail: "single_family", timeline_bucket: "researching",
+    motivation_reason: "comparing_before_signing",
+    handoff_consent_status: "report_only",
+    credit_cost: 1,
+  },
+  // 4. High project value urgent
+  {
+    opportunity_id: "mock-6", route_id: "r6", analysis_id: "a6", lead_id: "l6",
+    county: "Lee", city: "Cape Coral", project_type: "Hurricane Retrofit",
+    window_count: 15, quote_range: "$22,000–$30,000", grade: "D",
+    flag_count: 5, red_flag_count: 3, amber_flag_count: 2, priority_score: 88,
+    status: "contractor_interested", release_status: "pending",
+    already_unlocked: false, can_unlock: false, credit_balance: 5,
+    dossier_href: "/partner/dossier", has_document: false,
+    created_at: new Date(NOW - 3 * 60 * 60_000).toISOString(),
+    buyer_seriousness_score: 88, buyer_seriousness_band: "B",
+    property_type_detail: "single_family", timeline_bucket: "asap",
+    motivation_reason: "scope_mismatch",
+    handoff_consent_status: "accepted_today",
+    credit_cost: 1,
+  },
+  {
+    opportunity_id: "mock-7", route_id: "r7", analysis_id: "a7", lead_id: "l7",
+    county: "Orange", city: "Orlando", project_type: "Sliding Glass Door + Windows",
+    window_count: 10, quote_range: "$16,000–$21,000", grade: "A",
+    flag_count: 0, red_flag_count: 0, amber_flag_count: 0, priority_score: 45,
+    status: "closed_won", release_status: "released",
+    already_unlocked: true, can_unlock: true, credit_balance: 5,
+    dossier_href: "/partner/dossier", has_document: true,
+    created_at: new Date(NOW - 518_400_000).toISOString(),
+  },
+  // 5. Weak/unknown lead — should sink under Best Unlock
+  {
+    opportunity_id: "mock-8", route_id: "r8", analysis_id: "a8", lead_id: "l8",
+    county: "Pinellas", city: "St. Petersburg", project_type: "Full Home Replacement",
+    window_count: 20, quote_range: "$26,000–$35,000", grade: "F",
+    flag_count: 8, red_flag_count: 5, amber_flag_count: 3, priority_score: 42,
+    status: "intro_requested", release_status: "pending",
+    already_unlocked: false, can_unlock: false, credit_balance: 5,
+    dossier_href: "/partner/dossier", has_document: true,
+    created_at: new Date(NOW - 604_800_000).toISOString(),
+    buyer_seriousness_score: 42, buyer_seriousness_band: "D",
+    property_type_detail: null, timeline_bucket: null,
+    motivation_reason: null, handoff_consent_status: null,
+    credit_cost: 1,
+  },
 ];
 const MOCK_META: Meta = { credit_balance: 5, contractor_status: "preview", total: 8 };
 
@@ -115,6 +294,7 @@ export default function ContractorOpportunitiesPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
   const [countyFilter, setCountyFilter] = useState("");
+  const [sortMode, setSortMode] = useState<SortMode>("best_unlock");
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const paymentHandled = useRef(false);
 
@@ -221,6 +401,45 @@ export default function ContractorOpportunitiesPage() {
 
     return result;
   }, [opportunities, activeFilter, countyFilter]);
+
+  /* ── Sorted view (sorting happens AFTER filtering; original array not mutated) ── */
+  const sortedOpportunities = useMemo(() => {
+    const arr = filteredOpportunities.slice();
+    switch (sortMode) {
+      case "best_unlock":
+        return arr.sort((a, b) => getBestUnlockScore(b) - getBestUnlockScore(a));
+      case "highest_bss": {
+        const score = (o: Opportunity) =>
+          o.buyer_seriousness_score ?? o.priority_score ?? -Infinity;
+        return arr.sort((a, b) => score(b) - score(a));
+      }
+      case "newest":
+        return arr.sort(
+          (a, b) => Date.parse(b.created_at || "") - Date.parse(a.created_at || ""),
+        );
+      case "largest_project":
+        return arr.sort((a, b) => {
+          const av = parseQuoteMidpoint(a.quote_range) || (a.window_count ?? 0);
+          const bv = parseQuoteMidpoint(b.quote_range) || (b.window_count ?? 0);
+          return bv - av;
+        });
+      case "most_red_flags":
+        return arr.sort((a, b) => {
+          const dr = (b.red_flag_count ?? 0) - (a.red_flag_count ?? 0);
+          if (dr !== 0) return dr;
+          return (b.amber_flag_count ?? 0) - (a.amber_flag_count ?? 0);
+        });
+      case "ready_this_month": {
+        const rank = (o: Opportunity) =>
+          o.timeline_bucket && TIMELINE_RANK[o.timeline_bucket] != null
+            ? TIMELINE_RANK[o.timeline_bucket]
+            : 99;
+        return arr.sort((a, b) => rank(a) - rank(b));
+      }
+      default:
+        return arr;
+    }
+  }, [filteredOpportunities, sortMode]);
 
   /* ── Derived stats from full dataset (not affected by county filter) ── */
   const totalCount = opportunities.length;
@@ -331,6 +550,7 @@ export default function ContractorOpportunitiesPage() {
                 value={countyFilter}
                 onChange={(e) => setCountyFilter(e.target.value)}
                 className="bg-background border rounded-md text-xs px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
+                aria-label="Filter by county"
               >
                 <option value="">All Counties</option>
                 {uniqueCounties.sort().map((c) => (
@@ -340,13 +560,33 @@ export default function ContractorOpportunitiesPage() {
             </div>
           )}
 
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Sort</span>
+            <select
+              value={sortMode}
+              onChange={(e) => setSortMode(e.target.value as SortMode)}
+              className="bg-background border rounded-md text-xs px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
+              aria-label="Sort opportunities"
+            >
+              {SORT_OPTIONS.map((s) => (
+                <option key={s.value} value={s.value}>{s.label}</option>
+              ))}
+            </select>
+          </div>
+
           <span className="text-xs text-muted-foreground ml-auto">
-            Showing {filteredOpportunities.length} of {totalCount}
+            Showing {sortedOpportunities.length} of {totalCount}
           </span>
         </div>
 
+        {/* Tactical microcopy */}
+        <p className="text-xs text-muted-foreground -mt-2">
+          Sort by <span className="font-medium text-foreground">Best Unlock</span> to prioritize
+          verified, urgent, warm-handoff leads — not just bad competitor quotes.
+        </p>
+
         {/* ─── Opportunity List ─────────────────────────────────── */}
-        {filteredOpportunities.length === 0 ? (
+        {sortedOpportunities.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <Search className="h-12 w-12 text-muted-foreground/40 mb-4" />
             <h3 className="text-lg font-semibold text-muted-foreground mb-1">
@@ -360,7 +600,7 @@ export default function ContractorOpportunitiesPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-3">
-            {filteredOpportunities.map((opp) => (
+            {sortedOpportunities.map((opp) => (
               <OpportunityCard key={opp.opportunity_id} opp={opp} navigate={navigate} />
             ))}
           </div>
@@ -392,10 +632,19 @@ function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string
 }
 
 function OpportunityCard({ opp, navigate }: { opp: Opportunity; navigate: (path: string) => void }) {
+  const bss = getBuyerSeriousness(opp);
+  const propertyBadge = getPropertyBadge(opp);
+  const timelineBadge = getTimelineBadge(opp);
+  const motivationBadge = getMotivationBadge(opp);
+  const handoff = getHandoffSignal(opp);
+  const angle = getBestSalesAngle(opp);
+  const action = getRecommendedAction(opp);
+  const freshness = formatRelativeTime(opp.created_at);
+
   return (
     <button
       onClick={() => navigate(opp.dossier_href)}
-      className="w-full text-left bg-card border rounded-xl p-5 hover:border-primary/30 hover:shadow-md transition-all group"
+      className="w-full text-left bg-card border rounded-xl p-5 hover:border-primary/30 hover:shadow-md transition-all group focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <div className="flex items-start justify-between gap-4">
         {/* Left: info */}
@@ -447,6 +696,40 @@ function OpportunityCard({ opp, navigate }: { opp: Opportunity; navigate: (path:
                 <FileText className="h-3 w-3" /> Doc
               </span>
             )}
+          </div>
+
+          {/* ─── Sprint 1: Signal preview strip (compact) ─────────── */}
+          <div className="pt-2 border-t border-border/60 space-y-2">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {bss.label && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
+                  {bss.label}
+                </span>
+              )}
+              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-muted text-foreground border">
+                {propertyBadge}
+              </span>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-muted text-foreground border">
+                {timelineBadge}
+              </span>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-muted text-foreground border">
+                {motivationBadge}
+              </span>
+              <span
+                className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold border ${HANDOFF_TONE_CLASSES[handoff.tone]}`}
+                aria-label={`Handoff status: ${handoff.label}`}
+              >
+                {handoff.label}
+              </span>
+            </div>
+            <p className="text-[11px] text-muted-foreground leading-snug">
+              {freshness && <>{freshness} · </>}
+              <span className="text-foreground font-medium">{angle}</span>
+              {" · "}
+              <span className={handoff.isCallReady ? "text-foreground" : "text-muted-foreground italic"}>
+                {action}
+              </span>
+            </p>
           </div>
         </div>
 
