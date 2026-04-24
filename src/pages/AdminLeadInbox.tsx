@@ -82,6 +82,8 @@ function toLead(raw: Record<string, any>): CRMLead {
     last_call_status: raw.last_call_status ?? null,
     last_call_outcome: raw.last_call_outcome ?? null,
     last_call_summary: null,
+    deal_value: raw.deal_value ?? null,
+    revenue_amount: raw.revenue_amount ?? null,
   };
 }
 
