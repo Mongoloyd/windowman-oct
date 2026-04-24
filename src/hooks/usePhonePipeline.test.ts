@@ -740,3 +740,56 @@ describe("usePhonePipeline — Resend cooldown invocation guard", () => {
     expect(mockInvoke).toHaveBeenCalledTimes(1);
   });
 });
+
+// ════════════════════════════════════════════════════════════════════════════
+// SPRINT 2 — event_id surfacing through PipelineVerifyResult
+//
+// The verify-otp edge function emits server-canonical event_ids for the
+// `phone_verified` and `report_revealed` business events. The browser MUST
+// reuse these IDs (not generate new ones) when forwarding to GTM/Meta CAPI
+// to preserve dedup. Hook MUST surface them verbatim.
+// ════════════════════════════════════════════════════════════════════════════
+describe("usePhonePipeline — Sprint 2: event_id surfacing", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUsePhoneInput.mockReturnValue({
+      displayValue: "(305) 555-1234",
+      rawDigits: "3055551234",
+      e164: "+13055551234",
+      isValid: true,
+      handleChange: vi.fn(),
+      setValue: vi.fn(),
+    });
+  });
+
+  it("forwards phone_verified_event_id and report_revealed_event_id verbatim from verify-otp", async () => {
+    mockInvoke.mockResolvedValue({
+      data: {
+        verified: true,
+        phone_e164: "+13055550000",
+        phone_verified_event_id: "evt_phone_verified_xyz",
+        report_revealed_event_id: "evt_report_revealed_abc",
+      },
+      error: null,
+    });
+
+    const { result } = renderHook(() =>
+      usePhonePipeline("validate_and_send_otp", {
+        externalPhoneE164: "+13055551234",
+        scanSessionId: "session_abc",
+      })
+    );
+
+    let verifyResult: Awaited<ReturnType<typeof result.current.submitOtp>> | null = null;
+    await act(async () => {
+      verifyResult = await result.current.submitOtp("123456");
+    });
+
+    expect(verifyResult).toEqual({
+      status: "verified",
+      e164: "+13055550000",
+      phoneVerifiedEventId: "evt_phone_verified_xyz",
+      reportRevealedEventId: "evt_report_revealed_abc",
+    });
+  });
+});
