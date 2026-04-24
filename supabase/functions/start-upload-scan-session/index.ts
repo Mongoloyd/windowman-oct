@@ -76,7 +76,6 @@ interface AuditEvent {
   file_type?: string | null;
   has_file_name?: boolean;
   http_status?: number;
-  [key: string]: unknown;
 }
 
 /**
@@ -92,8 +91,6 @@ function audit(
   evt: Omit<AuditEvent, "ts" | "fn">,
 ): void {
   const fullEvt: AuditEvent = {
-    stage: evt.stage,
-    status: evt.status,
     ...evt,
     ts: new Date().toISOString(),
     fn: FUNCTION_NAME,
