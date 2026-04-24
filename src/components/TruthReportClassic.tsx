@@ -879,18 +879,6 @@ I'm ready to move forward if we can get these items addressed. What's the fastes
       )}
 
       {isFull && (
-        <WhatToDoNowBlock
-          flags={flags}
-          grade={grade}
-          redCount={redCount}
-          missingItems={missingItems}
-          markupEstimate={markupEstimate}
-          pricePerOpeningBand={pricePerOpeningBand}
-          ctaLabel={ctaLabel}
-        />
-      )}
-
-      {isFull && (
         <ForensicPillarSection pillarScores={pillarScores} flags={flags} county={county} isFull={isFull} />
       )}
 
