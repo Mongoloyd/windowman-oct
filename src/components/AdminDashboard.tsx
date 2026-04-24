@@ -434,6 +434,10 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
 
 /* ── Exported — renders publicly, data-fetch failures show preview ──── */
 
-export default function AdminDashboard() {
-  return <DashboardContent />;
+interface AdminDashboardProps {
+  initialTab?: string;
+}
+
+export default function AdminDashboard({ initialTab }: AdminDashboardProps = {}) {
+  return <DashboardContent initialTab={initialTab} />;
 }
