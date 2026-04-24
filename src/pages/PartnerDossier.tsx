@@ -13,7 +13,6 @@ import {
   TrendingDown,
   TrendingUp,
   Minus,
-  CreditCard,
   AlertTriangle,
   ClipboardList,
   Building2,
@@ -27,6 +26,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { PreviewModeBadge } from "@/components/PreviewModeBadge";
+import { usePartnerPortal } from "@/components/partner/PartnerPortalContext";
 
 /* ── tiny helpers ─────────────────────────────────────────────── */
 const fmt = (v: number | null | undefined) =>
@@ -152,6 +152,7 @@ interface DossierData {
    ══════════════════════════════════════════════════════════════════ */
 export default function PartnerDossier() {
   const { id } = useParams<{ id: string }>();
+  const { setCreditBalance, setIsPreview: publishPreview } = usePartnerPortal();
 
   const [dossier, setDossier] = useState<DossierData | null>(null);
   const [meta, setMeta] = useState<DossierMeta | null>(null);
@@ -159,6 +160,16 @@ export default function PartnerDossier() {
   const [error, setError] = useState<string | null>(null);
   const [isPreview, setIsPreview] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+
+  /* ── Publish credit balance + preview state up to the layout chrome ── */
+  useEffect(() => {
+    setCreditBalance(meta?.credit_balance ?? null);
+  }, [meta?.credit_balance, setCreditBalance]);
+
+  useEffect(() => {
+    publishPreview(isPreview);
+  }, [isPreview, publishPreview]);
+
 
   /* ── Fallback helper ── */
   const fallbackToMock = useCallback(() => {
