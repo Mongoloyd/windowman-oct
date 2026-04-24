@@ -289,8 +289,24 @@ const MOCK_OPPORTUNITIES: Opportunity[] = [
     motivation_reason: null, handoff_consent_status: null,
     credit_cost: 1,
   },
+  // 6. Insufficient-credits demo: locked, can_unlock false, credit_balance 0
+  {
+    opportunity_id: "mock-9", route_id: "r9", analysis_id: "a9", lead_id: "l9",
+    county: "Broward", city: "Pembroke Pines", project_type: "Full Home Replacement",
+    window_count: 14, quote_range: "$20,000–$27,000", grade: "C",
+    flag_count: 3, red_flag_count: 1, amber_flag_count: 2, priority_score: 70,
+    status: "intro_requested", release_status: "pending",
+    already_unlocked: false, can_unlock: false, credit_balance: 0,
+    dossier_href: "/partner/dossier", has_document: true,
+    created_at: new Date(NOW - 6 * 60 * 60_000).toISOString(),
+    buyer_seriousness_score: 70, buyer_seriousness_band: "C",
+    property_type_detail: "single_family", timeline_bucket: "one_to_three_months",
+    motivation_reason: "wants_better_price",
+    handoff_consent_status: "accepted_tomorrow",
+    credit_cost: 1,
+  },
 ];
-const MOCK_META: Meta = { credit_balance: 5, contractor_status: "preview", total: 8 };
+const MOCK_META: Meta = { credit_balance: 5, contractor_status: "preview", total: 9 };
 
 export default function ContractorOpportunitiesPage() {
   const navigate = useNavigate();
