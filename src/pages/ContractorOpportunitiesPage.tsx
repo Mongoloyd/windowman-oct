@@ -11,11 +11,15 @@ import {
   AlertTriangle,
   MapPin,
   Target,
-  TrendingUp,
   Filter,
   LayoutGrid,
   Plus,
   Loader2,
+  Check,
+  Clock,
+  Phone,
+  Eye,
+  Sparkles,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PreviewModeBadge } from "@/components/PreviewModeBadge";
@@ -30,6 +34,9 @@ import {
   getBestSalesAngle,
   getRecommendedAction,
   getBestUnlockScore,
+  getCreditCost,
+  getCreditCostLine,
+  getUnlockIncludes,
   type HandoffTone,
 } from "@/lib/contractorOpportunitySignals";
 
@@ -282,8 +289,24 @@ const MOCK_OPPORTUNITIES: Opportunity[] = [
     motivation_reason: null, handoff_consent_status: null,
     credit_cost: 1,
   },
+  // 6. Insufficient-credits demo: locked, can_unlock false, credit_balance 0
+  {
+    opportunity_id: "mock-9", route_id: "r9", analysis_id: "a9", lead_id: "l9",
+    county: "Broward", city: "Pembroke Pines", project_type: "Full Home Replacement",
+    window_count: 14, quote_range: "$20,000–$27,000", grade: "C",
+    flag_count: 3, red_flag_count: 1, amber_flag_count: 2, priority_score: 70,
+    status: "intro_requested", release_status: "pending",
+    already_unlocked: false, can_unlock: false, credit_balance: 0,
+    dossier_href: "/partner/dossier", has_document: true,
+    created_at: new Date(NOW - 6 * 60 * 60_000).toISOString(),
+    buyer_seriousness_score: 70, buyer_seriousness_band: "C",
+    property_type_detail: "single_family", timeline_bucket: "one_to_three_months",
+    motivation_reason: "wants_better_price",
+    handoff_consent_status: "accepted_tomorrow",
+    credit_cost: 1,
+  },
 ];
-const MOCK_META: Meta = { credit_balance: 5, contractor_status: "preview", total: 8 };
+const MOCK_META: Meta = { credit_balance: 5, contractor_status: "preview", total: 9 };
 
 export default function ContractorOpportunitiesPage() {
   const navigate = useNavigate();
@@ -601,7 +624,7 @@ export default function ContractorOpportunitiesPage() {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-3">
             {sortedOpportunities.map((opp) => (
-              <OpportunityCard key={opp.opportunity_id} opp={opp} navigate={navigate} />
+              <OpportunityCard key={opp.opportunity_id} opp={opp} meta={meta} navigate={navigate} />
             ))}
           </div>
         )}
@@ -631,7 +654,37 @@ function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string
   );
 }
 
-function OpportunityCard({ opp, navigate }: { opp: Opportunity; navigate: (path: string) => void }) {
+/* ── Credit Decision Card (5 zones) ──────────────────────────────── */
+
+type UnlockState = "released" | "unlocked" | "insufficient" | "unlockable";
+
+function resolveUnlockState(opp: Opportunity, meta: Meta | null): UnlockState {
+  if (opp.release_status === "released" || opp.status === "homeowner_contact_released") {
+    return "released";
+  }
+  if (opp.already_unlocked) return "unlocked";
+
+  const cost = getCreditCost(opp);
+  const balance =
+    typeof opp.credit_balance === "number"
+      ? opp.credit_balance
+      : typeof meta?.credit_balance === "number"
+        ? meta.credit_balance
+        : 0;
+
+  if (!opp.can_unlock && balance < cost) return "insufficient";
+  return "unlockable";
+}
+
+function OpportunityCard({
+  opp,
+  meta,
+  navigate,
+}: {
+  opp: Opportunity;
+  meta: Meta | null;
+  navigate: (path: string) => void;
+}) {
   const bss = getBuyerSeriousness(opp);
   const propertyBadge = getPropertyBadge(opp);
   const timelineBadge = getTimelineBadge(opp);
@@ -640,116 +693,248 @@ function OpportunityCard({ opp, navigate }: { opp: Opportunity; navigate: (path:
   const angle = getBestSalesAngle(opp);
   const action = getRecommendedAction(opp);
   const freshness = formatRelativeTime(opp.created_at);
+  const unlockIncludes = getUnlockIncludes();
+  const creditCostLine = getCreditCostLine(opp, meta);
+
+  const unlockState = resolveUnlockState(opp, meta);
+  const isReportOnly = opp.handoff_consent_status === "report_only";
+  const locationLabel = [opp.city, opp.county].filter(Boolean).join(", ") || "Florida";
+
+  // CTA copy + tone per state (no transactional language unless safely backed)
+  const ctaConfig: { label: string; tone: "primary" | "success" | "muted" | "warning" } =
+    unlockState === "released"
+      ? { label: "View Contact + Call Script", tone: "success" }
+      : unlockState === "unlocked"
+        ? { label: "Open Sales Brief", tone: "success" }
+        : unlockState === "insufficient"
+          ? { label: "Add Credits to Unlock", tone: "warning" }
+          : { label: "View Unlock Details", tone: "primary" };
+
+  const ctaToneClasses: Record<typeof ctaConfig.tone, string> = {
+    primary:
+      "bg-primary text-primary-foreground hover:bg-primary/90 border-primary",
+    success:
+      "bg-emerald-600 text-white hover:bg-emerald-700 border-emerald-600",
+    muted: "bg-muted text-foreground hover:bg-accent border-border",
+    warning:
+      "bg-amber-50 text-amber-800 hover:bg-amber-100 border-amber-300",
+  };
 
   return (
-    <button
-      onClick={() => navigate(opp.dossier_href)}
-      className="w-full text-left bg-card border rounded-xl p-5 hover:border-primary/30 hover:shadow-md transition-all group focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    <article
+      className="bg-card border rounded-xl overflow-hidden flex flex-col hover:border-primary/30 hover:shadow-md transition-all"
+      aria-label={`${opp.project_type ?? "Window Project"} in ${locationLabel}`}
     >
-      <div className="flex items-start justify-between gap-4">
-        {/* Left: info */}
-        <div className="flex-1 min-w-0 space-y-3">
-          {/* Top row: grade + location + status */}
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className={`h-10 w-10 rounded-lg border flex items-center justify-center ${gradeBg(opp.grade)}`}>
-              <span className={`text-lg font-black ${gradeColor(opp.grade)}`}>
-                {opp.grade ?? "—"}
-              </span>
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm font-semibold truncate">
-                  {opp.project_type ?? "Window Project"}
-                </span>
-                {statusPill(opp.status)}
-              </div>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <MapPin className="h-3 w-3 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">
-                  {[opp.city, opp.county].filter(Boolean).join(", ") || "Florida"}
-                </span>
-              </div>
-            </div>
+      {/* ─── Zone 1: Decision Header ─────────────────────────────── */}
+      <header className="p-4 sm:p-5 border-b border-border/60 bg-gradient-to-b from-muted/30 to-transparent">
+        <div className="flex items-start gap-3">
+          <div
+            className={`h-11 w-11 shrink-0 rounded-lg border flex items-center justify-center ${gradeBg(opp.grade)}`}
+            aria-label={`Quote grade ${opp.grade ?? "unknown"}`}
+          >
+            <span className={`text-lg font-black ${gradeColor(opp.grade)}`}>
+              {opp.grade ?? "—"}
+            </span>
           </div>
 
-          {/* Stats row */}
-          <div className="flex items-center gap-4 flex-wrap">
-            {opp.window_count != null && (
-              <span className="text-xs text-muted-foreground">
-                <span className="text-foreground font-medium">{opp.window_count}</span> openings
-              </span>
-            )}
-            {opp.quote_range && (
-              <span className="text-xs text-muted-foreground">
-                <span className="text-foreground font-medium">{opp.quote_range}</span>
-              </span>
-            )}
-            {opp.flag_count > 0 && (
-              <span className="text-xs text-muted-foreground">
-                <span className="text-red-600 font-medium">{opp.red_flag_count}</span> red ·{" "}
-                <span className="text-amber-600 font-medium">{opp.amber_flag_count}</span> amber
-              </span>
-            )}
-            {opp.has_document && (
-              <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                <FileText className="h-3 w-3" /> Doc
-              </span>
-            )}
-          </div>
-
-          {/* ─── Sprint 1: Signal preview strip (compact) ─────────── */}
-          <div className="pt-2 border-t border-border/60 space-y-2">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {bss.label && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-sm font-semibold text-foreground truncate min-w-0">
+                {opp.project_type ?? "Window Project"}
+              </h3>
+              {statusPill(opp.status)}
+            </div>
+            <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+              {bss.label ? (
+                <span
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-primary/10 text-primary border border-primary/20"
+                  aria-label={`Buyer Seriousness Score ${bss.score}, band ${bss.band}`}
+                >
+                  <Sparkles className="h-3 w-3" aria-hidden />
                   {bss.label}
                 </span>
+              ) : (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-muted text-muted-foreground border">
+                  BSS —
+                </span>
               )}
-              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-muted text-foreground border">
-                {propertyBadge}
-              </span>
-              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-muted text-foreground border">
-                {timelineBadge}
-              </span>
-              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-muted text-foreground border">
-                {motivationBadge}
-              </span>
-              <span
-                className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold border ${HANDOFF_TONE_CLASSES[handoff.tone]}`}
-                aria-label={`Handoff status: ${handoff.label}`}
-              >
-                {handoff.label}
-              </span>
+              {unlockState === "released" ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-50 border border-emerald-200 text-emerald-700">
+                  <Phone className="h-3 w-3" aria-hidden /> Contact Released
+                </span>
+              ) : unlockState === "unlocked" ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-50 border border-emerald-200 text-emerald-700">
+                  <Unlock className="h-3 w-3" aria-hidden /> Unlocked
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-muted border text-muted-foreground">
+                  <Lock className="h-3 w-3" aria-hidden /> Locked
+                </span>
+              )}
             </div>
-            <p className="text-[11px] text-muted-foreground leading-snug">
-              {freshness && <>{freshness} · </>}
-              <span className="text-foreground font-medium">{angle}</span>
-              {" · "}
-              <span className={handoff.isCallReady ? "text-foreground" : "text-muted-foreground italic"}>
-                {action}
-              </span>
+          </div>
+        </div>
+      </header>
+
+      {/* ─── Zone 2: Market Facts ────────────────────────────────── */}
+      <section
+        className="px-4 sm:px-5 py-3 space-y-1.5"
+        aria-label="Market facts"
+      >
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          <span className="truncate text-foreground font-medium">{locationLabel}</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          {opp.window_count != null && (
+            <span>
+              <span className="text-foreground font-semibold">{opp.window_count}</span> openings
+            </span>
+          )}
+          {opp.quote_range && (
+            <span className="text-foreground font-semibold">{opp.quote_range}</span>
+          )}
+          {opp.flag_count > 0 && (
+            <span>
+              <span className="text-red-600 font-semibold">{opp.red_flag_count}</span> red ·{" "}
+              <span className="text-amber-600 font-semibold">{opp.amber_flag_count}</span> amber
+            </span>
+          )}
+          {opp.has_document && (
+            <span className="inline-flex items-center gap-1 text-emerald-700">
+              <FileText className="h-3 w-3" aria-hidden /> Quote Uploaded
+            </span>
+          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+          {freshness && (
+            <span className="inline-flex items-center gap-1">
+              <Clock className="h-3 w-3" aria-hidden /> {freshness}
+            </span>
+          )}
+          {opp.phone_verified_at && (
+            <span className="inline-flex items-center gap-1 text-emerald-700">
+              <Check className="h-3 w-3" aria-hidden /> Phone Verified
+            </span>
+          )}
+          {opp.report_viewed_at && (
+            <span className="inline-flex items-center gap-1 text-sky-700">
+              <Eye className="h-3 w-3" aria-hidden /> Report Viewed
+            </span>
+          )}
+        </div>
+      </section>
+
+      {/* ─── Zone 3: Human Context ──────────────────────────────── */}
+      <section
+        className="px-4 sm:px-5 py-3 border-t border-border/60 space-y-2"
+        aria-label="Human context"
+      >
+        <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
+          Human Context
+        </p>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-muted text-foreground border">
+            {propertyBadge}
+          </span>
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-muted text-foreground border">
+            {timelineBadge}
+          </span>
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-muted text-foreground border">
+            {motivationBadge}
+          </span>
+          <span
+            className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold border ${HANDOFF_TONE_CLASSES[handoff.tone]}`}
+            aria-label={`Handoff status: ${handoff.label}`}
+          >
+            {handoff.label}
+          </span>
+        </div>
+        {isReportOnly && (
+          <p
+            role="note"
+            className="flex items-start gap-1.5 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5"
+          >
+            <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" aria-hidden />
+            <span>Nurture lead — no warm call yet.</span>
+          </p>
+        )}
+      </section>
+
+      {/* ─── Zone 4: Sales Angle ────────────────────────────────── */}
+      <section
+        className="px-4 sm:px-5 py-3 border-t border-border/60 bg-muted/20"
+        aria-label="Sales angle"
+      >
+        <div className="rounded-md border border-border/80 bg-card p-3 space-y-1.5">
+          <div>
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
+              Best Sales Angle
+            </p>
+            <p className="text-xs font-semibold text-foreground mt-0.5">{angle}</p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
+              Recommended Action
+            </p>
+            <p
+              className={`text-xs mt-0.5 ${
+                handoff.isCallReady && !isReportOnly
+                  ? "text-foreground font-medium"
+                  : "text-muted-foreground italic"
+              }`}
+            >
+              {action}
             </p>
           </div>
         </div>
+      </section>
 
-        {/* Right: unlock state + CTA */}
-        <div className="flex items-center gap-3 shrink-0">
-          {opp.already_unlocked ? (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-50 border border-emerald-200">
-              <Unlock className="h-3.5 w-3.5 text-emerald-600" />
-              <span className="text-xs font-semibold text-emerald-700">Unlocked</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-muted border">
-              <Lock className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs font-medium text-muted-foreground">Locked</span>
-            </div>
-          )}
+      {/* ─── Zone 5: Unlock Economics ───────────────────────────── */}
+      <section
+        className="px-4 sm:px-5 py-4 border-t border-border/60 mt-auto space-y-3"
+        aria-label="Unlock economics"
+      >
+        {unlockState === "unlockable" || unlockState === "insufficient" ? (
+          <div>
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-1.5">
+              Unlock Includes
+            </p>
+            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1">
+              {unlockIncludes.map((item) => (
+                <li
+                  key={item}
+                  className="flex items-center gap-1.5 text-[11px] text-foreground"
+                >
+                  <Check className="h-3 w-3 text-emerald-600 shrink-0" aria-hidden />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
 
-          <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
-        </div>
-      </div>
-    </button>
+        {unlockState === "unlockable" && (
+          <p className="text-[11px] text-muted-foreground">{creditCostLine}</p>
+        )}
+
+        {unlockState === "insufficient" && (
+          <div className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
+            <p className="font-semibold">Insufficient credits</p>
+            <p className="text-amber-700">Add credits before this Sales Brief can be unlocked.</p>
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={() => navigate(opp.dossier_href)}
+          className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-sm font-semibold border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${ctaToneClasses[ctaConfig.tone]}`}
+          aria-label={`${ctaConfig.label} for ${opp.project_type ?? "this opportunity"} in ${locationLabel}`}
+        >
+          <span>{ctaConfig.label}</span>
+          <ChevronRight className="h-4 w-4" aria-hidden />
+        </button>
+      </section>
+    </article>
   );
 }
