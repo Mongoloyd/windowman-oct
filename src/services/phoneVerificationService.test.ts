@@ -276,7 +276,7 @@ describe("phoneVerificationService — Sprint 1: send-otp contract hardening", (
   });
 
   it("network exception → errorCode='network'", async () => {
-    mockInvoke.mockRejectedValue(new Error("fetch failed"));
+    mockInvoke.mockImplementation(() => Promise.reject(new Error("fetch failed")));
     const r = await sendOtp("+13055551234");
     expect(r.ok).toBe(false);
     if (!r.ok) expect((r as OtpServiceErr).errorCode).toBe("network");
