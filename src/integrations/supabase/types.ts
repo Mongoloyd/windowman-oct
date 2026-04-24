@@ -1126,12 +1126,18 @@ export type Database = {
           did_beat_price: boolean | null
           did_fix_scope_gaps: boolean | null
           did_improve_warranty: boolean | null
+          disposition_reason_code: string | null
+          disposition_state: string
+          final_value_cents: number | null
           id: string
+          last_partner_action_at: string | null
           opportunity_id: string
           outcome_notes: string | null
+          projected_value_cents: number | null
           quote_status: string | null
           replacement_quote_range: string | null
           route_id: string | null
+          signed_contract_url: string | null
           updated_at: string
         }
         Insert: {
@@ -1146,12 +1152,18 @@ export type Database = {
           did_beat_price?: boolean | null
           did_fix_scope_gaps?: boolean | null
           did_improve_warranty?: boolean | null
+          disposition_reason_code?: string | null
+          disposition_state?: string
+          final_value_cents?: number | null
           id?: string
+          last_partner_action_at?: string | null
           opportunity_id: string
           outcome_notes?: string | null
+          projected_value_cents?: number | null
           quote_status?: string | null
           replacement_quote_range?: string | null
           route_id?: string | null
+          signed_contract_url?: string | null
           updated_at?: string
         }
         Update: {
@@ -1166,12 +1178,18 @@ export type Database = {
           did_beat_price?: boolean | null
           did_fix_scope_gaps?: boolean | null
           did_improve_warranty?: boolean | null
+          disposition_reason_code?: string | null
+          disposition_state?: string
+          final_value_cents?: number | null
           id?: string
+          last_partner_action_at?: string | null
           opportunity_id?: string
           outcome_notes?: string | null
+          projected_value_cents?: number | null
           quote_status?: string | null
           replacement_quote_range?: string | null
           route_id?: string | null
+          signed_contract_url?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -3479,6 +3497,15 @@ export type Database = {
       }
       has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
       is_internal_operator: { Args: never; Returns: boolean }
+      partner_outcome_summary: {
+        Args: never
+        Returns: {
+          disposition_state: string
+          outcome_count: number
+          total_final_value_cents: number
+          total_projected_value_cents: number
+        }[]
+      }
       resolve_contractors_for_client_slug: {
         Args: { p_client_slug: string }
         Returns: {
