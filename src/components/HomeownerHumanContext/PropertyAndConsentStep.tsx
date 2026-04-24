@@ -62,7 +62,7 @@ function ChipGroup<T extends string>({
   onChange,
   ariaLabel,
 }: {
-  options: Array<{ value: T; label: string }>;
+  options: ReadonlyArray<{ value: T; label: string }>;
   value: T | null;
   onChange: (v: T) => void;
   ariaLabel: string;
