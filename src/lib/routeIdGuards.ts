@@ -17,9 +17,14 @@ export function normalizeRouteId(
   return trimmed.length === 0 ? null : trimmed;
 }
 
+// Strict shape check. We deliberately do NOT trim here: downstream consumers
+// (e.g. useAnalysisData) match the raw route param against a UUID regex, so
+// silently accepting whitespace-wrapped values here would desync the guard
+// from its consumers and route malformed URLs into the wrong error path.
+// Callers that want to accept surrounding whitespace should explicitly pass
+// the value through normalizeRouteId first.
 export function isUuid(value: string | null | undefined): value is string {
-  const v = normalizeRouteId(value);
-  return v !== null && UUID_RE.test(v);
+  return typeof value === "string" && UUID_RE.test(value);
 }
 
 // Semantic aliases — same shape check today, but named so future changes

@@ -46,6 +46,9 @@ describe("isUuid / isValidScanSessionId / isValidLeadId", () => {
     `${VALID}x`,
     VALID.slice(0, -1),
     `${VALID} ${VALID}`,
+    `  ${VALID}`,
+    `${VALID}  `,
+    `  ${VALID}  `,
   ];
 
   for (const v of INVALID) {
@@ -67,9 +70,5 @@ describe("isUuid / isValidScanSessionId / isValidLeadId", () => {
     expect(isUuid(upper)).toBe(true);
     expect(isValidScanSessionId(upper)).toBe(true);
     expect(isValidLeadId(upper)).toBe(true);
-  });
-
-  it("accepts UUIDs wrapped in surrounding whitespace", () => {
-    expect(isUuid(`  ${VALID}  `)).toBe(true);
   });
 });

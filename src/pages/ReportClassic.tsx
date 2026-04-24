@@ -85,6 +85,7 @@ function useCountyForSession(sessionId: string | undefined): string {
 export default function ReportClassic() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
+  const sessionIdValid = isValidScanSessionId(sessionId);
 
   // ── Funnel context (safe — null when outside provider) ─────────────────
   const funnel = useScanFunnelSafe();
@@ -105,7 +106,7 @@ export default function ReportClassic() {
     fullFetchError,
     tryResume,
     isResuming,
-  } = useAnalysisData(sessionId ?? null, !!sessionId);
+  } = useAnalysisData(sessionId ?? null, sessionIdValid);
 
   // ── Auto-resume: dev bypass or returning verified user ─────────────
   useEffect(() => {
@@ -314,9 +315,8 @@ export default function ReportClassic() {
   // The Truth Report is keyed strictly by a UUID scan_session_id. If the
   // route param is missing, malformed, or not a UUID, fail loud instead of
   // spinning forever. All callers (Admin Dossier, PostScanReportSwitcher,
-  // diagnosis flow) MUST pass a UUID v4 from `scan_sessions.id`.
-  const sessionIdValid = isValidScanSessionId(sessionId);
-
+  // diagnosis flow) MUST pass a canonical UUID from `scan_sessions.id`;
+  // isValidScanSessionId is version-agnostic to match Postgres `uuid` storage.
   if (!sessionIdValid) {
     return (
       <div className="bg-background min-h-screen flex items-center justify-center px-4">
