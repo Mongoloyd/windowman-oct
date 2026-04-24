@@ -503,38 +503,45 @@ export default function ContractorOpportunitiesPage() {
     <div className="min-h-screen bg-background text-foreground font-sans">
       {/* ─── Header ────────────────────────────────────────────── */}
       <header className="border-b bg-card sticky top-0 z-30">
-        <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-lg bg-sky-100 flex items-center justify-center">
-              <Shield className="h-5 w-5 text-sky-600" />
+        <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="h-9 w-9 rounded-lg bg-sky-100 flex items-center justify-center shrink-0">
+              <Shield className="h-5 w-5 text-sky-600" aria-hidden />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg font-bold tracking-tight leading-none">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-base sm:text-lg font-bold tracking-tight leading-none">
                   Opportunity Command Center
                 </h1>
                 {isPreview && <PreviewModeBadge />}
               </div>
-              <p className="text-xs text-muted-foreground mt-0.5">WindowMan Partner Portal</p>
+              <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
+                WindowMan Partner Portal
+              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-muted border">
-              <CreditCard className="h-3.5 w-3.5 text-sky-600" />
-              <span className="text-xs font-mono text-foreground">
+          <div className="flex items-center gap-2 self-stretch sm:self-auto">
+            <div
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-muted border flex-1 sm:flex-initial justify-center"
+              aria-label={`Credit balance: ${meta?.credit_balance ?? 0}`}
+            >
+              <CreditCard className="h-3.5 w-3.5 text-sky-600" aria-hidden />
+              <span className="text-xs font-mono text-foreground whitespace-nowrap">
                 {meta?.credit_balance ?? 0} credit{(meta?.credit_balance ?? 0) !== 1 ? "s" : ""}
               </span>
             </div>
             <button
+              type="button"
               onClick={handleAddCredits}
               disabled={checkoutLoading}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              aria-label="Add credits"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 whitespace-nowrap"
             >
               {checkoutLoading ? (
-                <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Connecting…</>
+                <><Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Connecting…</>
               ) : (
-                <><Plus className="h-3.5 w-3.5" /> Add Credits</>
+                <><Plus className="h-3.5 w-3.5" aria-hidden /> Add Credits</>
               )}
             </button>
           </div>
