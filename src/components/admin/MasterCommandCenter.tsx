@@ -933,47 +933,86 @@ export function MasterCommandCenter({
         </CardContent>
       </Card>
 
-      {/* ── KPI strip ──────────────────────────────────────────────── */}
+      {/* ── Truth Strip — interactive funnel ──────────────────────── */}
       <div>
-        <div className="flex items-center justify-between mb-2 px-1">
-          <h2 className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-            Funnel — last all-time
-          </h2>
-          <span className="text-[10px] text-muted-foreground font-mono">
-            {leads.length} leads in scope
-          </span>
+        <div className="flex items-center justify-between gap-3 mb-2 px-1 flex-wrap">
+          <div className="flex items-center gap-2 min-w-0">
+            <h2 className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+              Truth Strip — Funnel
+            </h2>
+            <span className="text-[10px] text-muted-foreground font-mono">
+              {scope === "today" ? "today" : scope === "7d" ? "last 7 days" : "all-time · Δ vs prior 30d"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div
+              role="group"
+              aria-label="Time scope"
+              className="inline-flex rounded-md border border-border/60 bg-card/95 backdrop-blur-sm p-0.5"
+            >
+              {(["today", "7d", "all"] as Scope[]).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setScope(s)}
+                  aria-pressed={scope === s}
+                  className={`px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider rounded-sm transition-colors ${
+                    scope === s
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {s === "today" ? "Today" : s === "7d" ? "7D" : "All"}
+                </button>
+              ))}
+            </div>
+            <span className="text-[10px] text-muted-foreground font-mono hidden sm:inline">
+              {leads.length} leads in scope
+            </span>
+          </div>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <KpiTile label="Captured" value={flow.captured} hint="All leads recorded" icon={Inbox} />
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+          <KpiTile
+            label="Captured"
+            metric={funnelMetrics.captured}
+            hint=""
+            icon={Inbox}
+            onClick={() => onNavigateTab("pipeline")}
+          />
           <KpiTile
             label="Verified"
-            value={flow.verified}
-            hint={`${pct(flow.verified, flow.captured)}% of captured`}
+            metric={funnelMetrics.verified}
+            hint="of Captured"
             icon={ShieldCheck}
+            onClick={() => onNavigateTab("pipeline")}
           />
           <KpiTile
             label="Scanned"
-            value={flow.scanned}
-            hint={`${pct(flow.scanned, flow.captured)}% of captured`}
+            metric={funnelMetrics.scanned}
+            hint="of Captured"
             icon={ScanSearch}
+            onClick={() => onNavigateTab("pipeline")}
           />
           <KpiTile
             label="Routed"
-            value={flow.routed}
-            hint={`${pct(flow.routed, flow.verified)}% of verified`}
+            metric={funnelMetrics.routed}
+            hint="of Verified"
             icon={Send}
+            onClick={() => onNavigateTab("routing")}
           />
           <KpiTile
             label="Booked"
-            value={flow.booked}
-            hint={`${pct(flow.booked, flow.routed)}% of routed`}
+            metric={funnelMetrics.booked}
+            hint="of Routed"
             icon={CalendarCheck}
+            onClick={() => onNavigateTab("outcomes")}
           />
           <KpiTile
             label="Closed"
-            value={flow.closed}
-            hint={`${pct(flow.closed, flow.booked)}% of booked`}
+            metric={funnelMetrics.closed}
+            hint="of Booked"
             icon={CheckCircle2}
+            onClick={() => onNavigateTab("outcomes")}
           />
         </div>
       </div>
