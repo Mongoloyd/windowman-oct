@@ -426,7 +426,8 @@ const TruthGateFlow = ({
           ? `${window.location.pathname}${window.location.search}`
           : null);
 
-      const { error } = await supabase.from("leads").insert({
+      // Build the full intake payload as a named object for clean diagnostics.
+      const leadInsertPayload = {
         session_id: sessionId,
         first_name: answers.firstName,
         email: answers.email,
@@ -451,9 +452,44 @@ const TruthGateFlow = ({
         landing_page_url: landingPageUrl,
         first_page_path: utm.landing_page,
         initial_referrer: typeof document !== "undefined" ? document.referrer || null : null,
-      });
+      };
 
-      if (error) throw error;
+      // Route through the dedicated edge function. This avoids the
+      // anon-vs-authenticated RLS mismatch on `public.leads` (browser sessions
+      // can carry an admin/operator JWT, which previously caused a 42501).
+      const { data: captureData, error: captureError } = await supabase.functions.invoke(
+        "capture-truth-gate-lead",
+        { body: leadInsertPayload },
+      );
+
+      if (captureError || !captureData?.success) {
+        const errBody = (captureData ?? {}) as {
+          code?: string;
+          message?: string;
+          details?: unknown;
+          hint?: string;
+        };
+        const code = errBody.code || captureError?.name || "lead_capture_failed";
+        const message =
+          errBody.message ||
+          captureError?.message ||
+          "Lead capture failed.";
+
+        // Structured non-PII diagnostic
+        console.error("[TruthGateFlow] leads capture failed", {
+          code,
+          message,
+          details: errBody.details ?? null,
+          hint: errBody.hint ?? null,
+          payload_keys: Object.keys(leadInsertPayload),
+          has_phone: !!phoneE164,
+          has_client_slug: !!effectiveClientSlug,
+          session_id: sessionId,
+        });
+
+        setSubmitError({ code, message });
+        throw new Error(message);
+      }
 
       if (funnel) {
         funnel.setSessionId(sessionId);
