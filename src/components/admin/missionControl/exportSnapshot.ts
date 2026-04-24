@@ -17,6 +17,11 @@ export interface SnapshotInput {
     booked: number;
     closed: number;
   };
+  /** Phase 26 — per-stage delta (count) and prior-window count, optional. */
+  funnelDelta?: Partial<Record<
+    "captured" | "verified" | "scanned" | "routed" | "booked" | "closed",
+    { delta: number; prevCount: number; convPct: number | null }
+  >>;
   revenue: {
     goal: number;
     todayClosedVolume: number;
@@ -73,13 +78,26 @@ export function buildSnapshotCsv(snap: SnapshotInput): string {
   lines.push("");
 
   lines.push(row("[Funnel]"));
-  lines.push(row("Stage", "Count", "% of prior"));
-  lines.push(row("Captured", snap.funnel.captured, "—"));
-  lines.push(row("Verified", snap.funnel.verified, pct(snap.funnel.verified, snap.funnel.captured)));
-  lines.push(row("Scanned", snap.funnel.scanned, pct(snap.funnel.scanned, snap.funnel.captured)));
-  lines.push(row("Routed", snap.funnel.routed, pct(snap.funnel.routed, snap.funnel.verified)));
-  lines.push(row("Booked", snap.funnel.booked, pct(snap.funnel.booked, snap.funnel.routed)));
-  lines.push(row("Closed", snap.funnel.closed, pct(snap.funnel.closed, snap.funnel.booked)));
+  lines.push(row("Stage", "Count", "% of prior", "Δ vs prior window", "Prior window count"));
+  const fd = snap.funnelDelta ?? {};
+  const stageRow = (
+    label: string,
+    count: number,
+    convPctStr: string,
+    key: keyof NonNullable<SnapshotInput["funnelDelta"]>,
+  ) => {
+    const d = fd[key];
+    const deltaStr  = d ? (d.delta > 0 ? `+${d.delta}` : `${d.delta}`) : "—";
+    const prevStr   = d ? d.prevCount : "—";
+    const convFinal = d?.convPct != null ? `${d.convPct}%` : convPctStr;
+    lines.push(row(label, count, convFinal, deltaStr, prevStr));
+  };
+  stageRow("Captured", snap.funnel.captured, "—",                                                            "captured");
+  stageRow("Verified", snap.funnel.verified, pct(snap.funnel.verified, snap.funnel.captured),                "verified");
+  stageRow("Scanned",  snap.funnel.scanned,  pct(snap.funnel.scanned,  snap.funnel.captured),                "scanned");
+  stageRow("Routed",   snap.funnel.routed,   pct(snap.funnel.routed,   snap.funnel.verified),                "routed");
+  stageRow("Booked",   snap.funnel.booked,   pct(snap.funnel.booked,   snap.funnel.routed),                  "booked");
+  stageRow("Closed",   snap.funnel.closed,   pct(snap.funnel.closed,   snap.funnel.booked),                  "closed");
   lines.push("");
 
   lines.push(row("[Daily Revenue]"));
