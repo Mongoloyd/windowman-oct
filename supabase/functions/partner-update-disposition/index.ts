@@ -169,12 +169,6 @@ Deno.serve(async (req) => {
         valid_states: [...VALID_STATES],
       }, 422);
     }
-    if (disposition_state === "lost_dead" && !disposition_reason_code) {
-      return json({
-        error: "reason_required",
-        message: "disposition_reason_code is required when marking a lead as lost_dead.",
-      }, 422);
-    }
     if (disposition_reason_code != null && !VALID_REASON_CODES.has(disposition_reason_code)) {
       return json({
         error: "invalid_reason_code",
@@ -182,12 +176,38 @@ Deno.serve(async (req) => {
         valid_reason_codes: [...VALID_REASON_CODES],
       }, 422);
     }
-    if (disposition_state === "sold_closed" && (final_value_cents == null)) {
-      return json({
-        error: "value_required",
-        message: "final_value_cents is required when marking a lead as sold_closed.",
-      }, 422);
+
+    // ── lost_dead requires reason code AND typed manual reason text ───────
+    const trimmedNotes = typeof notes === "string" ? notes.trim() : "";
+    if (disposition_state === "lost_dead") {
+      if (!disposition_reason_code) {
+        return json({
+          error: "reason_required",
+          message: "disposition_reason_code is required when marking a lead as lost_dead.",
+        }, 422);
+      }
+      if (!trimmedNotes) {
+        return json({
+          error: "lost_reason_text_required",
+          message: "A typed loss reason is required when marking a lead as lost_dead.",
+        }, 422);
+      }
     }
+
+    // ── sold_closed requires positive integer final_value_cents (> 0) ─────
+    if (disposition_state === "sold_closed") {
+      if (
+        final_value_cents == null ||
+        !Number.isInteger(final_value_cents) ||
+        final_value_cents <= 0
+      ) {
+        return json({
+          error: "positive_value_required",
+          message: "final_value_cents must be a positive integer greater than 0 when marking a lead as sold_closed.",
+        }, 422);
+      }
+    }
+
     if (projected_value_cents != null && (!Number.isInteger(projected_value_cents) || projected_value_cents < 0)) {
       return json({ error: "invalid_input", message: "projected_value_cents must be a non-negative integer." }, 422);
     }
