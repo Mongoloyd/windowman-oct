@@ -268,6 +268,7 @@ export function MasterCommandCenter({
   onNavigateTab,
 }: MasterCommandCenterProps) {
   const [dailyGoal, setDailyGoal] = useState<number>(readGoal);
+  const [scope, setScope] = useState<Scope>("all");
 
   /* ── Live reads (TanStack — same cache keys as other surfaces) ───── */
   const oppsQ = useQuery({
@@ -290,24 +291,84 @@ export function MasterCommandCenter({
   const routes = (routesQ.data as RoutingRoute[] | undefined) ?? [];
   const contractors = (contractorsQ.data as RoutingContractor[] | undefined) ?? [];
 
-  /* ── KPI funnel (lead-level repo-real timestamps) ────────────────── */
-  const flow = useMemo(() => {
-    let captured = 0;
-    let verified = 0;
-    let scanned = 0;
-    let routed = 0;
-    let booked = 0;
-    let closed = 0;
+  /* ── Truth Strip metrics (windowed by scope, with prior-period delta) */
+  const funnelMetrics: FunnelMetrics = useMemo(() => {
+    const { start, prevStart, prevEnd } = scopeWindows(scope);
+
+    const ts = (s: string | null | undefined): number | null => {
+      if (!s) return null;
+      const t = new Date(s).getTime();
+      return Number.isNaN(t) ? null : t;
+    };
+
+    // For each stage, capture the timestamp that marks entry into that stage.
+    type Probe = (l: CRMLead) => number | null | undefined;
+    const probes: Record<StageKey, Probe> = {
+      captured: (l) => ts(l.created_at),
+      verified: (l) => ts(l.phone_verified_at),
+      // Scanned has no dedicated column; use updated_at as a proxy when an analysis is attached.
+      scanned: (l) => (l.latest_analysis_id ? ts(l.updated_at) : null),
+      routed: (l) => ts(l.routed_to_contractor_at),
+      booked: (l) => ts(l.appointment_booked_at),
+      closed: (l) => {
+        if (!l.closed_at) return null;
+        const status = (l.deal_status ?? "").toLowerCase();
+        if (!CLOSED_STATUSES.has(status)) return null;
+        return ts(l.closed_at);
+      },
+    };
+
+    const stageKeys: StageKey[] = ["captured", "verified", "scanned", "routed", "booked", "closed"];
+    const result = {} as FunnelMetrics;
+    const counts: Record<StageKey, number> = {
+      captured: 0, verified: 0, scanned: 0, routed: 0, booked: 0, closed: 0,
+    };
+    const prevCounts: Record<StageKey, number> = {
+      captured: 0, verified: 0, scanned: 0, routed: 0, booked: 0, closed: 0,
+    };
+
     for (const l of leads) {
-      captured++;
-      if (l.phone_verified_at) verified++;
-      if (l.latest_analysis_id) scanned++;
-      if (l.routed_to_contractor_at) routed++;
-      if (l.appointment_booked_at) booked++;
-      if (l.closed_at) closed++;
+      for (const k of stageKeys) {
+        const t = probes[k](l);
+        if (t == null) continue;
+        if (t >= start) counts[k]++;
+        if (t >= prevStart && t < prevEnd) prevCounts[k]++;
+      }
     }
-    return { captured, verified, scanned, routed, booked, closed };
-  }, [leads]);
+
+    const priorOf: Record<StageKey, StageKey | null> = {
+      captured: null,
+      verified: "captured",
+      scanned: "captured",
+      routed: "verified",
+      booked: "routed",
+      closed: "booked",
+    };
+
+    for (const k of stageKeys) {
+      const c = counts[k];
+      const p = prevCounts[k];
+      const delta = c - p;
+      const deltaPct = p === 0 ? null : (delta / p) * 100;
+      const prior = priorOf[k];
+      const convPct = prior == null ? null : pct(c, counts[prior]);
+      result[k] = { count: c, prevCount: p, delta, deltaPct, convPct };
+    }
+    return result;
+  }, [leads, scope]);
+
+  /* Backward-compat shape used by signals & snapshot exporter. */
+  const flow = useMemo(
+    () => ({
+      captured: funnelMetrics.captured.count,
+      verified: funnelMetrics.verified.count,
+      scanned: funnelMetrics.scanned.count,
+      routed: funnelMetrics.routed.count,
+      booked: funnelMetrics.booked.count,
+      closed: funnelMetrics.closed.count,
+    }),
+    [funnelMetrics],
+  );
 
   /* ── Daily Revenue (closed today) ────────────────────────────────── */
   const revenueToday = useMemo(() => {
