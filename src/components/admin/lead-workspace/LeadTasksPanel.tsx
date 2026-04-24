@@ -65,11 +65,31 @@ export function LeadTasksPanel({ leadId }: LeadTasksPanelProps) {
   const updateMutation = useMutation({
     mutationFn: (args: { task_id: string; completed: boolean }) =>
       updateLeadTask(args),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin", "lead-tasks", leadId] });
+    // Optimistic toggle — checkbox flips instantly; rollback on failure.
+    onMutate: async (args) => {
+      const key = ["admin", "lead-tasks", leadId];
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<LeadTask[]>(key);
+      if (previous) {
+        queryClient.setQueryData<LeadTask[]>(
+          key,
+          previous.map((t) =>
+            t.id === args.task_id
+              ? { ...t, completed: args.completed, completed_at: args.completed ? new Date().toISOString() : null }
+              : t,
+          ),
+        );
+      }
+      return { previous };
     },
-    onError: (err) => {
+    onError: (err, _args, ctx) => {
+      if (ctx?.previous) {
+        queryClient.setQueryData(["admin", "lead-tasks", leadId], ctx.previous);
+      }
       toast({ title: "Update failed", description: getErrorMessage(err), variant: "destructive" });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "lead-tasks", leadId] });
     },
   });
 
