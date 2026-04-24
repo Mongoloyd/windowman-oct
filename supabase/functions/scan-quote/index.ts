@@ -1187,39 +1187,14 @@ Deno.serve(async (req: Request) => {
         //         unrelated docs, or anything that is not a real contractor
         //         estimate. This runs BEFORE the window/door related gate so a
         //         screenshot of our own demo proposal can never reach scoring.
-        const documentAuthenticity = typeof classData.document_authenticity === "string"
-          ? (classData.document_authenticity as string)
-          : null;
-        const isRealEstimate = classData.is_real_contractor_estimate === true;
-        const uiArtifactDetected = classData.ui_artifact_detected === true;
-        const estimateArtifacts = Array.isArray(classData.estimate_artifacts_present)
-          ? (classData.estimate_artifacts_present as unknown[]).filter((v) => typeof v === "string")
-          : [];
-        const rejectedAuthenticity =
-          documentAuthenticity === "windowman_ui_artifact" ||
-          documentAuthenticity === "sample_mockup" ||
-          documentAuthenticity === "unrelated" ||
-          documentAuthenticity === "insufficient";
-
-        const authenticityFails =
-          uiArtifactDetected ||
-          rejectedAuthenticity ||
-          (documentAuthenticity !== null && !isRealEstimate) ||
-          (documentAuthenticity !== null && estimateArtifacts.length < 3 &&
-           (documentAuthenticity === "real_estimate" || documentAuthenticity === "real_estimate_screenshot"));
-
-        if (authenticityFails) {
-          const rejectionReason = uiArtifactDetected || documentAuthenticity === "windowman_ui_artifact"
-            ? "windowman_ui_artifact"
-            : (typeof classData.rejection_reason === "string" && classData.rejection_reason)
-              ? (classData.rejection_reason as string)
-              : (documentAuthenticity ?? "not_a_real_estimate");
-
+        const authVerdict = evaluateDocumentAuthenticity(classData);
+        if (!authVerdict.accepted) {
           console.log(
             `[scan-quote] authenticity gate rejected session=${scan_session_id} ` +
-            `authenticity=${documentAuthenticity} ui_artifact=${uiArtifactDetected} ` +
-            `is_real=${isRealEstimate} artifacts=${estimateArtifacts.length} ` +
-            `reason=${rejectionReason}`,
+            `authenticity=${authVerdict.document_authenticity} ` +
+            `ui_artifact=${authVerdict.ui_artifact_detected} ` +
+            `artifacts=${authVerdict.estimate_artifact_count} ` +
+            `reason=${authVerdict.rejection_reason}`,
           );
 
           const authInvalidPayload = {
@@ -1262,9 +1237,9 @@ Deno.serve(async (req: Request) => {
             scan_session_id,
             analysis_status: "invalid_document",
             scan_session_status: "invalid_document",
-            rejection_reason: rejectionReason,
-            document_authenticity: documentAuthenticity,
-            reason: rejectionReason === "windowman_ui_artifact"
+            rejection_reason: authVerdict.rejection_reason,
+            document_authenticity: authVerdict.document_authenticity,
+            reason: authVerdict.rejection_reason === "windowman_ui_artifact"
               ? "This looks like a screenshot of the WindowMan app, not a real contractor estimate. Please upload your actual contractor's quote, proposal, or invoice (PDF or photo)."
               : "This file doesn't look like a real contractor estimate. Please upload your contractor's quote, proposal, or invoice (PDF or photo of the document).",
           }, 200);
