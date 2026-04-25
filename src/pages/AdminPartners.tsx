@@ -264,6 +264,12 @@ function AdminPartnersContent() {
     return map;
   }, [metaConfigs]);
 
+  const configByClientId = useMemo(() => {
+    const map = new Map<string, ClientConfig>();
+    for (const config of clientConfigs) map.set(config.client_id, config);
+    return map;
+  }, [clientConfigs]);
+
   const redactedByClientId = useMemo(() => {
     const map = new Map<string, RedactedMetaConfig>();
     for (const config of redactedConfigs) if (config.client_id) map.set(config.client_id, config);
@@ -277,6 +283,7 @@ function AdminPartnersContent() {
   }, [clients, search]);
 
   const selectedMeta = selectedClient ? metaByClientId.get(selectedClient.id) ?? null : null;
+  const selectedConfig = selectedClient ? configByClientId.get(selectedClient.id) ?? null : null;
   const selectedRedacted = selectedClient ? redactedByClientId.get(selectedClient.id) ?? null : null;
   const existingSlugs = clients.filter((client) => client.id !== draft.id).map((client) => client.slug);
   const validationErrors = validateDraft(draft, existingSlugs);
