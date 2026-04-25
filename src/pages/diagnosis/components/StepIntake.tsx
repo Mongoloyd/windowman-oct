@@ -1,4 +1,4 @@
-import { Handshake } from "lucide-react";
+import { Bot, CheckCircle2, FileCheck2 } from "lucide-react";
 import { DIAGNOSIS_ORDER, DIAGNOSTIC_MAP } from "../constants/diagnosticMap";
 import type { DiagnosisCode, DiagnosticContext } from "../types";
 
@@ -18,36 +18,25 @@ const GRADE_COLORS: Record<string, string> = {
 function getPersonalizedDiagnosisCopy(context: DiagnosticContext) {
   const gradeKey = context.report_grade?.[0]?.toUpperCase() ?? "";
   const firstName = context.first_name?.trim();
-  const insightsText = context.top_insights.join(" ").toLowerCase();
-  const hasWarranty = /warranty|warranties|guarantee|labor coverage|manufacturer coverage/.test(insightsText);
-  const hasCode = /\b(noa|dp rating|design pressure|wind load|hvhz)\b/.test(insightsText);
-  const hasPrice = /price|pricing|markup|overcharge|high|expensive|market/.test(insightsText);
 
-  const headline = firstName ? `${firstName}, Tell Us What Felt Wrong.` : "Tell Us What Felt Wrong.";
+  const headline = firstName ? `${firstName}, I’ve Got You.` : "I’ve Got You.";
+  const subhead = "Your report is loaded. Choose the biggest problem — or let WindowMan guide the safest move.";
 
+  let gradeLine = "Your quote has findings worth resolving before you commit.";
   let contextLine = "Your quote has findings worth resolving before you commit.";
-  let toneCopy = "Your quote has findings worth resolving. Let’s choose the safest next move.";
 
   if (gradeKey === "D" || gradeKey === "F") {
-    contextLine = `Your quote scored ${gradeKey}. We found issues worth acting on before you sign.`;
-    toneCopy = "Your quote is high-risk. Let’s choose the safest next move.";
+    gradeLine = "This is not a maybe. This quote needs a safer move before you sign.";
+    contextLine = `Your quote scored ${gradeKey}. WindowMan has the risk signals loaded.`;
   } else if (gradeKey === "B" || gradeKey === "C") {
-    contextLine = `Your quote scored ${gradeKey}. A few findings are worth resolving before you commit.`;
-    toneCopy = "This quote may be workable, but a few items need clarification.";
+    gradeLine = "This quote may be workable, but the weak spots need to be handled first.";
+    contextLine = `Your quote scored ${gradeKey}. The weak spots need a cleaner next move.`;
   } else if (gradeKey === "A") {
-    contextLine = "Your quote scored A. It looks stronger than most, but the details are still worth pressure-testing.";
-    toneCopy = "This quote looks stronger than most, but we can still help you pressure-test the details.";
+    gradeLine = "This quote looks stronger than most. Let’s pressure-test the final details.";
+    contextLine = "Your quote scored A. Now we pressure-test the final details.";
   }
 
-  const focusCopy = hasCode
-    ? "Code documentation is the key thing to clarify."
-    : hasWarranty
-      ? "Warranty clarity is the key thing to clarify."
-      : hasPrice
-        ? "A cleaner price comparison is the key next step."
-        : null;
-
-  return { headline, contextLine, toneCopy, focusCopy };
+  return { headline, subhead, gradeLine, contextLine };
 }
 
 export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
@@ -57,8 +46,7 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
   const copy = getPersonalizedDiagnosisCopy(context);
 
   return (
-    <section className="relative overflow-hidden px-6 pt-16 pb-20 md:px-8" style={{ background: "transparent" }}>
-      {/* Depth L1 — deep cobalt radial field, upper-left */}
+    <section className="relative overflow-hidden px-5 pt-8 pb-16 md:px-8 md:pt-12" style={{ background: "transparent" }}>
       <div
         aria-hidden="true"
         className="pointer-events-none absolute"
@@ -72,7 +60,6 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
           filter: "blur(32px)",
         }}
       />
-      {/* Depth L2 — cyan accent field, right */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute"
@@ -86,7 +73,6 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
           filter: "blur(40px)",
         }}
       />
-      {/* Depth L3 — atmosphere wash */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0"
@@ -96,111 +82,148 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
         }}
       />
 
-      <div className="max-w-3xl mx-auto relative z-10">
-        {context.report_grade && (
-          <div
-            className="bg-white rounded-2xl p-5 md:p-6 mb-8"
-            style={{
-              boxShadow: `0 20px 50px -12px ${gradeColor}33`,
-              border: `1px solid ${gradeColor}1A`,
-            }}
-          >
-            <div className="flex items-start gap-5 md:gap-6">
-              {/* Grade Stage */}
-              <div
-                className="shrink-0 aspect-square w-20 md:w-24 rounded-xl flex items-center justify-center"
-                style={{
-                  background: `${gradeColor}0D`,
-                  border: `1px solid ${gradeColor}26`,
-                }}
-              >
-                <span
-                  className="font-display font-black text-5xl md:text-6xl leading-none"
-                  style={{ color: gradeColor }}
-                >
-                  {context.report_grade}
-                </span>
+      <div className="relative z-10 mx-auto max-w-5xl">
+        <div className="grid items-stretch gap-5 lg:grid-cols-[1.45fr_0.9fr] lg:gap-6">
+          <div className="space-y-5">
+            <div>
+              <div className="mb-5 inline-flex items-center gap-2 rounded-full border-2 border-blue-300 bg-white px-4 py-2 text-sm font-black text-slate-900 shadow-[0_10px_25px_rgba(15,23,42,0.08)]">
+                <FileCheck2 className="h-4 w-4 text-blue-700" />
+                Report loaded. Strategy builder ready.
               </div>
-
-              {/* Header + Smart Grid */}
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-black tracking-[0.2em] uppercase text-gray-500 mb-1">Your Audit Score</p>
-                <p className="text-sm font-semibold text-foreground/75 mb-3">{copy.contextLine}</p>
-                {visibleInsights.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {visibleInsights.map((insight, i) => (
-                      <span
-                        key={`${insight}-${i}`}
-                        className="inline-flex max-w-full items-center rounded-full border bg-white/70 px-3 py-1.5 text-xs font-semibold text-foreground/80 animate-fade-in"
-                        style={{
-                          borderColor: `${gradeColor}26`,
-                          animationDelay: `${i * 120}ms`,
-                          animationFillMode: "both",
-                        }}
-                      >
-                        <span className="truncate">{insight}</span>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Reassurance Ribbon */}
-            <div className="border-t border-gray-200/60 mt-5 pt-4 flex items-center gap-3">
-              <span className="block w-0.5 h-3.5 rounded-full" style={{ background: gradeColor }} />
-              <p className="font-mono text-[11px] tracking-wider uppercase text-gray-500">
-                We Have Your Quote · We Have Your Answers · Let's Build Your Counter-Offer
+              <h1 className="font-display text-4xl font-black leading-[0.96] tracking-tight text-slate-950 md:text-6xl">
+                {copy.headline}
+              </h1>
+              <p className="mt-5 max-w-2xl text-lg font-bold leading-relaxed text-slate-800 md:text-xl">
+                {copy.subhead}
+              </p>
+              <p className="mt-3 max-w-2xl text-base font-black leading-relaxed text-slate-950 md:text-lg">
+                {copy.gradeLine}
               </p>
             </div>
-          </div>
-        )}
 
-        <div className="mb-10 text-center">
-          <div
-            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium mb-6"
-            style={{
-              background: "rgba(37,99,235,0.08)",
-              color: "hsl(217 91% 70%)",
-              border: "1px solid rgba(37,99,235,0.18)",
-            }}
-          >
-            <Handshake className="w-4 h-4" />
-            This Isn't a Sales Form. It's a Consultation.
+            {context.report_grade && (
+              <div
+                className="rounded-3xl bg-white p-5 shadow-[0_22px_55px_rgba(15,23,42,0.14)] md:p-6"
+                style={{
+                  border: `2px solid ${gradeColor}33`,
+                  boxShadow: `0 22px 55px rgba(15,23,42,0.14), 0 18px 46px -18px ${gradeColor}66`,
+                }}
+              >
+                <div className="flex items-start gap-4 md:gap-5">
+                  <div
+                    className="flex aspect-square w-20 shrink-0 items-center justify-center rounded-2xl md:w-24"
+                    style={{
+                      background: `${gradeColor}12`,
+                      border: `2px solid ${gradeColor}38`,
+                    }}
+                  >
+                    <span className="font-display text-5xl font-black leading-none md:text-6xl" style={{ color: gradeColor }}>
+                      {context.report_grade}
+                    </span>
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <p className="mb-1 text-xs font-black uppercase tracking-[0.18em] text-slate-700">Your Audit Score</p>
+                    <p className="mb-4 text-base font-bold leading-relaxed text-slate-900">{copy.contextLine}</p>
+                    {visibleInsights.length > 0 && (
+                      <div className="grid gap-2">
+                        {visibleInsights.map((insight, i) => (
+                          <div
+                            key={`${insight}-${i}`}
+                            className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-800 animate-fade-in"
+                            style={{
+                              animationDelay: `${i * 120}ms`,
+                              animationFillMode: "both",
+                            }}
+                          >
+                            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-blue-700" />
+                            <span className="min-w-0">{insight}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-5 flex items-center gap-3 border-t border-slate-200 pt-4">
+                  <span className="block h-4 w-1 rounded-full" style={{ background: gradeColor }} />
+                  <p className="text-sm font-black text-slate-900">Report loaded. Strategy builder ready.</p>
+                </div>
+              </div>
+            )}
           </div>
-          <h1 className="font-display text-3xl md:text-5xl font-extrabold tracking-tight mb-5 leading-tight text-foreground">
-            {copy.headline}
-          </h1>
-          <p className="text-base md:text-lg text-foreground/75 max-w-2xl mx-auto leading-relaxed">
-            {copy.toneCopy} {copy.focusCopy ?? "One tap is all it takes to start."}
-          </p>
+
+          <div className="relative overflow-hidden rounded-3xl border border-blue-300/30 bg-slate-950 p-5 text-white shadow-[0_24px_70px_rgba(15,23,42,0.28)] md:p-6">
+            <div
+              aria-hidden="true"
+              className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-blue-400/25 blur-3xl"
+            />
+            <div
+              aria-hidden="true"
+              className="absolute -bottom-16 -left-10 h-44 w-44 rounded-full bg-orange-300/15 blur-3xl"
+            />
+            <div className="relative z-10 flex h-full min-h-[240px] flex-col justify-between gap-5">
+              <div>
+                <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-blue-200/25 bg-blue-400/10 text-blue-100 shadow-sm">
+                  <Bot className="h-6 w-6" />
+                </div>
+                <h2 className="font-display text-2xl font-black leading-tight text-white md:text-3xl">
+                  WindowMan has your report.
+                </h2>
+                <p className="mt-3 text-base font-bold leading-relaxed text-blue-50/90">
+                  Pick the problem. I’ll build the next move.
+                </p>
+              </div>
+              <div className="relative mx-auto flex w-full max-w-[220px] items-end justify-center overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-2">
+                <img
+                  src="/images/wman-reading.avif"
+                  alt="WindowMan advisor reviewing a report"
+                  className="max-h-[190px] w-full object-contain"
+                  loading="lazy"
+                />
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="card-raised-hero rounded-2xl p-6 md:p-8 border-double border-4 border-cobalt/15">
-          <p className="wm-eyebrow uppercase text-muted-foreground mb-3">Root Question</p>
-          <h2 className="font-display text-xl md:text-2xl font-extrabold text-foreground mb-6 tracking-tight">
-            What Frustrated You Most About The Quote You Received?
-          </h2>
-          <div className="flex flex-wrap gap-3">
+        <div className="mt-8 rounded-3xl border-2 border-slate-200 bg-white/95 p-5 shadow-[0_20px_58px_rgba(15,23,42,0.12)] md:mt-10 md:p-8">
+          <div className="mx-auto mb-6 max-w-3xl text-center">
+            <p className="mb-3 text-xs font-black uppercase tracking-[0.2em] text-blue-700">Root Question</p>
+            <h2 className="font-display text-2xl font-black tracking-tight text-slate-950 md:text-4xl">
+              What was the biggest problem with this quote?
+            </h2>
+            <p className="mt-3 text-base font-bold leading-relaxed text-slate-700 md:text-lg">
+              Choose the closest answer. We’ll turn it into your next move.
+            </p>
+          </div>
+
+          <div className="mx-auto grid max-w-3xl grid-cols-1 gap-4 sm:grid-cols-2">
             {DIAGNOSIS_ORDER.map((code) => {
               const config = DIAGNOSTIC_MAP[code];
               const Icon = config.Icon;
+              const isNotSure = code === "not_sure";
               return (
                 <button
                   key={code}
                   type="button"
                   onClick={() => onSelectPrimary(code)}
-                  className="btn-secondary-tactile group inline-flex items-center gap-2 px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-cobalt/40"
+                  className={`group flex min-h-[104px] w-full items-center gap-4 rounded-2xl border-2 border-slate-300 bg-white px-5 py-5 text-left shadow-[0_16px_38px_rgba(15,23,42,0.12)] transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-500 hover:shadow-[0_20px_48px_rgba(37,99,235,0.18)] focus:outline-none focus:ring-4 focus:ring-blue-500/20 active:scale-[0.99] ${isNotSure ? "sm:col-span-2" : ""}`}
                 >
-                  <Icon className="w-4 h-4 text-muted-foreground group-hover:text-cobalt transition-colors" />
-                  {config.label}
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 text-blue-700 shadow-sm transition-colors group-hover:border-blue-300 group-hover:bg-blue-100">
+                    <Icon className="h-6 w-6" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-[16px] font-black leading-tight text-slate-950 md:text-[17px]">
+                      {config.label}
+                    </span>
+                    <span className="mt-1 block text-sm leading-relaxed text-slate-600">
+                      {config.cardDescription}
+                    </span>
+                  </span>
                 </button>
               );
             })}
           </div>
-          <p className="text-xs text-muted-foreground mt-5 italic">
-            Tap The One That Hits Closest. Don't Overthink It.
-          </p>
         </div>
       </div>
     </section>
