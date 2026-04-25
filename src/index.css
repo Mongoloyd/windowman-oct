@@ -183,6 +183,24 @@
     background-color: hsl(210 30% 93% / 0.65);
   }
 
+  .wm-slim-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(215 20% 78%) transparent;
+  }
+
+  .wm-slim-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .wm-slim-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .wm-slim-scrollbar::-webkit-scrollbar-thumb {
+    background-color: hsl(215 20% 78%);
+    border-radius: 999px;
+  }
+
   /* ═══════════════════════════════════════════════════════════
      CARD SURFACES — Tiered elevation system
      L0: flush (bridge strips)  L1: resting  L2: elevated  L3: dominant

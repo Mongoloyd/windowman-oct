@@ -18,6 +18,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
@@ -109,6 +110,8 @@ interface DossierModalProps {
 
 function ClientDossierModal({ open, onClose, client, metaConfig, existingSlugs, onSaved }: DossierModalProps) {
   const isEdit = !!client;
+  const labelClass = "text-xs font-medium uppercase tracking-wider text-slate-500";
+  const fieldClass = "min-w-0 transition-all duration-200 focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2";
 
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
@@ -228,66 +231,67 @@ function ClientDossierModal({ open, onClose, client, metaConfig, existingSlugs, 
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="font-sans sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Edit Client" : "Add Client"}</DialogTitle>
-          <DialogDescription>
-            {isEdit ? "Update client details and pixel configuration." : "Create a new white-label client."}
+          <DialogTitle className="text-slate-900 font-semibold tracking-tight">{isEdit ? "Edit Client" : "Add Client"}</DialogTitle>
+          <DialogDescription className="text-slate-500">
+            {isEdit ? "Update client details and CAPI configuration." : "Create a new white-label client."}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-5 py-2">
+        <div className="min-w-0 space-y-5 py-2">
           <div className="space-y-1.5">
-            <Label htmlFor="client-name">Client Name</Label>
+            <Label htmlFor="client-name" className={labelClass}>Client Name</Label>
             <Input
               id="client-name" value={name} maxLength={100}
               onChange={e => { setName(e.target.value); setTouched(true); }}
               onBlur={() => setTouched(true)}
               placeholder="Acme Windows"
-              className={nameError ? "border-destructive" : ""}
+              className={`${fieldClass} ${nameError ? "border-destructive" : ""}`}
             />
             {nameError && <p className="text-xs text-destructive">{nameError}</p>}
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="client-slug">URL Slug</Label>
-            <div className="flex items-center gap-2">
+            <Label htmlFor="client-slug" className={labelClass}>URL Slug</Label>
+            <div className="flex min-w-0 items-center gap-2">
               <span className="text-xs text-muted-foreground whitespace-nowrap">/lp/</span>
               <Input
                 id="client-slug" value={slug}
                 onChange={e => setSlug(slugify(e.target.value))}
                 placeholder="acme-windows"
-                className={slugError ? "border-destructive" : ""}
+                className={`${fieldClass} flex-1 ${slugError ? "border-destructive" : ""}`}
               />
             </div>
             {slugError && <p className="text-xs text-destructive">{slugError}</p>}
           </div>
 
           <div className="flex items-center justify-between">
-            <Label htmlFor="client-active">Active</Label>
+            <Label htmlFor="client-active" className={labelClass}>Active</Label>
             <Switch id="client-active" checked={isActive} onCheckedChange={setIsActive} />
           </div>
 
           <div className="border-t pt-4 space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Meta Pixel Configuration</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Meta Conversions API (CAPI)</p>
             <div className="space-y-1.5">
-              <Label htmlFor="pixel-id">Pixel ID</Label>
-              <Input id="pixel-id" value={pixelId} onChange={e => setPixelId(e.target.value)} placeholder="123456789012345" />
+              <Label htmlFor="pixel-id" className={labelClass}>Pixel ID</Label>
+              <Input id="pixel-id" value={pixelId} onChange={e => setPixelId(e.target.value)} placeholder="123456789012345" className={fieldClass} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="access-token">Access Token</Label>
-              <Input
-                id="access-token" type="password" value={accessToken}
+              <Label htmlFor="access-token" className={labelClass}>Access Token</Label>
+              <Textarea
+                id="access-token" value={accessToken}
                 onChange={e => { setAccessToken(e.target.value); setTokenDirty(true); }}
                 placeholder={metaConfig?.access_token ? "••••••••  (unchanged)" : "Paste CAPI access token"}
+                className={`${fieldClass} min-h-[100px] w-full resize-y font-mono text-sm`}
               />
               {isEdit && !tokenDirty && metaConfig?.access_token && (
-                <p className="text-[11px] text-muted-foreground">Token on file. Only change if you paste a new one.</p>
+                <p className="text-[11px] text-slate-500">Token on file. Only change if you paste a new one.</p>
               )}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="test-event-code">Test Event Code <span className="text-muted-foreground">(optional)</span></Label>
-              <Input id="test-event-code" value={testEventCode} onChange={e => setTestEventCode(e.target.value)} placeholder="TEST12345" />
+              <Label htmlFor="test-event-code" className={labelClass}>Test Event Code <span className="text-slate-500">(optional)</span></Label>
+              <Input id="test-event-code" value={testEventCode} onChange={e => setTestEventCode(e.target.value)} placeholder="TEST12345" className={fieldClass} />
             </div>
           </div>
 
@@ -332,9 +336,9 @@ function LandingPageUrl({ url }: { url: string }) {
 
   return (
     <>
-      <div className="flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2">
+      <div className="flex min-w-0 items-center gap-2 rounded-md border bg-muted/50 px-3 py-2">
         <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
-        <code className="text-xs flex-1 truncate">{url}</code>
+        <code className="min-w-0 flex-1 truncate text-xs">{url}</code>
         <Button size="sm" variant="ghost" className="h-11 w-11 min-w-[44px] min-h-[44px] p-0" onClick={handleCopy} aria-label="Copy URL">
           {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
         </Button>

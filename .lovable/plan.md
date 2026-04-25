@@ -1,178 +1,103 @@
-```
-SYSTEM COMMAND: FIX fire_crm_handoff SEARCH_PATH WITH MINIMAL FORWARD MIGRATION
-MODE: strict / database-only / forward-only / no-function-body-rewrite / no-runtime-code-changes
+Revised plan: Admin Partners modal layout hardening + Enterprise SaaS polish
 
-## Verification finding
+Scope
+- This is a 100% UI/UX and layout hardening task.
+- No Supabase write logic, Twilio OTP, AI scanner logic, protected route guards, RLS, report access, or backend authorization logic will be changed.
 
-The report is valid, with one important nuance:
+1. Harden the shared dialog shell
 
-- The repo contains multiple historical public.fire_crm_handoff() definitions with SECURITY DEFINER and SET search_path = public.
-- The live database currently has public.fire_crm_handoff() as SECURITY DEFINER, but proconfig is NULL, meaning the deployed/current function has no fixed function-level search_path.
-- Supabase linter confirms a current warning: Function Search Path Mutable.
-- The current/live function body already schema-qualifies the sensitive application objects:
-  - public.resolve_route_for_lead(...)
-  - public.webhook_deliveries
-  - public.lead_events
-  - vault.decrypted_secrets
-  - extensions.http_post(...)
-- This is not related to scanner, OTP, Twilio, storage, RLS, frontend, or historical migrations.
+Update `src/components/ui/dialog.tsx` so `DialogContent` is viewport-safe by default:
+- Use `w-[calc(100vw-2rem)] sm:max-w-xl` instead of a raw full-width modal that can touch or exceed the viewport.
+- Add `box-border` so padding and borders are included in modal width calculations.
+- Add `max-h-[calc(100vh-2rem)] overflow-y-auto` so tall modal content stays usable without clipping.
+- Preserve the existing centering logic:
+  - `fixed left-[50%] top-[50%]`
+  - `translate-x-[-50%] translate-y-[-50%]`
 
-## Validity verdict
+Scrollbar polish:
+- Add custom slim scrollbar styling to the dialog shell so vertical overflow looks intentional and modern.
+- Prefer Tailwind utility classes if available, such as `scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent`.
+- If the scrollbar utility plugin is not available, add a small reusable CSS class for WebKit/Firefox slim scrollbars and apply it to the dialog content.
 
-Valid. The correct fix is a new forward-only migration that changes only the function-level search_path using ALTER FUNCTION.
+2. Apply matching safety to alert dialogs
 
-Do not rewrite or redefine the function body unless ALTER FUNCTION fails.
+Update `src/components/ui/alert-dialog.tsx` with the same viewport-safe shell treatment where appropriate:
+- `w-[calc(100vw-2rem)]`
+- `box-border`
+- safe max width
+- maintain current centered positioning
 
-## Implementation plan
+This prevents the delete confirmation modal from developing the same edge clipping behavior.
 
-1. Add one new Supabase migration only
+3. Upgrade the Admin Partners client modal aesthetic
 
-Create a new timestamped migration:
+In `src/pages/AdminPartners.tsx`, refine `ClientDossierModal`:
+- Use a clean, responsive modal width built on the hardened shell.
+- Ensure the modal content uses the system UI font stack.
+- Keep consistent internal padding even when the modal is narrow, using `p-6` or an equivalent inner body structure.
+- Add `min-w-0` to the modal form body and any flex rows that contain long strings.
 
-supabase/migrations/YYYYMMDDHHMMSS_fix_fire_crm_handoff_search_path.sql
+Typography hierarchy:
+- Modal title/header: `text-slate-900 font-semibold tracking-tight`.
+- Helper/description text: `text-slate-500`.
+- Labels: `text-slate-500 font-medium text-xs uppercase tracking-wider`.
+- This prevents inherited dashboard styling from making the modal feel inconsistent.
 
-Migration content:
+4. Improve tactile input interaction states
 
-```sql
-ALTER FUNCTION public.fire_crm_handoff()
-SET search_path = '';
+Update the modal’s form inputs to feel snappy and professional:
+- Add `transition-all duration-200`.
+- Add high-contrast focus treatment:
+  - `focus-visible:ring-2`
+  - `focus-visible:ring-slate-950`
+  - `focus-visible:ring-offset-2`
+- Keep fields `w-full` and add `min-w-0` where they are inside flex layouts.
 
-COMMENT ON FUNCTION public.fire_crm_handoff() IS
-  'SECURITY DEFINER CRM handoff trigger function. Function-level search_path is fixed to empty string for Supabase linter compliance; function body must schema-qualify all application objects.';
-```
+Specific fields:
+- Client Name: full-width, responsive, modern focus state.
+- URL Slug row: wrapper gets `flex gap-2 min-w-0`; slug input gets `min-w-0 flex-1`.
+- Pixel ID: full-width, modern focus state.
+- Access Token: make it better for long tokens by using a taller field with `min-h-[100px]`, `w-full`, `font-mono text-sm`, and the same focus state. If implemented as a textarea, preserve save behavior by still writing the exact token string to the existing `accessToken` state.
+- Test Event Code: full-width, responsive, modern focus state.
 
-This migration must only change the function configuration. It must not rewrite the function body.
+5. Rename the tracking configuration section to match backend reality
 
-2.   
-Preserve security boundaries  
+Rename the UI section label from:
+- `Meta Pixel Configuration`
 
+to:
+- `Meta Conversions API (CAPI)`
 
-Do not touch:
+Reason:
+- The Access Token and Test Event Code are used for server-side event routing, not client-side pixel behavior.
+- This keeps the admin UI aligned with the existing server-side CAPI architecture and avoids implying forbidden frontend pixel logic.
 
--   
-scan-quote  
+6. Defensively contain long URLs and code snippets
 
--   
-send-otp  
+Update `LandingPageUrl` in `src/pages/AdminPartners.tsx`:
+- Wrapper gets `min-w-0`.
+- URL/code text gets `min-w-0 flex-1 truncate` or `break-all` where needed.
+- Copy button remains fixed-size and does not compress the content layout.
 
--   
-verify-otp  
+Goal:
+- A very long URL must never widen the modal or create horizontal clipping.
 
--   
-Twilio settings/secrets  
+7. Preserve all existing behavior
 
--   
-storage buckets or policies  
+No logic changes to:
+- client create/update Supabase calls,
+- meta configuration save flow,
+- token dirty-state behavior,
+- clipboard copy behavior,
+- Safari fallback modal behavior,
+- admin auth guard or role checks,
+- OTP, scanner, or protected routes.
 
--   
-RLS policies  
+Validation checklist after approval
 
--   
-frontend files  
-
--   
-existing old migrations  
-
--   
-Supabase Edge Functions  
-
--   
-src/integrations/supabase/types.ts  
-
-
-3.   
-Validate after migration  
-
-
-Run this pg_proc verification:
-
-```
-SELECT
-  n.nspname AS schema,
-  p.proname AS function_name,
-  p.prosecdef AS security_definer,
-  p.proconfig AS config
-FROM pg_proc p
-JOIN pg_namespace n ON n.oid = p.pronamespace
-WHERE n.nspname = 'public'
-  AND p.proname = 'fire_crm_handoff';
-```
-
-Expected:
-
--   
-security_definer = true  
-
--   
-config includes search_path=  
-
-
-Also verify the trigger still points to the function:
-
-```
-SELECT
-  tgname,
-  tgrelid::regclass AS table_name,
-  tgfoid::regprocedure AS function_name
-FROM pg_trigger
-WHERE tgfoid = 'public.fire_crm_handoff()'::regprocedure;
-```
-
-Then run the Supabase linter again.
-
-Expected:
-
--   
-Function Search Path Mutable warning for [public.fire](http://public.fire)_crm_handoff is resolved.  
-
-
-If ALTER FUNCTION fails or the linter still complains:
-
--   
-stop  
-
--   
-report the exact SQL error or linter output  
-
--   
-do not attempt CREATE OR REPLACE FUNCTION without approval  
-
-
-## Expected result
-
-[public.fire](http://public.fire)_crm_handoff() remains functionally the same, but its SECURITY DEFINER execution context no longer depends on a mutable or broad search path. The linter warning for this function should clear without touching scanner, OTP, Twilio, Supabase storage, RLS, frontend paths, or historical migrations.
-
-## Final report required
-
-Report:
-
-1.   
-migration file created  
-
-2.   
-exact SQL used  
-
-3.   
-pg_proc verification result  
-
-4.   
-trigger verification result  
-
-5.   
-Supabase linter result  
-
-6.   
-confirmation no function body rewrite occurred  
-
-7.   
-confirmation no scanner/OTP/Twilio/frontend/storage/RLS changes occurred  
-
-
-```
-
-## Verdict
-
-Your current pasted version is **not unsafe conceptually**, but it has a **dangerous Markdown auto-link bug** and still contains the phrase **“redefines the final function.”**
-
-Fix those before sending.
-```
+- Desktop check: open Add Client and Edit Client; verify clean spacing, no right-side cutoff, and consistent typography.
+- Mobile stress test: test at 375px width; verify roughly 16px gap on both sides and no clipping.
+- Scrollbar check: force vertical overflow and confirm the scrollbar is slim/subtle, not a chunky default scrollbar.
+- Interaction check: tab/click through all fields and confirm the focus ring/offset feels fast and clean.
+- Long content check: paste a long CAPI token and verify it stays contained inside the modal.
+- Data integrity check: save a CAPI token and confirm the existing backend save path still receives the full value without truncation.
