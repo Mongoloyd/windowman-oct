@@ -325,6 +325,7 @@ Deno.serve(async (req) => {
       lead_id: leadId,
       source_platform: payload.sourcePlatform,
       source_channel: payload.sourceChannel,
+      source_detail: payload.sourceDetail,
       campaign_id: payload.campaignId,
       campaign_name: payload.campaignName,
       adset_id: payload.adsetId,
@@ -333,6 +334,7 @@ Deno.serve(async (req) => {
       ad_name: payload.adName,
       form_id: payload.formId,
       platform_lead_id: payload.platformLeadId,
+      platform_created_time: payload.platformCreatedTime,
       fbclid: payload.fbclid,
       gclid: payload.gclid,
       fbc: payload.fbc,
@@ -343,8 +345,11 @@ Deno.serve(async (req) => {
       utm_term: payload.utmTerm,
       utm_content: payload.utmContent,
       landing_page_url: payload.landingPageUrl,
+      first_page_path: payload.firstPagePath,
+      initial_referrer: payload.initialReferrer,
+      import_source: "import-facebook-lead-ad",
       imported_at: now,
-      raw_payload: body,
+      raw_payload: payload.rawPayload,
       updated_at: now,
     };
 
