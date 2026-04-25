@@ -419,7 +419,7 @@ function AuditLogPanel({
               {" to "}
               <span className="font-semibold text-blue-600">{entry.new_role}</span>
             </p>
-            <p className="text-[11px] text-slate-700 mt-1">
+            <p className="mt-1 text-sm font-semibold text-slate-700">
               {new Date(entry.created_at).toLocaleString("en-US", {
                 month: "short",
                 day: "numeric",
@@ -450,7 +450,7 @@ function RoleStatCard({
   const Icon = config.icon;
 
   return (
-    <div className="relative bg-white rounded-2xl border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-shadow duration-300 p-5 overflow-hidden">
+    <div className="wm-admin-panel relative overflow-hidden p-5 transition-shadow duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]">
       {/* Subtle gradient accent at top */}
       <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600 opacity-20 rounded-t-2xl" />
 
@@ -462,7 +462,7 @@ function RoleStatCard({
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold text-slate-900">{config.label}</p>
-          <p className="text-xs text-slate-700 truncate leading-relaxed">
+          <p className="truncate text-sm font-semibold leading-relaxed text-slate-700">
             {config.description}
           </p>
         </div>
@@ -600,7 +600,7 @@ function AdminSettingsContent() {
               onClick={() => setActiveTab("users")}
               className={`flex-1 flex items-center justify-center gap-2 px-4 py-4 text-sm font-semibold transition-all duration-200 ${
                 activeTab === "users"
-                  ? "text-blue-600 border-b-2 border-blue-500 bg-blue-50/30"
+                  ? "border-b-2 border-blue-800 bg-blue-50 text-blue-950"
                   : "text-slate-700 hover:text-slate-700 hover:bg-slate-50/50"
               }`}
             >
@@ -618,7 +618,7 @@ function AdminSettingsContent() {
               <Clock className="w-4 h-4" />
               Audit Log
               {auditLog.length > 0 && (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-bold">
+                <span className="inline-flex min-h-7 items-center rounded-full border border-slate-400 bg-white px-2.5 py-0.5 text-sm font-extrabold text-slate-950">
                   {auditLog.length}
                 </span>
               )}
