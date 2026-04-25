@@ -278,9 +278,10 @@ function AdminPartnersContent() {
 
   const filteredClients = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return clients;
-    return clients.filter((client) => client.name.toLowerCase().includes(q) || client.slug.toLowerCase().includes(q));
-  }, [clients, search]);
+    const configuredClients = clients.filter((client) => configByClientId.has(client.id));
+    if (!q) return configuredClients;
+    return configuredClients.filter((client) => client.name.toLowerCase().includes(q) || client.slug.toLowerCase().includes(q));
+  }, [clients, configByClientId, search]);
 
   const selectedMeta = selectedClient ? metaByClientId.get(selectedClient.id) ?? null : null;
   const selectedConfig = selectedClient ? configByClientId.get(selectedClient.id) ?? null : null;
@@ -289,18 +290,16 @@ function AdminPartnersContent() {
   const validationErrors = validateDraft(draft, existingSlugs);
 
   const health = useMemo(() => {
-    const activeClients = clients.filter((client) => client.is_active);
+    const activeClients = clients.filter((client) => client.is_active && configByClientId.has(client.id));
     const configuredMeta = activeClients.filter((client) => {
-      const meta = metaByClientId.get(client.id);
       const redacted = redactedByClientId.get(client.id);
       const config = configByClientId.get(client.id);
-      return Boolean((config?.meta_pixel_id ?? meta?.pixel_id) && (config?.capi_token_secret_id || tokenConfigured(redacted)));
+      return Boolean(config?.meta_pixel_id && (config?.capi_token_secret_id || tokenConfigured(redacted)));
     });
     const missingSecrets = activeClients.filter((client) => {
-      const meta = metaByClientId.get(client.id);
       const redacted = redactedByClientId.get(client.id);
       const config = configByClientId.get(client.id);
-      return Boolean((config?.meta_pixel_id ?? meta?.pixel_id) && !(config?.capi_token_secret_id || tokenConfigured(redacted)));
+      return Boolean(config?.meta_pixel_id && !(config?.capi_token_secret_id || tokenConfigured(redacted)));
     });
     const failure = signalLogs.find((log) => (log.status_code ?? 0) >= 400);
     return {
@@ -440,17 +439,17 @@ function AdminPartnersContent() {
           <KpiCard label="Last Signal Failure" value={health.lastFailure} />
         </div>
 
-        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 shadow-sm">
+        {metaConfigs.length > 0 || signalLogs.length > 0 ? <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 shadow-sm">
           <div className="flex items-start gap-3">
             <ShieldAlert className="mt-0.5 h-5 w-5 text-amber-950" />
             <div>
-              <div className="text-sm font-black text-amber-950">Secret storage path not configured</div>
+              <div className="text-sm font-black text-amber-950">Legacy data detected</div>
               <div className="mt-1 text-sm font-semibold text-slate-700">
-                Existing Meta tokens are redacted by the admin edge function, but no Supabase Vault/secret-reference write path exists in this repo. Raw access tokens cannot be created or replaced from this UI.
+                Historical Meta configs or signal logs exist. They are shown only as operational reference and are not backfilled into client_configs.
               </div>
             </div>
           </div>
-        </div>
+        </div> : null}
 
         {error && (
           <div className="rounded-2xl border border-red-300 bg-red-50 p-4 text-sm font-bold text-red-950 shadow-sm">
@@ -479,10 +478,10 @@ function AdminPartnersContent() {
         <section className="overflow-hidden rounded-2xl border border-slate-300 bg-white shadow-sm">
           {loading ? (
             <div className="flex items-center justify-center py-16 text-slate-700"><Loader2 className="h-6 w-6 animate-spin" /></div>
-          ) : clients.length === 0 ? (
+          ) : filteredClients.length === 0 ? (
             <div className="p-8 text-center">
-              <div className="text-xl font-black text-slate-950">Client tracking config table not found or empty</div>
-              <p className="mt-2 text-sm font-semibold text-slate-700">Create/confirm client configs before enabling pixel management.</p>
+              <div className="text-xl font-black text-slate-950">No client tracking configs yet.</div>
+              <p className="mt-2 text-sm font-semibold text-slate-700">Add your first client to enable pixel/CAPI routing.</p>
             </div>
           ) : (
             <div className="wm-slim-scrollbar overflow-x-auto">
@@ -651,6 +650,15 @@ function DisabledField({ label, value, help }: { label: string; value: string; h
     <div className="space-y-1.5">
       <Label className="flex items-center gap-2 font-bold text-slate-700">{label}<HelpTip>{help}</HelpTip></Label>
       <Input value={value} disabled placeholder="Requires client_configs schema" className="border-slate-300 bg-slate-50 text-slate-700 placeholder:text-slate-700" />
+    </div>
+  );
+}
+
+function EditableField({ label, value, help, onChange }: { label: string; value: string; help: string; onChange: (value: string) => void }) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="flex items-center gap-2 font-bold text-slate-700">{label}<HelpTip>{help}</HelpTip></Label>
+      <Input value={value} onChange={(event) => onChange(event.target.value)} className="border-slate-300 font-mono text-slate-950 placeholder:text-slate-700" />
     </div>
   );
 }
