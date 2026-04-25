@@ -116,6 +116,7 @@ export const DIAGNOSTIC_MAP: Record<DiagnosisCode, DiagnosticConfig> = {
   timing: {
     code: 'timing',
     label: "The timing isn't right",
+    cardDescription: 'The deadline, urgency, or install timing felt off.',
     Icon: Clock,
     accent: 'text-amber-700',
     accentBg: 'bg-amber-50',
@@ -149,6 +150,7 @@ export const DIAGNOSTIC_MAP: Record<DiagnosisCode, DiagnosticConfig> = {
   scope_mismatch: {
     code: 'scope_mismatch',
     label: "It wasn't what I actually wanted",
+    cardDescription: 'The scope or product mix did not match your goal.',
     Icon: LayoutGrid,
     accent: 'text-orange-700',
     accentBg: 'bg-orange-50',
@@ -183,6 +185,7 @@ export const DIAGNOSTIC_MAP: Record<DiagnosisCode, DiagnosticConfig> = {
   other: {
     code: 'other',
     label: 'Something else felt off',
+    cardDescription: 'Something felt wrong, even if it is hard to name.',
     Icon: MessageCircle,
     accent: 'text-slate-700',
     accentBg: 'bg-slate-50',
