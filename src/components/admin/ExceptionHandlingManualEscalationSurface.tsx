@@ -655,7 +655,7 @@ export function ExceptionHandlingManualEscalationSurface({
                         >
                           <div className="min-w-0 flex-1">
                             <div className="text-sm font-medium flex items-center gap-2">
-                              <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                              <AlertTriangle className="h-3.5 w-3.5 text-amber-950 shrink-0" />
                               <span className="truncate">{it.label}</span>
                             </div>
                             <div className="text-xs text-slate-700 mt-1 leading-relaxed">{it.reason}</div>

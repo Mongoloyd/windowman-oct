@@ -695,7 +695,7 @@ function Definition({
         <span className="text-sm font-medium">{label}</span>
         <Badge
           variant="outline"
-          className="ml-auto text-[9px] uppercase tracking-wider"
+          className="ml-auto text-sm uppercase tracking-wider"
         >
           {modeled ? "modeled" : "operator view"}
         </Badge>

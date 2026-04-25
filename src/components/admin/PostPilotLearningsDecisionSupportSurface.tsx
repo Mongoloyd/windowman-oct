@@ -387,7 +387,7 @@ function ConfidenceBadge({ confidence }: { confidence: Confidence }) {
   }
   if (confidence === "observed") {
     return (
-      <Badge className="bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/30 hover:bg-sky-500/15">
+      <Badge className="bg-sky-500/10 text-sky-950 border-sky-500/30 hover:bg-sky-500/15">
         <Eye className="h-3 w-3 mr-1" />
         Observed
       </Badge>
@@ -595,7 +595,7 @@ export function PostPilotLearningsDecisionSupportSurface({
         <ul className="space-y-1.5 text-sm">
           {DO_NOT_OVERCLAIM.map((n, i) => (
             <li key={i} className="flex items-start gap-2 text-slate-700">
-              <ShieldAlert className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+              <ShieldAlert className="h-3.5 w-3.5 text-amber-950 mt-0.5 shrink-0" />
               <span>{n}</span>
             </li>
           ))}

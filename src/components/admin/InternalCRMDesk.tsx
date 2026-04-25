@@ -42,10 +42,10 @@ const DEAL_STATUSES = [
 
 function gradeColor(grade: string | null): string {
   switch (grade) {
-    case "A": return "bg-green-500 text-white";
+    case "A": return "bg-emerald-900 text-white";
     case "B": return "bg-teal-500 text-white";
     case "C": return "bg-amber-100 text-amber-950 border border-amber-300";
-    case "D": return "bg-orange-500 text-white";
+    case "D": return "bg-orange-100 text-orange-950 border border-orange-300";
     case "F": return "bg-red-500 text-white";
     default: return "bg-gray-400 text-white";
   }
@@ -348,7 +348,7 @@ export function InternalCRMDesk({ leads, isLoading, onStatusChange, latestFollow
                                 <div className="flex gap-2 pt-1">
                                   <Button
                                     size="sm"
-                                    className="flex-1 bg-amber-500 hover:bg-amber-600 text-white"
+                                    className="flex-1 bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300"
                                     disabled={isDialing}
                                     onClick={() => handleAutodial(lead)}
                                   >

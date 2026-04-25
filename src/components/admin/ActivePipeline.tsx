@@ -43,11 +43,11 @@ const STATUS_STYLES: Record<PipelineStatus, { label: string; variant: "default" 
 };
 
 const GRADE_COLORS: Record<string, string> = {
-  A: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200",
-  B: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-  C: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-  D: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
-  F: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+  A: "bg-emerald-100 text-emerald-950 border border-emerald-300",
+  B: "bg-blue-100 text-blue-950 border border-blue-300",
+  C: "bg-amber-100 text-amber-950 border border-amber-300",
+  D: "bg-orange-100 text-orange-950 border border-orange-300",
+  F: "bg-red-100 text-red-950 border border-red-300",
 };
 
 function gradeClass(grade: string | null): string {

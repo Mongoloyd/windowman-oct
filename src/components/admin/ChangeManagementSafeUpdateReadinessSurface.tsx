@@ -300,7 +300,7 @@ function ClassBadge({ kind }: { kind: ChangeClass }) {
     );
   }
   return (
-    <Badge className="bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/30 hover:bg-sky-500/15">
+    <Badge className="bg-sky-500/10 text-sky-950 border-sky-500/30 hover:bg-sky-500/15">
       <Eye className="h-3 w-3 mr-1" />
       Read-only
     </Badge>
@@ -505,7 +505,7 @@ export function ChangeManagementSafeUpdateReadinessSurface({
         <ul className="space-y-1.5 text-sm">
           {CHANGE_LIMITS.map((l, i) => (
             <li key={i} className="flex items-start gap-2 text-slate-700">
-              <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+              <AlertTriangle className="h-3.5 w-3.5 text-amber-950 mt-0.5 shrink-0" />
               <span>{l}</span>
             </li>
           ))}
@@ -557,7 +557,7 @@ function SummaryChip({
         ? "bg-amber-500/5 border-amber-500/30 text-amber-950"
         : kind === "ui-only"
           ? "bg-emerald-500/5 border-emerald-500/30 text-emerald-950"
-          : "bg-sky-500/5 border-sky-500/30 text-sky-700 dark:text-sky-400";
+          : "bg-sky-500/5 border-sky-500/30 text-sky-950";
   return (
     <div className={`rounded-lg border px-3 py-2.5 ${tone}`}>
       <div className="text-sm uppercase tracking-wide font-semibold">{label}</div>

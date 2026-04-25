@@ -747,10 +747,10 @@ function SectionCard({
 function KindBadge({ kind }: { kind: CanonicalConcept["kind"] }) {
   const styles =
     kind === "Repo-Real"
-      ? "border-emerald-500/40 text-emerald-600 dark:text-emerald-400"
+      ? "border-emerald-500/40 text-emerald-950"
       : kind === "Operator-View"
-        ? "border-amber-500/40 text-amber-600 dark:text-amber-400"
-        : "border-sky-500/40 text-sky-600 dark:text-sky-400";
+        ? "border-amber-500/40 text-amber-950"
+        : "border-sky-500/40 text-sky-950";
   return (
     <Badge variant="outline" className={`text-sm ${styles}`}>
       {kind}

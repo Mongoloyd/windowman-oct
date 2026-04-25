@@ -275,12 +275,12 @@ export function LeadHumanContextPanel({
           <p className="text-sm font-bold uppercase tracking-[0.18em] text-cyan-800">
             Recommended Opening
             {opener.isUrgent && (
-              <Badge className="ml-2 bg-orange-500 text-white text-[9px] px-1.5 py-0">
+              <Badge className="ml-2 bg-orange-100 text-orange-950 border border-orange-300 text-sm px-1.5 py-0">
                 URGENT
               </Badge>
             )}
             {opener.isReportOnly && (
-              <Badge className="ml-2 bg-destructive text-destructive-foreground text-[9px] px-1.5 py-0">
+              <Badge className="ml-2 bg-destructive text-destructive-foreground text-sm px-1.5 py-0">
                 REPORT ONLY
               </Badge>
             )}

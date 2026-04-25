@@ -229,7 +229,7 @@ function LogicPanel({ analysisId }: { analysisId: string | null }) {
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="font-medium truncate">{f.flag}</span>
                   {f.severity && (
-                    <Badge variant="outline" className="text-[9px] uppercase">
+                    <Badge variant="outline" className="text-sm uppercase">
                       {f.severity}
                     </Badge>
                   )}
@@ -390,7 +390,7 @@ export function TruthStripDrilldown({
                 Loading leads…
               </span>
             ) : q.isError ? (
-              <span className="text-rose-600 dark:text-rose-400">
+              <span className="text-red-950">
                 Failed to load stage leads.
               </span>
             ) : (

@@ -716,7 +716,7 @@ function SummaryTile({
           {label}
         </p>
         {hint && (
-          <span className="text-[9px] text-slate-700 italic">{hint}</span>
+          <span className="text-sm text-slate-700 italic">{hint}</span>
         )}
       </div>
     </div>

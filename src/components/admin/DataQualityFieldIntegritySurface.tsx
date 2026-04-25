@@ -665,7 +665,7 @@ export function DataQualityFieldIntegritySurface({
       <div className="rounded-xl border bg-card p-5">
         <div className="flex items-start gap-3">
           <div className="rounded-md bg-amber-500/10 p-1.5 mt-0.5">
-            <ListChecks className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <ListChecks className="h-4 w-4 text-amber-950" />
           </div>
           <div className="min-w-0">
             <h3 className="font-semibold text-sm">Fallback / operator-derived usage</h3>
@@ -702,7 +702,7 @@ export function DataQualityFieldIntegritySurface({
         <div className="rounded-xl border bg-card p-5">
           <div className="flex items-start gap-3">
             <div className="rounded-md bg-rose-500/10 p-1.5 mt-0.5">
-              <ShieldAlert className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+              <ShieldAlert className="h-4 w-4 text-red-950" />
             </div>
             <div className="min-w-0">
               <h3 className="font-semibold text-sm">Current data gaps / cautions</h3>
@@ -714,7 +714,7 @@ export function DataQualityFieldIntegritySurface({
           <ul className="mt-3 space-y-1.5 text-sm">
             {cautions.map((c, i) => (
               <li key={i} className="flex items-start gap-2 text-slate-700">
-                <span className="text-rose-600 dark:text-rose-400 mt-0.5">•</span>
+                <span className="text-red-950 mt-0.5">•</span>
                 <span>{c}</span>
               </li>
             ))}

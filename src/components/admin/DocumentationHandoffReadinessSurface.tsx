@@ -450,7 +450,7 @@ function StatusPill({ status }: { status: ManualVsPlatformRow["status"] }) {
     );
   }
   return (
-    <Badge className="bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/30 hover:bg-sky-500/15">
+    <Badge className="bg-sky-500/10 text-sky-950 border-sky-500/30 hover:bg-sky-500/15">
       Partial
     </Badge>
   );
@@ -743,7 +743,7 @@ export function DocumentationHandoffReadinessSurface({
         <ul className="space-y-1.5 text-sm">
           {CURRENT_LIMITS.map((l, i) => (
             <li key={i} className="flex items-start gap-2 text-slate-700">
-              <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+              <AlertTriangle className="h-3.5 w-3.5 text-amber-950 mt-0.5 shrink-0" />
               <span>{l}</span>
             </li>
           ))}

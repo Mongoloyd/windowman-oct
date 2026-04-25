@@ -504,7 +504,7 @@ export function SharedMarketManualControlsSurface({ leads, onNavigateTab }: Prop
                       {row.contractors.length > 1 && (
                         <Badge
                           variant="secondary"
-                          className="h-4 text-[9px] ml-1"
+                          className="h-4 text-sm ml-1"
                         >
                           overlap
                         </Badge>
@@ -588,7 +588,7 @@ export function SharedMarketManualControlsSurface({ leads, onNavigateTab }: Prop
                                 ? "default"
                                 : "outline"
                             }
-                            className="h-4 text-[9px] font-normal"
+                            className="h-4 text-sm font-normal"
                           >
                             {r.bucket === "manually_reassignable" ? (
                               <Unlock className="h-2.5 w-2.5 mr-0.5" />
