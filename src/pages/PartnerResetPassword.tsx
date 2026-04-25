@@ -75,23 +75,23 @@ export default function PartnerResetPassword() {
     switch (pageState) {
       case "loading":
         return (
-          <Card className="border-white/[0.06] bg-white/[0.02] shadow-2xl">
+          <Card className="border-white/20 bg-white/[0.05] shadow-2xl">
             <CardContent className="px-8 py-12 flex flex-col items-center gap-4">
               <div className="h-8 w-8 rounded-full border-2 border-sky-500/30 border-t-sky-400 animate-spin" />
-              <p className="text-sm text-slate-400 font-mono">Verifying recovery link…</p>
+              <p className="text-sm text-slate-300 font-mono">Verifying recovery link…</p>
             </CardContent>
           </Card>
         );
 
       case "invalid":
         return (
-          <Card className="border-white/[0.06] bg-white/[0.02] shadow-2xl">
+          <Card className="border-white/20 bg-white/[0.05] shadow-2xl">
             <CardContent className="px-8 py-10 flex flex-col items-center gap-4 text-center">
               <div className="h-12 w-12 rounded-full bg-amber-500/10 flex items-center justify-center">
                 <AlertTriangle className="h-6 w-6 text-amber-400" />
               </div>
               <h2 className="text-lg font-semibold text-white">Invalid or Expired Link</h2>
-              <p className="text-sm text-slate-400 max-w-xs">
+              <p className="text-sm text-slate-300 max-w-xs">
                 This recovery link is no longer valid. Please request a new one from the login page.
               </p>
               <Button
@@ -106,34 +106,34 @@ export default function PartnerResetPassword() {
 
       case "success":
         return (
-          <Card className="border-white/[0.06] bg-white/[0.02] shadow-2xl">
+          <Card className="border-white/20 bg-white/[0.05] shadow-2xl">
             <CardContent className="px-8 py-10 flex flex-col items-center gap-4 text-center">
               <div className="h-12 w-12 rounded-full bg-emerald-500/10 flex items-center justify-center">
                 <CheckCircle className="h-6 w-6 text-emerald-400" />
               </div>
               <h2 className="text-lg font-semibold text-white">Password Updated</h2>
-              <p className="text-sm text-slate-400">Redirecting you to sign in…</p>
+              <p className="text-sm text-slate-300">Redirecting you to sign in…</p>
             </CardContent>
           </Card>
         );
 
       case "ready":
         return (
-          <Card className="border-white/[0.06] bg-white/[0.02] shadow-2xl">
+          <Card className="border-white/20 bg-white/[0.05] shadow-2xl">
             <CardHeader className="pb-2 pt-8 px-8">
               <div className="flex items-center gap-2 mb-1">
-                <Lock className="h-4 w-4 text-slate-500" />
-                <span className="text-xs font-mono text-slate-500 uppercase tracking-widest">
+                <Lock className="h-4 w-4 text-slate-300" />
+                <span className="text-xs font-mono text-slate-300 uppercase tracking-widest">
                   Account Recovery
                 </span>
               </div>
               <h2 className="text-xl font-semibold text-white">Set a new password</h2>
-              <p className="text-sm text-slate-400 mt-1">Choose a strong password for your partner account.</p>
+              <p className="text-sm text-slate-300 mt-1">Choose a strong password for your partner account.</p>
             </CardHeader>
             <CardContent className="px-8 pb-8 pt-4">
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="space-y-2">
-                  <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+                  <label className="text-xs font-medium text-slate-300 uppercase tracking-wider">
                     New Password
                   </label>
                   <Input
@@ -143,12 +143,12 @@ export default function PartnerResetPassword() {
                     placeholder="••••••••"
                     required
                     minLength={8}
-                    className="bg-white/[0.04] border-white/10 text-white placeholder:text-slate-600 focus-visible:ring-sky-500/40 h-11"
+                    className="bg-white/[0.04] border-white/25 text-white placeholder:text-slate-300 focus-visible:ring-sky-500/40 h-11"
                   />
-                  <p className="text-[11px] text-slate-600">Minimum 8 characters</p>
+                  <p className="text-[11px] text-slate-300">Minimum 8 characters</p>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+                  <label className="text-xs font-medium text-slate-300 uppercase tracking-wider">
                     Confirm Password
                   </label>
                   <Input
@@ -158,13 +158,13 @@ export default function PartnerResetPassword() {
                     placeholder="••••••••"
                     required
                     minLength={8}
-                    className="bg-white/[0.04] border-white/10 text-white placeholder:text-slate-600 focus-visible:ring-sky-500/40 h-11"
+                    className="bg-white/[0.04] border-white/25 text-white placeholder:text-slate-300 focus-visible:ring-sky-500/40 h-11"
                   />
                 </div>
                 <Button
                   type="submit"
                   disabled={submitting}
-                  className="w-full h-11 bg-sky-600 hover:bg-sky-500 text-white font-medium text-sm transition-all"
+                  className="w-full h-11 bg-sky-600 hover:bg-sky-500 text-white font-bold text-sm transition-all"
                 >
                   {submitting ? (
                     <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
@@ -193,7 +193,7 @@ export default function PartnerResetPassword() {
 
         {renderContent()}
 
-        <p className="text-center text-[11px] text-slate-600 mt-6">
+        <p className="text-center text-[11px] text-slate-300 mt-6">
           WindowMan Partner Portal is invitation-only.
         </p>
       </div>

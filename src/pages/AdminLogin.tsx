@@ -107,24 +107,24 @@ export default function AdminLogin() {
           <div className="mx-auto mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
             <ShieldCheck className="h-6 w-6 text-primary" />
           </div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+          <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-slate-600">
             WindowMan · Admin
           </p>
           <h1 className="mt-2 font-display text-3xl font-extrabold leading-tight tracking-tight text-foreground">
             {mode === "signin" ? "Sign in to admin" : "Reset your password"}
           </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
+          <p className="mt-2 text-sm font-medium text-slate-700">
             {mode === "signin"
               ? "Operator access for the WindowMan command center."
               : "We'll email you a secure link to set a new password."}
           </p>
         </div>
 
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <div className="rounded-2xl border border-slate-300 bg-card p-6 shadow-sm">
           {mode === "signin" && (
             <form onSubmit={handleSignIn} className="space-y-4">
               <div className="space-y-1.5">
-                <Label htmlFor="admin-email" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <Label htmlFor="admin-email" className="text-xs font-extrabold uppercase tracking-wider text-slate-700">
                   Email
                 </Label>
                 <div className="relative">
@@ -137,7 +137,7 @@ export default function AdminLogin() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@windowman.app"
-                    className="h-11 pl-9"
+                    className="h-11 pl-9 border-2 border-slate-300 bg-white text-slate-950 placeholder:text-slate-500 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15"
                     required
                   />
                 </div>
@@ -145,7 +145,7 @@ export default function AdminLogin() {
 
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="admin-password" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  <Label htmlFor="admin-password" className="text-xs font-extrabold uppercase tracking-wider text-slate-700">
                     Password
                   </Label>
                   <button
@@ -168,7 +168,7 @@ export default function AdminLogin() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="h-11 pl-9"
+                    className="h-11 pl-9 border-2 border-slate-300 bg-white text-slate-950 placeholder:text-slate-500 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15"
                     required
                     minLength={6}
                   />
@@ -181,7 +181,7 @@ export default function AdminLogin() {
                 </div>
               )}
 
-              <Button type="submit" disabled={submitting} className="w-full h-11">
+              <Button type="submit" disabled={submitting} className="w-full h-11 font-extrabold shadow-sm">
                 {submitting ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -200,7 +200,7 @@ export default function AdminLogin() {
           {mode === "forgot" && !resetSent && (
             <form onSubmit={handleForgot} className="space-y-4">
               <div className="space-y-1.5">
-                <Label htmlFor="forgot-email" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <Label htmlFor="forgot-email" className="text-xs font-extrabold uppercase tracking-wider text-slate-700">
                   Email
                 </Label>
                 <div className="relative">
@@ -213,7 +213,7 @@ export default function AdminLogin() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@windowman.app"
-                    className="h-11 pl-9"
+                    className="h-11 pl-9 border-2 border-slate-300 bg-white text-slate-950 placeholder:text-slate-500 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15"
                     required
                   />
                 </div>
@@ -225,7 +225,7 @@ export default function AdminLogin() {
                 </div>
               )}
 
-              <Button type="submit" disabled={submitting} className="w-full h-11">
+              <Button type="submit" disabled={submitting} className="w-full h-11 font-extrabold shadow-sm">
                 {submitting ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -257,7 +257,7 @@ export default function AdminLogin() {
               <h2 className="font-display text-lg font-bold tracking-tight text-foreground">
                 Check your inbox
               </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="mt-1 text-sm font-medium text-slate-700">
                 If an account exists for <span className="font-semibold text-foreground">{email}</span>, we've sent a recovery link.
               </p>
               <Button
@@ -274,7 +274,7 @@ export default function AdminLogin() {
           )}
         </div>
 
-        <p className="mt-6 text-center text-[11px] text-muted-foreground">
+        <p className="mt-6 text-center text-sm font-medium text-slate-600">
           Admin access is internal-only.{" "}
           <Link to="/" className="underline hover:text-foreground">
             Return to homepage

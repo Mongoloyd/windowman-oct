@@ -89,7 +89,7 @@ export default function AdminResetPassword() {
           <div className="mx-auto mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
             <KeyRound className="h-6 w-6 text-primary" />
           </div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+          <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-slate-600">
             WindowMan · Admin
           </p>
           <h1 className="mt-2 font-display text-3xl font-extrabold leading-tight tracking-tight text-foreground">
@@ -97,11 +97,11 @@ export default function AdminResetPassword() {
           </h1>
         </div>
 
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <div className="rounded-2xl border border-slate-300 bg-card p-6 shadow-sm">
           {pageState === "loading" && (
             <div className="flex flex-col items-center gap-3 py-6">
               <Loader2 className="h-7 w-7 text-primary animate-spin" />
-              <p className="text-sm text-muted-foreground">Verifying recovery link…</p>
+              <p className="text-sm font-medium text-slate-700">Verifying recovery link…</p>
             </div>
           )}
 
@@ -113,7 +113,7 @@ export default function AdminResetPassword() {
               <h2 className="font-display text-lg font-bold tracking-tight text-foreground">
                 Invalid or expired link
               </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="mt-1 text-sm font-medium text-slate-700">
                 This recovery link is no longer valid. Request a new one to continue.
               </p>
               <Button onClick={() => navigate("/admin/forgot-password")} className="mt-5">
@@ -130,14 +130,14 @@ export default function AdminResetPassword() {
               <h2 className="font-display text-lg font-bold tracking-tight text-foreground">
                 Password updated
               </h2>
-              <p className="mt-1 text-sm text-muted-foreground">Redirecting you to sign in…</p>
+              <p className="mt-1 text-sm font-medium text-slate-700">Redirecting you to sign in…</p>
             </div>
           )}
 
           {pageState === "ready" && (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1.5">
-                <Label htmlFor="new-password" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <Label htmlFor="new-password" className="text-xs font-extrabold uppercase tracking-wider text-slate-700">
                   New password
                 </Label>
                 <div className="relative">
@@ -150,16 +150,16 @@ export default function AdminResetPassword() {
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="h-11 pl-9"
+                    className="h-11 pl-9 border-2 border-slate-300 bg-white text-slate-950 placeholder:text-slate-500 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15"
                     required
                     minLength={8}
                   />
                 </div>
-                <p className="text-[11px] text-muted-foreground">Minimum 8 characters.</p>
+                <p className="text-sm font-medium text-slate-600">Minimum 8 characters.</p>
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="confirm-password" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <Label htmlFor="confirm-password" className="text-xs font-extrabold uppercase tracking-wider text-slate-700">
                   Confirm password
                 </Label>
                 <div className="relative">
@@ -171,7 +171,7 @@ export default function AdminResetPassword() {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="h-11 pl-9"
+                    className="h-11 pl-9 border-2 border-slate-300 bg-white text-slate-950 placeholder:text-slate-500 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15"
                     required
                     minLength={8}
                   />
@@ -184,7 +184,7 @@ export default function AdminResetPassword() {
                 </div>
               )}
 
-              <Button type="submit" disabled={submitting} className="w-full h-11">
+              <Button type="submit" disabled={submitting} className="w-full h-11 font-extrabold shadow-sm">
                 {submitting ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />

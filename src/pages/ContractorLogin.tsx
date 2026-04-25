@@ -165,79 +165,79 @@ export default function ContractorLogin() {
   };
 
   const renderRegister = () => (
-    <Card className="border-white/[0.06] bg-white/[0.02] shadow-2xl">
+    <Card className="border-white/20 bg-white/[0.05] shadow-2xl">
       <CardHeader className="pb-2 pt-8 px-8">
         <button
           type="button"
           onClick={() => { setView("login"); setRegErrors({}); }}
-          className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 transition-colors mb-4 -ml-0.5"
+          className="flex items-center gap-1 text-xs text-slate-300 hover:text-slate-300 transition-colors mb-4 -ml-0.5"
         >
           <ArrowLeft className="h-3 w-3" /> Back to sign in
         </button>
         <div className="flex items-center gap-2 mb-1">
-          <Building2 className="h-4 w-4 text-slate-500" />
-          <span className="text-xs font-mono text-slate-500 uppercase tracking-widest">
+          <Building2 className="h-4 w-4 text-slate-300" />
+          <span className="text-xs font-mono text-slate-300 uppercase tracking-widest">
             Partner Application
           </span>
         </div>
         <h2 className="text-xl font-semibold text-white">Request partner access</h2>
-        <p className="text-sm text-slate-400 mt-1">
+        <p className="text-sm text-slate-300 mt-1">
           New accounts are reviewed within 1 business day.
         </p>
       </CardHeader>
       <CardContent className="px-8 pb-8 pt-4">
         <form onSubmit={handleRegister} className="space-y-4">
           <div className="space-y-2">
-            <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">Company Name</label>
+            <label className="text-xs font-medium text-slate-300 uppercase tracking-wider">Company Name</label>
             <Input
               type="text"
               value={regCompany}
               onChange={(e) => setRegCompany(e.target.value)}
               placeholder="Acme Windows & Doors"
               required
-              className="bg-white/[0.04] border-white/10 text-white placeholder:text-slate-600 focus-visible:ring-sky-500/40 h-11"
+              className="bg-white/[0.04] border-white/25 text-white placeholder:text-slate-300 focus-visible:ring-sky-500/40 h-11"
             />
             {regErrors.companyName && (
               <p className="text-xs text-rose-400">{regErrors.companyName}</p>
             )}
           </div>
           <div className="space-y-2">
-            <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">Contact Email</label>
+            <label className="text-xs font-medium text-slate-300 uppercase tracking-wider">Contact Email</label>
             <Input
               type="email"
               value={regEmail}
               onChange={(e) => setRegEmail(e.target.value)}
               placeholder="partner@company.com"
               required
-              className="bg-white/[0.04] border-white/10 text-white placeholder:text-slate-600 focus-visible:ring-sky-500/40 h-11"
+              className="bg-white/[0.04] border-white/25 text-white placeholder:text-slate-300 focus-visible:ring-sky-500/40 h-11"
             />
             {regErrors.email && (
               <p className="text-xs text-rose-400">{regErrors.email}</p>
             )}
           </div>
           <div className="space-y-2">
-            <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">Password</label>
+            <label className="text-xs font-medium text-slate-300 uppercase tracking-wider">Password</label>
             <Input
               type="password"
               value={regPassword}
               onChange={(e) => setRegPassword(e.target.value)}
               placeholder="At least 8 characters"
               required
-              className="bg-white/[0.04] border-white/10 text-white placeholder:text-slate-600 focus-visible:ring-sky-500/40 h-11"
+              className="bg-white/[0.04] border-white/25 text-white placeholder:text-slate-300 focus-visible:ring-sky-500/40 h-11"
             />
             {regErrors.password && (
               <p className="text-xs text-rose-400">{regErrors.password}</p>
             )}
           </div>
           <div className="space-y-2">
-            <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">Confirm Password</label>
+            <label className="text-xs font-medium text-slate-300 uppercase tracking-wider">Confirm Password</label>
             <Input
               type="password"
               value={regConfirm}
               onChange={(e) => setRegConfirm(e.target.value)}
               placeholder="Re-enter password"
               required
-              className="bg-white/[0.04] border-white/10 text-white placeholder:text-slate-600 focus-visible:ring-sky-500/40 h-11"
+              className="bg-white/[0.04] border-white/25 text-white placeholder:text-slate-300 focus-visible:ring-sky-500/40 h-11"
             />
             {regErrors.confirmPassword && (
               <p className="text-xs text-rose-400">{regErrors.confirmPassword}</p>
@@ -246,7 +246,7 @@ export default function ContractorLogin() {
           <Button
             type="submit"
             disabled={loading}
-            className="w-full h-11 bg-sky-600 hover:bg-sky-500 text-white font-medium text-sm transition-all"
+            className="w-full h-11 bg-sky-600 hover:bg-sky-500 text-white font-bold text-sm transition-all"
           >
             {loading ? (
               <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
@@ -257,7 +257,7 @@ export default function ContractorLogin() {
               </>
             )}
           </Button>
-          <p className="text-[11px] text-slate-500 text-center pt-1 leading-relaxed">
+          <p className="text-[11px] text-slate-300 text-center pt-1 leading-relaxed">
             By submitting, you agree your account will be held in pending review until manually approved by WindowMan ops.
           </p>
         </form>
@@ -266,7 +266,7 @@ export default function ContractorLogin() {
   );
 
   const renderRegisterSuccess = () => (
-    <Card className="border-white/[0.06] bg-white/[0.02] shadow-2xl">
+    <Card className="border-white/20 bg-white/[0.05] shadow-2xl">
       <CardHeader className="pb-2 pt-8 px-8">
         <div className="flex items-center gap-2 mb-1">
           <CheckCircle2 className="h-4 w-4 text-emerald-400" />
@@ -275,7 +275,7 @@ export default function ContractorLogin() {
           </span>
         </div>
         <h2 className="text-xl font-semibold text-white">You're on the list</h2>
-        <p className="text-sm text-slate-400 mt-1">
+        <p className="text-sm text-slate-300 mt-1">
           Your partner account is pending review. We'll email you once approved — typically within 1 business day.
         </p>
       </CardHeader>
@@ -302,23 +302,23 @@ export default function ContractorLogin() {
 
     if (view === "forgot") {
       return (
-        <Card className="border-white/[0.06] bg-white/[0.02] shadow-2xl">
+        <Card className="border-white/20 bg-white/[0.05] shadow-2xl">
           <CardHeader className="pb-2 pt-8 px-8">
             <button
               type="button"
               onClick={() => { setView("login"); setResetSent(false); }}
-              className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 transition-colors mb-4 -ml-0.5"
+              className="flex items-center gap-1 text-xs text-slate-300 hover:text-slate-300 transition-colors mb-4 -ml-0.5"
             >
               <ArrowLeft className="h-3 w-3" /> Back to sign in
             </button>
             <div className="flex items-center gap-2 mb-1">
-              <Lock className="h-4 w-4 text-slate-500" />
-              <span className="text-xs font-mono text-slate-500 uppercase tracking-widest">
+              <Lock className="h-4 w-4 text-slate-300" />
+              <span className="text-xs font-mono text-slate-300 uppercase tracking-widest">
                 Account Recovery
               </span>
             </div>
             <h2 className="text-xl font-semibold text-white">Reset your password</h2>
-            <p className="text-sm text-slate-400 mt-1">
+            <p className="text-sm text-slate-300 mt-1">
               {resetSent
                 ? "If an account exists for that email, a reset link has been sent."
                 : "Enter the email associated with your partner account."}
@@ -341,20 +341,20 @@ export default function ContractorLogin() {
             ) : (
               <form onSubmit={handleForgot} className="space-y-5">
                 <div className="space-y-2">
-                  <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">Email</label>
+                  <label className="text-xs font-medium text-slate-300 uppercase tracking-wider">Email</label>
                   <Input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="partner@company.com"
                     required
-                    className="bg-white/[0.04] border-white/10 text-white placeholder:text-slate-600 focus-visible:ring-sky-500/40 h-11"
+                    className="bg-white/[0.04] border-white/25 text-white placeholder:text-slate-300 focus-visible:ring-sky-500/40 h-11"
                   />
                 </div>
                 <Button
                   type="submit"
                   disabled={loading}
-                  className="w-full h-11 bg-sky-600 hover:bg-sky-500 text-white font-medium text-sm transition-all"
+                  className="w-full h-11 bg-sky-600 hover:bg-sky-500 text-white font-bold text-sm transition-all"
                 >
                   {loading ? (
                     <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
@@ -370,31 +370,31 @@ export default function ContractorLogin() {
     }
 
     return (
-      <Card className="border-white/[0.06] bg-white/[0.02] shadow-2xl">
+      <Card className="border-white/20 bg-white/[0.05] shadow-2xl">
         <CardHeader className="pb-2 pt-8 px-8">
           <div className="flex items-center gap-2 mb-1">
-            <Lock className="h-4 w-4 text-slate-500" />
-            <span className="text-xs font-mono text-slate-500 uppercase tracking-widest">Secure Access</span>
+            <Lock className="h-4 w-4 text-slate-300" />
+            <span className="text-xs font-mono text-slate-300 uppercase tracking-widest">Secure Access</span>
           </div>
           <h2 className="text-xl font-semibold text-white">Sign in to your account</h2>
-          <p className="text-sm text-slate-400 mt-1">Enter your partner credentials below.</p>
+          <p className="text-sm text-slate-300 mt-1">Enter your partner credentials below.</p>
         </CardHeader>
         <CardContent className="px-8 pb-8 pt-4">
           <form onSubmit={handleLogin} className="space-y-5">
             <div className="space-y-2">
-              <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">Email</label>
+              <label className="text-xs font-medium text-slate-300 uppercase tracking-wider">Email</label>
               <Input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="partner@company.com"
                 required
-                className="bg-white/[0.04] border-white/10 text-white placeholder:text-slate-600 focus-visible:ring-sky-500/40 h-11"
+                className="bg-white/[0.04] border-white/25 text-white placeholder:text-slate-300 focus-visible:ring-sky-500/40 h-11"
               />
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">Password</label>
+                <label className="text-xs font-medium text-slate-300 uppercase tracking-wider">Password</label>
                 <button
                   type="button"
                   onClick={() => setView("forgot")}
@@ -409,13 +409,13 @@ export default function ContractorLogin() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="bg-white/[0.04] border-white/10 text-white placeholder:text-slate-600 focus-visible:ring-sky-500/40 h-11"
+                className="bg-white/[0.04] border-white/25 text-white placeholder:text-slate-300 focus-visible:ring-sky-500/40 h-11"
               />
             </div>
             <Button
               type="submit"
               disabled={loading}
-              className="w-full h-11 bg-sky-600 hover:bg-sky-500 text-white font-medium text-sm transition-all"
+              className="w-full h-11 bg-sky-600 hover:bg-sky-500 text-white font-bold text-sm transition-all"
             >
               {loading ? (
                 <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
@@ -480,7 +480,7 @@ export default function ContractorLogin() {
                 Access real-time dossiers on in-market homeowners. See exactly what your competitor quoted,
                 where they cut corners, and how to win the deal.
               </p>
-              <div className="my-8 rounded-xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-md p-4 shadow-[inset_0_1px_0_hsla(0,0%,100%,0.06)]">
+              <div className="my-8 rounded-xl border border-white/20 bg-white/[0.05] backdrop-blur-md p-4 shadow-[inset_0_1px_0_hsla(0,0%,100%,0.06)]">
                 <img
                   src="/images/flywheel-wman.avif"
                   alt="WindowMan partner intelligence flywheel"
@@ -525,7 +525,7 @@ export default function ContractorLogin() {
                 {/* Free Pro-Consumer Protection chip — sits on the seam between character and card */}
                 <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 -top-4 z-20 items-center gap-2 px-4 py-2 rounded-full bg-white/[0.04] backdrop-blur-md border border-white/[0.08] shadow-[0_8px_24px_rgba(0,0,0,0.4),inset_0_1px_0_hsla(0,0%,100%,0.08)] whitespace-nowrap">
                   <ShieldCheck className="h-3.5 w-3.5 text-sky-400" aria-hidden="true" />
-                  <span className="text-xs font-medium tracking-wide text-white/85">
+                  <span className="text-xs font-medium tracking-wide text-white">
                     Free Pro-Consumer Protection Service
                   </span>
                 </div>
@@ -533,7 +533,7 @@ export default function ContractorLogin() {
               </div>
             </div>
 
-            <p className="text-center text-[11px] text-slate-400 mt-6">
+            <p className="text-center text-[11px] text-slate-300 mt-6">
               WindowMan Partner Portal is invitation-only.
               <br />
               Unauthorized access attempts are logged.
@@ -550,7 +550,7 @@ export default function ContractorLogin() {
     </div>
     <div className="hidden md:block lg:hidden bg-[hsl(218,50%,9%)]">
       <div className="mx-auto max-w-2xl px-6 py-12">
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-md p-5 shadow-[inset_0_1px_0_hsla(0,0%,100%,0.06)]">
+        <div className="rounded-xl border border-white/20 bg-white/[0.05] backdrop-blur-md p-5 shadow-[inset_0_1px_0_hsla(0,0%,100%,0.06)]">
           <img
             src="/images/flywheel-wman.avif"
             alt="WindowMan partner intelligence flywheel"

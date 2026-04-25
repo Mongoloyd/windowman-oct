@@ -174,7 +174,7 @@ export default function LeadInbox() {
     >
       {isLoading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <Loader2 className="h-6 w-6 animate-spin text-slate-600" />
         </div>
       ) : isError ? (
         <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
@@ -186,12 +186,12 @@ export default function LeadInbox() {
           </div>
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-2xl border border-border bg-card p-10 text-center shadow-sm">
-          <Inbox className="mx-auto h-8 w-8 text-muted-foreground mb-3" />
+        <div className="rounded-2xl border border-slate-300 bg-card p-10 text-center shadow-sm">
+          <Inbox className="mx-auto h-8 w-8 text-slate-600 mb-3" />
           <h2 className="font-display text-lg font-extrabold tracking-tight text-foreground">
             No leads match
           </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-sm text-slate-600">
             Try clearing filters or widening the date range.
           </p>
           <Button variant="outline" onClick={resetFilters} className="mt-4">
@@ -224,17 +224,17 @@ function FilterBar({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div className="relative flex-1 min-w-[220px] max-w-md">
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-600" />
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search name, email, phone, ZIP, ID…"
-          className="h-9 pl-8 text-sm"
+          className="h-10 pl-8 text-sm font-semibold"
           aria-label="Search leads"
         />
       </div>
       <Select value={dateRange} onValueChange={(v) => setDateRange(v as DateRange)}>
-        <SelectTrigger className="h-9 w-[120px] text-xs"><SelectValue /></SelectTrigger>
+        <SelectTrigger className="h-10 w-[120px] text-sm font-semibold"><SelectValue /></SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All time</SelectItem>
           <SelectItem value="24h">Last 24h</SelectItem>
@@ -243,14 +243,14 @@ function FilterBar({
         </SelectContent>
       </Select>
       <Select value={county} onValueChange={setCounty}>
-        <SelectTrigger className="h-9 w-[140px] text-xs"><SelectValue placeholder="County" /></SelectTrigger>
+        <SelectTrigger className="h-10 w-[140px] text-sm font-semibold"><SelectValue placeholder="County" /></SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All counties</SelectItem>
           {counties.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
         </SelectContent>
       </Select>
       <Select value={verified} onValueChange={(v) => setVerified(v as VerifiedFilter)}>
-        <SelectTrigger className="h-9 w-[130px] text-xs"><SelectValue /></SelectTrigger>
+        <SelectTrigger className="h-10 w-[130px] text-sm font-semibold"><SelectValue /></SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All</SelectItem>
           <SelectItem value="verified">Verified</SelectItem>
@@ -258,7 +258,7 @@ function FilterBar({
         </SelectContent>
       </Select>
       <Select value={stage} onValueChange={setStage}>
-        <SelectTrigger className="h-9 w-[140px] text-xs"><SelectValue placeholder="Stage" /></SelectTrigger>
+        <SelectTrigger className="h-10 w-[140px] text-sm font-semibold"><SelectValue placeholder="Stage" /></SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All stages</SelectItem>
           {FUNNEL_STAGES.map((s) => (
@@ -266,7 +266,7 @@ function FilterBar({
           ))}
         </SelectContent>
       </Select>
-      <Button type="button" variant="ghost" size="sm" onClick={onReset} className="h-9 text-xs">
+      <Button type="button" variant="ghost" size="sm" onClick={onReset} className="h-10 text-sm font-bold">
         <Filter className="h-3.5 w-3.5 mr-1.5" />
         Clear
       </Button>
@@ -276,7 +276,7 @@ function FilterBar({
         size="sm"
         onClick={onRefresh}
         disabled={refreshing}
-        className="h-9 text-xs ml-auto"
+        className="h-10 text-sm font-bold ml-auto"
       >
         <RefreshCcw className={`h-3.5 w-3.5 mr-1.5 ${refreshing ? "animate-spin" : ""}`} />
         Refresh
@@ -287,17 +287,17 @@ function FilterBar({
 
 function LeadTable({ leads, onView }: { leads: CRMLead[]; onView: (id: string) => void }) {
   return (
-    <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+    <div className="rounded-2xl border border-slate-300 bg-card shadow-sm overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-muted/50 border-b border-border">
+          <thead className="bg-muted/50 border-b border-slate-300">
             <tr className="text-left">
-              <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Lead</th>
-              <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Source · UTM</th>
-              <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">County</th>
-              <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Verified</th>
-              <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Stage</th>
-              <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Created</th>
+              <th className="px-4 py-3 text-xs font-extrabold uppercase tracking-wider text-slate-700">Lead</th>
+              <th className="px-4 py-3 text-xs font-extrabold uppercase tracking-wider text-slate-700">Source · UTM</th>
+              <th className="px-4 py-3 text-xs font-extrabold uppercase tracking-wider text-slate-700">County</th>
+              <th className="px-4 py-3 text-xs font-extrabold uppercase tracking-wider text-slate-700">Verified</th>
+              <th className="px-4 py-3 text-xs font-extrabold uppercase tracking-wider text-slate-700">Stage</th>
+              <th className="px-4 py-3 text-xs font-extrabold uppercase tracking-wider text-slate-700">Created</th>
               <th className="px-4 py-3" />
             </tr>
           </thead>
@@ -308,12 +308,12 @@ function LeadTable({ leads, onView }: { leads: CRMLead[]; onView: (id: string) =
               return (
                 <tr
                   key={l.id}
-                  className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors cursor-pointer focus-within:bg-muted/30"
+                  className="border-b border-slate-300 last:border-0 hover:bg-muted/30 transition-colors cursor-pointer focus-within:bg-muted/30"
                   onClick={() => onView(l.id)}
                 >
                   <td className="px-4 py-3">
                     <div className="font-semibold text-foreground">{name}</div>
-                    <div className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
+                    <div className="text-sm font-medium text-slate-700 flex items-center gap-2 mt-0.5">
                       {l.email && <span className="truncate max-w-[180px]">{l.email}</span>}
                       {l.phone_e164 && (
                         <span className="inline-flex items-center gap-1 font-mono">
@@ -323,35 +323,35 @@ function LeadTable({ leads, onView }: { leads: CRMLead[]; onView: (id: string) =
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground">
+                  <td className="px-4 py-3 text-sm font-medium text-slate-700">
                     <div>{l.utm_source ?? "—"}</div>
-                    {l.utm_campaign && <div className="opacity-70 truncate max-w-[140px]">{l.utm_campaign}</div>}
+                    {l.utm_campaign && <div className="font-medium text-slate-600 truncate max-w-[140px]">{l.utm_campaign}</div>}
                   </td>
                   <td className="px-4 py-3 text-xs">
                     {l.county ? (
-                      <span className="inline-flex items-center gap-1 text-muted-foreground">
+                      <span className="inline-flex items-center gap-1 text-slate-600">
                         <MapPin className="h-3 w-3" />
                         {l.county}
                       </span>
-                    ) : <span className="text-muted-foreground">—</span>}
+                    ) : <span className="text-slate-600">—</span>}
                   </td>
                   <td className="px-4 py-3">
                     {l.phone_verified ? (
-                      <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                      <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-extrabold uppercase tracking-wider text-emerald-700">
                         Verified
                       </span>
                     ) : (
-                      <span className="inline-flex items-center rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      <span className="inline-flex items-center rounded-full border border-slate-300 bg-muted px-2 py-0.5 text-xs font-extrabold uppercase tracking-wider text-slate-600">
                         Unverified
                       </span>
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${stageDef?.badgeClass ?? "bg-muted text-muted-foreground border-border"}`}>
+                    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-extrabold uppercase tracking-wider ${stageDef?.badgeClass ?? "bg-muted text-slate-600 border-slate-300"}`}>
                       {stageDef?.label ?? "New"}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground">
+                  <td className="px-4 py-3 text-sm font-medium text-slate-700">
                     <div className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
                       <span title={format(new Date(l.created_at), "MMM d, yyyy h:mm a")}>
@@ -363,7 +363,7 @@ function LeadTable({ leads, onView }: { leads: CRMLead[]; onView: (id: string) =
                     <Link
                       to={`/admin/leads/${l.id}`}
                       onClick={(e) => e.stopPropagation()}
-                      className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+                      className="inline-flex items-center gap-1 text-sm font-bold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
                       aria-label={`View details for ${name}`}
                     >
                       View

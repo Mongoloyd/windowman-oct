@@ -18,7 +18,7 @@ import { decodeJwtRole, type JwtRole } from "@/components/admin/auth/decodeJwtRo
 function RolePill({ role, devBypass }: { role: JwtRole; devBypass: boolean }) {
   if (devBypass) {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-amber-700">
+      <span className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-extrabold uppercase tracking-wider text-amber-800 shadow-sm">
         <Wrench className="h-3 w-3" />
         DEV bypass
       </span>
@@ -26,7 +26,7 @@ function RolePill({ role, devBypass }: { role: JwtRole; devBypass: boolean }) {
   }
   if (!role) {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+      <span className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-extrabold uppercase tracking-wider text-slate-700 shadow-sm">
         No role
       </span>
     );
@@ -39,7 +39,7 @@ function RolePill({ role, devBypass }: { role: JwtRole; devBypass: boolean }) {
   };
   const c = config[role];
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider ${c.cls}`}>
+    <span className={`inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-extrabold uppercase tracking-wider shadow-sm ${c.cls}`}>
       <c.Icon className="h-3 w-3" />
       {c.label}
     </span>
@@ -96,11 +96,11 @@ export function AdminIdentityBar() {
   if (!sessionAlive && !devBypass) {
     return (
       <div className="flex items-center gap-3">
-        <span className="hidden sm:inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+        <span className="hidden sm:inline-flex items-center gap-1.5 text-sm font-medium text-slate-600">
           <span className="h-2 w-2 rounded-full bg-muted-foreground/40" />
           No session
         </span>
-        <Button asChild size="sm" variant="outline" className="h-9">
+        <Button asChild size="sm" variant="outline" className="h-10 border-slate-300 bg-white font-bold shadow-sm">
           <Link to="/admin/login" className="inline-flex items-center gap-1.5">
             <LogIn className="h-3.5 w-3.5" />
             Sign in
@@ -117,7 +117,7 @@ export function AdminIdentityBar() {
           {email ?? (devBypass ? "dev@windowman.app" : "Unknown")}
         </span>
         <div className="mt-0.5 flex items-center gap-2">
-          <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+          <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600">
             <span className={`h-1.5 w-1.5 rounded-full ${sessionAlive || devBypass ? "bg-emerald-500" : "bg-muted-foreground/40"}`} />
             {sessionAlive ? "Session active" : devBypass ? "Dev session" : "No session"}
           </span>
@@ -130,14 +130,14 @@ export function AdminIdentityBar() {
           variant="outline"
           onClick={handleSignOut}
           disabled={signingOut}
-          className="h-9"
+          className="h-10 border-slate-300 bg-white font-bold shadow-sm"
           aria-label="Sign out of admin"
         >
           <LogOut className="h-3.5 w-3.5 sm:mr-1.5" />
           <span className="hidden sm:inline">{signingOut ? "Signing out…" : "Sign out"}</span>
         </Button>
       ) : (
-        <Button asChild size="sm" variant="outline" className="h-9">
+        <Button asChild size="sm" variant="outline" className="h-10 border-slate-300 bg-white font-bold shadow-sm">
           <Link to="/admin/login" className="inline-flex items-center gap-1.5">
             <LogIn className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Sign in</span>
