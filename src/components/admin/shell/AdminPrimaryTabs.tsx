@@ -43,13 +43,13 @@ type TabDef = PanelTabDef | RouteTabDef;
 // Shared className so route-tabs are visually indistinguishable from panel-tabs.
 const TAB_TRIGGER_CLASSES = [
   "flex-1 min-w-[110px]",
-  "data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm",
-  "text-muted-foreground hover:text-foreground hover:bg-card/60",
-  "text-sm font-medium",
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-  "transition-colors",
+  "data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:border-slate-300 data-[state=active]:shadow-sm",
+  "text-slate-700 hover:text-slate-950 hover:bg-white hover:border-slate-300 hover:shadow-sm",
+  "text-sm font-semibold",
+  "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 focus-visible:ring-offset-2",
+  "transition-all border border-transparent",
   // Match Radix TabsTrigger sizing so route-tabs line up identically with panel-tabs
-  "inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5",
+  "inline-flex min-h-10 items-center justify-center whitespace-nowrap rounded-md px-3 py-2",
 ].join(" ");
 
 export function AdminPrimaryTabs({
@@ -91,7 +91,7 @@ export function AdminPrimaryTabs({
     return (
       <Badge
         variant={variant ?? "default"}
-        className="ml-1.5 h-5 min-w-[20px] px-1 text-[10px]"
+        className="ml-1.5 h-5 min-w-[22px] border border-slate-300 px-1.5 text-[11px] font-extrabold"
       >
         {count > 99 ? "99+" : count}
       </Badge>
@@ -99,7 +99,7 @@ export function AdminPrimaryTabs({
   }
 
   return (
-    <TabsList className="flex w-full flex-wrap h-auto gap-1 bg-muted/50 p-1 rounded-xl">
+    <TabsList className="flex w-full flex-wrap h-auto gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
       {tabs.map((t) => {
         if (t.kind === "panel") {
           return (
