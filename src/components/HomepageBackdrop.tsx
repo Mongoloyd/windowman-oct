@@ -27,7 +27,8 @@ const blobs: Array<{
 
 const HomepageBackdrop = () => (
   <div
-    className="absolute inset-0 z-0 pointer-events-none overflow-hidden"
+    className="absolute inset-0 z-0 pointer-events-none overflow-hidden contain-layout"
+    style={{ minHeight: "100%" }}
     aria-hidden="true"
   >
     {blobs.map((b, i) => (
