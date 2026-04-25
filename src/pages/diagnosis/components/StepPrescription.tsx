@@ -221,7 +221,7 @@ export function StepPrescription({
         </div>
 
         {/* NO-FORM VERIFIED PROFILE BADGE */}
-        <div className="card-raised-hero rounded-2xl p-6 md:p-8 border-double border-4 border-cobalt/15">
+        <div className="card-raised-hero rounded-2xl p-6 md:p-8 border-double border-cobalt/15 border-8">
           {/* Verified Profile Header */}
           <div
             className="flex items-center justify-between gap-3 p-4 mb-6 rounded-xl"
