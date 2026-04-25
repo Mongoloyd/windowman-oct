@@ -1,5 +1,4 @@
 import { Bot, CheckCircle2, FileCheck2 } from "lucide-react";
-import wmanFlywheelImg from "@/assets/wman-flywheel-wman-2.avif";
 import { DIAGNOSIS_ORDER, DIAGNOSTIC_MAP } from "../constants/diagnosticMap";
 import type { DiagnosisCode, DiagnosticContext } from "../types";
 
@@ -107,7 +106,7 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
 
             {context.report_grade && (
               <div
-                className="rounded-3xl bg-white p-5 md:p-6 shadow-lg"
+                className="rounded-3xl bg-white p-5 shadow-[0_22px_55px_rgba(15,23,42,0.14)] md:p-6"
                 style={{
                   border: `2px solid ${gradeColor}33`,
                   boxShadow: `0 22px 55px rgba(15,23,42,0.14), 0 18px 46px -18px ${gradeColor}66`,
@@ -162,7 +161,7 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
             )}
           </div>
 
-          <div className="relative overflow-hidden rounded-3xl bg-slate-950 p-5 text-white shadow-[0_24px_70px_rgba(15,23,42,0.28)] md:p-6 border-double border-8 border-cobalt-dim">
+          <div className="relative overflow-hidden rounded-3xl border border-blue-300/30 bg-slate-950 p-5 text-white shadow-[0_24px_70px_rgba(15,23,42,0.28)] md:p-6">
             <div
               aria-hidden="true"
               className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-blue-400/25 blur-3xl"
@@ -183,11 +182,11 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
                   Pick The Problem. I’ll Build The Next Move.
                 </p>
               </div>
-              <div className="relative mx-auto flex w-full max-w-[260px] items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-5">
+              <div className="relative mx-auto flex w-full max-w-[220px] items-end justify-center overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-2">
                 <img
-                  src={wmanFlywheelImg}
-                  alt="WindowMan flywheel"
-                  className="max-h-[210px] w-full object-contain"
+                  src="/images/wman-reading.avif"
+                  alt="WindowMan advisor reviewing a report"
+                  className="max-h-[190px] w-full object-contain"
                   loading="lazy"
                 />
               </div>
@@ -195,14 +194,14 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
           </div>
         </div>
 
-        <div className="mt-8 rounded-3xl border-slate-200 bg-white/95 p-5 shadow-[0_20px_58px_rgba(15,23,42,0.12)] md:mt-10 md:p-8 border-double border-8">
+        <div className="mt-8 rounded-3xl border-2 border-slate-200 bg-white/95 p-5 shadow-[0_20px_58px_rgba(15,23,42,0.12)] md:mt-10 md:p-8">
           <div className="mx-auto mb-6 max-w-3xl text-center">
             <p className="mb-3 text-xs font-black uppercase tracking-[0.2em] text-blue-700">Root Question</p>
             <h2 className="font-display text-2xl font-black tracking-tight text-slate-950 md:text-4xl">
               What Was The Biggest Problem With This Quote?
             </h2>
             <p className="mt-3 text-base font-bold leading-relaxed text-slate-700 md:text-lg">
-              Choose The Closest Answer. We’ll Turn It Into Your Next Move.
+              Tap The Closest Answer. We’ll Turn It Into Your Next Move.
             </p>
           </div>
 
@@ -225,7 +224,7 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
                     <span className="block text-[16px] font-black leading-tight text-slate-950 md:text-[17px]">
                       {config.label}
                     </span>
-                    <span className="mt-1 block text-sm leading-relaxed text-slate-950">{config.cardDescription}</span>
+                    <span className="mt-1 block text-sm leading-relaxed text-slate-600">{config.cardDescription}</span>
                   </span>
                 </button>
               );
