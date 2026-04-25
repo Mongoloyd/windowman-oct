@@ -41,8 +41,8 @@ export function AdminShell({
   return (
     <div className="wm-dashboard-surface min-h-screen bg-white text-slate-950">
       <header className="sticky top-0 z-30 border-b border-slate-300 bg-white shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/95">
-        <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-4">
-          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div className="w-full px-4 py-3 sm:px-6 lg:px-8 xl:px-10 2xl:px-12">
+          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
             <div className="min-w-0">
               {backTo && (
                 <Link
@@ -56,16 +56,16 @@ export function AdminShell({
               <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-slate-700">
                 {eyebrow}
               </p>
-              <h1 className="mt-1 font-display text-3xl md:text-4xl font-black leading-tight tracking-tight text-slate-950">
+              <h1 className="mt-0.5 font-display text-3xl md:text-4xl font-black leading-tight tracking-tight text-slate-950">
                 {title}
               </h1>
-              {subtitle && <p className="mt-1 text-base font-bold text-slate-800">{subtitle}</p>}
+              {subtitle && <p className="mt-0.5 text-base font-bold text-slate-800">{subtitle}</p>}
             </div>
             <div className="shrink-0">
               <AdminIdentityBar />
             </div>
           </div>
-          {belowHeader && <div className="mt-4">{belowHeader}</div>}
+          {belowHeader && <div className="mt-3">{belowHeader}</div>}
         </div>
       </header>
 
@@ -73,7 +73,7 @@ export function AdminShell({
         className={
           fullBleed
             ? "w-full"
-            : "w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6"
+            : "w-full px-4 py-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12"
         }
       >
         {children}
