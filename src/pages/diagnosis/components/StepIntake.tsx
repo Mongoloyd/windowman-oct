@@ -1,4 +1,5 @@
 import { Bot, CheckCircle2, FileCheck2 } from "lucide-react";
+import wmanFlywheelImg from "@/assets/wman-flywheel-wman-2.avif";
 import { DIAGNOSIS_ORDER, DIAGNOSTIC_MAP } from "../constants/diagnosticMap";
 import type { DiagnosisCode, DiagnosticContext } from "../types";
 
@@ -182,11 +183,11 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
                   Pick The Problem. I’ll Build The Next Move.
                 </p>
               </div>
-              <div className="relative mx-auto flex w-full max-w-[220px] items-end justify-center overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-2">
+              <div className="relative mx-auto flex w-full max-w-[260px] items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-5">
                 <img
-                  src="/images/wman-reading.avif"
-                  alt="WindowMan advisor reviewing a report"
-                  className="max-h-[190px] w-full object-contain"
+                  src={wmanFlywheelImg}
+                  alt="WindowMan flywheel"
+                  className="max-h-[210px] w-full object-contain"
                   loading="lazy"
                 />
               </div>
