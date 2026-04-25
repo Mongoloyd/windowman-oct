@@ -1,1029 +1,627 @@
-/**
- * AdminPartners — White-label client management dashboard.
- * CRUD for clients + meta_configurations, realtime CAPI signal log.
- * P2: Idempotency guards, race condition handling, undo/restore, virtualized log, mobile touch targets.
- */
-
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import type { Database } from "@/integrations/supabase/types";
-import { AuthGuard } from "@/components/auth/AuthGuard";
-import { useCurrentUserRole } from "@/hooks/useCurrentUserRole";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  Plus, Check, Copy, ChevronDown, ChevronRight, X, Loader2,
-  Globe, Settings, Radio, Trash2, Search, ArrowUpDown, Download,
-  ArrowLeft, RotateCcw, RefreshCw,
+  AlertTriangle,
+  CheckCircle2,
+  ExternalLink,
+  HelpCircle,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Search,
+  Send,
+  Settings,
+  ShieldAlert,
+  X,
 } from "lucide-react";
+import { AuthGuard } from "@/components/auth/AuthGuard";
+import { AdminShell } from "@/components/admin/shell/AdminShell";
+import { AdminPrimaryTabs } from "@/components/admin/shell/AdminPrimaryTabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
-} from "@/components/ui/dialog";
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Link } from "react-router-dom";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { supabase } from "@/integrations/supabase/client";
+import { invokeAdminData } from "@/services/adminDataService";
+import { useCurrentUserRole } from "@/hooks/useCurrentUserRole";
 
-/* ── Types ──────────────────────────────────────────────────── */
-
-interface Client {
+type Client = {
   id: string;
   name: string;
   slug: string;
   is_active: boolean;
   created_at: string;
-}
+};
 
-interface MetaConfig {
+type MetaConfig = {
   id: string;
   client_id: string | null;
   pixel_id: string | null;
-  access_token: string | null;
   test_event_code: string | null;
   is_default: boolean;
   updated_at: string;
-}
+};
 
-interface SignalLog {
+type RedactedMetaConfig = {
+  id: string;
+  role: "default" | "client";
+  client_id: string | null;
+  client_slug: string | null;
+  client_name: string | null;
+  client_is_active: boolean | null;
+  pixel_id: string | null;
+  access_token_preview: string | null;
+  test_event_code: string | null;
+  updated_at: string;
+};
+
+type SignalLog = {
   id: string;
   client_slug: string | null;
   event_name: string | null;
   pixel_id: string | null;
   status_code: number | null;
-  payload: any;
-  response: any;
   fired_at: string;
+};
+
+type Draft = {
+  id: string | null;
+  name: string;
+  slug: string;
+  isActive: boolean;
+  notes: string;
+  pixelId: string;
+  testEventCode: string;
+  googleConversionId: string;
+  googleVerifiedLeadLabel: string;
+  googleSoldLabel: string;
+  enhancedConversions: boolean;
+  serverGtmUrl: string;
+  serverRoutingMode: string;
+};
+
+const SLUG_REGEX = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
+const PIXEL_REGEX = /^\d{6,20}$/;
+const GOOGLE_CONVERSION_ID_REGEX = /^(AW-)?\d{6,20}$/;
+
+function slugify(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
 }
 
-/* ── Helpers ────────────────────────────────────────────────── */
-
-const SLUG_REGEX = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/;
-
-function slugify(s: string) {
-  return s.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+function sanitizeText(value: string, max = 255): string {
+  return value.replace(/<[^>]*>/g, "").trim().slice(0, max);
 }
 
-/** Strip HTML tags and trim whitespace — prevents stored XSS */
-function sanitize(s: string): string {
-  return s.replace(/<[^>]*>/g, "").trim();
+function maskId(value: string | null | undefined): string {
+  if (!value) return "—";
+  if (value.length <= 10) return value;
+  return `${value.slice(0, 4)}…${value.slice(-4)}`;
 }
 
-function relTime(iso: string) {
-  const d = new Date(iso);
-  const s = Math.floor((Date.now() - d.getTime()) / 1000);
-  if (s < 60) return `${s}s ago`;
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  return d.toLocaleDateString();
+function formatTime(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 }
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-US", {
-    month: "short", day: "numeric", year: "numeric",
-  });
+function HelpTip({ children }: { children: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button type="button" className="inline-flex text-slate-700 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 focus-visible:ring-offset-2" aria-label="Configuration help">
+          <HelpCircle className="h-4 w-4" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-sm border border-slate-300 bg-white text-sm font-semibold text-slate-900 shadow-lg">
+        {children}
+      </TooltipContent>
+    </Tooltip>
+  );
 }
 
-type SortKey = "name" | "slug" | "is_active" | "created_at";
-type SortDir = "asc" | "desc";
-
-/* ══════════════════════════════════════════════════════════════
-   Client Dossier Modal
-   ══════════════════════════════════════════════════════════════ */
-
-interface DossierModalProps {
-  open: boolean;
-  onClose: () => void;
-  client: Client | null;
-  metaConfig: MetaConfig | null;
-  existingSlugs: string[];
-  onSaved: () => void;
+function StatusBadge({ tone, children }: { tone: "emerald" | "amber" | "red" | "blue" | "slate"; children: string }) {
+  const classes = {
+    emerald: "border-emerald-300 bg-emerald-100 text-emerald-950",
+    amber: "border-amber-300 bg-amber-100 text-amber-950",
+    red: "border-red-300 bg-red-100 text-red-950",
+    blue: "border-blue-300 bg-blue-100 text-blue-950",
+    slate: "border-slate-400 bg-slate-100 text-slate-950",
+  }[tone];
+  return <span className={`inline-flex min-h-7 items-center rounded-full border px-2.5 py-1 text-xs font-black ${classes}`}>{children}</span>;
 }
 
-function ClientDossierModal({ open, onClose, client, metaConfig, existingSlugs, onSaved }: DossierModalProps) {
-  const isEdit = !!client;
-  const labelClass = "text-xs font-medium uppercase tracking-wider text-slate-700";
-  const fieldClass = "min-w-0 transition-all duration-200 focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2";
+function KpiCard({ label, value, help }: { label: string; value: string; help?: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm">
+      <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
+        <span>{label}</span>
+        {help ? <HelpTip>{help}</HelpTip> : null}
+      </div>
+      <div className="mt-2 text-3xl font-black text-slate-950">{value}</div>
+    </div>
+  );
+}
 
-  const [name, setName] = useState("");
-  const [slug, setSlug] = useState("");
-  const [isActive, setIsActive] = useState(true);
-  const [pixelId, setPixelId] = useState("");
-  const [accessToken, setAccessToken] = useState("");
-  const [testEventCode, setTestEventCode] = useState("");
-  const [tokenDirty, setTokenDirty] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [slugError, setSlugError] = useState<string | null>(null);
-  const [nameError, setNameError] = useState<string | null>(null);
-  const [touched, setTouched] = useState(false);
+function tokenConfigured(redacted: RedactedMetaConfig | null | undefined): boolean {
+  return Boolean(redacted?.access_token_preview && redacted.access_token_preview !== "missing" && redacted.access_token_preview !== "—");
+}
 
-  useEffect(() => {
-    if (!open) return;
-    if (client) {
-      setName(client.name);
-      setSlug(client.slug);
-      setIsActive(client.is_active);
-      setPixelId(metaConfig?.pixel_id ?? "");
-      setAccessToken("");
-      setTestEventCode(metaConfig?.test_event_code ?? "");
-      setTokenDirty(false);
-    } else {
-      setName(""); setSlug(""); setIsActive(true);
-      setPixelId(""); setAccessToken(""); setTestEventCode("");
-      setTokenDirty(false);
+function configStatus(client: Client, meta: MetaConfig | null, redacted: RedactedMetaConfig | null, logs: SignalLog[]) {
+  const lastFailure = logs.find((log) => log.client_slug === client.slug && (log.status_code ?? 0) >= 400);
+  if (!client.is_active) return { label: "Paused", tone: "slate" as const };
+  if (!meta?.pixel_id) return { label: "Missing Config", tone: "amber" as const };
+  if (!tokenConfigured(redacted)) return { label: "Token Missing", tone: "red" as const };
+  if (lastFailure) return { label: "Signal Failing", tone: "red" as const };
+  return { label: "Ready", tone: "emerald" as const };
+}
+
+function buildDraft(client: Client | null, meta: MetaConfig | null): Draft {
+  return {
+    id: client?.id ?? null,
+    name: client?.name ?? "",
+    slug: client?.slug ?? "",
+    isActive: client?.is_active ?? true,
+    notes: "",
+    pixelId: meta?.pixel_id ?? "",
+    testEventCode: meta?.test_event_code ?? "",
+    googleConversionId: "",
+    googleVerifiedLeadLabel: "",
+    googleSoldLabel: "",
+    enhancedConversions: false,
+    serverGtmUrl: "",
+    serverRoutingMode: "not_configured",
+  };
+}
+
+function validateDraft(draft: Draft, existingSlugs: string[]): string[] {
+  const errors: string[] = [];
+  if (!sanitizeText(draft.name, 100)) errors.push("Client name is required.");
+  if (!SLUG_REGEX.test(draft.slug)) errors.push("Client slug must be lowercase letters, numbers, and hyphens.");
+  if (existingSlugs.includes(draft.slug)) errors.push("Client slug is already in use.");
+  if (draft.pixelId.trim() && !PIXEL_REGEX.test(draft.pixelId.trim())) errors.push("Meta Pixel ID must be 6–20 digits.");
+  if (draft.googleConversionId.trim() && !GOOGLE_CONVERSION_ID_REGEX.test(draft.googleConversionId.trim())) errors.push("Google Conversion ID must look like AW-123456789 or digits only.");
+  if (draft.serverGtmUrl.trim()) {
+    try {
+      const parsed = new URL(draft.serverGtmUrl.trim());
+      if (!/^https:$/.test(parsed.protocol)) errors.push("Server GTM URL must use HTTPS.");
+    } catch {
+      errors.push("Server GTM URL must be a valid URL.");
     }
-    setSlugError(null); setNameError(null); setTouched(false);
-  }, [open, client, metaConfig]);
+  }
+  return errors;
+}
+
+function AdminPartnersContent() {
+  const { hasWriteAccess } = useCurrentUserRole();
+  const [clients, setClients] = useState<Client[]>([]);
+  const [metaConfigs, setMetaConfigs] = useState<MetaConfig[]>([]);
+  const [redactedConfigs, setRedactedConfigs] = useState<RedactedMetaConfig[]>([]);
+  const [signalLogs, setSignalLogs] = useState<SignalLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [draft, setDraft] = useState<Draft>(() => buildDraft(null, null));
+
+  const fetchAll = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [clientsResult, metaResult, logsResult, redactedResult] = await Promise.all([
+        supabase.from("clients").select("id, name, slug, is_active, created_at").order("created_at", { ascending: false }),
+        supabase.from("meta_configurations").select("id, client_id, pixel_id, test_event_code, is_default, updated_at"),
+        supabase.from("capi_signal_logs").select("id, client_slug, event_name, pixel_id, status_code, fired_at").order("fired_at", { ascending: false }).limit(500),
+        invokeAdminData("list_meta_configurations"),
+      ]);
+
+      if (clientsResult.error) throw clientsResult.error;
+      if (metaResult.error) throw metaResult.error;
+      if (logsResult.error) throw logsResult.error;
+
+      setClients((clientsResult.data ?? []) as Client[]);
+      setMetaConfigs((metaResult.data ?? []) as MetaConfig[]);
+      setSignalLogs((logsResult.data ?? []) as SignalLog[]);
+      setRedactedConfigs(((redactedResult?.rows ?? []) as RedactedMetaConfig[]));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message);
+      toast.error(`Failed to load partner config: ${message}`);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    if (!isEdit && name) setSlug(slugify(name));
-  }, [name, isEdit]);
+    fetchAll();
+  }, [fetchAll]);
 
-  useEffect(() => {
-    if (!touched) { setNameError(null); return; }
-    if (!name.trim()) { setNameError("Client name is required"); return; }
-    if (name.trim().length > 100) { setNameError("Max 100 characters"); return; }
-    setNameError(null);
-  }, [name, touched]);
+  const metaByClientId = useMemo(() => {
+    const map = new Map<string, MetaConfig>();
+    for (const config of metaConfigs) if (config.client_id) map.set(config.client_id, config);
+    return map;
+  }, [metaConfigs]);
 
-  useEffect(() => {
-    if (!slug) { setSlugError(null); return; }
-    if (!SLUG_REGEX.test(slug)) { setSlugError("Only lowercase letters, numbers, and hyphens"); return; }
-    if (slug.length < 2) { setSlugError("Minimum 2 characters"); return; }
-    const taken = existingSlugs.filter(s => s !== client?.slug).includes(slug);
-    if (taken) { setSlugError("Slug already taken"); return; }
-    setSlugError(null);
-  }, [slug, existingSlugs, client]);
+  const redactedByClientId = useMemo(() => {
+    const map = new Map<string, RedactedMetaConfig>();
+    for (const config of redactedConfigs) if (config.client_id) map.set(config.client_id, config);
+    return map;
+  }, [redactedConfigs]);
 
-  const canSave = name.trim() && slug && !slugError && !nameError && !saving;
+  const filteredClients = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return clients;
+    return clients.filter((client) => client.name.toLowerCase().includes(q) || client.slug.toLowerCase().includes(q));
+  }, [clients, search]);
 
-  async function handleSave() {
-    if (saving) return; // Idempotency: prevent double-submit
-    setTouched(true);
-    if (!name.trim()) { setNameError("Client name is required"); return; }
-    if (!canSave) return;
+  const selectedMeta = selectedClient ? metaByClientId.get(selectedClient.id) ?? null : null;
+  const selectedRedacted = selectedClient ? redactedByClientId.get(selectedClient.id) ?? null : null;
+  const existingSlugs = clients.filter((client) => client.id !== draft.id).map((client) => client.slug);
+  const validationErrors = validateDraft(draft, existingSlugs);
+
+  const health = useMemo(() => {
+    const activeClients = clients.filter((client) => client.is_active);
+    const configuredMeta = activeClients.filter((client) => {
+      const meta = metaByClientId.get(client.id);
+      const redacted = redactedByClientId.get(client.id);
+      return Boolean(meta?.pixel_id && tokenConfigured(redacted));
+    });
+    const missingSecrets = activeClients.filter((client) => {
+      const meta = metaByClientId.get(client.id);
+      const redacted = redactedByClientId.get(client.id);
+      return Boolean(meta?.pixel_id && !tokenConfigured(redacted));
+    });
+    const failure = signalLogs.find((log) => (log.status_code ?? 0) >= 400);
+    return {
+      activeClients: activeClients.length,
+      metaConfigured: configuredMeta.length,
+      googleConfigured: 0,
+      serverGtmConfigured: 0,
+      missingSecrets: missingSecrets.length,
+      lastFailure: failure ? formatTime(failure.fired_at) : "None",
+    };
+  }, [clients, metaByClientId, redactedByClientId, signalLogs]);
+
+  function openEditor(client: Client | null) {
+    if (client && !hasWriteAccess) {
+      setSelectedClient(client);
+      setDraft(buildDraft(client, metaByClientId.get(client.id) ?? null));
+      return;
+    }
+    setSelectedClient(client);
+    setDraft(buildDraft(client, client ? metaByClientId.get(client.id) ?? null : null));
+    setEditorOpen(true);
+  }
+
+  async function saveConfig() {
+    if (!hasWriteAccess) {
+      toast.error("You do not have permission to edit client configs.");
+      return;
+    }
+    const errors = validateDraft(draft, existingSlugs);
+    if (errors.length > 0) {
+      toast.error(errors[0]);
+      return;
+    }
+
     setSaving(true);
     try {
-      const safeName = sanitize(name);
-      if (!safeName) throw new Error("Name cannot be empty after sanitization");
+      const safeName = sanitizeText(draft.name, 100);
+      const safeSlug = slugify(draft.slug);
+      let clientId = draft.id;
 
-      let clientId: string;
-      if (isEdit) {
-        clientId = client!.id;
-        const { error } = await supabase
+      if (clientId) {
+        const { error: clientError } = await supabase
           .from("clients")
-          .update({ name: safeName, slug, is_active: isActive })
+          .update({ name: safeName, slug: safeSlug, is_active: draft.isActive })
           .eq("id", clientId);
-        if (error) throw error;
+        if (clientError) throw clientError;
       } else {
-        const { data, error } = await supabase
+        const { data, error: clientError } = await supabase
           .from("clients")
-          .insert({ name: safeName, slug, is_active: isActive })
+          .insert({ name: safeName, slug: safeSlug, is_active: draft.isActive })
           .select("id")
           .single();
-        if (error) {
-          if (error.code === "23505") { toast.error("A client with this slug already exists"); return; }
-          throw error;
-        }
+        if (clientError) throw clientError;
         clientId = data.id;
       }
 
-      if (pixelId.trim()) {
-        type MetaConfigInsert = Database["public"]["Tables"]["meta_configurations"]["Insert"];
-        const metaPayload: MetaConfigInsert = {
-          client_id: clientId,
-          pixel_id: sanitize(pixelId),
-          test_event_code: testEventCode.trim() ? sanitize(testEventCode) : null,
-        };
-        if (tokenDirty && accessToken.trim()) {
-          metaPayload.access_token = accessToken.trim();
-        }
-        if (metaConfig?.id) {
-          const { error } = await supabase.from("meta_configurations").update(metaPayload).eq("id", metaConfig.id);
-          if (error) throw error;
+      const pixelId = draft.pixelId.trim();
+      const testEventCode = sanitizeText(draft.testEventCode, 80) || null;
+      const existingMeta = clientId ? metaByClientId.get(clientId) : null;
+      if (pixelId) {
+        if (existingMeta) {
+          const { error: metaError } = await supabase
+            .from("meta_configurations")
+            .update({ pixel_id: pixelId, test_event_code: testEventCode, updated_at: new Date().toISOString() })
+            .eq("id", existingMeta.id);
+          if (metaError) throw metaError;
         } else {
-          if (accessToken.trim()) metaPayload.access_token = accessToken.trim();
-          const { error } = await supabase.from("meta_configurations").insert(metaPayload);
-          if (error) throw error;
+          const { error: metaError } = await supabase
+            .from("meta_configurations")
+            .insert({ client_id: clientId, pixel_id: pixelId, test_event_code: testEventCode, is_default: false });
+          if (metaError) throw metaError;
         }
       }
 
-      toast.success(isEdit ? "Client updated" : "Client created");
-      onSaved();
-      onClose();
-    } catch (err: any) {
-      console.error("[AdminPartners] save error:", err);
-      toast.error(err?.message ?? "Save failed");
+      toast.success("Client tracking config saved");
+      setEditorOpen(false);
+      setSelectedClient(null);
+      await fetchAll();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
   }
 
-  const lpUrl = slug ? `${window.location.origin}/lp/${slug}` : null;
-
-  return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="font-sans sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle className="text-slate-900 font-semibold tracking-tight">{isEdit ? "Edit Client" : "Add Client"}</DialogTitle>
-          <DialogDescription className="text-slate-700">
-            {isEdit ? "Update client details and CAPI configuration." : "Create a new white-label client."}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="min-w-0 space-y-5 py-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="client-name" className={labelClass}>Client Name</Label>
-            <Input
-              id="client-name" value={name} maxLength={100}
-              onChange={e => { setName(e.target.value); setTouched(true); }}
-              onBlur={() => setTouched(true)}
-              placeholder="Acme Windows"
-              className={`${fieldClass} ${nameError ? "border-destructive" : ""}`}
-            />
-            {nameError && <p className="text-xs text-destructive">{nameError}</p>}
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="client-slug" className={labelClass}>URL Slug</Label>
-            <div className="flex min-w-0 items-center gap-2">
-              <span className="text-xs text-slate-700 whitespace-nowrap">/lp/</span>
-              <Input
-                id="client-slug" value={slug}
-                onChange={e => setSlug(slugify(e.target.value))}
-                placeholder="acme-windows"
-                className={`${fieldClass} flex-1 ${slugError ? "border-destructive" : ""}`}
-              />
-            </div>
-            {slugError && <p className="text-xs text-destructive">{slugError}</p>}
-          </div>
-
-          <div className="flex items-center justify-between">
-            <Label htmlFor="client-active" className={labelClass}>Active</Label>
-            <Switch id="client-active" checked={isActive} onCheckedChange={setIsActive} />
-          </div>
-
-          <div className="border-t pt-4 space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-700">Meta Conversions API (CAPI)</p>
-            <div className="space-y-1.5">
-              <Label htmlFor="pixel-id" className={labelClass}>Pixel ID</Label>
-              <Input id="pixel-id" value={pixelId} onChange={e => setPixelId(e.target.value)} placeholder="123456789012345" className={fieldClass} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="access-token" className={labelClass}>Access Token</Label>
-              <Textarea
-                id="access-token" value={accessToken}
-                onChange={e => { setAccessToken(e.target.value); setTokenDirty(true); }}
-                placeholder={metaConfig?.access_token ? "••••••••  (unchanged)" : "Paste CAPI access token"}
-                className={`${fieldClass} min-h-[100px] w-full resize-y font-mono text-sm`}
-              />
-              {isEdit && !tokenDirty && metaConfig?.access_token && (
-                <p className="text-sm text-slate-700">Token on file. Only change if you paste a new one.</p>
-              )}
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="test-event-code" className={labelClass}>Test Event Code <span className="text-slate-700">(optional)</span></Label>
-              <Input id="test-event-code" value={testEventCode} onChange={e => setTestEventCode(e.target.value)} placeholder="TEST12345" className={fieldClass} />
-            </div>
-          </div>
-
-          {lpUrl && <LandingPageUrl url={lpUrl} />}
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
-          <Button onClick={handleSave} disabled={!canSave} className="min-w-[88px]">
-            {saving ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" /> Saving…</> : "Save"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-/* ── Landing Page URL with copy + Safari fallback ────────────── */
-
-function LandingPageUrl({ url }: { url: string }) {
-  const [copied, setCopied] = useState(false);
-  const [fallbackUrl, setFallbackUrl] = useState<string | null>(null);
-  const fallbackInputRef = useRef<HTMLInputElement>(null);
-
-  async function handleCopy() {
+  async function sendTestEvent(client: Client) {
+    const meta = metaByClientId.get(client.id);
+    const redacted = redactedByClientId.get(client.id);
+    if (!meta?.pixel_id || !tokenConfigured(redacted) || !meta.test_event_code) {
+      toast.error("Test Event requires Pixel ID, configured CAPI token, and Test Event Code.");
+      return;
+    }
+    setTesting(true);
     try {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Safari / insecure context fallback — show manual copy modal
-      setFallbackUrl(url);
+      const result = await invokeAdminData("smoke_send_meta_event", {
+        client_slug: client.slug,
+        test_event_code: meta.test_event_code,
+        event_name: "PageView",
+      });
+      if (result?.sent) toast.success("Safe Meta test event sent");
+      else toast.error(result?.reason ?? "Test event was not sent");
+      await fetchAll();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
+    } finally {
+      setTesting(false);
     }
   }
 
-  // Auto-select text when the fallback modal opens
-  useEffect(() => {
-    if (fallbackUrl && fallbackInputRef.current) {
-      fallbackInputRef.current.select();
-    }
-  }, [fallbackUrl]);
-
   return (
-    <>
-      <div className="flex min-w-0 items-center gap-2 rounded-md border bg-muted/50 px-3 py-2">
-        <Globe className="h-4 w-4 text-slate-700 shrink-0" />
-        <code className="min-w-0 flex-1 truncate text-xs">{url}</code>
-        <Button size="sm" variant="ghost" className="h-11 w-11 min-w-[44px] min-h-[44px] p-0" onClick={handleCopy} aria-label="Copy URL">
-          {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
-        </Button>
-      </div>
-
-      {/* Safari / iOS fallback: manual copy dialog */}
-      <Dialog open={!!fallbackUrl} onOpenChange={(v) => !v && setFallbackUrl(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Copy Landing Page URL</DialogTitle>
-            <DialogDescription>
-              Your browser blocked automatic clipboard access. Select the URL below and copy it manually.
-            </DialogDescription>
-          </DialogHeader>
-          <Input
-            ref={fallbackInputRef}
-            readOnly
-            value={fallbackUrl ?? ""}
-            className="font-mono text-xs"
-            onFocus={e => e.target.select()}
-            aria-label="Landing page URL"
-          />
-          <DialogFooter>
-            <Button onClick={() => setFallbackUrl(null)} className="min-h-[44px]">Done</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
-  );
-}
-
-/* ── Delete Confirmation ──────────────────────────────────────── */
-
-function DeleteConfirmDialog({ open, clientName, deleting, onConfirm, onCancel }: {
-  open: boolean; clientName: string; deleting: boolean; onConfirm: () => void; onCancel: () => void;
-}) {
-  return (
-    <AlertDialog open={open} onOpenChange={(v) => !v && onCancel()}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-          <AlertDialogDescription>
-            This will deactivate <strong>{clientName}</strong>. The client record will be preserved but marked inactive. You can restore it later.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={onConfirm} disabled={deleting}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90 min-h-[44px] min-w-[44px]"
-          >
-            {deleting ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" /> Deleting…</> : "Delete Client"}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  );
-}
-
-/* ══════════════════════════════════════════════════════════════
-   Sortable Column Header
-   ══════════════════════════════════════════════════════════════ */
-
-function SortableHeader({ label, sortKey, currentKey, currentDir, onSort, className }: {
-  label: string; sortKey: SortKey; currentKey: SortKey; currentDir: SortDir;
-  onSort: (k: SortKey) => void; className?: string;
-}) {
-  const active = currentKey === sortKey;
-  return (
-    <th
-      className={`px-4 py-2.5 cursor-pointer select-none hover:text-foreground transition-colors ${className ?? ""}`}
-      onClick={() => onSort(sortKey)}
+    <AdminShell
+      eyebrow="Admin · Client Tracking"
+      title="Client / Pixel Manager"
+      subtitle={`${clients.length} client configs · secret-safe control plane`}
+      belowHeader={<AdminPrimaryTabs />}
     >
-      <span className="inline-flex items-center gap-1">
-        {label}
-        <ArrowUpDown className={`h-3 w-3 ${active ? "text-foreground" : "text-slate-700"}`} />
-        {active && <span className="text-sm">{currentDir === "asc" ? "↑" : "↓"}</span>}
-      </span>
-    </th>
-  );
-}
-
-/* ══════════════════════════════════════════════════════════════
-   Virtualized Signal Log Row
-   ══════════════════════════════════════════════════════════════ */
-
-const LOG_ROW_HEIGHT = 40;
-const LOG_VISIBLE_COUNT = 50;
-
-function SignalLogRow({ log, expanded, onToggle }: { log: SignalLog; expanded: boolean; onToggle: () => void }) {
-  const statusOk = log.status_code != null && log.status_code >= 200 && log.status_code < 300;
-  return (
-    <>
-      <tr className="border-t hover:bg-muted/30 cursor-pointer transition-colors" onClick={onToggle}>
-        <td className="px-3 py-2">
-          {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-        </td>
-        <td className="px-3 py-2 font-mono">{log.event_name ?? "—"}</td>
-        <td className="px-3 py-2">{log.client_slug ?? <span className="text-slate-700 italic">default</span>}</td>
-        <td className="px-3 py-2 font-mono">{log.pixel_id ? `…${log.pixel_id.slice(-4)}` : "—"}</td>
-        <td className="px-3 py-2 text-center">
-          {log.status_code != null ? (
-            <Badge variant={statusOk ? "default" : "destructive"} className={`text-sm ${statusOk ? "border border-emerald-300 bg-emerald-100 text-emerald-950 hover:bg-emerald-100" : ""}`}>
-              {log.status_code}
-            </Badge>
-          ) : <span className="text-slate-700">—</span>}
-        </td>
-        <td className="px-3 py-2 text-right text-slate-700">{relTime(log.fired_at)}</td>
-      </tr>
-      {expanded && (
-        <tr className="bg-muted/20">
-          <td colSpan={6} className="px-4 py-3">
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-slate-700 uppercase tracking-wider">Payload</p>
-              <pre className="text-sm font-mono bg-white border border-slate-300 rounded p-3 max-h-64 overflow-auto whitespace-pre-wrap break-all">
-                {JSON.stringify(log.payload, null, 2) ?? "null"}
-              </pre>
-              {log.response && (
-                <>
-                  <p className="text-sm font-semibold text-slate-700 uppercase tracking-wider mt-2">Response</p>
-                  <pre className="text-sm font-mono bg-white border border-slate-300 rounded p-3 max-h-40 overflow-auto whitespace-pre-wrap break-all">
-                    {JSON.stringify(log.response, null, 2)}
-                  </pre>
-                </>
-              )}
-            </div>
-          </td>
-        </tr>
-      )}
-    </>
-  );
-}
-
-/* ══════════════════════════════════════════════════════════════
-   Realtime Signal Log (multi-filter + CSV export + virtualization + resiliency)
-   ══════════════════════════════════════════════════════════════ */
-
-type ChannelState = "live" | "reconnecting" | "disconnected";
-
-function SignalLogSection({ clients, sessionKey }: { clients: Client[]; sessionKey: string }) {
-  const [logs, setLogs] = useState<SignalLog[]>([]);
-  const [filterSlug, setFilterSlug] = useState<string>("all");
-  const [filterEvent, setFilterEvent] = useState<string>("all");
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(LOG_VISIBLE_COUNT);
-  const [channelState, setChannelState] = useState<ChannelState>("reconnecting");
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  // Fetch logs from REST (used on mount + manual refresh)
-  const fetchLogs = useCallback(async (showSpinner = true) => {
-    if (showSpinner) setLoading(true);
-    else setRefreshing(true);
-    try {
-      const { data } = await supabase
-        .from("capi_signal_logs")
-        .select("*")
-        .order("fired_at", { ascending: false })
-        .limit(200);
-      setLogs((data ?? []) as SignalLog[]);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
-
-  // Session-scoped: reset state when sessionKey changes
-  useEffect(() => {
-    setLogs([]);
-    setFilterSlug("all");
-    setFilterEvent("all");
-    setExpandedId(null);
-    setVisibleCount(LOG_VISIBLE_COUNT);
-    setChannelState("reconnecting");
-    fetchLogs(true);
-  }, [sessionKey, fetchLogs]);
-
-  // Realtime subscription with connection state tracking
-  useEffect(() => {
-    const channel = supabase
-      .channel(`capi-signal-realtime-${sessionKey}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "capi_signal_logs" },
-        (payload) => setLogs(prev => [payload.new as SignalLog, ...prev].slice(0, 500))
-      )
-      .subscribe((status) => {
-        if (status === "SUBSCRIBED") setChannelState("live");
-        else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") setChannelState("disconnected");
-        else if (status === "CLOSED") setChannelState("disconnected");
-      });
-
-    return () => { supabase.removeChannel(channel); };
-  }, [sessionKey]);
-
-  /** Unique event names for the event type filter */
-  const eventNames = useMemo(() => {
-    const set = new Set<string>();
-    for (const l of logs) if (l.event_name) set.add(l.event_name);
-    return Array.from(set).sort();
-  }, [logs]);
-
-  /** AND-logic: both filters must pass */
-  const filtered = useMemo(() => {
-    return logs.filter(l => {
-      const slugMatch = filterSlug === "all" || (filterSlug === "default" ? !l.client_slug : l.client_slug === filterSlug);
-      const eventMatch = filterEvent === "all" || l.event_name === filterEvent;
-      return slugMatch && eventMatch;
-    });
-  }, [logs, filterSlug, filterEvent]);
-
-  /** Virtualized slice */
-  const visibleLogs = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
-
-  /** Load more on scroll */
-  const handleScroll = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 100) {
-      setVisibleCount(prev => Math.min(prev + LOG_VISIBLE_COUNT, filtered.length));
-    }
-  }, [filtered.length]);
-
-  /** Build client slug→name map for CSV */
-  const slugToName = useMemo(() => {
-    const m: Record<string, string> = {};
-    for (const c of clients) m[c.slug] = c.name;
-    return m;
-  }, [clients]);
-
-  /** Stream-friendly chunked CSV export */
-  function exportCsv() {
-    const headers = ["id", "type", "partner_slug", "partner_name", "timestamp", "pixel_id", "status_code", "payload"];
-    const chunks: string[] = [headers.join(",") + "\n"];
-    const CHUNK_SIZE = 500;
-    for (let i = 0; i < filtered.length; i += CHUNK_SIZE) {
-      const slice = filtered.slice(i, i + CHUNK_SIZE);
-      const block = slice.map(l => [
-        l.id,
-        l.event_name ?? "",
-        l.client_slug ?? "default",
-        l.client_slug ? (slugToName[l.client_slug] ?? l.client_slug) : "Default Pixel",
-        new Date(l.fired_at).toISOString(),
-        l.pixel_id ?? "",
-        String(l.status_code ?? ""),
-        JSON.stringify(l.payload ?? {}),
-      ].map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
-      chunks.push(block + "\n");
-    }
-    const blob = new Blob(chunks, { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `signal-log-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success(`Exported ${filtered.length} signals`);
-  }
-
-  const stateLabel: Record<ChannelState, string> = { live: "Live", reconnecting: "Connecting…", disconnected: "Disconnected" };
-  const stateDot: Record<ChannelState, string> = { live: "bg-emerald-500", reconnecting: "bg-amber-500 animate-pulse", disconnected: "bg-destructive" };
-
-  return (
-    <section className="space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Radio className="h-4 w-4 text-primary" />
-          <h2 className="text-sm font-bold uppercase tracking-wider">CAPI Signal Log</h2>
-          <span className="text-xs text-slate-700">({filtered.length})</span>
-          {/* Connection state indicator */}
-          <span className="inline-flex items-center gap-1 ml-1" title={stateLabel[channelState]}>
-            <span className={`w-1.5 h-1.5 rounded-full ${stateDot[channelState]}`} />
-            <span className="text-sm text-slate-700">{stateLabel[channelState]}</span>
-          </span>
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <KpiCard label="Active Clients" value={String(health.activeClients)} />
+          <KpiCard label="Meta Configured" value={String(health.metaConfigured)} help="Browser pixel/dataset identifier used for PageView and event routing." />
+          <KpiCard label="Google Configured" value={String(health.googleConfigured)} help="Google Ads account-level conversion destination." />
+          <KpiCard label="Server GTM Configured" value={String(health.serverGtmConfigured)} help="Server-side GTM endpoint used to forward browser/server events." />
+          <KpiCard label="Missing Secrets" value={String(health.missingSecrets)} help="Secure reference to the Meta access token. Raw token is not displayed." />
+          <KpiCard label="Last Signal Failure" value={health.lastFailure} />
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Manual refresh button */}
-          <Button
-            size="sm" variant="outline"
-            className="h-11 min-w-[44px] min-h-[44px] p-0 w-11"
-            onClick={() => fetchLogs(false)}
-            disabled={refreshing}
-            title="Refresh signals"
-            aria-label="Refresh signal log"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
-          </Button>
-
-          {/* Event type filter */}
-          <Select value={filterEvent} onValueChange={setFilterEvent}>
-            <SelectTrigger className="w-40 h-8 text-xs">
-              <SelectValue placeholder="Signal type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Events</SelectItem>
-              {eventNames.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}
-            </SelectContent>
-          </Select>
-
-          {/* Client filter */}
-          <Select value={filterSlug} onValueChange={setFilterSlug}>
-            <SelectTrigger className="w-40 h-8 text-xs">
-              <SelectValue placeholder="Filter by client" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Clients</SelectItem>
-              <SelectItem value="default">Default Pixel</SelectItem>
-              {clients.map(c => <SelectItem key={c.id} value={c.slug}>{c.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-
-          {/* CSV export */}
-          <Button size="sm" variant="outline" className="h-11 min-w-[44px] min-h-[44px] text-xs px-3" onClick={exportCsv} disabled={filtered.length === 0}>
-            <Download className="h-3.5 w-3.5 mr-1" /> CSV
-          </Button>
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-5 w-5 animate-spin text-slate-700" />
-        </div>
-      ) : filtered.length === 0 ? (
-        <p className="text-xs text-slate-700 text-center py-8">No signals match the current filters.</p>
-      ) : (
-        <div
-          ref={scrollRef}
-          onScroll={handleScroll}
-          className="border rounded-lg overflow-auto max-h-[600px]"
-        >
-          <table className="w-full text-xs">
-            <thead className="sticky top-0 z-10">
-              <tr className="bg-muted/50 text-left">
-                <th className="px-3 py-2 w-6"></th>
-                <th className="px-3 py-2">Event</th>
-                <th className="px-3 py-2">Client</th>
-                <th className="px-3 py-2">Pixel</th>
-                <th className="px-3 py-2 text-center">Status</th>
-                <th className="px-3 py-2 text-right">Time</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visibleLogs.map(log => (
-                <SignalLogRow
-                  key={log.id} log={log}
-                  expanded={expandedId === log.id}
-                  onToggle={() => setExpandedId(expandedId === log.id ? null : log.id)}
-                />
-              ))}
-              {visibleCount < filtered.length && (
-                <tr>
-                  <td colSpan={6} className="px-3 py-3 text-center">
-                    <Button
-                      size="sm" variant="ghost" className="text-xs h-8"
-                      onClick={() => setVisibleCount(prev => Math.min(prev + LOG_VISIBLE_COUNT, filtered.length))}
-                    >
-                      Load more ({filtered.length - visibleCount} remaining)
-                    </Button>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </section>
-  );
-}
-
-/* ══════════════════════════════════════════════════════════════
-   Main Page
-   ══════════════════════════════════════════════════════════════ */
-
-function AdminPartnersContent() {
-  const { hasWriteAccess, isViewer } = useCurrentUserRole();
-  const [clients, setClients] = useState<Client[]>([]);
-  const [configs, setConfigs] = useState<MetaConfig[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editClient, setEditClient] = useState<Client | null>(null);
-
-  // Delete state
-  const [deleteTarget, setDeleteTarget] = useState<Client | null>(null);
-  const [deleting, setDeleting] = useState(false);
-
-  // Search & sort
-  const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [sortKey, setSortKey] = useState<SortKey>("created_at");
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
-
-  // Session key for scoping signal log state — changes whenever client list refreshes
-  const [sessionKey, setSessionKey] = useState(() => crypto.randomUUID());
-
-  // Debounce search input
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(searchQuery), 250);
-    return () => clearTimeout(t);
-  }, [searchQuery]);
-
-  const fetchAll = useCallback(async () => {
-    const [{ data: c }, { data: m }] = await Promise.all([
-      supabase.from("clients").select("*").order("created_at", { ascending: false }),
-      supabase.from("meta_configurations").select("*"),
-    ]);
-    setClients((c ?? []) as Client[]);
-    setConfigs((m ?? []) as MetaConfig[]);
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { fetchAll(); }, [fetchAll]);
-
-  const configByClientId = useMemo(() => {
-    const map: Record<string, MetaConfig> = {};
-    for (const mc of configs) if (mc.client_id) map[mc.client_id] = mc;
-    return map;
-  }, [configs]);
-
-  /** Filtered + sorted client list */
-  const displayClients = useMemo(() => {
-    let list = clients;
-    if (debouncedSearch) {
-      const q = debouncedSearch.toLowerCase();
-      list = list.filter(c => c.name.toLowerCase().includes(q) || c.slug.toLowerCase().includes(q));
-    }
-    return [...list].sort((a, b) => {
-      let cmp = 0;
-      if (sortKey === "name") cmp = a.name.localeCompare(b.name);
-      else if (sortKey === "slug") cmp = a.slug.localeCompare(b.slug);
-      else if (sortKey === "is_active") cmp = Number(a.is_active) - Number(b.is_active);
-      else cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-  }, [clients, debouncedSearch, sortKey, sortDir]);
-
-  function handleSort(key: SortKey) {
-    if (sortKey === key) {
-      setSortDir(d => d === "asc" ? "desc" : "asc");
-    } else {
-      setSortKey(key);
-      setSortDir("asc");
-    }
-  }
-
-  function openCreate() {
-    if (!hasWriteAccess) { toast.error("You don't have permission to create clients"); return; }
-    setEditClient(null);
-    setModalOpen(true);
-  }
-
-  function openEdit(c: Client) {
-    if (!hasWriteAccess) { toast.error("You don't have permission to edit clients"); return; }
-    setEditClient(c);
-    setModalOpen(true);
-  }
-
-  /** Restore (undo soft-delete) — sets is_active back to true */
-  async function handleRestore(client: Client) {
-    try {
-      const { error, data } = await supabase
-        .from("clients")
-        .update({ is_active: true })
-        .eq("id", client.id)
-        .select("id")
-        .single();
-      // Race condition: record was hard-deleted or doesn't exist
-      if (error || !data) {
-        toast.error("This record has already been removed and cannot be restored.");
-        return;
-      }
-      toast.success(`"${client.name}" has been restored`);
-      fetchAll();
-    } catch {
-      toast.error("Restore failed");
-    }
-  }
-
-  async function handleDelete() {
-    if (!deleteTarget || !hasWriteAccess || deleting) return; // Idempotency guard
-    setDeleting(true);
-    try {
-      // Race condition: check the record still exists and is active before soft-deleting
-      const { data: current, error: fetchError } = await supabase
-        .from("clients")
-        .select("id, is_active, name")
-        .eq("id", deleteTarget.id)
-        .maybeSingle();
-
-      if (fetchError) throw fetchError;
-
-      if (!current) {
-        toast.info("This record has already been removed.");
-        setDeleteTarget(null);
-        fetchAll();
-        return;
-      }
-
-      if (!current.is_active) {
-        toast.info(`"${current.name}" was already deactivated.`);
-        setDeleteTarget(null);
-        fetchAll();
-        return;
-      }
-
-      const { error } = await supabase.from("clients").update({ is_active: false }).eq("id", deleteTarget.id);
-      if (error) throw error;
-
-      const deletedName = deleteTarget.name;
-      const deletedClient = { ...deleteTarget };
-      setDeleteTarget(null);
-      fetchAll();
-
-      // Undo toast with restore action
-      toast.success(`"${deletedName}" has been deactivated`, {
-        action: {
-          label: "Undo",
-          onClick: () => handleRestore(deletedClient),
-        },
-        duration: 8000,
-      });
-    } catch (err: any) {
-      console.error("[AdminPartners] delete error:", err);
-      toast.error(err?.message ?? "Delete failed");
-    } finally {
-      setDeleting(false);
-    }
-  }
-
-  const existingSlugs = clients.map(c => c.slug);
-
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="border-b bg-card">
-        <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link to="/admin" className="flex items-center gap-1 text-xs text-slate-700 hover:text-primary transition-colors mr-1 min-h-[44px] min-w-[44px] justify-center">
-              <ArrowLeft className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">CRM</span>
-            </Link>
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <ShieldAlert className="mt-0.5 h-5 w-5 text-amber-950" />
             <div>
-              <h1 className="text-xl font-bold tracking-tight">White-Label Partners</h1>
-              <p className="text-xs text-slate-700 mt-0.5">
-                {clients.length} client{clients.length !== 1 ? "s" : ""} configured
-              </p>
+              <div className="text-sm font-black text-amber-950">Secret storage path not configured</div>
+              <div className="mt-1 text-sm font-semibold text-slate-700">
+                Existing Meta tokens are redacted by the admin edge function, but no Supabase Vault/secret-reference write path exists in this repo. Raw access tokens cannot be created or replaced from this UI.
+              </div>
             </div>
           </div>
-          {hasWriteAccess && (
-            <Button size="sm" onClick={openCreate} className="min-h-[44px] min-w-[44px]">
-              <Plus className="h-4 w-4 mr-1.5" /> Add Client
-            </Button>
-          )}
-        </div>
-      </div>
-
-      <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 space-y-8">
-        {/* ── Search bar ── */}
-        <div className="relative max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-700" />
-          <Input
-            placeholder="Search clients…"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="pl-9 h-11"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 min-h-[44px] min-w-[44px] flex items-center justify-center"
-            >
-              <X className="h-3.5 w-3.5 text-slate-700 hover:text-foreground" />
-            </button>
-          )}
         </div>
 
-        {/* ── Client List ── */}
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-slate-700" />
-          </div>
-        ) : displayClients.length === 0 ? (
-          <div className="text-center py-12 border rounded-lg bg-card">
-            <p className="text-sm text-slate-700">
-              {debouncedSearch ? `No clients match "${debouncedSearch}"` : 'No clients yet. Click "Add Client" to get started.'}
-            </p>
-          </div>
-        ) : (
-          <div className="border rounded-lg overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-muted/50 text-left text-xs uppercase tracking-wider text-slate-700">
-                  <SortableHeader label="Client" sortKey="name" currentKey={sortKey} currentDir={sortDir} onSort={handleSort} />
-                  <SortableHeader label="Slug" sortKey="slug" currentKey={sortKey} currentDir={sortDir} onSort={handleSort} />
-                  <th className="px-4 py-2.5 text-center">Pixel Status</th>
-                  <SortableHeader label="Active" sortKey="is_active" currentKey={sortKey} currentDir={sortDir} onSort={handleSort} className="text-center" />
-                  <SortableHeader label="Created" sortKey="created_at" currentKey={sortKey} currentDir={sortDir} onSort={handleSort} />
-                  <th className="px-4 py-2.5 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {displayClients.map(c => {
-                  const mc = configByClientId[c.id];
-                  const ready = !!(mc?.pixel_id && mc?.access_token);
-                  return (
-                    <tr key={c.id} className="border-t hover:bg-muted/30 transition-colors">
-                      <td className="px-4 py-3 font-medium">{c.name}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-slate-700">/lp/{c.slug}</td>
-                      <td className="px-4 py-3 text-center">
-                        <Badge
-                          variant={ready ? "default" : "secondary"}
-                          className={ready ? "border border-emerald-300 bg-emerald-100 text-emerald-950 hover:bg-emerald-100" : "bg-amber-100 text-amber-800 hover:bg-amber-100"}
-                        >
-                          {ready ? "Ready" : "Needs Setup"}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={`inline-block w-2 h-2 rounded-full ${c.is_active ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
-                      </td>
-                      <td className="px-4 py-3 text-xs text-slate-700">{formatDate(c.created_at)}</td>
-                      <td className="px-4 py-3 text-right">
-                        {hasWriteAccess ? (
-                          <div className="inline-flex items-center gap-1">
-                            <Button
-                              size="sm" variant="ghost"
-                              className="min-h-[44px] min-w-[44px] px-3"
-                              onClick={() => openEdit(c)}
-                            >
-                              <Settings className="h-3.5 w-3.5 mr-1" /> Manage
-                            </Button>
-                            {c.is_active ? (
-                              <Button
-                                size="sm" variant="ghost"
-                                className="text-destructive hover:text-destructive hover:bg-destructive/10 min-h-[44px] min-w-[44px] p-0"
-                                onClick={() => setDeleteTarget(c)}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
-                            ) : (
-                              <Button
-                                size="sm" variant="ghost"
-                                className="text-emerald-600 hover:text-emerald-950 hover:bg-emerald-50 min-h-[44px] min-w-[44px] p-0"
-                                onClick={() => handleRestore(c)}
-                                title="Restore client"
-                              >
-                                <RotateCcw className="h-3.5 w-3.5" />
-                              </Button>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-xs text-slate-700 italic">View only</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+        {error && (
+          <div className="rounded-2xl border border-red-300 bg-red-50 p-4 text-sm font-bold text-red-950 shadow-sm">
+            <AlertTriangle className="mr-2 inline h-4 w-4" /> {error}
           </div>
         )}
 
-        {/* ── Signal Log ── */}
-        <SignalLogSection clients={clients} sessionKey={sessionKey} />
+        <div className="flex flex-col gap-3 rounded-2xl border border-slate-300 bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between">
+          <div className="relative w-full md:max-w-sm">
+            <Search className="absolute left-3 top-3 h-4 w-4 text-slate-700" />
+            <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search clients or slugs" className="border-slate-300 pl-9 text-slate-950 placeholder:text-slate-700" />
+            {search ? <button type="button" onClick={() => setSearch("")} className="absolute right-2 top-1.5 inline-flex h-8 w-8 items-center justify-center text-slate-700"><X className="h-4 w-4" /></button> : null}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={fetchAll} disabled={loading} className="gap-2 border-slate-400 bg-white text-slate-950">
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
+            </Button>
+            {hasWriteAccess ? (
+              <Button onClick={() => openEditor(null)} className="gap-2 bg-slate-950 text-white hover:bg-slate-800">
+                <Plus className="h-4 w-4" /> Add Client
+              </Button>
+            ) : null}
+          </div>
+        </div>
+
+        <section className="overflow-hidden rounded-2xl border border-slate-300 bg-white shadow-sm">
+          {loading ? (
+            <div className="flex items-center justify-center py-16 text-slate-700"><Loader2 className="h-6 w-6 animate-spin" /></div>
+          ) : clients.length === 0 ? (
+            <div className="p-8 text-center">
+              <div className="text-xl font-black text-slate-950">Client tracking config table not found or empty</div>
+              <p className="mt-2 text-sm font-semibold text-slate-700">Create/confirm client configs before enabling pixel management.</p>
+            </div>
+          ) : (
+            <div className="wm-slim-scrollbar overflow-x-auto">
+              <table className="w-full min-w-[1180px] text-sm">
+                <thead className="border-b border-slate-300 bg-slate-50 text-left text-xs font-black uppercase text-slate-800">
+                  <tr>
+                    <th className="px-4 py-3">Client Name</th>
+                    <th className="px-4 py-3">Client Slug <HelpTip>URL/config routing key used to associate leads and tracking config.</HelpTip></th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Meta Pixel <HelpTip>Browser pixel/dataset identifier used for PageView and event routing.</HelpTip></th>
+                    <th className="px-4 py-3">Meta CAPI Secret <HelpTip>Secure reference to the Meta access token. Raw token is not displayed.</HelpTip></th>
+                    <th className="px-4 py-3">Google Ads</th>
+                    <th className="px-4 py-3">Server GTM</th>
+                    <th className="px-4 py-3">Last Success</th>
+                    <th className="px-4 py-3">Last Failure</th>
+                    <th className="px-4 py-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {filteredClients.map((client) => {
+                    const meta = metaByClientId.get(client.id) ?? null;
+                    const redacted = redactedByClientId.get(client.id) ?? null;
+                    const status = configStatus(client, meta, redacted, signalLogs);
+                    const clientLogs = signalLogs.filter((log) => log.client_slug === client.slug);
+                    const lastSuccess = clientLogs.find((log) => (log.status_code ?? 0) >= 200 && (log.status_code ?? 0) < 300);
+                    const lastFailure = clientLogs.find((log) => (log.status_code ?? 0) >= 400);
+                    return (
+                      <tr key={client.id} className="hover:bg-slate-50">
+                        <td className="px-4 py-4 font-black text-slate-950">{client.name}</td>
+                        <td className="px-4 py-4 font-mono text-sm font-bold text-slate-900">{client.slug}</td>
+                        <td className="px-4 py-4"><StatusBadge tone={status.tone}>{status.label}</StatusBadge></td>
+                        <td className="px-4 py-4 font-mono text-sm font-bold text-slate-900">{maskId(meta?.pixel_id)}</td>
+                        <td className="px-4 py-4">{tokenConfigured(redacted) ? <StatusBadge tone="emerald">Configured</StatusBadge> : <StatusBadge tone="red">Missing</StatusBadge>}</td>
+                        <td className="px-4 py-4"><StatusBadge tone="slate">Not configured</StatusBadge></td>
+                        <td className="px-4 py-4"><StatusBadge tone="slate">Not configured</StatusBadge></td>
+                        <td className="px-4 py-4 font-bold text-slate-700">{formatTime(lastSuccess?.fired_at)}</td>
+                        <td className="px-4 py-4 font-bold text-slate-700">{formatTime(lastFailure?.fired_at)}</td>
+                        <td className="px-4 py-4">
+                          <div className="flex flex-wrap gap-2">
+                            <Button size="sm" variant="outline" onClick={() => openEditor(client)} className="border-slate-400 bg-white text-slate-950"><Settings className="mr-1 h-3.5 w-3.5" /> Configure</Button>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span>
+                                  <Button size="sm" variant="outline" disabled={testing || !meta?.pixel_id || !meta.test_event_code || !tokenConfigured(redacted)} onClick={() => sendTestEvent(client)} className="border-slate-400 bg-white text-slate-950 disabled:text-slate-700"><Send className="mr-1 h-3.5 w-3.5" /> Test Signal</Button>
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent className="border border-slate-300 bg-white text-sm font-semibold text-slate-900">Sends a safe diagnostic event if backend support exists. Does not mark a lead sold.</TooltipContent>
+                            </Tooltip>
+                            <Button asChild size="sm" variant="outline" className="border-slate-400 bg-white text-slate-950"><Link to={`/admin/signal-dispatch?client_slug=${client.slug}`}>View Signals</Link></Button>
+                            <Button asChild size="sm" variant="outline" className="border-slate-400 bg-white text-slate-950"><Link to={`/admin/attribution?client_slug=${client.slug}`}>View Attribution</Link></Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
       </div>
 
-      {/* ── Dossier Modal ── */}
-      <ClientDossierModal
-        open={modalOpen}
-        onClose={() => { setModalOpen(false); setEditClient(null); }}
-        client={editClient}
-        metaConfig={editClient ? configByClientId[editClient.id] ?? null : null}
-        existingSlugs={existingSlugs}
-        onSaved={() => {
-          fetchAll();
-          setSessionKey(crypto.randomUUID()); // Reset signal log session on data change
-        }}
-      />
+      <Sheet open={editorOpen} onOpenChange={(open) => { setEditorOpen(open); if (!open) setSelectedClient(null); }}>
+        <SheetContent side="right" className="w-full overflow-y-auto bg-white sm:max-w-3xl">
+          <SheetHeader>
+            <SheetTitle className="text-2xl font-black text-slate-950">Client configuration</SheetTitle>
+            <SheetDescription className="font-semibold text-slate-700">Edit non-secret metadata only. Raw access tokens are never displayed or stored from this drawer.</SheetDescription>
+          </SheetHeader>
 
-      {/* ── Delete Confirmation ── */}
-      <DeleteConfirmDialog
-        open={!!deleteTarget}
-        clientName={deleteTarget?.name ?? ""}
-        deleting={deleting}
-        onConfirm={handleDelete}
-        onCancel={() => setDeleteTarget(null)}
-      />
+          <div className="mt-5 space-y-6">
+            {validationErrors.length > 0 ? (
+              <div className="rounded-2xl border border-amber-300 bg-amber-50 p-3 text-sm font-bold text-amber-950">
+                {validationErrors[0]}
+              </div>
+            ) : null}
+
+            <section className="space-y-3">
+              <h3 className="text-sm font-black uppercase text-slate-800">Client Identity</h3>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5"><Label className="font-bold text-slate-700">friendly_name</Label><Input value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value, slug: d.id ? d.slug : slugify(e.target.value) }))} className="border-slate-300 text-slate-950" /></div>
+                <div className="space-y-1.5"><Label className="flex items-center gap-2 font-bold text-slate-700">client_slug <HelpTip>URL/config routing key used to associate leads and tracking config.</HelpTip></Label><Input value={draft.slug} onChange={(e) => setDraft((d) => ({ ...d, slug: slugify(e.target.value) }))} className="border-slate-300 font-mono text-slate-950" /></div>
+              </div>
+              <div className="flex items-center justify-between rounded-xl border border-slate-300 bg-white p-3"><Label className="font-bold text-slate-700">Active status</Label><Switch checked={draft.isActive} onCheckedChange={(value) => setDraft((d) => ({ ...d, isActive: value }))} disabled={!hasWriteAccess} /></div>
+              <Textarea value={draft.notes} onChange={(e) => setDraft((d) => ({ ...d, notes: e.target.value }))} placeholder="Notes field not backed by current schema" className="border-slate-300 text-slate-950 placeholder:text-slate-700" disabled />
+            </section>
+
+            <section className="space-y-3">
+              <h3 className="text-sm font-black uppercase text-slate-800">Meta Configuration</h3>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5"><Label className="flex items-center gap-2 font-bold text-slate-700">Meta Pixel ID <HelpTip>Browser pixel/dataset identifier used for PageView and event routing.</HelpTip></Label><Input value={draft.pixelId} onChange={(e) => setDraft((d) => ({ ...d, pixelId: e.target.value.replace(/\D/g, "").slice(0, 20) }))} placeholder="123456789012345" className="border-slate-300 font-mono text-slate-950 placeholder:text-slate-700" /></div>
+                <div className="space-y-1.5"><Label className="flex items-center gap-2 font-bold text-slate-700">Test Event Code <HelpTip>Sends a safe diagnostic event if backend support exists. Does not mark a lead sold.</HelpTip></Label><Input value={draft.testEventCode} onChange={(e) => setDraft((d) => ({ ...d, testEventCode: sanitizeText(e.target.value, 80) }))} placeholder="TEST12345" className="border-slate-300 font-mono text-slate-950 placeholder:text-slate-700" /></div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <ReadOnlyState label="CAPI Access Token Secret Reference" value={tokenConfigured(selectedRedacted) ? "configured · raw token hidden" : "missing"} help="Secure reference to the Meta access token. Raw token is not displayed." />
+                <ReadOnlyState label="Dataset ID" value="Uses Pixel ID field" />
+                <ReadOnlyState label="Last Meta success" value={formatTime(signalLogs.find((log) => log.client_slug === draft.slug && (log.status_code ?? 0) < 300)?.fired_at)} />
+                <ReadOnlyState label="Last Meta failure" value={formatTime(signalLogs.find((log) => log.client_slug === draft.slug && (log.status_code ?? 0) >= 400)?.fired_at)} />
+              </div>
+            </section>
+
+            <section className="space-y-3">
+              <h3 className="text-sm font-black uppercase text-slate-800">Google Configuration</h3>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <DisabledField label="Google Ads Conversion ID" value={draft.googleConversionId} help="Google Ads account-level conversion destination." />
+                <DisabledField label="Verified Lead Conversion Label" value={draft.googleVerifiedLeadLabel} help="Specific Google Ads conversion action label, such as verified lead or purchase." />
+                <DisabledField label="Purchase/Sold Conversion Label" value={draft.googleSoldLabel} help="Specific Google Ads conversion action label, such as verified lead or purchase." />
+                <ReadOnlyState label="Enhanced Conversions" value="Not configured" />
+              </div>
+            </section>
+
+            <section className="space-y-3">
+              <h3 className="text-sm font-black uppercase text-slate-800">GTM Server Configuration</h3>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <DisabledField label="Server container URL" value={draft.serverGtmUrl} help="Server-side GTM endpoint used to forward browser/server events." />
+                <ReadOnlyState label="routing mode" value={draft.serverRoutingMode} />
+                <ReadOnlyState label="last server hit" value="No signal logs yet" />
+                <ReadOnlyState label="health state" value="Secret/config table prerequisite missing" />
+              </div>
+            </section>
+
+            <section className="space-y-3">
+              <h3 className="text-sm font-black uppercase text-slate-800">Secret References</h3>
+              <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm font-semibold text-slate-700">
+                Secret storage path not configured. Token replacement requires a secure Edge Function + Vault/secret-reference schema. This UI will not accept raw access tokens.
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <ReadOnlyState label="Meta token reference" value={tokenConfigured(selectedRedacted) ? "legacy configured · token hidden" : "missing"} />
+                <ReadOnlyState label="Google token reference" value="missing" />
+              </div>
+            </section>
+
+            <section className="space-y-3">
+              <h3 className="text-sm font-black uppercase text-slate-800">Test / Validate</h3>
+              <div className="grid gap-2 text-sm font-bold text-slate-700">
+                <ChecklistItem ok={Boolean(draft.name && SLUG_REGEX.test(draft.slug))} label="Client identity valid" />
+                <ChecklistItem ok={!draft.pixelId || PIXEL_REGEX.test(draft.pixelId)} label="Meta Pixel ID format valid" />
+                <ChecklistItem ok={tokenConfigured(selectedRedacted)} label="CAPI token configured without exposing raw token" />
+                <ChecklistItem ok={false} label="Google/GTM config tables not present" />
+              </div>
+              <div className="flex flex-wrap gap-2 pt-2">
+                {hasWriteAccess ? <Button onClick={saveConfig} disabled={saving || validationErrors.length > 0} className="bg-slate-950 text-white hover:bg-slate-800">{saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Save metadata</Button> : null}
+                {selectedClient ? <Button variant="outline" disabled={testing || !selectedMeta?.pixel_id || !selectedMeta.test_event_code || !tokenConfigured(selectedRedacted)} onClick={() => sendTestEvent(selectedClient)} className="border-slate-400 bg-white text-slate-950"><Send className="mr-2 h-4 w-4" />Send Test Event</Button> : null}
+                <Button asChild variant="outline" className="border-slate-400 bg-white text-slate-950"><Link to={`/admin/signal-dispatch?client_slug=${draft.slug}`}>View Signals <ExternalLink className="ml-2 h-4 w-4" /></Link></Button>
+                <Button asChild variant="outline" className="border-slate-400 bg-white text-slate-950"><Link to={`/admin/attribution?client_slug=${draft.slug}`}>View Attribution <ExternalLink className="ml-2 h-4 w-4" /></Link></Button>
+              </div>
+            </section>
+          </div>
+        </SheetContent>
+      </Sheet>
+    </AdminShell>
+  );
+}
+
+function ReadOnlyState({ label, value, help }: { label: string; value: string; help?: string }) {
+  return (
+    <div className="rounded-xl border border-slate-300 bg-white p-3">
+      <div className="flex items-center gap-2 text-xs font-black uppercase text-slate-700">{label}{help ? <HelpTip>{help}</HelpTip> : null}</div>
+      <div className="mt-1 break-all text-sm font-bold text-slate-950">{value || "—"}</div>
+    </div>
+  );
+}
+
+function DisabledField({ label, value, help }: { label: string; value: string; help: string }) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="flex items-center gap-2 font-bold text-slate-700">{label}<HelpTip>{help}</HelpTip></Label>
+      <Input value={value} disabled placeholder="Requires client_configs schema" className="border-slate-300 bg-slate-50 text-slate-700 placeholder:text-slate-700" />
+    </div>
+  );
+}
+
+function ChecklistItem({ ok, label }: { ok: boolean; label: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      {ok ? <CheckCircle2 className="h-4 w-4 text-emerald-700" /> : <AlertTriangle className="h-4 w-4 text-amber-700" />}
+      <span>{label}</span>
     </div>
   );
 }
