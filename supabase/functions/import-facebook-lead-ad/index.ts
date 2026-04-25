@@ -12,6 +12,7 @@ type NormalizedLeadAdPayload = {
   platformLeadId: string;
   sourcePlatform: string;
   sourceChannel: string;
+  sourceDetail: string | null;
   campaignId: string | null;
   campaignName: string | null;
   adsetId: string | null;
@@ -19,6 +20,7 @@ type NormalizedLeadAdPayload = {
   adId: string | null;
   adName: string | null;
   formId: string | null;
+  platformCreatedTime: string | null;
   fbclid: string | null;
   gclid: string | null;
   fbc: string | null;
@@ -29,12 +31,16 @@ type NormalizedLeadAdPayload = {
   utmTerm: string | null;
   utmContent: string | null;
   landingPageUrl: string | null;
+  firstPagePath: string | null;
+  initialReferrer: string | null;
   clientSlug: string;
   firstName: string | null;
   lastName: string | null;
   fullName: string | null;
   email: string | null;
   phoneE164: string | null;
+  county: string | null;
+  rawPayload: JsonRecord | null;
 };
 
 const MAX_TEXT = 500;
@@ -74,6 +80,13 @@ function normalizePhone(value: unknown): string | null {
   if (digits.length === 10) return `+1${digits}`;
   if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
   return digits.length >= 8 && digits.length <= 15 ? `+${digits}` : null;
+}
+
+function normalizeTimestamp(value: unknown): string | null {
+  const raw = cleanText(value, 80);
+  if (!raw) return null;
+  const time = Date.parse(raw);
+  return Number.isFinite(time) ? new Date(time).toISOString() : null;
 }
 
 function getFieldMap(body: JsonRecord): Record<string, string> {
@@ -147,6 +160,7 @@ function normalizePayload(body: JsonRecord): { ok: true; payload: NormalizedLead
       platformLeadId,
       sourcePlatform: "facebook",
       sourceChannel: "lead_ads",
+      sourceDetail: SOURCE,
       campaignId: cleanText(body.campaign_id ?? body.campaignId, 255),
       campaignName: cleanText(body.campaign_name ?? body.campaignName, 500),
       adsetId: cleanText(body.adset_id ?? body.adsetId, 255),
@@ -154,6 +168,7 @@ function normalizePayload(body: JsonRecord): { ok: true; payload: NormalizedLead
       adId: cleanText(body.ad_id ?? body.adId, 255),
       adName: cleanText(body.ad_name ?? body.adName, 500),
       formId: cleanText(body.form_id ?? body.formId, 255),
+      platformCreatedTime: normalizeTimestamp(body.created_time ?? body.createdTime ?? body.platform_created_time),
       fbclid: cleanText(body.fbclid, 500),
       gclid: cleanText(body.gclid, 500),
       fbc: cleanText(body.fbc, 500),
@@ -164,12 +179,16 @@ function normalizePayload(body: JsonRecord): { ok: true; payload: NormalizedLead
       utmTerm: cleanText(body.utm_term ?? body.utmTerm, 500),
       utmContent: cleanText(body.utm_content ?? body.utmContent, 500),
       landingPageUrl: cleanText(body.landing_page_url ?? body.landingPageUrl, 2000),
+      firstPagePath: cleanText(body.first_page_path ?? body.firstPagePath, 500),
+      initialReferrer: cleanText(body.initial_referrer ?? body.initialReferrer, 1000),
       clientSlug: cleanText(body.client_slug ?? body.clientSlug, 80) ?? "direct",
       firstName,
       lastName,
       fullName,
       email,
       phoneE164,
+      county: cleanText(body.county, 120),
+      rawPayload: asRecord(body.raw_payload) ?? body,
     },
   };
 }
@@ -247,6 +266,7 @@ Deno.serve(async (req) => {
         leadId = leadByPhone?.id as string | undefined;
       }
     }
+    deduped = Boolean(existingAttribution?.lead_id);
 
     const leadPatch: JsonRecord = {
       source: SOURCE,
@@ -260,6 +280,7 @@ Deno.serve(async (req) => {
       last_name: payload.lastName,
       email: payload.email,
       phone_e164: payload.phoneE164,
+      county: payload.county,
       fbclid: payload.fbclid,
       gclid: payload.gclid,
       fbc: payload.fbc,
@@ -270,6 +291,8 @@ Deno.serve(async (req) => {
       utm_term: payload.utmTerm,
       utm_content: payload.utmContent,
       landing_page_url: payload.landingPageUrl,
+      first_page_path: payload.firstPagePath,
+      initial_referrer: payload.initialReferrer,
     };
 
     for (const [key, value] of Object.entries(optionalLeadFields)) {
@@ -302,6 +325,7 @@ Deno.serve(async (req) => {
       lead_id: leadId,
       source_platform: payload.sourcePlatform,
       source_channel: payload.sourceChannel,
+      source_detail: payload.sourceDetail,
       campaign_id: payload.campaignId,
       campaign_name: payload.campaignName,
       adset_id: payload.adsetId,
@@ -310,6 +334,7 @@ Deno.serve(async (req) => {
       ad_name: payload.adName,
       form_id: payload.formId,
       platform_lead_id: payload.platformLeadId,
+      platform_created_time: payload.platformCreatedTime,
       fbclid: payload.fbclid,
       gclid: payload.gclid,
       fbc: payload.fbc,
@@ -320,22 +345,33 @@ Deno.serve(async (req) => {
       utm_term: payload.utmTerm,
       utm_content: payload.utmContent,
       landing_page_url: payload.landingPageUrl,
+      first_page_path: payload.firstPagePath,
+      initial_referrer: payload.initialReferrer,
+      import_source: "import-facebook-lead-ad",
       imported_at: now,
-      raw_payload: body,
+      raw_payload: payload.rawPayload,
       updated_at: now,
     };
 
-    if (existingAttribution?.id) {
-      const { error } = await supabase
+    let attributionId = existingAttribution?.id as string | undefined;
+
+    if (attributionId) {
+      const { data: updatedAttribution, error } = await supabase
         .from("lead_attribution_details")
         .update(attributionRow)
-        .eq("id", existingAttribution.id);
+        .eq("id", attributionId)
+        .select("id")
+        .single();
       if (error) throw error;
+      attributionId = updatedAttribution.id as string;
     } else {
-      const { error } = await supabase
+      const { data: insertedAttribution, error } = await supabase
         .from("lead_attribution_details")
-        .insert(attributionRow);
+        .insert(attributionRow)
+        .select("id")
+        .single();
       if (error) throw error;
+      attributionId = insertedAttribution.id as string;
     }
 
     await supabase.from("event_logs").insert({
@@ -355,7 +391,7 @@ Deno.serve(async (req) => {
         ad_id: payload.adId,
         ad_name: payload.adName,
         form_id: payload.formId,
-        deduped,
+        reused: deduped,
         phone_verified: false,
         imported_at: now,
       },
@@ -364,10 +400,8 @@ Deno.serve(async (req) => {
     return jsonResponse({
       success: true,
       lead_id: leadId,
-      platform_lead_id: payload.platformLeadId,
-      deduped,
-      source: SOURCE,
-      phone_verified: false,
+      attribution_id: attributionId,
+      reused: deduped,
     });
   } catch (err) {
     console.error("[FB_LEAD_AD_IMPORT:ERROR]", err);

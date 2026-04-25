@@ -1684,15 +1684,20 @@ export type Database = {
           fbc: string | null
           fbclid: string | null
           fbp: string | null
+          first_page_path: string | null
           form_id: string | null
           gclid: string | null
           id: string
-          imported_at: string
+          import_source: string | null
+          imported_at: string | null
+          initial_referrer: string | null
           landing_page_url: string | null
           lead_id: string
+          platform_created_time: string | null
           platform_lead_id: string | null
-          raw_payload: Json
-          source_channel: string | null
+          raw_payload: Json | null
+          source_channel: string
+          source_detail: string | null
           source_platform: string
           updated_at: string
           utm_campaign: string | null
@@ -1712,15 +1717,20 @@ export type Database = {
           fbc?: string | null
           fbclid?: string | null
           fbp?: string | null
+          first_page_path?: string | null
           form_id?: string | null
           gclid?: string | null
           id?: string
-          imported_at?: string
+          import_source?: string | null
+          imported_at?: string | null
+          initial_referrer?: string | null
           landing_page_url?: string | null
           lead_id: string
+          platform_created_time?: string | null
           platform_lead_id?: string | null
-          raw_payload?: Json
-          source_channel?: string | null
+          raw_payload?: Json | null
+          source_channel?: string
+          source_detail?: string | null
           source_platform: string
           updated_at?: string
           utm_campaign?: string | null
@@ -1740,15 +1750,20 @@ export type Database = {
           fbc?: string | null
           fbclid?: string | null
           fbp?: string | null
+          first_page_path?: string | null
           form_id?: string | null
           gclid?: string | null
           id?: string
-          imported_at?: string
+          import_source?: string | null
+          imported_at?: string | null
+          initial_referrer?: string | null
           landing_page_url?: string | null
           lead_id?: string
+          platform_created_time?: string | null
           platform_lead_id?: string | null
-          raw_payload?: Json
-          source_channel?: string | null
+          raw_payload?: Json | null
+          source_channel?: string
+          source_detail?: string | null
           source_platform?: string
           updated_at?: string
           utm_campaign?: string | null
@@ -3504,6 +3519,36 @@ export type Database = {
             Args: { p_payment_intent_id?: string; p_session_id: string }
             Returns: Json
           }
+      get_admin_attribution_spine: {
+        Args: { p_limit?: number }
+        Returns: {
+          ad_id: string
+          ad_name: string
+          adset_id: string
+          adset_name: string
+          attribution_id: string
+          campaign_id: string
+          campaign_name: string
+          created_at: string
+          fbc_present: boolean
+          fbclid_present: boolean
+          fbp_present: boolean
+          final_disposition: string
+          final_value_cents: number
+          gclid_present: boolean
+          has_email: boolean
+          has_phone: boolean
+          lead_id: string
+          lead_name: string
+          phone_verified: boolean
+          source_channel: string
+          source_detail: string
+          source_platform: string
+          utm_campaign: string
+          utm_content: string
+          utm_term: string
+        }[]
+      }
       get_analysis_full: {
         Args: { p_phone_e164: string; p_scan_session_id: string }
         Returns: {
