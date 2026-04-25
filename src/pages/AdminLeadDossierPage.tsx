@@ -238,7 +238,7 @@ export default function AdminLeadDossierPage() {
                   <div className="flex flex-wrap items-center gap-3 mt-2">
                     <Link
                       to={`/admin/leads/${leadId}/report`}
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+                      className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-blue-300 bg-blue-50 px-3 py-1 text-sm font-extrabold text-blue-800 shadow-sm hover:text-blue-950 hover:underline focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
                     >
                       <FileText className="h-3.5 w-3.5" />
                       Open Truth Report
@@ -248,13 +248,13 @@ export default function AdminLeadDossierPage() {
                         to={`/report/classic/${lead.latest_scan_session_id}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-[11px] text-slate-700 hover:text-foreground hover:underline"
+                        className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1 text-sm font-bold text-slate-800 shadow-sm hover:text-slate-950 hover:underline focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
                       >
                         Homeowner view
                         <ExternalLink className="h-3 w-3" />
                       </Link>
                     ) : (
-                      <span className="text-[11px] italic text-slate-700">
+                      <span className="text-sm font-semibold italic text-slate-700">
                         No valid homeowner report link
                       </span>
                     )}
