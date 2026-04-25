@@ -191,12 +191,12 @@ export function StepPrescription({
 
             {windowConcerns.length > 0 && (
               <div>
-                <p className="wm-eyebrow uppercase text-muted-foreground mb-2">What Matters</p>
+                <p className="wm-eyebrow uppercase text-muted-foreground mb-2 text-sm">What Matters</p>
                 <div className="flex flex-wrap gap-1.5">
                   {windowConcerns.map((c) => (
                     <span
                       key={c}
-                      className="inline-block px-3 py-1 bg-white border border-emerald/30 rounded-full text-xs font-medium text-foreground/80"
+                      className="inline-block px-3 py-1 bg-white border border-emerald/30 rounded-full font-medium text-foreground/80 text-sm"
                     >
                       {c}
                     </span>
