@@ -278,9 +278,10 @@ function AdminPartnersContent() {
 
   const filteredClients = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return clients;
-    return clients.filter((client) => client.name.toLowerCase().includes(q) || client.slug.toLowerCase().includes(q));
-  }, [clients, search]);
+    const configuredClients = clients.filter((client) => configByClientId.has(client.id));
+    if (!q) return configuredClients;
+    return configuredClients.filter((client) => client.name.toLowerCase().includes(q) || client.slug.toLowerCase().includes(q));
+  }, [clients, configByClientId, search]);
 
   const selectedMeta = selectedClient ? metaByClientId.get(selectedClient.id) ?? null : null;
   const selectedConfig = selectedClient ? configByClientId.get(selectedClient.id) ?? null : null;
@@ -289,18 +290,16 @@ function AdminPartnersContent() {
   const validationErrors = validateDraft(draft, existingSlugs);
 
   const health = useMemo(() => {
-    const activeClients = clients.filter((client) => client.is_active);
+    const activeClients = clients.filter((client) => client.is_active && configByClientId.has(client.id));
     const configuredMeta = activeClients.filter((client) => {
-      const meta = metaByClientId.get(client.id);
       const redacted = redactedByClientId.get(client.id);
       const config = configByClientId.get(client.id);
-      return Boolean((config?.meta_pixel_id ?? meta?.pixel_id) && (config?.capi_token_secret_id || tokenConfigured(redacted)));
+      return Boolean(config?.meta_pixel_id && (config?.capi_token_secret_id || tokenConfigured(redacted)));
     });
     const missingSecrets = activeClients.filter((client) => {
-      const meta = metaByClientId.get(client.id);
       const redacted = redactedByClientId.get(client.id);
       const config = configByClientId.get(client.id);
-      return Boolean((config?.meta_pixel_id ?? meta?.pixel_id) && !(config?.capi_token_secret_id || tokenConfigured(redacted)));
+      return Boolean(config?.meta_pixel_id && !(config?.capi_token_secret_id || tokenConfigured(redacted)));
     });
     const failure = signalLogs.find((log) => (log.status_code ?? 0) >= 400);
     return {
