@@ -265,7 +265,7 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
           {previewBadge}
           <Link
             to="/admin/settings"
-            className="ml-auto inline-flex min-h-10 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-extrabold text-slate-800 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 focus-visible:ring-offset-2"
+            className="ml-auto inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-400 bg-white px-4 py-2 text-sm font-extrabold text-slate-950 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 focus-visible:ring-offset-2"
             title="Admin Settings"
           >
             <Settings className="h-4 w-4" />
@@ -274,13 +274,13 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
         </div>
       }
     >
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-5">
         <AdminPrimaryTabs
           ghostCount={ghosts.length}
           needsReviewCount={needsReview.length}
         />
 
-          <TabsContent value="mission-control" className="w-full px-2 sm:px-6 pt-4">
+          <TabsContent value="mission-control" className="w-full pt-1">
             <MasterCommandCenter
               leads={leads}
               deliveries={deliveries}
@@ -290,20 +290,20 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
             />
           </TabsContent>
 
-          <TabsContent value="surface-map" className="w-full px-2 sm:px-6 pt-4">
+          <TabsContent value="surface-map" className="w-full pt-1">
             <AdminInformationArchitectureNavigationSimplificationSurface
               onNavigateTab={setActiveTab}
               activeTab={activeTab}
             />
           </TabsContent>
 
-          <TabsContent value="prioritization" className="w-full px-2 sm:px-6 pt-4">
+          <TabsContent value="prioritization" className="w-full pt-1">
             <StrategicPrioritizationNextBuildDecisionFrameworkSurface
               onNavigateTab={setActiveTab}
             />
           </TabsContent>
 
-          <TabsContent value="launch" className="w-full px-2 sm:px-6 pt-4">
+          <TabsContent value="launch" className="w-full pt-1">
             <PilotOpsLaunchControl leads={leads} onNavigateTab={setActiveTab} />
           </TabsContent>
 
