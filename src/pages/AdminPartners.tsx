@@ -267,30 +267,31 @@ function ClientDossierModal({ open, onClose, client, metaConfig, existingSlugs, 
           </div>
 
           <div className="flex items-center justify-between">
-            <Label htmlFor="client-active">Active</Label>
+            <Label htmlFor="client-active" className={labelClass}>Active</Label>
             <Switch id="client-active" checked={isActive} onCheckedChange={setIsActive} />
           </div>
 
           <div className="border-t pt-4 space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Meta Pixel Configuration</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Meta Conversions API (CAPI)</p>
             <div className="space-y-1.5">
-              <Label htmlFor="pixel-id">Pixel ID</Label>
-              <Input id="pixel-id" value={pixelId} onChange={e => setPixelId(e.target.value)} placeholder="123456789012345" />
+              <Label htmlFor="pixel-id" className={labelClass}>Pixel ID</Label>
+              <Input id="pixel-id" value={pixelId} onChange={e => setPixelId(e.target.value)} placeholder="123456789012345" className={fieldClass} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="access-token">Access Token</Label>
-              <Input
-                id="access-token" type="password" value={accessToken}
+              <Label htmlFor="access-token" className={labelClass}>Access Token</Label>
+              <Textarea
+                id="access-token" value={accessToken}
                 onChange={e => { setAccessToken(e.target.value); setTokenDirty(true); }}
                 placeholder={metaConfig?.access_token ? "••••••••  (unchanged)" : "Paste CAPI access token"}
+                className={`${fieldClass} min-h-[100px] w-full resize-y font-mono text-sm`}
               />
               {isEdit && !tokenDirty && metaConfig?.access_token && (
-                <p className="text-[11px] text-muted-foreground">Token on file. Only change if you paste a new one.</p>
+                <p className="text-[11px] text-slate-500">Token on file. Only change if you paste a new one.</p>
               )}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="test-event-code">Test Event Code <span className="text-muted-foreground">(optional)</span></Label>
-              <Input id="test-event-code" value={testEventCode} onChange={e => setTestEventCode(e.target.value)} placeholder="TEST12345" />
+              <Label htmlFor="test-event-code" className={labelClass}>Test Event Code <span className="text-slate-500">(optional)</span></Label>
+              <Input id="test-event-code" value={testEventCode} onChange={e => setTestEventCode(e.target.value)} placeholder="TEST12345" className={fieldClass} />
             </div>
           </div>
 
