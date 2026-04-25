@@ -186,8 +186,8 @@ function RoleSelector({
           transition-all duration-200
           ${
             isSelf
-              ? "border-slate-100 text-slate-700 cursor-not-allowed bg-slate-50"
-              : "border-slate-200 text-slate-700 hover:border-blue-300 hover:shadow-md hover:shadow-blue-100/40 cursor-pointer bg-white"
+              ? "cursor-not-allowed border-slate-300 bg-slate-50 text-slate-700"
+              : "cursor-pointer border-slate-400 bg-white text-slate-950 hover:border-blue-300 hover:shadow-md hover:shadow-blue-100/40"
           }
         `}
         title={isSelf ? "Cannot change your own role" : `Change role for ${userEmail}`}
@@ -208,7 +208,7 @@ function RoleSelector({
             onClick={() => setIsOpen(false)}
           />
           {/* Dropdown */}
-          <div className="absolute right-0 top-full mt-2 z-50 w-72 rounded-2xl border border-slate-100 bg-white shadow-xl shadow-slate-200/60 overflow-hidden">
+          <div className="absolute right-0 top-full z-50 mt-2 w-72 overflow-hidden rounded-2xl border border-slate-300 bg-white shadow-xl shadow-slate-200/60">
             {(Object.keys(ROLE_CONFIG) as AppRole[]).map((roleKey) => {
               const config = ROLE_CONFIG[roleKey];
               const Icon = config.icon;
@@ -222,7 +222,7 @@ function RoleSelector({
                     w-full flex items-start gap-3 px-4 py-3.5 text-left transition-all duration-150
                     ${
                       isActive
-                        ? "bg-blue-50/60 border-l-[3px] border-blue-500"
+                        ? "border-l-[3px] border-blue-800 bg-blue-50"
                         : "hover:bg-slate-50 border-l-[3px] border-transparent"
                     }
                   `}
@@ -240,7 +240,7 @@ function RoleSelector({
                     >
                       {config.label}
                     </div>
-                    <div className="text-xs text-slate-700 mt-0.5 leading-relaxed">
+                    <div className="mt-0.5 text-sm font-semibold leading-relaxed text-slate-700">
                       {config.description}
                     </div>
                   </div>
@@ -252,7 +252,7 @@ function RoleSelector({
       )}
 
       {error && (
-        <p className="absolute top-full mt-1.5 right-0 text-xs text-rose-600 bg-rose-50 px-2 py-1 rounded-lg whitespace-nowrap shadow-sm">
+        <p className="absolute right-0 top-full mt-1.5 whitespace-nowrap rounded-lg border border-red-300 bg-red-100 px-2 py-1 text-sm font-semibold text-red-950 shadow-sm">
           {error}
         </p>
       )}
