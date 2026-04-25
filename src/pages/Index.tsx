@@ -2,16 +2,21 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import LinearHeader from "@/components/LinearHeader";
 import AuditHero from "@/components/AuditHero";
-import FlowBEntry from "@/components/FlowBEntry";
-import MarketBaselineTool from "@/components/MarketBaselineTool";
-import TruthGateFlow from "@/components/TruthGateFlow";
-import UploadZone from "@/components/UploadZone";
-import ScanTheatrics from "@/components/ScanTheatrics";
-import { PostScanReportSwitcher } from "@/components/post-scan/PostScanReportSwitcher";
 import StickyRecoveryBar from "@/components/StickyRecoveryBar";
 import StickyCTAFooter from "@/components/StickyCTAFooter";
 import HomepageBackdrop from "@/components/HomepageBackdrop";
-import ExitIntentPhoneModal from "@/components/ExitIntentPhoneModal";
+
+const FlowBEntry = React.lazy(() => import("@/components/FlowBEntry"));
+const MarketBaselineTool = React.lazy(() => import("@/components/MarketBaselineTool"));
+const TruthGateFlow = React.lazy(() => import("@/components/TruthGateFlow"));
+const UploadZone = React.lazy(() => import("@/components/UploadZone"));
+const ScanTheatrics = React.lazy(() => import("@/components/ScanTheatrics"));
+const PostScanReportSwitcher = React.lazy(() =>
+  import("@/components/post-scan/PostScanReportSwitcher").then((module) => ({
+    default: module.PostScanReportSwitcher,
+  })),
+);
+const ExitIntentPhoneModal = React.lazy(() => import("@/components/ExitIntentPhoneModal"));
 
 // ── Below-fold: lazy-loaded to cut initial bundle ~50% ──
 const ForensicChecklist = React.lazy(() => import("@/components/ForensicChecklist"));
@@ -39,6 +44,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import DevPreviewPanel from "@/dev/DevPreviewPanel";
 import { DEV_PREVIEW_CONFIGS, type DevPreviewState } from "@/dev/fixtures";
 import { AlertTriangle, RotateCcw, FileX } from "lucide-react";
+
+const SectionReserve = ({ className = "min-h-[420px]" }: { className?: string }) => (
+  <div className={`w-full bg-background ${className}`} aria-hidden="true" />
+);
 
 const Index = () => {
   // ═══ DEV MODE: Uses Vite's built-in dev/prod flag ═══
