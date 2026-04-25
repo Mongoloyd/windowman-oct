@@ -53,6 +53,7 @@ import { AdminInformationArchitectureNavigationSimplificationSurface } from "@/c
 import { StrategicPrioritizationNextBuildDecisionFrameworkSurface } from "@/components/admin/StrategicPrioritizationNextBuildDecisionFrameworkSurface";
 import { DeliveryInspectorPage } from "@/components/admin/deliveries/DeliveryInspectorPage";
 import { SessionDiagnosticPanel } from "@/components/admin/diagnostics/SessionDiagnosticPanel";
+import { SignalDispatchTab } from "@/components/admin/SignalDispatchTab";
 
 import {
   invokeAdminData,
@@ -437,6 +438,10 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
 
           <TabsContent value="attribution">
             <AttributionTab leads={leads} isLoading={false} />
+          </TabsContent>
+
+          <TabsContent value="signal-dispatch" className="w-full px-2 sm:px-6 pt-4">
+            <SignalDispatchTab />
           </TabsContent>
 
           <TabsContent value="pilot" className="w-full px-2 sm:px-6 pt-4">

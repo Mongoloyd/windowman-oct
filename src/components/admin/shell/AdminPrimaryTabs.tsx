@@ -81,6 +81,7 @@ export function AdminPrimaryTabs({
     { kind: "route", to: "/admin/contractors", matchPrefixes: ["/admin/contractors"], label: "Contractors" },
     { kind: "route", to: "/admin/outcomes", matchPrefixes: ["/admin/outcomes"], label: "Outcomes" },
     { kind: "route", to: "/admin/attribution", matchPrefixes: ["/admin/attribution"], label: "Attribution" },
+    { kind: "route", to: "/admin/signal-dispatch", matchPrefixes: ["/admin/signal-dispatch"], label: "Signals" },
     { kind: "panel", value: "delivery-inspector", label: "Delivery" },
     { kind: "panel", value: "session-diag", label: "Sessions" },
   ];
