@@ -361,8 +361,8 @@ export function StepPrescription({
               <PhoneCall className="w-4 h-4 text-white" />
             </div>
             <div className="flex-1">
-              <p className="text-sm font-semibold text-foreground">{getSLAPromise().text}</p>
-              <p className="text-xs text-foreground/70 mt-1 leading-relaxed">
+              <p className="font-semibold text-foreground text-base">{getSLAPromise().text}</p>
+              <p className="text-foreground/70 mt-1 leading-relaxed text-sm font-bold">
                 Your advisor sees everything: your diagnosis, window preferences, and counter-offer terms. No repeating
                 yourself.
               </p>
