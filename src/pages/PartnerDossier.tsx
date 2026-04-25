@@ -316,7 +316,7 @@ export default function PartnerDossier() {
   }, [id]);
 
   useEffect(() => {
-    if (id) { fallbackToMock(); fetchDossier(); }
+    if (id) { void fetchDossier(); }
   }, [id, fallbackToMock, fetchDossier]);
 
   /* ── Unlock handler ── */
