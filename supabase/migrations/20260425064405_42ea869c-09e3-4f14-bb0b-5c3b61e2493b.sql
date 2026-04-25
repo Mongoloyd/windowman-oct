@@ -1,0 +1,2 @@
+DROP POLICY IF EXISTS lead_attribution_details_service_role_all
+  ON public.lead_attribution_details;
