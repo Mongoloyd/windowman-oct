@@ -6,9 +6,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppTrackingProvider } from "@/components/AppTrackingProvider";
 import { HelmetProvider } from "react-helmet-async";
-import AdminSettings from "./pages/AdminSettings";
-import PublicLayout from "@/components/PublicLayout";
-import { AdminAuthGate } from "@/components/admin/AdminAuthGate";
 import { ScanFunnelProvider } from "@/state/scanFunnel";
 
 // ── Static import for critical home route ────────────────────────────────────
@@ -21,6 +18,11 @@ const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 // Dev/internal only — not linked from any production CTA
 const DemoClassic = lazy(() => import("./pages/DemoClassic.tsx"));
 const AdminDashboard = lazy(() => import("./components/AdminDashboard.tsx"));
+const AdminAuthGate = lazy(() =>
+  import("@/components/admin/AdminAuthGate").then((module) => ({
+    default: module.AdminAuthGate,
+  })),
+);
 const AdminPartners = lazy(() => import("./pages/AdminPartners.tsx"));
 const AdminLogin = lazy(() => import("./pages/AdminLogin.tsx"));
 const AdminForgotPassword = lazy(() => import("./pages/AdminForgotPassword.tsx"));
@@ -29,11 +31,13 @@ const AdminHealth = lazy(() => import("./pages/AdminHealth.tsx"));
 const AdminLeadInbox = lazy(() => import("./pages/AdminLeadInbox.tsx"));
 const AdminLeadDossierPage = lazy(() => import("./pages/AdminLeadDossierPage.tsx"));
 const AdminLeadReport = lazy(() => import("./pages/AdminLeadReport.tsx"));
+const AdminSettings = lazy(() => import("./pages/AdminSettings.tsx"));
 const DevReportPreview = lazy(() => import("./pages/DevReportPreview.tsx"));
 const DevTesting = lazy(() => import("./pages/DevTesting.tsx"));
 const DevTesting2 = lazy(() => import("./pages/DevTesting2.tsx"));
 
 // ── Static content pages ─────────────────────────────────────────────────────
+const PublicLayout = lazy(() => import("@/components/PublicLayout"));
 const About = lazy(() => import("./pages/About.tsx"));
 const Contact = lazy(() => import("./pages/Contact.tsx"));
 const FAQ = lazy(() => import("./pages/FAQ.tsx"));
