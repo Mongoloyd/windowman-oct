@@ -207,8 +207,8 @@ export function StepPrescription({
 
             {frameMaterial && (
               <div>
-                <p className="wm-eyebrow uppercase text-muted-foreground mb-1">Frame Material</p>
-                <span className="inline-block px-3 py-1 bg-white border border-cobalt/20 rounded-full text-xs font-medium text-foreground/80">
+                <p className="wm-eyebrow uppercase text-muted-foreground mb-1 text-sm">Frame Material</p>
+                <span className="inline-block px-3 py-1 bg-white border border-cobalt/20 rounded-full font-medium text-foreground/80 text-sm">
                   {frameMaterial}
                 </span>
               </div>
