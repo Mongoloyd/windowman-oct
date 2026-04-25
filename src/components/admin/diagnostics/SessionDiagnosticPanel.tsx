@@ -78,11 +78,19 @@ function fmtExpiry(exp: number | undefined): { absolute: string; relative: strin
   };
 }
 
+function statusBadgeClass(tone: "success" | "danger" | "warning" | "neutral") {
+  const base = "min-h-7 border px-3 py-1 text-sm font-extrabold uppercase tracking-wide";
+  if (tone === "success") return `${base} border-emerald-300 bg-emerald-100 text-emerald-950`;
+  if (tone === "danger") return `${base} border-rose-300 bg-rose-100 text-rose-950`;
+  if (tone === "warning") return `${base} border-amber-300 bg-amber-100 text-amber-950`;
+  return `${base} border-slate-300 bg-slate-100 text-slate-950`;
+}
+
 function Row({ label, value, mono = true }: { label: string; value: React.ReactNode; mono?: boolean }) {
   return (
-    <div className="grid grid-cols-[200px_1fr] gap-3 py-1.5 border-b border-border/50 last:border-b-0">
-      <div className="text-xs uppercase tracking-wide text-slate-700">{label}</div>
-      <div className={mono ? "text-sm font-mono break-all" : "text-sm break-words"}>{value}</div>
+    <div className="grid gap-2 border-b border-slate-300 py-3 last:border-b-0 sm:grid-cols-[240px_1fr]">
+      <div className="text-sm font-extrabold uppercase tracking-wide text-slate-700">{label}</div>
+      <div className={mono ? "break-all font-mono text-base font-semibold text-slate-950" : "break-words text-base font-semibold text-slate-950"}>{value}</div>
     </div>
   );
 }
@@ -194,17 +202,17 @@ export function SessionDiagnosticPanel() {
   const devBypassActive = import.meta.env.DEV;
 
   return (
-    <div className="space-y-4 max-w-4xl">
-      <Card className="border-2">
-        <CardHeader className="pb-3">
+    <div className="w-full max-w-6xl space-y-4">
+      <Card className="rounded-2xl border border-slate-300 bg-white shadow-sm">
+        <CardHeader className="border-b border-slate-300 pb-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <CardTitle className="text-lg">Session Diagnostic — read only</CardTitle>
-              <p className="text-xs text-slate-700 mt-1">
+              <CardTitle className="text-2xl font-black text-slate-950">Session Diagnostic — read only</CardTitle>
+              <p className="mt-1 text-base font-semibold text-slate-700">
                 Live browser auth/session state. No writes. Used to diagnose Inspector RLS denials.
               </p>
             </div>
-            <Button size="sm" variant="outline" onClick={refreshAll}>
+            <Button size="sm" variant="outline" onClick={refreshAll} className="min-h-10 border border-slate-400 bg-white px-4 text-sm font-extrabold text-slate-950 shadow-sm hover:bg-slate-50">
               Refresh
             </Button>
           </div>
@@ -212,18 +220,18 @@ export function SessionDiagnosticPanel() {
         <CardContent className="space-y-4">
           {/* Top-line verdict */}
           <div className="flex flex-wrap gap-2">
-            <Badge variant={isAuthenticated ? "default" : "destructive"}>
+            <Badge variant="outline" className={statusBadgeClass(isAuthenticated ? "success" : "danger")}>
               {isAuthenticated ? "Browser: AUTHENTICATED" : "Browser: ANONYMOUS / NO SESSION"}
             </Badge>
-            <Badge variant={wouldPassIsInternalOperator ? "default" : "destructive"}>
+            <Badge variant="outline" className={statusBadgeClass(wouldPassIsInternalOperator ? "success" : "danger")}>
               is_internal_operator(): {wouldPassIsInternalOperator ? "would PASS" : "would FAIL"}
             </Badge>
-            <Badge variant={probe.status === "ok" ? "default" : probe.status === "denied" ? "destructive" : "secondary"}>
+            <Badge variant="outline" className={statusBadgeClass(probe.status === "ok" ? "success" : probe.status === "denied" ? "danger" : "neutral")}>
               RLS probe (contractors): {probe.status.toUpperCase()}
               {probe.errorCode ? ` · ${probe.errorCode}` : ""}
             </Badge>
             {devBypassActive && (
-              <Badge variant="outline" className="border-amber-500 text-amber-700">
+              <Badge variant="outline" className={statusBadgeClass("warning")}>
                 DEV BYPASS ACTIVE — AuthGuard + useCurrentUserRole are short-circuited
               </Badge>
             )}
