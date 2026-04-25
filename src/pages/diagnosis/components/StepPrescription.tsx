@@ -312,7 +312,7 @@ export function StepPrescription({
 
             {/* LIVE CONDITIONAL STATEMENT — updates as chips toggle */}
             <div className="mb-5">
-              <p className="wm-eyebrow uppercase text-muted-foreground mb-2 flex items-center gap-1.5">
+              <p className="wm-eyebrow uppercase text-muted-foreground mb-2 flex items-center gap-1.5 font-semibold text-sm">
                 <MessageSquareQuote className="w-3.5 h-3.5" />
                 Here's what you're saying
               </p>
