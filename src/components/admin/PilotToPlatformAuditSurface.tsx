@@ -276,7 +276,7 @@ const READINESS_STYLES: Record<
     icon: Layers,
   },
   "Future Platform Work": {
-    badge: "bg-muted text-muted-foreground border-border",
+    badge: "bg-muted text-slate-700 border-border",
     icon: Lock,
   },
 };
@@ -432,7 +432,7 @@ export function PilotToPlatformAuditSurface({ leads, onNavigateTab }: Props) {
         className="w-full flex items-start justify-between gap-3 text-left p-4 rounded-lg border border-border bg-card hover:bg-accent/40 transition-colors"
       >
         <div className="flex items-start gap-3">
-          <Icon className="h-5 w-5 mt-0.5 text-muted-foreground" />
+          <Icon className="h-5 w-5 mt-0.5 text-slate-700" />
           <div>
             <div className="font-semibold text-foreground flex items-center gap-2">
               {title}
@@ -443,14 +443,14 @@ export function PilotToPlatformAuditSurface({ leads, onNavigateTab }: Props) {
               )}
             </div>
             {subtitle && (
-              <div className="text-xs text-muted-foreground mt-0.5">{subtitle}</div>
+              <div className="text-xs text-slate-700 mt-0.5">{subtitle}</div>
             )}
           </div>
         </div>
         {open ? (
-          <ChevronDown className="h-4 w-4 text-muted-foreground mt-1" />
+          <ChevronDown className="h-4 w-4 text-slate-700 mt-1" />
         ) : (
-          <ChevronRight className="h-4 w-4 text-muted-foreground mt-1" />
+          <ChevronRight className="h-4 w-4 text-slate-700 mt-1" />
         )}
       </button>
     );
@@ -463,7 +463,7 @@ export function PilotToPlatformAuditSurface({ leads, onNavigateTab }: Props) {
         const Icon = style.icon;
         return (
           <li key={`${row.area}-${row.name}`} className="p-3 flex items-start gap-3">
-            <Icon className="h-4 w-4 mt-1 text-muted-foreground shrink-0" />
+            <Icon className="h-4 w-4 mt-1 text-slate-700 shrink-0" />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-medium text-sm text-foreground">{row.name}</span>
@@ -472,7 +472,7 @@ export function PilotToPlatformAuditSurface({ leads, onNavigateTab }: Props) {
                   {row.readiness}
                 </Badge>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">{row.notes}</p>
+              <p className="text-xs text-slate-700 mt-1">{row.notes}</p>
               {row.tab && onNavigateTab && (
                 <button
                   type="button"
@@ -502,7 +502,7 @@ export function PilotToPlatformAuditSurface({ leads, onNavigateTab }: Props) {
               <h2 className="text-lg font-semibold tracking-tight text-foreground">
                 Pilot-to-Platform Audit
               </h2>
-              <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+              <p className="text-sm text-slate-700 mt-1 max-w-2xl">
                 Internal operator view. A read-only honest snapshot of what
                 ships today, what is operator-manual, and what is intentionally
                 not built yet. No backend audit state; no roadmap engine.
@@ -534,31 +534,31 @@ export function PilotToPlatformAuditSurface({ leads, onNavigateTab }: Props) {
         {/* Observed signals */}
         <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-xs">
           <div className="rounded-md border border-border bg-muted/30 px-3 py-2">
-            <div className="text-muted-foreground">Contractors</div>
+            <div className="text-slate-700">Contractors</div>
             <div className="font-semibold text-foreground">{observed.contractorCount}</div>
           </div>
           <div className="rounded-md border border-border bg-muted/30 px-3 py-2">
-            <div className="text-muted-foreground">Active</div>
+            <div className="text-slate-700">Active</div>
             <div className="font-semibold text-foreground">{observed.activeContractors}</div>
           </div>
           <div className="rounded-md border border-border bg-muted/30 px-3 py-2">
-            <div className="text-muted-foreground">With routes</div>
+            <div className="text-slate-700">With routes</div>
             <div className="font-semibold text-foreground">{observed.contractorsWithRoutes}</div>
           </div>
           <div className="rounded-md border border-border bg-muted/30 px-3 py-2">
-            <div className="text-muted-foreground">Opportunities</div>
+            <div className="text-slate-700">Opportunities</div>
             <div className="font-semibold text-foreground">{observed.opportunityCount}</div>
           </div>
           <div className="rounded-md border border-border bg-muted/30 px-3 py-2">
-            <div className="text-muted-foreground">Routes</div>
+            <div className="text-slate-700">Routes</div>
             <div className="font-semibold text-foreground">{observed.routeCount}</div>
           </div>
           <div className="rounded-md border border-border bg-muted/30 px-3 py-2">
-            <div className="text-muted-foreground">Observed counties</div>
+            <div className="text-slate-700">Observed counties</div>
             <div className="font-semibold text-foreground">{observed.observedCounties}</div>
           </div>
         </div>
-        <p className="text-[11px] text-muted-foreground mt-2 italic">
+        <p className="text-[11px] text-slate-700 mt-2 italic">
           Observed signals are read directly from current contractor / opportunity / route data.
           They contextualize the audit and never drive automation.
         </p>
@@ -585,7 +585,7 @@ export function PilotToPlatformAuditSurface({ leads, onNavigateTab }: Props) {
                     <Badge variant="outline" className={`text-[11px] ${style.badge}`}>
                       {label}
                     </Badge>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-xs text-slate-700">
                       {rows.length} {rows.length === 1 ? "item" : "items"}
                     </span>
                   </div>
@@ -662,7 +662,7 @@ export function PilotToPlatformAuditSurface({ leads, onNavigateTab }: Props) {
               </p>
             </div>
             <div className="flex items-start gap-2">
-              <Lock className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+              <Lock className="h-4 w-4 text-slate-700 mt-0.5 shrink-0" />
               <p>
                 <span className="font-medium">Not built:</span>{" "}
                 round-robin, fairness balancing, formal territory enforcement,
@@ -703,7 +703,7 @@ export function PilotToPlatformAuditSurface({ leads, onNavigateTab }: Props) {
               </p>
             </div>
             <div className="flex items-start gap-2">
-              <Lock className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+              <Lock className="h-4 w-4 text-slate-700 mt-0.5 shrink-0" />
               <p>
                 <span className="font-medium">Not built:</span>{" "}
                 contractor-facing report delivery, scheduled exports,
@@ -735,7 +735,7 @@ export function PilotToPlatformAuditSurface({ leads, onNavigateTab }: Props) {
               <li>No master pixel / operator ad-control UI.</li>
               <li>No backend audit / roadmap state — this surface is read-only.</li>
             </ul>
-            <p className="text-xs text-muted-foreground italic mt-2">
+            <p className="text-xs text-slate-700 italic mt-2">
               These are intentional deferrals, not bugs. They will be revisited
               once pilot signal supports broader investment.
             </p>
@@ -759,13 +759,13 @@ export function PilotToPlatformAuditSurface({ leads, onNavigateTab }: Props) {
                 type="button"
                 onClick={() => onNavigateTab?.(link.tab)}
                 disabled={!onNavigateTab}
-                className="text-left p-3 rounded-lg border border-border bg-card hover:bg-accent/40 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                className="text-left p-3 rounded-lg border border-border bg-card hover:bg-accent/40 transition-colors disabled:opacity-100 disabled:cursor-not-allowed"
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-medium text-sm text-foreground">{link.label}</span>
-                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                  <ExternalLink className="h-3.5 w-3.5 text-slate-700" />
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">{link.desc}</p>
+                <p className="text-xs text-slate-700 mt-1">{link.desc}</p>
               </button>
             ))}
           </div>

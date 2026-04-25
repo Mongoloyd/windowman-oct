@@ -308,7 +308,7 @@ export function RolloutPlanningReadinessSurface({
                 <CardTitle className="text-xl">
                   Rollout Planning & Execution Readiness
                 </CardTitle>
-                <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+                <p className="text-sm text-slate-700 mt-1 max-w-2xl">
                   Internal view of what is ready to scale, what is still manual,
                   and what must be true before expanding to more contractors or
                   markets. Honest, current-state only.
@@ -322,7 +322,7 @@ export function RolloutPlanningReadinessSurface({
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between flex-wrap gap-3">
-            <div className="text-sm text-muted-foreground">
+            <div className="text-sm text-slate-700">
               Local progress:{" "}
               <span className="font-medium text-foreground">
                 {totals.done} / {totals.total}
@@ -349,7 +349,7 @@ export function RolloutPlanningReadinessSurface({
             <Info className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
             <div className="text-sm text-foreground/90 space-y-1">
               <p className="font-medium">What this surface is — and isn't</p>
-              <p className="text-muted-foreground">
+              <p className="text-slate-700">
                 This is operator planning guidance, not a project tracker.
                 Nothing here represents automated rollout, sprint workflow, or
                 guaranteed expansion success. All checklist state is in-memory
@@ -375,7 +375,7 @@ export function RolloutPlanningReadinessSurface({
                   </div>
                   <div>
                     <CardTitle className="text-base">{block.title}</CardTitle>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <p className="text-sm text-slate-700 mt-1">
                       {block.intent}
                     </p>
                   </div>
@@ -418,20 +418,20 @@ export function RolloutPlanningReadinessSurface({
                         {done ? (
                           <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                         ) : (
-                          <Circle className="h-4 w-4 text-muted-foreground" />
+                          <Circle className="h-4 w-4 text-slate-700" />
                         )}
                       </button>
                       <div className="flex-1 min-w-0">
                         <div
                           className={`text-sm font-medium ${
                             done
-                              ? "text-muted-foreground line-through"
+                              ? "text-slate-700 line-through"
                               : "text-foreground"
                           }`}
                         >
                           {item.label}
                         </div>
-                        <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+                        <p className="text-sm text-slate-700 mt-1 leading-relaxed">
                           {item.detail}
                         </p>
                       </div>
@@ -448,7 +448,7 @@ export function RolloutPlanningReadinessSurface({
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Quick Links</CardTitle>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-sm text-slate-700 mt-1">
             Jump to the live admin surfaces that back this planning view.
           </p>
         </CardHeader>
@@ -482,7 +482,7 @@ export function RolloutPlanningReadinessSurface({
 
       <Separator />
 
-      <p className="text-xs text-muted-foreground text-center">
+      <p className="text-xs text-slate-700 text-center">
         Rollout content reflects current system behavior only. Update this
         surface when real expansion capability ships.
       </p>

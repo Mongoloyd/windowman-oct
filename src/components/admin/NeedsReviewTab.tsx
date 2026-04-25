@@ -245,7 +245,7 @@ export function NeedsReviewTab({ needsReview, isLoading }: NeedsReviewTabProps) 
                       </a>
                     ) : (
                       <div className="w-12 h-12 rounded bg-muted/30 border border-border flex items-center justify-center">
-                        <ImageOff className="w-4 h-4 text-muted-foreground" />
+                        <ImageOff className="w-4 h-4 text-slate-700" />
                       </div>
                     )}
                   </td>

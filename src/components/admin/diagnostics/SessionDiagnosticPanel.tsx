@@ -81,7 +81,7 @@ function fmtExpiry(exp: number | undefined): { absolute: string; relative: strin
 function Row({ label, value, mono = true }: { label: string; value: React.ReactNode; mono?: boolean }) {
   return (
     <div className="grid grid-cols-[200px_1fr] gap-3 py-1.5 border-b border-border/50 last:border-b-0">
-      <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="text-xs uppercase tracking-wide text-slate-700">{label}</div>
       <div className={mono ? "text-sm font-mono break-all" : "text-sm break-words"}>{value}</div>
     </div>
   );
@@ -200,7 +200,7 @@ export function SessionDiagnosticPanel() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <CardTitle className="text-lg">Session Diagnostic — read only</CardTitle>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs text-slate-700 mt-1">
                 Live browser auth/session state. No writes. Used to diagnose Inspector RLS denials.
               </p>
             </div>

@@ -107,7 +107,7 @@ export default function AdminLogin() {
           <div className="mx-auto mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
             <ShieldCheck className="h-6 w-6 text-primary" />
           </div>
-          <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-slate-600">
+          <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-slate-700">
             WindowMan · Admin
           </p>
           <h1 className="mt-2 font-display text-3xl font-extrabold leading-tight tracking-tight text-foreground">
@@ -128,7 +128,7 @@ export default function AdminLogin() {
                   Email
                 </Label>
                 <div className="relative">
-                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-700" />
                   <Input
                     id="admin-email"
                     type="email"
@@ -137,7 +137,7 @@ export default function AdminLogin() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@windowman.app"
-                    className="h-11 pl-9 border-2 border-slate-300 bg-white text-slate-950 placeholder:text-slate-500 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15"
+                    className="h-11 pl-9 border-2 border-slate-300 bg-white text-slate-950 placeholder:text-slate-700 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15"
                     required
                   />
                 </div>
@@ -160,7 +160,7 @@ export default function AdminLogin() {
                   </button>
                 </div>
                 <div className="relative">
-                  <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-700" />
                   <Input
                     id="admin-password"
                     type="password"
@@ -168,7 +168,7 @@ export default function AdminLogin() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="h-11 pl-9 border-2 border-slate-300 bg-white text-slate-950 placeholder:text-slate-500 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15"
+                    className="h-11 pl-9 border-2 border-slate-300 bg-white text-slate-950 placeholder:text-slate-700 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15"
                     required
                     minLength={6}
                   />
@@ -204,7 +204,7 @@ export default function AdminLogin() {
                   Email
                 </Label>
                 <div className="relative">
-                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-700" />
                   <Input
                     id="forgot-email"
                     type="email"
@@ -213,7 +213,7 @@ export default function AdminLogin() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@windowman.app"
-                    className="h-11 pl-9 border-2 border-slate-300 bg-white text-slate-950 placeholder:text-slate-500 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15"
+                    className="h-11 pl-9 border-2 border-slate-300 bg-white text-slate-950 placeholder:text-slate-700 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15"
                     required
                   />
                 </div>
@@ -242,7 +242,7 @@ export default function AdminLogin() {
                   setMode("signin");
                   setError(null);
                 }}
-                className="block w-full text-center text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                className="block w-full text-center text-xs font-medium text-slate-700 hover:text-foreground transition-colors"
               >
                 ← Back to sign in
               </button>
@@ -274,7 +274,7 @@ export default function AdminLogin() {
           )}
         </div>
 
-        <p className="mt-6 text-center text-sm font-medium text-slate-600">
+        <p className="mt-6 text-center text-sm font-medium text-slate-700">
           Admin access is internal-only.{" "}
           <Link to="/" className="underline hover:text-foreground">
             Return to homepage

@@ -92,7 +92,7 @@ export function DeliveryInspectorPage() {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h2 className="text-xl font-bold tracking-tight">Delivery Inspector</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
+          <p className="text-xs text-slate-700 mt-0.5">
             Read-only view of webhook deliveries and the immutable attempt log. {lastSyncLabel}.
           </p>
         </div>
@@ -113,7 +113,7 @@ export function DeliveryInspectorPage() {
           <AlertCircle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
           <div className="text-xs">
             <div className="font-semibold text-destructive">Failed to load delivery data</div>
-            <div className="text-muted-foreground mt-0.5 break-all">{error}</div>
+            <div className="text-slate-700 mt-0.5 break-all">{error}</div>
           </div>
         </Card>
       )}
@@ -185,7 +185,7 @@ function KpiTile({
 }) {
   return (
     <Card className="p-3">
-      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="text-[11px] uppercase tracking-wide text-slate-700">{label}</div>
       <div
         className={`text-2xl font-bold mt-1 ${
           tone === "warn" && value > 0 ? "text-destructive" : "text-foreground"

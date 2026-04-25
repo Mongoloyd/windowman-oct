@@ -67,7 +67,7 @@ export default function VoiceFollowupsPanel() {
 
   if (loading) {
     return (
-      <div className="text-sm text-muted-foreground p-5">
+      <div className="text-sm text-slate-700 p-5">
         Loading voice logs…
       </div>
     );
@@ -83,7 +83,7 @@ export default function VoiceFollowupsPanel() {
 
   if (followups.length === 0) {
     return (
-      <div className="text-sm text-muted-foreground p-10 text-center">
+      <div className="text-sm text-slate-700 p-10 text-center">
         No recent voice follow-ups found.
       </div>
     );
@@ -97,7 +97,7 @@ export default function VoiceFollowupsPanel() {
             {["Date & Time", "Phone Number", "Lead ID", "Opportunity ID", "Actions"].map((col) => (
               <th
                 key={col}
-                className="text-left px-3 py-2 font-medium text-muted-foreground uppercase tracking-wider border-b"
+                className="text-left px-3 py-2 font-medium text-slate-700 uppercase tracking-wider border-b"
               >
                 {col}
               </th>
@@ -123,7 +123,7 @@ export default function VoiceFollowupsPanel() {
                 <button
                   onClick={() => handleManualCall(log)}
                   disabled={callingId === log.id || !log.scan_session_id}
-                  className="text-xs font-mono uppercase tracking-wide px-2.5 py-1 rounded bg-primary text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="text-xs font-mono uppercase tracking-wide px-2.5 py-1 rounded bg-primary text-primary-foreground disabled:opacity-100 disabled:cursor-not-allowed"
                 >
                   {callingId === log.id ? "Dialing…" : "Call Now"}
                 </button>

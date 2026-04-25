@@ -63,18 +63,18 @@ export function DeliveryAttemptLogDrawer({ deliveryId, onClose }: Props) {
 
         <div className="mt-4 space-y-3">
           {isLoading && (
-            <Card className="p-4 text-sm text-muted-foreground">Loading attempts…</Card>
+            <Card className="p-4 text-sm text-slate-700">Loading attempts…</Card>
           )}
 
           {error && (
             <Card className="p-4 border-destructive/40 bg-destructive/5 text-sm">
               <div className="font-semibold text-destructive">Failed to load attempts</div>
-              <div className="text-xs text-muted-foreground mt-1 break-all">{error}</div>
+              <div className="text-xs text-slate-700 mt-1 break-all">{error}</div>
             </Card>
           )}
 
           {!isLoading && !error && attempts.length === 0 && deliveryId && (
-            <Card className="p-4 text-sm text-muted-foreground">
+            <Card className="p-4 text-sm text-slate-700">
               No attempts recorded yet for this delivery.
             </Card>
           )}
@@ -93,12 +93,12 @@ export function DeliveryAttemptLogDrawer({ deliveryId, onClose }: Props) {
                     </Badge>
                   )}
                 </div>
-                <div className="text-[11px] text-muted-foreground tabular-nums">
+                <div className="text-[11px] text-slate-700 tabular-nums">
                   {a.duration_ms !== null ? `${a.duration_ms}ms` : "—"}
                 </div>
               </div>
 
-              <div className="text-[11px] text-muted-foreground">
+              <div className="text-[11px] text-slate-700">
                 Started {format(new Date(a.request_started_at), "PP pp")}
                 {a.request_completed_at && (
                   <> · Completed {format(new Date(a.request_completed_at), "pp")}</>
@@ -107,18 +107,18 @@ export function DeliveryAttemptLogDrawer({ deliveryId, onClose }: Props) {
 
               <div className="text-xs space-y-0.5">
                 <div>
-                  <span className="text-muted-foreground">Method:</span>{" "}
+                  <span className="text-slate-700">Method:</span>{" "}
                   <span className="capitalize">{a.dispatch_method}</span>
                 </div>
                 {a.error_class && (
                   <div className="text-destructive">
-                    <span className="text-muted-foreground">Error:</span> {a.error_class}
+                    <span className="text-slate-700">Error:</span> {a.error_class}
                     {a.error_message && <> — {a.error_message}</>}
                   </div>
                 )}
                 {a.response_body_snippet && (
                   <details className="mt-1">
-                    <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+                    <summary className="cursor-pointer text-slate-700 hover:text-foreground">
                       Response snippet
                     </summary>
                     <pre className="mt-1 p-2 bg-muted rounded text-[10px] overflow-x-auto whitespace-pre-wrap break-all">

@@ -110,7 +110,7 @@ interface DossierModalProps {
 
 function ClientDossierModal({ open, onClose, client, metaConfig, existingSlugs, onSaved }: DossierModalProps) {
   const isEdit = !!client;
-  const labelClass = "text-xs font-medium uppercase tracking-wider text-slate-500";
+  const labelClass = "text-xs font-medium uppercase tracking-wider text-slate-700";
   const fieldClass = "min-w-0 transition-all duration-200 focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2";
 
   const [name, setName] = useState("");
@@ -234,7 +234,7 @@ function ClientDossierModal({ open, onClose, client, metaConfig, existingSlugs, 
       <DialogContent className="font-sans sm:max-w-xl">
         <DialogHeader>
           <DialogTitle className="text-slate-900 font-semibold tracking-tight">{isEdit ? "Edit Client" : "Add Client"}</DialogTitle>
-          <DialogDescription className="text-slate-500">
+          <DialogDescription className="text-slate-700">
             {isEdit ? "Update client details and CAPI configuration." : "Create a new white-label client."}
           </DialogDescription>
         </DialogHeader>
@@ -255,7 +255,7 @@ function ClientDossierModal({ open, onClose, client, metaConfig, existingSlugs, 
           <div className="space-y-1.5">
             <Label htmlFor="client-slug" className={labelClass}>URL Slug</Label>
             <div className="flex min-w-0 items-center gap-2">
-              <span className="text-xs text-muted-foreground whitespace-nowrap">/lp/</span>
+              <span className="text-xs text-slate-700 whitespace-nowrap">/lp/</span>
               <Input
                 id="client-slug" value={slug}
                 onChange={e => setSlug(slugify(e.target.value))}
@@ -272,7 +272,7 @@ function ClientDossierModal({ open, onClose, client, metaConfig, existingSlugs, 
           </div>
 
           <div className="border-t pt-4 space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Meta Conversions API (CAPI)</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-700">Meta Conversions API (CAPI)</p>
             <div className="space-y-1.5">
               <Label htmlFor="pixel-id" className={labelClass}>Pixel ID</Label>
               <Input id="pixel-id" value={pixelId} onChange={e => setPixelId(e.target.value)} placeholder="123456789012345" className={fieldClass} />
@@ -286,11 +286,11 @@ function ClientDossierModal({ open, onClose, client, metaConfig, existingSlugs, 
                 className={`${fieldClass} min-h-[100px] w-full resize-y font-mono text-sm`}
               />
               {isEdit && !tokenDirty && metaConfig?.access_token && (
-                <p className="text-[11px] text-slate-500">Token on file. Only change if you paste a new one.</p>
+                <p className="text-[11px] text-slate-700">Token on file. Only change if you paste a new one.</p>
               )}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="test-event-code" className={labelClass}>Test Event Code <span className="text-slate-500">(optional)</span></Label>
+              <Label htmlFor="test-event-code" className={labelClass}>Test Event Code <span className="text-slate-700">(optional)</span></Label>
               <Input id="test-event-code" value={testEventCode} onChange={e => setTestEventCode(e.target.value)} placeholder="TEST12345" className={fieldClass} />
             </div>
           </div>
@@ -337,7 +337,7 @@ function LandingPageUrl({ url }: { url: string }) {
   return (
     <>
       <div className="flex min-w-0 items-center gap-2 rounded-md border bg-muted/50 px-3 py-2">
-        <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
+        <Globe className="h-4 w-4 text-slate-700 shrink-0" />
         <code className="min-w-0 flex-1 truncate text-xs">{url}</code>
         <Button size="sm" variant="ghost" className="h-11 w-11 min-w-[44px] min-h-[44px] p-0" onClick={handleCopy} aria-label="Copy URL">
           {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
@@ -414,7 +414,7 @@ function SortableHeader({ label, sortKey, currentKey, currentDir, onSort, classN
     >
       <span className="inline-flex items-center gap-1">
         {label}
-        <ArrowUpDown className={`h-3 w-3 ${active ? "text-foreground" : "text-muted-foreground/40"}`} />
+        <ArrowUpDown className={`h-3 w-3 ${active ? "text-foreground" : "text-slate-700"}`} />
         {active && <span className="text-[9px]">{currentDir === "asc" ? "↑" : "↓"}</span>}
       </span>
     </th>
@@ -437,28 +437,28 @@ function SignalLogRow({ log, expanded, onToggle }: { log: SignalLog; expanded: b
           {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
         </td>
         <td className="px-3 py-2 font-mono">{log.event_name ?? "—"}</td>
-        <td className="px-3 py-2">{log.client_slug ?? <span className="text-muted-foreground italic">default</span>}</td>
+        <td className="px-3 py-2">{log.client_slug ?? <span className="text-slate-700 italic">default</span>}</td>
         <td className="px-3 py-2 font-mono">{log.pixel_id ? `…${log.pixel_id.slice(-4)}` : "—"}</td>
         <td className="px-3 py-2 text-center">
           {log.status_code != null ? (
             <Badge variant={statusOk ? "default" : "destructive"} className={`text-[10px] ${statusOk ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100" : ""}`}>
               {log.status_code}
             </Badge>
-          ) : <span className="text-muted-foreground">—</span>}
+          ) : <span className="text-slate-700">—</span>}
         </td>
-        <td className="px-3 py-2 text-right text-muted-foreground">{relTime(log.fired_at)}</td>
+        <td className="px-3 py-2 text-right text-slate-700">{relTime(log.fired_at)}</td>
       </tr>
       {expanded && (
         <tr className="bg-muted/20">
           <td colSpan={6} className="px-4 py-3">
             <div className="space-y-2">
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Payload</p>
+              <p className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider">Payload</p>
               <pre className="text-[11px] font-mono bg-background border rounded p-3 max-h-64 overflow-auto whitespace-pre-wrap break-all">
                 {JSON.stringify(log.payload, null, 2) ?? "null"}
               </pre>
               {log.response && (
                 <>
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mt-2">Response</p>
+                  <p className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider mt-2">Response</p>
                   <pre className="text-[11px] font-mono bg-background border rounded p-3 max-h-40 overflow-auto whitespace-pre-wrap break-all">
                     {JSON.stringify(log.response, null, 2)}
                   </pre>
@@ -606,11 +606,11 @@ function SignalLogSection({ clients, sessionKey }: { clients: Client[]; sessionK
         <div className="flex items-center gap-2">
           <Radio className="h-4 w-4 text-primary" />
           <h2 className="text-sm font-bold uppercase tracking-wider">CAPI Signal Log</h2>
-          <span className="text-xs text-muted-foreground">({filtered.length})</span>
+          <span className="text-xs text-slate-700">({filtered.length})</span>
           {/* Connection state indicator */}
           <span className="inline-flex items-center gap-1 ml-1" title={stateLabel[channelState]}>
             <span className={`w-1.5 h-1.5 rounded-full ${stateDot[channelState]}`} />
-            <span className="text-[10px] text-muted-foreground">{stateLabel[channelState]}</span>
+            <span className="text-[10px] text-slate-700">{stateLabel[channelState]}</span>
           </span>
         </div>
 
@@ -659,10 +659,10 @@ function SignalLogSection({ clients, sessionKey }: { clients: Client[]; sessionK
 
       {loading ? (
         <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          <Loader2 className="h-5 w-5 animate-spin text-slate-700" />
         </div>
       ) : filtered.length === 0 ? (
-        <p className="text-xs text-muted-foreground text-center py-8">No signals match the current filters.</p>
+        <p className="text-xs text-slate-700 text-center py-8">No signals match the current filters.</p>
       ) : (
         <div
           ref={scrollRef}
@@ -875,13 +875,13 @@ function AdminPartnersContent() {
       <div className="border-b bg-card">
         <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link to="/admin" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors mr-1 min-h-[44px] min-w-[44px] justify-center">
+            <Link to="/admin" className="flex items-center gap-1 text-xs text-slate-700 hover:text-primary transition-colors mr-1 min-h-[44px] min-w-[44px] justify-center">
               <ArrowLeft className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">CRM</span>
             </Link>
             <div>
               <h1 className="text-xl font-bold tracking-tight">White-Label Partners</h1>
-              <p className="text-xs text-muted-foreground mt-0.5">
+              <p className="text-xs text-slate-700 mt-0.5">
                 {clients.length} client{clients.length !== 1 ? "s" : ""} configured
               </p>
             </div>
@@ -897,7 +897,7 @@ function AdminPartnersContent() {
       <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 space-y-8">
         {/* ── Search bar ── */}
         <div className="relative max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-700" />
           <Input
             placeholder="Search clients…"
             value={searchQuery}
@@ -909,7 +909,7 @@ function AdminPartnersContent() {
               onClick={() => setSearchQuery("")}
               className="absolute right-3 top-1/2 -translate-y-1/2 min-h-[44px] min-w-[44px] flex items-center justify-center"
             >
-              <X className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+              <X className="h-3.5 w-3.5 text-slate-700 hover:text-foreground" />
             </button>
           )}
         </div>
@@ -917,11 +917,11 @@ function AdminPartnersContent() {
         {/* ── Client List ── */}
         {loading ? (
           <div className="flex justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <Loader2 className="h-6 w-6 animate-spin text-slate-700" />
           </div>
         ) : displayClients.length === 0 ? (
           <div className="text-center py-12 border rounded-lg bg-card">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-slate-700">
               {debouncedSearch ? `No clients match "${debouncedSearch}"` : 'No clients yet. Click "Add Client" to get started.'}
             </p>
           </div>
@@ -929,7 +929,7 @@ function AdminPartnersContent() {
           <div className="border rounded-lg overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-muted/50 text-left text-xs uppercase tracking-wider text-muted-foreground">
+                <tr className="bg-muted/50 text-left text-xs uppercase tracking-wider text-slate-700">
                   <SortableHeader label="Client" sortKey="name" currentKey={sortKey} currentDir={sortDir} onSort={handleSort} />
                   <SortableHeader label="Slug" sortKey="slug" currentKey={sortKey} currentDir={sortDir} onSort={handleSort} />
                   <th className="px-4 py-2.5 text-center">Pixel Status</th>
@@ -945,7 +945,7 @@ function AdminPartnersContent() {
                   return (
                     <tr key={c.id} className="border-t hover:bg-muted/30 transition-colors">
                       <td className="px-4 py-3 font-medium">{c.name}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">/lp/{c.slug}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-slate-700">/lp/{c.slug}</td>
                       <td className="px-4 py-3 text-center">
                         <Badge
                           variant={ready ? "default" : "secondary"}
@@ -957,7 +957,7 @@ function AdminPartnersContent() {
                       <td className="px-4 py-3 text-center">
                         <span className={`inline-block w-2 h-2 rounded-full ${c.is_active ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
                       </td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground">{formatDate(c.created_at)}</td>
+                      <td className="px-4 py-3 text-xs text-slate-700">{formatDate(c.created_at)}</td>
                       <td className="px-4 py-3 text-right">
                         {hasWriteAccess ? (
                           <div className="inline-flex items-center gap-1">
@@ -988,7 +988,7 @@ function AdminPartnersContent() {
                             )}
                           </div>
                         ) : (
-                          <span className="text-xs text-muted-foreground italic">View only</span>
+                          <span className="text-xs text-slate-700 italic">View only</span>
                         )}
                       </td>
                     </tr>

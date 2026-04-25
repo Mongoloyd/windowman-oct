@@ -387,7 +387,7 @@ export function ChangeManagementSafeUpdateReadinessSurface({
               <h2 className="text-lg sm:text-xl font-semibold tracking-tight">
                 Change Management / Safe Update Readiness
               </h2>
-              <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+              <p className="text-sm text-slate-700 mt-1 max-w-2xl">
                 Internal guidance for safely evolving the system. Maps current repo-real areas into{" "}
                 <span className="font-medium">Protected</span>,{" "}
                 <span className="font-medium">Sensitive</span>,{" "}
@@ -485,7 +485,7 @@ export function ChangeManagementSafeUpdateReadinessSurface({
       >
         <ol className="space-y-1.5 text-sm">
           {PRE_CHANGE_CHECKLIST.map((c, i) => (
-            <li key={i} className="flex items-start gap-2 text-muted-foreground">
+            <li key={i} className="flex items-start gap-2 text-slate-700">
               <span className="text-primary tabular-nums shrink-0">{i + 1}.</span>
               <span>{c}</span>
             </li>
@@ -504,7 +504,7 @@ export function ChangeManagementSafeUpdateReadinessSurface({
       >
         <ul className="space-y-1.5 text-sm">
           {CHANGE_LIMITS.map((l, i) => (
-            <li key={i} className="flex items-start gap-2 text-muted-foreground">
+            <li key={i} className="flex items-start gap-2 text-slate-700">
               <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
               <span>{l}</span>
             </li>
@@ -515,7 +515,7 @@ export function ChangeManagementSafeUpdateReadinessSurface({
       {/* Quick links */}
       <div className="rounded-xl border bg-card p-5">
         <h3 className="font-semibold text-sm">Supporting audit / docs / training surfaces</h3>
-        <p className="text-xs text-muted-foreground mt-0.5">
+        <p className="text-xs text-slate-700 mt-0.5">
           Jump to the surfaces that back this guidance.
         </p>
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -525,11 +525,11 @@ export function ChangeManagementSafeUpdateReadinessSurface({
               type="button"
               onClick={() => onNavigateTab?.(q.tab)}
               disabled={!onNavigateTab}
-              className="text-left rounded-lg border bg-background hover:bg-muted/40 transition-colors px-3 py-2.5 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="text-left rounded-lg border bg-background hover:bg-muted/40 transition-colors px-3 py-2.5 disabled:opacity-100 disabled:cursor-not-allowed"
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="text-sm font-medium">{q.label}</div>
-                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <ExternalLink className="h-3.5 w-3.5 text-slate-700 shrink-0" />
               </div>
             </button>
           ))}
@@ -587,7 +587,7 @@ function AreaList({
               <ClassBadge kind={kind} />
               <div className="text-sm font-medium">{a.label}</div>
             </div>
-            <div className="text-xs text-muted-foreground mt-1">{a.detail}</div>
+            <div className="text-xs text-slate-700 mt-1">{a.detail}</div>
           </div>
           {a.tab && onNavigateTab && (
             <Button
@@ -636,10 +636,10 @@ function Section({
           </div>
           <div className="min-w-0">
             <div className="font-medium text-sm">{title}</div>
-            <div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{intent}</div>
+            <div className="text-xs text-slate-700 mt-0.5 line-clamp-2">{intent}</div>
           </div>
         </div>
-        <div className="shrink-0 text-muted-foreground">
+        <div className="shrink-0 text-slate-700">
           {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         </div>
       </button>

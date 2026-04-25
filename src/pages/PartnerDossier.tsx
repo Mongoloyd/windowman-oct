@@ -837,7 +837,7 @@ function DocumentVault({ hasDocument, isUnlocked, analysisId, createdAt, isPrevi
             </div>
           </div>
           {/* Blurred content behind */}
-          <div className="flex items-center gap-4 select-none pointer-events-none opacity-50">
+          <div className="flex items-center gap-4 select-none pointer-events-none opacity-100">
             <div className="h-12 w-12 rounded-lg bg-muted flex items-center justify-center">
               <FileText className="h-6 w-6 text-slate-700" />
             </div>
@@ -875,7 +875,7 @@ function DocumentVault({ hasDocument, isUnlocked, analysisId, createdAt, isPrevi
         <button
           onClick={handleViewDocument}
           disabled={docLoading}
-          className="min-h-10 px-4 py-2.5 rounded-lg border border-blue-900 bg-blue-900 text-white text-sm font-extrabold hover:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-wait shadow-sm"
+          className="min-h-10 px-4 py-2.5 rounded-lg border border-blue-900 bg-blue-900 text-white text-sm font-extrabold hover:bg-blue-800 transition-colors disabled:opacity-100 disabled:cursor-wait shadow-sm"
         >
           {docLoading ? "Loading…" : "View Original Quote"}
         </button>

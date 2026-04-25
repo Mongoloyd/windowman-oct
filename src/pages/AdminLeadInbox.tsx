@@ -174,7 +174,7 @@ export default function LeadInbox() {
     >
       {isLoading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-6 w-6 animate-spin text-slate-600" />
+          <Loader2 className="h-6 w-6 animate-spin text-slate-700" />
         </div>
       ) : isError ? (
         <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
@@ -187,7 +187,7 @@ export default function LeadInbox() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="rounded-2xl border border-slate-300 bg-card p-10 text-center shadow-sm">
-          <Inbox className="mx-auto h-8 w-8 text-slate-600 mb-3" />
+          <Inbox className="mx-auto h-8 w-8 text-slate-700 mb-3" />
           <h2 className="font-display text-lg font-extrabold tracking-tight text-foreground">
             No leads match
           </h2>
@@ -224,7 +224,7 @@ function FilterBar({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div className="relative flex-1 min-w-[220px] max-w-md">
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-600" />
+        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-700" />
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}

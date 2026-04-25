@@ -684,7 +684,7 @@ export default function PartnerRevenueDashboard() {
             </div>
           ) : pipeline.length === 0 ? (
             <div className="rounded-lg border border-dashed bg-card p-8 flex flex-col items-center text-center gap-2">
-              <Inbox className="h-8 w-8 text-muted-foreground/50" aria-hidden />
+              <Inbox className="h-8 w-8 text-slate-700" aria-hidden />
               <div className="text-sm font-medium">No active leads</div>
               <p className="text-sm font-medium text-slate-700 max-w-sm">
                 Once you start working leads from the Opportunity Market, they

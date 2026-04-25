@@ -43,7 +43,7 @@ function gradeColor(grade: string | null): string {
     case "C": return "bg-amber-500 text-white";
     case "D": return "bg-orange-600 text-white";
     case "F": return "bg-destructive text-destructive-foreground";
-    default: return "bg-muted text-muted-foreground";
+    default: return "bg-muted text-slate-700";
   }
 }
 
@@ -63,10 +63,10 @@ function InfoRow({ label, value, icon: Icon }: {
 }) {
   return (
     <div className="flex items-start gap-2 py-1.5">
-      {Icon && <Icon className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />}
+      {Icon && <Icon className="h-4 w-4 mt-0.5 text-slate-700 shrink-0" />}
       <div className="min-w-0">
-        <p className="text-[11px] text-muted-foreground uppercase tracking-wide">{label}</p>
-        <p className="text-sm font-medium break-all">{value || <span className="text-muted-foreground">—</span>}</p>
+        <p className="text-[11px] text-slate-700 uppercase tracking-wide">{label}</p>
+        <p className="text-sm font-medium break-all">{value || <span className="text-slate-700">—</span>}</p>
       </div>
     </div>
   );
@@ -74,7 +74,7 @@ function InfoRow({ label, value, icon: Icon }: {
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mt-4 mb-2">
+    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 mt-4 mb-2">
       {children}
     </h3>
   );
@@ -84,8 +84,8 @@ function TimelineEntry({ label, timestamp }: { label: string; timestamp: string 
   if (!timestamp) return null;
   return (
     <div className="flex items-center gap-2 py-1">
-      <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-      <span className="text-xs text-muted-foreground">{label}</span>
+      <Clock className="h-3.5 w-3.5 text-slate-700" />
+      <span className="text-xs text-slate-700">{label}</span>
       <span className="text-xs font-mono ml-auto">
         {format(new Date(timestamp), "MMM d, yyyy h:mm a")}
       </span>
@@ -379,15 +379,15 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
               )}
             </div>
             {auditOpen ? (
-              <ChevronUp className="h-4 w-4 text-muted-foreground" />
+              <ChevronUp className="h-4 w-4 text-slate-700" />
             ) : (
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              <ChevronDown className="h-4 w-4 text-slate-700" />
             )}
           </CollapsibleTrigger>
 
           <CollapsibleContent className="mt-2 space-y-4">
             {!lead.latest_analysis_id ? (
-              <p className="text-xs text-muted-foreground">No Truth Engine analysis available yet.</p>
+              <p className="text-xs text-slate-700">No Truth Engine analysis available yet.</p>
             ) : analysisLoading ? (
               <div className="space-y-2">
                 <div className="flex gap-2">
@@ -404,11 +404,11 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
                 {/* ── Summary Row ── */}
                 <div className="flex items-center gap-4 text-sm">
                   <div>
-                    <p className="text-[10px] text-muted-foreground uppercase">Confidence</p>
+                    <p className="text-[10px] text-slate-700 uppercase">Confidence</p>
                     <p className="font-mono font-medium">{analysis?.confidence_score ?? "—"}%</p>
                   </div>
                   <div>
-                    <p className="text-[10px] text-muted-foreground uppercase">Dollar Delta</p>
+                    <p className="text-[10px] text-slate-700 uppercase">Dollar Delta</p>
                     <p className="font-bold tabular-nums">
                       {analysis?.dollar_delta != null
                         ? `${analysis.dollar_delta > 0 ? "+" : ""}$${Math.abs(analysis.dollar_delta).toLocaleString()}`
@@ -416,7 +416,7 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
                     </p>
                   </div>
                   <div>
-                    <p className="text-[10px] text-muted-foreground uppercase">Flags</p>
+                    <p className="text-[10px] text-slate-700 uppercase">Flags</p>
                     <p className="font-medium">{analysis?.flags?.length ?? 0}</p>
                   </div>
                 </div>
@@ -432,7 +432,7 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
                         className="rounded-lg border border-border/50 bg-muted/30 p-3 min-w-0"
                       >
                         <div className="flex items-start justify-between mb-1">
-                          <p className="text-[10px] uppercase tracking-wide text-muted-foreground leading-tight">
+                          <p className="text-[10px] uppercase tracking-wide text-slate-700 leading-tight">
                             {label}
                           </p>
                           <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${gradeColor(letterGrade === "—" ? null : letterGrade)}`}>
@@ -453,10 +453,10 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
                                 style={{ width: `${score}%` }}
                               />
                             </div>
-                            <p className="text-[10px] text-muted-foreground mt-0.5 font-mono">{score}/100</p>
+                            <p className="text-[10px] text-slate-700 mt-0.5 font-mono">{score}/100</p>
                           </div>
                         ) : (
-                          <p className="text-[10px] text-muted-foreground mt-1">Not analyzed</p>
+                          <p className="text-[10px] text-slate-700 mt-1">Not analyzed</p>
                         )}
                       </div>
                     );
@@ -489,14 +489,14 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
                                 ? "bg-destructive/20 text-destructive border border-destructive/30"
                                 : f.severity === "Medium"
                                 ? "bg-amber-500/20 text-amber-600 border border-amber-500/30"
-                                : "bg-muted text-muted-foreground border border-border"
+                                : "bg-muted text-slate-700 border border-border"
                             }`}
                           >
                             {f.severity}
                           </Badge>
                           <span className="text-foreground/80">
                             {f.flag}
-                            {f.detail && <span className="text-muted-foreground ml-1">— {f.detail}</span>}
+                            {f.detail && <span className="text-slate-700 ml-1">— {f.detail}</span>}
                           </span>
                         </li>
                       ))}
@@ -516,34 +516,34 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
                 {(extraction || fullJson) && (
                   <div className="rounded-lg border border-border/50 bg-muted/20 p-2.5 space-y-1">
                     <div className="flex items-center gap-1.5 mb-1">
-                      <Info className="h-3 w-3 text-muted-foreground" />
-                      <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
+                      <Info className="h-3 w-3 text-slate-700" />
+                      <span className="text-[10px] uppercase tracking-wide text-slate-700 font-semibold">
                         Extraction Details
                       </span>
                     </div>
                     {extraction?.contractor_name && (
-                      <p className="text-xs"><span className="text-muted-foreground">Contractor:</span> {extraction.contractor_name}</p>
+                      <p className="text-xs"><span className="text-slate-700">Contractor:</span> {extraction.contractor_name}</p>
                     )}
                     {extraction?.total_quoted_price != null && (
-                      <p className="text-xs"><span className="text-muted-foreground">Total Quoted:</span> ${Number(extraction.total_quoted_price).toLocaleString()}</p>
+                      <p className="text-xs"><span className="text-slate-700">Total Quoted:</span> ${Number(extraction.total_quoted_price).toLocaleString()}</p>
                     )}
                     {extraction?.opening_count != null && (
-                      <p className="text-xs"><span className="text-muted-foreground">Openings:</span> {extraction.opening_count}</p>
+                      <p className="text-xs"><span className="text-slate-700">Openings:</span> {extraction.opening_count}</p>
                     )}
                     {extraction?.document_type && (
-                      <p className="text-xs"><span className="text-muted-foreground">Doc Type:</span> {extraction.document_type}</p>
+                      <p className="text-xs"><span className="text-slate-700">Doc Type:</span> {extraction.document_type}</p>
                     )}
                     {(fullJson as any)?.rubric_version && (
-                      <p className="text-xs"><span className="text-muted-foreground">Rubric:</span> v{(fullJson as any).rubric_version}</p>
+                      <p className="text-xs"><span className="text-slate-700">Rubric:</span> v{(fullJson as any).rubric_version}</p>
                     )}
                     {(fullJson as any)?.price_fairness && (
-                      <p className="text-xs"><span className="text-muted-foreground">Price Fairness:</span> {(fullJson as any).price_fairness}</p>
+                      <p className="text-xs"><span className="text-slate-700">Price Fairness:</span> {(fullJson as any).price_fairness}</p>
                     )}
                     {(fullJson as any)?.markup_estimate && (
-                      <p className="text-xs"><span className="text-muted-foreground">Markup Est:</span> {(fullJson as any).markup_estimate}</p>
+                      <p className="text-xs"><span className="text-slate-700">Markup Est:</span> {(fullJson as any).markup_estimate}</p>
                     )}
                     {(fullJson as any)?.negotiation_leverage && (
-                      <p className="text-xs"><span className="text-muted-foreground">Leverage:</span> {(fullJson as any).negotiation_leverage}</p>
+                      <p className="text-xs"><span className="text-slate-700">Leverage:</span> {(fullJson as any).negotiation_leverage}</p>
                     )}
                   </div>
                 )}
@@ -592,7 +592,7 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
               </button>
             </div>
           ) : callHistory.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 py-6 text-muted-foreground">
+            <div className="flex flex-col items-center gap-2 py-6 text-slate-700">
               <Phone className="w-5 h-5" />
               <span className="text-sm">No calls logged yet.</span>
             </div>
@@ -630,12 +630,12 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
                         ) : entry.status === "in_progress" ? (
                           <span className="text-xs font-bold px-2 py-0.5 rounded uppercase border bg-blue-100 text-blue-700 border-blue-200 animate-pulse">In Progress</span>
                         ) : entry.status === "queued" ? (
-                          <span className="text-xs font-bold px-2 py-0.5 rounded uppercase border bg-muted text-muted-foreground border-border">Queued</span>
+                          <span className="text-xs font-bold px-2 py-0.5 rounded uppercase border bg-muted text-slate-700 border-border">Queued</span>
                         ) : null}
 
                         {/* Duration */}
                         {entry.duration_seconds != null && (
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-xs text-slate-700">
                             {Math.floor(entry.duration_seconds / 60)}m {entry.duration_seconds % 60}s
                           </span>
                         )}
@@ -648,7 +648,7 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
                         {entry.appointment_booked && (
                           <span title="Appointment booked"><CalendarCheck className="w-3 h-3 text-green-500" /></span>
                         )}
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-xs text-slate-700">
                           {format(new Date(entry.created_at), "MMM d 'at' h:mm a")}
                         </span>
                       </div>
@@ -673,7 +673,7 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
                             {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                           </button>
                           {isExpanded && (
-                            <div className="mt-2 p-2 rounded bg-muted text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed max-h-[200px] overflow-y-auto">
+                            <div className="mt-2 p-2 rounded bg-muted text-xs text-slate-700 whitespace-pre-wrap leading-relaxed max-h-[200px] overflow-y-auto">
                               {entry.transcript_text}
                             </div>
                           )}
@@ -689,11 +689,11 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
                           View Transcript
                         </a>
                       ) : (
-                        <span className="text-xs text-muted-foreground italic">No transcript available.</span>
+                        <span className="text-xs text-slate-700 italic">No transcript available.</span>
                       )}
 
                       {entry.summary && !isExpanded && (
-                        <p className="text-xs text-muted-foreground mt-1 italic line-clamp-2">{entry.summary}</p>
+                        <p className="text-xs text-slate-700 mt-1 italic line-clamp-2">{entry.summary}</p>
                       )}
 
                       {entry.recording_url && (
@@ -787,7 +787,7 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium">{name}</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-slate-700">
                   {[lead.city, lead.zip].filter(Boolean).join(", ") || "Florida"}
                 </p>
               </div>
@@ -799,7 +799,7 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
             </div>
 
             {/* Issues */}
-            <div className="text-sm text-muted-foreground">
+            <div className="text-sm text-slate-700">
               {lead.flag_count ?? 0} flagged issue{(lead.flag_count ?? 0) !== 1 ? "s" : ""}
             </div>
 

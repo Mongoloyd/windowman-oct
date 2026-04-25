@@ -276,7 +276,7 @@ export function OperatorTrainingSOPSurface({
                 <CardTitle className="text-xl">
                   Operator Training & SOP
                 </CardTitle>
-                <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+                <p className="text-sm text-slate-700 mt-1 max-w-2xl">
                   Internal playbook for running the current system correctly.
                   Honest, current-state guidance — no automation implied, no
                   promises made.
@@ -290,7 +290,7 @@ export function OperatorTrainingSOPSurface({
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between flex-wrap gap-3">
-            <div className="text-sm text-muted-foreground">
+            <div className="text-sm text-slate-700">
               Local progress:{" "}
               <span className="font-medium text-foreground">
                 {totals.done} / {totals.total}
@@ -317,7 +317,7 @@ export function OperatorTrainingSOPSurface({
             <Info className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
             <div className="text-sm text-foreground/90 space-y-1">
               <p className="font-medium">What this surface is — and isn't</p>
-              <p className="text-muted-foreground">
+              <p className="text-slate-700">
                 This is operator guidance, not an LMS. Nothing here represents
                 automated workflows, certification, or contractor-facing
                 training. All progress toggles are in-memory only.
@@ -341,7 +341,7 @@ export function OperatorTrainingSOPSurface({
                   </div>
                   <div>
                     <CardTitle className="text-base">{section.title}</CardTitle>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <p className="text-sm text-slate-700 mt-1">
                       {section.intent}
                     </p>
                   </div>
@@ -381,25 +381,25 @@ export function OperatorTrainingSOPSurface({
                         {done ? (
                           <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                         ) : (
-                          <Circle className="h-4 w-4 text-muted-foreground" />
+                          <Circle className="h-4 w-4 text-slate-700" />
                         )}
                       </button>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="font-mono text-[10px] text-muted-foreground">
+                          <span className="font-mono text-[10px] text-slate-700">
                             {String(idx + 1).padStart(2, "0")}
                           </span>
                           <span
                             className={`text-sm font-medium ${
                               done
-                                ? "text-muted-foreground line-through"
+                                ? "text-slate-700 line-through"
                                 : "text-foreground"
                             }`}
                           >
                             {step.title}
                           </span>
                         </div>
-                        <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+                        <p className="text-sm text-slate-700 mt-1 leading-relaxed">
                           {step.body}
                         </p>
                       </div>
@@ -416,7 +416,7 @@ export function OperatorTrainingSOPSurface({
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Quick Links</CardTitle>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-sm text-slate-700 mt-1">
             Jump to the live admin surfaces referenced above.
           </p>
         </CardHeader>
@@ -453,7 +453,7 @@ export function OperatorTrainingSOPSurface({
 
       <Separator />
 
-      <p className="text-xs text-muted-foreground text-center">
+      <p className="text-xs text-slate-700 text-center">
         SOP content reflects current system behavior only. Update this surface
         when real workflow changes ship.
       </p>

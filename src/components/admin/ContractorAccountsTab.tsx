@@ -223,8 +223,8 @@ export function ContractorAccountsTab() {
     return (
       <Card>
         <CardContent className="py-12 text-center">
-          <Building2 className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
-          <p className="text-muted-foreground">No contractor accounts found.</p>
+          <Building2 className="mx-auto h-10 w-10 text-slate-700 mb-3" />
+          <p className="text-slate-700">No contractor accounts found.</p>
         </CardContent>
       </Card>
     );
@@ -242,15 +242,15 @@ export function ContractorAccountsTab() {
       {/* ── Summary Cards ──────────────────────────────────────────── */}
       <div className="grid grid-cols-3 gap-4">
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Accounts</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-700">Total Accounts</CardTitle></CardHeader>
           <CardContent><p className="text-2xl font-bold">{accounts.length}</p></CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Credits Outstanding</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-700">Total Credits Outstanding</CardTitle></CardHeader>
           <CardContent><p className="text-2xl font-bold">{accounts.reduce((s, a) => s + a.credit_balance, 0)}</p></CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Unlocks</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-700">Total Unlocks</CardTitle></CardHeader>
           <CardContent><p className="text-2xl font-bold">{accounts.reduce((s, a) => s + a.unlock_count, 0)}</p></CardContent>
         </Card>
       </div>
@@ -275,7 +275,7 @@ export function ContractorAccountsTab() {
                 <TableRow key={acct.id}>
                   <TableCell className="font-medium">
                     {acct.company_name}
-                    <span className="block text-xs text-muted-foreground">{acct.contact_email}</span>
+                    <span className="block text-xs text-slate-700">{acct.contact_email}</span>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -288,7 +288,7 @@ export function ContractorAccountsTab() {
                   <TableCell>
                     <span className="text-sm">{acct.auth_email ?? "—"}</span>
                     {acct.last_sign_in && (
-                      <span className="block text-xs text-muted-foreground">
+                      <span className="block text-xs text-slate-700">
                         Last login: {fmtDate(acct.last_sign_in)}
                       </span>
                     )}
@@ -425,7 +425,7 @@ export function ContractorAccountsTab() {
               ))}
             </div>
           ) : ledgerEntries.length === 0 ? (
-            <p className="py-8 text-center text-muted-foreground">No ledger entries.</p>
+            <p className="py-8 text-center text-slate-700">No ledger entries.</p>
           ) : (
             <Table>
               <TableHeader>
@@ -450,7 +450,7 @@ export function ContractorAccountsTab() {
                       {e.delta > 0 ? `+${e.delta}` : e.delta}
                     </TableCell>
                     <TableCell className="text-right font-mono text-sm">{e.balance_after}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">{e.notes ?? "—"}</TableCell>
+                    <TableCell className="text-xs text-slate-700 max-w-[200px] truncate">{e.notes ?? "—"}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -473,7 +473,7 @@ export function ContractorAccountsTab() {
               ))}
             </div>
           ) : unlockEntries.length === 0 ? (
-            <p className="py-8 text-center text-muted-foreground">No unlocks yet.</p>
+            <p className="py-8 text-center text-slate-700">No unlocks yet.</p>
           ) : (
             <Table>
               <TableHeader>

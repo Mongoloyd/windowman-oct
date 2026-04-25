@@ -98,13 +98,13 @@ export function CommandCenter({ kpis, isLoading, leads }: CommandCenterProps) {
         {/* North Star — span 2 */}
         <Card className="relative overflow-hidden sm:col-span-2 border-l-4 border-l-[#C8952A]">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-widest">
+            <CardTitle className="text-xs font-medium text-slate-700 uppercase tracking-widest">
               Lead → Appointment Rate
             </CardTitle>
             <Target className="h-5 w-5" style={{ color: "#C8952A" }} />
           </CardHeader>
           <CardContent>
-            <div className={`text-5xl font-bold tracking-tight ${isLoading ? "animate-pulse text-muted-foreground" : ""}`}>
+            <div className={`text-5xl font-bold tracking-tight ${isLoading ? "animate-pulse text-slate-700" : ""}`}>
               {isLoading ? "—" : northStar.rate}
             </div>
             {!isLoading && northStar.showTrend && (
@@ -112,7 +112,7 @@ export function CommandCenter({ kpis, isLoading, leads }: CommandCenterProps) {
                 {northStar.trendUp ? "↑" : "↓"} {Math.abs(northStar.trendDelta)}% vs last 7d
               </p>
             )}
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-xs text-slate-700 mt-1">
               {isLoading ? "" : `${northStar.converted} of ${northStar.verified} verified leads`}
             </p>
           </CardContent>
@@ -121,16 +121,16 @@ export function CommandCenter({ kpis, isLoading, leads }: CommandCenterProps) {
         {cards.map((card) => (
           <Card key={card.title} className="relative overflow-hidden">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardTitle className="text-sm font-medium text-slate-700">
                 {card.title}
               </CardTitle>
               <card.icon className={`h-5 w-5 ${card.accent}`} />
             </CardHeader>
             <CardContent>
-              <div className={`text-3xl font-bold tracking-tight ${isLoading ? "animate-pulse text-muted-foreground" : ""}`}>
+              <div className={`text-3xl font-bold tracking-tight ${isLoading ? "animate-pulse text-slate-700" : ""}`}>
                 {isLoading ? "—" : card.value.toLocaleString()}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">{card.description}</p>
+              <p className="text-xs text-slate-700 mt-1">{card.description}</p>
             </CardContent>
           </Card>
         ))}
@@ -139,7 +139,7 @@ export function CommandCenter({ kpis, isLoading, leads }: CommandCenterProps) {
       {/* Conversion Funnel */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+          <CardTitle className="text-sm font-medium text-slate-700 uppercase tracking-wider">
             Conversion Funnel
           </CardTitle>
         </CardHeader>
@@ -151,7 +151,7 @@ export function CommandCenter({ kpis, isLoading, leads }: CommandCenterProps) {
       {/* Funnel Progress */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+          <CardTitle className="text-sm font-medium text-slate-700 uppercase tracking-wider">
             Funnel Progress
           </CardTitle>
         </CardHeader>
@@ -166,7 +166,7 @@ export function CommandCenter({ kpis, isLoading, leads }: CommandCenterProps) {
                 <div key={step.label}>
                   {i > 0 && (
                     <div className="flex items-center gap-2 py-1 pl-4">
-                      <ArrowDown className="h-3 w-3 text-muted-foreground" />
+                      <ArrowDown className="h-3 w-3 text-slate-700" />
                       {conversionRate !== null && (
                         <Badge variant="secondary" className="text-xs font-mono">
                           {conversionRate}%
@@ -190,7 +190,7 @@ export function CommandCenter({ kpis, isLoading, leads }: CommandCenterProps) {
       {/* Webhook Health Summary */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+          <CardTitle className="text-sm font-medium text-slate-700 uppercase tracking-wider">
             Webhook Health
           </CardTitle>
         </CardHeader>

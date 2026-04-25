@@ -53,7 +53,7 @@ export function AdminShell({
                   {backLabel}
                 </Link>
               )}
-              <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-slate-600">
+              <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-slate-700">
                 {eyebrow}
               </p>
               <h1 className="mt-1 font-display text-3xl md:text-4xl font-black leading-tight tracking-tight text-slate-950">

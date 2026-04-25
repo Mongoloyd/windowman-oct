@@ -293,7 +293,7 @@ export function TechnicalDebtRefactorReadinessReviewSurface({ onNavigateTab }: P
                 <CardTitle className="text-lg">
                   Technical Debt / Refactor Readiness Review
                 </CardTitle>
-                <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+                <p className="text-sm text-slate-700 mt-1 max-w-2xl">
                   Internal review of which current surfaces are structurally stable,
                   which are layered on operator-view derivations, and which areas should
                   stay untouched. Read-only, current-state only — no engineering backend.
@@ -448,7 +448,7 @@ function SectionCard({
             <div className="rounded-md bg-muted p-2 text-foreground/70">{icon}</div>
             <div>
               <CardTitle className="text-base">{title}</CardTitle>
-              <p className="text-sm text-muted-foreground mt-1 max-w-2xl">{description}</p>
+              <p className="text-sm text-slate-700 mt-1 max-w-2xl">{description}</p>
             </div>
           </div>
           <Button size="sm" variant="ghost" onClick={onToggle} className="gap-1.5">
@@ -481,8 +481,8 @@ function ItemList({
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="text-sm font-medium text-foreground">{item.title}</div>
-              <p className="text-sm text-muted-foreground mt-1">{item.detail}</p>
-              <p className="text-xs text-muted-foreground/80 mt-1.5">
+              <p className="text-sm text-slate-700 mt-1">{item.detail}</p>
+              <p className="text-xs text-slate-700/80 mt-1.5">
                 <span className="font-medium text-foreground/70">Why: </span>
                 {item.why}
               </p>
@@ -523,7 +523,7 @@ function QuickLink({
       disabled={!onNavigateTab}
     >
       <span>{label}</span>
-      <ExternalLink className="h-3.5 w-3.5 opacity-60" />
+      <ExternalLink className="h-3.5 w-3.5 opacity-100" />
     </Button>
   );
 }

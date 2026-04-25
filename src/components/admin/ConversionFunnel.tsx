@@ -32,7 +32,7 @@ export function ConversionFunnel({ leads }: ConversionFunnelProps) {
       count: leads.filter((l) =>
         ["won", "lost", "appointment_booked"].includes(l.deal_status ?? "")
       ).length,
-      color: "text-muted-foreground",
+      color: "text-slate-700",
     },
   ];
 
@@ -41,7 +41,7 @@ export function ConversionFunnel({ leads }: ConversionFunnelProps) {
 
   if (leads.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground text-center py-8">
+      <p className="text-sm text-slate-700 text-center py-8">
         No scan data yet — start collecting leads.
       </p>
     );
@@ -54,8 +54,8 @@ export function ConversionFunnel({ leads }: ConversionFunnelProps) {
           {/* Connector */}
           {i > 0 && (
             <div className="flex flex-col md:flex-row items-center justify-center px-2 py-1 md:py-0">
-              <span className="hidden md:block text-muted-foreground text-xs">→</span>
-              <span className="md:hidden text-muted-foreground text-xs">↓</span>
+              <span className="hidden md:block text-slate-700 text-xs">→</span>
+              <span className="md:hidden text-slate-700 text-xs">↓</span>
               <span className="text-xs text-destructive ml-1">
                 {dropPct(stages[i - 1].count, stage.count)} drop
               </span>
@@ -63,7 +63,7 @@ export function ConversionFunnel({ leads }: ConversionFunnelProps) {
           )}
           {/* Card */}
           <div className="min-w-[120px] rounded-lg border border-border bg-card p-4 text-center flex-1">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">
+            <p className="text-xs uppercase tracking-wide text-slate-700 mb-1">
               {stage.label}
             </p>
             <p className={`text-3xl font-bold ${stage.color}`}>

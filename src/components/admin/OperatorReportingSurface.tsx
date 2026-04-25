@@ -342,7 +342,7 @@ export function OperatorReportingSurface({ leads, onNavigateTab }: Props) {
               <BarChart3 className="h-5 w-5 text-primary" />
               Operator Reporting
             </h2>
-            <p className="text-xs text-muted-foreground mt-1 max-w-2xl leading-relaxed">
+            <p className="text-xs text-slate-700 mt-1 max-w-2xl leading-relaxed">
               Honest current-state reporting from repo-real fields. Use Copy /
               CSV for internal recaps and contractor conversations. No revenue,
               ROI, or contractor scoring is implied.
@@ -399,11 +399,11 @@ export function OperatorReportingSurface({ leads, onNavigateTab }: Props) {
           <CardTitle className="text-sm flex items-center gap-2">
             <BarChart3 className="h-4 w-4" />
             Outcome Breakdown{" "}
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-normal">
+            <span className="text-[10px] uppercase tracking-wider text-slate-700 font-normal">
               (operator view)
             </span>
           </CardTitle>
-          <p className="text-[11px] text-muted-foreground mt-1">
+          <p className="text-[11px] text-slate-700 mt-1">
             Derived deterministically from route + lead fields. Mirrors the
             categories used in Outcome Tracking and Pilot Ops.
           </p>
@@ -426,11 +426,11 @@ export function OperatorReportingSurface({ leads, onNavigateTab }: Props) {
             <CardTitle className="text-sm flex items-center gap-2">
               <Users className="h-4 w-4" />
               By Contractor{" "}
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-normal">
+              <span className="text-[10px] uppercase tracking-wider text-slate-700 font-normal">
                 (observed)
               </span>
             </CardTitle>
-            <p className="text-[11px] text-muted-foreground mt-1">
+            <p className="text-[11px] text-slate-700 mt-1">
               Routes observed per contractor + counties seen on those routes.
               Contractor-declared service area is not separately modeled.
             </p>
@@ -448,7 +448,7 @@ export function OperatorReportingSurface({ leads, onNavigateTab }: Props) {
         </CardHeader>
         <CardContent className="space-y-2">
           {contractorBreakdown.length === 0 ? (
-            <p className="text-xs text-muted-foreground italic">
+            <p className="text-xs text-slate-700 italic">
               No contractors found in registry.
             </p>
           ) : (
@@ -467,7 +467,7 @@ export function OperatorReportingSurface({ leads, onNavigateTab }: Props) {
                         </Badge>
                       ))
                     ) : (
-                      <span className="text-[11px] text-muted-foreground italic">
+                      <span className="text-[11px] text-slate-700 italic">
                         No counties observed yet
                       </span>
                     )}
@@ -477,7 +477,7 @@ export function OperatorReportingSurface({ leads, onNavigateTab }: Props) {
                   <p className="text-2xl font-bold tabular-nums leading-none">
                     {c.routes}
                   </p>
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1 font-semibold">
+                  <p className="text-[10px] uppercase tracking-wider text-slate-700 mt-1 font-semibold">
                     routes
                   </p>
                 </div>
@@ -495,7 +495,7 @@ export function OperatorReportingSurface({ leads, onNavigateTab }: Props) {
               <MapPin className="h-4 w-4" />
               By County
             </CardTitle>
-            <p className="text-[11px] text-muted-foreground mt-1">
+            <p className="text-[11px] text-slate-700 mt-1">
               Derived from `leads.county`. Unknown County rolls up leads with
               no county on file.
             </p>
@@ -515,7 +515,7 @@ export function OperatorReportingSurface({ leads, onNavigateTab }: Props) {
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b text-left text-muted-foreground">
+                <tr className="border-b text-left text-slate-700">
                   <th className="py-2 font-semibold uppercase tracking-wider text-[10px]">
                     County
                   </th>
@@ -541,23 +541,23 @@ export function OperatorReportingSurface({ leads, onNavigateTab }: Props) {
                 ))}
                 {countyBreakdown.unknown > 0 && (
                   <tr className="border-b last:border-0">
-                    <td className="py-2 text-muted-foreground italic">
+                    <td className="py-2 text-slate-700 italic">
                       Unknown County
                     </td>
-                    <td className="py-2 text-right tabular-nums text-muted-foreground">
+                    <td className="py-2 text-right tabular-nums text-slate-700">
                       {countyBreakdown.unknown}
                     </td>
-                    <td className="py-2 text-right tabular-nums text-muted-foreground">
+                    <td className="py-2 text-right tabular-nums text-slate-700">
                       —
                     </td>
-                    <td className="py-2 text-right tabular-nums text-muted-foreground">
+                    <td className="py-2 text-right tabular-nums text-slate-700">
                       —
                     </td>
                   </tr>
                 )}
                 {countyBreakdown.rows.length === 0 && countyBreakdown.unknown === 0 && (
                   <tr>
-                    <td colSpan={4} className="py-4 text-center text-muted-foreground italic">
+                    <td colSpan={4} className="py-4 text-center text-slate-700 italic">
                       No county data captured yet.
                     </td>
                   </tr>
@@ -575,7 +575,7 @@ export function OperatorReportingSurface({ leads, onNavigateTab }: Props) {
             <AlertTriangle className="h-4 w-4 text-amber-600" />
             Unresolved · Needs Attention
           </CardTitle>
-          <p className="text-[11px] text-muted-foreground mt-1">
+          <p className="text-[11px] text-slate-700 mt-1">
             Routed opportunities with no terminal outcome yet, plus stale and
             recovery candidates derived from real timestamps.
           </p>
@@ -610,7 +610,7 @@ export function OperatorReportingSurface({ leads, onNavigateTab }: Props) {
             Reporting Notes · Current Limits
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2 text-xs leading-relaxed text-muted-foreground">
+        <CardContent className="space-y-2 text-xs leading-relaxed text-slate-700">
           <Note>
             All counts come from real fields on{" "}
             <code className="text-[11px]">leads</code>,{" "}
@@ -664,7 +664,7 @@ function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-md border bg-muted/20 p-3">
       <p className="text-2xl font-bold tabular-nums leading-none">{value}</p>
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1.5 font-semibold">
+      <p className="text-[10px] uppercase tracking-wider text-slate-700 mt-1.5 font-semibold">
         {label}
       </p>
     </div>
@@ -689,10 +689,10 @@ function NeedsBlock({
   return (
     <div className={`rounded-md border p-3 ${toneClass}`}>
       <p className="text-2xl font-bold tabular-nums leading-none">{value}</p>
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1.5 font-semibold">
+      <p className="text-[10px] uppercase tracking-wider text-slate-700 mt-1.5 font-semibold">
         {label}
       </p>
-      <p className="text-[11px] text-muted-foreground mt-1.5 leading-snug">{hint}</p>
+      <p className="text-[11px] text-slate-700 mt-1.5 leading-snug">{hint}</p>
     </div>
   );
 }
@@ -700,7 +700,7 @@ function NeedsBlock({
 function Note({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-start gap-2">
-      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+      <ChevronRight className="h-3.5 w-3.5 text-slate-700 shrink-0 mt-0.5" />
       <p>{children}</p>
     </div>
   );
@@ -713,7 +713,7 @@ function QuickLink({ label, onClick }: { label: string; onClick: () => void }) {
       className="flex items-center justify-between rounded-md border bg-background hover:bg-muted/40 px-3 py-2 text-xs text-foreground transition-colors"
     >
       <span>{label}</span>
-      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+      <ChevronRight className="h-3.5 w-3.5 text-slate-700" />
     </button>
   );
 }

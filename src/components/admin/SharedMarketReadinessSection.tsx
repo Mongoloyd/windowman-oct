@@ -32,23 +32,23 @@ function ReadinessRow({ icon: Icon, title, description }: ReadinessRowProps) {
   return (
     <div className="flex items-start gap-3 p-4 rounded-xl border border-slate-100 bg-white/70">
       <div className="w-9 h-9 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0">
-        <Icon className="w-4 h-4 text-slate-500" />
+        <Icon className="w-4 h-4 text-slate-700" />
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 flex-wrap">
           <p className="text-sm font-semibold text-slate-900">{title}</p>
           <Badge
             variant="outline"
-            className="text-[10px] border-slate-200 text-slate-500 bg-slate-50"
+            className="text-[10px] border-slate-200 text-slate-700 bg-slate-50"
           >
             Coming Later
           </Badge>
         </div>
-        <p className="text-xs text-slate-500 mt-1 leading-relaxed">{description}</p>
+        <p className="text-xs text-slate-700 mt-1 leading-relaxed">{description}</p>
 
         {/* Visually-disabled toggle. No onClick, no state, no handler. */}
         <div
-          className="mt-3 flex items-center gap-2 opacity-50 select-none"
+          className="mt-3 flex items-center gap-2 opacity-100 select-none"
           aria-disabled="true"
         >
           <div
@@ -57,7 +57,7 @@ function ReadinessRow({ icon: Icon, title, description }: ReadinessRowProps) {
           >
             <div className="absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white shadow-sm" />
           </div>
-          <span className="text-[11px] text-slate-400 italic">
+          <span className="text-[11px] text-slate-700 italic">
             Disabled — no backend support yet
           </span>
         </div>
@@ -71,13 +71,13 @@ export function SharedMarketReadinessSection() {
     <section className="bg-white rounded-2xl border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.04)] overflow-hidden">
       <header className="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
         <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center">
-          <Network className="w-4 h-4 text-slate-500" />
+          <Network className="w-4 h-4 text-slate-700" />
         </div>
         <div className="flex-1 min-w-0">
           <h2 className="text-sm font-bold text-slate-900 tracking-tight">
             Shared Market Network — Future Direction
           </h2>
-          <p className="text-[11px] text-slate-400 mt-0.5">
+          <p className="text-[11px] text-slate-700 mt-0.5">
             Informational only. These surfaces will activate when their backend
             support exists.
           </p>

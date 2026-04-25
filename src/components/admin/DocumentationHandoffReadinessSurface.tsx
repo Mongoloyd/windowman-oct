@@ -427,7 +427,7 @@ function StateBadge({ state }: { state: SurfaceEntry["state"] }) {
     );
   }
   return (
-    <Badge className="bg-muted text-muted-foreground border-border hover:bg-muted">
+    <Badge className="bg-muted text-slate-700 border-border hover:bg-muted">
       <BookOpen className="h-3 w-3 mr-1" />
       Review-only
     </Badge>
@@ -544,7 +544,7 @@ export function DocumentationHandoffReadinessSurface({
               <h2 className="text-lg sm:text-xl font-semibold tracking-tight">
                 Documentation / Handoff Readiness
               </h2>
-              <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+              <p className="text-sm text-slate-700 mt-1 max-w-2xl">
                 Single internal orientation surface. Explains what each admin surface is for, which workflows
                 are live, what is operator-manual vs platformized, and how to hand off the system cleanly to a
                 new operator or technical collaborator. No docs backend, no CMS — just current-state truth.
@@ -574,7 +574,7 @@ export function DocumentationHandoffReadinessSurface({
             <div className="text-xl font-semibold mt-0.5">{summary.manual}</div>
           </div>
           <div className="rounded-lg border bg-muted/40 px-3 py-2.5">
-            <div className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">
+            <div className="text-[11px] uppercase tracking-wide text-slate-700 font-semibold">
               Review-only
             </div>
             <div className="text-xl font-semibold mt-0.5">{summary.review}</div>
@@ -598,13 +598,13 @@ export function DocumentationHandoffReadinessSurface({
               type="button"
               onClick={() => onNavigateTab?.(s.tab)}
               disabled={!onNavigateTab}
-              className="text-left rounded-lg border bg-background hover:bg-muted/40 transition-colors px-3 py-2.5 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="text-left rounded-lg border bg-background hover:bg-muted/40 transition-colors px-3 py-2.5 disabled:opacity-100 disabled:cursor-not-allowed"
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="text-sm font-medium truncate">{s.label}</div>
                 <StateBadge state={s.state} />
               </div>
-              <div className="text-xs text-muted-foreground mt-1 line-clamp-2">{s.purpose}</div>
+              <div className="text-xs text-slate-700 mt-1 line-clamp-2">{s.purpose}</div>
             </button>
           ))}
         </div>
@@ -630,13 +630,13 @@ export function DocumentationHandoffReadinessSurface({
                   <li key={i} className="px-4 py-3 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="text-sm">
-                        <span className="text-muted-foreground tabular-nums mr-2">{i + 1}.</span>
+                        <span className="text-slate-700 tabular-nums mr-2">{i + 1}.</span>
                         <span className="font-medium">{st.step}</span>
                       </div>
-                      <div className="text-xs text-muted-foreground mt-1">
+                      <div className="text-xs text-slate-700 mt-1">
                         Surface: <span className="font-mono">{st.surface}</span>
                       </div>
-                      <div className="text-xs text-muted-foreground mt-0.5 italic">
+                      <div className="text-xs text-slate-700 mt-0.5 italic">
                         Truth: {st.truth}
                       </div>
                     </div>
@@ -669,7 +669,7 @@ export function DocumentationHandoffReadinessSurface({
         onToggle={toggle}
       >
         <div className="rounded-lg border overflow-hidden">
-          <div className="grid grid-cols-12 px-4 py-2 bg-muted/30 text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">
+          <div className="grid grid-cols-12 px-4 py-2 bg-muted/30 text-[11px] uppercase tracking-wide text-slate-700 font-semibold">
             <div className="col-span-4">Surface</div>
             <div className="col-span-5">Purpose</div>
             <div className="col-span-2">Audience</div>
@@ -679,9 +679,9 @@ export function DocumentationHandoffReadinessSurface({
             {SURFACES.map((s) => (
               <div key={s.tab} className="grid grid-cols-12 px-4 py-2.5 items-center gap-2">
                 <div className="col-span-4 text-sm font-medium truncate">{s.label}</div>
-                <div className="col-span-5 text-xs text-muted-foreground line-clamp-2">{s.purpose}</div>
+                <div className="col-span-5 text-xs text-slate-700 line-clamp-2">{s.purpose}</div>
                 <div className="col-span-2">
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1 text-xs text-slate-700">
                     <Users className="h-3 w-3" />
                     <span className="truncate">{s.audience}</span>
                   </div>
@@ -721,7 +721,7 @@ export function DocumentationHandoffReadinessSurface({
             >
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-medium">{r.capability}</div>
-                <div className="text-xs text-muted-foreground mt-0.5">{r.detail}</div>
+                <div className="text-xs text-slate-700 mt-0.5">{r.detail}</div>
               </div>
               <div className="shrink-0">
                 <StatusPill status={r.status} />
@@ -742,7 +742,7 @@ export function DocumentationHandoffReadinessSurface({
       >
         <ul className="space-y-1.5 text-sm">
           {CURRENT_LIMITS.map((l, i) => (
-            <li key={i} className="flex items-start gap-2 text-muted-foreground">
+            <li key={i} className="flex items-start gap-2 text-slate-700">
               <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
               <span>{l}</span>
             </li>
@@ -761,7 +761,7 @@ export function DocumentationHandoffReadinessSurface({
       >
         <ul className="space-y-1.5 text-sm">
           {HANDOFF_NOTES.map((n, i) => (
-            <li key={i} className="flex items-start gap-2 text-muted-foreground">
+            <li key={i} className="flex items-start gap-2 text-slate-700">
               <span className="text-primary mt-0.5">•</span>
               <span>{n}</span>
             </li>
@@ -772,7 +772,7 @@ export function DocumentationHandoffReadinessSurface({
       {/* Quick links */}
       <div className="rounded-xl border bg-card p-5">
         <h3 className="font-semibold text-sm">Jump to any major admin surface</h3>
-        <p className="text-xs text-muted-foreground mt-0.5">
+        <p className="text-xs text-slate-700 mt-0.5">
           Shortcut grid for the surfaces a new operator will use most.
         </p>
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -782,11 +782,11 @@ export function DocumentationHandoffReadinessSurface({
               type="button"
               onClick={() => onNavigateTab?.(q.tab)}
               disabled={!onNavigateTab}
-              className="text-left rounded-lg border bg-background hover:bg-muted/40 transition-colors px-3 py-2.5 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="text-left rounded-lg border bg-background hover:bg-muted/40 transition-colors px-3 py-2.5 disabled:opacity-100 disabled:cursor-not-allowed"
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="text-sm font-medium">{q.label}</div>
-                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <ExternalLink className="h-3.5 w-3.5 text-slate-700 shrink-0" />
               </div>
             </button>
           ))}
@@ -827,10 +827,10 @@ function Section({
           </div>
           <div className="min-w-0">
             <div className="font-medium text-sm">{title}</div>
-            <div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{intent}</div>
+            <div className="text-xs text-slate-700 mt-0.5 line-clamp-2">{intent}</div>
           </div>
         </div>
-        <div className="shrink-0 text-muted-foreground">
+        <div className="shrink-0 text-slate-700">
           {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         </div>
       </button>

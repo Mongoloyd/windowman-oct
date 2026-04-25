@@ -45,7 +45,7 @@ export function EngineRoom({ deliveries, isLoading }: EngineRoomProps) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-20 text-muted-foreground">
+      <div className="flex items-center justify-center py-20 text-slate-700">
         Loading engine room…
       </div>
     );
@@ -74,9 +74,9 @@ export function EngineRoom({ deliveries, isLoading }: EngineRoomProps) {
       {deliveries.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16 gap-3">
-            <Webhook className="h-12 w-12 text-muted-foreground/40" />
-            <p className="text-lg font-medium text-muted-foreground">No webhook deliveries</p>
-            <p className="text-sm text-muted-foreground">
+            <Webhook className="h-12 w-12 text-slate-700" />
+            <p className="text-lg font-medium text-slate-700">No webhook deliveries</p>
+            <p className="text-sm text-slate-700">
               Deliveries will appear once leads pass the dual-gate trigger.
             </p>
           </CardContent>
@@ -84,7 +84,7 @@ export function EngineRoom({ deliveries, isLoading }: EngineRoomProps) {
       ) : (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+            <CardTitle className="text-sm font-medium text-slate-700 uppercase tracking-wider">
               Recent Deliveries
             </CardTitle>
           </CardHeader>
@@ -123,10 +123,10 @@ export function EngineRoom({ deliveries, isLoading }: EngineRoomProps) {
                             {d.last_error}
                           </span>
                         ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
+                          <span className="text-xs text-slate-700">—</span>
                         )}
                       </TableCell>
-                      <TableCell className="text-right text-xs text-muted-foreground whitespace-nowrap">
+                      <TableCell className="text-right text-xs text-slate-700 whitespace-nowrap">
                         {formatTime(d.updated_at)}
                       </TableCell>
                     </TableRow>

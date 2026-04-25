@@ -66,7 +66,7 @@ function derivePipelineBadge(
   const pill = "inline-flex items-center rounded-full px-2 py-1 text-xs font-medium whitespace-nowrap";
 
   if (lead.deal_status === "dead")
-    return { label: "Dead", className: `${pill} bg-gray-200 text-gray-500`, rowClass: "opacity-40" };
+    return { label: "Dead", className: `${pill} bg-gray-200 text-slate-700`, rowClass: "opacity-40" };
   if (lead.deal_status === "appointment_booked")
     return { label: "Appt Booked", className: `${pill} bg-green-100 text-green-800 ring-1 ring-green-500` };
   if (lead.latest_opportunity_id != null)
@@ -74,7 +74,7 @@ function derivePipelineBadge(
   if (lead.intro_requested_at != null)
     return { label: "Intro Requested", className: `${pill} bg-blue-100 text-blue-800` };
   if (lead.deal_status === "ghosted")
-    return { label: "Ghosted", className: `${pill} bg-slate-200 text-slate-600` };
+    return { label: "Ghosted", className: `${pill} bg-slate-200 text-slate-700` };
   if (followup?.status === "queued" || followup?.status === "in_progress")
     return { label: "AI Calling", className: `${pill} bg-blue-100 text-blue-700 animate-pulse` };
   if (followup?.call_outcome === "voicemail")
@@ -82,7 +82,7 @@ function derivePipelineBadge(
   if (followup?.status === "failed" || followup?.call_outcome === "no_answer")
     return { label: "No Answer", className: `${pill} bg-orange-100 text-orange-800` };
 
-  return { label: "New Lead", className: `${pill} border border-border bg-background text-muted-foreground` };
+  return { label: "New Lead", className: `${pill} border border-border bg-background text-slate-700` };
 }
 
 /* ── Sort options ─────────────────────────────────────────────────────── */
@@ -233,7 +233,7 @@ export function InternalCRMDesk({ leads, isLoading, onStatusChange, latestFollow
             <Users className="h-8 w-8 text-primary" />
             <div>
               <p className="text-2xl font-bold">{verified.length}</p>
-              <p className="text-xs text-muted-foreground">Verified Leads</p>
+              <p className="text-xs text-slate-700">Verified Leads</p>
             </div>
           </CardContent>
         </Card>
@@ -242,7 +242,7 @@ export function InternalCRMDesk({ leads, isLoading, onStatusChange, latestFollow
             <PhoneCall className="h-8 w-8 text-amber-500" />
             <div>
               <p className="text-2xl font-bold">{needsFirstCall}</p>
-              <p className="text-xs text-muted-foreground">Needs First Call</p>
+              <p className="text-xs text-slate-700">Needs First Call</p>
             </div>
           </CardContent>
         </Card>
@@ -251,7 +251,7 @@ export function InternalCRMDesk({ leads, isLoading, onStatusChange, latestFollow
             <CalendarCheck className="h-8 w-8 text-green-600" />
             <div>
               <p className="text-2xl font-bold">{appointmentsBooked}</p>
-              <p className="text-xs text-muted-foreground">Appointments Booked</p>
+              <p className="text-xs text-slate-700">Appointments Booked</p>
             </div>
           </CardContent>
         </Card>
@@ -275,9 +275,9 @@ export function InternalCRMDesk({ leads, isLoading, onStatusChange, latestFollow
 
       {/* ── Power Dialer Table ─────────────────────────────────────── */}
       {isLoading && sorted.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">Loading leads…</div>
+        <div className="text-center py-12 text-slate-700">Loading leads…</div>
       ) : sorted.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">
+        <div className="text-center py-12 text-slate-700">
           No phone-verified leads yet.
         </div>
       ) : (
@@ -312,7 +312,7 @@ export function InternalCRMDesk({ leads, isLoading, onStatusChange, latestFollow
 
                   return (
                   <TableRow key={lead.id} className={badge.rowClass ?? ""}>
-                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                    <TableCell className="text-xs text-slate-700 whitespace-nowrap">
                       {format(new Date(lead.created_at), "MMM d")}
                     </TableCell>
                     <TableCell className="font-medium whitespace-nowrap">
@@ -338,13 +338,13 @@ export function InternalCRMDesk({ leads, isLoading, onStatusChange, latestFollow
                                 disabled={dialDisabled}
                                 title="Autodial via AI"
                               >
-                                <PhoneCall className={`h-3.5 w-3.5 ${isDialing ? "animate-pulse text-blue-500" : "text-muted-foreground hover:text-primary"}`} />
+                                <PhoneCall className={`h-3.5 w-3.5 ${isDialing ? "animate-pulse text-blue-500" : "text-slate-700 hover:text-primary"}`} />
                               </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-56 p-3" align="end">
                               <div className="space-y-2">
                                 <p className="text-sm font-medium">{displayName}</p>
-                                <p className="text-xs text-muted-foreground font-mono">{displayPhone}</p>
+                                <p className="text-xs text-slate-700 font-mono">{displayPhone}</p>
                                 <div className="flex gap-2 pt-1">
                                   <Button
                                     size="sm"
@@ -360,7 +360,7 @@ export function InternalCRMDesk({ leads, isLoading, onStatusChange, latestFollow
                           </Popover>
                         </div>
                       ) : (
-                        <span className="text-muted-foreground">—</span>
+                        <span className="text-slate-700">—</span>
                       )}
                     </TableCell>
                     <TableCell className="text-sm">{lead.county || "—"}</TableCell>
@@ -382,7 +382,7 @@ export function InternalCRMDesk({ leads, isLoading, onStatusChange, latestFollow
                           {lead.flag_count}
                         </span>
                       ) : (
-                        <span className="text-muted-foreground text-xs">—</span>
+                        <span className="text-slate-700 text-xs">—</span>
                       )}
                     </TableCell>
                     <TableCell className="text-center">
@@ -394,7 +394,7 @@ export function InternalCRMDesk({ leads, isLoading, onStatusChange, latestFollow
                           Requested
                         </Badge>
                       ) : (
-                        <span className="text-muted-foreground text-xs">—</span>
+                        <span className="text-slate-700 text-xs">—</span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -403,7 +403,7 @@ export function InternalCRMDesk({ leads, isLoading, onStatusChange, latestFollow
                         onValueChange={(val) => handleDealStatusChange(lead.id, val)}
                         disabled={isUpdating}
                       >
-                        <SelectTrigger className={`h-8 text-xs ${isUpdating ? "opacity-50 cursor-not-allowed" : ""}`}>
+                        <SelectTrigger className={`h-8 text-xs ${isUpdating ? "opacity-100 cursor-not-allowed" : ""}`}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>

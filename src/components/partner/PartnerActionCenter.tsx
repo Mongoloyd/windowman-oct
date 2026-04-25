@@ -412,11 +412,11 @@ function SoldModal({
             Signed Contract (optional)
           </p>
           <div className="flex flex-col items-center justify-center gap-1.5 px-3 py-4 rounded-md border-2 border-dashed border-border bg-muted/30 text-center">
-            <Upload className="h-4 w-4 text-muted-foreground" />
-            <p className="text-[11px] text-muted-foreground">
+            <Upload className="h-4 w-4 text-slate-700" />
+            <p className="text-[11px] text-slate-700">
               Proof upload coming soon
             </p>
-            <p className="text-[10px] text-muted-foreground/70">
+            <p className="text-[10px] text-slate-700">
               You can mark Sold without proof for now.
             </p>
           </div>
@@ -506,7 +506,7 @@ function LostModal({
         className="w-full max-w-md rounded-xl border bg-card p-5 shadow-xl space-y-4"
       >
         <div className="flex items-center gap-2">
-          <XCircle className="h-5 w-5 text-muted-foreground" />
+          <XCircle className="h-5 w-5 text-slate-700" />
           <h3 className="text-base font-bold">Mark as Lost</h3>
         </div>
 
@@ -543,7 +543,7 @@ function LostModal({
             placeholder="Describe what happened with this lead (required)…"
             className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
           />
-          <p className="text-[10px] text-muted-foreground">
+          <p className="text-[10px] text-slate-700">
             A typed explanation is required so we can learn from lost deals.
           </p>
         </div>
@@ -567,7 +567,7 @@ function LostModal({
           <button
             type="submit"
             disabled={submitting}
-            className="inline-flex items-center gap-1.5 min-h-10 px-4 py-2 rounded-md text-sm font-extrabold border bg-foreground text-background hover:bg-foreground/90 disabled:opacity-50 transition-colors"
+            className="inline-flex items-center gap-1.5 min-h-10 px-4 py-2 rounded-md text-sm font-extrabold border bg-foreground text-background hover:bg-foreground/90 disabled:opacity-100 transition-colors"
           >
             {submitting ? (
               <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving…</>

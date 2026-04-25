@@ -34,7 +34,7 @@ function gradeColor(grade: string | null): string {
     case "C": return "bg-amber-500 text-white border-amber-600";
     case "D": return "bg-orange-600 text-white border-orange-700";
     case "F": return "bg-destructive text-destructive-foreground border-destructive";
-    default:  return "bg-muted text-muted-foreground border-border";
+    default:  return "bg-muted text-slate-700 border-border";
   }
 }
 
@@ -43,10 +43,10 @@ function InfoCell({
 }: { label: string; value: React.ReactNode; icon?: React.ElementType }) {
   return (
     <div className="space-y-0.5">
-      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
+      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-700">{label}</p>
       <div className="text-sm font-medium text-foreground flex items-center gap-1.5 break-all">
-        {Icon && <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
-        {value || <span className="text-muted-foreground">—</span>}
+        {Icon && <Icon className="h-3.5 w-3.5 text-slate-700 shrink-0" />}
+        {value || <span className="text-slate-700">—</span>}
       </div>
     </div>
   );
@@ -93,7 +93,7 @@ export default function AdminLeadDossierPage() {
     return (
       <AdminShell title="Loading lead…" backTo="/admin/leads" backLabel="Back to inbox">
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <Loader2 className="h-6 w-6 animate-spin text-slate-700" />
         </div>
       </AdminShell>
     );
@@ -142,7 +142,7 @@ export default function AdminLeadDossierPage() {
           <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
             <header className="flex items-center justify-between mb-4">
               <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-700">
                   Intake
                 </p>
                 <h3 className="font-display text-lg font-extrabold tracking-tight text-foreground mt-0.5">
@@ -176,7 +176,7 @@ export default function AdminLeadDossierPage() {
           <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
             <header className="flex items-center justify-between mb-4">
               <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-700">
                   Scan &amp; Report
                 </p>
                 <h3 className="font-display text-lg font-extrabold tracking-tight text-foreground mt-0.5">
@@ -190,27 +190,27 @@ export default function AdminLeadDossierPage() {
               )}
             </header>
             {!lead.latest_analysis_id ? (
-              <p className="text-sm text-muted-foreground italic">No analysis yet for this lead.</p>
+              <p className="text-sm text-slate-700 italic">No analysis yet for this lead.</p>
             ) : (
               <div className="space-y-3">
                 <div className="grid grid-cols-3 gap-3 text-sm">
                   <div>
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Confidence</p>
+                    <p className="text-[10px] uppercase tracking-wider text-slate-700">Confidence</p>
                     <p className="font-mono font-semibold">{analysis?.confidence_score ?? lead.confidence_score ?? "—"}%</p>
                   </div>
                   <div>
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Flags</p>
+                    <p className="text-[10px] uppercase tracking-wider text-slate-700">Flags</p>
                     <p className="font-semibold">{flags.length || lead.flag_count || 0}</p>
                   </div>
                   <div>
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Critical</p>
+                    <p className="text-[10px] uppercase tracking-wider text-slate-700">Critical</p>
                     <p className="font-semibold text-destructive">{lead.critical_flag_count ?? 0}</p>
                   </div>
                 </div>
 
                 {flags.length > 0 && (
                   <div>
-                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-700 mb-2 flex items-center gap-1.5">
                       <Flag className="h-3 w-3" /> Top flags
                     </p>
                     <ul className="space-y-1.5">
@@ -222,7 +222,7 @@ export default function AdminLeadDossierPage() {
                                 ? "bg-destructive/15 text-destructive border border-destructive/30"
                                 : f.severity === "Medium"
                                 ? "bg-amber-500/15 text-amber-700 border border-amber-500/30"
-                                : "bg-muted text-muted-foreground border border-border"
+                                : "bg-muted text-slate-700 border border-border"
                             }`}
                           >
                             {f.severity}
@@ -248,13 +248,13 @@ export default function AdminLeadDossierPage() {
                         to={`/report/classic/${lead.latest_scan_session_id}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground hover:underline"
+                        className="inline-flex items-center gap-1 text-[11px] text-slate-700 hover:text-foreground hover:underline"
                       >
                         Homeowner view
                         <ExternalLink className="h-3 w-3" />
                       </Link>
                     ) : (
-                      <span className="text-[11px] italic text-muted-foreground">
+                      <span className="text-[11px] italic text-slate-700">
                         No valid homeowner report link
                       </span>
                     )}

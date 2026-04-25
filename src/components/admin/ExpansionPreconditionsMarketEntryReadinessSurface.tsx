@@ -349,7 +349,7 @@ function PreconditionSection({
     <AccordionItem value={id} id={id} className="border rounded-lg bg-card">
       <AccordionTrigger className="px-4 hover:no-underline">
         <div className="flex items-center gap-3 text-left">
-          <div className="text-muted-foreground">{icon}</div>
+          <div className="text-slate-700">{icon}</div>
           <div>
             <div className="flex items-center gap-2">
               <span className="font-semibold">{title}</span>
@@ -360,7 +360,7 @@ function PreconditionSection({
                 {items.length}
               </Badge>
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5 font-normal">
+            <p className="text-xs text-slate-700 mt-0.5 font-normal">
               {description}
             </p>
           </div>
@@ -371,7 +371,7 @@ function PreconditionSection({
           {items.map((item, idx) => (
             <li key={idx} className="rounded-md border bg-muted/30 p-3 text-sm">
               <div className="font-medium">{item.title}</div>
-              <p className="text-muted-foreground text-xs mt-1 leading-relaxed">
+              <p className="text-slate-700 text-xs mt-1 leading-relaxed">
                 {item.detail}
               </p>
               {item.surface && onNavigateTab && (
@@ -562,7 +562,7 @@ export function ExpansionPreconditionsMarketEntryReadinessSurface({
         <CardHeader>
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <div className="flex items-center gap-2">
-              <MapIcon className="h-4 w-4 text-muted-foreground" />
+              <MapIcon className="h-4 w-4 text-slate-700" />
               <CardTitle className="text-base">
                 Observed coverage / market footprint
               </CardTitle>
@@ -579,14 +579,14 @@ export function ExpansionPreconditionsMarketEntryReadinessSurface({
         <CardContent>
           <Separator className="mb-4" />
           {coverage.length === 0 ? (
-            <p className="text-sm text-muted-foreground italic">
+            <p className="text-sm text-slate-700 italic">
               No county data in the current dataset.
             </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-xs text-muted-foreground border-b">
+                  <tr className="text-left text-xs text-slate-700 border-b">
                     <th className="py-2 pr-4 font-medium">County</th>
                     <th className="py-2 pr-4 font-medium text-right">Total</th>
                     <th className="py-2 pr-4 font-medium text-right">Verified</th>
@@ -616,7 +616,7 @@ export function ExpansionPreconditionsMarketEntryReadinessSurface({
               </table>
             </div>
           )}
-          <p className="text-[11px] text-muted-foreground mt-4 leading-relaxed">
+          <p className="text-[11px] text-slate-700 mt-4 leading-relaxed">
             Coverage is a read-only view over current `leads` data. It does
             not enforce territory, allocate counties, or imply contractor
             assignment. Expansion decisions remain operator-judged.
@@ -647,7 +647,7 @@ export function ExpansionPreconditionsMarketEntryReadinessSurface({
               </Button>
             ))}
           </div>
-          <p className="text-[11px] text-muted-foreground mt-4 leading-relaxed">
+          <p className="text-[11px] text-slate-700 mt-4 leading-relaxed">
             This surface is read-only operator readiness. It does not
             persist plans, approve expansion, or allocate territory. All
             preconditions reflect current repo-real workflows.

@@ -555,7 +555,7 @@ export function ExceptionHandlingManualEscalationSurface({
               <h2 className="text-lg sm:text-xl font-semibold tracking-tight">
                 Exception Handling / Manual Escalation Review
               </h2>
-              <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+              <p className="text-sm text-slate-700 mt-1 max-w-2xl">
                 Read-only operator view of records that don't fit cleanly into routing, outcome, or lifecycle
                 buckets and need manual judgment. Derived deterministically from existing repo-real fields. No
                 ticket queue, no automated escalation — just an honest list of what needs a human decision.
@@ -577,7 +577,7 @@ export function ExceptionHandlingManualEscalationSurface({
         {/* Summary chips */}
         <div className="mt-5 grid grid-cols-2 sm:grid-cols-5 gap-2.5">
           <div className="rounded-lg border bg-muted/40 px-3 py-2.5">
-            <div className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">
+            <div className="text-[11px] uppercase tracking-wide text-slate-700 font-semibold">
               Total
             </div>
             <div className="text-xl font-semibold mt-0.5">{totals.total}</div>
@@ -587,7 +587,7 @@ export function ExceptionHandlingManualEscalationSurface({
               key={c.id}
               className="rounded-lg border px-3 py-2.5 bg-background"
             >
-              <div className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold line-clamp-1">
+              <div className="text-[11px] uppercase tracking-wide text-slate-700 font-semibold line-clamp-1">
                 {c.title.split(" / ")[0]}
               </div>
               <div className="text-xl font-semibold mt-0.5">{totals.byCategory[i]}</div>
@@ -595,7 +595,7 @@ export function ExceptionHandlingManualEscalationSurface({
           ))}
         </div>
 
-        <p className="text-[11px] text-muted-foreground mt-3 leading-relaxed">
+        <p className="text-[11px] text-slate-700 mt-3 leading-relaxed">
           Classifications are deterministic from repo-real fields on{" "}
           <span className="font-mono">leads</span>,{" "}
           <span className="font-mono">contractor_opportunities</span>, and{" "}
@@ -633,17 +633,17 @@ export function ExceptionHandlingManualEscalationSurface({
                         {c.items.length}
                       </Badge>
                     </div>
-                    <div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{c.intent}</div>
+                    <div className="text-xs text-slate-700 mt-0.5 line-clamp-2">{c.intent}</div>
                   </div>
                 </div>
-                <div className="shrink-0 text-muted-foreground">
+                <div className="shrink-0 text-slate-700">
                   {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                 </div>
               </button>
               {open && (
                 <div className="border-t">
                   {c.items.length === 0 ? (
-                    <div className="px-4 sm:px-5 py-6 text-sm text-muted-foreground text-center">
+                    <div className="px-4 sm:px-5 py-6 text-sm text-slate-700 text-center">
                       No exceptions surfaced for this category from current repo-real signals.
                     </div>
                   ) : (
@@ -658,10 +658,10 @@ export function ExceptionHandlingManualEscalationSurface({
                               <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
                               <span className="truncate">{it.label}</span>
                             </div>
-                            <div className="text-xs text-muted-foreground mt-1 leading-relaxed">{it.reason}</div>
+                            <div className="text-xs text-slate-700 mt-1 leading-relaxed">{it.reason}</div>
                             <div className="text-xs mt-1.5 leading-relaxed">
                               <span className="font-semibold text-foreground">Manual next: </span>
-                              <span className="text-muted-foreground">{it.nextAction}</span>
+                              <span className="text-slate-700">{it.nextAction}</span>
                             </div>
                           </div>
                           {it.jumpTab && onNavigateTab && (
@@ -678,7 +678,7 @@ export function ExceptionHandlingManualEscalationSurface({
                         </div>
                       ))}
                       {c.items.length > 50 && (
-                        <div className="px-4 sm:px-5 py-3 text-xs text-muted-foreground text-center bg-muted/20">
+                        <div className="px-4 sm:px-5 py-3 text-xs text-slate-700 text-center bg-muted/20">
                           Showing first 50 of {c.items.length}. Resolve top items first, refresh to re-evaluate.
                         </div>
                       )}
@@ -712,14 +712,14 @@ export function ExceptionHandlingManualEscalationSurface({
           </div>
           <div className="min-w-0">
             <h3 className="font-semibold text-sm">Suggested manual next actions</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
+            <p className="text-xs text-slate-700 mt-0.5">
               Operator-priority list. No automation — these are decisions you take inside the relevant surfaces.
             </p>
           </div>
         </div>
         <ul className="mt-3 space-y-1.5 text-sm">
           {suggestedActions.map((s, i) => (
-            <li key={i} className="flex items-start gap-2 text-muted-foreground">
+            <li key={i} className="flex items-start gap-2 text-slate-700">
               <span className="text-primary mt-0.5">•</span>
               <span>{s}</span>
             </li>
@@ -731,11 +731,11 @@ export function ExceptionHandlingManualEscalationSurface({
       <div className="rounded-xl border bg-card p-5">
         <div className="flex items-start gap-3">
           <div className="rounded-md bg-muted p-1.5 mt-0.5">
-            <Inbox className="h-4 w-4 text-muted-foreground" />
+            <Inbox className="h-4 w-4 text-slate-700" />
           </div>
           <div className="min-w-0">
             <h3 className="font-semibold text-sm">Jump to relevant admin surfaces</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
+            <p className="text-xs text-slate-700 mt-0.5">
               Surfaces where exceptions are actually resolved.
             </p>
           </div>
@@ -747,13 +747,13 @@ export function ExceptionHandlingManualEscalationSurface({
               type="button"
               onClick={() => onNavigateTab?.(q.tab)}
               disabled={!onNavigateTab}
-              className="text-left rounded-lg border bg-background hover:bg-muted/40 transition-colors px-3 py-2.5 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="text-left rounded-lg border bg-background hover:bg-muted/40 transition-colors px-3 py-2.5 disabled:opacity-100 disabled:cursor-not-allowed"
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="text-sm font-medium">{q.label}</div>
-                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <ExternalLink className="h-3.5 w-3.5 text-slate-700 shrink-0" />
               </div>
-              <div className="text-xs text-muted-foreground mt-0.5">{q.desc}</div>
+              <div className="text-xs text-slate-700 mt-0.5">{q.desc}</div>
             </button>
           ))}
         </div>

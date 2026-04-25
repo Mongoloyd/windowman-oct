@@ -408,19 +408,19 @@ function ScenarioItem({
       <div className="grid gap-2 text-xs leading-relaxed">
         <div>
           <span className="font-semibold text-foreground">Trigger: </span>
-          <span className="text-muted-foreground">{scenario.trigger}</span>
+          <span className="text-slate-700">{scenario.trigger}</span>
         </div>
         <div>
           <span className="font-semibold text-foreground">Why it happens: </span>
-          <span className="text-muted-foreground">{scenario.why}</span>
+          <span className="text-slate-700">{scenario.why}</span>
         </div>
         <div>
           <span className="font-semibold text-foreground">Operator response: </span>
-          <span className="text-muted-foreground">{scenario.response}</span>
+          <span className="text-slate-700">{scenario.response}</span>
         </div>
         <div>
           <span className="font-semibold text-foreground">Current system truth: </span>
-          <span className="text-muted-foreground">{scenario.systemTruth}</span>
+          <span className="text-slate-700">{scenario.systemTruth}</span>
         </div>
       </div>
 
@@ -545,7 +545,7 @@ export function OperatorScenarioDrillsSurface({ onNavigateTab }: Props) {
           >
             <AccordionTrigger className="px-4 hover:no-underline">
               <div className="flex items-center gap-3 text-left">
-                <div className="text-muted-foreground">{group.icon}</div>
+                <div className="text-slate-700">{group.icon}</div>
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="font-semibold">{group.title}</span>
@@ -553,7 +553,7 @@ export function OperatorScenarioDrillsSurface({ onNavigateTab }: Props) {
                       {group.scenarios.length}
                     </Badge>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5 font-normal">
+                  <p className="text-xs text-slate-700 mt-0.5 font-normal">
                     {group.description}
                   </p>
                 </div>
@@ -597,7 +597,7 @@ export function OperatorScenarioDrillsSurface({ onNavigateTab }: Props) {
               </Button>
             ))}
           </div>
-          <p className="text-[11px] text-muted-foreground mt-4 leading-relaxed">
+          <p className="text-[11px] text-slate-700 mt-4 leading-relaxed">
             This surface is read-only operator preparation. It does not run
             simulations, persist drill results, or trigger backend actions.
             All scenarios reflect current repo-real workflows.

@@ -70,11 +70,11 @@ function Field({
 }) {
   return (
     <div className="space-y-0.5">
-      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-700">
         {label}
       </p>
       <div className="text-sm font-medium text-foreground">
-        {value ?? <span className="text-muted-foreground italic">{fallback}</span>}
+        {value ?? <span className="text-slate-700 italic">{fallback}</span>}
       </div>
     </div>
   );
@@ -174,14 +174,14 @@ export function LeadHumanContextPanel({
     <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
       <header className="flex items-center justify-between mb-4">
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-700">
             Sales Context
           </p>
           <h3 className="font-display text-lg font-extrabold tracking-tight text-foreground mt-0.5">
             Human Context
           </h3>
         </div>
-        <Sparkles className="h-4 w-4 text-muted-foreground" />
+        <Sparkles className="h-4 w-4 text-slate-700" />
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -193,7 +193,7 @@ export function LeadHumanContextPanel({
               <div>
                 <p>{motivation.long}</p>
                 {diagnosisIntake?.other_text && (
-                  <p className="mt-1 text-xs text-muted-foreground italic">
+                  <p className="mt-1 text-xs text-slate-700 italic">
                     Notes: {diagnosisIntake.other_text}
                   </p>
                 )}
@@ -241,7 +241,7 @@ export function LeadHumanContextPanel({
                   {consent.full}
                 </Badge>
                 {consent.homeownerToldCopy && (
-                  <p className="text-xs text-muted-foreground italic mt-1">
+                  <p className="text-xs text-slate-700 italic mt-1">
                     Homeowner was told: "{consent.homeownerToldCopy}"
                   </p>
                 )}
@@ -253,11 +253,11 @@ export function LeadHumanContextPanel({
 
       {/* Lead Fit Warnings */}
       <div className="mt-4 space-y-2">
-        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-700">
           Lead Fit Warnings
         </p>
         {warnings.length === 0 ? (
-          <p className="text-xs text-muted-foreground italic">
+          <p className="text-xs text-slate-700 italic">
             None — clean signal.
           </p>
         ) : (

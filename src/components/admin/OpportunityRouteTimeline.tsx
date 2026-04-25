@@ -45,7 +45,7 @@ function toneClass(tone: "neutral" | "info" | "ok" | "warn" | "danger"): string 
     case "info": return "bg-cyan-500/15 text-cyan-700 border-cyan-500/30";
     case "warn": return "bg-amber-500/15 text-amber-700 border-amber-500/30";
     case "danger": return "bg-destructive/15 text-destructive border-destructive/30";
-    default: return "bg-muted text-muted-foreground border-border";
+    default: return "bg-muted text-slate-700 border-border";
   }
 }
 
@@ -88,8 +88,8 @@ export function OpportunityRouteTimeline({ opportunityId }: OpportunityRouteTime
   if (!opportunityId) {
     return (
       <div className="rounded-lg border border-dashed border-border/60 bg-muted/20 p-4 text-center">
-        <Building2 className="h-5 w-5 mx-auto text-muted-foreground mb-1.5" />
-        <p className="text-xs text-muted-foreground">
+        <Building2 className="h-5 w-5 mx-auto text-slate-700 mb-1.5" />
+        <p className="text-xs text-slate-700">
           No opportunity yet — route this lead from the Routing tab or use Send to Contractor above.
         </p>
       </div>
@@ -121,7 +121,7 @@ export function OpportunityRouteTimeline({ opportunityId }: OpportunityRouteTime
 
   if (!opp) {
     return (
-      <p className="text-xs text-muted-foreground">Opportunity record not found.</p>
+      <p className="text-xs text-slate-700">Opportunity record not found.</p>
     );
   }
 
@@ -165,10 +165,10 @@ export function OpportunityRouteTimeline({ opportunityId }: OpportunityRouteTime
             <span className="font-medium">{assignedContractor.company_name}</span>
           </span>
         ) : (
-          <span className="text-xs text-muted-foreground italic">No partner assigned yet</span>
+          <span className="text-xs text-slate-700 italic">No partner assigned yet</span>
         )}
         {opp.routed_at && (
-          <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground ml-auto font-mono">
+          <span className="inline-flex items-center gap-1 text-[11px] text-slate-700 ml-auto font-mono">
             <Clock className="h-3 w-3" />
             Routed {fmtTs(opp.routed_at)}
           </span>
@@ -178,7 +178,7 @@ export function OpportunityRouteTimeline({ opportunityId }: OpportunityRouteTime
       {/* ── Latest route activity ── */}
       {latestRoute && (
         <div className="rounded-lg border border-border/50 bg-muted/20 p-3 space-y-1.5">
-          <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mb-1">
+          <p className="text-[10px] uppercase tracking-wide text-slate-700 font-semibold mb-1">
             Latest Route Activity
           </p>
           <ActivityRow icon={Send} label="Sent" timestamp={latestRoute.sent_at} />
@@ -201,7 +201,7 @@ export function OpportunityRouteTimeline({ opportunityId }: OpportunityRouteTime
               const isLatest = r.id === latestRoute?.id;
               return (
                 <li key={r.id} className="flex items-start gap-2 text-xs">
-                  <span className="font-mono text-[10px] text-muted-foreground w-5 shrink-0">#{i + 1}</span>
+                  <span className="font-mono text-[10px] text-slate-700 w-5 shrink-0">#{i + 1}</span>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <Building2 className="h-3 w-3 text-cyan-600" />
@@ -218,7 +218,7 @@ export function OpportunityRouteTimeline({ opportunityId }: OpportunityRouteTime
                         </Badge>
                       )}
                     </div>
-                    <div className="text-[10px] text-muted-foreground font-mono">
+                    <div className="text-[10px] text-slate-700 font-mono">
                       {fmtTs(r.sent_at ?? r.created_at)}
                       {r.routing_reason && <span className="italic"> · {r.routing_reason}</span>}
                     </div>
@@ -239,7 +239,7 @@ export function OpportunityRouteTimeline({ opportunityId }: OpportunityRouteTime
               Contractor Brief
             </p>
             {opp.brief_version && (
-              <span className="text-[10px] text-muted-foreground font-mono ml-auto">
+              <span className="text-[10px] text-slate-700 font-mono ml-auto">
                 v{opp.brief_version}
               </span>
             )}
@@ -251,7 +251,7 @@ export function OpportunityRouteTimeline({ opportunityId }: OpportunityRouteTime
           )}
           {closingAngle && (
             <div className="border-t border-cyan-500/20 pt-2">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mb-0.5">
+              <p className="text-[10px] uppercase tracking-wide text-slate-700 font-semibold mb-0.5">
                 Strongest Closing Angle
               </p>
               <p className="text-xs text-foreground/90 italic">"{closingAngle}"</p>
@@ -268,10 +268,10 @@ function ActivityRow({
 }: { icon: React.ElementType; label: string; timestamp: string | null }) {
   const done = !!timestamp;
   return (
-    <div className={`flex items-center gap-2 text-xs ${done ? "" : "opacity-50"}`}>
-      <Icon className={`h-3 w-3 ${done ? "text-emerald-600" : "text-muted-foreground"}`} />
-      <span className={done ? "font-medium" : "text-muted-foreground"}>{label}</span>
-      <span className="ml-auto font-mono text-[10px] text-muted-foreground">
+    <div className={`flex items-center gap-2 text-xs ${done ? "" : "opacity-100"}`}>
+      <Icon className={`h-3 w-3 ${done ? "text-emerald-600" : "text-slate-700"}`} />
+      <span className={done ? "font-medium" : "text-slate-700"}>{label}</span>
+      <span className="ml-auto font-mono text-[10px] text-slate-700">
         {fmtTs(timestamp)}
       </span>
     </div>

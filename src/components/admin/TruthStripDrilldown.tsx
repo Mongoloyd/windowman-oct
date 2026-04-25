@@ -63,7 +63,7 @@ function gradeColor(grade: string | null): string {
     case "C": return "bg-amber-500 text-white";
     case "D": return "bg-orange-600 text-white";
     case "F": return "bg-destructive text-destructive-foreground";
-    default:  return "bg-muted text-muted-foreground";
+    default:  return "bg-muted text-slate-700";
   }
 }
 
@@ -103,7 +103,7 @@ function EvidencePanel({ leadId }: { leadId: string }) {
   const ev = q.data;
   if (!ev?.signed_url) {
     return (
-      <div className="rounded-md border border-border/60 bg-muted/20 p-3 text-xs text-muted-foreground flex items-start gap-2">
+      <div className="rounded-md border border-border/60 bg-muted/20 p-3 text-xs text-slate-700 flex items-start gap-2">
         <ImageOff className="h-4 w-4 mt-0.5 shrink-0" />
         <div>
           <div className="font-medium text-foreground">No quote on file.</div>
@@ -132,7 +132,7 @@ function EvidencePanel({ leadId }: { leadId: string }) {
             <FileImage className="h-4 w-4" />
             Open quote PDF
           </span>
-          <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+          <ExternalLink className="h-3.5 w-3.5 text-slate-700" />
         </a>
       ) : (
         <a
@@ -150,7 +150,7 @@ function EvidencePanel({ leadId }: { leadId: string }) {
           />
         </a>
       )}
-      <div className="px-3 py-1.5 border-t border-border/50 text-[10px] text-muted-foreground font-mono truncate">
+      <div className="px-3 py-1.5 border-t border-border/50 text-[10px] text-slate-700 font-mono truncate">
         signed · expires in {Math.round((ev.expires_in ?? 3600) / 60)}m
       </div>
     </div>
@@ -169,7 +169,7 @@ function LogicPanel({ analysisId }: { analysisId: string | null }) {
 
   if (!enabled) {
     return (
-      <div className="rounded-md border border-border/60 bg-muted/20 p-3 text-xs text-muted-foreground">
+      <div className="rounded-md border border-border/60 bg-muted/20 p-3 text-xs text-slate-700">
         No analysis attached to this lead yet.
       </div>
     );
@@ -216,7 +216,7 @@ function LogicPanel({ analysisId }: { analysisId: string | null }) {
         </Badge>
       </div>
       {top.length === 0 ? (
-        <p className="text-xs text-muted-foreground">No flags raised.</p>
+        <p className="text-xs text-slate-700">No flags raised.</p>
       ) : (
         <ul className="space-y-1.5">
           {top.map((f, i) => (
@@ -224,7 +224,7 @@ function LogicPanel({ analysisId }: { analysisId: string | null }) {
               key={i}
               className="flex items-start gap-2 text-xs border-t border-border/40 pt-1.5 first:border-0 first:pt-0"
             >
-              <Flag className="h-3 w-3 mt-0.5 text-muted-foreground shrink-0" />
+              <Flag className="h-3 w-3 mt-0.5 text-slate-700 shrink-0" />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="font-medium truncate">{f.flag}</span>
@@ -234,13 +234,13 @@ function LogicPanel({ analysisId }: { analysisId: string | null }) {
                     </Badge>
                   )}
                   {f.pillar && (
-                    <span className="text-[10px] text-muted-foreground font-mono">
+                    <span className="text-[10px] text-slate-700 font-mono">
                       {f.pillar}
                     </span>
                   )}
                 </div>
                 {f.detail && (
-                  <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">
+                  <p className="text-[11px] text-slate-700 mt-0.5 line-clamp-2">
                     {f.detail}
                   </p>
                 )}
@@ -248,7 +248,7 @@ function LogicPanel({ analysisId }: { analysisId: string | null }) {
             </li>
           ))}
           {flags.length > top.length && (
-            <li className="text-[10px] text-muted-foreground pt-1">
+            <li className="text-[10px] text-slate-700 pt-1">
               + {flags.length - top.length} more — open dossier for full list.
             </li>
           )}
@@ -294,14 +294,14 @@ function StageRow({
               </Badge>
             )}
           </div>
-          <div className="text-[11px] text-muted-foreground mt-0.5 truncate">
+          <div className="text-[11px] text-slate-700 mt-0.5 truncate">
             {(row.city || row.county) && (
               <span>{[row.city, row.county].filter(Boolean).join(" · ")}</span>
             )}
           </div>
         </div>
         <div className="text-right shrink-0">
-          <div className="text-[10px] text-muted-foreground uppercase tracking-wider">
+          <div className="text-[10px] text-slate-700 uppercase tracking-wider">
             stage time
           </div>
           <div className="text-[11px] font-mono tabular-nums">
@@ -383,7 +383,7 @@ export function TruthStripDrilldown({
               {SCOPE_LABEL[scope]}
             </Badge>
           </div>
-          <SheetDescription className="text-xs text-muted-foreground">
+          <SheetDescription className="text-xs text-slate-700">
             {q.isLoading ? (
               <span className="inline-flex items-center gap-1.5">
                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -410,7 +410,7 @@ export function TruthStripDrilldown({
               <Skeleton className="h-24 w-full" />
             </>
           ) : rows.length === 0 ? (
-            <div className="text-center py-12 text-sm text-muted-foreground">
+            <div className="text-center py-12 text-sm text-slate-700">
               No leads in this stage for the selected scope.
             </div>
           ) : (

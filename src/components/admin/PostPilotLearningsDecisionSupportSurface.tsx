@@ -476,7 +476,7 @@ export function PostPilotLearningsDecisionSupportSurface({
               <h2 className="text-lg sm:text-xl font-semibold tracking-tight">
                 Post-Pilot Learnings / Decision Support
               </h2>
-              <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+              <p className="text-sm text-slate-700 mt-1 max-w-2xl">
                 Honest, current-state read of what the pilot is showing today. Separates what is{" "}
                 <span className="font-medium">Confirmed</span>, what is{" "}
                 <span className="font-medium">Observed</span>, and what is{" "}
@@ -525,7 +525,7 @@ export function PostPilotLearningsDecisionSupportSurface({
         onToggle={toggle}
       >
         {observed.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-slate-700">
             No observed friction patterns in the current data window.
           </p>
         ) : (
@@ -565,7 +565,7 @@ export function PostPilotLearningsDecisionSupportSurface({
                   <ArrowUpRight className="h-3.5 w-3.5 text-primary" />
                   {n.label}
                 </div>
-                <div className="text-xs text-muted-foreground mt-0.5">{n.detail}</div>
+                <div className="text-xs text-slate-700 mt-0.5">{n.detail}</div>
               </div>
               {n.jumpTab && onNavigateTab && (
                 <Button
@@ -594,7 +594,7 @@ export function PostPilotLearningsDecisionSupportSurface({
       >
         <ul className="space-y-1.5 text-sm">
           {DO_NOT_OVERCLAIM.map((n, i) => (
-            <li key={i} className="flex items-start gap-2 text-muted-foreground">
+            <li key={i} className="flex items-start gap-2 text-slate-700">
               <ShieldAlert className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
               <span>{n}</span>
             </li>
@@ -605,7 +605,7 @@ export function PostPilotLearningsDecisionSupportSurface({
       {/* Quick links */}
       <div className="rounded-xl border bg-card p-5">
         <h3 className="font-semibold text-sm">Supporting audit & reporting surfaces</h3>
-        <p className="text-xs text-muted-foreground mt-0.5">
+        <p className="text-xs text-slate-700 mt-0.5">
           Jump to the surfaces these learnings come from.
         </p>
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -615,11 +615,11 @@ export function PostPilotLearningsDecisionSupportSurface({
               type="button"
               onClick={() => onNavigateTab?.(q.tab)}
               disabled={!onNavigateTab}
-              className="text-left rounded-lg border bg-background hover:bg-muted/40 transition-colors px-3 py-2.5 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="text-left rounded-lg border bg-background hover:bg-muted/40 transition-colors px-3 py-2.5 disabled:opacity-100 disabled:cursor-not-allowed"
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="text-sm font-medium">{q.label}</div>
-                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <ExternalLink className="h-3.5 w-3.5 text-slate-700 shrink-0" />
               </div>
             </button>
           ))}
@@ -634,12 +634,12 @@ export function PostPilotLearningsDecisionSupportSurface({
 function SignalChip({ label, value, sub }: { label: string; value: number; sub?: string }) {
   return (
     <div className="rounded-lg border bg-muted/20 px-3 py-2.5">
-      <div className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">
+      <div className="text-[11px] uppercase tracking-wide text-slate-700 font-semibold">
         {label}
       </div>
       <div className="mt-0.5 flex items-baseline gap-1.5">
         <div className="text-xl font-semibold tabular-nums">{value}</div>
-        {sub && <div className="text-xs text-muted-foreground">{sub}</div>}
+        {sub && <div className="text-xs text-slate-700">{sub}</div>}
       </div>
     </div>
   );
@@ -664,8 +664,8 @@ function LearningList({
               <ConfidenceBadge confidence={l.confidence} />
               <div className="text-sm font-medium">{l.label}</div>
             </div>
-            <div className="text-xs text-muted-foreground mt-1">{l.detail}</div>
-            <div className="text-[11px] text-muted-foreground/80 mt-1 italic">
+            <div className="text-xs text-slate-700 mt-1">{l.detail}</div>
+            <div className="text-[11px] text-slate-700/80 mt-1 italic">
               Evidence: {l.evidence}
             </div>
           </div>
@@ -716,10 +716,10 @@ function Section({
           </div>
           <div className="min-w-0">
             <div className="font-medium text-sm">{title}</div>
-            <div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{intent}</div>
+            <div className="text-xs text-slate-700 mt-0.5 line-clamp-2">{intent}</div>
           </div>
         </div>
-        <div className="shrink-0 text-muted-foreground">
+        <div className="shrink-0 text-slate-700">
           {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         </div>
       </button>

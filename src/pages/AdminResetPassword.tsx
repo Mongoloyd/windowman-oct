@@ -89,7 +89,7 @@ export default function AdminResetPassword() {
           <div className="mx-auto mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
             <KeyRound className="h-6 w-6 text-primary" />
           </div>
-          <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-slate-600">
+          <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-slate-700">
             WindowMan · Admin
           </p>
           <h1 className="mt-2 font-display text-3xl font-extrabold leading-tight tracking-tight text-foreground">
@@ -141,7 +141,7 @@ export default function AdminResetPassword() {
                   New password
                 </Label>
                 <div className="relative">
-                  <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-700" />
                   <Input
                     id="new-password"
                     type="password"
@@ -150,12 +150,12 @@ export default function AdminResetPassword() {
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="h-11 pl-9 border-2 border-slate-300 bg-white text-slate-950 placeholder:text-slate-500 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15"
+                    className="h-11 pl-9 border-2 border-slate-300 bg-white text-slate-950 placeholder:text-slate-700 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15"
                     required
                     minLength={8}
                   />
                 </div>
-                <p className="text-sm font-medium text-slate-600">Minimum 8 characters.</p>
+                <p className="text-sm font-medium text-slate-700">Minimum 8 characters.</p>
               </div>
 
               <div className="space-y-1.5">
@@ -163,7 +163,7 @@ export default function AdminResetPassword() {
                   Confirm password
                 </Label>
                 <div className="relative">
-                  <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-700" />
                   <Input
                     id="confirm-password"
                     type="password"
@@ -171,7 +171,7 @@ export default function AdminResetPassword() {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="h-11 pl-9 border-2 border-slate-300 bg-white text-slate-950 placeholder:text-slate-500 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15"
+                    className="h-11 pl-9 border-2 border-slate-300 bg-white text-slate-950 placeholder:text-slate-700 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15"
                     required
                     minLength={8}
                   />

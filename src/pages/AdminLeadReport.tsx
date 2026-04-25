@@ -99,7 +99,7 @@ export default function AdminLeadReport() {
     return (
       <AdminShell title="Loading Truth Report…" backTo={backTo} backLabel="Back to dossier">
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <Loader2 className="h-6 w-6 animate-spin text-slate-700" />
         </div>
       </AdminShell>
     );

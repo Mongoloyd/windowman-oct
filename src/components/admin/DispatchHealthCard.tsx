@@ -29,7 +29,7 @@ import {
 const STATE_TONE: Record<DispatchHealthState, string> = {
   healthy:               "border-emerald-500/40 bg-emerald-500/5  text-emerald-700",
   draining:              "border-cyan-500/40    bg-cyan-500/5     text-cyan-700",
-  idle_no_traffic:       "border-border         bg-muted/40       text-muted-foreground",
+  idle_no_traffic:       "border-border         bg-muted/40       text-slate-700",
   queue_idle:            "border-amber-500/40   bg-amber-500/5    text-amber-700",
   blocked_dead_letter:   "border-destructive/50 bg-destructive/5  text-destructive",
   blocked_unroutable:    "border-destructive/50 bg-destructive/5  text-destructive",
@@ -76,8 +76,8 @@ export function DispatchHealthCard() {
   if (healthQuery.isLoading) {
     return (
       <Card className="p-3 flex items-center gap-2 border-dashed">
-        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-        <span className="text-xs text-muted-foreground">Loading dispatch health…</span>
+        <Loader2 className="h-4 w-4 animate-spin text-slate-700" />
+        <span className="text-xs text-slate-700">Loading dispatch health…</span>
       </Card>
     );
   }
@@ -115,7 +115,7 @@ export function DispatchHealthCard() {
               </Badge>
             </div>
             <p className="text-xs mt-1 leading-snug">{h.stateReason}</p>
-            <p className="text-[11px] mt-1 text-muted-foreground font-mono">
+            <p className="text-[11px] mt-1 text-slate-700 font-mono">
               Last enqueue: {relTime(h.mostRecentEnqueueAt)} · Last worker attempt: {relTime(h.mostRecentAttemptAt)}
             </p>
           </div>
@@ -163,7 +163,7 @@ function AttributionStrip({
 }) {
   if (isLoading) {
     return (
-      <div className="mt-3 pt-3 border-t border-border/40 flex items-center gap-2 text-[11px] text-muted-foreground">
+      <div className="mt-3 pt-3 border-t border-border/40 flex items-center gap-2 text-[11px] text-slate-700">
         <Loader2 className="h-3 w-3 animate-spin" />
         Loading 24h fbp / fbc population…
       </div>
@@ -178,7 +178,7 @@ function AttributionStrip({
   }
   if (snapshot.total24h === 0) {
     return (
-      <div className="mt-3 pt-3 border-t border-border/40 text-[11px] text-muted-foreground">
+      <div className="mt-3 pt-3 border-t border-border/40 text-[11px] text-slate-700">
         No leads in the last 24h — fbp / fbc population check idle.
       </div>
     );
@@ -197,10 +197,10 @@ function AttributionStrip({
   return (
     <div className="mt-3 pt-3 border-t border-border/40">
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+        <span className="text-[10px] uppercase tracking-wider text-slate-700 font-semibold">
           24h Attribution Population
         </span>
-        <span className="text-[11px] font-mono text-muted-foreground">
+        <span className="text-[11px] font-mono text-slate-700">
           {snapshot.total24h} new leads
         </span>
       </div>
@@ -218,8 +218,8 @@ function CountTile({
 }: { label: string; value: number; tone: string; suffix?: string }) {
   return (
     <div className="rounded-md border border-border/60 bg-card px-2 py-1.5 flex flex-col items-center">
-      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</span>
-      <span className={`text-base font-bold font-mono tabular-nums ${value > 0 ? tone : "text-muted-foreground"}`}>
+      <span className="text-[10px] uppercase tracking-wider text-slate-700">{label}</span>
+      <span className={`text-base font-bold font-mono tabular-nums ${value > 0 ? tone : "text-slate-700"}`}>
         {value}{suffix ? <span className="text-[10px] ml-1 font-normal opacity-70">{suffix}</span> : null}
       </span>
     </div>
