@@ -6,7 +6,7 @@ import {
   ShieldCheck,
   Edit3,
   PhoneCall,
-  Target,
+  Asterisk,
   BadgeCheck,
   MessageSquareQuote,
 } from "lucide-react";
