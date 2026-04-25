@@ -119,6 +119,70 @@
 }
 
 @layer components {
+  /* Admin + Partner readability layer — scoped to dashboard shells only. */
+  .wm-dashboard-surface {
+    color: hsl(210 40% 14%);
+  }
+
+  .wm-dashboard-surface .text-muted-foreground {
+    color: hsl(215 25% 27%);
+  }
+
+  .wm-dashboard-surface .bg-card.border,
+  .wm-dashboard-surface .rounded-xl.border,
+  .wm-dashboard-surface .rounded-2xl.border,
+  .wm-dashboard-surface .rounded-lg.border,
+  .wm-dashboard-surface .rounded-md.border {
+    border-color: hsl(214 30% 76%);
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  }
+
+  .wm-dashboard-surface input,
+  .wm-dashboard-surface select,
+  .wm-dashboard-surface textarea,
+  .wm-dashboard-surface [role="combobox"] {
+    border-width: 2px;
+    border-color: hsl(214 30% 76%);
+    background-color: hsl(0 0% 100%);
+    color: hsl(210 40% 14%);
+    font-weight: 600;
+  }
+
+  .wm-dashboard-surface input::placeholder,
+  .wm-dashboard-surface textarea::placeholder {
+    color: hsl(215 20% 35%);
+  }
+
+  .wm-dashboard-surface input:focus,
+  .wm-dashboard-surface select:focus,
+  .wm-dashboard-surface textarea:focus,
+  .wm-dashboard-surface [role="combobox"]:focus-visible {
+    border-color: hsl(var(--primary));
+    box-shadow: 0 0 0 4px hsl(var(--primary) / 0.15);
+  }
+
+  .wm-dashboard-surface table thead {
+    background-color: hsl(210 30% 93% / 0.85);
+    color: hsl(215 25% 27%);
+  }
+
+  .wm-dashboard-surface table th {
+    color: hsl(215 25% 27%);
+    font-weight: 800;
+  }
+
+  .wm-dashboard-surface table td {
+    color: hsl(210 40% 14%);
+  }
+
+  .wm-dashboard-surface table tr {
+    border-color: hsl(214 30% 82%);
+  }
+
+  .wm-dashboard-surface table tbody tr:hover {
+    background-color: hsl(210 30% 93% / 0.65);
+  }
+
   /* ═══════════════════════════════════════════════════════════
      CARD SURFACES — Tiered elevation system
      L0: flush (bridge strips)  L1: resting  L2: elevated  L3: dominant
