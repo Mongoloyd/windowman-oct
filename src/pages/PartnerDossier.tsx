@@ -22,6 +22,7 @@ import {
   Layers,
   ShieldCheck,
   Eye,
+  RefreshCw,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -215,6 +216,12 @@ interface DossierData {
   proof_of_read: any;
 }
 
+interface DossierErrorDetails {
+  message: string;
+  errorCode?: string | null;
+  stage?: string | null;
+}
+
 /* ══════════════════════════════════════════════════════════════════
    Main Component
    ══════════════════════════════════════════════════════════════════ */
@@ -227,6 +234,7 @@ export default function PartnerDossier() {
   const [outcome, setOutcome] = useState<PartnerOutcome | null>(null);
   const [unlocking, setUnlocking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorDetails, setErrorDetails] = useState<DossierErrorDetails | null>(null);
   const [isPreview, setIsPreview] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -259,23 +267,53 @@ export default function PartnerDossier() {
     let data: any = null;
     try {
       const res = await supabase.functions.invoke("get-contractor-dossier", { body: { id } });
-      if (res.error) { fallbackToMock(); return; }
+      data = res.data;
+      if (res.error) {
+        setError("Unable to load this dossier right now.");
+        setErrorDetails({
+          message: data?.message ?? "The dossier service returned an error.",
+          errorCode: data?.error_code ?? res.error.name ?? null,
+          stage: data?.stage ?? null,
+        });
+        return;
+      }
       data = res.data;
     } catch {
-      fallbackToMock();
+      setError("Unable to load this dossier right now.");
+      setErrorDetails({ message: "Network error while loading dossier.", errorCode: "network_error" });
       return;
     }
-    if (!data || data.error === "unauthenticated" || data.error === "internal_error") { fallbackToMock(); return; }
-    if (data.error === "not_found") { setError("Dossier not found for the given ID."); return; }
+    if (!data) {
+      setError("Unable to load this dossier right now.");
+      setErrorDetails({ message: "Empty dossier response.", errorCode: "empty_response" });
+      return;
+    }
+    if (data.error === "unauthenticated" || data.error === "internal_error") {
+      setError("Unable to load this dossier right now.");
+      setErrorDetails({
+        message: data.message ?? "Internal server error.",
+        errorCode: data.error_code ?? data.error ?? null,
+        stage: data.stage ?? null,
+      });
+      return;
+    }
+    if (data.error === "not_found") {
+      setError("Dossier not found for the given ID.");
+      setErrorDetails({ message: data.message ?? "Dossier not found.", errorCode: "not_found" });
+      return;
+    }
     if (data.dossier && data.meta) {
+      setError(null);
+      setErrorDetails(null);
       setDossier(data.dossier);
       setMeta(data.meta);
       setOutcome((data.outcome as PartnerOutcome | null) ?? null);
       setIsPreview(false);
     } else {
-      fallbackToMock();
+      setError("Unable to load this dossier right now.");
+      setErrorDetails({ message: "Malformed dossier response.", errorCode: "malformed_response" });
     }
-  }, [id, fallbackToMock]);
+  }, [id]);
 
   useEffect(() => {
     if (id) { fallbackToMock(); fetchDossier(); }
@@ -323,9 +361,32 @@ export default function PartnerDossier() {
   if (error && !dossier) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center px-6">
-        <div className="text-center space-y-3">
+        <div className="w-full max-w-md rounded-xl border border-slate-300 bg-card p-6 text-center shadow-sm space-y-4">
           <AlertTriangle className="h-10 w-10 text-amber-500 mx-auto" />
-          <p className="text-sm font-medium text-slate-700">{error}</p>
+          <div className="space-y-1">
+            <h1 className="text-xl font-black text-slate-950">Dossier unavailable</h1>
+            <p className="text-sm font-semibold text-slate-700">{error}</p>
+          </div>
+          {errorDetails && (
+            <div className="rounded-lg border border-slate-300 bg-slate-50 p-3 text-left font-mono text-xs font-semibold text-slate-700 space-y-1">
+              {errorDetails.errorCode && <p>code: {errorDetails.errorCode}</p>}
+              {errorDetails.stage && <p>stage: {errorDetails.stage}</p>}
+            </div>
+          )}
+          <div className="flex flex-col sm:flex-row gap-2 justify-center">
+            <button
+              onClick={() => { setError(null); setErrorDetails(null); void fetchDossier(); }}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-900 px-4 py-2 text-sm font-extrabold text-white shadow-sm hover:bg-blue-800"
+            >
+              <RefreshCw className="h-4 w-4" /> Refresh
+            </button>
+            <Link
+              to="/partner/opportunities"
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-extrabold text-slate-700 shadow-sm hover:text-slate-950"
+            >
+              <ArrowLeft className="h-4 w-4" /> Back to Opportunities
+            </Link>
+          </div>
         </div>
       </div>
     );
