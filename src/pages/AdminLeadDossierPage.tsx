@@ -176,10 +176,10 @@ export default function AdminLeadDossierPage() {
           <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
             <header className="flex items-center justify-between mb-4">
               <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-700">
+                <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-slate-700">
                   Scan &amp; Report
                 </p>
-                <h3 className="font-display text-lg font-extrabold tracking-tight text-foreground mt-0.5">
+                <h3 className="mt-0.5 font-display text-xl font-black tracking-tight text-slate-950">
                   Truth Engine
                 </h3>
               </div>
@@ -195,39 +195,39 @@ export default function AdminLeadDossierPage() {
               <div className="space-y-3">
                 <div className="grid grid-cols-3 gap-3 text-sm">
                   <div>
-                    <p className="text-[10px] uppercase tracking-wider text-slate-700">Confidence</p>
-                    <p className="font-mono font-semibold">{analysis?.confidence_score ?? lead.confidence_score ?? "—"}%</p>
+                    <p className="text-sm font-extrabold uppercase tracking-wide text-slate-700">Confidence</p>
+                    <p className="font-mono text-base font-bold text-slate-950">{analysis?.confidence_score ?? lead.confidence_score ?? "—"}%</p>
                   </div>
                   <div>
-                    <p className="text-[10px] uppercase tracking-wider text-slate-700">Flags</p>
-                    <p className="font-semibold">{flags.length || lead.flag_count || 0}</p>
+                    <p className="text-sm font-extrabold uppercase tracking-wide text-slate-700">Flags</p>
+                    <p className="text-base font-bold text-slate-950">{flags.length || lead.flag_count || 0}</p>
                   </div>
                   <div>
-                    <p className="text-[10px] uppercase tracking-wider text-slate-700">Critical</p>
-                    <p className="font-semibold text-destructive">{lead.critical_flag_count ?? 0}</p>
+                    <p className="text-sm font-extrabold uppercase tracking-wide text-slate-700">Critical</p>
+                    <p className="text-base font-bold text-destructive">{lead.critical_flag_count ?? 0}</p>
                   </div>
                 </div>
 
                 {flags.length > 0 && (
                   <div>
-                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-700 mb-2 flex items-center gap-1.5">
-                      <Flag className="h-3 w-3" /> Top flags
+                    <p className="mb-2 flex items-center gap-1.5 text-sm font-extrabold uppercase tracking-[0.14em] text-slate-700">
+                      <Flag className="h-4 w-4" /> Top flags
                     </p>
                     <ul className="space-y-1.5">
                       {flags.slice(0, 5).map((f: any, i: number) => (
-                        <li key={i} className="flex items-start gap-2 text-xs">
+                        <li key={i} className="flex items-start gap-2 text-sm font-semibold leading-5 text-slate-950">
                           <Badge
-                            className={`text-[10px] px-1.5 py-0 shrink-0 uppercase font-bold ${
+                            className={`shrink-0 px-2 py-0.5 text-xs font-extrabold uppercase ${
                               f.severity === "Critical" || f.severity === "High"
-                                ? "bg-destructive/15 text-destructive border border-destructive/30"
+                                ? "border border-rose-300 bg-rose-100 text-rose-950"
                                 : f.severity === "Medium"
-                                ? "bg-amber-500/15 text-amber-700 border border-amber-500/30"
-                                : "bg-muted text-slate-700 border border-border"
+                                ? "border border-amber-300 bg-amber-100 text-amber-950"
+                                : "border border-slate-300 bg-slate-100 text-slate-950"
                             }`}
                           >
                             {f.severity}
                           </Badge>
-                          <span className="text-foreground/90">{f.flag}</span>
+                          <span>{f.flag}</span>
                         </li>
                       ))}
                     </ul>
