@@ -415,7 +415,7 @@ function SortableHeader({ label, sortKey, currentKey, currentDir, onSort, classN
       <span className="inline-flex items-center gap-1">
         {label}
         <ArrowUpDown className={`h-3 w-3 ${active ? "text-foreground" : "text-slate-700"}`} />
-        {active && <span className="text-[9px]">{currentDir === "asc" ? "↑" : "↓"}</span>}
+        {active && <span className="text-sm">{currentDir === "asc" ? "↑" : "↓"}</span>}
       </span>
     </th>
   );
