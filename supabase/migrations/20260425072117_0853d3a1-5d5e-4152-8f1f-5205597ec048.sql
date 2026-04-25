@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS client_configs_service_role_all ON public.client_configs;
