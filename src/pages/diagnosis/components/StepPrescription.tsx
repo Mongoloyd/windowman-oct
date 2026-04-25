@@ -175,12 +175,12 @@ export function StepPrescription({
 
             {windowStyles.length > 0 && (
               <div>
-                <p className="wm-eyebrow uppercase text-muted-foreground mb-2">Window Styles</p>
+                <p className="wm-eyebrow uppercase text-muted-foreground mb-2 text-sm">Window Styles</p>
                 <div className="flex flex-wrap gap-1.5">
                   {windowStyles.map((s) => (
                     <span
                       key={s}
-                      className="inline-block px-3 py-1 bg-white border border-cobalt/20 rounded-full text-xs font-medium text-foreground/80"
+                      className="inline-block px-3 py-1 bg-white border border-cobalt/20 rounded-full font-medium text-foreground/80 text-sm"
                     >
                       {s}
                     </span>
