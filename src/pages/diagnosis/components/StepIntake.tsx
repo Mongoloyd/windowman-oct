@@ -46,7 +46,10 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
   const copy = getPersonalizedDiagnosisCopy(context);
 
   return (
-    <section className="relative overflow-hidden px-5 pt-8 pb-16 md:px-8 md:pt-12" style={{ background: "transparent" }}>
+    <section
+      className="relative overflow-hidden px-5 pt-8 pb-16 md:px-8 md:pt-12"
+      style={{ background: "transparent" }}
+    >
       <div
         aria-hidden="true"
         className="pointer-events-none absolute"
@@ -88,7 +91,7 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
             <div>
               <div className="mb-5 inline-flex items-center gap-2 rounded-full border-2 border-blue-300 bg-white px-4 py-2 text-sm font-black text-slate-900 shadow-[0_10px_25px_rgba(15,23,42,0.08)]">
                 <FileCheck2 className="h-4 w-4 text-blue-700" />
-                Report loaded. Strategy builder ready.
+                Report Loaded. Strategy Builder Ready.
               </div>
               <h1 className="font-display text-4xl font-black leading-[0.96] tracking-tight text-slate-950 md:text-6xl">
                 {copy.headline}
@@ -117,13 +120,18 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
                       border: `2px solid ${gradeColor}38`,
                     }}
                   >
-                    <span className="font-display text-5xl font-black leading-none md:text-6xl" style={{ color: gradeColor }}>
+                    <span
+                      className="font-display text-5xl font-black leading-none md:text-6xl"
+                      style={{ color: gradeColor }}
+                    >
                       {context.report_grade}
                     </span>
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    <p className="mb-1 text-xs font-black uppercase tracking-[0.18em] text-slate-700">Your Audit Score</p>
+                    <p className="mb-1 text-xs font-black uppercase tracking-[0.18em] text-slate-700">
+                      Your Audit Score
+                    </p>
                     <p className="mb-4 text-base font-bold leading-relaxed text-slate-900">{copy.contextLine}</p>
                     {visibleInsights.length > 0 && (
                       <div className="grid gap-2">
@@ -147,7 +155,7 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
 
                 <div className="mt-5 flex items-center gap-3 border-t border-slate-200 pt-4">
                   <span className="block h-4 w-1 rounded-full" style={{ background: gradeColor }} />
-                  <p className="text-sm font-black text-slate-900">Report loaded. Strategy builder ready.</p>
+                  <p className="text-sm font-black text-slate-900">Report Loaded. Strategy Builder Ready.</p>
                 </div>
               </div>
             )}
@@ -168,10 +176,10 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
                   <Bot className="h-6 w-6" />
                 </div>
                 <h2 className="font-display text-2xl font-black leading-tight text-white md:text-3xl">
-                  WindowMan has your report.
+                  WindowMan Has Your Report.
                 </h2>
                 <p className="mt-3 text-base font-bold leading-relaxed text-blue-50/90">
-                  Pick the problem. I’ll build the next move.
+                  Pick The Problem. I’ll Build The Next Move.
                 </p>
               </div>
               <div className="relative mx-auto flex w-full max-w-[220px] items-end justify-center overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-2">
@@ -190,7 +198,7 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
           <div className="mx-auto mb-6 max-w-3xl text-center">
             <p className="mb-3 text-xs font-black uppercase tracking-[0.2em] text-blue-700">Root Question</p>
             <h2 className="font-display text-2xl font-black tracking-tight text-slate-950 md:text-4xl">
-              What was the biggest problem with this quote?
+              What Was The Biggest Problem With This Quote?
             </h2>
             <p className="mt-3 text-base font-bold leading-relaxed text-slate-700 md:text-lg">
               Choose the closest answer. We’ll turn it into your next move.
@@ -216,9 +224,7 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
                     <span className="block text-[16px] font-black leading-tight text-slate-950 md:text-[17px]">
                       {config.label}
                     </span>
-                    <span className="mt-1 block text-sm leading-relaxed text-slate-600">
-                      {config.cardDescription}
-                    </span>
+                    <span className="mt-1 block text-sm leading-relaxed text-slate-600">{config.cardDescription}</span>
                   </span>
                 </button>
               );
