@@ -437,47 +437,49 @@ const Index = () => {
                       />
                     </motion.div>
                   ) : (
-                    <motion.div
-                      key="flow-b-entry"
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.4 }}
-                    >
-                      <FlowBEntry
-                        onContinueToTool={() => {
-                          document.getElementById("market-baseline")?.scrollIntoView({ behavior: "smooth" });
-                        }}
-                        onSwitchToFlowA={() => switchToFlowA("hero_switch")}
-                      />
-                      <ScamConcernImage />
-                      <MarketBaselineTool onLeadCaptured={() => setFlowBLeadCaptured(true)} />
-                      {flowBLeadCaptured && (
-                        <>
-                          <ForensicChecklist
-                            onUploadQuote={() => switchToFlowA("checklist_cta")}
-                            onSetReminder={() =>
-                              document.getElementById("quote-watcher")?.scrollIntoView({ behavior: "smooth" })
-                            }
-                          />
-                          <QuoteWatcher
-                            onReminderSet={(date, time) => {
-                              setQuoteWatcherSet(true);
-                              setFlowBAnswers((prev) => ({ ...prev, appointmentDate: date, appointmentTime: time }));
-                            }}
-                            onSwitchToFlowA={() => switchToFlowA("watcher_link")}
-                            onViewChecklist={() =>
-                              document.getElementById("forensic-checklist")?.scrollIntoView({ behavior: "smooth" })
-                            }
-                          />
-                        </>
-                      )}
-                    </motion.div>
+                    <React.Suspense fallback={<SectionReserve className="min-h-[760px]" />}>
+                      <motion.div
+                        key="flow-b-entry"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.4 }}
+                      >
+                        <FlowBEntry
+                          onContinueToTool={() => {
+                            document.getElementById("market-baseline")?.scrollIntoView({ behavior: "smooth" });
+                          }}
+                          onSwitchToFlowA={() => switchToFlowA("hero_switch")}
+                        />
+                        <ScamConcernImage />
+                        <MarketBaselineTool onLeadCaptured={() => setFlowBLeadCaptured(true)} />
+                        {flowBLeadCaptured && (
+                          <>
+                            <ForensicChecklist
+                              onUploadQuote={() => switchToFlowA("checklist_cta")}
+                              onSetReminder={() =>
+                                document.getElementById("quote-watcher")?.scrollIntoView({ behavior: "smooth" })
+                              }
+                            />
+                            <QuoteWatcher
+                              onReminderSet={(date, time) => {
+                                setQuoteWatcherSet(true);
+                                setFlowBAnswers((prev) => ({ ...prev, appointmentDate: date, appointmentTime: time }));
+                              }}
+                              onSwitchToFlowA={() => switchToFlowA("watcher_link")}
+                              onViewChecklist={() =>
+                                document.getElementById("forensic-checklist")?.scrollIntoView({ behavior: "smooth" })
+                              }
+                            />
+                          </>
+                        )}
+                      </motion.div>
+                    </React.Suspense>
                   )}
                 </AnimatePresence>
               </div>
 
               {flowMode === "A" && (
-                <React.Suspense fallback={null}>
+                <React.Suspense fallback={<SectionReserve className="min-h-[1400px]" />}>
                   <ScamConcernImage />
                   <OrangeScanner
                     onScanClick={() => triggerTruthGate("demo_scan")}
@@ -525,27 +527,29 @@ const Index = () => {
           )}
 
           {fileUploaded && !gradeRevealed && !isDevPreview && (
-            <ScanTheatrics
-              isActive={true}
-              selectedCounty={selectedCounty}
-              scanSessionId={scanSessionId}
-              grade={analysisData?.grade}
-              analysisData={analysisData}
-              onRevealComplete={() => {
-                setGradeRevealed(true);
-                setTimeout(() => {
-                  document.getElementById("truth-report-top")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                }, 100);
-              }}
-              onInvalidDocument={() => {
-                setFileUploaded(false);
-                setScanSessionId(null);
-              }}
-              onNeedsBetterUpload={() => {
-                setFileUploaded(false);
-                setScanSessionId(null);
-              }}
-            />
+            <React.Suspense fallback={<SectionReserve className="min-h-screen" />}>
+              <ScanTheatrics
+                isActive={true}
+                selectedCounty={selectedCounty}
+                scanSessionId={scanSessionId}
+                grade={analysisData?.grade}
+                analysisData={analysisData}
+                onRevealComplete={() => {
+                  setGradeRevealed(true);
+                  setTimeout(() => {
+                    document.getElementById("truth-report-top")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }, 100);
+                }}
+                onInvalidDocument={() => {
+                  setFileUploaded(false);
+                  setScanSessionId(null);
+                }}
+                onNeedsBetterUpload={() => {
+                  setFileUploaded(false);
+                  setScanSessionId(null);
+                }}
+              />
+            </React.Suspense>
           )}
 
           {/* ─── Report view (real or dev fixture) ─── */}
