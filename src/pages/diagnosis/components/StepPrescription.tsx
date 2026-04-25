@@ -215,7 +215,7 @@ export function StepPrescription({
             )}
           </div>
 
-          <p className="text-sm text-foreground/70 mt-6 pt-5 border-t border-cobalt/15">
+          <p className="text-foreground/70 mt-6 pt-5 border-t border-cobalt/15 font-semibold text-base">
             Your advisor gets all of this upfront—so your next conversation starts where this one left off.
           </p>
         </div>
