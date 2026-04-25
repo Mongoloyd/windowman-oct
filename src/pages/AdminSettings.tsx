@@ -277,22 +277,22 @@ function UsersTable({
     <div className="overflow-x-auto">
       <table className="w-full">
         <thead>
-          <tr className="border-b border-slate-100">
-            <th className="text-left py-3.5 px-5 text-[11px] font-bold text-slate-700 uppercase tracking-widest">
+          <tr className="border-b border-slate-300 bg-slate-100">
+            <th className="px-5 py-3.5 text-left text-sm font-extrabold uppercase tracking-wide text-slate-800">
               User
             </th>
-            <th className="text-left py-3.5 px-5 text-[11px] font-bold text-slate-700 uppercase tracking-widest">
+            <th className="px-5 py-3.5 text-left text-sm font-extrabold uppercase tracking-wide text-slate-800">
               Role
             </th>
-            <th className="text-left py-3.5 px-5 text-[11px] font-bold text-slate-700 uppercase tracking-widest hidden md:table-cell">
+            <th className="hidden px-5 py-3.5 text-left text-sm font-extrabold uppercase tracking-wide text-slate-800 md:table-cell">
               Last Sign In
             </th>
-            <th className="text-right py-3.5 px-5 text-[11px] font-bold text-slate-700 uppercase tracking-widest">
+            <th className="px-5 py-3.5 text-right text-sm font-extrabold uppercase tracking-wide text-slate-800">
               Actions
             </th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-50">
+        <tbody className="divide-y divide-slate-300">
           {users.map((user) => {
             const isSelf = user.user_id === currentUserId;
             return (
@@ -300,7 +300,7 @@ function UsersTable({
                 key={user.user_id}
                 className={`
                   transition-colors duration-150
-                  ${isSelf ? "bg-blue-50/30" : "hover:bg-slate-50/50"}
+                  ${isSelf ? "bg-blue-50/60" : "hover:bg-blue-50/50"}
                 `}
               >
                 <td className="py-4 px-5">
@@ -313,11 +313,11 @@ function UsersTable({
                         {user.email}
                       </span>
                       {isSelf && (
-                        <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-bold uppercase tracking-wide">
+                        <span className="ml-2 inline-flex min-h-7 items-center rounded-full border border-blue-300 bg-blue-100 px-2.5 py-0.5 text-sm font-extrabold uppercase tracking-wide text-blue-950">
                           You
                         </span>
                       )}
-                      <p className="text-[11px] text-slate-700 mt-0.5 hidden sm:block">
+                      <p className="mt-0.5 hidden text-sm font-semibold text-slate-700 sm:block">
                         {user.user_id.slice(0, 8)}...
                       </p>
                     </div>
@@ -327,7 +327,7 @@ function UsersTable({
                   <RoleBadge role={user.role} />
                 </td>
                 <td className="py-4 px-5 hidden md:table-cell">
-                  <span className="text-xs text-slate-700">
+                  <span className="text-sm font-semibold text-slate-700">
                     {user.last_sign_in
                       ? new Date(user.last_sign_in).toLocaleDateString(
                           "en-US",
