@@ -273,6 +273,20 @@ export async function resolvePixelConfig(
       .single()) as { data: { id: string } | null };
 
     if (client) {
+      const { data: secureConfig } = (await supabase
+        .from("client_configs")
+        .select("meta_pixel_id, capi_token_secret_id")
+        .eq("client_id", client.id)
+        .maybeSingle()) as { data: { meta_pixel_id: string | null; capi_token_secret_id: string | null } | null };
+
+      if (secureConfig?.meta_pixel_id && secureConfig?.capi_token_secret_id) {
+        const { data: secureToken } = (await supabase.rpc("get_client_capi_token_by_secret_id", { p_secret_id: secureConfig.capi_token_secret_id })) as { data: string | null };
+        if (secureToken) {
+          console.log(`[CAPI:RESOLVE] Using secure client_config for slug="${clientSlug}"`);
+          return { pixelId: secureConfig.meta_pixel_id, accessToken: secureToken, source: `client:${clientSlug}` };
+        }
+      }
+
       const { data: config } = (await supabase
         .from("meta_configurations")
         .select("pixel_id, access_token, test_event_code")
