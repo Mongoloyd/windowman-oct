@@ -44,14 +44,14 @@ export function LeadTimelinePanel({ leadId }: LeadTimelinePanelProps) {
     <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
       <header className="flex items-center justify-between mb-4">
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-700">
             Activity
           </p>
           <h3 className="font-display text-lg font-extrabold tracking-tight text-foreground mt-0.5">
             Timeline
           </h3>
         </div>
-        <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+        <span className="inline-flex items-center gap-1.5 text-xs text-slate-700">
           <Clock className="h-3.5 w-3.5" />
           {events.length} event{events.length === 1 ? "" : "s"}
         </span>
@@ -59,7 +59,7 @@ export function LeadTimelinePanel({ leadId }: LeadTimelinePanelProps) {
 
       {isLoading ? (
         <div className="flex items-center justify-center py-10">
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          <Loader2 className="h-5 w-5 animate-spin text-slate-700" />
         </div>
       ) : isError ? (
         <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
@@ -72,7 +72,7 @@ export function LeadTimelinePanel({ leadId }: LeadTimelinePanelProps) {
           </div>
         </div>
       ) : events.length === 0 ? (
-        <p className="text-sm text-muted-foreground italic py-3">
+        <p className="text-sm text-slate-700 italic py-3">
           No events recorded for this lead yet.
         </p>
       ) : (
@@ -81,12 +81,12 @@ export function LeadTimelinePanel({ leadId }: LeadTimelinePanelProps) {
             <li key={e.id} className="pl-5 relative">
               <span className="absolute -left-[7px] top-1 h-3 w-3 rounded-full border-2 border-card bg-primary" />
               <p className="text-sm font-semibold text-foreground capitalize">{labelFor(e)}</p>
-              <p className="mt-0.5 text-[11px] text-muted-foreground font-mono">
+              <p className="mt-0.5 text-[11px] text-slate-700 font-mono">
                 {format(new Date(e.created_at), "MMM d, yyyy · h:mm:ss a")}
                 {e.event_source && <span className="ml-2 opacity-70">· {e.event_source}</span>}
               </p>
               {e.metadata && Object.keys(e.metadata).length > 0 && (
-                <pre className="mt-1.5 rounded-md bg-muted/40 px-2 py-1.5 text-[10px] font-mono leading-tight text-muted-foreground overflow-x-auto">
+                <pre className="mt-1.5 rounded-md bg-muted/40 px-2 py-1.5 text-[10px] font-mono leading-tight text-slate-700 overflow-x-auto">
                   {JSON.stringify(e.metadata, null, 2)}
                 </pre>
               )}

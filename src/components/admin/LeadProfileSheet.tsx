@@ -75,13 +75,13 @@ export function LeadProfileSheet({ lead, events, isLoadingEvents }: LeadProfileS
 
           <div className="space-y-2 text-sm">
             {lead.email && (
-              <div className="flex items-center gap-2 text-muted-foreground">
+              <div className="flex items-center gap-2 text-slate-700">
                 <Mail className="h-4 w-4" />
                 <span>{lead.email}</span>
               </div>
             )}
             {lead.phone_e164 && (
-              <div className="flex items-center gap-2 text-muted-foreground">
+              <div className="flex items-center gap-2 text-slate-700">
                 <Phone className="h-4 w-4" />
                 <span className="font-mono">
                   {lead.phone_verified ? lead.phone_e164 : `•••-•••-${lead.phone_e164.slice(-4)}`}
@@ -92,7 +92,7 @@ export function LeadProfileSheet({ lead, events, isLoadingEvents }: LeadProfileS
               </div>
             )}
             {(lead.county || lead.state || lead.zip) && (
-              <div className="flex items-center gap-2 text-muted-foreground">
+              <div className="flex items-center gap-2 text-slate-700">
                 <MapPin className="h-4 w-4" />
                 <span>{[lead.county, lead.state, lead.zip].filter(Boolean).join(", ")}</span>
               </div>
@@ -110,28 +110,28 @@ export function LeadProfileSheet({ lead, events, isLoadingEvents }: LeadProfileS
           {lead.latest_analysis_id ? (
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col items-center rounded-md border p-3">
-                <span className="text-xs text-muted-foreground">Grade</span>
+                <span className="text-xs text-slate-700">Grade</span>
                 <span className="text-2xl font-bold">{lead.grade ?? "—"}</span>
               </div>
               <div className="flex flex-col items-center rounded-md border p-3">
-                <span className="text-xs text-muted-foreground">Confidence</span>
+                <span className="text-xs text-slate-700">Confidence</span>
                 <span className="text-2xl font-bold font-mono">
                   {lead.confidence_score != null ? `${lead.confidence_score}%` : "—"}
                 </span>
               </div>
               <div className="flex flex-col items-center rounded-md border p-3">
-                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <span className="text-xs text-slate-700 flex items-center gap-1">
                   <AlertTriangle className="h-3 w-3 text-destructive" /> Red Flags
                 </span>
                 <span className="text-xl font-bold text-destructive">{lead.red_flag_count}</span>
               </div>
               <div className="flex flex-col items-center rounded-md border p-3">
-                <span className="text-xs text-muted-foreground">Windows</span>
+                <span className="text-xs text-slate-700">Windows</span>
                 <span className="text-xl font-bold">{lead.window_count ?? "—"}</span>
               </div>
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground text-center py-4">
+            <p className="text-sm text-slate-700 text-center py-4">
               No analysis completed yet.
             </p>
           )}
@@ -147,11 +147,11 @@ export function LeadProfileSheet({ lead, events, isLoadingEvents }: LeadProfileS
         </CardHeader>
         <CardContent>
           {isLoadingEvents ? (
-            <p className="text-sm text-muted-foreground animate-pulse text-center py-4">
+            <p className="text-sm text-slate-700 animate-pulse text-center py-4">
               Loading timeline…
             </p>
           ) : events.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">
+            <p className="text-sm text-slate-700 text-center py-4">
               No events recorded yet.
             </p>
           ) : (
@@ -171,11 +171,11 @@ export function LeadProfileSheet({ lead, events, isLoadingEvents }: LeadProfileS
                       {event.event_name.replace(/_/g, " ")}
                     </p>
                     {event.event_source && (
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs text-slate-700">
                         via {event.event_source}
                       </span>
                     )}
-                    <p className="text-xs text-muted-foreground mt-0.5">
+                    <p className="text-xs text-slate-700 mt-0.5">
                       {formatTimestamp(event.created_at)}
                     </p>
                   </div>

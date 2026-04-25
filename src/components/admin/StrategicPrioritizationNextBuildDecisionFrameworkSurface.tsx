@@ -275,7 +275,7 @@ export function StrategicPrioritizationNextBuildDecisionFrameworkSurface({
                 <CardTitle className="text-lg">
                   Strategic Prioritization / Next-Build Decision Framework
                 </CardTitle>
-                <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+                <p className="text-sm text-slate-700 mt-1 max-w-2xl">
                   An honest, current-state view of what likely matters most next,
                   what should wait, and what stays intentionally out of scope.
                   No roadmap engine — just operator decision support.
@@ -324,21 +324,21 @@ export function StrategicPrioritizationNextBuildDecisionFrameworkSurface({
               <div className="text-sm font-medium text-foreground">
                 {item.title}
               </div>
-              <p className="text-sm text-muted-foreground mt-1">{item.why}</p>
-              <div className="mt-2 text-xs text-muted-foreground/80">
+              <p className="text-sm text-slate-700 mt-1">{item.why}</p>
+              <div className="mt-2 text-xs text-slate-700/80">
                 <span className="font-medium text-foreground/70">Signal: </span>
                 {item.signal}
               </div>
               {item.preconditions.length > 0 && (
                 <div className="mt-2">
-                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground/70 mb-1">
+                  <div className="text-[11px] uppercase tracking-wide text-slate-700 mb-1">
                     Pre-conditions
                   </div>
                   <ul className="space-y-1">
                     {item.preconditions.map((p) => (
                       <li
                         key={p}
-                        className="flex items-start gap-1.5 text-xs text-muted-foreground"
+                        className="flex items-start gap-1.5 text-xs text-slate-700"
                       >
                         <CheckCircle2 className="h-3 w-3 mt-0.5 text-emerald-500 shrink-0" />
                         {p}
@@ -359,7 +359,7 @@ export function StrategicPrioritizationNextBuildDecisionFrameworkSurface({
                       disabled={!onNavigateTab}
                     >
                       {t}
-                      <ExternalLink className="h-2.5 w-2.5 opacity-60" />
+                      <ExternalLink className="h-2.5 w-2.5 opacity-100" />
                     </Button>
                   ))}
                 </div>
@@ -386,7 +386,7 @@ export function StrategicPrioritizationNextBuildDecisionFrameworkSurface({
               className="rounded-md border border-border/60 bg-card/40 p-3"
             >
               <div className="text-sm font-medium text-foreground">{p.title}</div>
-              <p className="text-sm text-muted-foreground mt-1">{p.detail}</p>
+              <p className="text-sm text-slate-700 mt-1">{p.detail}</p>
               {p.relatedTabs && p.relatedTabs.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {p.relatedTabs.map((t) => (
@@ -399,7 +399,7 @@ export function StrategicPrioritizationNextBuildDecisionFrameworkSurface({
                       disabled={!onNavigateTab}
                     >
                       {t}
-                      <ExternalLink className="h-2.5 w-2.5 opacity-60" />
+                      <ExternalLink className="h-2.5 w-2.5 opacity-100" />
                     </Button>
                   ))}
                 </div>
@@ -426,7 +426,7 @@ export function StrategicPrioritizationNextBuildDecisionFrameworkSurface({
               className="rounded-md border border-border/60 bg-card/40 p-3"
             >
               <div className="text-sm font-medium text-foreground">{d.title}</div>
-              <p className="text-sm text-muted-foreground mt-1">{d.why}</p>
+              <p className="text-sm text-slate-700 mt-1">{d.why}</p>
             </li>
           ))}
         </ul>
@@ -449,7 +449,7 @@ export function StrategicPrioritizationNextBuildDecisionFrameworkSurface({
               className="rounded-md border border-border/60 bg-card/40 p-3"
             >
               <div className="text-sm font-medium text-foreground">{d.title}</div>
-              <p className="text-sm text-muted-foreground mt-1">{d.why}</p>
+              <p className="text-sm text-slate-700 mt-1">{d.why}</p>
             </li>
           ))}
         </ul>
@@ -472,7 +472,7 @@ export function StrategicPrioritizationNextBuildDecisionFrameworkSurface({
               className="rounded-md border border-border/60 bg-card/40 p-3"
             >
               <div className="text-sm font-medium text-foreground">{c.title}</div>
-              <p className="text-sm text-muted-foreground mt-1">{c.detail}</p>
+              <p className="text-sm text-slate-700 mt-1">{c.detail}</p>
             </li>
           ))}
         </ul>
@@ -501,7 +501,7 @@ export function StrategicPrioritizationNextBuildDecisionFrameworkSurface({
                 {gate.mustBeTrue.map((m) => (
                   <li
                     key={m}
-                    className="flex items-start gap-1.5 text-xs text-muted-foreground"
+                    className="flex items-start gap-1.5 text-xs text-slate-700"
                   >
                     <CheckCircle2 className="h-3 w-3 mt-0.5 text-emerald-500 shrink-0" />
                     {m}
@@ -517,7 +517,7 @@ export function StrategicPrioritizationNextBuildDecisionFrameworkSurface({
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Quick Links</CardTitle>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-slate-700">
             Supporting audit, readiness, and decision surfaces.
           </p>
         </CardHeader>
@@ -545,7 +545,7 @@ export function StrategicPrioritizationNextBuildDecisionFrameworkSurface({
                 disabled={!onNavigateTab}
               >
                 {l.label}
-                <ExternalLink className="h-3 w-3 opacity-60" />
+                <ExternalLink className="h-3 w-3 opacity-100" />
               </Button>
             ))}
           </div>
@@ -600,7 +600,7 @@ function SectionCard({
                   </Badge>
                 )}
               </div>
-              <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+              <p className="text-sm text-slate-700 mt-1 max-w-2xl">
                 {description}
               </p>
             </div>

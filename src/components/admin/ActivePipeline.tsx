@@ -177,7 +177,7 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
       {/* ── Filter controls ── */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-600" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-700" />
           <Input
             placeholder="Search name, email, county…"
             value={searchQuery}
@@ -230,7 +230,7 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
             )}
           </SelectContent>
         </Select>
-        <span className="text-sm font-semibold text-slate-600">
+        <span className="text-sm font-semibold text-slate-700">
           {filteredLeads.length} of {leads.length} leads
         </span>
       </div>
@@ -251,7 +251,7 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
           <TableBody>
             {filteredLeads.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-slate-600">
+                <TableCell colSpan={7} className="text-center py-8 text-slate-700">
                   No leads match the current filters.
                 </TableCell>
               </TableRow>
@@ -270,7 +270,7 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
                         {displayName(lead)}
                       </div>
                       {lead.email && lead.first_name && (
-                        <div className="text-sm font-semibold text-slate-600 truncate max-w-[220px]">
+                        <div className="text-sm font-semibold text-slate-700 truncate max-w-[220px]">
                           {lead.email}
                         </div>
                       )}
@@ -284,7 +284,7 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
                           {lead.grade}
                         </Badge>
                       ) : (
-                        <span className="text-slate-600 text-xs">—</span>
+                        <span className="text-slate-700 text-xs">—</span>
                       )}
                     </TableCell>
                     <TableCell className="text-center font-mono">
@@ -295,10 +295,10 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
                         {style.label}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-sm text-slate-600">
+                    <TableCell className="text-sm text-slate-700">
                       {lead.assigned_partner}
                     </TableCell>
-                    <TableCell className="text-right text-sm font-semibold text-slate-600 whitespace-nowrap">
+                    <TableCell className="text-right text-sm font-semibold text-slate-700 whitespace-nowrap">
                       {timeAgo(lead.created_at)}
                     </TableCell>
                   </TableRow>

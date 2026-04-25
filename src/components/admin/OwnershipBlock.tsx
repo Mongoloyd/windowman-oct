@@ -154,7 +154,7 @@ export function OwnershipBlock({
   return (
     <div className="rounded-lg border border-border/60 bg-muted/10 p-3 space-y-2.5">
       <div className="flex items-center gap-1.5">
-        <ShieldCheck className="h-3.5 w-3.5 text-slate-600" />
+        <ShieldCheck className="h-3.5 w-3.5 text-slate-700" />
         <p className="text-[10px] uppercase tracking-wide text-slate-700 font-semibold">
           Ownership
         </p>
@@ -162,7 +162,7 @@ export function OwnershipBlock({
 
       {/* Current owner */}
       <div className="flex items-start gap-2">
-        <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold w-24 mt-0.5 shrink-0">
+        <span className="text-[10px] uppercase tracking-wide text-slate-700 font-semibold w-24 mt-0.5 shrink-0">
           Current Owner
         </span>
         {currentOwner ? (
@@ -170,21 +170,21 @@ export function OwnershipBlock({
             <Building2 className="h-3 w-3 text-cyan-600" />
             <span className="font-medium">{currentOwner.company_name}</span>
             {latest?.routing_reason && (
-              <span className="text-[10px] text-muted-foreground italic">· {latest.routing_reason}</span>
+              <span className="text-[10px] text-slate-700 italic">· {latest.routing_reason}</span>
             )}
           </span>
         ) : (
-          <span className="text-xs text-muted-foreground italic">Unassigned</span>
+          <span className="text-xs text-slate-700 italic">Unassigned</span>
         )}
       </div>
 
       {/* Prior owners */}
       {priorOwnerNames.length > 0 && (
         <div className="flex items-start gap-2">
-          <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold w-24 mt-0.5 shrink-0">
+          <span className="text-[10px] uppercase tracking-wide text-slate-700 font-semibold w-24 mt-0.5 shrink-0">
             Prior Owner{priorOwnerNames.length > 1 ? "s" : ""}
           </span>
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs text-slate-700">
             {priorOwnerNames.join(" · ")}
           </span>
         </div>
@@ -193,16 +193,16 @@ export function OwnershipBlock({
       {/* Release status (only when meaningful) */}
       {latest && latest.release_status && latest.release_status !== "none" && (
         <div className="flex items-start gap-2">
-          <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold w-24 mt-0.5 shrink-0">
+          <span className="text-[10px] uppercase tracking-wide text-slate-700 font-semibold w-24 mt-0.5 shrink-0">
             Release
           </span>
           <div className="text-xs space-y-0.5">
             <span className="capitalize font-medium">{latest.release_status}</span>
             {latest.release_requested_at && (
-              <span className="text-muted-foreground"> · requested {fmtTs(latest.release_requested_at)}</span>
+              <span className="text-slate-700"> · requested {fmtTs(latest.release_requested_at)}</span>
             )}
             {latest.release_reviewed_at && (
-              <div className="text-muted-foreground text-[11px]">
+              <div className="text-slate-700 text-[11px]">
                 Reviewed {fmtTs(latest.release_reviewed_at)}
                 {latest.release_denial_reason && ` — ${latest.release_denial_reason}`}
               </div>

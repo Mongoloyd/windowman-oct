@@ -53,7 +53,7 @@ export function GhostRecovery({ ghosts, isLoading }: GhostRecoveryProps) {
 
   if (isLoading && ghosts.length === 0) {
     return (
-      <div className="flex items-center justify-center py-20 text-muted-foreground">
+      <div className="flex items-center justify-center py-20 text-slate-700">
         Loading ghost leads…
       </div>
     );
@@ -63,9 +63,9 @@ export function GhostRecovery({ ghosts, isLoading }: GhostRecoveryProps) {
     return (
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-16 gap-3">
-          <Ghost className="h-12 w-12 text-muted-foreground/40" />
-          <p className="text-lg font-medium text-muted-foreground">No ghost leads</p>
-          <p className="text-sm text-muted-foreground">
+          <Ghost className="h-12 w-12 text-slate-700" />
+          <p className="text-lg font-medium text-slate-700">No ghost leads</p>
+          <p className="text-sm text-slate-700">
             All scanned leads have completed phone verification. 🎉
           </p>
         </CardContent>
@@ -78,11 +78,11 @@ export function GhostRecovery({ ghosts, isLoading }: GhostRecoveryProps) {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between gap-3 flex-wrap">
-            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+            <CardTitle className="text-sm font-medium text-slate-700 uppercase tracking-wider">
               {ghosts.length} abandoned lead{ghosts.length !== 1 ? "s" : ""} — scanned but never verified
             </CardTitle>
             <div className="relative min-w-[200px] max-w-xs">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-700" />
               <Input
                 placeholder="Search name, email…"
                 value={searchQuery}
@@ -107,7 +107,7 @@ export function GhostRecovery({ ghosts, isLoading }: GhostRecoveryProps) {
               <TableBody>
                 {filteredGhosts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={5} className="text-center py-8 text-slate-700">
                       No ghost leads match your search.
                     </TableCell>
                   </TableRow>
@@ -123,7 +123,7 @@ export function GhostRecovery({ ghosts, isLoading }: GhostRecoveryProps) {
                           {lead.first_name ?? lead.email ?? `Lead ${lead.id.slice(0, 8)}`}
                         </div>
                         {lead.email && lead.first_name && (
-                          <div className="text-xs text-muted-foreground truncate max-w-[220px]">
+                          <div className="text-xs text-slate-700 truncate max-w-[220px]">
                             {lead.email}
                           </div>
                         )}
@@ -134,13 +134,13 @@ export function GhostRecovery({ ghosts, isLoading }: GhostRecoveryProps) {
                             {lead.grade}
                           </Badge>
                         ) : (
-                          <span className="text-muted-foreground text-xs">—</span>
+                          <span className="text-slate-700 text-xs">—</span>
                         )}
                       </TableCell>
                       <TableCell className="text-center font-mono">
                         {lead.window_count ?? "—"}
                       </TableCell>
-                      <TableCell className="text-right text-xs text-muted-foreground whitespace-nowrap">
+                      <TableCell className="text-right text-xs text-slate-700 whitespace-nowrap">
                         {timeAgo(lead.created_at)}
                       </TableCell>
                       <TableCell className="text-right">

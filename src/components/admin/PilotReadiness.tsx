@@ -96,7 +96,7 @@ export function PilotReadiness({ leads }: Props) {
               Read-only
             </Badge>
           </div>
-          <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+          <p className="text-xs text-slate-700 mt-1.5 leading-relaxed">
             Internal operator view. Use this surface to walk a contractor
             through what the system does today using live, repo-real data.
             Nothing here is interactive.
@@ -107,7 +107,7 @@ export function PilotReadiness({ leads }: Props) {
       {/* ── Step 2: What WindowMan Does ─────────────────────────────── */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+          <CardTitle className="text-sm font-medium text-slate-700 uppercase tracking-wider">
             What WindowMan Does
           </CardTitle>
         </CardHeader>
@@ -144,10 +144,10 @@ export function PilotReadiness({ leads }: Props) {
       {/* ── Step 3: Current Operational Counts (reuse) ──────────────── */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+          <CardTitle className="text-sm font-medium text-slate-700 uppercase tracking-wider">
             Current Operational Counts
           </CardTitle>
-          <p className="text-[11px] text-muted-foreground mt-1">
+          <p className="text-[11px] text-slate-700 mt-1">
             Live counts from repo-real lifecycle timestamps. Identical to the
             Command Center summary strip.
           </p>
@@ -160,10 +160,10 @@ export function PilotReadiness({ leads }: Props) {
       {/* ── Step 5: Current Routing Flow ────────────────────────────── */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+          <CardTitle className="text-sm font-medium text-slate-700 uppercase tracking-wider">
             Current Routing Flow
           </CardTitle>
-          <p className="text-[11px] text-muted-foreground mt-1">
+          <p className="text-[11px] text-slate-700 mt-1">
             Counts derived from repo-real timestamps on the leads table.
           </p>
         </CardHeader>
@@ -188,19 +188,19 @@ export function PilotReadiness({ leads }: Props) {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-muted-foreground" />
-            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+            <MapPin className="h-4 w-4 text-slate-700" />
+            <CardTitle className="text-sm font-medium text-slate-700 uppercase tracking-wider">
               Current Market Coverage
             </CardTitle>
           </div>
-          <p className="text-[11px] text-muted-foreground mt-1">
+          <p className="text-[11px] text-slate-700 mt-1">
             Counties with at least one repo-real lifecycle event (report
             unlocked, routed, or analysis present).
           </p>
         </CardHeader>
         <CardContent>
           {marketCoverage.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-6">
+            <p className="text-sm text-slate-700 text-center py-6">
               No county-level activity yet.
             </p>
           ) : (
@@ -224,10 +224,10 @@ export function PilotReadiness({ leads }: Props) {
       {/* ── Step 6: What the Contractor Receives ────────────────────── */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+          <CardTitle className="text-sm font-medium text-slate-700 uppercase tracking-wider">
             What the Contractor Receives
           </CardTitle>
-          <p className="text-[11px] text-muted-foreground mt-1">
+          <p className="text-[11px] text-slate-700 mt-1">
             Live product truth — these surfaces already exist in admin today.
           </p>
         </CardHeader>
@@ -282,12 +282,12 @@ function ExplainerCard({
         <div className="w-8 h-8 rounded-md bg-muted flex items-center justify-center">
           <Icon className="h-4 w-4 text-foreground" />
         </div>
-        <span className="text-[10px] font-mono text-muted-foreground tracking-wider">
+        <span className="text-[10px] font-mono text-slate-700 tracking-wider">
           {step}
         </span>
       </div>
       <p className="text-sm font-semibold">{title}</p>
-      <p className="text-xs text-muted-foreground leading-relaxed">{body}</p>
+      <p className="text-xs text-slate-700 leading-relaxed">{body}</p>
     </div>
   );
 }
@@ -308,7 +308,7 @@ function FlowStep({
       }`}
     >
       <p className="text-2xl font-bold tabular-nums leading-none">{value}</p>
-      <p className="text-[10px] uppercase tracking-wide text-muted-foreground mt-1.5 font-semibold">
+      <p className="text-[10px] uppercase tracking-wide text-slate-700 mt-1.5 font-semibold">
         {label}
       </p>
     </div>
@@ -318,7 +318,7 @@ function FlowStep({
 function FlowArrow() {
   return (
     <div className="shrink-0 flex items-center justify-center py-1 sm:py-0">
-      <ArrowRight className="h-4 w-4 text-muted-foreground rotate-90 sm:rotate-0" />
+      <ArrowRight className="h-4 w-4 text-slate-700 rotate-90 sm:rotate-0" />
     </div>
   );
 }
@@ -340,7 +340,7 @@ function ReceiveRow({
           <p className="text-sm font-semibold">{title}</p>
           <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
         </div>
-        <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+        <p className="text-xs text-slate-700 mt-1 leading-relaxed">
           {body}
         </p>
       </div>

@@ -35,7 +35,7 @@ interface AttributionRow {
 const SOURCE_COLORS: Record<string, string> = {
   facebook: "bg-blue-500/20 text-blue-400 border-blue-500/30",
   google: "bg-green-500/20 text-green-400 border-green-500/30",
-  organic: "bg-muted text-muted-foreground border-border",
+  organic: "bg-muted text-slate-700 border-border",
 };
 
 function pctStr(part: number, whole: number): string {
@@ -60,7 +60,7 @@ export function AttributionTab({ leads, isLoading }: AttributionTabProps) {
   const hasAttribution = leads.some((l) => l.utm_source || l.utm_campaign);
   if (leads.length === 0 || !hasAttribution) {
     return (
-      <div className="flex flex-col items-center gap-3 py-16 text-muted-foreground">
+      <div className="flex flex-col items-center gap-3 py-16 text-slate-700">
         <BarChart3 className="w-10 h-10 opacity-40" />
         <p className="text-sm font-medium">No UTM attribution data yet.</p>
         <p className="text-xs max-w-sm text-center">
@@ -104,7 +104,7 @@ export function AttributionTab({ leads, isLoading }: AttributionTabProps) {
         {summaryCards.map((c) => (
           <Card key={c.title}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">{c.title}</CardTitle>
+              <CardTitle className="text-sm font-medium text-slate-700">{c.title}</CardTitle>
               <c.icon className="h-5 w-5 text-primary" />
             </CardHeader>
             <CardContent>
@@ -118,7 +118,7 @@ export function AttributionTab({ leads, isLoading }: AttributionTabProps) {
       <div className="rounded-lg border overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
+            <tr className="border-b bg-muted/50 text-xs uppercase tracking-wide text-slate-700">
               <th className="px-4 py-3 text-left">Source</th>
               <th className="px-4 py-3 text-left">Campaign</th>
               <th className="px-4 py-3 text-right">Leads</th>
@@ -138,7 +138,7 @@ export function AttributionTab({ leads, isLoading }: AttributionTabProps) {
                       {row.source}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground max-w-[240px] truncate">
+                  <td className="px-4 py-3 text-slate-700 max-w-[240px] truncate">
                     {row.campaign}
                   </td>
                   <td className="px-4 py-3 text-right font-medium">{row.leads}</td>
@@ -157,7 +157,7 @@ export function AttributionTab({ leads, isLoading }: AttributionTabProps) {
           <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
             Prev
           </Button>
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs text-slate-700">
             Page {page + 1} of {totalPages}
           </span>
           <Button variant="outline" size="sm" disabled={page >= totalPages - 1} onClick={() => setPage((p) => p + 1)}>

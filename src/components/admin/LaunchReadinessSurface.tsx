@@ -136,7 +136,7 @@ const STATUS_STYLES: Record<
     label: "Needs attention",
   },
   unknown: {
-    badge: "bg-muted text-muted-foreground border-border",
+    badge: "bg-muted text-slate-700 border-border",
     icon: HelpCircle,
     label: "Unknown",
   },
@@ -439,7 +439,7 @@ export function LaunchReadinessSurface({ leads, onNavigateTab }: Props) {
         className="w-full flex items-start justify-between gap-3 text-left p-4 rounded-lg border border-border bg-card hover:bg-accent/40 transition-colors"
       >
         <div className="flex items-start gap-3">
-          <Icon className="h-5 w-5 mt-0.5 text-muted-foreground" />
+          <Icon className="h-5 w-5 mt-0.5 text-slate-700" />
           <div>
             <div className="font-semibold text-foreground flex items-center gap-2">
               {title}
@@ -450,14 +450,14 @@ export function LaunchReadinessSurface({ leads, onNavigateTab }: Props) {
               )}
             </div>
             {subtitle && (
-              <div className="text-xs text-muted-foreground mt-0.5">{subtitle}</div>
+              <div className="text-xs text-slate-700 mt-0.5">{subtitle}</div>
             )}
           </div>
         </div>
         {open ? (
-          <ChevronDown className="h-4 w-4 text-muted-foreground mt-1" />
+          <ChevronDown className="h-4 w-4 text-slate-700 mt-1" />
         ) : (
-          <ChevronRight className="h-4 w-4 text-muted-foreground mt-1" />
+          <ChevronRight className="h-4 w-4 text-slate-700 mt-1" />
         )}
       </button>
     );
@@ -474,7 +474,7 @@ export function LaunchReadinessSurface({ leads, onNavigateTab }: Props) {
               <h2 className="text-lg font-semibold tracking-tight text-foreground">
                 Launch Readiness / System Health Verification
               </h2>
-              <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+              <p className="text-sm text-slate-700 mt-1 max-w-2xl">
                 Internal operator view. Repo-real signals + a local-only
                 checklist for start-of-day verification. This is not
                 automated monitoring; signals reflect the same admin reads
@@ -506,7 +506,7 @@ export function LaunchReadinessSurface({ leads, onNavigateTab }: Props) {
             );
           })}
         </div>
-        <p className="text-[11px] text-muted-foreground mt-2 italic">
+        <p className="text-[11px] text-slate-700 mt-2 italic">
           Signals are operator-view derivations from current admin reads. They
           do not replace real infrastructure monitoring.
         </p>
@@ -529,7 +529,7 @@ export function LaunchReadinessSurface({ leads, onNavigateTab }: Props) {
               const StatusIcon = style.icon;
               return (
                 <li key={sig.key} className="p-3 flex items-start gap-3">
-                  <Icon className="h-4 w-4 mt-1 text-muted-foreground shrink-0" />
+                  <Icon className="h-4 w-4 mt-1 text-slate-700 shrink-0" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium text-sm text-foreground">{sig.title}</span>
@@ -539,7 +539,7 @@ export function LaunchReadinessSurface({ leads, onNavigateTab }: Props) {
                       </Badge>
                     </div>
                     <p className="text-xs text-foreground mt-1">{sig.value}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{sig.detail}</p>
+                    <p className="text-xs text-slate-700 mt-0.5">{sig.detail}</p>
                     {sig.tab && onNavigateTab && (
                       <button
                         type="button"
@@ -581,10 +581,10 @@ export function LaunchReadinessSurface({ leads, onNavigateTab }: Props) {
                     className="mt-1"
                   />
                   <label htmlFor={`check-${c.key}`} className="flex-1 min-w-0 cursor-pointer">
-                    <div className={`text-sm font-medium ${isChecked ? "text-muted-foreground line-through" : "text-foreground"}`}>
+                    <div className={`text-sm font-medium ${isChecked ? "text-slate-700 line-through" : "text-foreground"}`}>
                       {c.label}
                     </div>
-                    <div className="text-xs text-muted-foreground mt-0.5">{c.hint}</div>
+                    <div className="text-xs text-slate-700 mt-0.5">{c.hint}</div>
                   </label>
                 </li>
               );
@@ -656,13 +656,13 @@ export function LaunchReadinessSurface({ leads, onNavigateTab }: Props) {
                 type="button"
                 onClick={() => onNavigateTab?.(link.tab)}
                 disabled={!onNavigateTab}
-                className="text-left p-3 rounded-lg border border-border bg-card hover:bg-accent/40 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                className="text-left p-3 rounded-lg border border-border bg-card hover:bg-accent/40 transition-colors disabled:opacity-100 disabled:cursor-not-allowed"
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-medium text-sm text-foreground">{link.label}</span>
-                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                  <ExternalLink className="h-3.5 w-3.5 text-slate-700" />
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">{link.desc}</p>
+                <p className="text-xs text-slate-700 mt-1">{link.desc}</p>
               </button>
             ))}
           </div>

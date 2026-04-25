@@ -121,11 +121,38 @@
 @layer components {
   /* Admin + Partner readability layer — scoped to dashboard shells only. */
   .wm-dashboard-surface {
-    color: hsl(210 40% 14%);
+    background-color: hsl(0 0% 100%);
+    color: hsl(222 47% 8%);
   }
 
-  .wm-dashboard-surface .text-muted-foreground {
+  .wm-dashboard-surface .text-muted-foreground,
+  .wm-dashboard-surface .text-slate-600,
+  .wm-dashboard-surface .text-slate-500,
+  .wm-dashboard-surface .text-slate-400,
+  .wm-dashboard-surface .text-gray-500,
+  .wm-dashboard-surface .text-gray-400,
+  .wm-dashboard-surface .text-muted-foreground\/50,
+  .wm-dashboard-surface .text-slate-600\/60,
+  .wm-dashboard-surface .text-slate-600\/40 {
     color: hsl(215 25% 27%);
+  }
+
+  .wm-dashboard-surface .opacity-50,
+  .wm-dashboard-surface .opacity-60 {
+    opacity: 1;
+  }
+
+  .wm-dashboard-surface .bg-background,
+  .wm-dashboard-surface .bg-card {
+    background-color: hsl(0 0% 100%);
+  }
+
+  .wm-dashboard-surface .bg-muted,
+  .wm-dashboard-surface .bg-muted\/20,
+  .wm-dashboard-surface .bg-muted\/30,
+  .wm-dashboard-surface .bg-muted\/40,
+  .wm-dashboard-surface .bg-muted\/50 {
+    background-color: hsl(210 40% 96%);
   }
 
   .wm-dashboard-surface .bg-card.border,
@@ -135,6 +162,28 @@
   .wm-dashboard-surface .rounded-md.border {
     border-color: hsl(214 30% 76%);
     box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  }
+
+  .wm-dashboard-surface button,
+  .wm-dashboard-surface a[role="button"],
+  .wm-dashboard-surface [role="tab"] {
+    min-height: 2.5rem;
+    font-weight: 800;
+  }
+
+  .wm-dashboard-surface button:focus-visible,
+  .wm-dashboard-surface a:focus-visible,
+  .wm-dashboard-surface [role="tab"]:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 4px hsl(217 91% 53% / 0.22);
+  }
+
+  .wm-dashboard-surface button:disabled,
+  .wm-dashboard-surface [aria-disabled="true"] {
+    color: hsl(215 19% 35%);
+    border-color: hsl(214 30% 76%);
+    background-color: hsl(210 40% 96%);
+    opacity: 1;
   }
 
   .wm-dashboard-surface input,
@@ -162,25 +211,74 @@
   }
 
   .wm-dashboard-surface table thead {
-    background-color: hsl(210 30% 93% / 0.85);
+    background-color: hsl(210 40% 96%);
     color: hsl(215 25% 27%);
   }
 
   .wm-dashboard-surface table th {
     color: hsl(215 25% 27%);
     font-weight: 800;
+    font-size: 0.8125rem;
   }
 
   .wm-dashboard-surface table td {
-    color: hsl(210 40% 14%);
+    color: hsl(222 47% 8%);
+    font-size: 0.9375rem;
+    font-weight: 600;
   }
 
   .wm-dashboard-surface table tr {
-    border-color: hsl(214 30% 82%);
+    min-height: 72px;
+    border-color: hsl(214 30% 76%);
   }
 
   .wm-dashboard-surface table tbody tr:hover {
-    background-color: hsl(210 30% 93% / 0.65);
+    background-color: hsl(213 100% 97%);
+  }
+
+  .wm-dashboard-surface [class*="rounded-full"][class*="border"],
+  .wm-dashboard-surface [class*="rounded-md"][class*="border"][class*="text-xs"],
+  .wm-dashboard-surface [class*="rounded-lg"][class*="border"][class*="text-xs"] {
+    border-width: 1px;
+    font-size: 0.8125rem;
+    font-weight: 800;
+  }
+
+  .wm-dashboard-surface .text-\[10px\],
+  .wm-dashboard-surface .text-\[11px\] {
+    font-size: 0.8125rem;
+    line-height: 1.25rem;
+    font-weight: 700;
+  }
+
+  .wm-dashboard-surface .wm-dashboard-chip-neutral {
+    background-color: hsl(0 0% 100%);
+    color: hsl(222 47% 8%);
+    border-color: hsl(215 16% 57%);
+  }
+
+  .wm-dashboard-surface .wm-dashboard-chip-info {
+    background-color: hsl(214 95% 93%);
+    color: hsl(224 64% 18%);
+    border-color: hsl(213 94% 78%);
+  }
+
+  .wm-dashboard-surface .wm-dashboard-chip-success {
+    background-color: hsl(149 80% 90%);
+    color: hsl(158 64% 15%);
+    border-color: hsl(152 76% 72%);
+  }
+
+  .wm-dashboard-surface .wm-dashboard-chip-warning {
+    background-color: hsl(48 96% 89%);
+    color: hsl(26 83% 14%);
+    border-color: hsl(43 96% 68%);
+  }
+
+  .wm-dashboard-surface .wm-dashboard-chip-danger {
+    background-color: hsl(0 93% 94%);
+    color: hsl(0 75% 15%);
+    border-color: hsl(0 91% 82%);
   }
 
   .wm-slim-scrollbar {

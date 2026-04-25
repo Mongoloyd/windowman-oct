@@ -39,8 +39,8 @@ export function AdminShell({
   children,
 }: AdminShellProps) {
   return (
-    <div className="wm-dashboard-surface min-h-screen bg-background">
-      <header className="sticky top-0 z-30 border-b border-slate-200 bg-card/95 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-card/90">
+    <div className="wm-dashboard-surface min-h-screen bg-white text-slate-950">
+      <header className="sticky top-0 z-30 border-b border-slate-300 bg-white shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/95">
         <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div className="min-w-0">
@@ -53,15 +53,13 @@ export function AdminShell({
                   {backLabel}
                 </Link>
               )}
-              <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-slate-600">
+              <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-slate-700">
                 {eyebrow}
               </p>
               <h1 className="mt-1 font-display text-3xl md:text-4xl font-black leading-tight tracking-tight text-slate-950">
                 {title}
               </h1>
-              {subtitle && (
-                <p className="mt-1 text-sm sm:text-base font-medium text-slate-700">{subtitle}</p>
-              )}
+              {subtitle && <p className="mt-1 text-base font-bold text-slate-800">{subtitle}</p>}
             </div>
             <div className="shrink-0">
               <AdminIdentityBar />

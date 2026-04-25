@@ -11,11 +11,11 @@ interface Props {
 
 export function FailedDeliveriesTable({ rows, isLoading, onSelectDelivery }: Props) {
   if (isLoading && rows.length === 0) {
-    return <Card className="p-6 text-sm text-muted-foreground">Loading failed deliveries…</Card>;
+    return <Card className="p-6 text-sm text-slate-700">Loading failed deliveries…</Card>;
   }
   if (rows.length === 0) {
     return (
-      <Card className="p-6 text-sm text-muted-foreground">
+      <Card className="p-6 text-sm text-slate-700">
         No failed or dead-letter deliveries. ✓
       </Card>
     );
@@ -25,7 +25,7 @@ export function FailedDeliveriesTable({ rows, isLoading, onSelectDelivery }: Pro
     <Card className="overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
+          <thead className="bg-muted/50 text-xs uppercase tracking-wide text-slate-700">
             <tr>
               <th className="text-left px-3 py-2 font-medium">Last attempt</th>
               <th className="text-left px-3 py-2 font-medium">Status</th>
@@ -44,7 +44,7 @@ export function FailedDeliveriesTable({ rows, isLoading, onSelectDelivery }: Pro
                 onClick={() => onSelectDelivery(r.delivery_id)}
                 className="border-t border-border hover:bg-muted/40 cursor-pointer transition-colors"
               >
-                <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">
+                <td className="px-3 py-2 whitespace-nowrap text-slate-700">
                   {r.last_attempt_at
                     ? formatDistanceToNow(new Date(r.last_attempt_at), { addSuffix: true })
                     : "—"}
@@ -55,7 +55,7 @@ export function FailedDeliveriesTable({ rows, isLoading, onSelectDelivery }: Pro
                 <td className="px-3 py-2 capitalize">{r.dispatch_method ?? "—"}</td>
                 <td className="px-3 py-2 text-right tabular-nums">
                   {r.attempt_count}
-                  <span className="text-muted-foreground/60 text-xs"> / {r.attempt_log_count}</span>
+                  <span className="text-slate-700/60 text-xs"> / {r.attempt_log_count}</span>
                 </td>
                 <td className="px-3 py-2 text-right tabular-nums">{r.last_http_status ?? "—"}</td>
                 <td className="px-3 py-2 max-w-[280px] truncate text-xs text-destructive/90">

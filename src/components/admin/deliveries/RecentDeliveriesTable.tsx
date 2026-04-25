@@ -11,11 +11,11 @@ interface Props {
 
 export function RecentDeliveriesTable({ rows, isLoading, onSelectDelivery }: Props) {
   if (isLoading && rows.length === 0) {
-    return <Card className="p-6 text-sm text-muted-foreground">Loading recent deliveries…</Card>;
+    return <Card className="p-6 text-sm text-slate-700">Loading recent deliveries…</Card>;
   }
   if (rows.length === 0) {
     return (
-      <Card className="p-6 text-sm text-muted-foreground">
+      <Card className="p-6 text-sm text-slate-700">
         No recent deliveries. Once a verified lead is dispatched, it will appear here.
       </Card>
     );
@@ -25,7 +25,7 @@ export function RecentDeliveriesTable({ rows, isLoading, onSelectDelivery }: Pro
     <Card className="overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
+          <thead className="bg-muted/50 text-xs uppercase tracking-wide text-slate-700">
             <tr>
               <th className="text-left px-3 py-2 font-medium">Created</th>
               <th className="text-left px-3 py-2 font-medium">Status</th>
@@ -45,7 +45,7 @@ export function RecentDeliveriesTable({ rows, isLoading, onSelectDelivery }: Pro
                 onClick={() => onSelectDelivery(r.delivery_id)}
                 className="border-t border-border hover:bg-muted/40 cursor-pointer transition-colors"
               >
-                <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">
+                <td className="px-3 py-2 whitespace-nowrap text-slate-700">
                   {formatDistanceToNow(new Date(r.created_at), { addSuffix: true })}
                 </td>
                 <td className="px-3 py-2"><StatusBadge status={r.status} /></td>
@@ -55,7 +55,7 @@ export function RecentDeliveriesTable({ rows, isLoading, onSelectDelivery }: Pro
                 <td className="px-3 py-2 font-mono text-xs">{r.event_type}</td>
                 <td className="px-3 py-2">
                   {r.lead_first_name ?? r.lead_email ?? (
-                    <span className="font-mono text-xs text-muted-foreground">
+                    <span className="font-mono text-xs text-slate-700">
                       {r.lead_id.slice(0, 8)}…
                     </span>
                   )}
@@ -74,7 +74,7 @@ export function RecentDeliveriesTable({ rows, isLoading, onSelectDelivery }: Pro
 }
 
 function Muted() {
-  return <span className="text-muted-foreground/60">—</span>;
+  return <span className="text-slate-700/60">—</span>;
 }
 
 export function StatusBadge({ status }: { status: DeliveryStatus }) {

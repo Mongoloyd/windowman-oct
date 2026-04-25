@@ -99,7 +99,7 @@ function AccessDenied() {
         <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
           Access Restricted
         </h2>
-        <p className="text-sm text-slate-500 leading-relaxed">
+        <p className="text-sm text-slate-700 leading-relaxed">
           This section requires Super Admin clearance.
           <br />
           Contact your administrator to request access.
@@ -121,7 +121,7 @@ function AccessDenied() {
 
 function RoleBadge({ role }: { role: AppRole }) {
   const config = ROLE_CONFIG[role];
-  if (!config) return <span className="text-slate-400">{role}</span>;
+  if (!config) return <span className="text-slate-700">{role}</span>;
 
   return (
     <span
@@ -186,7 +186,7 @@ function RoleSelector({
           transition-all duration-200
           ${
             isSelf
-              ? "border-slate-100 text-slate-400 cursor-not-allowed bg-slate-50"
+              ? "border-slate-100 text-slate-700 cursor-not-allowed bg-slate-50"
               : "border-slate-200 text-slate-700 hover:border-blue-300 hover:shadow-md hover:shadow-blue-100/40 cursor-pointer bg-white"
           }
         `}
@@ -197,7 +197,7 @@ function RoleSelector({
         ) : (
           <RoleBadge role={currentRole} />
         )}
-        {!isSelf && <ChevronDown className="w-3.5 h-3.5 text-slate-400" />}
+        {!isSelf && <ChevronDown className="w-3.5 h-3.5 text-slate-700" />}
       </button>
 
       {isOpen && (
@@ -231,7 +231,7 @@ function RoleSelector({
                     className={`p-1.5 rounded-lg ${isActive ? "bg-blue-100" : "bg-slate-100"}`}
                   >
                     <Icon
-                      className={`w-4 h-4 ${isActive ? "text-blue-600" : "text-slate-500"}`}
+                      className={`w-4 h-4 ${isActive ? "text-blue-600" : "text-slate-700"}`}
                     />
                   </div>
                   <div>
@@ -240,7 +240,7 @@ function RoleSelector({
                     >
                       {config.label}
                     </div>
-                    <div className="text-xs text-slate-400 mt-0.5 leading-relaxed">
+                    <div className="text-xs text-slate-700 mt-0.5 leading-relaxed">
                       {config.description}
                     </div>
                   </div>
@@ -278,16 +278,16 @@ function UsersTable({
       <table className="w-full">
         <thead>
           <tr className="border-b border-slate-100">
-            <th className="text-left py-3.5 px-5 text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+            <th className="text-left py-3.5 px-5 text-[11px] font-bold text-slate-700 uppercase tracking-widest">
               User
             </th>
-            <th className="text-left py-3.5 px-5 text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+            <th className="text-left py-3.5 px-5 text-[11px] font-bold text-slate-700 uppercase tracking-widest">
               Role
             </th>
-            <th className="text-left py-3.5 px-5 text-[11px] font-bold text-slate-400 uppercase tracking-widest hidden md:table-cell">
+            <th className="text-left py-3.5 px-5 text-[11px] font-bold text-slate-700 uppercase tracking-widest hidden md:table-cell">
               Last Sign In
             </th>
-            <th className="text-right py-3.5 px-5 text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+            <th className="text-right py-3.5 px-5 text-[11px] font-bold text-slate-700 uppercase tracking-widest">
               Actions
             </th>
           </tr>
@@ -317,7 +317,7 @@ function UsersTable({
                           You
                         </span>
                       )}
-                      <p className="text-[11px] text-slate-400 mt-0.5 hidden sm:block">
+                      <p className="text-[11px] text-slate-700 mt-0.5 hidden sm:block">
                         {user.user_id.slice(0, 8)}...
                       </p>
                     </div>
@@ -327,7 +327,7 @@ function UsersTable({
                   <RoleBadge role={user.role} />
                 </td>
                 <td className="py-4 px-5 hidden md:table-cell">
-                  <span className="text-xs text-slate-400">
+                  <span className="text-xs text-slate-700">
                     {user.last_sign_in
                       ? new Date(user.last_sign_in).toLocaleDateString(
                           "en-US",
@@ -384,7 +384,7 @@ function AuditLogPanel({
     return (
       <div className="text-center py-12">
         <Clock className="w-10 h-10 text-slate-200 mx-auto mb-3" />
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-slate-700">
           No role changes recorded yet.
         </p>
       </div>
@@ -399,7 +399,7 @@ function AuditLogPanel({
           className="flex items-start gap-3 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-200"
         >
           <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0">
-            <Clock className="w-3.5 h-3.5 text-slate-400" />
+            <Clock className="w-3.5 h-3.5 text-slate-700" />
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-sm text-slate-700 leading-relaxed">
@@ -413,13 +413,13 @@ function AuditLogPanel({
               {entry.old_role && (
                 <>
                   {" from "}
-                  <span className="font-medium text-slate-500">{entry.old_role}</span>
+                  <span className="font-medium text-slate-700">{entry.old_role}</span>
                 </>
               )}
               {" to "}
               <span className="font-semibold text-blue-600">{entry.new_role}</span>
             </p>
-            <p className="text-[11px] text-slate-400 mt-1">
+            <p className="text-[11px] text-slate-700 mt-1">
               {new Date(entry.created_at).toLocaleString("en-US", {
                 month: "short",
                 day: "numeric",
@@ -462,7 +462,7 @@ function RoleStatCard({
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold text-slate-900">{config.label}</p>
-          <p className="text-xs text-slate-400 truncate leading-relaxed">
+          <p className="text-xs text-slate-700 truncate leading-relaxed">
             {config.description}
           </p>
         </div>
@@ -526,7 +526,7 @@ function AdminSettingsContent() {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-          <p className="text-sm text-slate-400">Verifying access...</p>
+          <p className="text-sm text-slate-700">Verifying access...</p>
         </div>
       </div>
     );
@@ -601,7 +601,7 @@ function AdminSettingsContent() {
               className={`flex-1 flex items-center justify-center gap-2 px-4 py-4 text-sm font-semibold transition-all duration-200 ${
                 activeTab === "users"
                   ? "text-blue-600 border-b-2 border-blue-500 bg-blue-50/30"
-                  : "text-slate-400 hover:text-slate-600 hover:bg-slate-50/50"
+                  : "text-slate-700 hover:text-slate-700 hover:bg-slate-50/50"
               }`}
             >
               <Users className="w-4 h-4" />
@@ -612,13 +612,13 @@ function AdminSettingsContent() {
               className={`flex-1 flex items-center justify-center gap-2 px-4 py-4 text-sm font-semibold transition-all duration-200 ${
                 activeTab === "audit"
                   ? "text-blue-600 border-b-2 border-blue-500 bg-blue-50/30"
-                  : "text-slate-400 hover:text-slate-600 hover:bg-slate-50/50"
+                  : "text-slate-700 hover:text-slate-700 hover:bg-slate-50/50"
               }`}
             >
               <Clock className="w-4 h-4" />
               Audit Log
               {auditLog.length > 0 && (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-bold">
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-bold">
                   {auditLog.length}
                 </span>
               )}
@@ -637,7 +637,7 @@ function AdminSettingsContent() {
               ) : users.length === 0 ? (
                 <div className="text-center py-16">
                   <Users className="w-10 h-10 text-slate-200 mx-auto mb-3" />
-                  <p className="text-sm text-slate-400">
+                  <p className="text-sm text-slate-700">
                     No users with assigned roles.
                   </p>
                 </div>

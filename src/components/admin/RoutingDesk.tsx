@@ -364,7 +364,7 @@ export function RoutingDesk({ leads }: Props) {
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h2 className="text-lg font-bold">Routing Desk</h2>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-slate-700">
             Single-client delivery spine — route verified leads to {activeContractors[0]?.company_name ?? "your contractor"}.
           </p>
         </div>
@@ -455,11 +455,11 @@ export function RoutingDesk({ leads }: Props) {
                             </Badge>
                           )}
                           {/* Phase 8 — Always render a county label, with safe fallback. */}
-                          <span className="text-[11px] text-muted-foreground">
+                          <span className="text-[11px] text-slate-700">
                             {marketLabel(row.opportunity.county)}
                           </span>
                           {row.opportunity.window_count != null && (
-                            <span className="text-[11px] text-muted-foreground">
+                            <span className="text-[11px] text-slate-700">
                               {row.opportunity.window_count} windows
                             </span>
                           )}
@@ -472,7 +472,7 @@ export function RoutingDesk({ leads }: Props) {
                             </span>
                           )}
                           {row.opportunity.routed_at && (
-                            <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground font-mono">
+                            <span className="inline-flex items-center gap-1 text-[11px] text-slate-700 font-mono">
                               <Clock className="h-3 w-3" />
                               {format(new Date(row.opportunity.routed_at), "MMM d, h:mm a")}
                             </span>
@@ -682,7 +682,7 @@ export function RoutingDesk({ leads }: Props) {
                     <p className="text-sm font-semibold">
                       {[lc.first_name, lc.last_name].filter(Boolean).join(" ") || "Unknown"}
                     </p>
-                    <p className="text-[11px] text-muted-foreground">
+                    <p className="text-[11px] text-slate-700">
                       {marketLabel(lc.county)} · Unlocked {lc.report_unlocked_at ? format(new Date(lc.report_unlocked_at), "MMM d") : "—"} · Never routed
                     </p>
                   </div>
@@ -725,7 +725,7 @@ export function RoutingDesk({ leads }: Props) {
 function EmptyBucket({ bucket }: { bucket: OperatorBucket }) {
   return (
     <div className="rounded-lg border border-dashed border-border/60 bg-muted/20 p-8 text-center">
-      <p className="text-sm text-muted-foreground">No leads in {BUCKET_LABEL[bucket]}.</p>
+      <p className="text-sm text-slate-700">No leads in {BUCKET_LABEL[bucket]}.</p>
     </div>
   );
 }
@@ -737,6 +737,6 @@ function gradeColor(grade: string | null): string {
     case "C": return "bg-amber-500 text-white";
     case "D": return "bg-orange-600 text-white";
     case "F": return "bg-destructive text-destructive-foreground";
-    default: return "bg-muted text-muted-foreground";
+    default: return "bg-muted text-slate-700";
   }
 }

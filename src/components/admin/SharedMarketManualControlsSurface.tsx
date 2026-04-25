@@ -386,7 +386,7 @@ export function SharedMarketManualControlsSurface({ leads, onNavigateTab }: Prop
               <Network className="h-5 w-5 text-primary" />
               Shared Market — Manual Controls
             </h2>
-            <p className="text-xs text-muted-foreground mt-1 max-w-2xl leading-relaxed">
+            <p className="text-xs text-slate-700 mt-1 max-w-2xl leading-relaxed">
               Internal operator surface for shared-market visibility and manual
               review. Read-only. All ownership and overlap groupings are
               deterministic operator-view derivations from real route + lead
@@ -429,7 +429,7 @@ export function SharedMarketManualControlsSurface({ leads, onNavigateTab }: Prop
               }`}
             />
           </CardTitle>
-          <p className="text-[11px] text-muted-foreground mt-1">
+          <p className="text-[11px] text-slate-700 mt-1">
             Per-opportunity ownership bucket derived from route history,
             release flags, and parent-lead terminal state.
           </p>
@@ -478,7 +478,7 @@ export function SharedMarketManualControlsSurface({ leads, onNavigateTab }: Prop
               }`}
             />
           </CardTitle>
-          <p className="text-[11px] text-muted-foreground mt-1">
+          <p className="text-[11px] text-slate-700 mt-1">
             Observed from real routing history — NOT a formal territory map.
             Counties with more than one contractor present surface first.
             <code className="px-1 rounded bg-muted ml-1">{UNKNOWN_COUNTY}</code>{" "}
@@ -488,7 +488,7 @@ export function SharedMarketManualControlsSurface({ leads, onNavigateTab }: Prop
         {openSection.overlap && (
           <CardContent>
             {overlap.rows.length === 0 ? (
-              <div className="text-xs text-muted-foreground py-6 text-center">
+              <div className="text-xs text-slate-700 py-6 text-center">
                 No routed opportunities yet — overlap view is empty.
               </div>
             ) : (
@@ -499,7 +499,7 @@ export function SharedMarketManualControlsSurface({ leads, onNavigateTab }: Prop
                     className="flex items-start gap-3 px-3 py-2.5 text-xs"
                   >
                     <div className="min-w-[140px] flex items-center gap-1.5 shrink-0">
-                      <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                      <MapPin className="h-3.5 w-3.5 text-slate-700" />
                       <span className="font-medium">{row.county}</span>
                       {row.contractors.length > 1 && (
                         <Badge
@@ -518,7 +518,7 @@ export function SharedMarketManualControlsSurface({ leads, onNavigateTab }: Prop
                           className="text-[10px] font-normal"
                         >
                           {c.contractor.company_name}
-                          <span className="ml-1 text-muted-foreground">
+                          <span className="ml-1 text-slate-700">
                             · {c.opportunityCount}
                           </span>
                         </Badge>
@@ -550,7 +550,7 @@ export function SharedMarketManualControlsSurface({ leads, onNavigateTab }: Prop
               }`}
             />
           </CardTitle>
-          <p className="text-[11px] text-muted-foreground mt-1">
+          <p className="text-[11px] text-slate-700 mt-1">
             Opportunities the operator may want to move manually. All actual
             routing happens in the canonical Routing Desk — this view is
             visibility only. Verify ownership and release context before
@@ -560,7 +560,7 @@ export function SharedMarketManualControlsSurface({ leads, onNavigateTab }: Prop
         {openSection.reassignable && (
           <CardContent>
             {reassignableRows.length === 0 ? (
-              <div className="text-xs text-muted-foreground py-6 text-center">
+              <div className="text-xs text-slate-700 py-6 text-center">
                 Nothing flagged for manual reassignment right now.
               </div>
             ) : (
@@ -600,14 +600,14 @@ export function SharedMarketManualControlsSurface({ leads, onNavigateTab }: Prop
                               : "needs review"}
                           </Badge>
                         </div>
-                        <div className="text-muted-foreground truncate">
+                        <div className="text-slate-700 truncate">
                           {county} · current: {ownerLabel}
                           {r.priorOwners.length > 0 &&
                             ` · prior: ${r.priorOwners
                               .map((p) => p.company_name)
                               .join(", ")}`}
                         </div>
-                        <div className="text-muted-foreground/80 truncate text-[10px] mt-0.5 italic">
+                        <div className="text-slate-700/80 truncate text-[10px] mt-0.5 italic">
                           {r.reason}
                         </div>
                       </div>
@@ -636,12 +636,12 @@ export function SharedMarketManualControlsSurface({ leads, onNavigateTab }: Prop
           onClick={() => toggleSection("limits")}
         >
           <CardTitle className="text-sm flex items-center gap-2">
-            <XCircle className="h-4 w-4 text-muted-foreground" />
+            <XCircle className="h-4 w-4 text-slate-700" />
             Current System Limits — Not Yet Automated
           </CardTitle>
         </CardHeader>
         {openSection.limits && (
-          <CardContent className="text-xs text-muted-foreground leading-relaxed space-y-2">
+          <CardContent className="text-xs text-slate-700 leading-relaxed space-y-2">
             <p>
               <strong>Manual today:</strong> contractor selection on a route
               happens in the canonical Routing Desk. Release/recovery handling
@@ -709,7 +709,7 @@ function Stat({
       <div className="text-2xl font-semibold leading-none text-foreground">
         {value}
       </div>
-      <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1 flex items-center gap-1">
+      <div className="text-[10px] uppercase tracking-wider text-slate-700 mt-1 flex items-center gap-1">
         {icon}
         {label}
       </div>

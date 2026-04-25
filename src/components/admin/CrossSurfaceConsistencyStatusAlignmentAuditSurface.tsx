@@ -448,7 +448,7 @@ export function CrossSurfaceConsistencyStatusAlignmentAuditSurface({ onNavigateT
                 <CardTitle className="text-lg">
                   Cross-Surface Consistency / Status Alignment Audit
                 </CardTitle>
-                <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+                <p className="text-sm text-slate-700 mt-1 max-w-2xl">
                   Compares how key lead and opportunity concepts are represented across
                   admin surfaces. Highlights repo-real vs operator-view labels and current
                   drift risks. Read-only, current-state only — no backend harmonization.
@@ -485,8 +485,8 @@ export function CrossSurfaceConsistencyStatusAlignmentAuditSurface({ onNavigateT
                     <span className="text-sm font-medium text-foreground">{c.concept}</span>
                     <KindBadge kind={c.kind} />
                   </div>
-                  <p className="text-sm text-muted-foreground mt-1">{c.canonicalReading}</p>
-                  <p className="text-xs text-muted-foreground/80 mt-1.5">
+                  <p className="text-sm text-slate-700 mt-1">{c.canonicalReading}</p>
+                  <p className="text-xs text-slate-700/80 mt-1.5">
                     <span className="font-medium text-foreground/70">Backed by: </span>
                     <code className="text-[11px]">{c.backedBy}</code>
                   </p>
@@ -533,10 +533,10 @@ export function CrossSurfaceConsistencyStatusAlignmentAuditSurface({ onNavigateT
                     className="flex items-start justify-between gap-3 text-sm"
                   >
                     <div className="min-w-0">
-                      <span className="text-muted-foreground">{s.surface}:</span>{" "}
+                      <span className="text-slate-700">{s.surface}:</span>{" "}
                       <span className="text-foreground/90">{s.label}</span>
                       {s.note && (
-                        <span className="text-xs text-muted-foreground/80 ml-1">
+                        <span className="text-xs text-slate-700/80 ml-1">
                           ({s.note})
                         </span>
                       )}
@@ -583,8 +583,8 @@ export function CrossSurfaceConsistencyStatusAlignmentAuditSurface({ onNavigateT
                       {c.surface}
                     </Badge>
                   </div>
-                  <p className="text-sm text-muted-foreground mt-1">{c.meaning}</p>
-                  <p className="text-xs text-muted-foreground/80 mt-1.5">
+                  <p className="text-sm text-slate-700 mt-1">{c.meaning}</p>
+                  <p className="text-xs text-slate-700/80 mt-1.5">
                     <span className="font-medium text-foreground/70">Watch out: </span>
                     {c.warning}
                   </p>
@@ -621,8 +621,8 @@ export function CrossSurfaceConsistencyStatusAlignmentAuditSurface({ onNavigateT
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="text-sm font-medium text-foreground">{d.title}</div>
-                  <p className="text-sm text-muted-foreground mt-1">{d.detail}</p>
-                  <p className="text-xs text-muted-foreground/80 mt-1.5">
+                  <p className="text-sm text-slate-700 mt-1">{d.detail}</p>
+                  <p className="text-xs text-slate-700/80 mt-1.5">
                     <span className="font-medium text-foreground/70">Why: </span>
                     {d.why}
                   </p>
@@ -657,7 +657,7 @@ export function CrossSurfaceConsistencyStatusAlignmentAuditSurface({ onNavigateT
           {CANONICAL_GUIDANCE.map((g) => (
             <li key={g.title} className="rounded-md border border-border/60 bg-card/40 p-3">
               <div className="text-sm font-medium text-foreground">{g.title}</div>
-              <p className="text-sm text-muted-foreground mt-1">{g.detail}</p>
+              <p className="text-sm text-slate-700 mt-1">{g.detail}</p>
             </li>
           ))}
         </ul>
@@ -725,7 +725,7 @@ function SectionCard({
             <div className="rounded-md bg-muted p-2 text-foreground/70">{icon}</div>
             <div>
               <CardTitle className="text-base">{title}</CardTitle>
-              <p className="text-sm text-muted-foreground mt-1 max-w-2xl">{description}</p>
+              <p className="text-sm text-slate-700 mt-1 max-w-2xl">{description}</p>
             </div>
           </div>
           <Button size="sm" variant="ghost" onClick={onToggle} className="gap-1.5">
@@ -778,7 +778,7 @@ function ConceptColumn({
       </div>
       <ul className="space-y-1.5">
         {concepts.map((c) => (
-          <li key={c.concept} className="text-sm text-muted-foreground">
+          <li key={c.concept} className="text-sm text-slate-700">
             • <span className="text-foreground/90">{c.concept}</span>
           </li>
         ))}
@@ -805,7 +805,7 @@ function QuickLink({
       disabled={!onNavigateTab}
     >
       <span>{label}</span>
-      <ExternalLink className="h-3.5 w-3.5 opacity-60" />
+      <ExternalLink className="h-3.5 w-3.5 opacity-100" />
     </Button>
   );
 }

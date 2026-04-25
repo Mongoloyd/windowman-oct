@@ -76,7 +76,7 @@ function ProductionAdminAuthGate({ children }: AdminAuthGateProps) {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="h-7 w-7 text-primary animate-spin" />
-          <p className="text-sm text-muted-foreground">Verifying admin session…</p>
+          <p className="text-sm text-slate-700">Verifying admin session…</p>
         </div>
       </div>
     );
@@ -127,7 +127,7 @@ export function AdminUnauthorizedPanel({
         <h2 className="font-display text-xl font-extrabold tracking-tight text-foreground">
           Not authorized
         </h2>
-        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{message}</p>
+        <p className="mt-2 text-sm leading-relaxed text-slate-700">{message}</p>
         <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-2">
           <Button variant="outline" onClick={handleSignOut}>Sign out</Button>
           <Button asChild>

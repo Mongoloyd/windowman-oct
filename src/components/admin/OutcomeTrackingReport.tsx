@@ -421,7 +421,7 @@ export function OutcomeTrackingReport({ leads, onNavigateTab }: Props) {
               Internal · Read-only
             </Badge>
           </div>
-          <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+          <p className="text-xs text-slate-700 mt-1.5 leading-relaxed">
             What happened after routing. All counts come from repo-real
             opportunity, route, and lead lifecycle fields. Operator-view
             groupings (unresolved / stale) are deterministic frontend
@@ -506,10 +506,10 @@ export function OutcomeTrackingReport({ leads, onNavigateTab }: Props) {
           {/* ── Post-Route Status Breakdown ──────────────────────── */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+              <CardTitle className="text-sm font-medium text-slate-700 uppercase tracking-wider">
                 Post-Route Status Breakdown
               </CardTitle>
-              <p className="text-[11px] text-muted-foreground mt-1">
+              <p className="text-[11px] text-slate-700 mt-1">
                 Each opportunity is bucketed by its latest route's lifecycle
                 fields. Buckets are mutually exclusive per opportunity.
               </p>
@@ -526,7 +526,7 @@ export function OutcomeTrackingReport({ leads, onNavigateTab }: Props) {
                       className={`rounded-lg border p-3 flex items-center justify-between gap-3 ${meta.tone}`}
                     >
                       <div className="flex items-center gap-2 min-w-0">
-                        <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <Icon className="h-4 w-4 text-slate-700 shrink-0" />
                         <span className="text-xs font-medium truncate">
                           {meta.label}
                         </span>
@@ -547,7 +547,7 @@ export function OutcomeTrackingReport({ leads, onNavigateTab }: Props) {
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4 text-amber-600" />
-                  <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                  <CardTitle className="text-sm font-medium text-slate-700 uppercase tracking-wider">
                     Unresolved / Needs Attention
                   </CardTitle>
                 </div>
@@ -555,14 +555,14 @@ export function OutcomeTrackingReport({ leads, onNavigateTab }: Props) {
                   {summary.unresolvedCount} unresolved
                 </Badge>
               </div>
-              <p className="text-[11px] text-muted-foreground mt-1">
+              <p className="text-[11px] text-slate-700 mt-1">
                 Routed opportunities with no terminal outcome (booked / closed
                 / dead). Top 10 by oldest activity.
               </p>
             </CardHeader>
             <CardContent>
               {needsAttention.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-6">
+                <p className="text-sm text-slate-700 text-center py-6">
                   Nothing unresolved right now.
                 </p>
               ) : (
@@ -578,10 +578,10 @@ export function OutcomeTrackingReport({ leads, onNavigateTab }: Props) {
           {/* ── Close-Loop Reporting ──────────────────────────────── */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+              <CardTitle className="text-sm font-medium text-slate-700 uppercase tracking-wider">
                 Close-Loop Reporting
               </CardTitle>
-              <p className="text-[11px] text-muted-foreground mt-1">
+              <p className="text-[11px] text-slate-700 mt-1">
                 Honest, current-state summary. No revenue math, no projected
                 close rates.
               </p>
@@ -634,7 +634,7 @@ export function OutcomeTrackingReport({ leads, onNavigateTab }: Props) {
                     >
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-semibold">{s.label}</p>
-                        <pre className="text-xs text-muted-foreground mt-1 leading-relaxed whitespace-pre-wrap font-sans">
+                        <pre className="text-xs text-slate-700 mt-1 leading-relaxed whitespace-pre-wrap font-sans">
                           {body}
                         </pre>
                       </div>
@@ -658,8 +658,8 @@ export function OutcomeTrackingReport({ leads, onNavigateTab }: Props) {
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
-                <ExternalLink className="h-4 w-4 text-muted-foreground" />
-                <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                <ExternalLink className="h-4 w-4 text-slate-700" />
+                <CardTitle className="text-sm font-medium text-slate-700 uppercase tracking-wider">
                   Quick Links
                 </CardTitle>
               </div>
@@ -706,17 +706,17 @@ function SummaryTile({
   return (
     <div className={`rounded-lg border p-3 flex flex-col gap-1 ${accentClass}`}>
       <div className="flex items-center justify-between gap-2">
-        <Icon className="h-4 w-4 text-muted-foreground" />
+        <Icon className="h-4 w-4 text-slate-700" />
         <span className="text-2xl font-bold tabular-nums leading-none">
           {value}
         </span>
       </div>
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
+        <p className="text-[10px] uppercase tracking-wide text-slate-700 font-semibold">
           {label}
         </p>
         {hint && (
-          <span className="text-[9px] text-muted-foreground italic">{hint}</span>
+          <span className="text-[9px] text-slate-700 italic">{hint}</span>
         )}
       </div>
     </div>
@@ -740,7 +740,7 @@ function UnresolvedRow({ row }: { row: OutcomeRow }) {
             </Badge>
           )}
         </div>
-        <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+        <p className="text-[11px] text-slate-700 mt-0.5 truncate">
           {row.opp.county || row.lead?.county || "Unknown county"}
           {row.contractor ? ` · ${row.contractor.company_name}` : ""}
           {hours !== null ? ` · ${hours.toFixed(0)}h since last activity` : ""}
@@ -754,7 +754,7 @@ function ReportRow({ title, body }: { title: string; body: string }) {
   return (
     <div className="rounded-lg border border-border bg-card p-3">
       <p className="text-sm font-semibold">{title}</p>
-      <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
+      <p className="text-[11px] text-slate-700 mt-1 leading-relaxed">
         {body}
       </p>
     </div>

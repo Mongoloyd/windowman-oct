@@ -288,7 +288,7 @@ export function AdminInformationArchitectureNavigationSimplificationSurface({
                 <CardTitle className="text-lg">
                   Admin Information Architecture / Navigation
                 </CardTitle>
-                <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+                <p className="text-sm text-slate-700 mt-1 max-w-2xl">
                   A jump hub for the growing admin. Surfaces are grouped by purpose:
                   daily operations, reporting, audit/readiness, and training/planning.
                   No router changes — every entry just opens the existing tab.
@@ -304,7 +304,7 @@ export function AdminInformationArchitectureNavigationSimplificationSurface({
           {/* Search */}
           <div className="mt-4 flex items-center gap-2">
             <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-700" />
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -313,7 +313,7 @@ export function AdminInformationArchitectureNavigationSimplificationSurface({
               />
             </div>
             {normalizedQuery && (
-              <span className="text-xs text-muted-foreground">
+              <span className="text-xs text-slate-700">
                 {totalShown} match{totalShown === 1 ? "" : "es"}
               </span>
             )}
@@ -337,7 +337,7 @@ export function AdminInformationArchitectureNavigationSimplificationSurface({
             count={items.length}
           >
             {items.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No surfaces match this filter.</p>
+              <p className="text-sm text-slate-700">No surfaces match this filter.</p>
             ) : (
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {items.map((s) => (
@@ -372,7 +372,7 @@ export function AdminInformationArchitectureNavigationSimplificationSurface({
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="text-sm font-medium text-foreground">{path.title}</div>
-                  <p className="text-sm text-muted-foreground mt-1">{path.description}</p>
+                  <p className="text-sm text-slate-700 mt-1">{path.description}</p>
                 </div>
               </div>
               <div className="mt-3 flex flex-wrap items-center gap-1.5">
@@ -386,10 +386,10 @@ export function AdminInformationArchitectureNavigationSimplificationSurface({
                       disabled={!onNavigateTab}
                     >
                       {step.label}
-                      <ExternalLink className="h-3 w-3 opacity-60" />
+                      <ExternalLink className="h-3 w-3 opacity-100" />
                     </Button>
                     {idx < path.steps.length - 1 && (
-                      <span className="text-muted-foreground/60 text-xs">→</span>
+                      <span className="text-slate-700/60 text-xs">→</span>
                     )}
                   </span>
                 ))}
@@ -412,8 +412,8 @@ export function AdminInformationArchitectureNavigationSimplificationSurface({
           {NAV_FRICTION.map((f) => (
             <li key={f.title} className="rounded-md border border-border/60 bg-card/40 p-3">
               <div className="text-sm font-medium text-foreground">{f.title}</div>
-              <p className="text-sm text-muted-foreground mt-1">{f.detail}</p>
-              <p className="text-xs text-muted-foreground/80 mt-1.5">
+              <p className="text-sm text-slate-700 mt-1">{f.detail}</p>
+              <p className="text-xs text-slate-700/80 mt-1.5">
                 <span className="font-medium text-foreground/70">Workaround: </span>
                 {f.why}
               </p>
@@ -470,7 +470,7 @@ function SectionCard({
                   </Badge>
                 )}
               </div>
-              <p className="text-sm text-muted-foreground mt-1 max-w-2xl">{description}</p>
+              <p className="text-sm text-slate-700 mt-1 max-w-2xl">{description}</p>
             </div>
           </div>
           <Button size="sm" variant="ghost" onClick={onToggle} className="gap-1.5">
@@ -503,7 +503,7 @@ function SurfaceCard({
       type="button"
       onClick={() => onNavigateTab?.(surface.tab)}
       disabled={!onNavigateTab}
-      className={`group text-left rounded-md border bg-card/40 p-3 transition-colors hover:bg-card/70 hover:border-primary/40 disabled:opacity-60 ${
+      className={`group text-left rounded-md border bg-card/40 p-3 transition-colors hover:bg-card/70 hover:border-primary/40 disabled:opacity-100 ${
         active ? "border-primary/60 ring-1 ring-primary/30" : "border-border/60"
       }`}
     >
@@ -520,11 +520,11 @@ function SurfaceCard({
               />
             )}
           </div>
-          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+          <p className="text-xs text-slate-700 mt-1 line-clamp-2">
             {surface.description}
           </p>
         </div>
-        <ExternalLink className="h-3.5 w-3.5 opacity-50 shrink-0 group-hover:opacity-90" />
+        <ExternalLink className="h-3.5 w-3.5 opacity-100 shrink-0 group-hover:opacity-90" />
       </div>
       <div className="mt-2 flex items-center gap-1.5">
         <Badge variant="outline" className="text-[10px]">

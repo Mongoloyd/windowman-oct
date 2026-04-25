@@ -143,7 +143,7 @@ function StatusBadge({ status }: { status: Completeness }) {
     );
   }
   return (
-    <Badge className="bg-muted text-muted-foreground border-border hover:bg-muted">
+    <Badge className="bg-muted text-slate-700 border-border hover:bg-muted">
       <HelpCircle className="h-3 w-3 mr-1" />
       No data
     </Badge>
@@ -536,7 +536,7 @@ export function DataQualityFieldIntegritySurface({
               <h2 className="text-lg sm:text-xl font-semibold tracking-tight">
                 Data Quality / Field Integrity Audit
               </h2>
-              <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+              <p className="text-sm text-slate-700 mt-1 max-w-2xl">
                 Read-only operator view of where current repo-real fields are present, sparse, or relying on
                 operator-derived fallbacks. No validation backend, no repair workflow — just an honest field-coverage
                 read across the surfaces you already use.
@@ -576,14 +576,14 @@ export function DataQualityFieldIntegritySurface({
             <div className="text-xl font-semibold mt-0.5">{summary.sparse}</div>
           </div>
           <div className="rounded-lg border bg-muted/40 px-3 py-2.5">
-            <div className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">
+            <div className="text-[11px] uppercase tracking-wide text-slate-700 font-semibold">
               No data
             </div>
             <div className="text-xl font-semibold mt-0.5">{summary.na}</div>
           </div>
         </div>
 
-        <p className="text-[11px] text-muted-foreground mt-3 leading-relaxed">
+        <p className="text-[11px] text-slate-700 mt-3 leading-relaxed">
           Classification is operator-view: <span className="font-semibold">Strong</span> ≥80%,{" "}
           <span className="font-semibold">Partial</span> 40–79%, <span className="font-semibold">Sparse</span> &lt;40%.
           No data persistence, no validation backend.
@@ -608,10 +608,10 @@ export function DataQualityFieldIntegritySurface({
                   </div>
                   <div className="min-w-0">
                     <div className="font-medium text-sm">{g.title}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{g.intent}</div>
+                    <div className="text-xs text-slate-700 mt-0.5 line-clamp-2">{g.intent}</div>
                   </div>
                 </div>
-                <div className="shrink-0 text-muted-foreground">
+                <div className="shrink-0 text-slate-700">
                   {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                 </div>
               </button>
@@ -628,10 +628,10 @@ export function DataQualityFieldIntegritySurface({
                         >
                           <div className="min-w-0">
                             <div className="text-sm font-medium">{r.label}</div>
-                            <div className="text-xs text-muted-foreground mt-0.5">{r.detail}</div>
+                            <div className="text-xs text-slate-700 mt-0.5">{r.detail}</div>
                           </div>
                           <div className="flex items-center gap-3 shrink-0">
-                            <div className="text-xs text-muted-foreground tabular-nums">
+                            <div className="text-xs text-slate-700 tabular-nums">
                               {r.present}/{r.total}
                               {r.total > 0 ? ` · ${pct}%` : ""}
                             </div>
@@ -669,7 +669,7 @@ export function DataQualityFieldIntegritySurface({
           </div>
           <div className="min-w-0">
             <h3 className="font-semibold text-sm">Fallback / operator-derived usage</h3>
-            <p className="text-xs text-muted-foreground mt-0.5 max-w-2xl">
+            <p className="text-xs text-slate-700 mt-0.5 max-w-2xl">
               Where the UI substitutes a safe label or an operator-derived classification because raw fields are absent.
               These are not bugs — they are honest fallbacks. They become problems only at scale.
             </p>
@@ -685,9 +685,9 @@ export function DataQualityFieldIntegritySurface({
               >
                 <div className="min-w-0">
                   <div className="text-sm font-medium">{f.label}</div>
-                  <div className="text-xs text-muted-foreground mt-0.5">{f.detail}</div>
+                  <div className="text-xs text-slate-700 mt-0.5">{f.detail}</div>
                 </div>
-                <div className="text-xs text-muted-foreground tabular-nums shrink-0">
+                <div className="text-xs text-slate-700 tabular-nums shrink-0">
                   {f.count}/{f.total}
                   {f.total > 0 ? ` · ${pct}%` : ""}
                 </div>
@@ -706,14 +706,14 @@ export function DataQualityFieldIntegritySurface({
             </div>
             <div className="min-w-0">
               <h3 className="font-semibold text-sm">Current data gaps / cautions</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
+              <p className="text-xs text-slate-700 mt-0.5">
                 Honest, current-state observations. No automated repair — review and address manually.
               </p>
             </div>
           </div>
           <ul className="mt-3 space-y-1.5 text-sm">
             {cautions.map((c, i) => (
-              <li key={i} className="flex items-start gap-2 text-muted-foreground">
+              <li key={i} className="flex items-start gap-2 text-slate-700">
                 <span className="text-rose-600 dark:text-rose-400 mt-0.5">•</span>
                 <span>{c}</span>
               </li>
@@ -725,7 +725,7 @@ export function DataQualityFieldIntegritySurface({
       {/* Quick links */}
       <div className="rounded-xl border bg-card p-5">
         <h3 className="font-semibold text-sm">Jump to impacted surfaces</h3>
-        <p className="text-xs text-muted-foreground mt-0.5">
+        <p className="text-xs text-slate-700 mt-0.5">
           Surfaces whose UX depends on the field coverage above.
         </p>
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -735,13 +735,13 @@ export function DataQualityFieldIntegritySurface({
               type="button"
               onClick={() => onNavigateTab?.(q.tab)}
               disabled={!onNavigateTab}
-              className="text-left rounded-lg border bg-background hover:bg-muted/40 transition-colors px-3 py-2.5 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="text-left rounded-lg border bg-background hover:bg-muted/40 transition-colors px-3 py-2.5 disabled:opacity-100 disabled:cursor-not-allowed"
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="text-sm font-medium">{q.label}</div>
-                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <ExternalLink className="h-3.5 w-3.5 text-slate-700 shrink-0" />
               </div>
-              <div className="text-xs text-muted-foreground mt-0.5">{q.desc}</div>
+              <div className="text-xs text-slate-700 mt-0.5">{q.desc}</div>
             </button>
           ))}
         </div>

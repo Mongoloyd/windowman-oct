@@ -110,7 +110,7 @@ export default function AdminHealth() {
           <h1 className="text-3xl font-semibold tracking-tight text-foreground">
             Deployment Health Check
           </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
+          <p className="mt-2 text-sm text-slate-700">
             Verifies that required admin routes are reachable on the current
             origin (<code className="font-mono">{typeof window !== "undefined" ? window.location.origin : ""}</code>).
           </p>
@@ -129,7 +129,7 @@ export default function AdminHealth() {
         >
           {overall === "healthy" && <CheckCircle2 className="h-5 w-5 text-emerald-600" />}
           {overall === "degraded" && <AlertTriangle className="h-5 w-5 text-destructive" />}
-          {overall === "pending" && <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />}
+          {overall === "pending" && <Loader2 className="h-5 w-5 animate-spin text-slate-700" />}
           <div className="flex-1">
             <p className="text-sm font-medium text-foreground">
               {overall === "healthy" && "All admin routes are deployed and reachable."}
@@ -137,7 +137,7 @@ export default function AdminHealth() {
               {overall === "pending" && "Running checks…"}
             </p>
             {lastRun && (
-              <p className="mt-0.5 text-xs text-muted-foreground">
+              <p className="mt-0.5 text-xs text-slate-700">
                 Last run {lastRun.toLocaleTimeString()}
               </p>
             )}
@@ -160,7 +160,7 @@ export default function AdminHealth() {
             <li key={check.path} className="flex items-start gap-3 p-4">
               <div className="mt-0.5">
                 {check.status === "pending" && (
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  <Loader2 className="h-5 w-5 animate-spin text-slate-700" />
                 )}
                 {check.status === "pass" && (
                   <CheckCircle2 className="h-5 w-5 text-emerald-600" />
@@ -174,11 +174,11 @@ export default function AdminHealth() {
                   <span className="text-sm font-medium text-foreground">
                     {check.label}
                   </span>
-                  <code className="font-mono text-xs text-muted-foreground">
+                  <code className="font-mono text-xs text-slate-700">
                     {check.path}
                   </code>
                 </div>
-                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-700">
                   {check.httpStatus !== undefined && (
                     <span>HTTP {check.httpStatus}</span>
                   )}
@@ -194,7 +194,7 @@ export default function AdminHealth() {
           ))}
         </ul>
 
-        <p className="mt-6 text-xs text-muted-foreground">
+        <p className="mt-6 text-xs text-slate-700">
           A passing check confirms the deployed bundle serves a valid HTML shell
           for the route. It does <strong>not</strong> verify authentication,
           role gating, or that the React component mounted — those are covered

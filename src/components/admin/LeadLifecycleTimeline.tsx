@@ -45,7 +45,7 @@ export function LeadLifecycleTimeline({ lead, opportunity, latestRoute }: Props)
     .sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
 
   if (real.length === 0) {
-    return <p className="text-xs text-muted-foreground italic">No lifecycle events yet.</p>;
+    return <p className="text-xs text-slate-700 italic">No lifecycle events yet.</p>;
   }
 
   return (
@@ -54,7 +54,7 @@ export function LeadLifecycleTimeline({ lead, opportunity, latestRoute }: Props)
         <li key={`${m.label}-${i}`} className="flex items-center gap-2 text-xs">
           <Clock className="h-3 w-3 text-emerald-600 shrink-0" />
           <span className="font-medium">{m.label}</span>
-          <span className="ml-auto font-mono text-[10px] text-muted-foreground">
+          <span className="ml-auto font-mono text-[10px] text-slate-700">
             {format(new Date(m.ts), "MMM d, yyyy h:mm a")}
           </span>
         </li>

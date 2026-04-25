@@ -44,8 +44,8 @@ type TabDef = PanelTabDef | RouteTabDef;
 const TAB_TRIGGER_CLASSES = [
   "flex-1 min-w-[110px]",
   "data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:border-slate-300 data-[state=active]:shadow-sm",
-  "text-slate-700 hover:text-slate-950 hover:bg-white hover:border-slate-300 hover:shadow-sm",
-  "text-sm font-semibold",
+  "text-slate-800 hover:text-slate-950 hover:bg-white hover:border-slate-300 hover:shadow-sm",
+  "text-sm font-extrabold",
   "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 focus-visible:ring-offset-2",
   "transition-all border border-transparent",
   // Match Radix TabsTrigger sizing so route-tabs line up identically with panel-tabs
@@ -91,7 +91,7 @@ export function AdminPrimaryTabs({
     return (
       <Badge
         variant={variant ?? "default"}
-        className="ml-1.5 h-5 min-w-[22px] border border-slate-300 px-1.5 text-[11px] font-extrabold"
+        className="ml-1.5 min-h-6 min-w-[24px] border border-slate-400 bg-white px-2 text-sm font-extrabold text-slate-950"
       >
         {count > 99 ? "99+" : count}
       </Badge>
@@ -99,7 +99,7 @@ export function AdminPrimaryTabs({
   }
 
   return (
-    <TabsList className="flex w-full flex-wrap h-auto gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+    <TabsList className="flex w-full flex-wrap h-auto gap-1 rounded-xl border border-slate-300 bg-white p-1 shadow-sm">
       {tabs.map((t) => {
         if (t.kind === "panel") {
           return (

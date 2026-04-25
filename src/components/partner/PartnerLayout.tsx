@@ -68,9 +68,9 @@ function PartnerLayoutInner() {
   const balanceDisplay = creditBalance ?? 0;
 
   return (
-    <div className="wm-dashboard-surface min-h-screen bg-background text-foreground font-sans">
+    <div className="wm-dashboard-surface min-h-screen bg-white text-slate-950 font-sans">
       {/* ─── Sticky Portal Header ─────────────────────────────── */}
-      <header className="border-b border-slate-200 bg-card sticky top-0 z-30 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-card/95">
+      <header className="border-b border-slate-300 bg-white sticky top-0 z-30 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/95">
         <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-3 sm:py-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             {/* Brand */}
@@ -83,12 +83,12 @@ function PartnerLayoutInner() {
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-lg sm:text-xl font-black tracking-tight leading-none group-hover:text-primary transition-colors">
+                  <h1 className="text-xl sm:text-2xl font-black tracking-tight leading-none text-slate-950 group-hover:text-primary transition-colors">
                     WindowMan Partner Portal
                   </h1>
                   {isPreview && <PreviewModeBadge />}
                 </div>
-                <p className="text-xs sm:text-sm font-medium text-slate-600 mt-1">
+                <p className="text-sm font-bold text-slate-700 mt-1">
                   Contractor Intelligence Workspace
                 </p>
               </div>
@@ -97,7 +97,7 @@ function PartnerLayoutInner() {
             {/* Credits + CTA */}
             <div className="flex items-center gap-2 self-stretch sm:self-auto">
               <div
-                className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-slate-300 bg-white shadow-sm flex-1 sm:flex-initial justify-center"
+                className="flex min-h-10 items-center gap-1.5 px-3 py-2 rounded-md border border-slate-400 bg-white shadow-sm flex-1 sm:flex-initial justify-center"
                 aria-label={`Credit balance: ${balanceDisplay}`}
               >
                 <CreditCard className="h-3.5 w-3.5 text-sky-600" aria-hidden />
@@ -110,7 +110,7 @@ function PartnerLayoutInner() {
                 onClick={handleAddCredits}
                 disabled={checkoutLoading}
                 aria-label="Add credits"
-                className="flex min-h-10 items-center gap-1.5 px-4 py-2 rounded-md border border-primary bg-primary text-primary-foreground text-sm font-extrabold shadow-sm hover:bg-primary/90 active:scale-[0.99] transition-all disabled:opacity-70 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 focus-visible:ring-offset-2 whitespace-nowrap"
+                className="flex min-h-10 items-center gap-1.5 px-4 py-2 rounded-md border border-blue-900 bg-blue-900 text-white text-sm font-extrabold shadow-sm hover:bg-blue-800 active:scale-[0.99] transition-all disabled:cursor-not-allowed focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 focus-visible:ring-offset-2 whitespace-nowrap"
               >
                 {checkoutLoading ? (
                   <>
@@ -134,7 +134,7 @@ function PartnerLayoutInner() {
 
       <Outlet />
 
-      <footer className="text-center text-sm font-medium text-slate-600 py-8">
+      <footer className="text-center text-sm font-bold text-slate-700 py-8">
         WindowMan Partner Portal — Contractor Eyes Only
       </footer>
     </div>

@@ -293,7 +293,7 @@ export function ClientFacingReportingPrepSurface({ leads, onNavigateTab }: Props
             <h2 className="text-xl font-bold tracking-tight">
               Client-Facing Reporting Prep
             </h2>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-sm text-slate-700 mt-1">
               Internal operator surface for separating <strong>contractor-safe</strong>{" "}
               reporting from <strong>internal-only</strong> review data. Read-only.
               No portal, no sharing system, no publication workflow.
@@ -330,7 +330,7 @@ export function ClientFacingReportingPrepSurface({ leads, onNavigateTab }: Props
 
         {expanded.safe && (
           <div className="px-4 pb-4 space-y-4">
-            <p className="text-xs text-muted-foreground italic">
+            <p className="text-xs text-slate-700 italic">
               Honest current-state counts derived from real routing/outcome
               fields. Safe to share verbatim with a contractor today.
             </p>
@@ -355,7 +355,7 @@ export function ClientFacingReportingPrepSurface({ leads, onNavigateTab }: Props
             </div>
 
             <div className="flex items-center justify-between pt-2 border-t border-emerald-500/20">
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-[11px] text-slate-700">
                 Caveat: stale and recovery are operator-view derivations, not
                 automated lifecycle states.
               </p>
@@ -396,7 +396,7 @@ export function ClientFacingReportingPrepSurface({ leads, onNavigateTab }: Props
 
         {expanded.internal && (
           <div className="px-4 pb-4 space-y-4">
-            <p className="text-xs text-muted-foreground italic">
+            <p className="text-xs text-slate-700 italic">
               Ambiguity buckets and operator-only review derivations. These
               should remain inside Mission Control and not be presented to
               contractors as headline reporting.
@@ -425,7 +425,7 @@ export function ClientFacingReportingPrepSurface({ leads, onNavigateTab }: Props
               />
             </div>
 
-            <p className="text-[11px] text-muted-foreground pt-2 border-t border-amber-500/20">
+            <p className="text-[11px] text-slate-700 pt-2 border-t border-amber-500/20">
               These categories use repo-real fields but require operator
               interpretation. Do not paste into contractor-facing material.
             </p>
@@ -445,7 +445,7 @@ export function ClientFacingReportingPrepSurface({ leads, onNavigateTab }: Props
             ) : (
               <ChevronRight className="h-4 w-4" />
             )}
-            <FileText className="h-4 w-4 text-muted-foreground" />
+            <FileText className="h-4 w-4 text-slate-700" />
             <h3 className="font-semibold text-sm">What Can Be Shared Today</h3>
           </div>
         </button>
@@ -496,7 +496,7 @@ export function ClientFacingReportingPrepSurface({ leads, onNavigateTab }: Props
             ) : (
               <ChevronRight className="h-4 w-4" />
             )}
-            <ShieldAlert className="h-4 w-4 text-muted-foreground" />
+            <ShieldAlert className="h-4 w-4 text-slate-700" />
             <h3 className="font-semibold text-sm">Current Limits / Disclosure Notes</h3>
           </div>
         </button>
@@ -526,7 +526,7 @@ export function ClientFacingReportingPrepSurface({ leads, onNavigateTab }: Props
             ) : (
               <ChevronRight className="h-4 w-4" />
             )}
-            <Lock className="h-4 w-4 text-muted-foreground" />
+            <Lock className="h-4 w-4 text-slate-700" />
             <h3 className="font-semibold text-sm">
               Future Contractor Report — Preview Structure
             </h3>
@@ -538,7 +538,7 @@ export function ClientFacingReportingPrepSurface({ leads, onNavigateTab }: Props
 
         {expanded.future && (
           <div className="px-4 pb-4 space-y-3 text-sm">
-            <p className="text-xs text-muted-foreground italic">
+            <p className="text-xs text-slate-700 italic">
               Reference structure for what a future contractor-facing report
               could include. Not built. No auth, no sharing, no persistence.
             </p>
@@ -585,7 +585,7 @@ export function ClientFacingReportingPrepSurface({ leads, onNavigateTab }: Props
       {/* ─── Quick Links ───────────────────────────────────────────── */}
       <section className="rounded-lg border border-border bg-muted/20 p-4">
         <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">
-          <Activity className="h-4 w-4 text-muted-foreground" />
+          <Activity className="h-4 w-4 text-slate-700" />
           Quick Links — Existing Surfaces
         </h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -619,7 +619,7 @@ function SafeTile({
     <div className="rounded-md border border-emerald-500/20 bg-background p-3">
       <div className="flex items-center gap-1.5">
         {Icon && <Icon className="h-3 w-3 text-emerald-700" />}
-        <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
+        <p className="text-[10px] uppercase tracking-wide text-slate-700 font-semibold">
           {label}
         </p>
       </div>
@@ -639,11 +639,11 @@ function InternalTile({
 }) {
   return (
     <div className="rounded-md border border-amber-500/20 bg-background p-3">
-      <p className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">
+      <p className="text-[11px] uppercase tracking-wide text-slate-700 font-semibold">
         {label}
       </p>
       <p className="text-2xl font-bold tabular-nums mt-1">{value}</p>
-      <p className="text-[10px] text-muted-foreground italic mt-0.5">
+      <p className="text-[10px] text-slate-700 italic mt-0.5">
         {sublabel}
       </p>
     </div>
@@ -684,7 +684,7 @@ function Guidance({
 function LimitRow({ text }: { text: string }) {
   return (
     <div className="flex items-start gap-2">
-      <span className="text-muted-foreground mt-1.5 text-xs">•</span>
+      <span className="text-slate-700 mt-1.5 text-xs">•</span>
       <p className="text-sm text-foreground/90">{text}</p>
     </div>
   );
@@ -699,13 +699,13 @@ function FuturePreviewSection({
 }) {
   return (
     <div className="rounded-md border border-border bg-background p-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-700 mb-1.5">
         {title}
       </p>
       <ul className="space-y-1">
         {points.map((p, i) => (
           <li key={i} className="text-sm flex items-start gap-2">
-            <span className="text-muted-foreground mt-1 text-[10px]">▸</span>
+            <span className="text-slate-700 mt-1 text-[10px]">▸</span>
             <span>{p}</span>
           </li>
         ))}
@@ -725,7 +725,7 @@ function QuickLink({
 }) {
   if (!onNavigateTab) {
     return (
-      <div className="rounded-md border border-border bg-background px-3 py-2 text-xs text-muted-foreground">
+      <div className="rounded-md border border-border bg-background px-3 py-2 text-xs text-slate-700">
         {label}
       </div>
     );
@@ -736,7 +736,7 @@ function QuickLink({
       className="rounded-md border border-border bg-background px-3 py-2 text-xs hover:bg-muted hover:border-primary/40 transition-colors text-left flex items-center justify-between group"
     >
       <span>{label}</span>
-      <ExternalLink className="h-3 w-3 text-muted-foreground group-hover:text-primary" />
+      <ExternalLink className="h-3 w-3 text-slate-700 group-hover:text-primary" />
     </button>
   );
 }

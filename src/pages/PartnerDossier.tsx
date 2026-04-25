@@ -49,7 +49,7 @@ const pillarColor = (score: number) => {
 };
 
 const gradeColor = (g: string | null | undefined) => {
-  if (!g) return "text-slate-600";
+  if (!g) return "text-slate-700";
   if (g === "A") return "text-emerald-600";
   if (g === "B") return "text-emerald-500";
   if (g === "C") return "text-amber-600";
@@ -388,12 +388,12 @@ export default function PartnerDossier() {
             </Link>
             <div className="flex items-center gap-2 flex-wrap">
               <Crosshair className="h-5 w-5 text-primary" />
-              <h1 className="font-display text-xl sm:text-2xl font-extrabold leading-tight tracking-tight text-foreground">
+              <h1 className="font-display text-3xl sm:text-4xl font-black leading-tight tracking-tight text-slate-950">
                 Intelligence Dossier
               </h1>
               {isPreview && <PreviewModeBadge />}
             </div>
-            <p className="text-sm font-semibold text-slate-600 font-mono mt-1">
+            <p className="text-sm font-semibold text-slate-700 font-mono mt-1">
               ID&nbsp;{(meta.analysis_id ?? id ?? "demo").slice(0, 8)}…
             </p>
           </div>
@@ -402,13 +402,13 @@ export default function PartnerDossier() {
           <button
             onClick={handleUnlock}
             disabled={unlocked || unlocking || (!isPreview && !meta.can_unlock)}
-            className={`flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-extrabold transition-all shrink-0 border shadow-sm
+            className={`flex items-center justify-center gap-2 min-h-10 px-5 py-2.5 rounded-lg text-sm font-extrabold transition-all shrink-0 border shadow-sm
               ${unlocked
-                ? "bg-emerald-50 text-emerald-700 border border-emerald-300 cursor-default"
+                ? "bg-emerald-100 text-emerald-950 border border-emerald-300 cursor-default"
                 : unlocking
                   ? "bg-primary/10 text-primary cursor-wait"
                   : (isPreview || meta.can_unlock)
-                    ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-md active:scale-[0.98]"
+                    ? "bg-blue-900 text-white hover:bg-blue-800 shadow-md active:scale-[0.98]"
                     : "bg-slate-100 text-slate-700 cursor-not-allowed border-slate-300"
               }`}
           >
@@ -447,7 +447,7 @@ export default function PartnerDossier() {
               Lead Provenance
             </h2>
             {unlocked && (
-              <span className="ml-auto inline-flex items-center gap-1.5 text-xs font-extrabold text-emerald-700 bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-full">
+              <span className="ml-auto inline-flex items-center gap-1.5 text-xs font-extrabold text-emerald-700 bg-emerald-100 border border-emerald-300 px-2.5 py-1 rounded-full">
                 <Unlock className="h-3 w-3" /> Contact Revealed
               </span>
             )}
@@ -494,7 +494,7 @@ export default function PartnerDossier() {
               <h2 className="text-xl font-extrabold tracking-tight text-violet-700">
                 Lead Intake Intelligence
               </h2>
-              <span className="ml-auto text-sm font-medium text-slate-600">
+              <span className="ml-auto text-sm font-medium text-slate-700">
                 {intakeCards.length} signal{intakeCards.length !== 1 ? "s" : ""}
               </span>
             </div>
@@ -516,11 +516,11 @@ export default function PartnerDossier() {
                     <div className="pl-2">
                       <div className="flex items-center gap-1.5 mb-2">
                         <Icon className="h-3.5 w-3.5 text-violet-500/70" />
-                        <p className="text-xs uppercase tracking-[0.12em] text-slate-600 font-extrabold">
+                        <p className="text-xs uppercase tracking-[0.12em] text-slate-700 font-extrabold">
                           {card.label}
                         </p>
                       </div>
-                      <p className="text-[15px] font-bold leading-tight capitalize text-foreground">
+                      <p className="text-base font-black leading-tight capitalize text-slate-950">
                         {card.value}
                       </p>
                     </div>
@@ -544,31 +544,31 @@ export default function PartnerDossier() {
 
           <div className="grid sm:grid-cols-3 xl:grid-cols-5 gap-4">
             <div className="bg-white rounded-xl p-5 text-center border border-slate-300 shadow-sm">
-              <p className="text-xs font-extrabold text-slate-600 uppercase tracking-widest mb-2">
+              <p className="text-xs font-extrabold text-slate-700 uppercase tracking-widest mb-2">
                 Competitor Grade
               </p>
               <p className={`text-5xl font-black leading-none ${gradeColor(analysis?.grade)}`}>
                 {analysis?.grade ?? "—"}
               </p>
               {analysis?.confidence_score != null && (
-                <p className="text-xs font-semibold text-slate-600 mt-2 font-mono">
+                <p className="text-xs font-semibold text-slate-700 mt-2 font-mono">
                   {analysis.confidence_score}% confidence
                 </p>
               )}
             </div>
 
             <div className="bg-white rounded-xl p-5 text-center border border-slate-300 shadow-sm">
-              <p className="text-xs font-extrabold text-slate-600 uppercase tracking-widest mb-2">
+              <p className="text-xs font-extrabold text-slate-700 uppercase tracking-widest mb-2">
                 Total Quoted
               </p>
               <p className="text-3xl font-black text-slate-950">{fmt(totalPrice)}</p>
-              <p className="text-sm font-medium text-slate-600 mt-1">
+              <p className="text-sm font-medium text-slate-700 mt-1">
                 {openingCount ?? "?"} openings
               </p>
             </div>
 
             <div className="bg-white rounded-xl p-5 text-center border border-slate-300 shadow-sm">
-              <p className="text-xs font-extrabold text-slate-600 uppercase tracking-widest mb-2">
+              <p className="text-xs font-extrabold text-slate-700 uppercase tracking-widest mb-2">
                 Price / Opening
               </p>
               <p className="text-3xl font-black text-slate-950">
@@ -595,7 +595,7 @@ export default function PartnerDossier() {
                 const score = pillarScores[key] ?? 0;
                 return (
                   <div key={key} className="flex items-center gap-3">
-                    <span className="text-sm font-medium text-slate-600 w-28 shrink-0 text-right font-mono">
+                    <span className="text-sm font-medium text-slate-700 w-28 shrink-0 text-right font-mono">
                       {label}
                     </span>
                     <div className="flex-1 bg-muted rounded-full h-3 overflow-hidden">
@@ -604,7 +604,7 @@ export default function PartnerDossier() {
                         style={{ width: `${Math.min(score, 100)}%` }}
                       />
                     </div>
-                    <span className="text-sm font-medium text-slate-600 font-mono w-8 text-right font-bold tabular-nums">
+                    <span className="text-sm font-medium text-slate-700 font-mono w-8 text-right font-bold tabular-nums">
                       {score}
                     </span>
                   </div>
@@ -622,14 +622,14 @@ export default function PartnerDossier() {
         {/* ═══════════════════════════════════════════════════════
             § 4 — ATTACK SURFACE & VULNERABILITIES
             ═══════════════════════════════════════════════════════ */}
-        <section className="rounded-xl border border-destructive/20 bg-destructive/[0.03] p-6">
+        <section className="rounded-xl border border-red-300 bg-red-50 p-6">
           <div className="flex items-center gap-2 mb-5">
             <ShieldAlert className="h-5 w-5 text-destructive" />
             <h2 className="text-xl font-extrabold tracking-tight text-destructive">
               Attack Surface &amp; Vulnerabilities
             </h2>
             {flags.length > 0 && (
-              <span className="ml-auto text-[11px] font-bold text-destructive bg-destructive/10 border border-destructive/20 px-2 py-0.5 rounded-full">
+              <span className="ml-auto text-[11px] font-bold text-destructive bg-destructive/10 border border-red-300 px-2 py-0.5 rounded-full">
                 {flags.length} issue{flags.length !== 1 ? "s" : ""}
               </span>
             )}
@@ -660,10 +660,10 @@ export default function PartnerDossier() {
                     <span
                       className={`shrink-0 text-xs font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-md ${
                         flag.severity === "Critical"
-                          ? "bg-destructive/15 text-destructive border border-destructive/25"
+                          ? "bg-red-100 text-red-950 border border-red-300"
                           : flag.severity === "High"
-                            ? "bg-red-100 text-red-700 border border-red-200"
-                            : "bg-amber-100 text-amber-700 border border-amber-200"
+                            ? "bg-red-100 text-red-950 border border-red-300"
+                            : "bg-amber-100 text-amber-950 border border-amber-300"
                       }`}
                     >
                       {flag.severity}
@@ -687,11 +687,11 @@ export default function PartnerDossier() {
         />
 
         {/* ─── Provenance Footer ── */}
-        <footer className="text-center text-sm font-medium text-slate-600 font-mono py-8 space-y-1 border-t mt-4 pt-8">
+        <footer className="text-center text-sm font-medium text-slate-700 font-mono py-8 space-y-1 border-t mt-4 pt-8">
           <p>
             Scanned {new Date(analysis?.created_at).toLocaleString()} · Rubric {analysis?.rubric_version ?? "—"} · Confidence {analysis?.confidence_score ?? "—"}%
           </p>
-          <p className="text-slate-600">WindowMan Intelligence — Contractor Eyes Only</p>
+          <p className="text-slate-700">WindowMan Intelligence — Contractor Eyes Only</p>
         </footer>
       </main>
     </>
@@ -706,10 +706,10 @@ export default function PartnerDossier() {
 function InfoRow({ label, value, blur }: { label: string; value: string; blur?: boolean }) {
   return (
     <div className="min-w-0">
-      <p className="text-xs uppercase tracking-[0.12em] text-slate-600 font-extrabold mb-1">
+      <p className="text-xs uppercase tracking-[0.12em] text-slate-700 font-extrabold mb-1">
         {label}
       </p>
-      <p className={`text-sm font-medium leading-snug ${blur ? "blur-[5px] select-none" : ""} transition-[filter] duration-500`}>
+      <p className={`text-base font-bold leading-snug text-slate-950 ${blur ? "blur-[5px] select-none" : ""} transition-[filter] duration-500`}>
         {value}
       </p>
     </div>
@@ -721,17 +721,17 @@ function PiiRow({ label, value, blur, onCopy, copied }: {
 }) {
   return (
     <div className="min-w-0">
-      <p className="text-xs uppercase tracking-[0.12em] text-slate-600 font-extrabold mb-1">
+      <p className="text-xs uppercase tracking-[0.12em] text-slate-700 font-extrabold mb-1">
         {label}
       </p>
       <div className="flex items-center gap-2">
-        <p className={`text-sm font-medium leading-snug ${blur ? "blur-[5px] select-none" : ""} transition-[filter] duration-500`}>
+        <p className={`text-base font-bold leading-snug text-slate-950 ${blur ? "blur-[5px] select-none" : ""} transition-[filter] duration-500`}>
           {value}
         </p>
         {onCopy && (
           <button
             onClick={onCopy}
-            className="p-1 rounded-md text-slate-600 hover:text-primary hover:bg-primary/5 transition-colors"
+            className="p-1 rounded-md text-slate-700 hover:text-primary hover:bg-primary/5 transition-colors"
             title={`Copy ${label}`}
           >
             {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
@@ -749,7 +749,7 @@ function MarketIndicator({ price }: { price: number }) {
 
   if (abs < 5)
     return (
-      <span className="flex items-center justify-center gap-1 text-xs font-semibold text-slate-600 mt-1.5">
+      <span className="flex items-center justify-center gap-1 text-xs font-semibold text-slate-700 mt-1.5">
         <Minus className="h-3 w-3" /> At market
       </span>
     );
@@ -795,17 +795,17 @@ function DocumentVault({ hasDocument, isUnlocked, analysisId, createdAt, isPrevi
     return (
       <section className="rounded-xl border border-dashed bg-muted/20 p-6">
         <div className="flex items-center gap-2 mb-4">
-          <FileText className="h-5 w-5 text-slate-500" />
-          <h2 className="text-xl font-extrabold tracking-tight text-slate-600">
+          <FileText className="h-5 w-5 text-slate-700" />
+          <h2 className="text-xl font-extrabold tracking-tight text-slate-700">
             Document Vault
           </h2>
         </div>
         <div className="flex flex-col items-center justify-center py-10 text-center">
           <div className="h-14 w-14 rounded-2xl bg-muted/60 flex items-center justify-center mb-3">
-            <FileText className="h-7 w-7 text-slate-500" />
+            <FileText className="h-7 w-7 text-slate-700" />
           </div>
-          <p className="text-sm font-medium text-slate-600">No document on file</p>
-          <p className="text-xs text-slate-600 mt-1 max-w-xs">
+          <p className="text-sm font-medium text-slate-700">No document on file</p>
+          <p className="text-xs text-slate-700 mt-1 max-w-xs">
             The original quote document was not uploaded for this lead.
           </p>
         </div>
@@ -822,7 +822,7 @@ function DocumentVault({ hasDocument, isUnlocked, analysisId, createdAt, isPrevi
           <h2 className="text-xl font-extrabold tracking-tight text-primary">
             Document Vault
           </h2>
-          <span className="ml-auto inline-flex items-center gap-1 text-xs font-bold text-slate-600 bg-muted px-2 py-0.5 rounded-full">
+          <span className="ml-auto inline-flex items-center gap-1 text-xs font-bold text-slate-700 bg-muted px-2 py-0.5 rounded-full">
             <Lock className="h-3 w-3" /> Locked
           </span>
         </div>
@@ -831,19 +831,19 @@ function DocumentVault({ hasDocument, isUnlocked, analysisId, createdAt, isPrevi
           <div className="absolute inset-0 backdrop-blur-sm bg-background/30 z-10 flex items-center justify-center">
             <div className="flex flex-col items-center gap-2">
               <div className="h-10 w-10 rounded-full bg-muted border flex items-center justify-center">
-                <Lock className="h-5 w-5 text-slate-600" />
+                <Lock className="h-5 w-5 text-slate-700" />
               </div>
-              <p className="text-xs font-semibold text-slate-600">Unlock to view document</p>
+              <p className="text-xs font-semibold text-slate-700">Unlock to view document</p>
             </div>
           </div>
           {/* Blurred content behind */}
-          <div className="flex items-center gap-4 select-none pointer-events-none opacity-50">
+          <div className="flex items-center gap-4 select-none pointer-events-none opacity-100">
             <div className="h-12 w-12 rounded-lg bg-muted flex items-center justify-center">
-              <FileText className="h-6 w-6 text-slate-500" />
+              <FileText className="h-6 w-6 text-slate-700" />
             </div>
             <div>
               <p className="text-sm font-medium">Original_Quote.pdf</p>
-              <p className="text-xs text-slate-600">Scanned {scannedDate}</p>
+              <p className="text-xs text-slate-700">Scanned {scannedDate}</p>
             </div>
           </div>
         </div>
@@ -859,7 +859,7 @@ function DocumentVault({ hasDocument, isUnlocked, analysisId, createdAt, isPrevi
         <h2 className="text-xl font-extrabold tracking-tight text-emerald-700">
           Document Vault
         </h2>
-        <span className="ml-auto inline-flex items-center gap-1.5 text-xs font-extrabold text-emerald-700 bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-full">
+        <span className="ml-auto inline-flex items-center gap-1.5 text-xs font-extrabold text-emerald-700 bg-emerald-100 border border-emerald-300 px-2.5 py-1 rounded-full">
           <Eye className="h-3 w-3" /> Viewable
         </span>
       </div>
@@ -869,13 +869,13 @@ function DocumentVault({ hasDocument, isUnlocked, analysisId, createdAt, isPrevi
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold">Original_Quote.pdf</p>
-          <p className="text-xs text-slate-600 mt-0.5">Scanned {scannedDate}</p>
+          <p className="text-xs text-slate-700 mt-0.5">Scanned {scannedDate}</p>
           {docError && <p className="text-xs text-destructive mt-1">{docError}</p>}
         </div>
         <button
           onClick={handleViewDocument}
           disabled={docLoading}
-          className="px-4 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-wait shadow-sm"
+          className="min-h-10 px-4 py-2.5 rounded-lg border border-blue-900 bg-blue-900 text-white text-sm font-extrabold hover:bg-blue-800 transition-colors disabled:opacity-100 disabled:cursor-wait shadow-sm"
         >
           {docLoading ? "Loading…" : "View Original Quote"}
         </button>

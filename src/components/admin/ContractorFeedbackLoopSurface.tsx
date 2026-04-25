@@ -382,7 +382,7 @@ export function ContractorFeedbackLoopSurface({ leads, onNavigateTab }: Props) {
               <Inbox className="h-5 w-5 text-primary" />
               Contractor Feedback Loop
             </h2>
-            <p className="text-xs text-muted-foreground mt-1 max-w-2xl leading-relaxed">
+            <p className="text-xs text-slate-700 mt-1 max-w-2xl leading-relaxed">
               Internal operator surface for contractor-side response and
               disposition signals on routed opportunities. Read-only. All
               groupings are deterministic operator-view derivations from real
@@ -419,7 +419,7 @@ export function ContractorFeedbackLoopSurface({ leads, onNavigateTab }: Props) {
           <CardTitle className="text-sm flex items-center gap-2">
             <Info className="h-4 w-4" />
             Known Feedback Signals
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-normal ml-1">
+            <span className="text-[10px] uppercase tracking-wider text-slate-700 font-normal ml-1">
               raw counts
             </span>
             <ChevronRight
@@ -428,7 +428,7 @@ export function ContractorFeedbackLoopSurface({ leads, onNavigateTab }: Props) {
               }`}
             />
           </CardTitle>
-          <p className="text-[11px] text-muted-foreground mt-1">
+          <p className="text-[11px] text-slate-700 mt-1">
             Per-route signal totals. A single route can advance through several
             stages, so totals overlap (a viewed route is also a sent route).
           </p>
@@ -456,7 +456,7 @@ export function ContractorFeedbackLoopSurface({ leads, onNavigateTab }: Props) {
           <CardTitle className="text-sm flex items-center gap-2">
             <MessageSquare className="h-4 w-4" />
             Disposition Breakdown
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-normal ml-1">
+            <span className="text-[10px] uppercase tracking-wider text-slate-700 font-normal ml-1">
               one bucket per route
             </span>
             <ChevronRight
@@ -465,7 +465,7 @@ export function ContractorFeedbackLoopSurface({ leads, onNavigateTab }: Props) {
               }`}
             />
           </CardTitle>
-          <p className="text-[11px] text-muted-foreground mt-1">
+          <p className="text-[11px] text-slate-700 mt-1">
             Each route is assigned exactly one most-progressed bucket. Closed
             and Booked trump all earlier signals.
           </p>
@@ -490,7 +490,7 @@ export function ContractorFeedbackLoopSurface({ leads, onNavigateTab }: Props) {
           onClick={() => toggleSection("missing")}
         >
           <CardTitle className="text-sm flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            <AlertTriangle className="h-4 w-4 text-slate-700" />
             Missing Feedback / Needs Operator Review
             <Badge variant="outline" className="ml-2 h-5 text-[10px]">
               {missingFeedback.length}
@@ -501,7 +501,7 @@ export function ContractorFeedbackLoopSurface({ leads, onNavigateTab }: Props) {
               }`}
             />
           </CardTitle>
-          <p className="text-[11px] text-muted-foreground mt-1">
+          <p className="text-[11px] text-slate-700 mt-1">
             Routes where contractor-side feedback is incomplete and the lead
             is not yet booked or closed. Oldest signal first. Open the
             opportunity in Routing Desk to act.
@@ -510,7 +510,7 @@ export function ContractorFeedbackLoopSurface({ leads, onNavigateTab }: Props) {
         {openSection.missing && (
           <CardContent>
             {missingFeedback.length === 0 ? (
-              <div className="text-xs text-muted-foreground py-6 text-center">
+              <div className="text-xs text-slate-700 py-6 text-center">
                 No incomplete contractor feedback right now.
               </div>
             ) : (
@@ -535,11 +535,11 @@ export function ContractorFeedbackLoopSurface({ leads, onNavigateTab }: Props) {
                       <div className="min-w-0">
                         <div className="font-medium truncate">
                           {homeownerName}{" "}
-                          <span className="text-muted-foreground font-normal">
+                          <span className="text-slate-700 font-normal">
                             → {contractorName}
                           </span>
                         </div>
-                        <div className="text-muted-foreground truncate">
+                        <div className="text-slate-700 truncate">
                           {county} · {meta.label} · {r.reason}
                           {ageHours !== null &&
                             ` · ${ageHours}h since last signal`}
@@ -570,12 +570,12 @@ export function ContractorFeedbackLoopSurface({ leads, onNavigateTab }: Props) {
           onClick={() => toggleSection("notes")}
         >
           <CardTitle className="text-sm flex items-center gap-2">
-            <XCircle className="h-4 w-4 text-muted-foreground" />
+            <XCircle className="h-4 w-4 text-slate-700" />
             What We Know vs What We Do Not Know
           </CardTitle>
         </CardHeader>
         {openSection.notes && (
-          <CardContent className="text-xs text-muted-foreground leading-relaxed space-y-2">
+          <CardContent className="text-xs text-slate-700 leading-relaxed space-y-2">
             <p>
               <strong>Modeled today:</strong> route-level{" "}
               <code className="px-1 rounded bg-muted">sent_at</code>,{" "}
@@ -641,7 +641,7 @@ function Stat({ label, value }: { label: string; value: number }) {
       <div className="text-2xl font-semibold leading-none text-foreground">
         {value}
       </div>
-      <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">
+      <div className="text-[10px] uppercase tracking-wider text-slate-700 mt-1">
         {label}
       </div>
     </div>
@@ -658,13 +658,13 @@ function DispositionRowCard({
   return (
     <div className="rounded-md border bg-card p-3">
       <div className="flex items-center gap-2">
-        <span className="text-muted-foreground">{meta.icon}</span>
+        <span className="text-slate-700">{meta.icon}</span>
         <span className="text-sm font-medium">{meta.label}</span>
         <Badge variant="outline" className="ml-auto text-[10px]">
           {count}
         </Badge>
       </div>
-      <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
+      <p className="text-[11px] text-slate-700 mt-1 leading-relaxed">
         {meta.describe}
       </p>
     </div>

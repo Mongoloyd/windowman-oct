@@ -60,11 +60,11 @@ function getReasonConfig(lead: NeedsReviewLead) {
   const configs = {
     no_scan: {
       label: "No Scan",
-      className: "bg-muted/50 text-muted-foreground border-border",
+      className: "bg-white text-slate-950 border-slate-400",
     },
     parse_failed: {
       label: "Parse Failed",
-      className: "bg-destructive/20 text-destructive border-destructive/30",
+      className: "bg-red-100 text-red-950 border-red-300",
     },
     low_confidence: {
       label: `Low Confidence — ${
@@ -72,7 +72,7 @@ function getReasonConfig(lead: NeedsReviewLead) {
           ? Math.round(lead.confidence_score * 100) + "%"
           : "?%"
       }`,
-      className: "bg-amber-500/20 text-amber-400 border-amber-500/30",
+      className: "bg-amber-100 text-amber-950 border-amber-300",
     },
   };
   return configs[lead.review_reason] ?? configs.no_scan;
@@ -158,10 +158,10 @@ export function NeedsReviewTab({ needsReview, isLoading }: NeedsReviewTabProps) 
 
   if (visibleLeads.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-3 py-16 text-muted-foreground">
-        <CheckCircle className="w-10 h-10 text-green-400" />
-        <p className="text-sm font-medium">All scans processed successfully.</p>
-        <p className="text-xs">Failed or missing analyses will appear here.</p>
+      <div className="flex flex-col items-center gap-3 py-16 text-slate-700">
+        <CheckCircle className="w-10 h-10 text-emerald-700" />
+        <p className="text-base font-bold">All scans processed successfully.</p>
+        <p className="text-sm font-semibold">Failed or missing analyses will appear here.</p>
       </div>
     );
   }
@@ -170,10 +170,10 @@ export function NeedsReviewTab({ needsReview, isLoading }: NeedsReviewTabProps) 
 
   return (
     <>
-      <div className="rounded-lg border border-border overflow-hidden">
+      <div className="rounded-lg border border-slate-300 bg-white shadow-sm overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-border bg-muted/30 text-xs uppercase tracking-wide text-muted-foreground">
+            <tr className="border-b border-slate-300 bg-slate-100 text-sm uppercase tracking-wide text-slate-700">
               <th className="px-4 py-3 text-left">Lead</th>
               <th className="px-4 py-3 text-left">Reason</th>
               <th className="px-4 py-3 text-left">Image</th>
@@ -197,26 +197,26 @@ export function NeedsReviewTab({ needsReview, isLoading }: NeedsReviewTabProps) 
               return (
                 <tr
                   key={lead.id}
-                  className="border-b border-border/50 hover:bg-muted/20 transition-colors"
+                  className="min-h-[72px] border-b border-slate-300 bg-white hover:bg-blue-50/60 transition-colors"
                 >
                   {/* Lead */}
                   <td className="px-4 py-3">
-                    <p className="font-medium text-foreground">
+                    <p className="text-base font-black text-slate-950">
                       {[lead.first_name, lead.last_name].filter(Boolean).join(" ") ||
                         `Lead ${lead.id.slice(0, 8)}`}
                     </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
+                    <p className="text-sm font-semibold text-slate-800 mt-0.5">
                       {format(new Date(lead.created_at), "MMM d, yyyy 'at' h:mm a")}
                     </p>
                     {(lead.phone_e164 || lead.email) && (
                       <div className="flex flex-col gap-0.5 mt-1">
                         {lead.phone_e164 && (
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-sm font-medium text-slate-700">
                             {formatPhoneDisplay(stripNonDigits(lead.phone_e164).replace(/^1/, ""))}
                           </span>
                         )}
                         {lead.email && (
-                          <span className="text-xs text-muted-foreground truncate max-w-[160px]" title={lead.email}>
+                          <span className="text-sm font-medium text-slate-700 truncate max-w-[160px]" title={lead.email}>
                             {lead.email}
                           </span>
                         )}
@@ -227,7 +227,7 @@ export function NeedsReviewTab({ needsReview, isLoading }: NeedsReviewTabProps) 
                   {/* Reason Badge */}
                   <td className="px-4 py-3">
                     <span
-                      className={`inline-flex text-xs font-medium px-2 py-0.5 rounded border ${reason.className}`}
+                      className={`inline-flex min-h-8 items-center text-sm font-bold px-2.5 py-1 rounded border shadow-sm ${reason.className}`}
                     >
                       {reason.label}
                     </span>
@@ -245,7 +245,7 @@ export function NeedsReviewTab({ needsReview, isLoading }: NeedsReviewTabProps) 
                       </a>
                     ) : (
                       <div className="w-12 h-12 rounded bg-muted/30 border border-border flex items-center justify-center">
-                        <ImageOff className="w-4 h-4 text-muted-foreground" />
+                        <ImageOff className="w-4 h-4 text-slate-700" />
                       </div>
                     )}
                   </td>
@@ -253,7 +253,7 @@ export function NeedsReviewTab({ needsReview, isLoading }: NeedsReviewTabProps) 
                   {/* Error Note */}
                   <td className="px-4 py-3">
                     <p
-                      className="text-xs text-muted-foreground max-w-[180px] truncate"
+                      className="text-sm font-semibold text-slate-800 max-w-[220px] truncate"
                       title={errorText}
                     >
                       {errorText}
@@ -266,7 +266,7 @@ export function NeedsReviewTab({ needsReview, isLoading }: NeedsReviewTabProps) 
                       <button
                         disabled={isActioning || !lead.latest_scan_session_id}
                         onClick={() => handleRescan(lead)}
-                        className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        className="inline-flex min-h-10 items-center gap-1 px-4 py-2 rounded border-2 border-blue-300 bg-blue-100 text-sm font-extrabold text-blue-950 hover:bg-blue-200 disabled:cursor-not-allowed transition-colors"
                       >
                         {isActioning ? (
                           <Loader2 className="w-3 h-3 animate-spin" />
@@ -287,7 +287,7 @@ export function NeedsReviewTab({ needsReview, isLoading }: NeedsReviewTabProps) 
                             notes: "",
                           });
                         }}
-                        className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded border border-amber-500/30 text-amber-400 hover:bg-amber-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        className="inline-flex min-h-10 items-center gap-1 px-4 py-2 rounded border-2 border-orange-300 bg-orange-100 text-sm font-extrabold text-orange-950 hover:bg-orange-200 disabled:cursor-not-allowed transition-colors"
                       >
                         <PenLine className="w-3 h-3" />
                         Manual Entry
@@ -308,7 +308,7 @@ export function NeedsReviewTab({ needsReview, isLoading }: NeedsReviewTabProps) 
                             setActionInFlight(null);
                           }
                         }}
-                        className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded border border-green-500/30 text-green-400 hover:bg-green-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        className="inline-flex min-h-10 items-center gap-1 px-4 py-2 rounded border-2 border-emerald-300 bg-emerald-100 text-sm font-extrabold text-emerald-950 hover:bg-emerald-200 disabled:cursor-not-allowed transition-colors"
                       >
                         {isActioning ? (
                           <Loader2 className="w-3 h-3 animate-spin" />
@@ -342,7 +342,7 @@ export function NeedsReviewTab({ needsReview, isLoading }: NeedsReviewTabProps) 
 
           <div className="space-y-4 mt-6">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              <label className="text-xs font-extrabold text-slate-700 uppercase tracking-wide">
                 Contractor Name
               </label>
               <Input
@@ -355,7 +355,7 @@ export function NeedsReviewTab({ needsReview, isLoading }: NeedsReviewTabProps) 
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              <label className="text-xs font-extrabold text-slate-700 uppercase tracking-wide">
                 Total Price ($)
               </label>
               <Input
@@ -369,7 +369,7 @@ export function NeedsReviewTab({ needsReview, isLoading }: NeedsReviewTabProps) 
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              <label className="text-xs font-extrabold text-slate-700 uppercase tracking-wide">
                 Product Brand
               </label>
               <Input
@@ -382,7 +382,7 @@ export function NeedsReviewTab({ needsReview, isLoading }: NeedsReviewTabProps) 
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              <label className="text-xs font-extrabold text-slate-700 uppercase tracking-wide">
                 Notes (optional)
               </label>
               <Textarea

@@ -332,7 +332,7 @@ function BoundarySection({
     <AccordionItem value={id} id={id} className="border rounded-lg bg-card">
       <AccordionTrigger className="px-4 hover:no-underline">
         <div className="flex items-center gap-3 text-left">
-          <div className="text-muted-foreground">{icon}</div>
+          <div className="text-slate-700">{icon}</div>
           <div>
             <div className="flex items-center gap-2">
               <span className="font-semibold">{title}</span>
@@ -343,7 +343,7 @@ function BoundarySection({
                 {items.length}
               </Badge>
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5 font-normal">
+            <p className="text-xs text-slate-700 mt-0.5 font-normal">
               {description}
             </p>
           </div>
@@ -357,7 +357,7 @@ function BoundarySection({
               className="rounded-md border bg-muted/30 p-3 text-sm"
             >
               <div className="font-medium">{item.title}</div>
-              <p className="text-muted-foreground text-xs mt-1 leading-relaxed">
+              <p className="text-slate-700 text-xs mt-1 leading-relaxed">
                 {item.detail}
               </p>
               {item.surface && onNavigateTab && (
@@ -551,7 +551,7 @@ export function MinimumViableGovernanceDecisionBoundariesSurface({
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+            <ShieldCheck className="h-4 w-4 text-slate-700" />
             Supporting surfaces
           </CardTitle>
           <CardDescription>
@@ -573,7 +573,7 @@ export function MinimumViableGovernanceDecisionBoundariesSurface({
               </Button>
             ))}
           </div>
-          <p className="text-[11px] text-muted-foreground mt-4 leading-relaxed">
+          <p className="text-[11px] text-slate-700 mt-4 leading-relaxed">
             This surface is read-only operator clarity. It does not enforce
             permissions, persist policy, or approve actions. It reflects
             current repo-real boundaries only.

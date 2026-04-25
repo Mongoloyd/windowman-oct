@@ -59,7 +59,7 @@ export function LeadStatusPanel({ leadId, currentStage }: LeadStatusPanelProps) 
     <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
       <div className="flex items-center justify-between gap-3 mb-3">
         <div className="min-w-0">
-          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-700">
             Workflow
           </p>
           <h3 className="font-display text-lg font-extrabold tracking-tight text-foreground mt-0.5">
@@ -73,7 +73,7 @@ export function LeadStatusPanel({ leadId, currentStage }: LeadStatusPanelProps) 
         </span>
       </div>
 
-      <p className="text-sm text-muted-foreground mb-3">{def.description}</p>
+      <p className="text-sm text-slate-700 mb-3">{def.description}</p>
 
       <div className="flex items-center gap-2">
         <Select value={initial} onValueChange={handleChange} disabled={mutation.isPending}>
@@ -89,7 +89,7 @@ export function LeadStatusPanel({ leadId, currentStage }: LeadStatusPanelProps) 
           </SelectContent>
         </Select>
         {mutation.isPending && (
-          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-label="Saving…" />
+          <Loader2 className="h-4 w-4 animate-spin text-slate-700" aria-label="Saving…" />
         )}
       </div>
 

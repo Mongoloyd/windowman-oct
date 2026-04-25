@@ -127,15 +127,15 @@ function parseQuoteMidpoint(range: string | null | undefined): number {
 }
 
 const HANDOFF_TONE_CLASSES: Record<HandoffTone, string> = {
-  hot: "bg-red-50 border-red-200 text-red-700",
-  warm: "bg-amber-50 border-amber-200 text-amber-700",
-  caution: "bg-sky-50 border-sky-200 text-sky-700",
-  muted: "bg-white border-slate-300 text-slate-700",
+  hot: "bg-red-100 border-red-300 text-red-950",
+  warm: "bg-amber-100 border-amber-300 text-amber-950",
+  caution: "bg-blue-100 border-blue-300 text-blue-950",
+  muted: "bg-white border-slate-400 text-slate-950",
 };
 
 /* ── Helpers ────────────────────────────────────────────────────── */
 const gradeColor = (g: string | null) => {
-  if (!g) return "text-slate-600";
+  if (!g) return "text-slate-700";
   if (g === "A") return "text-emerald-600";
   if (g === "B") return "text-emerald-500";
   if (g === "C") return "text-amber-600";
@@ -154,13 +154,13 @@ const gradeBg = (g: string | null) => {
 
 const statusPill = (status: string) => {
   const map: Record<string, { label: string; classes: string }> = {
-    intro_requested: { label: "New", classes: "bg-sky-100 text-sky-700" },
-    contractor_interested: { label: "Interested", classes: "bg-violet-100 text-violet-700" },
-    homeowner_contact_released: { label: "Released", classes: "bg-emerald-100 text-emerald-700" },
-    closed_won: { label: "Won", classes: "bg-emerald-100 text-emerald-800" },
-    closed_lost: { label: "Lost", classes: "bg-white text-slate-700 border border-slate-300" },
+    intro_requested: { label: "New", classes: "bg-blue-100 text-blue-950 border-blue-300" },
+    contractor_interested: { label: "Interested", classes: "bg-blue-100 text-blue-950 border-blue-300" },
+    homeowner_contact_released: { label: "Released", classes: "bg-emerald-100 text-emerald-950 border-emerald-300" },
+    closed_won: { label: "Won", classes: "bg-emerald-100 text-emerald-950 border-emerald-300" },
+    closed_lost: { label: "Lost", classes: "bg-white text-slate-950 border-slate-400" },
   };
-  const info = map[status] ?? { label: status.replace(/_/g, " "), classes: "bg-white text-slate-700 border border-slate-300" };
+  const info = map[status] ?? { label: status.replace(/_/g, " "), classes: "bg-white text-slate-950 border-slate-400" };
   return (
     <span className={`inline-flex items-center min-h-6 text-xs font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${info.classes}`}>
       {info.label}
@@ -497,7 +497,7 @@ export default function ContractorOpportunitiesPage() {
             <span className="font-semibold">Use Best Unlock</span> to prioritize verified, urgent,
             warm-handoff leads — not just bad competitor quotes.
           </p>
-          <p className="text-sm font-semibold text-slate-600 mt-1">
+          <p className="text-sm font-semibold text-slate-700 mt-1">
             Best Unlock ranks opportunities by buyer seriousness, urgency, handoff warmth, and
             project value.
             {isPreview && (
@@ -535,7 +535,7 @@ export default function ContractorOpportunitiesPage() {
 
           {uniqueCounties.length > 1 && (
             <div className="flex items-center gap-2">
-              <Filter className="h-3.5 w-3.5 text-slate-600" aria-hidden />
+              <Filter className="h-3.5 w-3.5 text-slate-700" aria-hidden />
               <label className="sr-only" htmlFor="county-filter">Filter by county</label>
               <select
                 id="county-filter"
@@ -555,7 +555,7 @@ export default function ContractorOpportunitiesPage() {
           <div className="flex items-center gap-2">
             <label
               htmlFor="sort-mode"
-              className="text-xs font-extrabold uppercase tracking-widest text-slate-600"
+              className="text-xs font-extrabold uppercase tracking-widest text-slate-700"
             >
               Sort
             </label>
@@ -572,7 +572,7 @@ export default function ContractorOpportunitiesPage() {
             </select>
           </div>
 
-          <span className="text-sm font-semibold text-slate-600 sm:ml-auto whitespace-nowrap">
+          <span className="text-sm font-semibold text-slate-700 sm:ml-auto whitespace-nowrap">
             Showing {sortedOpportunities.length} of {totalCount}
           </span>
         </div>
@@ -580,7 +580,7 @@ export default function ContractorOpportunitiesPage() {
         {/* ─── Opportunity List ─────────────────────────────────── */}
         {sortedOpportunities.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 sm:py-20 text-center px-4">
-            <Search className="h-12 w-12 text-slate-600/40 mb-4" aria-hidden />
+            <Search className="h-12 w-12 text-slate-700/40 mb-4" aria-hidden />
             <h3 className="text-lg sm:text-xl font-extrabold text-slate-950 mb-1">
               {totalCount === 0 ? "No opportunities yet" : "No matches for current filters"}
             </h3>
@@ -631,7 +631,7 @@ function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string
         {icon}
       </div>
       <div>
-        <p className="text-xs font-extrabold uppercase tracking-widest text-slate-600">{label}</p>
+        <p className="text-xs font-extrabold uppercase tracking-widest text-slate-700">{label}</p>
         <p className="text-2xl font-black text-slate-950">{value}</p>
       </div>
     </div>
@@ -690,9 +690,9 @@ function OpportunityCard({
 
   const COMPETITION_TONE: Record<CompetitionTone, string> = {
     exclusive: "bg-violet-50 text-violet-700 border-violet-200",
-    warm: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    competitive: "bg-amber-50 text-amber-800 border-amber-200",
-    muted: "bg-white text-slate-700 border border-slate-300 border-slate-300",
+    warm: "bg-emerald-100 text-emerald-950 border-emerald-300",
+    competitive: "bg-amber-100 text-amber-950 border-amber-300",
+    muted: "bg-white text-slate-950 border border-slate-400",
   };
 
   // CTA copy + tone per state (no transactional language unless safely backed)
@@ -707,9 +707,9 @@ function OpportunityCard({
 
   const ctaToneClasses: Record<typeof ctaConfig.tone, string> = {
     primary:
-      "bg-primary text-primary-foreground hover:bg-primary/90 border-primary",
+      "bg-blue-900 text-white hover:bg-blue-800 border-blue-900",
     success:
-      "bg-emerald-600 text-white hover:bg-emerald-700 border-emerald-600",
+      "bg-emerald-900 text-white hover:bg-emerald-800 border-emerald-900",
     muted: "bg-muted text-foreground hover:bg-accent border-slate-300",
     warning:
       "bg-amber-50 text-amber-800 hover:bg-amber-100 border-amber-300",
@@ -742,27 +742,27 @@ function OpportunityCard({
             <div className="mt-1.5 flex items-center gap-2 flex-wrap">
               {bss.label ? (
                 <span
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold bg-primary/10 text-primary border border-primary/20"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold bg-blue-100 text-blue-950 border border-blue-300"
                   aria-label={`Buyer Seriousness Score ${bss.score}, band ${bss.band}`}
                 >
                   <Sparkles className="h-3 w-3" aria-hidden />
                   {bss.label}
                 </span>
               ) : (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-white text-slate-700 border border-slate-300 border">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-white text-slate-950 border border-slate-400 border">
                   BSS —
                 </span>
               )}
               {unlockState === "released" ? (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-emerald-50 border border-emerald-200 text-emerald-700">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-emerald-100 border border-emerald-300 text-emerald-950">
                   <Phone className="h-3 w-3" aria-hidden /> Contact Released
                 </span>
               ) : unlockState === "unlocked" ? (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-emerald-50 border border-emerald-200 text-emerald-700">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-emerald-100 border border-emerald-300 text-emerald-950">
                   <Unlock className="h-3 w-3" aria-hidden /> Unlocked
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-white border border-slate-300 text-slate-700">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-white border border-slate-400 text-slate-950">
                   <Lock className="h-3 w-3" aria-hidden /> Locked
                 </span>
               )}
@@ -784,11 +784,11 @@ function OpportunityCard({
         className="px-4 sm:px-5 py-3 space-y-1.5"
         aria-label="Market facts"
       >
-        <div className="flex items-center gap-1.5 text-xs text-slate-600">
+        <div className="flex items-center gap-1.5 text-xs text-slate-700">
           <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden />
           <span className="truncate text-foreground font-semibold">{locationLabel}</span>
         </div>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-700">
           {opp.window_count != null && (
             <span>
               <span className="text-foreground font-semibold">{opp.window_count}</span> openings
@@ -809,7 +809,7 @@ function OpportunityCard({
             </span>
           )}
         </div>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-600">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-700">
           {freshness && (
             <span className="inline-flex items-center gap-1">
               <Clock className="h-3 w-3" aria-hidden /> {freshness}
@@ -833,17 +833,17 @@ function OpportunityCard({
         className="px-4 sm:px-5 py-3 border-t border-slate-300/60 space-y-2"
         aria-label="Human context"
       >
-        <p className="text-xs font-extrabold uppercase tracking-widest text-slate-600 font-semibold">
+        <p className="text-xs font-extrabold uppercase tracking-widest text-slate-700 font-semibold">
           Human Context
         </p>
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-muted text-foreground border">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-white text-slate-950 border border-slate-400">
             {propertyBadge}
           </span>
-          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-muted text-foreground border">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-white text-slate-950 border border-slate-400">
             {timelineBadge}
           </span>
-          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-muted text-foreground border">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-white text-slate-950 border border-slate-400">
             {motivationBadge}
           </span>
           <span
@@ -871,20 +871,20 @@ function OpportunityCard({
       >
         <div className="rounded-md border border-slate-300/80 bg-card p-3 space-y-1.5">
           <div>
-            <p className="text-xs font-extrabold uppercase tracking-widest text-slate-600 font-semibold">
+            <p className="text-xs font-extrabold uppercase tracking-widest text-slate-700 font-semibold">
               Best Sales Angle
             </p>
             <p className="text-xs font-semibold text-foreground mt-0.5">{angle}</p>
           </div>
           <div>
-            <p className="text-xs font-extrabold uppercase tracking-widest text-slate-600 font-semibold">
+            <p className="text-xs font-extrabold uppercase tracking-widest text-slate-700 font-semibold">
               Recommended Action
             </p>
             <p
               className={`text-xs mt-0.5 ${
                 handoff.isCallReady && !isReportOnly
                   ? "text-foreground font-semibold"
-                  : "text-slate-600 italic"
+                  : "text-slate-700 italic"
               }`}
             >
               {action}
@@ -900,7 +900,7 @@ function OpportunityCard({
       >
         {unlockState === "unlockable" || unlockState === "insufficient" ? (
           <div>
-            <p className="text-xs font-extrabold uppercase tracking-widest text-slate-600 font-semibold mb-1.5">
+            <p className="text-xs font-extrabold uppercase tracking-widest text-slate-700 font-semibold mb-1.5">
               Unlock Includes
             </p>
             <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1">
@@ -918,7 +918,7 @@ function OpportunityCard({
         ) : null}
 
         {unlockState === "unlockable" && (
-          <p className="text-sm text-slate-600">{creditCostLine}</p>
+          <p className="text-sm text-slate-700">{creditCostLine}</p>
         )}
 
         {unlockState === "insufficient" && (
@@ -931,7 +931,7 @@ function OpportunityCard({
         <button
           type="button"
           onClick={() => navigate(opp.dossier_href)}
-          className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-sm font-semibold border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${ctaToneClasses[ctaConfig.tone]}`}
+          className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-sm font-extrabold border-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${ctaToneClasses[ctaConfig.tone]}`}
           aria-label={`${ctaConfig.label} for ${opp.project_type ?? "this opportunity"} in ${locationLabel}`}
         >
           <span>{ctaConfig.label}</span>

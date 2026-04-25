@@ -93,7 +93,7 @@ const KIND_META: Record<FeedEventKind, { label: string; icon: React.ElementType;
   release_requested:       { label: "Release Requested",      icon: ShieldQuestion,tone: "text-amber-600" },
   release_reviewed:        { label: "Release Reviewed",       icon: CheckCircle2,  tone: "text-amber-600" },
   appointment_booked:      { label: "Appointment Booked",     icon: CalendarCheck, tone: "text-emerald-600" },
-  lead_closed:             { label: "Lead Closed",            icon: CheckCircle2,  tone: "text-slate-600" },
+  lead_closed:             { label: "Lead Closed",            icon: CheckCircle2,  tone: "text-slate-700" },
   reactivation_email_sent: { label: "Reactivation Email",     icon: RotateCcw,     tone: "text-amber-600" },
   report_unlocked:         { label: "Report Unlocked",        icon: Unlock,        tone: "text-violet-600" },
 };
@@ -240,8 +240,8 @@ export function MarketOpsFeed({ leads }: Props) {
     <Card>
       <CardHeader className="pb-3 flex flex-row items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2">
-          <Activity className="h-4 w-4 text-muted-foreground" />
-          <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+          <Activity className="h-4 w-4 text-slate-700" />
+          <CardTitle className="text-sm font-medium text-slate-700 uppercase tracking-wider">
             Market Ops Feed
           </CardTitle>
           <Badge variant="outline" className="text-[10px]">
@@ -269,7 +269,7 @@ export function MarketOpsFeed({ leads }: Props) {
             {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
           </div>
         ) : visibleEvents.length === 0 ? (
-          <div className="text-center py-10 text-sm text-muted-foreground">
+          <div className="text-center py-10 text-sm text-slate-700">
             No market activity yet
             {marketFilter !== "all" && ` in ${marketFilter}`}.
           </div>
@@ -286,11 +286,11 @@ export function MarketOpsFeed({ leads }: Props) {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-xs font-semibold">{meta.label}</span>
-                      <span className="text-xs text-muted-foreground">·</span>
+                      <span className="text-xs text-slate-700">·</span>
                       <span className="text-xs font-medium truncate">{e.leadName}</span>
                       {e.contractorName && (
                         <>
-                          <span className="text-xs text-muted-foreground">→</span>
+                          <span className="text-xs text-slate-700">→</span>
                           <span className="text-xs text-cyan-700">{e.contractorName}</span>
                         </>
                       )}
@@ -300,7 +300,7 @@ export function MarketOpsFeed({ leads }: Props) {
                         <MapPin className="h-2.5 w-2.5" />
                         {e.county}
                       </Badge>
-                      <span className="text-[10px] text-muted-foreground font-mono">
+                      <span className="text-[10px] text-slate-700 font-mono">
                         {format(new Date(e.at), "MMM d, h:mm a")}
                       </span>
                     </div>
@@ -311,7 +311,7 @@ export function MarketOpsFeed({ leads }: Props) {
           </ol>
         )}
         {allEvents.length > visibleEvents.length && (
-          <p className="text-[10px] text-muted-foreground text-center mt-3">
+          <p className="text-[10px] text-slate-700 text-center mt-3">
             Showing {visibleEvents.length} of {allEvents.length} most recent market events.
           </p>
         )}

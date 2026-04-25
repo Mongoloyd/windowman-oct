@@ -338,7 +338,7 @@ export function DeadStaleRecoveryWorkflowSurface({ leads, onNavigateTab }: Props
               <LifeBuoy className="h-5 w-5 text-primary" />
               Lifecycle Workflow — Dead · Stale · Recovery
             </h2>
-            <p className="text-xs text-muted-foreground mt-1 max-w-2xl leading-relaxed">
+            <p className="text-xs text-slate-700 mt-1 max-w-2xl leading-relaxed">
               Internal operator surface that hardens manual handling of dead,
               stale, and recovery candidates. All groupings are deterministic
               operator-view derivations from real fields. The canonical{" "}
@@ -373,7 +373,7 @@ export function DeadStaleRecoveryWorkflowSurface({ leads, onNavigateTab }: Props
           <CardTitle className="text-sm flex items-center gap-2">
             <Info className="h-4 w-4" />
             State Definitions
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-normal ml-1">
+            <span className="text-[10px] uppercase tracking-wider text-slate-700 font-normal ml-1">
               current truth
             </span>
             <ChevronRight
@@ -392,7 +392,7 @@ export function DeadStaleRecoveryWorkflowSurface({ leads, onNavigateTab }: Props
               text="Routed and showing recent downstream activity within the last 72h. No terminal signal yet."
             />
             <Definition
-              icon={<Clock className="h-4 w-4 text-muted-foreground" />}
+              icon={<Clock className="h-4 w-4 text-slate-700" />}
               label="Stale"
               text="Routed but no activity for >72h and no terminal signal. Operator-view derivation from route + lead timestamps."
             />
@@ -408,7 +408,7 @@ export function DeadStaleRecoveryWorkflowSurface({ leads, onNavigateTab }: Props
               text="Opportunity exists but the homeowner never phone_verified. Treat as homeowner recovery — see Ghost Recovery."
             />
             <Definition
-              icon={<HelpCircle className="h-4 w-4 text-muted-foreground" />}
+              icon={<HelpCircle className="h-4 w-4 text-slate-700" />}
               label="Ambiguous / Needs Review"
               text="Routed or released >7d ago with no clean downstream signal. Requires operator judgment before any clean label is applied."
             />
@@ -425,7 +425,7 @@ export function DeadStaleRecoveryWorkflowSurface({ leads, onNavigateTab }: Props
           <CardTitle className="text-sm flex items-center gap-2">
             <ListChecks className="h-4 w-4" />
             Queue Snapshot
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-normal ml-1">
+            <span className="text-[10px] uppercase tracking-wider text-slate-700 font-normal ml-1">
               operator view
             </span>
             <ChevronRight
@@ -516,7 +516,7 @@ export function DeadStaleRecoveryWorkflowSurface({ leads, onNavigateTab }: Props
           onClick={() => toggleSection("ambiguous")}
         >
           <CardTitle className="text-sm flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            <AlertTriangle className="h-4 w-4 text-slate-700" />
             Ambiguous / Needs Operator Review
             <Badge variant="outline" className="ml-2 h-5 text-[10px]">
               {ambiguousRows.length}
@@ -527,7 +527,7 @@ export function DeadStaleRecoveryWorkflowSurface({ leads, onNavigateTab }: Props
               }`}
             />
           </CardTitle>
-          <p className="text-[11px] text-muted-foreground mt-1">
+          <p className="text-[11px] text-slate-700 mt-1">
             Leads that do not cleanly belong to active/stale/dead/recovery.
             Open the dossier, then either nudge the right party or apply{" "}
             <code className="px-1 rounded bg-muted text-[10px]">mark_dead</code>{" "}
@@ -537,7 +537,7 @@ export function DeadStaleRecoveryWorkflowSurface({ leads, onNavigateTab }: Props
         {openSection.ambiguous && (
           <CardContent>
             {ambiguousRows.length === 0 ? (
-              <div className="text-xs text-muted-foreground py-6 text-center">
+              <div className="text-xs text-slate-700 py-6 text-center">
                 No ambiguous lifecycle cases right now.
               </div>
             ) : (
@@ -558,7 +558,7 @@ export function DeadStaleRecoveryWorkflowSurface({ leads, onNavigateTab }: Props
                     >
                       <div className="min-w-0">
                         <div className="font-medium truncate">{name}</div>
-                        <div className="text-muted-foreground truncate">
+                        <div className="text-slate-700 truncate">
                           {county} · {r.reason}
                           {ageHours !== null && ` · ${ageHours}h since last activity`}
                         </div>
@@ -588,12 +588,12 @@ export function DeadStaleRecoveryWorkflowSurface({ leads, onNavigateTab }: Props
           onClick={() => toggleSection("notes")}
         >
           <CardTitle className="text-sm flex items-center gap-2">
-            <XCircle className="h-4 w-4 text-muted-foreground" />
+            <XCircle className="h-4 w-4 text-slate-700" />
             Safety Notes / What This Workflow Does Not Do
           </CardTitle>
         </CardHeader>
         {openSection.notes && (
-          <CardContent className="text-xs text-muted-foreground leading-relaxed space-y-2">
+          <CardContent className="text-xs text-slate-700 leading-relaxed space-y-2">
             <p>
               • There is <strong>no automated</strong> dead-marking, recovery
               campaign, reactivation drip, or task queue. Every lifecycle
@@ -670,7 +670,7 @@ function Stat({
       <div className={`text-2xl font-semibold leading-none ${toneCls[tone]}`}>
         {value}
       </div>
-      <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">
+      <div className="text-[10px] uppercase tracking-wider text-slate-700 mt-1">
         {label}
       </div>
     </div>
@@ -700,7 +700,7 @@ function Definition({
           {modeled ? "modeled" : "operator view"}
         </Badge>
       </div>
-      <p className="text-xs text-muted-foreground leading-relaxed">{text}</p>
+      <p className="text-xs text-slate-700 leading-relaxed">{text}</p>
     </div>
   );
 }
@@ -720,7 +720,7 @@ function ActionRow({
     <div className="flex items-start justify-between gap-3 rounded-md border bg-card px-3 py-2">
       <div className="min-w-0">
         <div className="text-sm font-medium">{label}</div>
-        <div className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+        <div className="text-[11px] text-slate-700 mt-0.5 leading-relaxed">
           {when}
         </div>
       </div>

@@ -285,7 +285,7 @@ export function PilotOpsLaunchControl({ leads, onNavigateTab }: Props) {
               Internal operator use
             </Badge>
           </div>
-          <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+          <p className="text-xs text-slate-700 mt-1.5 leading-relaxed">
             One internal surface to run the first contractor pilot. Prioritized
             queues, daily checklist, and an operator playbook — all derived
             from repo-real lead state. Nothing here mutates leads automatically.
@@ -299,7 +299,7 @@ export function PilotOpsLaunchControl({ leads, onNavigateTab }: Props) {
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-amber-600" />
-              <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+              <CardTitle className="text-sm font-medium text-slate-700 uppercase tracking-wider">
                 Now / Needs Action
               </CardTitle>
             </div>
@@ -307,14 +307,14 @@ export function PilotOpsLaunchControl({ leads, onNavigateTab }: Props) {
               {view.needsAction.length} surfaced
             </Badge>
           </div>
-          <p className="text-[11px] text-muted-foreground mt-1">
+          <p className="text-[11px] text-slate-700 mt-1">
             Top of the pile — operator-view derivation from repo-real lead
             state. Showing up to 8.
           </p>
         </CardHeader>
         <CardContent>
           {view.needsAction.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-6">
+            <p className="text-sm text-slate-700 text-center py-6">
               Nothing urgent right now. Check back as new leads come in.
             </p>
           ) : (
@@ -387,19 +387,19 @@ export function PilotOpsLaunchControl({ leads, onNavigateTab }: Props) {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
-            <RefreshCw className="h-4 w-4 text-muted-foreground" />
-            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+            <RefreshCw className="h-4 w-4 text-slate-700" />
+            <CardTitle className="text-sm font-medium text-slate-700 uppercase tracking-wider">
               Stale / Recovery Candidates
             </CardTitle>
           </div>
-          <p className="text-[11px] text-muted-foreground mt-1">
+          <p className="text-[11px] text-slate-700 mt-1">
             Verified leads whose last activity is &gt;{STALE_HOURS}h old and
             never reached a routed-and-booked state. Showing up to 6.
           </p>
         </CardHeader>
         <CardContent>
           {view.staleRecovery.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-6">
+            <p className="text-sm text-slate-700 text-center py-6">
               No stale recovery candidates right now.
             </p>
           ) : (
@@ -417,8 +417,8 @@ export function PilotOpsLaunchControl({ leads, onNavigateTab }: Props) {
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <div className="flex items-center gap-2">
-              <ListChecks className="h-4 w-4 text-muted-foreground" />
-              <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+              <ListChecks className="h-4 w-4 text-slate-700" />
+              <CardTitle className="text-sm font-medium text-slate-700 uppercase tracking-wider">
                 Daily Pilot Checklist
               </CardTitle>
             </div>
@@ -436,7 +436,7 @@ export function PilotOpsLaunchControl({ leads, onNavigateTab }: Props) {
               </Button>
             </div>
           </div>
-          <p className="text-[11px] text-muted-foreground mt-1">
+          <p className="text-[11px] text-slate-700 mt-1">
             Local-only convenience (resets per browser session). Not stored on
             the server.
           </p>
@@ -470,13 +470,13 @@ export function PilotOpsLaunchControl({ leads, onNavigateTab }: Props) {
                   <div className="min-w-0">
                     <p
                       className={`text-sm font-medium ${
-                        isChecked ? "text-muted-foreground line-through" : ""
+                        isChecked ? "text-slate-700 line-through" : ""
                       }`}
                     >
                       {item.label}
                     </p>
                     {item.hint && (
-                      <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                      <p className="text-[11px] text-slate-700 mt-0.5 leading-relaxed">
                         {item.hint}
                       </p>
                     )}
@@ -492,12 +492,12 @@ export function PilotOpsLaunchControl({ leads, onNavigateTab }: Props) {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-muted-foreground" />
-            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+            <Sparkles className="h-4 w-4 text-slate-700" />
+            <CardTitle className="text-sm font-medium text-slate-700 uppercase tracking-wider">
               Operator Playbook — Next Actions by State
             </CardTitle>
           </div>
-          <p className="text-[11px] text-muted-foreground mt-1">
+          <p className="text-[11px] text-slate-700 mt-1">
             Honest, current-state guidance. No automation, no promises beyond
             what the system does today.
           </p>
@@ -536,7 +536,7 @@ export function PilotOpsLaunchControl({ leads, onNavigateTab }: Props) {
             />
           </div>
 
-          <div className="mt-4 rounded-lg border border-border bg-muted/30 p-3 text-[11px] text-muted-foreground leading-relaxed">
+          <div className="mt-4 rounded-lg border border-border bg-muted/30 p-3 text-[11px] text-slate-700 leading-relaxed">
             <strong className="text-foreground">What to tell the contractor today:</strong>{" "}
             We are running a hands-on pilot. Leads are operator-reviewed before
             routing. Homeowner contact is released through the Routing Desk
@@ -550,12 +550,12 @@ export function PilotOpsLaunchControl({ leads, onNavigateTab }: Props) {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
-            <Copy className="h-4 w-4 text-muted-foreground" />
-            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+            <Copy className="h-4 w-4 text-slate-700" />
+            <CardTitle className="text-sm font-medium text-slate-700 uppercase tracking-wider">
               Operator Script Snippets
             </CardTitle>
           </div>
-          <p className="text-[11px] text-muted-foreground mt-1">
+          <p className="text-[11px] text-slate-700 mt-1">
             Copy-to-clipboard SOP snippets. Adjust before sending.
           </p>
         </CardHeader>
@@ -568,7 +568,7 @@ export function PilotOpsLaunchControl({ leads, onNavigateTab }: Props) {
               >
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold">{s.label}</p>
-                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  <p className="text-xs text-slate-700 mt-1 leading-relaxed">
                     {s.body}
                   </p>
                 </div>
@@ -591,12 +591,12 @@ export function PilotOpsLaunchControl({ leads, onNavigateTab }: Props) {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
-            <ExternalLink className="h-4 w-4 text-muted-foreground" />
-            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+            <ExternalLink className="h-4 w-4 text-slate-700" />
+            <CardTitle className="text-sm font-medium text-slate-700 uppercase tracking-wider">
               Quick Links
             </CardTitle>
           </div>
-          <p className="text-[11px] text-muted-foreground mt-1">
+          <p className="text-[11px] text-slate-700 mt-1">
             Jump to existing admin surfaces. Read-only navigation aid.
           </p>
         </CardHeader>
@@ -649,7 +649,7 @@ function NeedsActionRow({ lead }: { lead: CRMLead }) {
             {reason.label}
           </Badge>
         </div>
-        <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+        <p className="text-[11px] text-slate-700 mt-0.5 truncate">
           {lead.county || "Unknown county"} ·{" "}
           {ageHrs !== null ? `updated ${ageHrs.toFixed(0)}h ago` : "—"}
           {lead.grade ? ` · grade ${lead.grade}` : ""}
@@ -667,7 +667,7 @@ function StaleRow({ lead }: { lead: CRMLead }) {
     <div className="px-3 py-2.5 bg-card flex items-center justify-between gap-3">
       <div className="min-w-0">
         <p className="text-sm font-medium truncate">{name}</p>
-        <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+        <p className="text-[11px] text-slate-700 mt-0.5 truncate">
           {lead.county || "Unknown county"} ·{" "}
           {ageHrs !== null ? `${ageHrs.toFixed(0)}h since last activity` : "—"}
         </p>
@@ -703,16 +703,16 @@ function SnapshotTile({
       className={`rounded-lg border p-3 flex flex-col gap-1 ${accentClasses[accent]}`}
     >
       <div className="flex items-center justify-between gap-2">
-        <Icon className="h-4 w-4 text-muted-foreground" />
+        <Icon className="h-4 w-4 text-slate-700" />
         <span className="text-2xl font-bold tabular-nums leading-none">
           {value}
         </span>
       </div>
-      <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
+      <p className="text-[10px] uppercase tracking-wide text-slate-700 font-semibold">
         {label}
       </p>
       {hint && (
-        <p className="text-[10px] text-muted-foreground leading-snug">{hint}</p>
+        <p className="text-[10px] text-slate-700 leading-snug">{hint}</p>
       )}
     </div>
   );
@@ -730,11 +730,11 @@ function PlaybookRow({
   return (
     <div className="rounded-lg border border-border bg-card p-3">
       <p className="text-sm font-semibold">{title}</p>
-      <p className="text-[11px] text-muted-foreground mt-1">
+      <p className="text-[11px] text-slate-700 mt-1">
         <span className="font-semibold text-foreground/70">When: </span>
         {when}
       </p>
-      <p className="text-[11px] text-muted-foreground mt-1">
+      <p className="text-[11px] text-slate-700 mt-1">
         <span className="font-semibold text-foreground/70">Do: </span>
         {action}
       </p>

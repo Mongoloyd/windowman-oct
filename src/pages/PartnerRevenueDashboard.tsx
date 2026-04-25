@@ -109,12 +109,12 @@ const DISPOSITION_LABEL: Record<Disposition, string> = {
 };
 
 const DISPOSITION_COLOR: Record<Disposition, string> = {
-  new: "bg-slate-100 text-slate-700 border-slate-200",
-  attempting_contact: "bg-amber-50 text-amber-800 border-amber-200",
-  meeting_scheduled: "bg-sky-50 text-sky-800 border-sky-200",
-  quote_delivered: "bg-violet-50 text-violet-800 border-violet-200",
-  sold_closed: "bg-emerald-50 text-emerald-800 border-emerald-200",
-  lost_dead: "bg-rose-50 text-rose-800 border-rose-200",
+  new: "bg-white text-slate-950 border-slate-400",
+  attempting_contact: "bg-amber-100 text-amber-950 border-amber-300",
+  meeting_scheduled: "bg-blue-100 text-blue-950 border-blue-300",
+  quote_delivered: "bg-blue-100 text-blue-950 border-blue-300",
+  sold_closed: "bg-emerald-100 text-emerald-950 border-emerald-300",
+  lost_dead: "bg-red-100 text-red-950 border-red-300",
 };
 
 // "Needs touch" threshold for the active-leads KPI: an active lead whose last
@@ -210,14 +210,14 @@ function KpiCard({
         highlight && "border-sky-300 bg-sky-50/40",
       )}
     >
-      <span className="text-xs font-extrabold uppercase tracking-wide text-slate-600">
+      <span className="text-sm font-extrabold uppercase tracking-wide text-slate-700">
         {label}
       </span>
-      <span className="text-2xl sm:text-3xl font-black tracking-tight tabular-nums text-slate-950">
+      <span className="text-3xl font-black tracking-tight tabular-nums text-slate-950">
         {value}
       </span>
       {hint && (
-        <span className="text-sm font-medium text-slate-600 leading-tight">
+        <span className="text-sm font-medium text-slate-700 leading-tight">
           {hint}
         </span>
       )}
@@ -237,7 +237,7 @@ function LeadHoverCard({ row }: { row: OutcomeRow }) {
           <div className="min-w-0">
             <div className="font-semibold truncate">{displayName(row)}</div>
             {locationLabel(row) && (
-              <div className="text-sm font-medium text-slate-600">
+              <div className="text-sm font-medium text-slate-700">
                 {locationLabel(row)}
               </div>
             )}
@@ -253,13 +253,13 @@ function LeadHoverCard({ row }: { row: OutcomeRow }) {
         <div className="grid grid-cols-2 gap-2 text-xs">
           {row.grade && (
             <div>
-              <div className="text-sm font-semibold text-slate-600">Grade</div>
+              <div className="text-sm font-semibold text-slate-700">Grade</div>
               <div className="font-semibold">{row.grade}</div>
             </div>
           )}
           {(row.red_flag_count ?? 0) + (row.amber_flag_count ?? 0) > 0 && (
             <div>
-              <div className="text-sm font-semibold text-slate-600">Flags</div>
+              <div className="text-sm font-semibold text-slate-700">Flags</div>
               <div className="font-semibold flex items-center gap-1">
                 {(row.red_flag_count ?? 0) > 0 && (
                   <span className="text-rose-600">
@@ -276,13 +276,13 @@ function LeadHoverCard({ row }: { row: OutcomeRow }) {
           )}
           {row.quote_range && (
             <div className="col-span-2">
-              <div className="text-sm font-semibold text-slate-600">Quote range</div>
+              <div className="text-sm font-semibold text-slate-700">Quote range</div>
               <div className="font-semibold truncate">{row.quote_range}</div>
             </div>
           )}
           {row.projected_value_cents != null && (
             <div>
-              <div className="text-sm font-semibold text-slate-600">Projected</div>
+              <div className="text-sm font-semibold text-slate-700">Projected</div>
               <div className="font-semibold tabular-nums">
                 {formatCents(row.projected_value_cents)}
               </div>
@@ -290,7 +290,7 @@ function LeadHoverCard({ row }: { row: OutcomeRow }) {
           )}
           {row.final_value_cents != null && (
             <div>
-              <div className="text-sm font-semibold text-slate-600">Final</div>
+              <div className="text-sm font-semibold text-slate-700">Final</div>
               <div className="font-semibold tabular-nums text-emerald-700">
                 {formatCents(row.final_value_cents)}
               </div>
@@ -299,7 +299,7 @@ function LeadHoverCard({ row }: { row: OutcomeRow }) {
         </div>
 
         <div className="flex items-center justify-between gap-2 pt-1 border-t">
-          <span className="text-xs font-semibold text-slate-600">
+          <span className="text-sm font-semibold text-slate-700">
             Last action {lastActionAge(row)}
           </span>
           {dossierHref && (
@@ -307,7 +307,7 @@ function LeadHoverCard({ row }: { row: OutcomeRow }) {
               asChild
               size="sm"
               variant="default"
-              className="h-7 px-2 text-xs"
+              className="min-h-10 px-3 text-sm font-extrabold border border-blue-900 bg-blue-900 text-white hover:bg-blue-800"
             >
               <Link to={dossierHref}>
                 Open <ArrowUpRight className="ml-1 h-3 w-3" />
@@ -331,13 +331,13 @@ function LeadCard({ row }: { row: OutcomeRow }) {
         <div className="min-w-0 flex-1">
           <div className="text-sm font-extrabold text-slate-950 truncate">{displayName(row)}</div>
           {locationLabel(row) && (
-            <div className="text-xs font-semibold text-slate-600 truncate">
+            <div className="text-xs font-semibold text-slate-700 truncate">
               {locationLabel(row)}
             </div>
           )}
         </div>
         {row.grade && (
-          <span className="text-[10px] font-bold text-slate-600 shrink-0">
+          <span className="text-sm font-extrabold text-slate-700 shrink-0">
             {row.grade}
           </span>
         )}
@@ -346,7 +346,7 @@ function LeadCard({ row }: { row: OutcomeRow }) {
         <Badge
           variant="outline"
           className={cn(
-            "text-[11px] font-extrabold py-0.5 px-2 border",
+            "text-sm font-extrabold py-1 px-2.5 border",
             DISPOSITION_COLOR[row.disposition_state],
           )}
         >
@@ -635,18 +635,18 @@ export default function PartnerRevenueDashboard() {
                     <div className="flex items-baseline justify-between">
                       <span
                         className={cn(
-                          "text-xs font-extrabold uppercase tracking-wide",
-                          isToday ? "text-sky-700" : "text-slate-600",
+                          "text-sm font-extrabold uppercase tracking-wide",
+                          isToday ? "text-sky-700" : "text-slate-700",
                         )}
                       >
                         {format(day, "EEE")}
                       </span>
-                      <span className="text-xs font-semibold text-slate-600 tabular-nums">
+                      <span className="text-xs font-semibold text-slate-700 tabular-nums">
                         {format(day, "MMM d")}
                       </span>
                     </div>
                     {dayRows.length === 0 ? (
-                      <div className="flex-1 flex items-center justify-center text-xs font-semibold text-slate-600/60">
+                      <div className="flex-1 flex items-center justify-center text-xs font-semibold text-slate-700/60">
                         —
                       </div>
                     ) : (
@@ -684,9 +684,9 @@ export default function PartnerRevenueDashboard() {
             </div>
           ) : pipeline.length === 0 ? (
             <div className="rounded-lg border border-dashed bg-card p-8 flex flex-col items-center text-center gap-2">
-              <Inbox className="h-8 w-8 text-muted-foreground/50" aria-hidden />
+              <Inbox className="h-8 w-8 text-slate-700" aria-hidden />
               <div className="text-sm font-medium">No active leads</div>
-              <p className="text-sm font-medium text-slate-600 max-w-sm">
+              <p className="text-sm font-medium text-slate-700 max-w-sm">
                 Once you start working leads from the Opportunity Market, they
                 will appear here grouped by status.
               </p>
@@ -728,14 +728,14 @@ export default function PartnerRevenueDashboard() {
                       return (
                         <tr
                           key={r.outcome_id}
-                          className="border-t hover:bg-muted/30 transition"
+                          className="min-h-[72px] border-t border-slate-300 bg-white hover:bg-blue-50/60 transition"
                         >
                           <td className="px-3 py-2">
-                            <div className="font-medium truncate">
+                            <div className="text-base font-black text-slate-950 truncate">
                               {displayName(r)}
                             </div>
                             {r.grade && (
-                              <div className="text-xs font-semibold text-slate-600">
+                              <div className="text-sm font-semibold text-slate-700">
                                 Grade {r.grade}
                               </div>
                             )}
@@ -754,16 +754,16 @@ export default function PartnerRevenueDashboard() {
                               {DISPOSITION_LABEL[r.disposition_state]}
                             </Badge>
                           </td>
-                          <td className="px-3 py-2 text-sm font-medium text-slate-600 hidden lg:table-cell">
+                          <td className="px-3 py-2 text-sm font-medium text-slate-700 hidden lg:table-cell">
                             <span className="inline-flex items-center gap-1">
                               <Clock className="h-3 w-3" aria-hidden />
                               {lastActionAge(r)}
                             </span>
                           </td>
-                          <td className="px-3 py-2 text-right tabular-nums hidden sm:table-cell">
+                          <td className="px-3 py-3 text-right tabular-nums text-sm font-bold text-slate-900 hidden sm:table-cell">
                             {formatCents(r.projected_value_cents)}
                           </td>
-                          <td className="px-3 py-2 text-right tabular-nums text-emerald-700 hidden sm:table-cell">
+                          <td className="px-3 py-3 text-right tabular-nums text-sm font-bold text-emerald-800 hidden sm:table-cell">
                             {formatCents(r.final_value_cents)}
                           </td>
                           <td className="px-3 py-2 text-right">

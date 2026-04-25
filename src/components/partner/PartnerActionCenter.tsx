@@ -52,12 +52,12 @@ const STATE_LABELS: Record<DispositionState, string> = {
 };
 
 const STATE_PILL_CLASSES: Record<DispositionState, string> = {
-  new: "bg-sky-100 text-sky-700 border-sky-200",
-  attempting_contact: "bg-amber-100 text-amber-700 border-amber-200",
-  meeting_scheduled: "bg-violet-100 text-violet-700 border-violet-200",
-  quote_delivered: "bg-indigo-100 text-indigo-700 border-indigo-200",
-  sold_closed: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  lost_dead: "bg-muted text-muted-foreground border-border",
+  new: "bg-blue-100 text-blue-950 border-blue-300",
+  attempting_contact: "bg-amber-100 text-amber-950 border-amber-300",
+  meeting_scheduled: "bg-blue-100 text-blue-950 border-blue-300",
+  quote_delivered: "bg-blue-100 text-blue-950 border-blue-300",
+  sold_closed: "bg-emerald-100 text-emerald-950 border-emerald-300",
+  lost_dead: "bg-white text-slate-950 border-slate-400",
 };
 
 const REASON_LABELS: Record<DispositionReasonCode, string> = {
@@ -150,25 +150,25 @@ export function PartnerActionCenter({
         {/* ── Left: status pill + last action ── */}
         <div className="flex items-center gap-3 min-w-0">
           <div className="flex flex-col gap-1 min-w-0">
-            <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground font-semibold">
+            <p className="text-xs uppercase tracking-[0.12em] text-slate-700 font-extrabold">
               CRM Status
             </p>
             <div className="flex items-center gap-2 flex-wrap">
               <span
-                className={`inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border ${STATE_PILL_CLASSES[currentState]}`}
+                className={`inline-flex items-center gap-1.5 text-sm font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full border ${STATE_PILL_CLASSES[currentState]}`}
               >
                 {STATE_LABELS[currentState]}
               </span>
-              <span className="text-[11px] text-muted-foreground font-mono">
+              <span className="text-sm text-slate-700 font-bold font-mono">
                 {formatRelative(outcome?.last_partner_action_at ?? null)}
               </span>
               {isPreview && (
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                <span className="text-xs uppercase tracking-wider text-slate-950 bg-white border border-slate-400 px-1.5 py-0.5 rounded">
                   Demo
                 </span>
               )}
               {!isPreview && isLocked && (
-                <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                <span className="inline-flex items-center gap-1 text-xs uppercase tracking-wider text-slate-950 bg-white border border-slate-400 px-1.5 py-0.5 rounded">
                   <Lock className="h-2.5 w-2.5" /> Locked
                 </span>
               )}
@@ -185,7 +185,7 @@ export function PartnerActionCenter({
                 type="button"
                 onClick={() => setShowAdvance((v) => !v)}
                 disabled={!canMutate || submitting || isTerminal}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold border bg-card hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="inline-flex items-center gap-1.5 min-h-10 px-4 py-2 rounded-md text-sm font-extrabold border border-slate-300 bg-white text-slate-950 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed transition-colors"
               >
                 Advance Status <ChevronDown className="h-3 w-3" />
               </button>
@@ -220,7 +220,7 @@ export function PartnerActionCenter({
                 setShowSold(true);
               }}
               disabled={submitting}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+              className="inline-flex items-center gap-1.5 min-h-10 px-4 py-2 rounded-md text-sm font-extrabold border border-emerald-900 bg-emerald-900 text-white hover:bg-emerald-800 disabled:cursor-not-allowed transition-colors shadow-sm"
             >
               <CheckCircle2 className="h-3.5 w-3.5" /> Mark Sold
             </button>
@@ -237,14 +237,14 @@ export function PartnerActionCenter({
                 setShowLost(true);
               }}
               disabled={submitting}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold border border-border bg-card text-muted-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="inline-flex items-center gap-1.5 min-h-10 px-4 py-2 rounded-md text-sm font-extrabold border border-slate-300 bg-white text-slate-950 hover:bg-slate-50 disabled:cursor-not-allowed transition-colors"
             >
               <XCircle className="h-3.5 w-3.5" /> Mark Lost
             </button>
           )}
 
           {isTerminal && (
-            <span className="text-[11px] text-muted-foreground italic">
+            <span className="text-sm text-slate-700 font-semibold italic">
               Outcome closed — no further actions.
             </span>
           )}
@@ -253,12 +253,12 @@ export function PartnerActionCenter({
 
       {/* ── Inline notes ── */}
       {!isPreview && isLocked && !isTerminal && (
-        <p className="mt-3 text-[11px] text-muted-foreground bg-muted/40 border border-border rounded px-2 py-1.5">
+        <p className="mt-3 text-sm font-semibold text-slate-700 bg-slate-50 border border-slate-300 rounded px-2 py-1.5">
           Unlock the lead to enable CRM status updates.
         </p>
       )}
       {isPreview && (
-        <p className="mt-3 text-[11px] text-muted-foreground bg-muted/40 border border-border rounded px-2 py-1.5">
+        <p className="mt-3 text-sm font-semibold text-slate-700 bg-slate-50 border border-slate-300 rounded px-2 py-1.5">
           CRM updates are available on live unlocked leads.
         </p>
       )}
@@ -359,7 +359,7 @@ function SoldModal({
         </div>
 
         <div className="space-y-1">
-          <label htmlFor="final-value" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <label htmlFor="final-value" className="text-xs font-extrabold uppercase tracking-wider text-slate-700">
             Final Contract Value (USD) <span className="text-destructive">*</span>
           </label>
           <input
@@ -377,7 +377,7 @@ function SoldModal({
         </div>
 
         <div className="space-y-1">
-          <label htmlFor="projected-value" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <label htmlFor="projected-value" className="text-xs font-extrabold uppercase tracking-wider text-slate-700">
             Projected Value (optional)
           </label>
           <input
@@ -394,7 +394,7 @@ function SoldModal({
         </div>
 
         <div className="space-y-1">
-          <label htmlFor="sold-notes" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <label htmlFor="sold-notes" className="text-xs font-extrabold uppercase tracking-wider text-slate-700">
             Notes (optional)
           </label>
           <textarea
@@ -408,15 +408,15 @@ function SoldModal({
         </div>
 
         <div className="space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <p className="text-xs font-extrabold uppercase tracking-wider text-slate-700">
             Signed Contract (optional)
           </p>
           <div className="flex flex-col items-center justify-center gap-1.5 px-3 py-4 rounded-md border-2 border-dashed border-border bg-muted/30 text-center">
-            <Upload className="h-4 w-4 text-muted-foreground" />
-            <p className="text-[11px] text-muted-foreground">
+            <Upload className="h-4 w-4 text-slate-700" />
+            <p className="text-[11px] text-slate-700">
               Proof upload coming soon
             </p>
-            <p className="text-[10px] text-muted-foreground/70">
+            <p className="text-[10px] text-slate-700">
               You can mark Sold without proof for now.
             </p>
           </div>
@@ -434,14 +434,14 @@ function SoldModal({
             type="button"
             onClick={onCancel}
             disabled={submitting}
-            className="px-3 py-1.5 rounded-md text-xs font-semibold text-muted-foreground hover:bg-muted transition-colors"
+            className="min-h-10 px-4 py-2 rounded-md text-sm font-extrabold text-slate-700 border border-slate-300 bg-white hover:bg-muted transition-colors"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={submitting}
-            className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-md text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors shadow-sm"
+            className="inline-flex items-center gap-1.5 min-h-10 px-4 py-2 rounded-md text-sm font-extrabold border bg-emerald-900 text-white hover:bg-emerald-800 transition-colors shadow-sm"
           >
             {submitting ? (
               <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving…</>
@@ -506,12 +506,12 @@ function LostModal({
         className="w-full max-w-md rounded-xl border bg-card p-5 shadow-xl space-y-4"
       >
         <div className="flex items-center gap-2">
-          <XCircle className="h-5 w-5 text-muted-foreground" />
+          <XCircle className="h-5 w-5 text-slate-700" />
           <h3 className="text-base font-bold">Mark as Lost</h3>
         </div>
 
         <div className="space-y-1">
-          <label htmlFor="lost-reason" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <label htmlFor="lost-reason" className="text-xs font-extrabold uppercase tracking-wider text-slate-700">
             Reason <span className="text-destructive">*</span>
           </label>
           <select
@@ -531,7 +531,7 @@ function LostModal({
         </div>
 
         <div className="space-y-1">
-          <label htmlFor="lost-notes" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <label htmlFor="lost-notes" className="text-xs font-extrabold uppercase tracking-wider text-slate-700">
             What happened? <span className="text-destructive">*</span>
           </label>
           <textarea
@@ -543,7 +543,7 @@ function LostModal({
             placeholder="Describe what happened with this lead (required)…"
             className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
           />
-          <p className="text-[10px] text-muted-foreground">
+          <p className="text-[10px] text-slate-700">
             A typed explanation is required so we can learn from lost deals.
           </p>
         </div>
@@ -560,14 +560,14 @@ function LostModal({
             type="button"
             onClick={onCancel}
             disabled={submitting}
-            className="px-3 py-1.5 rounded-md text-xs font-semibold text-muted-foreground hover:bg-muted transition-colors"
+            className="min-h-10 px-4 py-2 rounded-md text-sm font-extrabold text-slate-700 border border-slate-300 bg-white hover:bg-muted transition-colors"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={submitting}
-            className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-md text-xs font-semibold bg-foreground text-background hover:bg-foreground/90 disabled:opacity-50 transition-colors"
+            className="inline-flex items-center gap-1.5 min-h-10 px-4 py-2 rounded-md text-sm font-extrabold border bg-foreground text-background hover:bg-foreground/90 disabled:opacity-100 transition-colors"
           >
             {submitting ? (
               <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving…</>

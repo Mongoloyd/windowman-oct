@@ -263,7 +263,7 @@ export function ContractorOnboardingSurface({ onNavigateTab }: Props) {
               <Building2 className="h-5 w-5 text-primary" />
               Contractor Onboarding
             </h2>
-            <p className="text-xs text-muted-foreground mt-1 max-w-2xl leading-relaxed">
+            <p className="text-xs text-slate-700 mt-1 max-w-2xl leading-relaxed">
               Internal operator surface to manage one contractor account cleanly and
               prepare the system for onboarding a second contractor later. All
               displayed data is repo-real or clearly labeled operator-view.
@@ -279,8 +279,8 @@ export function ContractorOnboardingSurface({ onNavigateTab }: Props) {
       {sortedContractors.length === 0 ? (
         <Card>
           <CardContent className="py-10 text-center">
-            <Building2 className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
-            <p className="text-sm text-muted-foreground">
+            <Building2 className="mx-auto h-10 w-10 text-slate-700 mb-3" />
+            <p className="text-sm text-slate-700">
               No contractors found in the marketplace registry yet.
             </p>
           </CardContent>
@@ -304,7 +304,7 @@ export function ContractorOnboardingSurface({ onNavigateTab }: Props) {
                     className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${
                       isActive
                         ? "border-primary bg-primary/10 text-foreground"
-                        : "border-border bg-background hover:bg-muted/40 text-muted-foreground"
+                        : "border-border bg-background hover:bg-muted/40 text-slate-700"
                     }`}
                   >
                     {c.company_name}
@@ -348,7 +348,7 @@ export function ContractorOnboardingSurface({ onNavigateTab }: Props) {
               <ProfileField
                 label="Contractor ID"
                 value={
-                  <code className="text-[11px] font-mono text-muted-foreground">
+                  <code className="text-[11px] font-mono text-slate-700">
                     {activeContractor.id}
                   </code>
                 }
@@ -363,7 +363,7 @@ export function ContractorOnboardingSurface({ onNavigateTab }: Props) {
                 <Send className="h-4 w-4" />
                 Handoff Contact Details
               </CardTitle>
-              <p className="text-[11px] text-muted-foreground mt-1">
+              <p className="text-[11px] text-slate-700 mt-1">
                 What the operator uses when routing a lead to this contractor today.
               </p>
             </CardHeader>
@@ -394,7 +394,7 @@ export function ContractorOnboardingSurface({ onNavigateTab }: Props) {
               {handoff.missing.length > 0 && (
                 <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 flex items-start gap-2">
                   <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-slate-700">
                     <span className="font-semibold text-amber-700 dark:text-amber-400">
                       Missing handoff info:
                     </span>{" "}
@@ -411,11 +411,11 @@ export function ContractorOnboardingSurface({ onNavigateTab }: Props) {
               <CardTitle className="text-sm flex items-center gap-2">
                 <MapPin className="h-4 w-4" />
                 Observed Coverage{" "}
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-normal">
+                <span className="text-[10px] uppercase tracking-wider text-slate-700 font-normal">
                   (operator view)
                 </span>
               </CardTitle>
-              <p className="text-[11px] text-muted-foreground mt-1">
+              <p className="text-[11px] text-slate-700 mt-1">
                 Counties derived from opportunities actually routed to this
                 contractor. Contractor-declared service area is not separately
                 modeled in the current admin read.
@@ -442,7 +442,7 @@ export function ContractorOnboardingSurface({ onNavigateTab }: Props) {
                   )}
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground italic">
+                <p className="text-xs text-slate-700 italic">
                   No routed opportunities observed for this contractor yet.
                 </p>
               )}
@@ -457,7 +457,7 @@ export function ContractorOnboardingSurface({ onNavigateTab }: Props) {
                 Routing Assumptions · Current System
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2 text-xs leading-relaxed text-muted-foreground">
+            <CardContent className="space-y-2 text-xs leading-relaxed text-slate-700">
               <Assumption>
                 Routing is <span className="text-foreground">operator-controlled</span>{" "}
                 today via the Routing Desk. There is no automated round-robin or
@@ -494,7 +494,7 @@ export function ContractorOnboardingSurface({ onNavigateTab }: Props) {
                   <ListChecks className="h-4 w-4" />
                   Onboarding Readiness
                 </CardTitle>
-                <p className="text-[11px] text-muted-foreground mt-1">
+                <p className="text-[11px] text-slate-700 mt-1">
                   Local-only · stored in this browser session. Not saved to the
                   backend.
                 </p>
@@ -518,19 +518,19 @@ export function ContractorOnboardingSurface({ onNavigateTab }: Props) {
                   >
                     <CheckCircle2
                       className={`h-4 w-4 mt-0.5 shrink-0 ${
-                        done ? "text-emerald-600" : "text-muted-foreground/40"
+                        done ? "text-emerald-600" : "text-slate-700"
                       }`}
                     />
                     <div className="min-w-0">
                       <p
                         className={`text-xs font-medium ${
-                          done ? "line-through text-muted-foreground" : "text-foreground"
+                          done ? "line-through text-slate-700" : "text-foreground"
                         }`}
                       >
                         {item.label}
                       </p>
                       {item.hint && (
-                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                        <p className="text-[11px] text-slate-700 mt-0.5">
                           {item.hint}
                         </p>
                       )}
@@ -548,13 +548,13 @@ export function ContractorOnboardingSurface({ onNavigateTab }: Props) {
                 <ShieldCheck className="h-4 w-4" />
                 Operator Handoff Snippet
               </CardTitle>
-              <p className="text-[11px] text-muted-foreground mt-1">
+              <p className="text-[11px] text-slate-700 mt-1">
                 Reusable internal note when handing a lead to {activeContractor.company_name}.
               </p>
             </CardHeader>
             <CardContent>
               <div className="rounded-md border bg-muted/30 p-3">
-                <pre className="text-[11px] font-mono whitespace-pre-wrap text-muted-foreground leading-relaxed">
+                <pre className="text-[11px] font-mono whitespace-pre-wrap text-slate-700 leading-relaxed">
 {`Routing to: ${activeContractor.company_name}
 Contact: ${activeContractor.contact_name ?? "—"}
 Email: ${activeContractor.email ?? "—"}
@@ -609,7 +609,7 @@ Notes: Operator-controlled handoff. Confirm receipt + capacity before sending ne
 function ProfileField({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+      <p className="text-[10px] uppercase tracking-wider text-slate-700 font-semibold">
         {label}
       </p>
       <div className="mt-1 text-sm text-foreground">{value}</div>
@@ -632,15 +632,15 @@ function ContactRow({
 }) {
   return (
     <div className="flex items-start gap-3 rounded-md border bg-background p-3">
-      <Icon className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+      <Icon className="h-4 w-4 text-slate-700 mt-0.5 shrink-0" />
       <div className="flex-1 min-w-0">
-        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+        <p className="text-[10px] uppercase tracking-wider text-slate-700 font-semibold">
           {label}
         </p>
         {value ? (
           <p className="text-sm text-foreground truncate">{value}</p>
         ) : (
-          <p className="text-sm text-muted-foreground italic">
+          <p className="text-sm text-slate-700 italic">
             {hint ?? "Not on file"}
           </p>
         )}
@@ -664,7 +664,7 @@ function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-md border bg-muted/20 p-3">
       <p className="text-2xl font-bold tabular-nums leading-none">{value}</p>
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1.5 font-semibold">
+      <p className="text-[10px] uppercase tracking-wider text-slate-700 mt-1.5 font-semibold">
         {label}
       </p>
     </div>
@@ -674,7 +674,7 @@ function Stat({ label, value }: { label: string; value: number }) {
 function Assumption({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-start gap-2">
-      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+      <ChevronRight className="h-3.5 w-3.5 text-slate-700 shrink-0 mt-0.5" />
       <p>{children}</p>
     </div>
   );
@@ -687,7 +687,7 @@ function QuickLink({ label, onClick }: { label: string; onClick: () => void }) {
       className="flex items-center justify-between rounded-md border bg-background hover:bg-muted/40 px-3 py-2 text-xs text-foreground transition-colors"
     >
       <span>{label}</span>
-      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+      <ChevronRight className="h-3.5 w-3.5 text-slate-700" />
     </button>
   );
 }
