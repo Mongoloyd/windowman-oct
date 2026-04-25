@@ -62,24 +62,24 @@ const ROLE_CONFIG: Record<
   super_admin: {
     label: "Super Admin",
     icon: ShieldAlert,
-    badgeBg: "bg-rose-50",
-    badgeText: "text-rose-700",
+    badgeBg: "bg-red-100 border-red-300",
+    badgeText: "text-red-950",
     dotColor: "bg-rose-500",
     description: "Full access. Manage roles, delete data, view financials.",
   },
   operator: {
     label: "Operator",
     icon: ShieldCheck,
-    badgeBg: "bg-blue-50",
-    badgeText: "text-blue-700",
+    badgeBg: "bg-blue-100 border-blue-300",
+    badgeText: "text-blue-950",
     dotColor: "bg-blue-500",
     description: "Update leads, manage opportunities, trigger voice calls.",
   },
   viewer: {
     label: "Viewer",
     icon: Eye,
-    badgeBg: "bg-emerald-50",
-    badgeText: "text-emerald-700",
+    badgeBg: "bg-emerald-100 border-emerald-300",
+    badgeText: "text-emerald-950",
     dotColor: "bg-emerald-500",
     description: "Read-only dashboard access.",
   },
@@ -125,7 +125,7 @@ function RoleBadge({ role }: { role: AppRole }) {
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${config.badgeBg} ${config.badgeText}`}
+      className={`wm-admin-badge ${config.badgeBg} ${config.badgeText}`}
     >
       <span className={`w-1.5 h-1.5 rounded-full ${config.dotColor}`} />
       {config.label}
