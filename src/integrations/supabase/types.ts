@@ -316,6 +316,81 @@ export type Database = {
         }
         Relationships: []
       }
+      client_configs: {
+        Row: {
+          capi_token_secret_id: string | null
+          client_id: string
+          created_at: string
+          google_ads_conversion_id: string | null
+          google_ads_label: string | null
+          gtm_server_url: string | null
+          id: string
+          meta_dataset_id: string | null
+          meta_pixel_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          capi_token_secret_id?: string | null
+          client_id: string
+          created_at?: string
+          google_ads_conversion_id?: string | null
+          google_ads_label?: string | null
+          gtm_server_url?: string | null
+          id?: string
+          meta_dataset_id?: string | null
+          meta_pixel_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          capi_token_secret_id?: string | null
+          client_id?: string
+          created_at?: string
+          google_ads_conversion_id?: string | null
+          google_ads_label?: string | null
+          gtm_server_url?: string | null
+          id?: string
+          meta_dataset_id?: string | null
+          meta_pixel_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_configs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_configs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "v_admin_active_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_configs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "v_admin_assignments_by_client"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "client_configs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "v_admin_routing_resolution"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "client_configs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "v_admin_unassigned_active_clients"
+            referencedColumns: ["client_id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           created_at: string
@@ -3578,6 +3653,10 @@ export type Database = {
           rubric_version: string
         }[]
       }
+      get_client_capi_token_by_secret_id: {
+        Args: { p_secret_id: string }
+        Returns: string
+      }
       get_county_by_scan_session: {
         Args: { p_scan_session_id: string }
         Returns: {
@@ -3745,6 +3824,10 @@ export type Database = {
       unlock_contractor_lead: {
         Args: { p_contractor_id: string; p_lead_id: string }
         Returns: Json
+      }
+      vault_upsert_client_capi_token: {
+        Args: { p_client_id: string; p_token: string }
+        Returns: string
       }
       vault_upsert_dispatch_secrets: {
         Args: { p_secret: string; p_url: string }
