@@ -349,7 +349,7 @@ export function AttributionTab({ leads, isLoading }: AttributionTabProps) {
             <tbody>
               {campaignRows.map((row) => (
                 <tr key={row.key} className="cursor-pointer border-b border-slate-200 hover:bg-slate-50" onClick={() => setSelectedCampaign(row)}>
-                  <td className="px-4 py-4"><HealthBadge tone={row.sourcePlatform === "facebook" ? "blue" : "slate"}>{row.sourcePlatform} · {row.sourceChannel}</HealthBadge></td>
+                  <td className="px-4 py-4"><HealthBadge tone={row.sourcePlatform === "facebook" ? "blue" : "slate"}>{`${row.sourcePlatform} · ${row.sourceChannel}`}</HealthBadge></td>
                   <td className="px-4 py-4 font-black text-slate-950"><div>{row.campaignName}</div><div className="text-xs font-bold text-slate-700">{compactId(row.campaignId)}</div></td>
                   <td className="px-4 py-4 font-bold text-slate-800"><div>{row.adsetName}</div><div className="text-xs font-bold text-slate-700">{compactId(row.adsetId)}</div></td>
                   <td className="px-4 py-4 font-bold text-slate-800"><div>{row.adName}</div><div className="text-xs font-bold text-slate-700">{compactId(row.adId)}</div></td>
@@ -403,7 +403,7 @@ export function AttributionTab({ leads, isLoading }: AttributionTabProps) {
               {rows.map((row) => (
                 <tr key={row.attribution_id} className="border-b border-slate-200 hover:bg-slate-50">
                   <td className="px-4 py-4 font-black text-slate-950">{display(row.lead_name, "Unnamed lead")}</td>
-                  <td className="px-4 py-4"><HealthBadge tone={row.source_platform === "facebook" ? "blue" : "slate"}>{display(row.source_platform)} · {display(row.source_channel)}</HealthBadge></td>
+                  <td className="px-4 py-4"><HealthBadge tone={row.source_platform === "facebook" ? "blue" : "slate"}>{`${display(row.source_platform)} · ${display(row.source_channel)}`}</HealthBadge></td>
                   <td className="px-4 py-4 font-bold text-slate-800">{display(row.campaign_name ?? row.utm_campaign)}</td>
                   <td className="px-4 py-4 font-bold text-slate-800">{display(row.adset_name ?? row.utm_term, "—")}</td>
                   <td className="px-4 py-4 font-bold text-slate-800">{display(row.ad_name ?? row.utm_content, "—")}</td>
@@ -459,7 +459,7 @@ export function AttributionTab({ leads, isLoading }: AttributionTabProps) {
               </div>
               <div className="rounded-2xl border border-slate-300 bg-white p-4">
                 <h3 className="text-lg font-black text-slate-950">Attribution identifiers</h3>
-                <div className="mt-3 flex flex-wrap gap-2"><HealthBadge tone="blue">platform leads {selectedCampaign.platformLeadCount}</HealthBadge><HealthBadge tone="emerald">fbclid {selectedCampaign.fbclidCount}</HealthBadge><HealthBadge tone="emerald">gclid {selectedCampaign.gclidCount}</HealthBadge><HealthBadge tone="emerald">fbc/fbp {selectedCampaign.fbcCount + selectedCampaign.fbpCount}</HealthBadge></div>
+                <div className="mt-3 flex flex-wrap gap-2"><HealthBadge tone="blue">{`platform leads ${selectedCampaign.platformLeadCount}`}</HealthBadge><HealthBadge tone="emerald">{`fbclid ${selectedCampaign.fbclidCount}`}</HealthBadge><HealthBadge tone="emerald">{`gclid ${selectedCampaign.gclidCount}`}</HealthBadge><HealthBadge tone="emerald">{`fbc/fbp ${selectedCampaign.fbcCount + selectedCampaign.fbpCount}`}</HealthBadge></div>
               </div>
               <div className="rounded-2xl border border-slate-300 bg-white p-4">
                 <h3 className="text-lg font-black text-slate-950">Top leads</h3>
