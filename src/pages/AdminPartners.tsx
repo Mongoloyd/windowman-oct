@@ -377,6 +377,16 @@ function AdminPartnersContent() {
         }
       }
 
+      await invokeAdminData("save_client_config", {
+        client_id: clientId,
+        google_ads_conversion_id: draft.googleConversionId.trim() || null,
+        google_ads_label: draft.googleAdsLabel.trim() || null,
+        meta_pixel_id: draft.pixelId.trim() || null,
+        meta_dataset_id: draft.datasetId.trim() || null,
+        gtm_server_url: draft.serverGtmUrl.trim() || null,
+        capi_token: draft.capiToken.trim() || null,
+      });
+
       toast.success("Client tracking config saved");
       setEditorOpen(false);
       setSelectedClient(null);
