@@ -282,10 +282,10 @@ export function StepPrescription({
                 The Money Question
               </p>
             </div>
-            <h3 className="font-display text-2xl font-extrabold tracking-tight text-foreground mb-2">
+            <h3 className="font-display font-extrabold tracking-tight text-foreground text-2xl mb-2">
               What Would Get You To "Yes"? Here's Your Chance
             </h3>
-            <p className="text-sm text-foreground/75 mb-5">
+            <p className="text-sm text-foreground/75 mb-5 font-bold">
               Tap everything that would make you move forward. Your advisor walks into the contractor call with these as
               non-negotiables on your behalf.
             </p>
