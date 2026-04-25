@@ -39,28 +39,28 @@ export function AdminShell({
   children,
 }: AdminShellProps) {
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+    <div className="wm-dashboard-surface min-h-screen bg-background">
+      <header className="sticky top-0 z-30 border-b border-slate-200 bg-card/95 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-card/90">
         <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div className="min-w-0">
               {backTo && (
                 <Link
                   to={backTo}
-                  className="mb-2 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded"
+                  className="mb-2 inline-flex min-h-10 items-center gap-1.5 rounded text-sm font-bold text-slate-700 transition-colors hover:text-slate-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 focus-visible:ring-offset-2"
                 >
                   <ArrowLeft className="h-3.5 w-3.5" />
                   {backLabel}
                 </Link>
               )}
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+              <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-slate-600">
                 {eyebrow}
               </p>
-              <h1 className="mt-1 font-display text-2xl md:text-3xl font-extrabold leading-tight tracking-tight text-foreground">
+              <h1 className="mt-1 font-display text-3xl md:text-4xl font-black leading-tight tracking-tight text-slate-950">
                 {title}
               </h1>
               {subtitle && (
-                <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
+                <p className="mt-1 text-sm sm:text-base font-medium text-slate-700">{subtitle}</p>
               )}
             </div>
             <div className="shrink-0">
