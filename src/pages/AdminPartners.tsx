@@ -171,20 +171,20 @@ function configStatus(client: Client, meta: MetaConfig | null, redacted: Redacte
   return { label: "Ready", tone: "emerald" as const };
 }
 
-function buildDraft(client: Client | null, meta: MetaConfig | null): Draft {
+function buildDraft(client: Client | null, meta: MetaConfig | null, config: ClientConfig | null = null): Draft {
   return {
     id: client?.id ?? null,
     name: client?.name ?? "",
     slug: client?.slug ?? "",
     isActive: client?.is_active ?? true,
     notes: "",
-    pixelId: meta?.pixel_id ?? "",
+    pixelId: config?.meta_pixel_id ?? meta?.pixel_id ?? "",
+    datasetId: config?.meta_dataset_id ?? "",
+    capiToken: "",
     testEventCode: meta?.test_event_code ?? "",
-    googleConversionId: "",
-    googleVerifiedLeadLabel: "",
-    googleSoldLabel: "",
-    enhancedConversions: false,
-    serverGtmUrl: "",
+    googleConversionId: config?.google_ads_conversion_id ?? "",
+    googleAdsLabel: config?.google_ads_label ?? "",
+    serverGtmUrl: config?.gtm_server_url ?? "",
     serverRoutingMode: "not_configured",
   };
 }
