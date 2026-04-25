@@ -317,7 +317,7 @@ export default function PartnerDossier() {
 
   useEffect(() => {
     if (id) { void fetchDossier(); }
-  }, [id, fallbackToMock, fetchDossier]);
+  }, [id, fetchDossier]);
 
   /* ── Unlock handler ── */
   const handleUnlock = async () => {
