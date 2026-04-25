@@ -20,6 +20,11 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
+    modulePreload: {
+      resolveDependencies(_url: string, deps: string[]) {
+        return deps.filter((dep) => !dep.includes('admin-') && !dep.includes('partner-'));
+      },
+    },
     // Code splitting for better mobile FCP on Facebook traffic
     rollupOptions: {
       output: {
