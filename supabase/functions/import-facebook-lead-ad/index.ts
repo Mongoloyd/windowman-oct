@@ -266,6 +266,7 @@ Deno.serve(async (req) => {
         leadId = leadByPhone?.id as string | undefined;
       }
     }
+    deduped = Boolean(existingAttribution?.lead_id);
 
     const leadPatch: JsonRecord = {
       source: SOURCE,
@@ -279,6 +280,7 @@ Deno.serve(async (req) => {
       last_name: payload.lastName,
       email: payload.email,
       phone_e164: payload.phoneE164,
+      county: payload.county,
       fbclid: payload.fbclid,
       gclid: payload.gclid,
       fbc: payload.fbc,
@@ -289,6 +291,8 @@ Deno.serve(async (req) => {
       utm_term: payload.utmTerm,
       utm_content: payload.utmContent,
       landing_page_url: payload.landingPageUrl,
+      first_page_path: payload.firstPagePath,
+      initial_referrer: payload.initialReferrer,
     };
 
     for (const [key, value] of Object.entries(optionalLeadFields)) {
