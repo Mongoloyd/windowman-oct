@@ -274,7 +274,7 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
         </div>
       }
     >
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <AdminPrimaryTabs
           ghostCount={ghosts.length}
           needsReviewCount={needsReview.length}
@@ -447,7 +447,7 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
             <DeliveryInspectorPage />
           </TabsContent>
 
-          <TabsContent value="session-diag" className="w-full px-2 sm:px-6 pt-4">
+          <TabsContent value="session-diag" className="w-full px-0 pt-2 sm:px-2">
             <SessionDiagnosticPanel />
           </TabsContent>
       </Tabs>
