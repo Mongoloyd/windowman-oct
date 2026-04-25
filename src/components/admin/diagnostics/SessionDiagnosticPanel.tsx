@@ -79,11 +79,11 @@ function fmtExpiry(exp: number | undefined): { absolute: string; relative: strin
 }
 
 function statusBadgeClass(tone: "success" | "danger" | "warning" | "neutral") {
-  const base = "min-h-7 border px-3 py-1 text-sm font-extrabold uppercase tracking-wide";
+  const base = "wm-admin-badge";
   if (tone === "success") return `${base} border-emerald-300 bg-emerald-100 text-emerald-950`;
-  if (tone === "danger") return `${base} border-rose-300 bg-rose-100 text-rose-950`;
+  if (tone === "danger") return `${base} border-red-300 bg-red-100 text-red-950`;
   if (tone === "warning") return `${base} border-amber-300 bg-amber-100 text-amber-950`;
-  return `${base} border-slate-300 bg-slate-100 text-slate-950`;
+  return `${base} border-slate-400 bg-white text-slate-950`;
 }
 
 function Row({ label, value, mono = true }: { label: string; value: React.ReactNode; mono?: boolean }) {
@@ -202,8 +202,8 @@ export function SessionDiagnosticPanel() {
   const devBypassActive = import.meta.env.DEV;
 
   return (
-    <div className="w-full max-w-6xl space-y-4">
-      <Card className="rounded-2xl border border-slate-300 bg-white shadow-sm">
+    <div className="w-full max-w-6xl space-y-5">
+      <Card className="wm-admin-panel">
         <CardHeader className="border-b border-slate-300 pb-4">
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -212,7 +212,7 @@ export function SessionDiagnosticPanel() {
                 Live browser auth/session state. No writes. Used to diagnose Inspector RLS denials.
               </p>
             </div>
-            <Button size="sm" variant="outline" onClick={refreshAll} className="min-h-10 border border-slate-400 bg-white px-4 text-sm font-extrabold text-slate-950 shadow-sm hover:bg-slate-50">
+            <Button size="sm" variant="outline" onClick={refreshAll} className="min-h-10 border border-slate-400 bg-white px-4 text-sm font-extrabold text-slate-950 shadow-sm hover:bg-slate-50 focus-visible:ring-4 focus-visible:ring-primary/20">
               Refresh
             </Button>
           </div>
