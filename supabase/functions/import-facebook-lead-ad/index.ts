@@ -248,14 +248,18 @@ Deno.serve(async (req) => {
       }
     }
 
-    const leadPatch = {
+    const leadPatch: JsonRecord = {
+      source: SOURCE,
+      lead_source: SOURCE,
+      client_slug: payload.clientSlug,
+      updated_at: now,
+    };
+
+    const optionalLeadFields: JsonRecord = {
       first_name: payload.firstName,
       last_name: payload.lastName,
       email: payload.email,
       phone_e164: payload.phoneE164,
-      source: SOURCE,
-      lead_source: SOURCE,
-      client_slug: payload.clientSlug,
       fbclid: payload.fbclid,
       gclid: payload.gclid,
       fbc: payload.fbc,
@@ -266,9 +270,11 @@ Deno.serve(async (req) => {
       utm_term: payload.utmTerm,
       utm_content: payload.utmContent,
       landing_page_url: payload.landingPageUrl,
-      phone_verified: false,
-      updated_at: now,
     };
+
+    for (const [key, value] of Object.entries(optionalLeadFields)) {
+      if (value !== null && value !== undefined) leadPatch[key] = value;
+    }
 
     if (leadId) {
       const { error } = await supabase
@@ -281,6 +287,7 @@ Deno.serve(async (req) => {
         .from("leads")
         .insert({
           ...leadPatch,
+          phone_verified: false,
           session_id: `fbla_${payload.platformLeadId}`,
           status: "new",
           created_at: now,
