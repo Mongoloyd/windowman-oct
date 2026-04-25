@@ -6,7 +6,7 @@ import {
   ShieldCheck,
   Edit3,
   PhoneCall,
-  Target,
+  Asterisk,
   BadgeCheck,
   MessageSquareQuote,
 } from "lucide-react";
@@ -93,10 +93,10 @@ export function StepPrescription({
         </div>
 
         {/* Prescribed Guarantee */}
-        <div className="card-raised-hero rounded-2xl p-6 md:p-8 mb-6">
+        <div className="card-raised-hero rounded-2xl p-6 md:p-8 mb-6 border-8 border-double">
           <div className="flex items-center gap-3 mb-5">
             <ShieldCheck className={`w-7 h-7 ${activeConfig.accent}`} />
-            <h3 className="font-display text-xl font-extrabold tracking-tight text-foreground">
+            <h3 className="font-display font-extrabold tracking-tight text-foreground text-2xl">
               {activeConfig.guaranteeTitle}
             </h3>
           </div>
@@ -112,7 +112,7 @@ export function StepPrescription({
 
         {/* MIRROR PANEL — reflects everything they told us */}
         <div
-          className="card-raised rounded-2xl p-6 md:p-8 mb-8"
+          className="card-raised rounded-2xl p-6 md:p-8 mb-8 border-8 border-double"
           style={{
             background: "linear-gradient(180deg, rgba(219,234,254,0.45) 0%, rgba(239,246,255,0.65) 100%)",
             borderColor: "hsl(217 91% 53% / 0.18)",
@@ -129,7 +129,7 @@ export function StepPrescription({
               >
                 <CheckCircle className="w-5 h-5 text-white" />
               </div>
-              <h3 className="font-display text-lg font-extrabold tracking-tight text-foreground">
+              <h3 className="font-display font-extrabold tracking-tight text-foreground text-2xl">
                 Here's What We Heard
               </h3>
             </div>
@@ -146,18 +146,18 @@ export function StepPrescription({
 
           <div className="space-y-4">
             <div>
-              <p className="wm-eyebrow uppercase text-muted-foreground mb-1">Your Frustration</p>
-              <p className="text-foreground font-medium">{activeConfig.label}</p>
+              <p className="wm-eyebrow uppercase text-muted-foreground mb-1 text-sm">Your Frustration</p>
+              <p className="text-foreground font-medium text-lg">{activeConfig.label}</p>
             </div>
 
             {secondaryClarifiers.length > 0 && (
               <div>
-                <p className="wm-eyebrow uppercase text-muted-foreground mb-2">Specifically</p>
+                <p className="wm-eyebrow uppercase text-muted-foreground mb-1 text-sm">Specifically</p>
                 <div className="flex flex-wrap gap-1.5">
                   {secondaryClarifiers.map((c) => (
                     <span
                       key={c}
-                      className="inline-block px-3 py-1 bg-white border border-cobalt/20 rounded-full text-xs font-medium text-foreground/80"
+                      className="inline-block px-3 py-1 bg-white border border-cobalt/20 rounded-full font-medium text-foreground/80 text-sm"
                     >
                       {c}
                     </span>
@@ -168,19 +168,19 @@ export function StepPrescription({
 
             {otherFreeText && (
               <div>
-                <p className="wm-eyebrow uppercase text-muted-foreground mb-1">In Your Words</p>
-                <p className="text-foreground/80 italic">"{otherFreeText}"</p>
+                <p className="wm-eyebrow uppercase text-muted-foreground mb-1 text-sm">In Your Words</p>
+                <p className="text-foreground/80 italic font-medium">"{otherFreeText}"</p>
               </div>
             )}
 
             {windowStyles.length > 0 && (
               <div>
-                <p className="wm-eyebrow uppercase text-muted-foreground mb-2">Window Styles</p>
+                <p className="wm-eyebrow uppercase text-muted-foreground mb-2 text-sm">Window Styles</p>
                 <div className="flex flex-wrap gap-1.5">
                   {windowStyles.map((s) => (
                     <span
                       key={s}
-                      className="inline-block px-3 py-1 bg-white border border-cobalt/20 rounded-full text-xs font-medium text-foreground/80"
+                      className="inline-block px-3 py-1 bg-white border border-cobalt/20 rounded-full font-medium text-foreground/80 text-sm"
                     >
                       {s}
                     </span>
@@ -191,12 +191,12 @@ export function StepPrescription({
 
             {windowConcerns.length > 0 && (
               <div>
-                <p className="wm-eyebrow uppercase text-muted-foreground mb-2">What Matters</p>
+                <p className="wm-eyebrow uppercase text-muted-foreground mb-2 text-sm">What Matters</p>
                 <div className="flex flex-wrap gap-1.5">
                   {windowConcerns.map((c) => (
                     <span
                       key={c}
-                      className="inline-block px-3 py-1 bg-white border border-emerald/30 rounded-full text-xs font-medium text-foreground/80"
+                      className="inline-block px-3 py-1 bg-white border border-emerald/30 rounded-full font-medium text-foreground/80 text-sm"
                     >
                       {c}
                     </span>
@@ -207,21 +207,21 @@ export function StepPrescription({
 
             {frameMaterial && (
               <div>
-                <p className="wm-eyebrow uppercase text-muted-foreground mb-1">Frame Material</p>
-                <span className="inline-block px-3 py-1 bg-white border border-cobalt/20 rounded-full text-xs font-medium text-foreground/80">
+                <p className="wm-eyebrow uppercase text-muted-foreground mb-1 text-sm">Frame Material</p>
+                <span className="inline-block px-3 py-1 bg-white border border-cobalt/20 rounded-full font-medium text-foreground/80 text-sm">
                   {frameMaterial}
                 </span>
               </div>
             )}
           </div>
 
-          <p className="text-sm text-foreground/70 mt-6 pt-5 border-t border-cobalt/15">
+          <p className="text-foreground/70 mt-6 pt-5 border-t border-cobalt/15 font-semibold text-base">
             Your advisor gets all of this upfront—so your next conversation starts where this one left off.
           </p>
         </div>
 
         {/* NO-FORM VERIFIED PROFILE BADGE */}
-        <div className="card-raised-hero rounded-2xl p-6 md:p-8 border-double border-4 border-cobalt/15">
+        <div className="card-raised-hero rounded-2xl p-6 md:p-8 border-double border-cobalt/15 border-8">
           {/* Verified Profile Header */}
           <div
             className="flex items-center justify-between gap-3 p-4 mb-6 rounded-xl"
@@ -276,16 +276,16 @@ export function StepPrescription({
                   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.3), 0 2px 6px hsla(38 92% 50% / 0.25)",
                 }}
               >
-                <Target className="w-4 h-4 text-white" />
+                <Asterisk className="w-4 h-4 text-white" />
               </div>
-              <p className="wm-eyebrow uppercase" style={{ color: "hsl(38 92% 32%)" }}>
+              <p className="wm-eyebrow uppercase text-lg" style={{ color: "hsl(38 92% 32%)" }}>
                 The Money Question
               </p>
             </div>
-            <h3 className="font-display text-2xl font-extrabold tracking-tight text-foreground mb-2">
+            <h3 className="font-display font-extrabold tracking-tight text-foreground text-2xl mb-2">
               What Would Get You To "Yes"? Here's Your Chance
             </h3>
-            <p className="text-sm text-foreground/75 mb-5">
+            <p className="text-sm text-foreground/75 mb-5 font-bold">
               Tap everything that would make you move forward. Your advisor walks into the contractor call with these as
               non-negotiables on your behalf.
             </p>
@@ -312,7 +312,7 @@ export function StepPrescription({
 
             {/* LIVE CONDITIONAL STATEMENT — updates as chips toggle */}
             <div className="mb-5">
-              <p className="wm-eyebrow uppercase text-muted-foreground mb-2 flex items-center gap-1.5">
+              <p className="wm-eyebrow uppercase text-muted-foreground mb-2 flex items-center gap-1.5 font-semibold text-sm">
                 <MessageSquareQuote className="w-3.5 h-3.5" />
                 Here's what you're saying
               </p>
@@ -329,7 +329,7 @@ export function StepPrescription({
 
             {/* Optional free-text — advisor context only, not part of the statement */}
             <details className="group">
-              <summary className="text-xs font-medium text-muted-foreground hover:text-foreground cursor-pointer select-none list-none inline-flex items-center gap-1">
+              <summary className="font-medium text-muted-foreground hover:text-foreground cursor-pointer select-none list-none inline-flex items-center gap-1 text-base">
                 <span className="group-open:rotate-90 transition-transform inline-block">›</span>
                 Anything specific your advisor should know? (optional)
               </summary>
@@ -361,8 +361,8 @@ export function StepPrescription({
               <PhoneCall className="w-4 h-4 text-white" />
             </div>
             <div className="flex-1">
-              <p className="text-sm font-semibold text-foreground">{getSLAPromise().text}</p>
-              <p className="text-xs text-foreground/70 mt-1 leading-relaxed">
+              <p className="font-semibold text-foreground text-base">{getSLAPromise().text}</p>
+              <p className="text-foreground/70 mt-1 leading-relaxed text-sm font-bold">
                 Your advisor sees everything: your diagnosis, window preferences, and counter-offer terms. No repeating
                 yourself.
               </p>
