@@ -191,7 +191,7 @@ export default function LeadInbox() {
           <h2 className="font-display text-lg font-extrabold tracking-tight text-foreground">
             No leads match
           </h2>
-          <p className="mt-1 text-sm text-slate-600">
+          <p className="mt-1 text-sm font-semibold text-slate-700">
             Try clearing filters or widening the date range.
           </p>
           <Button variant="outline" onClick={resetFilters} className="mt-4">
@@ -289,7 +289,7 @@ function LeadTable({ leads, onView }: { leads: CRMLead[]; onView: (id: string) =
   return (
     <div className="rounded-2xl border border-slate-300 bg-card shadow-sm overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-base">
           <thead className="bg-muted/50 border-b border-slate-300">
             <tr className="text-left">
               <th className="px-4 py-3 text-xs font-extrabold uppercase tracking-wider text-slate-700">Lead</th>
@@ -308,11 +308,11 @@ function LeadTable({ leads, onView }: { leads: CRMLead[]; onView: (id: string) =
               return (
                 <tr
                   key={l.id}
-                  className="border-b border-slate-300 last:border-0 hover:bg-muted/30 transition-colors cursor-pointer focus-within:bg-muted/30"
+                  className="min-h-[72px] border-b border-slate-300 bg-white last:border-0 hover:bg-blue-50/60 transition-colors cursor-pointer focus-within:bg-blue-50/60"
                   onClick={() => onView(l.id)}
                 >
                   <td className="px-4 py-3">
-                    <div className="font-semibold text-foreground">{name}</div>
+                    <div className="text-base font-black text-slate-950">{name}</div>
                     <div className="text-sm font-medium text-slate-700 flex items-center gap-2 mt-0.5">
                       {l.email && <span className="truncate max-w-[180px]">{l.email}</span>}
                       {l.phone_e164 && (
@@ -325,29 +325,29 @@ function LeadTable({ leads, onView }: { leads: CRMLead[]; onView: (id: string) =
                   </td>
                   <td className="px-4 py-3 text-sm font-medium text-slate-700">
                     <div>{l.utm_source ?? "—"}</div>
-                    {l.utm_campaign && <div className="font-medium text-slate-600 truncate max-w-[140px]">{l.utm_campaign}</div>}
+                    {l.utm_campaign && <div className="font-semibold text-slate-700 truncate max-w-[140px]">{l.utm_campaign}</div>}
                   </td>
-                  <td className="px-4 py-3 text-xs">
+                  <td className="px-4 py-3 text-sm font-semibold text-slate-700">
                     {l.county ? (
-                      <span className="inline-flex items-center gap-1 text-slate-600">
+                      <span className="inline-flex items-center gap-1 text-slate-700">
                         <MapPin className="h-3 w-3" />
                         {l.county}
                       </span>
-                    ) : <span className="text-slate-600">—</span>}
+                    ) : <span className="text-slate-700">—</span>}
                   </td>
                   <td className="px-4 py-3">
                     {l.phone_verified ? (
-                      <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-extrabold uppercase tracking-wider text-emerald-700">
+                      <span className="inline-flex min-h-8 items-center rounded-full border border-emerald-300 bg-emerald-100 px-2.5 py-1 text-sm font-extrabold uppercase tracking-wider text-emerald-950 shadow-sm">
                         Verified
                       </span>
                     ) : (
-                      <span className="inline-flex items-center rounded-full border border-slate-300 bg-muted px-2 py-0.5 text-xs font-extrabold uppercase tracking-wider text-slate-600">
+                      <span className="inline-flex min-h-8 items-center rounded-full border border-slate-400 bg-white px-2.5 py-1 text-sm font-extrabold uppercase tracking-wider text-slate-950 shadow-sm">
                         Unverified
                       </span>
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-extrabold uppercase tracking-wider ${stageDef?.badgeClass ?? "bg-muted text-slate-600 border-slate-300"}`}>
+                    <span className={`inline-flex min-h-8 items-center rounded-full border px-2.5 py-1 text-sm font-extrabold uppercase tracking-wider ${stageDef?.badgeClass ?? "bg-white text-slate-950 border-slate-400"}`}>
                       {stageDef?.label ?? "New"}
                     </span>
                   </td>
