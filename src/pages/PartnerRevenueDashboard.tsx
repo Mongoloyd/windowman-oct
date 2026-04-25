@@ -253,13 +253,13 @@ function LeadHoverCard({ row }: { row: OutcomeRow }) {
         <div className="grid grid-cols-2 gap-2 text-xs">
           {row.grade && (
             <div>
-              <div className="text-muted-foreground">Grade</div>
+              <div className="text-sm font-semibold text-slate-600">Grade</div>
               <div className="font-semibold">{row.grade}</div>
             </div>
           )}
           {(row.red_flag_count ?? 0) + (row.amber_flag_count ?? 0) > 0 && (
             <div>
-              <div className="text-muted-foreground">Flags</div>
+              <div className="text-sm font-semibold text-slate-600">Flags</div>
               <div className="font-semibold flex items-center gap-1">
                 {(row.red_flag_count ?? 0) > 0 && (
                   <span className="text-rose-600">
@@ -276,13 +276,13 @@ function LeadHoverCard({ row }: { row: OutcomeRow }) {
           )}
           {row.quote_range && (
             <div className="col-span-2">
-              <div className="text-muted-foreground">Quote range</div>
+              <div className="text-sm font-semibold text-slate-600">Quote range</div>
               <div className="font-semibold truncate">{row.quote_range}</div>
             </div>
           )}
           {row.projected_value_cents != null && (
             <div>
-              <div className="text-muted-foreground">Projected</div>
+              <div className="text-sm font-semibold text-slate-600">Projected</div>
               <div className="font-semibold tabular-nums">
                 {formatCents(row.projected_value_cents)}
               </div>
@@ -290,7 +290,7 @@ function LeadHoverCard({ row }: { row: OutcomeRow }) {
           )}
           {row.final_value_cents != null && (
             <div>
-              <div className="text-muted-foreground">Final</div>
+              <div className="text-sm font-semibold text-slate-600">Final</div>
               <div className="font-semibold tabular-nums text-emerald-700">
                 {formatCents(row.final_value_cents)}
               </div>
