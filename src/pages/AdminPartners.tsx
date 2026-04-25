@@ -18,6 +18,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
@@ -109,6 +110,8 @@ interface DossierModalProps {
 
 function ClientDossierModal({ open, onClose, client, metaConfig, existingSlugs, onSaved }: DossierModalProps) {
   const isEdit = !!client;
+  const labelClass = "text-xs font-medium uppercase tracking-wider text-slate-500";
+  const fieldClass = "min-w-0 transition-all duration-200 focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2";
 
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
@@ -228,36 +231,36 @@ function ClientDossierModal({ open, onClose, client, metaConfig, existingSlugs, 
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="font-sans sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Edit Client" : "Add Client"}</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-slate-900 font-semibold tracking-tight">{isEdit ? "Edit Client" : "Add Client"}</DialogTitle>
+          <DialogDescription className="text-slate-500">
             {isEdit ? "Update client details and pixel configuration." : "Create a new white-label client."}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-5 py-2">
+        <div className="min-w-0 space-y-5 py-2">
           <div className="space-y-1.5">
-            <Label htmlFor="client-name">Client Name</Label>
+            <Label htmlFor="client-name" className={labelClass}>Client Name</Label>
             <Input
               id="client-name" value={name} maxLength={100}
               onChange={e => { setName(e.target.value); setTouched(true); }}
               onBlur={() => setTouched(true)}
               placeholder="Acme Windows"
-              className={nameError ? "border-destructive" : ""}
+              className={`${fieldClass} ${nameError ? "border-destructive" : ""}`}
             />
             {nameError && <p className="text-xs text-destructive">{nameError}</p>}
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="client-slug">URL Slug</Label>
-            <div className="flex items-center gap-2">
+            <Label htmlFor="client-slug" className={labelClass}>URL Slug</Label>
+            <div className="flex min-w-0 items-center gap-2">
               <span className="text-xs text-muted-foreground whitespace-nowrap">/lp/</span>
               <Input
                 id="client-slug" value={slug}
                 onChange={e => setSlug(slugify(e.target.value))}
                 placeholder="acme-windows"
-                className={slugError ? "border-destructive" : ""}
+                className={`${fieldClass} flex-1 ${slugError ? "border-destructive" : ""}`}
               />
             </div>
             {slugError && <p className="text-xs text-destructive">{slugError}</p>}
