@@ -398,17 +398,22 @@ Deno.serve(async (req) => {
     let opportunityId: string | null = null;
 
     if (leadId) {
-      const { data: marketplaceContractor } = await svc
+      stage = "fetch_marketplace_contractor";
+      const { data: marketplaceContractor, error: marketplaceContractorErr } = await svc
         .from("contractors")
         .select("id")
         .eq("auth_user_id", contractorId)
         .maybeSingle();
+      if (marketplaceContractorErr) {
+        logStageError(stage, marketplaceContractorErr, { routeId, leadId, contractorId });
+      }
 
       const marketplaceContractorId = marketplaceContractor?.id as string | undefined;
 
       if (marketplaceContractorId) {
         // Find the opportunity row that links this lead to this contractor
-        const { data: oppRow } = await svc
+        stage = "fetch_opportunity";
+        const { data: oppRow, error: oppErr } = await svc
           .from("contractor_opportunities")
           .select("id")
           .eq("lead_id", leadId)
@@ -418,10 +423,14 @@ Deno.serve(async (req) => {
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
+        if (oppErr) {
+          logStageError(stage, oppErr, { routeId, leadId, contractorId });
+        }
 
-        if (oppRow?.id) {
+        if (!oppErr && oppRow?.id) {
           opportunityId = oppRow.id as string;
-          const { data: outcomeRow } = await svc
+          stage = "fetch_outcome";
+          const { data: outcomeRow, error: outcomeErr } = await svc
             .from("contractor_outcomes")
             .select(
               "id, opportunity_id, contractor_id, disposition_state, disposition_reason_code, projected_value_cents, final_value_cents, signed_contract_url, last_partner_action_at",
@@ -429,6 +438,9 @@ Deno.serve(async (req) => {
             .eq("opportunity_id", opportunityId)
             .eq("contractor_id", marketplaceContractorId)
             .maybeSingle();
+          if (outcomeErr) {
+            logStageError(stage, outcomeErr, { routeId, leadId, contractorId });
+          }
 
           if (!outcomeErr && outcomeRow) {
             outcome = {
