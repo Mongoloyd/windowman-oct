@@ -280,7 +280,7 @@ export async function resolvePixelConfig(
         .maybeSingle()) as { data: { meta_pixel_id: string | null; capi_token_secret_id: string | null } | null };
 
       if (secureConfig?.meta_pixel_id && secureConfig?.capi_token_secret_id) {
-        const { data: secureToken } = (await supabase.rpc("get_client_capi_token_by_secret_id", { p_secret_id: secureConfig.capi_token_secret_id })) as { data: string | null };
+        const { data: secureToken } = (await (supabase as any).rpc("get_client_capi_token_by_secret_id", { p_secret_id: secureConfig.capi_token_secret_id })) as { data: string | null };
         if (secureToken) {
           console.log(`[CAPI:RESOLVE] Using secure client_config for slug="${clientSlug}"`);
           return { pixelId: secureConfig.meta_pixel_id, accessToken: secureToken, source: `client:${clientSlug}` };
