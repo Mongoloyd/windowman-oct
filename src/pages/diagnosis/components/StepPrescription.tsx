@@ -329,7 +329,7 @@ export function StepPrescription({
 
             {/* Optional free-text — advisor context only, not part of the statement */}
             <details className="group">
-              <summary className="text-xs font-medium text-muted-foreground hover:text-foreground cursor-pointer select-none list-none inline-flex items-center gap-1">
+              <summary className="font-medium text-muted-foreground hover:text-foreground cursor-pointer select-none list-none inline-flex items-center gap-1 text-base">
                 <span className="group-open:rotate-90 transition-transform inline-block">›</span>
                 Anything specific your advisor should know? (optional)
               </summary>
