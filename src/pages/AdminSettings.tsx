@@ -382,9 +382,9 @@ function AuditLogPanel({
 
   if (entries.length === 0) {
     return (
-      <div className="text-center py-12">
-        <Clock className="w-10 h-10 text-slate-200 mx-auto mb-3" />
-        <p className="text-sm text-slate-700">
+      <div className="py-12 text-center">
+        <Clock className="mx-auto mb-3 h-10 w-10 text-slate-700" />
+        <p className="text-base font-semibold text-slate-700">
           No role changes recorded yet.
         </p>
       </div>
@@ -396,13 +396,13 @@ function AuditLogPanel({
       {entries.map((entry) => (
         <div
           key={entry.id}
-          className="flex items-start gap-3 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-200"
+          className="flex items-start gap-3 rounded-xl border border-slate-300 bg-white p-4 shadow-sm transition-shadow duration-200 hover:shadow-md"
         >
-          <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-300 bg-slate-50">
             <Clock className="w-3.5 h-3.5 text-slate-700" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm text-slate-700 leading-relaxed">
+            <p className="text-sm font-semibold leading-relaxed text-slate-800">
               <span className="font-semibold text-slate-900">
                 {entry.changed_by_email}
               </span>{" "}
