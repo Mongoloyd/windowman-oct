@@ -244,7 +244,7 @@ export function MarketOpsFeed({ leads }: Props) {
           <CardTitle className="text-sm font-medium text-slate-700 uppercase tracking-wider">
             Market Ops Feed
           </CardTitle>
-          <Badge variant="outline" className="text-[10px]">
+          <Badge variant="outline" className="text-sm">
             Read-only · derived from existing data
           </Badge>
         </div>
@@ -274,7 +274,7 @@ export function MarketOpsFeed({ leads }: Props) {
             {marketFilter !== "all" && ` in ${marketFilter}`}.
           </div>
         ) : (
-          <ol className="divide-y divide-border/40">
+          <ol className="divide-y divide-slate-300">
             {visibleEvents.map((e) => {
               const meta = KIND_META[e.kind];
               const Icon = meta.icon;
@@ -285,22 +285,22 @@ export function MarketOpsFeed({ leads }: Props) {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-xs font-semibold">{meta.label}</span>
-                      <span className="text-xs text-slate-700">·</span>
-                      <span className="text-xs font-medium truncate">{e.leadName}</span>
+                      <span className="text-sm font-bold">{meta.label}</span>
+                      <span className="text-sm font-semibold text-slate-700">·</span>
+                      <span className="text-sm font-semibold truncate">{e.leadName}</span>
                       {e.contractorName && (
                         <>
-                          <span className="text-xs text-slate-700">→</span>
+                          <span className="text-sm font-semibold text-slate-700">→</span>
                           <span className="text-xs text-cyan-700">{e.contractorName}</span>
                         </>
                       )}
                     </div>
                     <div className="flex items-center gap-1.5 mt-0.5">
-                      <Badge variant="outline" className="text-[10px] gap-1">
+                      <Badge variant="outline" className="text-sm gap-1">
                         <MapPin className="h-2.5 w-2.5" />
                         {e.county}
                       </Badge>
-                      <span className="text-[10px] text-slate-700 font-mono">
+                      <span className="text-sm text-slate-700 font-mono">
                         {format(new Date(e.at), "MMM d, h:mm a")}
                       </span>
                     </div>
@@ -311,7 +311,7 @@ export function MarketOpsFeed({ leads }: Props) {
           </ol>
         )}
         {allEvents.length > visibleEvents.length && (
-          <p className="text-[10px] text-slate-700 text-center mt-3">
+          <p className="text-sm text-slate-700 text-center mt-3">
             Showing {visibleEvents.length} of {allEvents.length} most recent market events.
           </p>
         )}

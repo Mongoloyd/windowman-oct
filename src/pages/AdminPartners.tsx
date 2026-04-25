@@ -286,7 +286,7 @@ function ClientDossierModal({ open, onClose, client, metaConfig, existingSlugs, 
                 className={`${fieldClass} min-h-[100px] w-full resize-y font-mono text-sm`}
               />
               {isEdit && !tokenDirty && metaConfig?.access_token && (
-                <p className="text-[11px] text-slate-700">Token on file. Only change if you paste a new one.</p>
+                <p className="text-sm text-slate-700">Token on file. Only change if you paste a new one.</p>
               )}
             </div>
             <div className="space-y-1.5">
@@ -441,7 +441,7 @@ function SignalLogRow({ log, expanded, onToggle }: { log: SignalLog; expanded: b
         <td className="px-3 py-2 font-mono">{log.pixel_id ? `…${log.pixel_id.slice(-4)}` : "—"}</td>
         <td className="px-3 py-2 text-center">
           {log.status_code != null ? (
-            <Badge variant={statusOk ? "default" : "destructive"} className={`text-[10px] ${statusOk ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100" : ""}`}>
+            <Badge variant={statusOk ? "default" : "destructive"} className={`text-sm ${statusOk ? "border border-emerald-300 bg-emerald-100 text-emerald-950 hover:bg-emerald-100" : ""}`}>
               {log.status_code}
             </Badge>
           ) : <span className="text-slate-700">—</span>}
@@ -452,14 +452,14 @@ function SignalLogRow({ log, expanded, onToggle }: { log: SignalLog; expanded: b
         <tr className="bg-muted/20">
           <td colSpan={6} className="px-4 py-3">
             <div className="space-y-2">
-              <p className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider">Payload</p>
-              <pre className="text-[11px] font-mono bg-background border rounded p-3 max-h-64 overflow-auto whitespace-pre-wrap break-all">
+              <p className="text-sm font-semibold text-slate-700 uppercase tracking-wider">Payload</p>
+              <pre className="text-sm font-mono bg-white border border-slate-300 rounded p-3 max-h-64 overflow-auto whitespace-pre-wrap break-all">
                 {JSON.stringify(log.payload, null, 2) ?? "null"}
               </pre>
               {log.response && (
                 <>
-                  <p className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider mt-2">Response</p>
-                  <pre className="text-[11px] font-mono bg-background border rounded p-3 max-h-40 overflow-auto whitespace-pre-wrap break-all">
+                  <p className="text-sm font-semibold text-slate-700 uppercase tracking-wider mt-2">Response</p>
+                  <pre className="text-sm font-mono bg-white border border-slate-300 rounded p-3 max-h-40 overflow-auto whitespace-pre-wrap break-all">
                     {JSON.stringify(log.response, null, 2)}
                   </pre>
                 </>
@@ -610,7 +610,7 @@ function SignalLogSection({ clients, sessionKey }: { clients: Client[]; sessionK
           {/* Connection state indicator */}
           <span className="inline-flex items-center gap-1 ml-1" title={stateLabel[channelState]}>
             <span className={`w-1.5 h-1.5 rounded-full ${stateDot[channelState]}`} />
-            <span className="text-[10px] text-slate-700">{stateLabel[channelState]}</span>
+            <span className="text-sm text-slate-700">{stateLabel[channelState]}</span>
           </span>
         </div>
 
@@ -949,7 +949,7 @@ function AdminPartnersContent() {
                       <td className="px-4 py-3 text-center">
                         <Badge
                           variant={ready ? "default" : "secondary"}
-                          className={ready ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100" : "bg-amber-100 text-amber-800 hover:bg-amber-100"}
+                          className={ready ? "border border-emerald-300 bg-emerald-100 text-emerald-950 hover:bg-emerald-100" : "bg-amber-100 text-amber-800 hover:bg-amber-100"}
                         >
                           {ready ? "Ready" : "Needs Setup"}
                         </Badge>
