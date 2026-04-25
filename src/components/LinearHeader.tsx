@@ -1,4 +1,3 @@
-import "@fontsource/dm-sans/800.css";
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 
@@ -19,14 +18,13 @@ const LinearHeader = ({ ctaText = "Get Started Free", onCtaClick }: LinearHeader
 
   return (
     <header
-      className="sticky top-0 z-50 w-full border-b border-border bg-card"
+      className="sticky top-0 z-50 flex h-16 w-full items-center border-b border-border bg-card"
       style={{
-        boxShadow: "var(--shadow-shelf)",
-        transition: "padding 0.15s ease",
-        padding: scrolled ? "6px 0" : "14px 0",
+        boxShadow: scrolled ? "var(--shadow-shelf)" : "0 1px 2px rgba(10, 25, 55, 0.04)",
+        transition: "box-shadow 0.15s ease",
       }}
     >
-      <div className="flex items-center justify-between px-4 md:px-8">
+      <div className="flex w-full items-center justify-between px-4 md:px-8">
         {/* Logo */}
         <a
           href="/"

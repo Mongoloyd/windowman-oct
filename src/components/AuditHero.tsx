@@ -41,13 +41,13 @@ const AuditHero = ({
   );
 
   const statsStrip = (
-    <div className="flex items-center justify-center lg:justify-start gap-6 mt-8 pt-6 border-t border-border/40 w-full">
+    <div className="flex items-center justify-center lg:justify-start gap-6 mt-8 pt-6 border-t border-border/40 w-full min-h-[73px]">
       <div className="flex items-center gap-2.5">
         <div className="flex items-center justify-center w-8 h-8 rounded-md bg-primary/10">
           <Shield className="w-4 h-4 text-primary" />
         </div>
         <div>
-          <p className="font-mono text-sm font-bold tabular-nums text-foreground">
+          <p className="font-mono text-sm font-bold tabular-nums text-foreground min-w-[58px]">
             {total.toLocaleString()}
           </p>
           <p className="text-[11px] text-muted-foreground leading-tight">Quotes Scanned</p>
@@ -61,7 +61,7 @@ const AuditHero = ({
           <TrendingDown className="w-4 h-4 text-destructive" />
         </div>
         <div>
-          <p className="font-mono text-sm font-bold tabular-nums text-foreground">
+          <p className="font-mono text-sm font-bold tabular-nums text-foreground min-w-[64px]">
             ${savingsFound}M+
           </p>
           <p className="text-[11px] text-muted-foreground leading-tight">Overcharges Found</p>
@@ -75,7 +75,7 @@ const AuditHero = ({
           <BarChart3 className="w-4 h-4 text-primary" />
         </div>
         <div>
-          <p className="font-mono text-sm font-bold tabular-nums text-foreground">
+          <p className="font-mono text-sm font-bold tabular-nums text-foreground min-w-[52px]">
             $3,100
           </p>
           <p className="text-[11px] text-muted-foreground leading-tight">Avg. Savings</p>
@@ -86,7 +86,7 @@ const AuditHero = ({
 
   return (
     <section
-      className="relative bg-background"
+      className="relative bg-background min-h-[860px] sm:min-h-[980px] lg:min-h-[860px]"
       style={{
         background: "linear-gradient(168deg, hsl(214 35% 95%) 0%, hsl(216 38% 93%) 40%, hsl(218 32% 94%) 100%)",
       }}
@@ -100,15 +100,16 @@ const AuditHero = ({
 
           {/* ── ORDER 2 (mobile/tablet) / right column (lg+): Mascot + GradeCard ── */}
           <div className="order-2 lg:order-last lg:flex-1 flex flex-col items-center pt-0 lg:pt-16">
-            <div className="relative z-20 flex justify-center pointer-events-none w-full">
+            <div className="relative z-20 flex justify-center pointer-events-none w-full aspect-[3/4] max-w-md lg:max-w-[480px]">
                 <img
                   src={MASCOT_URL}
                   alt="WindowMan holding a Truth Report"
                   fetchPriority="high"
+                  loading="eager"
                   decoding="async"
                   width={480}
                   height={640}
-                  className="w-full max-w-md lg:w-80 xl:w-[480px] h-auto object-contain mascot-float"
+                  className="absolute inset-0 w-full h-full object-contain mascot-float"
                 />
             </div>
 
@@ -206,7 +207,7 @@ const AuditHero = ({
 
             {/* ── OCR screenshot: responsive, single img tag ── */}
             <motion.div
-              className="hidden sm:block mt-8 w-full max-w-3xl"
+              className="hidden sm:block mt-8 w-full max-w-3xl aspect-[7/4]"
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -215,11 +216,12 @@ const AuditHero = ({
               <img
                 src={scanOcrImg}
                 alt="WindowMan AI scanning a quote — extraction, context injection, anomaly detection"
-                loading="lazy"
+                fetchPriority="high"
+                loading="eager"
                 decoding="async"
                 width={700}
                 height={400}
-                className="w-full h-auto rounded-xl shadow-lg"
+                className="w-full h-full object-cover rounded-xl shadow-lg"
               />
             </motion.div>
           </motion.div>

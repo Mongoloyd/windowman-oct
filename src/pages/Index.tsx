@@ -2,16 +2,21 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import LinearHeader from "@/components/LinearHeader";
 import AuditHero from "@/components/AuditHero";
-import FlowBEntry from "@/components/FlowBEntry";
-import MarketBaselineTool from "@/components/MarketBaselineTool";
-import TruthGateFlow from "@/components/TruthGateFlow";
-import UploadZone from "@/components/UploadZone";
-import ScanTheatrics from "@/components/ScanTheatrics";
-import { PostScanReportSwitcher } from "@/components/post-scan/PostScanReportSwitcher";
 import StickyRecoveryBar from "@/components/StickyRecoveryBar";
 import StickyCTAFooter from "@/components/StickyCTAFooter";
 import HomepageBackdrop from "@/components/HomepageBackdrop";
-import ExitIntentPhoneModal from "@/components/ExitIntentPhoneModal";
+
+const FlowBEntry = React.lazy(() => import("@/components/FlowBEntry"));
+const MarketBaselineTool = React.lazy(() => import("@/components/MarketBaselineTool"));
+const TruthGateFlow = React.lazy(() => import("@/components/TruthGateFlow"));
+const UploadZone = React.lazy(() => import("@/components/UploadZone"));
+const ScanTheatrics = React.lazy(() => import("@/components/ScanTheatrics"));
+const PostScanReportSwitcher = React.lazy(() =>
+  import("@/components/post-scan/PostScanReportSwitcher").then((module) => ({
+    default: module.PostScanReportSwitcher,
+  })),
+);
+const ExitIntentPhoneModal = React.lazy(() => import("@/components/ExitIntentPhoneModal"));
 
 // ── Below-fold: lazy-loaded to cut initial bundle ~50% ──
 const ForensicChecklist = React.lazy(() => import("@/components/ForensicChecklist"));
@@ -39,6 +44,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import DevPreviewPanel from "@/dev/DevPreviewPanel";
 import { DEV_PREVIEW_CONFIGS, type DevPreviewState } from "@/dev/fixtures";
 import { AlertTriangle, RotateCcw, FileX } from "lucide-react";
+
+const SectionReserve = ({ className = "min-h-[420px]" }: { className?: string }) => (
+  <div className={`w-full bg-background ${className}`} aria-hidden="true" />
+);
 
 const Index = () => {
   // ═══ DEV MODE: Uses Vite's built-in dev/prod flag ═══
@@ -428,47 +437,49 @@ const Index = () => {
                       />
                     </motion.div>
                   ) : (
-                    <motion.div
-                      key="flow-b-entry"
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.4 }}
-                    >
-                      <FlowBEntry
-                        onContinueToTool={() => {
-                          document.getElementById("market-baseline")?.scrollIntoView({ behavior: "smooth" });
-                        }}
-                        onSwitchToFlowA={() => switchToFlowA("hero_switch")}
-                      />
-                      <ScamConcernImage />
-                      <MarketBaselineTool onLeadCaptured={() => setFlowBLeadCaptured(true)} />
-                      {flowBLeadCaptured && (
-                        <>
-                          <ForensicChecklist
-                            onUploadQuote={() => switchToFlowA("checklist_cta")}
-                            onSetReminder={() =>
-                              document.getElementById("quote-watcher")?.scrollIntoView({ behavior: "smooth" })
-                            }
-                          />
-                          <QuoteWatcher
-                            onReminderSet={(date, time) => {
-                              setQuoteWatcherSet(true);
-                              setFlowBAnswers((prev) => ({ ...prev, appointmentDate: date, appointmentTime: time }));
-                            }}
-                            onSwitchToFlowA={() => switchToFlowA("watcher_link")}
-                            onViewChecklist={() =>
-                              document.getElementById("forensic-checklist")?.scrollIntoView({ behavior: "smooth" })
-                            }
-                          />
-                        </>
-                      )}
-                    </motion.div>
+                    <React.Suspense fallback={<SectionReserve className="min-h-[760px]" />}>
+                      <motion.div
+                        key="flow-b-entry"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.4 }}
+                      >
+                        <FlowBEntry
+                          onContinueToTool={() => {
+                            document.getElementById("market-baseline")?.scrollIntoView({ behavior: "smooth" });
+                          }}
+                          onSwitchToFlowA={() => switchToFlowA("hero_switch")}
+                        />
+                        <ScamConcernImage />
+                        <MarketBaselineTool onLeadCaptured={() => setFlowBLeadCaptured(true)} />
+                        {flowBLeadCaptured && (
+                          <>
+                            <ForensicChecklist
+                              onUploadQuote={() => switchToFlowA("checklist_cta")}
+                              onSetReminder={() =>
+                                document.getElementById("quote-watcher")?.scrollIntoView({ behavior: "smooth" })
+                              }
+                            />
+                            <QuoteWatcher
+                              onReminderSet={(date, time) => {
+                                setQuoteWatcherSet(true);
+                                setFlowBAnswers((prev) => ({ ...prev, appointmentDate: date, appointmentTime: time }));
+                              }}
+                              onSwitchToFlowA={() => switchToFlowA("watcher_link")}
+                              onViewChecklist={() =>
+                                document.getElementById("forensic-checklist")?.scrollIntoView({ behavior: "smooth" })
+                              }
+                            />
+                          </>
+                        )}
+                      </motion.div>
+                    </React.Suspense>
                   )}
                 </AnimatePresence>
               </div>
 
               {flowMode === "A" && (
-                <React.Suspense fallback={null}>
+                <React.Suspense fallback={<SectionReserve className="min-h-[1400px]" />}>
                   <ScamConcernImage />
                   <OrangeScanner
                     onScanClick={() => triggerTruthGate("demo_scan")}
@@ -516,27 +527,29 @@ const Index = () => {
           )}
 
           {fileUploaded && !gradeRevealed && !isDevPreview && (
-            <ScanTheatrics
-              isActive={true}
-              selectedCounty={selectedCounty}
-              scanSessionId={scanSessionId}
-              grade={analysisData?.grade}
-              analysisData={analysisData}
-              onRevealComplete={() => {
-                setGradeRevealed(true);
-                setTimeout(() => {
-                  document.getElementById("truth-report-top")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                }, 100);
-              }}
-              onInvalidDocument={() => {
-                setFileUploaded(false);
-                setScanSessionId(null);
-              }}
-              onNeedsBetterUpload={() => {
-                setFileUploaded(false);
-                setScanSessionId(null);
-              }}
-            />
+            <React.Suspense fallback={<SectionReserve className="min-h-screen" />}>
+              <ScanTheatrics
+                isActive={true}
+                selectedCounty={selectedCounty}
+                scanSessionId={scanSessionId}
+                grade={analysisData?.grade}
+                analysisData={analysisData}
+                onRevealComplete={() => {
+                  setGradeRevealed(true);
+                  setTimeout(() => {
+                    document.getElementById("truth-report-top")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }, 100);
+                }}
+                onInvalidDocument={() => {
+                  setFileUploaded(false);
+                  setScanSessionId(null);
+                }}
+                onNeedsBetterUpload={() => {
+                  setFileUploaded(false);
+                  setScanSessionId(null);
+                }}
+              />
+            </React.Suspense>
           )}
 
           {/* ─── Report view (real or dev fixture) ─── */}
@@ -588,41 +601,43 @@ const Index = () => {
                   </div>
                 </div>
               ) : activeData ? (
-                <PostScanReportSwitcher
-                  grade={reportGrade}
-                  flags={reportFlags}
-                  pillarScores={activeData.pillarScores}
-                  contractorName={activeData.contractorName}
-                  county={selectedCounty}
-                  confidenceScore={activeData.confidenceScore}
-                  documentType={activeData.documentType}
-                  analysisId={activeData?.analysisId ?? null}
-                  qualityBand={activeData.qualityBand}
-                  hasWarranty={activeData.hasWarranty}
-                  hasPermits={activeData.hasPermits}
-                  pageCount={activeData.pageCount}
-                  lineItemCount={activeData.lineItemCount}
-                  onSecondScan={() => triggerTruthGate("second_opinion_scan")}
-                  scanSessionId={scanSessionId}
-                  flagCount={activeData?.flagCount}
-                  flagRedCount={activeData?.flagRedCount}
-                  flagAmberCount={activeData?.flagAmberCount}
-                  isFullLoaded={isFullLoaded}
-                  isLoadingFull={isLoadingFull}
-                  fullFetchError={fullFetchError}
-                  priceFairness={activeData?.priceFairness}
-                  markupEstimate={activeData?.markupEstimate}
-                  negotiationLeverage={activeData?.negotiationLeverage}
-                  onVerified={(phoneE164: string) => {
-                    fetchFull(phoneE164);
-                  }}
-                />
+                <React.Suspense fallback={<SectionReserve className="min-h-screen" />}>
+                  <PostScanReportSwitcher
+                    grade={reportGrade}
+                    flags={reportFlags}
+                    pillarScores={activeData.pillarScores}
+                    contractorName={activeData.contractorName}
+                    county={selectedCounty}
+                    confidenceScore={activeData.confidenceScore}
+                    documentType={activeData.documentType}
+                    analysisId={activeData?.analysisId ?? null}
+                    qualityBand={activeData.qualityBand}
+                    hasWarranty={activeData.hasWarranty}
+                    hasPermits={activeData.hasPermits}
+                    pageCount={activeData.pageCount}
+                    lineItemCount={activeData.lineItemCount}
+                    onSecondScan={() => triggerTruthGate("second_opinion_scan")}
+                    scanSessionId={scanSessionId}
+                    flagCount={activeData?.flagCount}
+                    flagRedCount={activeData?.flagRedCount}
+                    flagAmberCount={activeData?.flagAmberCount}
+                    isFullLoaded={isFullLoaded}
+                    isLoadingFull={isLoadingFull}
+                    fullFetchError={fullFetchError}
+                    priceFairness={activeData?.priceFairness}
+                    markupEstimate={activeData?.markupEstimate}
+                    negotiationLeverage={activeData?.negotiationLeverage}
+                    onVerified={(phoneE164: string) => {
+                      fetchFull(phoneE164);
+                    }}
+                  />
+                </React.Suspense>
               ) : null}
             </>
           )}
 
           {!shouldShowReport && !isDevPreview && (
-            <React.Suspense fallback={null}>
+            <React.Suspense fallback={<SectionReserve className="min-h-[1800px]" />}>
               <QuoteSpreadShowcase
                 onScanClick={() => triggerTruthGate("quote_spread")}
                 onDemoClick={() => {
@@ -661,27 +676,29 @@ const Index = () => {
             </React.Suspense>
           )}
 
-          <ExitIntentPhoneModal
-            stepsCompleted={stepsCompleted}
-            flowMode={flowMode as "A" | "B" | "C"}
-            leadCaptured={leadCaptured}
-            flowBLeadCaptured={flowBLeadCaptured}
-            county={selectedCounty}
-            answers={{
-              windowCount: null,
-              projectType: null,
-              county: selectedCounty !== "your county" ? selectedCounty : null,
-              quoteStage: null,
-              firstName: null,
-              email: null,
-              phone: null,
-            }}
-            onClose={() => {}}
-            onCTAClick={() => {
-              setPowerToolTriggered(true);
-              window.scrollTo({ top: 0, behavior: "smooth" });
-            }}
-          />
+          <React.Suspense fallback={null}>
+            <ExitIntentPhoneModal
+              stepsCompleted={stepsCompleted}
+              flowMode={flowMode as "A" | "B" | "C"}
+              leadCaptured={leadCaptured}
+              flowBLeadCaptured={flowBLeadCaptured}
+              county={selectedCounty}
+              answers={{
+                windowCount: null,
+                projectType: null,
+                county: selectedCounty !== "your county" ? selectedCounty : null,
+                quoteStage: null,
+                firstName: null,
+                email: null,
+                phone: null,
+              }}
+              onClose={() => {}}
+              onCTAClick={() => {
+                setPowerToolTriggered(true);
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+            />
+          </React.Suspense>
 
           <StickyRecoveryBar
             stepsCompleted={stepsCompleted}
