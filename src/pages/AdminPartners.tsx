@@ -336,9 +336,9 @@ function LandingPageUrl({ url }: { url: string }) {
 
   return (
     <>
-      <div className="flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2">
+      <div className="flex min-w-0 items-center gap-2 rounded-md border bg-muted/50 px-3 py-2">
         <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
-        <code className="text-xs flex-1 truncate">{url}</code>
+        <code className="min-w-0 flex-1 truncate text-xs">{url}</code>
         <Button size="sm" variant="ghost" className="h-11 w-11 min-w-[44px] min-h-[44px] p-0" onClick={handleCopy} aria-label="Copy URL">
           {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
         </Button>
