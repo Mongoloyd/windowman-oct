@@ -82,6 +82,13 @@ function normalizePhone(value: unknown): string | null {
   return digits.length >= 8 && digits.length <= 15 ? `+${digits}` : null;
 }
 
+function normalizeTimestamp(value: unknown): string | null {
+  const raw = cleanText(value, 80);
+  if (!raw) return null;
+  const time = Date.parse(raw);
+  return Number.isFinite(time) ? new Date(time).toISOString() : null;
+}
+
 function getFieldMap(body: JsonRecord): Record<string, string> {
   const fieldMap: Record<string, string> = {};
   const fieldData = Array.isArray(body.field_data) ? body.field_data : Array.isArray(body.fieldData) ? body.fieldData : [];
@@ -153,6 +160,7 @@ function normalizePayload(body: JsonRecord): { ok: true; payload: NormalizedLead
       platformLeadId,
       sourcePlatform: "facebook",
       sourceChannel: "lead_ads",
+      sourceDetail: SOURCE,
       campaignId: cleanText(body.campaign_id ?? body.campaignId, 255),
       campaignName: cleanText(body.campaign_name ?? body.campaignName, 500),
       adsetId: cleanText(body.adset_id ?? body.adsetId, 255),
@@ -160,6 +168,7 @@ function normalizePayload(body: JsonRecord): { ok: true; payload: NormalizedLead
       adId: cleanText(body.ad_id ?? body.adId, 255),
       adName: cleanText(body.ad_name ?? body.adName, 500),
       formId: cleanText(body.form_id ?? body.formId, 255),
+      platformCreatedTime: normalizeTimestamp(body.created_time ?? body.createdTime ?? body.platform_created_time),
       fbclid: cleanText(body.fbclid, 500),
       gclid: cleanText(body.gclid, 500),
       fbc: cleanText(body.fbc, 500),
@@ -170,12 +179,16 @@ function normalizePayload(body: JsonRecord): { ok: true; payload: NormalizedLead
       utmTerm: cleanText(body.utm_term ?? body.utmTerm, 500),
       utmContent: cleanText(body.utm_content ?? body.utmContent, 500),
       landingPageUrl: cleanText(body.landing_page_url ?? body.landingPageUrl, 2000),
+      firstPagePath: cleanText(body.first_page_path ?? body.firstPagePath, 500),
+      initialReferrer: cleanText(body.initial_referrer ?? body.initialReferrer, 1000),
       clientSlug: cleanText(body.client_slug ?? body.clientSlug, 80) ?? "direct",
       firstName,
       lastName,
       fullName,
       email,
       phoneE164,
+      county: cleanText(body.county, 120),
+      rawPayload: asRecord(body.raw_payload) ?? body,
     },
   };
 }
