@@ -112,7 +112,7 @@ export function StepPrescription({
 
         {/* MIRROR PANEL — reflects everything they told us */}
         <div
-          className="card-raised rounded-2xl p-6 md:p-8 mb-8"
+          className="card-raised rounded-2xl p-6 md:p-8 mb-8 border-8 border-double"
           style={{
             background: "linear-gradient(180deg, rgba(219,234,254,0.45) 0%, rgba(239,246,255,0.65) 100%)",
             borderColor: "hsl(217 91% 53% / 0.18)",
@@ -129,7 +129,7 @@ export function StepPrescription({
               >
                 <CheckCircle className="w-5 h-5 text-white" />
               </div>
-              <h3 className="font-display text-lg font-extrabold tracking-tight text-foreground">
+              <h3 className="font-display font-extrabold tracking-tight text-foreground text-2xl">
                 Here's What We Heard
               </h3>
             </div>
