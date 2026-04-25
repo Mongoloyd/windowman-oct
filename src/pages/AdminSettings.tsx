@@ -576,15 +576,15 @@ function AdminSettingsContent() {
 
         {/* Error Banner */}
         {error && (
-          <div className="p-4 rounded-2xl bg-rose-50 border border-rose-100 shadow-sm flex items-start gap-3">
+          <div className="flex items-start gap-3 rounded-2xl border border-red-300 bg-red-100 p-4 shadow-sm">
             <div className="w-9 h-9 rounded-xl bg-white shadow-sm flex items-center justify-center shrink-0">
-              <AlertTriangle className="w-4.5 h-4.5 text-rose-500" />
+              <AlertTriangle className="w-4.5 h-4.5 text-red-950" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-rose-800">{error}</p>
+              <p className="text-sm font-semibold text-red-950">{error}</p>
               <button
                 onClick={fetchUsers}
-                className="text-xs text-rose-600 hover:text-rose-700 font-medium underline underline-offset-2 mt-1"
+                className="mt-1 text-sm font-extrabold text-red-950 underline underline-offset-2 hover:text-red-900"
               >
                 Try again
               </button>
@@ -593,9 +593,9 @@ function AdminSettingsContent() {
         )}
 
         {/* Content Card with Tabs */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.04)] overflow-hidden">
+        <div className="wm-admin-panel overflow-hidden">
           {/* Tab Bar */}
-          <div className="flex border-b border-slate-100">
+          <div className="flex border-b border-slate-300">
             <button
               onClick={() => setActiveTab("users")}
               className={`flex-1 flex items-center justify-center gap-2 px-4 py-4 text-sm font-semibold transition-all duration-200 ${
