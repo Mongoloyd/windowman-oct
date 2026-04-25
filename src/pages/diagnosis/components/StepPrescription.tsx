@@ -276,9 +276,9 @@ export function StepPrescription({
                   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.3), 0 2px 6px hsla(38 92% 50% / 0.25)",
                 }}
               >
-                <Target className="w-4 h-4 text-white" />
+                <Asterisk className="w-4 h-4 text-white" />
               </div>
-              <p className="wm-eyebrow uppercase" style={{ color: "hsl(38 92% 32%)" }}>
+              <p className="wm-eyebrow uppercase text-lg" style={{ color: "hsl(38 92% 32%)" }}>
                 The Money Question
               </p>
             </div>
