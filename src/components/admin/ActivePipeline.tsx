@@ -157,7 +157,7 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
 
   if (isLoading && leads.length === 0) {
     return (
-      <div className="flex items-center justify-center py-20 text-muted-foreground">
+      <div className="flex items-center justify-center py-20 text-slate-700 font-medium">
         Loading pipeline…
       </div>
     );
@@ -165,8 +165,8 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
 
   if (!leads.length) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-2">
-        <p className="text-lg font-medium">No leads yet</p>
+      <div className="flex flex-col items-center justify-center py-20 text-slate-700 font-medium gap-2">
+        <p className="text-xl font-extrabold text-slate-950">No leads yet</p>
         <p className="text-sm">Leads will appear here once homeowners start uploading quotes.</p>
       </div>
     );
@@ -177,16 +177,16 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
       {/* ── Filter controls ── */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-600" />
           <Input
             placeholder="Search name, email, county…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 h-9 text-sm"
+            className="pl-9 h-10 text-sm font-semibold"
           />
         </div>
         <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
-          <SelectTrigger className="w-[160px] h-9 text-sm">
+          <SelectTrigger className="w-[160px] h-10 text-sm font-semibold">
             <SelectValue placeholder="All Statuses" />
           </SelectTrigger>
           <SelectContent>
@@ -200,7 +200,7 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
           </SelectContent>
         </Select>
         <Select value={ownershipFilter} onValueChange={(v) => setOwnershipFilter(v as OwnershipFilter)}>
-          <SelectTrigger className="w-[210px] h-9 text-sm">
+          <SelectTrigger className="w-[210px] h-10 text-sm font-semibold">
             <SelectValue placeholder="All Ownership" />
           </SelectTrigger>
           <SelectContent>
@@ -215,7 +215,7 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
         {/* Phase 8 — Always exposes an explicit "Unknown County" option as a safe
             fallback for null/empty geography, even when no current leads match. */}
         <Select value={marketFilter} onValueChange={setMarketFilter}>
-          <SelectTrigger className="w-[180px] h-9 text-sm">
+          <SelectTrigger className="w-[180px] h-10 text-sm font-semibold">
             <SelectValue placeholder="All Markets" />
           </SelectTrigger>
           <SelectContent>
@@ -230,12 +230,12 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
             )}
           </SelectContent>
         </Select>
-        <span className="text-xs text-muted-foreground">
+        <span className="text-sm font-semibold text-slate-600">
           {filteredLeads.length} of {leads.length} leads
         </span>
       </div>
 
-      <div className="rounded-md border overflow-auto">
+      <div className="rounded-xl border border-slate-300 bg-white shadow-sm overflow-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -251,7 +251,7 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
           <TableBody>
             {filteredLeads.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={7} className="text-center py-8 text-slate-600">
                   No leads match the current filters.
                 </TableCell>
               </TableRow>
@@ -270,7 +270,7 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
                         {displayName(lead)}
                       </div>
                       {lead.email && lead.first_name && (
-                        <div className="text-xs text-muted-foreground truncate max-w-[220px]">
+                        <div className="text-sm font-semibold text-slate-600 truncate max-w-[220px]">
                           {lead.email}
                         </div>
                       )}
@@ -284,7 +284,7 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
                           {lead.grade}
                         </Badge>
                       ) : (
-                        <span className="text-muted-foreground text-xs">—</span>
+                        <span className="text-slate-600 text-xs">—</span>
                       )}
                     </TableCell>
                     <TableCell className="text-center font-mono">
@@ -295,10 +295,10 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
                         {style.label}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
+                    <TableCell className="text-sm text-slate-600">
                       {lead.assigned_partner}
                     </TableCell>
-                    <TableCell className="text-right text-xs text-muted-foreground whitespace-nowrap">
+                    <TableCell className="text-right text-sm font-semibold text-slate-600 whitespace-nowrap">
                       {timeAgo(lead.created_at)}
                     </TableCell>
                   </TableRow>

@@ -49,7 +49,7 @@ const pillarColor = (score: number) => {
 };
 
 const gradeColor = (g: string | null | undefined) => {
-  if (!g) return "text-muted-foreground";
+  if (!g) return "text-slate-600";
   if (g === "A") return "text-emerald-600";
   if (g === "B") return "text-emerald-500";
   if (g === "C") return "text-amber-600";
@@ -381,7 +381,7 @@ export default function PartnerDossier() {
           <div className="min-w-0">
             <Link
               to="/partner/opportunities"
-              className="mb-2 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded"
+              className="mb-2 inline-flex items-center gap-1.5 text-sm font-bold text-slate-700 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
               Opportunity Market
@@ -393,7 +393,7 @@ export default function PartnerDossier() {
               </h1>
               {isPreview && <PreviewModeBadge />}
             </div>
-            <p className="text-[11px] text-muted-foreground font-mono mt-1">
+            <p className="text-sm font-semibold text-slate-600 font-mono mt-1">
               ID&nbsp;{(meta.analysis_id ?? id ?? "demo").slice(0, 8)}…
             </p>
           </div>
@@ -402,14 +402,14 @@ export default function PartnerDossier() {
           <button
             onClick={handleUnlock}
             disabled={unlocked || unlocking || (!isPreview && !meta.can_unlock)}
-            className={`flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all shrink-0
+            className={`flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-extrabold transition-all shrink-0 border shadow-sm
               ${unlocked
                 ? "bg-emerald-50 text-emerald-700 border border-emerald-300 cursor-default"
                 : unlocking
                   ? "bg-primary/10 text-primary cursor-wait"
                   : (isPreview || meta.can_unlock)
                     ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-md active:scale-[0.98]"
-                    : "bg-muted text-muted-foreground cursor-not-allowed border"
+                    : "bg-slate-100 text-slate-700 cursor-not-allowed border-slate-300"
               }`}
           >
             {unlocked ? (
@@ -439,11 +439,11 @@ export default function PartnerDossier() {
         <section className={`rounded-xl p-6 transition-colors duration-500 ${
           unlocked
             ? "border-2 border-emerald-300 bg-emerald-50/40"
-            : "border bg-card"
+            : "border border-slate-300 bg-card shadow-sm"
         }`}>
           <div className="flex items-center gap-2 mb-5">
             <Target className="h-5 w-5 text-primary" />
-            <h2 className="text-sm font-bold uppercase tracking-widest text-primary">
+            <h2 className="text-xl font-extrabold tracking-tight text-primary">
               Lead Provenance
             </h2>
             {unlocked && (
@@ -452,7 +452,7 @@ export default function PartnerDossier() {
               </span>
             )}
             {!unlocked && (
-              <span className="ml-auto inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground bg-muted px-2.5 py-1 rounded-full">
+              <span className="ml-auto inline-flex items-center gap-1.5 text-xs font-extrabold text-slate-700 bg-white border border-slate-300 px-3 py-1 rounded-full shadow-sm">
                 <Lock className="h-3 w-3" /> Locked
               </span>
             )}
@@ -488,13 +488,13 @@ export default function PartnerDossier() {
             § 2 — LEAD INTAKE INTELLIGENCE
             ═══════════════════════════════════════════════════════ */}
         {intakeCards.length > 0 && (
-          <section className="rounded-xl border bg-card p-6">
+          <section className="rounded-xl border border-slate-300 bg-card shadow-sm p-6">
             <div className="flex items-center gap-2 mb-5">
               <ClipboardList className="h-5 w-5 text-violet-600" />
-              <h2 className="text-sm font-bold uppercase tracking-widest text-violet-700">
+              <h2 className="text-xl font-extrabold tracking-tight text-violet-700">
                 Lead Intake Intelligence
               </h2>
-              <span className="ml-auto text-[11px] text-muted-foreground">
+              <span className="ml-auto text-sm font-medium text-slate-600">
                 {intakeCards.length} signal{intakeCards.length !== 1 ? "s" : ""}
               </span>
             </div>
@@ -509,14 +509,14 @@ export default function PartnerDossier() {
                 return (
                   <div
                     key={card.label}
-                    className="relative bg-muted/40 rounded-xl p-4 border border-border/60 overflow-hidden"
+                    className="relative bg-white rounded-xl p-4 border border-slate-300 shadow-sm overflow-hidden"
                   >
                     {/* Accent stripe */}
                     <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl bg-violet-400" />
                     <div className="pl-2">
                       <div className="flex items-center gap-1.5 mb-2">
                         <Icon className="h-3.5 w-3.5 text-violet-500/70" />
-                        <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground font-semibold">
+                        <p className="text-xs uppercase tracking-[0.12em] text-slate-600 font-extrabold">
                           {card.label}
                         </p>
                       </div>
@@ -534,17 +534,17 @@ export default function PartnerDossier() {
         {/* ═══════════════════════════════════════════════════════
             § 3 — COMPETITIVE INTELLIGENCE
             ═══════════════════════════════════════════════════════ */}
-        <section className="rounded-xl border bg-card p-6">
+        <section className="rounded-xl border border-slate-300 bg-card shadow-sm p-6">
           <div className="flex items-center gap-2 mb-5">
             <Target className="h-5 w-5 text-amber-600" />
-            <h2 className="text-sm font-bold uppercase tracking-widest text-amber-700">
+            <h2 className="text-xl font-extrabold tracking-tight text-amber-700">
               Competitive Intelligence
             </h2>
           </div>
 
           <div className="grid sm:grid-cols-3 xl:grid-cols-5 gap-4">
-            <div className="bg-muted/40 rounded-xl p-5 text-center border">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-2">
+            <div className="bg-white rounded-xl p-5 text-center border border-slate-300 shadow-sm">
+              <p className="text-xs font-extrabold text-slate-600 uppercase tracking-widest mb-2">
                 Competitor Grade
               </p>
               <p className={`text-5xl font-black leading-none ${gradeColor(analysis?.grade)}`}>
@@ -557,21 +557,21 @@ export default function PartnerDossier() {
               )}
             </div>
 
-            <div className="bg-muted/40 rounded-xl p-5 text-center border">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-2">
+            <div className="bg-white rounded-xl p-5 text-center border border-slate-300 shadow-sm">
+              <p className="text-xs font-extrabold text-slate-600 uppercase tracking-widest mb-2">
                 Total Quoted
               </p>
-              <p className="text-2xl font-bold">{fmt(totalPrice)}</p>
-              <p className="text-[11px] text-muted-foreground mt-1">
+              <p className="text-3xl font-black text-slate-950">{fmt(totalPrice)}</p>
+              <p className="text-sm font-medium text-slate-600 mt-1">
                 {openingCount ?? "?"} openings
               </p>
             </div>
 
-            <div className="bg-muted/40 rounded-xl p-5 text-center border">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-2">
+            <div className="bg-white rounded-xl p-5 text-center border border-slate-300 shadow-sm">
+              <p className="text-xs font-extrabold text-slate-600 uppercase tracking-widest mb-2">
                 Price / Opening
               </p>
-              <p className="text-2xl font-bold">
+              <p className="text-3xl font-black text-slate-950">
                 {pricePerOpening != null ? `$${pricePerOpening.toLocaleString()}` : "N/A"}
               </p>
               {pricePerOpening != null && <MarketIndicator price={pricePerOpening} />}
@@ -583,10 +583,10 @@ export default function PartnerDossier() {
             § 3b — FORENSIC BREAKDOWN (Pillar Scores)
             ═══════════════════════════════════════════════════════ */}
         {Object.keys(pillarScores).length > 0 && (
-          <section className="rounded-xl border bg-card p-6">
+          <section className="rounded-xl border border-slate-300 bg-card shadow-sm p-6">
             <div className="flex items-center gap-2 mb-5">
               <Crosshair className="h-5 w-5 text-violet-600" />
-              <h2 className="text-sm font-bold uppercase tracking-widest text-violet-700">
+              <h2 className="text-xl font-extrabold tracking-tight text-violet-700">
                 Forensic Breakdown
               </h2>
             </div>
@@ -595,7 +595,7 @@ export default function PartnerDossier() {
                 const score = pillarScores[key] ?? 0;
                 return (
                   <div key={key} className="flex items-center gap-3">
-                    <span className="text-[11px] text-muted-foreground w-28 shrink-0 text-right font-mono">
+                    <span className="text-sm font-medium text-slate-600 w-28 shrink-0 text-right font-mono">
                       {label}
                     </span>
                     <div className="flex-1 bg-muted rounded-full h-3 overflow-hidden">
@@ -604,7 +604,7 @@ export default function PartnerDossier() {
                         style={{ width: `${Math.min(score, 100)}%` }}
                       />
                     </div>
-                    <span className="text-[11px] text-muted-foreground font-mono w-8 text-right font-bold tabular-nums">
+                    <span className="text-sm font-medium text-slate-600 font-mono w-8 text-right font-bold tabular-nums">
                       {score}
                     </span>
                   </div>
@@ -625,7 +625,7 @@ export default function PartnerDossier() {
         <section className="rounded-xl border border-destructive/20 bg-destructive/[0.03] p-6">
           <div className="flex items-center gap-2 mb-5">
             <ShieldAlert className="h-5 w-5 text-destructive" />
-            <h2 className="text-sm font-bold uppercase tracking-widest text-destructive">
+            <h2 className="text-xl font-extrabold tracking-tight text-destructive">
               Attack Surface &amp; Vulnerabilities
             </h2>
             {flags.length > 0 && (
@@ -687,7 +687,7 @@ export default function PartnerDossier() {
         />
 
         {/* ─── Provenance Footer ── */}
-        <footer className="text-center text-[11px] text-muted-foreground font-mono py-8 space-y-1 border-t mt-4 pt-8">
+        <footer className="text-center text-sm font-medium text-slate-600 font-mono py-8 space-y-1 border-t mt-4 pt-8">
           <p>
             Scanned {new Date(analysis?.created_at).toLocaleString()} · Rubric {analysis?.rubric_version ?? "—"} · Confidence {analysis?.confidence_score ?? "—"}%
           </p>
@@ -706,7 +706,7 @@ export default function PartnerDossier() {
 function InfoRow({ label, value, blur }: { label: string; value: string; blur?: boolean }) {
   return (
     <div className="min-w-0">
-      <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground font-semibold mb-1">
+      <p className="text-xs uppercase tracking-[0.12em] text-slate-600 font-extrabold mb-1">
         {label}
       </p>
       <p className={`text-sm font-medium leading-snug ${blur ? "blur-[5px] select-none" : ""} transition-[filter] duration-500`}>
@@ -721,7 +721,7 @@ function PiiRow({ label, value, blur, onCopy, copied }: {
 }) {
   return (
     <div className="min-w-0">
-      <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground font-semibold mb-1">
+      <p className="text-xs uppercase tracking-[0.12em] text-slate-600 font-extrabold mb-1">
         {label}
       </p>
       <div className="flex items-center gap-2">
@@ -796,7 +796,7 @@ function DocumentVault({ hasDocument, isUnlocked, analysisId, createdAt, isPrevi
       <section className="rounded-xl border border-dashed bg-muted/20 p-6">
         <div className="flex items-center gap-2 mb-4">
           <FileText className="h-5 w-5 text-muted-foreground/50" />
-          <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground/70">
+          <h2 className="text-xl font-extrabold tracking-tight text-muted-foreground/70">
             Document Vault
           </h2>
         </div>
@@ -816,10 +816,10 @@ function DocumentVault({ hasDocument, isUnlocked, analysisId, createdAt, isPrevi
   /* ── State 2: Document exists, locked ── */
   if (!isUnlocked) {
     return (
-      <section className="rounded-xl border bg-card p-6">
+      <section className="rounded-xl border border-slate-300 bg-card shadow-sm p-6">
         <div className="flex items-center gap-2 mb-4">
           <FileText className="h-5 w-5 text-primary" />
-          <h2 className="text-sm font-bold uppercase tracking-widest text-primary">
+          <h2 className="text-xl font-extrabold tracking-tight text-primary">
             Document Vault
           </h2>
           <span className="ml-auto inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
@@ -856,7 +856,7 @@ function DocumentVault({ hasDocument, isUnlocked, analysisId, createdAt, isPrevi
     <section className="rounded-xl border-2 border-emerald-300 bg-emerald-50/40 p-6 transition-colors duration-500">
       <div className="flex items-center gap-2 mb-4">
         <FileText className="h-5 w-5 text-emerald-600" />
-        <h2 className="text-sm font-bold uppercase tracking-widest text-emerald-700">
+        <h2 className="text-xl font-extrabold tracking-tight text-emerald-700">
           Document Vault
         </h2>
         <span className="ml-auto inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-full">

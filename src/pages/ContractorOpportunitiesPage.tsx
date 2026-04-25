@@ -135,7 +135,7 @@ const HANDOFF_TONE_CLASSES: Record<HandoffTone, string> = {
 
 /* ── Helpers ────────────────────────────────────────────────────── */
 const gradeColor = (g: string | null) => {
-  if (!g) return "text-muted-foreground";
+  if (!g) return "text-slate-600";
   if (g === "A") return "text-emerald-600";
   if (g === "B") return "text-emerald-500";
   if (g === "C") return "text-amber-600";
@@ -158,11 +158,11 @@ const statusPill = (status: string) => {
     contractor_interested: { label: "Interested", classes: "bg-violet-100 text-violet-700" },
     homeowner_contact_released: { label: "Released", classes: "bg-emerald-100 text-emerald-700" },
     closed_won: { label: "Won", classes: "bg-emerald-100 text-emerald-800" },
-    closed_lost: { label: "Lost", classes: "bg-muted text-muted-foreground" },
+    closed_lost: { label: "Lost", classes: "bg-white text-slate-700 border border-slate-300" },
   };
-  const info = map[status] ?? { label: status.replace(/_/g, " "), classes: "bg-muted text-muted-foreground" };
+  const info = map[status] ?? { label: status.replace(/_/g, " "), classes: "bg-white text-slate-700 border border-slate-300" };
   return (
-    <span className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${info.classes}`}>
+    <span className={`inline-flex items-center min-h-6 text-xs font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${info.classes}`}>
       {info.label}
     </span>
   );
@@ -464,7 +464,7 @@ export default function ContractorOpportunitiesPage() {
       <div className="min-h-screen bg-background flex items-center justify-center px-6">
         <div className="text-center space-y-3">
           <AlertTriangle className="h-10 w-10 text-amber-500 mx-auto" />
-          <p className="text-sm text-muted-foreground">{errorMsg}</p>
+          <p className="text-sm font-medium text-slate-700">{errorMsg}</p>
           <button
             onClick={fetchOpportunities}
             className="px-4 py-2 rounded-lg bg-muted text-sm text-foreground hover:bg-accent transition-colors"
@@ -490,14 +490,14 @@ export default function ContractorOpportunitiesPage() {
 
         {/* ─── Tactical buying-logic explainer (compact, dashboard-native) ── */}
         <div
-          className="rounded-lg border bg-muted/40 px-4 py-3"
+          className="rounded-xl border border-slate-300 bg-white px-4 py-3 shadow-sm"
           aria-label="How to use Best Unlock"
         >
           <p className="text-xs sm:text-sm text-foreground">
             <span className="font-semibold">Use Best Unlock</span> to prioritize verified, urgent,
             warm-handoff leads — not just bad competitor quotes.
           </p>
-          <p className="text-[11px] text-muted-foreground mt-1">
+          <p className="text-sm font-medium text-slate-600 mt-1">
             Best Unlock ranks opportunities by buyer seriousness, urgency, handoff warmth, and
             project value.
             {isPreview && (
@@ -511,7 +511,7 @@ export default function ContractorOpportunitiesPage() {
         {/* ─── Filters & Sort ─────────────────────────────────────── */}
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <div
-            className="flex items-center gap-1 bg-muted rounded-lg border p-1 overflow-x-auto max-w-full"
+            className="flex items-center gap-1 bg-white rounded-xl border border-slate-300 p-1 shadow-sm overflow-x-auto max-w-full"
             role="tablist"
             aria-label="Opportunity filter"
           >
@@ -522,10 +522,10 @@ export default function ContractorOpportunitiesPage() {
                 role="tab"
                 aria-selected={activeFilter === tab.key}
                 onClick={() => setActiveFilter(tab.key)}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all whitespace-nowrap focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                className={`min-h-10 px-3 py-2 rounded-md border border-transparent text-sm font-bold transition-all whitespace-nowrap focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                   activeFilter === tab.key
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "bg-white text-slate-950 border-slate-300 shadow-sm"
+                    : "text-slate-700 hover:text-slate-950 hover:border-slate-300 hover:bg-slate-50"
                 }`}
               >
                 {tab.label}
@@ -541,7 +541,7 @@ export default function ContractorOpportunitiesPage() {
                 id="county-filter"
                 value={countyFilter}
                 onChange={(e) => setCountyFilter(e.target.value)}
-                className="bg-background border rounded-md text-xs px-2 py-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="bg-white border-2 border-slate-300 rounded-md text-sm font-semibold text-slate-950 px-3 py-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 aria-label="Filter by county"
               >
                 <option value="">All Counties</option>
@@ -555,7 +555,7 @@ export default function ContractorOpportunitiesPage() {
           <div className="flex items-center gap-2">
             <label
               htmlFor="sort-mode"
-              className="text-[10px] uppercase tracking-widest text-muted-foreground"
+              className="text-xs font-extrabold uppercase tracking-widest text-slate-600"
             >
               Sort
             </label>
@@ -563,7 +563,7 @@ export default function ContractorOpportunitiesPage() {
               id="sort-mode"
               value={sortMode}
               onChange={(e) => setSortMode(e.target.value as SortMode)}
-              className="bg-background border rounded-md text-xs px-2 py-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="bg-white border-2 border-slate-300 rounded-md text-sm font-semibold text-slate-950 px-3 py-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               aria-label="Sort opportunities"
             >
               {SORT_OPTIONS.map((s) => (
@@ -572,7 +572,7 @@ export default function ContractorOpportunitiesPage() {
             </select>
           </div>
 
-          <span className="text-xs text-muted-foreground sm:ml-auto whitespace-nowrap">
+          <span className="text-sm font-semibold text-slate-600 sm:ml-auto whitespace-nowrap">
             Showing {sortedOpportunities.length} of {totalCount}
           </span>
         </div>
@@ -581,10 +581,10 @@ export default function ContractorOpportunitiesPage() {
         {sortedOpportunities.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 sm:py-20 text-center px-4">
             <Search className="h-12 w-12 text-muted-foreground/40 mb-4" aria-hidden />
-            <h3 className="text-base sm:text-lg font-semibold text-muted-foreground mb-1">
+            <h3 className="text-lg sm:text-xl font-extrabold text-slate-950 mb-1">
               {totalCount === 0 ? "No opportunities yet" : "No matches for current filters"}
             </h3>
-            <p className="text-sm text-muted-foreground max-w-md">
+            <p className="text-sm font-medium text-slate-700 max-w-md">
               {totalCount === 0
                 ? "When homeowners in your territory scan quotes and match your service profile, opportunities will appear here."
                 : "Clear filters or switch back to Best Unlock to see more leads."}
@@ -626,13 +626,13 @@ export default function ContractorOpportunitiesPage() {
 
 function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
   return (
-    <div className="bg-card border rounded-xl p-4 flex items-center gap-3">
+    <div className="bg-card border border-slate-300 rounded-xl p-4 shadow-sm flex items-center gap-3">
       <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
         {icon}
       </div>
       <div>
-        <p className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</p>
-        <p className="text-xl font-bold text-foreground">{value}</p>
+        <p className="text-xs font-extrabold uppercase tracking-widest text-slate-600">{label}</p>
+        <p className="text-2xl font-black text-slate-950">{value}</p>
       </div>
     </div>
   );
@@ -692,7 +692,7 @@ function OpportunityCard({
     exclusive: "bg-violet-50 text-violet-700 border-violet-200",
     warm: "bg-emerald-50 text-emerald-700 border-emerald-200",
     competitive: "bg-amber-50 text-amber-800 border-amber-200",
-    muted: "bg-muted text-muted-foreground border-border",
+    muted: "bg-white text-slate-700 border border-slate-300 border-border",
   };
 
   // CTA copy + tone per state (no transactional language unless safely backed)
@@ -717,7 +717,7 @@ function OpportunityCard({
 
   return (
     <article
-      className="bg-card border rounded-xl overflow-hidden flex flex-col hover:border-primary/30 hover:shadow-md transition-all"
+      className="bg-card border-2 border-slate-200 rounded-xl overflow-hidden flex flex-col hover:border-blue-400 hover:shadow-[0_16px_40px_rgba(15,23,42,0.10)] active:scale-[0.99] transition-all"
       aria-label={`${opp.project_type ?? "Window Project"} in ${locationLabel}`}
     >
       {/* ─── Zone 1: Decision Header ─────────────────────────────── */}
@@ -734,7 +734,7 @@ function OpportunityCard({
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-sm font-semibold text-foreground truncate min-w-0">
+              <h3 className="text-base font-extrabold text-slate-950 truncate min-w-0">
                 {opp.project_type ?? "Window Project"}
               </h3>
               {statusPill(opp.status)}
@@ -749,7 +749,7 @@ function OpportunityCard({
                   {bss.label}
                 </span>
               ) : (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-muted text-muted-foreground border">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-white text-slate-700 border border-slate-300 border">
                   BSS —
                 </span>
               )}
@@ -762,7 +762,7 @@ function OpportunityCard({
                   <Unlock className="h-3 w-3" aria-hidden /> Unlocked
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-muted border text-muted-foreground">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-white border border-slate-300 text-slate-700">
                   <Lock className="h-3 w-3" aria-hidden /> Locked
                 </span>
               )}
@@ -833,7 +833,7 @@ function OpportunityCard({
         className="px-4 sm:px-5 py-3 border-t border-border/60 space-y-2"
         aria-label="Human context"
       >
-        <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
+        <p className="text-xs font-extrabold uppercase tracking-widest text-slate-600 font-semibold">
           Human Context
         </p>
         <div className="flex flex-wrap items-center gap-1.5">
@@ -871,13 +871,13 @@ function OpportunityCard({
       >
         <div className="rounded-md border border-border/80 bg-card p-3 space-y-1.5">
           <div>
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
+            <p className="text-xs font-extrabold uppercase tracking-widest text-slate-600 font-semibold">
               Best Sales Angle
             </p>
             <p className="text-xs font-semibold text-foreground mt-0.5">{angle}</p>
           </div>
           <div>
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
+            <p className="text-xs font-extrabold uppercase tracking-widest text-slate-600 font-semibold">
               Recommended Action
             </p>
             <p
@@ -900,7 +900,7 @@ function OpportunityCard({
       >
         {unlockState === "unlockable" || unlockState === "insufficient" ? (
           <div>
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-1.5">
+            <p className="text-xs font-extrabold uppercase tracking-widest text-slate-600 font-semibold mb-1.5">
               Unlock Includes
             </p>
             <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1">

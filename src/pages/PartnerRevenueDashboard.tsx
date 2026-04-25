@@ -181,11 +181,11 @@ function SectionHeader({
         <Icon className="h-4 w-4 text-sky-600" aria-hidden />
       </div>
       <div className="min-w-0">
-        <h2 className="text-base sm:text-lg font-semibold tracking-tight leading-none">
+        <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight leading-tight text-slate-950">
           {title}
         </h2>
         {subtitle && (
-          <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
+          <p className="text-sm font-medium text-slate-700 mt-1">{subtitle}</p>
         )}
       </div>
     </div>
@@ -206,18 +206,18 @@ function KpiCard({
   return (
     <div
       className={cn(
-        "rounded-lg border bg-card p-4 flex flex-col gap-1.5",
+        "rounded-xl border border-slate-300 bg-card p-5 flex flex-col gap-2 shadow-sm",
         highlight && "border-sky-300 bg-sky-50/40",
       )}
     >
-      <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+      <span className="text-xs font-extrabold uppercase tracking-wide text-slate-600">
         {label}
       </span>
-      <span className="text-xl sm:text-2xl font-bold tracking-tight tabular-nums">
+      <span className="text-2xl sm:text-3xl font-black tracking-tight tabular-nums text-slate-950">
         {value}
       </span>
       {hint && (
-        <span className="text-[11px] text-muted-foreground leading-tight">
+        <span className="text-sm font-medium text-slate-600 leading-tight">
           {hint}
         </span>
       )}
@@ -237,14 +237,14 @@ function LeadHoverCard({ row }: { row: OutcomeRow }) {
           <div className="min-w-0">
             <div className="font-semibold truncate">{displayName(row)}</div>
             {locationLabel(row) && (
-              <div className="text-xs text-muted-foreground">
+              <div className="text-sm font-medium text-slate-600">
                 {locationLabel(row)}
               </div>
             )}
           </div>
           <Badge
             variant="outline"
-            className={cn("text-[10px]", DISPOSITION_COLOR[row.disposition_state])}
+            className={cn("text-xs font-extrabold border", DISPOSITION_COLOR[row.disposition_state])}
           >
             {DISPOSITION_LABEL[row.disposition_state]}
           </Badge>
@@ -299,7 +299,7 @@ function LeadHoverCard({ row }: { row: OutcomeRow }) {
         </div>
 
         <div className="flex items-center justify-between gap-2 pt-1 border-t">
-          <span className="text-[10px] text-muted-foreground">
+          <span className="text-xs font-semibold text-slate-600">
             Last action {lastActionAge(row)}
           </span>
           {dossierHref && (
@@ -326,12 +326,12 @@ function LeadCard({ row }: { row: OutcomeRow }) {
     : null;
 
   const inner = (
-    <div className="rounded-md border bg-card p-2.5 hover:border-sky-300 hover:shadow-sm transition cursor-pointer">
+    <div className="rounded-lg border-2 border-slate-200 bg-card p-3 hover:border-blue-400 hover:shadow-[0_12px_30px_rgba(15,23,42,0.10)] transition cursor-pointer active:scale-[0.99]">
       <div className="flex items-start justify-between gap-1.5">
         <div className="min-w-0 flex-1">
-          <div className="text-xs font-semibold truncate">{displayName(row)}</div>
+          <div className="text-sm font-extrabold text-slate-950 truncate">{displayName(row)}</div>
           {locationLabel(row) && (
-            <div className="text-[10px] text-muted-foreground truncate">
+            <div className="text-xs font-semibold text-slate-600 truncate">
               {locationLabel(row)}
             </div>
           )}
@@ -346,13 +346,13 @@ function LeadCard({ row }: { row: OutcomeRow }) {
         <Badge
           variant="outline"
           className={cn(
-            "text-[9px] py-0 px-1.5",
+            "text-[11px] font-extrabold py-0.5 px-2 border",
             DISPOSITION_COLOR[row.disposition_state],
           )}
         >
           {DISPOSITION_LABEL[row.disposition_state]}
         </Badge>
-        <span className="text-[9px] text-muted-foreground tabular-nums">
+        <span className="text-xs font-semibold text-slate-700 tabular-nums">
           {row.final_value_cents != null
             ? formatCents(row.final_value_cents)
             : row.projected_value_cents != null
@@ -523,10 +523,10 @@ export default function PartnerRevenueDashboard() {
       >
         {/* ─── Page header ───────────────────────────────────── */}
         <header className="flex flex-col gap-1.5">
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
+          <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-slate-950">
             Revenue Dashboard
           </h1>
-          <p className="text-sm text-muted-foreground max-w-2xl">
+          <p className="text-base font-medium text-slate-700 max-w-2xl">
             Your active pipeline, weekly board, and closed revenue —{" "}
             {format(week.start, "MMM d")} – {format(week.end, "MMM d")}.
           </p>
@@ -628,25 +628,25 @@ export default function PartnerRevenueDashboard() {
                   <div
                     key={day.toISOString()}
                     className={cn(
-                      "rounded-md border bg-card p-2 min-h-[8rem] flex flex-col gap-1.5",
+                      "rounded-lg border border-slate-300 bg-card p-3 shadow-sm min-h-[8rem] flex flex-col gap-1.5",
                       isToday && "border-sky-400 bg-sky-50/30",
                     )}
                   >
                     <div className="flex items-baseline justify-between">
                       <span
                         className={cn(
-                          "text-[10px] font-semibold uppercase tracking-wide",
-                          isToday ? "text-sky-700" : "text-muted-foreground",
+                          "text-xs font-extrabold uppercase tracking-wide",
+                          isToday ? "text-sky-700" : "text-slate-600",
                         )}
                       >
                         {format(day, "EEE")}
                       </span>
-                      <span className="text-[10px] text-muted-foreground tabular-nums">
+                      <span className="text-xs font-semibold text-slate-600 tabular-nums">
                         {format(day, "MMM d")}
                       </span>
                     </div>
                     {dayRows.length === 0 ? (
-                      <div className="flex-1 flex items-center justify-center text-[10px] text-muted-foreground/60">
+                      <div className="flex-1 flex items-center justify-center text-xs font-semibold text-slate-600/60">
                         —
                       </div>
                     ) : (
@@ -674,7 +674,7 @@ export default function PartnerRevenueDashboard() {
             Active pipeline
           </h2>
           {isLoading ? (
-            <div className="rounded-lg border bg-card overflow-hidden">
+            <div className="rounded-xl border border-slate-300 bg-card overflow-hidden shadow-sm">
               {Array.from({ length: 4 }).map((_, i) => (
                 <div
                   key={i}
@@ -686,7 +686,7 @@ export default function PartnerRevenueDashboard() {
             <div className="rounded-lg border border-dashed bg-card p-8 flex flex-col items-center text-center gap-2">
               <Inbox className="h-8 w-8 text-muted-foreground/50" aria-hidden />
               <div className="text-sm font-medium">No active leads</div>
-              <p className="text-xs text-muted-foreground max-w-sm">
+              <p className="text-sm font-medium text-slate-600 max-w-sm">
                 Once you start working leads from the Opportunity Market, they
                 will appear here grouped by status.
               </p>
@@ -698,26 +698,26 @@ export default function PartnerRevenueDashboard() {
               </Button>
             </div>
           ) : (
-            <div className="rounded-lg border bg-card overflow-hidden">
+            <div className="rounded-xl border border-slate-300 bg-card overflow-hidden shadow-sm">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground">
+                  <thead className="bg-slate-100 text-xs uppercase tracking-wide text-slate-700">
                     <tr>
-                      <th className="text-left font-medium px-3 py-2">Lead</th>
-                      <th className="text-left font-medium px-3 py-2 hidden md:table-cell">
+                      <th className="text-left font-extrabold px-3 py-3">Lead</th>
+                      <th className="text-left font-extrabold px-3 py-3 hidden md:table-cell">
                         Location
                       </th>
-                      <th className="text-left font-medium px-3 py-2">Status</th>
-                      <th className="text-left font-medium px-3 py-2 hidden lg:table-cell">
+                      <th className="text-left font-extrabold px-3 py-3">Status</th>
+                      <th className="text-left font-extrabold px-3 py-3 hidden lg:table-cell">
                         Last action
                       </th>
-                      <th className="text-right font-medium px-3 py-2 hidden sm:table-cell">
+                      <th className="text-right font-extrabold px-3 py-3 hidden sm:table-cell">
                         Projected
                       </th>
-                      <th className="text-right font-medium px-3 py-2 hidden sm:table-cell">
+                      <th className="text-right font-extrabold px-3 py-3 hidden sm:table-cell">
                         Final
                       </th>
-                      <th className="text-right font-medium px-3 py-2"></th>
+                      <th className="text-right font-extrabold px-3 py-3"></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -735,7 +735,7 @@ export default function PartnerRevenueDashboard() {
                               {displayName(r)}
                             </div>
                             {r.grade && (
-                              <div className="text-[10px] text-muted-foreground">
+                              <div className="text-xs font-semibold text-slate-600">
                                 Grade {r.grade}
                               </div>
                             )}
@@ -754,7 +754,7 @@ export default function PartnerRevenueDashboard() {
                               {DISPOSITION_LABEL[r.disposition_state]}
                             </Badge>
                           </td>
-                          <td className="px-3 py-2 text-xs text-muted-foreground hidden lg:table-cell">
+                          <td className="px-3 py-2 text-sm font-medium text-slate-600 hidden lg:table-cell">
                             <span className="inline-flex items-center gap-1">
                               <Clock className="h-3 w-3" aria-hidden />
                               {lastActionAge(r)}
