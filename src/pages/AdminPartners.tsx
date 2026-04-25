@@ -206,6 +206,7 @@ function AdminPartnersContent() {
   const [testing, setTesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [editorOpen, setEditorOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [draft, setDraft] = useState<Draft>(() => buildDraft(null, null));
 
@@ -295,6 +296,7 @@ function AdminPartnersContent() {
     }
     setSelectedClient(client);
     setDraft(buildDraft(client, client ? metaByClientId.get(client.id) ?? null : null));
+    setEditorOpen(true);
   }
 
   async function saveConfig() {
@@ -349,6 +351,7 @@ function AdminPartnersContent() {
       }
 
       toast.success("Client tracking config saved");
+      setEditorOpen(false);
       setSelectedClient(null);
       await fetchAll();
     } catch (err) {
@@ -505,7 +508,7 @@ function AdminPartnersContent() {
         </section>
       </div>
 
-      <Sheet open={selectedClient !== null || draft.id === null && draft.name !== ""} onOpenChange={(open) => !open && setSelectedClient(null)}>
+      <Sheet open={editorOpen} onOpenChange={(open) => { setEditorOpen(open); if (!open) setSelectedClient(null); }}>
         <SheetContent side="right" className="w-full overflow-y-auto bg-white sm:max-w-3xl">
           <SheetHeader>
             <SheetTitle className="text-2xl font-black text-slate-950">Client configuration</SheetTitle>
