@@ -982,6 +982,38 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (action === "save_client_config") {
+      const { client_id, google_ads_conversion_id = null, google_ads_label = null, meta_pixel_id = null, meta_dataset_id = null, gtm_server_url = null, capi_token = null } = payload ?? {};
+      if (typeof client_id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(client_id)) return errorResponse(400, "invalid_client_id", "client_id must be a valid UUID.");
+      const clean = (value: unknown, max = 255) => typeof value === "string" && value.trim() ? value.trim().slice(0, max) : null;
+      const googleId = clean(google_ads_conversion_id, 32), googleLabel = clean(google_ads_label, 120), metaPixelId = clean(meta_pixel_id, 32), metaDatasetId = clean(meta_dataset_id, 80), serverGtmUrl = clean(gtm_server_url, 255), token = clean(capi_token, 4096);
+      if (googleId && !/^(AW-)?[0-9]{6,20}$/.test(googleId)) return errorResponse(400, "invalid_google_ads_conversion_id", "Google Ads Conversion ID must look like AW-123456789 or digits only.");
+      if (metaPixelId && !PIXEL_RE.test(metaPixelId)) return errorResponse(400, "invalid_meta_pixel_id", "Meta Pixel ID must be 6–20 digits.");
+      if (serverGtmUrl) { try { if (new URL(serverGtmUrl).protocol !== "https:") return errorResponse(400, "invalid_gtm_server_url", "Server GTM URL must use HTTPS."); } catch { return errorResponse(400, "invalid_gtm_server_url", "Server GTM URL must be a valid HTTPS URL."); } }
+      if (token && token.length < 20) return errorResponse(400, "invalid_capi_token", "CAPI token must be at least 20 characters when provided.");
+
+      const { data: existingClient, error: clientErr } = await supabaseAdmin.from("clients").select("id").eq("id", client_id).maybeSingle();
+      if (clientErr) throw clientErr;
+      if (!existingClient) return errorResponse(404, "client_not_found", "Client not found.");
+
+      let secretId: string | null = null;
+      if (token) {
+        const { data: savedSecretId, error: secretErr } = await supabaseAdmin.rpc("vault_upsert_client_capi_token" as never, { p_client_id: client_id, p_token: token } as never);
+        if (secretErr) return errorResponse(500, "vault_write_failed", "Unable to store CAPI token securely.");
+        secretId = String(savedSecretId);
+      }
+
+      const { data: existingConfig, error: existingErr } = await supabaseAdmin.from("client_configs").select("id, capi_token_secret_id").eq("client_id", client_id).maybeSingle();
+      if (existingErr) throw existingErr;
+      const configPayload: Record<string, unknown> = { client_id, google_ads_conversion_id: googleId, google_ads_label: googleLabel, meta_pixel_id: metaPixelId, meta_dataset_id: metaDatasetId, gtm_server_url: serverGtmUrl, updated_at: now };
+      if (secretId) configPayload.capi_token_secret_id = secretId;
+      const result = existingConfig
+        ? await supabaseAdmin.from("client_configs").update(configPayload).eq("id", existingConfig.id)
+        : await supabaseAdmin.from("client_configs").insert({ ...configPayload, created_at: now });
+      if (result.error) return errorResponse(400, existingConfig ? "client_config_update_failed" : "client_config_insert_failed", result.error.message);
+      return successResponse({ data: { success: true, client_id, capi_token_configured: Boolean(secretId || existingConfig?.capi_token_secret_id), capi_token_rotated: Boolean(secretId) } });
+    }
+
     // Toggle a client's active flag. Inactive clients fall through to default/env.
     if (action === "set_meta_client_active") {
       const { client_slug, is_active } = payload ?? {};
