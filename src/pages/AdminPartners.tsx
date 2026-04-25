@@ -654,6 +654,15 @@ function DisabledField({ label, value, help }: { label: string; value: string; h
   );
 }
 
+function EditableField({ label, value, help, onChange }: { label: string; value: string; help: string; onChange: (value: string) => void }) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="flex items-center gap-2 font-bold text-slate-700">{label}<HelpTip>{help}</HelpTip></Label>
+      <Input value={value} onChange={(event) => onChange(event.target.value)} className="border-slate-300 font-mono text-slate-950 placeholder:text-slate-700" />
+    </div>
+  );
+}
+
 function ChecklistItem({ ok, label }: { ok: boolean; label: string }) {
   return (
     <div className="flex items-center gap-2">
