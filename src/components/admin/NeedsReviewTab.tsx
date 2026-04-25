@@ -266,7 +266,7 @@ export function NeedsReviewTab({ needsReview, isLoading }: NeedsReviewTabProps) 
                       <button
                         disabled={isActioning || !lead.latest_scan_session_id}
                         onClick={() => handleRescan(lead)}
-                        className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        className="inline-flex min-h-10 items-center gap-1 px-4 py-2 rounded border-2 border-blue-300 bg-blue-100 text-sm font-extrabold text-blue-950 hover:bg-blue-200 disabled:cursor-not-allowed transition-colors"
                       >
                         {isActioning ? (
                           <Loader2 className="w-3 h-3 animate-spin" />
@@ -287,7 +287,7 @@ export function NeedsReviewTab({ needsReview, isLoading }: NeedsReviewTabProps) 
                             notes: "",
                           });
                         }}
-                        className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded border border-amber-500/30 text-amber-400 hover:bg-amber-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        className="inline-flex min-h-10 items-center gap-1 px-4 py-2 rounded border-2 border-orange-300 bg-orange-100 text-sm font-extrabold text-orange-950 hover:bg-orange-200 disabled:cursor-not-allowed transition-colors"
                       >
                         <PenLine className="w-3 h-3" />
                         Manual Entry
@@ -308,7 +308,7 @@ export function NeedsReviewTab({ needsReview, isLoading }: NeedsReviewTabProps) 
                             setActionInFlight(null);
                           }
                         }}
-                        className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded border border-green-500/30 text-green-400 hover:bg-green-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        className="inline-flex min-h-10 items-center gap-1 px-4 py-2 rounded border-2 border-emerald-300 bg-emerald-100 text-sm font-extrabold text-emerald-950 hover:bg-emerald-200 disabled:cursor-not-allowed transition-colors"
                       >
                         {isActioning ? (
                           <Loader2 className="w-3 h-3 animate-spin" />
@@ -342,7 +342,7 @@ export function NeedsReviewTab({ needsReview, isLoading }: NeedsReviewTabProps) 
 
           <div className="space-y-4 mt-6">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              <label className="text-xs font-extrabold text-slate-700 uppercase tracking-wide">
                 Contractor Name
               </label>
               <Input
@@ -355,7 +355,7 @@ export function NeedsReviewTab({ needsReview, isLoading }: NeedsReviewTabProps) 
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              <label className="text-xs font-extrabold text-slate-700 uppercase tracking-wide">
                 Total Price ($)
               </label>
               <Input
@@ -369,7 +369,7 @@ export function NeedsReviewTab({ needsReview, isLoading }: NeedsReviewTabProps) 
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              <label className="text-xs font-extrabold text-slate-700 uppercase tracking-wide">
                 Product Brand
               </label>
               <Input
@@ -382,7 +382,7 @@ export function NeedsReviewTab({ needsReview, isLoading }: NeedsReviewTabProps) 
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              <label className="text-xs font-extrabold text-slate-700 uppercase tracking-wide">
                 Notes (optional)
               </label>
               <Textarea
