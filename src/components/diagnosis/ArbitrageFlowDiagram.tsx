@@ -1,8 +1,8 @@
-import React, { useRef, useEffect, useState, forwardRef } from 'react';
-import { motion } from 'framer-motion';
-import { Shield, type LucideIcon } from 'lucide-react';
+import React, { useRef, useEffect, useState, forwardRef } from "react";
+import { motion } from "framer-motion";
+import { Shield, type LucideIcon } from "lucide-react";
 
-type NodeType = 'orange' | 'blue';
+type NodeType = "orange" | "blue";
 
 interface SkeuoNodeProps {
   text: string;
@@ -13,15 +13,15 @@ interface SkeuoNodeProps {
 }
 
 const SkeuoNode = forwardRef<HTMLDivElement, SkeuoNodeProps>(
-  ({ text, type, delay = 0, icon: Icon, className = '' }, ref) => {
-    const isOrange = type === 'orange';
+  ({ text, type, delay = 0, icon: Icon, className = "" }, ref) => {
+    const isOrange = type === "orange";
 
-    const sideBg = isOrange ? 'bg-orange-200' : 'bg-blue-200';
+    const sideBg = isOrange ? "bg-orange-200" : "bg-blue-200";
     const faceBg = isOrange
-      ? 'bg-gradient-to-b from-orange-50 to-orange-100'
-      : 'bg-gradient-to-b from-white to-blue-50/50';
-    const shadowColor = isOrange ? 'rgba(249, 115, 22, 0.3)' : 'rgba(59, 130, 246, 0.3)';
-    const glowColor = isOrange ? 'rgba(255, 237, 213, 0.8)' : 'rgba(219, 234, 254, 0.8)';
+      ? "bg-gradient-to-b from-orange-50 to-orange-100"
+      : "bg-gradient-to-b from-white to-blue-50/50";
+    const shadowColor = isOrange ? "rgba(249, 115, 22, 0.3)" : "rgba(59, 130, 246, 0.3)";
+    const glowColor = isOrange ? "rgba(255, 237, 213, 0.8)" : "rgba(219, 234, 254, 0.8)";
 
     return (
       <motion.div
@@ -29,22 +29,22 @@ const SkeuoNode = forwardRef<HTMLDivElement, SkeuoNodeProps>(
         className={`relative flex items-center justify-center cursor-pointer group ${className}`}
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay, type: 'spring', stiffness: 300, damping: 20 }}
+        transition={{ delay, type: "spring", stiffness: 300, damping: 20 }}
         whileHover={{ scale: 1.03 }}
         whileTap={{ scale: 0.96 }}
       >
         <div
           className={`absolute inset-0 rounded-2xl ${sideBg} w-full h-full`}
           style={{
-            transform: 'translateY(6px)',
+            transform: "translateY(6px)",
             boxShadow: `0 20px 40px ${shadowColor}, 0 0 40px ${glowColor}`,
           }}
         />
         <div
           className={`relative flex items-center justify-center gap-3 px-6 py-4 rounded-2xl border border-white ${faceBg} text-slate-800 font-semibold text-[15px] tracking-tight w-full h-full`}
           style={{
-            transform: 'translateY(-2px)',
-            boxShadow: 'inset 0 2px 4px rgba(255,255,255,1), inset 0 -2px 4px rgba(0,0,0,0.02)',
+            transform: "translateY(-2px)",
+            boxShadow: "inset 0 2px 4px rgba(255,255,255,1), inset 0 -2px 4px rgba(0,0,0,0.02)",
           }}
         >
           {Icon && (
@@ -56,9 +56,9 @@ const SkeuoNode = forwardRef<HTMLDivElement, SkeuoNodeProps>(
         </div>
       </motion.div>
     );
-  }
+  },
 );
-SkeuoNode.displayName = 'SkeuoNode';
+SkeuoNode.displayName = "SkeuoNode";
 
 interface NodePos {
   x: number;
@@ -76,11 +76,11 @@ export function ArbitrageFlowDiagram() {
   const vetted3Ref = useRef<HTMLDivElement | null>(null);
 
   const [paths, setPaths] = useState({
-    strong: '',
-    weak: '',
-    vetted1: '',
-    vetted2: '',
-    vetted3: '',
+    strong: "",
+    weak: "",
+    vetted1: "",
+    vetted2: "",
+    vetted3: "",
   });
 
   useEffect(() => {
@@ -106,7 +106,7 @@ export function ArbitrageFlowDiagram() {
       const v3 = getPos(vetted3Ref);
 
       const drawOrthogonal = (start: NodePos | null, end: NodePos | null, radius = 24): string => {
-        if (!start || !end) return '';
+        if (!start || !end) return "";
         const startX = start.x;
         const startY = start.bottomY;
         const endX = end.x;
@@ -171,13 +171,13 @@ export function ArbitrageFlowDiagram() {
                 key={key}
                 d={d}
                 fill="none"
-                stroke={key === 'strong' ? 'url(#afd-blueLine)' : 'url(#afd-orangeLine)'}
+                stroke={key === "strong" ? "url(#afd-blueLine)" : "url(#afd-orangeLine)"}
                 strokeWidth="4"
                 initial={{ pathLength: 0 }}
                 animate={{ pathLength: 1 }}
-                transition={{ duration: 1.5, ease: 'easeInOut' }}
+                transition={{ duration: 1.5, ease: "easeInOut" }}
               />
-            )
+            ),
         )}
       </svg>
 
@@ -189,14 +189,7 @@ export function ArbitrageFlowDiagram() {
       {/* Level 2 */}
       <div className="relative z-10 w-full flex flex-col md:flex-row justify-between items-center gap-16 md:gap-8 max-w-4xl">
         <div className="flex justify-center w-full md:w-1/2">
-          <SkeuoNode
-            ref={strongRef}
-            text="Strong Pillars"
-            type="blue"
-            icon={Shield}
-            delay={0.2}
-            className="w-64"
-          />
+          <SkeuoNode ref={strongRef} text="Strong Pillars" type="blue" icon={Shield} delay={0.2} className="w-64" />
         </div>
         <div className="flex justify-center w-full md:w-1/2">
           <SkeuoNode ref={weakRef} text="Weak Pillars" type="orange" delay={0.3} className="w-64" />
@@ -233,11 +226,12 @@ export function ArbitrageFlowDiagram() {
         </div>
         <motion.div
           className="text-[15px] leading-relaxed text-foreground/75 w-full text-center mt-4"
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1.2 }}
         >
-          <strong className="text-foreground">The Correction:</strong> They Actively Bid To Correct The Specific Failures In Your Original Quote.
+          <strong className="text-foreground">The Correction:</strong> They Actively Bid To Correct The Specific
+          Failures In Your Original Quote.
         </motion.div>
       </div>
     </div>
