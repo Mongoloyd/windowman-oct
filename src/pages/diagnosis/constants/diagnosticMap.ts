@@ -3,6 +3,7 @@ import {
   ShieldAlert,
   CreditCard,
   Clock,
+  HelpCircle,
   LayoutGrid,
   MessageCircle,
 } from 'lucide-react';
@@ -12,6 +13,7 @@ export const DIAGNOSTIC_MAP: Record<DiagnosisCode, DiagnosticConfig> = {
   price_shock: {
     code: 'price_shock',
     label: 'It felt too expensive',
+    cardDescription: 'The number felt inflated or hard to justify.',
     Icon: DollarSign,
     accent: 'text-red-700',
     accentBg: 'bg-red-50',
@@ -45,6 +47,7 @@ export const DIAGNOSTIC_MAP: Record<DiagnosisCode, DiagnosticConfig> = {
   trust_breakdown: {
     code: 'trust_breakdown',
     label: "I didn't trust the salesperson",
+    cardDescription: 'Something felt rushed, vague, or pressured.',
     Icon: ShieldAlert,
     accent: 'text-blue-700',
     accentBg: 'bg-blue-50',
@@ -79,6 +82,7 @@ export const DIAGNOSTIC_MAP: Record<DiagnosisCode, DiagnosticConfig> = {
   financial: {
     code: 'financial',
     label: "I can't afford that price structure",
+    cardDescription: 'The deposit, financing, or payment terms felt wrong.',
     Icon: CreditCard,
     accent: 'text-green-700',
     accentBg: 'bg-green-50',
@@ -112,6 +116,7 @@ export const DIAGNOSTIC_MAP: Record<DiagnosisCode, DiagnosticConfig> = {
   timing: {
     code: 'timing',
     label: "The timing isn't right",
+    cardDescription: 'The deadline, urgency, or install timing felt off.',
     Icon: Clock,
     accent: 'text-amber-700',
     accentBg: 'bg-amber-50',
@@ -145,6 +150,7 @@ export const DIAGNOSTIC_MAP: Record<DiagnosisCode, DiagnosticConfig> = {
   scope_mismatch: {
     code: 'scope_mismatch',
     label: "It wasn't what I actually wanted",
+    cardDescription: 'The scope or product mix did not match your goal.',
     Icon: LayoutGrid,
     accent: 'text-orange-700',
     accentBg: 'bg-orange-50',
@@ -179,6 +185,7 @@ export const DIAGNOSTIC_MAP: Record<DiagnosisCode, DiagnosticConfig> = {
   other: {
     code: 'other',
     label: 'Something else felt off',
+    cardDescription: 'Something felt wrong, even if it is hard to name.',
     Icon: MessageCircle,
     accent: 'text-slate-700',
     accentBg: 'bg-slate-50',
@@ -203,6 +210,39 @@ export const DIAGNOSTIC_MAP: Record<DiagnosisCode, DiagnosticConfig> = {
     ctaText: 'Build my better estimate',
     prescriptionPath: 'custom_rebuild',
   },
+  not_sure: {
+    code: 'not_sure',
+    label: 'I don’t know — guide me',
+    cardDescription: 'Use the report to choose the safest next move for me.',
+    Icon: HelpCircle,
+    accent: 'text-blue-700',
+    accentBg: 'bg-blue-50',
+    accentBorder: 'border-blue-200',
+    reflectionTitle: 'WindowMan will guide it.',
+    reflectionBody:
+      'That is exactly why WindowMan exists. You do not need to diagnose the quote yourself — we’ll use the report to guide the safest next move.',
+    secondaryQuestion: 'What would help you feel safer?',
+    secondaryOptions: [
+      'Show me the biggest risk',
+      'Help me compare options',
+      'Tell me what to ask next',
+      'Find me a cleaner quote',
+    ],
+    prescriptionSetup:
+      'Got it. We’ll use your report findings to choose the safest path forward instead of making you guess.',
+    prescriptionHeadline: 'WindowMan-Guided Next Move',
+    prescriptionSubhead:
+      'We’ll use your report findings to choose the safest path forward.',
+    guaranteeTitle: 'Guided Decision Guarantee',
+    guarantees: [
+      'Your report findings drive the next step',
+      'The biggest risk gets handled first',
+      'You get a cleaner comparison path',
+      'No guessing and no pressure to self-diagnose',
+    ],
+    ctaText: 'Guide my next move',
+    prescriptionPath: 'guided_next_move',
+  },
 };
 
 export const DIAGNOSIS_ORDER: DiagnosisCode[] = [
@@ -212,4 +252,5 @@ export const DIAGNOSIS_ORDER: DiagnosisCode[] = [
   'timing',
   'scope_mismatch',
   'other',
+  'not_sure',
 ];

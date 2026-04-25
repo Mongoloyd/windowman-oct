@@ -8,11 +8,13 @@ export type DiagnosisCode =
   | 'financial'
   | 'timing'
   | 'scope_mismatch'
-  | 'other';
+  | 'other'
+  | 'not_sure';
 
 export interface DiagnosticConfig {
   code: DiagnosisCode;
   label: string;
+  cardDescription: string;
   Icon: React.ComponentType<{ className?: string }>;
   accent: string;
   accentBg: string;

@@ -44,6 +44,12 @@ export const BRANCH_DYNAMIC_CHIPS: Record<DiagnosisCode, string[]> = {
     'More options',
     'Custom request',
   ],
+  not_sure: [
+    'Show me the biggest risk',
+    'Help me compare options',
+    'Tell me what to ask next',
+    'Find me a cleaner quote',
+  ],
 };
 
 // CONDITIONAL-CLOSE STATEMENT GENERATOR

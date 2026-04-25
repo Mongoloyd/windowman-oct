@@ -221,6 +221,11 @@ export function useDiagnosticIntake() {
       diagnosis: code,
     });
 
+    trackGtmEvent('diagnosis_root_option_selected', {
+      selected_code: code,
+      grade: context.report_grade,
+    });
+
     setStep('diagnosis');
     scrollToTop();
   };
