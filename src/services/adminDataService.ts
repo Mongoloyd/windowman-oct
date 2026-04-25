@@ -64,6 +64,7 @@ export type AdminAction =
   | "revoke_invitation"
   | "list_meta_configurations"
   | "create_meta_client_config"
+  | "save_client_config"
   | "set_meta_client_active"
   | "preview_meta_route"
   | "smoke_send_meta_event"
@@ -132,6 +133,15 @@ export interface AdminActionPayloads {
     pixel_id: string;
     access_token: string;
     test_event_code?: string | null;
+  };
+  save_client_config: {
+    client_id: string;
+    google_ads_conversion_id?: string | null;
+    google_ads_label?: string | null;
+    meta_pixel_id?: string | null;
+    meta_dataset_id?: string | null;
+    gtm_server_url?: string | null;
+    capi_token?: string | null;
   };
   set_meta_client_active: { client_slug: string; is_active: boolean };
   preview_meta_route: { client_slug?: string };
