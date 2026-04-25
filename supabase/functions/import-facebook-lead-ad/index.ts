@@ -12,6 +12,7 @@ type NormalizedLeadAdPayload = {
   platformLeadId: string;
   sourcePlatform: string;
   sourceChannel: string;
+  sourceDetail: string | null;
   campaignId: string | null;
   campaignName: string | null;
   adsetId: string | null;
@@ -19,6 +20,7 @@ type NormalizedLeadAdPayload = {
   adId: string | null;
   adName: string | null;
   formId: string | null;
+  platformCreatedTime: string | null;
   fbclid: string | null;
   gclid: string | null;
   fbc: string | null;
@@ -29,12 +31,16 @@ type NormalizedLeadAdPayload = {
   utmTerm: string | null;
   utmContent: string | null;
   landingPageUrl: string | null;
+  firstPagePath: string | null;
+  initialReferrer: string | null;
   clientSlug: string;
   firstName: string | null;
   lastName: string | null;
   fullName: string | null;
   email: string | null;
   phoneE164: string | null;
+  county: string | null;
+  rawPayload: JsonRecord | null;
 };
 
 const MAX_TEXT = 500;
