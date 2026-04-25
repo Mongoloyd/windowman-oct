@@ -127,15 +127,15 @@ function parseQuoteMidpoint(range: string | null | undefined): number {
 }
 
 const HANDOFF_TONE_CLASSES: Record<HandoffTone, string> = {
-  hot: "bg-red-50 border-red-200 text-red-700",
-  warm: "bg-amber-50 border-amber-200 text-amber-700",
-  caution: "bg-sky-50 border-sky-200 text-sky-700",
-  muted: "bg-white border-slate-300 text-slate-700",
+  hot: "bg-red-100 border-red-300 text-red-950",
+  warm: "bg-amber-100 border-amber-300 text-amber-950",
+  caution: "bg-blue-100 border-blue-300 text-blue-950",
+  muted: "bg-white border-slate-400 text-slate-950",
 };
 
 /* ── Helpers ────────────────────────────────────────────────────── */
 const gradeColor = (g: string | null) => {
-  if (!g) return "text-slate-600";
+  if (!g) return "text-slate-700";
   if (g === "A") return "text-emerald-600";
   if (g === "B") return "text-emerald-500";
   if (g === "C") return "text-amber-600";
@@ -154,13 +154,13 @@ const gradeBg = (g: string | null) => {
 
 const statusPill = (status: string) => {
   const map: Record<string, { label: string; classes: string }> = {
-    intro_requested: { label: "New", classes: "bg-sky-100 text-sky-700" },
-    contractor_interested: { label: "Interested", classes: "bg-violet-100 text-violet-700" },
-    homeowner_contact_released: { label: "Released", classes: "bg-emerald-100 text-emerald-700" },
-    closed_won: { label: "Won", classes: "bg-emerald-100 text-emerald-800" },
-    closed_lost: { label: "Lost", classes: "bg-white text-slate-700 border border-slate-300" },
+    intro_requested: { label: "New", classes: "bg-blue-100 text-blue-950 border-blue-300" },
+    contractor_interested: { label: "Interested", classes: "bg-blue-100 text-blue-950 border-blue-300" },
+    homeowner_contact_released: { label: "Released", classes: "bg-emerald-100 text-emerald-950 border-emerald-300" },
+    closed_won: { label: "Won", classes: "bg-emerald-100 text-emerald-950 border-emerald-300" },
+    closed_lost: { label: "Lost", classes: "bg-white text-slate-950 border-slate-400" },
   };
-  const info = map[status] ?? { label: status.replace(/_/g, " "), classes: "bg-white text-slate-700 border border-slate-300" };
+  const info = map[status] ?? { label: status.replace(/_/g, " "), classes: "bg-white text-slate-950 border-slate-400" };
   return (
     <span className={`inline-flex items-center min-h-6 text-xs font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${info.classes}`}>
       {info.label}
