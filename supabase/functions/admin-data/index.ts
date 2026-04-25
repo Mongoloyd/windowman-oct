@@ -30,6 +30,7 @@ type ActionName =
   | "list_invitations" | "create_invitation" | "revoke_invitation"
   // CAPI control-plane (Meta multi-pixel routing)
   | "list_meta_configurations" | "create_meta_client_config"
+  | "save_client_config"
   | "set_meta_client_active"   | "preview_meta_route"
   | "smoke_send_meta_event" | "diagnose_token_health"
   | "summarize_meta_fleet_health"
@@ -80,6 +81,7 @@ const ACTION_ROLES: Record<ActionName, AppRole[]> = {
   // viewers may inspect & dry-run.
   list_meta_configurations: ["super_admin", "operator", "viewer"],
   create_meta_client_config: ["super_admin"],
+  save_client_config: ["super_admin"],
   set_meta_client_active:    ["super_admin"],
   preview_meta_route:        ["super_admin", "operator", "viewer"],
   smoke_send_meta_event:     ["super_admin"],
