@@ -201,7 +201,7 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
               What Was The Biggest Problem With This Quote?
             </h2>
             <p className="mt-3 text-base font-bold leading-relaxed text-slate-700 md:text-lg">
-              Choose the closest answer. We’ll turn it into your next move.
+              Choose The Closest Answer. We’ll Turn It Into Your Next Move.
             </p>
           </div>
 
