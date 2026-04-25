@@ -41,9 +41,9 @@ const NAV_ITEMS: NavItem[] = [
 
 const TAB_CLASSES = [
   "inline-flex min-h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-transparent px-3 py-2",
-  "text-sm font-semibold transition-all",
+  "text-sm font-bold transition-all",
   "data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:border-slate-300 data-[state=active]:shadow-sm",
-  "text-slate-700 hover:text-slate-950 hover:bg-white hover:border-slate-300 hover:shadow-sm",
+  "text-slate-800 hover:text-slate-950 hover:bg-white hover:border-slate-300 hover:shadow-sm data-[state=active]:font-extrabold",
   "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 focus-visible:ring-offset-2",
 ].join(" ");
 
@@ -65,7 +65,7 @@ export function PartnerPortalNav() {
   return (
     <nav
       aria-label="Partner portal"
-      className="flex w-full flex-wrap items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm"
+      className="flex w-full flex-wrap items-center gap-1 rounded-xl border border-slate-300 bg-white p-1 shadow-sm"
     >
       {NAV_ITEMS.map((item) => {
         const isActive = item.matchPrefixes.some(
