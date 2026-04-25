@@ -740,14 +740,14 @@ export default function PartnerRevenueDashboard() {
                               </div>
                             )}
                           </td>
-                          <td className="px-3 py-2 text-muted-foreground hidden md:table-cell">
+                          <td className="px-3 py-2 text-sm font-medium text-slate-700 hidden md:table-cell">
                             {locationLabel(r) ?? "—"}
                           </td>
                           <td className="px-3 py-2">
                             <Badge
                               variant="outline"
                               className={cn(
-                                "text-[10px]",
+                                "text-xs font-extrabold border",
                                 DISPOSITION_COLOR[r.disposition_state],
                               )}
                             >
@@ -772,7 +772,7 @@ export default function PartnerRevenueDashboard() {
                                 asChild
                                 size="sm"
                                 variant="ghost"
-                                className="h-7 px-2 text-xs"
+                                className="h-9 px-3 border border-slate-300 bg-white text-sm font-bold shadow-sm hover:bg-slate-50"
                               >
                                 <Link to={dossierHref}>
                                   Open
