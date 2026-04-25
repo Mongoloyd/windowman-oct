@@ -325,7 +325,7 @@ export default function PartnerDossier() {
       <div className="min-h-screen bg-background flex items-center justify-center px-6">
         <div className="text-center space-y-3">
           <AlertTriangle className="h-10 w-10 text-amber-500 mx-auto" />
-          <p className="text-sm text-muted-foreground">{error}</p>
+          <p className="text-sm font-medium text-slate-700">{error}</p>
         </div>
       </div>
     );
@@ -447,7 +447,7 @@ export default function PartnerDossier() {
               Lead Provenance
             </h2>
             {unlocked && (
-              <span className="ml-auto inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-full">
+              <span className="ml-auto inline-flex items-center gap-1.5 text-xs font-extrabold text-emerald-700 bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-full">
                 <Unlock className="h-3 w-3" /> Contact Revealed
               </span>
             )}
@@ -551,7 +551,7 @@ export default function PartnerDossier() {
                 {analysis?.grade ?? "—"}
               </p>
               {analysis?.confidence_score != null && (
-                <p className="text-[10px] text-muted-foreground mt-2 font-mono">
+                <p className="text-xs font-semibold text-slate-600 mt-2 font-mono">
                   {analysis.confidence_score}% confidence
                 </p>
               )}
@@ -638,7 +638,7 @@ export default function PartnerDossier() {
           {flags.length === 0 ? (
             <div className="flex items-center gap-2 py-4">
               <ShieldCheck className="h-5 w-5 text-emerald-500" />
-              <p className="text-sm text-muted-foreground">No critical vulnerabilities detected.</p>
+              <p className="text-sm font-medium text-slate-700">No critical vulnerabilities detected.</p>
             </div>
           ) : (
             <ul className="space-y-3">
@@ -652,13 +652,13 @@ export default function PartnerDossier() {
                     <p className="text-sm font-semibold leading-snug">
                       {flag?.label ?? `Flag ${i + 1}`}
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                    <p className="text-sm font-medium text-slate-700 mt-1 leading-relaxed">
                       {flag?.detail ?? "—"}
                     </p>
                   </div>
                   {flag?.severity && (
                     <span
-                      className={`shrink-0 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                      className={`shrink-0 text-xs font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-md ${
                         flag.severity === "Critical"
                           ? "bg-destructive/15 text-destructive border border-destructive/25"
                           : flag.severity === "High"
@@ -691,7 +691,7 @@ export default function PartnerDossier() {
           <p>
             Scanned {new Date(analysis?.created_at).toLocaleString()} · Rubric {analysis?.rubric_version ?? "—"} · Confidence {analysis?.confidence_score ?? "—"}%
           </p>
-          <p className="text-muted-foreground/60">WindowMan Intelligence — Contractor Eyes Only</p>
+          <p className="text-slate-600">WindowMan Intelligence — Contractor Eyes Only</p>
         </footer>
       </main>
     </>
@@ -731,7 +731,7 @@ function PiiRow({ label, value, blur, onCopy, copied }: {
         {onCopy && (
           <button
             onClick={onCopy}
-            className="p-1 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors"
+            className="p-1 rounded-md text-slate-600 hover:text-primary hover:bg-primary/5 transition-colors"
             title={`Copy ${label}`}
           >
             {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
@@ -749,7 +749,7 @@ function MarketIndicator({ price }: { price: number }) {
 
   if (abs < 5)
     return (
-      <span className="flex items-center justify-center gap-1 text-[10px] text-muted-foreground mt-1.5">
+      <span className="flex items-center justify-center gap-1 text-xs font-semibold text-slate-600 mt-1.5">
         <Minus className="h-3 w-3" /> At market
       </span>
     );
@@ -795,17 +795,17 @@ function DocumentVault({ hasDocument, isUnlocked, analysisId, createdAt, isPrevi
     return (
       <section className="rounded-xl border border-dashed bg-muted/20 p-6">
         <div className="flex items-center gap-2 mb-4">
-          <FileText className="h-5 w-5 text-muted-foreground/50" />
-          <h2 className="text-xl font-extrabold tracking-tight text-muted-foreground/70">
+          <FileText className="h-5 w-5 text-slate-500" />
+          <h2 className="text-xl font-extrabold tracking-tight text-slate-600">
             Document Vault
           </h2>
         </div>
         <div className="flex flex-col items-center justify-center py-10 text-center">
           <div className="h-14 w-14 rounded-2xl bg-muted/60 flex items-center justify-center mb-3">
-            <FileText className="h-7 w-7 text-muted-foreground/30" />
+            <FileText className="h-7 w-7 text-slate-500" />
           </div>
-          <p className="text-sm font-medium text-muted-foreground">No document on file</p>
-          <p className="text-xs text-muted-foreground/70 mt-1 max-w-xs">
+          <p className="text-sm font-medium text-slate-600">No document on file</p>
+          <p className="text-xs text-slate-600 mt-1 max-w-xs">
             The original quote document was not uploaded for this lead.
           </p>
         </div>
@@ -822,7 +822,7 @@ function DocumentVault({ hasDocument, isUnlocked, analysisId, createdAt, isPrevi
           <h2 className="text-xl font-extrabold tracking-tight text-primary">
             Document Vault
           </h2>
-          <span className="ml-auto inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+          <span className="ml-auto inline-flex items-center gap-1 text-xs font-bold text-slate-600 bg-muted px-2 py-0.5 rounded-full">
             <Lock className="h-3 w-3" /> Locked
           </span>
         </div>
@@ -831,19 +831,19 @@ function DocumentVault({ hasDocument, isUnlocked, analysisId, createdAt, isPrevi
           <div className="absolute inset-0 backdrop-blur-sm bg-background/30 z-10 flex items-center justify-center">
             <div className="flex flex-col items-center gap-2">
               <div className="h-10 w-10 rounded-full bg-muted border flex items-center justify-center">
-                <Lock className="h-5 w-5 text-muted-foreground" />
+                <Lock className="h-5 w-5 text-slate-600" />
               </div>
-              <p className="text-xs font-semibold text-muted-foreground">Unlock to view document</p>
+              <p className="text-xs font-semibold text-slate-600">Unlock to view document</p>
             </div>
           </div>
           {/* Blurred content behind */}
           <div className="flex items-center gap-4 select-none pointer-events-none opacity-50">
             <div className="h-12 w-12 rounded-lg bg-muted flex items-center justify-center">
-              <FileText className="h-6 w-6 text-muted-foreground/50" />
+              <FileText className="h-6 w-6 text-slate-500" />
             </div>
             <div>
               <p className="text-sm font-medium">Original_Quote.pdf</p>
-              <p className="text-xs text-muted-foreground">Scanned {scannedDate}</p>
+              <p className="text-xs text-slate-600">Scanned {scannedDate}</p>
             </div>
           </div>
         </div>
@@ -859,7 +859,7 @@ function DocumentVault({ hasDocument, isUnlocked, analysisId, createdAt, isPrevi
         <h2 className="text-xl font-extrabold tracking-tight text-emerald-700">
           Document Vault
         </h2>
-        <span className="ml-auto inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-full">
+        <span className="ml-auto inline-flex items-center gap-1.5 text-xs font-extrabold text-emerald-700 bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-full">
           <Eye className="h-3 w-3" /> Viewable
         </span>
       </div>
@@ -869,7 +869,7 @@ function DocumentVault({ hasDocument, isUnlocked, analysisId, createdAt, isPrevi
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold">Original_Quote.pdf</p>
-          <p className="text-xs text-muted-foreground mt-0.5">Scanned {scannedDate}</p>
+          <p className="text-xs text-slate-600 mt-0.5">Scanned {scannedDate}</p>
           {docError && <p className="text-xs text-destructive mt-1">{docError}</p>}
         </div>
         <button
