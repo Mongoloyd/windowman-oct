@@ -15,16 +15,46 @@ const GRADE_COLORS: Record<string, string> = {
   F: "#B91C1C",
 };
 
+function getPersonalizedDiagnosisCopy(context: DiagnosticContext) {
+  const gradeKey = context.report_grade?.[0]?.toUpperCase() ?? "";
+  const firstName = context.first_name?.trim();
+  const insightsText = context.top_insights.join(" ").toLowerCase();
+  const hasWarranty = /warranty|warranties|guarantee|labor coverage|manufacturer coverage/.test(insightsText);
+  const hasCode = /\b(noa|dp rating|design pressure|wind load|hvhz)\b/.test(insightsText);
+  const hasPrice = /price|pricing|markup|overcharge|high|expensive|market/.test(insightsText);
+
+  const headline = firstName ? `${firstName}, Tell Us What Felt Wrong.` : "Tell Us What Felt Wrong.";
+
+  let contextLine = "Your quote has findings worth resolving before you commit.";
+  let toneCopy = "Your quote has findings worth resolving. Let’s choose the safest next move.";
+
+  if (gradeKey === "D" || gradeKey === "F") {
+    contextLine = `Your quote scored ${gradeKey}. We found issues worth acting on before you sign.`;
+    toneCopy = "Your quote is high-risk. Let’s choose the safest next move.";
+  } else if (gradeKey === "B" || gradeKey === "C") {
+    contextLine = `Your quote scored ${gradeKey}. A few findings are worth resolving before you commit.`;
+    toneCopy = "This quote may be workable, but a few items need clarification.";
+  } else if (gradeKey === "A") {
+    contextLine = "Your quote scored A. It looks stronger than most, but the details are still worth pressure-testing.";
+    toneCopy = "This quote looks stronger than most, but we can still help you pressure-test the details.";
+  }
+
+  const focusCopy = hasCode
+    ? "Code documentation is the key thing to clarify."
+    : hasWarranty
+      ? "Warranty clarity is the key thing to clarify."
+      : hasPrice
+        ? "A cleaner price comparison is the key next step."
+        : null;
+
+  return { headline, contextLine, toneCopy, focusCopy };
+}
+
 export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
   const gradeKey = context.report_grade?.[0]?.toUpperCase() ?? "F";
   const gradeColor = GRADE_COLORS[gradeKey] ?? GRADE_COLORS.F;
-  const insightCount = context.top_insights.length;
-  const gridColsClass =
-    insightCount <= 4
-      ? "grid-cols-1"
-      : insightCount <= 8
-        ? "grid-cols-1 md:grid-cols-2"
-        : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3";
+  const visibleInsights = context.top_insights.slice(0, 3);
+  const copy = getPersonalizedDiagnosisCopy(context);
 
   return (
     <section className="relative overflow-hidden px-6 pt-16 pb-20 md:px-8" style={{ background: "transparent" }}>
@@ -69,7 +99,7 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
       <div className="max-w-3xl mx-auto relative z-10">
         {context.report_grade && (
           <div
-            className="bg-white rounded-2xl p-6 md:p-8 mb-10"
+            className="bg-white rounded-2xl p-5 md:p-6 mb-8"
             style={{
               boxShadow: `0 20px 50px -12px ${gradeColor}33`,
               border: `1px solid ${gradeColor}1A`,
@@ -95,22 +125,24 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
               {/* Header + Smart Grid */}
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-black tracking-[0.2em] uppercase text-gray-500 mb-1">Your Audit Score</p>
-                <p className="text-sm font-semibold text-foreground/70 mb-4">Here's What We Flagged</p>
-                <ul className={`grid ${gridColsClass} gap-x-5 gap-y-2.5`}>
-                  {context.top_insights.map((insight, i) => (
-                    <li
-                      key={i}
-                      className="text-sm font-medium text-foreground/85 flex items-start gap-2 animate-fade-in"
-                      style={{
-                        animationDelay: `${Math.min(i, 9) * 200}ms`,
-                        animationFillMode: "both",
-                      }}
-                    >
-                      <span className="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0" style={{ background: gradeColor }} />
-                      <span>{insight}</span>
-                    </li>
-                  ))}
-                </ul>
+                <p className="text-sm font-semibold text-foreground/75 mb-3">{copy.contextLine}</p>
+                {visibleInsights.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {visibleInsights.map((insight, i) => (
+                      <span
+                        key={`${insight}-${i}`}
+                        className="inline-flex max-w-full items-center rounded-full border bg-white/70 px-3 py-1.5 text-xs font-semibold text-foreground/80 animate-fade-in"
+                        style={{
+                          borderColor: `${gradeColor}26`,
+                          animationDelay: `${i * 120}ms`,
+                          animationFillMode: "both",
+                        }}
+                      >
+                        <span className="truncate">{insight}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -137,10 +169,10 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
             This Isn't a Sales Form. It's a Consultation.
           </div>
           <h1 className="font-display text-3xl md:text-5xl font-extrabold tracking-tight mb-5 leading-tight text-foreground">
-            Before We Build Your Better Estimate, Tell Us What Didn't Feel Right.
+            {copy.headline}
           </h1>
           <p className="text-base md:text-lg text-foreground/75 max-w-2xl mx-auto leading-relaxed">
-            You Can Be Completely Honest—We Work For You, Not The Contractor. One Tap Is All It Takes To Start.
+            {copy.toneCopy} {copy.focusCopy ?? "One tap is all it takes to start."}
           </p>
         </div>
 

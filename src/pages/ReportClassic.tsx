@@ -24,6 +24,8 @@ import TruthReportClassic from "@/components/TruthReportClassic";
 import type { SuggestedMatch } from "@/components/TruthReportClassic";
 import type { GateMode, LockedOverlayProps } from "@/components/LockedOverlay";
 import type { OtpVerifyOutcome } from "@/types/report-v2";
+import { saveReportDiagnosisHandoff, type ReportDiagnosisHandoff } from "@/lib/reportDiagnosisHandoff";
+import { trackGtmEvent } from "@/lib/trackConversion";
 
 // ── PipelineVerifyResult → OtpVerifyOutcome mapping ──────────────────────────
 const PIPELINE_TO_OUTCOME: Record<string, OtpVerifyOutcome> = {
@@ -264,6 +266,59 @@ export default function ReportClassic() {
     }
   }, [sessionId, phoneE164]);
 
+  const buildDiagnosisHandoff = useCallback((): ReportDiagnosisHandoff | null => {
+    if (!sessionId || !analysisData?.grade) return null;
+
+    const topInsights = analysisData.flags
+      .filter((flag) => flag.severity === "red" || flag.severity === "amber")
+      .map((flag) => flag.label || flag.detail)
+      .filter(Boolean)
+      .slice(0, 3);
+
+    const fallbackInsights = [analysisData.topWarning, analysisData.topMissingItem]
+      .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+      .slice(0, 3);
+
+    // TODO: Retrieve narrow lead context by scan_session_id later so lead_id,
+    // first_name, email, and phone can be populated without exposing report data.
+    return {
+      lead_id: "",
+      scan_session_id: sessionId,
+      analysis_id: analysisData.analysisId,
+      report_grade: analysisData.grade,
+      first_name: null,
+      phone: phoneE164,
+      email: null,
+      top_insights: topInsights.length > 0 ? topInsights : fallbackInsights,
+      returnTo: `/report/classic/${sessionId}`,
+      saved_at: new Date().toISOString(),
+    };
+  }, [analysisData, phoneE164, sessionId]);
+
+  const handleStartDiagnosisFlow = useCallback((source: "local_heroes" | "second_quote") => {
+    const handoff = buildDiagnosisHandoff();
+    if (!handoff) {
+      toast.error("Unable to start diagnosis from this report. Please reload and try again.");
+      return;
+    }
+
+    saveReportDiagnosisHandoff(handoff);
+    trackGtmEvent("wm_report_to_diagnosis_click", {
+      event_id: crypto.randomUUID(),
+      source: "full_report_decision_fork",
+      cta_source: source,
+      value: 200,
+      currency: "USD",
+      meta: {
+        category: "opt",
+        scan_session_id: handoff.scan_session_id,
+        grade: handoff.report_grade,
+        top_insight_count: handoff.top_insights.length,
+      },
+    });
+    navigate("/diagnosis", { state: handoff });
+  }, [buildDiagnosisHandoff, navigate]);
+
   // ── CTA B: Call WindowMan About My Report (voice-followup only) ────────
   const handleReportHelpCall = useCallback(async () => {
     if (!sessionId || !phoneE164) {
@@ -491,6 +546,7 @@ export default function ReportClassic() {
       flagRedCount={analysisData.flagRedCount}
       flagAmberCount={analysisData.flagAmberCount}
       onContractorMatchClick={handleContractorMatchClick}
+      onStartDiagnosisFlow={handleStartDiagnosisFlow}
       onReportHelpCall={handleReportHelpCall}
       onSecondScan={handleSecondScan}
       gateProps={accessLevel === "preview" ? gateProps : undefined}

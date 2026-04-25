@@ -4,6 +4,11 @@ import { toast } from 'sonner';
 import { trackGtmEvent } from '@/lib/trackConversion';
 import { trackEvent } from '@/lib/trackEvent';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  readReportDiagnosisHandoff,
+  saveReportDiagnosisHandoff,
+  type ReportDiagnosisHandoff,
+} from '@/lib/reportDiagnosisHandoff';
 
 import { DIAGNOSTIC_MAP } from '../constants/diagnosticMap';
 import { generateConditionalStatement } from '../constants/branchChips';
@@ -28,6 +33,22 @@ interface DiagnosisRouterState {
   returnTo?: string | null;
   /** Optional: passed when caller already knows the analysis id */
   analysis_id?: string | null;
+}
+
+function isUsableDiagnosisState(value: DiagnosisRouterState | ReportDiagnosisHandoff | null): value is DiagnosisRouterState | ReportDiagnosisHandoff {
+  return !!value?.scan_session_id && !!value?.report_grade;
+}
+
+function buildContextFromHandoff(value: DiagnosisRouterState | ReportDiagnosisHandoff): DiagnosticContext {
+  return {
+    lead_id: value.lead_id ?? '',
+    scan_session_id: value.scan_session_id ?? '',
+    report_grade: value.report_grade ?? '',
+    top_insights: Array.isArray(value.top_insights) ? value.top_insights.slice(0, 3) : [],
+    first_name: value.first_name ?? '',
+    phone: value.phone ?? '',
+    email: value.email ?? '',
+  };
 }
 
 const EMPTY_CONTEXT: DiagnosticContext = {
@@ -116,26 +137,48 @@ export function useDiagnosticIntake() {
   // ── Hydration: router state preferred, scan_session_id fallback ──────────
   useEffect(() => {
     // 1. Router state (preferred — immediate, full context)
-    if (incomingState?.scan_session_id) {
-      const ctx: DiagnosticContext = {
-        lead_id: incomingState.lead_id ?? '',
-        scan_session_id: incomingState.scan_session_id,
-        report_grade: incomingState.report_grade ?? '',
-        top_insights: Array.isArray(incomingState.top_insights) ? incomingState.top_insights : [],
-        first_name: incomingState.first_name ?? '',
-        phone: incomingState.phone ?? '',
-        email: incomingState.email ?? '',
-      };
+    if (isUsableDiagnosisState(incomingState)) {
+      const ctx = buildContextFromHandoff(incomingState);
       setContext(ctx);
       setAnalysisId(incomingState.analysis_id ?? null);
       setReturnTo(incomingState.returnTo ?? (ctx.scan_session_id ? `/report/classic/${ctx.scan_session_id}` : null));
+      saveReportDiagnosisHandoff({
+        lead_id: ctx.lead_id,
+        scan_session_id: ctx.scan_session_id,
+        analysis_id: incomingState.analysis_id ?? null,
+        report_grade: ctx.report_grade,
+        first_name: ctx.first_name || null,
+        phone: ctx.phone || null,
+        email: ctx.email || null,
+        top_insights: ctx.top_insights,
+        returnTo: incomingState.returnTo ?? `/report/classic/${ctx.scan_session_id}`,
+        saved_at: new Date().toISOString(),
+      });
+      trackGtmEvent('diagnosis_hydrated_from_router_state', {
+        scan_session_id: ctx.scan_session_id,
+        grade: ctx.report_grade,
+        top_insight_count: ctx.top_insights.length,
+      });
       setHydrationStatus('ready');
       return;
     }
 
-    // 2. Durable fallback: scan_session_id is not in router state.
-    //    In this pass we do NOT read it from the URL (no public URL contract
-    //    change). If router state is missing, we fail closed to the empty state.
+    // 2. Durable fallback: session handoff survives refresh and dropped router state.
+    const savedHandoff = readReportDiagnosisHandoff();
+    if (savedHandoff) {
+      const ctx = buildContextFromHandoff(savedHandoff);
+      setContext(ctx);
+      setAnalysisId(savedHandoff.analysis_id ?? null);
+      setReturnTo(savedHandoff.returnTo ?? `/report/classic/${ctx.scan_session_id}`);
+      trackGtmEvent('diagnosis_hydrated_from_session', {
+        scan_session_id: ctx.scan_session_id,
+        grade: ctx.report_grade,
+        top_insight_count: ctx.top_insights.length,
+      });
+      setHydrationStatus('ready');
+      return;
+    }
+
     setHydrationStatus('failed');
     // eslint-disable-next-line react-hooks/exhaustive-deps -- hydrate once on mount
   }, []);
