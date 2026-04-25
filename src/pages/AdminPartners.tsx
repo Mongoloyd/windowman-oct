@@ -293,12 +293,14 @@ function AdminPartnersContent() {
     const configuredMeta = activeClients.filter((client) => {
       const meta = metaByClientId.get(client.id);
       const redacted = redactedByClientId.get(client.id);
-      return Boolean(meta?.pixel_id && tokenConfigured(redacted));
+      const config = configByClientId.get(client.id);
+      return Boolean((config?.meta_pixel_id ?? meta?.pixel_id) && (config?.capi_token_secret_id || tokenConfigured(redacted)));
     });
     const missingSecrets = activeClients.filter((client) => {
       const meta = metaByClientId.get(client.id);
       const redacted = redactedByClientId.get(client.id);
-      return Boolean(meta?.pixel_id && !tokenConfigured(redacted));
+      const config = configByClientId.get(client.id);
+      return Boolean((config?.meta_pixel_id ?? meta?.pixel_id) && !(config?.capi_token_secret_id || tokenConfigured(redacted)));
     });
     const failure = signalLogs.find((log) => (log.status_code ?? 0) >= 400);
     return {
@@ -309,7 +311,7 @@ function AdminPartnersContent() {
       missingSecrets: missingSecrets.length,
       lastFailure: failure ? formatTime(failure.fired_at) : "None",
     };
-  }, [clients, metaByClientId, redactedByClientId, signalLogs]);
+  }, [clients, configByClientId, metaByClientId, redactedByClientId, signalLogs]);
 
   function openEditor(client: Client | null) {
     if (client && !hasWriteAccess) {
