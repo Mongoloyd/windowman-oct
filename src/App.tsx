@@ -153,6 +153,7 @@ const App = () => (
                 <Route path="/admin/contractors" element={<AdminAuthGate><AdminDashboard initialTab="contractors" /></AdminAuthGate>} />
                 <Route path="/admin/outcomes" element={<AdminAuthGate><AdminDashboard initialTab="outcomes" /></AdminAuthGate>} />
                 <Route path="/admin/attribution" element={<AdminAuthGate><AdminDashboard initialTab="attribution" /></AdminAuthGate>} />
+                <Route path="/admin/signal-dispatch" element={<AdminAuthGate><AdminDashboard initialTab="signal-dispatch" /></AdminAuthGate>} />
                 <Route path="/admin/dialer" element={<AdminAuthGate><AdminDashboard initialTab="engine" /></AdminAuthGate>} />
                 <Route path="/admin/delivery-inspector" element={<AdminAuthGate><AdminDashboard initialTab="delivery-inspector" /></AdminAuthGate>} />
                 <Route path="/admin/session-diag" element={<AdminAuthGate><AdminDashboard initialTab="session-diag" /></AdminAuthGate>} />
