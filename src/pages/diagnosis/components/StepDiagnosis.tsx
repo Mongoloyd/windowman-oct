@@ -78,10 +78,9 @@ const silhouetteStyle: CSSProperties = {
 };
 
 const chipBase =
-  'relative rounded-2xl px-4 py-3 text-sm font-medium text-left transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-cobalt/30';
+  'relative rounded-2xl px-4 py-3 text-sm font-medium text-left transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-cobalt/30 border text-slate-700 hover:bg-white/70 border-surface-border';
 
-const chipUnselected =
-  'border border-slate-200/70 text-slate-700 hover:border-slate-300 hover:bg-white/70';
+const chipUnselected = '';
 
 const chipSelectedText = 'text-white';
 
