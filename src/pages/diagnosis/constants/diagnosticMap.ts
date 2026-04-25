@@ -210,6 +210,39 @@ export const DIAGNOSTIC_MAP: Record<DiagnosisCode, DiagnosticConfig> = {
     ctaText: 'Build my better estimate',
     prescriptionPath: 'custom_rebuild',
   },
+  not_sure: {
+    code: 'not_sure',
+    label: 'I don’t know — guide me',
+    cardDescription: 'Use the report to choose the safest next move for me.',
+    Icon: HelpCircle,
+    accent: 'text-blue-700',
+    accentBg: 'bg-blue-50',
+    accentBorder: 'border-blue-200',
+    reflectionTitle: 'WindowMan will guide it.',
+    reflectionBody:
+      'That is exactly why WindowMan exists. You do not need to diagnose the quote yourself — we’ll use the report to guide the safest next move.',
+    secondaryQuestion: 'What would help you feel safer?',
+    secondaryOptions: [
+      'Show me the biggest risk',
+      'Help me compare options',
+      'Tell me what to ask next',
+      'Find me a cleaner quote',
+    ],
+    prescriptionSetup:
+      'Got it. We’ll use your report findings to choose the safest path forward instead of making you guess.',
+    prescriptionHeadline: 'WindowMan-Guided Next Move',
+    prescriptionSubhead:
+      'We’ll use your report findings to choose the safest path forward.',
+    guaranteeTitle: 'Guided Decision Guarantee',
+    guarantees: [
+      'Your report findings drive the next step',
+      'The biggest risk gets handled first',
+      'You get a cleaner comparison path',
+      'No guessing and no pressure to self-diagnose',
+    ],
+    ctaText: 'Guide my next move',
+    prescriptionPath: 'guided_next_move',
+  },
 };
 
 export const DIAGNOSIS_ORDER: DiagnosisCode[] = [
@@ -219,4 +252,5 @@ export const DIAGNOSIS_ORDER: DiagnosisCode[] = [
   'timing',
   'scope_mismatch',
   'other',
+  'not_sure',
 ];
