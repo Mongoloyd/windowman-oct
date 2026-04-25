@@ -3,6 +3,7 @@ import {
   ShieldAlert,
   CreditCard,
   Clock,
+  HelpCircle,
   LayoutGrid,
   MessageCircle,
 } from 'lucide-react';
@@ -12,6 +13,7 @@ export const DIAGNOSTIC_MAP: Record<DiagnosisCode, DiagnosticConfig> = {
   price_shock: {
     code: 'price_shock',
     label: 'It felt too expensive',
+    cardDescription: 'The number felt inflated or hard to justify.',
     Icon: DollarSign,
     accent: 'text-red-700',
     accentBg: 'bg-red-50',
@@ -45,6 +47,7 @@ export const DIAGNOSTIC_MAP: Record<DiagnosisCode, DiagnosticConfig> = {
   trust_breakdown: {
     code: 'trust_breakdown',
     label: "I didn't trust the salesperson",
+    cardDescription: 'Something felt rushed, vague, or pressured.',
     Icon: ShieldAlert,
     accent: 'text-blue-700',
     accentBg: 'bg-blue-50',
@@ -79,6 +82,7 @@ export const DIAGNOSTIC_MAP: Record<DiagnosisCode, DiagnosticConfig> = {
   financial: {
     code: 'financial',
     label: "I can't afford that price structure",
+    cardDescription: 'The deposit, financing, or payment terms felt wrong.',
     Icon: CreditCard,
     accent: 'text-green-700',
     accentBg: 'bg-green-50',
