@@ -93,10 +93,10 @@ export function StepPrescription({
         </div>
 
         {/* Prescribed Guarantee */}
-        <div className="card-raised-hero rounded-2xl p-6 md:p-8 mb-6">
+        <div className="card-raised-hero rounded-2xl p-6 md:p-8 mb-6 border-8 border-double">
           <div className="flex items-center gap-3 mb-5">
             <ShieldCheck className={`w-7 h-7 ${activeConfig.accent}`} />
-            <h3 className="font-display text-xl font-extrabold tracking-tight text-foreground">
+            <h3 className="font-display font-extrabold tracking-tight text-foreground text-2xl">
               {activeConfig.guaranteeTitle}
             </h3>
           </div>
