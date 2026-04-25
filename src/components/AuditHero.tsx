@@ -41,13 +41,13 @@ const AuditHero = ({
   );
 
   const statsStrip = (
-    <div className="flex items-center justify-center lg:justify-start gap-6 mt-8 pt-6 border-t border-border/40 w-full">
+    <div className="flex items-center justify-center lg:justify-start gap-6 mt-8 pt-6 border-t border-border/40 w-full min-h-[73px]">
       <div className="flex items-center gap-2.5">
         <div className="flex items-center justify-center w-8 h-8 rounded-md bg-primary/10">
           <Shield className="w-4 h-4 text-primary" />
         </div>
         <div>
-          <p className="font-mono text-sm font-bold tabular-nums text-foreground">
+          <p className="font-mono text-sm font-bold tabular-nums text-foreground min-w-[58px]">
             {total.toLocaleString()}
           </p>
           <p className="text-[11px] text-muted-foreground leading-tight">Quotes Scanned</p>
@@ -61,7 +61,7 @@ const AuditHero = ({
           <TrendingDown className="w-4 h-4 text-destructive" />
         </div>
         <div>
-          <p className="font-mono text-sm font-bold tabular-nums text-foreground">
+          <p className="font-mono text-sm font-bold tabular-nums text-foreground min-w-[64px]">
             ${savingsFound}M+
           </p>
           <p className="text-[11px] text-muted-foreground leading-tight">Overcharges Found</p>
@@ -75,7 +75,7 @@ const AuditHero = ({
           <BarChart3 className="w-4 h-4 text-primary" />
         </div>
         <div>
-          <p className="font-mono text-sm font-bold tabular-nums text-foreground">
+          <p className="font-mono text-sm font-bold tabular-nums text-foreground min-w-[52px]">
             $3,100
           </p>
           <p className="text-[11px] text-muted-foreground leading-tight">Avg. Savings</p>
