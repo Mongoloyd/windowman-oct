@@ -146,8 +146,8 @@ export function StepPrescription({
 
           <div className="space-y-4">
             <div>
-              <p className="wm-eyebrow uppercase text-muted-foreground mb-1">Your Frustration</p>
-              <p className="text-foreground font-medium">{activeConfig.label}</p>
+              <p className="wm-eyebrow uppercase text-muted-foreground mb-1 text-sm">Your Frustration</p>
+              <p className="text-foreground font-medium text-lg">{activeConfig.label}</p>
             </div>
 
             {secondaryClarifiers.length > 0 && (
