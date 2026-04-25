@@ -371,16 +371,20 @@ Deno.serve(async (req) => {
     });
   } catch (err) {
     console.error("[FB_LEAD_AD_IMPORT:ERROR]", err);
-    await supabase.from("event_logs").insert({
-      event_name: "facebook_lead_ad_import_failed",
-      flow_type: SOURCE,
-      route: "import-facebook-lead-ad",
-      metadata: {
-        platform_lead_id: payload.platformLeadId,
-        error: err instanceof Error ? err.message : String(err),
-        imported_at: now,
-      },
-    }).catch(() => undefined);
+    try {
+      await supabase.from("event_logs").insert({
+        event_name: "facebook_lead_ad_import_failed",
+        flow_type: SOURCE,
+        route: "import-facebook-lead-ad",
+        metadata: {
+          platform_lead_id: payload.platformLeadId,
+          error: err instanceof Error ? err.message : String(err),
+          imported_at: now,
+        },
+      });
+    } catch (_logErr) {
+      // Best-effort audit logging must never hide the import failure response.
+    }
 
     return jsonResponse({ success: false, error: "import_failed" }, 500);
   }
