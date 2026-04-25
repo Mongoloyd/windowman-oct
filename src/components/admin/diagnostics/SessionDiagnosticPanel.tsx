@@ -78,11 +78,19 @@ function fmtExpiry(exp: number | undefined): { absolute: string; relative: strin
   };
 }
 
+function statusBadgeClass(tone: "success" | "danger" | "warning" | "neutral") {
+  const base = "min-h-7 border px-3 py-1 text-sm font-extrabold uppercase tracking-wide";
+  if (tone === "success") return `${base} border-emerald-300 bg-emerald-100 text-emerald-950`;
+  if (tone === "danger") return `${base} border-rose-300 bg-rose-100 text-rose-950`;
+  if (tone === "warning") return `${base} border-amber-300 bg-amber-100 text-amber-950`;
+  return `${base} border-slate-300 bg-slate-100 text-slate-950`;
+}
+
 function Row({ label, value, mono = true }: { label: string; value: React.ReactNode; mono?: boolean }) {
   return (
-    <div className="grid grid-cols-[200px_1fr] gap-3 py-1.5 border-b border-border/50 last:border-b-0">
-      <div className="text-xs uppercase tracking-wide text-slate-700">{label}</div>
-      <div className={mono ? "text-sm font-mono break-all" : "text-sm break-words"}>{value}</div>
+    <div className="grid gap-2 border-b border-slate-300 py-3 last:border-b-0 sm:grid-cols-[240px_1fr]">
+      <div className="text-sm font-extrabold uppercase tracking-wide text-slate-700">{label}</div>
+      <div className={mono ? "break-all font-mono text-base font-semibold text-slate-950" : "break-words text-base font-semibold text-slate-950"}>{value}</div>
     </div>
   );
 }
@@ -194,17 +202,17 @@ export function SessionDiagnosticPanel() {
   const devBypassActive = import.meta.env.DEV;
 
   return (
-    <div className="space-y-4 max-w-4xl">
-      <Card className="border-2">
-        <CardHeader className="pb-3">
+    <div className="w-full max-w-6xl space-y-4">
+      <Card className="rounded-2xl border border-slate-300 bg-white shadow-sm">
+        <CardHeader className="border-b border-slate-300 pb-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <CardTitle className="text-lg">Session Diagnostic — read only</CardTitle>
-              <p className="text-xs text-slate-700 mt-1">
+              <CardTitle className="text-2xl font-black text-slate-950">Session Diagnostic — read only</CardTitle>
+              <p className="mt-1 text-base font-semibold text-slate-700">
                 Live browser auth/session state. No writes. Used to diagnose Inspector RLS denials.
               </p>
             </div>
-            <Button size="sm" variant="outline" onClick={refreshAll}>
+            <Button size="sm" variant="outline" onClick={refreshAll} className="min-h-10 border border-slate-400 bg-white px-4 text-sm font-extrabold text-slate-950 shadow-sm hover:bg-slate-50">
               Refresh
             </Button>
           </div>
@@ -212,18 +220,18 @@ export function SessionDiagnosticPanel() {
         <CardContent className="space-y-4">
           {/* Top-line verdict */}
           <div className="flex flex-wrap gap-2">
-            <Badge variant={isAuthenticated ? "default" : "destructive"}>
+            <Badge variant="outline" className={statusBadgeClass(isAuthenticated ? "success" : "danger")}>
               {isAuthenticated ? "Browser: AUTHENTICATED" : "Browser: ANONYMOUS / NO SESSION"}
             </Badge>
-            <Badge variant={wouldPassIsInternalOperator ? "default" : "destructive"}>
+            <Badge variant="outline" className={statusBadgeClass(wouldPassIsInternalOperator ? "success" : "danger")}>
               is_internal_operator(): {wouldPassIsInternalOperator ? "would PASS" : "would FAIL"}
             </Badge>
-            <Badge variant={probe.status === "ok" ? "default" : probe.status === "denied" ? "destructive" : "secondary"}>
+            <Badge variant="outline" className={statusBadgeClass(probe.status === "ok" ? "success" : probe.status === "denied" ? "danger" : "neutral")}>
               RLS probe (contractors): {probe.status.toUpperCase()}
               {probe.errorCode ? ` · ${probe.errorCode}` : ""}
             </Badge>
             {devBypassActive && (
-              <Badge variant="outline" className="border-amber-500 text-amber-700">
+              <Badge variant="outline" className={statusBadgeClass("warning")}>
                 DEV BYPASS ACTIVE — AuthGuard + useCurrentUserRole are short-circuited
               </Badge>
             )}
@@ -231,8 +239,8 @@ export function SessionDiagnosticPanel() {
 
           {/* Section 1: Session */}
           <section>
-            <h3 className="text-sm font-semibold mb-2">supabase.auth.getSession()</h3>
-            <div className="rounded-md border bg-card p-3">
+            <h3 className="mb-2 text-lg font-black text-slate-950">supabase.auth.getSession()</h3>
+            <div className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm">
               <Row label="hasSession" value={String(session?.hasSession ?? "(loading)")} />
               <Row label="auth.uid" value={session?.uid ?? "(none)"} />
               <Row label="email" value={session?.email ?? "(none)"} />
@@ -252,8 +260,8 @@ export function SessionDiagnosticPanel() {
 
           {/* Section 2: Decoded JWT */}
           <section>
-            <h3 className="text-sm font-semibold mb-2">Decoded JWT payload (the field RLS reads)</h3>
-            <div className="rounded-md border bg-card p-3">
+            <h3 className="mb-2 text-lg font-black text-slate-950">Decoded JWT payload (the field RLS reads)</h3>
+            <div className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm">
               <Row label="jwt decode error" value={session?.jwtDecodeError ?? "(none)"} />
               <Row label="aud" value={jwt?.aud ?? "(none)"} />
               <Row label="sub" value={jwt?.sub ?? "(none)"} />
@@ -283,7 +291,7 @@ export function SessionDiagnosticPanel() {
                 label="full app_metadata"
                 value={
                   jwt?.app_metadata ? (
-                    <pre className="text-xs whitespace-pre-wrap">{JSON.stringify(jwt.app_metadata, null, 2)}</pre>
+                    <pre className="whitespace-pre-wrap text-sm font-semibold text-slate-950">{JSON.stringify(jwt.app_metadata, null, 2)}</pre>
                   ) : (
                     "(none)"
                   )
@@ -295,8 +303,8 @@ export function SessionDiagnosticPanel() {
 
           {/* Section 3: What the app thinks */}
           <section>
-            <h3 className="text-sm font-semibold mb-2">What the app thinks (useCurrentUserRole)</h3>
-            <div className="rounded-md border bg-card p-3">
+            <h3 className="mb-2 text-lg font-black text-slate-950">What the app thinks (useCurrentUserRole)</h3>
+            <div className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm">
               <Row label="role" value={roleHook.role ?? "(null)"} />
               <Row label="userId" value={roleHook.userId ?? "(null)"} />
               <Row label="email" value={roleHook.email ?? "(null)"} />
@@ -322,17 +330,17 @@ export function SessionDiagnosticPanel() {
 
           {/* Section 4: RLS probe */}
           <section>
-            <h3 className="text-sm font-semibold mb-2">
-              Live RLS probe — <code className="font-mono text-xs">select id from public.contractors limit 1</code>
+            <h3 className="mb-2 text-lg font-black text-slate-950">
+              Live RLS probe — <code className="font-mono text-sm font-bold text-slate-800">select id from public.contractors limit 1</code>
             </h3>
-            <div className="rounded-md border bg-card p-3">
+            <div className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm">
               <Row label="status" value={probe.status} />
               <Row label="row count" value={probe.rowCount === null ? "(n/a)" : String(probe.rowCount)} />
               <Row label="error code" value={probe.errorCode ?? "(none)"} />
               <Row label="error message" value={probe.errorMessage ?? "(none)"} />
               <Row label="error details" value={probe.errorDetails ?? "(none)"} />
               <div className="pt-2">
-                <Button size="sm" variant="ghost" onClick={runRlsProbe}>
+                <Button size="sm" variant="outline" onClick={runRlsProbe} className="min-h-10 border border-slate-400 bg-white px-4 text-sm font-extrabold text-slate-950 shadow-sm hover:bg-slate-50">
                   Re-run probe
                 </Button>
               </div>
@@ -341,8 +349,8 @@ export function SessionDiagnosticPanel() {
 
           {/* Section 5: Diagnosis hint */}
           <section>
-            <h3 className="text-sm font-semibold mb-2">Likely diagnosis</h3>
-            <div className="rounded-md border bg-muted/40 p-3 text-sm space-y-1">
+            <h3 className="mb-2 text-lg font-black text-slate-950">Likely diagnosis</h3>
+            <div className="space-y-2 rounded-2xl border border-slate-300 bg-slate-50 p-4 text-base font-semibold text-slate-800 shadow-sm">
               {!session?.hasSession && (
                 <p>
                   ▸ No browser session at all. The Supabase client has no JWT in localStorage. Sign in via{" "}
