@@ -239,8 +239,8 @@ export function SessionDiagnosticPanel() {
 
           {/* Section 1: Session */}
           <section>
-            <h3 className="text-sm font-semibold mb-2">supabase.auth.getSession()</h3>
-            <div className="rounded-md border bg-card p-3">
+            <h3 className="mb-2 text-lg font-black text-slate-950">supabase.auth.getSession()</h3>
+            <div className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm">
               <Row label="hasSession" value={String(session?.hasSession ?? "(loading)")} />
               <Row label="auth.uid" value={session?.uid ?? "(none)"} />
               <Row label="email" value={session?.email ?? "(none)"} />
@@ -260,8 +260,8 @@ export function SessionDiagnosticPanel() {
 
           {/* Section 2: Decoded JWT */}
           <section>
-            <h3 className="text-sm font-semibold mb-2">Decoded JWT payload (the field RLS reads)</h3>
-            <div className="rounded-md border bg-card p-3">
+            <h3 className="mb-2 text-lg font-black text-slate-950">Decoded JWT payload (the field RLS reads)</h3>
+            <div className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm">
               <Row label="jwt decode error" value={session?.jwtDecodeError ?? "(none)"} />
               <Row label="aud" value={jwt?.aud ?? "(none)"} />
               <Row label="sub" value={jwt?.sub ?? "(none)"} />
@@ -291,7 +291,7 @@ export function SessionDiagnosticPanel() {
                 label="full app_metadata"
                 value={
                   jwt?.app_metadata ? (
-                    <pre className="text-xs whitespace-pre-wrap">{JSON.stringify(jwt.app_metadata, null, 2)}</pre>
+                    <pre className="whitespace-pre-wrap text-sm font-semibold text-slate-950">{JSON.stringify(jwt.app_metadata, null, 2)}</pre>
                   ) : (
                     "(none)"
                   )
@@ -303,8 +303,8 @@ export function SessionDiagnosticPanel() {
 
           {/* Section 3: What the app thinks */}
           <section>
-            <h3 className="text-sm font-semibold mb-2">What the app thinks (useCurrentUserRole)</h3>
-            <div className="rounded-md border bg-card p-3">
+            <h3 className="mb-2 text-lg font-black text-slate-950">What the app thinks (useCurrentUserRole)</h3>
+            <div className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm">
               <Row label="role" value={roleHook.role ?? "(null)"} />
               <Row label="userId" value={roleHook.userId ?? "(null)"} />
               <Row label="email" value={roleHook.email ?? "(null)"} />
@@ -330,17 +330,17 @@ export function SessionDiagnosticPanel() {
 
           {/* Section 4: RLS probe */}
           <section>
-            <h3 className="text-sm font-semibold mb-2">
-              Live RLS probe — <code className="font-mono text-xs">select id from public.contractors limit 1</code>
+            <h3 className="mb-2 text-lg font-black text-slate-950">
+              Live RLS probe — <code className="font-mono text-sm font-bold text-slate-800">select id from public.contractors limit 1</code>
             </h3>
-            <div className="rounded-md border bg-card p-3">
+            <div className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm">
               <Row label="status" value={probe.status} />
               <Row label="row count" value={probe.rowCount === null ? "(n/a)" : String(probe.rowCount)} />
               <Row label="error code" value={probe.errorCode ?? "(none)"} />
               <Row label="error message" value={probe.errorMessage ?? "(none)"} />
               <Row label="error details" value={probe.errorDetails ?? "(none)"} />
               <div className="pt-2">
-                <Button size="sm" variant="ghost" onClick={runRlsProbe}>
+                <Button size="sm" variant="outline" onClick={runRlsProbe} className="min-h-10 border border-slate-400 bg-white px-4 text-sm font-extrabold text-slate-950 shadow-sm hover:bg-slate-50">
                   Re-run probe
                 </Button>
               </div>
@@ -349,8 +349,8 @@ export function SessionDiagnosticPanel() {
 
           {/* Section 5: Diagnosis hint */}
           <section>
-            <h3 className="text-sm font-semibold mb-2">Likely diagnosis</h3>
-            <div className="rounded-md border bg-muted/40 p-3 text-sm space-y-1">
+            <h3 className="mb-2 text-lg font-black text-slate-950">Likely diagnosis</h3>
+            <div className="space-y-2 rounded-2xl border border-slate-300 bg-slate-50 p-4 text-base font-semibold text-slate-800 shadow-sm">
               {!session?.hasSession && (
                 <p>
                   ▸ No browser session at all. The Supabase client has no JWT in localStorage. Sign in via{" "}
