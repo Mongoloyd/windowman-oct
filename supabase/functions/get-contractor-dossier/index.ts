@@ -23,6 +23,34 @@ const json = (body: Record<string, unknown>, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
+const includeDiagnosticStage = () =>
+  Deno.env.get("WM_EDGE_DIAGNOSTICS") === "true" ||
+  Deno.env.get("EDGE_DIAGNOSTICS") === "true";
+
+const internalErrorBody = (stage: string) => ({
+  error: "internal_error",
+  message: "Internal server error.",
+  error_code: `get_contractor_dossier_failed_at_${stage}`,
+  ...(includeDiagnosticStage() ? { stage } : {}),
+});
+
+const logStageError = (
+  stage: string,
+  err: unknown,
+  context: Record<string, unknown> = {},
+) => {
+  const error = err as { name?: unknown; message?: unknown; stack?: unknown };
+  console.error("[get-contractor-dossier] stage_error", {
+    stage,
+    name: typeof error?.name === "string" ? error.name : "Error",
+    message: typeof error?.message === "string" ? error.message : String(err),
+    stack: typeof error?.stack === "string" ? error.stack : undefined,
+    routeId: context.routeId,
+    leadId: context.leadId,
+    contractorId: context.contractorId,
+  });
+};
+
 function maskString(value: string | null | undefined, visibleEnd = 4): string {
   if (!value) return "••••••••";
   if (value.length <= visibleEnd) return "••••••••";
@@ -37,12 +65,18 @@ function maskEmail(email: string | null | undefined): string {
 }
 
 Deno.serve(async (req) => {
+  let stage = "start";
+  let routeId: string | null = null;
+  let leadId: string | null = null;
+  let contractorId: string | null = null;
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
     // ── Auth ──────────────────────────────────────────────────────
+    stage = "auth_header";
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return json({ error: "unauthenticated", message: "Missing auth token." }, 401);
@@ -54,17 +88,19 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } },
     );
 
-    const { data: claimsData, error: claimsErr } = await anonClient.auth.getClaims(
+    stage = "get_claims";
+    const { data: userData, error: userErr } = await anonClient.auth.getUser(
       authHeader.replace("Bearer ", ""),
     );
-    if (claimsErr || !claimsData?.claims?.sub) {
+    if (userErr || !userData?.user?.id) {
       return json({ error: "unauthenticated", message: "Invalid auth token." }, 401);
     }
-    const contractorId = claimsData.claims.sub as string;
+    contractorId = userData.user.id;
 
     // ── Input ─────────────────────────────────────────────────────
+    stage = "parse_body";
     const body = await req.json();
-    const routeId = body?.id;
+    routeId = body?.id;
     if (!routeId || typeof routeId !== "string") {
       return json({ error: "invalid_input", message: "id is required." }, 400);
     }
@@ -76,6 +112,7 @@ Deno.serve(async (req) => {
     );
 
     // ── Resolve route id as analysis id ───────────────────────────
+    stage = "fetch_analysis";
     const { data: analysis, error: aErr } = await svc
       .from("analyses")
       .select("id, grade, confidence_score, flags, full_json, proof_of_read, preview_json, document_type, rubric_version, created_at, lead_id")
@@ -83,58 +120,77 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (aErr) {
-      console.error("[get-contractor-dossier] Analysis fetch error:", aErr);
-      return json({ error: "fetch_error", message: "Failed to fetch analysis." }, 500);
+      logStageError(stage, aErr, { routeId, leadId, contractorId });
+      return json(internalErrorBody(stage), 500);
     }
 
     if (!analysis) {
       return json({ error: "not_found", message: "Dossier not found for the given ID." }, 404);
     }
 
-    const leadId = analysis.lead_id;
+    leadId = (analysis.lead_id as string | null) ?? null;
 
     // ── Fetch lead data ───────────────────────────────────────────
     let lead: Record<string, unknown> | null = null;
     if (leadId) {
-      const { data: leadRow } = await svc
+      stage = "fetch_lead";
+      const { data: leadRow, error: leadErr } = await svc
         .from("leads")
         .select("id, first_name, last_name, email, phone_e164, city, state, county, project_type, quote_range, window_count, grade, estimated_savings_low, estimated_savings_high")
         .eq("id", leadId)
         .maybeSingle();
-      lead = leadRow;
+      if (leadErr) {
+        logStageError(stage, leadErr, { routeId, leadId, contractorId });
+      } else {
+        lead = leadRow;
+      }
     }
 
     // ── Check unlock state ────────────────────────────────────────
     let alreadyUnlocked = false;
     if (leadId) {
-      const { data: unlockRow } = await svc
+      stage = "fetch_unlock";
+      const { data: unlockRow, error: unlockErr } = await svc
         .from("contractor_unlocked_leads")
         .select("id")
         .eq("contractor_id", contractorId)
         .eq("lead_id", leadId)
         .maybeSingle();
-      alreadyUnlocked = !!unlockRow;
+      if (unlockErr) {
+        logStageError(stage, unlockErr, { routeId, leadId, contractorId });
+      } else {
+        alreadyUnlocked = !!unlockRow;
+      }
     }
 
     // ── Fetch contractor profile & credits ────────────────────────
-    const { data: profile } = await svc
+    stage = "fetch_profile";
+    const { data: profile, error: profileErr } = await svc
       .from("contractor_profiles")
       .select("status")
       .eq("id", contractorId)
       .maybeSingle();
+    if (profileErr) {
+      logStageError(stage, profileErr, { routeId, leadId, contractorId });
+    }
 
     const contractorStatus = (profile?.status as string) ?? "unknown";
 
-    const { data: creditRow } = await svc
+    stage = "fetch_credits";
+    const { data: creditRow, error: creditErr } = await svc
       .from("contractor_credits")
       .select("balance")
       .eq("contractor_id", contractorId)
       .maybeSingle();
+    if (creditErr) {
+      logStageError(stage, creditErr, { routeId, leadId, contractorId });
+    }
 
     const creditBalance = (creditRow?.balance as number) ?? 0;
     const canUnlock = contractorStatus === "active" && creditBalance >= 1 && !!leadId;
 
     // ── Build extraction snapshot ─────────────────────────────────
+    stage = "build_extraction";
     const fullJson = (analysis.full_json ?? {}) as Record<string, unknown>;
     const extraction = (fullJson.extraction ?? {}) as Record<string, unknown>;
     const pillarScores = (fullJson.pillar_scores ?? {}) as Record<string, number>;
@@ -342,17 +398,22 @@ Deno.serve(async (req) => {
     let opportunityId: string | null = null;
 
     if (leadId) {
-      const { data: marketplaceContractor } = await svc
+      stage = "fetch_marketplace_contractor";
+      const { data: marketplaceContractor, error: marketplaceContractorErr } = await svc
         .from("contractors")
         .select("id")
         .eq("auth_user_id", contractorId)
         .maybeSingle();
+      if (marketplaceContractorErr) {
+        logStageError(stage, marketplaceContractorErr, { routeId, leadId, contractorId });
+      }
 
       const marketplaceContractorId = marketplaceContractor?.id as string | undefined;
 
       if (marketplaceContractorId) {
         // Find the opportunity row that links this lead to this contractor
-        const { data: oppRow } = await svc
+        stage = "fetch_opportunity";
+        const { data: oppRow, error: oppErr } = await svc
           .from("contractor_opportunities")
           .select("id")
           .eq("lead_id", leadId)
@@ -362,10 +423,14 @@ Deno.serve(async (req) => {
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
+        if (oppErr) {
+          logStageError(stage, oppErr, { routeId, leadId, contractorId });
+        }
 
-        if (oppRow?.id) {
+        if (!oppErr && oppRow?.id) {
           opportunityId = oppRow.id as string;
-          const { data: outcomeRow } = await svc
+          stage = "fetch_outcome";
+          const { data: outcomeRow, error: outcomeErr } = await svc
             .from("contractor_outcomes")
             .select(
               "id, opportunity_id, contractor_id, disposition_state, disposition_reason_code, projected_value_cents, final_value_cents, signed_contract_url, last_partner_action_at",
@@ -373,8 +438,11 @@ Deno.serve(async (req) => {
             .eq("opportunity_id", opportunityId)
             .eq("contractor_id", marketplaceContractorId)
             .maybeSingle();
+          if (outcomeErr) {
+            logStageError(stage, outcomeErr, { routeId, leadId, contractorId });
+          }
 
-          if (outcomeRow) {
+          if (!outcomeErr && outcomeRow) {
             outcome = {
               id: outcomeRow.id as string,
               opportunity_id: outcomeRow.opportunity_id as string,
@@ -392,6 +460,7 @@ Deno.serve(async (req) => {
       }
     }
 
+    stage = "build_response";
     const meta = {
       analysis_id: analysis.id,
       lead_id: leadId,
@@ -406,7 +475,7 @@ Deno.serve(async (req) => {
 
     return json({ dossier, meta, outcome });
   } catch (err) {
-    console.error("[get-contractor-dossier] Unhandled error:", err);
-    return json({ error: "internal_error", message: "Internal server error." }, 500);
+    logStageError(stage, err, { routeId, leadId, contractorId });
+    return json(internalErrorBody(stage), 500);
   }
 });
