@@ -235,7 +235,7 @@ function ClientDossierModal({ open, onClose, client, metaConfig, existingSlugs, 
         <DialogHeader>
           <DialogTitle className="text-slate-900 font-semibold tracking-tight">{isEdit ? "Edit Client" : "Add Client"}</DialogTitle>
           <DialogDescription className="text-slate-500">
-            {isEdit ? "Update client details and pixel configuration." : "Create a new white-label client."}
+            {isEdit ? "Update client details and CAPI configuration." : "Create a new white-label client."}
           </DialogDescription>
         </DialogHeader>
 
