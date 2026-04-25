@@ -211,6 +211,7 @@ function AdminPartnersContent() {
   const { hasWriteAccess } = useCurrentUserRole();
   const [clients, setClients] = useState<Client[]>([]);
   const [metaConfigs, setMetaConfigs] = useState<MetaConfig[]>([]);
+  const [clientConfigs, setClientConfigs] = useState<ClientConfig[]>([]);
   const [redactedConfigs, setRedactedConfigs] = useState<RedactedMetaConfig[]>([]);
   const [signalLogs, setSignalLogs] = useState<SignalLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -226,19 +227,22 @@ function AdminPartnersContent() {
     setLoading(true);
     setError(null);
     try {
-      const [clientsResult, metaResult, logsResult, redactedResult] = await Promise.all([
+      const [clientsResult, metaResult, configResult, logsResult, redactedResult] = await Promise.all([
         supabase.from("clients").select("id, name, slug, is_active, created_at").order("created_at", { ascending: false }),
         supabase.from("meta_configurations").select("id, client_id, pixel_id, test_event_code, is_default, updated_at"),
+        supabase.from("client_configs").select("id, client_id, google_ads_conversion_id, google_ads_label, meta_pixel_id, meta_dataset_id, gtm_server_url, capi_token_secret_id, updated_at"),
         supabase.from("capi_signal_logs").select("id, client_slug, event_name, pixel_id, status_code, fired_at").order("fired_at", { ascending: false }).limit(500),
         invokeAdminData("list_meta_configurations"),
       ]);
 
       if (clientsResult.error) throw clientsResult.error;
       if (metaResult.error) throw metaResult.error;
+      if (configResult.error) throw configResult.error;
       if (logsResult.error) throw logsResult.error;
 
       setClients((clientsResult.data ?? []) as Client[]);
       setMetaConfigs((metaResult.data ?? []) as MetaConfig[]);
+      setClientConfigs((configResult.data ?? []) as ClientConfig[]);
       setSignalLogs((logsResult.data ?? []) as SignalLog[]);
       setRedactedConfigs(((redactedResult?.rows ?? []) as RedactedMetaConfig[]));
     } catch (err) {
