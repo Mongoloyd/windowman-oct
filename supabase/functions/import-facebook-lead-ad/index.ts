@@ -353,17 +353,25 @@ Deno.serve(async (req) => {
       updated_at: now,
     };
 
-    if (existingAttribution?.id) {
-      const { error } = await supabase
+    let attributionId = existingAttribution?.id as string | undefined;
+
+    if (attributionId) {
+      const { data: updatedAttribution, error } = await supabase
         .from("lead_attribution_details")
         .update(attributionRow)
-        .eq("id", existingAttribution.id);
+        .eq("id", attributionId)
+        .select("id")
+        .single();
       if (error) throw error;
+      attributionId = updatedAttribution.id as string;
     } else {
-      const { error } = await supabase
+      const { data: insertedAttribution, error } = await supabase
         .from("lead_attribution_details")
-        .insert(attributionRow);
+        .insert(attributionRow)
+        .select("id")
+        .single();
       if (error) throw error;
+      attributionId = insertedAttribution.id as string;
     }
 
     await supabase.from("event_logs").insert({
@@ -383,7 +391,7 @@ Deno.serve(async (req) => {
         ad_id: payload.adId,
         ad_name: payload.adName,
         form_id: payload.formId,
-        deduped,
+        reused: deduped,
         phone_verified: false,
         imported_at: now,
       },
@@ -392,10 +400,8 @@ Deno.serve(async (req) => {
     return jsonResponse({
       success: true,
       lead_id: leadId,
-      platform_lead_id: payload.platformLeadId,
-      deduped,
-      source: SOURCE,
-      phone_verified: false,
+      attribution_id: attributionId,
+      reused: deduped,
     });
   } catch (err) {
     console.error("[FB_LEAD_AD_IMPORT:ERROR]", err);
