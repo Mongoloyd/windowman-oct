@@ -168,8 +168,8 @@ export function StepPrescription({
 
             {otherFreeText && (
               <div>
-                <p className="wm-eyebrow uppercase text-muted-foreground mb-1">In Your Words</p>
-                <p className="text-foreground/80 italic">"{otherFreeText}"</p>
+                <p className="wm-eyebrow uppercase text-muted-foreground mb-1 text-sm">In Your Words</p>
+                <p className="text-foreground/80 italic font-medium">"{otherFreeText}"</p>
               </div>
             )}
 
