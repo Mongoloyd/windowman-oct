@@ -49,7 +49,7 @@ const TAB_TRIGGER_CLASSES = [
   "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 focus-visible:ring-offset-2",
   "transition-all border border-slate-300",
   // Match Radix TabsTrigger sizing so route-tabs line up identically with panel-tabs
-  "inline-flex h-11 items-center justify-center whitespace-nowrap rounded-lg px-4 py-2",
+  "inline-flex h-11 items-center justify-center whitespace-nowrap rounded-lg px-3.5 py-2 sm:px-4",
 ].join(" ");
 
 export function AdminPrimaryTabs({
@@ -90,7 +90,7 @@ export function AdminPrimaryTabs({
     return (
       <Badge
         variant={variant ?? "default"}
-        className="ml-1.5 min-h-6 min-w-[24px] border border-slate-400 bg-white px-2 text-sm font-extrabold text-slate-950"
+        className="ml-1.5 min-h-6 min-w-[24px] border border-slate-400 bg-white px-2 text-sm font-extrabold text-slate-950 shadow-sm"
       >
         {count > 99 ? "99+" : count}
       </Badge>
@@ -98,7 +98,7 @@ export function AdminPrimaryTabs({
   }
 
   return (
-    <TabsList className="wm-slim-scrollbar flex h-auto w-full flex-nowrap justify-start gap-2 overflow-x-auto rounded-2xl border border-slate-300 bg-white p-2 shadow-sm">
+    <TabsList className="wm-slim-scrollbar flex h-auto w-full flex-nowrap justify-start gap-2 overflow-x-auto overscroll-x-contain rounded-2xl border border-slate-300 bg-white p-2 shadow-sm [scrollbar-gutter:stable]">
       {tabs.map((t) => {
         if (t.kind === "panel") {
           return (
