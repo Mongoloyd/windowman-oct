@@ -399,7 +399,7 @@ function ScenarioItem({
         <div className="font-medium leading-snug">{scenario.title}</div>
         <Badge
           variant={SEVERITY_VARIANT[scenario.severity]}
-          className="text-[10px] uppercase shrink-0"
+          className="text-sm uppercase shrink-0"
         >
           {scenario.severity}
         </Badge>
@@ -549,7 +549,7 @@ export function OperatorScenarioDrillsSurface({ onNavigateTab }: Props) {
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="font-semibold">{group.title}</span>
-                    <Badge variant="outline" className="text-[10px]">
+                    <Badge variant="outline" className="text-sm">
                       {group.scenarios.length}
                     </Badge>
                   </div>
@@ -597,7 +597,7 @@ export function OperatorScenarioDrillsSurface({ onNavigateTab }: Props) {
               </Button>
             ))}
           </div>
-          <p className="text-[11px] text-slate-700 mt-4 leading-relaxed">
+          <p className="text-sm text-slate-700 mt-4 leading-relaxed">
             This surface is read-only operator preparation. It does not run
             simulations, persist drill results, or trigger backend actions.
             All scenarios reflect current repo-real workflows.

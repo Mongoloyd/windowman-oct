@@ -281,7 +281,7 @@ export function ContractorAccountsTab() {
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <Badge variant={statusColor(acct.status) as any}>{acct.status}</Badge>
                       {acct.has_contractor_record && !acct.routing_setup_completed_at && (
-                        <Badge variant="outline" className="text-amber-500 border-amber-500/30 text-[10px]">Needs Setup</Badge>
+                        <Badge variant="outline" className="text-amber-500 border-amber-500/30 text-sm">Needs Setup</Badge>
                       )}
                     </div>
                   </TableCell>

@@ -74,7 +74,7 @@ export function CommandCenter({ kpis, isLoading, leads }: CommandCenterProps) {
       value: kpis.verifiedLeads,
       icon: ShieldCheck,
       description: "Passed OTP — hot & handed off",
-      accent: "text-emerald-600 dark:text-emerald-400",
+      accent: "text-emerald-950",
     },
     {
       title: "Ghost Leads",

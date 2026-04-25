@@ -41,8 +41,8 @@ export function AdminShell({
   return (
     <div className="wm-dashboard-surface min-h-screen bg-white text-slate-950">
       <header className="sticky top-0 z-30 border-b border-slate-300 bg-white shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/95">
-        <div className="w-full px-4 py-3 sm:px-6 lg:px-8 xl:px-10 2xl:px-12">
-          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+        <div className="w-full px-4 py-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12">
+          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div className="min-w-0">
               {backTo && (
                 <Link
@@ -65,7 +65,7 @@ export function AdminShell({
               <AdminIdentityBar />
             </div>
           </div>
-          {belowHeader && <div className="mt-3">{belowHeader}</div>}
+          {belowHeader && <div className="mt-4">{belowHeader}</div>}
         </div>
       </header>
 
@@ -73,7 +73,7 @@ export function AdminShell({
         className={
           fullBleed
             ? "w-full"
-            : "w-full px-4 py-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12"
+            : "w-full px-4 py-5 sm:px-6 lg:px-8 xl:px-10 2xl:px-12"
         }
       >
         {children}

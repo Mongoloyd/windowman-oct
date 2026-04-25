@@ -120,7 +120,7 @@ export function nonEmpty(v: unknown): boolean {
 function StatusBadge({ status }: { status: Completeness }) {
   if (status === "strong") {
     return (
-      <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/15">
+      <Badge className="bg-emerald-500/10 text-emerald-950 border-emerald-500/30 hover:bg-emerald-500/15">
         <CheckCircle2 className="h-3 w-3 mr-1" />
         Strong
       </Badge>
@@ -128,7 +128,7 @@ function StatusBadge({ status }: { status: Completeness }) {
   }
   if (status === "partial") {
     return (
-      <Badge className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/15">
+      <Badge className="bg-amber-500/10 text-amber-950 border-amber-500/30 hover:bg-amber-500/15">
         <AlertTriangle className="h-3 w-3 mr-1" />
         Partial
       </Badge>
@@ -136,7 +136,7 @@ function StatusBadge({ status }: { status: Completeness }) {
   }
   if (status === "sparse") {
     return (
-      <Badge className="bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/30 hover:bg-rose-500/15">
+      <Badge className="bg-rose-500/10 text-red-950 border-rose-500/30 hover:bg-rose-500/15">
         <AlertTriangle className="h-3 w-3 mr-1" />
         Sparse
       </Badge>
@@ -558,32 +558,32 @@ export function DataQualityFieldIntegritySurface({
         {/* Summary chips */}
         <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
           <div className="rounded-lg border bg-emerald-500/5 border-emerald-500/30 px-3 py-2.5">
-            <div className="text-[11px] uppercase tracking-wide text-emerald-700 dark:text-emerald-400 font-semibold">
+            <div className="text-sm uppercase tracking-wide text-emerald-950 font-semibold">
               Strong
             </div>
             <div className="text-xl font-semibold mt-0.5">{summary.strong}</div>
           </div>
           <div className="rounded-lg border bg-amber-500/5 border-amber-500/30 px-3 py-2.5">
-            <div className="text-[11px] uppercase tracking-wide text-amber-700 dark:text-amber-400 font-semibold">
+            <div className="text-sm uppercase tracking-wide text-amber-950 font-semibold">
               Partial
             </div>
             <div className="text-xl font-semibold mt-0.5">{summary.partial}</div>
           </div>
           <div className="rounded-lg border bg-rose-500/5 border-rose-500/30 px-3 py-2.5">
-            <div className="text-[11px] uppercase tracking-wide text-rose-700 dark:text-rose-400 font-semibold">
+            <div className="text-sm uppercase tracking-wide text-red-950 font-semibold">
               Sparse
             </div>
             <div className="text-xl font-semibold mt-0.5">{summary.sparse}</div>
           </div>
           <div className="rounded-lg border bg-muted/40 px-3 py-2.5">
-            <div className="text-[11px] uppercase tracking-wide text-slate-700 font-semibold">
+            <div className="text-sm uppercase tracking-wide text-slate-700 font-semibold">
               No data
             </div>
             <div className="text-xl font-semibold mt-0.5">{summary.na}</div>
           </div>
         </div>
 
-        <p className="text-[11px] text-slate-700 mt-3 leading-relaxed">
+        <p className="text-sm text-slate-700 mt-3 leading-relaxed">
           Classification is operator-view: <span className="font-semibold">Strong</span> ≥80%,{" "}
           <span className="font-semibold">Partial</span> 40–79%, <span className="font-semibold">Sparse</span> &lt;40%.
           No data persistence, no validation backend.
@@ -665,7 +665,7 @@ export function DataQualityFieldIntegritySurface({
       <div className="rounded-xl border bg-card p-5">
         <div className="flex items-start gap-3">
           <div className="rounded-md bg-amber-500/10 p-1.5 mt-0.5">
-            <ListChecks className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <ListChecks className="h-4 w-4 text-amber-950" />
           </div>
           <div className="min-w-0">
             <h3 className="font-semibold text-sm">Fallback / operator-derived usage</h3>
@@ -702,7 +702,7 @@ export function DataQualityFieldIntegritySurface({
         <div className="rounded-xl border bg-card p-5">
           <div className="flex items-start gap-3">
             <div className="rounded-md bg-rose-500/10 p-1.5 mt-0.5">
-              <ShieldAlert className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+              <ShieldAlert className="h-4 w-4 text-red-950" />
             </div>
             <div className="min-w-0">
               <h3 className="font-semibold text-sm">Current data gaps / cautions</h3>
@@ -714,7 +714,7 @@ export function DataQualityFieldIntegritySurface({
           <ul className="mt-3 space-y-1.5 text-sm">
             {cautions.map((c, i) => (
               <li key={i} className="flex items-start gap-2 text-slate-700">
-                <span className="text-rose-600 dark:text-rose-400 mt-0.5">•</span>
+                <span className="text-red-950 mt-0.5">•</span>
                 <span>{c}</span>
               </li>
             ))}

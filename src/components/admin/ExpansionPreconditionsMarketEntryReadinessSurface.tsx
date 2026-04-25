@@ -353,10 +353,10 @@ function PreconditionSection({
           <div>
             <div className="flex items-center gap-2">
               <span className="font-semibold">{title}</span>
-              <Badge variant={badgeVariant} className="text-[10px]">
+              <Badge variant={badgeVariant} className="text-sm">
                 {badgeLabel}
               </Badge>
-              <Badge variant="outline" className="text-[10px]">
+              <Badge variant="outline" className="text-sm">
                 {items.length}
               </Badge>
             </div>
@@ -567,7 +567,7 @@ export function ExpansionPreconditionsMarketEntryReadinessSurface({
                 Observed coverage / market footprint
               </CardTitle>
             </div>
-            <Badge variant="outline" className="text-[10px]">
+            <Badge variant="outline" className="text-sm">
               {totalLeads} leads in current dataset
             </Badge>
           </div>
@@ -616,7 +616,7 @@ export function ExpansionPreconditionsMarketEntryReadinessSurface({
               </table>
             </div>
           )}
-          <p className="text-[11px] text-slate-700 mt-4 leading-relaxed">
+          <p className="text-sm text-slate-700 mt-4 leading-relaxed">
             Coverage is a read-only view over current `leads` data. It does
             not enforce territory, allocate counties, or imply contractor
             assignment. Expansion decisions remain operator-judged.
@@ -647,7 +647,7 @@ export function ExpansionPreconditionsMarketEntryReadinessSurface({
               </Button>
             ))}
           </div>
-          <p className="text-[11px] text-slate-700 mt-4 leading-relaxed">
+          <p className="text-sm text-slate-700 mt-4 leading-relaxed">
             This surface is read-only operator readiness. It does not
             persist plans, approve expansion, or allocate territory. All
             preconditions reflect current repo-real workflows.

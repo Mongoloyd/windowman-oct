@@ -342,13 +342,13 @@ export function DeadStaleRecoveryWorkflowSurface({ leads, onNavigateTab }: Props
               Internal operator surface that hardens manual handling of dead,
               stale, and recovery candidates. All groupings are deterministic
               operator-view derivations from real fields. The canonical{" "}
-              <code className="px-1 py-0.5 rounded bg-muted text-[10px]">mark_dead</code>{" "}
+              <code className="px-1 py-0.5 rounded bg-muted text-sm">mark_dead</code>{" "}
               action remains the single dead-marking path — this surface only
               clarifies <em>when</em> to use it.
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-[10px] uppercase tracking-wider">
+            <Badge variant="outline" className="text-sm uppercase tracking-wider">
               Internal · Operator Use
             </Badge>
             <Button
@@ -373,7 +373,7 @@ export function DeadStaleRecoveryWorkflowSurface({ leads, onNavigateTab }: Props
           <CardTitle className="text-sm flex items-center gap-2">
             <Info className="h-4 w-4" />
             State Definitions
-            <span className="text-[10px] uppercase tracking-wider text-slate-700 font-normal ml-1">
+            <span className="text-sm uppercase tracking-wider text-slate-700 font-normal ml-1">
               current truth
             </span>
             <ChevronRight
@@ -425,7 +425,7 @@ export function DeadStaleRecoveryWorkflowSurface({ leads, onNavigateTab }: Props
           <CardTitle className="text-sm flex items-center gap-2">
             <ListChecks className="h-4 w-4" />
             Queue Snapshot
-            <span className="text-[10px] uppercase tracking-wider text-slate-700 font-normal ml-1">
+            <span className="text-sm uppercase tracking-wider text-slate-700 font-normal ml-1">
               operator view
             </span>
             <ChevronRight
@@ -518,7 +518,7 @@ export function DeadStaleRecoveryWorkflowSurface({ leads, onNavigateTab }: Props
           <CardTitle className="text-sm flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-slate-700" />
             Ambiguous / Needs Operator Review
-            <Badge variant="outline" className="ml-2 h-5 text-[10px]">
+            <Badge variant="outline" className="ml-2 h-5 text-sm">
               {ambiguousRows.length}
             </Badge>
             <ChevronRight
@@ -527,10 +527,10 @@ export function DeadStaleRecoveryWorkflowSurface({ leads, onNavigateTab }: Props
               }`}
             />
           </CardTitle>
-          <p className="text-[11px] text-slate-700 mt-1">
+          <p className="text-sm text-slate-700 mt-1">
             Leads that do not cleanly belong to active/stale/dead/recovery.
             Open the dossier, then either nudge the right party or apply{" "}
-            <code className="px-1 rounded bg-muted text-[10px]">mark_dead</code>{" "}
+            <code className="px-1 rounded bg-muted text-sm">mark_dead</code>{" "}
             via Routing Desk.
           </p>
         </CardHeader>
@@ -566,7 +566,7 @@ export function DeadStaleRecoveryWorkflowSurface({ leads, onNavigateTab }: Props
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="h-7 text-[11px] shrink-0"
+                        className="h-7 text-sm shrink-0"
                         onClick={() => goTab("routing")}
                       >
                         Open in Routing
@@ -670,7 +670,7 @@ function Stat({
       <div className={`text-2xl font-semibold leading-none ${toneCls[tone]}`}>
         {value}
       </div>
-      <div className="text-[10px] uppercase tracking-wider text-slate-700 mt-1">
+      <div className="text-sm uppercase tracking-wider text-slate-700 mt-1">
         {label}
       </div>
     </div>
@@ -695,7 +695,7 @@ function Definition({
         <span className="text-sm font-medium">{label}</span>
         <Badge
           variant="outline"
-          className="ml-auto text-[9px] uppercase tracking-wider"
+          className="ml-auto text-sm uppercase tracking-wider"
         >
           {modeled ? "modeled" : "operator view"}
         </Badge>
@@ -720,14 +720,14 @@ function ActionRow({
     <div className="flex items-start justify-between gap-3 rounded-md border bg-card px-3 py-2">
       <div className="min-w-0">
         <div className="text-sm font-medium">{label}</div>
-        <div className="text-[11px] text-slate-700 mt-0.5 leading-relaxed">
+        <div className="text-sm text-slate-700 mt-0.5 leading-relaxed">
           {when}
         </div>
       </div>
       <Button
         size="sm"
         variant="ghost"
-        className="h-7 text-[11px] shrink-0"
+        className="h-7 text-sm shrink-0"
         onClick={go}
       >
         {goLabel}

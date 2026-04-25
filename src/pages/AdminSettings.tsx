@@ -62,24 +62,24 @@ const ROLE_CONFIG: Record<
   super_admin: {
     label: "Super Admin",
     icon: ShieldAlert,
-    badgeBg: "bg-rose-50",
-    badgeText: "text-rose-700",
+    badgeBg: "bg-red-100 border-red-300",
+    badgeText: "text-red-950",
     dotColor: "bg-rose-500",
     description: "Full access. Manage roles, delete data, view financials.",
   },
   operator: {
     label: "Operator",
     icon: ShieldCheck,
-    badgeBg: "bg-blue-50",
-    badgeText: "text-blue-700",
+    badgeBg: "bg-blue-100 border-blue-300",
+    badgeText: "text-blue-950",
     dotColor: "bg-blue-500",
     description: "Update leads, manage opportunities, trigger voice calls.",
   },
   viewer: {
     label: "Viewer",
     icon: Eye,
-    badgeBg: "bg-emerald-50",
-    badgeText: "text-emerald-700",
+    badgeBg: "bg-emerald-100 border-emerald-300",
+    badgeText: "text-emerald-950",
     dotColor: "bg-emerald-500",
     description: "Read-only dashboard access.",
   },
@@ -125,7 +125,7 @@ function RoleBadge({ role }: { role: AppRole }) {
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${config.badgeBg} ${config.badgeText}`}
+      className={`wm-admin-badge ${config.badgeBg} ${config.badgeText}`}
     >
       <span className={`w-1.5 h-1.5 rounded-full ${config.dotColor}`} />
       {config.label}
@@ -186,8 +186,8 @@ function RoleSelector({
           transition-all duration-200
           ${
             isSelf
-              ? "border-slate-100 text-slate-700 cursor-not-allowed bg-slate-50"
-              : "border-slate-200 text-slate-700 hover:border-blue-300 hover:shadow-md hover:shadow-blue-100/40 cursor-pointer bg-white"
+              ? "cursor-not-allowed border-slate-300 bg-slate-50 text-slate-700"
+              : "cursor-pointer border-slate-400 bg-white text-slate-950 hover:border-blue-300 hover:shadow-md hover:shadow-blue-100/40"
           }
         `}
         title={isSelf ? "Cannot change your own role" : `Change role for ${userEmail}`}
@@ -208,7 +208,7 @@ function RoleSelector({
             onClick={() => setIsOpen(false)}
           />
           {/* Dropdown */}
-          <div className="absolute right-0 top-full mt-2 z-50 w-72 rounded-2xl border border-slate-100 bg-white shadow-xl shadow-slate-200/60 overflow-hidden">
+          <div className="absolute right-0 top-full z-50 mt-2 w-72 overflow-hidden rounded-2xl border border-slate-300 bg-white shadow-xl shadow-slate-200/60">
             {(Object.keys(ROLE_CONFIG) as AppRole[]).map((roleKey) => {
               const config = ROLE_CONFIG[roleKey];
               const Icon = config.icon;
@@ -222,7 +222,7 @@ function RoleSelector({
                     w-full flex items-start gap-3 px-4 py-3.5 text-left transition-all duration-150
                     ${
                       isActive
-                        ? "bg-blue-50/60 border-l-[3px] border-blue-500"
+                        ? "border-l-[3px] border-blue-800 bg-blue-50"
                         : "hover:bg-slate-50 border-l-[3px] border-transparent"
                     }
                   `}
@@ -240,7 +240,7 @@ function RoleSelector({
                     >
                       {config.label}
                     </div>
-                    <div className="text-xs text-slate-700 mt-0.5 leading-relaxed">
+                    <div className="mt-0.5 text-sm font-semibold leading-relaxed text-slate-700">
                       {config.description}
                     </div>
                   </div>
@@ -252,7 +252,7 @@ function RoleSelector({
       )}
 
       {error && (
-        <p className="absolute top-full mt-1.5 right-0 text-xs text-rose-600 bg-rose-50 px-2 py-1 rounded-lg whitespace-nowrap shadow-sm">
+        <p className="absolute right-0 top-full mt-1.5 whitespace-nowrap rounded-lg border border-red-300 bg-red-100 px-2 py-1 text-sm font-semibold text-red-950 shadow-sm">
           {error}
         </p>
       )}
@@ -277,22 +277,22 @@ function UsersTable({
     <div className="overflow-x-auto">
       <table className="w-full">
         <thead>
-          <tr className="border-b border-slate-100">
-            <th className="text-left py-3.5 px-5 text-[11px] font-bold text-slate-700 uppercase tracking-widest">
+          <tr className="border-b border-slate-300 bg-slate-100">
+            <th className="px-5 py-3.5 text-left text-sm font-extrabold uppercase tracking-wide text-slate-800">
               User
             </th>
-            <th className="text-left py-3.5 px-5 text-[11px] font-bold text-slate-700 uppercase tracking-widest">
+            <th className="px-5 py-3.5 text-left text-sm font-extrabold uppercase tracking-wide text-slate-800">
               Role
             </th>
-            <th className="text-left py-3.5 px-5 text-[11px] font-bold text-slate-700 uppercase tracking-widest hidden md:table-cell">
+            <th className="hidden px-5 py-3.5 text-left text-sm font-extrabold uppercase tracking-wide text-slate-800 md:table-cell">
               Last Sign In
             </th>
-            <th className="text-right py-3.5 px-5 text-[11px] font-bold text-slate-700 uppercase tracking-widest">
+            <th className="px-5 py-3.5 text-right text-sm font-extrabold uppercase tracking-wide text-slate-800">
               Actions
             </th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-50">
+        <tbody className="divide-y divide-slate-300">
           {users.map((user) => {
             const isSelf = user.user_id === currentUserId;
             return (
@@ -300,7 +300,7 @@ function UsersTable({
                 key={user.user_id}
                 className={`
                   transition-colors duration-150
-                  ${isSelf ? "bg-blue-50/30" : "hover:bg-slate-50/50"}
+                  ${isSelf ? "bg-blue-50/60" : "hover:bg-blue-50/50"}
                 `}
               >
                 <td className="py-4 px-5">
@@ -313,11 +313,11 @@ function UsersTable({
                         {user.email}
                       </span>
                       {isSelf && (
-                        <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-bold uppercase tracking-wide">
+                        <span className="ml-2 inline-flex min-h-7 items-center rounded-full border border-blue-300 bg-blue-100 px-2.5 py-0.5 text-sm font-extrabold uppercase tracking-wide text-blue-950">
                           You
                         </span>
                       )}
-                      <p className="text-[11px] text-slate-700 mt-0.5 hidden sm:block">
+                      <p className="mt-0.5 hidden text-sm font-semibold text-slate-700 sm:block">
                         {user.user_id.slice(0, 8)}...
                       </p>
                     </div>
@@ -327,7 +327,7 @@ function UsersTable({
                   <RoleBadge role={user.role} />
                 </td>
                 <td className="py-4 px-5 hidden md:table-cell">
-                  <span className="text-xs text-slate-700">
+                  <span className="text-sm font-semibold text-slate-700">
                     {user.last_sign_in
                       ? new Date(user.last_sign_in).toLocaleDateString(
                           "en-US",
@@ -382,9 +382,9 @@ function AuditLogPanel({
 
   if (entries.length === 0) {
     return (
-      <div className="text-center py-12">
-        <Clock className="w-10 h-10 text-slate-200 mx-auto mb-3" />
-        <p className="text-sm text-slate-700">
+      <div className="py-12 text-center">
+        <Clock className="mx-auto mb-3 h-10 w-10 text-slate-700" />
+        <p className="text-base font-semibold text-slate-700">
           No role changes recorded yet.
         </p>
       </div>
@@ -396,13 +396,13 @@ function AuditLogPanel({
       {entries.map((entry) => (
         <div
           key={entry.id}
-          className="flex items-start gap-3 p-4 rounded-xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-200"
+          className="flex items-start gap-3 rounded-xl border border-slate-300 bg-white p-4 shadow-sm transition-shadow duration-200 hover:shadow-md"
         >
-          <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-300 bg-slate-50">
             <Clock className="w-3.5 h-3.5 text-slate-700" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm text-slate-700 leading-relaxed">
+            <p className="text-sm font-semibold leading-relaxed text-slate-800">
               <span className="font-semibold text-slate-900">
                 {entry.changed_by_email}
               </span>{" "}
@@ -419,7 +419,7 @@ function AuditLogPanel({
               {" to "}
               <span className="font-semibold text-blue-600">{entry.new_role}</span>
             </p>
-            <p className="text-[11px] text-slate-700 mt-1">
+            <p className="mt-1 text-sm font-semibold text-slate-700">
               {new Date(entry.created_at).toLocaleString("en-US", {
                 month: "short",
                 day: "numeric",
@@ -450,7 +450,7 @@ function RoleStatCard({
   const Icon = config.icon;
 
   return (
-    <div className="relative bg-white rounded-2xl border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-shadow duration-300 p-5 overflow-hidden">
+    <div className="wm-admin-panel relative overflow-hidden p-5 transition-shadow duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]">
       {/* Subtle gradient accent at top */}
       <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600 opacity-20 rounded-t-2xl" />
 
@@ -462,7 +462,7 @@ function RoleStatCard({
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold text-slate-900">{config.label}</p>
-          <p className="text-xs text-slate-700 truncate leading-relaxed">
+          <p className="truncate text-sm font-semibold leading-relaxed text-slate-700">
             {config.description}
           </p>
         </div>
@@ -576,15 +576,15 @@ function AdminSettingsContent() {
 
         {/* Error Banner */}
         {error && (
-          <div className="p-4 rounded-2xl bg-rose-50 border border-rose-100 shadow-sm flex items-start gap-3">
+          <div className="flex items-start gap-3 rounded-2xl border border-red-300 bg-red-100 p-4 shadow-sm">
             <div className="w-9 h-9 rounded-xl bg-white shadow-sm flex items-center justify-center shrink-0">
-              <AlertTriangle className="w-4.5 h-4.5 text-rose-500" />
+              <AlertTriangle className="w-4.5 h-4.5 text-red-950" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-rose-800">{error}</p>
+              <p className="text-sm font-semibold text-red-950">{error}</p>
               <button
                 onClick={fetchUsers}
-                className="text-xs text-rose-600 hover:text-rose-700 font-medium underline underline-offset-2 mt-1"
+                className="mt-1 text-sm font-extrabold text-red-950 underline underline-offset-2 hover:text-red-900"
               >
                 Try again
               </button>
@@ -593,14 +593,14 @@ function AdminSettingsContent() {
         )}
 
         {/* Content Card with Tabs */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.04)] overflow-hidden">
+        <div className="wm-admin-panel overflow-hidden">
           {/* Tab Bar */}
-          <div className="flex border-b border-slate-100">
+          <div className="flex border-b border-slate-300">
             <button
               onClick={() => setActiveTab("users")}
               className={`flex-1 flex items-center justify-center gap-2 px-4 py-4 text-sm font-semibold transition-all duration-200 ${
                 activeTab === "users"
-                  ? "text-blue-600 border-b-2 border-blue-500 bg-blue-50/30"
+                  ? "border-b-2 border-blue-800 bg-blue-50 text-blue-950"
                   : "text-slate-700 hover:text-slate-700 hover:bg-slate-50/50"
               }`}
             >
@@ -618,7 +618,7 @@ function AdminSettingsContent() {
               <Clock className="w-4 h-4" />
               Audit Log
               {auditLog.length > 0 && (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-bold">
+                <span className="inline-flex min-h-7 items-center rounded-full border border-slate-400 bg-white px-2.5 py-0.5 text-sm font-extrabold text-slate-950">
                   {auditLog.length}
                 </span>
               )}

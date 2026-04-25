@@ -281,7 +281,7 @@ export function PilotOpsLaunchControl({ leads, onNavigateTab }: Props) {
             <CardTitle className="text-base font-bold tracking-tight">
               Pilot Ops — Launch Control
             </CardTitle>
-            <Badge variant="outline" className="text-[10px]">
+            <Badge variant="outline" className="text-sm">
               Internal operator use
             </Badge>
           </div>
@@ -303,11 +303,11 @@ export function PilotOpsLaunchControl({ leads, onNavigateTab }: Props) {
                 Now / Needs Action
               </CardTitle>
             </div>
-            <Badge variant="outline" className="text-[10px] tabular-nums">
+            <Badge variant="outline" className="text-sm tabular-nums">
               {view.needsAction.length} surfaced
             </Badge>
           </div>
-          <p className="text-[11px] text-slate-700 mt-1">
+          <p className="text-sm text-slate-700 mt-1">
             Top of the pile — operator-view derivation from repo-real lead
             state. Showing up to 8.
           </p>
@@ -392,7 +392,7 @@ export function PilotOpsLaunchControl({ leads, onNavigateTab }: Props) {
               Stale / Recovery Candidates
             </CardTitle>
           </div>
-          <p className="text-[11px] text-slate-700 mt-1">
+          <p className="text-sm text-slate-700 mt-1">
             Verified leads whose last activity is &gt;{STALE_HOURS}h old and
             never reached a routed-and-booked state. Showing up to 6.
           </p>
@@ -423,20 +423,20 @@ export function PilotOpsLaunchControl({ leads, onNavigateTab }: Props) {
               </CardTitle>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-[10px] tabular-nums">
+              <Badge variant="outline" className="text-sm tabular-nums">
                 {checkedCount}/{DEFAULT_CHECKLIST_ITEMS.length}
               </Badge>
               <Button
                 size="sm"
                 variant="ghost"
-                className="h-7 text-[11px]"
+                className="h-7 text-sm"
                 onClick={resetChecklist}
               >
                 Reset
               </Button>
             </div>
           </div>
-          <p className="text-[11px] text-slate-700 mt-1">
+          <p className="text-sm text-slate-700 mt-1">
             Local-only convenience (resets per browser session). Not stored on
             the server.
           </p>
@@ -476,7 +476,7 @@ export function PilotOpsLaunchControl({ leads, onNavigateTab }: Props) {
                       {item.label}
                     </p>
                     {item.hint && (
-                      <p className="text-[11px] text-slate-700 mt-0.5 leading-relaxed">
+                      <p className="text-sm text-slate-700 mt-0.5 leading-relaxed">
                         {item.hint}
                       </p>
                     )}
@@ -497,7 +497,7 @@ export function PilotOpsLaunchControl({ leads, onNavigateTab }: Props) {
               Operator Playbook — Next Actions by State
             </CardTitle>
           </div>
-          <p className="text-[11px] text-slate-700 mt-1">
+          <p className="text-sm text-slate-700 mt-1">
             Honest, current-state guidance. No automation, no promises beyond
             what the system does today.
           </p>
@@ -536,7 +536,7 @@ export function PilotOpsLaunchControl({ leads, onNavigateTab }: Props) {
             />
           </div>
 
-          <div className="mt-4 rounded-lg border border-border bg-muted/30 p-3 text-[11px] text-slate-700 leading-relaxed">
+          <div className="mt-4 rounded-lg border border-border bg-muted/30 p-3 text-sm text-slate-700 leading-relaxed">
             <strong className="text-foreground">What to tell the contractor today:</strong>{" "}
             We are running a hands-on pilot. Leads are operator-reviewed before
             routing. Homeowner contact is released through the Routing Desk
@@ -555,7 +555,7 @@ export function PilotOpsLaunchControl({ leads, onNavigateTab }: Props) {
               Operator Script Snippets
             </CardTitle>
           </div>
-          <p className="text-[11px] text-slate-700 mt-1">
+          <p className="text-sm text-slate-700 mt-1">
             Copy-to-clipboard SOP snippets. Adjust before sending.
           </p>
         </CardHeader>
@@ -596,7 +596,7 @@ export function PilotOpsLaunchControl({ leads, onNavigateTab }: Props) {
               Quick Links
             </CardTitle>
           </div>
-          <p className="text-[11px] text-slate-700 mt-1">
+          <p className="text-sm text-slate-700 mt-1">
             Jump to existing admin surfaces. Read-only navigation aid.
           </p>
         </CardHeader>
@@ -638,18 +638,18 @@ function NeedsActionRow({ lead }: { lead: CRMLead }) {
           <p className="text-sm font-medium truncate">{name}</p>
           <Badge
             variant="outline"
-            className={`text-[10px] ${
+            className={`text-sm ${
               reason.tone === "emerald"
-                ? "border-emerald-500/40 text-emerald-700 dark:text-emerald-400"
+                ? "border-emerald-500/40 text-emerald-950"
                 : reason.tone === "amber"
-                  ? "border-amber-500/40 text-amber-700 dark:text-amber-400"
+                  ? "border-amber-500/40 text-amber-950"
                   : ""
             }`}
           >
             {reason.label}
           </Badge>
         </div>
-        <p className="text-[11px] text-slate-700 mt-0.5 truncate">
+        <p className="text-sm text-slate-700 mt-0.5 truncate">
           {lead.county || "Unknown county"} ·{" "}
           {ageHrs !== null ? `updated ${ageHrs.toFixed(0)}h ago` : "—"}
           {lead.grade ? ` · grade ${lead.grade}` : ""}
@@ -667,12 +667,12 @@ function StaleRow({ lead }: { lead: CRMLead }) {
     <div className="px-3 py-2.5 bg-card flex items-center justify-between gap-3">
       <div className="min-w-0">
         <p className="text-sm font-medium truncate">{name}</p>
-        <p className="text-[11px] text-slate-700 mt-0.5 truncate">
+        <p className="text-sm text-slate-700 mt-0.5 truncate">
           {lead.county || "Unknown county"} ·{" "}
           {ageHrs !== null ? `${ageHrs.toFixed(0)}h since last activity` : "—"}
         </p>
       </div>
-      <Badge variant="outline" className="text-[10px] shrink-0">
+      <Badge variant="outline" className="text-sm shrink-0">
         {lead.report_unlocked_at ? "unlocked, not routed" : "verified, not unlocked"}
       </Badge>
     </div>
@@ -708,11 +708,11 @@ function SnapshotTile({
           {value}
         </span>
       </div>
-      <p className="text-[10px] uppercase tracking-wide text-slate-700 font-semibold">
+      <p className="text-sm uppercase tracking-wide text-slate-700 font-semibold">
         {label}
       </p>
       {hint && (
-        <p className="text-[10px] text-slate-700 leading-snug">{hint}</p>
+        <p className="text-sm text-slate-700 leading-snug">{hint}</p>
       )}
     </div>
   );
@@ -730,11 +730,11 @@ function PlaybookRow({
   return (
     <div className="rounded-lg border border-border bg-card p-3">
       <p className="text-sm font-semibold">{title}</p>
-      <p className="text-[11px] text-slate-700 mt-1">
+      <p className="text-sm text-slate-700 mt-1">
         <span className="font-semibold text-foreground/70">When: </span>
         {when}
       </p>
-      <p className="text-[11px] text-slate-700 mt-1">
+      <p className="text-sm text-slate-700 mt-1">
         <span className="font-semibold text-foreground/70">Do: </span>
         {action}
       </p>

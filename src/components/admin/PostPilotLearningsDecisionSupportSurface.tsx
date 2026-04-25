@@ -379,7 +379,7 @@ const QUICK_LINKS: Array<{ tab: string; label: string }> = [
 function ConfidenceBadge({ confidence }: { confidence: Confidence }) {
   if (confidence === "confirmed") {
     return (
-      <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/15">
+      <Badge className="bg-emerald-500/10 text-emerald-950 border-emerald-500/30 hover:bg-emerald-500/15">
         <CheckCircle2 className="h-3 w-3 mr-1" />
         Confirmed
       </Badge>
@@ -387,14 +387,14 @@ function ConfidenceBadge({ confidence }: { confidence: Confidence }) {
   }
   if (confidence === "observed") {
     return (
-      <Badge className="bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/30 hover:bg-sky-500/15">
+      <Badge className="bg-sky-500/10 text-sky-950 border-sky-500/30 hover:bg-sky-500/15">
         <Eye className="h-3 w-3 mr-1" />
         Observed
       </Badge>
     );
   }
   return (
-    <Badge className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/15">
+    <Badge className="bg-amber-500/10 text-amber-950 border-amber-500/30 hover:bg-amber-500/15">
       <HelpCircle className="h-3 w-3 mr-1" />
       Uncertain
     </Badge>
@@ -595,7 +595,7 @@ export function PostPilotLearningsDecisionSupportSurface({
         <ul className="space-y-1.5 text-sm">
           {DO_NOT_OVERCLAIM.map((n, i) => (
             <li key={i} className="flex items-start gap-2 text-slate-700">
-              <ShieldAlert className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+              <ShieldAlert className="h-3.5 w-3.5 text-amber-950 mt-0.5 shrink-0" />
               <span>{n}</span>
             </li>
           ))}
@@ -634,7 +634,7 @@ export function PostPilotLearningsDecisionSupportSurface({
 function SignalChip({ label, value, sub }: { label: string; value: number; sub?: string }) {
   return (
     <div className="rounded-lg border bg-muted/20 px-3 py-2.5">
-      <div className="text-[11px] uppercase tracking-wide text-slate-700 font-semibold">
+      <div className="text-sm uppercase tracking-wide text-slate-700 font-semibold">
         {label}
       </div>
       <div className="mt-0.5 flex items-baseline gap-1.5">
@@ -665,7 +665,7 @@ function LearningList({
               <div className="text-sm font-medium">{l.label}</div>
             </div>
             <div className="text-xs text-slate-700 mt-1">{l.detail}</div>
-            <div className="text-[11px] text-slate-700/80 mt-1 italic">
+            <div className="text-sm text-slate-700/80 mt-1 italic">
               Evidence: {l.evidence}
             </div>
           </div>

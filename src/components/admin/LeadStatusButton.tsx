@@ -85,9 +85,9 @@ export function LeadStatusButton({
           transition-all duration-200 ease-out
           ${
             state === "success"
-              ? "bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm shadow-emerald-100/50 hover:bg-emerald-50"
+              ? "bg-emerald-50 text-emerald-950 border border-emerald-200 shadow-sm shadow-emerald-100/50 hover:bg-emerald-50"
               : state === "error"
-                ? "bg-rose-50 text-rose-700 border border-rose-200 shadow-sm shadow-rose-100/50 hover:bg-rose-50"
+                ? "bg-rose-50 text-red-950 border border-rose-200 shadow-sm shadow-rose-100/50 hover:bg-rose-50"
                 : "bg-gradient-to-b from-blue-500 to-blue-600 text-white shadow-md shadow-blue-200/50 hover:shadow-lg hover:shadow-blue-300/40 hover:from-blue-400 hover:to-blue-500 active:shadow-sm active:translate-y-px"
           }
           ${isDisabled && state === "idle" ? "opacity-40 cursor-not-allowed" : ""}
@@ -106,7 +106,7 @@ export function LeadStatusButton({
       </Button>
 
       {errorMsg && (
-        <p className="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 rounded-lg px-2.5 py-1 max-w-[240px] leading-relaxed shadow-sm">
+        <p className="text-sm text-rose-600 bg-rose-50 border border-rose-100 rounded-lg px-2.5 py-1 max-w-[240px] leading-relaxed shadow-sm">
           {errorMsg}
         </p>
       )}

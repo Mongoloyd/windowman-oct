@@ -397,7 +397,7 @@ export function SharedMarketManualControlsSurface({ leads, onNavigateTab }: Prop
           <div className="flex items-center gap-2">
             <Badge
               variant="outline"
-              className="text-[10px] uppercase tracking-wider"
+              className="text-sm uppercase tracking-wider"
             >
               Internal · Operator Use
             </Badge>
@@ -429,7 +429,7 @@ export function SharedMarketManualControlsSurface({ leads, onNavigateTab }: Prop
               }`}
             />
           </CardTitle>
-          <p className="text-[11px] text-slate-700 mt-1">
+          <p className="text-sm text-slate-700 mt-1">
             Per-opportunity ownership bucket derived from route history,
             release flags, and parent-lead terminal state.
           </p>
@@ -469,7 +469,7 @@ export function SharedMarketManualControlsSurface({ leads, onNavigateTab }: Prop
           <CardTitle className="text-sm flex items-center gap-2">
             <MapPin className="h-4 w-4" />
             Observed Contractor Overlap by County
-            <Badge variant="outline" className="ml-2 h-5 text-[10px]">
+            <Badge variant="outline" className="ml-2 h-5 text-sm">
               {overlap.multiContractorCounties} multi-contractor
             </Badge>
             <ChevronRight
@@ -478,7 +478,7 @@ export function SharedMarketManualControlsSurface({ leads, onNavigateTab }: Prop
               }`}
             />
           </CardTitle>
-          <p className="text-[11px] text-slate-700 mt-1">
+          <p className="text-sm text-slate-700 mt-1">
             Observed from real routing history — NOT a formal territory map.
             Counties with more than one contractor present surface first.
             <code className="px-1 rounded bg-muted ml-1">{UNKNOWN_COUNTY}</code>{" "}
@@ -504,7 +504,7 @@ export function SharedMarketManualControlsSurface({ leads, onNavigateTab }: Prop
                       {row.contractors.length > 1 && (
                         <Badge
                           variant="secondary"
-                          className="h-4 text-[9px] ml-1"
+                          className="h-4 text-sm ml-1"
                         >
                           overlap
                         </Badge>
@@ -515,7 +515,7 @@ export function SharedMarketManualControlsSurface({ leads, onNavigateTab }: Prop
                         <Badge
                           key={c.contractor.id}
                           variant="outline"
-                          className="text-[10px] font-normal"
+                          className="text-sm font-normal"
                         >
                           {c.contractor.company_name}
                           <span className="ml-1 text-slate-700">
@@ -541,7 +541,7 @@ export function SharedMarketManualControlsSurface({ leads, onNavigateTab }: Prop
           <CardTitle className="text-sm flex items-center gap-2">
             <ArrowRightLeft className="h-4 w-4" />
             Manual Reassignment / Needs Review Queue
-            <Badge variant="outline" className="ml-2 h-5 text-[10px]">
+            <Badge variant="outline" className="ml-2 h-5 text-sm">
               {reassignableRows.length}
             </Badge>
             <ChevronRight
@@ -550,7 +550,7 @@ export function SharedMarketManualControlsSurface({ leads, onNavigateTab }: Prop
               }`}
             />
           </CardTitle>
-          <p className="text-[11px] text-slate-700 mt-1">
+          <p className="text-sm text-slate-700 mt-1">
             Opportunities the operator may want to move manually. All actual
             routing happens in the canonical Routing Desk — this view is
             visibility only. Verify ownership and release context before
@@ -588,7 +588,7 @@ export function SharedMarketManualControlsSurface({ leads, onNavigateTab }: Prop
                                 ? "default"
                                 : "outline"
                             }
-                            className="h-4 text-[9px] font-normal"
+                            className="h-4 text-sm font-normal"
                           >
                             {r.bucket === "manually_reassignable" ? (
                               <Unlock className="h-2.5 w-2.5 mr-0.5" />
@@ -607,14 +607,14 @@ export function SharedMarketManualControlsSurface({ leads, onNavigateTab }: Prop
                               .map((p) => p.company_name)
                               .join(", ")}`}
                         </div>
-                        <div className="text-slate-700/80 truncate text-[10px] mt-0.5 italic">
+                        <div className="text-slate-700/80 truncate text-sm mt-0.5 italic">
                           {r.reason}
                         </div>
                       </div>
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="h-7 text-[11px] shrink-0"
+                        className="h-7 text-sm shrink-0"
                         onClick={() => goTab("routing")}
                       >
                         Open in Routing
@@ -709,7 +709,7 @@ function Stat({
       <div className="text-2xl font-semibold leading-none text-foreground">
         {value}
       </div>
-      <div className="text-[10px] uppercase tracking-wider text-slate-700 mt-1 flex items-center gap-1">
+      <div className="text-sm uppercase tracking-wider text-slate-700 mt-1 flex items-center gap-1">
         {icon}
         {label}
       </div>

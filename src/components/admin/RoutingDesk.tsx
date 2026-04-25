@@ -82,10 +82,10 @@ const BUCKET_LABEL: Record<OperatorBucket, string> = {
 };
 
 const BUCKET_TONE: Record<OperatorBucket, string> = {
-  ready_to_route: "border-cyan-500/40 text-cyan-700 bg-cyan-500/10",
-  routed: "border-emerald-500/40 text-emerald-700 bg-emerald-500/10",
-  stale_operator_view: "border-amber-500/40 text-amber-700 bg-amber-500/10",
-  reactivation_operator_view: "border-amber-500/40 text-amber-700 bg-amber-500/10",
+  ready_to_route: "border-cyan-500/40 text-cyan-950 bg-cyan-500/10",
+  routed: "border-emerald-500/40 text-emerald-950 bg-emerald-500/10",
+  stale_operator_view: "border-amber-500/40 text-amber-950 bg-amber-500/10",
+  reactivation_operator_view: "border-amber-500/40 text-amber-950 bg-amber-500/10",
 };
 
 function leadCtxFromCRM(lead: CRMLead): RoutingLeadContext {
@@ -370,7 +370,7 @@ export function RoutingDesk({ leads }: Props) {
         </div>
         <div className="flex items-center gap-2">
           {activeContractors.length === 0 && (
-            <Badge variant="destructive" className="text-[10px]">
+            <Badge variant="destructive" className="text-sm">
               No active contractor
             </Badge>
           )}
@@ -406,7 +406,7 @@ export function RoutingDesk({ leads }: Props) {
               <TabsTrigger key={b} value={b} className="text-xs gap-1.5">
                 {BUCKET_LABEL[b]}
                 {count > 0 && (
-                  <span className={`inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full text-[10px] font-bold border ${BUCKET_TONE[b]}`}>
+                  <span className={`inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full text-sm font-bold border ${BUCKET_TONE[b]}`}>
                     {count}
                   </span>
                 )}
@@ -450,35 +450,35 @@ export function RoutingDesk({ leads }: Props) {
                             {[lead?.first_name, lead?.last_name].filter(Boolean).join(" ") || "Unknown"}
                           </p>
                           {row.opportunity.grade && (
-                            <Badge className={`text-[10px] ${gradeColor(row.opportunity.grade)}`}>
+                            <Badge className={`text-sm ${gradeColor(row.opportunity.grade)}`}>
                               {row.opportunity.grade}
                             </Badge>
                           )}
                           {/* Phase 8 — Always render a county label, with safe fallback. */}
-                          <span className="text-[11px] text-slate-700">
+                          <span className="text-sm text-slate-700">
                             {marketLabel(row.opportunity.county)}
                           </span>
                           {row.opportunity.window_count != null && (
-                            <span className="text-[11px] text-slate-700">
+                            <span className="text-sm text-slate-700">
                               {row.opportunity.window_count} windows
                             </span>
                           )}
                         </div>
                         <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                           {row.contractor && (
-                            <span className="inline-flex items-center gap-1 text-[11px] text-cyan-700">
+                            <span className="inline-flex items-center gap-1 text-sm text-cyan-950">
                               <Building2 className="h-3 w-3" />
                               {row.contractor.company_name}
                             </span>
                           )}
                           {row.opportunity.routed_at && (
-                            <span className="inline-flex items-center gap-1 text-[11px] text-slate-700 font-mono">
+                            <span className="inline-flex items-center gap-1 text-sm text-slate-700 font-mono">
                               <Clock className="h-3 w-3" />
                               {format(new Date(row.opportunity.routed_at), "MMM d, h:mm a")}
                             </span>
                           )}
                           {row.latestRoute && (
-                            <Badge variant="outline" className="text-[10px]">
+                            <Badge variant="outline" className="text-sm">
                               {row.latestRoute.route_status}
                             </Badge>
                           )}
@@ -497,7 +497,7 @@ export function RoutingDesk({ leads }: Props) {
                                 {tl && (
                                   <Badge
                                     variant="outline"
-                                    className={`text-[10px] ${
+                                    className={`text-sm ${
                                       tl === "ASAP" || tl === "This month"
                                         ? "border-orange-400/60 text-orange-700 bg-orange-50"
                                         : "border-border"
@@ -511,7 +511,7 @@ export function RoutingDesk({ leads }: Props) {
                                   hoa === "hoa_complex" || hoa === "high_rise_engineering") && (
                                   <Badge
                                     variant="outline"
-                                    className="text-[10px] border-amber-400/60 text-amber-800 bg-amber-50"
+                                    className="text-sm border-amber-400/60 text-amber-800 bg-amber-50"
                                     title="Complex approval path — confirm HOA/engineering before quoting."
                                   >
                                     {propDetail === "high_rise" ? "High-rise" : "Condo / HOA"}
@@ -520,10 +520,10 @@ export function RoutingDesk({ leads }: Props) {
                                 {consent && (
                                   <Badge
                                     variant="outline"
-                                    className={`text-[10px] ${
+                                    className={`text-sm ${
                                       isReportOnly
                                         ? "border-destructive/40 text-destructive bg-destructive/5"
-                                        : "border-emerald-500/40 text-emerald-700 bg-emerald-50"
+                                        : "border-emerald-500/40 text-emerald-950 bg-emerald-50"
                                     }`}
                                     title={consent.full}
                                   >
@@ -533,7 +533,7 @@ export function RoutingDesk({ leads }: Props) {
                                 {motiv && (
                                   <Badge
                                     variant="outline"
-                                    className="text-[10px] border-cyan-500/30 text-cyan-700 bg-cyan-500/5"
+                                    className="text-sm border-cyan-500/30 text-cyan-950 bg-cyan-500/5"
                                     title={motiv.long}
                                   >
                                     {motiv.short}
@@ -557,7 +557,7 @@ export function RoutingDesk({ leads }: Props) {
                                 <Badge
                                   key={b}
                                   variant="outline"
-                                  className="text-[10px] border-violet-500/40 text-violet-700 bg-violet-500/10"
+                                  className="text-sm border-violet-500/40 text-violet-950 bg-violet-500/10"
                                 >
                                   {ownershipBadgeLabel(b)}
                                 </Badge>
@@ -577,7 +577,7 @@ export function RoutingDesk({ leads }: Props) {
                             return (
                               <Badge
                                 variant="outline"
-                                className="text-[10px] border-destructive/50 text-destructive bg-destructive/5"
+                                className="text-sm border-destructive/50 text-destructive bg-destructive/5"
                                 title={describeNoRouteReason(reason)}
                               >
                                 <AlertCircle className="h-3 w-3 mr-1" />
@@ -682,7 +682,7 @@ export function RoutingDesk({ leads }: Props) {
                     <p className="text-sm font-semibold">
                       {[lc.first_name, lc.last_name].filter(Boolean).join(" ") || "Unknown"}
                     </p>
-                    <p className="text-[11px] text-slate-700">
+                    <p className="text-sm text-slate-700">
                       {marketLabel(lc.county)} · Unlocked {lc.report_unlocked_at ? format(new Date(lc.report_unlocked_at), "MMM d") : "—"} · Never routed
                     </p>
                   </div>
@@ -732,10 +732,10 @@ function EmptyBucket({ bucket }: { bucket: OperatorBucket }) {
 
 function gradeColor(grade: string | null): string {
   switch (grade) {
-    case "A": return "bg-green-600 text-white";
-    case "B": return "bg-emerald-500 text-white";
-    case "C": return "bg-amber-500 text-white";
-    case "D": return "bg-orange-600 text-white";
+    case "A": return "bg-emerald-900 text-white";
+    case "B": return "bg-emerald-100 text-emerald-950 border border-emerald-300";
+    case "C": return "bg-amber-100 text-amber-950 border border-amber-300";
+    case "D": return "bg-orange-100 text-orange-950 border border-orange-300";
     case "F": return "bg-destructive text-destructive-foreground";
     default: return "bg-muted text-slate-700";
   }

@@ -349,7 +349,7 @@ export function OperatorReportingSurface({ leads, onNavigateTab }: Props) {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-[10px] uppercase tracking-wider">
+            <Badge variant="outline" className="text-sm uppercase tracking-wider">
               Internal · Operator Use
             </Badge>
             <Button
@@ -399,11 +399,11 @@ export function OperatorReportingSurface({ leads, onNavigateTab }: Props) {
           <CardTitle className="text-sm flex items-center gap-2">
             <BarChart3 className="h-4 w-4" />
             Outcome Breakdown{" "}
-            <span className="text-[10px] uppercase tracking-wider text-slate-700 font-normal">
+            <span className="text-sm uppercase tracking-wider text-slate-700 font-normal">
               (operator view)
             </span>
           </CardTitle>
-          <p className="text-[11px] text-slate-700 mt-1">
+          <p className="text-sm text-slate-700 mt-1">
             Derived deterministically from route + lead fields. Mirrors the
             categories used in Outcome Tracking and Pilot Ops.
           </p>
@@ -426,11 +426,11 @@ export function OperatorReportingSurface({ leads, onNavigateTab }: Props) {
             <CardTitle className="text-sm flex items-center gap-2">
               <Users className="h-4 w-4" />
               By Contractor{" "}
-              <span className="text-[10px] uppercase tracking-wider text-slate-700 font-normal">
+              <span className="text-sm uppercase tracking-wider text-slate-700 font-normal">
                 (observed)
               </span>
             </CardTitle>
-            <p className="text-[11px] text-slate-700 mt-1">
+            <p className="text-sm text-slate-700 mt-1">
               Routes observed per contractor + counties seen on those routes.
               Contractor-declared service area is not separately modeled.
             </p>
@@ -462,12 +462,12 @@ export function OperatorReportingSurface({ leads, onNavigateTab }: Props) {
                   <div className="mt-1.5 flex flex-wrap gap-1">
                     {c.counties.length > 0 ? (
                       c.counties.map((county) => (
-                        <Badge key={county} variant="outline" className="text-[10px]">
+                        <Badge key={county} variant="outline" className="text-sm">
                           {county}
                         </Badge>
                       ))
                     ) : (
-                      <span className="text-[11px] text-slate-700 italic">
+                      <span className="text-sm text-slate-700 italic">
                         No counties observed yet
                       </span>
                     )}
@@ -477,7 +477,7 @@ export function OperatorReportingSurface({ leads, onNavigateTab }: Props) {
                   <p className="text-2xl font-bold tabular-nums leading-none">
                     {c.routes}
                   </p>
-                  <p className="text-[10px] uppercase tracking-wider text-slate-700 mt-1 font-semibold">
+                  <p className="text-sm uppercase tracking-wider text-slate-700 mt-1 font-semibold">
                     routes
                   </p>
                 </div>
@@ -495,7 +495,7 @@ export function OperatorReportingSurface({ leads, onNavigateTab }: Props) {
               <MapPin className="h-4 w-4" />
               By County
             </CardTitle>
-            <p className="text-[11px] text-slate-700 mt-1">
+            <p className="text-sm text-slate-700 mt-1">
               Derived from `leads.county`. Unknown County rolls up leads with
               no county on file.
             </p>
@@ -516,16 +516,16 @@ export function OperatorReportingSurface({ leads, onNavigateTab }: Props) {
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b text-left text-slate-700">
-                  <th className="py-2 font-semibold uppercase tracking-wider text-[10px]">
+                  <th className="py-2 font-semibold uppercase tracking-wider text-sm">
                     County
                   </th>
-                  <th className="py-2 font-semibold uppercase tracking-wider text-[10px] text-right">
+                  <th className="py-2 font-semibold uppercase tracking-wider text-sm text-right">
                     Captured
                   </th>
-                  <th className="py-2 font-semibold uppercase tracking-wider text-[10px] text-right">
+                  <th className="py-2 font-semibold uppercase tracking-wider text-sm text-right">
                     Verified
                   </th>
-                  <th className="py-2 font-semibold uppercase tracking-wider text-[10px] text-right">
+                  <th className="py-2 font-semibold uppercase tracking-wider text-sm text-right">
                     Routed
                   </th>
                 </tr>
@@ -575,7 +575,7 @@ export function OperatorReportingSurface({ leads, onNavigateTab }: Props) {
             <AlertTriangle className="h-4 w-4 text-amber-600" />
             Unresolved · Needs Attention
           </CardTitle>
-          <p className="text-[11px] text-slate-700 mt-1">
+          <p className="text-sm text-slate-700 mt-1">
             Routed opportunities with no terminal outcome yet, plus stale and
             recovery candidates derived from real timestamps.
           </p>
@@ -613,9 +613,9 @@ export function OperatorReportingSurface({ leads, onNavigateTab }: Props) {
         <CardContent className="space-y-2 text-xs leading-relaxed text-slate-700">
           <Note>
             All counts come from real fields on{" "}
-            <code className="text-[11px]">leads</code>,{" "}
-            <code className="text-[11px]">contractor_opportunities</code>, and{" "}
-            <code className="text-[11px]">contractor_opportunity_routes</code>.
+            <code className="text-sm">leads</code>,{" "}
+            <code className="text-sm">contractor_opportunities</code>, and{" "}
+            <code className="text-sm">contractor_opportunity_routes</code>.
           </Note>
           <Note>
             Operator-view categories (Unresolved, Stale, Recovery) are{" "}
@@ -664,7 +664,7 @@ function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-md border bg-muted/20 p-3">
       <p className="text-2xl font-bold tabular-nums leading-none">{value}</p>
-      <p className="text-[10px] uppercase tracking-wider text-slate-700 mt-1.5 font-semibold">
+      <p className="text-sm uppercase tracking-wider text-slate-700 mt-1.5 font-semibold">
         {label}
       </p>
     </div>
@@ -689,10 +689,10 @@ function NeedsBlock({
   return (
     <div className={`rounded-md border p-3 ${toneClass}`}>
       <p className="text-2xl font-bold tabular-nums leading-none">{value}</p>
-      <p className="text-[10px] uppercase tracking-wider text-slate-700 mt-1.5 font-semibold">
+      <p className="text-sm uppercase tracking-wider text-slate-700 mt-1.5 font-semibold">
         {label}
       </p>
-      <p className="text-[11px] text-slate-700 mt-1.5 leading-snug">{hint}</p>
+      <p className="text-sm text-slate-700 mt-1.5 leading-snug">{hint}</p>
     </div>
   );
 }

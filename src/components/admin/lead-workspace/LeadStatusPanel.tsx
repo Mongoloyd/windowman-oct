@@ -59,7 +59,7 @@ export function LeadStatusPanel({ leadId, currentStage }: LeadStatusPanelProps) 
     <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
       <div className="flex items-center justify-between gap-3 mb-3">
         <div className="min-w-0">
-          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-700">
+          <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-700">
             Workflow
           </p>
           <h3 className="font-display text-lg font-extrabold tracking-tight text-foreground mt-0.5">
@@ -67,7 +67,7 @@ export function LeadStatusPanel({ leadId, currentStage }: LeadStatusPanelProps) 
           </h3>
         </div>
         <span
-          className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider ${def.badgeClass}`}
+          className={`inline-flex items-center rounded-full border px-2.5 py-1 text-sm font-bold uppercase tracking-wider ${def.badgeClass}`}
         >
           {def.label}
         </span>

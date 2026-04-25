@@ -336,10 +336,10 @@ function BoundarySection({
           <div>
             <div className="flex items-center gap-2">
               <span className="font-semibold">{title}</span>
-              <Badge variant={badgeVariant} className="text-[10px]">
+              <Badge variant={badgeVariant} className="text-sm">
                 {badgeLabel}
               </Badge>
-              <Badge variant="outline" className="text-[10px]">
+              <Badge variant="outline" className="text-sm">
                 {items.length}
               </Badge>
             </div>
@@ -573,7 +573,7 @@ export function MinimumViableGovernanceDecisionBoundariesSurface({
               </Button>
             ))}
           </div>
-          <p className="text-[11px] text-slate-700 mt-4 leading-relaxed">
+          <p className="text-sm text-slate-700 mt-4 leading-relaxed">
             This surface is read-only operator clarity. It does not enforce
             permissions, persist policy, or approve actions. It reflects
             current repo-real boundaries only.

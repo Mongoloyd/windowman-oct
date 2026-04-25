@@ -92,11 +92,11 @@ export function PilotReadiness({ leads }: Props) {
             <CardTitle className="text-base font-bold tracking-tight">
               Pilot Readiness — Contractor Demo Surface
             </CardTitle>
-            <Badge variant="outline" className="text-[10px]">
+            <Badge variant="outline" className="text-sm">
               Read-only
             </Badge>
           </div>
-          <p className="text-xs text-slate-700 mt-1.5 leading-relaxed">
+          <p className="text-sm font-semibold text-slate-700 mt-1.5 leading-relaxed">
             Internal operator view. Use this surface to walk a contractor
             through what the system does today using live, repo-real data.
             Nothing here is interactive.
@@ -107,7 +107,7 @@ export function PilotReadiness({ leads }: Props) {
       {/* ── Step 2: What WindowMan Does ─────────────────────────────── */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium text-slate-700 uppercase tracking-wider">
+          <CardTitle className="text-base font-extrabold text-slate-950 uppercase tracking-wider">
             What WindowMan Does
           </CardTitle>
         </CardHeader>
@@ -144,10 +144,10 @@ export function PilotReadiness({ leads }: Props) {
       {/* ── Step 3: Current Operational Counts (reuse) ──────────────── */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium text-slate-700 uppercase tracking-wider">
+          <CardTitle className="text-base font-extrabold text-slate-950 uppercase tracking-wider">
             Current Operational Counts
           </CardTitle>
-          <p className="text-[11px] text-slate-700 mt-1">
+          <p className="text-sm text-slate-700 mt-1">
             Live counts from repo-real lifecycle timestamps. Identical to the
             Command Center summary strip.
           </p>
@@ -160,10 +160,10 @@ export function PilotReadiness({ leads }: Props) {
       {/* ── Step 5: Current Routing Flow ────────────────────────────── */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium text-slate-700 uppercase tracking-wider">
+          <CardTitle className="text-base font-extrabold text-slate-950 uppercase tracking-wider">
             Current Routing Flow
           </CardTitle>
-          <p className="text-[11px] text-slate-700 mt-1">
+          <p className="text-sm text-slate-700 mt-1">
             Counts derived from repo-real timestamps on the leads table.
           </p>
         </CardHeader>
@@ -189,11 +189,11 @@ export function PilotReadiness({ leads }: Props) {
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
             <MapPin className="h-4 w-4 text-slate-700" />
-            <CardTitle className="text-sm font-medium text-slate-700 uppercase tracking-wider">
+            <CardTitle className="text-base font-extrabold text-slate-950 uppercase tracking-wider">
               Current Market Coverage
             </CardTitle>
           </div>
-          <p className="text-[11px] text-slate-700 mt-1">
+          <p className="text-sm text-slate-700 mt-1">
             Counties with at least one repo-real lifecycle event (report
             unlocked, routed, or analysis present).
           </p>
@@ -208,10 +208,10 @@ export function PilotReadiness({ leads }: Props) {
               {marketCoverage.map(([county, count]) => (
                 <div
                   key={county}
-                  className="rounded-lg border border-border bg-card px-3 py-2 flex items-center justify-between gap-2"
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 flex items-center justify-between gap-2"
                 >
-                  <span className="text-xs font-medium truncate">{county}</span>
-                  <Badge variant="outline" className="text-[10px] tabular-nums shrink-0">
+                  <span className="text-sm font-semibold truncate">{county}</span>
+                  <Badge variant="outline" className="text-sm tabular-nums shrink-0">
                     {count}
                   </Badge>
                 </div>
@@ -224,10 +224,10 @@ export function PilotReadiness({ leads }: Props) {
       {/* ── Step 6: What the Contractor Receives ────────────────────── */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium text-slate-700 uppercase tracking-wider">
+          <CardTitle className="text-base font-extrabold text-slate-950 uppercase tracking-wider">
             What the Contractor Receives
           </CardTitle>
-          <p className="text-[11px] text-slate-700 mt-1">
+          <p className="text-sm text-slate-700 mt-1">
             Live product truth — these surfaces already exist in admin today.
           </p>
         </CardHeader>
@@ -277,17 +277,17 @@ function ExplainerCard({
   body: string;
 }) {
   return (
-    <div className="rounded-lg border border-border bg-card p-4 flex flex-col gap-2">
+    <div className="rounded-lg border border-slate-300 bg-white p-4 flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <div className="w-8 h-8 rounded-md bg-muted flex items-center justify-center">
+        <div className="w-8 h-8 rounded-md bg-slate-100 flex items-center justify-center">
           <Icon className="h-4 w-4 text-foreground" />
         </div>
-        <span className="text-[10px] font-mono text-slate-700 tracking-wider">
+        <span className="text-sm font-mono text-slate-700 tracking-wider">
           {step}
         </span>
       </div>
       <p className="text-sm font-semibold">{title}</p>
-      <p className="text-xs text-slate-700 leading-relaxed">{body}</p>
+      <p className="text-sm font-semibold text-slate-700 leading-relaxed">{body}</p>
     </div>
   );
 }
@@ -308,7 +308,7 @@ function FlowStep({
       }`}
     >
       <p className="text-2xl font-bold tabular-nums leading-none">{value}</p>
-      <p className="text-[10px] uppercase tracking-wide text-slate-700 mt-1.5 font-semibold">
+      <p className="text-sm uppercase tracking-wide text-slate-700 mt-1.5 font-semibold">
         {label}
       </p>
     </div>
@@ -331,8 +331,8 @@ function ReceiveRow({
   body: string;
 }) {
   return (
-    <div className="flex items-start gap-3 p-3 rounded-lg border border-border bg-card">
-      <div className="w-8 h-8 rounded-md bg-muted flex items-center justify-center shrink-0">
+    <div className="flex items-start gap-3 p-3 rounded-lg border border-slate-300 bg-white">
+      <div className="w-8 h-8 rounded-md bg-slate-100 flex items-center justify-center shrink-0">
         <Icon className="h-4 w-4 text-foreground" />
       </div>
       <div className="min-w-0">
@@ -340,7 +340,7 @@ function ReceiveRow({
           <p className="text-sm font-semibold">{title}</p>
           <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
         </div>
-        <p className="text-xs text-slate-700 mt-1 leading-relaxed">
+        <p className="text-sm font-semibold text-slate-700 mt-1 leading-relaxed">
           {body}
         </p>
       </div>

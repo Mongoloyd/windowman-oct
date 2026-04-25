@@ -44,7 +44,7 @@ export function LeadTimelinePanel({ leadId }: LeadTimelinePanelProps) {
     <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
       <header className="flex items-center justify-between mb-4">
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-700">
+          <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-700">
             Activity
           </p>
           <h3 className="font-display text-lg font-extrabold tracking-tight text-foreground mt-0.5">
@@ -81,12 +81,12 @@ export function LeadTimelinePanel({ leadId }: LeadTimelinePanelProps) {
             <li key={e.id} className="pl-5 relative">
               <span className="absolute -left-[7px] top-1 h-3 w-3 rounded-full border-2 border-card bg-primary" />
               <p className="text-sm font-semibold text-foreground capitalize">{labelFor(e)}</p>
-              <p className="mt-0.5 text-[11px] text-slate-700 font-mono">
+              <p className="mt-0.5 text-sm text-slate-700 font-mono">
                 {format(new Date(e.created_at), "MMM d, yyyy · h:mm:ss a")}
-                {e.event_source && <span className="ml-2 opacity-70">· {e.event_source}</span>}
+                {e.event_source && <span className="ml-2 opacity-100">· {e.event_source}</span>}
               </p>
               {e.metadata && Object.keys(e.metadata).length > 0 && (
-                <pre className="mt-1.5 rounded-md bg-muted/40 px-2 py-1.5 text-[10px] font-mono leading-tight text-slate-700 overflow-x-auto">
+                <pre className="mt-1.5 rounded-md bg-muted/40 px-2 py-1.5 text-sm font-mono leading-tight text-slate-700 overflow-x-auto">
                   {JSON.stringify(e.metadata, null, 2)}
                 </pre>
               )}

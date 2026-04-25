@@ -54,7 +54,7 @@ export function LeadLifecycleTimeline({ lead, opportunity, latestRoute }: Props)
         <li key={`${m.label}-${i}`} className="flex items-center gap-2 text-xs">
           <Clock className="h-3 w-3 text-emerald-600 shrink-0" />
           <span className="font-medium">{m.label}</span>
-          <span className="ml-auto font-mono text-[10px] text-slate-700">
+          <span className="ml-auto font-mono text-sm text-slate-700">
             {format(new Date(m.ts), "MMM d, yyyy h:mm a")}
           </span>
         </li>

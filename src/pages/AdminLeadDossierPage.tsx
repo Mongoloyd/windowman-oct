@@ -29,12 +29,12 @@ import { Button } from "@/components/ui/button";
 
 function gradeColor(grade: string | null): string {
   switch (grade) {
-    case "A": return "bg-green-600 text-white border-green-700";
-    case "B": return "bg-emerald-500 text-white border-emerald-600";
-    case "C": return "bg-amber-500 text-white border-amber-600";
-    case "D": return "bg-orange-600 text-white border-orange-700";
-    case "F": return "bg-destructive text-destructive-foreground border-destructive";
-    default:  return "bg-muted text-slate-700 border-border";
+    case "A": return "bg-emerald-900 text-white border-emerald-950";
+    case "B": return "bg-emerald-100 text-emerald-950 border-emerald-300";
+    case "C": return "bg-amber-100 text-amber-950 border-amber-300";
+    case "D": return "bg-orange-100 text-orange-950 border-orange-300";
+    case "F": return "bg-red-100 text-red-950 border-red-300";
+    default:  return "bg-white text-slate-950 border-slate-400";
   }
 }
 
@@ -43,8 +43,8 @@ function InfoCell({
 }: { label: string; value: React.ReactNode; icon?: React.ElementType }) {
   return (
     <div className="space-y-0.5">
-      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-700">{label}</p>
-      <div className="text-sm font-medium text-foreground flex items-center gap-1.5 break-all">
+      <p className="text-sm font-extrabold uppercase tracking-[0.16em] text-slate-700">{label}</p>
+      <div className="flex items-center gap-1.5 break-all text-base font-semibold text-slate-950">
         {Icon && <Icon className="h-3.5 w-3.5 text-slate-700 shrink-0" />}
         {value || <span className="text-slate-700">—</span>}
       </div>
@@ -139,10 +139,10 @@ export default function AdminLeadDossierPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* ── Left column: Intake + Scan + Timeline ─────────────────── */}
         <div className="lg:col-span-2 space-y-5">
-          <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <section className="wm-admin-panel p-5">
             <header className="flex items-center justify-between mb-4">
               <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-700">
+                <p className="text-sm font-extrabold uppercase tracking-[0.16em] text-slate-700">
                   Intake
                 </p>
                 <h3 className="font-display text-lg font-extrabold tracking-tight text-foreground mt-0.5">
@@ -150,7 +150,7 @@ export default function AdminLeadDossierPage() {
                 </h3>
               </div>
               {lead.phone_verified && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                <span className="wm-admin-badge border-emerald-300 bg-emerald-100 text-emerald-950">
                   <CheckCircle2 className="h-3 w-3" />
                   Verified
                 </span>
@@ -173,7 +173,7 @@ export default function AdminLeadDossierPage() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <section className="wm-admin-panel p-5">
             <header className="flex items-center justify-between mb-4">
               <div>
                 <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-slate-700">
@@ -184,7 +184,7 @@ export default function AdminLeadDossierPage() {
                 </h3>
               </div>
               {lead.grade && (
-                <span className={`inline-flex items-center justify-center rounded-full border-2 w-9 h-9 text-base font-extrabold ${gradeColor(lead.grade)}`}>
+                <span className={`inline-flex h-10 w-10 items-center justify-center rounded-full border-2 text-base font-extrabold shadow-sm ${gradeColor(lead.grade)}`}>
                   {lead.grade}
                 </span>
               )}
@@ -238,7 +238,7 @@ export default function AdminLeadDossierPage() {
                   <div className="flex flex-wrap items-center gap-3 mt-2">
                     <Link
                       to={`/admin/leads/${leadId}/report`}
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+                      className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-blue-300 bg-blue-50 px-3 py-1 text-sm font-extrabold text-blue-800 shadow-sm hover:text-blue-950 hover:underline focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
                     >
                       <FileText className="h-3.5 w-3.5" />
                       Open Truth Report
@@ -248,13 +248,13 @@ export default function AdminLeadDossierPage() {
                         to={`/report/classic/${lead.latest_scan_session_id}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-[11px] text-slate-700 hover:text-foreground hover:underline"
+                        className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1 text-sm font-bold text-slate-800 shadow-sm hover:text-slate-950 hover:underline focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
                       >
                         Homeowner view
                         <ExternalLink className="h-3 w-3" />
                       </Link>
                     ) : (
-                      <span className="text-[11px] italic text-slate-700">
+                      <span className="text-sm font-semibold italic text-slate-700">
                         No valid homeowner report link
                       </span>
                     )}

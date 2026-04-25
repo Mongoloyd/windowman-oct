@@ -393,7 +393,7 @@ export function ContractorFeedbackLoopSurface({ leads, onNavigateTab }: Props) {
           <div className="flex items-center gap-2">
             <Badge
               variant="outline"
-              className="text-[10px] uppercase tracking-wider"
+              className="text-sm uppercase tracking-wider"
             >
               Internal · Operator Use
             </Badge>
@@ -419,7 +419,7 @@ export function ContractorFeedbackLoopSurface({ leads, onNavigateTab }: Props) {
           <CardTitle className="text-sm flex items-center gap-2">
             <Info className="h-4 w-4" />
             Known Feedback Signals
-            <span className="text-[10px] uppercase tracking-wider text-slate-700 font-normal ml-1">
+            <span className="text-sm uppercase tracking-wider text-slate-700 font-normal ml-1">
               raw counts
             </span>
             <ChevronRight
@@ -428,7 +428,7 @@ export function ContractorFeedbackLoopSurface({ leads, onNavigateTab }: Props) {
               }`}
             />
           </CardTitle>
-          <p className="text-[11px] text-slate-700 mt-1">
+          <p className="text-sm text-slate-700 mt-1">
             Per-route signal totals. A single route can advance through several
             stages, so totals overlap (a viewed route is also a sent route).
           </p>
@@ -456,7 +456,7 @@ export function ContractorFeedbackLoopSurface({ leads, onNavigateTab }: Props) {
           <CardTitle className="text-sm flex items-center gap-2">
             <MessageSquare className="h-4 w-4" />
             Disposition Breakdown
-            <span className="text-[10px] uppercase tracking-wider text-slate-700 font-normal ml-1">
+            <span className="text-sm uppercase tracking-wider text-slate-700 font-normal ml-1">
               one bucket per route
             </span>
             <ChevronRight
@@ -465,7 +465,7 @@ export function ContractorFeedbackLoopSurface({ leads, onNavigateTab }: Props) {
               }`}
             />
           </CardTitle>
-          <p className="text-[11px] text-slate-700 mt-1">
+          <p className="text-sm text-slate-700 mt-1">
             Each route is assigned exactly one most-progressed bucket. Closed
             and Booked trump all earlier signals.
           </p>
@@ -492,7 +492,7 @@ export function ContractorFeedbackLoopSurface({ leads, onNavigateTab }: Props) {
           <CardTitle className="text-sm flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-slate-700" />
             Missing Feedback / Needs Operator Review
-            <Badge variant="outline" className="ml-2 h-5 text-[10px]">
+            <Badge variant="outline" className="ml-2 h-5 text-sm">
               {missingFeedback.length}
             </Badge>
             <ChevronRight
@@ -501,7 +501,7 @@ export function ContractorFeedbackLoopSurface({ leads, onNavigateTab }: Props) {
               }`}
             />
           </CardTitle>
-          <p className="text-[11px] text-slate-700 mt-1">
+          <p className="text-sm text-slate-700 mt-1">
             Routes where contractor-side feedback is incomplete and the lead
             is not yet booked or closed. Oldest signal first. Open the
             opportunity in Routing Desk to act.
@@ -548,7 +548,7 @@ export function ContractorFeedbackLoopSurface({ leads, onNavigateTab }: Props) {
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="h-7 text-[11px] shrink-0"
+                        className="h-7 text-sm shrink-0"
                         onClick={() => goTab("routing")}
                       >
                         Open in Routing
@@ -641,7 +641,7 @@ function Stat({ label, value }: { label: string; value: number }) {
       <div className="text-2xl font-semibold leading-none text-foreground">
         {value}
       </div>
-      <div className="text-[10px] uppercase tracking-wider text-slate-700 mt-1">
+      <div className="text-sm uppercase tracking-wider text-slate-700 mt-1">
         {label}
       </div>
     </div>
@@ -660,11 +660,11 @@ function DispositionRowCard({
       <div className="flex items-center gap-2">
         <span className="text-slate-700">{meta.icon}</span>
         <span className="text-sm font-medium">{meta.label}</span>
-        <Badge variant="outline" className="ml-auto text-[10px]">
+        <Badge variant="outline" className="ml-auto text-sm">
           {count}
         </Badge>
       </div>
-      <p className="text-[11px] text-slate-700 mt-1 leading-relaxed">
+      <p className="text-sm text-slate-700 mt-1 leading-relaxed">
         {meta.describe}
       </p>
     </div>

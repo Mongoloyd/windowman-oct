@@ -126,12 +126,12 @@ const STATUS_STYLES: Record<
   { badge: string; icon: typeof CheckCircle2; label: string }
 > = {
   operational: {
-    badge: "bg-emerald-500/15 text-emerald-700 border-emerald-500/30",
+    badge: "bg-emerald-500/15 text-emerald-950 border-emerald-500/30",
     icon: CheckCircle2,
     label: "Operational",
   },
   attention: {
-    badge: "bg-amber-500/15 text-amber-700 border-amber-500/30",
+    badge: "bg-amber-500/15 text-amber-950 border-amber-500/30",
     icon: AlertTriangle,
     label: "Needs attention",
   },
@@ -444,7 +444,7 @@ export function LaunchReadinessSurface({ leads, onNavigateTab }: Props) {
             <div className="font-semibold text-foreground flex items-center gap-2">
               {title}
               {badgeText && (
-                <Badge variant="secondary" className="text-[10px]">
+                <Badge variant="secondary" className="text-sm">
                   {badgeText}
                 </Badge>
               )}
@@ -500,13 +500,13 @@ export function LaunchReadinessSurface({ leads, onNavigateTab }: Props) {
             const style = STATUS_STYLES[s];
             return (
               <div key={s} className={`rounded-md border px-3 py-2 ${style.badge}`}>
-                <div className="text-[10px] uppercase tracking-wide opacity-80">{style.label}</div>
+                <div className="text-sm uppercase tracking-wide opacity-100">{style.label}</div>
                 <div className="text-lg font-bold">{counts[s]}</div>
               </div>
             );
           })}
         </div>
-        <p className="text-[11px] text-slate-700 mt-2 italic">
+        <p className="text-sm text-slate-700 mt-2 italic">
           Signals are operator-view derivations from current admin reads. They
           do not replace real infrastructure monitoring.
         </p>
@@ -533,7 +533,7 @@ export function LaunchReadinessSurface({ leads, onNavigateTab }: Props) {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium text-sm text-foreground">{sig.title}</span>
-                      <Badge variant="outline" className={`text-[10px] ${style.badge}`}>
+                      <Badge variant="outline" className={`text-sm ${style.badge}`}>
                         <StatusIcon className="h-3 w-3 mr-1" />
                         {style.label}
                       </Badge>

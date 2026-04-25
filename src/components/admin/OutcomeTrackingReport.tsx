@@ -417,7 +417,7 @@ export function OutcomeTrackingReport({ leads, onNavigateTab }: Props) {
             <CardTitle className="text-base font-bold tracking-tight">
               Outcome Tracking — Close-Loop Reporting
             </CardTitle>
-            <Badge variant="outline" className="text-[10px]">
+            <Badge variant="outline" className="text-sm">
               Internal · Read-only
             </Badge>
           </div>
@@ -509,7 +509,7 @@ export function OutcomeTrackingReport({ leads, onNavigateTab }: Props) {
               <CardTitle className="text-sm font-medium text-slate-700 uppercase tracking-wider">
                 Post-Route Status Breakdown
               </CardTitle>
-              <p className="text-[11px] text-slate-700 mt-1">
+              <p className="text-sm text-slate-700 mt-1">
                 Each opportunity is bucketed by its latest route's lifecycle
                 fields. Buckets are mutually exclusive per opportunity.
               </p>
@@ -551,11 +551,11 @@ export function OutcomeTrackingReport({ leads, onNavigateTab }: Props) {
                     Unresolved / Needs Attention
                   </CardTitle>
                 </div>
-                <Badge variant="outline" className="text-[10px] tabular-nums">
+                <Badge variant="outline" className="text-sm tabular-nums">
                   {summary.unresolvedCount} unresolved
                 </Badge>
               </div>
-              <p className="text-[11px] text-slate-700 mt-1">
+              <p className="text-sm text-slate-700 mt-1">
                 Routed opportunities with no terminal outcome (booked / closed
                 / dead). Top 10 by oldest activity.
               </p>
@@ -581,7 +581,7 @@ export function OutcomeTrackingReport({ leads, onNavigateTab }: Props) {
               <CardTitle className="text-sm font-medium text-slate-700 uppercase tracking-wider">
                 Close-Loop Reporting
               </CardTitle>
-              <p className="text-[11px] text-slate-700 mt-1">
+              <p className="text-sm text-slate-700 mt-1">
                 Honest, current-state summary. No revenue math, no projected
                 close rates.
               </p>
@@ -712,11 +712,11 @@ function SummaryTile({
         </span>
       </div>
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[10px] uppercase tracking-wide text-slate-700 font-semibold">
+        <p className="text-sm uppercase tracking-wide text-slate-700 font-semibold">
           {label}
         </p>
         {hint && (
-          <span className="text-[9px] text-slate-700 italic">{hint}</span>
+          <span className="text-sm text-slate-700 italic">{hint}</span>
         )}
       </div>
     </div>
@@ -735,12 +735,12 @@ function UnresolvedRow({ row }: { row: OutcomeRow }) {
         <div className="flex items-center gap-2 flex-wrap">
           <p className="text-sm font-medium truncate">{name}</p>
           {meta && (
-            <Badge variant="outline" className="text-[10px]">
+            <Badge variant="outline" className="text-sm">
               {meta.label}
             </Badge>
           )}
         </div>
-        <p className="text-[11px] text-slate-700 mt-0.5 truncate">
+        <p className="text-sm text-slate-700 mt-0.5 truncate">
           {row.opp.county || row.lead?.county || "Unknown county"}
           {row.contractor ? ` · ${row.contractor.company_name}` : ""}
           {hours !== null ? ` · ${hours.toFixed(0)}h since last activity` : ""}
@@ -754,7 +754,7 @@ function ReportRow({ title, body }: { title: string; body: string }) {
   return (
     <div className="rounded-lg border border-border bg-card p-3">
       <p className="text-sm font-semibold">{title}</p>
-      <p className="text-[11px] text-slate-700 mt-1 leading-relaxed">
+      <p className="text-sm text-slate-700 mt-1 leading-relaxed">
         {body}
       </p>
     </div>
