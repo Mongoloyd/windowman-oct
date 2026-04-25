@@ -562,12 +562,14 @@ function AdminPartnersContent() {
             <section className="space-y-3">
               <h3 className="text-sm font-black uppercase text-slate-800">Meta Configuration</h3>
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5"><Label className="flex items-center gap-2 font-bold text-slate-700">Meta Pixel ID <HelpTip>Browser pixel/dataset identifier used for PageView and event routing.</HelpTip></Label><Input value={draft.pixelId} onChange={(e) => setDraft((d) => ({ ...d, pixelId: e.target.value.replace(/\D/g, "").slice(0, 20) }))} placeholder="123456789012345" className="border-slate-300 font-mono text-slate-950 placeholder:text-slate-700" /></div>
+                <div className="space-y-1.5"><Label className="flex items-center gap-2 font-bold text-slate-700">Meta Pixel ID <HelpTip>Server-side Meta destination identifier. No browser pixel script is added.</HelpTip></Label><Input value={draft.pixelId} onChange={(e) => setDraft((d) => ({ ...d, pixelId: e.target.value.replace(/\D/g, "").slice(0, 20) }))} placeholder="123456789012345" className="border-slate-300 font-mono text-slate-950 placeholder:text-slate-700" /></div>
+                <div className="space-y-1.5"><Label className="flex items-center gap-2 font-bold text-slate-700">Meta Dataset ID <HelpTip>Optional dataset identifier used by server-side routing/reporting.</HelpTip></Label><Input value={draft.datasetId} onChange={(e) => setDraft((d) => ({ ...d, datasetId: sanitizeText(e.target.value, 80) }))} placeholder="dataset_123" className="border-slate-300 font-mono text-slate-950 placeholder:text-slate-700" /></div>
                 <div className="space-y-1.5"><Label className="flex items-center gap-2 font-bold text-slate-700">Test Event Code <HelpTip>Sends a safe diagnostic event if backend support exists. Does not mark a lead sold.</HelpTip></Label><Input value={draft.testEventCode} onChange={(e) => setDraft((d) => ({ ...d, testEventCode: sanitizeText(e.target.value, 80) }))} placeholder="TEST12345" className="border-slate-300 font-mono text-slate-950 placeholder:text-slate-700" /></div>
+                <div className="space-y-1.5"><Label className="flex items-center gap-2 font-bold text-slate-700">Meta CAPI Token <HelpTip>Write-only field. Existing tokens are never fetched or displayed; entering a new token overwrites the Vault secret.</HelpTip></Label><Input type="password" value={draft.capiToken} onChange={(e) => setDraft((d) => ({ ...d, capiToken: e.target.value }))} placeholder={(selectedConfig?.capi_token_secret_id || tokenConfigured(selectedRedacted)) ? "Enter new token to overwrite" : "Enter CAPI token"} className="border-slate-300 font-mono text-slate-950 placeholder:text-slate-700" /></div>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <ReadOnlyState label="CAPI Access Token Secret Reference" value={tokenConfigured(selectedRedacted) ? "configured · raw token hidden" : "missing"} help="Secure reference to the Meta access token. Raw token is not displayed." />
-                <ReadOnlyState label="Dataset ID" value="Uses Pixel ID field" />
+                <ReadOnlyState label="CAPI Access Token Status" value={(selectedConfig?.capi_token_secret_id || tokenConfigured(selectedRedacted)) ? "configured · raw token hidden" : "missing"} help="Secure reference to the Meta access token. Raw token is not displayed." />
+                <ReadOnlyState label="Vault reference" value={selectedConfig?.capi_token_secret_id ? "active" : "not created"} />
                 <ReadOnlyState label="Last Meta success" value={formatTime(signalLogs.find((log) => log.client_slug === draft.slug && (log.status_code ?? 0) < 300)?.fired_at)} />
                 <ReadOnlyState label="Last Meta failure" value={formatTime(signalLogs.find((log) => log.client_slug === draft.slug && (log.status_code ?? 0) >= 400)?.fired_at)} />
               </div>
@@ -576,9 +578,8 @@ function AdminPartnersContent() {
             <section className="space-y-3">
               <h3 className="text-sm font-black uppercase text-slate-800">Google Configuration</h3>
               <div className="grid gap-3 sm:grid-cols-2">
-                <DisabledField label="Google Ads Conversion ID" value={draft.googleConversionId} help="Google Ads account-level conversion destination." />
-                <DisabledField label="Verified Lead Conversion Label" value={draft.googleVerifiedLeadLabel} help="Specific Google Ads conversion action label, such as verified lead or purchase." />
-                <DisabledField label="Purchase/Sold Conversion Label" value={draft.googleSoldLabel} help="Specific Google Ads conversion action label, such as verified lead or purchase." />
+                <EditableField label="Google Ads Conversion ID" value={draft.googleConversionId} onChange={(value) => setDraft((d) => ({ ...d, googleConversionId: sanitizeText(value, 32) }))} help="Google Ads account-level conversion destination." />
+                <EditableField label="Google Ads Label" value={draft.googleAdsLabel} onChange={(value) => setDraft((d) => ({ ...d, googleAdsLabel: sanitizeText(value, 120) }))} help="Specific Google Ads conversion action label for server-side dispatch." />
                 <ReadOnlyState label="Enhanced Conversions" value="Not configured" />
               </div>
             </section>
@@ -586,7 +587,7 @@ function AdminPartnersContent() {
             <section className="space-y-3">
               <h3 className="text-sm font-black uppercase text-slate-800">GTM Server Configuration</h3>
               <div className="grid gap-3 sm:grid-cols-2">
-                <DisabledField label="Server container URL" value={draft.serverGtmUrl} help="Server-side GTM endpoint used to forward browser/server events." />
+                <EditableField label="Server container URL" value={draft.serverGtmUrl} onChange={(value) => setDraft((d) => ({ ...d, serverGtmUrl: value }))} help="Server-side GTM endpoint used to forward browser/server events." />
                 <ReadOnlyState label="routing mode" value={draft.serverRoutingMode} />
                 <ReadOnlyState label="last server hit" value="No signal logs yet" />
                 <ReadOnlyState label="health state" value="Secret/config table prerequisite missing" />
