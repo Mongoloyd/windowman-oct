@@ -314,13 +314,15 @@ function AdminPartnersContent() {
   }, [clients, configByClientId, metaByClientId, redactedByClientId, signalLogs]);
 
   function openEditor(client: Client | null) {
+    const clientMeta = client ? metaByClientId.get(client.id) ?? null : null;
+    const clientConfig = client ? configByClientId.get(client.id) ?? null : null;
     if (client && !hasWriteAccess) {
       setSelectedClient(client);
-      setDraft(buildDraft(client, metaByClientId.get(client.id) ?? null));
+      setDraft(buildDraft(client, clientMeta, clientConfig));
       return;
     }
     setSelectedClient(client);
-    setDraft(buildDraft(client, client ? metaByClientId.get(client.id) ?? null : null));
+    setDraft(buildDraft(client, clientMeta, clientConfig));
     setEditorOpen(true);
   }
 
