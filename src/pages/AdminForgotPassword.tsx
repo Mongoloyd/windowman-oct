@@ -51,7 +51,7 @@ export default function AdminForgotPassword() {
           <div className="mx-auto mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
             <KeyRound className="h-6 w-6 text-primary" />
           </div>
-          <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-slate-300">
+          <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-slate-600">
             WindowMan · Admin
           </p>
           <h1 className="mt-2 font-display text-3xl font-extrabold leading-tight tracking-tight text-foreground">
@@ -79,7 +79,7 @@ export default function AdminForgotPassword() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@windowman.app"
-                    className="h-11 pl-9 border-2 border-slate-300 bg-white text-slate-950 placeholder:text-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15"
+                    className="h-11 pl-9 border-2 border-slate-300 bg-white text-slate-950 placeholder:text-slate-500 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15"
                     required
                   />
                 </div>
@@ -117,7 +117,7 @@ export default function AdminForgotPassword() {
           )}
         </div>
 
-        <p className="mt-6 text-center text-sm font-medium text-slate-300">
+        <p className="mt-6 text-center text-sm font-medium text-slate-600">
           <Link to="/admin/login" className="underline hover:text-foreground">
             ← Back to sign in
           </Link>
