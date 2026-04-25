@@ -24,6 +24,18 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         manualChunks(id: string) {
+          if (id.includes('node_modules/framer-motion')) {
+            return 'motion';
+          }
+          if (id.includes('node_modules/recharts')) {
+            return 'charts';
+          }
+          if (id.includes('src/pages/Admin') || id.includes('src/components/admin/')) {
+            return 'admin';
+          }
+          if (id.includes('src/pages/Partner') || id.includes('src/pages/Contractor') || id.includes('src/components/partner/')) {
+            return 'partner';
+          }
           if (id.includes('node_modules/react-dom') || id.includes('node_modules/react/') || id.includes('node_modules/react-router')) {
             return 'vendor';
           }
