@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { motion } from "framer-motion";
 import { TrustBullets } from "./TrustBullets";
 import SampleGradeCard from "./SampleGradeCard";
 import { useTickerStats } from "@/hooks/useTickerStats";
@@ -109,36 +108,23 @@ const AuditHero = ({
                   decoding="async"
                   width={480}
                   height={640}
-                  className="absolute inset-0 w-full h-full object-contain mascot-float"
+                  className="absolute inset-0 w-full h-full object-contain"
                 />
             </div>
 
             {/* Grade card: visible on lg+ (desktop right column) */}
             <div className="hidden lg:block relative z-10">
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.15, delay: 0.1 }}
-              >
-                <SampleGradeCard />
-              </motion.div>
+              <SampleGradeCard />
             </div>
           </div>
 
           {/* ── ORDER 3 (mobile/tablet) / left column (lg+): Text + CTAs ── */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.15 }}
+          <div
             className="order-3 lg:order-first lg:flex-1 mt-8 lg:mt-0 lg:pt-32 flex flex-col items-center lg:items-start"
           >
-            <motion.div
-              animate={{ y: [0, -6, 0] }}
-              transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-              className="hidden lg:inline-flex items-center gap-2 mb-5 card-raised px-3 py-1 bg-primary/5 lg:self-center lg:-translate-x-8"
-            >
+            <div className="hidden lg:inline-flex items-center gap-2 mb-5 card-raised px-3 py-1 bg-primary/5 lg:self-center lg:-translate-x-8">
               {trustPillContent}
-            </motion.div>
+            </div>
 
             <h1
               className="font-display text-5xl lg:text-6xl font-extrabold leading-[1.1] tracking-tight text-foreground mb-5"
@@ -206,36 +192,23 @@ const AuditHero = ({
             </div>
 
             {/* ── OCR screenshot: responsive, single img tag ── */}
-            <motion.div
-              className="hidden sm:block mt-8 w-full max-w-3xl aspect-[7/4]"
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, ease: "easeOut" }}
-            >
+            <div className="hidden sm:block mt-8 w-full max-w-3xl aspect-[7/4]">
               <img
                 src={scanOcrImg}
                 alt="WindowMan AI scanning a quote — extraction, context injection, anomaly detection"
-                fetchPriority="high"
-                loading="eager"
+                loading="lazy"
                 decoding="async"
                 width={700}
                 height={400}
                 className="w-full h-full object-cover rounded-xl shadow-lg"
               />
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
 
           {/* ── ORDER 4 (tablet only): Grade card + stats below content ── */}
           <div className="order-4 lg:hidden w-full flex flex-col items-center">
             <div className="hidden sm:block relative z-10">
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.15, delay: 0.1 }}
-              >
-                <SampleGradeCard />
-              </motion.div>
+              <SampleGradeCard />
             </div>
             <div className="hidden sm:flex w-full max-w-lg">
               {statsStrip}
