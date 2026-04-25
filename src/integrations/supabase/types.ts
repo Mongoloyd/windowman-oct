@@ -1672,6 +1672,115 @@ export type Database = {
           },
         ]
       }
+      lead_attribution_details: {
+        Row: {
+          ad_id: string | null
+          ad_name: string | null
+          adset_id: string | null
+          adset_name: string | null
+          campaign_id: string | null
+          campaign_name: string | null
+          created_at: string
+          fbc: string | null
+          fbclid: string | null
+          fbp: string | null
+          form_id: string | null
+          gclid: string | null
+          id: string
+          imported_at: string
+          landing_page_url: string | null
+          lead_id: string
+          platform_lead_id: string | null
+          raw_payload: Json
+          source_channel: string | null
+          source_platform: string
+          updated_at: string
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
+        }
+        Insert: {
+          ad_id?: string | null
+          ad_name?: string | null
+          adset_id?: string | null
+          adset_name?: string | null
+          campaign_id?: string | null
+          campaign_name?: string | null
+          created_at?: string
+          fbc?: string | null
+          fbclid?: string | null
+          fbp?: string | null
+          form_id?: string | null
+          gclid?: string | null
+          id?: string
+          imported_at?: string
+          landing_page_url?: string | null
+          lead_id: string
+          platform_lead_id?: string | null
+          raw_payload?: Json
+          source_channel?: string | null
+          source_platform: string
+          updated_at?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Update: {
+          ad_id?: string | null
+          ad_name?: string | null
+          adset_id?: string | null
+          adset_name?: string | null
+          campaign_id?: string | null
+          campaign_name?: string | null
+          created_at?: string
+          fbc?: string | null
+          fbclid?: string | null
+          fbp?: string | null
+          form_id?: string | null
+          gclid?: string | null
+          id?: string
+          imported_at?: string
+          landing_page_url?: string | null
+          lead_id?: string
+          platform_lead_id?: string | null
+          raw_payload?: Json
+          source_channel?: string | null
+          source_platform?: string
+          updated_at?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_attribution_details_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_attribution_details_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unknown_slug"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_attribution_details_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unrouted"
+            referencedColumns: ["lead_id"]
+          },
+        ]
+      }
       lead_events: {
         Row: {
           analysis_id: string | null
