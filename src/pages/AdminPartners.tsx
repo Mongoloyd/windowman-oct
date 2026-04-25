@@ -47,6 +47,18 @@ type MetaConfig = {
   updated_at: string;
 };
 
+type ClientConfig = {
+  id: string;
+  client_id: string;
+  google_ads_conversion_id: string | null;
+  google_ads_label: string | null;
+  meta_pixel_id: string | null;
+  meta_dataset_id: string | null;
+  gtm_server_url: string | null;
+  capi_token_secret_id: string | null;
+  updated_at: string;
+};
+
 type RedactedMetaConfig = {
   id: string;
   role: "default" | "client";
@@ -76,11 +88,11 @@ type Draft = {
   isActive: boolean;
   notes: string;
   pixelId: string;
+  datasetId: string;
+  capiToken: string;
   testEventCode: string;
   googleConversionId: string;
-  googleVerifiedLeadLabel: string;
-  googleSoldLabel: string;
-  enhancedConversions: boolean;
+  googleAdsLabel: string;
   serverGtmUrl: string;
   serverRoutingMode: string;
 };
