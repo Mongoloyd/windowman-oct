@@ -13,7 +13,6 @@ import RedFlagsList from "@/components/report/RedFlagsList";
 import MissingItemsList from "@/components/report/MissingItemsList";
 import TopRisksBlock from "@/components/report/TopRisksBlock";
 import ReportDecisionFork from "@/components/report/ReportDecisionFork";
-import FixItCTA from "@/components/report/FixItCTA";
 import GapFixModule from "@/components/report/GapFixModule";
 import GreenChecklistModule from "@/components/report/GreenChecklistModule";
 import QuotePriceMath from "@/components/report/QuotePriceMath";
@@ -872,15 +871,6 @@ I'm ready to move forward if we can get these items addressed. What's the fastes
       {isFull && (
         <ForensicPillarSection pillarScores={pillarScores} flags={flags} county={county} isFull={isFull} />
       )}
-
-      {/* ─── FIX-IT CTA ─── */}
-      <FixItCTA
-        redCount={redCount}
-        amberCount={amberCount}
-        accessLevel={accessLevel}
-        onGetGapFix={() => setActiveModule(activeModule === "gapFix" ? "none" : "gapFix")}
-        onGetGreenChecklist={() => setActiveModule(activeModule === "greenChecklist" ? "none" : "greenChecklist")}
-      />
 
       {/* ─── GAP-FIX MODULE (full mode only) ─── */}
       {activeModule === "gapFix" && isFull && <GapFixModule flags={flags} onClose={() => setActiveModule("none")} />}
