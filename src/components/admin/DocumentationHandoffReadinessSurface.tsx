@@ -412,7 +412,7 @@ const QUICK_LINKS: Array<{ tab: string; label: string }> = [
 function StateBadge({ state }: { state: SurfaceEntry["state"] }) {
   if (state === "live") {
     return (
-      <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/15">
+      <Badge className="bg-emerald-500/10 text-emerald-950 border-emerald-500/30 hover:bg-emerald-500/15">
         <CheckCircle2 className="h-3 w-3 mr-1" />
         Live
       </Badge>
@@ -420,7 +420,7 @@ function StateBadge({ state }: { state: SurfaceEntry["state"] }) {
   }
   if (state === "manual") {
     return (
-      <Badge className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/15">
+      <Badge className="bg-amber-500/10 text-amber-950 border-amber-500/30 hover:bg-amber-500/15">
         <Hand className="h-3 w-3 mr-1" />
         Manual
       </Badge>
@@ -437,14 +437,14 @@ function StateBadge({ state }: { state: SurfaceEntry["state"] }) {
 function StatusPill({ status }: { status: ManualVsPlatformRow["status"] }) {
   if (status === "platformized") {
     return (
-      <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/15">
+      <Badge className="bg-emerald-500/10 text-emerald-950 border-emerald-500/30 hover:bg-emerald-500/15">
         Platformized
       </Badge>
     );
   }
   if (status === "manual") {
     return (
-      <Badge className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/15">
+      <Badge className="bg-amber-500/10 text-amber-950 border-amber-500/30 hover:bg-amber-500/15">
         Manual
       </Badge>
     );
@@ -562,19 +562,19 @@ export function DocumentationHandoffReadinessSurface({
         {/* Summary chips */}
         <div className="mt-5 grid grid-cols-3 gap-2.5">
           <div className="rounded-lg border bg-emerald-500/5 border-emerald-500/30 px-3 py-2.5">
-            <div className="text-[11px] uppercase tracking-wide text-emerald-700 dark:text-emerald-400 font-semibold">
+            <div className="text-sm uppercase tracking-wide text-emerald-950 font-semibold">
               Live
             </div>
             <div className="text-xl font-semibold mt-0.5">{summary.live}</div>
           </div>
           <div className="rounded-lg border bg-amber-500/5 border-amber-500/30 px-3 py-2.5">
-            <div className="text-[11px] uppercase tracking-wide text-amber-700 dark:text-amber-400 font-semibold">
+            <div className="text-sm uppercase tracking-wide text-amber-950 font-semibold">
               Manual
             </div>
             <div className="text-xl font-semibold mt-0.5">{summary.manual}</div>
           </div>
           <div className="rounded-lg border bg-muted/40 px-3 py-2.5">
-            <div className="text-[11px] uppercase tracking-wide text-slate-700 font-semibold">
+            <div className="text-sm uppercase tracking-wide text-slate-700 font-semibold">
               Review-only
             </div>
             <div className="text-xl font-semibold mt-0.5">{summary.review}</div>
@@ -669,7 +669,7 @@ export function DocumentationHandoffReadinessSurface({
         onToggle={toggle}
       >
         <div className="rounded-lg border overflow-hidden">
-          <div className="grid grid-cols-12 px-4 py-2 bg-muted/30 text-[11px] uppercase tracking-wide text-slate-700 font-semibold">
+          <div className="grid grid-cols-12 px-4 py-2 bg-muted/30 text-sm uppercase tracking-wide text-slate-700 font-semibold">
             <div className="col-span-4">Surface</div>
             <div className="col-span-5">Purpose</div>
             <div className="col-span-2">Audience</div>

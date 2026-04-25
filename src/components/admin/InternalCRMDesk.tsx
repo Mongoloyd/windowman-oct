@@ -44,7 +44,7 @@ function gradeColor(grade: string | null): string {
   switch (grade) {
     case "A": return "bg-green-500 text-white";
     case "B": return "bg-teal-500 text-white";
-    case "C": return "bg-amber-500 text-white";
+    case "C": return "bg-amber-100 text-amber-950 border border-amber-300";
     case "D": return "bg-orange-500 text-white";
     case "F": return "bg-red-500 text-white";
     default: return "bg-gray-400 text-white";
@@ -76,7 +76,7 @@ function derivePipelineBadge(
   if (lead.deal_status === "ghosted")
     return { label: "Ghosted", className: `${pill} bg-slate-200 text-slate-700` };
   if (followup?.status === "queued" || followup?.status === "in_progress")
-    return { label: "AI Calling", className: `${pill} bg-blue-100 text-blue-700 animate-pulse` };
+    return { label: "AI Calling", className: `${pill} bg-blue-100 text-blue-950 animate-pulse` };
   if (followup?.call_outcome === "voicemail")
     return { label: "Left Voicemail", className: `${pill} bg-amber-100 text-amber-800` };
   if (followup?.status === "failed" || followup?.call_outcome === "no_answer")

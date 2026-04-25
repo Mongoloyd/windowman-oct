@@ -285,7 +285,7 @@ function ClassBadge({ kind }: { kind: ChangeClass }) {
   }
   if (kind === "sensitive") {
     return (
-      <Badge className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/15">
+      <Badge className="bg-amber-500/10 text-amber-950 border-amber-500/30 hover:bg-amber-500/15">
         <ShieldAlert className="h-3 w-3 mr-1" />
         Sensitive
       </Badge>
@@ -293,7 +293,7 @@ function ClassBadge({ kind }: { kind: ChangeClass }) {
   }
   if (kind === "ui-only") {
     return (
-      <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/15">
+      <Badge className="bg-emerald-500/10 text-emerald-950 border-emerald-500/30 hover:bg-emerald-500/15">
         <Wrench className="h-3 w-3 mr-1" />
         UI-only
       </Badge>
@@ -554,13 +554,13 @@ function SummaryChip({
     kind === "protected"
       ? "bg-destructive/5 border-destructive/30 text-destructive"
       : kind === "sensitive"
-        ? "bg-amber-500/5 border-amber-500/30 text-amber-700 dark:text-amber-400"
+        ? "bg-amber-500/5 border-amber-500/30 text-amber-950"
         : kind === "ui-only"
-          ? "bg-emerald-500/5 border-emerald-500/30 text-emerald-700 dark:text-emerald-400"
+          ? "bg-emerald-500/5 border-emerald-500/30 text-emerald-950"
           : "bg-sky-500/5 border-sky-500/30 text-sky-700 dark:text-sky-400";
   return (
     <div className={`rounded-lg border px-3 py-2.5 ${tone}`}>
-      <div className="text-[11px] uppercase tracking-wide font-semibold">{label}</div>
+      <div className="text-sm uppercase tracking-wide font-semibold">{label}</div>
       <div className="text-xl font-semibold mt-0.5 text-foreground">{value}</div>
     </div>
   );

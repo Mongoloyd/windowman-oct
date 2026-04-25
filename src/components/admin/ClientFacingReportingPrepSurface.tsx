@@ -310,20 +310,20 @@ export function ClientFacingReportingPrepSurface({ leads, onNavigateTab }: Props
         >
           <div className="flex items-center gap-2">
             {expanded.safe ? (
-              <ChevronDown className="h-4 w-4 text-emerald-700" />
+              <ChevronDown className="h-4 w-4 text-emerald-950" />
             ) : (
-              <ChevronRight className="h-4 w-4 text-emerald-700" />
+              <ChevronRight className="h-4 w-4 text-emerald-950" />
             )}
-            <Eye className="h-4 w-4 text-emerald-700" />
+            <Eye className="h-4 w-4 text-emerald-950" />
             <h3 className="font-semibold text-sm">Contractor-Safe Summary</h3>
             <Badge
               variant="outline"
-              className="ml-1 border-emerald-500/40 text-emerald-700 bg-emerald-500/10 text-[10px]"
+              className="ml-1 border-emerald-500/40 text-emerald-950 bg-emerald-500/10 text-sm"
             >
               SHAREABLE
             </Badge>
           </div>
-          <span className="text-[10px] uppercase tracking-wide text-emerald-700/80 font-mono">
+          <span className="text-sm uppercase tracking-wide text-emerald-950/80 font-mono">
             current state only
           </span>
         </button>
@@ -355,7 +355,7 @@ export function ClientFacingReportingPrepSurface({ leads, onNavigateTab }: Props
             </div>
 
             <div className="flex items-center justify-between pt-2 border-t border-emerald-500/20">
-              <p className="text-[11px] text-slate-700">
+              <p className="text-sm text-slate-700">
                 Caveat: stale and recovery are operator-view derivations, not
                 automated lifecycle states.
               </p>
@@ -376,20 +376,20 @@ export function ClientFacingReportingPrepSurface({ leads, onNavigateTab }: Props
         >
           <div className="flex items-center gap-2">
             {expanded.internal ? (
-              <ChevronDown className="h-4 w-4 text-amber-700" />
+              <ChevronDown className="h-4 w-4 text-amber-950" />
             ) : (
-              <ChevronRight className="h-4 w-4 text-amber-700" />
+              <ChevronRight className="h-4 w-4 text-amber-950" />
             )}
-            <EyeOff className="h-4 w-4 text-amber-700" />
+            <EyeOff className="h-4 w-4 text-amber-950" />
             <h3 className="font-semibold text-sm">Internal-Only / Operator View</h3>
             <Badge
               variant="outline"
-              className="ml-1 border-amber-500/40 text-amber-700 bg-amber-500/10 text-[10px]"
+              className="ml-1 border-amber-500/40 text-amber-950 bg-amber-500/10 text-sm"
             >
               DO NOT SHARE
             </Badge>
           </div>
-          <span className="text-[10px] uppercase tracking-wide text-amber-700/80 font-mono">
+          <span className="text-sm uppercase tracking-wide text-amber-950/80 font-mono">
             operator-view derivations
           </span>
         </button>
@@ -425,7 +425,7 @@ export function ClientFacingReportingPrepSurface({ leads, onNavigateTab }: Props
               />
             </div>
 
-            <p className="text-[11px] text-slate-700 pt-2 border-t border-amber-500/20">
+            <p className="text-sm text-slate-700 pt-2 border-t border-amber-500/20">
               These categories use repo-real fields but require operator
               interpretation. Do not paste into contractor-facing material.
             </p>
@@ -530,7 +530,7 @@ export function ClientFacingReportingPrepSurface({ leads, onNavigateTab }: Props
             <h3 className="font-semibold text-sm">
               Future Contractor Report — Preview Structure
             </h3>
-            <Badge variant="outline" className="ml-1 text-[10px]">
+            <Badge variant="outline" className="ml-1 text-sm">
               INFORMATIONAL
             </Badge>
           </div>
@@ -618,8 +618,8 @@ function SafeTile({
   return (
     <div className="rounded-md border border-emerald-500/20 bg-background p-3">
       <div className="flex items-center gap-1.5">
-        {Icon && <Icon className="h-3 w-3 text-emerald-700" />}
-        <p className="text-[10px] uppercase tracking-wide text-slate-700 font-semibold">
+        {Icon && <Icon className="h-3 w-3 text-emerald-950" />}
+        <p className="text-sm uppercase tracking-wide text-slate-700 font-semibold">
           {label}
         </p>
       </div>
@@ -639,11 +639,11 @@ function InternalTile({
 }) {
   return (
     <div className="rounded-md border border-amber-500/20 bg-background p-3">
-      <p className="text-[11px] uppercase tracking-wide text-slate-700 font-semibold">
+      <p className="text-sm uppercase tracking-wide text-slate-700 font-semibold">
         {label}
       </p>
       <p className="text-2xl font-bold tabular-nums mt-1">{value}</p>
-      <p className="text-[10px] text-slate-700 italic mt-0.5">
+      <p className="text-sm text-slate-700 italic mt-0.5">
         {sublabel}
       </p>
     </div>
@@ -662,17 +662,17 @@ function Guidance({
   text: string;
 }) {
   const tone = ok
-    ? "text-emerald-700"
+    ? "text-emerald-950"
     : warn
-    ? "text-amber-700"
-    : "text-rose-700";
+    ? "text-amber-950"
+    : "text-red-950";
   const Icon = ok ? Eye : warn ? AlertTriangle : EyeOff;
   const prefix = ok ? "OK" : warn ? "CAUTION" : "DO NOT";
   return (
     <div className="flex items-start gap-2">
       <Icon className={`h-4 w-4 mt-0.5 shrink-0 ${tone}`} />
       <p className="text-sm">
-        <span className={`font-mono text-[10px] font-bold mr-2 ${tone}`}>
+        <span className={`font-mono text-sm font-bold mr-2 ${tone}`}>
           {prefix}
         </span>
         {text}
@@ -705,7 +705,7 @@ function FuturePreviewSection({
       <ul className="space-y-1">
         {points.map((p, i) => (
           <li key={i} className="text-sm flex items-start gap-2">
-            <span className="text-slate-700 mt-1 text-[10px]">▸</span>
+            <span className="text-slate-700 mt-1 text-sm">▸</span>
             <span>{p}</span>
           </li>
         ))}

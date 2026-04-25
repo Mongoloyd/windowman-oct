@@ -70,7 +70,7 @@ function Field({
 }) {
   return (
     <div className="space-y-0.5">
-      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-700">
+      <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-700">
         {label}
       </p>
       <div className="text-sm font-medium text-foreground">
@@ -174,7 +174,7 @@ export function LeadHumanContextPanel({
     <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
       <header className="flex items-center justify-between mb-4">
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-700">
+          <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-700">
             Sales Context
           </p>
           <h3 className="font-display text-lg font-extrabold tracking-tight text-foreground mt-0.5">
@@ -235,7 +235,7 @@ export function LeadHumanContextPanel({
                       ? "border-destructive/40 text-destructive bg-destructive/5"
                       : lead.handoff_consent_status === "text_or_email_first"
                         ? "border-amber-400/50 text-amber-800 bg-amber-50"
-                        : "border-emerald-500/40 text-emerald-700 bg-emerald-50"
+                        : "border-emerald-500/40 text-emerald-950 bg-emerald-50"
                   }
                 >
                   {consent.full}
@@ -253,7 +253,7 @@ export function LeadHumanContextPanel({
 
       {/* Lead Fit Warnings */}
       <div className="mt-4 space-y-2">
-        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-700">
+        <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-700">
           Lead Fit Warnings
         </p>
         {warnings.length === 0 ? (
@@ -272,7 +272,7 @@ export function LeadHumanContextPanel({
       {/* Recommended Opening Script */}
       <div className="mt-4 rounded-lg border border-cyan-500/30 bg-cyan-500/5 p-3.5">
         <div className="flex items-center justify-between mb-1.5">
-          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-800">
+          <p className="text-sm font-bold uppercase tracking-[0.18em] text-cyan-800">
             Recommended Opening
             {opener.isUrgent && (
               <Badge className="ml-2 bg-orange-500 text-white text-[9px] px-1.5 py-0">
@@ -289,7 +289,7 @@ export function LeadHumanContextPanel({
             size="sm"
             variant="ghost"
             onClick={handleCopy}
-            className="h-6 px-2 text-[11px]"
+            className="h-6 px-2 text-sm"
           >
             {copied ? (
               <>

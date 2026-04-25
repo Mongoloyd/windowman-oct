@@ -39,7 +39,7 @@ function ReadinessRow({ icon: Icon, title, description }: ReadinessRowProps) {
           <p className="text-sm font-semibold text-slate-900">{title}</p>
           <Badge
             variant="outline"
-            className="text-[10px] border-slate-200 text-slate-700 bg-slate-50"
+            className="text-sm border-slate-200 text-slate-700 bg-slate-50"
           >
             Coming Later
           </Badge>
@@ -57,7 +57,7 @@ function ReadinessRow({ icon: Icon, title, description }: ReadinessRowProps) {
           >
             <div className="absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white shadow-sm" />
           </div>
-          <span className="text-[11px] text-slate-700 italic">
+          <span className="text-sm text-slate-700 italic">
             Disabled — no backend support yet
           </span>
         </div>
@@ -77,7 +77,7 @@ export function SharedMarketReadinessSection() {
           <h2 className="text-sm font-bold text-slate-900 tracking-tight">
             Shared Market Network — Future Direction
           </h2>
-          <p className="text-[11px] text-slate-700 mt-0.5">
+          <p className="text-sm text-slate-700 mt-0.5">
             Informational only. These surfaces will activate when their backend
             support exists.
           </p>

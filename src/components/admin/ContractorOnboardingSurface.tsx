@@ -269,7 +269,7 @@ export function ContractorOnboardingSurface({ onNavigateTab }: Props) {
               displayed data is repo-real or clearly labeled operator-view.
             </p>
           </div>
-          <Badge variant="outline" className="text-[10px] uppercase tracking-wider">
+          <Badge variant="outline" className="text-sm uppercase tracking-wider">
             Internal · Operator Use
           </Badge>
         </div>
@@ -309,7 +309,7 @@ export function ContractorOnboardingSurface({ onNavigateTab }: Props) {
                   >
                     {c.company_name}
                     {c.status !== "active" && (
-                      <span className="ml-1.5 text-[10px] uppercase opacity-70">
+                      <span className="ml-1.5 text-sm uppercase opacity-100">
                         · {c.status}
                       </span>
                     )}
@@ -338,7 +338,7 @@ export function ContractorOnboardingSurface({ onNavigateTab }: Props) {
                 value={
                   <Badge
                     variant={activeContractor.status === "active" ? "default" : "secondary"}
-                    className="text-[10px]"
+                    className="text-sm"
                   >
                     {activeContractor.status}
                   </Badge>
@@ -348,7 +348,7 @@ export function ContractorOnboardingSurface({ onNavigateTab }: Props) {
               <ProfileField
                 label="Contractor ID"
                 value={
-                  <code className="text-[11px] font-mono text-slate-700">
+                  <code className="text-sm font-mono text-slate-700">
                     {activeContractor.id}
                   </code>
                 }
@@ -363,7 +363,7 @@ export function ContractorOnboardingSurface({ onNavigateTab }: Props) {
                 <Send className="h-4 w-4" />
                 Handoff Contact Details
               </CardTitle>
-              <p className="text-[11px] text-slate-700 mt-1">
+              <p className="text-sm text-slate-700 mt-1">
                 What the operator uses when routing a lead to this contractor today.
               </p>
             </CardHeader>
@@ -395,7 +395,7 @@ export function ContractorOnboardingSurface({ onNavigateTab }: Props) {
                 <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 flex items-start gap-2">
                   <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
                   <p className="text-xs text-slate-700">
-                    <span className="font-semibold text-amber-700 dark:text-amber-400">
+                    <span className="font-semibold text-amber-950">
                       Missing handoff info:
                     </span>{" "}
                     {handoff.missing.join(", ")}.
@@ -411,11 +411,11 @@ export function ContractorOnboardingSurface({ onNavigateTab }: Props) {
               <CardTitle className="text-sm flex items-center gap-2">
                 <MapPin className="h-4 w-4" />
                 Observed Coverage{" "}
-                <span className="text-[10px] uppercase tracking-wider text-slate-700 font-normal">
+                <span className="text-sm uppercase tracking-wider text-slate-700 font-normal">
                   (operator view)
                 </span>
               </CardTitle>
-              <p className="text-[11px] text-slate-700 mt-1">
+              <p className="text-sm text-slate-700 mt-1">
                 Counties derived from opportunities actually routed to this
                 contractor. Contractor-declared service area is not separately
                 modeled in the current admin read.
@@ -430,12 +430,12 @@ export function ContractorOnboardingSurface({ onNavigateTab }: Props) {
               {observedCoverage.counties.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5 pt-1">
                   {observedCoverage.counties.map((c) => (
-                    <Badge key={c} variant="outline" className="text-[10px]">
+                    <Badge key={c} variant="outline" className="text-sm">
                       {c}
                     </Badge>
                   ))}
                   {observedCoverage.routedCount > observedCoverage.withCounty && (
-                    <Badge variant="secondary" className="text-[10px]">
+                    <Badge variant="secondary" className="text-sm">
                       Unknown County ×
                       {observedCoverage.routedCount - observedCoverage.withCounty}
                     </Badge>
@@ -494,12 +494,12 @@ export function ContractorOnboardingSurface({ onNavigateTab }: Props) {
                   <ListChecks className="h-4 w-4" />
                   Onboarding Readiness
                 </CardTitle>
-                <p className="text-[11px] text-slate-700 mt-1">
+                <p className="text-sm text-slate-700 mt-1">
                   Local-only · stored in this browser session. Not saved to the
                   backend.
                 </p>
               </div>
-              <Badge variant="outline" className="text-[10px]">
+              <Badge variant="outline" className="text-sm">
                 {checklistDoneCount}/{DEFAULT_CHECKLIST.length}
               </Badge>
             </CardHeader>
@@ -530,7 +530,7 @@ export function ContractorOnboardingSurface({ onNavigateTab }: Props) {
                         {item.label}
                       </p>
                       {item.hint && (
-                        <p className="text-[11px] text-slate-700 mt-0.5">
+                        <p className="text-sm text-slate-700 mt-0.5">
                           {item.hint}
                         </p>
                       )}
@@ -548,13 +548,13 @@ export function ContractorOnboardingSurface({ onNavigateTab }: Props) {
                 <ShieldCheck className="h-4 w-4" />
                 Operator Handoff Snippet
               </CardTitle>
-              <p className="text-[11px] text-slate-700 mt-1">
+              <p className="text-sm text-slate-700 mt-1">
                 Reusable internal note when handing a lead to {activeContractor.company_name}.
               </p>
             </CardHeader>
             <CardContent>
               <div className="rounded-md border bg-muted/30 p-3">
-                <pre className="text-[11px] font-mono whitespace-pre-wrap text-slate-700 leading-relaxed">
+                <pre className="text-sm font-mono whitespace-pre-wrap text-slate-700 leading-relaxed">
 {`Routing to: ${activeContractor.company_name}
 Contact: ${activeContractor.contact_name ?? "—"}
 Email: ${activeContractor.email ?? "—"}
@@ -609,7 +609,7 @@ Notes: Operator-controlled handoff. Confirm receipt + capacity before sending ne
 function ProfileField({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
-      <p className="text-[10px] uppercase tracking-wider text-slate-700 font-semibold">
+      <p className="text-sm uppercase tracking-wider text-slate-700 font-semibold">
         {label}
       </p>
       <div className="mt-1 text-sm text-foreground">{value}</div>
@@ -634,7 +634,7 @@ function ContactRow({
     <div className="flex items-start gap-3 rounded-md border bg-background p-3">
       <Icon className="h-4 w-4 text-slate-700 mt-0.5 shrink-0" />
       <div className="flex-1 min-w-0">
-        <p className="text-[10px] uppercase tracking-wider text-slate-700 font-semibold">
+        <p className="text-sm uppercase tracking-wider text-slate-700 font-semibold">
           {label}
         </p>
         {value ? (
@@ -664,7 +664,7 @@ function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-md border bg-muted/20 p-3">
       <p className="text-2xl font-bold tabular-nums leading-none">{value}</p>
-      <p className="text-[10px] uppercase tracking-wider text-slate-700 mt-1.5 font-semibold">
+      <p className="text-sm uppercase tracking-wider text-slate-700 mt-1.5 font-semibold">
         {label}
       </p>
     </div>

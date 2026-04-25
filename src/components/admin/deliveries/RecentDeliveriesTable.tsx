@@ -88,5 +88,5 @@ export function StatusBadge({ status }: { status: DeliveryStatus }) {
     mock_delivered: { label: "mock", variant: "outline" },
   };
   const cfg = map[status] ?? { label: status, variant: "outline" as const };
-  return <Badge variant={cfg.variant} className="text-[10px]">{cfg.label}</Badge>;
+  return <Badge variant={cfg.variant} className="text-sm">{cfg.label}</Badge>;
 }

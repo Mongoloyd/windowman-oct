@@ -331,7 +331,7 @@ export function StrategicPrioritizationNextBuildDecisionFrameworkSurface({
               </div>
               {item.preconditions.length > 0 && (
                 <div className="mt-2">
-                  <div className="text-[11px] uppercase tracking-wide text-slate-700 mb-1">
+                  <div className="text-sm uppercase tracking-wide text-slate-700 mb-1">
                     Pre-conditions
                   </div>
                   <ul className="space-y-1">
@@ -354,7 +354,7 @@ export function StrategicPrioritizationNextBuildDecisionFrameworkSurface({
                       key={t}
                       size="sm"
                       variant="outline"
-                      className="h-6 px-2 text-[11px] gap-1"
+                      className="h-6 px-2 text-sm gap-1"
                       onClick={() => onNavigateTab?.(t)}
                       disabled={!onNavigateTab}
                     >
@@ -394,7 +394,7 @@ export function StrategicPrioritizationNextBuildDecisionFrameworkSurface({
                       key={t}
                       size="sm"
                       variant="outline"
-                      className="h-6 px-2 text-[11px] gap-1"
+                      className="h-6 px-2 text-sm gap-1"
                       onClick={() => onNavigateTab?.(t)}
                       disabled={!onNavigateTab}
                     >
@@ -595,7 +595,7 @@ function SectionCard({
               <div className="flex items-center gap-2">
                 <CardTitle className="text-base">{title}</CardTitle>
                 {typeof count === "number" && (
-                  <Badge variant="secondary" className="text-[10px]">
+                  <Badge variant="secondary" className="text-sm">
                     {count}
                   </Badge>
                 )}

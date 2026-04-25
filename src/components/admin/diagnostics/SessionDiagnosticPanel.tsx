@@ -317,7 +317,7 @@ export function SessionDiagnosticPanel() {
                 <Row
                   label="⚠ note"
                   value={
-                    <span className="text-amber-700">
+                    <span className="text-amber-950">
                       In DEV, this hook returns a fabricated super_admin and ignores the real session. Use the
                       sections above for the real story.
                     </span>
@@ -381,7 +381,7 @@ export function SessionDiagnosticPanel() {
                 </p>
               )}
               {wouldPassIsInternalOperator && probe.status === "ok" && (
-                <p className="text-emerald-700">
+                <p className="text-emerald-950">
                   ▸ Live session is authorized and contractors is readable. Inspector should now render real rows.
                 </p>
               )}

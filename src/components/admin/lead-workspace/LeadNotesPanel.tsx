@@ -71,7 +71,7 @@ export function LeadNotesPanel({ leadId }: LeadNotesPanelProps) {
     <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
       <header className="flex items-center justify-between mb-4">
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-700">
+          <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-700">
             Workflow
           </p>
           <h3 className="font-display text-lg font-extrabold tracking-tight text-foreground mt-0.5">
@@ -106,7 +106,7 @@ export function LeadNotesPanel({ leadId }: LeadNotesPanelProps) {
               ))}
             </SelectContent>
           </Select>
-          <span className="text-[11px] text-slate-700 ml-auto">
+          <span className="text-sm text-slate-700 ml-auto">
             {body.length}/4000
           </span>
           <Button
@@ -171,7 +171,7 @@ function NoteRow({
     <li className="rounded-xl border border-border bg-background/60 p-3">
       <div className="flex items-center justify-between gap-2 mb-1.5">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="inline-flex items-center rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-700">
+          <span className="inline-flex items-center rounded-full border border-border bg-muted px-2 py-0.5 text-sm font-bold uppercase tracking-wider text-slate-700">
             {cat}
           </span>
           <span className="text-xs text-slate-700 truncate">
@@ -179,7 +179,7 @@ function NoteRow({
           </span>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <span className="text-[11px] text-slate-700 font-mono">
+          <span className="text-sm text-slate-700 font-mono">
             {format(new Date(note.created_at), "MMM d, h:mm a")}
           </span>
           <Button

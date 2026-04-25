@@ -132,7 +132,7 @@ export function DeliveryInspectorPage() {
           <TabsTrigger value="failed" className="flex-1 min-w-[110px]">
             Failed
             {failed.length > 0 && (
-              <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold bg-destructive text-destructive-foreground">
+              <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-sm font-bold bg-destructive text-destructive-foreground">
                 {failed.length > 99 ? "99+" : failed.length}
               </span>
             )}
@@ -185,7 +185,7 @@ function KpiTile({
 }) {
   return (
     <Card className="p-3">
-      <div className="text-[11px] uppercase tracking-wide text-slate-700">{label}</div>
+      <div className="text-sm uppercase tracking-wide text-slate-700">{label}</div>
       <div
         className={`text-2xl font-bold mt-1 ${
           tone === "warn" && value > 0 ? "text-destructive" : "text-foreground"

@@ -83,22 +83,22 @@ export function DeliveryAttemptLogDrawer({ deliveryId, onClose }: Props) {
             <Card key={a.id} className="p-4 space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-[10px]">
+                  <Badge variant="outline" className="text-sm">
                     Attempt #{a.attempt_number}
                   </Badge>
                   <OutcomeBadge outcome={a.outcome} success={a.success} />
                   {a.response_status_code !== null && (
-                    <Badge variant="secondary" className="text-[10px] tabular-nums">
+                    <Badge variant="secondary" className="text-sm tabular-nums">
                       HTTP {a.response_status_code}
                     </Badge>
                   )}
                 </div>
-                <div className="text-[11px] text-slate-700 tabular-nums">
+                <div className="text-sm text-slate-700 tabular-nums">
                   {a.duration_ms !== null ? `${a.duration_ms}ms` : "—"}
                 </div>
               </div>
 
-              <div className="text-[11px] text-slate-700">
+              <div className="text-sm text-slate-700">
                 Started {format(new Date(a.request_started_at), "PP pp")}
                 {a.request_completed_at && (
                   <> · Completed {format(new Date(a.request_completed_at), "pp")}</>
@@ -121,7 +121,7 @@ export function DeliveryAttemptLogDrawer({ deliveryId, onClose }: Props) {
                     <summary className="cursor-pointer text-slate-700 hover:text-foreground">
                       Response snippet
                     </summary>
-                    <pre className="mt-1 p-2 bg-muted rounded text-[10px] overflow-x-auto whitespace-pre-wrap break-all">
+                    <pre className="mt-1 p-2 bg-muted rounded text-sm overflow-x-auto whitespace-pre-wrap break-all">
                       {a.response_body_snippet}
                     </pre>
                   </details>
@@ -142,7 +142,7 @@ function OutcomeBadge({ outcome, success }: { outcome: AttemptOutcome; success: 
       ? "destructive"
       : "outline";
   return (
-    <Badge variant={variant} className="text-[10px] font-mono">
+    <Badge variant={variant} className="text-sm font-mono">
       {outcome}
     </Badge>
   );

@@ -58,10 +58,10 @@ const SCOPE_LABEL: Record<Scope, string> = {
 
 function gradeColor(grade: string | null): string {
   switch (grade) {
-    case "A": return "bg-green-600 text-white";
-    case "B": return "bg-emerald-500 text-white";
-    case "C": return "bg-amber-500 text-white";
-    case "D": return "bg-orange-600 text-white";
+    case "A": return "bg-emerald-900 text-white";
+    case "B": return "bg-emerald-100 text-emerald-950 border border-emerald-300";
+    case "C": return "bg-amber-100 text-amber-950 border border-amber-300";
+    case "D": return "bg-orange-100 text-orange-950 border border-orange-300";
     case "F": return "bg-destructive text-destructive-foreground";
     default:  return "bg-muted text-slate-700";
   }
@@ -95,7 +95,7 @@ function EvidencePanel({ leadId }: { leadId: string }) {
   }
   if (q.isError) {
     return (
-      <div className="rounded-md border border-rose-500/30 bg-rose-500/5 p-3 text-xs text-rose-700 dark:text-rose-400">
+      <div className="rounded-md border border-rose-500/30 bg-rose-500/5 p-3 text-xs text-red-950">
         Failed to load evidence.
       </div>
     );
@@ -108,7 +108,7 @@ function EvidencePanel({ leadId }: { leadId: string }) {
         <div>
           <div className="font-medium text-foreground">No quote on file.</div>
           {ev?.scan_session_id && (
-            <div className="font-mono mt-1 text-[10px] truncate">
+            <div className="font-mono mt-1 text-sm truncate">
               session: {ev.scan_session_id}
             </div>
           )}
@@ -150,7 +150,7 @@ function EvidencePanel({ leadId }: { leadId: string }) {
           />
         </a>
       )}
-      <div className="px-3 py-1.5 border-t border-border/50 text-[10px] text-slate-700 font-mono truncate">
+      <div className="px-3 py-1.5 border-t border-border/50 text-sm text-slate-700 font-mono truncate">
         signed · expires in {Math.round((ev.expires_in ?? 3600) / 60)}m
       </div>
     </div>
@@ -185,7 +185,7 @@ function LogicPanel({ analysisId }: { analysisId: string | null }) {
   }
   if (q.isError || !q.data) {
     return (
-      <div className="rounded-md border border-rose-500/30 bg-rose-500/5 p-3 text-xs text-rose-700 dark:text-rose-400">
+      <div className="rounded-md border border-rose-500/30 bg-rose-500/5 p-3 text-xs text-red-950">
         Failed to load AI analysis.
       </div>
     );
@@ -198,20 +198,20 @@ function LogicPanel({ analysisId }: { analysisId: string | null }) {
   return (
     <div className="rounded-md border border-border/60 bg-card p-3 space-y-2">
       <div className="flex items-center gap-2 flex-wrap">
-        <Badge className={`text-[10px] uppercase ${gradeColor(a.grade)}`}>
+        <Badge className={`text-sm uppercase ${gradeColor(a.grade)}`}>
           Grade {a.grade ?? "—"}
         </Badge>
         {a.confidence_score != null && (
-          <Badge variant="outline" className="text-[10px] font-mono">
+          <Badge variant="outline" className="text-sm font-mono">
             confidence {Math.round((a.confidence_score as number) * 100)}%
           </Badge>
         )}
         {a.dollar_delta != null && (
-          <Badge variant="outline" className="text-[10px] font-mono">
+          <Badge variant="outline" className="text-sm font-mono">
             Δ ${Number(a.dollar_delta).toLocaleString()}
           </Badge>
         )}
-        <Badge variant="secondary" className="text-[10px] font-mono">
+        <Badge variant="secondary" className="text-sm font-mono">
           {flags.length} flag{flags.length === 1 ? "" : "s"}
         </Badge>
       </div>
@@ -234,13 +234,13 @@ function LogicPanel({ analysisId }: { analysisId: string | null }) {
                     </Badge>
                   )}
                   {f.pillar && (
-                    <span className="text-[10px] text-slate-700 font-mono">
+                    <span className="text-sm text-slate-700 font-mono">
                       {f.pillar}
                     </span>
                   )}
                 </div>
                 {f.detail && (
-                  <p className="text-[11px] text-slate-700 mt-0.5 line-clamp-2">
+                  <p className="text-sm text-slate-700 mt-0.5 line-clamp-2">
                     {f.detail}
                   </p>
                 )}
@@ -248,7 +248,7 @@ function LogicPanel({ analysisId }: { analysisId: string | null }) {
             </li>
           ))}
           {flags.length > top.length && (
-            <li className="text-[10px] text-slate-700 pt-1">
+            <li className="text-sm text-slate-700 pt-1">
               + {flags.length - top.length} more — open dossier for full list.
             </li>
           )}
@@ -278,33 +278,33 @@ function StageRow({
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-semibold truncate">{fullName(row)}</span>
             {row.grade && (
-              <Badge className={`text-[10px] uppercase ${gradeColor(row.grade)}`}>
+              <Badge className={`text-sm uppercase ${gradeColor(row.grade)}`}>
                 {row.grade}
               </Badge>
             )}
             {redCount > 0 && (
-              <Badge variant="outline" className="text-[10px] border-rose-500/40 text-rose-700 dark:text-rose-400">
+              <Badge variant="outline" className="text-sm border-rose-500/40 text-red-950">
                 <AlertTriangle className="h-2.5 w-2.5 mr-1" />
                 {redCount} red
               </Badge>
             )}
             {flagCount > 0 && (
-              <Badge variant="secondary" className="text-[10px] font-mono">
+              <Badge variant="secondary" className="text-sm font-mono">
                 {flagCount} flags
               </Badge>
             )}
           </div>
-          <div className="text-[11px] text-slate-700 mt-0.5 truncate">
+          <div className="text-sm text-slate-700 mt-0.5 truncate">
             {(row.city || row.county) && (
               <span>{[row.city, row.county].filter(Boolean).join(" · ")}</span>
             )}
           </div>
         </div>
         <div className="text-right shrink-0">
-          <div className="text-[10px] text-slate-700 uppercase tracking-wider">
+          <div className="text-sm text-slate-700 uppercase tracking-wider">
             stage time
           </div>
-          <div className="text-[11px] font-mono tabular-nums">
+          <div className="text-sm font-mono tabular-nums">
             {fmtTs(row.stage_timestamp)}
           </div>
         </div>
@@ -315,7 +315,7 @@ function StageRow({
         <Button
           size="sm"
           variant={open === "evidence" ? "default" : "outline"}
-          className="h-7 px-2 text-[11px]"
+          className="h-7 px-2 text-sm"
           onClick={() => setOpen(open === "evidence" ? "none" : "evidence")}
         >
           <FileImage className="h-3 w-3 mr-1.5" />
@@ -324,7 +324,7 @@ function StageRow({
         <Button
           size="sm"
           variant={open === "logic" ? "default" : "outline"}
-          className="h-7 px-2 text-[11px]"
+          className="h-7 px-2 text-sm"
           onClick={() => setOpen(open === "logic" ? "none" : "logic")}
         >
           <FileSearch className="h-3 w-3 mr-1.5" />
@@ -333,7 +333,7 @@ function StageRow({
         <Button
           size="sm"
           variant="ghost"
-          className="h-7 px-2 text-[11px] ml-auto"
+          className="h-7 px-2 text-sm ml-auto"
           onClick={() => onJumpToDossier(row)}
         >
           Jump to Dossier
@@ -379,7 +379,7 @@ export function TruthStripDrilldown({
             <SheetTitle className="text-base font-bold tracking-tight">
               {headerLabel || "Stage"} drilldown
             </SheetTitle>
-            <Badge variant="outline" className="text-[10px] uppercase tracking-wider">
+            <Badge variant="outline" className="text-sm uppercase tracking-wider">
               {SCOPE_LABEL[scope]}
             </Badge>
           </div>

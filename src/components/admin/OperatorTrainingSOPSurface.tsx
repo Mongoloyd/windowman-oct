@@ -386,7 +386,7 @@ export function OperatorTrainingSOPSurface({
                       </button>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="font-mono text-[10px] text-slate-700">
+                          <span className="font-mono text-sm text-slate-700">
                             {String(idx + 1).padStart(2, "0")}
                           </span>
                           <span

@@ -577,7 +577,7 @@ export function ExceptionHandlingManualEscalationSurface({
         {/* Summary chips */}
         <div className="mt-5 grid grid-cols-2 sm:grid-cols-5 gap-2.5">
           <div className="rounded-lg border bg-muted/40 px-3 py-2.5">
-            <div className="text-[11px] uppercase tracking-wide text-slate-700 font-semibold">
+            <div className="text-sm uppercase tracking-wide text-slate-700 font-semibold">
               Total
             </div>
             <div className="text-xl font-semibold mt-0.5">{totals.total}</div>
@@ -587,7 +587,7 @@ export function ExceptionHandlingManualEscalationSurface({
               key={c.id}
               className="rounded-lg border px-3 py-2.5 bg-background"
             >
-              <div className="text-[11px] uppercase tracking-wide text-slate-700 font-semibold line-clamp-1">
+              <div className="text-sm uppercase tracking-wide text-slate-700 font-semibold line-clamp-1">
                 {c.title.split(" / ")[0]}
               </div>
               <div className="text-xl font-semibold mt-0.5">{totals.byCategory[i]}</div>
@@ -595,7 +595,7 @@ export function ExceptionHandlingManualEscalationSurface({
           ))}
         </div>
 
-        <p className="text-[11px] text-slate-700 mt-3 leading-relaxed">
+        <p className="text-sm text-slate-700 mt-3 leading-relaxed">
           Classifications are deterministic from repo-real fields on{" "}
           <span className="font-mono">leads</span>,{" "}
           <span className="font-mono">contractor_opportunities</span>, and{" "}
@@ -626,8 +626,8 @@ export function ExceptionHandlingManualEscalationSurface({
                         variant="outline"
                         className={
                           c.items.length === 0
-                            ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
-                            : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30"
+                            ? "bg-emerald-500/10 text-emerald-950 border-emerald-500/30"
+                            : "bg-amber-500/10 text-amber-950 border-amber-500/30"
                         }
                       >
                         {c.items.length}

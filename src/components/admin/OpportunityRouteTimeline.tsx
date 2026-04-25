@@ -41,9 +41,9 @@ const STATUS_LABEL: Record<string, { label: string; tone: "neutral" | "info" | "
 
 function toneClass(tone: "neutral" | "info" | "ok" | "warn" | "danger"): string {
   switch (tone) {
-    case "ok": return "bg-emerald-500/15 text-emerald-700 border-emerald-500/30";
-    case "info": return "bg-cyan-500/15 text-cyan-700 border-cyan-500/30";
-    case "warn": return "bg-amber-500/15 text-amber-700 border-amber-500/30";
+    case "ok": return "bg-emerald-500/15 text-emerald-950 border-emerald-500/30";
+    case "info": return "bg-cyan-500/15 text-cyan-950 border-cyan-500/30";
+    case "warn": return "bg-amber-500/15 text-amber-950 border-amber-500/30";
     case "danger": return "bg-destructive/15 text-destructive border-destructive/30";
     default: return "bg-muted text-slate-700 border-border";
   }
@@ -156,7 +156,7 @@ export function OpportunityRouteTimeline({ opportunityId }: OpportunityRouteTime
 
       {/* ── Header row: contractor + status ── */}
       <div className="flex flex-wrap items-center gap-2">
-        <Badge className={`text-[10px] uppercase tracking-wide border ${toneClass(statusMeta.tone)}`}>
+        <Badge className={`text-sm uppercase tracking-wide border ${toneClass(statusMeta.tone)}`}>
           {statusMeta.label}
         </Badge>
         {assignedContractor ? (
@@ -168,7 +168,7 @@ export function OpportunityRouteTimeline({ opportunityId }: OpportunityRouteTime
           <span className="text-xs text-slate-700 italic">No partner assigned yet</span>
         )}
         {opp.routed_at && (
-          <span className="inline-flex items-center gap-1 text-[11px] text-slate-700 ml-auto font-mono">
+          <span className="inline-flex items-center gap-1 text-sm text-slate-700 ml-auto font-mono">
             <Clock className="h-3 w-3" />
             Routed {fmtTs(opp.routed_at)}
           </span>
@@ -178,7 +178,7 @@ export function OpportunityRouteTimeline({ opportunityId }: OpportunityRouteTime
       {/* ── Latest route activity ── */}
       {latestRoute && (
         <div className="rounded-lg border border-border/50 bg-muted/20 p-3 space-y-1.5">
-          <p className="text-[10px] uppercase tracking-wide text-slate-700 font-semibold mb-1">
+          <p className="text-sm uppercase tracking-wide text-slate-700 font-semibold mb-1">
             Latest Route Activity
           </p>
           <ActivityRow icon={Send} label="Sent" timestamp={latestRoute.sent_at} />
@@ -192,7 +192,7 @@ export function OpportunityRouteTimeline({ opportunityId }: OpportunityRouteTime
       {/* ── Phase 7: Assignment History (multi-row, repo-real ledger) ── */}
       {assignmentHistory.length > 1 && (
         <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 p-3 space-y-2">
-          <p className="text-[10px] uppercase tracking-wide text-violet-700 font-semibold">
+          <p className="text-sm uppercase tracking-wide text-violet-950 font-semibold">
             Assignment History ({assignmentHistory.length} assignments)
           </p>
           <ol className="space-y-1.5">
@@ -201,24 +201,24 @@ export function OpportunityRouteTimeline({ opportunityId }: OpportunityRouteTime
               const isLatest = r.id === latestRoute?.id;
               return (
                 <li key={r.id} className="flex items-start gap-2 text-xs">
-                  <span className="font-mono text-[10px] text-slate-700 w-5 shrink-0">#{i + 1}</span>
+                  <span className="font-mono text-sm text-slate-700 w-5 shrink-0">#{i + 1}</span>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <Building2 className="h-3 w-3 text-cyan-600" />
                       <span className="font-medium">{c?.company_name ?? "Unknown contractor"}</span>
-                      <Badge variant="outline" className="text-[10px]">{r.route_status}</Badge>
+                      <Badge variant="outline" className="text-sm">{r.route_status}</Badge>
                       {isLatest && (
-                        <Badge className="text-[10px] bg-cyan-500/15 text-cyan-700 border-cyan-500/30 border" variant="outline">
+                        <Badge className="text-sm bg-cyan-500/15 text-cyan-950 border-cyan-500/30 border" variant="outline">
                           Current
                         </Badge>
                       )}
                       {(r.contact_released || r.release_status === "approved") && (
-                        <Badge className="text-[10px] bg-emerald-500/15 text-emerald-700 border-emerald-500/30 border" variant="outline">
+                        <Badge className="text-sm bg-emerald-500/15 text-emerald-950 border-emerald-500/30 border" variant="outline">
                           Released
                         </Badge>
                       )}
                     </div>
-                    <div className="text-[10px] text-slate-700 font-mono">
+                    <div className="text-sm text-slate-700 font-mono">
                       {fmtTs(r.sent_at ?? r.created_at)}
                       {r.routing_reason && <span className="italic"> · {r.routing_reason}</span>}
                     </div>
@@ -235,11 +235,11 @@ export function OpportunityRouteTimeline({ opportunityId }: OpportunityRouteTime
         <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3 space-y-2">
           <div className="flex items-center gap-1.5">
             <FileText className="h-3.5 w-3.5 text-cyan-600" />
-            <p className="text-[10px] uppercase tracking-wide text-cyan-700 font-semibold">
+            <p className="text-sm uppercase tracking-wide text-cyan-950 font-semibold">
               Contractor Brief
             </p>
             {opp.brief_version && (
-              <span className="text-[10px] text-slate-700 font-mono ml-auto">
+              <span className="text-sm text-slate-700 font-mono ml-auto">
                 v{opp.brief_version}
               </span>
             )}
@@ -251,7 +251,7 @@ export function OpportunityRouteTimeline({ opportunityId }: OpportunityRouteTime
           )}
           {closingAngle && (
             <div className="border-t border-cyan-500/20 pt-2">
-              <p className="text-[10px] uppercase tracking-wide text-slate-700 font-semibold mb-0.5">
+              <p className="text-sm uppercase tracking-wide text-slate-700 font-semibold mb-0.5">
                 Strongest Closing Angle
               </p>
               <p className="text-xs text-foreground/90 italic">"{closingAngle}"</p>
@@ -271,7 +271,7 @@ function ActivityRow({
     <div className={`flex items-center gap-2 text-xs ${done ? "" : "opacity-100"}`}>
       <Icon className={`h-3 w-3 ${done ? "text-emerald-600" : "text-slate-700"}`} />
       <span className={done ? "font-medium" : "text-slate-700"}>{label}</span>
-      <span className="ml-auto font-mono text-[10px] text-slate-700">
+      <span className="ml-auto font-mono text-sm text-slate-700">
         {fmtTs(timestamp)}
       </span>
     </div>

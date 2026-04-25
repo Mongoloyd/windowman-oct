@@ -163,11 +163,11 @@ function Tile({
       </div>
       <div className="min-w-0">
         <p className="text-2xl font-bold tabular-nums leading-none">{value}</p>
-        <p className="text-[11px] uppercase tracking-wide text-slate-700 mt-1 font-semibold">
+        <p className="text-sm uppercase tracking-wide text-slate-700 mt-1 font-semibold">
           {label}
         </p>
         {sublabel && (
-          <p className="text-[10px] text-slate-700 italic">{sublabel}</p>
+          <p className="text-sm text-slate-700 italic">{sublabel}</p>
         )}
       </div>
     </div>

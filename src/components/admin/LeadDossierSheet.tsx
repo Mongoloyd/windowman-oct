@@ -38,10 +38,10 @@ import { useQuery } from "@tanstack/react-query";
 
 function gradeColor(grade: string | null): string {
   switch (grade) {
-    case "A": return "bg-green-600 text-white";
-    case "B": return "bg-emerald-500 text-white";
-    case "C": return "bg-amber-500 text-white";
-    case "D": return "bg-orange-600 text-white";
+    case "A": return "bg-emerald-900 text-white";
+    case "B": return "bg-emerald-100 text-emerald-950 border border-emerald-300";
+    case "C": return "bg-amber-100 text-amber-950 border border-amber-300";
+    case "D": return "bg-orange-100 text-orange-950 border border-orange-300";
     case "F": return "bg-destructive text-destructive-foreground";
     default: return "bg-muted text-slate-700";
   }
@@ -65,7 +65,7 @@ function InfoRow({ label, value, icon: Icon }: {
     <div className="flex items-start gap-2 py-1.5">
       {Icon && <Icon className="h-4 w-4 mt-0.5 text-slate-700 shrink-0" />}
       <div className="min-w-0">
-        <p className="text-[11px] text-slate-700 uppercase tracking-wide">{label}</p>
+        <p className="text-sm text-slate-700 uppercase tracking-wide">{label}</p>
         <p className="text-sm font-medium break-all">{value || <span className="text-slate-700">—</span>}</p>
       </div>
     </div>
@@ -291,7 +291,7 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
           {/* ── Handoff Button ── */}
           <div className="flex items-center gap-2 mt-1">
             {alreadySent ? (
-              <Button variant="ghost" size="sm" disabled className="opacity-70 cursor-not-allowed gap-1.5 text-xs">
+              <Button variant="ghost" size="sm" disabled className="opacity-100 cursor-not-allowed gap-1.5 text-xs">
                 <CheckCircle className="w-3.5 h-3.5 text-green-400" />
                 Sent to Contractor
               </Button>
@@ -299,7 +299,7 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
               <Button
                 variant="outline"
                 size="sm"
-                className="gap-1.5 text-xs border-amber-300 text-amber-700 hover:bg-amber-50"
+                className="gap-1.5 text-xs border-amber-300 text-amber-950 hover:bg-amber-50"
                 onClick={() => setHandoffModalOpen(true)}
               >
                 <Send className="w-3.5 h-3.5" />
@@ -307,7 +307,7 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
               </Button>
             )}
             {alreadySent && (
-              <Badge className="bg-violet-100 text-violet-700 border border-violet-200 text-[10px]">
+              <Badge className="bg-violet-100 text-violet-950 border border-violet-200 text-sm">
                 Sent {localSentToContractor ? "just now" : ""}
               </Badge>
             )}
@@ -339,9 +339,9 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
             label="Phone Verified"
             icon={CheckCircle}
             value={lead.phone_verified ? (
-              <Badge variant="default" className="bg-green-600 text-white text-[10px]">Verified</Badge>
+              <Badge variant="default" className="bg-emerald-900 text-white text-sm">Verified</Badge>
             ) : (
-              <Badge variant="secondary" className="text-[10px]">Not Verified</Badge>
+              <Badge variant="secondary" className="text-sm">Not Verified</Badge>
             )}
           />
         </div>
@@ -404,11 +404,11 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
                 {/* ── Summary Row ── */}
                 <div className="flex items-center gap-4 text-sm">
                   <div>
-                    <p className="text-[10px] text-slate-700 uppercase">Confidence</p>
+                    <p className="text-sm text-slate-700 uppercase">Confidence</p>
                     <p className="font-mono font-medium">{analysis?.confidence_score ?? "—"}%</p>
                   </div>
                   <div>
-                    <p className="text-[10px] text-slate-700 uppercase">Dollar Delta</p>
+                    <p className="text-sm text-slate-700 uppercase">Dollar Delta</p>
                     <p className="font-bold tabular-nums">
                       {analysis?.dollar_delta != null
                         ? `${analysis.dollar_delta > 0 ? "+" : ""}$${Math.abs(analysis.dollar_delta).toLocaleString()}`
@@ -416,7 +416,7 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
                     </p>
                   </div>
                   <div>
-                    <p className="text-[10px] text-slate-700 uppercase">Flags</p>
+                    <p className="text-sm text-slate-700 uppercase">Flags</p>
                     <p className="font-medium">{analysis?.flags?.length ?? 0}</p>
                   </div>
                 </div>
@@ -432,10 +432,10 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
                         className="rounded-lg border border-border/50 bg-muted/30 p-3 min-w-0"
                       >
                         <div className="flex items-start justify-between mb-1">
-                          <p className="text-[10px] uppercase tracking-wide text-slate-700 leading-tight">
+                          <p className="text-sm uppercase tracking-wide text-slate-700 leading-tight">
                             {label}
                           </p>
-                          <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${gradeColor(letterGrade === "—" ? null : letterGrade)}`}>
+                          <span className={`w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${gradeColor(letterGrade === "—" ? null : letterGrade)}`}>
                             {letterGrade}
                           </span>
                         </div>
@@ -453,10 +453,10 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
                                 style={{ width: `${score}%` }}
                               />
                             </div>
-                            <p className="text-[10px] text-slate-700 mt-0.5 font-mono">{score}/100</p>
+                            <p className="text-sm text-slate-700 mt-0.5 font-mono">{score}/100</p>
                           </div>
                         ) : (
-                          <p className="text-[10px] text-slate-700 mt-1">Not analyzed</p>
+                          <p className="text-sm text-slate-700 mt-1">Not analyzed</p>
                         )}
                       </div>
                     );
@@ -469,7 +469,7 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
                     <Flag className="h-3.5 w-3.5 text-destructive" />
                     <span className="text-xs font-semibold">Flagged Issues</span>
                     {sortedFlags.length > 0 && (
-                      <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+                      <Badge variant="destructive" className="text-sm px-1.5 py-0">
                         {sortedFlags.length}
                       </Badge>
                     )}
@@ -484,7 +484,7 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
                       {visibleFlags.map((f, i) => (
                         <li key={i} className="flex items-start gap-2 text-xs">
                           <Badge
-                            className={`text-[10px] px-1.5 py-0 shrink-0 uppercase font-bold ${
+                            className={`text-sm px-1.5 py-0 shrink-0 uppercase font-bold ${
                               f.severity === "Critical" || f.severity === "High"
                                 ? "bg-destructive/20 text-destructive border border-destructive/30"
                                 : f.severity === "Medium"
@@ -505,7 +505,7 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
                   {sortedFlags.length > 5 && (
                     <button
                       onClick={() => setShowAllFlags(!showAllFlags)}
-                      className="text-[10px] text-primary hover:underline mt-1"
+                      className="text-sm text-primary hover:underline mt-1"
                     >
                       {showAllFlags ? "Show less" : `Show all ${sortedFlags.length} flags`}
                     </button>
@@ -517,7 +517,7 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
                   <div className="rounded-lg border border-border/50 bg-muted/20 p-2.5 space-y-1">
                     <div className="flex items-center gap-1.5 mb-1">
                       <Info className="h-3 w-3 text-slate-700" />
-                      <span className="text-[10px] uppercase tracking-wide text-slate-700 font-semibold">
+                      <span className="text-sm uppercase tracking-wide text-slate-700 font-semibold">
                         Extraction Details
                       </span>
                     </div>
@@ -609,26 +609,26 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
                       <div className="flex items-center gap-2">
                         {/* Type badge */}
                         {entry.call_intent === "operator_outbound" || entry.call_intent === "manual_dial" ? (
-                          <span className="text-xs font-bold px-2 py-0.5 rounded uppercase border bg-blue-100 text-blue-700 border-blue-200">
+                          <span className="text-xs font-bold px-2 py-0.5 rounded uppercase border bg-blue-100 text-blue-950 border-blue-200">
                             Manual
                           </span>
                         ) : (
-                          <span className="text-xs font-bold px-2 py-0.5 rounded uppercase border bg-violet-100 text-violet-700 border-violet-200">
+                          <span className="text-xs font-bold px-2 py-0.5 rounded uppercase border bg-violet-100 text-violet-950 border-violet-200">
                             AI Call
                           </span>
                         )}
 
                         {/* Outcome badge */}
                         {entry.call_outcome === "answered" ? (
-                          <span className="text-xs font-bold px-2 py-0.5 rounded uppercase border bg-emerald-100 text-emerald-700 border-emerald-200">Answered</span>
+                          <span className="text-xs font-bold px-2 py-0.5 rounded uppercase border bg-emerald-100 text-emerald-950 border-emerald-200">Answered</span>
                         ) : entry.call_outcome === "voicemail" ? (
-                          <span className="text-xs font-bold px-2 py-0.5 rounded uppercase border bg-amber-100 text-amber-700 border-amber-200">Voicemail</span>
+                          <span className="text-xs font-bold px-2 py-0.5 rounded uppercase border bg-amber-100 text-amber-950 border-amber-200">Voicemail</span>
                         ) : entry.call_outcome === "no_answer" ? (
                           <span className="text-xs font-bold px-2 py-0.5 rounded uppercase border bg-orange-100 text-orange-700 border-orange-200">No Answer</span>
                         ) : entry.status === "failed" ? (
                           <span className="text-xs font-bold px-2 py-0.5 rounded uppercase border bg-destructive/20 text-destructive border-destructive/30">Failed</span>
                         ) : entry.status === "in_progress" ? (
-                          <span className="text-xs font-bold px-2 py-0.5 rounded uppercase border bg-blue-100 text-blue-700 border-blue-200 animate-pulse">In Progress</span>
+                          <span className="text-xs font-bold px-2 py-0.5 rounded uppercase border bg-blue-100 text-blue-950 border-blue-200 animate-pulse">In Progress</span>
                         ) : entry.status === "queued" ? (
                           <span className="text-xs font-bold px-2 py-0.5 rounded uppercase border bg-muted text-slate-700 border-border">Queued</span>
                         ) : null}
@@ -703,7 +703,7 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
                       {showRetry && (
                         <button
                           onClick={() => handleRetryCall(entry)}
-                          className="inline-flex items-center gap-1 text-xs text-amber-700 hover:text-amber-600 mt-2"
+                          className="inline-flex items-center gap-1 text-xs text-amber-950 hover:text-amber-600 mt-2"
                         >
                           <RotateCcw className="w-3 h-3" />
                           Retry Call

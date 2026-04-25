@@ -465,7 +465,7 @@ function SectionCard({
               <div className="flex items-center gap-2">
                 <CardTitle className="text-base">{title}</CardTitle>
                 {typeof count === "number" && (
-                  <Badge variant="secondary" className="text-[10px]">
+                  <Badge variant="secondary" className="text-sm">
                     {count}
                   </Badge>
                 )}
@@ -527,10 +527,10 @@ function SurfaceCard({
         <ExternalLink className="h-3.5 w-3.5 opacity-100 shrink-0 group-hover:opacity-90" />
       </div>
       <div className="mt-2 flex items-center gap-1.5">
-        <Badge variant="outline" className="text-[10px]">
+        <Badge variant="outline" className="text-sm">
           {surface.primary ? "Core" : "Supporting"}
         </Badge>
-        <Badge variant="secondary" className="text-[10px]">
+        <Badge variant="secondary" className="text-sm">
           {surface.tab}
         </Badge>
       </div>

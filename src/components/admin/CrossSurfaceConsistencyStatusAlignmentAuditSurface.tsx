@@ -488,7 +488,7 @@ export function CrossSurfaceConsistencyStatusAlignmentAuditSurface({ onNavigateT
                   <p className="text-sm text-slate-700 mt-1">{c.canonicalReading}</p>
                   <p className="text-xs text-slate-700/80 mt-1.5">
                     <span className="font-medium text-foreground/70">Backed by: </span>
-                    <code className="text-[11px]">{c.backedBy}</code>
+                    <code className="text-sm">{c.backedBy}</code>
                   </p>
                 </div>
               </div>
@@ -579,7 +579,7 @@ export function CrossSurfaceConsistencyStatusAlignmentAuditSurface({ onNavigateT
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-foreground">{c.label}</span>
-                    <Badge variant="secondary" className="text-[10px]">
+                    <Badge variant="secondary" className="text-sm">
                       {c.surface}
                     </Badge>
                   </div>
@@ -752,7 +752,7 @@ function KindBadge({ kind }: { kind: CanonicalConcept["kind"] }) {
         ? "border-amber-500/40 text-amber-600 dark:text-amber-400"
         : "border-sky-500/40 text-sky-600 dark:text-sky-400";
   return (
-    <Badge variant="outline" className={`text-[10px] ${styles}`}>
+    <Badge variant="outline" className={`text-sm ${styles}`}>
       {kind}
     </Badge>
   );
@@ -772,7 +772,7 @@ function ConceptColumn({
       <div className="flex items-center gap-2 mb-2">
         <span className="text-foreground/70">{icon}</span>
         <span className="text-sm font-medium text-foreground">{title}</span>
-        <Badge variant="secondary" className="text-[10px] ml-auto">
+        <Badge variant="secondary" className="text-sm ml-auto">
           {concepts.length}
         </Badge>
       </div>

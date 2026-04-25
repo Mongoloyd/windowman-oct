@@ -159,7 +159,7 @@ export function NeedsReviewTab({ needsReview, isLoading }: NeedsReviewTabProps) 
   if (visibleLeads.length === 0) {
     return (
       <div className="flex flex-col items-center gap-3 py-16 text-slate-700">
-        <CheckCircle className="w-10 h-10 text-emerald-700" />
+        <CheckCircle className="w-10 h-10 text-emerald-950" />
         <p className="text-base font-bold">All scans processed successfully.</p>
         <p className="text-sm font-semibold">Failed or missing analyses will appear here.</p>
       </div>
@@ -240,7 +240,7 @@ export function NeedsReviewTab({ needsReview, isLoading }: NeedsReviewTabProps) 
                         <img
                           src={lead.quote_image_url}
                           alt="Quote"
-                          className="w-12 h-12 rounded object-cover border border-border hover:opacity-80 transition-opacity cursor-zoom-in"
+                          className="w-12 h-12 rounded object-cover border border-border hover:opacity-100 transition-opacity cursor-zoom-in"
                         />
                       </a>
                     ) : (

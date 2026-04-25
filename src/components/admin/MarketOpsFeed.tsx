@@ -291,7 +291,7 @@ export function MarketOpsFeed({ leads }: Props) {
                       {e.contractorName && (
                         <>
                           <span className="text-sm font-semibold text-slate-700">→</span>
-                          <span className="text-xs text-cyan-700">{e.contractorName}</span>
+                          <span className="text-xs text-cyan-950">{e.contractorName}</span>
                         </>
                       )}
                     </div>

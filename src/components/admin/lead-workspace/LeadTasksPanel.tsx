@@ -114,7 +114,7 @@ export function LeadTasksPanel({ leadId }: LeadTasksPanelProps) {
     <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
       <header className="flex items-center justify-between mb-4">
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-700">
+          <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-700">
             Workflow
           </p>
           <h3 className="font-display text-lg font-extrabold tracking-tight text-foreground mt-0.5">
@@ -229,7 +229,7 @@ function TaskGroup({
 }) {
   return (
     <div>
-      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-700 mb-2">
+      <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-700 mb-2">
         {label}
       </p>
       <ul className="space-y-1.5">
@@ -278,13 +278,13 @@ function TaskRow({
           {task.title}
         </p>
         {task.due_at && (
-          <p className={`mt-0.5 text-[11px] font-mono ${overdue ? "text-destructive font-semibold" : "text-slate-700"}`}>
+          <p className={`mt-0.5 text-sm font-mono ${overdue ? "text-destructive font-semibold" : "text-slate-700"}`}>
             Due {format(new Date(task.due_at), "MMM d, yyyy h:mm a")}
             {overdue && " · OVERDUE"}
           </p>
         )}
         {task.created_by_email && (
-          <p className="mt-0.5 text-[10px] text-slate-700">By {task.created_by_email}</p>
+          <p className="mt-0.5 text-sm text-slate-700">By {task.created_by_email}</p>
         )}
       </div>
       <Button

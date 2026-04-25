@@ -979,7 +979,7 @@ function AdminPartnersContent() {
                             ) : (
                               <Button
                                 size="sm" variant="ghost"
-                                className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 min-h-[44px] min-w-[44px] p-0"
+                                className="text-emerald-600 hover:text-emerald-950 hover:bg-emerald-50 min-h-[44px] min-w-[44px] p-0"
                                 onClick={() => handleRestore(c)}
                                 title="Restore client"
                               >
