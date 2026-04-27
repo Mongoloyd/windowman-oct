@@ -323,7 +323,7 @@ function mapReadinessRow(row: RpcReadinessRow): RevenueReadinessRow {
 }
 
 export async function fetchRevenueDispatchReadiness(): Promise<RevenueReadinessResult> {
-  const { data, error } = await supabase.rpc("admin_revenue_dispatch_readiness" as never);
+  const { data, error } = await supabase.rpc("admin_revenue_dispatch_readiness");
   if (error) throw error;
 
   const rows = ((data ?? []) as RpcReadinessRow[]).map(mapReadinessRow);
