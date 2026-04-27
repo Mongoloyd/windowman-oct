@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  const { data, error } = await validation.supabaseAuth.rpc("admin_sync_revenue_signals", {
+  const { data, error } = await validation.supabaseAdmin.rpc("admin_sync_revenue_signals", {
     p_limit: parsed.limit,
     p_dry_run: parsed.dry_run,
   });
