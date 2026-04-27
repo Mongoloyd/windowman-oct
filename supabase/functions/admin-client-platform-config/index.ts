@@ -1,4 +1,5 @@
 import { errorResponse, successResponse, validateAdminRequestWithRole, corsHeaders } from "../_shared/adminAuth.ts";
+import { evaluatePlatformReadiness, normalizePlatformName } from "../_shared/platformReadinessMatrix.ts";
 
 type ConfigState = "draft" | "incomplete" | "pending_validation" | "validated" | "active" | "paused" | "retired" | "invalid";
 type ValidationStatus = "not_tested" | "validation_passed" | "validation_failed" | "validation_stale" | "requires_revalidation";
@@ -51,8 +52,7 @@ function sanitizeText(value: unknown, max = 500): string | null {
 }
 
 function normalizePlatform(value: unknown): string {
-  const platform = sanitizeText(value, 40)?.toLowerCase() ?? "other";
-  return PLATFORM_VALUES.has(platform) ? platform : "other";
+  return normalizePlatformName(sanitizeText(value, 40)?.toLowerCase() ?? "other");
 }
 
 function destinationSummary(row: Partial<ConfigRow>) {
@@ -90,27 +90,26 @@ function validateCompleteness(row: Partial<ConfigRow>, client?: ClientRow | null
   if (!endpointValid) reasons.push("missing_endpoint_url");
 
   const needsToken = platform === "meta" || platform === "tiktok" || platform === "google_ads" || platform === "ga4";
+  const matrix = evaluatePlatformReadiness({
+    platform_name: platform,
+    is_active: active,
+    token_present: tokenPresent,
+    pixel_id_present: Boolean(row.pixel_id),
+    dataset_id_present: Boolean(row.dataset_id),
+    conversion_id_present: Boolean(row.conversion_id),
+    conversion_label_present: Boolean(row.conversion_label),
+    endpoint_url_present: Boolean(endpoint),
+  });
   required.token_present = needsToken ? tokenPresent : true;
+  required.destination_id_present = matrix.destinationReady;
   if (needsToken && !tokenPresent) reasons.push("missing_token");
-  if (!needsToken && !tokenPresent && (platform === "gtm_server" || platform === "crm_webhook" || platform === "other")) warnings.push("token_not_validated");
-
-  if (platform === "meta") {
-    required.destination_id_present = Boolean(row.pixel_id || row.dataset_id);
-    if (!required.destination_id_present) reasons.push(row.pixel_id ? "missing_dataset_id" : "missing_pixel_id");
-  } else if (platform === "tiktok") {
-    required.destination_id_present = Boolean(row.pixel_id);
-    if (!required.destination_id_present) reasons.push("missing_pixel_id");
-  } else if (platform === "google_ads" || platform === "ga4") {
-    required.destination_id_present = Boolean(row.conversion_id || row.conversion_label);
-    if (!required.destination_id_present) reasons.push("missing_conversion_id");
-  } else if (platform === "gtm_server" || platform === "crm_webhook") {
-    required.destination_id_present = Boolean(endpoint);
-    if (!required.destination_id_present) reasons.push("missing_endpoint_url");
-  } else if (platform === "internal") {
-    required.destination_id_present = true;
-  } else {
-    required.destination_id_present = Boolean(endpoint || row.pixel_id || row.dataset_id || row.conversion_id || row.conversion_label);
-    if (!required.destination_id_present) reasons.push("unknown_platform");
+  if (!needsToken && matrix.warningFields.includes("token_present")) warnings.push("token_not_validated");
+  if (!matrix.destinationReady) {
+    if (matrix.missingFields.includes("pixel_id_present")) reasons.push("missing_pixel_id");
+    if (matrix.missingFields.includes("dataset_id_present")) reasons.push("missing_dataset_id");
+    if (matrix.missingFields.includes("conversion_id_present")) reasons.push("missing_conversion_id");
+    if (matrix.missingFields.includes("conversion_label_present")) reasons.push("missing_conversion_label");
+    if (matrix.missingFields.includes("endpoint_url_present")) reasons.push("missing_endpoint_url");
   }
 
   if (row.config_state === "paused") reasons.push("paused_config");
@@ -130,6 +129,9 @@ function validateCompleteness(row: Partial<ConfigRow>, client?: ClientRow | null
     token_required: needsToken,
     token_present: tokenPresent,
     endpoint_valid: endpointValid,
+    matrix_version: "phase-3h-platform-readiness-v1",
+    exact_platform_match: matrix.exactPlatformMatch,
+    destination_ready: matrix.destinationReady,
     validation_ready: reasons.length === 0,
   };
 }
@@ -183,7 +185,7 @@ Deno.serve(async (req) => {
       if (clientsResult.error) throw clientsResult.error;
       if (configsResult.error) throw configsResult.error;
 
-      const rows = ((configsResult.data ?? []) as ConfigRow[]).map((row) => {
+      const rows = ((configsResult.data ?? []) as unknown as ConfigRow[]).map((row) => {
         const client = rowForClient(row.clients);
         const readiness = validateCompleteness(row, client);
         return { ...row, clients: client, token_secret_id: row.token_secret_id ? "present" : null, readiness };
@@ -198,7 +200,7 @@ Deno.serve(async (req) => {
       const id = sanitizeText(payload.id, 80);
       const clientId = sanitizeText(payload.client_id, 80);
       const platform = normalizePlatform(payload.platform_name);
-      const state = sanitizeText(payload.config_state, 40) ?? "draft";
+      const state = (sanitizeText(payload.config_state, 40) ?? "draft") as ConfigState;
       if (!CONFIG_STATES.has(state)) return errorResponse(400, "invalid_state", "Invalid config_state");
       if (!id && !clientId) return errorResponse(400, "missing_client", "client_id is required");
 
@@ -226,7 +228,7 @@ Deno.serve(async (req) => {
       if (!clientResult.data) return errorResponse(400, "missing_client", "Client does not exist");
 
       if (metadata.is_active || metadata.config_state === "active") {
-        const simulated = validateCompleteness({ ...metadata, token_secret_id: payload.token_present ? "present" : null }, rowForClient(clientResult.data));
+        const simulated = validateCompleteness({ ...metadata, client_id: metadata.client_id ?? undefined, token_secret_id: payload.token_present ? "present" : null }, rowForClient(clientResult.data));
         if (!simulated.validation_ready) {
           return errorResponse(400, "activation_blocked", "Config is incomplete and cannot be activated", { reasons: simulated.reasons });
         }

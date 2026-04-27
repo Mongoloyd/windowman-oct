@@ -1406,6 +1406,7 @@ export type Database = {
           projected_value_cents: number | null
           quote_status: string | null
           replacement_quote_range: string | null
+          revenue_signal_key: string | null
           route_id: string | null
           signed_contract_url: string | null
           sold_currency: string
@@ -1443,6 +1444,7 @@ export type Database = {
           projected_value_cents?: number | null
           quote_status?: string | null
           replacement_quote_range?: string | null
+          revenue_signal_key?: string | null
           route_id?: string | null
           signed_contract_url?: string | null
           sold_currency?: string
@@ -1480,6 +1482,7 @@ export type Database = {
           projected_value_cents?: number | null
           quote_status?: string | null
           replacement_quote_range?: string | null
+          revenue_signal_key?: string | null
           route_id?: string | null
           signed_contract_url?: string | null
           sold_currency?: string
@@ -4507,6 +4510,7 @@ export type Database = {
           platform_configs: Json
           raw_payload_metadata: Json
           revenue_rollup_target: string
+          revenue_signal_key: string
           revenue_truth_source: string
           scan_session_id: string
           source_system: string
@@ -4535,6 +4539,7 @@ export type Database = {
           outcome_id: string
           outcome_integrity_reasons: string[]
           outcome_integrity_status: string
+          revenue_signal_key: string
           scan_session_id: string
           sold_currency: string
           value_basis: string
@@ -4845,6 +4850,18 @@ export type Database = {
           priority: number
           resolved: boolean
         }[]
+      }
+      revenue_signal_key: {
+        Args: {
+          p_client_slug: string
+          p_contractor_outcome_id: string
+          p_disposition_state: string
+        }
+        Returns: string
+      }
+      revenue_signal_key_from_metadata: {
+        Args: { p_metadata: Json }
+        Returns: string
       }
       unlock_contractor_lead: {
         Args: { p_contractor_id: string; p_lead_id: string }
