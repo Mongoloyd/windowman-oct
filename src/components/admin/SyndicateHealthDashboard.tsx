@@ -87,10 +87,10 @@ export function SyndicateHealthDashboard() {
   });
 
   const summary = summaryQ.data;
-  const syndicates = syndicatesQ.data ?? [];
-  const clients = clientsQ.data ?? [];
-  const contractors = contractorsQ.data ?? [];
-  const actions = actionsQ.data ?? [];
+  const syndicates = (syndicatesQ.data ?? []) as SyndicateHealthRow[];
+  const clients = (clientsQ.data ?? []) as ClientHealthRow[];
+  const contractors = (contractorsQ.data ?? []) as ContractorAccountHealthRow[];
+  const actions = (actionsQ.data ?? []) as OperationalAction[];
   const clientOptions = useMemo(() => Array.from(new Set(clients.map((row) => row.clientSlug))).sort(), [clients]);
   const loading = [summaryQ, syndicatesQ, clientsQ, contractorsQ, actionsQ].some((query) => query.isLoading);
   const error = [summaryQ, syndicatesQ, clientsQ, contractorsQ, actionsQ].find((query) => query.error)?.error;
