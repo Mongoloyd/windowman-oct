@@ -185,7 +185,7 @@ Deno.serve(async (req) => {
       if (clientsResult.error) throw clientsResult.error;
       if (configsResult.error) throw configsResult.error;
 
-      const rows = ((configsResult.data ?? []) as ConfigRow[]).map((row) => {
+      const rows = ((configsResult.data ?? []) as unknown as ConfigRow[]).map((row) => {
         const client = rowForClient(row.clients);
         const readiness = validateCompleteness(row, client);
         return { ...row, clients: client, token_secret_id: row.token_secret_id ? "present" : null, readiness };
@@ -228,7 +228,7 @@ Deno.serve(async (req) => {
       if (!clientResult.data) return errorResponse(400, "missing_client", "Client does not exist");
 
       if (metadata.is_active || metadata.config_state === "active") {
-        const simulated = validateCompleteness({ ...metadata, token_secret_id: payload.token_present ? "present" : null }, rowForClient(clientResult.data));
+        const simulated = validateCompleteness({ ...metadata, client_id: metadata.client_id ?? undefined, token_secret_id: payload.token_present ? "present" : null }, rowForClient(clientResult.data));
         if (!simulated.validation_ready) {
           return errorResponse(400, "activation_blocked", "Config is incomplete and cannot be activated", { reasons: simulated.reasons });
         }
