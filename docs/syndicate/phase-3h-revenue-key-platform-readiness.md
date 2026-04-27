@@ -50,3 +50,7 @@ The frontend service and admin platform config Edge Function both use the same T
 ## Deferred
 
 Prompt 3 remains the next layer: internal dry-run reporting with run IDs, operator IDs, per-client breakdown, and a dashboard fix list.
+
+## Phase 3H-B Repair
+
+Phase 3H-B supersedes the outcome-row key as the active sync contract. New sync and eligibility logic now use `public.revenue_lifecycle_signal_key(...)`, which prioritizes `lead_assignment_id`, then `opportunity_id`, `lead_id`, `scan_session_id`, `analysis_id`, and only falls back to `contractor_outcome_id` as a blocked weak key. See `docs/syndicate/phase-3h-b-lifecycle-revenue-signal-key-repair.md` for the full lifecycle idempotency contract.
