@@ -13,8 +13,11 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import {
+  CRM_WEBHOOK_DRY_RUN_MAPPER_VERSION,
   fetchDispatchDryRunQueue,
+  GENERIC_ENDPOINT_DRY_RUN_MAPPER_VERSION,
   GOOGLE_DRY_RUN_MAPPER_VERSION,
+  GTM_SERVER_DRY_RUN_MAPPER_VERSION,
   META_CAPI_DRY_RUN_MAPPER_VERSION,
   TIKTOK_DRY_RUN_MAPPER_VERSION,
   type DispatchDryRunOrphan,
@@ -193,6 +196,47 @@ function getGoogleDryRunSummary(row: DispatchDryRunRow | null) {
   };
 }
 
+function getEndpointDryRunSummary(row: DispatchDryRunRow | null) {
+  if (!row) return null;
+  const isEndpointPlatform = row.platformName === "gtm_server" || row.platformName === "crm_webhook" || (row.platformName === "other" && row.config.endpointUrlPresent);
+  if (!isEndpointPlatform) return null;
+
+  const payload = row.payload as {
+    gtm_server?: { event_name?: string; client_slug?: string | null };
+    crm_webhook?: { event?: string; client_slug?: string | null };
+    generic_endpoint?: { event?: string; client_slug?: string | null };
+    endpoint?: { endpoint_url_present?: boolean; endpoint_url_valid?: boolean; endpoint_https?: boolean; token_present?: boolean };
+    routing?: { tenant_key?: string | null; destination_type?: string; endpoint_url_present?: boolean; endpoint_url_valid?: boolean; endpoint_https?: boolean; token_present?: boolean };
+    windowman_debug?: {
+      mapper_version?: string;
+      endpoint_readiness?: string;
+      event_id_present?: boolean;
+      event_time_present?: boolean;
+      value_basis?: string;
+      warnings?: string[];
+    };
+  };
+  const endpointShape = payload.endpoint ?? payload.routing;
+  const destinationClass = row.platformName === "gtm_server" ? "GTM Server" : row.platformName === "crm_webhook" ? "CRM/Webhook" : "Generic Endpoint";
+  const fallbackMapperVersion = row.platformName === "gtm_server" ? GTM_SERVER_DRY_RUN_MAPPER_VERSION : row.platformName === "crm_webhook" ? CRM_WEBHOOK_DRY_RUN_MAPPER_VERSION : GENERIC_ENDPOINT_DRY_RUN_MAPPER_VERSION;
+
+  return {
+    destinationClass,
+    eventName: payload.gtm_server?.event_name ?? payload.crm_webhook?.event ?? payload.generic_endpoint?.event ?? "—",
+    endpointUrlPresent: Boolean(endpointShape?.endpoint_url_present),
+    endpointUrlValid: Boolean(endpointShape?.endpoint_url_valid),
+    endpointHttps: Boolean(endpointShape?.endpoint_https),
+    tokenPresent: Boolean(endpointShape?.token_present),
+    mapperVersion: payload.windowman_debug?.mapper_version ?? fallbackMapperVersion,
+    endpointReadiness: payload.windowman_debug?.endpoint_readiness ?? "blocked",
+    eventIdPresent: Boolean(payload.windowman_debug?.event_id_present),
+    eventTimePresent: Boolean(payload.windowman_debug?.event_time_present),
+    tenantKey: payload.routing?.tenant_key ?? payload.gtm_server?.client_slug ?? payload.crm_webhook?.client_slug ?? payload.generic_endpoint?.client_slug ?? row.clientSlug ?? "—",
+    warningCount: payload.windowman_debug?.warnings?.length ?? row.reasons.filter((reason) => reason.startsWith("endpoint_")).length,
+    valueSource: payload.windowman_debug?.value_basis ?? "gross_sale_value",
+  };
+}
+
 export function DispatchDryRunQueue() {
   const [selected, setSelected] = useState<DetailSelection>(null);
   const [platform, setPlatform] = useState<typeof PLATFORM_OPTIONS[number]>("all");
@@ -266,6 +310,7 @@ export function DispatchDryRunQueue() {
   const tiktokSummary = getTikTokDryRunSummary(detailRow);
   const metaSummary = getMetaDryRunSummary(detailRow);
   const googleSummary = getGoogleDryRunSummary(detailRow);
+  const endpointSummary = getEndpointDryRunSummary(detailRow);
 
   return (
     <div className="space-y-5">
@@ -367,6 +412,7 @@ export function DispatchDryRunQueue() {
               {detailRow ? <section className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm"><h4 className="mb-3 text-sm font-black uppercase text-slate-950">Resolved Platform Config</h4><div className="grid gap-2 text-sm font-semibold text-slate-800 sm:grid-cols-2"><div>platform: <span className="font-black text-slate-950">{detailRow.platformName}</span></div><div>config_id: <span className="font-mono font-black text-slate-950">{maskConfigId(detailRow.config.id)}</span></div><div>token_present: <span className="font-black text-slate-950">{String(detailRow.tokenPresent)}</span></div><div>destination: <span className="font-black text-slate-950">{detailRow.config.destinationSummary}</span></div></div><div className="mt-3 flex flex-wrap gap-2"><PresencePill label="pixel" present={detailRow.config.pixelIdPresent} /><PresencePill label="dataset" present={detailRow.config.datasetIdPresent} /><PresencePill label="conversion id" present={detailRow.config.conversionIdPresent} /><PresencePill label="conversion label" present={detailRow.config.conversionLabelPresent} /><PresencePill label="endpoint" present={detailRow.config.endpointUrlPresent} /></div></section> : null}
               {metaSummary ? <section className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm"><h4 className="mb-3 text-sm font-black uppercase text-slate-950">Meta CAPI Dry-Run Mapping</h4><div className="grid gap-2 text-sm font-semibold text-slate-800 sm:grid-cols-2"><div>Meta event name: <span className="font-black text-slate-950">{metaSummary.eventName}</span></div><div>pixel/dataset present: <span className="font-black text-slate-950">{String(metaSummary.destinationIdPresent)}</span></div><div>destination type: <span className="font-black text-slate-950">{metaSummary.destinationType}</span></div><div>mapper version: <span className="font-mono font-black text-slate-950">{metaSummary.mapperVersion}</span></div><div>match input quality: <span className="font-black text-slate-950">{metaSummary.matchInputQuality}</span></div><div>dedup event ID present: <span className="font-black text-slate-950">{String(metaSummary.deduplicationEventIdPresent)}</span></div><div>dedup source: <span className="font-black text-slate-950">{metaSummary.deduplicationSource}</span></div><div>warning count: <span className="font-black text-slate-950">{metaSummary.warningCount}</span></div><div>value source: <span className="font-black text-slate-950">{metaSummary.valueSource}</span></div></div><div className="mt-3 rounded-xl border border-blue-300 bg-blue-50 p-3 text-sm font-black text-blue-950">This is a dry-run approximation. No Meta CAPI request was sent.</div></section> : null}
               {googleSummary ? <section className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm"><h4 className="mb-3 text-sm font-black uppercase text-slate-950">Google Ads / GA4 Dry-Run Mapping</h4><div className="grid gap-2 text-sm font-semibold text-slate-800 sm:grid-cols-2"><div>Google event name: <span className="font-black text-slate-950">{googleSummary.eventName}</span></div><div>conversion destination present: <span className="font-black text-slate-950">{String(googleSummary.destinationPresent)}</span></div><div>destination type: <span className="font-black text-slate-950">{googleSummary.destinationType}</span></div><div>destination strength: <span className="font-black text-slate-950">{googleSummary.destinationStrength}</span></div><div>mapper version: <span className="font-mono font-black text-slate-950">{googleSummary.mapperVersion}</span></div><div>attribution quality: <span className="font-black text-slate-950">{googleSummary.attributionQuality}</span></div><div>event ID present: <span className="font-black text-slate-950">{String(googleSummary.eventIdPresent)}</span></div><div>warning count: <span className="font-black text-slate-950">{googleSummary.warningCount}</span></div><div>value source: <span className="font-black text-slate-950">{googleSummary.valueSource}</span></div></div><div className="mt-3 flex flex-wrap gap-2"><PresencePill label="gclid" present={googleSummary.gclidPresent} /><PresencePill label="gbraid" present={googleSummary.gbraidPresent} /><PresencePill label="wbraid" present={googleSummary.wbraidPresent} /></div><div className="mt-3 rounded-xl border border-blue-300 bg-blue-50 p-3 text-sm font-black text-blue-950">This is a dry-run approximation. No Google Ads or GA4 request was sent.</div></section> : null}
+              {endpointSummary ? <section className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm"><h4 className="mb-3 text-sm font-black uppercase text-slate-950">Endpoint Dry-Run Mapping</h4><div className="grid gap-2 text-sm font-semibold text-slate-800 sm:grid-cols-2"><div>destination class: <span className="font-black text-slate-950">{endpointSummary.destinationClass}</span></div><div>endpoint event: <span className="font-black text-slate-950">{endpointSummary.eventName}</span></div><div>endpoint URL present: <span className="font-black text-slate-950">{String(endpointSummary.endpointUrlPresent)}</span></div><div>endpoint URL valid: <span className="font-black text-slate-950">{String(endpointSummary.endpointUrlValid)}</span></div><div>HTTPS: <span className="font-black text-slate-950">{String(endpointSummary.endpointHttps)}</span></div><div>token present: <span className="font-black text-slate-950">{String(endpointSummary.tokenPresent)}</span></div><div>mapper version: <span className="font-mono font-black text-slate-950">{endpointSummary.mapperVersion}</span></div><div>endpoint readiness: <span className="font-black text-slate-950">{endpointSummary.endpointReadiness}</span></div><div>event ID present: <span className="font-black text-slate-950">{String(endpointSummary.eventIdPresent)}</span></div><div>event time present: <span className="font-black text-slate-950">{String(endpointSummary.eventTimePresent)}</span></div><div>tenant/client_slug proof: <span className="font-black text-slate-950">{endpointSummary.tenantKey}</span></div><div>warning count: <span className="font-black text-slate-950">{endpointSummary.warningCount}</span></div><div>value source: <span className="font-black text-slate-950">{endpointSummary.valueSource}</span></div></div><div className="mt-3 flex flex-wrap gap-2"><PresencePill label="endpoint URL" present={endpointSummary.endpointUrlPresent} /><PresencePill label="valid URL syntax" present={endpointSummary.endpointUrlValid} /><PresencePill label="HTTPS" present={endpointSummary.endpointHttps} /><PresencePill label="event ID" present={endpointSummary.eventIdPresent} /><PresencePill label="event time" present={endpointSummary.eventTimePresent} /><PresencePill label="token" present={endpointSummary.tokenPresent} /></div><div className="mt-3 rounded-xl border border-blue-300 bg-blue-50 p-3 text-sm font-black text-blue-950">This is a dry-run approximation. No GTM Server, CRM, or webhook request was sent.</div></section> : null}
               {tiktokSummary ? <section className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm"><h4 className="mb-3 text-sm font-black uppercase text-slate-950">TikTok Dry-Run Mapping</h4><div className="grid gap-2 text-sm font-semibold text-slate-800 sm:grid-cols-2"><div>TikTok event name: <span className="font-black text-slate-950">{tiktokSummary.eventName}</span></div><div>event_source_id present: <span className="font-black text-slate-950">{String(tiktokSummary.eventSourceIdPresent)}</span></div><div>mapper version: <span className="font-mono font-black text-slate-950">{tiktokSummary.mapperVersion}</span></div><div>match quality: <span className="font-black text-slate-950">{tiktokSummary.matchQuality}</span></div><div>warning count: <span className="font-black text-slate-950">{tiktokSummary.warningCount}</span></div><div>value source: <span className="font-black text-slate-950">{tiktokSummary.valueSource}</span></div></div><div className="mt-3 rounded-xl border border-blue-300 bg-blue-50 p-3 text-sm font-black text-blue-950">Dry-run approximation only. No TikTok Events API request was sent.</div></section> : null}
               {detailRow ? <section className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm"><h4 className="mb-3 text-sm font-black uppercase text-slate-950">Simulated Outbound JSON Payload</h4><JsonBlock value={detailRow.payload} /></section> : <section className="rounded-2xl border border-rose-300 bg-rose-50 p-4 shadow-sm"><h4 className="mb-3 text-sm font-black uppercase text-rose-950">Blocked Simulation</h4><p className="text-sm font-bold text-rose-950">No outbound payload was generated for this canonical event because it is orphaned or blocked.</p></section>}
               <section className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm"><h4 className="mb-3 text-sm font-black uppercase text-slate-950">Routing Proof</h4><div className="space-y-2 text-sm font-semibold text-slate-800"><div>{detailRow ? "1 canonical event → this platform row" : "1 canonical event → no platform rows"}</div><div>readiness: <span className="font-black text-slate-950">{detailCanonical.status}</span></div><div>dry-run status: <span className="font-black text-slate-950">{detailRow?.simulatedStatus ?? "not_simulated"}</span></div><div>reason codes: <span className="font-mono text-xs font-black text-slate-950">{(detailRow?.reasons ?? detailOrphan?.reasons ?? []).join(", ") || "payload_draft_ready"}</span></div><div className="rounded-xl border border-blue-300 bg-blue-50 p-3 font-black text-blue-950">Dry-run disclaimer: no dispatch queue write, no platform API call, no token exposure, and no wm_event_log mutation occurred.</div></div></section>

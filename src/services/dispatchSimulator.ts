@@ -60,15 +60,29 @@ export type DryRunReasonCode =
   | "google_using_gross_value_proxy"
   | "google_payload_draft_only"
   | "google_attribution_quality_weak"
+  | "endpoint_missing_url"
+  | "endpoint_invalid_url"
+  | "endpoint_non_https_url_warning"
+  | "endpoint_missing_token_warning"
+  | "endpoint_missing_event_id"
+  | "endpoint_missing_value"
+  | "endpoint_event_time_missing"
+  | "endpoint_using_gross_value_proxy"
+  | "endpoint_payload_draft_only"
+  | "endpoint_weak_attribution_warning"
   | "payload_draft_ready";
 
 export type TikTokMatchQuality = "strong" | "medium" | "weak" | "missing";
 export type MetaMatchInputQuality = "strong" | "medium" | "weak" | "missing";
 export type GoogleAttributionQuality = "strong" | "medium" | "weak" | "missing";
+export type EndpointReadiness = "ready" | "warning" | "blocked";
 
 export const TIKTOK_DRY_RUN_MAPPER_VERSION = "tiktok-dry-run-v1";
 export const META_CAPI_DRY_RUN_MAPPER_VERSION = "meta-capi-dry-run-v1";
 export const GOOGLE_DRY_RUN_MAPPER_VERSION = "google-ads-ga4-dry-run-v1";
+export const GTM_SERVER_DRY_RUN_MAPPER_VERSION = "gtm-server-dry-run-v1";
+export const CRM_WEBHOOK_DRY_RUN_MAPPER_VERSION = "crm-webhook-dry-run-v1";
+export const GENERIC_ENDPOINT_DRY_RUN_MAPPER_VERSION = "generic-endpoint-dry-run-v1";
 
 export interface DispatchDryRunConfigSummary {
   id: string;
@@ -157,9 +171,15 @@ const HARD_ROW_REASONS: DryRunReasonCode[] = [
   "google_missing_event_id",
   "google_missing_value",
   "google_event_time_missing",
+  "endpoint_missing_url",
+  "endpoint_invalid_url",
+  "endpoint_missing_event_id",
+  "endpoint_missing_value",
+  "endpoint_event_time_missing",
 ];
 
 const GOOGLE_PLATFORM_NAMES = new Set(["google", "google_ads", "ga4"]);
+const ENDPOINT_PLATFORM_NAMES = new Set(["gtm_server", "crm_webhook"]);
 
 function hasText(value: string | null | undefined) {
   return Boolean(value && value.trim());
@@ -180,8 +200,14 @@ function destinationSummary(config: PlatformConfigRow): string {
   if (platform === "meta") return config.pixel_id ? `Pixel ${maskId(config.pixel_id)}` : config.dataset_id ? `Dataset ${maskId(config.dataset_id)}` : "Meta destination missing";
   if (platform === "tiktok") return config.pixel_id ? `Pixel ${maskId(config.pixel_id)}` : config.dataset_id ? `Dataset ${maskId(config.dataset_id)}` : "TikTok destination missing";
   if (GOOGLE_PLATFORM_NAMES.has(platform)) return googleDestination(config).id ? `${googleDestination(config).type} ${maskId(googleDestination(config).id)}` : "Google destination missing";
-  if (platform === "gtm_server" || platform === "crm_webhook") return config.endpoint_url ? "Endpoint present" : "Endpoint missing";
+  if (platform === "gtm_server") return config.endpoint_url ? "GTM endpoint present" : "GTM endpoint missing";
+  if (platform === "crm_webhook") return config.endpoint_url ? "CRM webhook endpoint present" : "CRM webhook endpoint missing";
+  if (platform === "other" && config.endpoint_url) return "Generic endpoint present";
   return "Generic destination";
+}
+
+function isEndpointBackedPlatform(config: PlatformConfigRow): boolean {
+  return ENDPOINT_PLATFORM_NAMES.has(config.platform_name) || (config.platform_name === "other" && hasText(config.endpoint_url));
 }
 
 function configSummary(config: PlatformConfigRow): DispatchDryRunConfigSummary {
@@ -206,7 +232,6 @@ function addConfigReasons(config: PlatformConfigRow, reasons: Set<DryRunReasonCo
   const platform = config.platform_name;
   if (platformRequiresToken(platform) && !config.token_secret_id) addReason(reasons, "token_missing");
   if ((platform === "meta" || platform === "tiktok") && !hasText(config.pixel_id) && !hasText(config.dataset_id)) addReason(reasons, "required_destination_id_missing");
-  if ((platform === "gtm_server" || platform === "crm_webhook") && !hasText(config.endpoint_url)) addReason(reasons, "required_destination_id_missing");
 }
 
 function baseReasons(row: RevenueReadinessRow): Set<DryRunReasonCode> {
@@ -353,6 +378,93 @@ function addGoogleReasons(row: RevenueReadinessRow, config: PlatformConfigRow, r
   if (row.reasons.includes("gross_value_used_not_true_margin")) addReason(reasons, "google_using_gross_value_proxy");
   if (attributionQuality === "weak" || attributionQuality === "missing") addReason(reasons, "google_attribution_quality_weak");
   addReason(reasons, "google_payload_draft_only");
+}
+
+function endpointUrlShape(config: PlatformConfigRow): { present: boolean; valid: boolean; https: boolean } {
+  if (!hasText(config.endpoint_url)) return { present: false, valid: false, https: false };
+
+  try {
+    const parsed = new URL(config.endpoint_url);
+    return {
+      present: true,
+      valid: parsed.protocol === "http:" || parsed.protocol === "https:",
+      https: parsed.protocol === "https:",
+    };
+  } catch {
+    return { present: true, valid: false, https: false };
+  }
+}
+
+function endpointReadiness(row: RevenueReadinessRow, config: PlatformConfigRow): EndpointReadiness {
+  const url = endpointUrlShape(config);
+  const eventTime = unixSeconds(row.timestamp ?? row.createdAt);
+
+  if (!url.present || !url.valid || !row.eventId || !row.valueUsd || row.valueUsd <= 0 || !eventTime) return "blocked";
+  if (!url.https || !config.token_secret_id || row.attributionStrength === "weak" || row.reasons.includes("gross_value_used_not_true_margin")) return "warning";
+  return "ready";
+}
+
+function addEndpointReasons(row: RevenueReadinessRow, config: PlatformConfigRow, reasons: Set<DryRunReasonCode>) {
+  const url = endpointUrlShape(config);
+
+  if (!url.present) addReason(reasons, "endpoint_missing_url");
+  if (url.present && !url.valid) addReason(reasons, "endpoint_invalid_url");
+  if (url.present && url.valid && !url.https) addReason(reasons, "endpoint_non_https_url_warning");
+  if (!config.token_secret_id) addReason(reasons, "endpoint_missing_token_warning");
+  if (!row.eventId) addReason(reasons, "endpoint_missing_event_id");
+  if (!row.valueUsd || row.valueUsd <= 0) addReason(reasons, "endpoint_missing_value");
+  if (!unixSeconds(row.timestamp ?? row.createdAt)) addReason(reasons, "endpoint_event_time_missing");
+  if (row.reasons.includes("gross_value_used_not_true_margin")) addReason(reasons, "endpoint_using_gross_value_proxy");
+  if (row.attributionStrength === "weak") addReason(reasons, "endpoint_weak_attribution_warning");
+  addReason(reasons, "endpoint_payload_draft_only");
+}
+
+function endpointDestinationShape(config: PlatformConfigRow) {
+  const url = endpointUrlShape(config);
+  return {
+    endpoint_url_present: url.present,
+    endpoint_url_valid: url.valid,
+    endpoint_https: url.https,
+    token_present: Boolean(config.token_secret_id),
+  };
+}
+
+function endpointDebug(row: RevenueReadinessRow, config: PlatformConfigRow, mapperVersion: string) {
+  const warnings = new Set<DryRunReasonCode>();
+  addEndpointReasons(row, config, warnings);
+  return {
+    canonical_event_row_id: maskId(row.id),
+    platform_config_id: maskConfigId(config.id),
+    mapper_version: mapperVersion,
+    endpoint_readiness: endpointReadiness(row, config),
+    event_id_present: Boolean(row.eventId),
+    event_id_source: "canonical_event_id",
+    event_time_present: Boolean(unixSeconds(row.timestamp ?? row.createdAt)),
+    value_basis: row.payloadIntegrity.optimizationValueBasis ?? "gross_sale_value",
+    true_margin_available: row.payloadIntegrity.trueMarginAvailable === true,
+    warnings: Array.from(warnings),
+  };
+}
+
+function attributionPresenceSnapshot(row: RevenueReadinessRow) {
+  return {
+    fbc_present: presence(row, "fbc"),
+    fbp_present: presence(row, "fbp"),
+    ttclid_present: presence(row, "ttclid"),
+    ttp_present: presence(row, "ttp"),
+    gclid_present: presence(row, "gclid"),
+    gbraid_present: presence(row, "gbraid"),
+    wbraid_present: presence(row, "wbraid"),
+  };
+}
+
+function userIdentityPresenceSnapshot(row: RevenueReadinessRow) {
+  return {
+    external_id_present: Boolean(row.leadId),
+    lead_id_present: Boolean(row.leadId),
+    email_hash_present: false,
+    phone_hash_present: false,
+  };
 }
 
 function buildMetaPayload(row: RevenueReadinessRow, config: PlatformConfigRow) {
@@ -513,34 +625,72 @@ function buildGooglePayload(row: RevenueReadinessRow, config: PlatformConfigRow)
   };
 }
 
-function buildGtmPayload(row: RevenueReadinessRow) {
+function buildGtmPayload(row: RevenueReadinessRow, config: PlatformConfigRow) {
   return {
-    event_name: "purchase",
-    event_id: row.eventId,
-    client_slug: row.clientSlug,
-    value: row.valueUsd,
-    currency: "USD",
-    attribution_presence: row.attributionPresence,
+    event_type: "gtm_server_dry_run",
+    gtm_server: {
+      event_name: "purchase",
+      event_id: row.eventId ? maskId(row.eventId) : null,
+      client_slug: row.clientSlug,
+      value: row.valueUsd,
+      currency: "USD",
+      source: "windowman",
+      attribution_presence: attributionPresenceSnapshot(row),
+      user_identity_presence: userIdentityPresenceSnapshot(row),
+    },
+    endpoint: endpointDestinationShape(config),
     dry_run: true,
+    windowman_debug: endpointDebug(row, config, GTM_SERVER_DRY_RUN_MAPPER_VERSION),
   };
 }
 
-function buildCrmPayload(row: RevenueReadinessRow) {
+function buildCrmPayload(row: RevenueReadinessRow, config: PlatformConfigRow) {
   return {
-    event_type: "sold",
-    event_id: row.eventId,
-    lead_id: row.leadId ? maskId(row.leadId) : null,
-    client_slug: row.clientSlug,
-    value_usd: row.valueUsd,
-    source: "windowman",
+    event_type: "crm_webhook_dry_run",
+    crm_webhook: {
+      event: "sold_closed",
+      event_id: row.eventId ? maskId(row.eventId) : null,
+      lead_id: row.leadId ? maskId(row.leadId) : null,
+      client_slug: row.clientSlug,
+      value_usd: row.valueUsd,
+      currency: "USD",
+      source: "windowman",
+      status: "sold_closed",
+      occurred_at_present: Boolean(unixSeconds(row.timestamp ?? row.createdAt)),
+      contractor_outcome_present: false,
+      opportunity_present: false,
+    },
+    routing: {
+      tenant_key: row.clientSlug,
+      destination_type: "crm_webhook",
+      ...endpointDestinationShape(config),
+    },
     dry_run: true,
+    windowman_debug: endpointDebug(row, config, CRM_WEBHOOK_DRY_RUN_MAPPER_VERSION),
+  };
+}
+
+function buildGenericEndpointPayload(row: RevenueReadinessRow, config: PlatformConfigRow) {
+  return {
+    event_type: "generic_endpoint_dry_run",
+    generic_endpoint: {
+      event: "sold_event",
+      event_id: row.eventId ? maskId(row.eventId) : null,
+      client_slug: row.clientSlug,
+      value_usd: row.valueUsd,
+      currency: "USD",
+      source: "windowman",
+    },
+    endpoint: endpointDestinationShape(config),
+    dry_run: true,
+    windowman_debug: endpointDebug(row, config, GENERIC_ENDPOINT_DRY_RUN_MAPPER_VERSION),
   };
 }
 
 function buildGenericPayload(row: RevenueReadinessRow) {
   return {
     event_name: row.eventName,
-    event_id: row.eventId,
+    event_id: row.eventId ? maskId(row.eventId) : null,
     client_slug: row.clientSlug,
     value_usd: row.valueUsd,
     dry_run: true,
@@ -556,9 +706,11 @@ function buildPayload(row: RevenueReadinessRow, config: PlatformConfigRow): Reco
     case "tiktok":
       return buildTikTokPayload(row, config);
     case "gtm_server":
-      return buildGtmPayload(row);
+      return buildGtmPayload(row, config);
     case "crm_webhook":
-      return buildCrmPayload(row);
+      return buildCrmPayload(row, config);
+    case "other":
+      return hasText(config.endpoint_url) ? buildGenericEndpointPayload(row, config) : buildGenericPayload(row);
     default:
       return buildGenericPayload(row);
   }
@@ -568,10 +720,13 @@ function suggestedFix(reasons: DryRunReasonCode[]) {
   if (reasons.includes("missing_client_slug")) return "Backfill client_slug on the canonical event, lead, or scan session.";
   if (reasons.includes("tenant_not_resolved")) return "Create or activate the matching client record for this client_slug.";
   if (reasons.includes("no_active_platform_config")) return "Create an active Platform Config for this client.";
+  if (reasons.includes("endpoint_missing_url")) return "Add an endpoint URL to the active Platform Config before endpoint dispatch can be considered.";
+  if (reasons.includes("endpoint_invalid_url")) return "Fix the endpoint URL syntax in Platform Configs. This check is local-only and does not call the endpoint.";
   if (reasons.includes("required_destination_id_missing")) return "Add the required pixel, dataset, conversion, or endpoint identifier.";
   if (reasons.includes("token_missing")) return "Rotate/set the destination token in Platform Configs.";
-  if (reasons.includes("missing_value")) return "Attach final sale value or optimization value metadata.";
-  if (reasons.includes("missing_event_id")) return "Backfill deterministic canonical event_id before dispatch.";
+  if (reasons.includes("missing_value") || reasons.includes("endpoint_missing_value")) return "Attach final sale value or optimization value metadata.";
+  if (reasons.includes("missing_event_id") || reasons.includes("endpoint_missing_event_id")) return "Backfill deterministic canonical event_id before dispatch.";
+  if (reasons.includes("endpoint_event_time_missing")) return "Backfill canonical event timestamp before endpoint dispatch can be considered.";
   if (reasons.includes("malformed_payload")) return "Repair canonical payload shape before simulation.";
   return "Review readiness warnings before enabling live dispatch.";
 }
@@ -626,6 +781,8 @@ export async function fetchDispatchDryRunQueue(): Promise<DispatchDryRunResult> 
         addTikTokReasons(event, config, reasons);
       } else if (GOOGLE_PLATFORM_NAMES.has(config.platform_name)) {
         addGoogleReasons(event, config, reasons);
+      } else if (isEndpointBackedPlatform(config)) {
+        addEndpointReasons(event, config, reasons);
       } else {
         addReason(reasons, "platform_mapper_basic");
       }
@@ -667,7 +824,7 @@ export async function fetchDispatchDryRunQueue(): Promise<DispatchDryRunResult> 
       metaDispatches: rows.filter((row) => row.platformName === "meta").length,
       tiktokDispatches: rows.filter((row) => row.platformName === "tiktok").length,
       googleDispatches: rows.filter((row) => GOOGLE_PLATFORM_NAMES.has(row.platformName)).length,
-      gtmWebhookDispatches: rows.filter((row) => ["gtm_server", "crm_webhook"].includes(row.platformName)).length,
+      gtmWebhookDispatches: rows.filter((row) => ["gtm_server", "crm_webhook"].includes(row.platformName) || (row.platformName === "other" && row.config.endpointUrlPresent)).length,
       orphanedNoActiveConfig: orphans.filter((row) => row.reasons.includes("no_active_platform_config")).length,
     },
   };
