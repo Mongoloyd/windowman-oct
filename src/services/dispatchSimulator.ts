@@ -242,6 +242,15 @@ function metaDestination(config: PlatformConfigRow): { id: string | null; type: 
   return { id: null, type: "missing" };
 }
 
+function googleDestination(config: PlatformConfigRow): { id: string | null; type: "conversion_id" | "conversion_label" | "dataset_id" | "pixel_id" | "missing"; strength: "strong" | "acceptable" | "fallback" | "missing" } {
+  if (hasText(config.conversion_id) && hasText(config.conversion_label)) return { id: config.conversion_id, type: "conversion_id", strength: "strong" };
+  if (hasText(config.conversion_id)) return { id: config.conversion_id, type: "conversion_id", strength: "acceptable" };
+  if (hasText(config.conversion_label)) return { id: config.conversion_label, type: "conversion_label", strength: "acceptable" };
+  if (hasText(config.dataset_id)) return { id: config.dataset_id, type: "dataset_id", strength: "fallback" };
+  if (hasText(config.pixel_id)) return { id: config.pixel_id, type: "pixel_id", strength: "fallback" };
+  return { id: null, type: "missing", strength: "missing" };
+}
+
 function metaMatchInputQuality(row: RevenueReadinessRow): MetaMatchInputQuality {
   const externalId = Boolean(row.leadId);
   const hasFbc = presence(row, "fbc");
