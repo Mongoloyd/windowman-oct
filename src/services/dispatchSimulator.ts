@@ -306,25 +306,6 @@ function buildTikTokPayload(row: RevenueReadinessRow, config: PlatformConfigRow)
     },
   };
 }
-        external_id_present: Boolean(row.leadId),
-        ttclid_present: presence(row, "ttclid"),
-        ttp_present: presence(row, "ttp"),
-        ip_present: false,
-        user_agent_present: false,
-      },
-    },
-    properties: {
-      value: row.valueUsd,
-      currency: "USD",
-      description: "WindowMan sold lead",
-    },
-    windowman_debug: {
-      platform_config_id: maskConfigId(config.id),
-      mapper: "tiktok-basic-draft-simulation",
-    },
-    dry_run: true,
-  };
-}
 
 function buildGooglePayload(row: RevenueReadinessRow, config: PlatformConfigRow) {
   return {
