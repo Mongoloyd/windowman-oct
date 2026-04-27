@@ -492,7 +492,18 @@ Deno.serve(async (req) => {
             },
             rawPayload: { opportunity_id, contractor_id: contractorId },
           },
-          { db: svc },
+          // The real `SupabaseClient` is structurally compatible with the
+          // narrower `DBLike` contract `createCanonicalEvent` declares
+          // internally, but TS cannot prove it through Promise return-type
+          // variance on the Postgrest builder. Cast through unknown using
+          // `Parameters<typeof createCanonicalEvent>[1]["db"]` so we stay
+          // type-safe against the real contract instead of widening to
+          // `any`. Same idiom is used in `dispatch-platform-events`.
+          {
+            db: svc as unknown as Parameters<
+              typeof createCanonicalEvent
+            >[1]["db"],
+          },
         );
       } catch (eventErr) {
         // Structured, PII-free error log so on-call can correlate this
