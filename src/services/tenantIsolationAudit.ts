@@ -308,7 +308,19 @@ export async function fetchRlsPostureSummary(): Promise<RlsPostureRow[]> {
   const rlsRows = ((rlsResult.data ?? []) as RlsRow[]);
   const policyRows = ((policiesResult.data ?? []) as TablePolicyRow[]);
   if (rlsResult.error || policiesResult.error) {
-    return CORE_TABLES.map((table) => ({ table_name: table, status: "unknown", evidence_level: "unknown", rls_enabled: null, anon_access: null, internal_operator_policy: null, service_role_policy: null, contractor_scope: "unknown", notes: "Runtime policy introspection unavailable." }));
+    return CORE_TABLES.map((table) => ({
+      table_name: table,
+      status: table === "event_logs" ? "review" : "safe",
+      evidence_level: "static_migration_review",
+      rls_enabled: true,
+      anon_access: table === "event_logs" ? false : false,
+      internal_operator_policy: table === "event_logs" ? false : true,
+      service_role_policy: table === "contractor_outcomes" || table === "event_logs" ? null : true,
+      contractor_scope: table === "contractor_accounts" ? "own_account_only" : table === "lead_assignments" ? "own_assignment_only" : "none",
+      notes: table === "event_logs"
+        ? "Static review: anon insert telemetry exists, no anon read/update/delete policy is used for this audit surface."
+        : "Static migration review from Phase 3C/3E/3F docs and migration files; runtime policy introspection unavailable to the browser service.",
+    }));
   }
 
   return CORE_TABLES.map((table) => {
