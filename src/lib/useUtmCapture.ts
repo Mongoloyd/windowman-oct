@@ -1,27 +1,22 @@
 /**
- * useUtmCapture.ts — Dynamic attribution capture & persistence
+ * useUtmCapture.ts — Dynamic, platform-agnostic attribution capture
  *
  * Captures on page load from URL:
- * - utm_source, utm_medium, utm_campaign, utm_term, utm_content
- * - fbclid (Facebook Click ID, used to derive fbc when present)
- * - gclid (Google Click ID)
- * - client (WindowMan client slug from URL)
+ * - Standard UTMs
+ * - Platform click IDs: ttclid, fbclid, gclid, wbraid, gbraid, msclkid
+ * - Multi-tenant routing slug: client_slug/client/partner/syndicate
+ * - Full raw query string and normalized query param JSON
  *
- * Captures from cookies (passively seeded by Meta Pixel / GTM):
- * - _fbp (Facebook browser ID — required for CAPI match quality)
- * - _fbc (Facebook click ID cookie — used when no ?fbclid is present
- *         in the URL but the user landed from a prior Meta-attributed session)
+ * Captures from cookies passively seeded by pixels / GTM:
+ * - _fbp, _fbc for Meta CAPI match quality
+ * - _ttp for TikTok Events API match quality when available
  *
- * Persists to localStorage so attribution survives:
- * - SPA navigation
- * - Multi-step funnel completion
- * - Page refresh during OTP flow
+ * Persists to localStorage so attribution survives SPA navigation, refreshes,
+ * upload/scan flow transitions, and OTP verification.
  *
- * NOTE: Adding `fbp` to the captured payload does NOT change tracking
- * architecture or introduce browser-side conversion sends. It only ensures
- * the `leads.fbp` column (already in schema) is actually populated when
- * the existing intake forms write attribution. Without this, every
- * downstream server-side CAPI dispatch loses match quality.
+ * Frontend code should call getAttributionPayload() at submit time instead of
+ * relying on hook state captured during render. That prevents stale state
+ * closures from losing late-arriving cookies or URL updates.
  */
 
 import { useEffect, useState } from "react";
@@ -29,19 +24,56 @@ import { useEffect, useState } from "react";
 const UTM_STORAGE_KEY = "wm_utm_data";
 const UTM_EXPIRY_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
+const UTM_KEYS = [
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_term",
+  "utm_content",
+] as const;
+
+const CLICK_ID_KEYS = [
+  "ttclid",
+  "fbclid",
+  "gclid",
+  "wbraid",
+  "gbraid",
+  "msclkid",
+] as const;
+
+const CLIENT_SLUG_KEYS = [
+  "client_slug",
+  "client",
+  "partner",
+  "syndicate",
+] as const;
+
+type QueryParams = Record<string, string | string[]>;
+
 export interface UtmData {
   utm_source: string | null;
   utm_medium: string | null;
   utm_campaign: string | null;
   utm_term: string | null;
   utm_content: string | null;
+
+  ttclid: string | null;
   fbclid: string | null;
   gclid: string | null;
+  wbraid: string | null;
+  gbraid: string | null;
+  msclkid: string | null;
+
   fbc: string | null;
   fbp: string | null;
-  client_slug: string | null;
+  ttp: string | null;
+
+  client_slug: string;
   landing_page: string | null;
   landing_page_url: string | null;
+  raw_query_string: string | null;
+  query_params: QueryParams;
+  referrer: string | null;
   captured_at: number;
 }
 
@@ -51,24 +83,37 @@ const EMPTY_UTM: UtmData = {
   utm_campaign: null,
   utm_term: null,
   utm_content: null,
+
+  ttclid: null,
   fbclid: null,
   gclid: null,
+  wbraid: null,
+  gbraid: null,
+  msclkid: null,
+
   fbc: null,
   fbp: null,
-  client_slug: null,
+  ttp: null,
+
+  client_slug: "direct",
   landing_page: null,
   landing_page_url: null,
+  raw_query_string: null,
+  query_params: {},
+  referrer: null,
   captured_at: 0,
 };
 
 /**
  * Read a cookie value by name. Returns null if absent or in a non-browser
- * context. Decodes URL-encoded values (Meta writes `_fbc` as encoded).
+ * context. Decodes URL-encoded values where possible.
  */
 function readCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
+
   const target = `${name}=`;
   const parts = document.cookie ? document.cookie.split("; ") : [];
+
   for (const part of parts) {
     if (part.startsWith(target)) {
       const raw = part.slice(target.length);
@@ -79,155 +124,182 @@ function readCookie(name: string): string | null {
       }
     }
   }
+
   return null;
+}
+
+function firstNonEmptyParam(
+  params: URLSearchParams,
+  keys: readonly string[],
+): string | null {
+  for (const key of keys) {
+    const value = params.get(key)?.trim();
+    if (value) return value;
+  }
+
+  return null;
+}
+
+function hasAttributionParams(params: URLSearchParams): boolean {
+  return [...UTM_KEYS, ...CLICK_ID_KEYS, ...CLIENT_SLUG_KEYS].some((key) =>
+    params.has(key),
+  );
+}
+
+/**
+ * Normalizes the full URL query string into JSON-safe key/value pairs.
+ * Repeated params are preserved as arrays instead of silently overwriting.
+ */
+export function normalizeQueryParams(params: URLSearchParams): QueryParams {
+  const normalized: QueryParams = {};
+
+  for (const [key, value] of params.entries()) {
+    const existing = normalized[key];
+
+    if (existing === undefined) {
+      normalized[key] = value;
+    } else if (Array.isArray(existing)) {
+      existing.push(value);
+    } else {
+      normalized[key] = [existing, value];
+    }
+  }
+
+  return normalized;
+}
+
+function persistUtmData(data: UtmData): void {
+  if (typeof window === "undefined") return;
+
+  try {
+    localStorage.setItem(UTM_STORAGE_KEY, JSON.stringify(data));
+  } catch {
+    // Attribution must never block the funnel.
+  }
+}
+
+function withFreshCookies(data: Partial<UtmData>): UtmData {
+  return {
+    ...EMPTY_UTM,
+    ...data,
+    client_slug: data.client_slug || "direct",
+    fbp: readCookie("_fbp") || data.fbp || null,
+    fbc: readCookie("_fbc") || data.fbc || null,
+    ttp: readCookie("_ttp") || data.ttp || null,
+  };
 }
 
 export function getUtmData(): UtmData {
   if (typeof window === "undefined") return EMPTY_UTM;
 
-  // Always re-read fbp/fbc cookies on access — they may have been
-  // seeded AFTER the last localStorage write (e.g., Pixel script loaded
-  // late, or GTM consent granted mid-session).
-  const fbpCookie = readCookie("_fbp");
-  const fbcCookie = readCookie("_fbc");
-
   try {
     const stored = localStorage.getItem(UTM_STORAGE_KEY);
+
     if (stored) {
       const parsed = JSON.parse(stored) as Partial<UtmData>;
+
       if (
         typeof parsed.captured_at === "number" &&
         Date.now() - parsed.captured_at < UTM_EXPIRY_MS
       ) {
-        return {
-          ...EMPTY_UTM,
-          ...parsed,
-          // Cookie values always win over stale localStorage copies.
-          fbp: fbpCookie || parsed.fbp || null,
-          fbc: fbcCookie || parsed.fbc || null,
-        };
+        return withFreshCookies(parsed);
       }
     }
   } catch {
-    // ignore corrupted storage
+    // Ignore corrupted or unavailable localStorage.
   }
 
-  // No stored UTM yet, but cookies may still exist (organic Meta traffic
-  // with the Pixel firing on first visit). Surface them anyway so leads
-  // captured before the URL-driven capture path runs still get fbp/fbc.
-  if (fbpCookie || fbcCookie) {
-    return {
-      ...EMPTY_UTM,
-      fbp: fbpCookie,
-      fbc: fbcCookie,
-    };
-  }
-
-  return EMPTY_UTM;
+  return withFreshCookies({});
 }
 
 export function captureUtmFromUrl(): UtmData {
   if (typeof window === "undefined") return EMPTY_UTM;
 
   const params = new URLSearchParams(window.location.search);
-  const hasAttributionParams = [
-    "utm_source",
-    "utm_medium",
-    "utm_campaign",
-    "utm_term",
-    "utm_content",
-    "fbclid",
-    "gclid",
-    "client",
-  ].some((key) => params.has(key));
-
   const existing = getUtmData();
+  const urlClientSlug = firstNonEmptyParam(params, CLIENT_SLUG_KEYS);
+  const currentHasAttribution = hasAttributionParams(params);
 
-  // Even on a "no-new-attribution" visit, refresh fbp/fbc from cookies
-  // before returning — the Pixel may have just dropped them on this load.
-  if (!hasAttributionParams && existing.captured_at > 0) {
-    const fbpCookie = readCookie("_fbp");
-    const fbcCookie = readCookie("_fbc");
-    if (
-      (fbpCookie && fbpCookie !== existing.fbp) ||
-      (fbcCookie && fbcCookie !== existing.fbc)
-    ) {
-      const refreshed: UtmData = {
-        ...existing,
-        fbp: fbpCookie || existing.fbp,
-        fbc: fbcCookie || existing.fbc,
-      };
-      try {
-        localStorage.setItem(UTM_STORAGE_KEY, JSON.stringify(refreshed));
-      } catch {
-        // ignore storage limits
-      }
-      return refreshed;
-    }
-    return existing;
-  }
+  const fbclid = params.get("fbclid")?.trim() || null;
+  let synthesizedFbc: string | null = null;
 
-  const fbclid = params.get("fbclid");
-  let fbc: string | null = null;
   if (fbclid) {
-    fbc = `fb.1.${Date.now()}.${fbclid}`;
+    synthesizedFbc = `fb.1.${Date.now()}.${fbclid}`;
     const expires = new Date(Date.now() + 90 * 864e5).toUTCString();
-    document.cookie = `_fbc=${encodeURIComponent(fbc)};expires=${expires};path=/;SameSite=Lax`;
+    document.cookie = `_fbc=${encodeURIComponent(
+      synthesizedFbc,
+    )};expires=${expires};path=/;SameSite=Lax`;
   }
 
-  const fbpCookie = readCookie("_fbp");
-  const fbcCookie = readCookie("_fbc");
-
+  const fullUrl = window.location.href;
   const fullPathWithQuery = `${window.location.pathname}${window.location.search}`;
+  const rawQueryString = window.location.search || null;
+  const queryParams = normalizeQueryParams(params);
 
-  const utmData: UtmData = {
+  // If this page has no new attribution and we already have a valid record,
+  // refresh volatile cookie values only. This preserves first-touch data while
+  // still capturing late-seeded browser IDs.
+  if (!currentHasAttribution && existing.captured_at > 0) {
+    const refreshed = withFreshCookies({
+      ...existing,
+      client_slug: existing.client_slug || "direct",
+    });
+
+    persistUtmData(refreshed);
+    return refreshed;
+  }
+
+  const next: UtmData = withFreshCookies({
     utm_source: params.get("utm_source") || existing.utm_source,
     utm_medium: params.get("utm_medium") || existing.utm_medium,
     utm_campaign: params.get("utm_campaign") || existing.utm_campaign,
     utm_term: params.get("utm_term") || existing.utm_term,
     utm_content: params.get("utm_content") || existing.utm_content,
+
+    ttclid: params.get("ttclid") || existing.ttclid,
     fbclid: fbclid || existing.fbclid,
     gclid: params.get("gclid") || existing.gclid,
-    // Prefer freshly synthesized fbc from this visit's fbclid, then the
-    // existing cookie (which Meta keeps in sync), then any stale stored value.
-    fbc: fbc || fbcCookie || existing.fbc,
-    fbp: fbpCookie || existing.fbp,
-    client_slug: params.get("client"),
+    wbraid: params.get("wbraid") || existing.wbraid,
+    gbraid: params.get("gbraid") || existing.gbraid,
+    msclkid: params.get("msclkid") || existing.msclkid,
+
+    // Prefer the fresh fbc derived from the current fbclid, then cookie,
+    // then storage.
+    fbc: synthesizedFbc || readCookie("_fbc") || existing.fbc,
+    fbp: readCookie("_fbp") || existing.fbp,
+    ttp: readCookie("_ttp") || existing.ttp,
+
+    // Required fallback order: URL param -> existing storage -> direct.
+    client_slug: urlClientSlug || existing.client_slug || "direct",
+
     landing_page: window.location.pathname,
-    landing_page_url: fullPathWithQuery,
+    landing_page_url: fullUrl || fullPathWithQuery,
+    raw_query_string: rawQueryString,
+    query_params: queryParams,
+    referrer: document.referrer || existing.referrer || null,
     captured_at: Date.now(),
-  };
+  });
 
-  // Preserve first-touch client_slug if current URL doesn't include ?client=
-  if (!params.has("client") && existing.client_slug) {
-    utmData.client_slug = existing.client_slug;
-  }
-
-  // Persist to local storage as intended by the file header
-  try {
-    localStorage.setItem(UTM_STORAGE_KEY, JSON.stringify(utmData));
-  } catch (e) {
-    // ignore storage limits
-  }
-
-  return utmData;
+  persistUtmData(next);
+  return next;
 }
 
 export function useUtmCapture(): UtmData {
-  // Initialize state synchronously so it is NEVER empty on first render
   const [utmData, setUtmData] = useState<UtmData>(() => {
     return typeof window !== "undefined" ? captureUtmFromUrl() : EMPTY_UTM;
   });
 
   useEffect(() => {
-    // Catch subsequent client-side URL updates
-    const data = captureUtmFromUrl();
-    setUtmData(data);
+    setUtmData(captureUtmFromUrl());
   }, []);
 
   return utmData;
 }
 
+/**
+ * Legacy string-only payload consumed by existing dataLayer / lead code.
+ * Keep this narrow to avoid breaking callers that expect Record<string,string>.
+ */
 export function getUtmPayload(): Record<string, string> {
   const data = getUtmData();
   const payload: Record<string, string> = {};
@@ -237,13 +309,58 @@ export function getUtmPayload(): Record<string, string> {
   if (data.utm_campaign) payload.utm_campaign = data.utm_campaign;
   if (data.utm_term) payload.utm_term = data.utm_term;
   if (data.utm_content) payload.utm_content = data.utm_content;
+
+  if (data.ttclid) payload.ttclid = data.ttclid;
   if (data.fbclid) payload.fbclid = data.fbclid;
   if (data.gclid) payload.gclid = data.gclid;
+  if (data.wbraid) payload.wbraid = data.wbraid;
+  if (data.gbraid) payload.gbraid = data.gbraid;
+  if (data.msclkid) payload.msclkid = data.msclkid;
+
   if (data.fbc) payload.fbc = data.fbc;
   if (data.fbp) payload.fbp = data.fbp;
+  if (data.ttp) payload.ttp = data.ttp;
+
   if (data.client_slug) payload.client_slug = data.client_slug;
   if (data.landing_page) payload.landing_page = data.landing_page;
   if (data.landing_page_url) payload.landing_page_url = data.landing_page_url;
+  if (data.raw_query_string) payload.raw_query_string = data.raw_query_string;
+  if (data.referrer) payload.referrer = data.referrer;
 
   return payload;
+}
+
+/**
+ * Fresh submit-time attribution payload. Use this in lead submission, scan
+ * session creation, and OTP payloads instead of closing over hook state.
+ */
+export function getAttributionPayload(): Record<string, unknown> {
+  const data = captureUtmFromUrl();
+
+  return {
+    utm_source: data.utm_source,
+    utm_medium: data.utm_medium,
+    utm_campaign: data.utm_campaign,
+    utm_term: data.utm_term,
+    utm_content: data.utm_content,
+
+    ttclid: data.ttclid,
+    fbclid: data.fbclid,
+    gclid: data.gclid,
+    wbraid: data.wbraid,
+    gbraid: data.gbraid,
+    msclkid: data.msclkid,
+
+    fbc: data.fbc,
+    fbp: data.fbp,
+    ttp: data.ttp,
+
+    client_slug: data.client_slug || "direct",
+    landing_page: data.landing_page,
+    landing_page_url: data.landing_page_url,
+    raw_query_string: data.raw_query_string,
+    query_params: data.query_params,
+    referrer: data.referrer,
+    captured_at: data.captured_at,
+  };
 }
