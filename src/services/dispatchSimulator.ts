@@ -325,6 +325,37 @@ function addTikTokReasons(row: RevenueReadinessRow, config: PlatformConfigRow, r
   addReason(reasons, "tiktok_payload_draft_only");
 }
 
+function googleAttributionQuality(row: RevenueReadinessRow): GoogleAttributionQuality {
+  const hasGoogleClickId = presence(row, "gclid") || presence(row, "gbraid") || presence(row, "wbraid");
+  const hasEventId = Boolean(row.eventId);
+  const hasValue = Boolean(row.valueUsd && row.valueUsd > 0);
+  const hasUserId = Boolean(row.leadId);
+  const hasUtm = presence(row, "utm_source") || presence(row, "utm_campaign");
+
+  if (hasGoogleClickId && hasEventId && hasValue) return "strong";
+  if (hasUserId && hasUtm && !hasGoogleClickId) return "medium";
+  if (hasUserId || hasUtm) return "weak";
+  return "missing";
+}
+
+function addGoogleReasons(row: RevenueReadinessRow, config: PlatformConfigRow, reasons: Set<DryRunReasonCode>) {
+  const attributionQuality = googleAttributionQuality(row);
+
+  if (!googleDestination(config).id) addReason(reasons, "google_missing_conversion_destination");
+  if (!config.token_secret_id) addReason(reasons, "google_missing_token");
+  if (!row.eventId) addReason(reasons, "google_missing_event_id");
+  if (!row.valueUsd || row.valueUsd <= 0) addReason(reasons, "google_missing_value");
+  if (!unixSeconds(row.timestamp ?? row.createdAt)) addReason(reasons, "google_event_time_missing");
+  if (!presence(row, "gclid")) addReason(reasons, "google_missing_gclid");
+  if (!presence(row, "gbraid")) addReason(reasons, "google_missing_gbraid");
+  if (!presence(row, "wbraid")) addReason(reasons, "google_missing_wbraid");
+  if (!presence(row, "gclid") && !presence(row, "gbraid") && !presence(row, "wbraid")) addReason(reasons, "google_missing_google_click_id");
+  if (!row.leadId) addReason(reasons, "google_missing_user_id");
+  if (row.reasons.includes("gross_value_used_not_true_margin")) addReason(reasons, "google_using_gross_value_proxy");
+  if (attributionQuality === "weak" || attributionQuality === "missing") addReason(reasons, "google_attribution_quality_weak");
+  addReason(reasons, "google_payload_draft_only");
+}
+
 function buildMetaPayload(row: RevenueReadinessRow, config: PlatformConfigRow) {
   const destination = metaDestination(config);
   const eventTime = unixSeconds(row.timestamp ?? row.createdAt);
