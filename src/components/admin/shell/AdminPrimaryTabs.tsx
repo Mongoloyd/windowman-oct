@@ -90,7 +90,7 @@ export function AdminPrimaryTabs({
     { kind: "panel", value: "dispatch-attempts", label: "Attempt Reconciliation" },
     { kind: "panel", value: "dispatch-governance", label: "Dispatch Governance" },
     { kind: "panel", value: "delivery-inspector", label: "Delivery" },
-    { kind: "panel", value: "outcome-inspector", label: "Outcome Inspector" },
+    { kind: "route", to: "/admin/outcome-inspector", matchPrefixes: ["/admin/outcome-inspector"], label: "Outcome Inspector" },
     { kind: "panel", value: "session-diag", label: "Sessions" },
   ];
 

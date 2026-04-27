@@ -62,6 +62,7 @@ import { DispatchOutboxControl } from "@/components/admin/DispatchOutboxControl"
 import { DispatchAttemptReconciliation } from "@/components/admin/DispatchAttemptReconciliation";
 import { DispatchGovernanceConsole } from "@/components/admin/DispatchGovernanceConsole";
 import { LeadAssignmentBoard } from "@/components/admin/LeadAssignmentBoard";
+import { ContractorOutcomeInspector } from "@/components/admin/ContractorOutcomeInspector";
 
 import {
   invokeAdminData,
@@ -489,7 +490,7 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
           </TabsContent>
 
           <TabsContent value="outcome-inspector" className="w-full px-2 sm:px-6 pt-4">
-            <AdminOutcomeInspector />
+            <ContractorOutcomeInspector />
           </TabsContent>
 
           <TabsContent value="session-diag" className="w-full px-0 pt-2 sm:px-2">
