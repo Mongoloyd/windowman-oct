@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_TRUST_THRESHOLD,
   buildNeutralEventDraft,
   evaluateDispatchEligibilityDraft,
   maskAttributionIds,
@@ -31,10 +32,14 @@ describe("normalizeNeutralEventName", () => {
 });
 
 describe("neutralEventCategoryOf", () => {
-  it("classifies all currently-known names as funnel events", () => {
+  it("classifies all currently-known funnel names as funnel events", () => {
     expect(neutralEventCategoryOf("lead_captured")).toBe("funnel");
     expect(neutralEventCategoryOf("phone_verified")).toBe("funnel");
     expect(neutralEventCategoryOf("sold_closed")).toBe("funnel");
+  });
+
+  it("classifies the unknown sentinel as audit (never funnel)", () => {
+    expect(neutralEventCategoryOf("unknown")).toBe("audit");
   });
 });
 
@@ -79,6 +84,10 @@ describe("buildNeutralEventDraft", () => {
     // Safe-by-default: callers that forget to run the evaluator must NOT
     // dispatch an unknown event name to any destination.
     expect(draft.dispatchEligible).toBe(false);
+    // Critical: must NOT silently coerce to a real funnel name like
+    // "lead_captured" — analytics rollups would mislabel the row.
+    expect(draft.eventName).toBe("unknown");
+    expect(draft.eventCategory).toBe("audit");
   });
 
   it("marks a known event name as eligible at the assembly stage", () => {
@@ -177,6 +186,22 @@ describe("evaluateDispatchEligibilityDraft", () => {
     ).toEqual({ dispatchEligible: false, dispatchBlockReason: "trust_below_threshold" });
     expect(
       evaluateDispatchEligibilityDraft({ ...baseInput, trustScore: 0.5, trustMin: 0.4 }),
+    ).toEqual({ dispatchEligible: true, dispatchBlockReason: null });
+  });
+
+  it("defaults the trust threshold to DEFAULT_TRUST_THRESHOLD", () => {
+    expect(DEFAULT_TRUST_THRESHOLD).toBe(0.78);
+    expect(
+      evaluateDispatchEligibilityDraft({
+        ...baseInput,
+        trustScore: DEFAULT_TRUST_THRESHOLD - 0.001,
+      }),
+    ).toEqual({ dispatchEligible: false, dispatchBlockReason: "trust_below_threshold" });
+    expect(
+      evaluateDispatchEligibilityDraft({
+        ...baseInput,
+        trustScore: DEFAULT_TRUST_THRESHOLD,
+      }),
     ).toEqual({ dispatchEligible: true, dispatchBlockReason: null });
   });
 

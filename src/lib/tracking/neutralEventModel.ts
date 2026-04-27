@@ -51,6 +51,12 @@ export const NEUTRAL_EVENT_NAMES = [
   "contractor_match_requested",
   "appointment_booked",
   "sold_closed",
+  // Sentinel for inputs that don't collapse to any known ladder entry.
+  // Kept inside the union (instead of using one of the real funnel names
+  // as a fallback) so analytics rollups, admin inspectors, and any mapper
+  // that misses the eligibility guard cannot silently mislabel an unknown
+  // event as a real funnel milestone.
+  "unknown",
 ] as const;
 
 export type NeutralEventName = (typeof NEUTRAL_EVENT_NAMES)[number];
@@ -76,6 +82,12 @@ const NEUTRAL_EVENT_ALIASES: Record<string, NeutralEventName> = {
   quote_uploaded: "quote_uploaded",
   quote_upload_completed: "quote_uploaded",
   quote_validation_passed: "quote_uploaded",
+  // `scan_completed` is reserved for a future scan-lifecycle event that
+  // separates "scan started" from "scan finished". No live producer fires
+  // it today (the closest current name is `scan_initiated`, which is the
+  // *start* of the scan, semantically distinct from completion). Listed
+  // here so the ladder is forward-compatible — until a real producer
+  // exists, this alias only collapses an already-canonical input.
   scan_completed: "scan_completed",
   report_revealed: "report_revealed",
   contractor_match_requested: "contractor_match_requested",
@@ -107,6 +119,7 @@ const NEUTRAL_EVENT_CATEGORY: Record<NeutralEventName, NeutralEventCategory> = {
   contractor_match_requested: "funnel",
   appointment_booked: "funnel",
   sold_closed: "funnel",
+  unknown: "audit",
 };
 
 // ── Source platform / channel ───────────────────────────────────────────────
@@ -125,6 +138,16 @@ export type NeutralEventSource =
   | "unknown";
 
 // ── Dispatch eligibility ────────────────────────────────────────────────────
+
+/**
+ * Default minimum trust score required for downstream platform dispatch.
+ * Mirrors `WM_QUOTE_TRUST_MIN_FOR_DISPATCH` in
+ * `src/lib/tracking/canonical/constants.ts`. Re-declared here (instead of
+ * imported) so this module stays platform-neutral and free of any
+ * dependency on the canonical/persisted layer. Callers that need a
+ * different threshold pass `trustMin` to `evaluateDispatchEligibilityDraft`.
+ */
+export const DEFAULT_TRUST_THRESHOLD = 0.78;
 
 /**
  * Reasons a neutral event should NOT be forwarded to any external
@@ -239,7 +262,9 @@ export function normalizeNeutralEventName(input: string | null | undefined): Neu
  * back to `"audit"` so the dispatcher never operates on `undefined`.
  */
 export function neutralEventCategoryOf(name: NeutralEventName): NeutralEventCategory {
-  return NEUTRAL_EVENT_CATEGORY[name] ?? "audit";
+  // NEUTRAL_EVENT_CATEGORY is typed as a total Record over NeutralEventName,
+  // so this lookup is always defined — no nullish fallback needed.
+  return NEUTRAL_EVENT_CATEGORY[name];
 }
 
 /**
@@ -298,15 +323,18 @@ export function buildNeutralEventDraft(input: BuildNeutralEventInput): NeutralEv
   const utm = input.utm ?? null;
   const attribution = input.attribution ?? null;
 
-  // Use a sentinel "unknown" name path so the rest of the contract still
-  // type-checks. Eligibility evaluation will mark this as
-  // `unknown_event_name` and block dispatch.
-  const safeName: NeutralEventName = normalizedName ?? "lead_captured";
+  // Explicit "unknown" sentinel preserves the fact that the input event
+  // name was not on the canonical ladder. We deliberately do NOT coerce
+  // to a real funnel name here — downstream consumers that key on
+  // `eventName` (analytics rollups, admin inspector views, vendor
+  // mappers that miss the eligibility guard) must NEVER see an unknown
+  // input mislabeled as a legitimate lead/quote/sale milestone.
+  const safeName: NeutralEventName = normalizedName ?? "unknown";
 
   return {
     canonicalEventId: input.canonicalEventId,
     eventName: safeName,
-    eventCategory: normalizedName ? neutralEventCategoryOf(safeName) : "audit",
+    eventCategory: neutralEventCategoryOf(safeName),
     eventSource: input.eventSource ?? "unknown",
     eventTime: eventTimeIso,
     clientSlug: input.clientSlug ?? null,
@@ -367,8 +395,9 @@ export interface EvaluateDispatchEligibilityInput {
   unknownEventName?: boolean;
   /** Pre-computed: caller did not supply a stable canonical event id. */
   missingEventId?: boolean;
-  /** Trust threshold — defaults to the canonical 0.78 used by the existing
-   *  Meta/Google mappers. Pass through for testability. */
+  /** Trust threshold — defaults to {@link DEFAULT_TRUST_THRESHOLD} (the
+   *  same value used by the existing Meta/Google mappers). Pass through
+   *  for testability and per-tenant overrides. */
   trustMin?: number;
 }
 
@@ -413,7 +442,7 @@ export function evaluateDispatchEligibilityDraft(
   if (input.manualReviewRequired) {
     return { dispatchEligible: false, dispatchBlockReason: "manual_review_required" };
   }
-  const minTrust = input.trustMin ?? 0.78;
+  const minTrust = input.trustMin ?? DEFAULT_TRUST_THRESHOLD;
   if (typeof input.trustScore === "number" && input.trustScore < minTrust) {
     return { dispatchEligible: false, dispatchBlockReason: "trust_below_threshold" };
   }

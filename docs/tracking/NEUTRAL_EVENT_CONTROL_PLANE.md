@@ -113,8 +113,17 @@ still fail closed.
 
 **PII boundary.** `maskAttributionIds()` returns presence + length only
 — it NEVER echoes raw email, phone, fbclid, gclid, fbc, fbp, or
-external_id values back to the caller. This is the contract any future
+`externalId` values back to the caller. This is the contract any future
 admin / log writer must respect when serializing neutral-event context.
+
+**`clientSlug` derivation contract.** `wm_event_log` does not yet carry
+its own `client_slug` column (see §6 deferred work). Until that
+migration lands, server-side callers building a `NeutralEvent` from a
+raw `wm_event_log` row MUST derive `clientSlug` themselves — typically
+by joining through `lead_id` (which carries `client_slug` directly) or
+`scan_session_id` → `analyses.client_slug`. Drafts that omit the slug
+will fail eligibility with `missing_client_slug` once
+`evaluateDispatchEligibilityDraft` runs.
 
 ## 4. Event-name discipline
 
@@ -122,7 +131,7 @@ admin / log writer must respect when serializing neutral-event context.
 
 The DB enum `wm_event_name` and `WM_EVENT_NAMES` (TS) currently allow:
 
-```
+```text
 virtual_page_view, scan_initiated, quote_uploaded, teaser_viewed,
 otp_started, otp_sent, phone_verified, report_revealed,
 contractor_match_requested, appointment_booked, sold,
@@ -138,7 +147,7 @@ Existing code (`createCanonicalEvent.ts`) already absorbs the
 
 ### 4.2 Proposed neutral ladder
 
-```
+```text
 lead_captured
 phone_verified
 quote_uploaded
@@ -165,7 +174,7 @@ names — including the DB enum — is explicitly deferred (see §6).
 
 Current shape:
 
-```
+```sql
 public.client_configs (
   client_id              uuid,    -- FK → public.clients(id)
   google_ads_conversion_id text,
@@ -180,7 +189,7 @@ public.client_configs (
 
 Future destination resolution must walk:
 
-```
+```text
 lead.client_slug
   → public.clients (slug → id)
     → public.client_configs (1:1 by client_id)
