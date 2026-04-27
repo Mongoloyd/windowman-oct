@@ -21,7 +21,22 @@ export type DryRunReasonCode =
   | "weak_attribution"
   | "gross_value_used_not_true_margin"
   | "platform_mapper_basic"
+  | "tiktok_missing_pixel_id"
+  | "tiktok_missing_event_source_id"
+  | "tiktok_missing_ttclid"
+  | "tiktok_missing_ttp"
+  | "tiktok_missing_external_id"
+  | "tiktok_missing_ip_or_user_agent"
+  | "tiktok_value_missing"
+  | "tiktok_event_id_missing"
+  | "tiktok_event_time_missing"
+  | "tiktok_using_gross_value_proxy"
+  | "tiktok_payload_draft_only"
   | "payload_draft_ready";
+
+export type TikTokMatchQuality = "strong" | "medium" | "weak" | "missing";
+
+export const TIKTOK_DRY_RUN_MAPPER_VERSION = "tiktok-dry-run-v1";
 
 export interface DispatchDryRunConfigSummary {
   id: string;
@@ -98,6 +113,10 @@ const HARD_ROW_REASONS: DryRunReasonCode[] = [
   "missing_event_id",
   "missing_value",
   "malformed_payload",
+  "tiktok_missing_event_source_id",
+  "tiktok_value_missing",
+  "tiktok_event_id_missing",
+  "tiktok_event_time_missing",
 ];
 
 function hasText(value: string | null | undefined) {
@@ -175,6 +194,41 @@ function leadExternalId(row: RevenueReadinessRow) {
   return { external_id_present: Boolean(row.leadId), external_id: row.leadId ? maskId(row.leadId) : null };
 }
 
+function tiktokEventSourceId(config: PlatformConfigRow): string | null {
+  return hasText(config.pixel_id) ? config.pixel_id : hasText(config.dataset_id) ? config.dataset_id : null;
+}
+
+function tiktokEventName(row: RevenueReadinessRow): "Purchase" {
+  return "Purchase";
+}
+
+function tiktokMatchQuality(row: RevenueReadinessRow): TikTokMatchQuality {
+  const externalId = Boolean(row.leadId);
+  const hasTikTokClickOrCookie = presence(row, "ttclid") || presence(row, "ttp");
+  const hasHashedIdentifier = false;
+  const hasIpAndUserAgent = false;
+  const hasUtm = presence(row, "utm_source") || presence(row, "utm_campaign");
+
+  if (externalId && hasTikTokClickOrCookie && hasIpAndUserAgent) return "strong";
+  if (externalId && (hasTikTokClickOrCookie || hasHashedIdentifier)) return "medium";
+  if (externalId || hasUtm) return "weak";
+  return "missing";
+}
+
+function addTikTokReasons(row: RevenueReadinessRow, config: PlatformConfigRow, reasons: Set<DryRunReasonCode>) {
+  if (!hasText(config.pixel_id)) addReason(reasons, "tiktok_missing_pixel_id");
+  if (!tiktokEventSourceId(config)) addReason(reasons, "tiktok_missing_event_source_id");
+  if (!row.eventId) addReason(reasons, "tiktok_event_id_missing");
+  if (!row.valueUsd || row.valueUsd <= 0) addReason(reasons, "tiktok_value_missing");
+  if (!unixSeconds(row.timestamp ?? row.createdAt)) addReason(reasons, "tiktok_event_time_missing");
+  if (!presence(row, "ttclid")) addReason(reasons, "tiktok_missing_ttclid");
+  if (!presence(row, "ttp")) addReason(reasons, "tiktok_missing_ttp");
+  if (!row.leadId) addReason(reasons, "tiktok_missing_external_id");
+  addReason(reasons, "tiktok_missing_ip_or_user_agent");
+  if (row.reasons.includes("gross_value_used_not_true_margin")) addReason(reasons, "tiktok_using_gross_value_proxy");
+  addReason(reasons, "tiktok_payload_draft_only");
+}
+
 function buildMetaPayload(row: RevenueReadinessRow, config: PlatformConfigRow) {
   return {
     event_name: "Purchase",
@@ -202,29 +256,53 @@ function buildMetaPayload(row: RevenueReadinessRow, config: PlatformConfigRow) {
 }
 
 function buildTikTokPayload(row: RevenueReadinessRow, config: PlatformConfigRow) {
+  const eventSourceId = tiktokEventSourceId(config);
+  const eventTime = unixSeconds(row.timestamp ?? row.createdAt);
+  const warningSet = new Set<DryRunReasonCode>();
+  addTikTokReasons(row, config, warningSet);
+
   return {
-    event: "CompleteRegistration",
-    event_id: row.eventId,
-    timestamp: row.timestamp ?? row.createdAt,
-    context: {
-      user: {
-        external_id_present: Boolean(row.leadId),
-        ttclid_present: presence(row, "ttclid"),
-        ttp_present: presence(row, "ttp"),
-        ip_present: false,
-        user_agent_present: false,
+    event_source: "web",
+    event_source_id: eventSourceId ? maskId(eventSourceId) : null,
+    data: [
+      {
+        event: tiktokEventName(row),
+        event_time: eventTime,
+        event_id: row.eventId,
+        user: {
+          external_id_present: Boolean(row.leadId),
+          ttclid_present: presence(row, "ttclid"),
+          ttp_present: presence(row, "ttp"),
+          ip_present: false,
+          user_agent_present: false,
+          email_hash_present: false,
+          phone_hash_present: false,
+        },
+        properties: {
+          currency: "USD",
+          value: row.valueUsd,
+          content_type: "product",
+          description: "WindowMan sold lead",
+          order_id: row.eventId ? maskId(row.eventId) : row.leadId ? maskId(row.leadId) : null,
+          status: row.payloadIntegrity.dispositionState ?? "sold_closed",
+        },
+        page: {
+          url_present: false,
+          referrer_present: false,
+        },
       },
-    },
-    properties: {
-      value: row.valueUsd,
-      currency: "USD",
-      description: "WindowMan sold lead",
-    },
-    windowman_debug: {
-      platform_config_id: maskConfigId(config.id),
-      mapper: "tiktok-basic-draft-simulation",
-    },
+    ],
     dry_run: true,
+    windowman_debug: {
+      canonical_event_row_id: maskId(row.id),
+      client_slug: row.clientSlug,
+      platform_config_id: maskConfigId(config.id),
+      mapper_version: TIKTOK_DRY_RUN_MAPPER_VERSION,
+      value_basis: "gross_sale_value",
+      true_margin_available: row.payloadIntegrity.trueMarginAvailable === true,
+      match_quality: tiktokMatchQuality(row),
+      warnings: Array.from(warningSet),
+    },
   };
 }
 
@@ -350,7 +428,11 @@ export async function fetchDispatchDryRunQueue(): Promise<DispatchDryRunResult> 
     for (const config of activeConfigs) {
       const reasons = new Set(sharedReasons);
       addConfigReasons(config, reasons);
-      addReason(reasons, "platform_mapper_basic");
+      if (config.platform_name === "tiktok") {
+        addTikTokReasons(event, config, reasons);
+      } else {
+        addReason(reasons, "platform_mapper_basic");
+      }
       addReason(reasons, "payload_draft_ready");
       const reasonList = Array.from(reasons);
       rows.push({
