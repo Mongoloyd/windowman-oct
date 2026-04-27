@@ -85,6 +85,7 @@ export function AdminPrimaryTabs({
     { kind: "route", to: "/admin/attribution", matchPrefixes: ["/admin/attribution"], label: "Attribution" },
     { kind: "route", to: "/admin/signal-dispatch", matchPrefixes: ["/admin/signal-dispatch"], label: "Signals" },
     { kind: "panel", value: "revenue-dispatch-readiness", label: "Revenue Dispatch" },
+    { kind: "panel", value: "revenue-dry-run", label: "Dry-Run Audit" },
     { kind: "panel", value: "client-platform-configs", label: "Platform Configs" },
     { kind: "panel", value: "dispatch-dry-run", label: "Dry-Run Queue" },
     { kind: "panel", value: "dispatch-outbox", label: "Dispatch Outbox" },
