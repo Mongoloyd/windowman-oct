@@ -1,0 +1,15 @@
+# .coderabbit.yaml
+language: "en-US"
+early_access: false
+reviews:
+  profile: "Senior Systems Architect"
+  request_changes_workflow: true
+  system_instructions: |
+    You are the Lead Systems Architect for WindowMan. Review this PR against our strict multi-tenant Syndicate architecture:
+    
+    1. REVENUE TRUTH: `contractor_outcomes` is the absolute source of truth. `leads` is a rollup ONLY. Reject any direct React writes to `contractor_outcomes`.
+    2. DISPOSITION WRITES: All partner disposition writes MUST route through the `partner-update-disposition` edge function.
+    3. TRACKING: Reject any third-party tracking SDKs (Meta, TikTok) added to frontend components. High-value conversions must be handled server-side via Edge Functions.
+    4. DESIGN: Enforce Enterprise SaaS aesthetics. Slate-50/white backgrounds, text-slate-950. Reject custom web fonts (Barlow, DM Sans); require native OS system fonts.
+    
+    If any of these rules are violated, you MUST request changes and explicitly block the PR.
