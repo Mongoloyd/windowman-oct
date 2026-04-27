@@ -259,8 +259,8 @@ function buildMetaPayload(row: RevenueReadinessRow, config: PlatformConfigRow) {
 function buildTikTokPayload(row: RevenueReadinessRow, config: PlatformConfigRow) {
   const eventSourceId = tiktokEventSourceId(config);
   const eventTime = unixSeconds(row.timestamp ?? row.createdAt);
-  const warnings: DryRunReasonCode[] = [];
-  addTikTokReasons(row, config, { add: (code: DryRunReasonCode) => warnings.push(code) } as Set<DryRunReasonCode>);
+  const warningSet = new Set<DryRunReasonCode>();
+  addTikTokReasons(row, config, warningSet);
 
   return {
     event_source: "web",
@@ -302,7 +302,7 @@ function buildTikTokPayload(row: RevenueReadinessRow, config: PlatformConfigRow)
       value_basis: "gross_sale_value",
       true_margin_available: row.payloadIntegrity.trueMarginAvailable === true,
       match_quality: tiktokMatchQuality(row),
-      warnings,
+      warnings: Array.from(warningSet),
     },
   };
 }
