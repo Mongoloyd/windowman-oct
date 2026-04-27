@@ -69,15 +69,27 @@ describe("buildNeutralEventDraft", () => {
     expect(draft.dispatchBlockReason).toBeNull();
   });
 
-  it("flags an unknown event name without throwing", () => {
+  it("fails closed on an unknown event name (safe-by-default)", () => {
     const draft = buildNeutralEventDraft({
       canonicalEventId: "wmc_unknown_no-entity_bucket",
-      eventName: "Meta_Lead", // Meta-named: must NOT enter the neutral plane
+      eventName: "Meta_Lead", // vendor-named: must NOT enter the neutral plane
     });
 
     expect(draft.dispatchBlockReason).toBe("unknown_event_name");
-    expect(draft.dispatchEligible).toBe(true); // structural flag only — final
-                                                // eligibility uses the evaluator
+    // Safe-by-default: callers that forget to run the evaluator must NOT
+    // dispatch an unknown event name to any destination.
+    expect(draft.dispatchEligible).toBe(false);
+  });
+
+  it("marks a known event name as eligible at the assembly stage", () => {
+    const draft = buildNeutralEventDraft({
+      canonicalEventId: "wmc_lead_captured_no-entity_bucket",
+      eventName: "lead_captured",
+    });
+    expect(draft.dispatchBlockReason).toBeNull();
+    // Assembly stage approves; the full eligibility evaluator runs
+    // separately and may still block on identity/anomaly/config.
+    expect(draft.dispatchEligible).toBe(true);
   });
 
   it("truncates non-integer cents and preserves null inputs", () => {

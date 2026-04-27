@@ -334,10 +334,14 @@ export function buildNeutralEventDraft(input: BuildNeutralEventInput): NeutralEv
         ? Math.trunc(input.valueCents)
         : null,
     currency: input.currency ?? null,
-    // Dispatch eligibility is computed in a separate pass so it can be
-    // audited / tested in isolation. Default optimistic; the evaluator
-    // will tighten this down using the inputs below.
-    dispatchEligible: true,
+    // Dispatch eligibility starts SAFE-BY-DEFAULT. The full eligibility
+    // check (`evaluateDispatchEligibilityDraft`) runs separately so it can
+    // be audited and tested in isolation, but at the assembly stage we
+    // already know one fatal condition: an unknown / un-normalizable
+    // event name must NEVER reach a destination. We mark it blocked here
+    // so downstream code that forgets to call the evaluator still fails
+    // closed instead of silently dispatching an unknown name.
+    dispatchEligible: Boolean(normalizedName),
     dispatchBlockReason: normalizedName ? null : "unknown_event_name",
     metadata: input.metadata ?? {},
   };

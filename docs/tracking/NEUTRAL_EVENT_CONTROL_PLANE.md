@@ -105,6 +105,17 @@ downstream view callers can construct from the existing `wm_event_log`
 row via `buildNeutralEventDraft()`. See §6 for the deferred work needed
 to align the persisted columns to this view.
 
+**Safe-by-default unknown names.** `buildNeutralEventDraft()` already
+sets `dispatchEligible: false` + `dispatchBlockReason: "unknown_event_name"`
+when the input name does not collapse to a known neutral ladder entry,
+so callers that forget to invoke `evaluateDispatchEligibilityDraft()`
+still fail closed.
+
+**PII boundary.** `maskAttributionIds()` returns presence + length only
+— it NEVER echoes raw email, phone, fbclid, gclid, fbc, fbp, or
+external_id values back to the caller. This is the contract any future
+admin / log writer must respect when serializing neutral-event context.
+
 ## 4. Event-name discipline
 
 ### 4.1 Live event names today
