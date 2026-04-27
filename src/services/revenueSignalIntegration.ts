@@ -5,6 +5,7 @@ export type RevenueSignalIntegrityStatus = "valid" | "warning" | "blocked" | "ne
 
 export interface RevenueSignalEligibilityRow {
   outcomeId: string;
+  revenueSignalKey: string | null;
   leadId: string | null;
   scanSessionId: string | null;
   analysisId: string | null;
@@ -77,6 +78,7 @@ function toIntegrityStatus(value: unknown): RevenueSignalIntegrityStatus {
 function mapEligibilityRow(row: Record<string, unknown>): RevenueSignalEligibilityRow {
   return {
     outcomeId: String(row.outcome_id),
+    revenueSignalKey: typeof row.revenue_signal_key === "string" ? row.revenue_signal_key : null,
     leadId: typeof row.lead_id === "string" ? row.lead_id : null,
     scanSessionId: typeof row.scan_session_id === "string" ? row.scan_session_id : null,
     analysisId: typeof row.analysis_id === "string" ? row.analysis_id : null,
