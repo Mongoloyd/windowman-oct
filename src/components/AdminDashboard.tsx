@@ -55,6 +55,7 @@ import { DeliveryInspectorPage } from "@/components/admin/deliveries/DeliveryIns
 import { SessionDiagnosticPanel } from "@/components/admin/diagnostics/SessionDiagnosticPanel";
 import { SignalDispatchTab } from "@/components/admin/SignalDispatchTab";
 import { RevenueDispatchReadiness } from "@/components/admin/RevenueDispatchReadiness";
+import { RevenueSignalDryRunAudit } from "@/components/admin/RevenueSignalDryRunAudit";
 import { ClientPlatformConfigs } from "@/components/admin/ClientPlatformConfigs";
 import { DispatchDryRunQueue } from "@/components/admin/DispatchDryRunQueue";
 import { DispatchOutboxControl } from "@/components/admin/DispatchOutboxControl";
@@ -463,6 +464,10 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
 
           <TabsContent value="revenue-dispatch-readiness" className="w-full px-2 sm:px-6 pt-4">
             <RevenueDispatchReadiness />
+          </TabsContent>
+
+          <TabsContent value="revenue-dry-run" className="w-full px-2 sm:px-6 pt-4">
+            <RevenueSignalDryRunAudit />
           </TabsContent>
 
           <TabsContent value="client-platform-configs" className="w-full px-2 sm:px-6 pt-4">
