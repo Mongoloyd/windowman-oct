@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { CheckSquare, Database, Eye, PlayCircle, RefreshCw, ShieldCheck, Square } from "lucide-react";
+import { CheckSquare, Database, Eye, PlayCircle, RefreshCw, ShieldCheck, ShieldAlert, Square } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -79,6 +79,9 @@ function ResultSummary({ result }: { result: DispatchMaterializationResult }) {
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <div><div className="mb-2 text-xs font-black uppercase text-emerald-950">Created outbox row IDs</div><div className="flex flex-wrap gap-2">{result.created_outbox_row_ids_masked.length ? result.created_outbox_row_ids_masked.map((id) => <Badge key={id} className="border border-emerald-300 bg-white font-mono text-emerald-950">{id}</Badge>) : <span className="text-sm font-bold text-emerald-900">None</span>}</div></div>
         <div><div className="mb-2 text-xs font-black uppercase text-emerald-950">Reason-code breakdown</div><div className="flex flex-wrap gap-2">{Object.entries(result.reason_code_breakdown).map(([reason, count]) => <Badge key={reason} className="border border-emerald-300 bg-white font-mono text-emerald-950">{reason}: {count}</Badge>)}</div></div>
+      </div>
+      <div className="mt-4 rounded-xl border border-emerald-300 bg-white p-3 text-sm font-black text-emerald-950">
+        Count evidence: inserted {result.summary.inserted} · duplicates {result.summary.skipped_duplicate} · blocked {result.summary.skipped_blocked} · invalid {result.summary.skipped_invalid} · attempts written {result.attempts_written ? "yes" : "no"}
       </div>
     </section>
   );
@@ -184,6 +187,12 @@ export function DispatchOutboxControl() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-4"><div className="min-w-0"><h2 className="text-2xl font-black tracking-tight text-slate-950">Dispatch Eligibility Gate + Outbox</h2><p className="mt-1 max-w-4xl text-sm font-semibold text-slate-700">Durable outbox contract, controlled materialization, and idempotency proof. No external APIs are called.</p></div><Button variant="outline" onClick={() => outboxQ.refetch()} disabled={outboxQ.isFetching} className="gap-2 border-slate-400 bg-white text-slate-950"><RefreshCw className={cn("h-4 w-4", outboxQ.isFetching && "animate-spin")} /> Refresh</Button></div>
       <div className="rounded-2xl border border-blue-300 bg-blue-50 p-4 text-sm font-bold text-blue-950 shadow-sm"><ShieldCheck className="mr-2 inline h-4 w-4" /> Materialization creates durable dry-run outbox rows only. Database triggers still prevent live dispatch state. No external APIs are called.</div>
+      <div className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div><h3 className="text-base font-black text-slate-950"><ShieldAlert className="mr-2 inline h-4 w-4" /> No-Live-Dispatch Seal</h3><p className="mt-1 text-sm font-semibold text-slate-700">Live dispatch disabled. No external APIs are called. DB guards prevent send-enabled rows, sent timestamps, external event IDs, worker locks, and live attempt responses.</p></div>
+          <div className="flex flex-wrap gap-2"><SafetyPill label="send_enabled_false" safe={kpis.sendEnabledRows === 0} /><SafetyPill label="attempts_not_written" safe={!result?.attempts_written} /><SafetyPill label="external_apis_false" safe={!result?.external_apis_called} /></div>
+        </div>
+      </div>
       {outboxQ.error ? <div className="rounded-2xl border border-rose-300 bg-rose-50 p-4 text-sm font-bold text-rose-950">{outboxQ.error instanceof Error ? outboxQ.error.message : "Failed to load dispatch outbox control."}</div> : null}
       {actionError ? <div className="rounded-2xl border border-rose-300 bg-rose-50 p-4 text-sm font-bold text-rose-950">{actionError}</div> : null}
       {result ? <ResultSummary result={result} /> : null}
@@ -199,11 +208,9 @@ export function DispatchOutboxControl() {
           <div><Label className="text-xs font-black uppercase text-slate-700">Date to</Label><Input type="datetime-local" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="mt-1 border-slate-300 bg-white font-bold text-slate-950" /></div>
           <label className="flex min-h-10 items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 text-sm font-black text-amber-950"><input type="checkbox" checked={includeWarnings} onChange={(e) => setIncludeWarnings(e.target.checked)} /> Include warnings</label>
         </div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button variant="outline" disabled={isActionRunning} onClick={() => runAction("preview_selected")} className="gap-2 border-slate-400 bg-white text-slate-950"><Eye className="h-4 w-4" /> Preview selected</Button>
-          <Button variant="outline" disabled={isActionRunning} onClick={() => runAction("preview_filtered")} className="gap-2 border-slate-400 bg-white text-slate-950"><Eye className="h-4 w-4" /> Preview filtered</Button>
-          <Button disabled={isActionRunning} onClick={() => runAction("materialize_selected")} className="gap-2"><PlayCircle className="h-4 w-4" /> Materialize selected</Button>
-          <Button disabled={isActionRunning} onClick={() => runAction("materialize_filtered")} className="gap-2"><PlayCircle className="h-4 w-4" /> Materialize filtered</Button>
+        <div className="mt-4 grid gap-3 lg:grid-cols-2">
+          <div className="rounded-xl border border-slate-300 bg-slate-50 p-3"><div className="mb-2 text-xs font-black uppercase text-slate-700">Preview — zero-write validation</div><div className="flex flex-wrap gap-2"><Button variant="outline" disabled={isActionRunning} onClick={() => runAction("preview_selected")} className="gap-2 border-slate-400 bg-white text-slate-950"><Eye className="h-4 w-4" /> Preview selected</Button><Button variant="outline" disabled={isActionRunning} onClick={() => runAction("preview_filtered")} className="gap-2 border-slate-400 bg-white text-slate-950"><Eye className="h-4 w-4" /> Preview filtered</Button></div></div>
+          <div className="rounded-xl border border-amber-300 bg-amber-50 p-3"><div className="mb-2 text-xs font-black uppercase text-amber-950">Materialize — persistent dry-run rows</div><div className="flex flex-wrap gap-2"><Button disabled={isActionRunning} onClick={() => runAction("materialize_selected")} className="gap-2"><PlayCircle className="h-4 w-4" /> Materialize selected</Button><Button disabled={isActionRunning} onClick={() => runAction("materialize_filtered")} className="gap-2"><PlayCircle className="h-4 w-4" /> Materialize filtered</Button></div></div>
         </div>
       </section>
 
