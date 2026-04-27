@@ -133,19 +133,19 @@ export function SyndicateHealthDashboard() {
         </div>
       </div>
 
-      <MatrixSection title="Syndicate Matrix" rows={syndicates} onOpen={setSelected} columns={[
+      <MatrixSection<SyndicateHealthRow> title="Syndicate Matrix" rows={syndicates} onOpen={setSelected} columns={[
         { label: "Status", render: (row) => <StatusBadge status={row.status} /> }, { label: "Syndicate", render: (row) => <span className="font-black text-slate-950">{row.name} / {row.slug}</span> }, { label: "Clients", render: (row) => row.activeClients }, { label: "Contractors", render: (row) => row.activeContractors }, { label: "Assignments", render: (row) => row.currentAssignments }, { label: "Stale", render: (row) => row.staleAssignments }, { label: "Blocked Outcomes", render: (row) => row.blockedOutcomes }, { label: "Reasons", render: (row) => <Reasons reasons={row.reasons} /> },
       ]} />
 
-      <MatrixSection title="Client Matrix" rows={clients} onOpen={setSelected} columns={[
+      <MatrixSection<ClientHealthRow> title="Client Matrix" rows={clients} onOpen={setSelected} columns={[
         { label: "Status", render: (row) => <StatusBadge status={row.status} /> }, { label: "Client", render: (row) => <span className="font-black text-slate-950">{row.clientSlug}</span> }, { label: "Syndicate", render: (row) => row.syndicateSlug ?? "—" }, { label: "Contractors", render: (row) => row.activeContractors }, { label: "Assignments", render: (row) => row.currentAssignments }, { label: "Sold", render: (row) => row.soldOutcomes }, { label: "Blocked Signals", render: (row) => row.blockedSignals }, { label: "Reasons", render: (row) => <Reasons reasons={row.reasons} /> },
       ]} />
 
-      <MatrixSection title="Contractor Account Matrix" rows={contractors} onOpen={setSelected} columns={[
+      <MatrixSection<ContractorAccountHealthRow> title="Contractor Account Matrix" rows={contractors} onOpen={setSelected} columns={[
         { label: "Status", render: (row) => <StatusBadge status={row.status} /> }, { label: "Contractor", render: (row) => <span className="font-black text-slate-950">{row.displayName}</span> }, { label: "Client", render: (row) => row.clientSlug ?? "—" }, { label: "Active", render: (row) => row.isActive ? "Yes" : "No" }, { label: "Assignments", render: (row) => row.currentAssignments }, { label: "Stale", render: (row) => row.staleAssignments }, { label: "Outcomes", render: (row) => row.soldOutcomes }, { label: "Reasons", render: (row) => <Reasons reasons={row.reasons} /> },
       ]} />
 
-      <MatrixSection title="Operational Action Queue" rows={actions} onOpen={setSelected} columns={[
+      <MatrixSection<OperationalAction> title="Operational Action Queue" rows={actions} onOpen={setSelected} columns={[
         { label: "Status", render: (row) => <StatusBadge status={row.status} /> }, { label: "Action", render: (row) => <span className="font-black text-slate-950">{row.label}</span> }, { label: "Entity", render: (row) => <span className="font-mono text-xs font-bold">{row.entityType} / {row.entityIdMasked}</span> }, { label: "Client", render: (row) => row.clientSlug ?? "—" }, { label: "Syndicate", render: (row) => row.syndicateSlug ?? "—" }, { label: "Reason", render: (row) => <span className="text-sm font-semibold text-slate-700">{row.reason}</span> },
       ]} />
 
