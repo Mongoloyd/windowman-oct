@@ -98,23 +98,28 @@ const AuditHero = ({
           </div>
 
           {/* ── ORDER 2 (mobile/tablet) / right column (lg+): Mascot + GradeCard ── */}
-          <div className="order-2 lg:order-last lg:flex-1 flex flex-col items-center pt-0 lg:pt-16">
-            <div className="relative z-20 flex justify-center pointer-events-none w-full aspect-[3/4] max-w-md lg:max-w-[480px]">
-                <img
-                  src={MASCOT_URL}
-                  alt="WindowMan holding a Truth Report"
-                  fetchPriority="high"
-                  loading="eager"
-                  decoding="async"
-                  width={480}
-                  height={640}
-                  className="absolute inset-0 w-full h-full object-contain"
-                />
-            </div>
+          <div className="order-2 lg:order-last lg:flex-1 flex w-full min-w-0 flex-col items-center pt-0 lg:pt-16">
+            <div className="mascot-float flex w-full min-w-0 max-w-[420px] flex-col items-center sm:max-w-[460px] lg:max-w-[480px]">
+              <div className="relative z-20 flex w-full justify-center pointer-events-none aspect-[3/4] min-w-0">
+                  <img
+                    src={MASCOT_URL}
+                    alt="WindowMan holding a Truth Report"
+                    fetchPriority="high"
+                    loading="eager"
+                    decoding="async"
+                    width={480}
+                    height={640}
+                    className="absolute inset-0 w-full h-full object-contain"
+                  />
+              </div>
 
-            {/* Grade card: visible on lg+ (desktop right column) */}
-            <div className="hidden lg:block relative z-10">
-              <SampleGradeCard />
+              <div className="relative z-10 -mt-10 w-full min-w-0 max-w-[390px] px-1 sm:-mt-14 sm:max-w-[420px] sm:px-0 lg:-mt-16">
+                <SampleGradeCard />
+              </div>
+
+              <div className="hidden w-full max-w-lg sm:flex lg:hidden">
+                {statsStrip}
+              </div>
             </div>
           </div>
 
@@ -202,16 +207,6 @@ const AuditHero = ({
                 height={400}
                 className="w-full h-full object-cover rounded-xl shadow-lg"
               />
-            </div>
-          </div>
-
-          {/* ── ORDER 4 (tablet only): Grade card + stats below content ── */}
-          <div className="order-4 lg:hidden w-full flex flex-col items-center">
-            <div className="hidden sm:block relative z-10">
-              <SampleGradeCard />
-            </div>
-            <div className="hidden sm:flex w-full max-w-lg">
-              {statsStrip}
             </div>
           </div>
         </div>
