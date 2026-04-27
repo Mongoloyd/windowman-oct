@@ -82,11 +82,17 @@ function computeIntegrity(input: {
     else if (input.final_value_cents <= 0) reasons.push("sold_invalid_value");
 
     if (!input.value_basis) reasons.push("sold_missing_value_basis");
-    else if (input.value_basis === "unknown") reasons.push("value_basis_unknown");
-    else if (input.value_basis === "gross_sale_value") reasons.push("value_basis_gross_proxy");
+    else if (input.value_basis === "unknown") {
+      reasons.push("value_basis_unknown");
+    } else if (input.value_basis === "gross_sale_value") {
+      reasons.push("value_basis_gross_proxy");
+    }
   }
 
-  if (input.disposition_state === "lost_dead" && (!input.disposition_reason_code || !notes)) {
+  if (
+    input.disposition_state === "lost_dead" &&
+    (!input.disposition_reason_code || !notes)
+  ) {
     reasons.push("lost_missing_reason");
   }
 
@@ -94,20 +100,30 @@ function computeIntegrity(input: {
     reasons.push("outcome_not_terminal");
   }
 
-  const eligible = input.disposition_state === "sold_closed"
-    && typeof input.final_value_cents === "number"
-    && input.final_value_cents > 0
-    && Boolean(input.value_basis)
-    && input.value_basis !== "unknown";
-  reasons.push(eligible ? "eligible_for_future_signal" : "not_eligible_for_signal");
+  const eligible = input.disposition_state === "sold_closed" &&
+    typeof input.final_value_cents === "number" &&
+    input.final_value_cents > 0 &&
+    Boolean(input.value_basis) &&
+    input.value_basis !== "unknown";
+  reasons.push(
+    eligible ? "eligible_for_future_signal" : "not_eligible_for_signal",
+  );
 
-  const status = reasons.some((r) => ["sold_missing_value", "sold_invalid_value", "lost_missing_reason"].includes(r))
-    ? "blocked"
-    : reasons.some((r) => ["sold_missing_value_basis", "value_basis_unknown"].includes(r))
-    ? "needs_review"
-    : reasons.some((r) => ["value_basis_gross_proxy", "outcome_not_terminal"].includes(r))
-    ? "warning"
-    : "valid";
+  const status =
+    reasons.some((r) =>
+        ["sold_missing_value", "sold_invalid_value", "lost_missing_reason"]
+          .includes(r)
+      )
+      ? "blocked"
+      : reasons.some((r) =>
+          ["sold_missing_value_basis", "value_basis_unknown"].includes(r)
+        )
+      ? "needs_review"
+      : reasons.some((r) =>
+          ["value_basis_gross_proxy", "outcome_not_terminal"].includes(r)
+        )
+      ? "warning"
+      : "valid";
 
   return { status, reasons };
 }
@@ -255,11 +271,17 @@ Deno.serve(async (req) => {
         valid_reason_codes: [...VALID_REASON_CODES],
       }, 422);
     }
-    if (value_basis != null && (!VALID_VALUE_BASIS.has(value_basis) || value_basis === "unknown")) {
+    if (
+      value_basis != null &&
+      (!VALID_VALUE_BASIS.has(value_basis) || value_basis === "unknown")
+    ) {
       return json({
         error: "invalid_value_basis",
-        message: "value_basis must explicitly describe the sold value basis and cannot be unknown for partner updates.",
-        valid_value_basis: [...VALID_VALUE_BASIS].filter((basis) => basis !== "unknown"),
+        message:
+          "value_basis must explicitly describe the sold value basis and cannot be unknown for partner updates.",
+        valid_value_basis: [...VALID_VALUE_BASIS].filter((basis) =>
+          basis !== "unknown"
+        ),
       }, 422);
     }
 
