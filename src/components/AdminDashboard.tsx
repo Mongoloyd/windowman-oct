@@ -56,6 +56,7 @@ import { SessionDiagnosticPanel } from "@/components/admin/diagnostics/SessionDi
 import { SignalDispatchTab } from "@/components/admin/SignalDispatchTab";
 import { AdminOutcomeInspector } from "@/components/admin/AdminOutcomeInspector";
 import { RevenueDispatchReadiness } from "@/components/admin/RevenueDispatchReadiness";
+import { ClientPlatformConfigs } from "@/components/admin/ClientPlatformConfigs";
 
 import {
   invokeAdminData,
@@ -448,6 +449,10 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
 
           <TabsContent value="revenue-dispatch-readiness" className="w-full px-2 sm:px-6 pt-4">
             <RevenueDispatchReadiness />
+          </TabsContent>
+
+          <TabsContent value="client-platform-configs" className="w-full px-2 sm:px-6 pt-4">
+            <ClientPlatformConfigs />
           </TabsContent>
 
           <TabsContent value="pilot" className="w-full px-2 sm:px-6 pt-4">

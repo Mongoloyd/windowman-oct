@@ -3980,7 +3980,15 @@ export type Database = {
         | "qualified"
         | "soft_reject"
         | "hard_reject"
-      wm_platform_name: "meta" | "google_ads" | "ga4" | "internal" | "tiktok"
+      wm_platform_name:
+        | "meta"
+        | "google_ads"
+        | "ga4"
+        | "internal"
+        | "tiktok"
+        | "gtm_server"
+        | "crm_webhook"
+        | "other"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -4150,7 +4158,16 @@ export const Constants = {
         "soft_reject",
         "hard_reject",
       ],
-      wm_platform_name: ["meta", "google_ads", "ga4", "internal", "tiktok"],
+      wm_platform_name: [
+        "meta",
+        "google_ads",
+        "ga4",
+        "internal",
+        "tiktok",
+        "gtm_server",
+        "crm_webhook",
+        "other",
+      ],
     },
   },
 } as const
