@@ -61,6 +61,7 @@ import { DispatchDryRunQueue } from "@/components/admin/DispatchDryRunQueue";
 import { DispatchOutboxControl } from "@/components/admin/DispatchOutboxControl";
 import { DispatchAttemptReconciliation } from "@/components/admin/DispatchAttemptReconciliation";
 import { DispatchGovernanceConsole } from "@/components/admin/DispatchGovernanceConsole";
+import { LeadAssignmentBoard } from "@/components/admin/LeadAssignmentBoard";
 
 import {
   invokeAdminData,
@@ -332,6 +333,10 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
 
           <TabsContent value="routing">
             <RoutingDesk leads={leads} />
+          </TabsContent>
+
+          <TabsContent value="lead-assignments" className="w-full px-2 sm:px-6 pt-4">
+            <LeadAssignmentBoard />
           </TabsContent>
 
           <TabsContent value="pipeline">
