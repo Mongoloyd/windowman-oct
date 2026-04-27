@@ -54,7 +54,6 @@ import { StrategicPrioritizationNextBuildDecisionFrameworkSurface } from "@/comp
 import { DeliveryInspectorPage } from "@/components/admin/deliveries/DeliveryInspectorPage";
 import { SessionDiagnosticPanel } from "@/components/admin/diagnostics/SessionDiagnosticPanel";
 import { SignalDispatchTab } from "@/components/admin/SignalDispatchTab";
-import { AdminOutcomeInspector } from "@/components/admin/AdminOutcomeInspector";
 import { RevenueDispatchReadiness } from "@/components/admin/RevenueDispatchReadiness";
 import { ClientPlatformConfigs } from "@/components/admin/ClientPlatformConfigs";
 import { DispatchDryRunQueue } from "@/components/admin/DispatchDryRunQueue";
