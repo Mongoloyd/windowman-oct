@@ -6,6 +6,13 @@ export type RevenueSignalIntegrityStatus = "valid" | "warning" | "blocked" | "ne
 export interface RevenueSignalEligibilityRow {
   outcomeId: string;
   revenueSignalKey: string | null;
+  revenueSignalKeyVersion: string | null;
+  revenueSignalKeyBasis: string | null;
+  revenueSignalKeyReasons: string[];
+  lifecycleDuplicateDetected: boolean;
+  lifecycleDuplicateCount: number;
+  weakLifecycleKey: boolean;
+  duplicateRevenueSignalKey: boolean;
   leadId: string | null;
   scanSessionId: string | null;
   analysisId: string | null;
