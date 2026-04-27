@@ -553,6 +553,7 @@ function buildPayload(row: RevenueReadinessRow, config: PlatformConfigRow): Reco
       return buildMetaPayload(row, config);
     case "tiktok":
       return buildTikTokPayload(row, config);
+    case "google":
     case "google_ads":
     case "ga4":
       return buildGooglePayload(row, config);
