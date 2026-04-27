@@ -214,7 +214,7 @@ CREATE POLICY contractor_accounts_insert_internal ON public.contractor_accounts 
 DROP POLICY IF EXISTS contractor_accounts_update_internal ON public.contractor_accounts;
 CREATE POLICY contractor_accounts_update_internal ON public.contractor_accounts FOR UPDATE TO authenticated USING ((SELECT public.is_internal_operator())) WITH CHECK ((SELECT public.is_internal_operator()));
 DROP POLICY IF EXISTS contractor_accounts_select_own ON public.contractor_accounts;
-CREATE POLICY contractor_accounts_select_own ON public.contractor_accounts FOR SELECT TO authenticated USING (auth_user_id = auth.uid());
+CREATE POLICY contractor_accounts_select_own ON public.contractor_accounts FOR SELECT TO authenticated USING (auth_user_id = (SELECT auth.uid()));
 
 DROP POLICY IF EXISTS lead_assignments_service_role_all ON public.lead_assignments;
 CREATE POLICY lead_assignments_service_role_all ON public.lead_assignments FOR ALL TO service_role USING (true) WITH CHECK (true);
@@ -235,7 +235,7 @@ CREATE POLICY lead_assignments_select_own_contractor
       SELECT 1
       FROM public.contractor_accounts ca
       WHERE ca.id = lead_assignments.contractor_account_id
-        AND ca.auth_user_id = auth.uid()
+        AND ca.auth_user_id = (SELECT auth.uid())
     )
   );
 
