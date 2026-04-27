@@ -60,15 +60,29 @@ export type DryRunReasonCode =
   | "google_using_gross_value_proxy"
   | "google_payload_draft_only"
   | "google_attribution_quality_weak"
+  | "endpoint_missing_url"
+  | "endpoint_invalid_url"
+  | "endpoint_non_https_url_warning"
+  | "endpoint_missing_token_warning"
+  | "endpoint_missing_event_id"
+  | "endpoint_missing_value"
+  | "endpoint_event_time_missing"
+  | "endpoint_using_gross_value_proxy"
+  | "endpoint_payload_draft_only"
+  | "endpoint_weak_attribution_warning"
   | "payload_draft_ready";
 
 export type TikTokMatchQuality = "strong" | "medium" | "weak" | "missing";
 export type MetaMatchInputQuality = "strong" | "medium" | "weak" | "missing";
 export type GoogleAttributionQuality = "strong" | "medium" | "weak" | "missing";
+export type EndpointReadiness = "ready" | "warning" | "blocked";
 
 export const TIKTOK_DRY_RUN_MAPPER_VERSION = "tiktok-dry-run-v1";
 export const META_CAPI_DRY_RUN_MAPPER_VERSION = "meta-capi-dry-run-v1";
 export const GOOGLE_DRY_RUN_MAPPER_VERSION = "google-ads-ga4-dry-run-v1";
+export const GTM_SERVER_DRY_RUN_MAPPER_VERSION = "gtm-server-dry-run-v1";
+export const CRM_WEBHOOK_DRY_RUN_MAPPER_VERSION = "crm-webhook-dry-run-v1";
+export const GENERIC_ENDPOINT_DRY_RUN_MAPPER_VERSION = "generic-endpoint-dry-run-v1";
 
 export interface DispatchDryRunConfigSummary {
   id: string;
