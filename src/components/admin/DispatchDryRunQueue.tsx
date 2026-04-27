@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import {
   fetchDispatchDryRunQueue,
+  META_CAPI_DRY_RUN_MAPPER_VERSION,
   TIKTOK_DRY_RUN_MAPPER_VERSION,
   type DispatchDryRunOrphan,
   type DispatchDryRunRow,
@@ -132,6 +133,33 @@ function getTikTokDryRunSummary(row: DispatchDryRunRow | null) {
   };
 }
 
+function getMetaDryRunSummary(row: DispatchDryRunRow | null) {
+  if (!row || row.platformName !== "meta") return null;
+  const payload = row.payload as {
+    data?: Array<{ event_name?: string; custom_data?: { value_basis?: string } }>;
+    windowman_debug?: {
+      mapper_version?: string;
+      destination_id_present?: boolean;
+      destination_id_type?: string;
+      deduplication_event_id_present?: boolean;
+      deduplication_event_id_source?: string;
+      match_input_quality?: string;
+      warnings?: string[];
+    };
+  };
+  return {
+    eventName: payload.data?.[0]?.event_name ?? "—",
+    destinationIdPresent: Boolean(payload.windowman_debug?.destination_id_present),
+    destinationType: payload.windowman_debug?.destination_id_type ?? "missing",
+    mapperVersion: payload.windowman_debug?.mapper_version ?? META_CAPI_DRY_RUN_MAPPER_VERSION,
+    matchInputQuality: payload.windowman_debug?.match_input_quality ?? "missing",
+    deduplicationEventIdPresent: Boolean(payload.windowman_debug?.deduplication_event_id_present),
+    deduplicationSource: payload.windowman_debug?.deduplication_event_id_source ?? "canonical_event_id",
+    warningCount: payload.windowman_debug?.warnings?.length ?? row.reasons.filter((reason) => reason.startsWith("meta_")).length,
+    valueSource: payload.data?.[0]?.custom_data?.value_basis ?? "gross_sale_value",
+  };
+}
+
 export function DispatchDryRunQueue() {
   const [selected, setSelected] = useState<DetailSelection>(null);
   const [platform, setPlatform] = useState<typeof PLATFORM_OPTIONS[number]>("all");
@@ -203,6 +231,7 @@ export function DispatchDryRunQueue() {
   const detailOrphan = selected?.kind === "orphan" ? selected.orphan : null;
   const detailCanonical = detailRow?.canonical ?? detailOrphan?.canonical ?? null;
   const tiktokSummary = getTikTokDryRunSummary(detailRow);
+  const metaSummary = getMetaDryRunSummary(detailRow);
 
   return (
     <div className="space-y-5">
