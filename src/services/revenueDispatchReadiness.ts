@@ -73,7 +73,7 @@ interface RpcReadinessRow {
   tenant_resolved: boolean | null;
   active_platform_config_count: number | null;
   active_destination_configs_total: number | null;
-  platform_configs: PlatformConfigSummary[] | null;
+  platform_configs: unknown;
 }
 
 export interface RevenueReadinessRow {
@@ -203,7 +203,7 @@ function computeValue(row: RpcReadinessRow): { valueUsd: number | null; finalVal
   };
 }
 
-function normalizePlatformConfigs(value: PlatformConfigSummary[] | null): PlatformConfigSummary[] {
+function normalizePlatformConfigs(value: unknown): PlatformConfigSummary[] {
   if (!Array.isArray(value)) return [];
   return value.map((config) => ({
     platform_name: String(config.platform_name ?? "other"),
