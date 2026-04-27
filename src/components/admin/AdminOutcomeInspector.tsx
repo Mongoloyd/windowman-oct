@@ -220,29 +220,15 @@ export function AdminOutcomeInspector() {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [rows]);
 
-  // ── Filtered rows ────────────────────────────────────────────────────────
-  const filtered = useMemo(() => {
-    const fromTs = dateFrom ? new Date(dateFrom).getTime() : null;
-    const toTs = dateTo ? new Date(dateTo).getTime() + 24 * 60 * 60 * 1000 : null;
-    const q = search.trim().toLowerCase();
-
-    return rows.filter((r) => {
-      if (dispositionFilter !== "all" && r.disposition_state !== dispositionFilter) return false;
-      if (contractorFilter !== "all" && r.contractor_id !== contractorFilter) return false;
-      if (mismatchOnly && r.rollup_status === "ok") return false;
-      if (valueFilter === "present" && r.final_value_cents == null) return false;
-      if (valueFilter === "missing" && r.final_value_cents != null) return false;
-
-      if (fromTs != null || toTs != null) {
-        const anchor = new Date(
-          r.last_partner_action_at ?? r.outcome_created_at,
-        ).getTime();
-        if (fromTs != null && anchor < fromTs) return false;
-        if (toTs != null && anchor > toTs) return false;
-      }
-
-      if (q) {
-        const haystack = [
+  // ── Per-row searchable haystack (precomputed when `rows` change) ─────────
+  // Avoid rebuilding the join+lowercase for every row on every keystroke in
+  // the search box. The haystack is a derived projection of `rows` so it
+  // recomputes only when the underlying RPC payload changes.
+  const searchableRows = useMemo(
+    () =>
+      rows.map((r) => ({
+        row: r,
+        haystack: [
           r.homeowner_first_name,
           r.homeowner_last_name,
           r.contractor_company_name,
@@ -258,13 +244,48 @@ export function AdminOutcomeInspector() {
         ]
           .filter(Boolean)
           .join(" ")
-          .toLowerCase();
-        if (!haystack.includes(q)) return false;
-      }
+          .toLowerCase(),
+      })),
+    [rows],
+  );
 
-      return true;
-    });
-  }, [rows, search, dispositionFilter, contractorFilter, valueFilter, mismatchOnly, dateFrom, dateTo]);
+  // ── Filtered rows ────────────────────────────────────────────────────────
+  const filtered = useMemo(() => {
+    // Parse YYYY-MM-DD as local-day boundaries, NOT UTC midnight, so the
+    // filter aligns with how `last_partner_action_at` / `outcome_created_at`
+    // are displayed to the operator. `new Date("YYYY-MM-DD")` would parse as
+    // UTC midnight and cause off-by-up-to-24h mistakes for users west of
+    // UTC.
+    const localMidnight = (s: string): number => {
+      const [y, m, d] = s.split("-").map(Number);
+      return new Date(y, (m ?? 1) - 1, d ?? 1).getTime();
+    };
+    const fromTs = dateFrom ? localMidnight(dateFrom) : null;
+    const toTs = dateTo ? localMidnight(dateTo) + 24 * 60 * 60 * 1000 : null;
+    const q = search.trim().toLowerCase();
+
+    return searchableRows
+      .filter(({ row: r, haystack }) => {
+        if (dispositionFilter !== "all" && r.disposition_state !== dispositionFilter) return false;
+        if (contractorFilter !== "all" && r.contractor_id !== contractorFilter) return false;
+        if (mismatchOnly && r.rollup_status === "ok") return false;
+        if (valueFilter === "present" && r.final_value_cents == null) return false;
+        if (valueFilter === "missing" && r.final_value_cents != null) return false;
+
+        if (fromTs != null || toTs != null) {
+          const anchor = new Date(
+            r.last_partner_action_at ?? r.outcome_created_at,
+          ).getTime();
+          if (fromTs != null && anchor < fromTs) return false;
+          if (toTs != null && anchor > toTs) return false;
+        }
+
+        if (q && !haystack.includes(q)) return false;
+
+        return true;
+      })
+      .map(({ row }) => row);
+  }, [searchableRows, search, dispositionFilter, contractorFilter, valueFilter, mismatchOnly, dateFrom, dateTo]);
 
   // ── KPI counts on the filtered set ───────────────────────────────────────
   const counts = useMemo(() => {

@@ -57,17 +57,30 @@ BEGIN
   END IF;
 
   RETURN QUERY
-  WITH lead_terminal_counts AS (
-    -- For each lead, count how many of its sibling contractor_outcomes are
-    -- still active (non-terminal). Used by the lost_dead rollup-missing
-    -- detector — partner-update-disposition only writes leads.deal_status =
-    -- 'lost' when every sibling outcome is terminal, so we cannot flag a
-    -- "missing" rollup until that condition is true.
+  WITH terminal_states AS (
+    -- Single source of truth for terminal disposition states. Referenced by
+    -- both the sibling stats CTE and the rollup detector below so a future
+    -- terminal state (e.g. 'cancelled') only has to be added in one place.
+    SELECT unnest(ARRAY['sold_closed', 'lost_dead']::text[]) AS state
+  ),
+  lead_outcome_stats AS (
+    -- Per-lead sibling outcome counts. Two facets matter for the audit:
+    --   active_count — non-terminal siblings; the lost_dead missing-rollup
+    --     detector cannot fire while any sibling is still in motion because
+    --     partner-update-disposition only writes leads.deal_status='lost'
+    --     once every sibling is terminal.
+    --   sold_count — terminal-sold siblings; if any sibling is sold, the
+    --     lead is rightly 'won' (partner-update-disposition prefers a sold
+    --     write at the lead level), and a lost_dead row on the same lead is
+    --     consistent with the rollup, NOT a missing rollup.
     SELECT
       opp_inner.lead_id                                                       AS lead_id,
       COUNT(*) FILTER (
-        WHERE co_inner.disposition_state NOT IN ('sold_closed', 'lost_dead')
-      )                                                                       AS active_sibling_count
+        WHERE co_inner.disposition_state NOT IN (SELECT state FROM terminal_states)
+      )                                                                       AS active_count,
+      COUNT(*) FILTER (
+        WHERE co_inner.disposition_state = 'sold_closed'
+      )                                                                       AS sold_count
     FROM public.contractor_outcomes      co_inner
     JOIN public.contractor_opportunities opp_inner
       ON opp_inner.id = co_inner.opportunity_id
@@ -103,15 +116,21 @@ BEGIN
     -- ── Rollup status detector ──────────────────────────────────────────────
     -- Order of precedence (first match wins):
     --   1. no_lead_linked       — opportunity has no lead_id
-    --   2. lead_rollup_missing  — terminal outcome but lead row never closed
-    --                             (sold_closed but lead.deal_status <> 'won',
-    --                              OR lost_dead with all siblings terminal but
-    --                              lead.deal_status <> 'lost')
+    --   2. lead_rollup_missing  — terminal outcome but rollup not consistent:
+    --        a. sold_closed and lead.deal_status <> 'won' or lead.closed_at IS NULL
+    --        b. sold_closed and either rollup value (deal_value / revenue_amount)
+    --           is NULL — the rollup row was never populated
+    --        c. lost_dead with no active siblings AND no sold siblings AND
+    --           (lead.deal_status <> 'lost' OR lead.closed_at IS NULL)
+    --        Note 2c: if any sibling is sold, the lead is rightly 'won' and a
+    --        lost_dead row on the same lead is consistent — NOT missing.
     --   3. lead_rollup_mismatch — sold_closed final value disagrees with
-    --                             leads.deal_value or leads.revenue_amount
+    --                             leads.deal_value AND/OR leads.revenue_amount
+    --                             (only evaluated when both rollup fields are
+    --                             non-null; NULL-rollup falls into 2b above).
     --   4. ok                   — everything else, including non-terminal
     --                             outcomes (rollup writes haven't happened yet
-    --                             by design)
+    --                             by design).
     CASE
       WHEN opp.lead_id IS NULL THEN 'no_lead_linked'
       WHEN co.disposition_state = 'sold_closed' AND (
@@ -119,19 +138,29 @@ BEGIN
              OR l.closed_at IS NULL
            )
         THEN 'lead_rollup_missing'
+      WHEN co.disposition_state = 'sold_closed'
+           AND co.final_value_cents IS NOT NULL
+           AND (l.deal_value IS NULL OR l.revenue_amount IS NULL)
+        THEN 'lead_rollup_missing'
       WHEN co.disposition_state = 'lost_dead'
-           AND COALESCE(ltc.active_sibling_count, 0) = 0
-           AND l.deal_status IS DISTINCT FROM 'lost'
+           AND COALESCE(los.active_count, 0) = 0
+           AND COALESCE(los.sold_count, 0)   = 0
+           AND (
+             l.deal_status IS DISTINCT FROM 'lost'
+             OR l.closed_at IS NULL
+           )
         THEN 'lead_rollup_missing'
       WHEN co.disposition_state = 'sold_closed'
            AND co.final_value_cents IS NOT NULL
+           AND l.deal_value     IS NOT NULL
+           AND l.revenue_amount IS NOT NULL
            AND (
              -- Compare in cents to avoid float drift. Tolerance 0 — partner
              -- edge function writes leads.deal_value = final_value_cents/100
              -- exactly, so any drift is a real mismatch.
-             ROUND(COALESCE(l.deal_value, 0)::numeric * 100)
+             ROUND(l.deal_value::numeric * 100)
                IS DISTINCT FROM co.final_value_cents
-             OR ROUND(COALESCE(l.revenue_amount, 0)::numeric * 100)
+             OR ROUND(l.revenue_amount::numeric * 100)
                IS DISTINCT FROM co.final_value_cents
            )
         THEN 'lead_rollup_mismatch'
@@ -141,7 +170,7 @@ BEGIN
   JOIN public.contractor_opportunities opp ON opp.id = co.opportunity_id
   LEFT JOIN public.contractors         c   ON c.id   = co.contractor_id
   LEFT JOIN public.leads               l   ON l.id   = opp.lead_id
-  LEFT JOIN lead_terminal_counts       ltc ON ltc.lead_id = opp.lead_id
+  LEFT JOIN lead_outcome_stats         los ON los.lead_id = opp.lead_id
   ORDER BY co.last_partner_action_at DESC NULLS LAST,
            co.created_at              DESC;
 END;
