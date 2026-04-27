@@ -171,9 +171,15 @@ const HARD_ROW_REASONS: DryRunReasonCode[] = [
   "google_missing_event_id",
   "google_missing_value",
   "google_event_time_missing",
+  "endpoint_missing_url",
+  "endpoint_invalid_url",
+  "endpoint_missing_event_id",
+  "endpoint_missing_value",
+  "endpoint_event_time_missing",
 ];
 
 const GOOGLE_PLATFORM_NAMES = new Set(["google", "google_ads", "ga4"]);
+const ENDPOINT_PLATFORM_NAMES = new Set(["gtm_server", "crm_webhook"]);
 
 function hasText(value: string | null | undefined) {
   return Boolean(value && value.trim());
@@ -194,8 +200,14 @@ function destinationSummary(config: PlatformConfigRow): string {
   if (platform === "meta") return config.pixel_id ? `Pixel ${maskId(config.pixel_id)}` : config.dataset_id ? `Dataset ${maskId(config.dataset_id)}` : "Meta destination missing";
   if (platform === "tiktok") return config.pixel_id ? `Pixel ${maskId(config.pixel_id)}` : config.dataset_id ? `Dataset ${maskId(config.dataset_id)}` : "TikTok destination missing";
   if (GOOGLE_PLATFORM_NAMES.has(platform)) return googleDestination(config).id ? `${googleDestination(config).type} ${maskId(googleDestination(config).id)}` : "Google destination missing";
-  if (platform === "gtm_server" || platform === "crm_webhook") return config.endpoint_url ? "Endpoint present" : "Endpoint missing";
+  if (platform === "gtm_server") return config.endpoint_url ? "GTM endpoint present" : "GTM endpoint missing";
+  if (platform === "crm_webhook") return config.endpoint_url ? "CRM webhook endpoint present" : "CRM webhook endpoint missing";
+  if (platform === "other" && config.endpoint_url) return "Generic endpoint present";
   return "Generic destination";
+}
+
+function isEndpointBackedPlatform(config: PlatformConfigRow): boolean {
+  return ENDPOINT_PLATFORM_NAMES.has(config.platform_name) || (config.platform_name === "other" && hasText(config.endpoint_url));
 }
 
 function configSummary(config: PlatformConfigRow): DispatchDryRunConfigSummary {
@@ -220,7 +232,6 @@ function addConfigReasons(config: PlatformConfigRow, reasons: Set<DryRunReasonCo
   const platform = config.platform_name;
   if (platformRequiresToken(platform) && !config.token_secret_id) addReason(reasons, "token_missing");
   if ((platform === "meta" || platform === "tiktok") && !hasText(config.pixel_id) && !hasText(config.dataset_id)) addReason(reasons, "required_destination_id_missing");
-  if ((platform === "gtm_server" || platform === "crm_webhook") && !hasText(config.endpoint_url)) addReason(reasons, "required_destination_id_missing");
 }
 
 function baseReasons(row: RevenueReadinessRow): Set<DryRunReasonCode> {
