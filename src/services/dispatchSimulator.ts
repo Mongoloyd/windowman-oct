@@ -625,34 +625,72 @@ function buildGooglePayload(row: RevenueReadinessRow, config: PlatformConfigRow)
   };
 }
 
-function buildGtmPayload(row: RevenueReadinessRow) {
+function buildGtmPayload(row: RevenueReadinessRow, config: PlatformConfigRow) {
   return {
-    event_name: "purchase",
-    event_id: row.eventId,
-    client_slug: row.clientSlug,
-    value: row.valueUsd,
-    currency: "USD",
-    attribution_presence: row.attributionPresence,
+    event_type: "gtm_server_dry_run",
+    gtm_server: {
+      event_name: "purchase",
+      event_id: row.eventId ? maskId(row.eventId) : null,
+      client_slug: row.clientSlug,
+      value: row.valueUsd,
+      currency: "USD",
+      source: "windowman",
+      attribution_presence: attributionPresenceSnapshot(row),
+      user_identity_presence: userIdentityPresenceSnapshot(row),
+    },
+    endpoint: endpointDestinationShape(config),
     dry_run: true,
+    windowman_debug: endpointDebug(row, config, GTM_SERVER_DRY_RUN_MAPPER_VERSION),
   };
 }
 
-function buildCrmPayload(row: RevenueReadinessRow) {
+function buildCrmPayload(row: RevenueReadinessRow, config: PlatformConfigRow) {
   return {
-    event_type: "sold",
-    event_id: row.eventId,
-    lead_id: row.leadId ? maskId(row.leadId) : null,
-    client_slug: row.clientSlug,
-    value_usd: row.valueUsd,
-    source: "windowman",
+    event_type: "crm_webhook_dry_run",
+    crm_webhook: {
+      event: "sold_closed",
+      event_id: row.eventId ? maskId(row.eventId) : null,
+      lead_id: row.leadId ? maskId(row.leadId) : null,
+      client_slug: row.clientSlug,
+      value_usd: row.valueUsd,
+      currency: "USD",
+      source: "windowman",
+      status: "sold_closed",
+      occurred_at_present: Boolean(unixSeconds(row.timestamp ?? row.createdAt)),
+      contractor_outcome_present: false,
+      opportunity_present: false,
+    },
+    routing: {
+      tenant_key: row.clientSlug,
+      destination_type: "crm_webhook",
+      ...endpointDestinationShape(config),
+    },
     dry_run: true,
+    windowman_debug: endpointDebug(row, config, CRM_WEBHOOK_DRY_RUN_MAPPER_VERSION),
+  };
+}
+
+function buildGenericEndpointPayload(row: RevenueReadinessRow, config: PlatformConfigRow) {
+  return {
+    event_type: "generic_endpoint_dry_run",
+    generic_endpoint: {
+      event: "sold_event",
+      event_id: row.eventId ? maskId(row.eventId) : null,
+      client_slug: row.clientSlug,
+      value_usd: row.valueUsd,
+      currency: "USD",
+      source: "windowman",
+    },
+    endpoint: endpointDestinationShape(config),
+    dry_run: true,
+    windowman_debug: endpointDebug(row, config, GENERIC_ENDPOINT_DRY_RUN_MAPPER_VERSION),
   };
 }
 
 function buildGenericPayload(row: RevenueReadinessRow) {
   return {
     event_name: row.eventName,
-    event_id: row.eventId,
+    event_id: row.eventId ? maskId(row.eventId) : null,
     client_slug: row.clientSlug,
     value_usd: row.valueUsd,
     dry_run: true,
@@ -668,9 +706,11 @@ function buildPayload(row: RevenueReadinessRow, config: PlatformConfigRow): Reco
     case "tiktok":
       return buildTikTokPayload(row, config);
     case "gtm_server":
-      return buildGtmPayload(row);
+      return buildGtmPayload(row, config);
     case "crm_webhook":
-      return buildCrmPayload(row);
+      return buildCrmPayload(row, config);
+    case "other":
+      return hasText(config.endpoint_url) ? buildGenericEndpointPayload(row, config) : buildGenericPayload(row);
     default:
       return buildGenericPayload(row);
   }
