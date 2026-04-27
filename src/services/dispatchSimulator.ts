@@ -625,6 +625,8 @@ export async function fetchDispatchDryRunQueue(): Promise<DispatchDryRunResult> 
         addMetaReasons(event, config, reasons);
       } else if (config.platform_name === "tiktok") {
         addTikTokReasons(event, config, reasons);
+      } else if (GOOGLE_PLATFORM_NAMES.has(config.platform_name)) {
+        addGoogleReasons(event, config, reasons);
       } else {
         addReason(reasons, "platform_mapper_basic");
       }
@@ -665,7 +667,7 @@ export async function fetchDispatchDryRunQueue(): Promise<DispatchDryRunResult> 
       totalSimulatedDispatches: rows.length,
       metaDispatches: rows.filter((row) => row.platformName === "meta").length,
       tiktokDispatches: rows.filter((row) => row.platformName === "tiktok").length,
-      googleDispatches: rows.filter((row) => row.platformName === "google_ads" || row.platformName === "ga4").length,
+      googleDispatches: rows.filter((row) => GOOGLE_PLATFORM_NAMES.has(row.platformName)).length,
       gtmWebhookDispatches: rows.filter((row) => ["gtm_server", "crm_webhook"].includes(row.platformName)).length,
       orphanedNoActiveConfig: orphans.filter((row) => row.reasons.includes("no_active_platform_config")).length,
     },
