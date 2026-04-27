@@ -548,15 +548,13 @@ function buildGenericPayload(row: RevenueReadinessRow) {
 }
 
 function buildPayload(row: RevenueReadinessRow, config: PlatformConfigRow): Record<string, unknown> {
+  if (GOOGLE_PLATFORM_NAMES.has(config.platform_name)) return buildGooglePayload(row, config);
+
   switch (config.platform_name) {
     case "meta":
       return buildMetaPayload(row, config);
     case "tiktok":
       return buildTikTokPayload(row, config);
-    case "google":
-    case "google_ads":
-    case "ga4":
-      return buildGooglePayload(row, config);
     case "gtm_server":
       return buildGtmPayload(row);
     case "crm_webhook":
