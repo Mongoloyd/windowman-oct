@@ -523,6 +523,84 @@ export type Database = {
         }
         Relationships: []
       }
+      contractor_accounts: {
+        Row: {
+          auth_user_id: string | null
+          client_slug: string
+          contact_email: string | null
+          contact_phone: string | null
+          created_at: string
+          display_name: string
+          id: string
+          is_active: boolean
+          metadata: Json
+          territory: Json
+          updated_at: string
+        }
+        Insert: {
+          auth_user_id?: string | null
+          client_slug: string
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          display_name: string
+          id?: string
+          is_active?: boolean
+          metadata?: Json
+          territory?: Json
+          updated_at?: string
+        }
+        Update: {
+          auth_user_id?: string | null
+          client_slug?: string
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          display_name?: string
+          id?: string
+          is_active?: boolean
+          metadata?: Json
+          territory?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contractor_accounts_client_slug_fkey"
+            columns: ["client_slug"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "contractor_accounts_client_slug_fkey"
+            columns: ["client_slug"]
+            isOneToOne: false
+            referencedRelation: "v_admin_active_clients"
+            referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "contractor_accounts_client_slug_fkey"
+            columns: ["client_slug"]
+            isOneToOne: false
+            referencedRelation: "v_admin_assignments_by_client"
+            referencedColumns: ["client_slug"]
+          },
+          {
+            foreignKeyName: "contractor_accounts_client_slug_fkey"
+            columns: ["client_slug"]
+            isOneToOne: false
+            referencedRelation: "v_admin_routing_resolution"
+            referencedColumns: ["client_slug"]
+          },
+          {
+            foreignKeyName: "contractor_accounts_client_slug_fkey"
+            columns: ["client_slug"]
+            isOneToOne: false
+            referencedRelation: "v_admin_unassigned_active_clients"
+            referencedColumns: ["client_slug"]
+          },
+        ]
+      }
       contractor_activity_log: {
         Row: {
           activity_data: Json
@@ -1855,6 +1933,161 @@ export type Database = {
           },
         ]
       }
+      lead_assignments: {
+        Row: {
+          accepted_at: string | null
+          analysis_id: string | null
+          assigned_at: string
+          assigned_by: string | null
+          client_slug: string
+          contractor_account_id: string | null
+          created_at: string
+          id: string
+          is_current: boolean
+          lead_id: string | null
+          metadata: Json
+          reason_code: string
+          recycled_at: string | null
+          released_at: string | null
+          scan_session_id: string | null
+          status: string
+          syndicate_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          analysis_id?: string | null
+          assigned_at?: string
+          assigned_by?: string | null
+          client_slug: string
+          contractor_account_id?: string | null
+          created_at?: string
+          id?: string
+          is_current?: boolean
+          lead_id?: string | null
+          metadata?: Json
+          reason_code?: string
+          recycled_at?: string | null
+          released_at?: string | null
+          scan_session_id?: string | null
+          status?: string
+          syndicate_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          analysis_id?: string | null
+          assigned_at?: string
+          assigned_by?: string | null
+          client_slug?: string
+          contractor_account_id?: string | null
+          created_at?: string
+          id?: string
+          is_current?: boolean
+          lead_id?: string | null
+          metadata?: Json
+          reason_code?: string
+          recycled_at?: string | null
+          released_at?: string | null
+          scan_session_id?: string | null
+          status?: string
+          syndicate_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_assignments_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "analyses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_assignments_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_analyses_slug_mismatch"
+            referencedColumns: ["analysis_id"]
+          },
+          {
+            foreignKeyName: "lead_assignments_client_slug_fkey"
+            columns: ["client_slug"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "lead_assignments_client_slug_fkey"
+            columns: ["client_slug"]
+            isOneToOne: false
+            referencedRelation: "v_admin_active_clients"
+            referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "lead_assignments_client_slug_fkey"
+            columns: ["client_slug"]
+            isOneToOne: false
+            referencedRelation: "v_admin_assignments_by_client"
+            referencedColumns: ["client_slug"]
+          },
+          {
+            foreignKeyName: "lead_assignments_client_slug_fkey"
+            columns: ["client_slug"]
+            isOneToOne: false
+            referencedRelation: "v_admin_routing_resolution"
+            referencedColumns: ["client_slug"]
+          },
+          {
+            foreignKeyName: "lead_assignments_client_slug_fkey"
+            columns: ["client_slug"]
+            isOneToOne: false
+            referencedRelation: "v_admin_unassigned_active_clients"
+            referencedColumns: ["client_slug"]
+          },
+          {
+            foreignKeyName: "lead_assignments_contractor_account_id_fkey"
+            columns: ["contractor_account_id"]
+            isOneToOne: false
+            referencedRelation: "contractor_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_assignments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_assignments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unknown_slug"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_assignments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unrouted"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_assignments_scan_session_id_fkey"
+            columns: ["scan_session_id"]
+            isOneToOne: false
+            referencedRelation: "scan_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_assignments_syndicate_id_fkey"
+            columns: ["syndicate_id"]
+            isOneToOne: false
+            referencedRelation: "syndicates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_attribution_details: {
         Row: {
           ad_id: string | null
@@ -2098,6 +2331,124 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_admin_leads_unrouted"
             referencedColumns: ["lead_id"]
+          },
+        ]
+      }
+      lead_routing_events: {
+        Row: {
+          analysis_id: string | null
+          assignment_id: string | null
+          created_at: string
+          event_type: string
+          from_client_slug: string | null
+          from_contractor_account_id: string | null
+          id: string
+          lead_id: string | null
+          metadata: Json
+          note: string | null
+          operator_id: string | null
+          reason_code: string
+          scan_session_id: string | null
+          to_client_slug: string | null
+          to_contractor_account_id: string | null
+        }
+        Insert: {
+          analysis_id?: string | null
+          assignment_id?: string | null
+          created_at?: string
+          event_type: string
+          from_client_slug?: string | null
+          from_contractor_account_id?: string | null
+          id?: string
+          lead_id?: string | null
+          metadata?: Json
+          note?: string | null
+          operator_id?: string | null
+          reason_code: string
+          scan_session_id?: string | null
+          to_client_slug?: string | null
+          to_contractor_account_id?: string | null
+        }
+        Update: {
+          analysis_id?: string | null
+          assignment_id?: string | null
+          created_at?: string
+          event_type?: string
+          from_client_slug?: string | null
+          from_contractor_account_id?: string | null
+          id?: string
+          lead_id?: string | null
+          metadata?: Json
+          note?: string | null
+          operator_id?: string | null
+          reason_code?: string
+          scan_session_id?: string | null
+          to_client_slug?: string | null
+          to_contractor_account_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_routing_events_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "analyses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_routing_events_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_analyses_slug_mismatch"
+            referencedColumns: ["analysis_id"]
+          },
+          {
+            foreignKeyName: "lead_routing_events_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "lead_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_routing_events_from_contractor_account_id_fkey"
+            columns: ["from_contractor_account_id"]
+            isOneToOne: false
+            referencedRelation: "contractor_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_routing_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_routing_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unknown_slug"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_routing_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_leads_unrouted"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_routing_events_scan_session_id_fkey"
+            columns: ["scan_session_id"]
+            isOneToOne: false
+            referencedRelation: "scan_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_routing_events_to_contractor_account_id_fkey"
+            columns: ["to_contractor_account_id"]
+            isOneToOne: false
+            referencedRelation: "contractor_accounts"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -3225,6 +3576,124 @@ export type Database = {
         }
         Relationships: []
       }
+      syndicate_clients: {
+        Row: {
+          client_slug: string
+          created_at: string
+          id: string
+          is_active: boolean
+          metadata: Json
+          priority: number
+          role: string
+          syndicate_id: string
+          territory: Json
+          updated_at: string
+        }
+        Insert: {
+          client_slug: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          metadata?: Json
+          priority?: number
+          role?: string
+          syndicate_id: string
+          territory?: Json
+          updated_at?: string
+        }
+        Update: {
+          client_slug?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          metadata?: Json
+          priority?: number
+          role?: string
+          syndicate_id?: string
+          territory?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "syndicate_clients_client_slug_fkey"
+            columns: ["client_slug"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "syndicate_clients_client_slug_fkey"
+            columns: ["client_slug"]
+            isOneToOne: false
+            referencedRelation: "v_admin_active_clients"
+            referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "syndicate_clients_client_slug_fkey"
+            columns: ["client_slug"]
+            isOneToOne: false
+            referencedRelation: "v_admin_assignments_by_client"
+            referencedColumns: ["client_slug"]
+          },
+          {
+            foreignKeyName: "syndicate_clients_client_slug_fkey"
+            columns: ["client_slug"]
+            isOneToOne: false
+            referencedRelation: "v_admin_routing_resolution"
+            referencedColumns: ["client_slug"]
+          },
+          {
+            foreignKeyName: "syndicate_clients_client_slug_fkey"
+            columns: ["client_slug"]
+            isOneToOne: false
+            referencedRelation: "v_admin_unassigned_active_clients"
+            referencedColumns: ["client_slug"]
+          },
+          {
+            foreignKeyName: "syndicate_clients_syndicate_id_fkey"
+            columns: ["syndicate_id"]
+            isOneToOne: false
+            referencedRelation: "syndicates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      syndicates: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          market: string | null
+          metadata: Json
+          name: string
+          region: string | null
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          market?: string | null
+          metadata?: Json
+          name: string
+          region?: string | null
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          market?: string | null
+          metadata?: Json
+          name?: string
+          region?: string | null
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_role_audit_log: {
         Row: {
           action: string
@@ -3952,6 +4421,22 @@ export type Database = {
           value_basis: string
           value_usd: number
         }[]
+      }
+      admin_route_lead_assignment: {
+        Args: {
+          p_action: string
+          p_analysis_id?: string
+          p_assignment_id?: string
+          p_client_slug?: string
+          p_contractor_account_id?: string
+          p_lead_id?: string
+          p_metadata?: Json
+          p_operator_note?: string
+          p_reason_code?: string
+          p_scan_session_id?: string
+          p_syndicate_id?: string
+        }
+        Returns: Json
       }
       claim_pending_deliveries: {
         Args: { p_limit?: number }
