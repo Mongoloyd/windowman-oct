@@ -81,7 +81,7 @@ function statusClasses(status: CompletenessStatus | ValidationStatus | ConfigSta
 }
 
 function StatusBadge({ value }: { value: string }) {
-  return <Badge className={cn("rounded-full border px-2.5 py-1 text-xs font-black uppercase", statusClasses(value as never))}>{value.replaceAll("_", " ")}</Badge>;
+  return <Badge className={cn("rounded-full border px-2.5 py-1 text-xs font-black uppercase", statusClasses(value as never))}>{value.replace(/_/g, " ")}</Badge>;
 }
 
 function KpiCard({ label, value }: { label: string; value: number }) {
@@ -103,7 +103,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 function reasonLabel(code: string) {
-  return code.replaceAll("_", " ");
+  return code.replace(/_/g, " ");
 }
 
 function destinationSummary(row: PlatformConfigRow) {
@@ -191,7 +191,7 @@ export function ClientPlatformConfigs() {
 
   const stateMutation = useMutation({
     mutationFn: ({ id, state }: { id: string; state: ConfigState }) => setClientPlatformState(id, state),
-    onSuccess: (_, vars) => { toast.success(`Config moved to ${vars.state.replaceAll("_", " ")}`); invalidate(); },
+    onSuccess: (_, vars) => { toast.success(`Config moved to ${vars.state.replace(/_/g, " ")}`); invalidate(); },
     onError: (err: Error) => toast.error(err.message),
   });
 
@@ -281,11 +281,11 @@ export function ClientPlatformConfigs() {
           </Select>
           <Select value={filters.state} onValueChange={(value) => setFilters({ ...filters, state: value })}>
             <SelectTrigger><SelectValue placeholder="Lifecycle" /></SelectTrigger>
-            <SelectContent><SelectItem value={ALL}>All states</SelectItem>{STATE_OPTIONS.map((s) => <SelectItem key={s} value={s}>{s.replaceAll("_", " ")}</SelectItem>)}</SelectContent>
+            <SelectContent><SelectItem value={ALL}>All states</SelectItem>{STATE_OPTIONS.map((s) => <SelectItem key={s} value={s}>{s.replace(/_/g, " ")}</SelectItem>)}</SelectContent>
           </Select>
           <Select value={filters.validation} onValueChange={(value) => setFilters({ ...filters, validation: value })}>
             <SelectTrigger><SelectValue placeholder="Validation" /></SelectTrigger>
-            <SelectContent><SelectItem value={ALL}>All validation</SelectItem>{VALIDATION_OPTIONS.map((s) => <SelectItem key={s} value={s}>{s.replaceAll("_", " ")}</SelectItem>)}</SelectContent>
+            <SelectContent><SelectItem value={ALL}>All validation</SelectItem>{VALIDATION_OPTIONS.map((s) => <SelectItem key={s} value={s}>{s.replace(/_/g, " ")}</SelectItem>)}</SelectContent>
           </Select>
         </div>
         <div className="mt-3 flex flex-wrap gap-4">
@@ -372,7 +372,7 @@ export function ClientPlatformConfigs() {
                 <Field label="config_state">
                   <Select value={draft.config_state} onValueChange={(value) => updateDraft("config_state", value as ConfigState)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>{STATE_OPTIONS.map((s) => <SelectItem key={s} value={s}>{s.replaceAll("_", " ")}</SelectItem>)}</SelectContent>
+                    <SelectContent>{STATE_OPTIONS.map((s) => <SelectItem key={s} value={s}>{s.replace(/_/g, " ")}</SelectItem>)}</SelectContent>
                   </Select>
                 </Field>
                 <Field label="is_active">
@@ -396,7 +396,7 @@ export function ClientPlatformConfigs() {
                   {Object.entries(checklist).map(([key, ok]) => (
                     <div key={key} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white p-2 text-sm font-bold text-slate-800">
                       {ok ? <CheckCircle2 className="h-4 w-4 text-emerald-700" /> : <XCircle className="h-4 w-4 text-rose-700" />}
-                      {key.replaceAll("_", " ")}
+                      {key.replace(/_/g, " ")}
                     </div>
                   ))}
                 </div>
