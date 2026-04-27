@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import {
   fetchDispatchDryRunQueue,
+  GOOGLE_DRY_RUN_MAPPER_VERSION,
   META_CAPI_DRY_RUN_MAPPER_VERSION,
   TIKTOK_DRY_RUN_MAPPER_VERSION,
   type DispatchDryRunOrphan,
@@ -157,6 +158,38 @@ function getMetaDryRunSummary(row: DispatchDryRunRow | null) {
     deduplicationSource: payload.windowman_debug?.deduplication_event_id_source ?? "canonical_event_id",
     warningCount: payload.windowman_debug?.warnings?.length ?? row.reasons.filter((reason) => reason.startsWith("meta_")).length,
     valueSource: payload.data?.[0]?.custom_data?.value_basis ?? "gross_sale_value",
+  };
+}
+
+function getGoogleDryRunSummary(row: DispatchDryRunRow | null) {
+  if (!row || !["google", "google_ads", "ga4"].includes(row.platformName)) return null;
+  const payload = row.payload as {
+    ga4?: { event_name?: string };
+    google_ads?: { gclid_present?: boolean; gbraid_present?: boolean; wbraid_present?: boolean };
+    windowman_debug?: {
+      mapper_version?: string;
+      destination_present?: boolean;
+      destination_type?: string;
+      destination_strength?: string;
+      google_attribution_quality?: string;
+      event_id_present?: boolean;
+      value_basis?: string;
+      warnings?: string[];
+    };
+  };
+  return {
+    eventName: payload.ga4?.event_name ?? "purchase",
+    destinationPresent: Boolean(payload.windowman_debug?.destination_present),
+    destinationType: payload.windowman_debug?.destination_type ?? "missing",
+    destinationStrength: payload.windowman_debug?.destination_strength ?? "missing",
+    mapperVersion: payload.windowman_debug?.mapper_version ?? GOOGLE_DRY_RUN_MAPPER_VERSION,
+    attributionQuality: payload.windowman_debug?.google_attribution_quality ?? "missing",
+    eventIdPresent: Boolean(payload.windowman_debug?.event_id_present),
+    gclidPresent: Boolean(payload.google_ads?.gclid_present),
+    gbraidPresent: Boolean(payload.google_ads?.gbraid_present),
+    wbraidPresent: Boolean(payload.google_ads?.wbraid_present),
+    warningCount: payload.windowman_debug?.warnings?.length ?? row.reasons.filter((reason) => reason.startsWith("google_")).length,
+    valueSource: payload.windowman_debug?.value_basis ?? "gross_sale_value",
   };
 }
 
