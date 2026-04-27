@@ -524,7 +524,9 @@ export async function fetchDispatchDryRunQueue(): Promise<DispatchDryRunResult> 
     for (const config of activeConfigs) {
       const reasons = new Set(sharedReasons);
       addConfigReasons(config, reasons);
-      if (config.platform_name === "tiktok") {
+      if (config.platform_name === "meta") {
+        addMetaReasons(event, config, reasons);
+      } else if (config.platform_name === "tiktok") {
         addTikTokReasons(event, config, reasons);
       } else {
         addReason(reasons, "platform_mapper_basic");
