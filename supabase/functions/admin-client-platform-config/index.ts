@@ -200,7 +200,7 @@ Deno.serve(async (req) => {
       const id = sanitizeText(payload.id, 80);
       const clientId = sanitizeText(payload.client_id, 80);
       const platform = normalizePlatform(payload.platform_name);
-      const state = sanitizeText(payload.config_state, 40) ?? "draft";
+      const state = (sanitizeText(payload.config_state, 40) ?? "draft") as ConfigState;
       if (!CONFIG_STATES.has(state)) return errorResponse(400, "invalid_state", "Invalid config_state");
       if (!id && !clientId) return errorResponse(400, "missing_client", "client_id is required");
 
