@@ -153,16 +153,15 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
               className="absolute -bottom-16 -left-10 h-44 w-44 rounded-full bg-orange-300/15 blur-3xl"
             />
 
-            <div className="relative z-10 flex flex-col items-center text-center">
-              {/* Headline & Subhead - Moved up */}
-              <div className="mb-2">
-                <h2 className="font-display text-2xl font-black leading-tight text-white md:text-3xl">
-                  WindowMan Has Your Report.
-                </h2>
-                <p className="mt-2 text-sm font-bold leading-relaxed text-blue-50/90">
-                  Pick The Problem. I’ll Build The Next Move.
-                </p>
-              </div>
+               {/* Headline & Subhead - Tightened Lockup */}
+          <div className="mb-3 px-2">
+         <h2 className="font-display text-[22px] font-black leading-[1.1] tracking-tight text-white md:text-3xl">
+              WindowMan Has Your Report.
+         </h2>
+            <p className="mt-1 text-[13px] font-bold leading-snug text-blue-50/90 md:text-sm">
+                Pick The Problem. I’ll Build The Next Move.
+            </p>
+            </div>
 
               {/* Square Image Stage - Floating, centered, no zoom */}
               <div className="relative mx-auto aspect-square w-full max-w-[500px] overflow-hidden rounded-2xl border border-white/10 bg-white/5">
