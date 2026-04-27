@@ -77,7 +77,10 @@ Deno.serve(async (req) => {
     // ── Auth ──────────────────────────────────────────────────────
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
-      return json({ error: "unauthenticated", message: "Missing auth token." }, 401);
+      return json(
+        { error: "unauthenticated", message: "Missing auth token." },
+        401,
+      );
     }
 
     const anonClient = createClient(
@@ -88,7 +91,10 @@ Deno.serve(async (req) => {
 
     const { data: { user }, error: userErr } = await anonClient.auth.getUser();
     if (userErr || !user) {
-      return json({ error: "unauthenticated", message: "Invalid auth token." }, 401);
+      return json(
+        { error: "unauthenticated", message: "Invalid auth token." },
+        401,
+      );
     }
     const authUserId = user.id;
 
@@ -106,7 +112,10 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (!profile) {
-      return json({ error: "no_contractor_profile", message: "No contractor profile found." }, 404);
+      return json({
+        error: "no_contractor_profile",
+        message: "No contractor profile found.",
+      }, 404);
     }
     if (profile.status !== "active") {
       return json({
@@ -135,7 +144,10 @@ Deno.serve(async (req) => {
     try {
       body = await req.json();
     } catch {
-      return json({ error: "invalid_body", message: "Request body must be valid JSON." }, 400);
+      return json({
+        error: "invalid_body",
+        message: "Request body must be valid JSON.",
+      }, 400);
     }
 
     const {
@@ -157,22 +169,33 @@ Deno.serve(async (req) => {
     };
 
     if (!opportunity_id || typeof opportunity_id !== "string") {
-      return json({ error: "invalid_input", message: "opportunity_id is required." }, 400);
+      return json({
+        error: "invalid_input",
+        message: "opportunity_id is required.",
+      }, 400);
     }
     if (!disposition_state || typeof disposition_state !== "string") {
-      return json({ error: "invalid_input", message: "disposition_state is required." }, 400);
+      return json({
+        error: "invalid_input",
+        message: "disposition_state is required.",
+      }, 400);
     }
     if (!VALID_STATES.has(disposition_state)) {
       return json({
         error: "invalid_state",
-        message: `disposition_state '${disposition_state}' is not a valid state.`,
+        message:
+          `disposition_state '${disposition_state}' is not a valid state.`,
         valid_states: [...VALID_STATES],
       }, 422);
     }
-    if (disposition_reason_code != null && !VALID_REASON_CODES.has(disposition_reason_code)) {
+    if (
+      disposition_reason_code != null &&
+      !VALID_REASON_CODES.has(disposition_reason_code)
+    ) {
       return json({
         error: "invalid_reason_code",
-        message: `disposition_reason_code '${disposition_reason_code}' is not a valid reason code.`,
+        message:
+          `disposition_reason_code '${disposition_reason_code}' is not a valid reason code.`,
         valid_reason_codes: [...VALID_REASON_CODES],
       }, 422);
     }
@@ -183,13 +206,15 @@ Deno.serve(async (req) => {
       if (!disposition_reason_code) {
         return json({
           error: "reason_required",
-          message: "disposition_reason_code is required when marking a lead as lost_dead.",
+          message:
+            "disposition_reason_code is required when marking a lead as lost_dead.",
         }, 422);
       }
       if (!trimmedNotes) {
         return json({
           error: "lost_reason_text_required",
-          message: "A typed loss reason is required when marking a lead as lost_dead.",
+          message:
+            "A typed loss reason is required when marking a lead as lost_dead.",
         }, 422);
       }
     }
@@ -203,16 +228,29 @@ Deno.serve(async (req) => {
       ) {
         return json({
           error: "positive_value_required",
-          message: "final_value_cents must be a positive integer greater than 0 when marking a lead as sold_closed.",
+          message:
+            "final_value_cents must be a positive integer greater than 0 when marking a lead as sold_closed.",
         }, 422);
       }
     }
 
-    if (projected_value_cents != null && (!Number.isInteger(projected_value_cents) || projected_value_cents < 0)) {
-      return json({ error: "invalid_input", message: "projected_value_cents must be a non-negative integer." }, 422);
+    if (
+      projected_value_cents != null &&
+      (!Number.isInteger(projected_value_cents) || projected_value_cents < 0)
+    ) {
+      return json({
+        error: "invalid_input",
+        message: "projected_value_cents must be a non-negative integer.",
+      }, 422);
     }
-    if (final_value_cents != null && (!Number.isInteger(final_value_cents) || final_value_cents < 0)) {
-      return json({ error: "invalid_input", message: "final_value_cents must be a non-negative integer." }, 422);
+    if (
+      final_value_cents != null &&
+      (!Number.isInteger(final_value_cents) || final_value_cents < 0)
+    ) {
+      return json({
+        error: "invalid_input",
+        message: "final_value_cents must be a non-negative integer.",
+      }, 422);
     }
 
     // ── Fetch current outcome row ─────────────────────────────────
@@ -224,8 +262,14 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (outcomeErr) {
-      console.error("[partner-update-disposition] Outcome fetch error:", outcomeErr);
-      return json({ error: "fetch_error", message: "Failed to fetch outcome row." }, 500);
+      console.error(
+        "[partner-update-disposition] Outcome fetch error:",
+        outcomeErr,
+      );
+      return json({
+        error: "fetch_error",
+        message: "Failed to fetch outcome row.",
+      }, 500);
     }
     if (!outcome) {
       return json({
@@ -240,7 +284,8 @@ Deno.serve(async (req) => {
     if (!allowedNext.includes(disposition_state)) {
       return json({
         error: "invalid_state_transition",
-        message: `Cannot transition from '${currentState}' to '${disposition_state}'.`,
+        message:
+          `Cannot transition from '${currentState}' to '${disposition_state}'.`,
         current_state: currentState,
         allowed_next_states: allowedNext,
       }, 422);
@@ -255,10 +300,18 @@ Deno.serve(async (req) => {
       disposition_state,
       last_partner_action_at: now,
     };
-    if (disposition_reason_code != null) updatePayload.disposition_reason_code = disposition_reason_code;
-    if (projected_value_cents != null) updatePayload.projected_value_cents = projected_value_cents;
-    if (final_value_cents != null) updatePayload.final_value_cents = final_value_cents;
-    if (signed_contract_url != null) updatePayload.signed_contract_url = signed_contract_url;
+    if (disposition_reason_code != null) {
+      updatePayload.disposition_reason_code = disposition_reason_code;
+    }
+    if (projected_value_cents != null) {
+      updatePayload.projected_value_cents = projected_value_cents;
+    }
+    if (final_value_cents != null) {
+      updatePayload.final_value_cents = final_value_cents;
+    }
+    if (signed_contract_url != null) {
+      updatePayload.signed_contract_url = signed_contract_url;
+    }
     if (notes != null) updatePayload.outcome_notes = notes;
 
     const { data: updatedRows, error: updateErr } = await svc
@@ -269,8 +322,14 @@ Deno.serve(async (req) => {
       .select("id");
 
     if (updateErr) {
-      console.error("[partner-update-disposition] Outcome update error:", updateErr);
-      return json({ error: "update_error", message: "Failed to update outcome." }, 500);
+      console.error(
+        "[partner-update-disposition] Outcome update error:",
+        updateErr,
+      );
+      return json({
+        error: "update_error",
+        message: "Failed to update outcome.",
+      }, 500);
     }
     if (!updatedRows || updatedRows.length === 0) {
       return json({
@@ -289,7 +348,11 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (oppErr) {
-      console.error("[partner-update-disposition] Opportunity lookup error:", oppErr, { opportunity_id });
+      console.error(
+        "[partner-update-disposition] Opportunity lookup error:",
+        oppErr,
+        { opportunity_id },
+      );
     }
 
     const leadId = oppRow?.lead_id as string | null;
@@ -341,7 +404,10 @@ Deno.serve(async (req) => {
           .update(leadUpdate)
           .eq("id", leadId);
         if (leadErr) {
-          console.error("[partner-update-disposition] Lead rollup error:", leadErr);
+          console.error(
+            "[partner-update-disposition] Lead rollup error:",
+            leadErr,
+          );
         } else {
           lead_rollup_succeeded = true;
         }
@@ -352,34 +418,114 @@ Deno.serve(async (req) => {
     }
 
     // ── Canonical sold event ──────────────────────────────────────
-    if (disposition_state === "sold_closed" && final_value_cents != null && leadId) {
+    // Internal canonical revenue signal — written to wm_event_log via
+    // `createCanonicalEvent`. This emit is intentionally NON-FATAL: the
+    // outcome row has already been updated and the leads rollup mirror
+    // has already run; if the canonical event fails to land we surface
+    // it in the error log but do not roll back disposition.
+    //
+    // Sprint 1F integrity contract — every sold event MUST carry:
+    //   - revenue_truth_source:        "contractor_outcomes"
+    //   - revenue_rollup_target:       "leads"
+    //   - source_system:               "partner-update-disposition"
+    //   - disposition_state:           "sold_closed"
+    //   - lead_id / opportunity_id / contractor_id / contractor_outcome_id
+    //   - final_value_cents + final_value_usd
+    //   - optimization_value_basis:   "gross_sale_value"  (NOT true profit)
+    //   - true_margin_available:      false               (no cost basis)
+    //   - margin_model_version:       null                (no model yet)
+    //
+    // No external dispatch happens here. The dispatch-platform-events
+    // worker reads `wm_platform_dispatch_log` separately on its own
+    // cadence; this function never calls Meta / Google / TikTok / GTM.
+    if (
+      disposition_state === "sold_closed" && final_value_cents != null && leadId
+    ) {
+      const finalValueUsd = final_value_cents / 100;
+      const soldEventContext = {
+        lead_id: leadId,
+        opportunity_id,
+        contractor_id: contractorId,
+        contractor_outcome_id: outcome.id,
+        final_value_cents,
+        disposition_state: "sold_closed" as const,
+      };
       try {
         await createCanonicalEvent(
           {
             eventName: "sold",
             leadId,
-            // marginUsd drives optimization_value_usd in the canonical pipeline.
-            // We pass gross sale value here as the closest available proxy;
-            // actual margin is not available at this layer.
-            marginUsd: final_value_cents / 100,
+            // marginUsd drives optimization_value_usd in the canonical
+            // pipeline. We pass GROSS sale value here as the closest
+            // available proxy. The metadata block below explicitly flags
+            // this so downstream consumers cannot mistake it for true
+            // profit margin.
+            marginUsd: finalValueUsd,
             payload: {
               identity: { leadId },
               journey: { route: "/partner/disposition", flow: "admin" },
               source: { sourceSystem: "edge_function" },
               metadata: {
-                contractor_outcome_id: outcome.id,
-                contractor_id: contractorId,
-                final_value_cents,
+                // Truth-source contract
+                revenue_truth_source: "contractor_outcomes",
+                revenue_rollup_target: "leads",
+                source_system: "partner-update-disposition",
                 disposition_state: "sold_closed",
+
+                // Identity / linkage
+                lead_id: leadId,
+                opportunity_id,
+                contractor_id: contractorId,
+                contractor_outcome_id: outcome.id,
+
+                // Revenue values
+                final_value_cents,
+                final_value_usd: finalValueUsd,
+
+                // Honesty flags — keep these in lockstep with marginUsd
+                // above so analytics never silently treats gross sale as
+                // profit margin.
+                optimization_value_basis: "gross_sale_value",
+                true_margin_available: false,
+                margin_model_version: null,
               },
             },
             rawPayload: { opportunity_id, contractor_id: contractorId },
           },
-          { db: svc },
+          // The real `SupabaseClient` is structurally compatible with the
+          // narrower `DBLike` contract `createCanonicalEvent` declares
+          // internally, but TS cannot prove it through Promise return-type
+          // variance on the Postgrest builder. Cast through unknown using
+          // `Parameters<typeof createCanonicalEvent>[1]["db"]` so we stay
+          // type-safe against the real contract instead of widening to
+          // `any`. Same idiom is used in `dispatch-platform-events`.
+          {
+            db: svc as unknown as Parameters<
+              typeof createCanonicalEvent
+            >[1]["db"],
+          },
         );
       } catch (eventErr) {
-        console.error("[partner-update-disposition] Canonical event error:", eventErr);
-        // Non-fatal: outcome is already updated; event failure should not roll back the disposition
+        // Structured, PII-free error log so on-call can correlate this
+        // failure to the sold outcome without grepping the request body.
+        // Include `name` + `stack` (when available) so production debugging
+        // does not require local repro.
+        const error = eventErr instanceof Error
+          ? {
+            name: eventErr.name,
+            message: eventErr.message,
+            stack: eventErr.stack,
+          }
+          : { message: String(eventErr) };
+        console.error(
+          "[partner-update-disposition] Canonical sold event emit failed (non-fatal)",
+          {
+            ...soldEventContext,
+            error,
+          },
+        );
+        // Non-fatal: outcome is already updated; event failure must not
+        // roll back the disposition.
       }
     }
 
@@ -392,6 +538,9 @@ Deno.serve(async (req) => {
     });
   } catch (err) {
     console.error("[partner-update-disposition] Unhandled error:", err);
-    return json({ error: "internal_error", message: "Internal server error." }, 500);
+    return json(
+      { error: "internal_error", message: "Internal server error." },
+      500,
+    );
   }
 });
