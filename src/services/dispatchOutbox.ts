@@ -1,7 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
+import { peekDevSecret } from "@/lib/devSecret";
 
 export type DispatchEligibilityStatus = "eligible_not_sent" | "warning_not_sent" | "blocked" | "duplicate_protected" | "skipped" | "superseded";
 export type DispatchReadinessStatus = "ready" | "warning" | "blocked";
+export type MaterializationMode = "preview_selected" | "preview_filtered" | "materialize_selected" | "materialize_filtered";
 
 export interface DispatchOutboxCandidate {
   candidateId: string;
@@ -95,6 +97,53 @@ export interface DispatchOutboxResult {
     activePlatformConfigs: number;
     sendEnabledRows: number;
   };
+}
+
+export interface DispatchMaterializationFilters {
+  client_slug?: string;
+  platform_name?: string;
+  eligibility_status?: "eligible_not_sent" | "warning_not_sent" | "blocked" | "duplicate_protected";
+  date_from?: string;
+  date_to?: string;
+}
+
+export interface DispatchMaterializationRequest {
+  mode: MaterializationMode;
+  candidate_ids?: string[];
+  filters?: DispatchMaterializationFilters;
+  include_warnings?: boolean;
+  confirmation?: string;
+}
+
+export interface DispatchMaterializationResultItem {
+  candidate_id: string;
+  status: string;
+  outbox_id_masked?: string | null;
+  idempotency_key_masked?: string | null;
+  reasons?: string[];
+  error?: string;
+}
+
+export interface DispatchMaterializationResult {
+  mode: MaterializationMode;
+  preview_only: boolean;
+  dry_run_only: boolean;
+  send_enabled: boolean;
+  external_apis_called: boolean;
+  attempts_written: boolean;
+  summary: {
+    candidates_considered: number;
+    inserted: number;
+    inserted_warnings: number;
+    duplicate_protected: number;
+    skipped_blocked: number;
+    skipped_duplicate: number;
+    skipped_invalid: number;
+    errors: number;
+  };
+  created_outbox_row_ids_masked: string[];
+  reason_code_breakdown: Record<string, number>;
+  items: DispatchMaterializationResultItem[];
 }
 
 function toNumber(value: unknown): number | null {
@@ -203,15 +252,8 @@ export function formatDispatchCurrency(value: number | null, currency = "USD"): 
 export async function fetchDispatchOutboxControl(): Promise<DispatchOutboxResult> {
   const [{ data: candidateData, error: candidateError }, { data: outboxData, error: outboxError }, { count: activeConfigCount, error: configError }] = await Promise.all([
     supabase.rpc("admin_dispatch_outbox_candidates" as never),
-    supabase
-      .from("platform_dispatch_outbox" as never)
-      .select("*" as never)
-      .order("created_at" as never, { ascending: false })
-      .limit(500),
-    supabase
-      .from("client_platform_configs")
-      .select("id", { count: "exact", head: true })
-      .eq("is_active", true),
+    supabase.from("platform_dispatch_outbox" as never).select("*" as never).order("created_at" as never, { ascending: false }).limit(500),
+    supabase.from("client_platform_configs").select("id", { count: "exact", head: true }).eq("is_active", true),
   ]);
 
   if (candidateError) throw candidateError;
@@ -236,4 +278,30 @@ export async function fetchDispatchOutboxControl(): Promise<DispatchOutboxResult
       sendEnabledRows: outboxRows.filter((row) => row.sendEnabled).length,
     },
   };
+}
+
+export async function runDispatchOutboxMaterialization(payload: DispatchMaterializationRequest): Promise<DispatchMaterializationResult> {
+  const devSecret = peekDevSecret();
+  if (devSecret) {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const resp = await fetch(`${supabaseUrl}/functions/v1/admin-materialize-dispatch-outbox`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-dev-secret": devSecret },
+      body: JSON.stringify(payload),
+    });
+    const body = await resp.json().catch(() => ({}));
+    if (!resp.ok || body.ok === false) throw new Error(body.error || "Dispatch outbox materialization failed");
+    return body as DispatchMaterializationResult;
+  }
+
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError || !session?.access_token) throw new Error("User is not authenticated or session has expired.");
+
+  const { data, error } = await supabase.functions.invoke("admin-materialize-dispatch-outbox", {
+    body: payload,
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  });
+  if (error) throw new Error(error.message || "Dispatch outbox materialization failed");
+  if (!data?.ok) throw new Error(data?.error || "Dispatch outbox materialization failed");
+  return data as DispatchMaterializationResult;
 }
