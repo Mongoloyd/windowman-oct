@@ -4527,6 +4527,7 @@ export type Database = {
           contractor_id: string
           disposition_state: string
           duplicate_protected: boolean
+          duplicate_revenue_signal_key: boolean
           eligible_for_revenue_signal: boolean
           existing_event_id: string
           existing_signal_id: string
@@ -4535,14 +4536,20 @@ export type Database = {
           final_value_usd: number
           lead_assignment_id: string
           lead_id: string
+          lifecycle_duplicate_count: number
+          lifecycle_duplicate_detected: boolean
           opportunity_id: string
           outcome_id: string
           outcome_integrity_reasons: string[]
           outcome_integrity_status: string
           revenue_signal_key: string
+          revenue_signal_key_basis: string
+          revenue_signal_key_reasons: string[]
+          revenue_signal_key_version: string
           scan_session_id: string
           sold_currency: string
           value_basis: string
+          weak_lifecycle_key: boolean
         }[]
       }
       admin_route_lead_assignment: {
@@ -4850,6 +4857,34 @@ export type Database = {
           priority: number
           resolved: boolean
         }[]
+      }
+      revenue_lifecycle_signal_key: {
+        Args: {
+          p_analysis_id: string
+          p_client_slug: string
+          p_contractor_outcome_id: string
+          p_disposition_state: string
+          p_lead_assignment_id: string
+          p_lead_id: string
+          p_opportunity_id: string
+          p_scan_session_id: string
+        }
+        Returns: string
+      }
+      revenue_lifecycle_signal_key_basis: {
+        Args: {
+          p_analysis_id: string
+          p_contractor_outcome_id: string
+          p_lead_assignment_id: string
+          p_lead_id: string
+          p_opportunity_id: string
+          p_scan_session_id: string
+        }
+        Returns: string
+      }
+      revenue_lifecycle_signal_key_from_metadata: {
+        Args: { p_metadata: Json }
+        Returns: string
       }
       revenue_signal_key: {
         Args: {
