@@ -161,7 +161,7 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
             )}
           </div>
 
-          <div className="relative overflow-hidden rounded-3xl border border-blue-300/30 bg-slate-950 p-5 text-white shadow-[0_24px_70px_rgba(15,23,42,0.28)] md:p-6">
+          <div className="relative overflow-hidden rounded-3xl border border-blue-300/30 bg-slate-950 p-6 text-white shadow-[0_24px_70px_rgba(15,23,42,0.28)] md:p-10">
             <div
               aria-hidden="true"
               className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-blue-400/25 blur-3xl"
@@ -170,17 +170,27 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
               aria-hidden="true"
               className="absolute -bottom-16 -left-10 h-44 w-44 rounded-full bg-orange-300/15 blur-3xl"
             />
-            <div className="relative z-10 flex h-full min-h-[240px] flex-col justify-between gap-5">
-              <div>
-                <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-blue-200/25 bg-blue-400/10 text-blue-100 shadow-sm">
-                  <Bot className="h-6 w-6" />
-                </div>
-                <h2 className="font-display text-2xl font-black leading-tight text-white md:text-3xl">
+            <div className="relative z-10 flex flex-col items-center text-center">
+              <div className="mb-6 inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-blue-200/25 bg-blue-400/10 text-blue-100 shadow-sm">
+                <Bot className="h-6 w-6" />
+              </div>
+
+              <div className="mb-8">
+                <h2 className="font-display text-2xl font-black leading-tight text-white md:text-4xl">
                   WindowMan Has Your Report.
                 </h2>
-                <p className="mt-3 text-base font-bold leading-relaxed text-blue-50/90">
+                <p className="mt-3 text-base font-bold leading-relaxed text-blue-50/90 md:text-lg">
                   Pick The Problem. I’ll Build The Next Move.
                 </p>
+              </div>
+
+              <div className="relative mx-auto aspect-square w-full max-w-[500px] overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-inner">
+                <img
+                  src="/images/windowman-hand-to-chest.avif"
+                  alt="WindowMan advisor ready to help"
+                  className="h-full w-full scale-[2.2] object-contain object-bottom transition-transform duration-500"
+                  loading="eager"
+                />
               </div>
             </div>
           </div>
