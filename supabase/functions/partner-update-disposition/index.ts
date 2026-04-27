@@ -405,7 +405,7 @@ Deno.serve(async (req) => {
 
     const { data: oppContext, error: oppContextErr } = await svc
       .from("contractor_opportunities")
-      .select("lead_id, analysis_id, client_slug, leads(client_slug)")
+      .select("lead_id, analysis_id, client_slug")
       .eq("id", opportunity_id)
       .maybeSingle();
 
@@ -414,9 +414,21 @@ Deno.serve(async (req) => {
       return json({ error: "context_lookup_failed", message: "Failed to reconcile outcome context." }, 500);
     }
 
-    const leadContext = Array.isArray(oppContext?.leads) ? oppContext?.leads[0] : oppContext?.leads;
     const opportunityClientSlug = typeof oppContext?.client_slug === "string" ? oppContext.client_slug : null;
-    const leadClientSlug = leadContext && typeof leadContext === "object" && "client_slug" in leadContext && typeof leadContext.client_slug === "string" ? leadContext.client_slug : null;
+    let leadClientSlug: string | null = null;
+    if (oppContext?.lead_id) {
+      const { data: leadContext, error: leadContextErr } = await svc
+        .from("leads")
+        .select("client_slug")
+        .eq("id", oppContext.lead_id)
+        .maybeSingle();
+
+      if (leadContextErr) {
+        console.error("[partner-update-disposition] Lead context lookup error:", { lead_id: oppContext.lead_id, message: leadContextErr.message });
+        return json({ error: "lead_context_lookup_failed", message: "Failed to reconcile lead context." }, 500);
+      }
+      leadClientSlug = typeof leadContext?.client_slug === "string" ? leadContext.client_slug : null;
+    }
     let resolvedClientSlug = opportunityClientSlug ?? leadClientSlug ?? null;
     let assignmentClientSlug: string | null = null;
     let contractorAccountClientSlug: string | null = null;
