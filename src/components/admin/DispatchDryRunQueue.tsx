@@ -140,7 +140,7 @@ function getTikTokDryRunSummary(row: DispatchDryRunRow | null) {
 function getMetaDryRunSummary(row: DispatchDryRunRow | null) {
   if (!row || row.platformName !== "meta") return null;
   const payload = row.payload as {
-    data?: Array<{ event_name?: string; custom_data?: { value_basis?: string } }>;
+    data?: Array<{ event_name?: string; custom_data?: { value_basis?: string }; user_data?: { em_hash_present?: boolean; ph_hash_present?: boolean; external_id_hash_present?: boolean } }>;
     windowman_debug?: {
       mapper_version?: string;
       destination_id_present?: boolean;
@@ -148,9 +148,11 @@ function getMetaDryRunSummary(row: DispatchDryRunRow | null) {
       deduplication_event_id_present?: boolean;
       deduplication_event_id_source?: string;
       match_input_quality?: string;
+      enhanced_matching_readiness?: string;
       warnings?: string[];
     };
   };
+  const userData = payload.data?.[0]?.user_data;
   return {
     eventName: payload.data?.[0]?.event_name ?? "—",
     destinationIdPresent: Boolean(payload.windowman_debug?.destination_id_present),
@@ -161,6 +163,10 @@ function getMetaDryRunSummary(row: DispatchDryRunRow | null) {
     deduplicationSource: payload.windowman_debug?.deduplication_event_id_source ?? "canonical_event_id",
     warningCount: payload.windowman_debug?.warnings?.length ?? row.reasons.filter((reason) => reason.startsWith("meta_")).length,
     valueSource: payload.data?.[0]?.custom_data?.value_basis ?? "gross_sale_value",
+    emailHashPresent: Boolean(userData?.em_hash_present),
+    phoneHashPresent: Boolean(userData?.ph_hash_present),
+    externalIdHashPresent: Boolean(userData?.external_id_hash_present),
+    enhancedMatchingReadiness: payload.windowman_debug?.enhanced_matching_readiness ?? "missing",
   };
 }
 
@@ -168,13 +174,14 @@ function getGoogleDryRunSummary(row: DispatchDryRunRow | null) {
   if (!row || !["google", "google_ads", "ga4"].includes(row.platformName)) return null;
   const payload = row.payload as {
     ga4?: { event_name?: string };
-    google_ads?: { gclid_present?: boolean; gbraid_present?: boolean; wbraid_present?: boolean };
+    google_ads?: { gclid_present?: boolean; gbraid_present?: boolean; wbraid_present?: boolean; enhanced_conversions_ready?: boolean; email_hash_present?: boolean; phone_hash_present?: boolean };
     windowman_debug?: {
       mapper_version?: string;
       destination_present?: boolean;
       destination_type?: string;
       destination_strength?: string;
       google_attribution_quality?: string;
+      enhanced_matching_readiness?: string;
       event_id_present?: boolean;
       value_basis?: string;
       warnings?: string[];
@@ -191,6 +198,10 @@ function getGoogleDryRunSummary(row: DispatchDryRunRow | null) {
     gclidPresent: Boolean(payload.google_ads?.gclid_present),
     gbraidPresent: Boolean(payload.google_ads?.gbraid_present),
     wbraidPresent: Boolean(payload.google_ads?.wbraid_present),
+    enhancedConversionsReady: Boolean(payload.google_ads?.enhanced_conversions_ready),
+    emailHashPresent: Boolean(payload.google_ads?.email_hash_present),
+    phoneHashPresent: Boolean(payload.google_ads?.phone_hash_present),
+    enhancedMatchingReadiness: payload.windowman_debug?.enhanced_matching_readiness ?? "missing",
     warningCount: payload.windowman_debug?.warnings?.length ?? row.reasons.filter((reason) => reason.startsWith("google_")).length,
     valueSource: payload.windowman_debug?.value_basis ?? "gross_sale_value",
   };
