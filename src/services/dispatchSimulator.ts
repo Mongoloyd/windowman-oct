@@ -819,7 +819,7 @@ export async function fetchDispatchDryRunQueue(): Promise<DispatchDryRunResult> 
         attributionStrength: event.attributionStrength,
         attributionPresence: event.attributionPresence,
         tokenPresent: Boolean(config.token_secret_id),
-        payload: buildPayload(event, config),
+        payload: await buildPayload(event, config),
         readinessStatus: event.status,
         sourceReadinessReasons: event.reasons,
         canonical: event,
