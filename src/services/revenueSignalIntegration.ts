@@ -135,6 +135,10 @@ export async function fetchRevenueSignalEligibility(): Promise<RevenueSignalElig
 }
 
 export async function syncRevenueSignals({ dryRun = true, limit = 100 }: RevenueSignalSyncRequest = {}): Promise<RevenueSignalSyncResult> {
+  if (dryRun !== true) {
+    throw new Error("Live revenue signal sync is not exposed from the frontend service layer.");
+  }
+
   const safeLimit = Math.min(Math.max(Math.trunc(limit), 1), 500);
   const devSecret = peekDevSecret();
 
@@ -143,7 +147,7 @@ export async function syncRevenueSignals({ dryRun = true, limit = 100 }: Revenue
     const resp = await fetch(`${supabaseUrl}/functions/v1/admin-sync-revenue-signals`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-dev-secret": devSecret },
-      body: JSON.stringify({ dry_run: dryRun, limit: safeLimit }),
+      body: JSON.stringify({ dry_run: true, limit: safeLimit }),
     });
     const body = await resp.json().catch(() => ({}));
     if (!resp.ok || body.ok === false) throw new Error(body.error || "Revenue signal sync failed");
@@ -154,7 +158,7 @@ export async function syncRevenueSignals({ dryRun = true, limit = 100 }: Revenue
   if (sessionError || !session?.access_token) throw new Error("User is not authenticated or session has expired.");
 
   const { data, error } = await supabase.functions.invoke("admin-sync-revenue-signals", {
-    body: { dry_run: dryRun, limit: safeLimit },
+    body: { dry_run: true, limit: safeLimit },
     headers: { Authorization: `Bearer ${session.access_token}` },
   });
   if (error) throw new Error(error.message || "Revenue signal sync failed");
