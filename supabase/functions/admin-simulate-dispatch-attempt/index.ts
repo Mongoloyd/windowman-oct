@@ -268,10 +268,10 @@ Deno.serve(async (req) => {
     return errorResponse(400, "confirmation_required", "Type SIMULATE_DRY_RUN_ATTEMPT_ONLY to write simulated dry-run attempt rows.");
   }
 
-  const write = parsed.mode !== "preview_attempt";
+  const writeRequested = parsed.mode !== "preview_attempt";
   const ids = parsed.mode === "simulate_selected" ? parsed.outbox_ids : [parsed.outbox_id!];
   const items = [];
-  for (const id of ids) items.push(await simulateOne(validation.supabaseAdmin, id, write, validation.userId));
+  for (const id of ids) items.push(await simulateOne(validation.supabaseAdmin, id, writeRequested, validation.userId));
 
   const summary = {
     outbox_rows_considered: items.length,
@@ -286,12 +286,14 @@ Deno.serve(async (req) => {
 
   return successResponse({
     mode: parsed.mode,
-    preview_only: !write,
+    write_requested: writeRequested,
+    preview_only: !writeRequested,
     dry_run_only: true,
     external_apis_called: false,
     response_status_codes_written: false,
     outbox_rows_updated: false,
-    attempts_written: write,
+    attempts_written: summary.attempts_written > 0,
+    attempts_written_count: summary.attempts_written,
     summary,
     items,
   });
