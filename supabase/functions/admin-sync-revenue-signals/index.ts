@@ -6,8 +6,6 @@ const BodySchema = z.object({
   limit: z.number().int().min(1).max(500).optional().default(100),
 }).strict();
 
-const emptyBreakdown = Record<string, never>;
-
 function toRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
@@ -45,9 +43,9 @@ function sanitizeDryRunResult(raw: unknown) {
     weak_lifecycle_key: toNonNegativeInteger(result.weak_lifecycle_key),
     lifecycle_duplicate_claim: toNonNegativeInteger(result.lifecycle_duplicate_claim),
     duplicate_revenue_signal_key: toNonNegativeInteger(result.duplicate_revenue_signal_key),
-    by_client_slug: toRecord(result.by_client_slug) || emptyBreakdown,
-    by_reason_code: toRecord(result.by_reason_code) || emptyBreakdown,
-    by_key_basis: toRecord(result.by_key_basis) || emptyBreakdown,
+    by_client_slug: toRecord(result.by_client_slug),
+    by_reason_code: toRecord(result.by_reason_code),
+    by_key_basis: toRecord(result.by_key_basis),
     sample_candidate_ids: toSafeIdList(result.sample_candidate_ids),
     external_dispatch: false,
     dispatch_created: false,
