@@ -105,11 +105,18 @@ downstream view callers can construct from the existing `wm_event_log`
 row via `buildNeutralEventDraft()`. See §6 for the deferred work needed
 to align the persisted columns to this view.
 
-**Safe-by-default unknown names.** `buildNeutralEventDraft()` already
-sets `dispatchEligible: false` + `dispatchBlockReason: "unknown_event_name"`
-when the input name does not collapse to a known neutral ladder entry,
-so callers that forget to invoke `evaluateDispatchEligibilityDraft()`
-still fail closed.
+**Safe-by-default unknown names.** When the input name does not
+collapse to a known neutral ladder entry, `buildNeutralEventDraft()`
+surfaces it as `eventName: "unknown"` (an explicit member of
+`NEUTRAL_EVENT_NAMES`, categorized as `"audit"`), with
+`dispatchEligible: false` + `dispatchBlockReason: "unknown_event_name"`.
+This guarantees that an unrecognized input is *never* silently
+relabeled as a real funnel milestone in analytics or admin surfaces,
+and that callers who forget to invoke
+`evaluateDispatchEligibilityDraft()` still fail closed on dispatch.
+Note that `normalizeNeutralEventName()` itself still returns `null` for
+unknown identifiers — the `"unknown"` sentinel is only used inside
+built drafts, never as a normalization target for arbitrary strings.
 
 **PII boundary.** `maskAttributionIds()` returns presence + length only
 — it NEVER echoes raw email, phone, fbclid, gclid, fbc, fbp, or

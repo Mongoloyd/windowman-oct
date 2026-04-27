@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  DEFAULT_TRUST_THRESHOLD,
+  DEFAULT_NEUTRAL_TRUST_THRESHOLD,
   buildNeutralEventDraft,
   evaluateDispatchEligibilityDraft,
   maskAttributionIds,
@@ -189,18 +189,18 @@ describe("evaluateDispatchEligibilityDraft", () => {
     ).toEqual({ dispatchEligible: true, dispatchBlockReason: null });
   });
 
-  it("defaults the trust threshold to DEFAULT_TRUST_THRESHOLD", () => {
-    expect(DEFAULT_TRUST_THRESHOLD).toBe(0.78);
+  it("defaults the trust threshold to DEFAULT_NEUTRAL_TRUST_THRESHOLD", () => {
+    expect(DEFAULT_NEUTRAL_TRUST_THRESHOLD).toBe(0.78);
     expect(
       evaluateDispatchEligibilityDraft({
         ...baseInput,
-        trustScore: DEFAULT_TRUST_THRESHOLD - 0.001,
+        trustScore: DEFAULT_NEUTRAL_TRUST_THRESHOLD - 0.001,
       }),
     ).toEqual({ dispatchEligible: false, dispatchBlockReason: "trust_below_threshold" });
     expect(
       evaluateDispatchEligibilityDraft({
         ...baseInput,
-        trustScore: DEFAULT_TRUST_THRESHOLD,
+        trustScore: DEFAULT_NEUTRAL_TRUST_THRESHOLD,
       }),
     ).toEqual({ dispatchEligible: true, dispatchBlockReason: null });
   });

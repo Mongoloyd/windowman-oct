@@ -82,12 +82,12 @@ const NEUTRAL_EVENT_ALIASES: Record<string, NeutralEventName> = {
   quote_uploaded: "quote_uploaded",
   quote_upload_completed: "quote_uploaded",
   quote_validation_passed: "quote_uploaded",
-  // `scan_completed` is reserved for a future scan-lifecycle event that
-  // separates "scan started" from "scan finished". No live producer fires
-  // it today (the closest current name is `scan_initiated`, which is the
-  // *start* of the scan, semantically distinct from completion). Listed
-  // here so the ladder is forward-compatible — until a real producer
-  // exists, this alias only collapses an already-canonical input.
+  // `scan_completed` is reserved for a future "completed scan" event.
+  // `scan_initiated` is intentionally NOT mapped to it because initiation
+  // and completion are different funnel moments, and collapsing them
+  // would silently overstate completion. Until a real producer for the
+  // completion moment exists, this alias only collapses an already-
+  // canonical input.
   scan_completed: "scan_completed",
   report_revealed: "report_revealed",
   contractor_match_requested: "contractor_match_requested",
@@ -147,7 +147,7 @@ export type NeutralEventSource =
  * dependency on the canonical/persisted layer. Callers that need a
  * different threshold pass `trustMin` to `evaluateDispatchEligibilityDraft`.
  */
-export const DEFAULT_TRUST_THRESHOLD = 0.78;
+export const DEFAULT_NEUTRAL_TRUST_THRESHOLD = 0.78;
 
 /**
  * Reasons a neutral event should NOT be forwarded to any external
@@ -395,7 +395,7 @@ export interface EvaluateDispatchEligibilityInput {
   unknownEventName?: boolean;
   /** Pre-computed: caller did not supply a stable canonical event id. */
   missingEventId?: boolean;
-  /** Trust threshold — defaults to {@link DEFAULT_TRUST_THRESHOLD} (the
+  /** Trust threshold — defaults to {@link DEFAULT_NEUTRAL_TRUST_THRESHOLD} (the
    *  same value used by the existing Meta/Google mappers). Pass through
    *  for testability and per-tenant overrides. */
   trustMin?: number;
@@ -442,7 +442,7 @@ export function evaluateDispatchEligibilityDraft(
   if (input.manualReviewRequired) {
     return { dispatchEligible: false, dispatchBlockReason: "manual_review_required" };
   }
-  const minTrust = input.trustMin ?? DEFAULT_TRUST_THRESHOLD;
+  const minTrust = input.trustMin ?? DEFAULT_NEUTRAL_TRUST_THRESHOLD;
   if (typeof input.trustScore === "number" && input.trustScore < minTrust) {
     return { dispatchEligible: false, dispatchBlockReason: "trust_below_threshold" };
   }
