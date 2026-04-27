@@ -248,9 +248,10 @@ function mapReadinessRow(row: RpcReadinessRow): RevenueReadinessRow {
   if (!row.contractor_outcome_id && !row.opportunity_id && !row.contractor_id) addReason(reasons, "no_contractor_context");
   if (row.optimization_value_basis === "gross_sale_value" || row.true_margin_available === false) addReason(reasons, "gross_value_used_not_true_margin");
 
+  const outcomeSignalSource = row.source_system === "partner-update-disposition" || row.source_system === "admin-sync-revenue-signals";
   const integrityMetadataPresent = row.revenue_truth_source === "contractor_outcomes"
     && row.revenue_rollup_target === "leads"
-    && row.source_system === "partner-update-disposition"
+    && outcomeSignalSource
     && row.disposition_state === "sold_closed";
   if (!integrityMetadataPresent) addReason(reasons, "historical_payload_missing_integrity_metadata");
 
