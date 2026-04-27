@@ -21,6 +21,21 @@ export type DryRunReasonCode =
   | "weak_attribution"
   | "gross_value_used_not_true_margin"
   | "platform_mapper_basic"
+  | "meta_missing_pixel_or_dataset"
+  | "meta_missing_token"
+  | "meta_missing_event_id"
+  | "meta_event_id_quality_warning"
+  | "meta_missing_value"
+  | "meta_event_time_missing"
+  | "meta_missing_fbc"
+  | "meta_missing_fbp"
+  | "meta_missing_fbclid"
+  | "meta_missing_external_id"
+  | "meta_missing_ip_or_user_agent"
+  | "meta_using_gross_value_proxy"
+  | "meta_payload_draft_only"
+  | "meta_dedup_event_id_present"
+  | "meta_match_quality_weak"
   | "tiktok_missing_pixel_id"
   | "tiktok_missing_event_source_id"
   | "tiktok_missing_ttclid"
@@ -35,8 +50,10 @@ export type DryRunReasonCode =
   | "payload_draft_ready";
 
 export type TikTokMatchQuality = "strong" | "medium" | "weak" | "missing";
+export type MetaMatchInputQuality = "strong" | "medium" | "weak" | "missing";
 
 export const TIKTOK_DRY_RUN_MAPPER_VERSION = "tiktok-dry-run-v1";
+export const META_CAPI_DRY_RUN_MAPPER_VERSION = "meta-capi-dry-run-v1";
 
 export interface DispatchDryRunConfigSummary {
   id: string;
@@ -113,6 +130,10 @@ const HARD_ROW_REASONS: DryRunReasonCode[] = [
   "missing_event_id",
   "missing_value",
   "malformed_payload",
+  "meta_missing_pixel_or_dataset",
+  "meta_missing_event_id",
+  "meta_missing_value",
+  "meta_event_time_missing",
   "tiktok_missing_event_source_id",
   "tiktok_value_missing",
   "tiktok_event_id_missing",
@@ -194,6 +215,51 @@ function leadExternalId(row: RevenueReadinessRow) {
   return { external_id_present: Boolean(row.leadId), external_id: row.leadId ? maskId(row.leadId) : null };
 }
 
+function metaDestination(config: PlatformConfigRow): { id: string | null; type: "pixel_id" | "dataset_id" | "missing" } {
+  if (hasText(config.pixel_id)) return { id: config.pixel_id, type: "pixel_id" };
+  if (hasText(config.dataset_id)) return { id: config.dataset_id, type: "dataset_id" };
+  return { id: null, type: "missing" };
+}
+
+function metaMatchInputQuality(row: RevenueReadinessRow): MetaMatchInputQuality {
+  const externalId = Boolean(row.leadId);
+  const hasFbc = presence(row, "fbc");
+  const hasFbp = presence(row, "fbp");
+  const hasFbclid = presence(row, "fbclid");
+  const hasUtm = presence(row, "utm_source") || presence(row, "utm_campaign");
+
+  if (externalId && hasFbc && hasFbp) return "strong";
+  if (externalId && (hasFbc || hasFbp || hasFbclid)) return "medium";
+  if (externalId || hasUtm) return "weak";
+  return "missing";
+}
+
+function hasSuspiciousEventId(eventId: string | null): boolean {
+  if (!eventId) return false;
+  return eventId.trim().length < 12 || /^\d+$/.test(eventId.trim());
+}
+
+function addMetaReasons(row: RevenueReadinessRow, config: PlatformConfigRow, reasons: Set<DryRunReasonCode>) {
+  const eventTime = unixSeconds(row.timestamp ?? row.createdAt);
+  const matchQuality = metaMatchInputQuality(row);
+
+  if (!metaDestination(config).id) addReason(reasons, "meta_missing_pixel_or_dataset");
+  if (!config.token_secret_id) addReason(reasons, "meta_missing_token");
+  if (!row.eventId) addReason(reasons, "meta_missing_event_id");
+  if (hasSuspiciousEventId(row.eventId)) addReason(reasons, "meta_event_id_quality_warning");
+  if (!row.valueUsd || row.valueUsd <= 0) addReason(reasons, "meta_missing_value");
+  if (!eventTime) addReason(reasons, "meta_event_time_missing");
+  if (!presence(row, "fbc")) addReason(reasons, "meta_missing_fbc");
+  if (!presence(row, "fbp")) addReason(reasons, "meta_missing_fbp");
+  if (!presence(row, "fbclid")) addReason(reasons, "meta_missing_fbclid");
+  if (!row.leadId) addReason(reasons, "meta_missing_external_id");
+  addReason(reasons, "meta_missing_ip_or_user_agent");
+  if (row.reasons.includes("gross_value_used_not_true_margin")) addReason(reasons, "meta_using_gross_value_proxy");
+  if (row.eventId) addReason(reasons, "meta_dedup_event_id_present");
+  if (matchQuality === "weak" || matchQuality === "missing") addReason(reasons, "meta_match_quality_weak");
+  addReason(reasons, "meta_payload_draft_only");
+}
+
 function tiktokEventSourceId(config: PlatformConfigRow): string | null {
   return hasText(config.pixel_id) ? config.pixel_id : hasText(config.dataset_id) ? config.dataset_id : null;
 }
@@ -230,28 +296,58 @@ function addTikTokReasons(row: RevenueReadinessRow, config: PlatformConfigRow, r
 }
 
 function buildMetaPayload(row: RevenueReadinessRow, config: PlatformConfigRow) {
+  const destination = metaDestination(config);
+  const eventTime = unixSeconds(row.timestamp ?? row.createdAt);
+  const warningSet = new Set<DryRunReasonCode>();
+  addMetaReasons(row, config, warningSet);
+
   return {
-    event_name: "Purchase",
-    event_time: unixSeconds(row.timestamp ?? row.createdAt),
-    event_id: row.eventId,
-    action_source: "website",
-    user_data: {
-      ...leadExternalId(row),
-      fbc_present: presence(row, "fbc"),
-      fbp_present: presence(row, "fbp"),
-      client_ip_address_present: false,
-      client_user_agent_present: false,
-    },
-    custom_data: {
-      value: row.valueUsd,
-      currency: "USD",
-      content_name: "WindowMan sold lead",
-    },
-    windowman_debug: {
-      platform_config_id: maskConfigId(config.id),
-      mapper: "meta-draft-simulation",
-    },
+    data: [
+      {
+        event_name: "Purchase",
+        event_time: eventTime,
+        event_id: row.eventId,
+        action_source: "website",
+        event_source_url_present: false,
+        landing_path_present: false,
+        referrer_present: false,
+        user_data: {
+          ...leadExternalId(row),
+          em_present: false,
+          ph_present: false,
+          fbc_present: presence(row, "fbc"),
+          fbp_present: presence(row, "fbp"),
+          fbclid_present: presence(row, "fbclid"),
+          client_ip_address_present: false,
+          client_user_agent_present: false,
+        },
+        custom_data: {
+          currency: "USD",
+          value: row.valueUsd,
+          content_name: "WindowMan sold lead",
+          content_category: "home_improvement",
+          order_id: row.eventId ? maskId(row.eventId) : row.leadId ? maskId(row.leadId) : null,
+          status: row.payloadIntegrity.dispositionState ?? "sold_closed",
+          value_basis: row.payloadIntegrity.optimizationValueBasis ?? "gross_sale_value",
+          true_margin_available: row.payloadIntegrity.trueMarginAvailable === true,
+        },
+      },
+    ],
     dry_run: true,
+    windowman_debug: {
+      canonical_event_row_id: maskId(row.id),
+      client_slug: row.clientSlug,
+      platform_config_id: maskConfigId(config.id),
+      mapper_version: META_CAPI_DRY_RUN_MAPPER_VERSION,
+      destination_id_present: Boolean(destination.id),
+      destination_id_type: destination.type,
+      destination_id_masked: destination.id ? maskId(destination.id) : null,
+      deduplication_event_id_present: Boolean(row.eventId),
+      deduplication_event_id_source: "canonical_event_id",
+      deduplication_event_id_masked: row.eventId ? maskId(row.eventId) : null,
+      match_input_quality: metaMatchInputQuality(row),
+      warnings: Array.from(warningSet),
+    },
   };
 }
 
@@ -428,7 +524,9 @@ export async function fetchDispatchDryRunQueue(): Promise<DispatchDryRunResult> 
     for (const config of activeConfigs) {
       const reasons = new Set(sharedReasons);
       addConfigReasons(config, reasons);
-      if (config.platform_name === "tiktok") {
+      if (config.platform_name === "meta") {
+        addMetaReasons(event, config, reasons);
+      } else if (config.platform_name === "tiktok") {
         addTikTokReasons(event, config, reasons);
       } else {
         addReason(reasons, "platform_mapper_basic");
