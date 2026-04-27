@@ -101,7 +101,7 @@ function mapEligibilityRow(row: Record<string, unknown>): RevenueSignalEligibili
 }
 
 export async function fetchRevenueSignalEligibility(): Promise<RevenueSignalEligibilityResult> {
-  const { data, error } = await supabase.rpc("admin_revenue_signal_eligibility" as never);
+  const { data, error } = await supabase.rpc("admin_revenue_signal_eligibility");
   if (error) throw error;
 
   const rows = ((data ?? []) as Record<string, unknown>[]).map(mapEligibilityRow);
