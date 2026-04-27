@@ -73,9 +73,18 @@ function computeIntegrity(input: {
   value_basis?: string;
   disposition_reason_code?: string;
   notes?: string;
+  client_slug?: string | null;
+  lead_assignment_id?: string | null;
+  contractor_account_id?: string | null;
+  assignment_client_slug?: string | null;
+  contractor_account_client_slug?: string | null;
 }) {
   const reasons: string[] = [];
   const notes = typeof input.notes === "string" ? input.notes.trim() : "";
+
+  if (!input.client_slug) reasons.push("missing_client_slug");
+  if (!input.lead_assignment_id) reasons.push("missing_assignment");
+  if (!input.contractor_account_id) reasons.push("missing_contractor_account");
 
   if (input.disposition_state === "sold_closed") {
     if (input.final_value_cents == null) reasons.push("sold_missing_value");
@@ -100,30 +109,60 @@ function computeIntegrity(input: {
     reasons.push("outcome_not_terminal");
   }
 
+  if (
+    input.client_slug && input.assignment_client_slug &&
+    input.client_slug !== input.assignment_client_slug
+  ) {
+    reasons.push("assignment_client_mismatch");
+  }
+  if (
+    input.client_slug && input.contractor_account_client_slug &&
+    input.client_slug !== input.contractor_account_client_slug
+  ) {
+    reasons.push("contractor_client_mismatch");
+  }
+
   const eligible = input.disposition_state === "sold_closed" &&
     typeof input.final_value_cents === "number" &&
     input.final_value_cents > 0 &&
     Boolean(input.value_basis) &&
-    input.value_basis !== "unknown";
+    input.value_basis !== "unknown" &&
+    Boolean(input.client_slug) &&
+    !reasons.some((reason) =>
+      ["assignment_client_mismatch", "contractor_client_mismatch"].includes(
+        reason,
+      )
+    );
   reasons.push(
     eligible ? "eligible_for_future_signal" : "not_eligible_for_signal",
   );
 
-  const status =
-    reasons.some((r) =>
-        ["sold_missing_value", "sold_invalid_value", "lost_missing_reason"]
-          .includes(r)
+  const status = reasons.some((r) =>
+      [
+        "sold_missing_value",
+        "sold_invalid_value",
+        "lost_missing_reason",
+        "assignment_client_mismatch",
+        "contractor_client_mismatch",
+      ]
+        .includes(r)
+    )
+    ? "blocked"
+    : reasons.some((r) =>
+        [
+          "missing_client_slug",
+          "missing_assignment",
+          "missing_contractor_account",
+          "sold_missing_value_basis",
+          "value_basis_unknown",
+        ].includes(r)
       )
-      ? "blocked"
-      : reasons.some((r) =>
-          ["sold_missing_value_basis", "value_basis_unknown"].includes(r)
-        )
-      ? "needs_review"
-      : reasons.some((r) =>
-          ["value_basis_gross_proxy", "outcome_not_terminal"].includes(r)
-        )
-      ? "warning"
-      : "valid";
+    ? "needs_review"
+    : reasons.some((r) =>
+        ["value_basis_gross_proxy", "outcome_not_terminal"].includes(r)
+      )
+    ? "warning"
+    : "valid";
 
   return { status, reasons };
 }
@@ -227,6 +266,9 @@ Deno.serve(async (req) => {
       projected_value_cents,
       final_value_cents,
       value_basis,
+      lead_assignment_id,
+      client_slug,
+      contractor_account_id,
       signed_contract_url,
       notes,
     } = body as {
@@ -236,6 +278,9 @@ Deno.serve(async (req) => {
       projected_value_cents?: number;
       final_value_cents?: number;
       value_basis?: string;
+      lead_assignment_id?: string;
+      client_slug?: string;
+      contractor_account_id?: string;
       signed_contract_url?: string;
       notes?: string;
     };
@@ -270,6 +315,26 @@ Deno.serve(async (req) => {
           `disposition_reason_code '${disposition_reason_code}' is not a valid reason code.`,
         valid_reason_codes: [...VALID_REASON_CODES],
       }, 422);
+    }
+    if (lead_assignment_id != null && typeof lead_assignment_id !== "string") {
+      return json({
+        error: "invalid_input",
+        message: "lead_assignment_id must be a string when provided.",
+      }, 400);
+    }
+    if (client_slug != null && typeof client_slug !== "string") {
+      return json({
+        error: "invalid_input",
+        message: "client_slug must be a string when provided.",
+      }, 400);
+    }
+    if (
+      contractor_account_id != null && typeof contractor_account_id !== "string"
+    ) {
+      return json({
+        error: "invalid_input",
+        message: "contractor_account_id must be a string when provided.",
+      }, 400);
     }
     if (
       value_basis != null &&
@@ -326,14 +391,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    const integrity = computeIntegrity({
-      disposition_state,
-      final_value_cents,
-      value_basis,
-      disposition_reason_code,
-      notes,
-    });
-
     if (
       projected_value_cents != null &&
       (!Number.isInteger(projected_value_cents) || projected_value_cents < 0)
@@ -378,6 +435,163 @@ Deno.serve(async (req) => {
       }, 404);
     }
 
+    const { data: oppContext, error: oppContextErr } = await svc
+      .from("contractor_opportunities")
+      .select("lead_id, analysis_id, client_slug")
+      .eq("id", opportunity_id)
+      .maybeSingle();
+
+    if (oppContextErr) {
+      console.error(
+        "[partner-update-disposition] Opportunity context lookup error:",
+        { opportunity_id, message: oppContextErr.message },
+      );
+      return json({
+        error: "context_lookup_failed",
+        message: "Failed to reconcile outcome context.",
+      }, 500);
+    }
+
+    const opportunityClientSlug = typeof oppContext?.client_slug === "string"
+      ? oppContext.client_slug
+      : null;
+    let leadClientSlug: string | null = null;
+    if (oppContext?.lead_id) {
+      const { data: leadContext, error: leadContextErr } = await svc
+        .from("leads")
+        .select("client_slug")
+        .eq("id", oppContext.lead_id)
+        .maybeSingle();
+
+      if (leadContextErr) {
+        console.error(
+          "[partner-update-disposition] Lead context lookup error:",
+          { lead_id: oppContext.lead_id, message: leadContextErr.message },
+        );
+        return json({
+          error: "lead_context_lookup_failed",
+          message: "Failed to reconcile lead context.",
+        }, 500);
+      }
+      leadClientSlug = typeof leadContext?.client_slug === "string"
+        ? leadContext.client_slug
+        : null;
+    }
+    let resolvedClientSlug = opportunityClientSlug ?? leadClientSlug ?? null;
+    let assignmentClientSlug: string | null = null;
+    let contractorAccountClientSlug: string | null = null;
+
+    if (lead_assignment_id) {
+      const { data: assignment, error: assignmentErr } = await svc
+        .from("lead_assignments")
+        .select("id, client_slug, lead_id, analysis_id")
+        .eq("id", lead_assignment_id)
+        .maybeSingle();
+
+      if (assignmentErr) {
+        console.error("[partner-update-disposition] Assignment lookup error:", {
+          lead_assignment_id,
+          message: assignmentErr.message,
+        });
+        return json({
+          error: "assignment_lookup_failed",
+          message: "Failed to reconcile assignment context.",
+        }, 500);
+      }
+      if (!assignment) {
+        return json({
+          error: "assignment_not_found",
+          message: "lead_assignment_id does not reference an assignment.",
+        }, 422);
+      }
+      assignmentClientSlug = assignment.client_slug as string | null;
+      if (
+        resolvedClientSlug && assignmentClientSlug &&
+        resolvedClientSlug !== assignmentClientSlug
+      ) {
+        return json({
+          error: "assignment_client_mismatch",
+          message:
+            "Outcome context does not match the linked assignment client.",
+        }, 422);
+      }
+      resolvedClientSlug = resolvedClientSlug ?? assignmentClientSlug;
+    }
+
+    if (contractor_account_id) {
+      const { data: contractorAccount, error: contractorAccountErr } = await svc
+        .from("contractor_accounts")
+        .select("id, client_slug, auth_user_id, is_active")
+        .eq("id", contractor_account_id)
+        .maybeSingle();
+
+      if (contractorAccountErr) {
+        console.error(
+          "[partner-update-disposition] Contractor account lookup error:",
+          { contractor_account_id, message: contractorAccountErr.message },
+        );
+        return json({
+          error: "contractor_account_lookup_failed",
+          message: "Failed to reconcile contractor account context.",
+        }, 500);
+      }
+      if (!contractorAccount) {
+        return json({
+          error: "contractor_account_not_found",
+          message:
+            "contractor_account_id does not reference a contractor account.",
+        }, 422);
+      }
+      contractorAccountClientSlug = contractorAccount.client_slug as
+        | string
+        | null;
+      if (
+        contractorAccount.auth_user_id &&
+        contractorAccount.auth_user_id !== authUserId
+      ) {
+        return json({
+          error: "contractor_account_forbidden",
+          message:
+            "Contractor account is not linked to the authenticated partner.",
+        }, 403);
+      }
+      if (
+        resolvedClientSlug && contractorAccountClientSlug &&
+        resolvedClientSlug !== contractorAccountClientSlug
+      ) {
+        return json({
+          error: "contractor_client_mismatch",
+          message:
+            "Outcome context does not match the contractor account client.",
+        }, 422);
+      }
+      resolvedClientSlug = resolvedClientSlug ?? contractorAccountClientSlug;
+    }
+
+    if (
+      client_slug && resolvedClientSlug && client_slug !== resolvedClientSlug
+    ) {
+      return json({
+        error: "client_slug_mismatch",
+        message:
+          "Provided client_slug does not match server-resolved outcome context.",
+      }, 422);
+    }
+    resolvedClientSlug = resolvedClientSlug ?? (client_slug || null);
+
+    const integrity = computeIntegrity({
+      disposition_state,
+      final_value_cents,
+      value_basis,
+      disposition_reason_code,
+      notes,
+      client_slug: resolvedClientSlug,
+      lead_assignment_id: lead_assignment_id ?? null,
+      contractor_account_id: contractor_account_id ?? null,
+      assignment_client_slug: assignmentClientSlug,
+      contractor_account_client_slug: contractorAccountClientSlug,
+    });
+
     // ── Validate state transition ─────────────────────────────────
     const currentState = (outcome.disposition_state as string) ?? "new";
     const allowedNext = TRANSITIONS[currentState] ?? [];
@@ -411,6 +625,15 @@ Deno.serve(async (req) => {
     }
     if (value_basis != null) {
       updatePayload.value_basis = value_basis;
+    }
+    if (resolvedClientSlug != null) {
+      updatePayload.client_slug = resolvedClientSlug;
+    }
+    if (lead_assignment_id != null) {
+      updatePayload.lead_assignment_id = lead_assignment_id;
+    }
+    if (contractor_account_id != null) {
+      updatePayload.contractor_account_id = contractor_account_id;
     }
     updatePayload.outcome_integrity_status = integrity.status;
     updatePayload.outcome_integrity_reasons = integrity.reasons;
@@ -453,23 +676,9 @@ Deno.serve(async (req) => {
     }
 
     // ── Resolve lead_id via contractor_opportunities ──────────────
-    // contractor_outcomes has no direct lead_id column; join through opportunity
+    // contractor_outcomes remains revenue truth; leads only receive rollup mirrors.
     let lead_rollup_succeeded = false;
-    const { data: oppRow, error: oppErr } = await svc
-      .from("contractor_opportunities")
-      .select("lead_id")
-      .eq("id", opportunity_id)
-      .maybeSingle();
-
-    if (oppErr) {
-      console.error(
-        "[partner-update-disposition] Opportunity lookup error:",
-        oppErr,
-        { opportunity_id },
-      );
-    }
-
-    const leadId = oppRow?.lead_id as string | null;
+    const leadId = oppContext?.lead_id as string | null;
 
     // ── Lead rollup ───────────────────────────────────────────────
     if (leadId) {

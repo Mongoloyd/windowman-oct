@@ -6,7 +6,7 @@ ALTER TABLE public.contractor_outcomes
   ADD COLUMN IF NOT EXISTS client_slug text NULL,
   ADD COLUMN IF NOT EXISTS contractor_account_id uuid NULL REFERENCES public.contractor_accounts(id) ON DELETE SET NULL,
   ADD COLUMN IF NOT EXISTS sold_currency text NOT NULL DEFAULT 'USD',
-  ADD COLUMN IF NOT EXISTS value_basis text NOT NULL DEFAULT 'gross_sale_value',
+  ADD COLUMN IF NOT EXISTS value_basis text NULL,
   ADD COLUMN IF NOT EXISTS outcome_verified boolean NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS outcome_verified_at timestamptz NULL,
   ADD COLUMN IF NOT EXISTS outcome_source text NOT NULL DEFAULT 'operator_or_partner',
@@ -63,7 +63,16 @@ ALTER TABLE public.contractor_outcomes
   CHECK (
     disposition_state <> 'sold_closed'
     OR (final_value_cents IS NOT NULL AND final_value_cents > 0)
-  );
+  ) NOT VALID;
+
+ALTER TABLE public.contractor_outcomes
+  DROP CONSTRAINT IF EXISTS contractor_outcomes_sold_requires_explicit_value_basis;
+ALTER TABLE public.contractor_outcomes
+  ADD CONSTRAINT contractor_outcomes_sold_requires_explicit_value_basis
+  CHECK (
+    disposition_state <> 'sold_closed'
+    OR (value_basis IS NOT NULL AND value_basis <> 'unknown')
+  ) NOT VALID;
 
 ALTER TABLE public.contractor_outcomes
   DROP CONSTRAINT IF EXISTS contractor_outcomes_lost_requires_typed_reason;
@@ -75,7 +84,7 @@ ALTER TABLE public.contractor_outcomes
       disposition_reason_code IS NOT NULL
       AND BTRIM(COALESCE(outcome_notes, '')) <> ''
     )
-  );
+  ) NOT VALID;
 
 CREATE INDEX IF NOT EXISTS contractor_outcomes_client_slug_idx
   ON public.contractor_outcomes (client_slug);
@@ -221,7 +230,7 @@ DECLARE
   v_reasons text[];
 BEGIN
   NEW.sold_currency := UPPER(BTRIM(COALESCE(NEW.sold_currency, 'USD')));
-  NEW.value_basis := COALESCE(NULLIF(BTRIM(NEW.value_basis), ''), 'unknown');
+  NEW.value_basis := NULLIF(BTRIM(NEW.value_basis), '');
   NEW.outcome_source := COALESCE(NULLIF(BTRIM(NEW.outcome_source), ''), 'operator_or_partner');
   NEW.outcome_metadata := COALESCE(NEW.outcome_metadata, '{}'::jsonb);
 
