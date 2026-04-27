@@ -15,6 +15,7 @@
  *     disposition_reason_code?: string; // required when disposition_state = 'lost_dead'
  *     projected_value_cents?: number;   // optional
  *     final_value_cents?: number;       // required when disposition_state = 'sold_closed'
+ *     value_basis?: string;             // required when disposition_state = 'sold_closed'
  *     signed_contract_url?: string;     // optional
  *     notes?: string;                   // stored in outcome_notes
  *   }
@@ -57,6 +58,75 @@ const VALID_REASON_CODES = new Set([
   "out_of_service_area",
   "other",
 ]);
+
+const VALID_VALUE_BASIS = new Set([
+  "contract_total",
+  "gross_sale_value",
+  "true_margin",
+  "estimated_contract_value",
+  "unknown",
+]);
+
+function computeIntegrity(input: {
+  disposition_state: string;
+  final_value_cents?: number;
+  value_basis?: string;
+  disposition_reason_code?: string;
+  notes?: string;
+}) {
+  const reasons: string[] = [];
+  const notes = typeof input.notes === "string" ? input.notes.trim() : "";
+
+  if (input.disposition_state === "sold_closed") {
+    if (input.final_value_cents == null) reasons.push("sold_missing_value");
+    else if (input.final_value_cents <= 0) reasons.push("sold_invalid_value");
+
+    if (!input.value_basis) reasons.push("sold_missing_value_basis");
+    else if (input.value_basis === "unknown") {
+      reasons.push("value_basis_unknown");
+    } else if (input.value_basis === "gross_sale_value") {
+      reasons.push("value_basis_gross_proxy");
+    }
+  }
+
+  if (
+    input.disposition_state === "lost_dead" &&
+    (!input.disposition_reason_code || !notes)
+  ) {
+    reasons.push("lost_missing_reason");
+  }
+
+  if (!["sold_closed", "lost_dead"].includes(input.disposition_state)) {
+    reasons.push("outcome_not_terminal");
+  }
+
+  const eligible = input.disposition_state === "sold_closed" &&
+    typeof input.final_value_cents === "number" &&
+    input.final_value_cents > 0 &&
+    Boolean(input.value_basis) &&
+    input.value_basis !== "unknown";
+  reasons.push(
+    eligible ? "eligible_for_future_signal" : "not_eligible_for_signal",
+  );
+
+  const status =
+    reasons.some((r) =>
+        ["sold_missing_value", "sold_invalid_value", "lost_missing_reason"]
+          .includes(r)
+      )
+      ? "blocked"
+      : reasons.some((r) =>
+          ["sold_missing_value_basis", "value_basis_unknown"].includes(r)
+        )
+      ? "needs_review"
+      : reasons.some((r) =>
+          ["value_basis_gross_proxy", "outcome_not_terminal"].includes(r)
+        )
+      ? "warning"
+      : "valid";
+
+  return { status, reasons };
+}
 
 // Legal transitions: key = current state, value = allowed next states
 const TRANSITIONS: Record<string, string[]> = {
@@ -156,6 +226,7 @@ Deno.serve(async (req) => {
       disposition_reason_code,
       projected_value_cents,
       final_value_cents,
+      value_basis,
       signed_contract_url,
       notes,
     } = body as {
@@ -164,6 +235,7 @@ Deno.serve(async (req) => {
       disposition_reason_code?: string;
       projected_value_cents?: number;
       final_value_cents?: number;
+      value_basis?: string;
       signed_contract_url?: string;
       notes?: string;
     };
@@ -199,6 +271,19 @@ Deno.serve(async (req) => {
         valid_reason_codes: [...VALID_REASON_CODES],
       }, 422);
     }
+    if (
+      value_basis != null &&
+      (!VALID_VALUE_BASIS.has(value_basis) || value_basis === "unknown")
+    ) {
+      return json({
+        error: "invalid_value_basis",
+        message:
+          "value_basis must explicitly describe the sold value basis and cannot be unknown for partner updates.",
+        valid_value_basis: [...VALID_VALUE_BASIS].filter((basis) =>
+          basis !== "unknown"
+        ),
+      }, 422);
+    }
 
     // ── lost_dead requires reason code AND typed manual reason text ───────
     const trimmedNotes = typeof notes === "string" ? notes.trim() : "";
@@ -232,7 +317,22 @@ Deno.serve(async (req) => {
             "final_value_cents must be a positive integer greater than 0 when marking a lead as sold_closed.",
         }, 422);
       }
+      if (!value_basis || value_basis === "unknown") {
+        return json({
+          error: "value_basis_required",
+          message:
+            "value_basis is required when marking a lead as sold_closed. Use contract_total, gross_sale_value, true_margin, or estimated_contract_value.",
+        }, 422);
+      }
     }
+
+    const integrity = computeIntegrity({
+      disposition_state,
+      final_value_cents,
+      value_basis,
+      disposition_reason_code,
+      notes,
+    });
 
     if (
       projected_value_cents != null &&
@@ -309,6 +409,20 @@ Deno.serve(async (req) => {
     if (final_value_cents != null) {
       updatePayload.final_value_cents = final_value_cents;
     }
+    if (value_basis != null) {
+      updatePayload.value_basis = value_basis;
+    }
+    updatePayload.outcome_integrity_status = integrity.status;
+    updatePayload.outcome_integrity_reasons = integrity.reasons;
+    updatePayload.outcome_source = "operator_or_partner";
+    updatePayload.outcome_metadata = {
+      revenue_truth_source: "contractor_outcomes",
+      lead_rollup_only: true,
+      assignment_operational_only: true,
+      external_dispatch: false,
+      dispatch_created: false,
+      source_system: "partner-update-disposition",
+    };
     if (signed_contract_url != null) {
       updatePayload.signed_contract_url = signed_contract_url;
     }
@@ -485,7 +599,7 @@ Deno.serve(async (req) => {
                 // Honesty flags — keep these in lockstep with marginUsd
                 // above so analytics never silently treats gross sale as
                 // profit margin.
-                optimization_value_basis: "gross_sale_value",
+                optimization_value_basis: value_basis ?? "gross_sale_value",
                 true_margin_available: false,
                 margin_model_version: null,
               },
@@ -535,6 +649,9 @@ Deno.serve(async (req) => {
       disposition_state,
       lead_id: leadId,
       lead_rollup_succeeded,
+      outcome_integrity_status: integrity.status,
+      outcome_integrity_reasons: integrity.reasons,
+      external_dispatch: false,
     });
   } catch (err) {
     console.error("[partner-update-disposition] Unhandled error:", err);
