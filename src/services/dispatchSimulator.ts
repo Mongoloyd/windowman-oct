@@ -47,13 +47,28 @@ export type DryRunReasonCode =
   | "tiktok_event_time_missing"
   | "tiktok_using_gross_value_proxy"
   | "tiktok_payload_draft_only"
+  | "google_missing_conversion_destination"
+  | "google_missing_token"
+  | "google_missing_event_id"
+  | "google_missing_value"
+  | "google_event_time_missing"
+  | "google_missing_gclid"
+  | "google_missing_gbraid"
+  | "google_missing_wbraid"
+  | "google_missing_google_click_id"
+  | "google_missing_user_id"
+  | "google_using_gross_value_proxy"
+  | "google_payload_draft_only"
+  | "google_attribution_quality_weak"
   | "payload_draft_ready";
 
 export type TikTokMatchQuality = "strong" | "medium" | "weak" | "missing";
 export type MetaMatchInputQuality = "strong" | "medium" | "weak" | "missing";
+export type GoogleAttributionQuality = "strong" | "medium" | "weak" | "missing";
 
 export const TIKTOK_DRY_RUN_MAPPER_VERSION = "tiktok-dry-run-v1";
 export const META_CAPI_DRY_RUN_MAPPER_VERSION = "meta-capi-dry-run-v1";
+export const GOOGLE_DRY_RUN_MAPPER_VERSION = "google-ads-ga4-dry-run-v1";
 
 export interface DispatchDryRunConfigSummary {
   id: string;
@@ -138,7 +153,13 @@ const HARD_ROW_REASONS: DryRunReasonCode[] = [
   "tiktok_value_missing",
   "tiktok_event_id_missing",
   "tiktok_event_time_missing",
+  "google_missing_conversion_destination",
+  "google_missing_event_id",
+  "google_missing_value",
+  "google_event_time_missing",
 ];
+
+const GOOGLE_PLATFORM_NAMES = new Set(["google", "google_ads", "ga4"]);
 
 function hasText(value: string | null | undefined) {
   return Boolean(value && value.trim());
@@ -158,7 +179,7 @@ function destinationSummary(config: PlatformConfigRow): string {
   const platform = config.platform_name;
   if (platform === "meta") return config.pixel_id ? `Pixel ${maskId(config.pixel_id)}` : config.dataset_id ? `Dataset ${maskId(config.dataset_id)}` : "Meta destination missing";
   if (platform === "tiktok") return config.pixel_id ? `Pixel ${maskId(config.pixel_id)}` : config.dataset_id ? `Dataset ${maskId(config.dataset_id)}` : "TikTok destination missing";
-  if (platform === "google_ads" || platform === "ga4") return config.conversion_id ? `Conversion ${maskId(config.conversion_id)}` : config.conversion_label ? `Label ${maskId(config.conversion_label)}` : "Google destination missing";
+  if (GOOGLE_PLATFORM_NAMES.has(platform)) return googleDestination(config).id ? `${googleDestination(config).type} ${maskId(googleDestination(config).id)}` : "Google destination missing";
   if (platform === "gtm_server" || platform === "crm_webhook") return config.endpoint_url ? "Endpoint present" : "Endpoint missing";
   return "Generic destination";
 }
@@ -178,14 +199,14 @@ function configSummary(config: PlatformConfigRow): DispatchDryRunConfigSummary {
 }
 
 function platformRequiresToken(platform: string): boolean {
-  return ["meta", "tiktok", "google_ads", "ga4"].includes(platform);
+  return ["meta", "tiktok"].includes(platform) || GOOGLE_PLATFORM_NAMES.has(platform);
 }
 
 function addConfigReasons(config: PlatformConfigRow, reasons: Set<DryRunReasonCode>) {
   const platform = config.platform_name;
   if (platformRequiresToken(platform) && !config.token_secret_id) addReason(reasons, "token_missing");
   if ((platform === "meta" || platform === "tiktok") && !hasText(config.pixel_id) && !hasText(config.dataset_id)) addReason(reasons, "required_destination_id_missing");
-  if ((platform === "google_ads" || platform === "ga4") && !hasText(config.conversion_id) && !hasText(config.conversion_label)) addReason(reasons, "required_destination_id_missing");
+  if (GOOGLE_PLATFORM_NAMES.has(platform) && !googleDestination(config).id) addReason(reasons, "required_destination_id_missing");
   if ((platform === "gtm_server" || platform === "crm_webhook") && !hasText(config.endpoint_url)) addReason(reasons, "required_destination_id_missing");
 }
 
@@ -219,6 +240,15 @@ function metaDestination(config: PlatformConfigRow): { id: string | null; type: 
   if (hasText(config.pixel_id)) return { id: config.pixel_id, type: "pixel_id" };
   if (hasText(config.dataset_id)) return { id: config.dataset_id, type: "dataset_id" };
   return { id: null, type: "missing" };
+}
+
+function googleDestination(config: PlatformConfigRow): { id: string | null; type: "conversion_id" | "conversion_label" | "dataset_id" | "pixel_id" | "missing"; strength: "strong" | "acceptable" | "fallback" | "missing" } {
+  if (hasText(config.conversion_id) && hasText(config.conversion_label)) return { id: config.conversion_id, type: "conversion_id", strength: "strong" };
+  if (hasText(config.conversion_id)) return { id: config.conversion_id, type: "conversion_id", strength: "acceptable" };
+  if (hasText(config.conversion_label)) return { id: config.conversion_label, type: "conversion_label", strength: "acceptable" };
+  if (hasText(config.dataset_id)) return { id: config.dataset_id, type: "dataset_id", strength: "fallback" };
+  if (hasText(config.pixel_id)) return { id: config.pixel_id, type: "pixel_id", strength: "fallback" };
+  return { id: null, type: "missing", strength: "missing" };
 }
 
 function metaMatchInputQuality(row: RevenueReadinessRow): MetaMatchInputQuality {
@@ -293,6 +323,37 @@ function addTikTokReasons(row: RevenueReadinessRow, config: PlatformConfigRow, r
   addReason(reasons, "tiktok_missing_ip_or_user_agent");
   if (row.reasons.includes("gross_value_used_not_true_margin")) addReason(reasons, "tiktok_using_gross_value_proxy");
   addReason(reasons, "tiktok_payload_draft_only");
+}
+
+function googleAttributionQuality(row: RevenueReadinessRow): GoogleAttributionQuality {
+  const hasGoogleClickId = presence(row, "gclid") || presence(row, "gbraid") || presence(row, "wbraid");
+  const hasEventId = Boolean(row.eventId);
+  const hasValue = Boolean(row.valueUsd && row.valueUsd > 0);
+  const hasUserId = Boolean(row.leadId);
+  const hasUtm = presence(row, "utm_source") || presence(row, "utm_campaign");
+
+  if (hasGoogleClickId && hasEventId && hasValue) return "strong";
+  if (hasUserId && hasUtm && !hasGoogleClickId) return "medium";
+  if (hasUserId || hasUtm) return "weak";
+  return "missing";
+}
+
+function addGoogleReasons(row: RevenueReadinessRow, config: PlatformConfigRow, reasons: Set<DryRunReasonCode>) {
+  const attributionQuality = googleAttributionQuality(row);
+
+  if (!googleDestination(config).id) addReason(reasons, "google_missing_conversion_destination");
+  if (!config.token_secret_id) addReason(reasons, "google_missing_token");
+  if (!row.eventId) addReason(reasons, "google_missing_event_id");
+  if (!row.valueUsd || row.valueUsd <= 0) addReason(reasons, "google_missing_value");
+  if (!unixSeconds(row.timestamp ?? row.createdAt)) addReason(reasons, "google_event_time_missing");
+  if (!presence(row, "gclid")) addReason(reasons, "google_missing_gclid");
+  if (!presence(row, "gbraid")) addReason(reasons, "google_missing_gbraid");
+  if (!presence(row, "wbraid")) addReason(reasons, "google_missing_wbraid");
+  if (!presence(row, "gclid") && !presence(row, "gbraid") && !presence(row, "wbraid")) addReason(reasons, "google_missing_google_click_id");
+  if (!row.leadId) addReason(reasons, "google_missing_user_id");
+  if (row.reasons.includes("gross_value_used_not_true_margin")) addReason(reasons, "google_using_gross_value_proxy");
+  if (attributionQuality === "weak" || attributionQuality === "missing") addReason(reasons, "google_attribution_quality_weak");
+  addReason(reasons, "google_payload_draft_only");
 }
 
 function buildMetaPayload(row: RevenueReadinessRow, config: PlatformConfigRow) {
@@ -403,16 +464,52 @@ function buildTikTokPayload(row: RevenueReadinessRow, config: PlatformConfigRow)
 }
 
 function buildGooglePayload(row: RevenueReadinessRow, config: PlatformConfigRow) {
+  const destination = googleDestination(config);
+  const eventTime = unixSeconds(row.timestamp ?? row.createdAt);
+  const warningSet = new Set<DryRunReasonCode>();
+  addGoogleReasons(row, config, warningSet);
+  const maskedEventOrLeadId = row.eventId ? maskId(row.eventId) : row.leadId ? maskId(row.leadId) : null;
+
   return {
-    conversion_action: config.conversion_id ? maskId(config.conversion_id) : config.conversion_label ? maskId(config.conversion_label) : null,
-    order_id: row.eventId,
-    conversion_date_time: row.timestamp ?? row.createdAt,
-    conversion_value: row.valueUsd,
-    currency_code: "USD",
-    gclid_present: presence(row, "gclid"),
-    gbraid_present: presence(row, "gbraid"),
-    wbraid_present: presence(row, "wbraid"),
+    event_type: "google_conversion_dry_run",
+    google_ads: {
+      conversion_action_present: Boolean(destination.id),
+      conversion_id_present: hasText(config.conversion_id),
+      conversion_label_present: hasText(config.conversion_label),
+      order_id: maskedEventOrLeadId,
+      conversion_date_time_present: Boolean(eventTime),
+      conversion_value: row.valueUsd,
+      currency_code: "USD",
+      gclid_present: presence(row, "gclid"),
+      gbraid_present: presence(row, "gbraid"),
+      wbraid_present: presence(row, "wbraid"),
+    },
+    ga4: {
+      event_name: "purchase",
+      client_id_present: false,
+      user_id_present: Boolean(row.leadId),
+      transaction_id: maskedEventOrLeadId,
+      currency: "USD",
+      value: row.valueUsd,
+      items_included: false,
+    },
     dry_run: true,
+    windowman_debug: {
+      canonical_event_row_id: maskId(row.id),
+      client_slug: row.clientSlug,
+      platform_config_id: maskConfigId(config.id),
+      mapper_version: GOOGLE_DRY_RUN_MAPPER_VERSION,
+      destination_present: Boolean(destination.id),
+      destination_type: destination.type,
+      destination_strength: destination.strength,
+      google_attribution_quality: googleAttributionQuality(row),
+      event_id_present: Boolean(row.eventId),
+      event_id_source: "canonical_event_id",
+      event_time_present: Boolean(eventTime),
+      value_basis: "gross_sale_value",
+      true_margin_available: false,
+      warnings: Array.from(warningSet),
+    },
   };
 }
 
@@ -528,6 +625,8 @@ export async function fetchDispatchDryRunQueue(): Promise<DispatchDryRunResult> 
         addMetaReasons(event, config, reasons);
       } else if (config.platform_name === "tiktok") {
         addTikTokReasons(event, config, reasons);
+      } else if (GOOGLE_PLATFORM_NAMES.has(config.platform_name)) {
+        addGoogleReasons(event, config, reasons);
       } else {
         addReason(reasons, "platform_mapper_basic");
       }
@@ -568,7 +667,7 @@ export async function fetchDispatchDryRunQueue(): Promise<DispatchDryRunResult> 
       totalSimulatedDispatches: rows.length,
       metaDispatches: rows.filter((row) => row.platformName === "meta").length,
       tiktokDispatches: rows.filter((row) => row.platformName === "tiktok").length,
-      googleDispatches: rows.filter((row) => row.platformName === "google_ads" || row.platformName === "ga4").length,
+      googleDispatches: rows.filter((row) => GOOGLE_PLATFORM_NAMES.has(row.platformName)).length,
       gtmWebhookDispatches: rows.filter((row) => ["gtm_server", "crm_webhook"].includes(row.platformName)).length,
       orphanedNoActiveConfig: orphans.filter((row) => row.reasons.includes("no_active_platform_config")).length,
     },
