@@ -50,6 +50,7 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
       className="relative overflow-hidden px-5 pt-8 pb-16 md:px-8 md:pt-12"
       style={{ background: "transparent" }}
     >
+      {/* Background Ambient Blurs */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute"
@@ -63,30 +64,10 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
           filter: "blur(32px)",
         }}
       />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute"
-        style={{
-          top: "5%",
-          right: "-5%",
-          width: "55%",
-          height: "90%",
-          background:
-            "radial-gradient(ellipse at 70% 35%, rgba(6,182,212,0.10) 0%, rgba(14,165,233,0.05) 50%, transparent 70%)",
-          filter: "blur(40px)",
-        }}
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "linear-gradient(160deg, rgba(219,234,254,0.18) 0%, transparent 55%, rgba(186,230,255,0.10) 100%)",
-        }}
-      />
 
       <div className="relative z-10 mx-auto max-w-5xl">
         <div className="grid items-stretch gap-5 lg:grid-cols-[1.45fr_0.9fr] lg:gap-6">
+          {/* Left Column: Stats & Grade */}
           <div className="space-y-5">
             <div>
               <div className="mb-5 inline-flex items-center gap-2 rounded-full border-2 border-blue-300 bg-white px-4 py-2 text-sm font-black text-slate-900 shadow-[0_10px_25px_rgba(15,23,42,0.08)]">
@@ -161,7 +142,8 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
             )}
           </div>
 
-          <div className="relative overflow-hidden rounded-3xl border border-blue-300/30 bg-slate-950 p-[10px] text-white shadow-[0_24px_70px_rgba(15,23,42,0.28)]">
+          {/* Right Column: Navy Hero Card */}
+          <div className="relative overflow-hidden rounded-3xl border border-blue-300/30 bg-slate-950 pt-4 pb-16 px-[10px] text-white shadow-[0_24px_70px_rgba(15,23,42,0.28)]">
             <div
               aria-hidden="true"
               className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-blue-400/25 blur-3xl"
@@ -170,11 +152,10 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
               aria-hidden="true"
               className="absolute -bottom-16 -left-10 h-44 w-44 rounded-full bg-orange-300/15 blur-3xl"
             />
+
             <div className="relative z-10 flex flex-col items-center text-center">
-              <div className="mb-4 mt-4">
-                <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-blue-200/25 bg-blue-400/10 text-blue-100 shadow-sm">
-                  <Bot className="h-6 w-6" />
-                </div>
+              {/* Headline & Subhead - Moved up */}
+              <div className="mb-2">
                 <h2 className="font-display text-2xl font-black leading-tight text-white md:text-3xl">
                   WindowMan Has Your Report.
                 </h2>
@@ -183,7 +164,8 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
                 </p>
               </div>
 
-              <div className="relative mx-auto aspect-square w-full max-w-[500px] overflow-hidden rounded-2xl border-[1px] border-white/20 bg-white/5">
+              {/* Square Image Stage - Floating, centered, no zoom */}
+              <div className="relative mx-auto aspect-square w-full max-w-[500px] overflow-hidden rounded-2xl border border-white/10 bg-white/5">
                 <img
                   src="/images/windowman-hand-to-chest.avif"
                   alt="WindowMan advisor"
@@ -195,6 +177,7 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
           </div>
         </div>
 
+        {/* Diagnostic Buttons Section */}
         <div className="mt-8 rounded-3xl border-2 border-slate-200 bg-white/95 p-5 shadow-[0_20px_58px_rgba(15,23,42,0.12)] md:mt-10 md:p-8">
           <div className="mx-auto mb-6 max-w-3xl text-center">
             <p className="mb-3 text-xs font-black uppercase tracking-[0.2em] text-blue-700">Root Question</p>
