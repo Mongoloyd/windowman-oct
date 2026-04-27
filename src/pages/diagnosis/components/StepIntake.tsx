@@ -188,7 +188,7 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
                 <img
                   src="/images/windowman-hand-to-chest.avif"
                   alt="WindowMan advisor ready to help"
-                  className="h-full w-full scale-[2.2] object-contain object-bottom transition-transform duration-500"
+                  className="h-full w-full object-contain object-center p-8 transition-transform duration-500"
                   loading="eager"
                 />
               </div>
