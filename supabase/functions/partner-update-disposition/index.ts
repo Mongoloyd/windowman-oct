@@ -352,25 +352,74 @@ Deno.serve(async (req) => {
     }
 
     // ── Canonical sold event ──────────────────────────────────────
+    // Internal canonical revenue signal — written to wm_event_log via
+    // `createCanonicalEvent`. This emit is intentionally NON-FATAL: the
+    // outcome row has already been updated and the leads rollup mirror
+    // has already run; if the canonical event fails to land we surface
+    // it in the error log but do not roll back disposition.
+    //
+    // Sprint 1F integrity contract — every sold event MUST carry:
+    //   - revenue_truth_source:        "contractor_outcomes"
+    //   - revenue_rollup_target:       "leads"
+    //   - source_system:               "partner-update-disposition"
+    //   - disposition_state:           "sold_closed"
+    //   - lead_id / opportunity_id / contractor_id / contractor_outcome_id
+    //   - final_value_cents + final_value_usd
+    //   - optimization_value_basis:   "gross_sale_value"  (NOT true profit)
+    //   - true_margin_available:      false               (no cost basis)
+    //   - margin_model_version:       null                (no model yet)
+    //
+    // No external dispatch happens here. The dispatch-platform-events
+    // worker reads `wm_platform_dispatch_log` separately on its own
+    // cadence; this function never calls Meta / Google / TikTok / GTM.
     if (disposition_state === "sold_closed" && final_value_cents != null && leadId) {
+      const finalValueUsd = final_value_cents / 100;
+      const soldEventContext = {
+        lead_id: leadId,
+        opportunity_id,
+        contractor_id: contractorId,
+        contractor_outcome_id: outcome.id,
+        final_value_cents,
+        disposition_state: "sold_closed" as const,
+      };
       try {
         await createCanonicalEvent(
           {
             eventName: "sold",
             leadId,
-            // marginUsd drives optimization_value_usd in the canonical pipeline.
-            // We pass gross sale value here as the closest available proxy;
-            // actual margin is not available at this layer.
-            marginUsd: final_value_cents / 100,
+            // marginUsd drives optimization_value_usd in the canonical
+            // pipeline. We pass GROSS sale value here as the closest
+            // available proxy. The metadata block below explicitly flags
+            // this so downstream consumers cannot mistake it for true
+            // profit margin.
+            marginUsd: finalValueUsd,
             payload: {
               identity: { leadId },
               journey: { route: "/partner/disposition", flow: "admin" },
               source: { sourceSystem: "edge_function" },
               metadata: {
-                contractor_outcome_id: outcome.id,
-                contractor_id: contractorId,
-                final_value_cents,
+                // Truth-source contract
+                revenue_truth_source: "contractor_outcomes",
+                revenue_rollup_target: "leads",
+                source_system: "partner-update-disposition",
                 disposition_state: "sold_closed",
+
+                // Identity / linkage
+                lead_id: leadId,
+                opportunity_id,
+                contractor_id: contractorId,
+                contractor_outcome_id: outcome.id,
+
+                // Revenue values
+                final_value_cents,
+                final_value_usd: finalValueUsd,
+
+                // Honesty flags — keep these in lockstep with marginUsd
+                // above so analytics never silently treats gross sale as
+                // profit margin.
+                optimization_value_basis: "gross_sale_value",
+                true_margin_available: false,
+                margin_model_version: null,
               },
             },
             rawPayload: { opportunity_id, contractor_id: contractorId },
@@ -378,8 +427,18 @@ Deno.serve(async (req) => {
           { db: svc },
         );
       } catch (eventErr) {
-        console.error("[partner-update-disposition] Canonical event error:", eventErr);
-        // Non-fatal: outcome is already updated; event failure should not roll back the disposition
+        // Structured, PII-free error log so on-call can correlate this
+        // failure to the sold outcome without grepping the request body.
+        const errMessage = eventErr instanceof Error ? eventErr.message : String(eventErr);
+        console.error(
+          "[partner-update-disposition] Canonical sold event emit failed (non-fatal)",
+          {
+            ...soldEventContext,
+            error: errMessage,
+          },
+        );
+        // Non-fatal: outcome is already updated; event failure must not
+        // roll back the disposition.
       }
     }
 
