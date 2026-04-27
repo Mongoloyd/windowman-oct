@@ -241,7 +241,7 @@ const ReportDecisionFork = ({
             </div>
           </article>
 
-          <article className="rounded-3xl border border-primary/20 bg-card/85 p-5 md:p-6 min-h-[320px] flex flex-col shadow-[var(--shadow-resting)] backdrop-blur">
+          <article className="rounded-3xl border-primary/20 bg-card/85 p-5 md:p-6 min-h-[320px] flex flex-col shadow-[var(--shadow-resting)] backdrop-blur border-2">
             <div className="mb-5 inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
               <ShieldCheck size={21} aria-hidden="true" />
             </div>
