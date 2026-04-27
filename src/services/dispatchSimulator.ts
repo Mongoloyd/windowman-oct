@@ -179,7 +179,7 @@ function destinationSummary(config: PlatformConfigRow): string {
   const platform = config.platform_name;
   if (platform === "meta") return config.pixel_id ? `Pixel ${maskId(config.pixel_id)}` : config.dataset_id ? `Dataset ${maskId(config.dataset_id)}` : "Meta destination missing";
   if (platform === "tiktok") return config.pixel_id ? `Pixel ${maskId(config.pixel_id)}` : config.dataset_id ? `Dataset ${maskId(config.dataset_id)}` : "TikTok destination missing";
-  if (platform === "google_ads" || platform === "ga4") return config.conversion_id ? `Conversion ${maskId(config.conversion_id)}` : config.conversion_label ? `Label ${maskId(config.conversion_label)}` : "Google destination missing";
+  if (GOOGLE_PLATFORM_NAMES.has(platform)) return googleDestination(config).id ? `${googleDestination(config).type} ${maskId(googleDestination(config).id)}` : "Google destination missing";
   if (platform === "gtm_server" || platform === "crm_webhook") return config.endpoint_url ? "Endpoint present" : "Endpoint missing";
   return "Generic destination";
 }
@@ -199,14 +199,14 @@ function configSummary(config: PlatformConfigRow): DispatchDryRunConfigSummary {
 }
 
 function platformRequiresToken(platform: string): boolean {
-  return ["meta", "tiktok", "google_ads", "ga4"].includes(platform);
+  return ["meta", "tiktok"].includes(platform) || GOOGLE_PLATFORM_NAMES.has(platform);
 }
 
 function addConfigReasons(config: PlatformConfigRow, reasons: Set<DryRunReasonCode>) {
   const platform = config.platform_name;
   if (platformRequiresToken(platform) && !config.token_secret_id) addReason(reasons, "token_missing");
   if ((platform === "meta" || platform === "tiktok") && !hasText(config.pixel_id) && !hasText(config.dataset_id)) addReason(reasons, "required_destination_id_missing");
-  if ((platform === "google_ads" || platform === "ga4") && !hasText(config.conversion_id) && !hasText(config.conversion_label)) addReason(reasons, "required_destination_id_missing");
+  if (GOOGLE_PLATFORM_NAMES.has(platform) && !googleDestination(config).id) addReason(reasons, "required_destination_id_missing");
   if ((platform === "gtm_server" || platform === "crm_webhook") && !hasText(config.endpoint_url)) addReason(reasons, "required_destination_id_missing");
 }
 
