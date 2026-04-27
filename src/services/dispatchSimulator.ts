@@ -21,6 +21,21 @@ export type DryRunReasonCode =
   | "weak_attribution"
   | "gross_value_used_not_true_margin"
   | "platform_mapper_basic"
+  | "meta_missing_pixel_or_dataset"
+  | "meta_missing_token"
+  | "meta_missing_event_id"
+  | "meta_event_id_quality_warning"
+  | "meta_missing_value"
+  | "meta_event_time_missing"
+  | "meta_missing_fbc"
+  | "meta_missing_fbp"
+  | "meta_missing_fbclid"
+  | "meta_missing_external_id"
+  | "meta_missing_ip_or_user_agent"
+  | "meta_using_gross_value_proxy"
+  | "meta_payload_draft_only"
+  | "meta_dedup_event_id_present"
+  | "meta_match_quality_weak"
   | "tiktok_missing_pixel_id"
   | "tiktok_missing_event_source_id"
   | "tiktok_missing_ttclid"
@@ -35,8 +50,10 @@ export type DryRunReasonCode =
   | "payload_draft_ready";
 
 export type TikTokMatchQuality = "strong" | "medium" | "weak" | "missing";
+export type MetaMatchInputQuality = "strong" | "medium" | "weak" | "missing";
 
 export const TIKTOK_DRY_RUN_MAPPER_VERSION = "tiktok-dry-run-v1";
+export const META_CAPI_DRY_RUN_MAPPER_VERSION = "meta-capi-dry-run-v1";
 
 export interface DispatchDryRunConfigSummary {
   id: string;
@@ -113,6 +130,10 @@ const HARD_ROW_REASONS: DryRunReasonCode[] = [
   "missing_event_id",
   "missing_value",
   "malformed_payload",
+  "meta_missing_pixel_or_dataset",
+  "meta_missing_event_id",
+  "meta_missing_value",
+  "meta_event_time_missing",
   "tiktok_missing_event_source_id",
   "tiktok_value_missing",
   "tiktok_event_id_missing",
