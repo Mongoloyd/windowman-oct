@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "https://esm.sh/zod@3.23.8";
 import {
   corsHeaders,
   errorResponse,
