@@ -119,7 +119,7 @@ function getTikTokDryRunSummary(row: DispatchDryRunRow | null) {
   if (!row || row.platformName !== "tiktok") return null;
   const payload = row.payload as {
     event_source_id?: string | null;
-    data?: Array<{ event?: string }>;
+    data?: Array<{ event?: string; user?: { email_hash_present?: boolean; phone_hash_present?: boolean; external_id_hash_present?: boolean; enhanced_matching_readiness?: string } }>;
     windowman_debug?: {
       mapper_version?: string;
       match_quality?: string;
@@ -127,6 +127,7 @@ function getTikTokDryRunSummary(row: DispatchDryRunRow | null) {
       warnings?: string[];
     };
   };
+  const user = payload.data?.[0]?.user;
   return {
     eventName: payload.data?.[0]?.event ?? "—",
     eventSourceIdPresent: Boolean(payload.event_source_id),
@@ -134,6 +135,10 @@ function getTikTokDryRunSummary(row: DispatchDryRunRow | null) {
     matchQuality: payload.windowman_debug?.match_quality ?? "missing",
     warningCount: payload.windowman_debug?.warnings?.length ?? row.reasons.filter((reason) => reason.startsWith("tiktok_")).length,
     valueSource: payload.windowman_debug?.value_basis ?? "gross_sale_value",
+    emailHashPresent: Boolean(user?.email_hash_present),
+    phoneHashPresent: Boolean(user?.phone_hash_present),
+    externalIdHashPresent: Boolean(user?.external_id_hash_present),
+    enhancedMatchingReadiness: user?.enhanced_matching_readiness ?? "missing",
   };
 }
 
