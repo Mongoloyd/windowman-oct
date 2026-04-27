@@ -589,12 +589,13 @@ async function buildTikTokPayload(row: RevenueReadinessRow, config: PlatformConf
   };
 }
 
-function buildGooglePayload(row: RevenueReadinessRow, config: PlatformConfigRow) {
+async function buildGooglePayload(row: RevenueReadinessRow, config: PlatformConfigRow) {
   const destination = googleDestination(config);
   const eventTime = unixSeconds(row.timestamp ?? row.createdAt);
   const warningSet = new Set<DryRunReasonCode>();
   addGoogleReasons(row, config, warningSet);
   const maskedEventOrLeadId = row.eventId ? maskId(row.eventId) : row.leadId ? maskId(row.leadId) : null;
+  const identityDiagnostics = await userIdentityPresenceSnapshot(row);
 
   return {
     event_type: "google_conversion_dry_run",
@@ -609,6 +610,9 @@ function buildGooglePayload(row: RevenueReadinessRow, config: PlatformConfigRow)
       gclid_present: presence(row, "gclid"),
       gbraid_present: presence(row, "gbraid"),
       wbraid_present: presence(row, "wbraid"),
+      enhanced_conversions_ready: identityDiagnostics.enhanced_matching_readiness === "ready" || identityDiagnostics.enhanced_matching_readiness === "partial",
+      email_hash_present: identityDiagnostics.email_hash_present,
+      phone_hash_present: identityDiagnostics.phone_hash_present,
     },
     ga4: {
       event_name: "purchase",
@@ -635,6 +639,8 @@ function buildGooglePayload(row: RevenueReadinessRow, config: PlatformConfigRow)
       event_time_present: Boolean(eventTime),
       value_basis: "gross_sale_value",
       true_margin_available: false,
+      enhanced_matching_readiness: identityDiagnostics.enhanced_matching_readiness,
+      hashed_identity: identityDiagnostics,
       warnings: Array.from(warningSet),
     },
   };
