@@ -86,6 +86,13 @@ function mapEligibilityRow(row: Record<string, unknown>): RevenueSignalEligibili
   return {
     outcomeId: String(row.outcome_id),
     revenueSignalKey: typeof row.revenue_signal_key === "string" ? row.revenue_signal_key : null,
+    revenueSignalKeyVersion: typeof row.revenue_signal_key_version === "string" ? row.revenue_signal_key_version : null,
+    revenueSignalKeyBasis: typeof row.revenue_signal_key_basis === "string" ? row.revenue_signal_key_basis : null,
+    revenueSignalKeyReasons: toReasons(row.revenue_signal_key_reasons),
+    lifecycleDuplicateDetected: Boolean(row.lifecycle_duplicate_detected),
+    lifecycleDuplicateCount: toNumber(row.lifecycle_duplicate_count) ?? 1,
+    weakLifecycleKey: Boolean(row.weak_lifecycle_key),
+    duplicateRevenueSignalKey: Boolean(row.duplicate_revenue_signal_key),
     leadId: typeof row.lead_id === "string" ? row.lead_id : null,
     scanSessionId: typeof row.scan_session_id === "string" ? row.scan_session_id : null,
     analysisId: typeof row.analysis_id === "string" ? row.analysis_id : null,
