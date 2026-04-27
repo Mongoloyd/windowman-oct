@@ -75,6 +75,7 @@ export function AdminPrimaryTabs({
     { kind: "route", to: "/admin/command", matchPrefixes: ["/admin/command"], label: "Command" },
     { kind: "route", to: "/admin/pipeline", matchPrefixes: ["/admin/pipeline"], label: "Pipeline" },
     { kind: "route", to: "/admin/routing", matchPrefixes: ["/admin/routing"], label: "Routing" },
+    { kind: "route", to: "/admin/lead-assignments", matchPrefixes: ["/admin/lead-assignments"], label: "Lead Assignments" },
     { kind: "route", to: "/admin/ghosts", matchPrefixes: ["/admin/ghosts"], label: "Ghosts", count: ghostCount, variant: "destructive" },
     { kind: "route", to: "/admin/needs-review", matchPrefixes: ["/admin/needs-review"], label: "Review", count: needsReviewCount, variant: "destructive" },
     { kind: "route", to: "/admin/dialer", matchPrefixes: ["/admin/dialer"], label: "Dialer" },
