@@ -192,19 +192,23 @@ function computeValue(row: RpcReadinessRow): { valueUsd: number | null; finalVal
 
 function normalizePlatformConfigs(value: unknown): PlatformConfigSummary[] {
   if (!Array.isArray(value)) return [];
-  return value.filter((config): config is Record<string, unknown> => Boolean(config) && typeof config === "object").map((config) => ({
-    platform_name: normalizePlatformName(config.platform_name),
-    exact_platform_match: Boolean(config.readiness && typeof config.readiness === "object" ? (config.readiness as Record<string, unknown>).exact_platform_match : config.exact_platform_match),
-    is_active: Boolean(config.is_active),
-    config_state: typeof config.config_state === "string" ? config.config_state : null,
-    validation_status: typeof config.validation_status === "string" ? config.validation_status : null,
-    token_present: Boolean(config.token_present),
-    pixel_id_present: Boolean(config.pixel_id_present),
-    dataset_id_present: Boolean(config.dataset_id_present),
-    conversion_id_present: Boolean(config.conversion_id_present),
-    conversion_label_present: Boolean(config.conversion_label_present),
-    endpoint_url_present: Boolean(config.endpoint_url_present),
-  }));
+  return value.filter((config): config is Record<string, unknown> => Boolean(config) && typeof config === "object").map((config) => {
+    const platform = normalizePlatformName(config.platform_name);
+    const readiness = config.readiness && typeof config.readiness === "object" ? config.readiness as Record<string, unknown> : null;
+    return {
+      platform_name: platform,
+      exact_platform_match: typeof readiness?.exact_platform_match === "boolean" ? readiness.exact_platform_match : config.platform_name === platform,
+      is_active: Boolean(config.is_active),
+      config_state: typeof config.config_state === "string" ? config.config_state : null,
+      validation_status: typeof config.validation_status === "string" ? config.validation_status : null,
+      token_present: Boolean(config.token_present),
+      pixel_id_present: Boolean(config.pixel_id_present),
+      dataset_id_present: Boolean(config.dataset_id_present),
+      conversion_id_present: Boolean(config.conversion_id_present),
+      conversion_label_present: Boolean(config.conversion_label_present),
+      endpoint_url_present: Boolean(config.endpoint_url_present),
+    };
+  });
 }
 
 function mapReadinessRow(row: RpcReadinessRow): RevenueReadinessRow {
