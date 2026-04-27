@@ -55,6 +55,25 @@ export function LeadStatusPanel({ leadId, currentStage }: LeadStatusPanelProps) 
     mutation.mutate(next as FunnelStage);
   };
 
+  const getStageButtonClass = (stage: FunnelStage, active: boolean) => {
+    const base = "h-8 rounded-md border text-xs font-semibold transition-all duration-150";
+    const activeDepth = "shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_2px_0_rgba(15,23,42,0.18)]";
+
+    if (stage === "booked") {
+      return `${base} ${active ? `border-emerald-700 bg-emerald-600 text-white ${activeDepth}` : "border-emerald-600/25 bg-emerald-600/10 text-emerald-700 hover:bg-emerald-600/15"}`;
+    }
+
+    if (stage === "routed" || stage === "contacted") {
+      return `${base} ${active ? `border-orange-700 bg-orange-600 text-white ${activeDepth}` : "border-orange-500/25 bg-orange-500/10 text-orange-700 hover:bg-orange-500/15"}`;
+    }
+
+    if (stage === "closed" || stage === "stale" || stage === "ghost") {
+      return `${base} ${active ? `border-slate-700 bg-slate-600 text-white ${activeDepth}` : "border-slate-300 bg-slate-200 text-slate-600 hover:bg-slate-300"}`;
+    }
+
+    return `${base} ${active ? `border-blue-700 bg-blue-600 text-white ${activeDepth}` : "border-blue-500/25 bg-blue-500/10 text-blue-700 hover:bg-blue-500/15"}`;
+  };
+
   return (
     <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
       <div className="flex items-center justify-between gap-3 mb-3">
@@ -107,9 +126,9 @@ export function LeadStatusPanel({ leadId, currentStage }: LeadStatusPanelProps) 
             <Button
               key={s.value}
               type="button"
-              variant={active ? "default" : "outline"}
+              variant="ghost"
               size="sm"
-              className="h-8 text-xs"
+              className={getStageButtonClass(s.value, active)}
               onClick={() => handleChange(s.value)}
               disabled={mutation.isPending || active}
             >
