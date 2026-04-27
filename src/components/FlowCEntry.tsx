@@ -23,7 +23,7 @@ const FlowCEntry = ({ quoteStage, onSwitchToA }: FlowCEntryProps) => {
         <h2 className="font-display text-destructive font-extrabold uppercase leading-[1.15] tracking-[0.02em]" style={{ fontSize: 'clamp(42px, 5.5vw, 54px)' }}>It's not in writing yet. That means you still have leverage.</h2>
         <p className="font-body text-foreground leading-[1.75] mt-4" style={{ fontSize: 17, maxWidth: 580 }}>The moment a contractor puts it on paper, the anchor is set. Right now, you can still change the number before the contract arrives.</p>
         <div className="card-raised mt-4 mb-8 p-4" style={{ borderLeft: '3px solid hsl(var(--destructive))', maxWidth: 580 }}>
-          <p className="font-body text-[15px] font-semibold text-destructive">Your leverage isn't just gone when you sign. It's actively shrinking right now.</p>
+          <p className="font-body text-[15px] font-semibold text-destructive">Your Leverage isn't just gone when you sign. It's actively shrinking right now.</p>
         </div>
         <div className="flex flex-col md:flex-row gap-5 max-w-[680px] mb-8">
           {outcomes.map((o, i) => (
