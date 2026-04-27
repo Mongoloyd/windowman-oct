@@ -109,10 +109,16 @@ function computeIntegrity(input: {
     reasons.push("outcome_not_terminal");
   }
 
-  if (input.client_slug && input.assignment_client_slug && input.client_slug !== input.assignment_client_slug) {
+  if (
+    input.client_slug && input.assignment_client_slug &&
+    input.client_slug !== input.assignment_client_slug
+  ) {
     reasons.push("assignment_client_mismatch");
   }
-  if (input.client_slug && input.contractor_account_client_slug && input.client_slug !== input.contractor_account_client_slug) {
+  if (
+    input.client_slug && input.contractor_account_client_slug &&
+    input.client_slug !== input.contractor_account_client_slug
+  ) {
     reasons.push("contractor_client_mismatch");
   }
 
@@ -122,26 +128,41 @@ function computeIntegrity(input: {
     Boolean(input.value_basis) &&
     input.value_basis !== "unknown" &&
     Boolean(input.client_slug) &&
-    !reasons.some((reason) => ["assignment_client_mismatch", "contractor_client_mismatch"].includes(reason));
+    !reasons.some((reason) =>
+      ["assignment_client_mismatch", "contractor_client_mismatch"].includes(
+        reason,
+      )
+    );
   reasons.push(
     eligible ? "eligible_for_future_signal" : "not_eligible_for_signal",
   );
 
-  const status =
-    reasons.some((r) =>
-        ["sold_missing_value", "sold_invalid_value", "lost_missing_reason", "assignment_client_mismatch", "contractor_client_mismatch"]
-          .includes(r)
+  const status = reasons.some((r) =>
+      [
+        "sold_missing_value",
+        "sold_invalid_value",
+        "lost_missing_reason",
+        "assignment_client_mismatch",
+        "contractor_client_mismatch",
+      ]
+        .includes(r)
+    )
+    ? "blocked"
+    : reasons.some((r) =>
+        [
+          "missing_client_slug",
+          "missing_assignment",
+          "missing_contractor_account",
+          "sold_missing_value_basis",
+          "value_basis_unknown",
+        ].includes(r)
       )
-      ? "blocked"
-      : reasons.some((r) =>
-          ["missing_client_slug", "missing_assignment", "missing_contractor_account", "sold_missing_value_basis", "value_basis_unknown"].includes(r)
-        )
-      ? "needs_review"
-      : reasons.some((r) =>
-          ["value_basis_gross_proxy", "outcome_not_terminal"].includes(r)
-        )
-      ? "warning"
-      : "valid";
+    ? "needs_review"
+    : reasons.some((r) =>
+        ["value_basis_gross_proxy", "outcome_not_terminal"].includes(r)
+      )
+    ? "warning"
+    : "valid";
 
   return { status, reasons };
 }
@@ -296,13 +317,24 @@ Deno.serve(async (req) => {
       }, 422);
     }
     if (lead_assignment_id != null && typeof lead_assignment_id !== "string") {
-      return json({ error: "invalid_input", message: "lead_assignment_id must be a string when provided." }, 400);
+      return json({
+        error: "invalid_input",
+        message: "lead_assignment_id must be a string when provided.",
+      }, 400);
     }
     if (client_slug != null && typeof client_slug !== "string") {
-      return json({ error: "invalid_input", message: "client_slug must be a string when provided." }, 400);
+      return json({
+        error: "invalid_input",
+        message: "client_slug must be a string when provided.",
+      }, 400);
     }
-    if (contractor_account_id != null && typeof contractor_account_id !== "string") {
-      return json({ error: "invalid_input", message: "contractor_account_id must be a string when provided." }, 400);
+    if (
+      contractor_account_id != null && typeof contractor_account_id !== "string"
+    ) {
+      return json({
+        error: "invalid_input",
+        message: "contractor_account_id must be a string when provided.",
+      }, 400);
     }
     if (
       value_basis != null &&
@@ -410,11 +442,19 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (oppContextErr) {
-      console.error("[partner-update-disposition] Opportunity context lookup error:", { opportunity_id, message: oppContextErr.message });
-      return json({ error: "context_lookup_failed", message: "Failed to reconcile outcome context." }, 500);
+      console.error(
+        "[partner-update-disposition] Opportunity context lookup error:",
+        { opportunity_id, message: oppContextErr.message },
+      );
+      return json({
+        error: "context_lookup_failed",
+        message: "Failed to reconcile outcome context.",
+      }, 500);
     }
 
-    const opportunityClientSlug = typeof oppContext?.client_slug === "string" ? oppContext.client_slug : null;
+    const opportunityClientSlug = typeof oppContext?.client_slug === "string"
+      ? oppContext.client_slug
+      : null;
     let leadClientSlug: string | null = null;
     if (oppContext?.lead_id) {
       const { data: leadContext, error: leadContextErr } = await svc
@@ -424,10 +464,18 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (leadContextErr) {
-        console.error("[partner-update-disposition] Lead context lookup error:", { lead_id: oppContext.lead_id, message: leadContextErr.message });
-        return json({ error: "lead_context_lookup_failed", message: "Failed to reconcile lead context." }, 500);
+        console.error(
+          "[partner-update-disposition] Lead context lookup error:",
+          { lead_id: oppContext.lead_id, message: leadContextErr.message },
+        );
+        return json({
+          error: "lead_context_lookup_failed",
+          message: "Failed to reconcile lead context.",
+        }, 500);
       }
-      leadClientSlug = typeof leadContext?.client_slug === "string" ? leadContext.client_slug : null;
+      leadClientSlug = typeof leadContext?.client_slug === "string"
+        ? leadContext.client_slug
+        : null;
     }
     let resolvedClientSlug = opportunityClientSlug ?? leadClientSlug ?? null;
     let assignmentClientSlug: string | null = null;
@@ -441,15 +489,31 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (assignmentErr) {
-        console.error("[partner-update-disposition] Assignment lookup error:", { lead_assignment_id, message: assignmentErr.message });
-        return json({ error: "assignment_lookup_failed", message: "Failed to reconcile assignment context." }, 500);
+        console.error("[partner-update-disposition] Assignment lookup error:", {
+          lead_assignment_id,
+          message: assignmentErr.message,
+        });
+        return json({
+          error: "assignment_lookup_failed",
+          message: "Failed to reconcile assignment context.",
+        }, 500);
       }
       if (!assignment) {
-        return json({ error: "assignment_not_found", message: "lead_assignment_id does not reference an assignment." }, 422);
+        return json({
+          error: "assignment_not_found",
+          message: "lead_assignment_id does not reference an assignment.",
+        }, 422);
       }
       assignmentClientSlug = assignment.client_slug as string | null;
-      if (resolvedClientSlug && assignmentClientSlug && resolvedClientSlug !== assignmentClientSlug) {
-        return json({ error: "assignment_client_mismatch", message: "Outcome context does not match the linked assignment client." }, 422);
+      if (
+        resolvedClientSlug && assignmentClientSlug &&
+        resolvedClientSlug !== assignmentClientSlug
+      ) {
+        return json({
+          error: "assignment_client_mismatch",
+          message:
+            "Outcome context does not match the linked assignment client.",
+        }, 422);
       }
       resolvedClientSlug = resolvedClientSlug ?? assignmentClientSlug;
     }
@@ -462,24 +526,56 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (contractorAccountErr) {
-        console.error("[partner-update-disposition] Contractor account lookup error:", { contractor_account_id, message: contractorAccountErr.message });
-        return json({ error: "contractor_account_lookup_failed", message: "Failed to reconcile contractor account context." }, 500);
+        console.error(
+          "[partner-update-disposition] Contractor account lookup error:",
+          { contractor_account_id, message: contractorAccountErr.message },
+        );
+        return json({
+          error: "contractor_account_lookup_failed",
+          message: "Failed to reconcile contractor account context.",
+        }, 500);
       }
       if (!contractorAccount) {
-        return json({ error: "contractor_account_not_found", message: "contractor_account_id does not reference a contractor account." }, 422);
+        return json({
+          error: "contractor_account_not_found",
+          message:
+            "contractor_account_id does not reference a contractor account.",
+        }, 422);
       }
-      contractorAccountClientSlug = contractorAccount.client_slug as string | null;
-      if (contractorAccount.auth_user_id && contractorAccount.auth_user_id !== authUserId) {
-        return json({ error: "contractor_account_forbidden", message: "Contractor account is not linked to the authenticated partner." }, 403);
+      contractorAccountClientSlug = contractorAccount.client_slug as
+        | string
+        | null;
+      if (
+        contractorAccount.auth_user_id &&
+        contractorAccount.auth_user_id !== authUserId
+      ) {
+        return json({
+          error: "contractor_account_forbidden",
+          message:
+            "Contractor account is not linked to the authenticated partner.",
+        }, 403);
       }
-      if (resolvedClientSlug && contractorAccountClientSlug && resolvedClientSlug !== contractorAccountClientSlug) {
-        return json({ error: "contractor_client_mismatch", message: "Outcome context does not match the contractor account client." }, 422);
+      if (
+        resolvedClientSlug && contractorAccountClientSlug &&
+        resolvedClientSlug !== contractorAccountClientSlug
+      ) {
+        return json({
+          error: "contractor_client_mismatch",
+          message:
+            "Outcome context does not match the contractor account client.",
+        }, 422);
       }
       resolvedClientSlug = resolvedClientSlug ?? contractorAccountClientSlug;
     }
 
-    if (client_slug && resolvedClientSlug && client_slug !== resolvedClientSlug) {
-      return json({ error: "client_slug_mismatch", message: "Provided client_slug does not match server-resolved outcome context." }, 422);
+    if (
+      client_slug && resolvedClientSlug && client_slug !== resolvedClientSlug
+    ) {
+      return json({
+        error: "client_slug_mismatch",
+        message:
+          "Provided client_slug does not match server-resolved outcome context.",
+      }, 422);
     }
     resolvedClientSlug = resolvedClientSlug ?? (client_slug || null);
 
