@@ -60,6 +60,7 @@ import { ClientPlatformConfigs } from "@/components/admin/ClientPlatformConfigs"
 import { DispatchDryRunQueue } from "@/components/admin/DispatchDryRunQueue";
 import { DispatchOutboxControl } from "@/components/admin/DispatchOutboxControl";
 import { DispatchAttemptReconciliation } from "@/components/admin/DispatchAttemptReconciliation";
+import { DispatchGovernanceConsole } from "@/components/admin/DispatchGovernanceConsole";
 
 import {
   invokeAdminData,
@@ -468,6 +469,10 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
 
           <TabsContent value="dispatch-attempts" className="w-full px-2 sm:px-6 pt-4">
             <DispatchAttemptReconciliation />
+          </TabsContent>
+
+          <TabsContent value="dispatch-governance" className="w-full px-2 sm:px-6 pt-4">
+            <DispatchGovernanceConsole />
           </TabsContent>
 
           <TabsContent value="pilot" className="w-full px-2 sm:px-6 pt-4">
