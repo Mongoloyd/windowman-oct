@@ -1379,7 +1379,9 @@ export type Database = {
           appointment_booked_at: string | null
           appointment_status: string | null
           billable_intro_id: string
+          client_slug: string | null
           closed_at: string | null
+          contractor_account_id: string | null
           contractor_id: string | null
           created_at: string
           deal_status: string | null
@@ -1392,20 +1394,31 @@ export type Database = {
           final_value_cents: number | null
           id: string
           last_partner_action_at: string | null
+          lead_assignment_id: string | null
           opportunity_id: string
+          outcome_integrity_reasons: string[]
+          outcome_integrity_status: string
+          outcome_metadata: Json
           outcome_notes: string | null
+          outcome_source: string
+          outcome_verified: boolean
+          outcome_verified_at: string | null
           projected_value_cents: number | null
           quote_status: string | null
           replacement_quote_range: string | null
           route_id: string | null
           signed_contract_url: string | null
+          sold_currency: string
           updated_at: string
+          value_basis: string | null
         }
         Insert: {
           appointment_booked_at?: string | null
           appointment_status?: string | null
           billable_intro_id: string
+          client_slug?: string | null
           closed_at?: string | null
+          contractor_account_id?: string | null
           contractor_id?: string | null
           created_at?: string
           deal_status?: string | null
@@ -1418,20 +1431,31 @@ export type Database = {
           final_value_cents?: number | null
           id?: string
           last_partner_action_at?: string | null
+          lead_assignment_id?: string | null
           opportunity_id: string
+          outcome_integrity_reasons?: string[]
+          outcome_integrity_status?: string
+          outcome_metadata?: Json
           outcome_notes?: string | null
+          outcome_source?: string
+          outcome_verified?: boolean
+          outcome_verified_at?: string | null
           projected_value_cents?: number | null
           quote_status?: string | null
           replacement_quote_range?: string | null
           route_id?: string | null
           signed_contract_url?: string | null
+          sold_currency?: string
           updated_at?: string
+          value_basis?: string | null
         }
         Update: {
           appointment_booked_at?: string | null
           appointment_status?: string | null
           billable_intro_id?: string
+          client_slug?: string | null
           closed_at?: string | null
+          contractor_account_id?: string | null
           contractor_id?: string | null
           created_at?: string
           deal_status?: string | null
@@ -1444,14 +1468,23 @@ export type Database = {
           final_value_cents?: number | null
           id?: string
           last_partner_action_at?: string | null
+          lead_assignment_id?: string | null
           opportunity_id?: string
+          outcome_integrity_reasons?: string[]
+          outcome_integrity_status?: string
+          outcome_metadata?: Json
           outcome_notes?: string | null
+          outcome_source?: string
+          outcome_verified?: boolean
+          outcome_verified_at?: string | null
           projected_value_cents?: number | null
           quote_status?: string | null
           replacement_quote_range?: string | null
           route_id?: string | null
           signed_contract_url?: string | null
+          sold_currency?: string
           updated_at?: string
+          value_basis?: string | null
         }
         Relationships: [
           {
@@ -1459,6 +1492,13 @@ export type Database = {
             columns: ["billable_intro_id"]
             isOneToOne: true
             referencedRelation: "billable_intros"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contractor_outcomes_contractor_account_id_fkey"
+            columns: ["contractor_account_id"]
+            isOneToOne: false
+            referencedRelation: "contractor_accounts"
             referencedColumns: ["id"]
           },
           {
@@ -1481,6 +1521,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_admin_assignments_by_contractor"
             referencedColumns: ["contractor_id"]
+          },
+          {
+            foreignKeyName: "contractor_outcomes_lead_assignment_id_fkey"
+            columns: ["lead_assignment_id"]
+            isOneToOne: false
+            referencedRelation: "lead_assignments"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "contractor_outcomes_opportunity_id_fkey"
@@ -4422,6 +4469,77 @@ export type Database = {
           value_usd: number
         }[]
       }
+      admin_revenue_dispatch_readiness: {
+        Args: never
+        Returns: {
+          active_destination_configs_total: number
+          active_platform_config_count: number
+          analysis_id: string
+          client_slug: string
+          contractor_id: string
+          contractor_outcome_id: string
+          created_at: string
+          disposition_state: string
+          event_id: string
+          event_name: string
+          event_row_id: string
+          event_timestamp: string
+          final_value_cents: number
+          final_value_usd: number
+          has_fbc: boolean
+          has_fbclid: boolean
+          has_fbp: boolean
+          has_gbraid: boolean
+          has_gclid: boolean
+          has_msclkid: boolean
+          has_ttclid: boolean
+          has_ttp: boolean
+          has_utm_campaign: boolean
+          has_utm_source: boolean
+          has_wbraid: boolean
+          lead_id: string
+          margin_model_version: string
+          opportunity_id: string
+          optimization_value_basis: string
+          optimization_value_usd: number
+          payload_is_object: boolean
+          payload_metadata: Json
+          platform_configs: Json
+          raw_payload_metadata: Json
+          revenue_rollup_target: string
+          revenue_truth_source: string
+          scan_session_id: string
+          source_system: string
+          tenant_resolved: boolean
+          true_margin_available: boolean
+        }[]
+      }
+      admin_revenue_signal_eligibility: {
+        Args: never
+        Returns: {
+          analysis_id: string
+          client_slug: string
+          contractor_account_id: string
+          contractor_id: string
+          disposition_state: string
+          duplicate_protected: boolean
+          eligible_for_revenue_signal: boolean
+          existing_event_id: string
+          existing_signal_id: string
+          external_dispatch: boolean
+          final_value_cents: number
+          final_value_usd: number
+          lead_assignment_id: string
+          lead_id: string
+          opportunity_id: string
+          outcome_id: string
+          outcome_integrity_reasons: string[]
+          outcome_integrity_status: string
+          scan_session_id: string
+          sold_currency: string
+          value_basis: string
+        }[]
+      }
       admin_route_lead_assignment: {
         Args: {
           p_action: string
@@ -4436,6 +4554,10 @@ export type Database = {
           p_scan_session_id?: string
           p_syndicate_id?: string
         }
+        Returns: Json
+      }
+      admin_sync_revenue_signals: {
+        Args: { p_dry_run?: boolean; p_limit?: number }
         Returns: Json
       }
       claim_pending_deliveries: {
@@ -4461,6 +4583,25 @@ export type Database = {
           p_platform_config_id: string
           p_platform_name: string
         }
+        Returns: string
+      }
+      contractor_outcome_integrity_reasons: {
+        Args: {
+          p_assignment_client_slug?: string
+          p_client_slug: string
+          p_contractor_account_client_slug?: string
+          p_contractor_account_id: string
+          p_disposition_reason_code: string
+          p_disposition_state: string
+          p_final_value_cents: number
+          p_lead_assignment_id: string
+          p_outcome_notes: string
+          p_value_basis: string
+        }
+        Returns: string[]
+      }
+      contractor_outcome_integrity_status: {
+        Args: { p_reasons: string[] }
         Returns: string
       }
       fulfill_contractor_credit_purchase:
