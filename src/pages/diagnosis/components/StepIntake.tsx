@@ -182,14 +182,6 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
                   Pick The Problem. I’ll Build The Next Move.
                 </p>
               </div>
-              <div className="relative mx-auto flex w-full max-w-[220px] items-end justify-center overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-2">
-                <img
-                  src="/images/wman-reading.avif"
-                  alt="WindowMan advisor reviewing a report"
-                  className="max-h-[190px] w-full object-contain"
-                  loading="lazy"
-                />
-              </div>
             </div>
           </div>
         </div>
