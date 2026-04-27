@@ -1,4 +1,5 @@
 import { fetchClientPlatformConfigs, maskConfigId, type PlatformConfigRow } from "@/services/clientPlatformConfigs";
+import { buildHashedIdentity, getHashedIdentityDiagnostics } from "@/lib/privacy/identityHashing";
 import {
   fetchRevenueDispatchReadiness,
   maskId,
@@ -458,20 +459,27 @@ function attributionPresenceSnapshot(row: RevenueReadinessRow) {
   };
 }
 
-function userIdentityPresenceSnapshot(row: RevenueReadinessRow) {
+async function userIdentityPresenceSnapshot(row: RevenueReadinessRow) {
+  const hashedIdentity = await buildHashedIdentity({ externalId: row.leadId });
+  const diagnostics = getHashedIdentityDiagnostics(hashedIdentity);
+
   return {
     external_id_present: Boolean(row.leadId),
     lead_id_present: Boolean(row.leadId),
-    email_hash_present: false,
-    phone_hash_present: false,
+    email_hash_present: diagnostics.email_hash_present,
+    phone_hash_present: diagnostics.phone_hash_present,
+    external_id_hash_present: diagnostics.external_id_hash_present,
+    enhanced_matching_readiness: diagnostics.enhanced_matching_readiness,
+    already_hashed_detected: diagnostics.already_hashed_detected,
   };
 }
 
-function buildMetaPayload(row: RevenueReadinessRow, config: PlatformConfigRow) {
+async function buildMetaPayload(row: RevenueReadinessRow, config: PlatformConfigRow) {
   const destination = metaDestination(config);
   const eventTime = unixSeconds(row.timestamp ?? row.createdAt);
   const warningSet = new Set<DryRunReasonCode>();
   addMetaReasons(row, config, warningSet);
+  const identityDiagnostics = await userIdentityPresenceSnapshot(row);
 
   return {
     data: [
@@ -485,8 +493,9 @@ function buildMetaPayload(row: RevenueReadinessRow, config: PlatformConfigRow) {
         referrer_present: false,
         user_data: {
           ...leadExternalId(row),
-          em_present: false,
-          ph_present: false,
+          em_hash_present: identityDiagnostics.email_hash_present,
+          ph_hash_present: identityDiagnostics.phone_hash_present,
+          external_id_hash_present: identityDiagnostics.external_id_hash_present,
           fbc_present: presence(row, "fbc"),
           fbp_present: presence(row, "fbp"),
           fbclid_present: presence(row, "fbclid"),
@@ -518,16 +527,19 @@ function buildMetaPayload(row: RevenueReadinessRow, config: PlatformConfigRow) {
       deduplication_event_id_source: "canonical_event_id",
       deduplication_event_id_masked: row.eventId ? maskId(row.eventId) : null,
       match_input_quality: metaMatchInputQuality(row),
+      enhanced_matching_readiness: identityDiagnostics.enhanced_matching_readiness,
+      hashed_identity: identityDiagnostics,
       warnings: Array.from(warningSet),
     },
   };
 }
 
-function buildTikTokPayload(row: RevenueReadinessRow, config: PlatformConfigRow) {
+async function buildTikTokPayload(row: RevenueReadinessRow, config: PlatformConfigRow) {
   const eventSourceId = tiktokEventSourceId(config);
   const eventTime = unixSeconds(row.timestamp ?? row.createdAt);
   const warningSet = new Set<DryRunReasonCode>();
   addTikTokReasons(row, config, warningSet);
+  const identityDiagnostics = await userIdentityPresenceSnapshot(row);
 
   return {
     event_source: "web",
@@ -543,8 +555,10 @@ function buildTikTokPayload(row: RevenueReadinessRow, config: PlatformConfigRow)
           ttp_present: presence(row, "ttp"),
           ip_present: false,
           user_agent_present: false,
-          email_hash_present: false,
-          phone_hash_present: false,
+          email_hash_present: identityDiagnostics.email_hash_present,
+          phone_hash_present: identityDiagnostics.phone_hash_present,
+          external_id_hash_present: identityDiagnostics.external_id_hash_present,
+          enhanced_matching_readiness: identityDiagnostics.enhanced_matching_readiness,
         },
         properties: {
           currency: "USD",
@@ -569,6 +583,7 @@ function buildTikTokPayload(row: RevenueReadinessRow, config: PlatformConfigRow)
       value_basis: "gross_sale_value",
       true_margin_available: row.payloadIntegrity.trueMarginAvailable === true,
       match_quality: tiktokMatchQuality(row),
+      hashed_identity: identityDiagnostics,
       warnings: Array.from(warningSet),
     },
   };
