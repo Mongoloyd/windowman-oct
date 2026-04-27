@@ -86,6 +86,7 @@ export function AdminPrimaryTabs({
     { kind: "panel", value: "client-platform-configs", label: "Platform Configs" },
     { kind: "panel", value: "dispatch-dry-run", label: "Dry-Run Queue" },
     { kind: "panel", value: "dispatch-outbox", label: "Dispatch Outbox" },
+    { kind: "panel", value: "dispatch-attempts", label: "Attempt Reconciliation" },
     { kind: "panel", value: "delivery-inspector", label: "Delivery" },
     { kind: "panel", value: "outcome-inspector", label: "Outcome Inspector" },
     { kind: "panel", value: "session-diag", label: "Sessions" },
