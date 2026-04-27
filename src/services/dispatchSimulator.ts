@@ -47,13 +47,28 @@ export type DryRunReasonCode =
   | "tiktok_event_time_missing"
   | "tiktok_using_gross_value_proxy"
   | "tiktok_payload_draft_only"
+  | "google_missing_conversion_destination"
+  | "google_missing_token"
+  | "google_missing_event_id"
+  | "google_missing_value"
+  | "google_event_time_missing"
+  | "google_missing_gclid"
+  | "google_missing_gbraid"
+  | "google_missing_wbraid"
+  | "google_missing_google_click_id"
+  | "google_missing_user_id"
+  | "google_using_gross_value_proxy"
+  | "google_payload_draft_only"
+  | "google_attribution_quality_weak"
   | "payload_draft_ready";
 
 export type TikTokMatchQuality = "strong" | "medium" | "weak" | "missing";
 export type MetaMatchInputQuality = "strong" | "medium" | "weak" | "missing";
+export type GoogleAttributionQuality = "strong" | "medium" | "weak" | "missing";
 
 export const TIKTOK_DRY_RUN_MAPPER_VERSION = "tiktok-dry-run-v1";
 export const META_CAPI_DRY_RUN_MAPPER_VERSION = "meta-capi-dry-run-v1";
+export const GOOGLE_DRY_RUN_MAPPER_VERSION = "google-ads-ga4-dry-run-v1";
 
 export interface DispatchDryRunConfigSummary {
   id: string;
@@ -138,7 +153,13 @@ const HARD_ROW_REASONS: DryRunReasonCode[] = [
   "tiktok_value_missing",
   "tiktok_event_id_missing",
   "tiktok_event_time_missing",
+  "google_missing_conversion_destination",
+  "google_missing_event_id",
+  "google_missing_value",
+  "google_event_time_missing",
 ];
+
+const GOOGLE_PLATFORM_NAMES = new Set(["google", "google_ads", "ga4"]);
 
 function hasText(value: string | null | undefined) {
   return Boolean(value && value.trim());
