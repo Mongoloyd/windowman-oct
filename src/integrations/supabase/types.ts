@@ -2751,6 +2751,253 @@ export type Database = {
           },
         ]
       }
+      platform_dispatch_attempts: {
+        Row: {
+          attempt_number: number
+          created_at: string
+          dry_run: boolean
+          error_code: string | null
+          error_message: string | null
+          id: string
+          metadata: Json
+          outbox_id: string
+          redacted_request_snapshot: Json
+          request_payload_hash: string | null
+          response_excerpt: string | null
+          response_status_code: number | null
+          status: string
+        }
+        Insert: {
+          attempt_number: number
+          created_at?: string
+          dry_run?: boolean
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          metadata?: Json
+          outbox_id: string
+          redacted_request_snapshot?: Json
+          request_payload_hash?: string | null
+          response_excerpt?: string | null
+          response_status_code?: number | null
+          status?: string
+        }
+        Update: {
+          attempt_number?: number
+          created_at?: string
+          dry_run?: boolean
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          metadata?: Json
+          outbox_id?: string
+          redacted_request_snapshot?: Json
+          request_payload_hash?: string | null
+          response_excerpt?: string | null
+          response_status_code?: number | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_dispatch_attempts_outbox_id_fkey"
+            columns: ["outbox_id"]
+            isOneToOne: false
+            referencedRelation: "platform_dispatch_outbox"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      platform_dispatch_outbox: {
+        Row: {
+          attempt_count: number
+          attribution_strength: string | null
+          candidate_fingerprint: string
+          canonical_event_id: string | null
+          canonical_event_log_id: string
+          canonical_event_name: string
+          canonical_event_timestamp: string | null
+          client_id: string | null
+          client_slug: string
+          config_state: string | null
+          created_at: string
+          currency: string
+          decision_snapshot: Json
+          destination_present: boolean
+          dispatch_event_name: string
+          dry_run_only: boolean
+          eligibility_reasons: string[]
+          eligibility_status: string
+          eligibility_version: string
+          external_event_id: string | null
+          id: string
+          idempotency_key: string
+          last_error: string | null
+          lifecycle_status: string
+          locked_at: string | null
+          locked_by: string | null
+          mapper_version: string
+          max_attempts: number
+          metadata: Json
+          next_attempt_at: string | null
+          payload_hash: string | null
+          payload_version: string
+          platform_config_id: string
+          platform_name: Database["public"]["Enums"]["wm_platform_name"]
+          readiness_status: string | null
+          redacted_payload_snapshot: Json
+          send_enabled: boolean
+          sent_at: string | null
+          token_present: boolean
+          true_margin_available: boolean | null
+          updated_at: string
+          validation_status: string | null
+          value_basis: string | null
+          value_usd: number | null
+        }
+        Insert: {
+          attempt_count?: number
+          attribution_strength?: string | null
+          candidate_fingerprint: string
+          canonical_event_id?: string | null
+          canonical_event_log_id: string
+          canonical_event_name: string
+          canonical_event_timestamp?: string | null
+          client_id?: string | null
+          client_slug: string
+          config_state?: string | null
+          created_at?: string
+          currency?: string
+          decision_snapshot?: Json
+          destination_present?: boolean
+          dispatch_event_name: string
+          dry_run_only?: boolean
+          eligibility_reasons?: string[]
+          eligibility_status?: string
+          eligibility_version?: string
+          external_event_id?: string | null
+          id?: string
+          idempotency_key: string
+          last_error?: string | null
+          lifecycle_status?: string
+          locked_at?: string | null
+          locked_by?: string | null
+          mapper_version: string
+          max_attempts?: number
+          metadata?: Json
+          next_attempt_at?: string | null
+          payload_hash?: string | null
+          payload_version?: string
+          platform_config_id: string
+          platform_name: Database["public"]["Enums"]["wm_platform_name"]
+          readiness_status?: string | null
+          redacted_payload_snapshot?: Json
+          send_enabled?: boolean
+          sent_at?: string | null
+          token_present?: boolean
+          true_margin_available?: boolean | null
+          updated_at?: string
+          validation_status?: string | null
+          value_basis?: string | null
+          value_usd?: number | null
+        }
+        Update: {
+          attempt_count?: number
+          attribution_strength?: string | null
+          candidate_fingerprint?: string
+          canonical_event_id?: string | null
+          canonical_event_log_id?: string
+          canonical_event_name?: string
+          canonical_event_timestamp?: string | null
+          client_id?: string | null
+          client_slug?: string
+          config_state?: string | null
+          created_at?: string
+          currency?: string
+          decision_snapshot?: Json
+          destination_present?: boolean
+          dispatch_event_name?: string
+          dry_run_only?: boolean
+          eligibility_reasons?: string[]
+          eligibility_status?: string
+          eligibility_version?: string
+          external_event_id?: string | null
+          id?: string
+          idempotency_key?: string
+          last_error?: string | null
+          lifecycle_status?: string
+          locked_at?: string | null
+          locked_by?: string | null
+          mapper_version?: string
+          max_attempts?: number
+          metadata?: Json
+          next_attempt_at?: string | null
+          payload_hash?: string | null
+          payload_version?: string
+          platform_config_id?: string
+          platform_name?: Database["public"]["Enums"]["wm_platform_name"]
+          readiness_status?: string | null
+          redacted_payload_snapshot?: Json
+          send_enabled?: boolean
+          sent_at?: string | null
+          token_present?: boolean
+          true_margin_available?: boolean | null
+          updated_at?: string
+          validation_status?: string | null
+          value_basis?: string | null
+          value_usd?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_dispatch_outbox_canonical_event_log_id_fkey"
+            columns: ["canonical_event_log_id"]
+            isOneToOne: false
+            referencedRelation: "event_logs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_dispatch_outbox_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_dispatch_outbox_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_active_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_dispatch_outbox_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_assignments_by_client"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "platform_dispatch_outbox_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_routing_resolution"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "platform_dispatch_outbox_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_unassigned_active_clients"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "platform_dispatch_outbox_platform_config_id_fkey"
+            columns: ["platform_config_id"]
+            isOneToOne: false
+            referencedRelation: "client_platform_configs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quote_analyses: {
         Row: {
           created_at: string
@@ -3672,6 +3919,40 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_dispatch_outbox_candidates: {
+        Args: never
+        Returns: {
+          attribution_strength: string
+          candidate_fingerprint: string
+          candidate_id: string
+          canonical_event_id: string
+          canonical_event_name: string
+          canonical_event_timestamp: string
+          client_id: string
+          client_slug: string
+          config_state: string
+          currency: string
+          decision_snapshot: Json
+          destination_present: boolean
+          dispatch_event_name: string
+          eligibility_reasons: string[]
+          eligibility_status: string
+          eligibility_version: string
+          event_row_id: string
+          idempotency_key: string
+          mapper_version: string
+          outbox_id: string
+          outbox_row_exists: boolean
+          platform_config_id: string
+          platform_name: string
+          readiness_status: string
+          token_present: boolean
+          true_margin_available: boolean
+          validation_status: string
+          value_basis: string
+          value_usd: number
+        }[]
+      }
       claim_pending_deliveries: {
         Args: { p_limit?: number }
         Returns: {
@@ -3686,6 +3967,16 @@ export type Database = {
           payload_json: Json
           webhook_url: string
         }[]
+      }
+      compute_platform_dispatch_idempotency_key: {
+        Args: {
+          p_canonical_event_id: string
+          p_canonical_event_log_id: string
+          p_client_slug: string
+          p_platform_config_id: string
+          p_platform_name: string
+        }
+        Returns: string
       }
       fulfill_contractor_credit_purchase:
         | {
