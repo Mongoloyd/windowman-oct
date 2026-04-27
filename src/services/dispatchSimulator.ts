@@ -380,6 +380,93 @@ function addGoogleReasons(row: RevenueReadinessRow, config: PlatformConfigRow, r
   addReason(reasons, "google_payload_draft_only");
 }
 
+function endpointUrlShape(config: PlatformConfigRow): { present: boolean; valid: boolean; https: boolean } {
+  if (!hasText(config.endpoint_url)) return { present: false, valid: false, https: false };
+
+  try {
+    const parsed = new URL(config.endpoint_url);
+    return {
+      present: true,
+      valid: parsed.protocol === "http:" || parsed.protocol === "https:",
+      https: parsed.protocol === "https:",
+    };
+  } catch {
+    return { present: true, valid: false, https: false };
+  }
+}
+
+function endpointReadiness(row: RevenueReadinessRow, config: PlatformConfigRow): EndpointReadiness {
+  const url = endpointUrlShape(config);
+  const eventTime = unixSeconds(row.timestamp ?? row.createdAt);
+
+  if (!url.present || !url.valid || !row.eventId || !row.valueUsd || row.valueUsd <= 0 || !eventTime) return "blocked";
+  if (!url.https || !config.token_secret_id || row.attributionStrength === "weak" || row.reasons.includes("gross_value_used_not_true_margin")) return "warning";
+  return "ready";
+}
+
+function addEndpointReasons(row: RevenueReadinessRow, config: PlatformConfigRow, reasons: Set<DryRunReasonCode>) {
+  const url = endpointUrlShape(config);
+
+  if (!url.present) addReason(reasons, "endpoint_missing_url");
+  if (url.present && !url.valid) addReason(reasons, "endpoint_invalid_url");
+  if (url.present && url.valid && !url.https) addReason(reasons, "endpoint_non_https_url_warning");
+  if (!config.token_secret_id) addReason(reasons, "endpoint_missing_token_warning");
+  if (!row.eventId) addReason(reasons, "endpoint_missing_event_id");
+  if (!row.valueUsd || row.valueUsd <= 0) addReason(reasons, "endpoint_missing_value");
+  if (!unixSeconds(row.timestamp ?? row.createdAt)) addReason(reasons, "endpoint_event_time_missing");
+  if (row.reasons.includes("gross_value_used_not_true_margin")) addReason(reasons, "endpoint_using_gross_value_proxy");
+  if (row.attributionStrength === "weak") addReason(reasons, "endpoint_weak_attribution_warning");
+  addReason(reasons, "endpoint_payload_draft_only");
+}
+
+function endpointDestinationShape(config: PlatformConfigRow) {
+  const url = endpointUrlShape(config);
+  return {
+    endpoint_url_present: url.present,
+    endpoint_url_valid: url.valid,
+    endpoint_https: url.https,
+    token_present: Boolean(config.token_secret_id),
+  };
+}
+
+function endpointDebug(row: RevenueReadinessRow, config: PlatformConfigRow, mapperVersion: string) {
+  const warnings = new Set<DryRunReasonCode>();
+  addEndpointReasons(row, config, warnings);
+  return {
+    canonical_event_row_id: maskId(row.id),
+    platform_config_id: maskConfigId(config.id),
+    mapper_version: mapperVersion,
+    endpoint_readiness: endpointReadiness(row, config),
+    event_id_present: Boolean(row.eventId),
+    event_id_source: "canonical_event_id",
+    event_time_present: Boolean(unixSeconds(row.timestamp ?? row.createdAt)),
+    value_basis: row.payloadIntegrity.optimizationValueBasis ?? "gross_sale_value",
+    true_margin_available: row.payloadIntegrity.trueMarginAvailable === true,
+    warnings: Array.from(warnings),
+  };
+}
+
+function attributionPresenceSnapshot(row: RevenueReadinessRow) {
+  return {
+    fbc_present: presence(row, "fbc"),
+    fbp_present: presence(row, "fbp"),
+    ttclid_present: presence(row, "ttclid"),
+    ttp_present: presence(row, "ttp"),
+    gclid_present: presence(row, "gclid"),
+    gbraid_present: presence(row, "gbraid"),
+    wbraid_present: presence(row, "wbraid"),
+  };
+}
+
+function userIdentityPresenceSnapshot(row: RevenueReadinessRow) {
+  return {
+    external_id_present: Boolean(row.leadId),
+    lead_id_present: Boolean(row.leadId),
+    email_hash_present: false,
+    phone_hash_present: false,
+  };
+}
+
 function buildMetaPayload(row: RevenueReadinessRow, config: PlatformConfigRow) {
   const destination = metaDestination(config);
   const eventTime = unixSeconds(row.timestamp ?? row.createdAt);
