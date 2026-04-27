@@ -215,6 +215,51 @@ function leadExternalId(row: RevenueReadinessRow) {
   return { external_id_present: Boolean(row.leadId), external_id: row.leadId ? maskId(row.leadId) : null };
 }
 
+function metaDestination(config: PlatformConfigRow): { id: string | null; type: "pixel_id" | "dataset_id" | "missing" } {
+  if (hasText(config.pixel_id)) return { id: config.pixel_id, type: "pixel_id" };
+  if (hasText(config.dataset_id)) return { id: config.dataset_id, type: "dataset_id" };
+  return { id: null, type: "missing" };
+}
+
+function metaMatchInputQuality(row: RevenueReadinessRow): MetaMatchInputQuality {
+  const externalId = Boolean(row.leadId);
+  const hasFbc = presence(row, "fbc");
+  const hasFbp = presence(row, "fbp");
+  const hasFbclid = presence(row, "fbclid");
+  const hasUtm = presence(row, "utm_source") || presence(row, "utm_campaign");
+
+  if (externalId && hasFbc && hasFbp) return "strong";
+  if (externalId && (hasFbc || hasFbp || hasFbclid)) return "medium";
+  if (externalId || hasUtm) return "weak";
+  return "missing";
+}
+
+function hasSuspiciousEventId(eventId: string | null): boolean {
+  if (!eventId) return false;
+  return eventId.trim().length < 12 || /^\d+$/.test(eventId.trim());
+}
+
+function addMetaReasons(row: RevenueReadinessRow, config: PlatformConfigRow, reasons: Set<DryRunReasonCode>) {
+  const eventTime = unixSeconds(row.timestamp ?? row.createdAt);
+  const matchQuality = metaMatchInputQuality(row);
+
+  if (!metaDestination(config).id) addReason(reasons, "meta_missing_pixel_or_dataset");
+  if (!config.token_secret_id) addReason(reasons, "meta_missing_token");
+  if (!row.eventId) addReason(reasons, "meta_missing_event_id");
+  if (hasSuspiciousEventId(row.eventId)) addReason(reasons, "meta_event_id_quality_warning");
+  if (!row.valueUsd || row.valueUsd <= 0) addReason(reasons, "meta_missing_value");
+  if (!eventTime) addReason(reasons, "meta_event_time_missing");
+  if (!presence(row, "fbc")) addReason(reasons, "meta_missing_fbc");
+  if (!presence(row, "fbp")) addReason(reasons, "meta_missing_fbp");
+  if (!presence(row, "fbclid")) addReason(reasons, "meta_missing_fbclid");
+  if (!row.leadId) addReason(reasons, "meta_missing_external_id");
+  addReason(reasons, "meta_missing_ip_or_user_agent");
+  if (row.reasons.includes("gross_value_used_not_true_margin")) addReason(reasons, "meta_using_gross_value_proxy");
+  if (row.eventId) addReason(reasons, "meta_dedup_event_id_present");
+  if (matchQuality === "weak" || matchQuality === "missing") addReason(reasons, "meta_match_quality_weak");
+  addReason(reasons, "meta_payload_draft_only");
+}
+
 function tiktokEventSourceId(config: PlatformConfigRow): string | null {
   return hasText(config.pixel_id) ? config.pixel_id : hasText(config.dataset_id) ? config.dataset_id : null;
 }
