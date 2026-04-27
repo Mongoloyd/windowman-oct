@@ -464,16 +464,52 @@ function buildTikTokPayload(row: RevenueReadinessRow, config: PlatformConfigRow)
 }
 
 function buildGooglePayload(row: RevenueReadinessRow, config: PlatformConfigRow) {
+  const destination = googleDestination(config);
+  const eventTime = unixSeconds(row.timestamp ?? row.createdAt);
+  const warningSet = new Set<DryRunReasonCode>();
+  addGoogleReasons(row, config, warningSet);
+  const maskedEventOrLeadId = row.eventId ? maskId(row.eventId) : row.leadId ? maskId(row.leadId) : null;
+
   return {
-    conversion_action: config.conversion_id ? maskId(config.conversion_id) : config.conversion_label ? maskId(config.conversion_label) : null,
-    order_id: row.eventId,
-    conversion_date_time: row.timestamp ?? row.createdAt,
-    conversion_value: row.valueUsd,
-    currency_code: "USD",
-    gclid_present: presence(row, "gclid"),
-    gbraid_present: presence(row, "gbraid"),
-    wbraid_present: presence(row, "wbraid"),
+    event_type: "google_conversion_dry_run",
+    google_ads: {
+      conversion_action_present: Boolean(destination.id),
+      conversion_id_present: hasText(config.conversion_id),
+      conversion_label_present: hasText(config.conversion_label),
+      order_id: maskedEventOrLeadId,
+      conversion_date_time_present: Boolean(eventTime),
+      conversion_value: row.valueUsd,
+      currency_code: "USD",
+      gclid_present: presence(row, "gclid"),
+      gbraid_present: presence(row, "gbraid"),
+      wbraid_present: presence(row, "wbraid"),
+    },
+    ga4: {
+      event_name: "purchase",
+      client_id_present: false,
+      user_id_present: Boolean(row.leadId),
+      transaction_id: maskedEventOrLeadId,
+      currency: "USD",
+      value: row.valueUsd,
+      items_included: false,
+    },
     dry_run: true,
+    windowman_debug: {
+      canonical_event_row_id: maskId(row.id),
+      client_slug: row.clientSlug,
+      platform_config_id: maskConfigId(config.id),
+      mapper_version: GOOGLE_DRY_RUN_MAPPER_VERSION,
+      destination_present: Boolean(destination.id),
+      destination_type: destination.type,
+      destination_strength: destination.strength,
+      google_attribution_quality: googleAttributionQuality(row),
+      event_id_present: Boolean(row.eventId),
+      event_id_source: "canonical_event_id",
+      event_time_present: Boolean(eventTime),
+      value_basis: "gross_sale_value",
+      true_margin_available: false,
+      warnings: Array.from(warningSet),
+    },
   };
 }
 
