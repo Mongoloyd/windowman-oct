@@ -391,6 +391,114 @@ export type Database = {
           },
         ]
       }
+      client_platform_configs: {
+        Row: {
+          client_id: string
+          config_state: string
+          conversion_id: string | null
+          conversion_label: string | null
+          created_at: string
+          dataset_id: string | null
+          endpoint_url: string | null
+          id: string
+          is_active: boolean
+          last_operator_action_at: string | null
+          last_operator_id: string | null
+          last_validation_error: string | null
+          pixel_id: string | null
+          platform_name: Database["public"]["Enums"]["wm_platform_name"]
+          token_fingerprint_prefix: string | null
+          token_last_rotated_at: string | null
+          token_secret_id: string | null
+          updated_at: string
+          validated_at: string | null
+          validation_status: string
+          validation_summary: Json
+        }
+        Insert: {
+          client_id: string
+          config_state?: string
+          conversion_id?: string | null
+          conversion_label?: string | null
+          created_at?: string
+          dataset_id?: string | null
+          endpoint_url?: string | null
+          id?: string
+          is_active?: boolean
+          last_operator_action_at?: string | null
+          last_operator_id?: string | null
+          last_validation_error?: string | null
+          pixel_id?: string | null
+          platform_name: Database["public"]["Enums"]["wm_platform_name"]
+          token_fingerprint_prefix?: string | null
+          token_last_rotated_at?: string | null
+          token_secret_id?: string | null
+          updated_at?: string
+          validated_at?: string | null
+          validation_status?: string
+          validation_summary?: Json
+        }
+        Update: {
+          client_id?: string
+          config_state?: string
+          conversion_id?: string | null
+          conversion_label?: string | null
+          created_at?: string
+          dataset_id?: string | null
+          endpoint_url?: string | null
+          id?: string
+          is_active?: boolean
+          last_operator_action_at?: string | null
+          last_operator_id?: string | null
+          last_validation_error?: string | null
+          pixel_id?: string | null
+          platform_name?: Database["public"]["Enums"]["wm_platform_name"]
+          token_fingerprint_prefix?: string | null
+          token_last_rotated_at?: string | null
+          token_secret_id?: string | null
+          updated_at?: string
+          validated_at?: string | null
+          validation_status?: string
+          validation_summary?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_platform_configs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_platform_configs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_active_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_platform_configs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_assignments_by_client"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "client_platform_configs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_routing_resolution"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "client_platform_configs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_unassigned_active_clients"
+            referencedColumns: ["client_id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           created_at: string
@@ -3872,6 +3980,7 @@ export type Database = {
         | "qualified"
         | "soft_reject"
         | "hard_reject"
+      wm_platform_name: "meta" | "google_ads" | "ga4" | "internal" | "tiktok"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -4041,6 +4150,7 @@ export const Constants = {
         "soft_reject",
         "hard_reject",
       ],
+      wm_platform_name: ["meta", "google_ads", "ga4", "internal", "tiktok"],
     },
   },
 } as const
