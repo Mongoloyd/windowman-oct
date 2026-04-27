@@ -1,5 +1,10 @@
 import { z } from "https://esm.sh/zod@3.23.8";
-import { corsHeaders, errorResponse, successResponse, validateAdminRequestWithRole } from "../_shared/adminAuth.ts";
+import {
+  corsHeaders,
+  errorResponse,
+  successResponse,
+  validateAdminRequestWithRole,
+} from "../_shared/adminAuth.ts";
 
 type Mode = "preview_attempt" | "simulate_attempt" | "simulate_selected";
 type AttemptStatus = "simulated" | "failed_preflight" | "blocked_by_gate";
@@ -49,20 +54,27 @@ function stableStringify(value: unknown): string {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
   const record = value as Record<string, unknown>;
-  return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`).join(",")}}`;
+  return `{${
+    Object.keys(record).sort().map((key) =>
+      `${JSON.stringify(key)}:${stableStringify(record[key])}`
+    ).join(",")
+  }}`;
 }
 
 async function sha256Hex(value: unknown): Promise<string | null> {
   try {
     const encoded = new TextEncoder().encode(stableStringify(value));
     const digest = await crypto.subtle.digest("SHA-256", encoded);
-    return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
+    return Array.from(new Uint8Array(digest)).map((byte) =>
+      byte.toString(16).padStart(2, "0")
+    ).join("");
   } catch {
     return null;
   }
 }
 
-const SENSITIVE_KEY_RE = /(token|secret|authorization|bearer|email|phone|endpoint_url|webhook_url|url|fbclid|fbc|fbp|ttclid|ttp|gclid|gbraid|wbraid|ip|user_agent|address)/i;
+const SENSITIVE_KEY_RE =
+  /(token|secret|authorization|bearer|email|phone|endpoint_url|webhook_url|url|fbclid|fbc|fbp|ttclid|ttp|gclid|gbraid|wbraid|ip|user_agent|address)/i;
 
 function sanitizeSnapshot(value: unknown): unknown {
   if (value === null || typeof value !== "object") return value;
@@ -70,9 +82,11 @@ function sanitizeSnapshot(value: unknown): unknown {
   const next: Record<string, unknown> = {};
   for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
     if (SENSITIVE_KEY_RE.test(key)) {
-      if (key.endsWith("_present") || key.endsWith("Present")) next[key] = Boolean(child);
-      else if (key.endsWith("_masked") || key.endsWith("Masked")) next[key] = child;
-      else next[key] = "[redacted]";
+      if (key.endsWith("_present") || key.endsWith("Present")) {
+        next[key] = Boolean(child);
+      } else if (key.endsWith("_masked") || key.endsWith("Masked")) {
+        next[key] = child;
+      } else next[key] = "[redacted]";
     } else {
       next[key] = sanitizeSnapshot(child);
     }
@@ -82,13 +96,22 @@ function sanitizeSnapshot(value: unknown): unknown {
 
 function safeBaseSnapshot(row: OutboxRow): Record<string, unknown> | null {
   const snapshot = row.redacted_payload_snapshot;
-  if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) return null;
+  if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) {
+    return null;
+  }
   return sanitizeSnapshot(snapshot) as Record<string, unknown>;
 }
 
 function liveLifecycleStatus(value: string | null): boolean {
   if (!value) return true;
-  return !["disabled_dry_run", "candidate", "materialized_not_sendable", "blocked", "superseded", "cancelled"].includes(value);
+  return ![
+    "disabled_dry_run",
+    "candidate",
+    "materialized_not_sendable",
+    "blocked",
+    "superseded",
+    "cancelled",
+  ].includes(value);
 }
 
 function gateReasons(row: OutboxRow | null): string[] {
@@ -101,35 +124,58 @@ function gateReasons(row: OutboxRow | null): string[] {
   if (row.locked_at) reasons.push("locked_at_present");
   if (row.locked_by) reasons.push("locked_by_present");
   if (row.next_attempt_at) reasons.push("next_attempt_at_present");
-  if (liveLifecycleStatus(row.lifecycle_status)) reasons.push("unsafe_lifecycle_status");
+  if (liveLifecycleStatus(row.lifecycle_status)) {
+    reasons.push("unsafe_lifecycle_status");
+  }
   if (!row.idempotency_key) reasons.push("idempotency_key_missing");
   if (!safeBaseSnapshot(row)) reasons.push("redacted_payload_snapshot_missing");
   if (!row.platform_config_id) reasons.push("platform_config_id_missing");
-  if (!row.canonical_event_log_id) reasons.push("canonical_event_log_id_missing");
+  if (!row.canonical_event_log_id) {
+    reasons.push("canonical_event_log_id_missing");
+  }
   return reasons;
 }
 
-function preflightReasons(row: OutboxRow, attemptNumber: number, payloadHash: string | null): string[] {
+function preflightReasons(
+  row: OutboxRow,
+  attemptNumber: number,
+  payloadHash: string | null,
+): string[] {
   const reasons: string[] = [];
   const snapshot = safeBaseSnapshot(row);
   if (!payloadHash) reasons.push("payload_hash_unavailable");
   if (!snapshot) reasons.push("redacted_snapshot_malformed");
   if (!row.platform_name) reasons.push("platform_name_missing");
   if (!row.client_slug) reasons.push("client_slug_missing");
-  if (!row.canonical_event_id && !row.canonical_event_log_id) reasons.push("event_identity_missing");
-  if (!Number.isInteger(attemptNumber) || attemptNumber < 1) reasons.push("attempt_number_invalid");
+  if (!row.canonical_event_id && !row.canonical_event_log_id) {
+    reasons.push("event_identity_missing");
+  }
+  if (!Number.isInteger(attemptNumber) || attemptNumber < 1) {
+    reasons.push("attempt_number_invalid");
+  }
   return reasons;
 }
 
-function statusFor(row: OutboxRow | null, attemptNumber: number, payloadHash: string | null): { status: AttemptStatus; reasons: string[] } {
+function statusFor(
+  row: OutboxRow | null,
+  attemptNumber: number,
+  payloadHash: string | null,
+): { status: AttemptStatus; reasons: string[] } {
   const gate = gateReasons(row);
-  if (!row || gate.length > 0) return { status: "blocked_by_gate", reasons: gate };
+  if (!row || gate.length > 0) {
+    return { status: "blocked_by_gate", reasons: gate };
+  }
   const preflight = preflightReasons(row, attemptNumber, payloadHash);
-  if (preflight.length > 0) return { status: "failed_preflight", reasons: preflight };
+  if (preflight.length > 0) {
+    return { status: "failed_preflight", reasons: preflight };
+  }
   return { status: "simulated", reasons: [] };
 }
 
-function buildRequestSnapshot(row: OutboxRow, payloadHash: string | null): Record<string, unknown> {
+function buildRequestSnapshot(
+  row: OutboxRow,
+  payloadHash: string | null,
+): Record<string, unknown> {
   return {
     ...(safeBaseSnapshot(row) ?? {}),
     attempt_simulation: {
@@ -149,16 +195,24 @@ function buildRequestSnapshot(row: OutboxRow, payloadHash: string | null): Recor
   };
 }
 
-function errorFor(status: AttemptStatus, reasons: string[]): { error_code: string | null; error_message: string | null } {
+function errorFor(
+  status: AttemptStatus,
+  reasons: string[],
+): { error_code: string | null; error_message: string | null } {
   if (status === "simulated") return { error_code: null, error_message: null };
   const first = reasons[0] ?? "unknown_preflight_reason";
   return {
     error_code: first,
-    error_message: status === "blocked_by_gate" ? `Blocked by dry-run gate: ${first}` : `Failed simulated preflight: ${first}`,
+    error_message: status === "blocked_by_gate"
+      ? `Blocked by dry-run gate: ${first}`
+      : `Failed simulated preflight: ${first}`,
   };
 }
 
-async function nextAttemptNumber(supabaseAdmin: any, outboxId: string): Promise<number | null> {
+async function nextAttemptNumber(
+  supabaseAdmin: any,
+  outboxId: string,
+): Promise<number | null> {
   const { data, error } = await supabaseAdmin
     .from("platform_dispatch_attempts")
     .select("attempt_number")
@@ -166,11 +220,18 @@ async function nextAttemptNumber(supabaseAdmin: any, outboxId: string): Promise<
     .order("attempt_number", { ascending: false })
     .limit(1);
   if (error) return null;
-  const current = Array.isArray(data) && data[0]?.attempt_number ? Number(data[0].attempt_number) : 0;
+  const current = Array.isArray(data) && data[0]?.attempt_number
+    ? Number(data[0].attempt_number)
+    : 0;
   return Number.isFinite(current) ? current + 1 : null;
 }
 
-async function simulateOne(supabaseAdmin: any, outboxId: string, write: boolean, operatorId: string): Promise<Record<string, unknown>> {
+async function simulateOne(
+  supabaseAdmin: any,
+  outboxId: string,
+  write: boolean,
+  operatorId: string,
+): Promise<Record<string, unknown>> {
   const { data: rowData, error } = await supabaseAdmin
     .from("platform_dispatch_outbox")
     .select("*")
@@ -178,14 +239,27 @@ async function simulateOne(supabaseAdmin: any, outboxId: string, write: boolean,
     .maybeSingle();
 
   if (error) {
-    return { outbox_id_masked: maskId(outboxId), status: "blocked_by_gate", reasons: ["outbox_lookup_failed"], attempts_written: false, error: error.message };
+    return {
+      outbox_id_masked: maskId(outboxId),
+      status: "blocked_by_gate",
+      reasons: ["outbox_lookup_failed"],
+      attempts_written: false,
+      error: error.message,
+    };
   }
 
   const row = (rowData ?? null) as OutboxRow | null;
-  const attemptNumber = row ? await nextAttemptNumber(supabaseAdmin, row.id) : 0;
+  const attemptNumber = row
+    ? await nextAttemptNumber(supabaseAdmin, row.id)
+    : 0;
   const snapshotSeed = row ? safeBaseSnapshot(row) : null;
   const payloadHash = snapshotSeed ? await sha256Hex(snapshotSeed) : null;
-  const status = row && attemptNumber ? statusFor(row, attemptNumber, payloadHash) : { status: "blocked_by_gate" as AttemptStatus, reasons: row ? ["attempt_number_unavailable"] : ["outbox_row_missing"] };
+  const status = row && attemptNumber
+    ? statusFor(row, attemptNumber, payloadHash)
+    : {
+      status: "blocked_by_gate" as AttemptStatus,
+      reasons: row ? ["attempt_number_unavailable"] : ["outbox_row_missing"],
+    };
   const requestSnapshot = row ? buildRequestSnapshot(row, payloadHash) : null;
   const errors = errorFor(status.status, status.reasons);
 
@@ -197,7 +271,9 @@ async function simulateOne(supabaseAdmin: any, outboxId: string, write: boolean,
     attempt_number: attemptNumber,
     status: status.status,
     request_payload_hash: payloadHash,
-    request_payload_hash_short: payloadHash ? `${payloadHash.slice(0, 12)}…${payloadHash.slice(-8)}` : null,
+    request_payload_hash_short: payloadHash
+      ? `${payloadHash.slice(0, 12)}…${payloadHash.slice(-8)}`
+      : null,
     redacted_request_snapshot: requestSnapshot,
     response_status_code: null,
     response_excerpt: null,
@@ -239,46 +315,113 @@ async function simulateOne(supabaseAdmin: any, outboxId: string, write: boolean,
     .single();
 
   if (insertError) {
-    return { ...item, status: "failed_preflight", error_code: "attempt_insert_failed", error_message: insertError.message, reasons: [...status.reasons, "attempt_insert_failed"], attempts_written: false };
+    return {
+      ...item,
+      status: "failed_preflight",
+      error_code: "attempt_insert_failed",
+      error_message: insertError.message,
+      reasons: [...status.reasons, "attempt_insert_failed"],
+      attempts_written: false,
+    };
   }
 
-  return { ...item, attempt_id: inserted?.id ?? null, created_at: inserted?.created_at ?? null, attempts_written: true };
+  return {
+    ...item,
+    attempt_id: inserted?.id ?? null,
+    created_at: inserted?.created_at ?? null,
+    attempts_written: true,
+  };
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  if (req.method !== "POST") return errorResponse(405, "method_not_allowed", "Only POST is allowed.");
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+  if (req.method !== "POST") {
+    return errorResponse(405, "method_not_allowed", "Only POST is allowed.");
+  }
 
-  const validation = await validateAdminRequestWithRole(req, ["super_admin", "operator"]);
+  const validation = await validateAdminRequestWithRole(req, [
+    "super_admin",
+    "operator",
+  ]);
   if (!validation.ok) return validation.response;
 
   let parsed: z.infer<typeof BodySchema>;
   try {
     parsed = BodySchema.parse(await req.json());
   } catch (error) {
-    return errorResponse(400, "invalid_request", "Invalid attempt simulation request.", {
-      issues: error instanceof z.ZodError ? error.flatten().fieldErrors : undefined,
-    });
+    return errorResponse(
+      400,
+      "invalid_request",
+      "Invalid attempt simulation request.",
+      {
+        issues: error instanceof z.ZodError
+          ? error.flatten().fieldErrors
+          : undefined,
+      },
+    );
   }
 
-  if (parsed.mode === "preview_attempt" && !parsed.outbox_id) return errorResponse(400, "outbox_id_required", "preview_attempt requires one outbox_id.");
-  if (parsed.mode === "simulate_attempt" && !parsed.outbox_id) return errorResponse(400, "outbox_id_required", "simulate_attempt requires one outbox_id.");
-  if (parsed.mode === "simulate_selected" && parsed.outbox_ids.length === 0) return errorResponse(400, "outbox_ids_required", "simulate_selected requires outbox_ids.");
-  if ((parsed.mode === "simulate_attempt" || parsed.mode === "simulate_selected") && parsed.confirmation !== "SIMULATE_DRY_RUN_ATTEMPT_ONLY") {
-    return errorResponse(400, "confirmation_required", "Type SIMULATE_DRY_RUN_ATTEMPT_ONLY to write simulated dry-run attempt rows.");
+  if (parsed.mode === "preview_attempt" && !parsed.outbox_id) {
+    return errorResponse(
+      400,
+      "outbox_id_required",
+      "preview_attempt requires one outbox_id.",
+    );
+  }
+  if (parsed.mode === "simulate_attempt" && !parsed.outbox_id) {
+    return errorResponse(
+      400,
+      "outbox_id_required",
+      "simulate_attempt requires one outbox_id.",
+    );
+  }
+  if (parsed.mode === "simulate_selected" && parsed.outbox_ids.length === 0) {
+    return errorResponse(
+      400,
+      "outbox_ids_required",
+      "simulate_selected requires outbox_ids.",
+    );
+  }
+  if (
+    (parsed.mode === "simulate_attempt" ||
+      parsed.mode === "simulate_selected") &&
+    parsed.confirmation !== "SIMULATE_DRY_RUN_ATTEMPT_ONLY"
+  ) {
+    return errorResponse(
+      400,
+      "confirmation_required",
+      "Type SIMULATE_DRY_RUN_ATTEMPT_ONLY to write simulated dry-run attempt rows.",
+    );
   }
 
   const writeRequested = parsed.mode !== "preview_attempt";
-  const ids = parsed.mode === "simulate_selected" ? parsed.outbox_ids : [parsed.outbox_id!];
+  const ids = parsed.mode === "simulate_selected"
+    ? parsed.outbox_ids
+    : [parsed.outbox_id!];
   const items = [];
-  for (const id of ids) items.push(await simulateOne(validation.supabaseAdmin, id, writeRequested, validation.userId));
+  for (const id of ids) {
+    items.push(
+      await simulateOne(
+        validation.supabaseAdmin,
+        id,
+        writeRequested,
+        validation.userId,
+      ),
+    );
+  }
 
   const summary = {
     outbox_rows_considered: items.length,
     simulated: items.filter((item) => item.status === "simulated").length,
-    failed_preflight: items.filter((item) => item.status === "failed_preflight").length,
-    blocked_by_gate: items.filter((item) => item.status === "blocked_by_gate").length,
-    attempts_written: items.filter((item) => item.attempts_written === true).length,
+    failed_preflight: items.filter((item) =>
+      item.status === "failed_preflight"
+    ).length,
+    blocked_by_gate:
+      items.filter((item) => item.status === "blocked_by_gate").length,
+    attempts_written:
+      items.filter((item) => item.attempts_written === true).length,
     response_status_codes_written: 0,
     external_apis_called: 0,
     outbox_rows_updated: 0,
