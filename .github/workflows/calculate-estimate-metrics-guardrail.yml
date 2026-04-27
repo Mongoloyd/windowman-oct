@@ -1,0 +1,54 @@
+# calculate-estimate-metrics Deploy Stability Guardrail
+#
+# Runs on every push and pull request so stale Edge Function imports cannot
+# reintroduce remote stdlib fetches that make Supabase bundling flaky.
+
+name: calculate-estimate-metrics Guardrail
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  metrics-edge-function-stability:
+    name: deno check + bun build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v2.x
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Guard against stale deno.land serve import
+        shell: bash
+        run: |
+          set -euo pipefail
+          file="supabase/functions/calculate-estimate-metrics/index.ts"
+
+          if grep -q 'https://deno.land/std@0.168.0/http/server.ts' "$file"; then
+            echo "::error file=$file::Stale deno.land std serve import found. Use native Deno.serve instead."
+            exit 1
+          fi
+
+          if ! grep -q 'Deno\.serve(async (req) => {' "$file"; then
+            echo "::error file=$file::Expected native Deno.serve handler was not found."
+            exit 1
+          fi
+
+      - name: Deno check calculate-estimate-metrics
+        run: deno check supabase/functions/calculate-estimate-metrics/index.ts
+
+      - name: Bun production build
+        run: bun run build
