@@ -21,7 +21,22 @@ export type DryRunReasonCode =
   | "weak_attribution"
   | "gross_value_used_not_true_margin"
   | "platform_mapper_basic"
+  | "tiktok_missing_pixel_id"
+  | "tiktok_missing_event_source_id"
+  | "tiktok_missing_ttclid"
+  | "tiktok_missing_ttp"
+  | "tiktok_missing_external_id"
+  | "tiktok_missing_ip_or_user_agent"
+  | "tiktok_value_missing"
+  | "tiktok_event_id_missing"
+  | "tiktok_event_time_missing"
+  | "tiktok_using_gross_value_proxy"
+  | "tiktok_payload_draft_only"
   | "payload_draft_ready";
+
+export type TikTokMatchQuality = "strong" | "medium" | "weak" | "missing";
+
+export const TIKTOK_DRY_RUN_MAPPER_VERSION = "tiktok-dry-run-v1";
 
 export interface DispatchDryRunConfigSummary {
   id: string;
@@ -98,6 +113,11 @@ const HARD_ROW_REASONS: DryRunReasonCode[] = [
   "missing_event_id",
   "missing_value",
   "malformed_payload",
+  "tiktok_missing_pixel_id",
+  "tiktok_missing_event_source_id",
+  "tiktok_value_missing",
+  "tiktok_event_id_missing",
+  "tiktok_event_time_missing",
 ];
 
 function hasText(value: string | null | undefined) {
