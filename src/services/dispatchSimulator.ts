@@ -640,7 +640,7 @@ function buildGooglePayload(row: RevenueReadinessRow, config: PlatformConfigRow)
   };
 }
 
-function buildGtmPayload(row: RevenueReadinessRow, config: PlatformConfigRow) {
+async function buildGtmPayload(row: RevenueReadinessRow, config: PlatformConfigRow) {
   return {
     event_type: "gtm_server_dry_run",
     gtm_server: {
@@ -651,7 +651,7 @@ function buildGtmPayload(row: RevenueReadinessRow, config: PlatformConfigRow) {
       currency: "USD",
       source: "windowman",
       attribution_presence: attributionPresenceSnapshot(row),
-      user_identity_presence: userIdentityPresenceSnapshot(row),
+      user_identity_presence: await userIdentityPresenceSnapshot(row),
     },
     endpoint: endpointDestinationShape(config),
     dry_run: true,
@@ -712,7 +712,7 @@ function buildGenericPayload(row: RevenueReadinessRow) {
   };
 }
 
-function buildPayload(row: RevenueReadinessRow, config: PlatformConfigRow): Record<string, unknown> {
+async function buildPayload(row: RevenueReadinessRow, config: PlatformConfigRow): Promise<Record<string, unknown>> {
   if (GOOGLE_PLATFORM_NAMES.has(config.platform_name)) return buildGooglePayload(row, config);
 
   switch (config.platform_name) {
