@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { evaluatePlatformReadiness, normalizePlatformName, type PlatformName } from "@/lib/platformReadinessMatrix";
 
 export type ReadinessStatus = "ready" | "warning" | "blocked";
 export type AttributionStrength = "strong" | "medium" | "weak";
@@ -23,8 +24,11 @@ export type ReadinessReasonCode =
   | "historical_payload_missing_integrity_metadata";
 
 export interface PlatformConfigSummary {
-  platform_name: string;
+  platform_name: PlatformName;
+  exact_platform_match: boolean;
   is_active: boolean;
+  config_state: string | null;
+  validation_status: string | null;
   token_present: boolean;
   pixel_id_present: boolean;
   dataset_id_present: boolean;
@@ -36,6 +40,7 @@ export interface PlatformConfigSummary {
 interface RpcReadinessRow {
   event_row_id: string;
   event_id: string | null;
+  revenue_signal_key: string | null;
   event_name: string | null;
   event_timestamp: string | null;
   created_at: string | null;
@@ -79,6 +84,7 @@ interface RpcReadinessRow {
 export interface RevenueReadinessRow {
   id: string;
   eventId: string | null;
+  revenueSignalKey: string | null;
   eventName: string | null;
   timestamp: string | null;
   createdAt: string | null;
@@ -157,31 +163,12 @@ function addReason(reasons: Set<ReadinessReasonCode>, code: ReadinessReasonCode)
   reasons.add(code);
 }
 
-function platformNeedsServerToken(platform: string): boolean {
-  const p = platform.toLowerCase();
-  return p.includes("meta") || p.includes("tiktok") || p.includes("google");
-}
-
 function platformDestinationReady(config: PlatformConfigSummary, reasons: Set<ReadinessReasonCode>) {
-  const platform = config.platform_name.toLowerCase();
-  if (platformNeedsServerToken(platform) && !config.token_present) addReason(reasons, "token_missing");
-
-  if (platform.includes("meta")) {
-    if (!config.pixel_id_present && !config.dataset_id_present) addReason(reasons, "required_destination_id_missing");
-    return;
-  }
-  if (platform.includes("tiktok")) {
-    if (!config.pixel_id_present) addReason(reasons, "required_destination_id_missing");
-    return;
-  }
-  if (platform.includes("google")) {
-    if (!config.conversion_id_present && !config.conversion_label_present) addReason(reasons, "required_destination_id_missing");
-    return;
-  }
-  if (platform.includes("gtm") || platform.includes("webhook") || platform.includes("crm") || platform.includes("other")) {
-    if (!config.endpoint_url_present) addReason(reasons, "required_destination_id_missing");
-    if (!config.token_present) addReason(reasons, "missing_optional_click_id");
-  }
+  const evaluation = evaluatePlatformReadiness(config);
+  if (evaluation.tokenRequired && !evaluation.tokenPresent) addReason(reasons, "token_missing");
+  if (!evaluation.destinationReady) addReason(reasons, "required_destination_id_missing");
+  if (!evaluation.exactPlatformMatch) addReason(reasons, "destination_not_configured");
+  if (evaluation.warningFields.includes("token_present")) addReason(reasons, "missing_optional_click_id");
 }
 
 function computeAttributionStrength(attribution: Record<string, boolean>, leadId: string | null): AttributionStrength {
@@ -205,9 +192,12 @@ function computeValue(row: RpcReadinessRow): { valueUsd: number | null; finalVal
 
 function normalizePlatformConfigs(value: unknown): PlatformConfigSummary[] {
   if (!Array.isArray(value)) return [];
-  return value.map((config) => ({
-    platform_name: String(config.platform_name ?? "other"),
+  return value.filter((config): config is Record<string, unknown> => Boolean(config) && typeof config === "object").map((config) => ({
+    platform_name: normalizePlatformName(config.platform_name),
+    exact_platform_match: Boolean(config.readiness && typeof config.readiness === "object" ? (config.readiness as Record<string, unknown>).exact_platform_match : config.exact_platform_match),
     is_active: Boolean(config.is_active),
+    config_state: typeof config.config_state === "string" ? config.config_state : null,
+    validation_status: typeof config.validation_status === "string" ? config.validation_status : null,
     token_present: Boolean(config.token_present),
     pixel_id_present: Boolean(config.pixel_id_present),
     dataset_id_present: Boolean(config.dataset_id_present),
@@ -283,6 +273,7 @@ function mapReadinessRow(row: RpcReadinessRow): RevenueReadinessRow {
   return {
     id: row.event_row_id,
     eventId: row.event_id,
+    revenueSignalKey: row.revenue_signal_key,
     eventName: row.event_name,
     timestamp: row.event_timestamp,
     createdAt: row.created_at,
