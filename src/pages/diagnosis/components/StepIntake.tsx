@@ -64,6 +64,27 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
           filter: "blur(32px)",
         }}
       />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute"
+        style={{
+          top: "5%",
+          right: "-5%",
+          width: "55%",
+          height: "90%",
+          background:
+            "radial-gradient(ellipse at 70% 35%, rgba(6,182,212,0.10) 0%, rgba(14,165,233,0.05) 50%, transparent 70%)",
+          filter: "blur(40px)",
+        }}
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "linear-gradient(160deg, rgba(219,234,254,0.18) 0%, transparent 55%, rgba(186,230,255,0.10) 100%)",
+        }}
+      />
 
       <div className="relative z-10 mx-auto max-w-5xl">
         <div className="grid items-stretch gap-5 lg:grid-cols-[1.45fr_0.9fr] lg:gap-6">
@@ -153,18 +174,19 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
               className="absolute -bottom-16 -left-10 h-44 w-44 rounded-full bg-orange-300/15 blur-3xl"
             />
 
-               {/* Headline & Subhead - Tightened Lockup */}
-          <div className="mb-3 px-2">
-         <h2 className="font-display text-[22px] font-black leading-[1.1] tracking-tight text-white md:text-3xl">
-              WindowMan Has Your Report.
-         </h2>
-            <p className="mt-1 text-[13px] font-bold leading-snug text-blue-50/90 md:text-sm">
-                Pick The Problem. I’ll Build The Next Move.
-            </p>
-            </div>
+            <div className="relative z-10 flex flex-col items-center text-center">
+              {/* Headline & Subhead - Tightened Lockup with increased bottom margin for spacing */}
+              <div className="mb-8 px-2">
+                <h2 className="font-display text-[22px] font-black leading-[1.1] tracking-tight text-white md:text-3xl">
+                  WindowMan Has Your Report.
+                </h2>
+                <p className="mt-1 text-[13px] font-bold leading-snug text-blue-50/90 md:text-sm">
+                  Pick The Problem. I’ll Build The Next Move.
+                </p>
+              </div>
 
               {/* Square Image Stage - Floating, centered, no zoom */}
-              <div className="relative mx-auto aspect-square w-full max-w-[500px] overflow-hidden rounded-2xl border border-white/10 bg-white/5">
+              <div className="relative mx-auto aspect-square w-full max-w-[500px] overflow-hidden rounded-2xl border-[1px] border-white/20 bg-white/5">
                 <img
                   src="/images/windowman-hand-to-chest.avif"
                   alt="WindowMan advisor"
