@@ -14,12 +14,11 @@ import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import {
   fetchDispatchDryRunQueue,
-  type AttributionStrength,
   type DispatchDryRunOrphan,
   type DispatchDryRunRow,
   type DryRunStatus,
 } from "@/services/dispatchSimulator";
-import { maskId } from "@/services/revenueDispatchReadiness";
+import { maskId, type AttributionStrength } from "@/services/revenueDispatchReadiness";
 import { maskConfigId } from "@/services/clientPlatformConfigs";
 
 const PLATFORM_OPTIONS = ["all", "meta", "tiktok", "google_ads", "ga4", "gtm_server", "crm_webhook", "internal", "other"] as const;
