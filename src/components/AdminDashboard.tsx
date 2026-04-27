@@ -54,6 +54,7 @@ import { StrategicPrioritizationNextBuildDecisionFrameworkSurface } from "@/comp
 import { DeliveryInspectorPage } from "@/components/admin/deliveries/DeliveryInspectorPage";
 import { SessionDiagnosticPanel } from "@/components/admin/diagnostics/SessionDiagnosticPanel";
 import { SignalDispatchTab } from "@/components/admin/SignalDispatchTab";
+import { AdminOutcomeInspector } from "@/components/admin/AdminOutcomeInspector";
 
 import {
   invokeAdminData,
@@ -450,6 +451,10 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
 
           <TabsContent value="delivery-inspector" className="w-full px-2 sm:px-6 pt-4">
             <DeliveryInspectorPage />
+          </TabsContent>
+
+          <TabsContent value="outcome-inspector" className="w-full px-2 sm:px-6 pt-4">
+            <AdminOutcomeInspector />
           </TabsContent>
 
           <TabsContent value="session-diag" className="w-full px-0 pt-2 sm:px-2">
