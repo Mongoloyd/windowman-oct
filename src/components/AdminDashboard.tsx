@@ -58,6 +58,7 @@ import { AdminOutcomeInspector } from "@/components/admin/AdminOutcomeInspector"
 import { RevenueDispatchReadiness } from "@/components/admin/RevenueDispatchReadiness";
 import { ClientPlatformConfigs } from "@/components/admin/ClientPlatformConfigs";
 import { DispatchDryRunQueue } from "@/components/admin/DispatchDryRunQueue";
+import { DispatchOutboxControl } from "@/components/admin/DispatchOutboxControl";
 
 import {
   invokeAdminData,
@@ -458,6 +459,10 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
 
           <TabsContent value="dispatch-dry-run" className="w-full px-2 sm:px-6 pt-4">
             <DispatchDryRunQueue />
+          </TabsContent>
+
+          <TabsContent value="dispatch-outbox" className="w-full px-2 sm:px-6 pt-4">
+            <DispatchOutboxControl />
           </TabsContent>
 
           <TabsContent value="pilot" className="w-full px-2 sm:px-6 pt-4">
