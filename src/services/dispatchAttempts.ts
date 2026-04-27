@@ -57,7 +57,9 @@ export interface AttemptSimulationResult {
   external_apis_called: false;
   response_status_codes_written: false;
   outbox_rows_updated: false;
+  write_requested: boolean;
   attempts_written: boolean;
+  attempts_written_count: number;
   summary: {
     outbox_rows_considered: number;
     simulated: number;
@@ -196,8 +198,8 @@ export async function fetchDispatchAttemptReconciliation(): Promise<DispatchAtte
       simulatedAttempts: attempts.filter((row) => row.status === "simulated").length,
       failedPreflight: attempts.filter((row) => row.status === "failed_preflight").length,
       blockedByGate: attempts.filter((row) => row.status === "blocked_by_gate").length,
-      attemptsWithResponseStatus: attempts.filter((row) => row.responseStatusCode != null).length,
-      externalCallsMade: 0,
+      attemptsWithResponseStatus: attempts.filter((row) => row.responseStatusCode != null || row.responseExcerpt != null).length,
+      externalCallsMade: attempts.filter((row) => row.metadata.external_apis_called === true).length,
     },
   };
 }
