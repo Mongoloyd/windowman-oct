@@ -231,7 +231,10 @@ export function captureUtmFromUrl(): UtmData {
     )};expires=${expires};path=/;SameSite=Lax`;
   }
 
-  const fullUrl = window.location.href;
+  // Path + search only — exclude `window.location.hash` so anchor noise
+  // ("#section") never lands in attribution rollups. `window.location.href`
+  // is also never falsy in a browser, so the previous
+  // `fullUrl || fullPathWithQuery` fallback was dead code.
   const fullPathWithQuery = `${window.location.pathname}${window.location.search}`;
   const rawQueryString = window.location.search || null;
   const queryParams = normalizeQueryParams(params);
@@ -273,7 +276,7 @@ export function captureUtmFromUrl(): UtmData {
     client_slug: urlClientSlug || existing.client_slug || "direct",
 
     landing_page: window.location.pathname,
-    landing_page_url: fullUrl || fullPathWithQuery,
+    landing_page_url: fullPathWithQuery,
     raw_query_string: rawQueryString,
     query_params: queryParams,
     referrer: document.referrer || existing.referrer || null,
@@ -298,7 +301,16 @@ export function useUtmCapture(): UtmData {
 
 /**
  * Legacy string-only payload consumed by existing dataLayer / lead code.
- * Keep this narrow to avoid breaking callers that expect Record<string,string>.
+ *
+ * IMPORTANT: this payload is spread directly into `supabase.from("leads")
+ * .insert({ ...utmPayload })` by callers like `MarketBaselineTool.tsx`.
+ * PostgREST rejects unknown column keys (PGRST204), so this helper MUST
+ * only emit keys that exist as actual `public.leads` columns. New
+ * platform-neutral fields (ttclid / wbraid / gbraid / msclkid / ttp /
+ * raw_query_string / referrer) are intentionally NOT included here —
+ * they belong in the structured `attribution` jsonb column on `leads`
+ * (and on `scan_sessions` / `wm_event_log`), populated via
+ * `getAttributionPayload()` below.
  */
 export function getUtmPayload(): Record<string, string> {
   const data = getUtmData();
@@ -310,22 +322,15 @@ export function getUtmPayload(): Record<string, string> {
   if (data.utm_term) payload.utm_term = data.utm_term;
   if (data.utm_content) payload.utm_content = data.utm_content;
 
-  if (data.ttclid) payload.ttclid = data.ttclid;
   if (data.fbclid) payload.fbclid = data.fbclid;
   if (data.gclid) payload.gclid = data.gclid;
-  if (data.wbraid) payload.wbraid = data.wbraid;
-  if (data.gbraid) payload.gbraid = data.gbraid;
-  if (data.msclkid) payload.msclkid = data.msclkid;
 
   if (data.fbc) payload.fbc = data.fbc;
   if (data.fbp) payload.fbp = data.fbp;
-  if (data.ttp) payload.ttp = data.ttp;
 
   if (data.client_slug) payload.client_slug = data.client_slug;
   if (data.landing_page) payload.landing_page = data.landing_page;
   if (data.landing_page_url) payload.landing_page_url = data.landing_page_url;
-  if (data.raw_query_string) payload.raw_query_string = data.raw_query_string;
-  if (data.referrer) payload.referrer = data.referrer;
 
   return payload;
 }

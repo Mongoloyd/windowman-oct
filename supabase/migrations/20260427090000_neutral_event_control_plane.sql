@@ -192,10 +192,38 @@ CREATE POLICY client_platform_configs_update_internal
   FOR UPDATE
   TO authenticated
   USING (public.is_internal_operator())
-  WITH CHECK (
-    public.is_internal_operator()
-    AND token_secret_id IS NULL
-  );
+  WITH CHECK (public.is_internal_operator());
+
+-- ----------------------------------------------------------------------------
+-- 6a. Trigger — block authenticated writes to token_secret_id (only)
+-- ----------------------------------------------------------------------------
+-- The UPDATE policy above intentionally drops the
+-- `AND token_secret_id IS NULL` WITH CHECK clause that the legacy
+-- `client_configs` policy uses, because that clause inadvertently freezes
+-- the entire row (no metadata edits, no `is_active` toggle, etc.) once
+-- service_role attaches a token. Instead, this trigger compares OLD/NEW
+-- and blocks ONLY changes to `token_secret_id` from authenticated roles —
+-- service_role and supabase_admin remain free to set/rotate it (typically
+-- via `vault_upsert_client_platform_token` returning a new secret id).
+CREATE OR REPLACE FUNCTION public.client_platform_configs_block_token_writes()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NEW.token_secret_id IS DISTINCT FROM OLD.token_secret_id
+     AND current_user <> 'service_role'
+     AND current_user <> 'supabase_admin' THEN
+    RAISE EXCEPTION
+      'token_secret_id is service_role-only; use public.vault_upsert_client_platform_token() and have an edge function persist the returned secret id';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_client_platform_configs_block_token_writes ON public.client_platform_configs;
+CREATE TRIGGER trg_client_platform_configs_block_token_writes
+  BEFORE UPDATE OF token_secret_id ON public.client_platform_configs
+  FOR EACH ROW EXECUTE FUNCTION public.client_platform_configs_block_token_writes();
 
 DROP POLICY IF EXISTS client_platform_configs_delete_internal ON public.client_platform_configs;
 CREATE POLICY client_platform_configs_delete_internal
