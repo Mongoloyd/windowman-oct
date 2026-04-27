@@ -720,10 +720,13 @@ function suggestedFix(reasons: DryRunReasonCode[]) {
   if (reasons.includes("missing_client_slug")) return "Backfill client_slug on the canonical event, lead, or scan session.";
   if (reasons.includes("tenant_not_resolved")) return "Create or activate the matching client record for this client_slug.";
   if (reasons.includes("no_active_platform_config")) return "Create an active Platform Config for this client.";
+  if (reasons.includes("endpoint_missing_url")) return "Add an endpoint URL to the active Platform Config before endpoint dispatch can be considered.";
+  if (reasons.includes("endpoint_invalid_url")) return "Fix the endpoint URL syntax in Platform Configs. This check is local-only and does not call the endpoint.";
   if (reasons.includes("required_destination_id_missing")) return "Add the required pixel, dataset, conversion, or endpoint identifier.";
   if (reasons.includes("token_missing")) return "Rotate/set the destination token in Platform Configs.";
-  if (reasons.includes("missing_value")) return "Attach final sale value or optimization value metadata.";
-  if (reasons.includes("missing_event_id")) return "Backfill deterministic canonical event_id before dispatch.";
+  if (reasons.includes("missing_value") || reasons.includes("endpoint_missing_value")) return "Attach final sale value or optimization value metadata.";
+  if (reasons.includes("missing_event_id") || reasons.includes("endpoint_missing_event_id")) return "Backfill deterministic canonical event_id before dispatch.";
+  if (reasons.includes("endpoint_event_time_missing")) return "Backfill canonical event timestamp before endpoint dispatch can be considered.";
   if (reasons.includes("malformed_payload")) return "Repair canonical payload shape before simulation.";
   return "Review readiness warnings before enabling live dispatch.";
 }
@@ -778,6 +781,8 @@ export async function fetchDispatchDryRunQueue(): Promise<DispatchDryRunResult> 
         addTikTokReasons(event, config, reasons);
       } else if (GOOGLE_PLATFORM_NAMES.has(config.platform_name)) {
         addGoogleReasons(event, config, reasons);
+      } else if (isEndpointBackedPlatform(config)) {
+        addEndpointReasons(event, config, reasons);
       } else {
         addReason(reasons, "platform_mapper_basic");
       }
@@ -819,7 +824,7 @@ export async function fetchDispatchDryRunQueue(): Promise<DispatchDryRunResult> 
       metaDispatches: rows.filter((row) => row.platformName === "meta").length,
       tiktokDispatches: rows.filter((row) => row.platformName === "tiktok").length,
       googleDispatches: rows.filter((row) => GOOGLE_PLATFORM_NAMES.has(row.platformName)).length,
-      gtmWebhookDispatches: rows.filter((row) => ["gtm_server", "crm_webhook"].includes(row.platformName)).length,
+      gtmWebhookDispatches: rows.filter((row) => ["gtm_server", "crm_webhook"].includes(row.platformName) || (row.platformName === "other" && row.config.endpointUrlPresent)).length,
       orphanedNoActiveConfig: orphans.filter((row) => row.reasons.includes("no_active_platform_config")).length,
     },
   };
