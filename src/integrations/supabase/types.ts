@@ -3546,6 +3546,75 @@ export type Database = {
           },
         ]
       }
+      revenue_signal_dry_run_audits: {
+        Row: {
+          blocked: number
+          by_client_slug: Json
+          by_key_basis: Json
+          by_reason_code: Json
+          candidate_count: number
+          created_at: string
+          dispatch_created: boolean
+          dry_run: boolean
+          duplicate_protected: number
+          duplicate_revenue_signal_key: number
+          external_dispatch: boolean
+          id: string
+          inserted: number
+          lifecycle_duplicate_claim: number
+          metadata: Json
+          operator_id: string | null
+          run_id: string
+          sample_candidate_ids: Json
+          weak_lifecycle_key: number
+          would_insert: number
+        }
+        Insert: {
+          blocked?: number
+          by_client_slug?: Json
+          by_key_basis?: Json
+          by_reason_code?: Json
+          candidate_count?: number
+          created_at?: string
+          dispatch_created?: boolean
+          dry_run?: boolean
+          duplicate_protected?: number
+          duplicate_revenue_signal_key?: number
+          external_dispatch?: boolean
+          id?: string
+          inserted?: number
+          lifecycle_duplicate_claim?: number
+          metadata?: Json
+          operator_id?: string | null
+          run_id: string
+          sample_candidate_ids?: Json
+          weak_lifecycle_key?: number
+          would_insert?: number
+        }
+        Update: {
+          blocked?: number
+          by_client_slug?: Json
+          by_key_basis?: Json
+          by_reason_code?: Json
+          candidate_count?: number
+          created_at?: string
+          dispatch_created?: boolean
+          dry_run?: boolean
+          duplicate_protected?: number
+          duplicate_revenue_signal_key?: number
+          external_dispatch?: boolean
+          id?: string
+          inserted?: number
+          lifecycle_duplicate_claim?: number
+          metadata?: Json
+          operator_id?: string | null
+          run_id?: string
+          sample_candidate_ids?: Json
+          weak_lifecycle_key?: number
+          would_insert?: number
+        }
+        Relationships: []
+      }
       scan_sessions: {
         Row: {
           created_at: string
