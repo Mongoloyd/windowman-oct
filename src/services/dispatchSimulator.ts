@@ -199,14 +199,13 @@ function configSummary(config: PlatformConfigRow): DispatchDryRunConfigSummary {
 }
 
 function platformRequiresToken(platform: string): boolean {
-  return ["meta", "tiktok"].includes(platform) || GOOGLE_PLATFORM_NAMES.has(platform);
+  return ["meta", "tiktok"].includes(platform);
 }
 
 function addConfigReasons(config: PlatformConfigRow, reasons: Set<DryRunReasonCode>) {
   const platform = config.platform_name;
   if (platformRequiresToken(platform) && !config.token_secret_id) addReason(reasons, "token_missing");
   if ((platform === "meta" || platform === "tiktok") && !hasText(config.pixel_id) && !hasText(config.dataset_id)) addReason(reasons, "required_destination_id_missing");
-  if (GOOGLE_PLATFORM_NAMES.has(platform) && !googleDestination(config).id) addReason(reasons, "required_destination_id_missing");
   if ((platform === "gtm_server" || platform === "crm_webhook") && !hasText(config.endpoint_url)) addReason(reasons, "required_destination_id_missing");
 }
 
@@ -487,6 +486,7 @@ function buildGooglePayload(row: RevenueReadinessRow, config: PlatformConfigRow)
     ga4: {
       event_name: "purchase",
       client_id_present: false,
+      session_id_present: false,
       user_id_present: Boolean(row.leadId),
       transaction_id: maskedEventOrLeadId,
       currency: "USD",
@@ -553,6 +553,7 @@ function buildPayload(row: RevenueReadinessRow, config: PlatformConfigRow): Reco
       return buildMetaPayload(row, config);
     case "tiktok":
       return buildTikTokPayload(row, config);
+    case "google":
     case "google_ads":
     case "ga4":
       return buildGooglePayload(row, config);
