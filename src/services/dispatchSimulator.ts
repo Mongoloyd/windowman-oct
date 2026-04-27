@@ -113,7 +113,6 @@ const HARD_ROW_REASONS: DryRunReasonCode[] = [
   "missing_event_id",
   "missing_value",
   "malformed_payload",
-  "tiktok_missing_pixel_id",
   "tiktok_missing_event_source_id",
   "tiktok_value_missing",
   "tiktok_event_id_missing",
@@ -429,7 +428,11 @@ export async function fetchDispatchDryRunQueue(): Promise<DispatchDryRunResult> 
     for (const config of activeConfigs) {
       const reasons = new Set(sharedReasons);
       addConfigReasons(config, reasons);
-      addReason(reasons, "platform_mapper_basic");
+      if (config.platform_name === "tiktok") {
+        addTikTokReasons(event, config, reasons);
+      } else {
+        addReason(reasons, "platform_mapper_basic");
+      }
       addReason(reasons, "payload_draft_ready");
       const reasonList = Array.from(reasons);
       rows.push({
