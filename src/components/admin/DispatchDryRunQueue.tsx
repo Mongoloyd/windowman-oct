@@ -196,6 +196,47 @@ function getGoogleDryRunSummary(row: DispatchDryRunRow | null) {
   };
 }
 
+function getEndpointDryRunSummary(row: DispatchDryRunRow | null) {
+  if (!row) return null;
+  const isEndpointPlatform = row.platformName === "gtm_server" || row.platformName === "crm_webhook" || (row.platformName === "other" && row.config.endpointUrlPresent);
+  if (!isEndpointPlatform) return null;
+
+  const payload = row.payload as {
+    gtm_server?: { event_name?: string; client_slug?: string | null };
+    crm_webhook?: { event?: string; client_slug?: string | null };
+    generic_endpoint?: { event?: string; client_slug?: string | null };
+    endpoint?: { endpoint_url_present?: boolean; endpoint_url_valid?: boolean; endpoint_https?: boolean; token_present?: boolean };
+    routing?: { tenant_key?: string | null; destination_type?: string; endpoint_url_present?: boolean; endpoint_url_valid?: boolean; endpoint_https?: boolean; token_present?: boolean };
+    windowman_debug?: {
+      mapper_version?: string;
+      endpoint_readiness?: string;
+      event_id_present?: boolean;
+      event_time_present?: boolean;
+      value_basis?: string;
+      warnings?: string[];
+    };
+  };
+  const endpointShape = payload.endpoint ?? payload.routing;
+  const destinationClass = row.platformName === "gtm_server" ? "GTM Server" : row.platformName === "crm_webhook" ? "CRM/Webhook" : "Generic Endpoint";
+  const fallbackMapperVersion = row.platformName === "gtm_server" ? GTM_SERVER_DRY_RUN_MAPPER_VERSION : row.platformName === "crm_webhook" ? CRM_WEBHOOK_DRY_RUN_MAPPER_VERSION : GENERIC_ENDPOINT_DRY_RUN_MAPPER_VERSION;
+
+  return {
+    destinationClass,
+    eventName: payload.gtm_server?.event_name ?? payload.crm_webhook?.event ?? payload.generic_endpoint?.event ?? "—",
+    endpointUrlPresent: Boolean(endpointShape?.endpoint_url_present),
+    endpointUrlValid: Boolean(endpointShape?.endpoint_url_valid),
+    endpointHttps: Boolean(endpointShape?.endpoint_https),
+    tokenPresent: Boolean(endpointShape?.token_present),
+    mapperVersion: payload.windowman_debug?.mapper_version ?? fallbackMapperVersion,
+    endpointReadiness: payload.windowman_debug?.endpoint_readiness ?? "blocked",
+    eventIdPresent: Boolean(payload.windowman_debug?.event_id_present),
+    eventTimePresent: Boolean(payload.windowman_debug?.event_time_present),
+    tenantKey: payload.routing?.tenant_key ?? payload.gtm_server?.client_slug ?? payload.crm_webhook?.client_slug ?? payload.generic_endpoint?.client_slug ?? row.clientSlug ?? "—",
+    warningCount: payload.windowman_debug?.warnings?.length ?? row.reasons.filter((reason) => reason.startsWith("endpoint_")).length,
+    valueSource: payload.windowman_debug?.value_basis ?? "gross_sale_value",
+  };
+}
+
 export function DispatchDryRunQueue() {
   const [selected, setSelected] = useState<DetailSelection>(null);
   const [platform, setPlatform] = useState<typeof PLATFORM_OPTIONS[number]>("all");
