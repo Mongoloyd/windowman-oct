@@ -296,28 +296,58 @@ function addTikTokReasons(row: RevenueReadinessRow, config: PlatformConfigRow, r
 }
 
 function buildMetaPayload(row: RevenueReadinessRow, config: PlatformConfigRow) {
+  const destination = metaDestination(config);
+  const eventTime = unixSeconds(row.timestamp ?? row.createdAt);
+  const warningSet = new Set<DryRunReasonCode>();
+  addMetaReasons(row, config, warningSet);
+
   return {
-    event_name: "Purchase",
-    event_time: unixSeconds(row.timestamp ?? row.createdAt),
-    event_id: row.eventId,
-    action_source: "website",
-    user_data: {
-      ...leadExternalId(row),
-      fbc_present: presence(row, "fbc"),
-      fbp_present: presence(row, "fbp"),
-      client_ip_address_present: false,
-      client_user_agent_present: false,
-    },
-    custom_data: {
-      value: row.valueUsd,
-      currency: "USD",
-      content_name: "WindowMan sold lead",
-    },
-    windowman_debug: {
-      platform_config_id: maskConfigId(config.id),
-      mapper: "meta-draft-simulation",
-    },
+    data: [
+      {
+        event_name: "Purchase",
+        event_time: eventTime,
+        event_id: row.eventId,
+        action_source: "website",
+        event_source_url_present: false,
+        landing_path_present: false,
+        referrer_present: false,
+        user_data: {
+          ...leadExternalId(row),
+          em_present: false,
+          ph_present: false,
+          fbc_present: presence(row, "fbc"),
+          fbp_present: presence(row, "fbp"),
+          fbclid_present: presence(row, "fbclid"),
+          client_ip_address_present: false,
+          client_user_agent_present: false,
+        },
+        custom_data: {
+          currency: "USD",
+          value: row.valueUsd,
+          content_name: "WindowMan sold lead",
+          content_category: "home_improvement",
+          order_id: row.eventId ? maskId(row.eventId) : row.leadId ? maskId(row.leadId) : null,
+          status: row.payloadIntegrity.dispositionState ?? "sold_closed",
+          value_basis: row.payloadIntegrity.optimizationValueBasis ?? "gross_sale_value",
+          true_margin_available: row.payloadIntegrity.trueMarginAvailable === true,
+        },
+      },
+    ],
     dry_run: true,
+    windowman_debug: {
+      canonical_event_row_id: maskId(row.id),
+      client_slug: row.clientSlug,
+      platform_config_id: maskConfigId(config.id),
+      mapper_version: META_CAPI_DRY_RUN_MAPPER_VERSION,
+      destination_id_present: Boolean(destination.id),
+      destination_id_type: destination.type,
+      destination_id_masked: destination.id ? maskId(destination.id) : null,
+      deduplication_event_id_present: Boolean(row.eventId),
+      deduplication_event_id_source: "canonical_event_id",
+      deduplication_event_id_masked: row.eventId ? maskId(row.eventId) : null,
+      match_input_quality: metaMatchInputQuality(row),
+      warnings: Array.from(warningSet),
+    },
   };
 }
 
