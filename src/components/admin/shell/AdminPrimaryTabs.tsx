@@ -82,6 +82,7 @@ export function AdminPrimaryTabs({
     { kind: "route", to: "/admin/outcomes", matchPrefixes: ["/admin/outcomes"], label: "Outcomes" },
     { kind: "route", to: "/admin/attribution", matchPrefixes: ["/admin/attribution"], label: "Attribution" },
     { kind: "route", to: "/admin/signal-dispatch", matchPrefixes: ["/admin/signal-dispatch"], label: "Signals" },
+    { kind: "panel", value: "revenue-dispatch-readiness", label: "Revenue Dispatch" },
     { kind: "panel", value: "delivery-inspector", label: "Delivery" },
     { kind: "panel", value: "outcome-inspector", label: "Outcome Inspector" },
     { kind: "panel", value: "session-diag", label: "Sessions" },
