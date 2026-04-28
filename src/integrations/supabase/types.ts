@@ -4914,6 +4914,19 @@ export type Database = {
         Args: { p_secret_id: string }
         Returns: string
       }
+      get_contractor_released_contact: {
+        Args: { _lead_assignment_id: string }
+        Returns: {
+          allowed_contact_fields: string[]
+          city: string
+          county: string
+          email: string
+          first_name: string
+          last_name: string
+          phone: string
+          release_status: string
+        }[]
+      }
       get_county_by_scan_session: {
         Args: { p_scan_session_id: string }
         Returns: {
