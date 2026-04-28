@@ -126,7 +126,6 @@ export async function finalizeSupabaseAuthLink(
   const ok = Boolean(session) && !error;
 
   if (import.meta.env.DEV) {
-    // eslint-disable-next-line no-console
     console.debug("[supabase-auth-link] finalized", {
       hasCode,
       hashHasAccessToken,
