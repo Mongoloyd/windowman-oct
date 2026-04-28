@@ -176,16 +176,45 @@ Deno.serve(async (req) => {
     });
   }
 
+  await admin.from("contractor_accounts").insert({
+    auth_user_id: userId,
+    client_slug: "direct",
+    display_name: companyName,
+    contact_email: email,
+    contact_phone: phone ?? null,
+    access_status: "pending",
+    is_active: false,
+    portal_role: "contractor_owner",
+    territory: {
+      service_area: serviceArea ?? null,
+      website: website ?? null,
+      license_number: licenseNumber ?? null,
+      monthly_capacity: monthlyCapacity ?? null,
+      notes: notes ?? null,
+    },
+    metadata: {
+      source: "partner_self_serve",
+      contact_name: contactName,
+      submitted_at: new Date().toISOString(),
+    },
+  }).then(({ error }) => {
+    if (error) console.warn("[request-partner-access] contractor_account insert skipped", error.message);
+  });
+
   // 3. Best-effort ops audit log (non-fatal)
   try {
-    await admin.from("lead_events").insert({
-      lead_id: userId, // table requires non-null; use the new user id as the subject
+    await admin.from("event_logs").insert({
+      user_id: userId,
       event_name: "partner_access_requested",
-      event_source: "partner_self_serve",
+      flow_type: "partner_self_serve",
+      route: "/partner/join",
       metadata: {
         company_name: companyName,
-        contact_name: contactName ?? null,
+        contact_name: contactName,
         email_masked: maskEmail(email),
+        phone_present: Boolean(phone),
+        service_area: serviceArea ?? null,
+        monthly_capacity: monthlyCapacity ?? null,
         status: "pending_review",
       },
     });
