@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
 
 interface LinearHeaderProps {
   ctaText?: string;
@@ -69,13 +68,8 @@ const LinearHeader = ({ ctaText = "Get Started Free", onCtaClick }: LinearHeader
         </button>
       </div>
 
-      {/* Animated status bar */}
-      <motion.div
-        className="absolute bottom-0 left-0 h-[1px] bg-primary/30"
-        initial={{ width: "0%" }}
-        animate={{ width: "100%" }}
-        transition={{ duration: 1.8, ease: "easeOut" }}
-      />
+      {/* Lightweight status bar */}
+      <div className="wm-header-status-bar absolute bottom-0 left-0 h-[1px] bg-primary/30" />
     </header>
   );
 };

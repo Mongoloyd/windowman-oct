@@ -1,5 +1,4 @@
-import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence, useAnimationControls } from "framer-motion";
+import { useState, useEffect } from "react";
 
 interface StickyRecoveryBarProps { stepsCompleted: number; county: string; isVisible: boolean; onDismiss: () => void; flowMode?: 'A' | 'B'; flowBLeadCaptured?: boolean; quoteWatcherSet?: boolean; onDemoCTAClick?: () => void; leadCaptured?: boolean; isDevMode?: boolean; gradeRevealed?: boolean; onContractorMatchClick?: () => void; }
 
@@ -12,9 +11,6 @@ const getCtaTarget = (flowMode: string, flowBLeadCaptured: boolean) => { if (flo
 
 const StickyRecoveryBar = ({ stepsCompleted, county, isVisible, onDismiss, flowMode = 'A', flowBLeadCaptured = false, quoteWatcherSet = false, onDemoCTAClick, leadCaptured = false, isDevMode = false, gradeRevealed = false, onContractorMatchClick }: StickyRecoveryBarProps) => {
   const [isUrgent, setIsUrgent] = useState(false);
-  const controls = useAnimationControls();
-  const lastScrollY = useRef(0);
-
   useEffect(() => { if (!isVisible) return; const timer = setTimeout(() => { if (stepsCompleted > 0) setIsUrgent(true); }, 150000); return () => clearTimeout(timer); }, [isVisible, stepsCompleted]);
 
   if (!isDevMode && flowMode === 'B' && quoteWatcherSet) return null;
@@ -30,10 +26,10 @@ const StickyRecoveryBar = ({ stepsCompleted, county, isVisible, onDismiss, flowM
     document.getElementById(target)?.scrollIntoView({ behavior: "smooth" });
   };
 
+  if (!isVisible) return null;
+
   return (
-    <AnimatePresence>
-      {isVisible && (
-        <motion.div initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 80, opacity: 0 }} transition={{ duration: 0.15 }} style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 8000 }}>
+    <div className="wm-sticky-recovery-enter" style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 8000 }}>
           <div className="px-5 py-3.5 sm:px-8 sm:py-4 bg-card/95 backdrop-blur-xl border-t-2" style={{ borderColor: isUrgent && flowMode === 'A' && !postReveal ? "hsl(var(--color-vivid-orange))" : "hsl(var(--primary))", boxShadow: "0 -4px 24px rgba(0,0,0,0.06)" }}>
             <div className="max-w-4xl mx-auto flex flex-nowrap items-center justify-between gap-4 relative">
               <div className="hidden sm:flex items-center gap-3.5 min-w-0 flex-shrink">
@@ -45,9 +41,7 @@ const StickyRecoveryBar = ({ stepsCompleted, county, isVisible, onDismiss, flowM
               </div>
             </div>
           </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+    </div>
   );
 };
 
