@@ -24,17 +24,12 @@ type ReleaseRow = {
   allowed_contact_fields: string[] | null;
 };
 
-type AssignmentRow = {
-  id: string;
-  lead_id: string | null;
-  contractor_account_id: string | null;
-  client_slug: string;
-};
-
-type LeadContactRow = {
+type ReleasedContactRpcRow = {
+  release_status: LeadReleaseStatus;
+  allowed_contact_fields: string[] | null;
   first_name: string | null;
   last_name: string | null;
-  phone_e164: string | null;
+  phone: string | null;
   email: string | null;
   city: string | null;
   county: string | null;
@@ -69,20 +64,10 @@ export async function fetchContractorLeadRelease(assignmentId: string): Promise<
   const access = await fetchContractorAccountContext();
   if (!isContractorAccessAllowed(access) || !access.account) return emptyState("not_released", CONTACT_NOT_RELEASED_COPY);
 
-  const { data: assignmentData, error: assignmentError } = await db
-    .from("lead_assignments")
-    .select("id, lead_id, contractor_account_id, client_slug")
-    .eq("id", assignmentId)
-    .eq("contractor_account_id", access.account.contractorAccountId)
-    .eq("client_slug", access.account.clientSlug)
-    .maybeSingle();
-  if (assignmentError || !assignmentData) return emptyState("not_released", CONTACT_NOT_RELEASED_COPY);
-
-  const assignment = assignmentData as AssignmentRow;
   const { data: releaseData, error: releaseError } = await db
     .from(RELEASE_TABLE)
     .select("release_status, allowed_contact_fields")
-    .eq("lead_assignment_id", assignment.id)
+    .eq("lead_assignment_id", assignmentId)
     .eq("contractor_account_id", access.account.contractorAccountId)
     .eq("client_slug", access.account.clientSlug)
     .maybeSingle();
@@ -91,28 +76,24 @@ export async function fetchContractorLeadRelease(assignmentId: string): Promise<
   const release = releaseData as ReleaseRow;
   const fields = normalizeFields(release.allowed_contact_fields);
   if (release.release_status !== "approved") return emptyState(release.release_status, statusMessage(release.release_status));
-  if (!assignment.lead_id || fields.length === 0) {
+  if (fields.length === 0) {
     return { status: "approved", allowedContactFields: [], contact: null, message: "Contact release is approved, but no contact fields are currently available." };
   }
 
-  const { data: leadData, error: leadError } = await db
-    .from("leads")
-    .select("first_name, last_name, phone_e164, email, city, county")
-    .eq("id", assignment.lead_id)
-    .eq("client_slug", access.account.clientSlug)
-    .maybeSingle();
-  if (leadError || !leadData) {
+  const { data: rpcData, error: rpcError } = await db.rpc("get_contractor_released_contact", { _lead_assignment_id: assignmentId });
+  if (rpcError || !Array.isArray(rpcData) || rpcData.length === 0) {
     return { status: "approved", allowedContactFields: fields, contact: null, message: "Contact release is approved, but contact details are not currently available." };
   }
 
-  const lead = leadData as LeadContactRow;
+  const row = rpcData[0] as ReleasedContactRpcRow;
+  const rpcFields = normalizeFields(row.allowed_contact_fields);
   const contact: ContractorReleasedContact = {};
-  if (fields.includes("first_name") && lead.first_name) contact.firstName = lead.first_name;
-  if (fields.includes("last_name") && lead.last_name) contact.lastName = lead.last_name;
-  if (fields.includes("phone") && lead.phone_e164) contact.phone = lead.phone_e164;
-  if (fields.includes("email") && lead.email) contact.email = lead.email;
-  if (fields.includes("city") && lead.city) contact.city = lead.city;
-  if (fields.includes("county") && lead.county) contact.county = lead.county;
+  if (rpcFields.includes("first_name") && row.first_name) contact.firstName = row.first_name;
+  if (rpcFields.includes("last_name") && row.last_name) contact.lastName = row.last_name;
+  if (rpcFields.includes("phone") && row.phone) contact.phone = row.phone;
+  if (rpcFields.includes("email") && row.email) contact.email = row.email;
+  if (rpcFields.includes("city") && row.city) contact.city = row.city;
+  if (rpcFields.includes("county") && row.county) contact.county = row.county;
 
-  return { status: "approved", allowedContactFields: fields, contact, message: "Contact details released for this assignment." };
+  return { status: "approved", allowedContactFields: rpcFields, contact, message: "Contact details released for this assignment." };
 }
