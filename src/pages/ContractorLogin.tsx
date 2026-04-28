@@ -354,6 +354,17 @@ export default function ContractorLogin({ initialView = "login" }: ContractorLog
               <p className="text-xs text-rose-400">{regErrors.confirmPassword}</p>
             )}
           </div>
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-slate-300 uppercase tracking-wider">Notes</label>
+            <textarea
+              value={regNotes}
+              onChange={(e) => setRegNotes(e.target.value)}
+              placeholder="Tell us what markets or lead types fit your crew."
+              rows={3}
+              className="flex w-full rounded-md border border-white/25 bg-white/[0.04] px-3 py-2 text-sm text-white placeholder:text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/40 disabled:cursor-not-allowed disabled:opacity-50"
+              maxLength={1000}
+            />
+          </div>
           <Button
             type="submit"
             disabled={loading}
@@ -393,7 +404,7 @@ export default function ContractorLogin({ initialView = "login" }: ContractorLog
       <CardContent className="px-8 pb-8 pt-4 space-y-4">
         <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-4 py-3">
           <p className="text-sm text-emerald-300">
-            Sign-in is disabled until your account is approved.
+            Your sign-in will show a pending-review screen until your account is approved.
           </p>
         </div>
         <Button
