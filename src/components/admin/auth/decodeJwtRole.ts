@@ -34,13 +34,11 @@ export function decodeJwtRole(accessToken: string | undefined | null): JwtRole {
       role === "viewer"
     ) {
       if (import.meta.env.DEV) {
-        // eslint-disable-next-line no-console
         console.debug("[admin-auth] decoded role:", role);
       }
       return role;
     }
     if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
       console.debug("[admin-auth] decoded role: <none>", { raw: role });
     }
     return null;
