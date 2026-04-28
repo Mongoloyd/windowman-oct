@@ -1,6 +1,9 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AlertCircle, Clock, Loader2, Lock, ShieldAlert, ShieldCheck } from "lucide-react";
 import { ContractorAccountStatus } from "./ContractorAccountStatus";
+import { ContractorLeadDetail } from "./ContractorLeadDetail";
+import { ContractorLeadList } from "./ContractorLeadList";
 import {
   fetchContractorAccountContext,
   isContractorAccessAllowed,
@@ -60,6 +63,7 @@ function AccessState({ result }: { result: ContractorAccessResult }) {
 }
 
 export function ContractorPortalShell() {
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState<string | null>(null);
   const { data: result, isLoading } = useQuery({
     queryKey: ["contractor-account-context"],
     queryFn: fetchContractorAccountContext,
@@ -93,7 +97,7 @@ export function ContractorPortalShell() {
             Contractor Portal
           </h1>
           <p className="max-w-3xl text-sm font-semibold leading-6 text-slate-700">
-            Account context only. Lead details, homeowner contact data, quote files, outcomes, and dashboards are not exposed in Phase 4A.
+            Assigned opportunities are scoped to your authenticated contractor account. Contact details, quote files, outcomes, and dashboards are not exposed in Phase 4B.
           </p>
         </section>
 
@@ -101,19 +105,14 @@ export function ContractorPortalShell() {
         <AccessState result={result} />
 
         {allowed && (
-          <section className="rounded-lg border border-slate-300 bg-white p-6 shadow-sm">
-            <div className="flex items-start gap-3">
-              <div className="rounded-md bg-sky-50 p-2 text-sky-800">
-                <ShieldCheck className="h-5 w-5" aria-hidden />
-              </div>
-              <div className="min-w-0">
-                <h2 className="text-xl font-black tracking-tight text-slate-950">Safe shell active</h2>
-                <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">
-                  Lead details are not exposed in this access-model sprint. Assigned lead view will be added in Phase 4B.
-                </p>
-              </div>
-            </div>
-          </section>
+          selectedAssignmentId ? (
+            <ContractorLeadDetail
+              assignmentId={selectedAssignmentId}
+              onBack={() => setSelectedAssignmentId(null)}
+            />
+          ) : (
+            <ContractorLeadList onSelectLead={setSelectedAssignmentId} />
+          )
         )}
       </div>
     </main>
