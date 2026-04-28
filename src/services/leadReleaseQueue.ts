@@ -69,6 +69,11 @@ type AssignmentRow = {
   contractor_accounts?: { id: string; display_name: string; client_slug: string; is_active: boolean; access_status?: string | null } | null;
 };
 
+function normalizeAssignmentRow(row: AssignmentRow & { contractor_accounts?: AssignmentRow["contractor_accounts"] | AssignmentRow["contractor_accounts"][] }): AssignmentRow {
+  const joined = Array.isArray(row.contractor_accounts) ? row.contractor_accounts[0] ?? null : row.contractor_accounts ?? null;
+  return { ...row, contractor_accounts: joined };
+}
+
 type ReleaseRow = {
   id: string;
   created_at: string;
@@ -217,7 +222,7 @@ export async function fetchLeadReleaseQueue(): Promise<LeadReleaseQueueItem[]> {
     .limit(200);
   if (error) throw safeError(error);
 
-  const rows = (assignments ?? []) as AssignmentRow[];
+  const rows = ((assignments ?? []) as unknown as Array<AssignmentRow & { contractor_accounts?: AssignmentRow["contractor_accounts"] | AssignmentRow["contractor_accounts"][] }>).map(normalizeAssignmentRow);
   const assignmentIds = rows.map((row) => row.id);
   let releases: ReleaseRow[] = [];
   if (assignmentIds.length > 0) {
@@ -237,7 +242,7 @@ export async function fetchLeadReleaseDetail(assignmentId: string): Promise<Lead
     .maybeSingle();
   if (error) throw safeError(error);
   if (!data) throw new Error("Release queue assignment was not found.");
-  const assignment = data as AssignmentRow;
+  const assignment = normalizeAssignmentRow(data as unknown as AssignmentRow & { contractor_accounts?: AssignmentRow["contractor_accounts"] | AssignmentRow["contractor_accounts"][] });
 
   const [{ data: releaseData, error: releaseError }, { data: eventsData, error: eventsError }] = await Promise.all([
     db.from(RELEASE_TABLE).select("*").eq("lead_assignment_id", assignmentId).maybeSingle(),
