@@ -167,6 +167,8 @@ export default function ContractorLogin({ initialView = "login" }: ContractorLog
         const code = result?.error_code;
         if (code === "email_taken") {
           setRegErrors({ email: "This email is already registered." });
+        } else if (code === "missing_contact_name") {
+          setRegErrors({ contactName: "Contact name is required." });
         } else if (code === "weak_password") {
           setRegErrors({ password: "Password is too weak. Use at least 8 characters." });
         } else if (code === "invalid_email") {
@@ -656,7 +658,7 @@ export default function ContractorLogin({ initialView = "login" }: ContractorLog
             </div>
 
             <p className="text-center text-[11px] text-slate-300 mt-6">
-              WindowMan Partner Portal is invitation-only.
+              {initialView === "register" ? "WindowMan reviews every partner request before activating portal access." : "WindowMan Partner Portal is invitation-only."}
               <br />
               Unauthorized access attempts are logged.
             </p>
