@@ -41,3 +41,9 @@ verify_jwt = false
 
 [functions.import-facebook-lead-ad]
 verify_jwt = false
+
+[functions.admin-contractor-performance]
+verify_jwt = false
+
+[functions.contractor-performance-summary]
+verify_jwt = false

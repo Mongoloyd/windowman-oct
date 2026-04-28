@@ -4,6 +4,7 @@ import { AlertCircle, Clock, Loader2, Lock, ShieldAlert, ShieldCheck } from "luc
 import { ContractorAccountStatus } from "./ContractorAccountStatus";
 import { ContractorLeadDetail } from "./ContractorLeadDetail";
 import { ContractorLeadList } from "./ContractorLeadList";
+import { ContractorPerformancePanel } from "./ContractorPerformancePanel";
 import {
   fetchContractorAccountContext,
   isContractorAccessAllowed,
@@ -111,7 +112,10 @@ export function ContractorPortalShell() {
               onBack={() => setSelectedAssignmentId(null)}
             />
           ) : (
-            <ContractorLeadList onSelectLead={setSelectedAssignmentId} />
+            <>
+              <ContractorPerformancePanel />
+              <ContractorLeadList onSelectLead={setSelectedAssignmentId} />
+            </>
           )
         )}
       </div>
