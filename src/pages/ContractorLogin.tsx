@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, Navigate } from "react-router-dom";
+import { useNavigate, Navigate, Link } from "react-router-dom";
 import { Shield, ShieldCheck, ArrowRight, Lock, ArrowLeft, CheckCircle2, Building2 } from "lucide-react";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -15,19 +15,30 @@ type View = "login" | "forgot" | "register" | "register-success";
 const RegisterSchema = z
   .object({
     companyName: z.string().trim().min(1, "Company name is required").max(200),
+    contactName: z.string().trim().min(1, "Contact name is required").max(200),
     email: z.string().trim().toLowerCase().email("Enter a valid email").max(255),
     password: z.string().min(8, "Password must be at least 8 characters").max(128),
     confirmPassword: z.string(),
+    phone: z.string().trim().max(40).optional(),
+    serviceArea: z.string().trim().max(500).optional(),
+    website: z.string().trim().max(255).optional(),
+    licenseNumber: z.string().trim().max(120).optional(),
+    monthlyCapacity: z.string().trim().max(120).optional(),
+    notes: z.string().trim().max(1000).optional(),
   })
   .refine((d) => d.password === d.confirmPassword, {
     message: "Passwords do not match",
     path: ["confirmPassword"],
   });
 
-type RegisterErrors = Partial<Record<"companyName" | "email" | "password" | "confirmPassword", string>>;
+type RegisterErrors = Partial<Record<"companyName" | "contactName" | "email" | "password" | "confirmPassword" | "phone" | "serviceArea" | "website" | "licenseNumber" | "monthlyCapacity" | "notes", string>>;
 
-export default function ContractorLogin() {
-  const [view, setView] = useState<View>("login");
+interface ContractorLoginProps {
+  initialView?: View;
+}
+
+export default function ContractorLogin({ initialView = "login" }: ContractorLoginProps) {
+  const [view, setView] = useState<View>(initialView);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -35,9 +46,16 @@ export default function ContractorLogin() {
 
   // Register state
   const [regCompany, setRegCompany] = useState("");
+  const [regContactName, setRegContactName] = useState("");
   const [regEmail, setRegEmail] = useState("");
   const [regPassword, setRegPassword] = useState("");
   const [regConfirm, setRegConfirm] = useState("");
+  const [regPhone, setRegPhone] = useState("");
+  const [regServiceArea, setRegServiceArea] = useState("");
+  const [regWebsite, setRegWebsite] = useState("");
+  const [regLicense, setRegLicense] = useState("");
+  const [regCapacity, setRegCapacity] = useState("");
+  const [regNotes, setRegNotes] = useState("");
   const [regErrors, setRegErrors] = useState<RegisterErrors>({});
 
   const { toast } = useToast();
@@ -95,9 +113,16 @@ export default function ContractorLogin() {
 
     const parsed = RegisterSchema.safeParse({
       companyName: regCompany,
+      contactName: regContactName,
       email: regEmail,
       password: regPassword,
       confirmPassword: regConfirm,
+      phone: regPhone,
+      serviceArea: regServiceArea,
+      website: regWebsite,
+      licenseNumber: regLicense,
+      monthlyCapacity: regCapacity,
+      notes: regNotes,
     });
 
     if (!parsed.success) {
@@ -115,8 +140,15 @@ export default function ContractorLogin() {
       const { data, error } = await supabase.functions.invoke("request-partner-access", {
         body: {
           companyName: parsed.data.companyName,
+          contactName: parsed.data.contactName,
           email: parsed.data.email,
           password: parsed.data.password,
+          phone: parsed.data.phone,
+          serviceArea: parsed.data.serviceArea,
+          website: parsed.data.website,
+          licenseNumber: parsed.data.licenseNumber,
+          monthlyCapacity: parsed.data.monthlyCapacity,
+          notes: parsed.data.notes,
         },
       });
 
@@ -135,6 +167,8 @@ export default function ContractorLogin() {
         const code = result?.error_code;
         if (code === "email_taken") {
           setRegErrors({ email: "This email is already registered." });
+        } else if (code === "missing_contact_name") {
+          setRegErrors({ contactName: "Contact name is required." });
         } else if (code === "weak_password") {
           setRegErrors({ password: "Password is too weak. Use at least 8 characters." });
         } else if (code === "invalid_email") {
@@ -153,9 +187,16 @@ export default function ContractorLogin() {
 
       // Success
       setRegCompany("");
+      setRegContactName("");
       setRegEmail("");
       setRegPassword("");
       setRegConfirm("");
+      setRegPhone("");
+      setRegServiceArea("");
+      setRegWebsite("");
+      setRegLicense("");
+      setRegCapacity("");
+      setRegNotes("");
       setView("register-success");
     } catch {
       toast({ title: "Error", description: "An unexpected error occurred.", variant: "destructive" });
@@ -167,13 +208,19 @@ export default function ContractorLogin() {
   const renderRegister = () => (
     <Card className="border-white/20 bg-white/[0.05] shadow-2xl">
       <CardHeader className="pb-2 pt-8 px-8">
-        <button
-          type="button"
-          onClick={() => { setView("login"); setRegErrors({}); }}
-          className="flex items-center gap-1 text-xs text-slate-300 hover:text-slate-300 transition-colors mb-4 -ml-0.5"
-        >
-          <ArrowLeft className="h-3 w-3" /> Back to sign in
-        </button>
+        {initialView === "register" ? (
+          <Link to="/partner/login" className="flex items-center gap-1 text-xs text-slate-300 hover:text-slate-300 transition-colors mb-4 -ml-0.5">
+            <ArrowLeft className="h-3 w-3" /> Back to sign in
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={() => { setView("login"); setRegErrors({}); }}
+            className="flex items-center gap-1 text-xs text-slate-300 hover:text-slate-300 transition-colors mb-4 -ml-0.5"
+          >
+            <ArrowLeft className="h-3 w-3" /> Back to sign in
+          </button>
+        )}
         <div className="flex items-center gap-2 mb-1">
           <Building2 className="h-4 w-4 text-slate-300" />
           <span className="text-xs font-mono text-slate-300 uppercase tracking-widest">
@@ -202,6 +249,20 @@ export default function ContractorLogin() {
             )}
           </div>
           <div className="space-y-2">
+            <label className="text-xs font-medium text-slate-300 uppercase tracking-wider">Contact Name</label>
+            <Input
+              type="text"
+              value={regContactName}
+              onChange={(e) => setRegContactName(e.target.value)}
+              placeholder="Owner or sales lead"
+              required
+              className="bg-white/[0.04] border-white/25 text-white placeholder:text-slate-300 focus-visible:ring-sky-500/40 h-11"
+            />
+            {regErrors.contactName && (
+              <p className="text-xs text-rose-400">{regErrors.contactName}</p>
+            )}
+          </div>
+          <div className="space-y-2">
             <label className="text-xs font-medium text-slate-300 uppercase tracking-wider">Contact Email</label>
             <Input
               type="email"
@@ -214,6 +275,58 @@ export default function ContractorLogin() {
             {regErrors.email && (
               <p className="text-xs text-rose-400">{regErrors.email}</p>
             )}
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-slate-300 uppercase tracking-wider">Phone</label>
+            <Input
+              type="tel"
+              value={regPhone}
+              onChange={(e) => setRegPhone(e.target.value)}
+              placeholder="Best callback number"
+              className="bg-white/[0.04] border-white/25 text-white placeholder:text-slate-300 focus-visible:ring-sky-500/40 h-11"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-slate-300 uppercase tracking-wider">Service Area</label>
+            <Input
+              type="text"
+              value={regServiceArea}
+              onChange={(e) => setRegServiceArea(e.target.value)}
+              placeholder="Counties, cities, or zip codes served"
+              className="bg-white/[0.04] border-white/25 text-white placeholder:text-slate-300 focus-visible:ring-sky-500/40 h-11"
+            />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-slate-300 uppercase tracking-wider">Website</label>
+              <Input
+                type="text"
+                value={regWebsite}
+                onChange={(e) => setRegWebsite(e.target.value)}
+                placeholder="company.com"
+                className="bg-white/[0.04] border-white/25 text-white placeholder:text-slate-300 focus-visible:ring-sky-500/40 h-11"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-slate-300 uppercase tracking-wider">License</label>
+              <Input
+                type="text"
+                value={regLicense}
+                onChange={(e) => setRegLicense(e.target.value)}
+                placeholder="Optional"
+                className="bg-white/[0.04] border-white/25 text-white placeholder:text-slate-300 focus-visible:ring-sky-500/40 h-11"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-slate-300 uppercase tracking-wider">Monthly Capacity</label>
+            <Input
+              type="text"
+              value={regCapacity}
+              onChange={(e) => setRegCapacity(e.target.value)}
+              placeholder="How many verified leads can you handle?"
+              className="bg-white/[0.04] border-white/25 text-white placeholder:text-slate-300 focus-visible:ring-sky-500/40 h-11"
+            />
           </div>
           <div className="space-y-2">
             <label className="text-xs font-medium text-slate-300 uppercase tracking-wider">Password</label>
@@ -242,6 +355,17 @@ export default function ContractorLogin() {
             {regErrors.confirmPassword && (
               <p className="text-xs text-rose-400">{regErrors.confirmPassword}</p>
             )}
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-slate-300 uppercase tracking-wider">Notes</label>
+            <textarea
+              value={regNotes}
+              onChange={(e) => setRegNotes(e.target.value)}
+              placeholder="Tell us what markets or lead types fit your crew."
+              rows={3}
+              className="flex w-full rounded-md border border-white/25 bg-white/[0.04] px-3 py-2 text-sm text-white placeholder:text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/40 disabled:cursor-not-allowed disabled:opacity-50"
+              maxLength={1000}
+            />
           </div>
           <Button
             type="submit"
@@ -282,7 +406,7 @@ export default function ContractorLogin() {
       <CardContent className="px-8 pb-8 pt-4 space-y-4">
         <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-4 py-3">
           <p className="text-sm text-emerald-300">
-            Sign-in is disabled until your account is approved.
+            Your sign-in will show a pending-review screen until your account is approved.
           </p>
         </div>
         <Button
@@ -534,7 +658,7 @@ export default function ContractorLogin() {
             </div>
 
             <p className="text-center text-[11px] text-slate-300 mt-6">
-              WindowMan Partner Portal is invitation-only.
+              {initialView === "register" ? "WindowMan reviews every partner request before activating portal access." : "WindowMan Partner Portal is invitation-only."}
               <br />
               Unauthorized access attempts are logged.
             </p>
