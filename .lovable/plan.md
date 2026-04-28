@@ -1,126 +1,247 @@
-## Plan: Surgical Netlify Secret Scan Unblock
+## Short answer
 
-### Audit findings
+Yes: the **Open Join** model is the right interpretation if the business goal is “any contractor can create/request an account and then WindowMan follows up.”
 
-1. `.env` is tracked by Git
-   - `git ls-files .env` reports `.env`, so it is committed/tracked.
+Important correction from the codebase: this project already has a partial open-signup system. It is not starting from zero.
 
-2. `.env` contains real public Supabase browser config values
-   - It contains the real `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`.
-   - These are public browser config values, not service-role secrets, but Netlify secret scanning is still blocking on them.
-
-3. `.gitignore` does not fully protect `.env`
-   - It currently ignores `.env.*` but not the root `.env` file.
-
-4. `.env.example` uses placeholders already, but should be normalized
-   - It has placeholder values, but I will align the exact requested values:
-     - `VITE_SUPABASE_URL=https://your-project.supabase.co`
-     - `VITE_SUPABASE_PUBLISHABLE_KEY=your-public-anon-key`
-
-5. `index.html` hardcodes the Supabase project URL
-   - Hardcoded in:
-     - `<link rel="preconnect" href="https://wkrcyxcnzhwjtdpmfpaf.supabase.co" crossorigin />`
-     - `<link rel="dns-prefetch" href="https://wkrcyxcnzhwjtdpmfpaf.supabase.co" />`
-
-6. Supabase Edge Function test files hardcode the production Supabase URL
-   - `supabase/functions/contractor-actions/index.test.ts`
-   - `supabase/functions/voice-followup/index.test.ts`
-   - `supabase/functions/contractor-send-followups/index.test.ts`
-   - `supabase/functions/contractor-mark-no-show/index.test.ts`
-   - `supabase/functions/contractor-booking-confirmed/index.test.ts`
-
-7. Some Edge Function tests also hardcode the public anon key
-   - `supabase/functions/contractor-actions/index.test.ts`
-   - `supabase/functions/voice-followup/index.test.ts`
-
-8. The specified migration hardcodes the production Supabase URL in operational SQL
-   - File: `supabase/migrations/20260404105923_eab75b78-c0ea-4a08-a255-a142bc302c2f.sql`
-   - Usage:
-     ```sql
-     SELECT net.http_post(
-       url := 'https://wkrcyxcnzhwjtdpmfpaf.supabase.co/functions/v1/process-webhook',
-       headers := '{"Content-Type":"application/json","Authorization":"Bearer ..."}'::jsonb,
-       body := '{}'::jsonb
-     ) AS request_id;
-     ```
-   - This is not a comment/test fixture. It schedules a cron job that posts to an Edge Function. I will not rewrite this migration as a behavioral change unless you explicitly approve a DB-safe replacement strategy.
-
-9. `netlify.toml` does not exist
-   - No Netlify config file was found.
-
-10. Vite config does not hardcode Supabase env values
-   - `vite.config.ts` does not reference the real Supabase URL/key.
-
-### Implementation steps after approval
-
-1. Remove committed `.env` safely
-   - Delete `.env` from the repository workspace.
-   - Update `.gitignore` to include root `.env`.
-   - Keep `.env.example` tracked with placeholders only.
-
-2. Normalize `.env.example`
-   - Keep only safe placeholder values for public frontend config and documented runtime secret names.
-   - Do not add real Twilio, Gemini, Meta, Supabase service-role, or other private values.
-
-3. Clean `index.html`
-   - Remove the hardcoded Supabase `preconnect` and `dns-prefetch` tags.
-   - Do not replace them with env substitution in static HTML.
-   - Leave unrelated preconnects and metadata untouched.
-
-4. Clean Supabase function tests only
-   - Replace hardcoded production Supabase URLs with `https://example.supabase.co`.
-   - Replace hardcoded public anon key test constants with a placeholder JWT-shaped string or environment-driven placeholder that will not match the real Netlify env value.
-   - Do not touch Edge Function runtime code.
-   - Do not touch `send-otp`, `verify-otp`, `scan-quote`, report reveal, contractor outcome flow, or revenue dispatch.
-
-5. Handle the migration conservatively
-   - Because the specified migration uses the URL in operational SQL, I will leave it unchanged by default and report it as an intentional remaining match.
-   - If Netlify secret scan still fails on migrations, the safe deployment unblock options are outside the source-code patch:
-     - configure Netlify `SECRETS_SCAN_OMIT_KEYS` for these public browser config env names, and/or
-     - confirm whether the historical migration can be replaced with a placeholder without affecting DB replay expectations.
-
-6. Add Netlify deployment documentation
-   - Create `docs/deployment/netlify-deploy-checklist.md` with:
-     - Required Netlify env vars:
-       - `VITE_SUPABASE_URL`
-       - `VITE_SUPABASE_PUBLISHABLE_KEY`
-     - Recommended omit keys for public browser config:
-       - `SECRETS_SCAN_OMIT_KEYS=VITE_SUPABASE_URL,VITE_SUPABASE_PUBLISHABLE_KEY,VITE_SUPABASE_ANON_KEY`
-     - Explicitly avoid recommending `SECRETS_SCAN_ENABLED=false` except as emergency-only/not preferred.
-     - Note that `GEMINI_API_KEY`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_VERIFY_SERVICE_SID` generally belong in Supabase Edge Function secrets unless Netlify Functions need them.
-     - Note that Vite only exposes variables prefixed with `VITE_` to browser code.
-
-7. Validation after patch
-   - Run:
-     - `git diff --name-only`
-     - `bun run build`
-     - `npx tsc --noEmit`
-     - `grep -R "wkrcyxcnzhwjtdpmfpaf.supabase.co" . --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.git`
-   - Expected result:
-     - No hardcoded source/test/index matches remain.
-     - The specified migration may remain as an intentional operational SQL match unless separately approved for migration history cleanup.
-
-### Expected files changed
-
-- `.gitignore`
-- `.env.example`
-- `index.html`
-- `supabase/functions/contractor-actions/index.test.ts`
-- `supabase/functions/voice-followup/index.test.ts`
-- `supabase/functions/contractor-send-followups/index.test.ts`
-- `supabase/functions/contractor-mark-no-show/index.test.ts`
-- `supabase/functions/contractor-booking-confirmed/index.test.ts`
-- `docs/deployment/netlify-deploy-checklist.md`
-- `.env` removed from tracked workspace
-
-### Files intentionally not changed
-
-- `src/integrations/supabase/client.ts` because it already reads `import.meta.env` only.
-- `vite.config.ts` because it does not hardcode the Supabase URL/key.
-- `supabase/migrations/20260404105923_eab75b78-c0ea-4a08-a255-a142bc302c2f.sql` because the hardcoded URL is operational SQL, not cosmetic/test-only.
-
-### Commit message
+Existing pieces:
 
 ```text
-fix(deploy): unblock netlify secret scan
+/partner/login
+  -> Request Partner Access form
+  -> supabase.functions.invoke("request-partner-access")
+  -> creates Supabase auth user
+  -> creates contractor_profiles row with status = "pending_review"
 ```
+
+So the mismatch is not “there is no open signup.” The mismatch is:
+
+```text
+/partner/accept-invite = invite-only page
+/partner/login = hidden/secondary open access request
+```
+
+The current `/partner/accept-invite` page still behaves like a private invite gate and treats no-token traffic as an error. If this route is being used publicly or shared broadly, it should either pivot into the existing open signup flow or redirect to a clearer `/partner/join` route.
+
+## Current diagnosis
+
+1. **`/partner/accept-invite` is invite-only by design**
+   - It requires `?token=` or `?invite_token=`.
+   - Without a token, it shows “No invitation token provided.”
+   - That is technically correct for invite acceptance, but wrong for an open partner acquisition flow.
+
+2. **Open self-serve registration already exists, but it is buried under `/partner/login`**
+   - `ContractorLogin.tsx` has a “Request Partner Access” mode.
+   - It calls `request-partner-access`.
+   - That edge function creates a pending-review account.
+
+3. **The existing open signup collects too little operational data**
+   - Current fields: company name, email, password.
+   - The edge function optionally supports `contactName`, but the form does not collect it.
+   - It does not collect phone, service counties, zip/territory, monthly capacity, license info, or notes.
+   - That limits follow-up usefulness.
+
+4. **There is no strong operator notification path**
+   - `request-partner-access` does a best-effort audit insert.
+   - It does not send a reliable email/Slack/admin alert.
+   - The current audit insert also appears questionable: it writes `lead_events.lead_id = userId`, which is semantically not a homeowner lead id.
+
+5. **The route naming is confusing**
+   - `/partner/accept-invite` should remain for tokenized invites.
+   - Public signup should live at `/partner/join` or `/partner/signup`.
+   - The missing-token state on `/partner/accept-invite` should not look broken; it should guide users to the open join flow.
+
+## Revised implementation plan
+
+### 1. Keep invite acceptance intact
+Do not remove or weaken the invite flow.
+
+Supported invite URLs remain:
+
+```text
+/partner/accept-invite?token=INVITE_TOKEN
+/partner/accept-invite?invite_token=INVITE_TOKEN
+/partner/accept-invite?token=INVITE_TOKEN&code=SUPABASE_CODE
+/partner/accept-invite?token=INVITE_TOKEN#access_token=...&refresh_token=...
+```
+
+This route continues to call `accept-invite` only when a valid invite token exists.
+
+### 2. Add a public open-join route
+Add a new route:
+
+```text
+/partner/join
+```
+
+This route will render the open partner application experience currently buried inside `/partner/login`.
+
+Preferred route behavior:
+
+```text
+/partner/accept-invite with token -> invite acceptance flow
+/partner/accept-invite without token -> redirect or CTA to /partner/join
+/partner/login -> sign-in/recovery-first page, with link to /partner/join
+/partner/join -> public partner application
+```
+
+### 3. Reuse the existing self-serve backend instead of creating a duplicate table immediately
+Do not create a new `partner_leads` table yet unless the existing schema cannot support the workflow.
+
+Use the existing:
+
+```text
+contractor_profiles.status = "pending_review"
+request-partner-access edge function
+```
+
+Rationale:
+- It already creates the Supabase Auth user.
+- It already creates the pending-review profile.
+- It aligns with the existing `usePartnerAuth` pending-review handling.
+- It avoids creating a second “lead” object that later has to be reconciled with auth users.
+
+### 4. Expand the public partner application form
+Update the open signup form to collect better follow-up context:
+
+Required:
+- company name
+- contact name
+- email
+- password
+
+Recommended optional fields:
+- phone
+- service counties / territories
+- company website
+- license number
+- monthly lead capacity
+- notes / “what markets do you serve?”
+
+Client-side validation with Zod; server-side validation in the edge function.
+
+### 5. Update `request-partner-access` to store richer metadata safely
+Extend the edge function payload and validation.
+
+Store operational context in one of these safe ways:
+
+Option A, minimal schema change:
+- Keep `contractor_profiles` as-is.
+- Store extra details in auth `user_metadata`.
+- This is fastest but weaker for admin workflows.
+
+Option B, better long-term:
+- Use or extend `contractor_accounts` for open applicants.
+- Set:
+  ```text
+  auth_user_id = new auth user id
+  access_status = "pending"
+  is_active = false
+  display_name = company name
+  contact_email = email
+  contact_phone = phone
+  territory = counties/zips JSON
+  client_slug = "direct"
+  ```
+- This fits the existing partner access model better than inventing a new `partner_leads` table.
+
+I recommend **Option B** if the current schema permits all needed fields without migration. If not, use a small migration only for missing operational fields.
+
+### 6. Add operator notification
+Add notification after successful self-serve request.
+
+Preferred implementation:
+- Use Lovable Emails if available for zero-config operator alerts.
+- If not available/desired, add a dedicated edge-function email integration later.
+
+Notification contents:
+
+```text
+New partner access request
+Company:
+Contact:
+Email:
+Phone:
+Service area:
+Capacity:
+Submitted at:
+Admin review route:
+```
+
+This should be best-effort: failure to notify should not orphan or block the account creation, but it should log clearly.
+
+### 7. Fix pending-review UX
+When a self-serve applicant signs in before approval:
+- show “Account Pending Review”
+- explain WindowMan will follow up within 1 business day
+- provide sign out
+- do not show active marketplace/opportunity functionality
+
+This currently exists partially via `PartnerGuard`, but partner routes in `App.tsx` currently note that `PartnerGuard` was removed. I will verify and reapply the correct guard or equivalent pending-review gate without breaking preview fallback behavior.
+
+### 8. Keep `/partner/accept-invite` from looking broken
+For no-token visits, change the page from a dead error into a bridge:
+
+```text
+Invite link required
+If you were invited, use the full link from your email.
+If you want to join the WindowMan Partner Network, request access here.
+[Request Partner Access] -> /partner/join
+[Partner Sign In] -> /partner/login
+```
+
+This preserves semantics while supporting open signup.
+
+### 9. Fix invite-specific reliability issues from the earlier diagnosis
+Also keep the surgical auth fixes:
+- preserve `token` / `invite_token` through Supabase `?code=` and `#access_token` callbacks
+- validate expected auth link type where possible
+- improve wrong-session messaging
+- reduce `/partner/opportunities` lazy-load failure risk after successful invite acceptance
+
+## Likely files changed
+
+Frontend:
+- `src/App.tsx`
+- `src/pages/AcceptInvite.tsx`
+- `src/pages/ContractorLogin.tsx` or a new shared `PartnerJoin` component/page
+- possibly `src/hooks/usePartnerAuth.ts` / partner guard wiring if pending-review access is currently too loose
+- `src/lib/supabaseAuthLink.ts`
+- `src/lib/supabaseAuthLink.test.ts`
+
+Backend:
+- `supabase/functions/request-partner-access/index.ts`
+- possibly `supabase/functions/accept-invite/index.ts` for structured invite error codes
+
+Database:
+- No new table by default.
+- Possible small migration only if `contractor_accounts` needs extra fields for open applicants.
+
+## What this will not do
+
+- No database rebuild.
+- No weakening RLS.
+- No public access to active partner leads.
+- No fake approval state.
+- No removal of invite-only acceptance for manually invited partners.
+- No changes to homeowner SMS-gated Truth Report access.
+
+## Final model after implementation
+
+```text
+Public contractor prospect
+  -> /partner/join
+  -> creates auth user + pending applicant profile/account
+  -> operator notification sent
+  -> user sees pending-review state
+  -> WindowMan manually approves
+  -> user gains active partner portal access
+
+Invited contractor
+  -> /partner/accept-invite?token=...
+  -> signs in/up with invited email
+  -> invite token links account
+  -> active partner portal access if invite is valid
+```
+
+This gives you both tracks: open acquisition and controlled activation.
