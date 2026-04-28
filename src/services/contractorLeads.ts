@@ -5,6 +5,7 @@ import {
   isContractorAccessAllowed,
   type ContractorAccessResult,
 } from "@/services/contractorAccess";
+import { fetchContractorLeadRelease, type ContractorLeadReleaseState } from "@/services/contractorLeadRelease";
 
 export type ContractorLeadVisibility =
   | "redacted"
@@ -44,6 +45,7 @@ export interface ContractorAssignedLeadDetail extends ContractorAssignedLeadSumm
   safeNextStep: string;
   routingStatus: string;
   contactReleaseMessage: string;
+  contactRelease: ContractorLeadReleaseState;
   quoteExposureMessage: string;
   timeline: Array<{ label: string; timestamp: string }>;
 }
@@ -91,6 +93,12 @@ type AssignmentRow = {
   metadata: Json;
   created_at: string;
   updated_at: string;
+};
+
+type ReleaseRow = {
+  lead_assignment_id: string;
+  release_status: "not_released" | "held" | "approved" | "revoked" | "blocked" | "manual_review";
+  allowed_contact_fields: string[] | null;
 };
 
 const CONTACT_RELEASE_MESSAGE =
@@ -169,7 +177,15 @@ function windowRange(metadata: Json): string | null {
   return "16+ openings";
 }
 
-function rowToSummary(row: AssignmentRow, accountClientSlug: string): ContractorAssignedLeadSummary {
+function visibilityFromRelease(release?: ReleaseRow | null): ContractorLeadVisibility {
+  if (!release) return "redacted";
+  if (release.release_status === "approved") return "contact_released";
+  if (release.release_status === "blocked" || release.release_status === "revoked") return "blocked";
+  if (release.release_status === "manual_review") return "manual_review";
+  return "redacted";
+}
+
+function rowToSummary(row: AssignmentRow, accountClientSlug: string, release?: ReleaseRow | null): ContractorAssignedLeadSummary {
   const warnings: string[] = [];
   if (row.client_slug !== accountClientSlug) warnings.push("client_slug_mismatch_review");
   if (!row.is_current) warnings.push("assignment_not_current");
@@ -188,15 +204,19 @@ function rowToSummary(row: AssignmentRow, accountClientSlug: string): Contractor
     windowCountRange: windowRange(row.metadata),
     quoteRange: getString(row.metadata, ["quote_range", "quoteRange"]),
     safeScoreBand: scoreBand(row.metadata),
-    releaseStatus: "redacted",
-    hasReleasedContact: false,
+    releaseStatus: visibilityFromRelease(release),
+    hasReleasedContact: release?.release_status === "approved" && Array.isArray(release.allowed_contact_fields) && release.allowed_contact_fields.length > 0,
     hasSafeSummary: Boolean(safeProjectSummary),
     warnings,
   };
 }
 
-function rowToDetail(row: AssignmentRow, accountClientSlug: string): ContractorAssignedLeadDetail {
-  const summary = rowToSummary(row, accountClientSlug);
+function rowToDetail(row: AssignmentRow, accountClientSlug: string, contactRelease: ContractorLeadReleaseState): ContractorAssignedLeadDetail {
+  const summary = rowToSummary(row, accountClientSlug, {
+    lead_assignment_id: row.id,
+    release_status: contactRelease.status,
+    allowed_contact_fields: contactRelease.allowedContactFields,
+  });
   const timeline = [
     { label: "Assigned", timestamp: row.assigned_at },
     row.accepted_at ? { label: "Accepted", timestamp: row.accepted_at } : null,
@@ -213,7 +233,8 @@ function rowToDetail(row: AssignmentRow, accountClientSlug: string): ContractorA
     safeFindings: getStringArray(row.metadata, ["safe_findings", "project_highlights", "summary_points"]),
     safeNextStep: "Review the redacted project context. Contact release and outcome updates are handled in later controlled workflow phases.",
     routingStatus: formatContractorLeadStatus(row.status),
-    contactReleaseMessage: CONTACT_RELEASE_MESSAGE,
+    contactReleaseMessage: contactRelease.message || CONTACT_RELEASE_MESSAGE,
+    contactRelease,
     quoteExposureMessage: QUOTE_EXPOSURE_MESSAGE,
     timeline,
   };
