@@ -10,7 +10,7 @@ const PowerToolFlow = React.lazy(() => import("./PowerToolDemo"));
 const MASCOT_URL =
   "https://d2xsxph8kpxj0f.cloudfront.net/87108037/YjBTWCdi7jZwa5GFcxbLnp/windowmanwithtruthreportonthephone_be309c26.avif";
 
-const DesktopOcrScreenshot = () => {
+const DesktopOcrScreenshot = React.forwardRef<HTMLDivElement>((_, ref) => {
   const [scanOcrImg, setScanOcrImg] = useState<string | null>(null);
 
   React.useEffect(() => {
@@ -37,7 +37,7 @@ const DesktopOcrScreenshot = () => {
   if (!scanOcrImg) return null;
 
   return (
-    <div className="hidden sm:block mt-8 w-full max-w-3xl aspect-[7/4]">
+    <div ref={ref} className="hidden sm:block mt-8 w-full max-w-3xl aspect-[7/4]">
       <img
         src={scanOcrImg}
         alt="WindowMan AI scanning a quote — extraction, context injection, anomaly detection"
@@ -49,7 +49,9 @@ const DesktopOcrScreenshot = () => {
       />
     </div>
   );
-};
+});
+
+DesktopOcrScreenshot.displayName = "DesktopOcrScreenshot";
 
 interface AuditHeroProps {
   onUploadQuote?: () => void;
