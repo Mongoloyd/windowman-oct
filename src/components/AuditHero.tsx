@@ -3,13 +3,55 @@ import { TrustBullets } from "./TrustBullets";
 import SampleGradeCard from "./SampleGradeCard";
 import { useTickerStats } from "@/hooks/useTickerStats";
 import { Shield, TrendingDown, BarChart3 } from "lucide-react";
-import scanOcrImg from "@/assets/scan_ocr_hero.avif";
 import PowerToolButton from "./PowerToolButton";
 
 const PowerToolFlow = React.lazy(() => import("./PowerToolDemo"));
 
 const MASCOT_URL =
   "https://d2xsxph8kpxj0f.cloudfront.net/87108037/YjBTWCdi7jZwa5GFcxbLnp/windowmanwithtruthreportonthephone_be309c26.avif";
+
+const DesktopOcrScreenshot = React.forwardRef<HTMLDivElement>((_, ref) => {
+  const [scanOcrImg, setScanOcrImg] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    const mediaQuery = window.matchMedia("(min-width: 640px)");
+    let cancelled = false;
+
+    const loadImage = () => {
+      if (!mediaQuery.matches || scanOcrImg) return;
+
+      import("@/assets/scan_ocr_hero.avif").then((module) => {
+        if (!cancelled) setScanOcrImg(module.default);
+      });
+    };
+
+    loadImage();
+    mediaQuery.addEventListener("change", loadImage);
+
+    return () => {
+      cancelled = true;
+      mediaQuery.removeEventListener("change", loadImage);
+    };
+  }, [scanOcrImg]);
+
+  if (!scanOcrImg) return null;
+
+  return (
+    <div ref={ref} className="hidden sm:block mt-8 w-full max-w-3xl aspect-[7/4]">
+      <img
+        src={scanOcrImg}
+        alt="WindowMan AI scanning a quote — extraction, context injection, anomaly detection"
+        loading="lazy"
+        decoding="async"
+        width={700}
+        height={400}
+        className="w-full h-full object-cover rounded-xl shadow-lg"
+      />
+    </div>
+  );
+});
+
+DesktopOcrScreenshot.displayName = "DesktopOcrScreenshot";
 
 interface AuditHeroProps {
   onUploadQuote?: () => void;
@@ -196,18 +238,8 @@ const AuditHero = ({
               {statsStrip}
             </div>
 
-            {/* ── OCR screenshot: responsive, single img tag ── */}
-            <div className="hidden sm:block mt-8 w-full max-w-3xl aspect-[7/4]">
-              <img
-                src={scanOcrImg}
-                alt="WindowMan AI scanning a quote — extraction, context injection, anomaly detection"
-                loading="lazy"
-                decoding="async"
-                width={700}
-                height={400}
-                className="w-full h-full object-cover rounded-xl shadow-lg"
-              />
-            </div>
+            {/* ── OCR screenshot: sm+ only, avoids mobile asset request ── */}
+            <DesktopOcrScreenshot />
           </div>
         </div>
       </div>
