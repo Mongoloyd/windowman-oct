@@ -268,7 +268,7 @@ export async function fetchContractorAssignedLeads(): Promise<ContractorLeadList
 
   const rows = (data ?? []) as AssignmentRow[];
   const releaseResult = rows.length > 0
-    ? await supabase.from("lead_contact_releases" as never).select("lead_assignment_id, release_status, allowed_contact_fields").in("lead_assignment_id", rows.map((row) => row.id))
+    ? await supabase.from("lead_contact_releases").select("lead_assignment_id, release_status, allowed_contact_fields").in("lead_assignment_id", rows.map((row) => row.id))
     : { data: [], error: null };
   if (releaseResult.error) console.warn("[contractorLeads] contact release summary lookup failed", releaseResult.error.message);
   const releases = new Map(((releaseResult.data ?? []) as unknown as ReleaseRow[]).map((release) => [release.lead_assignment_id, release]));
