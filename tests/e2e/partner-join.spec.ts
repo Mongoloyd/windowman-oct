@@ -11,6 +11,8 @@ test.use({ trace: "retain-on-failure", screenshot: "only-on-failure" });
 
 const PARTNER_PREFIX = "wm-partner-e2e-";
 
+test.skip(getAdminClient() === null, SKIP_REASON);
+
 function uniquePartnerEmail(): string {
   const ts = Date.now();
   const rand = Math.random().toString(36).slice(2, 10);
@@ -39,8 +41,6 @@ async function fillPartnerJoinForm(page: Page, data: {
 }
 
 test("partner join: registers through request-partner-access and lands in pending review", async ({ browser }) => {
-  test.skip(getAdminClient() === null, SKIP_REASON);
-
   const email = uniquePartnerEmail();
   const password = `PartnerE2E-${Date.now()}!`;
   const companyName = `WM Partner E2E ${Date.now()}`;
