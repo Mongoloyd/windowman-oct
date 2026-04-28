@@ -525,6 +525,7 @@ export type Database = {
       }
       contractor_accounts: {
         Row: {
+          access_status: string
           auth_user_id: string | null
           client_slug: string
           contact_email: string | null
@@ -533,11 +534,14 @@ export type Database = {
           display_name: string
           id: string
           is_active: boolean
+          last_portal_login_at: string | null
           metadata: Json
+          portal_role: string
           territory: Json
           updated_at: string
         }
         Insert: {
+          access_status?: string
           auth_user_id?: string | null
           client_slug: string
           contact_email?: string | null
@@ -546,11 +550,14 @@ export type Database = {
           display_name: string
           id?: string
           is_active?: boolean
+          last_portal_login_at?: string | null
           metadata?: Json
+          portal_role?: string
           territory?: Json
           updated_at?: string
         }
         Update: {
+          access_status?: string
           auth_user_id?: string | null
           client_slug?: string
           contact_email?: string | null
@@ -559,7 +566,9 @@ export type Database = {
           display_name?: string
           id?: string
           is_active?: boolean
+          last_portal_login_at?: string | null
           metadata?: Json
+          portal_role?: string
           territory?: Json
           updated_at?: string
         }
