@@ -11,7 +11,10 @@
  * All actions use service role (operator-only). No anon access.
  */
 
-import { corsHeaders, validateAdminRequestWithRole } from "../_shared/adminAuth.ts";
+import {
+  corsHeaders,
+  validateAdminRequestWithRole,
+} from "../_shared/adminAuth.ts";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -20,7 +23,12 @@ function json(body: unknown, status = 200) {
   });
 }
 
-function logEvent(supabase: any, event_name: string, metadata: Record<string, unknown>) {
+function logEvent(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  event_name: string,
+  metadata: Record<string, unknown>,
+) {
   return supabase.from("event_logs").insert({
     event_name,
     route: "/admin",
@@ -35,7 +43,10 @@ Deno.serve(async (req) => {
 
   try {
     // Require operator or super_admin role
-    const validation = await validateAdminRequestWithRole(req, ["super_admin", "operator"]);
+    const validation = await validateAdminRequestWithRole(req, [
+      "super_admin",
+      "operator",
+    ]);
     if (!validation.ok) return validation.response;
 
     const { supabaseAdmin: supabase } = validation;
@@ -67,7 +78,10 @@ Deno.serve(async (req) => {
         .eq("id", route_id);
 
       if (routeErr) {
-        console.error("[contractor-actions] mark_interest route update failed", routeErr);
+        console.error(
+          "[contractor-actions] mark_interest route update failed",
+          routeErr,
+        );
         return json({ error: "Failed to update route" }, 500);
       }
 
@@ -82,7 +96,9 @@ Deno.serve(async (req) => {
         .eq("id", opportunity_id);
 
       await logEvent(supabase, "contractor_interest_submitted", {
-        route_id, opportunity_id, contractor_id,
+        route_id,
+        opportunity_id,
+        contractor_id,
       });
 
       return json({ success: true, route_id, status: "interested" });
@@ -94,7 +110,10 @@ Deno.serve(async (req) => {
     if (action === "review_release") {
       const { route_id, decision, reviewer, reason } = body;
       if (!route_id || !decision) {
-        return json({ error: "route_id and decision (approve/deny) required" }, 400);
+        return json(
+          { error: "route_id and decision (approve/deny) required" },
+          400,
+        );
       }
 
       if (decision === "approve") {
@@ -108,7 +127,8 @@ Deno.serve(async (req) => {
           .eq("id", route_id);
 
         await logEvent(supabase, "contact_release_approved", {
-          route_id, reviewer: reviewer || "operator",
+          route_id,
+          reviewer: reviewer || "operator",
         });
       } else if (decision === "deny") {
         await supabase
@@ -122,7 +142,9 @@ Deno.serve(async (req) => {
           .eq("id", route_id);
 
         await logEvent(supabase, "contact_release_denied", {
-          route_id, reviewer: reviewer || "operator", reason,
+          route_id,
+          reviewer: reviewer || "operator",
+          reason,
         });
       } else {
         return json({ error: "decision must be 'approve' or 'deny'" }, 400);
@@ -135,9 +157,22 @@ Deno.serve(async (req) => {
     // ACTION 3: release_contact
     // ═══════════════════════════════════════════════════════════════════
     if (action === "release_contact") {
-      const { route_id, opportunity_id, contractor_id, lead_id, analysis_id, billing_model, fee_amount, released_by, notes } = body;
+      const {
+        route_id,
+        opportunity_id,
+        contractor_id,
+        lead_id,
+        analysis_id,
+        billing_model,
+        fee_amount,
+        released_by,
+        notes,
+      } = body;
       if (!route_id || !opportunity_id || !contractor_id || !lead_id) {
-        return json({ error: "route_id, opportunity_id, contractor_id, and lead_id required" }, 400);
+        return json({
+          error:
+            "route_id, opportunity_id, contractor_id, and lead_id required",
+        }, 400);
       }
 
       // Verify route is approved
@@ -148,7 +183,10 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (!route || route.release_status !== "approved") {
-        return json({ error: "Route must be approved before contact release" }, 403);
+        return json(
+          { error: "Route must be approved before contact release" },
+          403,
+        );
       }
 
       // Mark contact released on route
@@ -192,7 +230,10 @@ Deno.serve(async (req) => {
         .single();
 
       if (introErr) {
-        console.error("[contractor-actions] billable_intros insert failed", introErr);
+        console.error(
+          "[contractor-actions] billable_intros insert failed",
+          introErr,
+        );
         return json({ error: "Failed to create billable intro" }, 500);
       }
 
@@ -209,14 +250,21 @@ Deno.serve(async (req) => {
 
       // Log events
       await logEvent(supabase, "homeowner_contact_released", {
-        route_id, opportunity_id, contractor_id, billable_intro_id: intro!.id,
+        route_id,
+        opportunity_id,
+        contractor_id,
+        billable_intro_id: intro!.id,
       });
       await logEvent(supabase, "billable_intro_created", {
-        billable_intro_id: intro!.id, opportunity_id, contractor_id,
-        billing_model: billing_model || "flat_fee", fee_amount,
+        billable_intro_id: intro!.id,
+        opportunity_id,
+        contractor_id,
+        billing_model: billing_model || "flat_fee",
+        fee_amount,
       });
       await logEvent(supabase, "contractor_outcome_record_initialized", {
-        billable_intro_id: intro!.id, opportunity_id,
+        billable_intro_id: intro!.id,
+        opportunity_id,
       });
 
       return json({
@@ -231,9 +279,13 @@ Deno.serve(async (req) => {
     // ACTION 4: update_billing_status
     // ═══════════════════════════════════════════════════════════════════
     if (action === "update_billing_status") {
-      const { billable_intro_id, billing_status, invoice_reference, notes } = body;
+      const { billable_intro_id, billing_status, invoice_reference, notes } =
+        body;
       if (!billable_intro_id || !billing_status) {
-        return json({ error: "billable_intro_id and billing_status required" }, 400);
+        return json(
+          { error: "billable_intro_id and billing_status required" },
+          400,
+        );
       }
 
       const updateFields: Record<string, unknown> = { billing_status };
@@ -261,7 +313,8 @@ Deno.serve(async (req) => {
 
       if (eventMap[billing_status]) {
         await logEvent(supabase, eventMap[billing_status], {
-          billable_intro_id, billing_status,
+          billable_intro_id,
+          billing_status,
         });
       }
 
@@ -272,23 +325,52 @@ Deno.serve(async (req) => {
     // ACTION 5: update_outcome
     // ═══════════════════════════════════════════════════════════════════
     if (action === "update_outcome") {
-      const { billable_intro_id, appointment_status, appointment_booked_at, quote_status, replacement_quote_range, did_beat_price, did_improve_warranty, did_fix_scope_gaps, deal_status, deal_value, outcome_notes } = body;
+      const {
+        billable_intro_id,
+        appointment_status,
+        appointment_booked_at,
+        quote_status,
+        replacement_quote_range,
+        did_beat_price,
+        did_improve_warranty,
+        did_fix_scope_gaps,
+        deal_status,
+        deal_value,
+        outcome_notes,
+      } = body;
       if (!billable_intro_id) {
         return json({ error: "billable_intro_id required" }, 400);
       }
 
       const updateFields: Record<string, unknown> = {};
-      if (appointment_status !== undefined) updateFields.appointment_status = appointment_status;
-      if (appointment_booked_at !== undefined) updateFields.appointment_booked_at = appointment_booked_at;
+      if (appointment_status !== undefined) {
+        updateFields.appointment_status = appointment_status;
+      }
+      if (appointment_booked_at !== undefined) {
+        updateFields.appointment_booked_at = appointment_booked_at;
+      }
       if (quote_status !== undefined) updateFields.quote_status = quote_status;
-      if (replacement_quote_range !== undefined) updateFields.replacement_quote_range = replacement_quote_range;
-      if (did_beat_price !== undefined) updateFields.did_beat_price = did_beat_price;
-      if (did_improve_warranty !== undefined) updateFields.did_improve_warranty = did_improve_warranty;
-      if (did_fix_scope_gaps !== undefined) updateFields.did_fix_scope_gaps = did_fix_scope_gaps;
+      if (replacement_quote_range !== undefined) {
+        updateFields.replacement_quote_range = replacement_quote_range;
+      }
+      if (did_beat_price !== undefined) {
+        updateFields.did_beat_price = did_beat_price;
+      }
+      if (did_improve_warranty !== undefined) {
+        updateFields.did_improve_warranty = did_improve_warranty;
+      }
+      if (did_fix_scope_gaps !== undefined) {
+        updateFields.did_fix_scope_gaps = did_fix_scope_gaps;
+      }
       if (deal_status !== undefined) updateFields.deal_status = deal_status;
       if (deal_value !== undefined) updateFields.deal_value = deal_value;
-      if (outcome_notes !== undefined) updateFields.outcome_notes = outcome_notes;
-      if (deal_status === "won" || deal_status === "lost" || deal_status === "dead") {
+      if (outcome_notes !== undefined) {
+        updateFields.outcome_notes = outcome_notes;
+      }
+      if (
+        deal_status === "won" || deal_status === "lost" ||
+        deal_status === "dead"
+      ) {
         updateFields.closed_at = now;
       }
 
@@ -307,11 +389,15 @@ Deno.serve(async (req) => {
         await logEvent(supabase, "appointment_booked", { billable_intro_id });
       }
       if (quote_status === "submitted") {
-        await logEvent(supabase, "replacement_quote_submitted", { billable_intro_id });
+        await logEvent(supabase, "replacement_quote_submitted", {
+          billable_intro_id,
+        });
       }
       if (deal_status) {
         await logEvent(supabase, "deal_outcome_updated", {
-          billable_intro_id, deal_status, deal_value,
+          billable_intro_id,
+          deal_status,
+          deal_value,
         });
       }
 

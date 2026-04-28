@@ -28,7 +28,8 @@ function json(body: unknown, status = 200) {
   });
 }
 
-const COMPARISON_PROMPT = `You are an expert consumer advocate specializing in Florida impact window and door installations. A homeowner is comparing multiple contractor quotes for the same project.
+const COMPARISON_PROMPT =
+  `You are an expert consumer advocate specializing in Florida impact window and door installations. A homeowner is comparing multiple contractor quotes for the same project.
 
 You will receive the full AI extraction data for 2 or more quotes. Analyze them side-by-side and produce a clear, actionable comparison.
 
@@ -105,7 +106,7 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
     // ── 1. Verify auth for at least one session ───────────────────────
@@ -122,7 +123,10 @@ Deno.serve(async (req) => {
     }
 
     if (!authorized) {
-      return json({ error: "Not authorized. Phone verification required." }, 403);
+      return json(
+        { error: "Not authorized. Phone verification required." },
+        403,
+      );
     }
 
     // ── 2. Check cache ────────────────────────────────────────────────
@@ -135,7 +139,11 @@ Deno.serve(async (req) => {
 
     if (cached?.comparison_json) {
       console.log("[compare-quotes] Returning cached comparison");
-      return json({ success: true, comparison: cached.comparison_json, cached: true });
+      return json({
+        success: true,
+        comparison: cached.comparison_json,
+        cached: true,
+      });
     }
 
     // ── 3. Fetch all analyses ─────────────────────────────────────────
@@ -147,53 +155,103 @@ Deno.serve(async (req) => {
 
     if (fetchErr || !analyses || analyses.length < 2) {
       return json({
-        error: `Need at least 2 completed analyses. Found ${analyses?.length || 0}.`,
+        error: `Need at least 2 completed analyses. Found ${
+          analyses?.length || 0
+        }.`,
       }, 400);
     }
 
     // ── 4. Build Gemini payload ───────────────────────────────────────
     const quoteDataBlocks = analyses.map((a, i) => {
       const fullJson = a.full_json as Record<string, unknown>;
-      const extraction = fullJson?.extraction as Record<string, unknown> | undefined;
-      const derivedMetrics = fullJson?.derived_metrics as Record<string, unknown> | undefined;
-      const perOpening = derivedMetrics?.per_opening as Record<string, unknown> | undefined;
-      const flags = fullJson?.flags as Array<Record<string, unknown>> | undefined;
-      const pillarScores = fullJson?.pillar_scores as Record<string, unknown> | undefined;
+      const extraction = fullJson?.extraction as
+        | Record<string, unknown>
+        | undefined;
+      const derivedMetrics = fullJson?.derived_metrics as
+        | Record<string, unknown>
+        | undefined;
+      const perOpening = derivedMetrics?.per_opening as
+        | Record<string, unknown>
+        | undefined;
+      const flags = fullJson?.flags as
+        | Array<Record<string, unknown>>
+        | undefined;
+      const pillarScores = fullJson?.pillar_scores as
+        | Record<string, unknown>
+        | undefined;
 
       return [
-        `\n=== QUOTE ${String.fromCharCode(65 + i)} (session: ${a.scan_session_id.slice(0, 8)}...) ===`,
+        `\n=== QUOTE ${String.fromCharCode(65 + i)} (session: ${
+          a.scan_session_id.slice(0, 8)
+        }...) ===`,
         `Grade: ${a.grade}`,
         `Contractor: ${extraction?.contractor_name || "Not specified"}`,
         `Total Price: $${extraction?.total_quoted_price || "Unknown"}`,
         `Opening Count: ${extraction?.opening_count || "Unknown"}`,
-        `Price Per Opening (installed): $${perOpening?.installed_price_per_opening || "Unknown"}`,
-        `Price Per Opening (contract): $${perOpening?.contract_price_per_opening || "Unknown"}`,
+        `Price Per Opening (installed): $${
+          perOpening?.installed_price_per_opening || "Unknown"
+        }`,
+        `Price Per Opening (contract): $${
+          perOpening?.contract_price_per_opening || "Unknown"
+        }`,
         ``,
         `Pillar Scores: ${pillarScores ? JSON.stringify(pillarScores) : "N/A"}`,
         ``,
-        `Warranty: ${extraction?.warranty ? JSON.stringify(extraction.warranty) : "Not specified"}`,
-        `Permits: ${extraction?.permits ? JSON.stringify(extraction.permits) : "Not specified"}`,
-        `Installation: ${extraction?.installation ? JSON.stringify(extraction.installation) : "Not specified"}`,
-        `Cancellation Policy: ${extraction?.cancellation_policy || "Not specified"}`,
+        `Warranty: ${
+          extraction?.warranty
+            ? JSON.stringify(extraction.warranty)
+            : "Not specified"
+        }`,
+        `Permits: ${
+          extraction?.permits
+            ? JSON.stringify(extraction.permits)
+            : "Not specified"
+        }`,
+        `Installation: ${
+          extraction?.installation
+            ? JSON.stringify(extraction.installation)
+            : "Not specified"
+        }`,
+        `Cancellation Policy: ${
+          extraction?.cancellation_policy || "Not specified"
+        }`,
         ``,
         `Flags (${Array.isArray(flags) ? flags.length : 0}):`,
         Array.isArray(flags)
-          ? flags.map((f: any) => `  - [${f.severity}] ${f.flag}: ${f.detail}`).join("\n")
+          // deno-lint-ignore no-explicit-any
+          ? flags.map((f: any) => `  - [${f.severity}] ${f.flag}: ${f.detail}`)
+            .join("\n")
           : "  None",
         ``,
-        `Line Items (${Array.isArray(extraction?.line_items) ? (extraction.line_items as unknown[]).length : 0}):`,
+        `Line Items (${
+          Array.isArray(extraction?.line_items)
+            ? (extraction.line_items as unknown[]).length
+            : 0
+        }):`,
         Array.isArray(extraction?.line_items)
-          ? (extraction.line_items as Array<Record<string, unknown>>).slice(0, 15).map((li: any) =>
-              `  - ${li.description || "Unknown"} | qty:${li.quantity || "?"} | unit:$${li.unit_price || "?"} | total:$${li.total_price || "?"} | brand:${li.brand || "?"} | DP:${li.dp_rating || "?"}`
-            ).join("\n")
+          ? (extraction.line_items as Array<Record<string, unknown>>).slice(
+            0,
+            15,
+            // deno-lint-ignore no-explicit-any
+          ).map((li: any) =>
+            `  - ${li.description || "Unknown"} | qty:${
+              li.quantity || "?"
+            } | unit:$${li.unit_price || "?"} | total:$${
+              li.total_price || "?"
+            } | brand:${li.brand || "?"} | DP:${li.dp_rating || "?"}`
+          ).join("\n")
           : "  None extracted",
       ].join("\n");
     });
 
-    const fullPayload = `HOMEOWNER QUOTE COMPARISON REQUEST\n\nThe homeowner has ${analyses.length} quotes to compare for the same project.\n${quoteDataBlocks.join("\n")}`;
+    const fullPayload =
+      `HOMEOWNER QUOTE COMPARISON REQUEST\n\nThe homeowner has ${analyses.length} quotes to compare for the same project.\n${
+        quoteDataBlocks.join("\n")
+      }`;
 
     // ── 5. Call Gemini ─────────────────────────────────────────────────
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`;
+    const geminiUrl =
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`;
 
     const geminiResp = await fetch(geminiUrl, {
       method: "POST",
@@ -214,7 +272,11 @@ Deno.serve(async (req) => {
 
     if (!geminiResp.ok) {
       const errText = await geminiResp.text();
-      console.error("[compare-quotes] Gemini API error:", geminiResp.status, errText);
+      console.error(
+        "[compare-quotes] Gemini API error:",
+        geminiResp.status,
+        errText,
+      );
       return json({ error: "AI comparison failed" }, 502);
     }
 
@@ -229,14 +291,22 @@ Deno.serve(async (req) => {
     // ── 6. Parse response ──────────────────────────────────────────────
     let cleanJson = rawText.trim();
     if (cleanJson.startsWith("```")) {
-      cleanJson = cleanJson.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "");
+      cleanJson = cleanJson.replace(/^```(?:json)?\s*/, "").replace(
+        /\s*```$/,
+        "",
+      );
     }
 
     let comparison: Record<string, unknown>;
     try {
       comparison = JSON.parse(cleanJson);
     } catch (parseErr) {
-      console.error("[compare-quotes] JSON parse failed:", parseErr, "Raw:", cleanJson.slice(0, 500));
+      console.error(
+        "[compare-quotes] JSON parse failed:",
+        parseErr,
+        "Raw:",
+        cleanJson.slice(0, 500),
+      );
       return json({ error: "AI response was not parseable" }, 502);
     }
 
@@ -265,14 +335,16 @@ Deno.serve(async (req) => {
       route: "/report",
       metadata: {
         analysis_count: analyses.length,
-        grades: analyses.map(a => a.grade),
+        grades: analyses.map((a) => a.grade),
+        // deno-lint-ignore no-explicit-any
         best_value: (comparison.recommendation as any)?.best_value || null,
         timestamp: now,
       },
     });
 
     console.log(`[compare-quotes] Compared ${analyses.length} quotes`, {
-      grades: analyses.map(a => a.grade),
+      grades: analyses.map((a) => a.grade),
+      // deno-lint-ignore no-explicit-any
       bestValue: (comparison.recommendation as any)?.best_value,
     });
 

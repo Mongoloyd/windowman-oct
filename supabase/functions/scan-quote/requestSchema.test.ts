@@ -1,4 +1,7 @@
-import { assert, assertEquals } from "https://deno.land/std@0.168.0/testing/asserts.ts";
+import {
+  assert,
+  assertEquals,
+} from "https://deno.land/std@0.168.0/testing/asserts.ts";
 import { parseScanQuoteRequest } from "./requestSchema.ts";
 
 const VALID_UUID = "11111111-2222-3333-4444-555555555555";
@@ -30,6 +33,9 @@ Deno.test("accepts event_id and dev bypass fields", () => {
 });
 
 Deno.test("rejects empty event_id", () => {
-  const r = parseScanQuoteRequest({ scan_session_id: VALID_UUID, event_id: "" });
+  const r = parseScanQuoteRequest({
+    scan_session_id: VALID_UUID,
+    event_id: "",
+  });
   assertEquals(r.ok, false);
 });

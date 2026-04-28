@@ -37,7 +37,10 @@
 //   Resp  : { success: true,  scan_session_id, quote_file_id, lead_id }
 //         | { success: false, code, message, details? }
 
-import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import {
+  createClient,
+  SupabaseClient,
+} from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const FUNCTION_NAME = "start-upload-scan-session";
 
@@ -152,7 +155,9 @@ function validateStoragePathScope(
   session_id: string,
 ): { ok: true } | { ok: false; reason: string } {
   if (!storage_path) return { ok: false, reason: "empty_path" };
-  if (storage_path.startsWith("/")) return { ok: false, reason: "leading_slash" };
+  if (storage_path.startsWith("/")) {
+    return { ok: false, reason: "leading_slash" };
+  }
   if (storage_path.includes("//")) return { ok: false, reason: "double_slash" };
   if (storage_path.includes("../") || storage_path.includes("..\\")) {
     return { ok: false, reason: "path_traversal" };
@@ -180,34 +185,55 @@ function jsonResponse(status: number, body: Record<string, unknown>): Response {
   });
 }
 
-function badRequest(code: string, message: string, details?: unknown): Response {
+function badRequest(
+  code: string,
+  message: string,
+  details?: unknown,
+): Response {
   return jsonResponse(400, { success: false, code, message, details });
 }
 
-function serverError(code: string, message: string, details?: unknown): Response {
+function serverError(
+  code: string,
+  message: string,
+  details?: unknown,
+): Response {
   return jsonResponse(500, { success: false, code, message, details });
 }
 
-function parsePayload(raw: unknown): { ok: true; value: BootstrapPayload } | { ok: false; reason: string } {
-  if (!raw || typeof raw !== "object") return { ok: false, reason: "body_not_object" };
+function parsePayload(
+  raw: unknown,
+): { ok: true; value: BootstrapPayload } | { ok: false; reason: string } {
+  if (!raw || typeof raw !== "object") {
+    return { ok: false, reason: "body_not_object" };
+  }
   const r = raw as Record<string, unknown>;
 
-  const session_id = typeof r.session_id === "string" ? r.session_id.trim() : "";
-  if (!UUID_RE.test(session_id)) return { ok: false, reason: "invalid_session_id" };
+  const session_id = typeof r.session_id === "string"
+    ? r.session_id.trim()
+    : "";
+  if (!UUID_RE.test(session_id)) {
+    return { ok: false, reason: "invalid_session_id" };
+  }
 
-  const storage_path = typeof r.storage_path === "string" ? r.storage_path.trim() : "";
+  const storage_path = typeof r.storage_path === "string"
+    ? r.storage_path.trim()
+    : "";
   if (!storage_path || storage_path.length > 1024) {
     return { ok: false, reason: "invalid_storage_path" };
   }
 
-  const file_name =
-    typeof r.file_name === "string" && r.file_name.length <= 512 ? r.file_name : null;
+  const file_name = typeof r.file_name === "string" && r.file_name.length <= 512
+    ? r.file_name
+    : null;
   const file_size =
-    typeof r.file_size === "number" && Number.isFinite(r.file_size) && r.file_size >= 0
+    typeof r.file_size === "number" && Number.isFinite(r.file_size) &&
+      r.file_size >= 0
       ? Math.floor(r.file_size)
       : null;
-  const file_type =
-    typeof r.file_type === "string" && r.file_type.length <= 128 ? r.file_type : null;
+  const file_type = typeof r.file_type === "string" && r.file_type.length <= 128
+    ? r.file_type
+    : null;
 
   return {
     ok: true,
@@ -223,7 +249,11 @@ Deno.serve(async (req: Request) => {
   audit(null, { stage: "request_received", status: "started" });
 
   if (req.method !== "POST") {
-    return jsonResponse(405, { success: false, code: "method_not_allowed", message: "POST only" });
+    return jsonResponse(405, {
+      success: false,
+      code: "method_not_allowed",
+      message: "POST only",
+    });
   }
 
   let raw: unknown;
@@ -247,9 +277,13 @@ Deno.serve(async (req: Request) => {
       error_code: "invalid_payload",
       error_message: `Payload validation failed: ${parsed.reason}`,
     });
-    return badRequest("invalid_payload", `Payload validation failed: ${parsed.reason}`);
+    return badRequest(
+      "invalid_payload",
+      `Payload validation failed: ${parsed.reason}`,
+    );
   }
-  const { session_id, storage_path, file_name, file_size, file_type } = parsed.value;
+  const { session_id, storage_path, file_name, file_size, file_type } =
+    parsed.value;
 
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
   const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -302,7 +336,8 @@ Deno.serve(async (req: Request) => {
         status: "failed",
         session_id,
         error_code: "storage_object_missing",
-        error_message: signErr?.message ?? "Object not found in private bucket.",
+        error_message: signErr?.message ??
+          "Object not found in private bucket.",
       });
       return jsonResponse(400, {
         success: false,
@@ -340,9 +375,12 @@ Deno.serve(async (req: Request) => {
     });
 
     try {
-      const { data: existingLeads, error: rpcErr } = await admin.rpc("get_lead_by_session", {
-        p_session_id: session_id,
-      });
+      const { data: existingLeads, error: rpcErr } = await admin.rpc(
+        "get_lead_by_session",
+        {
+          p_session_id: session_id,
+        },
+      );
       if (rpcErr) {
         audit(admin, {
           stage: "lead_resolve_failed",
@@ -392,10 +430,14 @@ Deno.serve(async (req: Request) => {
           error_code: leadErr?.code ?? "lead_create_failed",
           error_message: leadErr?.message ?? "Failed to initialize session.",
         });
-        return serverError("lead_create_failed", "Failed to initialize session.", {
-          code: leadErr?.code ?? null,
-          message: leadErr?.message ?? null,
-        });
+        return serverError(
+          "lead_create_failed",
+          "Failed to initialize session.",
+          {
+            code: leadErr?.code ?? null,
+            message: leadErr?.message ?? null,
+          },
+        );
       }
       lead_id = newLead.id as string;
       audit(admin, {
@@ -435,7 +477,8 @@ Deno.serve(async (req: Request) => {
         });
       } else if (existingFiles && existingFiles.length > 0) {
         quote_file_id = (existingFiles[0].id as string) ?? null;
-        const existingLeadId = (existingFiles[0].lead_id as string | null) ?? null;
+        const existingLeadId = (existingFiles[0].lead_id as string | null) ??
+          null;
         if (existingLeadId) lead_id = existingLeadId;
       }
     }
@@ -466,12 +509,17 @@ Deno.serve(async (req: Request) => {
           session_id,
           lead_id,
           error_code: qfInsertErr?.code ?? "quote_file_create_failed",
-          error_message: qfInsertErr?.message ?? "Failed to register your file.",
+          error_message: qfInsertErr?.message ??
+            "Failed to register your file.",
         });
-        return serverError("quote_file_create_failed", "Failed to register your file.", {
-          code: qfInsertErr?.code ?? null,
-          message: qfInsertErr?.message ?? null,
-        });
+        return serverError(
+          "quote_file_create_failed",
+          "Failed to register your file.",
+          {
+            code: qfInsertErr?.code ?? null,
+            message: qfInsertErr?.message ?? null,
+          },
+        );
       }
       quote_file_id = newFile.id as string;
       audit(admin, {
@@ -546,12 +594,17 @@ Deno.serve(async (req: Request) => {
           lead_id,
           quote_file_id,
           error_code: ssInsertErr?.code ?? "scan_session_create_failed",
-          error_message: ssInsertErr?.message ?? "Failed to start scan session.",
+          error_message: ssInsertErr?.message ??
+            "Failed to start scan session.",
         });
-        return serverError("scan_session_create_failed", "Failed to start scan session.", {
-          code: ssInsertErr?.code ?? null,
-          message: ssInsertErr?.message ?? null,
-        });
+        return serverError(
+          "scan_session_create_failed",
+          "Failed to start scan session.",
+          {
+            code: ssInsertErr?.code ?? null,
+            message: ssInsertErr?.message ?? null,
+          },
+        );
       }
       scan_session_id = newSession.id as string;
       audit(admin, {

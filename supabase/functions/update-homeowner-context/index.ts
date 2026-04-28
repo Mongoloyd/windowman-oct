@@ -77,18 +77,19 @@ Deno.serve(async (req) => {
   }
 
   const lead_id = typeof body.lead_id === "string" ? body.lead_id : "";
-  const scan_session_id =
-    typeof body.scan_session_id === "string" ? body.scan_session_id : "";
-  const property_type_detail =
-    typeof body.property_type_detail === "string" ? body.property_type_detail : null;
+  const scan_session_id = typeof body.scan_session_id === "string"
+    ? body.scan_session_id
+    : "";
+  const property_type_detail = typeof body.property_type_detail === "string"
+    ? body.property_type_detail
+    : null;
   const hoa_or_condo_complexity =
     typeof body.hoa_or_condo_complexity === "string"
       ? body.hoa_or_condo_complexity
       : null;
-  const handoff_consent_status =
-    typeof body.handoff_consent_status === "string"
-      ? body.handoff_consent_status
-      : null;
+  const handoff_consent_status = typeof body.handoff_consent_status === "string"
+    ? body.handoff_consent_status
+    : null;
 
   if (!UUID_RE.test(lead_id)) {
     return json(400, { error: "invalid_lead_id" });
@@ -96,16 +97,26 @@ Deno.serve(async (req) => {
   if (!UUID_RE.test(scan_session_id)) {
     return json(400, { error: "invalid_scan_session_id" });
   }
-  if (!property_type_detail && !hoa_or_condo_complexity && !handoff_consent_status) {
+  if (
+    !property_type_detail && !hoa_or_condo_complexity && !handoff_consent_status
+  ) {
     return json(400, { error: "no_fields_provided" });
   }
-  if (property_type_detail !== null && !ALLOWED_PROPERTY.has(property_type_detail)) {
+  if (
+    property_type_detail !== null && !ALLOWED_PROPERTY.has(property_type_detail)
+  ) {
     return json(400, { error: "invalid_property_type_detail" });
   }
-  if (hoa_or_condo_complexity !== null && !ALLOWED_HOA.has(hoa_or_condo_complexity)) {
+  if (
+    hoa_or_condo_complexity !== null &&
+    !ALLOWED_HOA.has(hoa_or_condo_complexity)
+  ) {
     return json(400, { error: "invalid_hoa_or_condo_complexity" });
   }
-  if (handoff_consent_status !== null && !ALLOWED_CONSENT.has(handoff_consent_status)) {
+  if (
+    handoff_consent_status !== null &&
+    !ALLOWED_CONSENT.has(handoff_consent_status)
+  ) {
     return json(400, { error: "invalid_handoff_consent_status" });
   }
 
@@ -123,7 +134,10 @@ Deno.serve(async (req) => {
     .maybeSingle();
 
   if (sessionError) {
-    console.error("[update-homeowner-context] session lookup failed", sessionError);
+    console.error(
+      "[update-homeowner-context] session lookup failed",
+      sessionError,
+    );
     return json(500, { error: "session_lookup_failed" });
   }
   if (!session || session.lead_id !== lead_id) {
@@ -131,10 +145,16 @@ Deno.serve(async (req) => {
   }
 
   // Build the update payload — only set fields that were actually provided.
-  const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  const update: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  };
   if (property_type_detail) update.property_type_detail = property_type_detail;
-  if (hoa_or_condo_complexity) update.hoa_or_condo_complexity = hoa_or_condo_complexity;
-  if (handoff_consent_status) update.handoff_consent_status = handoff_consent_status;
+  if (hoa_or_condo_complexity) {
+    update.hoa_or_condo_complexity = hoa_or_condo_complexity;
+  }
+  if (handoff_consent_status) {
+    update.handoff_consent_status = handoff_consent_status;
+  }
 
   const { error: updateError } = await admin
     .from("leads")
@@ -161,7 +181,10 @@ Deno.serve(async (req) => {
       },
     });
   } catch (e) {
-    console.warn("[update-homeowner-context] audit insert failed (non-fatal)", e);
+    console.warn(
+      "[update-homeowner-context] audit insert failed (non-fatal)",
+      e,
+    );
   }
 
   return json(200, { ok: true });

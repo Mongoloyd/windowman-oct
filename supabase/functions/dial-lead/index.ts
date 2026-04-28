@@ -13,7 +13,10 @@
  * 6. Logs voice_followup_queued to lead_events
  */
 
-import { corsHeaders, validateAdminRequestWithRole } from "../_shared/adminAuth.ts";
+import {
+  corsHeaders,
+  validateAdminRequestWithRole,
+} from "../_shared/adminAuth.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -21,7 +24,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const validation = await validateAdminRequestWithRole(req, ["super_admin", "operator"]);
+    const validation = await validateAdminRequestWithRole(req, [
+      "super_admin",
+      "operator",
+    ]);
     if (!validation.ok) return validation.response;
 
     const { supabaseAdmin: supabase } = validation;
@@ -32,28 +38,39 @@ Deno.serve(async (req) => {
     if (!lead_id) {
       return new Response(
         JSON.stringify({ error: "lead_id is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
     // ── 1. Look up lead ──────────────────────────────────────────────────
     const { data: lead, error: leadErr } = await supabase
       .from("leads")
-      .select("id, phone_e164, first_name, county, grade, flag_count, latest_scan_session_id, deal_status, project_type, window_count, quote_range")
+      .select(
+        "id, phone_e164, first_name, county, grade, flag_count, latest_scan_session_id, deal_status, project_type, window_count, quote_range",
+      )
       .eq("id", lead_id)
       .maybeSingle();
 
     if (leadErr || !lead) {
       return new Response(
         JSON.stringify({ error: "Lead not found" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
     if (!lead.phone_e164) {
       return new Response(
         JSON.stringify({ error: "Lead has no phone number" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -95,10 +112,16 @@ Deno.serve(async (req) => {
       .single();
 
     if (insertErr) {
-      console.error("[dial-lead] Failed to insert voice_followups:", insertErr.message);
+      console.error(
+        "[dial-lead] Failed to insert voice_followups:",
+        insertErr.message,
+      );
       return new Response(
         JSON.stringify({ error: "Failed to queue call" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -120,11 +143,17 @@ Deno.serve(async (req) => {
         } else {
           webhookStatus = "failed";
           const errText = await resp.text().catch(() => "unknown");
-          console.error("[dial-lead] webhook failed:", `HTTP ${resp.status}: ${errText}`);
+          console.error(
+            "[dial-lead] webhook failed:",
+            `HTTP ${resp.status}: ${errText}`,
+          );
         }
       } catch (err) {
         webhookStatus = "failed";
-        console.error("[dial-lead] webhook error:", err instanceof Error ? err.message : err);
+        console.error(
+          "[dial-lead] webhook error:",
+          err instanceof Error ? err.message : err,
+        );
       }
 
       // Update followup status based on webhook result
@@ -133,7 +162,9 @@ Deno.serve(async (req) => {
         .update({ status: webhookStatus === "sent" ? "in_progress" : "failed" })
         .eq("id", followup.id);
     } else {
-      console.log("[dial-lead] PHONECALL_BOT_WEBHOOK_URL not set — skipping webhook fire");
+      console.log(
+        "[dial-lead] PHONECALL_BOT_WEBHOOK_URL not set — skipping webhook fire",
+      );
     }
 
     // ── 5. Bump deal_status ONLY if null or 'new' (.in() guard) ──────────
@@ -180,13 +211,19 @@ Deno.serve(async (req) => {
         followup_id: followup.id,
         webhook_status: webhookStatus,
       }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
   } catch (err) {
     console.error("[dial-lead] unhandled error:", err);
     return new Response(
       JSON.stringify({ error: "Internal server error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
   }
 });

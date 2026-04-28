@@ -38,7 +38,9 @@ function percentile(sorted: number[], p: number): number {
   const lower = Math.floor(rank);
   const upper = Math.ceil(rank);
   const weight = rank - lower;
-  return Math.round((sorted[lower] * (1 - weight) + sorted[upper] * weight) * 100) / 100;
+  return Math.round(
+    (sorted[lower] * (1 - weight) + sorted[upper] * weight) * 100,
+  ) / 100;
 }
 
 function median(sorted: number[]): number {
@@ -47,14 +49,19 @@ function median(sorted: number[]): number {
 
 function average(values: number[]): number {
   if (values.length === 0) return 0;
-  return Math.round((values.reduce((s, v) => s + v, 0) / values.length) * 100) / 100;
+  return Math.round((values.reduce((s, v) => s + v, 0) / values.length) * 100) /
+    100;
 }
 
 // ── County normalizer (mirrors scan-quote's countyBenchmarks.ts) ───────
-function normalizeCounty(input: string | null | undefined): { key: string; label: string } {
+function normalizeCounty(
+  input: string | null | undefined,
+): { key: string; label: string } {
   if (!input) return { key: "south-florida", label: "South Florida" };
   const v = input.trim().toLowerCase();
-  if (v.includes("miami") || v.includes("dade")) return { key: "miami-dade", label: "Miami-Dade" };
+  if (v.includes("miami") || v.includes("dade")) {
+    return { key: "miami-dade", label: "Miami-Dade" };
+  }
   if (v.includes("broward")) return { key: "broward", label: "Broward" };
   if (v.includes("palm")) return { key: "palm-beach", label: "Palm Beach" };
   return { key: "south-florida", label: "South Florida" };
@@ -70,7 +77,7 @@ Deno.serve(async (req) => {
   try {
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
     // ── 1. Fetch all completed analyses with full_json ─────────────────
@@ -87,13 +94,19 @@ Deno.serve(async (req) => {
 
     if (!analyses || analyses.length === 0) {
       console.log("[refresh-benchmarks] No completed analyses found");
-      return json({ success: true, buckets_updated: 0, total_analyses_processed: 0 });
+      return json({
+        success: true,
+        buckets_updated: 0,
+        total_analyses_processed: 0,
+      });
     }
 
-    console.log(`[refresh-benchmarks] Processing ${analyses.length} completed analyses`);
+    console.log(
+      `[refresh-benchmarks] Processing ${analyses.length} completed analyses`,
+    );
 
     // ── 2. Resolve county for each analysis via scan_session → lead ────
-    const sessionIds = analyses.map(a => a.scan_session_id).filter(Boolean);
+    const sessionIds = analyses.map((a) => a.scan_session_id).filter(Boolean);
     const { data: sessions } = await supabase
       .from("scan_sessions")
       .select("id, lead_id")
@@ -110,7 +123,10 @@ Deno.serve(async (req) => {
       .select("id, county, project_type")
       .in("id", leadIds);
 
-    const leadMap = new Map<string, { county: string | null; project_type: string | null }>();
+    const leadMap = new Map<
+      string,
+      { county: string | null; project_type: string | null }
+    >();
     for (const l of leads || []) {
       leadMap.set(l.id, { county: l.county, project_type: l.project_type });
     }
@@ -129,32 +145,54 @@ Deno.serve(async (req) => {
       const fullJson = analysis.full_json as Record<string, unknown> | null;
       if (!fullJson) continue;
 
-      const derivedMetrics = fullJson.derived_metrics as Record<string, unknown> | undefined;
+      const derivedMetrics = fullJson.derived_metrics as
+        | Record<string, unknown>
+        | undefined;
       if (!derivedMetrics) continue;
 
-      const perOpening = derivedMetrics.per_opening as Record<string, unknown> | undefined;
-      const installedPPO = perOpening?.installed_price_per_opening as number | null | undefined;
-      const contractPPO = perOpening?.contract_price_per_opening as number | null | undefined;
+      const perOpening = derivedMetrics.per_opening as
+        | Record<string, unknown>
+        | undefined;
+      const installedPPO = perOpening?.installed_price_per_opening as
+        | number
+        | null
+        | undefined;
+      const contractPPO = perOpening?.contract_price_per_opening as
+        | number
+        | null
+        | undefined;
 
       const price = installedPPO ?? contractPPO;
       if (!price || price <= 0 || price > 10000) continue; // sanity bounds
 
       const leadId = sessionToLead.get(analysis.scan_session_id);
       const leadData = leadId ? leadMap.get(leadId) : undefined;
-      const { key: countyKey, label: countyLabel } = normalizeCounty(leadData?.county);
+      const { key: countyKey, label: countyLabel } = normalizeCounty(
+        leadData?.county,
+      );
       const projectType = leadData?.project_type || "all";
 
       // Bucket by county+all (aggregate) and county+projectType (specific)
       const allKey = `${countyKey}::all`;
       if (!buckets.has(allKey)) {
-        buckets.set(allKey, { countyKey, countyLabel, projectType: "all", prices: [] });
+        buckets.set(allKey, {
+          countyKey,
+          countyLabel,
+          projectType: "all",
+          prices: [],
+        });
       }
       buckets.get(allKey)!.prices.push(price);
 
       if (projectType !== "all") {
         const specificKey = `${countyKey}::${projectType}`;
         if (!buckets.has(specificKey)) {
-          buckets.set(specificKey, { countyKey, countyLabel, projectType, prices: [] });
+          buckets.set(specificKey, {
+            countyKey,
+            countyLabel,
+            projectType,
+            prices: [],
+          });
         }
         buckets.get(specificKey)!.prices.push(price);
       }
@@ -172,7 +210,9 @@ Deno.serve(async (req) => {
       const sourceType = meetsThreshold ? "computed" : "insufficient_sample";
       const sourceLabel = meetsThreshold
         ? `Computed from ${count} WindowMan scans as of ${now.split("T")[0]}`
-        : `Only ${count} sample${count !== 1 ? "s" : ""} — below ${MIN_SAMPLE_SIZE} minimum threshold`;
+        : `Only ${count} sample${
+          count !== 1 ? "s" : ""
+        } — below ${MIN_SAMPLE_SIZE} minimum threshold`;
 
       const { error: upsertErr } = await supabase
         .from("county_benchmarks")
@@ -191,14 +231,21 @@ Deno.serve(async (req) => {
             computed_at: now,
             updated_at: now,
           },
-          { onConflict: "county_key,project_type" }
+          { onConflict: "county_key,project_type" },
         );
 
       if (upsertErr) {
-        console.error(`[refresh-benchmarks] Upsert failed for ${bucket.countyKey}/${bucket.projectType}:`, upsertErr);
+        console.error(
+          `[refresh-benchmarks] Upsert failed for ${bucket.countyKey}/${bucket.projectType}:`,
+          upsertErr,
+        );
       } else {
         bucketsUpdated++;
-        console.log(`[refresh-benchmarks] ${bucket.countyKey}/${bucket.projectType}: ${count} samples, median=$${median(sorted)}, P25=$${percentile(sorted, 25)}, P75=$${percentile(sorted, 75)}`);
+        console.log(
+          `[refresh-benchmarks] ${bucket.countyKey}/${bucket.projectType}: ${count} samples, median=$${
+            median(sorted)
+          }, P25=$${percentile(sorted, 25)}, P75=$${percentile(sorted, 75)}`,
+        );
       }
     }
 
@@ -218,7 +265,9 @@ Deno.serve(async (req) => {
       },
     });
 
-    console.log(`[refresh-benchmarks] Complete: ${bucketsUpdated} buckets updated from ${analyses.length} analyses`);
+    console.log(
+      `[refresh-benchmarks] Complete: ${bucketsUpdated} buckets updated from ${analyses.length} analyses`,
+    );
 
     return json({
       success: true,

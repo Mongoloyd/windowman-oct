@@ -1,8 +1,10 @@
 import { assertEquals } from "https://deno.land/std@0.168.0/testing/asserts.ts";
-import { computeGrade, GRADE_RANK, type ExtractionResult } from "./scoring.ts";
+import { computeGrade, type ExtractionResult, GRADE_RANK } from "./scoring.ts";
 import { BASE_GOOD_QUOTE } from "./fixtures.ts";
 
-function makeQuote(overrides: Partial<ExtractionResult> = {}): ExtractionResult {
+function makeQuote(
+  overrides: Partial<ExtractionResult> = {},
+): ExtractionResult {
   const base = structuredClone(BASE_GOOD_QUOTE) as ExtractionResult;
   return {
     ...base,
@@ -199,7 +201,11 @@ Deno.test("Cumulative amber: minor weaknesses across all 5 pillars → grade B",
       hvhz_zone: false,
       opening_level_glass_specs_present: false,
       // Install: no disposal (-10), no accessories (-5), no wall repair (-10)
-      installation: { scope_detail: "remove/replace/flash/seal", disposal_included: false, accessories_mentioned: false },
+      installation: {
+        scope_detail: "remove/replace/flash/seal",
+        disposal_included: false,
+        accessories_mentioned: false,
+      },
       wall_repair_scope: undefined,
       stucco_repair_included: false,
       drywall_repair_included: false,
@@ -210,7 +216,12 @@ Deno.test("Cumulative amber: minor weaknesses across all 5 pillars → grade B",
       cancellation_policy: undefined,
       completion_timeline_text: undefined,
       // Warranty: short labor (1yr → -15), not transferable (-5)
-      warranty: { labor_years: 1, manufacturer_years: 20, transferable: false, details: "written warranty included" },
+      warranty: {
+        labor_years: 1,
+        manufacturer_years: 20,
+        transferable: false,
+        details: "written warranty included",
+      },
     }),
   );
   assertEquals(result.letterGrade, "B");

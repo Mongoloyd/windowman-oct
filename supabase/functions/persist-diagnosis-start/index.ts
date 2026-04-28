@@ -75,8 +75,8 @@ Deno.serve(async (req) => {
       },
     );
   }
-  const analysisIdProvided =
-    body.analysis_id !== undefined && body.analysis_id !== null;
+  const analysisIdProvided = body.analysis_id !== undefined &&
+    body.analysis_id !== null;
   if (analysisIdProvided && !isUuid(body.analysis_id)) {
     return new Response(
       JSON.stringify({ error: "analysis_id must be a uuid when provided" }),

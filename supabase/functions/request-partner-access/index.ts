@@ -80,8 +80,8 @@ Deno.serve(async (req) => {
   });
 
   // 1. Create auth user
-  const { data: createdUser, error: createErr } =
-    await admin.auth.admin.createUser({
+  const { data: createdUser, error: createErr } = await admin.auth.admin
+    .createUser({
       email,
       password,
       email_confirm: true,

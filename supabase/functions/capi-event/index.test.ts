@@ -16,18 +16,18 @@
  */
 
 import {
+  assert,
   assertEquals,
   assertNotEquals,
-  assert,
 } from "https://deno.land/std@0.168.0/testing/asserts.ts";
 
 import {
   buildHashedUserData,
+  type CAPIEvent,
   extractClientIp,
   hashPhone,
   isSha256Hex,
   sha256,
-  type CAPIEvent,
 } from "./index.ts";
 
 // ── Helpers ─────────────────────────────────────────────────────────────────

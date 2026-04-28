@@ -153,7 +153,10 @@ async function attemptWebhook(
         retryable: false,
       };
     }
-    if (response.status >= 400 && response.status < 500 && response.status !== 408 && response.status !== 429) {
+    if (
+      response.status >= 400 && response.status < 500 &&
+      response.status !== 408 && response.status !== 429
+    ) {
       return {
         success: false,
         outcome: "http_4xx",
@@ -177,7 +180,8 @@ async function attemptWebhook(
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    const isTimeout = message.toLowerCase().includes("timeout") || message.toLowerCase().includes("abort");
+    const isTimeout = message.toLowerCase().includes("timeout") ||
+      message.toLowerCase().includes("abort");
     return {
       success: false,
       outcome: isTimeout ? "timeout" : "network_error",
@@ -216,8 +220,11 @@ async function attemptEmail(
     };
   }
 
-  const fromAddr = Deno.env.get("REPORT_FROM_EMAIL") ?? "WindowMan <onboarding@resend.dev>";
-  const subject = `[WindowMan] Qualified lead — ${delivery.client_slug ?? "unknown client"} — ${delivery.lead_id}`;
+  const fromAddr = Deno.env.get("REPORT_FROM_EMAIL") ??
+    "WindowMan <onboarding@resend.dev>";
+  const subject = `[WindowMan] Qualified lead — ${
+    delivery.client_slug ?? "unknown client"
+  } — ${delivery.lead_id}`;
   const html = `
     <h2>Qualified lead from WindowMan</h2>
     <p><strong>Lead ID:</strong> ${delivery.lead_id}</p>
@@ -229,15 +236,18 @@ ${escapeHtml(JSON.stringify(payload, null, 2))}
   `;
 
   try {
-    const response = await fetch("https://connector-gateway.lovable.dev/resend/emails", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${lovableKey}`,
-        "X-Connection-Api-Key": resendKey,
+    const response = await fetch(
+      "https://connector-gateway.lovable.dev/resend/emails",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${lovableKey}`,
+          "X-Connection-Api-Key": resendKey,
+        },
+        body: JSON.stringify({ from: fromAddr, to: [to], subject, html }),
       },
-      body: JSON.stringify({ from: fromAddr, to: [to], subject, html }),
-    });
+    );
     const text = await response.text().catch(() => "");
     const snippet = text.slice(0, RESPONSE_SNIPPET_BYTES);
     const durationMs = Date.now() - startedAt;
@@ -280,8 +290,17 @@ ${escapeHtml(JSON.stringify(payload, null, 2))}
 }
 
 function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] ?? c)
+  return s.replace(
+    /[&<>"']/g,
+    (
+      c,
+    ) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    }[c] ?? c),
   );
 }
 
@@ -343,7 +362,11 @@ async function processDelivery(
         retryable: false,
       };
     } else {
-      result = await attemptEmail(delivery.destination_snapshot, payload, delivery);
+      result = await attemptEmail(
+        delivery.destination_snapshot,
+        payload,
+        delivery,
+      );
     }
   } else {
     result = {
@@ -413,7 +436,9 @@ async function processDelivery(
   if (nextStatus === "delivered" || nextStatus === "dead_letter") {
     await supabase.from("lead_events").insert({
       lead_id: delivery.lead_id,
-      event_name: nextStatus === "delivered" ? "crm_handoff_delivered" : "crm_handoff_dead_letter",
+      event_name: nextStatus === "delivered"
+        ? "crm_handoff_delivered"
+        : "crm_handoff_dead_letter",
       event_source: "edge:dispatch-lead",
       metadata: {
         delivery_id: delivery.delivery_id,
@@ -427,7 +452,11 @@ async function processDelivery(
     });
   }
 
-  return { delivery_id: delivery.delivery_id, final_status: nextStatus, success: result.success };
+  return {
+    delivery_id: delivery.delivery_id,
+    final_status: nextStatus,
+    success: result.success,
+  };
 }
 
 async function buildOutboundPayload(
@@ -442,7 +471,9 @@ async function buildOutboundPayload(
   try {
     const { data: lead } = await supabase
       .from("leads")
-      .select("id,first_name,last_name,phone_e164,email,county,project_type,window_count,grade,quote_amount,latest_analysis_id,client_slug")
+      .select(
+        "id,first_name,last_name,phone_e164,email,county,project_type,window_count,grade,quote_amount,latest_analysis_id,client_slug",
+      )
       .eq("id", delivery.lead_id)
       .maybeSingle();
 
@@ -450,7 +481,9 @@ async function buildOutboundPayload(
     if (lead?.latest_analysis_id) {
       const { data: analysis } = await supabase
         .from("analyses")
-        .select("id,grade,confidence_score,contractor_brief,contractor_brief_json,price_fairness,markup_estimate,negotiation_leverage")
+        .select(
+          "id,grade,confidence_score,contractor_brief,contractor_brief_json,price_fairness,markup_estimate,negotiation_leverage",
+        )
         .eq("id", lead.latest_analysis_id)
         .maybeSingle();
       brief = (analysis as Record<string, unknown> | null) ?? null;
@@ -475,7 +508,9 @@ async function buildOutboundPayload(
 
 // ─── HTTP entry ──────────────────────────────────────────────────────────
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
 
   if (req.method !== "POST") {
     return json({ error: "Method not allowed" }, 405);
@@ -512,10 +547,16 @@ Deno.serve(async (req) => {
 
     if (error) return json({ error: error.message }, 500);
 
-    const target = (rows as ClaimedDelivery[] | null)?.find((r) => r.delivery_id === body.delivery_id);
+    const target = (rows as ClaimedDelivery[] | null)?.find((r) =>
+      r.delivery_id === body.delivery_id
+    );
     if (!target) {
       // Either already terminal or claimed by a concurrent worker. Both safe.
-      return json({ ok: true, processed: 0, note: "delivery not in claimable set" }, 200);
+      return json({
+        ok: true,
+        processed: 0,
+        note: "delivery not in claimable set",
+      }, 200);
     }
     const result = await processDelivery(supabase, target);
     return json({ ok: true, processed: 1, results: [result] }, 200);
@@ -566,7 +607,11 @@ Deno.serve(async (req) => {
           updated_at: new Date().toISOString(),
         })
         .eq("id", row.delivery_id);
-      results.push({ delivery_id: row.delivery_id, final_status: "failed", success: false });
+      results.push({
+        delivery_id: row.delivery_id,
+        final_status: "failed",
+        success: false,
+      });
     }
   }
 

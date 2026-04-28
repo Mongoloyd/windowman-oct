@@ -210,6 +210,7 @@ function errorFor(
 }
 
 async function nextAttemptNumber(
+  // deno-lint-ignore no-explicit-any
   supabaseAdmin: any,
   outboxId: string,
 ): Promise<number | null> {
@@ -227,6 +228,7 @@ async function nextAttemptNumber(
 }
 
 async function simulateOne(
+  // deno-lint-ignore no-explicit-any
   supabaseAdmin: any,
   outboxId: string,
   write: boolean,

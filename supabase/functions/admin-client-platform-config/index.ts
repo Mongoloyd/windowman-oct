@@ -1,15 +1,67 @@
-import { errorResponse, successResponse, validateAdminRequestWithRole, corsHeaders } from "../_shared/adminAuth.ts";
-import { evaluatePlatformReadiness, normalizePlatformName } from "../_shared/platformReadinessMatrix.ts";
+import {
+  corsHeaders,
+  errorResponse,
+  successResponse,
+  validateAdminRequestWithRole,
+} from "../_shared/adminAuth.ts";
+import {
+  evaluatePlatformReadiness,
+  normalizePlatformName,
+} from "../_shared/platformReadinessMatrix.ts";
 
-type ConfigState = "draft" | "incomplete" | "pending_validation" | "validated" | "active" | "paused" | "retired" | "invalid";
-type ValidationStatus = "not_tested" | "validation_passed" | "validation_failed" | "validation_stale" | "requires_revalidation";
+type ConfigState =
+  | "draft"
+  | "incomplete"
+  | "pending_validation"
+  | "validated"
+  | "active"
+  | "paused"
+  | "retired"
+  | "invalid";
+type ValidationStatus =
+  | "not_tested"
+  | "validation_passed"
+  | "validation_failed"
+  | "validation_stale"
+  | "requires_revalidation";
 type CompletenessStatus = "complete" | "warning" | "incomplete";
 
-type Action = "list" | "upsert_metadata" | "set_token" | "run_validation" | "set_state";
+type Action =
+  | "list"
+  | "upsert_metadata"
+  | "set_token"
+  | "run_validation"
+  | "set_state";
 
-const PLATFORM_VALUES = new Set(["meta", "tiktok", "google_ads", "ga4", "gtm_server", "crm_webhook", "internal", "other"]);
-const CONFIG_STATES = new Set(["draft", "incomplete", "pending_validation", "validated", "active", "paused", "retired", "invalid"]);
-const VALIDATION_STATUSES = new Set(["not_tested", "validation_passed", "validation_failed", "validation_stale", "requires_revalidation"]);
+// deno-lint-ignore no-unused-vars
+const PLATFORM_VALUES = new Set([
+  "meta",
+  "tiktok",
+  "google_ads",
+  "ga4",
+  "gtm_server",
+  "crm_webhook",
+  "internal",
+  "other",
+]);
+const CONFIG_STATES = new Set([
+  "draft",
+  "incomplete",
+  "pending_validation",
+  "validated",
+  "active",
+  "paused",
+  "retired",
+  "invalid",
+]);
+// deno-lint-ignore no-unused-vars
+const VALIDATION_STATUSES = new Set([
+  "not_tested",
+  "validation_passed",
+  "validation_failed",
+  "validation_stale",
+  "requires_revalidation",
+]);
 const HTTPS_RE = /^https:\/\//i;
 
 interface ClientRow {
@@ -52,7 +104,9 @@ function sanitizeText(value: unknown, max = 500): string | null {
 }
 
 function normalizePlatform(value: unknown): string {
-  return normalizePlatformName(sanitizeText(value, 40)?.toLowerCase() ?? "other");
+  return normalizePlatformName(
+    sanitizeText(value, 40)?.toLowerCase() ?? "other",
+  );
 }
 
 function destinationSummary(row: Partial<ConfigRow>) {
@@ -66,7 +120,10 @@ function destinationSummary(row: Partial<ConfigRow>) {
   };
 }
 
-function validateCompleteness(row: Partial<ConfigRow>, client?: ClientRow | null) {
+function validateCompleteness(
+  row: Partial<ConfigRow>,
+  client?: ClientRow | null,
+) {
   const platform = normalizePlatform(row.platform_name);
   const reasons: string[] = [];
   const warnings: string[] = [];
@@ -89,7 +146,8 @@ function validateCompleteness(row: Partial<ConfigRow>, client?: ClientRow | null
   if (!active) reasons.push("inactive_config");
   if (!endpointValid) reasons.push("missing_endpoint_url");
 
-  const needsToken = platform === "meta" || platform === "tiktok" || platform === "google_ads" || platform === "ga4";
+  const needsToken = platform === "meta" || platform === "tiktok" ||
+    platform === "google_ads" || platform === "ga4";
   const matrix = evaluatePlatformReadiness({
     platform_name: platform,
     is_active: active,
@@ -103,23 +161,47 @@ function validateCompleteness(row: Partial<ConfigRow>, client?: ClientRow | null
   required.token_present = needsToken ? tokenPresent : true;
   required.destination_id_present = matrix.destinationReady;
   if (needsToken && !tokenPresent) reasons.push("missing_token");
-  if (!needsToken && matrix.warningFields.includes("token_present")) warnings.push("token_not_validated");
+  if (!needsToken && matrix.warningFields.includes("token_present")) {
+    warnings.push("token_not_validated");
+  }
   if (!matrix.destinationReady) {
-    if (matrix.missingFields.includes("pixel_id_present")) reasons.push("missing_pixel_id");
-    if (matrix.missingFields.includes("dataset_id_present")) reasons.push("missing_dataset_id");
-    if (matrix.missingFields.includes("conversion_id_present")) reasons.push("missing_conversion_id");
-    if (matrix.missingFields.includes("conversion_label_present")) reasons.push("missing_conversion_label");
-    if (matrix.missingFields.includes("endpoint_url_present")) reasons.push("missing_endpoint_url");
+    if (matrix.missingFields.includes("pixel_id_present")) {
+      reasons.push("missing_pixel_id");
+    }
+    if (matrix.missingFields.includes("dataset_id_present")) {
+      reasons.push("missing_dataset_id");
+    }
+    if (matrix.missingFields.includes("conversion_id_present")) {
+      reasons.push("missing_conversion_id");
+    }
+    if (matrix.missingFields.includes("conversion_label_present")) {
+      reasons.push("missing_conversion_label");
+    }
+    if (matrix.missingFields.includes("endpoint_url_present")) {
+      reasons.push("missing_endpoint_url");
+    }
   }
 
   if (row.config_state === "paused") reasons.push("paused_config");
   if (row.config_state === "retired") reasons.push("retired_config");
-  if (row.validation_status === "validation_failed") reasons.push("validation_failed");
-  if (row.validation_status === "requires_revalidation") warnings.push("validation_required");
-  if (row.validation_status === "validation_stale") warnings.push("token_validation_stale");
-  if (row.validation_status === "not_tested") warnings.push("validation_required");
+  if (row.validation_status === "validation_failed") {
+    reasons.push("validation_failed");
+  }
+  if (row.validation_status === "requires_revalidation") {
+    warnings.push("validation_required");
+  }
+  if (row.validation_status === "validation_stale") {
+    warnings.push("token_validation_stale");
+  }
+  if (row.validation_status === "not_tested") {
+    warnings.push("validation_required");
+  }
 
-  const completeness: CompletenessStatus = reasons.length > 0 ? "incomplete" : warnings.length > 0 ? "warning" : "complete";
+  const completeness: CompletenessStatus = reasons.length > 0
+    ? "incomplete"
+    : warnings.length > 0
+    ? "warning"
+    : "complete";
   return {
     platform,
     completeness,
@@ -139,7 +221,9 @@ function validateCompleteness(row: Partial<ConfigRow>, client?: ClientRow | null
 async function sha256Prefix(token: string): Promise<string> {
   const bytes = new TextEncoder().encode(token);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
-  const hex = Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  const hex = Array.from(new Uint8Array(digest)).map((b) =>
+    b.toString(16).padStart(2, "0")
+  ).join("");
   return `sha256:${hex.slice(0, 12)}`;
 }
 
@@ -155,19 +239,34 @@ function rowForClient(data: unknown): ClientRow | null {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-  if (req.method !== "POST") return errorResponse(405, "method_not_allowed", "Use POST");
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+  if (req.method !== "POST") {
+    return errorResponse(405, "method_not_allowed", "Use POST");
+  }
 
   try {
     const body = await req.json().catch(() => ({}));
     const action = body.action as Action;
     const payload = body.payload ?? {};
 
-    if (!["list", "upsert_metadata", "set_token", "run_validation", "set_state"].includes(action)) {
-      return errorResponse(400, "invalid_action", "Unknown platform config action");
+    if (
+      !["list", "upsert_metadata", "set_token", "run_validation", "set_state"]
+        .includes(action)
+    ) {
+      return errorResponse(
+        400,
+        "invalid_action",
+        "Unknown platform config action",
+      );
     }
 
-    const validation = await validateAdminRequestWithRole(req, ["super_admin", "operator", "viewer"]);
+    const validation = await validateAdminRequestWithRole(req, [
+      "super_admin",
+      "operator",
+      "viewer",
+    ]);
     if (!validation.ok) return validation.response;
 
     const { supabaseAdmin, userId, role } = validation;
@@ -176,33 +275,58 @@ Deno.serve(async (req) => {
 
     if (action === "list") {
       const [clientsResult, configsResult] = await Promise.all([
-        supabaseAdmin.from("clients").select("id, name, slug, is_active").order("name", { ascending: true }),
+        supabaseAdmin.from("clients").select("id, name, slug, is_active").order(
+          "name",
+          { ascending: true },
+        ),
         supabaseAdmin
           .from("client_platform_configs")
-          .select("id, client_id, platform_name, pixel_id, dataset_id, conversion_id, conversion_label, endpoint_url, token_secret_id, is_active, config_state, validation_status, validated_at, validation_summary, last_validation_error, token_last_rotated_at, token_fingerprint_prefix, last_operator_id, last_operator_action_at, created_at, updated_at, clients(id, name, slug, is_active)")
+          .select(
+            "id, client_id, platform_name, pixel_id, dataset_id, conversion_id, conversion_label, endpoint_url, token_secret_id, is_active, config_state, validation_status, validated_at, validation_summary, last_validation_error, token_last_rotated_at, token_fingerprint_prefix, last_operator_id, last_operator_action_at, created_at, updated_at, clients(id, name, slug, is_active)",
+          )
           .order("updated_at", { ascending: false }),
       ]);
       if (clientsResult.error) throw clientsResult.error;
       if (configsResult.error) throw configsResult.error;
 
-      const rows = ((configsResult.data ?? []) as unknown as ConfigRow[]).map((row) => {
-        const client = rowForClient(row.clients);
-        const readiness = validateCompleteness(row, client);
-        return { ...row, clients: client, token_secret_id: row.token_secret_id ? "present" : null, readiness };
-      });
+      const rows = ((configsResult.data ?? []) as unknown as ConfigRow[]).map(
+        (row) => {
+          const client = rowForClient(row.clients);
+          const readiness = validateCompleteness(row, client);
+          return {
+            ...row,
+            clients: client,
+            token_secret_id: row.token_secret_id ? "present" : null,
+            readiness,
+          };
+        },
+      );
 
-      return successResponse({ data: { clients: clientsResult.data ?? [], configs: rows } });
+      return successResponse({
+        data: { clients: clientsResult.data ?? [], configs: rows },
+      });
     }
 
-    if (!canWrite) return errorResponse(403, "forbidden", "Viewer role cannot modify platform configs");
+    if (!canWrite) {
+      return errorResponse(
+        403,
+        "forbidden",
+        "Viewer role cannot modify platform configs",
+      );
+    }
 
     if (action === "upsert_metadata") {
       const id = sanitizeText(payload.id, 80);
       const clientId = sanitizeText(payload.client_id, 80);
       const platform = normalizePlatform(payload.platform_name);
-      const state = (sanitizeText(payload.config_state, 40) ?? "draft") as ConfigState;
-      if (!CONFIG_STATES.has(state)) return errorResponse(400, "invalid_state", "Invalid config_state");
-      if (!id && !clientId) return errorResponse(400, "missing_client", "client_id is required");
+      const state =
+        (sanitizeText(payload.config_state, 40) ?? "draft") as ConfigState;
+      if (!CONFIG_STATES.has(state)) {
+        return errorResponse(400, "invalid_state", "Invalid config_state");
+      }
+      if (!id && !clientId) {
+        return errorResponse(400, "missing_client", "client_id is required");
+      }
 
       const metadata = {
         client_id: clientId,
@@ -220,23 +344,45 @@ Deno.serve(async (req) => {
       };
 
       if (metadata.endpoint_url && !HTTPS_RE.test(metadata.endpoint_url)) {
-        return errorResponse(400, "invalid_endpoint_url", "Endpoint URL must use HTTPS");
+        return errorResponse(
+          400,
+          "invalid_endpoint_url",
+          "Endpoint URL must use HTTPS",
+        );
       }
 
-      const clientResult = await supabaseAdmin.from("clients").select("id, name, slug, is_active").eq("id", metadata.client_id).maybeSingle();
+      const clientResult = await supabaseAdmin.from("clients").select(
+        "id, name, slug, is_active",
+      ).eq("id", metadata.client_id).maybeSingle();
       if (clientResult.error) throw clientResult.error;
-      if (!clientResult.data) return errorResponse(400, "missing_client", "Client does not exist");
+      if (!clientResult.data) {
+        return errorResponse(400, "missing_client", "Client does not exist");
+      }
 
       if (metadata.is_active || metadata.config_state === "active") {
-        const simulated = validateCompleteness({ ...metadata, client_id: metadata.client_id ?? undefined, token_secret_id: payload.token_present ? "present" : null }, rowForClient(clientResult.data));
+        const simulated = validateCompleteness({
+          ...metadata,
+          client_id: metadata.client_id ?? undefined,
+          token_secret_id: payload.token_present ? "present" : null,
+        }, rowForClient(clientResult.data));
         if (!simulated.validation_ready) {
-          return errorResponse(400, "activation_blocked", "Config is incomplete and cannot be activated", { reasons: simulated.reasons });
+          return errorResponse(
+            400,
+            "activation_blocked",
+            "Config is incomplete and cannot be activated",
+            { reasons: simulated.reasons },
+          );
         }
       }
 
       const query = id
-        ? supabaseAdmin.from("client_platform_configs").update(metadata).eq("id", id).select("id").single()
-        : supabaseAdmin.from("client_platform_configs").insert(metadata).select("id").single();
+        ? supabaseAdmin.from("client_platform_configs").update(metadata).eq(
+          "id",
+          id,
+        ).select("id").single()
+        : supabaseAdmin.from("client_platform_configs").insert(metadata).select(
+          "id",
+        ).single();
       const { data, error } = await query;
       if (error) throw error;
       return successResponse({ data });
@@ -245,8 +391,16 @@ Deno.serve(async (req) => {
     if (action === "set_token") {
       const configId = sanitizeText(payload.id, 80);
       const token = sanitizeText(payload.token, 10_000);
-      if (!configId) return errorResponse(400, "missing_config", "Config id is required");
-      if (!token || token.length < 20) return errorResponse(400, "invalid_token", "Token must be at least 20 characters");
+      if (!configId) {
+        return errorResponse(400, "missing_config", "Config id is required");
+      }
+      if (!token || token.length < 20) {
+        return errorResponse(
+          400,
+          "invalid_token",
+          "Token must be at least 20 characters",
+        );
+      }
 
       const { data: config, error: configError } = await supabaseAdmin
         .from("client_platform_configs")
@@ -255,16 +409,23 @@ Deno.serve(async (req) => {
         .single();
       if (configError) throw configError;
 
-      const [{ data: secretId, error: vaultError }, fingerprint] = await Promise.all([
-        supabaseAdmin.rpc("vault_upsert_client_platform_token", {
-          p_client_id: config.client_id,
-          p_platform_name: config.platform_name,
-          p_token: token,
-        }),
-        sha256Prefix(token),
-      ]);
+      const [{ data: secretId, error: vaultError }, fingerprint] = await Promise
+        .all([
+          supabaseAdmin.rpc("vault_upsert_client_platform_token", {
+            p_client_id: config.client_id,
+            p_platform_name: config.platform_name,
+            p_token: token,
+          }),
+          sha256Prefix(token),
+        ]);
       if (vaultError) throw vaultError;
-      if (!secretId) return errorResponse(500, "vault_secret_missing", "Vault did not return a secret reference");
+      if (!secretId) {
+        return errorResponse(
+          500,
+          "vault_secret_missing",
+          "Vault did not return a secret reference",
+        );
+      }
 
       const { error: updateError } = await supabaseAdmin
         .from("client_platform_configs")
@@ -279,12 +440,20 @@ Deno.serve(async (req) => {
         .eq("id", configId);
       if (updateError) throw updateError;
 
-      return successResponse({ data: { token_present: true, token_last_rotated_at: now, token_fingerprint_prefix: fingerprint } });
+      return successResponse({
+        data: {
+          token_present: true,
+          token_last_rotated_at: now,
+          token_fingerprint_prefix: fingerprint,
+        },
+      });
     }
 
     if (action === "run_validation") {
       const configId = sanitizeText(payload.id, 80);
-      if (!configId) return errorResponse(400, "missing_config", "Config id is required");
+      if (!configId) {
+        return errorResponse(400, "missing_config", "Config id is required");
+      }
       const { data: config, error } = await supabaseAdmin
         .from("client_platform_configs")
         .select("*, clients(id, name, slug, is_active)")
@@ -294,7 +463,9 @@ Deno.serve(async (req) => {
       const client = rowForClient((config as ConfigRow).clients);
       const readiness = validateCompleteness(config as ConfigRow, client);
       const passed = readiness.validation_ready;
-      const status: ValidationStatus = passed ? "validation_passed" : "validation_failed";
+      const status: ValidationStatus = passed
+        ? "validation_passed"
+        : "validation_failed";
       const nextState: ConfigState = passed ? "validated" : "invalid";
       const summary = {
         checked_at: now,
@@ -324,13 +495,27 @@ Deno.serve(async (req) => {
         })
         .eq("id", configId);
       if (updateError) throw updateError;
-      return successResponse({ data: { validation_status: status, config_state: nextState, validation_summary: summary } });
+      return successResponse({
+        data: {
+          validation_status: status,
+          config_state: nextState,
+          validation_summary: summary,
+        },
+      });
     }
 
     if (action === "set_state") {
       const configId = sanitizeText(payload.id, 80);
-      const state = sanitizeText(payload.config_state, 40) as ConfigState | null;
-      if (!configId || !state || !CONFIG_STATES.has(state)) return errorResponse(400, "invalid_state", "Valid id and config_state are required");
+      const state = sanitizeText(payload.config_state, 40) as
+        | ConfigState
+        | null;
+      if (!configId || !state || !CONFIG_STATES.has(state)) {
+        return errorResponse(
+          400,
+          "invalid_state",
+          "Valid id and config_state are required",
+        );
+      }
 
       const { data: config, error } = await supabaseAdmin
         .from("client_platform_configs")
@@ -339,22 +524,45 @@ Deno.serve(async (req) => {
         .single();
       if (error) throw error;
 
-      const update: Record<string, unknown> = { config_state: state, last_operator_id: userId, last_operator_action_at: now };
+      const update: Record<string, unknown> = {
+        config_state: state,
+        last_operator_id: userId,
+        last_operator_action_at: now,
+      };
       if (state === "active") {
         const cfg = config as ConfigRow;
         if (cfg.validation_status !== "validation_passed") {
-          return errorResponse(400, "validation_required", "Config must pass local validation before activation");
+          return errorResponse(
+            400,
+            "validation_required",
+            "Config must pass local validation before activation",
+          );
         }
-        const readiness = validateCompleteness({ ...cfg, is_active: true }, rowForClient(cfg.clients));
+        const readiness = validateCompleteness(
+          { ...cfg, is_active: true },
+          rowForClient(cfg.clients),
+        );
         if (!readiness.validation_ready) {
-          return errorResponse(400, "activation_blocked", "Config is incomplete and cannot be activated", { reasons: readiness.reasons });
+          return errorResponse(
+            400,
+            "activation_blocked",
+            "Config is incomplete and cannot be activated",
+            { reasons: readiness.reasons },
+          );
         }
         update.is_active = true;
       }
-      if (state === "paused" || state === "retired" || state === "draft" || state === "incomplete") update.is_active = false;
-      if (state === "pending_validation") update.validation_status = "requires_revalidation";
+      if (
+        state === "paused" || state === "retired" || state === "draft" ||
+        state === "incomplete"
+      ) update.is_active = false;
+      if (state === "pending_validation") {
+        update.validation_status = "requires_revalidation";
+      }
 
-      const { error: updateError } = await supabaseAdmin.from("client_platform_configs").update(update).eq("id", configId);
+      const { error: updateError } = await supabaseAdmin.from(
+        "client_platform_configs",
+      ).update(update).eq("id", configId);
       if (updateError) throw updateError;
       return successResponse({ data: { id: configId, config_state: state } });
     }

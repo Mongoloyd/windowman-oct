@@ -17,9 +17,16 @@ const corsHeaders = {
 
 // ── V2.0 SCHEMA ENUMS & TYPES ────────────────────────────────────────────────
 const PRODUCT_SUB_TYPES = [
-  "Single Hung", "Double Hung", "Casement", "Sliding Glass Door",
-  "French Door", "Picture Window", "Architectural Shape",
-  "Generic Window", "Generic Door", "Unknown"
+  "Single Hung",
+  "Double Hung",
+  "Casement",
+  "Sliding Glass Door",
+  "French Door",
+  "Picture Window",
+  "Architectural Shape",
+  "Generic Window",
+  "Generic Door",
+  "Unknown",
 ] as const;
 
 type ProductSubTypeEnum = typeof PRODUCT_SUB_TYPES[number];
@@ -114,20 +121,37 @@ function classifyProductV2(desc: string): ProductSubTypeEnum {
   if (lowDesc.includes("single hung")) return "Single Hung";
   if (lowDesc.includes("double hung")) return "Double Hung";
   if (lowDesc.includes("casement")) return "Casement";
-  if (lowDesc.includes("sliding glass") || lowDesc.includes("sgd")) return "Sliding Glass Door";
+  if (lowDesc.includes("sliding glass") || lowDesc.includes("sgd")) {
+    return "Sliding Glass Door";
+  }
   if (lowDesc.includes("french door")) return "French Door";
-  if (lowDesc.includes("picture") || lowDesc.includes("fixed")) return "Picture Window";
-  if (lowDesc.includes("shape") || lowDesc.includes("arch")) return "Architectural Shape";
+  if (lowDesc.includes("picture") || lowDesc.includes("fixed")) {
+    return "Picture Window";
+  }
+  if (lowDesc.includes("shape") || lowDesc.includes("arch")) {
+    return "Architectural Shape";
+  }
   if (lowDesc.includes("window")) return "Generic Window";
   if (lowDesc.includes("door")) return "Generic Door";
   return "Unknown";
 }
 
-function aggregateBrandV2(desc: string, existingBrand: string | null): string | null {
+function aggregateBrandV2(
+  desc: string,
+  existingBrand: string | null,
+): string | null {
   if (existingBrand) return existingBrand;
-  const knownBrands = ["PGT", "CGI", "ESW", "Andersen", "Pella", "WinDoor", "CWS"];
+  const knownBrands = [
+    "PGT",
+    "CGI",
+    "ESW",
+    "Andersen",
+    "Pella",
+    "WinDoor",
+    "CWS",
+  ];
   const lowDesc = desc.toLowerCase();
-  return knownBrands.find(b => lowDesc.includes(b.toLowerCase())) || null;
+  return knownBrands.find((b) => lowDesc.includes(b.toLowerCase())) || null;
 }
 
 // ── Legacy Line item classification ──────────────────────────────────────────
@@ -140,22 +164,27 @@ function classifyItem(description?: string): ItemBucket {
   if (/\bpermit\b/.test(d)) return "permit";
   if (
     /\binstall\b|\blabor\b|\binstallation\b|\bcaulk\b|\bseal\b|\bfoam\b/.test(d)
-  )
+  ) {
     return "install";
+  }
   if (
     /\bdemo\b|\bremove\b|\bremoval\b|\bdisposal\b|\bhaul\b|\bcleanup\b/.test(d)
-  )
+  ) {
     return "demo";
-  if (/\btrim\b|\bstucco\b|\bflashing\b|\bwrap\b|\bwood\b/.test(d))
+  }
+  if (/\btrim\b|\bstucco\b|\bflashing\b|\bwrap\b|\bwood\b/.test(d)) {
     return "trim";
+  }
   if (/\bscreen\b|\bmesh\b/.test(d)) return "screen";
   if (/\bdoor\b|\bslider\b|\bentry\b|\bfrench\b/.test(d)) return "door";
   if (
-    /\bwindow\b|\bsingle hung\b|\bdouble hung\b|\bcasement\b|\bpicture\b|\bawning\b/.test(
-      d,
-    )
-  )
+    /\bwindow\b|\bsingle hung\b|\bdouble hung\b|\bcasement\b|\bpicture\b|\bawning\b/
+      .test(
+        d,
+      )
+  ) {
     return "window";
+  }
 
   return "other";
 }
@@ -187,8 +216,7 @@ function deriveMetrics(data: ExtractionResult) {
   const warnings: string[] = [];
 
   // ── Contract total ─────────────────────────────────────────────────────
-  const contractTotal =
-    n(data.total_quoted_price) ??
+  const contractTotal = n(data.total_quoted_price) ??
     round2(
       items.reduce((sum, item) => {
         const ext = itemExtendedPrice(item);
@@ -198,12 +226,28 @@ function deriveMetrics(data: ExtractionResult) {
 
   // ── Bucketing ──────────────────────────────────────────────────────────
   const bucketTotals: Record<ItemBucket, number> = {
-    window: 0, door: 0, screen: 0, install: 0, permit: 0,
-    trim: 0, demo: 0, discount: 0, tax: 0, other: 0,
+    window: 0,
+    door: 0,
+    screen: 0,
+    install: 0,
+    permit: 0,
+    trim: 0,
+    demo: 0,
+    discount: 0,
+    tax: 0,
+    other: 0,
   };
   const bucketQty: Record<ItemBucket, number> = {
-    window: 0, door: 0, screen: 0, install: 0, permit: 0,
-    trim: 0, demo: 0, discount: 0, tax: 0, other: 0,
+    window: 0,
+    door: 0,
+    screen: 0,
+    install: 0,
+    permit: 0,
+    trim: 0,
+    demo: 0,
+    discount: 0,
+    tax: 0,
+    other: 0,
   };
 
   const coreLinePrices: number[] = [];
@@ -229,8 +273,9 @@ function deriveMetrics(data: ExtractionResult) {
 
     if (isCoreOpening(bucket)) {
       coreLines += 1;
-      if ((item.brand ?? "").trim() || (item.series ?? "").trim())
+      if ((item.brand ?? "").trim() || (item.series ?? "").trim()) {
         brandKnownCore += 1;
+      }
       if ((item.dp_rating ?? "").trim()) dpKnownCore += 1;
       if ((item.noa_number ?? "").trim()) noaKnownCore += 1;
 
@@ -245,19 +290,17 @@ function deriveMetrics(data: ExtractionResult) {
   // ── Opening counts ─────────────────────────────────────────────────────
   const inferredCoreOpenings = bucketQty.window + bucketQty.door;
   const extractedOpenings = n(data.opening_count);
-  const totalOpenings =
-    extractedOpenings && extractedOpenings > 0
-      ? extractedOpenings
-      : inferredCoreOpenings > 0
-        ? inferredCoreOpenings
-        : null;
+  const totalOpenings = extractedOpenings && extractedOpenings > 0
+    ? extractedOpenings
+    : inferredCoreOpenings > 0
+    ? inferredCoreOpenings
+    : null;
 
-  const openingCountSource =
-    extractedOpenings && extractedOpenings > 0
-      ? "extracted_header"
-      : inferredCoreOpenings > 0
-        ? "inferred_from_lines"
-        : "unknown";
+  const openingCountSource = extractedOpenings && extractedOpenings > 0
+    ? "extracted_header"
+    : inferredCoreOpenings > 0
+    ? "inferred_from_lines"
+    : "unknown";
 
   if (
     extractedOpenings &&
@@ -319,12 +362,11 @@ function deriveMetrics(data: ExtractionResult) {
     ? round2(Math.min(...coreLinePrices))
     : null;
   const medianCoreLinePrice = median(coreLinePrices);
-  const priceSpreadRatio =
-    highestPricedOpening !== null &&
-    lowestPricedOpening !== null &&
-    lowestPricedOpening > 0
-      ? round2(highestPricedOpening / lowestPricedOpening)
-      : null;
+  const priceSpreadRatio = highestPricedOpening !== null &&
+      lowestPricedOpening !== null &&
+      lowestPricedOpening > 0
+    ? round2(highestPricedOpening / lowestPricedOpening)
+    : null;
 
   // ── Warnings ───────────────────────────────────────────────────────────
   if (items.length > 0 && pricedLines / items.length < 0.7) {
@@ -358,8 +400,9 @@ function deriveMetrics(data: ExtractionResult) {
       extractedOpenings &&
       inferredCoreOpenings > 0 &&
       extractedOpenings !== inferredCoreOpenings
-    )
+    ) {
       score -= 15;
+    }
     return Math.max(0, Math.min(100, score));
   })();
 
@@ -375,8 +418,7 @@ function deriveMetrics(data: ExtractionResult) {
     counts: {
       total_openings: totalOpenings,
       opening_count_source: openingCountSource,
-      opening_count_mismatch:
-        extractedOpenings &&
+      opening_count_mismatch: extractedOpenings &&
         inferredCoreOpenings > 0 &&
         extractedOpenings !== inferredCoreOpenings,
       inferred_core_openings: inferredCoreOpenings || null,
@@ -426,8 +468,7 @@ function deriveMetrics(data: ExtractionResult) {
     },
     trust_signals: {
       scope_present: Boolean(data.installation?.scope_detail),
-      permit_stated:
-        data.permits?.included !== undefined &&
+      permit_stated: data.permits?.included !== undefined &&
         data.permits?.included !== null,
       warranty_present: Boolean(data.warranty),
     },
@@ -481,19 +522,23 @@ Deno.serve(async (req) => {
     const processed_line_items = rawItems.map((item) => {
       const description = item.description || "";
       const classified_sub_type = classifyProductV2(description);
-      const brand_identified = aggregateBrandV2(description, item.brand || null);
-      const is_impact_rated = /impact|hurricane|non-impact/i.test(description) 
-        ? !/non-impact/i.test(description) 
+      const brand_identified = aggregateBrandV2(
+        description,
+        item.brand || null,
+      );
+      const is_impact_rated = /impact|hurricane|non-impact/i.test(description)
+        ? !/non-impact/i.test(description)
         : null;
 
       let computed_line_total = n(item.total_price);
       if (computed_line_total === null && n(item.unit_price) !== null) {
-        computed_line_total = (n(item.unit_price) || 0) * (n(item.quantity) || 1);
+        computed_line_total = (n(item.unit_price) || 0) *
+          (n(item.quantity) || 1);
       }
 
       const line_item_math_valid = typeof computed_line_total === "number";
       if (line_item_math_valid) {
-        runningSum += (computed_line_total || 0);
+        runningSum += computed_line_total || 0;
       } else {
         mathIntegrityFailed = true;
       }
@@ -504,13 +549,16 @@ Deno.serve(async (req) => {
         brand_identified,
         is_impact_rated,
         line_item_math_valid,
-        computed_line_total
+        computed_line_total,
       };
     });
 
     const quotedTotal = n(extraction.total_quoted_price);
     let math_discrepancy: boolean | null = null;
-    if (quotedTotal !== null && !mathIntegrityFailed && processed_line_items.length > 0) {
+    if (
+      quotedTotal !== null && !mathIntegrityFailed &&
+      processed_line_items.length > 0
+    ) {
       math_discrepancy = Math.abs(runningSum - quotedTotal) > 1.0;
     }
 
@@ -522,15 +570,23 @@ Deno.serve(async (req) => {
         computed_sum: runningSum,
         quoted_total: quotedTotal,
         math_discrepancy,
-        trust_score: math_discrepancy === false ? 100 : (math_discrepancy === true ? 0 : 50)
+        trust_score: math_discrepancy === false
+          ? 100
+          : (math_discrepancy === true ? 0 : 50),
       },
-      engine_metadata: { version: "2.0.0-production", processed_at: new Date().toISOString() }
+      engine_metadata: {
+        version: "2.0.0-production",
+        processed_at: new Date().toISOString(),
+      },
     };
 
-    return new Response(JSON.stringify({ ok: true, metrics: finalMetrics }, null, 2), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ ok: true, metrics: finalMetrics }, null, 2),
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   } catch (err) {
     return new Response(
       JSON.stringify({

@@ -13,9 +13,13 @@ const corsHeaders = {
 
 const DEFAULT_TIMEOUT_MS = 7000;
 
-function buildErrorResult(error: unknown, requestPayload: Record<string, unknown>): VendorSendResult {
+function buildErrorResult(
+  error: unknown,
+  requestPayload: Record<string, unknown>,
+): VendorSendResult {
   const message = error instanceof Error ? error.message : "Unknown error";
-  const isAbort = message.toLowerCase().includes("abort") || message.toLowerCase().includes("timeout");
+  const isAbort = message.toLowerCase().includes("abort") ||
+    message.toLowerCase().includes("timeout");
 
   return {
     ok: false,
@@ -44,10 +48,13 @@ Deno.serve(async (req) => {
   // pass it as the `x-dispatch-secret` header from the caller.
   const expectedSecret = Deno.env.get("DISPATCH_WORKER_SECRET");
   if (!expectedSecret) {
-    return new Response(JSON.stringify({ error: "DISPATCH_WORKER_SECRET is not configured" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ error: "DISPATCH_WORKER_SECRET is not configured" }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   }
 
   const providedSecret = req.headers.get("x-dispatch-secret");
@@ -67,8 +74,11 @@ Deno.serve(async (req) => {
     const capiUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/capi-event`;
     const googleDispatchUrl = Deno.env.get("GOOGLE_ADS_DISPATCH_URL") ?? "";
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const googleDispatchAuthToken = Deno.env.get("GOOGLE_ADS_DISPATCH_AUTH_TOKEN");
-    const eventSourceUrl = Deno.env.get("WM_EVENT_SOURCE_URL") ?? "https://windowman.app";
+    const googleDispatchAuthToken = Deno.env.get(
+      "GOOGLE_ADS_DISPATCH_AUTH_TOKEN",
+    );
+    const eventSourceUrl = Deno.env.get("WM_EVENT_SOURCE_URL") ??
+      "https://windowman.app";
 
     const workerResult = await runDispatchWorker({
       // The real SupabaseClient runtime shape (`<any, "public", any>`) is
@@ -98,7 +108,8 @@ Deno.serve(async (req) => {
 
           return {
             ok,
-            retryable: !ok && (response.status === 429 || response.status >= 500),
+            retryable: !ok &&
+              (response.status === 429 || response.status >= 500),
             statusCode: response.status,
             responseBody: body,
             errorMessage: ok ? undefined : JSON.stringify(body),
@@ -115,7 +126,9 @@ Deno.serve(async (req) => {
             retryable: false,
             statusCode: 400,
             errorMessage: "GOOGLE_ADS_DISPATCH_URL is not configured",
-            responseBody: { error: "GOOGLE_ADS_DISPATCH_URL is not configured" },
+            responseBody: {
+              error: "GOOGLE_ADS_DISPATCH_URL is not configured",
+            },
             requestPayload: payload,
           } satisfies VendorSendResult;
         }

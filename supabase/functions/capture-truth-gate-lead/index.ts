@@ -31,7 +31,10 @@
 //   Resp  : { success, lead_id, session_id } on 200
 //           { success: false, code, message, details? } on 4xx/5xx
 
-import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import {
+  createClient,
+  SupabaseClient,
+} from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const FUNCTION_NAME = "capture-truth-gate-lead";
 
@@ -185,7 +188,11 @@ function parseAndValidate(input: unknown):
   | { ok: true; payload: CapturePayload }
   | { ok: false; code: string; message: string; details?: unknown } {
   if (!input || typeof input !== "object") {
-    return { ok: false, code: "invalid_body", message: "Body must be JSON object." };
+    return {
+      ok: false,
+      code: "invalid_body",
+      message: "Body must be JSON object.",
+    };
   }
 
   const b = input as Record<string, unknown>;
@@ -283,7 +290,11 @@ Deno.serve(async (req) => {
       error_message: "Body must be valid JSON.",
     });
     return jsonResponse(
-      { success: false, code: "invalid_json", message: "Body must be valid JSON." },
+      {
+        success: false,
+        code: "invalid_json",
+        message: "Body must be valid JSON.",
+      },
       400,
     );
   }
@@ -358,7 +369,9 @@ Deno.serve(async (req) => {
         code: lookupErr.code,
         message: lookupErr.message,
       });
-    } else if (Array.isArray(existing) && existing.length > 0 && existing[0]?.id) {
+    } else if (
+      Array.isArray(existing) && existing.length > 0 && existing[0]?.id
+    ) {
       const reusedLeadId = existing[0].id as string;
       audit(admin, {
         stage: "lead_reused",

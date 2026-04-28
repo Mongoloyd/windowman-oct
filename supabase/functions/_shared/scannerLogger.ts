@@ -46,7 +46,11 @@ function truncate(value: unknown, max = 500): unknown {
   return value.length <= max ? value : `${value.slice(0, max)}…`;
 }
 
-function emit(level: ScanLogLevel, stage: ScanStage, fields: ScanLogFields): void {
+function emit(
+  level: ScanLogLevel,
+  stage: ScanStage,
+  fields: ScanLogFields,
+): void {
   // Single-line JSON keeps log scrapers simple and prevents accidental dumps.
   const safeFields: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(fields)) {
@@ -64,14 +68,23 @@ function emit(level: ScanLogLevel, stage: ScanStage, fields: ScanLogFields): voi
   else console.log(line);
 }
 
-export function logScanInfo(stage: ScanStage, fields: ScanLogFields = {}): void {
+export function logScanInfo(
+  stage: ScanStage,
+  fields: ScanLogFields = {},
+): void {
   emit("info", stage, fields);
 }
 
-export function logScanWarn(stage: ScanStage, fields: ScanLogFields = {}): void {
+export function logScanWarn(
+  stage: ScanStage,
+  fields: ScanLogFields = {},
+): void {
   emit("warn", stage, fields);
 }
 
-export function logScanError(stage: ScanStage, fields: ScanLogFields = {}): void {
+export function logScanError(
+  stage: ScanStage,
+  fields: ScanLogFields = {},
+): void {
   emit("error", stage, fields);
 }

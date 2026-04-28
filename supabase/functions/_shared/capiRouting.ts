@@ -83,6 +83,7 @@ export async function sha256(value: string): Promise<string> {
     .join("");
 }
 
+// deno-lint-ignore require-await
 export async function hashPhone(phone: string): Promise<string> {
   const normalized = phone.replace(/\D/g, "");
   return sha256(normalized);
@@ -107,11 +108,15 @@ export async function buildHashedUserData(
   }
   if (userData.ph) {
     const ph = userData.ph;
-    hashedUserData.ph = [isSha256Hex(ph) ? ph.toLowerCase() : await hashPhone(ph)];
+    hashedUserData.ph = [
+      isSha256Hex(ph) ? ph.toLowerCase() : await hashPhone(ph),
+    ];
   }
   if (userData.external_id) {
     const ext = userData.external_id;
-    hashedUserData.external_id = isSha256Hex(ext) ? ext.toLowerCase() : await sha256(ext);
+    hashedUserData.external_id = isSha256Hex(ext)
+      ? ext.toLowerCase()
+      : await sha256(ext);
   }
 
   if (!hashedUserData.client_user_agent && headers.userAgent) {
@@ -152,13 +157,13 @@ export function redactToken(token: string | null | undefined): string | null {
  */
 export type MetaFailureClass =
   | "ok"
-  | "token_invalid_or_revoked"   // OAuthException 190 / 102 / 463
-  | "token_permission_denied"    // OAuthException 200 / 10
-  | "pixel_token_mismatch"       // pixel ID does not match token's app/asset
-  | "rate_limited"               // 4 / 17 / 32 / 613
-  | "meta_rejected_payload"      // schema/event-data rejection (non-token)
-  | "meta_server_error"          // 5xx from Meta
-  | "network_error"              // local fetch failed (DNS/TLS/etc)
+  | "token_invalid_or_revoked" // OAuthException 190 / 102 / 463
+  | "token_permission_denied" // OAuthException 200 / 10
+  | "pixel_token_mismatch" // pixel ID does not match token's app/asset
+  | "rate_limited" // 4 / 17 / 32 / 613
+  | "meta_rejected_payload" // schema/event-data rejection (non-token)
+  | "meta_server_error" // 5xx from Meta
+  | "network_error" // local fetch failed (DNS/TLS/etc)
   | "unknown_failure";
 
 /**
@@ -176,17 +181,32 @@ export function classifyMetaError(
     return { class: "ok", subcode: null, hint: "Accepted by Meta." };
   }
 
-  const err = (response as { error?: { code?: number; error_subcode?: number; message?: string; type?: string } })?.error;
+  const err = (response as {
+    error?: {
+      code?: number;
+      error_subcode?: number;
+      message?: string;
+      type?: string;
+    };
+  })?.error;
   const code = typeof err?.code === "number" ? err.code : null;
-  const subcode = typeof err?.error_subcode === "number" ? err.error_subcode : null;
-  const message = typeof err?.message === "string" ? err.message.toLowerCase() : "";
+  const subcode = typeof err?.error_subcode === "number"
+    ? err.error_subcode
+    : null;
+  const message = typeof err?.message === "string"
+    ? err.message.toLowerCase()
+    : "";
 
   // Token-revocation / invalidation family
-  if (code === 190 || code === 102 || code === 463 || /access token|session has expired|token is invalid/.test(message)) {
+  if (
+    code === 190 || code === 102 || code === 463 ||
+    /access token|session has expired|token is invalid/.test(message)
+  ) {
     return {
       class: "token_invalid_or_revoked",
       subcode,
-      hint: "Rotate the token via create_meta_client_config and re-run smoke_send_meta_event.",
+      hint:
+        "Rotate the token via create_meta_client_config and re-run smoke_send_meta_event.",
     };
   }
 
@@ -195,36 +215,54 @@ export function classifyMetaError(
     return {
       class: "token_permission_denied",
       subcode,
-      hint: "Token lacks required scopes. Generate a system-user token with the correct asset permissions.",
+      hint:
+        "Token lacks required scopes. Generate a system-user token with the correct asset permissions.",
     };
   }
 
   // Pixel/asset mismatch — token doesn't own this pixel
-  if (/pixel|dataset/i.test(message) && /(permission|access|not\s+(allowed|authorized))/i.test(message)) {
+  if (
+    /pixel|dataset/i.test(message) &&
+    /(permission|access|not\s+(allowed|authorized))/i.test(message)
+  ) {
     return {
       class: "pixel_token_mismatch",
       subcode,
-      hint: "The access token does not own this pixel_id. Verify the pixel belongs to the token's Business Manager asset group.",
+      hint:
+        "The access token does not own this pixel_id. Verify the pixel belongs to the token's Business Manager asset group.",
     };
   }
 
   if (code === 4 || code === 17 || code === 32 || code === 613) {
-    return { class: "rate_limited", subcode, hint: "Back off and retry; investigate volume." };
+    return {
+      class: "rate_limited",
+      subcode,
+      hint: "Back off and retry; investigate volume.",
+    };
   }
 
   if (status >= 500) {
-    return { class: "meta_server_error", subcode, hint: "Transient Meta-side issue; safe to retry." };
+    return {
+      class: "meta_server_error",
+      subcode,
+      hint: "Transient Meta-side issue; safe to retry.",
+    };
   }
 
   if (status >= 400) {
     return {
       class: "meta_rejected_payload",
       subcode,
-      hint: "Payload rejected by Meta (not a token issue). Check event_data / user_data schema.",
+      hint:
+        "Payload rejected by Meta (not a token issue). Check event_data / user_data schema.",
     };
   }
 
-  return { class: "unknown_failure", subcode, hint: "Unclassified failure — inspect raw response." };
+  return {
+    class: "unknown_failure",
+    subcode,
+    hint: "Unclassified failure — inspect raw response.",
+  };
 }
 
 /**
@@ -239,11 +277,16 @@ export interface TokenPresence {
   access_token_masked: string | null;
 }
 
-export function summarizeTokenPresence(row: {
-  pixel_id?: string | null;
-  access_token?: string | null;
-  test_event_code?: string | null;
-} | null | undefined): TokenPresence {
+export function summarizeTokenPresence(
+  row:
+    | {
+      pixel_id?: string | null;
+      access_token?: string | null;
+      test_event_code?: string | null;
+    }
+    | null
+    | undefined,
+): TokenPresence {
   const pixel = row?.pixel_id ?? null;
   const tok = row?.access_token ?? null;
   return {
@@ -262,7 +305,14 @@ export function summarizeTokenPresence(row: {
 export async function resolvePixelConfig(
   supabase: ReturnType<typeof createClient>,
   clientSlug?: string,
-): Promise<{ pixelId: string; accessToken: string; testEventCode?: string; source: string } | null> {
+): Promise<
+  {
+    pixelId: string;
+    accessToken: string;
+    testEventCode?: string;
+    source: string;
+  } | null
+> {
   // Tier 1: Client-specific pixel
   if (clientSlug) {
     const { data: client } = (await supabase
@@ -277,13 +327,28 @@ export async function resolvePixelConfig(
         .from("client_configs")
         .select("meta_pixel_id, capi_token_secret_id")
         .eq("client_id", client.id)
-        .maybeSingle()) as { data: { meta_pixel_id: string | null; capi_token_secret_id: string | null } | null };
+        .maybeSingle()) as {
+          data: {
+            meta_pixel_id: string | null;
+            capi_token_secret_id: string | null;
+          } | null;
+        };
 
       if (secureConfig?.meta_pixel_id && secureConfig?.capi_token_secret_id) {
-        const { data: secureToken } = (await (supabase as any).rpc("get_client_capi_token_by_secret_id", { p_secret_id: secureConfig.capi_token_secret_id })) as { data: string | null };
+        const { data: secureToken } =
+          // deno-lint-ignore no-explicit-any
+          (await (supabase as any).rpc("get_client_capi_token_by_secret_id", {
+            p_secret_id: secureConfig.capi_token_secret_id,
+          })) as { data: string | null };
         if (secureToken) {
-          console.log(`[CAPI:RESOLVE] Using secure client_config for slug="${clientSlug}"`);
-          return { pixelId: secureConfig.meta_pixel_id, accessToken: secureToken, source: `client:${clientSlug}` };
+          console.log(
+            `[CAPI:RESOLVE] Using secure client_config for slug="${clientSlug}"`,
+          );
+          return {
+            pixelId: secureConfig.meta_pixel_id,
+            accessToken: secureToken,
+            source: `client:${clientSlug}`,
+          };
         }
       }
 
@@ -291,10 +356,18 @@ export async function resolvePixelConfig(
         .from("meta_configurations")
         .select("pixel_id, access_token, test_event_code")
         .eq("client_id", client.id)
-        .single()) as { data: { pixel_id: string; access_token: string; test_event_code: string | null } | null };
+        .single()) as {
+          data: {
+            pixel_id: string;
+            access_token: string;
+            test_event_code: string | null;
+          } | null;
+        };
 
       if (config?.pixel_id && config?.access_token) {
-        console.log(`[CAPI:RESOLVE] Using client-specific pixel for slug="${clientSlug}"`);
+        console.log(
+          `[CAPI:RESOLVE] Using client-specific pixel for slug="${clientSlug}"`,
+        );
         return {
           pixelId: config.pixel_id,
           accessToken: config.access_token,
@@ -303,7 +376,9 @@ export async function resolvePixelConfig(
         };
       }
     }
-    console.warn(`[CAPI:RESOLVE] Client slug="${clientSlug}" not found or missing pixel config — falling through`);
+    console.warn(
+      `[CAPI:RESOLVE] Client slug="${clientSlug}" not found or missing pixel config — falling through`,
+    );
   }
 
   // Tier 2: Platform default pixel
@@ -321,7 +396,9 @@ export async function resolvePixelConfig(
     };
 
   if (defaultConfig?.pixel_id && defaultConfig?.access_token) {
-    console.log(`[CAPI:RESOLVE] Loaded default meta_configuration id=${defaultConfig.id}`);
+    console.log(
+      `[CAPI:RESOLVE] Loaded default meta_configuration id=${defaultConfig.id}`,
+    );
     return {
       pixelId: defaultConfig.pixel_id,
       accessToken: defaultConfig.access_token,
@@ -336,11 +413,20 @@ export async function resolvePixelConfig(
   const testEventCode = Deno.env.get("META_TEST_EVENT_CODE");
 
   if (pixelId && accessToken) {
-    console.log("[CAPI:RESOLVE] Using fallback META_PIXEL_ID from environment secrets");
-    return { pixelId, accessToken, testEventCode: testEventCode ?? undefined, source: "env:fallback" };
+    console.log(
+      "[CAPI:RESOLVE] Using fallback META_PIXEL_ID from environment secrets",
+    );
+    return {
+      pixelId,
+      accessToken,
+      testEventCode: testEventCode ?? undefined,
+      source: "env:fallback",
+    };
   }
 
-  console.warn("[CAPI:RESOK:RESOLVE] No pixel configuration found in DB or environment. Signal will be dropped gracefully.");
+  console.warn(
+    "[CAPI:RESOK:RESOLVE] No pixel configuration found in DB or environment. Signal will be dropped gracefully.",
+  );
   return null;
 }
 
@@ -374,11 +460,16 @@ export async function diagnoseRoute(
         .from("meta_configurations")
         .select("pixel_id, access_token")
         .eq("client_id", client.id)
-        .maybeSingle()) as { data: { pixel_id: string | null; access_token: string | null } | null };
+        .maybeSingle()) as {
+          data: { pixel_id: string | null; access_token: string | null } | null;
+        };
 
       if (!cfg) {
         reasons.push("client_config_missing");
-        missing_fields.push("meta_configurations.pixel_id", "meta_configurations.access_token");
+        missing_fields.push(
+          "meta_configurations.pixel_id",
+          "meta_configurations.access_token",
+        );
       } else {
         if (!cfg.pixel_id) {
           reasons.push("client_config_missing_pixel");
@@ -430,14 +521,20 @@ export async function diagnoseRoute(
     .from("meta_configurations")
     .select("pixel_id, access_token")
     .eq("is_default", true)
-    .maybeSingle()) as { data: { pixel_id: string | null; access_token: string | null } | null };
+    .maybeSingle()) as {
+      data: { pixel_id: string | null; access_token: string | null } | null;
+    };
 
   if (!defaultRow) {
     reasons.push("default_missing");
     missing_fields.push("meta_configurations.is_default_row");
   } else {
-    if (!defaultRow.pixel_id) missing_fields.push("meta_configurations(default).pixel_id");
-    if (!defaultRow.access_token) missing_fields.push("meta_configurations(default).access_token");
+    if (!defaultRow.pixel_id) {
+      missing_fields.push("meta_configurations(default).pixel_id");
+    }
+    if (!defaultRow.access_token) {
+      missing_fields.push("meta_configurations(default).access_token");
+    }
   }
 
   const envPixel = Deno.env.get("META_PIXEL_ID");
@@ -499,10 +596,12 @@ export async function dispatchCapiEvent(
 
   const capiPayload: Record<string, unknown> = { data: [eventData] };
 
-  const effectiveTestCode = opts.forceTestEventCode ?? config.testEventCode ?? null;
+  const effectiveTestCode = opts.forceTestEventCode ?? config.testEventCode ??
+    null;
   if (effectiveTestCode) capiPayload.test_event_code = effectiveTestCode;
 
-  const url = `https://graph.facebook.com/v19.0/${config.pixelId}/events?access_token=${config.accessToken}`;
+  const url =
+    `https://graph.facebook.com/v19.0/${config.pixelId}/events?access_token=${config.accessToken}`;
   const response = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -516,7 +615,9 @@ export async function dispatchCapiEvent(
     response: result,
     capiPayload,
     masked_pixel_id: `…${config.pixelId.slice(-4)}`,
-    mode: opts.forceTestEventCode ? "test" : (config.testEventCode ? "test" : "live"),
+    mode: opts.forceTestEventCode
+      ? "test"
+      : (config.testEventCode ? "test" : "live"),
     test_event_code_used: effectiveTestCode,
   };
 }

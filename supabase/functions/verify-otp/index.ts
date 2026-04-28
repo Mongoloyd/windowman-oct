@@ -22,7 +22,10 @@ Deno.serve(async (req) => {
     if (!phone_e164 || !code) {
       return new Response(
         JSON.stringify({ error: "Phone and code are required." }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -30,14 +33,17 @@ Deno.serve(async (req) => {
     if (!/^\+1\d{10}$/.test(phone_e164)) {
       return new Response(
         JSON.stringify({ error: "Invalid phone format." }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
     // ── 1. Init Supabase admin client ───────────────────────────────────
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
     // ── 2. Select the latest pending phone_verifications row ────────────
@@ -47,7 +53,11 @@ Deno.serve(async (req) => {
     //   for Scan A from being verified-and-bound to Scan B in a follow-up
     //   request body. We fall back to a session-less pending row only as a
     //   last resort (legacy rows or send-otp calls without scan_session_id).
-    let pendingRow: { id: string; phone_e164: string; scan_session_id: string | null } | null = null;
+    let pendingRow: {
+      id: string;
+      phone_e164: string;
+      scan_session_id: string | null;
+    } | null = null;
     let pendingRowSource: "scan_bound" | "scan_null_legacy" | "none" = "none";
 
     if (scan_session_id) {
@@ -61,7 +71,11 @@ Deno.serve(async (req) => {
         .limit(1)
         .maybeSingle();
       if (scanBound) {
-        pendingRow = scanBound as { id: string; phone_e164: string; scan_session_id: string | null };
+        pendingRow = scanBound as {
+          id: string;
+          phone_e164: string;
+          scan_session_id: string | null;
+        };
         pendingRowSource = "scan_bound";
       }
     }
@@ -79,20 +93,27 @@ Deno.serve(async (req) => {
         .limit(1)
         .maybeSingle();
       if (legacyRow) {
-        pendingRow = legacyRow as { id: string; phone_e164: string; scan_session_id: string | null };
+        pendingRow = legacyRow as {
+          id: string;
+          phone_e164: string;
+          scan_session_id: string | null;
+        };
         pendingRowSource = "scan_null_legacy";
       }
     }
 
-    console.log("[VERIFY_OTP_FORENSIC]", JSON.stringify({
-      phone_masked: "xxx-xxx-" + phone_e164.slice(-4),
-      pendingRowFound: !!pendingRow,
-      pendingRowId: pendingRow?.id ?? null,
-      pendingRowSource,
-      requestedScanSessionId: scan_session_id ?? null,
-      pendingRowScanSessionId: pendingRow?.scan_session_id ?? null,
-      timestamp: new Date().toISOString(),
-    }));
+    console.log(
+      "[VERIFY_OTP_FORENSIC]",
+      JSON.stringify({
+        phone_masked: "xxx-xxx-" + phone_e164.slice(-4),
+        pendingRowFound: !!pendingRow,
+        pendingRowId: pendingRow?.id ?? null,
+        pendingRowSource,
+        requestedScanSessionId: scan_session_id ?? null,
+        pendingRowScanSessionId: pendingRow?.scan_session_id ?? null,
+        timestamp: new Date().toISOString(),
+      }),
+    );
 
     // Defensive sanity check: if a scan_session_id was requested AND we matched
     // the legacy fallback, make sure we never have a mismatched non-null binding
@@ -104,17 +125,24 @@ Deno.serve(async (req) => {
       pendingRow.scan_session_id &&
       pendingRow.scan_session_id !== scan_session_id
     ) {
-      console.error("[VERIFY_OTP_SESSION_MISMATCH]", JSON.stringify({
-        phone_masked: "xxx-xxx-" + phone_e164.slice(-4),
-        requested_scan_session_id: scan_session_id,
-        pending_scan_session_id: pendingRow.scan_session_id,
-      }));
+      console.error(
+        "[VERIFY_OTP_SESSION_MISMATCH]",
+        JSON.stringify({
+          phone_masked: "xxx-xxx-" + phone_e164.slice(-4),
+          requested_scan_session_id: scan_session_id,
+          pending_scan_session_id: pendingRow.scan_session_id,
+        }),
+      );
       return new Response(
         JSON.stringify({
-          error: "Verification could not be matched to your scan. Please request a new code.",
+          error:
+            "Verification could not be matched to your scan. Please request a new code.",
           verified: false,
         }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -137,7 +165,7 @@ Deno.serve(async (req) => {
           "Content-Type": "application/x-www-form-urlencoded",
         },
         body: twilioBody,
-      }
+      },
     );
 
     const twilioData = await twilioRes.json();
@@ -145,11 +173,15 @@ Deno.serve(async (req) => {
     if (!twilioRes.ok || twilioData.status !== "approved") {
       let userMsg = "Invalid or expired code.";
       if (twilioData.code === 20404) {
-        userMsg = "Verification session expired or not found. Please request a new code.";
+        userMsg =
+          "Verification session expired or not found. Please request a new code.";
       }
       return new Response(
         JSON.stringify({ error: userMsg, verified: false }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -171,18 +203,25 @@ Deno.serve(async (req) => {
       // the verification to a lead. Log and fail rather than silently
       // succeeding with an unbindable verification.
       if (!resolvedLeadId) {
-        console.error("[VERIFY_OTP_INTEGRITY_GUARD]", JSON.stringify({
-          scan_session_id,
-          phone_masked: "xxx-xxx-" + phone_e164.slice(-4),
-          reason: "scan_session has no lead_id — cannot bind verification",
-          timestamp: new Date().toISOString(),
-        }));
+        console.error(
+          "[VERIFY_OTP_INTEGRITY_GUARD]",
+          JSON.stringify({
+            scan_session_id,
+            phone_masked: "xxx-xxx-" + phone_e164.slice(-4),
+            reason: "scan_session has no lead_id — cannot bind verification",
+            timestamp: new Date().toISOString(),
+          }),
+        );
         return new Response(
           JSON.stringify({
-            error: "Verification could not be linked to your session. Please try again.",
+            error:
+              "Verification could not be linked to your session. Please try again.",
             verified: false,
           }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
         );
       }
     }
@@ -213,13 +252,20 @@ Deno.serve(async (req) => {
         .eq("id", pendingRow.id);
 
       if (updateErr) {
-        console.error("[verify-otp] CRITICAL: failed to persist verification status:", updateErr);
+        console.error(
+          "[verify-otp] CRITICAL: failed to persist verification status:",
+          updateErr,
+        );
         return new Response(
           JSON.stringify({
-            error: "Verification confirmed but could not be saved. Please request a new code and try again.",
+            error:
+              "Verification confirmed but could not be saved. Please request a new code and try again.",
             verified: false,
           }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
         );
       }
     }
@@ -239,13 +285,20 @@ Deno.serve(async (req) => {
         .eq("id", resolvedLeadId);
 
       if (leadErr) {
-        console.error("[verify-otp] CRITICAL: failed to update lead verification:", leadErr);
+        console.error(
+          "[verify-otp] CRITICAL: failed to update lead verification:",
+          leadErr,
+        );
         return new Response(
           JSON.stringify({
-            error: "Verification confirmed but could not be saved. Please request a new code and try again.",
+            error:
+              "Verification confirmed but could not be saved. Please request a new code and try again.",
             verified: false,
           }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
         );
       }
     }
@@ -261,7 +314,9 @@ Deno.serve(async (req) => {
       // Stable, time-independent ids keyed by entity. Same id is computed
       // on the browser via `buildCanonicalEventId({ ...,  now: <fixed> })`
       // — but to fully eliminate clock drift, we return them in the response.
-      phoneVerifiedEventId = `wmc_phone_verified_lead-${resolvedLeadId}${scan_session_id ? `_scan-${scan_session_id}` : ""}`;
+      phoneVerifiedEventId = `wmc_phone_verified_lead-${resolvedLeadId}${
+        scan_session_id ? `_scan-${scan_session_id}` : ""
+      }`;
 
       try {
         await persistCanonicalEvent(supabase, {
@@ -290,12 +345,16 @@ Deno.serve(async (req) => {
           },
         });
       } catch (canonicalError) {
-        console.error("[verify-otp] phone_verified canonical event failed", canonicalError);
+        console.error(
+          "[verify-otp] phone_verified canonical event failed",
+          canonicalError,
+        );
       }
     }
 
     if (resolvedLeadId && scan_session_id) {
-      reportRevealedEventId = `wmc_report_revealed_lead-${resolvedLeadId}_scan-${scan_session_id}`;
+      reportRevealedEventId =
+        `wmc_report_revealed_lead-${resolvedLeadId}_scan-${scan_session_id}`;
       try {
         await persistCanonicalEvent(supabase, {
           eventId: reportRevealedEventId,
@@ -323,7 +382,10 @@ Deno.serve(async (req) => {
           },
         });
       } catch (canonicalError) {
-        console.error("[verify-otp] report_revealed canonical event failed", canonicalError);
+        console.error(
+          "[verify-otp] report_revealed canonical event failed",
+          canonicalError,
+        );
       }
     }
 
@@ -338,13 +400,19 @@ Deno.serve(async (req) => {
         phone_verified_event_id: phoneVerifiedEventId,
         report_revealed_event_id: reportRevealedEventId,
       }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
   } catch (err) {
     console.error("[verify-otp] unhandled exception:", err);
     return new Response(
       JSON.stringify({ error: "Internal server error." }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
   }
 });

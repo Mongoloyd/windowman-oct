@@ -44,6 +44,7 @@ export interface ContractorPerformanceResult {
   denominator: "released_leads";
   summaries: ContractorPerformanceSummary[];
   message?: string;
+  failed_sources?: string[];
 }
 
 type EdgeSummary = Partial<ContractorPerformanceSummary>;
@@ -54,6 +55,7 @@ type EdgeResponse = {
   summaries?: EdgeSummary[];
   message?: string;
   error?: string;
+  failed_sources?: string[];
 };
 
 const EMPTY_METRICS: ContractorPerformanceMetrics = {
@@ -106,7 +108,7 @@ async function invokePerformanceFunction(functionName: string, window: Contracto
   }
 
   if (!data?.success) {
-    return { success: false, window, denominator: "released_leads", summaries: [], message: data?.message ?? data?.error ?? "Contractor performance failed safely." };
+    return { success: false, window, denominator: "released_leads", summaries: [], message: data?.message ?? data?.error ?? "Contractor performance failed safely.", failed_sources: data?.failed_sources };
   }
 
   return {

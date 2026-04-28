@@ -18,35 +18,32 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
-  buildHashedUserData,
+  type CAPIEvent,
   classifyMetaError,
   dispatchCapiEvent,
   extractClientIp,
   resolvePixelConfig,
-  sha256,
-  hashPhone,
-  isSha256Hex,
-  diagnoseRoute,
-  type CAPIEvent,
-  type DispatchOptions,
-  type DispatchResult,
-  type RouteDiagnostic,
-  type RouteDiagnosticTier,
 } from "../_shared/capiRouting.ts";
 
 // Re-export for backward compatibility with any tests importing from this file
 export {
   buildHashedUserData,
   classifyMetaError,
+  diagnoseRoute,
   dispatchCapiEvent,
   extractClientIp,
-  resolvePixelConfig,
-  sha256,
   hashPhone,
   isSha256Hex,
-  diagnoseRoute,
+  resolvePixelConfig,
+  sha256,
 } from "../_shared/capiRouting.ts";
-export type { CAPIEvent, DispatchOptions, DispatchResult, RouteDiagnostic, RouteDiagnosticTier } from "../_shared/capiRouting.ts";
+export type {
+  CAPIEvent,
+  DispatchOptions,
+  DispatchResult,
+  RouteDiagnostic,
+  RouteDiagnosticTier,
+} from "../_shared/capiRouting.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -60,7 +57,10 @@ Deno.serve(async (req) => {
   }
 
   // Initialize Supabase client for DB lookups and logging
-  const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  );
 
   let resolvedPixelId: string | undefined;
   let body: CAPIEvent | undefined;
@@ -69,17 +69,29 @@ Deno.serve(async (req) => {
     body = (await req.json()) as CAPIEvent;
 
     // Resolve pixel config
+    // deno-lint-ignore no-explicit-any
     const config = await resolvePixelConfig(supabase as any, body.client_slug);
 
     if (!config) {
       // Graceful degradation: accept the event but don't fire it
-      return new Response(JSON.stringify({ success: false, error: "CAPI not configured", degraded: true }), {
-        status: 202,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "CAPI not configured",
+          degraded: true,
+        }),
+        {
+          status: 202,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
-    console.log(`[CAPI:FIRE] event=${body.event_name} source=${config.source} pixel=…${config.pixelId.slice(-4)}`);
+    console.log(
+      `[CAPI:FIRE] event=${body.event_name} source=${config.source} pixel=…${
+        config.pixelId.slice(-4)
+      }`,
+    );
     resolvedPixelId = config.pixelId;
 
     // Delegate to the shared dispatcher so the live controller and the
@@ -111,9 +123,10 @@ Deno.serve(async (req) => {
       const externalId = typeof body.user_data?.external_id === "string"
         ? body.user_data.external_id
         : null;
-      const looksLikeUuid =
-        externalId !== null &&
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(externalId);
+      const looksLikeUuid = externalId !== null &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          externalId,
+        );
 
       await supabase.from("event_logs").insert({
         event_name: `capi_${body.event_name.toLowerCase()}_dispatched`,
@@ -136,24 +149,38 @@ Deno.serve(async (req) => {
 
     if (!dispatch.ok) {
       const failure = classifyMetaError(dispatch.status, dispatch.response);
-      console.error(`[CAPI:FAIL] class=${failure.class} status=${dispatch.status} pixel=…${config.pixelId.slice(-4)}`);
+      console.error(
+        `[CAPI:FAIL] class=${failure.class} status=${dispatch.status} pixel=…${
+          config.pixelId.slice(-4)
+        }`,
+      );
       // Token bytes never appear in the response — only the documented Meta
       // error and a stable failure_class enum. Operators run smoke_send to
       // re-confirm and diagnose_token_health to inspect rotation state.
-      return new Response(JSON.stringify({
-        success: false,
-        failure_class: failure.class,
-        failure_subcode: failure.subcode,
-        error: dispatch.response,
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          failure_class: failure.class,
+          failure_subcode: failure.subcode,
+          error: dispatch.response,
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     return new Response(
-      JSON.stringify({ success: true, events_received: (dispatch.response as { events_received?: number })?.events_received }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      JSON.stringify({
+        success: true,
+        events_received: (dispatch.response as { events_received?: number })
+          ?.events_received,
+      }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
   } catch (err) {
     console.error("CAPI function error:", err);
@@ -174,9 +201,12 @@ Deno.serve(async (req) => {
         .catch(() => {}); // Don't let logging failure crash the handler
     }
 
-    return new Response(JSON.stringify({ success: false, error: "Internal error" }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ success: false, error: "Internal error" }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   }
 });

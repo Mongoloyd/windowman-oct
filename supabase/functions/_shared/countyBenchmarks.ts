@@ -15,48 +15,49 @@ export interface CountyBenchmark {
   updated_at: string;
 }
 
-export const SOUTH_FLORIDA_COUNTY_BENCHMARKS: Record<string, CountyBenchmark> = {
-  "miami-dade": {
-    county_key: "miami-dade",
-    county_label: "Miami-Dade",
-    installed_price_per_opening_low: 1800,
-    installed_price_per_opening_avg: 2150,
-    installed_price_per_opening_high: 2500,
-    source_type: "city_proxy",
-    source_label: "Miami 2026 installed impact-window range",
-    updated_at: "2026-01-08",
-  },
-  broward: {
-    county_key: "broward",
-    county_label: "Broward",
-    installed_price_per_opening_low: 1700,
-    installed_price_per_opening_avg: 2050,
-    installed_price_per_opening_high: 2400,
-    source_type: "city_proxy",
-    source_label: "Fort Lauderdale 2026 installed impact-window range",
-    updated_at: "2026-01-08",
-  },
-  "palm-beach": {
-    county_key: "palm-beach",
-    county_label: "Palm Beach",
-    installed_price_per_opening_low: 1700,
-    installed_price_per_opening_avg: 2050,
-    installed_price_per_opening_high: 2400,
-    source_type: "city_proxy",
-    source_label: "West Palm Beach 2026 installed impact-window range",
-    updated_at: "2026-01-08",
-  },
-  "south-florida": {
-    county_key: "south-florida",
-    county_label: "South Florida",
-    installed_price_per_opening_low: 1700,
-    installed_price_per_opening_avg: 2100,
-    installed_price_per_opening_high: 2500,
-    source_type: "regional_blend",
-    source_label: "Blended South Florida proxy average",
-    updated_at: "2026-01-08",
-  },
-};
+export const SOUTH_FLORIDA_COUNTY_BENCHMARKS: Record<string, CountyBenchmark> =
+  {
+    "miami-dade": {
+      county_key: "miami-dade",
+      county_label: "Miami-Dade",
+      installed_price_per_opening_low: 1800,
+      installed_price_per_opening_avg: 2150,
+      installed_price_per_opening_high: 2500,
+      source_type: "city_proxy",
+      source_label: "Miami 2026 installed impact-window range",
+      updated_at: "2026-01-08",
+    },
+    broward: {
+      county_key: "broward",
+      county_label: "Broward",
+      installed_price_per_opening_low: 1700,
+      installed_price_per_opening_avg: 2050,
+      installed_price_per_opening_high: 2400,
+      source_type: "city_proxy",
+      source_label: "Fort Lauderdale 2026 installed impact-window range",
+      updated_at: "2026-01-08",
+    },
+    "palm-beach": {
+      county_key: "palm-beach",
+      county_label: "Palm Beach",
+      installed_price_per_opening_low: 1700,
+      installed_price_per_opening_avg: 2050,
+      installed_price_per_opening_high: 2400,
+      source_type: "city_proxy",
+      source_label: "West Palm Beach 2026 installed impact-window range",
+      updated_at: "2026-01-08",
+    },
+    "south-florida": {
+      county_key: "south-florida",
+      county_label: "South Florida",
+      installed_price_per_opening_low: 1700,
+      installed_price_per_opening_avg: 2100,
+      installed_price_per_opening_high: 2500,
+      source_type: "regional_blend",
+      source_label: "Blended South Florida proxy average",
+      updated_at: "2026-01-08",
+    },
+  };
 
 export function normalizeCountyName(input?: string | null): string | null {
   if (!input) return null;

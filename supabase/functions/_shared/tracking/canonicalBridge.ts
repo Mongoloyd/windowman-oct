@@ -12,7 +12,10 @@ import type { CreateCanonicalEventInput } from "./canonical/types.ts";
  * Pure plumbing: do not add business logic here.
  */
 type DbResult = { data?: unknown; error?: { message?: string } | null };
-type DbSingleResult = { data?: Record<string, unknown> | null; error?: { message?: string } | null };
+type DbSingleResult = {
+  data?: Record<string, unknown> | null;
+  error?: { message?: string } | null;
+};
 
 export async function persistCanonicalEvent(
   supabase: SupabaseClient,
@@ -26,7 +29,8 @@ export async function persistCanonicalEvent(
           async insert(
             payload: Record<string, unknown> | Record<string, unknown>[],
           ): Promise<DbResult> {
-            const { data, error } = await query.insert(payload as never).select();
+            const { data, error } = await query.insert(payload as never)
+              .select();
             return { data, error: error ? { message: error.message } : null };
           },
           async upsert(

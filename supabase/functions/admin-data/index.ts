@@ -1,13 +1,19 @@
-import { corsHeaders, errorResponse, successResponse, validateAdminRequestWithRole, type AppRole } from "../_shared/adminAuth.ts";
+import {
+  type AppRole,
+  corsHeaders,
+  errorResponse,
+  successResponse,
+  validateAdminRequestWithRole,
+} from "../_shared/adminAuth.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import {
+  type CAPIEvent,
   classifyMetaError,
   diagnoseRoute,
   dispatchCapiEvent,
   redactToken as sharedRedactToken,
   resolvePixelConfig,
   summarizeTokenPresence,
-  type CAPIEvent,
 } from "../_shared/capiRouting.ts";
 
 /**
@@ -16,33 +22,59 @@ import {
  *        adjust_contractor_credits, get_contractor_unlocks
  */
 
-type ActionName = 
-  | "fetch_leads" | "update_lead_status" | "update_lead_deal_status"
-  | "fetch_opportunities" | "fetch_contractors" | "fetch_routes" | "fetch_billable"
-  | "route_opportunity" | "mark_dead"
-  | "fetch_voice_followups" | "fetch_lead_voice_followups" | "trigger_voice_followup"
-  | "manage_user_roles" | "list_user_roles" | "get_role_audit_log"
-  | "fetch_lead_events" | "fetch_webhook_deliveries"
+type ActionName =
+  | "fetch_leads"
+  | "update_lead_status"
+  | "update_lead_deal_status"
+  | "fetch_opportunities"
+  | "fetch_contractors"
+  | "fetch_routes"
+  | "fetch_billable"
+  | "route_opportunity"
+  | "mark_dead"
+  | "fetch_voice_followups"
+  | "fetch_lead_voice_followups"
+  | "trigger_voice_followup"
+  | "manage_user_roles"
+  | "list_user_roles"
+  | "get_role_audit_log"
+  | "fetch_lead_events"
+  | "fetch_webhook_deliveries"
   | "fetch_lead_analysis"
-  | "fetch_needs_review" | "rescan_lead" | "update_lead_manual_entry"
-  | "list_contractor_accounts" | "get_contractor_ledger"
-  | "adjust_contractor_credits" | "get_contractor_unlocks"
-  | "list_invitations" | "create_invitation" | "revoke_invitation"
+  | "fetch_needs_review"
+  | "rescan_lead"
+  | "update_lead_manual_entry"
+  | "list_contractor_accounts"
+  | "get_contractor_ledger"
+  | "adjust_contractor_credits"
+  | "get_contractor_unlocks"
+  | "list_invitations"
+  | "create_invitation"
+  | "revoke_invitation"
   // CAPI control-plane (Meta multi-pixel routing)
-  | "list_meta_configurations" | "create_meta_client_config"
+  | "list_meta_configurations"
+  | "create_meta_client_config"
   | "save_client_config"
-  | "set_meta_client_active"   | "preview_meta_route"
-  | "smoke_send_meta_event" | "diagnose_token_health"
+  | "set_meta_client_active"
+  | "preview_meta_route"
+  | "smoke_send_meta_event"
+  | "diagnose_token_health"
   | "summarize_meta_fleet_health"
   // Lead workspace (Sprint 4 + 5)
   | "fetch_lead_detail"
   | "update_lead_funnel_stage"
-  | "list_lead_notes" | "create_lead_note" | "delete_lead_note"
-  | "list_lead_tasks" | "create_lead_task" | "update_lead_task" | "delete_lead_task"
+  | "list_lead_notes"
+  | "create_lead_note"
+  | "delete_lead_note"
+  | "list_lead_tasks"
+  | "create_lead_task"
+  | "update_lead_task"
+  | "delete_lead_task"
   // Phase 10 — Human Context Layer
   | "update_lead_human_context"
   // Phase 26 — Mission Control Truth Strip drilldown
-  | "fetch_quote_evidence" | "fetch_stage_leads"
+  | "fetch_quote_evidence"
+  | "fetch_stage_leads"
   // Sprint 1D — Partner outcome rollup (read-only admin bridge)
   | "fetch_partner_outcome_rollup";
 
@@ -82,37 +114,49 @@ const ACTION_ROLES: Record<ActionName, AppRole[]> = {
   list_meta_configurations: ["super_admin", "operator", "viewer"],
   create_meta_client_config: ["super_admin"],
   save_client_config: ["super_admin"],
-  set_meta_client_active:    ["super_admin"],
-  preview_meta_route:        ["super_admin", "operator", "viewer"],
-  smoke_send_meta_event:     ["super_admin"],
-  diagnose_token_health:     ["super_admin", "operator", "viewer"],
+  set_meta_client_active: ["super_admin"],
+  preview_meta_route: ["super_admin", "operator", "viewer"],
+  smoke_send_meta_event: ["super_admin"],
+  diagnose_token_health: ["super_admin", "operator", "viewer"],
   summarize_meta_fleet_health: ["super_admin", "operator", "viewer"],
   // Lead workspace
-  fetch_lead_detail:        ["super_admin", "operator", "viewer"],
+  fetch_lead_detail: ["super_admin", "operator", "viewer"],
   update_lead_funnel_stage: ["super_admin", "operator"],
-  list_lead_notes:          ["super_admin", "operator", "viewer"],
-  create_lead_note:         ["super_admin", "operator"],
-  delete_lead_note:         ["super_admin", "operator"],
-  list_lead_tasks:          ["super_admin", "operator", "viewer"],
-  create_lead_task:         ["super_admin", "operator"],
-  update_lead_task:         ["super_admin", "operator"],
-  delete_lead_task:         ["super_admin", "operator"],
+  list_lead_notes: ["super_admin", "operator", "viewer"],
+  create_lead_note: ["super_admin", "operator"],
+  delete_lead_note: ["super_admin", "operator"],
+  list_lead_tasks: ["super_admin", "operator", "viewer"],
+  create_lead_task: ["super_admin", "operator"],
+  update_lead_task: ["super_admin", "operator"],
+  delete_lead_task: ["super_admin", "operator"],
   // Phase 10
   update_lead_human_context: ["super_admin", "operator"],
   // Phase 26 — Mission Control Truth Strip drilldown
   fetch_quote_evidence: ["super_admin", "operator", "viewer"],
-  fetch_stage_leads:    ["super_admin", "operator", "viewer"],
+  fetch_stage_leads: ["super_admin", "operator", "viewer"],
   // Sprint 1D — read-only partner outcome rollup
   fetch_partner_outcome_rollup: ["super_admin", "operator", "viewer"],
 };
 
 // Allowed funnel stages (Sprint 5 — kept in sync with frontend constants)
 const ALLOWED_FUNNEL_STAGES = new Set([
-  "new", "qualified", "analyzing", "routed",
-  "contacted", "booked", "closed", "stale", "ghost",
+  "new",
+  "qualified",
+  "analyzing",
+  "routed",
+  "contacted",
+  "booked",
+  "closed",
+  "stale",
+  "ghost",
 ]);
 const ALLOWED_NOTE_CATEGORIES = new Set([
-  "general", "call", "email", "sms", "meeting", "internal",
+  "general",
+  "call",
+  "email",
+  "sms",
+  "meeting",
+  "internal",
 ]);
 
 // ── CAPI helpers ────────────────────────────────────────────────────────────
@@ -125,15 +169,21 @@ const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
 const PIXEL_RE = /^[0-9]{6,20}$/;
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-  if (req.method !== "POST") return errorResponse(405, "method_not_allowed", "Use POST");
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+  if (req.method !== "POST") {
+    return errorResponse(405, "method_not_allowed", "Use POST");
+  }
 
   try {
     const body = await req.json();
     const { action, payload = {} } = body;
     const requiredRoles = ACTION_ROLES[action as ActionName];
 
-    if (!requiredRoles) return errorResponse(400, "invalid_action", `Unknown action: ${action}`);
+    if (!requiredRoles) {
+      return errorResponse(400, "invalid_action", `Unknown action: ${action}`);
+    }
 
     // Verify Identity & Role
     const validation = await validateAdminRequestWithRole(req, requiredRoles);
@@ -155,20 +205,26 @@ Deno.serve(async (req) => {
     }
 
     if (action === "fetch_opportunities") {
-      const { data, error } = await supabaseAdmin.from("contractor_opportunities").select("*").order("priority_score", { ascending: false });
+      const { data, error } = await supabaseAdmin.from(
+        "contractor_opportunities",
+      ).select("*").order("priority_score", { ascending: false });
       if (error) throw error;
       return successResponse({ data: data });
     }
 
     if (action === "fetch_contractors") {
-      const { data, error } = await supabaseAdmin.from("contractors").select("*").eq("status", "active");
+      const { data, error } = await supabaseAdmin.from("contractors").select(
+        "*",
+      ).eq("status", "active");
       if (error) throw error;
       return successResponse({ data: data });
     }
 
     if (action === "fetch_routes") {
       const { opportunity_id } = payload;
-      let query = supabaseAdmin.from("contractor_opportunity_routes").select("*").order("created_at", { ascending: false });
+      let query = supabaseAdmin.from("contractor_opportunity_routes").select(
+        "*",
+      ).order("created_at", { ascending: false });
       if (opportunity_id) query = query.eq("opportunity_id", opportunity_id);
       const { data, error } = await query;
       if (error) throw error;
@@ -176,8 +232,12 @@ Deno.serve(async (req) => {
     }
 
     if (action === "fetch_billable") {
-      const { data: intros, error: e1 } = await supabaseAdmin.from("billable_intros").select("*").order("created_at", { ascending: false });
-      const { data: outcomes, error: e2 } = await supabaseAdmin.from("contractor_outcomes").select("*");
+      const { data: intros, error: e1 } = await supabaseAdmin.from(
+        "billable_intros",
+      ).select("*").order("created_at", { ascending: false });
+      const { data: outcomes, error: e2 } = await supabaseAdmin.from(
+        "contractor_outcomes",
+      ).select("*");
       if (e1 || e2) throw e1 || e2;
       return successResponse({ intros, outcomes, data: { intros, outcomes } });
     }
@@ -187,27 +247,41 @@ Deno.serve(async (req) => {
     if (action === "fetch_partner_outcome_rollup") {
       const { data: outcomes, error: rollupErr } = await supabaseAdmin
         .from("contractor_outcomes")
-        .select("id, contractor_id, disposition_state, final_value_cents, signed_contract_url, last_partner_action_at, created_at, updated_at");
+        .select(
+          "id, contractor_id, disposition_state, final_value_cents, signed_contract_url, last_partner_action_at, created_at, updated_at",
+        );
       if (rollupErr) throw rollupErr;
 
       const rows = outcomes ?? [];
       const nowMs = Date.now();
       const DAY_MS = 86_400_000;
 
-      const partner_sold_count = rows.filter((r) => r.disposition_state === "sold_closed").length;
-      const partner_lost_count = rows.filter((r) => r.disposition_state === "lost_dead").length;
+      const partner_sold_count = rows.filter((r) =>
+        r.disposition_state === "sold_closed"
+      ).length;
+      const partner_lost_count = rows.filter((r) =>
+        r.disposition_state === "lost_dead"
+      ).length;
       const managed_revenue_cents = rows.reduce(
-        (sum, r) => sum + ((r.disposition_state === "sold_closed" && typeof r.final_value_cents === "number") ? r.final_value_cents : 0),
+        (sum, r) =>
+          sum +
+          ((r.disposition_state === "sold_closed" &&
+              typeof r.final_value_cents === "number")
+            ? r.final_value_cents
+            : 0),
         0,
       );
       const untouched_new_over_24h = rows.filter((r) => {
         if (r.disposition_state !== "new") return false;
-        const anchor = (r.last_partner_action_at as string | null) ?? (r.created_at as string | null);
+        const anchor = (r.last_partner_action_at as string | null) ??
+          (r.created_at as string | null);
         if (!anchor) return false;
         return (nowMs - new Date(anchor).getTime()) > DAY_MS;
       }).length;
       const sold_missing_value = rows.filter(
-        (r) => r.disposition_state === "sold_closed" && (r.final_value_cents == null || r.final_value_cents <= 0),
+        (r) =>
+          r.disposition_state === "sold_closed" &&
+          (r.final_value_cents == null || r.final_value_cents <= 0),
       ).length;
       const sold_missing_proof = rows.filter(
         (r) => r.disposition_state === "sold_closed" && !r.signed_contract_url,
@@ -227,16 +301,18 @@ Deno.serve(async (req) => {
       });
     }
 
-
     if (action === "fetch_voice_followups") {
-      const { data, error } = await supabaseAdmin.from("voice_followups").select("*").order("created_at", { ascending: false }).limit(100);
+      const { data, error } = await supabaseAdmin.from("voice_followups")
+        .select("*").order("created_at", { ascending: false }).limit(100);
       if (error) throw error;
       return successResponse({ data: data });
     }
 
     if (action === "fetch_lead_voice_followups") {
       const { lead_id } = payload;
-      if (!lead_id) return errorResponse(400, "missing_param", "lead_id is required");
+      if (!lead_id) {
+        return errorResponse(400, "missing_param", "lead_id is required");
+      }
       const { data, error } = await supabaseAdmin
         .from("voice_followups")
         .select(`
@@ -270,6 +346,7 @@ Deno.serve(async (req) => {
         .or("manually_reviewed.is.null,manually_reviewed.eq.false")
         .order("created_at", { ascending: false });
 
+      // deno-lint-ignore no-explicit-any
       const taggedNoAnalysis = (noAnalysis ?? []).map((l: any) => ({
         ...l,
         review_reason: "no_scan",
@@ -283,13 +360,20 @@ Deno.serve(async (req) => {
       // Query B: Analyses that failed or have low confidence
       const { data: failedAnalyses } = await supabaseAdmin
         .from("analyses")
-        .select("id, analysis_status, confidence_score, full_json, lead_id, scan_session_id")
-        .or("analysis_status.eq.invalid_document,analysis_status.eq.needs_better_upload,confidence_score.lt.0.70")
+        .select(
+          "id, analysis_status, confidence_score, full_json, lead_id, scan_session_id",
+        )
+        .or(
+          "analysis_status.eq.invalid_document,analysis_status.eq.needs_better_upload,confidence_score.lt.0.70",
+        )
         .not("lead_id", "is", null)
         .order("created_at", { ascending: false });
 
-      const failedLeadIds = (failedAnalyses ?? []).map((a: any) => a.lead_id).filter(Boolean);
+      // deno-lint-ignore no-explicit-any
+      const failedLeadIds = (failedAnalyses ?? []).map((a: any) => a.lead_id)
+        .filter(Boolean);
 
+      // deno-lint-ignore no-explicit-any
       let failedLeads: any[] = [];
       if (failedLeadIds.length > 0) {
         const { data: leads } = await supabaseAdmin
@@ -302,14 +386,20 @@ Deno.serve(async (req) => {
           .in("id", failedLeadIds)
           .or("manually_reviewed.is.null,manually_reviewed.eq.false");
 
+        // deno-lint-ignore no-explicit-any
         failedLeads = (leads ?? []).map((lead: any) => {
-          const analysis = (failedAnalyses ?? []).find((a: any) => a.lead_id === lead.id);
-          const isFailed = analysis?.analysis_status === "invalid_document" || analysis?.analysis_status === "needs_better_upload";
+          // deno-lint-ignore no-explicit-any
+          const analysis = (failedAnalyses ?? []).find((a: any) =>
+            a.lead_id === lead.id
+          );
+          const isFailed = analysis?.analysis_status === "invalid_document" ||
+            analysis?.analysis_status === "needs_better_upload";
           return {
             ...lead,
             review_reason: isFailed ? "parse_failed" : "low_confidence",
             analysis_status: analysis?.analysis_status ?? null,
             confidence_score: analysis?.confidence_score ?? null,
+            // deno-lint-ignore no-explicit-any
             analysis_error: (analysis?.full_json as any)?.error ?? null,
             full_json: analysis?.full_json ?? null,
             quote_image_url: null,
@@ -320,12 +410,16 @@ Deno.serve(async (req) => {
       // Merge + deduplicate
       const allLeadIds = new Set<string>();
       const merged = [...taggedNoAnalysis, ...failedLeads]
+        // deno-lint-ignore no-explicit-any
         .filter((lead: any) => {
           if (allLeadIds.has(lead.id)) return false;
           allLeadIds.add(lead.id);
           return true;
         })
-        .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        // deno-lint-ignore no-explicit-any
+        .sort((a: any, b: any) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
 
       // Generate signed URLs for quote images
       const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -335,6 +429,7 @@ Deno.serve(async (req) => {
       });
 
       const sessionIds = merged
+        // deno-lint-ignore no-explicit-any
         .map((l: any) => l.latest_scan_session_id)
         .filter(Boolean);
 
@@ -345,10 +440,11 @@ Deno.serve(async (req) => {
           .in("id", sessionIds);
 
         const fileIds = (sessions ?? [])
+          // deno-lint-ignore no-explicit-any
           .map((s: any) => s.quote_file_id)
           .filter(Boolean);
 
-        let fileMap: Record<string, string> = {};
+        const fileMap: Record<string, string> = {};
         if (fileIds.length > 0) {
           const { data: files } = await supabaseAdmin
             .from("quote_files")
@@ -387,7 +483,9 @@ Deno.serve(async (req) => {
 
     if (action === "rescan_lead") {
       const { lead_id } = payload;
-      if (!lead_id) return errorResponse(400, "missing_param", "lead_id required");
+      if (!lead_id) {
+        return errorResponse(400, "missing_param", "lead_id required");
+      }
 
       const { data: lead, error: leadErr } = await supabaseAdmin
         .from("leads")
@@ -396,7 +494,11 @@ Deno.serve(async (req) => {
         .single();
 
       if (leadErr || !lead?.latest_scan_session_id) {
-        return errorResponse(400, "no_session", "No scan session found for this lead");
+        return errorResponse(
+          400,
+          "no_session",
+          "No scan session found for this lead",
+        );
       }
 
       const ssId = lead.latest_scan_session_id;
@@ -427,7 +529,11 @@ Deno.serve(async (req) => {
         return successResponse({ data: { success: true } });
       } else {
         const err = await scanResp.json().catch(() => ({}));
-        return errorResponse(500, "rescan_failed", err.error ?? `scan-quote returned ${scanResp.status}`);
+        return errorResponse(
+          500,
+          "rescan_failed",
+          err.error ?? `scan-quote returned ${scanResp.status}`,
+        );
       }
     }
 
@@ -462,18 +568,32 @@ Deno.serve(async (req) => {
 
     if (action === "update_lead_status") {
       const { lead_id, status } = payload;
-      const { error } = await supabaseAdmin.from("leads").update({ status, updated_at: now }).eq("id", lead_id);
+      const { error } = await supabaseAdmin.from("leads").update({
+        status,
+        updated_at: now,
+      }).eq("id", lead_id);
       if (error) throw error;
       return successResponse({ data: { success: true } });
     }
 
     if (action === "update_lead_deal_status") {
       const { lead_id, deal_status } = payload;
-      if (!lead_id || !deal_status) return errorResponse(400, "missing_param", "lead_id and deal_status are required");
-      const { error } = await supabaseAdmin.from("leads").update({ deal_status, updated_at: now }).eq("id", lead_id);
+      if (!lead_id || !deal_status) {
+        return errorResponse(
+          400,
+          "missing_param",
+          "lead_id and deal_status are required",
+        );
+      }
+      const { error } = await supabaseAdmin.from("leads").update({
+        deal_status,
+        updated_at: now,
+      }).eq("id", lead_id);
       if (error) throw error;
       await supabaseAdmin.from("lead_events").insert({
-        lead_id, event_name: "deal_status_changed", event_source: "admin_crm",
+        lead_id,
+        event_name: "deal_status_changed",
+        event_source: "admin_crm",
         metadata: { deal_status, changed_by: userId, timestamp: now },
       });
       return successResponse({ data: { success: true } });
@@ -481,13 +601,23 @@ Deno.serve(async (req) => {
 
     if (action === "route_opportunity") {
       const { opportunity_id, contractor_id, scan_session_id } = payload;
-      
-      const { error: routeErr } = await supabaseAdmin.from("contractor_opportunity_routes").insert({
-        opportunity_id, contractor_id, route_status: "sent", sent_at: now, assigned_by: "operator", routing_reason: "manual_assignment",
+
+      const { error: routeErr } = await supabaseAdmin.from(
+        "contractor_opportunity_routes",
+      ).insert({
+        opportunity_id,
+        contractor_id,
+        route_status: "sent",
+        sent_at: now,
+        assigned_by: "operator",
+        routing_reason: "manual_assignment",
       });
       if (routeErr) throw routeErr;
 
-      await supabaseAdmin.from("contractor_opportunities").update({ status: "sent_to_contractor", routed_at: now }).eq("id", opportunity_id);
+      await supabaseAdmin.from("contractor_opportunities").update({
+        status: "sent_to_contractor",
+        routed_at: now,
+      }).eq("id", opportunity_id);
 
       await supabaseAdmin.from("event_logs").insert({
         event_name: "contractor_intro_routed",
@@ -501,7 +631,9 @@ Deno.serve(async (req) => {
 
     if (action === "mark_dead") {
       const { opportunity_id, scan_session_id } = payload;
-      await supabaseAdmin.from("contractor_opportunities").update({ status: "dead" }).eq("id", opportunity_id);
+      await supabaseAdmin.from("contractor_opportunities").update({
+        status: "dead",
+      }).eq("id", opportunity_id);
 
       await supabaseAdmin.from("event_logs").insert({
         event_name: "contractor_opportunity_marked_dead",
@@ -515,44 +647,69 @@ Deno.serve(async (req) => {
 
     if (action === "trigger_voice_followup") {
       const { scan_session_id, phone_e164, opportunity_id } = payload;
-      const { data, error } = await supabaseAdmin.functions.invoke("voice-followup", {
-        body: { scan_session_id, phone_e164, opportunity_id, call_intent: "manual_admin_trigger" },
-      });
+      const { data, error } = await supabaseAdmin.functions.invoke(
+        "voice-followup",
+        {
+          body: {
+            scan_session_id,
+            phone_e164,
+            opportunity_id,
+            call_intent: "manual_admin_trigger",
+          },
+        },
+      );
       if (error) throw error;
       return successResponse({ data: { success: true, invokeResult: data } });
-
     }
 
     if (action === "manage_user_roles") {
       const { target_user_id, new_role } = payload;
-      if (target_user_id === userId && new_role !== "super_admin") throw new Error("Self-demotion blocked.");
-      const { error } = await supabaseAdmin.from("user_roles").upsert({ id: target_user_id, role: new_role, updated_at: now });
+      if (target_user_id === userId && new_role !== "super_admin") {
+        throw new Error("Self-demotion blocked.");
+      }
+      const { error } = await supabaseAdmin.from("user_roles").upsert({
+        id: target_user_id,
+        role: new_role,
+        updated_at: now,
+      });
       if (error) throw error;
-      await supabaseAdmin.from("user_role_audit_log").insert({ target_user_id, changed_by_user_id: userId, new_role, action: "change" });
+      await supabaseAdmin.from("user_role_audit_log").insert({
+        target_user_id,
+        changed_by_user_id: userId,
+        new_role,
+        action: "change",
+      });
       return successResponse({ data: { success: true } });
     }
 
     if (action === "list_user_roles") {
-      const { data: roles, error } = await supabaseAdmin.from("user_roles").select("*");
+      const { data: roles, error } = await supabaseAdmin.from("user_roles")
+        .select("*");
       if (error) throw error;
 
       const roleRows = roles ?? [];
       const userIds: string[] = roleRows.map((r: { id: string }) => r.id);
 
-      const authInfoMap = new Map<string, { email: string; last_sign_in: string | null }>();
+      const authInfoMap = new Map<
+        string,
+        { email: string; last_sign_in: string | null }
+      >();
       await Promise.all(
         userIds.map(async (uid) => {
-          const { data: authData, error: uidErr } = await supabaseAdmin.auth.admin.getUserById(uid);
+          const { data: authData, error: uidErr } = await supabaseAdmin.auth
+            .admin.getUserById(uid);
           if (!uidErr && authData?.user) {
             authInfoMap.set(uid, {
               email: authData.user.email ?? "",
               last_sign_in: authData.user.last_sign_in_at ?? null,
             });
           }
-        })
+        }),
       );
 
-      const enriched = roleRows.map((r: { id: string; role: string; updated_at?: string }) => ({
+      const enriched = roleRows.map((
+        r: { id: string; role: string; updated_at?: string },
+      ) => ({
         id: r.id,
         user_id: r.id,
         role: r.role,
@@ -566,7 +723,10 @@ Deno.serve(async (req) => {
 
     if (action === "get_role_audit_log") {
       const rawLimit = payload?.limit;
-      const limit = Math.min(500, Math.max(1, Number.isInteger(rawLimit) ? rawLimit : 100));
+      const limit = Math.min(
+        500,
+        Math.max(1, Number.isInteger(rawLimit) ? rawLimit : 100),
+      );
 
       const { data: entries, error } = await supabaseAdmin
         .from("user_role_audit_log")
@@ -586,11 +746,12 @@ Deno.serve(async (req) => {
       const emailMap = new Map<string, string>();
       await Promise.all(
         Array.from(involvedIds).map(async (uid) => {
-          const { data: authData, error: uidErr } = await supabaseAdmin.auth.admin.getUserById(uid);
+          const { data: authData, error: uidErr } = await supabaseAdmin.auth
+            .admin.getUserById(uid);
           if (!uidErr && authData?.user?.email) {
             emailMap.set(uid, authData.user.email);
           }
-        })
+        }),
       );
 
       const enriched = auditRows.map((e: {
@@ -604,7 +765,8 @@ Deno.serve(async (req) => {
       }) => ({
         ...e,
         target_email: emailMap.get(e.target_user_id) ?? e.target_user_id,
-        changed_by_email: emailMap.get(e.changed_by_user_id) ?? e.changed_by_user_id,
+        changed_by_email: emailMap.get(e.changed_by_user_id) ??
+          e.changed_by_user_id,
       }));
 
       return successResponse({ data: { entries: enriched } });
@@ -614,8 +776,13 @@ Deno.serve(async (req) => {
 
     if (action === "fetch_lead_events") {
       const { lead_id, limit: rawLimit } = payload;
-      if (!lead_id) return errorResponse(400, "missing_param", "lead_id is required");
-      const limit = Math.min(200, Math.max(1, Number.isInteger(rawLimit) ? rawLimit : 50));
+      if (!lead_id) {
+        return errorResponse(400, "missing_param", "lead_id is required");
+      }
+      const limit = Math.min(
+        200,
+        Math.max(1, Number.isInteger(rawLimit) ? rawLimit : 50),
+      );
       const { data, error } = await supabaseAdmin
         .from("lead_events")
         .select("*")
@@ -630,7 +797,10 @@ Deno.serve(async (req) => {
 
     if (action === "fetch_webhook_deliveries") {
       const { status: filterStatus, limit: rawLimit } = payload;
-      const limit = Math.min(500, Math.max(1, Number.isInteger(rawLimit) ? rawLimit : 200));
+      const limit = Math.min(
+        500,
+        Math.max(1, Number.isInteger(rawLimit) ? rawLimit : 200),
+      );
       let query = supabaseAdmin
         .from("webhook_deliveries")
         .select("*")
@@ -646,7 +816,9 @@ Deno.serve(async (req) => {
 
     if (action === "fetch_lead_analysis") {
       const { analysis_id } = payload;
-      if (!analysis_id) return errorResponse(400, "missing_param", "analysis_id is required");
+      if (!analysis_id) {
+        return errorResponse(400, "missing_param", "analysis_id is required");
+      }
       const { data, error } = await supabaseAdmin
         .from("analyses")
         .select("grade, dollar_delta, confidence_score, flags, full_json")
@@ -665,10 +837,11 @@ Deno.serve(async (req) => {
         .select("id, company_name, contact_email, status, created_at");
       if (pErr) throw pErr;
 
+      // deno-lint-ignore no-explicit-any
       const profileIds = (profiles ?? []).map((p: any) => p.id);
 
       // Fetch credits
-      let creditsMap: Record<string, number> = {};
+      const creditsMap: Record<string, number> = {};
       if (profileIds.length > 0) {
         const { data: credits } = await supabaseAdmin
           .from("contractor_credits")
@@ -680,19 +853,27 @@ Deno.serve(async (req) => {
       }
 
       // Fetch unlock counts
-      let unlockCountMap: Record<string, number> = {};
+      const unlockCountMap: Record<string, number> = {};
       if (profileIds.length > 0) {
         const { data: unlocks } = await supabaseAdmin
           .from("contractor_unlocked_leads")
           .select("contractor_id");
         // Count per contractor
         for (const u of unlocks ?? []) {
-          unlockCountMap[u.contractor_id] = (unlockCountMap[u.contractor_id] || 0) + 1;
+          unlockCountMap[u.contractor_id] =
+            (unlockCountMap[u.contractor_id] || 0) + 1;
         }
       }
 
       // Fetch auth bridge from contractors table
-      let authBridgeMap: Record<string, { contractor_record_id: string; company_name: string; routing_setup_completed_at: string | null } | null> = {};
+      const authBridgeMap: Record<
+        string,
+        {
+          contractor_record_id: string;
+          company_name: string;
+          routing_setup_completed_at: string | null;
+        } | null
+      > = {};
       if (profileIds.length > 0) {
         const { data: contractors } = await supabaseAdmin
           .from("contractors")
@@ -710,19 +891,24 @@ Deno.serve(async (req) => {
       }
 
       // Fetch auth user emails
-      const authEmailMap = new Map<string, { email: string; last_sign_in: string | null }>();
+      const authEmailMap = new Map<
+        string,
+        { email: string; last_sign_in: string | null }
+      >();
       await Promise.all(
         profileIds.map(async (uid: string) => {
-          const { data: authData, error: uidErr } = await supabaseAdmin.auth.admin.getUserById(uid);
+          const { data: authData, error: uidErr } = await supabaseAdmin.auth
+            .admin.getUserById(uid);
           if (!uidErr && authData?.user) {
             authEmailMap.set(uid, {
               email: authData.user.email ?? "",
               last_sign_in: authData.user.last_sign_in_at ?? null,
             });
           }
-        })
+        }),
       );
 
+      // deno-lint-ignore no-explicit-any
       const enriched = (profiles ?? []).map((p: any) => ({
         id: p.id,
         company_name: p.company_name,
@@ -736,7 +922,8 @@ Deno.serve(async (req) => {
         has_contractor_record: !!authBridgeMap[p.id],
         contractor_record_id: authBridgeMap[p.id]?.contractor_record_id ?? null,
         marketplace_company_name: authBridgeMap[p.id]?.company_name ?? null,
-        routing_setup_completed_at: authBridgeMap[p.id]?.routing_setup_completed_at ?? null,
+        routing_setup_completed_at:
+          authBridgeMap[p.id]?.routing_setup_completed_at ?? null,
       }));
 
       return successResponse({ data: enriched });
@@ -744,8 +931,13 @@ Deno.serve(async (req) => {
 
     if (action === "get_contractor_ledger") {
       const { contractor_id, limit: rawLimit } = payload;
-      if (!contractor_id) return errorResponse(400, "missing_param", "contractor_id is required");
-      const limit = Math.min(500, Math.max(1, Number.isInteger(rawLimit) ? rawLimit : 100));
+      if (!contractor_id) {
+        return errorResponse(400, "missing_param", "contractor_id is required");
+      }
+      const limit = Math.min(
+        500,
+        Math.max(1, Number.isInteger(rawLimit) ? rawLimit : 100),
+      );
 
       const { data, error } = await supabaseAdmin
         .from("contractor_credit_ledger")
@@ -759,25 +951,43 @@ Deno.serve(async (req) => {
 
     if (action === "adjust_contractor_credits") {
       const { contractor_id, delta, entry_type, notes } = payload;
-      if (!contractor_id) return errorResponse(400, "missing_param", "contractor_id is required");
-      if (!delta || typeof delta !== "number") return errorResponse(400, "missing_param", "delta (non-zero integer) is required");
-      if (!entry_type) return errorResponse(400, "missing_param", "entry_type is required");
+      if (!contractor_id) {
+        return errorResponse(400, "missing_param", "contractor_id is required");
+      }
+      if (!delta || typeof delta !== "number") {
+        return errorResponse(
+          400,
+          "missing_param",
+          "delta (non-zero integer) is required",
+        );
+      }
+      if (!entry_type) {
+        return errorResponse(400, "missing_param", "entry_type is required");
+      }
 
-      const { data, error } = await supabaseAdmin.rpc("admin_adjust_contractor_credits", {
-        p_contractor_id: contractor_id,
-        p_delta: delta,
-        p_entry_type: entry_type,
-        p_notes: notes ?? null,
-        p_admin_user_id: userId === "dev-sandbox-bypass" ? null : userId,
-      });
+      const { data, error } = await supabaseAdmin.rpc(
+        "admin_adjust_contractor_credits",
+        {
+          p_contractor_id: contractor_id,
+          p_delta: delta,
+          p_entry_type: entry_type,
+          p_notes: notes ?? null,
+          p_admin_user_id: userId === "dev-sandbox-bypass" ? null : userId,
+        },
+      );
       if (error) throw error;
       return successResponse({ data });
     }
 
     if (action === "get_contractor_unlocks") {
       const { contractor_id, limit: rawLimit } = payload;
-      if (!contractor_id) return errorResponse(400, "missing_param", "contractor_id is required");
-      const limit = Math.min(500, Math.max(1, Number.isInteger(rawLimit) ? rawLimit : 100));
+      if (!contractor_id) {
+        return errorResponse(400, "missing_param", "contractor_id is required");
+      }
+      const limit = Math.min(
+        500,
+        Math.max(1, Number.isInteger(rawLimit) ? rawLimit : 100),
+      );
 
       const { data: unlocks, error } = await supabaseAdmin
         .from("contractor_unlocked_leads")
@@ -788,18 +998,23 @@ Deno.serve(async (req) => {
       if (error) throw error;
 
       // Enrich with basic lead info
+      // deno-lint-ignore no-explicit-any
       const leadIds = (unlocks ?? []).map((u: any) => u.lead_id);
-      let leadMap: Record<string, any> = {};
+      // deno-lint-ignore no-explicit-any
+      const leadMap: Record<string, any> = {};
       if (leadIds.length > 0) {
         const { data: leads } = await supabaseAdmin
           .from("leads")
-          .select("id, first_name, last_name, county, grade, window_count, quote_amount")
+          .select(
+            "id, first_name, last_name, county, grade, window_count, quote_amount",
+          )
           .in("id", leadIds);
         for (const l of leads ?? []) {
           leadMap[l.id] = l;
         }
       }
 
+      // deno-lint-ignore no-explicit-any
       const enriched = (unlocks ?? []).map((u: any) => ({
         ...u,
         lead: leadMap[u.lead_id] ?? null,
@@ -821,9 +1036,14 @@ Deno.serve(async (req) => {
     }
 
     if (action === "create_invitation") {
-      const { invited_email, contractor_id, initial_credits, expires_in_days } = payload;
+      const { invited_email, contractor_id, initial_credits, expires_in_days } =
+        payload;
       if (!invited_email || !contractor_id) {
-        return errorResponse(400, "missing_param", "invited_email and contractor_id are required");
+        return errorResponse(
+          400,
+          "missing_param",
+          "invited_email and contractor_id are required",
+        );
       }
 
       // Verify contractor exists
@@ -834,7 +1054,11 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (!contractor) {
-        return errorResponse(404, "contractor_not_found", "Contractor business record not found");
+        return errorResponse(
+          404,
+          "contractor_not_found",
+          "Contractor business record not found",
+        );
       }
 
       const expiresAt = new Date();
@@ -858,7 +1082,9 @@ Deno.serve(async (req) => {
 
     if (action === "revoke_invitation") {
       const { invitation_id } = payload;
-      if (!invitation_id) return errorResponse(400, "missing_param", "invitation_id is required");
+      if (!invitation_id) {
+        return errorResponse(400, "missing_param", "invitation_id is required");
+      }
 
       const { error } = await supabaseAdmin
         .from("contractor_invitations")
@@ -875,16 +1101,20 @@ Deno.serve(async (req) => {
     if (action === "list_meta_configurations") {
       const { data: configs, error } = await supabaseAdmin
         .from("meta_configurations")
-        .select("id, client_id, pixel_id, access_token, test_event_code, is_default, updated_at")
+        .select(
+          "id, client_id, pixel_id, access_token, test_event_code, is_default, updated_at",
+        )
         .order("is_default", { ascending: false })
-        .order("updated_at",  { ascending: false });
+        .order("updated_at", { ascending: false });
       if (error) throw error;
 
       const { data: clients } = await supabaseAdmin
         .from("clients")
         .select("id, slug, name, is_active");
+      // deno-lint-ignore no-explicit-any
       const clientMap = new Map((clients ?? []).map((c: any) => [c.id, c]));
 
+      // deno-lint-ignore no-explicit-any
       const rows = (configs ?? []).map((c: any) => {
         const client = c.client_id ? clientMap.get(c.client_id) : null;
         return {
@@ -907,34 +1137,54 @@ Deno.serve(async (req) => {
     // Validation is done in code AND enforced by DB constraints.
     if (action === "create_meta_client_config") {
       const {
-        client_slug, client_name,
-        pixel_id, access_token, test_event_code = null,
+        client_slug,
+        client_name,
+        pixel_id,
+        access_token,
+        test_event_code = null,
       } = payload ?? {};
 
       if (typeof client_slug !== "string" || !SLUG_RE.test(client_slug)) {
-        return errorResponse(400, "invalid_slug",
-          "client_slug must be 1-40 chars, lowercase a-z, 0-9, hyphens.");
+        return errorResponse(
+          400,
+          "invalid_slug",
+          "client_slug must be 1-40 chars, lowercase a-z, 0-9, hyphens.",
+        );
       }
       if (typeof client_name !== "string" || client_name.trim().length < 2) {
-        return errorResponse(400, "invalid_name", "client_name is required (min 2 chars).");
+        return errorResponse(
+          400,
+          "invalid_name",
+          "client_name is required (min 2 chars).",
+        );
       }
       if (typeof pixel_id !== "string" || !PIXEL_RE.test(pixel_id)) {
-        return errorResponse(400, "invalid_pixel_id",
-          "pixel_id must be a 6-20 digit Meta Pixel ID.");
+        return errorResponse(
+          400,
+          "invalid_pixel_id",
+          "pixel_id must be a 6-20 digit Meta Pixel ID.",
+        );
       }
       if (typeof access_token !== "string" || access_token.trim().length < 20) {
-        return errorResponse(400, "invalid_token",
-          "access_token must be a non-empty Meta CAPI token (min 20 chars).");
+        return errorResponse(
+          400,
+          "invalid_token",
+          "access_token must be a non-empty Meta CAPI token (min 20 chars).",
+        );
       }
 
       // Upsert client (slug is unique).
       const { data: existingClient } = await supabaseAdmin
-        .from("clients").select("id, name, is_active").eq("slug", client_slug).maybeSingle();
+        .from("clients").select("id, name, is_active").eq("slug", client_slug)
+        .maybeSingle();
 
       let clientId: string;
       if (existingClient) {
         clientId = existingClient.id;
-        if (existingClient.name !== client_name || existingClient.is_active !== true) {
+        if (
+          existingClient.name !== client_name ||
+          existingClient.is_active !== true
+        ) {
           await supabaseAdmin.from("clients")
             .update({ name: client_name, is_active: true })
             .eq("id", clientId);
@@ -944,7 +1194,9 @@ Deno.serve(async (req) => {
           .from("clients")
           .insert({ slug: client_slug, name: client_name, is_active: true })
           .select("id").single();
-        if (cErr) return errorResponse(400, "client_insert_failed", cErr.message);
+        if (cErr) {
+          return errorResponse(400, "client_insert_failed", cErr.message);
+        }
         clientId = newClient.id;
       }
 
@@ -964,12 +1216,19 @@ Deno.serve(async (req) => {
 
       if (existingCfg) {
         const { error: uErr } = await supabaseAdmin
-          .from("meta_configurations").update(cfgPayload).eq("id", existingCfg.id);
-        if (uErr) return errorResponse(400, "config_update_failed", uErr.message);
+          .from("meta_configurations").update(cfgPayload).eq(
+            "id",
+            existingCfg.id,
+          );
+        if (uErr) {
+          return errorResponse(400, "config_update_failed", uErr.message);
+        }
       } else {
         const { error: iErr } = await supabaseAdmin
           .from("meta_configurations").insert(cfgPayload);
-        if (iErr) return errorResponse(400, "config_insert_failed", iErr.message);
+        if (iErr) {
+          return errorResponse(400, "config_insert_failed", iErr.message);
+        }
       }
 
       return successResponse({
@@ -983,35 +1242,143 @@ Deno.serve(async (req) => {
     }
 
     if (action === "save_client_config") {
-      const { client_id, google_ads_conversion_id = null, google_ads_label = null, meta_pixel_id = null, meta_dataset_id = null, gtm_server_url = null, capi_token = null } = payload ?? {};
-      if (typeof client_id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(client_id)) return errorResponse(400, "invalid_client_id", "client_id must be a valid UUID.");
-      const clean = (value: unknown, max = 255) => typeof value === "string" && value.trim() ? value.trim().slice(0, max) : null;
-      const googleId = clean(google_ads_conversion_id, 32), googleLabel = clean(google_ads_label, 120), metaPixelId = clean(meta_pixel_id, 32), metaDatasetId = clean(meta_dataset_id, 80), serverGtmUrl = clean(gtm_server_url, 255), token = clean(capi_token, 4096);
-      if (googleId && !/^(AW-)?[0-9]{6,20}$/.test(googleId)) return errorResponse(400, "invalid_google_ads_conversion_id", "Google Ads Conversion ID must look like AW-123456789 or digits only.");
-      if (metaPixelId && !PIXEL_RE.test(metaPixelId)) return errorResponse(400, "invalid_meta_pixel_id", "Meta Pixel ID must be 6–20 digits.");
-      if (serverGtmUrl) { try { if (new URL(serverGtmUrl).protocol !== "https:") return errorResponse(400, "invalid_gtm_server_url", "Server GTM URL must use HTTPS."); } catch { return errorResponse(400, "invalid_gtm_server_url", "Server GTM URL must be a valid HTTPS URL."); } }
-      if (token && token.length < 20) return errorResponse(400, "invalid_capi_token", "CAPI token must be at least 20 characters when provided.");
+      const {
+        client_id,
+        google_ads_conversion_id = null,
+        google_ads_label = null,
+        meta_pixel_id = null,
+        meta_dataset_id = null,
+        gtm_server_url = null,
+        capi_token = null,
+      } = payload ?? {};
+      if (
+        typeof client_id !== "string" ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+          .test(client_id)
+      ) {
+        return errorResponse(
+          400,
+          "invalid_client_id",
+          "client_id must be a valid UUID.",
+        );
+      }
+      const clean = (value: unknown, max = 255) =>
+        typeof value === "string" && value.trim()
+          ? value.trim().slice(0, max)
+          : null;
+      const googleId = clean(google_ads_conversion_id, 32),
+        googleLabel = clean(google_ads_label, 120),
+        metaPixelId = clean(meta_pixel_id, 32),
+        metaDatasetId = clean(meta_dataset_id, 80),
+        serverGtmUrl = clean(gtm_server_url, 255),
+        token = clean(capi_token, 4096);
+      if (googleId && !/^(AW-)?[0-9]{6,20}$/.test(googleId)) {
+        return errorResponse(
+          400,
+          "invalid_google_ads_conversion_id",
+          "Google Ads Conversion ID must look like AW-123456789 or digits only.",
+        );
+      }
+      if (metaPixelId && !PIXEL_RE.test(metaPixelId)) {
+        return errorResponse(
+          400,
+          "invalid_meta_pixel_id",
+          "Meta Pixel ID must be 6–20 digits.",
+        );
+      }
+      if (serverGtmUrl) {
+        try {
+          if (new URL(serverGtmUrl).protocol !== "https:") {
+            return errorResponse(
+              400,
+              "invalid_gtm_server_url",
+              "Server GTM URL must use HTTPS.",
+            );
+          }
+        } catch {
+          return errorResponse(
+            400,
+            "invalid_gtm_server_url",
+            "Server GTM URL must be a valid HTTPS URL.",
+          );
+        }
+      }
+      if (token && token.length < 20) {
+        return errorResponse(
+          400,
+          "invalid_capi_token",
+          "CAPI token must be at least 20 characters when provided.",
+        );
+      }
 
-      const { data: existingClient, error: clientErr } = await supabaseAdmin.from("clients").select("id").eq("id", client_id).maybeSingle();
+      const { data: existingClient, error: clientErr } = await supabaseAdmin
+        .from("clients").select("id").eq("id", client_id).maybeSingle();
       if (clientErr) throw clientErr;
-      if (!existingClient) return errorResponse(404, "client_not_found", "Client not found.");
+      if (!existingClient) {
+        return errorResponse(404, "client_not_found", "Client not found.");
+      }
 
       let secretId: string | null = null;
       if (token) {
-        const { data: savedSecretId, error: secretErr } = await supabaseAdmin.rpc("vault_upsert_client_capi_token" as never, { p_client_id: client_id, p_token: token } as never);
-        if (secretErr) return errorResponse(500, "vault_write_failed", "Unable to store CAPI token securely.");
+        const { data: savedSecretId, error: secretErr } = await supabaseAdmin
+          .rpc(
+            "vault_upsert_client_capi_token" as never,
+            { p_client_id: client_id, p_token: token } as never,
+          );
+        if (secretErr) {
+          return errorResponse(
+            500,
+            "vault_write_failed",
+            "Unable to store CAPI token securely.",
+          );
+        }
         secretId = String(savedSecretId);
       }
 
-      const { data: existingConfig, error: existingErr } = await supabaseAdmin.from("client_configs").select("id, capi_token_secret_id").eq("client_id", client_id).maybeSingle();
+      const { data: existingConfig, error: existingErr } = await supabaseAdmin
+        .from("client_configs").select("id, capi_token_secret_id").eq(
+          "client_id",
+          client_id,
+        ).maybeSingle();
       if (existingErr) throw existingErr;
-      const configPayload: Record<string, unknown> = { client_id, google_ads_conversion_id: googleId, google_ads_label: googleLabel, meta_pixel_id: metaPixelId, meta_dataset_id: metaDatasetId, gtm_server_url: serverGtmUrl, updated_at: now };
+      const configPayload: Record<string, unknown> = {
+        client_id,
+        google_ads_conversion_id: googleId,
+        google_ads_label: googleLabel,
+        meta_pixel_id: metaPixelId,
+        meta_dataset_id: metaDatasetId,
+        gtm_server_url: serverGtmUrl,
+        updated_at: now,
+      };
       if (secretId) configPayload.capi_token_secret_id = secretId;
       const result = existingConfig
-        ? await supabaseAdmin.from("client_configs").update(configPayload).eq("id", existingConfig.id)
-        : await supabaseAdmin.from("client_configs").insert({ ...configPayload, created_at: now });
-      if (result.error) return errorResponse(400, existingConfig ? "client_config_update_failed" : "client_config_insert_failed", result.error.message);
-      return successResponse({ data: { success: true, client_id, capi_token_configured: Boolean(secretId || existingConfig?.capi_token_secret_id), capi_token_rotated: Boolean(secretId) } });
+        ? await supabaseAdmin.from("client_configs").update(configPayload).eq(
+          "id",
+          existingConfig.id,
+        )
+        : await supabaseAdmin.from("client_configs").insert({
+          ...configPayload,
+          created_at: now,
+        });
+      if (result.error) {
+        return errorResponse(
+          400,
+          existingConfig
+            ? "client_config_update_failed"
+            : "client_config_insert_failed",
+          result.error.message,
+        );
+      }
+      return successResponse({
+        data: {
+          success: true,
+          client_id,
+          capi_token_configured: Boolean(
+            secretId || existingConfig?.capi_token_secret_id,
+          ),
+          capi_token_rotated: Boolean(secretId),
+        },
+      });
     }
 
     // Toggle a client's active flag. Inactive clients fall through to default/env.
@@ -1027,7 +1394,13 @@ Deno.serve(async (req) => {
         .from("clients").update({ is_active }).eq("slug", client_slug)
         .select("id, slug, is_active").maybeSingle();
       if (error) return errorResponse(400, "update_failed", error.message);
-      if (!data)  return errorResponse(404, "client_not_found", `No client with slug "${client_slug}".`);
+      if (!data) {
+        return errorResponse(
+          404,
+          "client_not_found",
+          `No client with slug "${client_slug}".`,
+        );
+      }
       return successResponse({ data: { success: true, client: data } });
     }
 
@@ -1037,12 +1410,18 @@ Deno.serve(async (req) => {
     // RouteDiagnostic in capi-event/index.ts).
     if (action === "preview_meta_route") {
       const { client_slug } = payload ?? {};
-      const slug = typeof client_slug === "string" && client_slug.length > 0 ? client_slug : undefined;
+      const slug = typeof client_slug === "string" && client_slug.length > 0
+        ? client_slug
+        : undefined;
 
       // Validate slug shape only when present — empty/missing is a valid
       // "preview the global default tier" request.
       if (slug && !SLUG_RE.test(slug)) {
-        return errorResponse(400, "invalid_slug", "client_slug must match [a-z0-9-]{1,40}.");
+        return errorResponse(
+          400,
+          "invalid_slug",
+          "client_slug must match [a-z0-9-]{1,40}.",
+        );
       }
 
       const diagnostic = await diagnoseRoute(supabaseAdmin as never, slug);
@@ -1081,20 +1460,35 @@ Deno.serve(async (req) => {
         event_source_url = "https://wmmvp.lovable.app/__smoke__",
       } = payload ?? {};
 
-      const slug = typeof client_slug === "string" && client_slug.length > 0 ? client_slug : undefined;
-      if (slug && !SLUG_RE.test(slug)) {
-        return errorResponse(400, "invalid_slug", "client_slug must match [a-z0-9-]{1,40}.");
-      }
-
-      const allowedEvents = new Set(["PageView", "ViewContent", "Lead", "CompleteRegistration"]);
-      if (!allowedEvents.has(event_name)) {
-        return errorResponse(400, "invalid_event_name",
-          `event_name must be one of: ${[...allowedEvents].join(", ")}`);
-      }
-
-      const overrideTestCode = typeof test_event_code === "string" && test_event_code.trim().length > 0
-        ? test_event_code.trim()
+      const slug = typeof client_slug === "string" && client_slug.length > 0
+        ? client_slug
         : undefined;
+      if (slug && !SLUG_RE.test(slug)) {
+        return errorResponse(
+          400,
+          "invalid_slug",
+          "client_slug must match [a-z0-9-]{1,40}.",
+        );
+      }
+
+      const allowedEvents = new Set([
+        "PageView",
+        "ViewContent",
+        "Lead",
+        "CompleteRegistration",
+      ]);
+      if (!allowedEvents.has(event_name)) {
+        return errorResponse(
+          400,
+          "invalid_event_name",
+          `event_name must be one of: ${[...allowedEvents].join(", ")}`,
+        );
+      }
+
+      const overrideTestCode =
+        typeof test_event_code === "string" && test_event_code.trim().length > 0
+          ? test_event_code.trim()
+          : undefined;
 
       // Resolve the route using the SAME resolver used in production.
       const config = await resolvePixelConfig(supabaseAdmin as never, slug);
@@ -1118,8 +1512,11 @@ Deno.serve(async (req) => {
       const effectiveTestCode = overrideTestCode ?? config.testEventCode;
       if (!effectiveTestCode) {
         // Refuse to send: explicit test mode is mandatory.
-        return errorResponse(400, "test_event_code_required",
-          "Smoke-send requires test_event_code (either passed in payload or configured on the resolved row).");
+        return errorResponse(
+          400,
+          "test_event_code_required",
+          "Smoke-send requires test_event_code (either passed in payload or configured on the resolved row).",
+        );
       }
 
       // Build a controlled, namespaced test event. event_id prefix ensures
@@ -1153,7 +1550,10 @@ Deno.serve(async (req) => {
             mode: "test",
             reason: "network_error",
             error: String(sendErr),
-            route: { ...diagnostic, masked_pixel_id: `…${config.pixelId.slice(-4)}` },
+            route: {
+              ...diagnostic,
+              masked_pixel_id: `…${config.pixelId.slice(-4)}`,
+            },
             test_event_code_used: effectiveTestCode,
             event_id: eventId,
           },
@@ -1207,20 +1607,39 @@ Deno.serve(async (req) => {
     // raw env values. Safe for super_admin / operator / viewer.
     if (action === "diagnose_token_health") {
       const { client_slug } = payload ?? {};
-      const slug = typeof client_slug === "string" && client_slug.length > 0 ? client_slug : undefined;
+      const slug = typeof client_slug === "string" && client_slug.length > 0
+        ? client_slug
+        : undefined;
       if (slug && !SLUG_RE.test(slug)) {
-        return errorResponse(400, "invalid_slug", "client_slug must match [a-z0-9-]{1,40}.");
+        return errorResponse(
+          400,
+          "invalid_slug",
+          "client_slug must match [a-z0-9-]{1,40}.",
+        );
       }
 
       // Per-client tier (optional)
-      let clientTier: { resolved: boolean; reason: string; presence: ReturnType<typeof summarizeTokenPresence> | null } | null = null;
+      let clientTier: {
+        resolved: boolean;
+        reason: string;
+        presence: ReturnType<typeof summarizeTokenPresence> | null;
+      } | null = null;
       if (slug) {
         const { data: client } = await supabaseAdmin
-          .from("clients").select("id, is_active").eq("slug", slug).maybeSingle();
+          .from("clients").select("id, is_active").eq("slug", slug)
+          .maybeSingle();
         if (!client) {
-          clientTier = { resolved: false, reason: "client_not_found", presence: null };
+          clientTier = {
+            resolved: false,
+            reason: "client_not_found",
+            presence: null,
+          };
         } else if (!(client as { is_active: boolean }).is_active) {
-          clientTier = { resolved: false, reason: "client_inactive", presence: null };
+          clientTier = {
+            resolved: false,
+            reason: "client_inactive",
+            presence: null,
+          };
         } else {
           const { data: cfg } = await supabaseAdmin
             .from("meta_configurations")
@@ -1229,14 +1648,15 @@ Deno.serve(async (req) => {
             .maybeSingle();
           const presence = summarizeTokenPresence(cfg as never);
           clientTier = {
-            resolved: presence.pixel_id_present && presence.access_token_present,
+            resolved: presence.pixel_id_present &&
+              presence.access_token_present,
             reason: !cfg
               ? "client_config_missing"
               : !presence.pixel_id_present
-                ? "client_config_missing_pixel"
-                : !presence.access_token_present
-                  ? "client_config_missing_token"
-                  : "ok",
+              ? "client_config_missing_pixel"
+              : !presence.access_token_present
+              ? "client_config_missing_token"
+              : "ok",
             presence,
           };
         }
@@ -1250,14 +1670,15 @@ Deno.serve(async (req) => {
         .maybeSingle();
       const defaultPresence = summarizeTokenPresence(defaultRow as never);
       const defaultTier = {
-        resolved: defaultPresence.pixel_id_present && defaultPresence.access_token_present,
+        resolved: defaultPresence.pixel_id_present &&
+          defaultPresence.access_token_present,
         reason: !defaultRow
           ? "default_missing"
           : !defaultPresence.pixel_id_present
-            ? "default_missing_pixel"
-            : !defaultPresence.access_token_present
-              ? "default_missing_token"
-              : "ok",
+          ? "default_missing_pixel"
+          : !defaultPresence.access_token_present
+          ? "default_missing_token"
+          : "ok",
         presence: defaultPresence,
       };
 
@@ -1271,14 +1692,15 @@ Deno.serve(async (req) => {
         test_event_code: envTestCode,
       });
       const envTier = {
-        resolved: envPresence.pixel_id_present && envPresence.access_token_present,
+        resolved: envPresence.pixel_id_present &&
+          envPresence.access_token_present,
         reason: envPresence.pixel_id_present && envPresence.access_token_present
           ? "ok"
           : !envPresence.pixel_id_present && !envPresence.access_token_present
-            ? "env_missing"
-            : !envPresence.pixel_id_present
-              ? "env_missing_pixel"
-              : "env_missing_token",
+          ? "env_missing"
+          : !envPresence.pixel_id_present
+          ? "env_missing_pixel"
+          : "env_missing_token",
         presence: envPresence,
       };
 
@@ -1286,10 +1708,10 @@ Deno.serve(async (req) => {
       const effective_tier = clientTier?.resolved
         ? "client"
         : defaultTier.resolved
-          ? "default"
-          : envTier.resolved
-            ? "env"
-            : "degraded";
+        ? "default"
+        : envTier.resolved
+        ? "env"
+        : "degraded";
 
       return successResponse({
         data: {
@@ -1325,7 +1747,8 @@ Deno.serve(async (req) => {
     //   • Health states are evidence-backed (counts + thresholds), not vibes.
     if (action === "summarize_meta_fleet_health") {
       const { window_hours } = payload ?? {};
-      const hours = typeof window_hours === "number" && window_hours > 0 && window_hours <= 168
+      const hours = typeof window_hours === "number" && window_hours > 0 &&
+          window_hours <= 168
         ? Math.floor(window_hours)
         : 24;
       const sinceIso = new Date(Date.now() - hours * 3600 * 1000).toISOString();
@@ -1341,11 +1764,15 @@ Deno.serve(async (req) => {
         .select("client_id, pixel_id, access_token, is_default");
       if (cfgErr) throw cfgErr;
 
-      const cfgByClientId = new Map<string, { pixel_id: string | null; token_present: boolean }>();
+      const cfgByClientId = new Map<
+        string,
+        { pixel_id: string | null; token_present: boolean }
+      >();
       let defaultPixelId: string | null = null;
       let defaultTokenPresent = false;
       for (const c of configs ?? []) {
-        const tokenPresent = typeof c.access_token === "string" && c.access_token.trim().length >= 20;
+        const tokenPresent = typeof c.access_token === "string" &&
+          c.access_token.trim().length >= 20;
         if (c.is_default) {
           defaultPixelId = c.pixel_id ?? null;
           defaultTokenPresent = tokenPresent;
@@ -1373,46 +1800,63 @@ Deno.serve(async (req) => {
       // 3. Bucket logs by client_slug (NULL → "__default__").
       type Bucket = {
         total: number;
-        success: number;          // 2xx
+        success: number; // 2xx
         non_2xx: number;
-        meta_reject: number;      // classified as meta_rejected_payload / unknown_failure
-        token_failure: number;    // token_invalid_or_revoked / pixel_token_mismatch / token_permission_denied
+        meta_reject: number; // classified as meta_rejected_payload / unknown_failure
+        token_failure: number; // token_invalid_or_revoked / pixel_token_mismatch / token_permission_denied
         rate_limited: number;
         meta_server_error: number;
         pixel_ids_seen: Set<string>;
         last_seen_at: string | null;
       };
       const newBucket = (): Bucket => ({
-        total: 0, success: 0, non_2xx: 0, meta_reject: 0, token_failure: 0,
-        rate_limited: 0, meta_server_error: 0,
-        pixel_ids_seen: new Set(), last_seen_at: null,
+        total: 0,
+        success: 0,
+        non_2xx: 0,
+        meta_reject: 0,
+        token_failure: 0,
+        rate_limited: 0,
+        meta_server_error: 0,
+        pixel_ids_seen: new Set(),
+        last_seen_at: null,
       });
       const buckets = new Map<string, Bucket>();
       for (const row of logs ?? []) {
         const key = (row.client_slug as string | null) ?? "__default__";
         let b = buckets.get(key);
-        if (!b) { b = newBucket(); buckets.set(key, b); }
+        if (!b) {
+          b = newBucket();
+          buckets.set(key, b);
+        }
         b.total++;
-        const status = typeof row.status_code === "number" ? row.status_code : null;
+        const status = typeof row.status_code === "number"
+          ? row.status_code
+          : null;
         if (status !== null && status >= 200 && status < 300) {
           b.success++;
         } else {
           b.non_2xx++;
           const failure = classifyMetaError(status ?? 0, row.response);
-          if (failure.class === "token_invalid_or_revoked"
-              || failure.class === "pixel_token_mismatch"
-              || failure.class === "token_permission_denied") {
+          if (
+            failure.class === "token_invalid_or_revoked" ||
+            failure.class === "pixel_token_mismatch" ||
+            failure.class === "token_permission_denied"
+          ) {
             b.token_failure++;
           } else if (failure.class === "rate_limited") {
             b.rate_limited++;
           } else if (failure.class === "meta_server_error") {
             b.meta_server_error++;
-          } else if (failure.class === "meta_rejected_payload"
-                     || failure.class === "unknown_failure") {
+          } else if (
+            failure.class === "meta_rejected_payload" ||
+            failure.class === "unknown_failure"
+          ) {
             b.meta_reject++;
           }
         }
-        if (typeof row.pixel_id === "string") b.pixel_ids_seen.add(row.pixel_id);
+        if (typeof row.pixel_id === "string") {
+          b.pixel_ids_seen.add(row.pixel_id);
+        }
         if (!b.last_seen_at || (row.fired_at as string) > b.last_seen_at) {
           b.last_seen_at = row.fired_at as string;
         }
@@ -1435,7 +1879,8 @@ Deno.serve(async (req) => {
         const errPct = total > 0 ? non_2xx / total : 0;
 
         // Determine dominant route from observed pixel_ids vs expected.
-        let dominant_route: "client" | "default" | "mixed" | "unknown" = "unknown";
+        let dominant_route: "client" | "default" | "mixed" | "unknown" =
+          "unknown";
         let recent_fallback_count = 0;
         if (b && b.pixel_ids_seen.size > 0) {
           const seen = [...b.pixel_ids_seen];
@@ -1443,7 +1888,9 @@ Deno.serve(async (req) => {
             ? seen.filter((p) => p === expected_pixel)
             : [];
           const others = seen.filter((p) => p !== expected_pixel);
-          if (expected_pixel && matchesExpected.length > 0 && others.length === 0) {
+          if (
+            expected_pixel && matchesExpected.length > 0 && others.length === 0
+          ) {
             dominant_route = "client";
           } else if (!expected_pixel || matchesExpected.length === 0) {
             dominant_route = "default";
@@ -1463,39 +1910,54 @@ Deno.serve(async (req) => {
         if (!is_active) {
           health_state = "warning";
           suspected_issue_class = "client_inactive";
-          recommended_next_step = "Client is inactive — traffic falls to default. Re-run go-live gate before enabling.";
+          recommended_next_step =
+            "Client is inactive — traffic falls to default. Re-run go-live gate before enabling.";
         } else if (!config_present) {
           health_state = "incident";
           suspected_issue_class = "config_missing";
-          recommended_next_step = "Active client has no meta_configurations row. Run create_meta_client_config.";
+          recommended_next_step =
+            "Active client has no meta_configurations row. Run create_meta_client_config.";
         } else if (!expected_pixel || !token_present) {
           health_state = "incident";
           suspected_issue_class = "config_incomplete";
-          recommended_next_step = "Config row missing pixel_id or access_token. Re-run create_meta_client_config.";
+          recommended_next_step =
+            "Config row missing pixel_id or access_token. Re-run create_meta_client_config.";
         } else if (total === 0) {
           health_state = "warning";
           suspected_issue_class = "no_recent_traffic";
-          recommended_next_step = `No production events in last ${hours}h. Confirm caller traffic; run preview_meta_route + smoke_send_meta_event.`;
+          recommended_next_step =
+            `No production events in last ${hours}h. Confirm caller traffic; run preview_meta_route + smoke_send_meta_event.`;
         } else if (b!.token_failure > 0) {
           health_state = "incident";
           suspected_issue_class = "token_failure";
-          recommended_next_step = "Token rejected by Meta. Run diagnose_token_health, then rotate via create_meta_client_config.";
+          recommended_next_step =
+            "Token rejected by Meta. Run diagnose_token_health, then rotate via create_meta_client_config.";
         } else if (dominant_route === "default" || dominant_route === "mixed") {
           health_state = "incident";
           suspected_issue_class = "unexpected_fallback";
-          recommended_next_step = "Live traffic hitting non-expected pixel. Run preview_meta_route. See CAPI_PRODUCTION_RECOVERY_RUNBOOK §3.";
+          recommended_next_step =
+            "Live traffic hitting non-expected pixel. Run preview_meta_route. See CAPI_PRODUCTION_RECOVERY_RUNBOOK §3.";
         } else if (errPct >= 0.05) {
           health_state = "incident";
-          suspected_issue_class = b!.meta_reject > 0 ? "meta_reject" : "elevated_errors";
-          recommended_next_step = "Non-2xx rate ≥5%. Inspect Edge Function logs + capi_signal_logs.response for this slug.";
-        } else if (errPct >= 0.01 || b!.rate_limited > 0 || b!.meta_server_error > 0) {
+          suspected_issue_class = b!.meta_reject > 0
+            ? "meta_reject"
+            : "elevated_errors";
+          recommended_next_step =
+            "Non-2xx rate ≥5%. Inspect Edge Function logs + capi_signal_logs.response for this slug.";
+        } else if (
+          errPct >= 0.01 || b!.rate_limited > 0 || b!.meta_server_error > 0
+        ) {
           health_state = "warning";
-          suspected_issue_class = b!.rate_limited > 0 ? "rate_limited" : (b!.meta_server_error > 0 ? "meta_transient" : "elevated_errors");
-          recommended_next_step = "Non-2xx rate 1–5% or transient Meta errors. Watch per CAPI_POST_LAUNCH_WATCHTOWER §4.3.";
+          suspected_issue_class = b!.rate_limited > 0
+            ? "rate_limited"
+            : (b!.meta_server_error > 0 ? "meta_transient" : "elevated_errors");
+          recommended_next_step =
+            "Non-2xx rate 1–5% or transient Meta errors. Watch per CAPI_POST_LAUNCH_WATCHTOWER §4.3.";
         } else {
           health_state = "healthy";
           suspected_issue_class = "none";
-          recommended_next_step = "No action required. Continue scheduled watchtower checks.";
+          recommended_next_step =
+            "No action required. Continue scheduled watchtower checks.";
         }
 
         return {
@@ -1520,6 +1982,7 @@ Deno.serve(async (req) => {
         };
       };
 
+      // deno-lint-ignore no-explicit-any
       const clientRows = (clients ?? []).map((c: any) => {
         const cfg = cfgByClientId.get(c.id);
         return summarizeClient(
@@ -1543,15 +2006,18 @@ Deno.serve(async (req) => {
       if (!defaultPixelId || !defaultTokenPresent) {
         defaultHealth = "incident";
         defaultIssue = "default_config_incomplete";
-        defaultNextStep = "Default tier missing pixel_id or access_token. This breaks every fallback. Repair immediately.";
+        defaultNextStep =
+          "Default tier missing pixel_id or access_token. This breaks every fallback. Repair immediately.";
       } else if (defaultBucket && defaultBucket.token_failure > 0) {
         defaultHealth = "incident";
         defaultIssue = "token_failure";
-        defaultNextStep = "Default token rejected. Rotate via create_meta_client_config (is_default = true).";
+        defaultNextStep =
+          "Default token rejected. Rotate via create_meta_client_config (is_default = true).";
       } else if (defaultErrPct >= 0.05) {
         defaultHealth = "incident";
         defaultIssue = "elevated_errors";
-        defaultNextStep = "Default tier non-2xx ≥5%. Inspect logs + recovery runbook §3.";
+        defaultNextStep =
+          "Default tier non-2xx ≥5%. Inspect logs + recovery runbook §3.";
       } else if (defaultErrPct >= 0.01) {
         defaultHealth = "warning";
         defaultIssue = "elevated_errors";
@@ -1580,7 +2046,10 @@ Deno.serve(async (req) => {
 
       // 6. Fleet roll-up.
       const stateCounts = clientRows.reduce(
-        (acc, r) => { acc[r.health_state]++; return acc; },
+        (acc, r) => {
+          acc[r.health_state]++;
+          return acc;
+        },
         { healthy: 0, warning: 0, incident: 0 } as Record<string, number>,
       );
 
@@ -1615,7 +2084,9 @@ Deno.serve(async (req) => {
 
     if (action === "fetch_lead_detail") {
       const { lead_id } = payload;
-      if (!lead_id) return errorResponse(400, "missing_param", "lead_id is required");
+      if (!lead_id) {
+        return errorResponse(400, "missing_param", "lead_id is required");
+      }
 
       // Lead row (canonical)
       const { data: lead, error: leadErr } = await supabaseAdmin
@@ -1629,11 +2100,14 @@ Deno.serve(async (req) => {
       // Phase 10 — joined human-context payload (single round-trip).
       // Each is best-effort: failure to fetch any one of these must not
       // break the dossier load. Operators always get the lead row.
+      // deno-lint-ignore no-explicit-any
       let diagnosis_intake: any = null;
       try {
         const { data } = await supabaseAdmin
           .from("diagnosis_intakes")
-          .select("primary_diagnosis, secondary_clarifiers, other_text, window_intelligence, counter_offer, prescription_path, confidence, created_at")
+          .select(
+            "primary_diagnosis, secondary_clarifiers, other_text, window_intelligence, counter_offer, prescription_path, confidence, created_at",
+          )
           .eq("lead_id", lead_id)
           .order("created_at", { ascending: false })
           .limit(1)
@@ -1643,7 +2117,9 @@ Deno.serve(async (req) => {
         console.warn("[fetch_lead_detail] diagnosis_intakes fetch failed", e);
       }
 
+      // deno-lint-ignore no-explicit-any
       let latest_opportunity: any = null;
+      // deno-lint-ignore no-explicit-any
       let latest_route: any = null;
       try {
         const { data: opp } = await supabaseAdmin
@@ -1667,6 +2143,7 @@ Deno.serve(async (req) => {
             latest_route = {
               ...route,
               contractor_company_name:
+                // deno-lint-ignore no-explicit-any
                 (route as any).contractors?.company_name ?? null,
             };
             delete latest_route.contractors;
@@ -1687,29 +2164,75 @@ Deno.serve(async (req) => {
     }
 
     if (action === "update_lead_human_context") {
-      const { lead_id, property_type_detail, hoa_or_condo_complexity, handoff_consent_status } = payload;
-      if (!lead_id) return errorResponse(400, "missing_param", "lead_id is required");
+      const {
+        lead_id,
+        property_type_detail,
+        hoa_or_condo_complexity,
+        handoff_consent_status,
+      } = payload;
+      if (!lead_id) {
+        return errorResponse(400, "missing_param", "lead_id is required");
+      }
 
-      const ALLOWED_PROPERTY = new Set(["single_family","condo","townhouse_villa","high_rise","multifamily_investment"]);
-      const ALLOWED_HOA = new Set(["none","hoa_simple","hoa_complex","high_rise_engineering","unknown"]);
-      const ALLOWED_CONSENT = new Set(["accepted_today","accepted_tomorrow","text_or_email_first","report_only","unknown"]);
+      const ALLOWED_PROPERTY = new Set([
+        "single_family",
+        "condo",
+        "townhouse_villa",
+        "high_rise",
+        "multifamily_investment",
+      ]);
+      const ALLOWED_HOA = new Set([
+        "none",
+        "hoa_simple",
+        "hoa_complex",
+        "high_rise_engineering",
+        "unknown",
+      ]);
+      const ALLOWED_CONSENT = new Set([
+        "accepted_today",
+        "accepted_tomorrow",
+        "text_or_email_first",
+        "report_only",
+        "unknown",
+      ]);
 
       const update: Record<string, unknown> = { updated_at: now };
       if (property_type_detail !== undefined) {
-        if (property_type_detail !== null && !ALLOWED_PROPERTY.has(property_type_detail)) {
-          return errorResponse(400, "invalid_value", "invalid property_type_detail");
+        if (
+          property_type_detail !== null &&
+          !ALLOWED_PROPERTY.has(property_type_detail)
+        ) {
+          return errorResponse(
+            400,
+            "invalid_value",
+            "invalid property_type_detail",
+          );
         }
         update.property_type_detail = property_type_detail;
       }
       if (hoa_or_condo_complexity !== undefined) {
-        if (hoa_or_condo_complexity !== null && !ALLOWED_HOA.has(hoa_or_condo_complexity)) {
-          return errorResponse(400, "invalid_value", "invalid hoa_or_condo_complexity");
+        if (
+          hoa_or_condo_complexity !== null &&
+          !ALLOWED_HOA.has(hoa_or_condo_complexity)
+        ) {
+          return errorResponse(
+            400,
+            "invalid_value",
+            "invalid hoa_or_condo_complexity",
+          );
         }
         update.hoa_or_condo_complexity = hoa_or_condo_complexity;
       }
       if (handoff_consent_status !== undefined) {
-        if (handoff_consent_status !== null && !ALLOWED_CONSENT.has(handoff_consent_status)) {
-          return errorResponse(400, "invalid_value", "invalid handoff_consent_status");
+        if (
+          handoff_consent_status !== null &&
+          !ALLOWED_CONSENT.has(handoff_consent_status)
+        ) {
+          return errorResponse(
+            400,
+            "invalid_value",
+            "invalid handoff_consent_status",
+          );
         }
         update.handoff_consent_status = handoff_consent_status;
       }
@@ -1718,7 +2241,9 @@ Deno.serve(async (req) => {
         .from("leads")
         .update(update)
         .eq("id", lead_id)
-        .select("id, property_type_detail, hoa_or_condo_complexity, handoff_consent_status, updated_at")
+        .select(
+          "id, property_type_detail, hoa_or_condo_complexity, handoff_consent_status, updated_at",
+        )
         .maybeSingle();
       if (error) throw error;
       if (!data) return errorResponse(404, "not_found", "Lead not found");
@@ -1736,10 +2261,20 @@ Deno.serve(async (req) => {
     if (action === "update_lead_funnel_stage") {
       const { lead_id, funnel_stage } = payload;
       if (!lead_id || !funnel_stage) {
-        return errorResponse(400, "missing_param", "lead_id and funnel_stage are required");
+        return errorResponse(
+          400,
+          "missing_param",
+          "lead_id and funnel_stage are required",
+        );
       }
       if (!ALLOWED_FUNNEL_STAGES.has(funnel_stage)) {
-        return errorResponse(400, "invalid_stage", `funnel_stage must be one of: ${[...ALLOWED_FUNNEL_STAGES].join(", ")}`);
+        return errorResponse(
+          400,
+          "invalid_stage",
+          `funnel_stage must be one of: ${
+            [...ALLOWED_FUNNEL_STAGES].join(", ")
+          }`,
+        );
       }
       const { data, error } = await supabaseAdmin
         .from("leads")
@@ -1763,7 +2298,9 @@ Deno.serve(async (req) => {
 
     if (action === "list_lead_notes") {
       const { lead_id } = payload;
-      if (!lead_id) return errorResponse(400, "missing_param", "lead_id is required");
+      if (!lead_id) {
+        return errorResponse(400, "missing_param", "lead_id is required");
+      }
       const { data, error } = await supabaseAdmin
         .from("lead_notes")
         .select("*")
@@ -1777,18 +2314,28 @@ Deno.serve(async (req) => {
     if (action === "create_lead_note") {
       const { lead_id, body: noteBody, category } = payload;
       if (!lead_id || !noteBody || typeof noteBody !== "string") {
-        return errorResponse(400, "missing_param", "lead_id and body are required");
+        return errorResponse(
+          400,
+          "missing_param",
+          "lead_id and body are required",
+        );
       }
       const trimmed = noteBody.trim();
       if (trimmed.length === 0 || trimmed.length > 4000) {
-        return errorResponse(400, "invalid_body", "Note body must be 1–4000 characters");
+        return errorResponse(
+          400,
+          "invalid_body",
+          "Note body must be 1–4000 characters",
+        );
       }
       if (category && !ALLOWED_NOTE_CATEGORIES.has(category)) {
         return errorResponse(400, "invalid_category", "Invalid category");
       }
 
       // Resolve actor email (best-effort)
-      const { data: actor } = await supabaseAdmin.auth.admin.getUserById(userId);
+      const { data: actor } = await supabaseAdmin.auth.admin.getUserById(
+        userId,
+      );
       const actorEmail = actor?.user?.email ?? null;
 
       const { data, error } = await supabaseAdmin
@@ -1808,15 +2355,22 @@ Deno.serve(async (req) => {
 
     if (action === "delete_lead_note") {
       const { note_id } = payload;
-      if (!note_id) return errorResponse(400, "missing_param", "note_id is required");
-      const { error } = await supabaseAdmin.from("lead_notes").delete().eq("id", note_id);
+      if (!note_id) {
+        return errorResponse(400, "missing_param", "note_id is required");
+      }
+      const { error } = await supabaseAdmin.from("lead_notes").delete().eq(
+        "id",
+        note_id,
+      );
       if (error) throw error;
       return successResponse({ data: { success: true } });
     }
 
     if (action === "list_lead_tasks") {
       const { lead_id } = payload;
-      if (!lead_id) return errorResponse(400, "missing_param", "lead_id is required");
+      if (!lead_id) {
+        return errorResponse(400, "missing_param", "lead_id is required");
+      }
       const { data, error } = await supabaseAdmin
         .from("lead_tasks")
         .select("*")
@@ -1832,20 +2386,38 @@ Deno.serve(async (req) => {
     if (action === "create_lead_task") {
       const { lead_id, title, details, due_at } = payload;
       if (!lead_id || !title || typeof title !== "string") {
-        return errorResponse(400, "missing_param", "lead_id and title are required");
+        return errorResponse(
+          400,
+          "missing_param",
+          "lead_id and title are required",
+        );
       }
       const trimmedTitle = title.trim();
       if (trimmedTitle.length === 0 || trimmedTitle.length > 200) {
-        return errorResponse(400, "invalid_title", "Title must be 1–200 characters");
+        return errorResponse(
+          400,
+          "invalid_title",
+          "Title must be 1–200 characters",
+        );
       }
       if (details && (typeof details !== "string" || details.length > 4000)) {
-        return errorResponse(400, "invalid_details", "Details must be ≤4000 characters");
+        return errorResponse(
+          400,
+          "invalid_details",
+          "Details must be ≤4000 characters",
+        );
       }
       if (due_at && typeof due_at !== "string") {
-        return errorResponse(400, "invalid_due_at", "due_at must be an ISO string");
+        return errorResponse(
+          400,
+          "invalid_due_at",
+          "due_at must be an ISO string",
+        );
       }
 
-      const { data: actor } = await supabaseAdmin.auth.admin.getUserById(userId);
+      const { data: actor } = await supabaseAdmin.auth.admin.getUserById(
+        userId,
+      );
       const actorEmail = actor?.user?.email ?? null;
 
       const { data, error } = await supabaseAdmin
@@ -1866,7 +2438,9 @@ Deno.serve(async (req) => {
 
     if (action === "update_lead_task") {
       const { task_id, completed, title, details, due_at } = payload;
-      if (!task_id) return errorResponse(400, "missing_param", "task_id is required");
+      if (!task_id) {
+        return errorResponse(400, "missing_param", "task_id is required");
+      }
       const patch: Record<string, unknown> = { updated_at: now };
       if (typeof completed === "boolean") {
         patch.completed = completed;
@@ -1876,7 +2450,11 @@ Deno.serve(async (req) => {
       if (typeof title === "string") {
         const t = title.trim();
         if (t.length === 0 || t.length > 200) {
-          return errorResponse(400, "invalid_title", "Title must be 1–200 characters");
+          return errorResponse(
+            400,
+            "invalid_title",
+            "Title must be 1–200 characters",
+          );
         }
         patch.title = t;
       }
@@ -1896,8 +2474,13 @@ Deno.serve(async (req) => {
 
     if (action === "delete_lead_task") {
       const { task_id } = payload;
-      if (!task_id) return errorResponse(400, "missing_param", "task_id is required");
-      const { error } = await supabaseAdmin.from("lead_tasks").delete().eq("id", task_id);
+      if (!task_id) {
+        return errorResponse(400, "missing_param", "task_id is required");
+      }
+      const { error } = await supabaseAdmin.from("lead_tasks").delete().eq(
+        "id",
+        task_id,
+      );
       if (error) throw error;
       return successResponse({ data: { success: true } });
     }
@@ -1910,7 +2493,9 @@ Deno.serve(async (req) => {
 
     if (action === "fetch_quote_evidence") {
       const { lead_id } = payload;
-      if (!lead_id) return errorResponse(400, "missing_param", "lead_id is required");
+      if (!lead_id) {
+        return errorResponse(400, "missing_param", "lead_id is required");
+      }
 
       // Pull the lead's latest scan session (for the operator's context only)
       const { data: lead } = await supabaseAdmin
@@ -1965,13 +2550,24 @@ Deno.serve(async (req) => {
 
     if (action === "fetch_stage_leads") {
       const { stage, scope, limit } = payload as {
-        stage?: string; scope?: string; limit?: number;
+        stage?: string;
+        scope?: string;
+        limit?: number;
       };
-      if (!stage)  return errorResponse(400, "missing_param", "stage is required");
-      if (!scope)  return errorResponse(400, "missing_param", "scope is required");
+      if (!stage) {
+        return errorResponse(400, "missing_param", "stage is required");
+      }
+      if (!scope) {
+        return errorResponse(400, "missing_param", "scope is required");
+      }
 
       const ALLOWED_STAGES = new Set([
-        "captured", "verified", "scanned", "routed", "booked", "closed",
+        "captured",
+        "verified",
+        "scanned",
+        "routed",
+        "booked",
+        "closed",
       ]);
       if (!ALLOWED_STAGES.has(stage)) {
         return errorResponse(400, "invalid_stage", `Unknown stage: ${stage}`);
@@ -1990,7 +2586,10 @@ Deno.serve(async (req) => {
         sinceIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
       }
 
-      const cap = Math.min(Math.max(typeof limit === "number" ? limit : 200, 1), 500);
+      const cap = Math.min(
+        Math.max(typeof limit === "number" ? limit : 200, 1),
+        500,
+      );
 
       // Compact column projection
       const cols = `
@@ -2027,7 +2626,13 @@ Deno.serve(async (req) => {
         q = q.order("appointment_booked_at", { ascending: false });
       } else if (stage === "closed") {
         q = q.not("closed_at", "is", null)
-             .in("deal_status", ["won", "sold", "sold_closed", "closed_won", "closed"]);
+          .in("deal_status", [
+            "won",
+            "sold",
+            "sold_closed",
+            "closed_won",
+            "closed",
+          ]);
         if (sinceIso) q = q.gte("closed_at", sinceIso);
         q = q.order("closed_at", { ascending: false });
       }
@@ -2036,21 +2641,32 @@ Deno.serve(async (req) => {
       if (error) throw error;
 
       // Tag each row with the stage_timestamp that matched (for UI display)
+      // deno-lint-ignore no-explicit-any
       const stamped = (data ?? []).map((l: any) => {
-        const ts =
-          stage === "captured" ? l.created_at :
-          stage === "verified" ? l.phone_verified_at :
-          stage === "scanned"  ? l.updated_at :
-          stage === "routed"   ? l.routed_to_contractor_at :
-          stage === "booked"   ? l.appointment_booked_at :
-          stage === "closed"   ? l.closed_at : null;
+        const ts = stage === "captured"
+          ? l.created_at
+          : stage === "verified"
+          ? l.phone_verified_at
+          : stage === "scanned"
+          ? l.updated_at
+          : stage === "routed"
+          ? l.routed_to_contractor_at
+          : stage === "booked"
+          ? l.appointment_booked_at
+          : stage === "closed"
+          ? l.closed_at
+          : null;
         return { ...l, stage_timestamp: ts };
       });
 
       return successResponse({ data: { leads: stamped } });
     }
 
-    return errorResponse(400, "unhandled_action", `Action ${action} not implemented`);
+    return errorResponse(
+      400,
+      "unhandled_action",
+      `Action ${action} not implemented`,
+    );
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : String(error);
     console.error(`[admin-data] Error:`, errMsg);

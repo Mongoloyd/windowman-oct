@@ -5,10 +5,16 @@
 // Uses: Direct Gemini API via GEMINI_API_KEY
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import {
+  createClient,
+  SupabaseClient,
+} from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { getCountyBenchmark } from "../_shared/countyBenchmarks.ts";
 import { persistCanonicalEvent } from "../_shared/tracking/canonicalBridge.ts";
-import { buildGeminiUrl, getScannerRuntimeConfig } from "../_shared/scannerConfig.ts";
+import {
+  buildGeminiUrl,
+  getScannerRuntimeConfig,
+} from "../_shared/scannerConfig.ts";
 import {
   logScanError,
   logScanInfo,
@@ -17,29 +23,45 @@ import {
 import { parseScanQuoteRequest } from "./requestSchema.ts";
 import { decideSessionRecovery } from "./sessionRecovery.ts";
 import {
-  type LineItem,
-  type ExtractionResult,
-  type PillarScores,
-  type GradeResult,
-  type PreviewPillarStatus,
-  type PreviewPillarScores,
-  RUBRIC_VERSION,
-  PILLAR_WEIGHTS,
-  GRADE_THRESHOLDS,
-  CONFIDENCE_THRESHOLD,
-  GRADE_RANK,
-  clamp,
-  letterGrade,
-  scoreSafety,
-  scoreInstall,
-  scorePrice,
-  scoreFinePrint,
-  scoreWarranty,
-  computeGrade,
-  toPreviewPillarStatus,
   buildPreviewPillarScores,
+  // deno-lint-ignore no-unused-vars
+  clamp,
+  computeGrade,
+  CONFIDENCE_THRESHOLD,
+  type ExtractionResult,
+  // deno-lint-ignore no-unused-vars
+  GRADE_RANK,
+  // deno-lint-ignore no-unused-vars
+  GRADE_THRESHOLDS,
+  // deno-lint-ignore no-unused-vars
+  type GradeResult,
+  // deno-lint-ignore no-unused-vars
+  letterGrade,
+  type LineItem,
+  // deno-lint-ignore no-unused-vars
+  PILLAR_WEIGHTS,
+  // deno-lint-ignore no-unused-vars
+  type PillarScores,
+  // deno-lint-ignore no-unused-vars
+  type PreviewPillarScores,
+  // deno-lint-ignore no-unused-vars
+  type PreviewPillarStatus,
+  RUBRIC_VERSION,
+  // deno-lint-ignore no-unused-vars
+  scoreFinePrint,
+  // deno-lint-ignore no-unused-vars
+  scoreInstall,
+  // deno-lint-ignore no-unused-vars
+  scorePrice,
+  // deno-lint-ignore no-unused-vars
+  scoreSafety,
+  // deno-lint-ignore no-unused-vars
+  scoreWarranty,
+  // deno-lint-ignore no-unused-vars
+  toPreviewPillarStatus,
 } from "./scoring.ts";
 import { compileReportOutput } from "./reportCompiler.ts";
+// deno-lint-ignore no-unused-vars
 import { detectFlags, type Flag } from "./flagging.ts";
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -50,13 +72,27 @@ import { detectFlags, type Flag } from "./flagging.ts";
  * Light pre-validation: only checks document-level fields exist.
  * Used before full schema validation to catch invalid documents early.
  */
-function validateDocumentClassification(raw: unknown): { success: true; data: Record<string, unknown> } | { success: false; error: string } {
-  if (!raw || typeof raw !== "object") return { success: false, error: "Not an object" };
+function validateDocumentClassification(
+  raw: unknown,
+): { success: true; data: Record<string, unknown> } | {
+  success: false;
+  error: string;
+} {
+  if (!raw || typeof raw !== "object") {
+    return { success: false, error: "Not an object" };
+  }
   const obj = raw as Record<string, unknown>;
 
-  if (typeof obj.document_type !== "string") return { success: false, error: "Missing document_type" };
-  if (typeof obj.is_window_door_related !== "boolean") return { success: false, error: "Missing is_window_door_related" };
-  if (typeof obj.confidence !== "number" || obj.confidence < 0 || obj.confidence > 1) return { success: false, error: "Invalid confidence" };
+  if (typeof obj.document_type !== "string") {
+    return { success: false, error: "Missing document_type" };
+  }
+  if (typeof obj.is_window_door_related !== "boolean") {
+    return { success: false, error: "Missing is_window_door_related" };
+  }
+  if (
+    typeof obj.confidence !== "number" || obj.confidence < 0 ||
+    obj.confidence > 1
+  ) return { success: false, error: "Invalid confidence" };
 
   return { success: true, data: obj };
 }
@@ -65,17 +101,36 @@ function validateDocumentClassification(raw: unknown): { success: true; data: Re
  * Full extraction validation: ensures line_items and detailed fields are present.
  * Only called AFTER document is confirmed as window/door related.
  */
-function validateExtraction(raw: unknown): { success: true; data: ExtractionResult } | { success: false; error: string } {
-  if (!raw || typeof raw !== "object") return { success: false, error: "Not an object" };
+function validateExtraction(
+  raw: unknown,
+): { success: true; data: ExtractionResult } | {
+  success: false;
+  error: string;
+} {
+  if (!raw || typeof raw !== "object") {
+    return { success: false, error: "Not an object" };
+  }
   const obj = raw as Record<string, unknown>;
 
-  if (typeof obj.document_type !== "string") return { success: false, error: "Missing document_type" };
-  if (typeof obj.is_window_door_related !== "boolean") return { success: false, error: "Missing is_window_door_related" };
-  if (typeof obj.confidence !== "number" || obj.confidence < 0 || obj.confidence > 1) return { success: false, error: "Invalid confidence" };
-  if (!Array.isArray(obj.line_items)) return { success: false, error: "Missing line_items array" };
+  if (typeof obj.document_type !== "string") {
+    return { success: false, error: "Missing document_type" };
+  }
+  if (typeof obj.is_window_door_related !== "boolean") {
+    return { success: false, error: "Missing is_window_door_related" };
+  }
+  if (
+    typeof obj.confidence !== "number" || obj.confidence < 0 ||
+    obj.confidence > 1
+  ) return { success: false, error: "Invalid confidence" };
+  if (!Array.isArray(obj.line_items)) {
+    return { success: false, error: "Missing line_items array" };
+  }
 
   for (const item of obj.line_items) {
-    if (!item || typeof item !== "object" || typeof (item as Record<string, unknown>).description !== "string") {
+    if (
+      !item || typeof item !== "object" ||
+      typeof (item as Record<string, unknown>).description !== "string"
+    ) {
       return { success: false, error: "Invalid line_item" };
     }
   }
@@ -91,7 +146,17 @@ function validateExtraction(raw: unknown): { success: true; data: ExtractionResu
 // SECTION 4b: DERIVED FINANCIAL METRICS (inline — same logic as calculate-estimate-metrics)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-type ItemBucket = "window" | "door" | "screen" | "install" | "permit" | "trim" | "demo" | "discount" | "tax" | "other";
+type ItemBucket =
+  | "window"
+  | "door"
+  | "screen"
+  | "install"
+  | "permit"
+  | "trim"
+  | "demo"
+  | "discount"
+  | "tax"
+  | "other";
 
 function metricsN(v: unknown): number | null {
   if (typeof v === "number" && Number.isFinite(v)) return v;
@@ -110,10 +175,12 @@ function metricsPct(num: number, den: number): number | null {
   return metricsRound2((num / den) * 100);
 }
 function metricsMedian(values: number[]): number | null {
-  const clean = values.filter(v => Number.isFinite(v)).sort((a, b) => a - b);
+  const clean = values.filter((v) => Number.isFinite(v)).sort((a, b) => a - b);
   if (!clean.length) return null;
   const mid = Math.floor(clean.length / 2);
-  return clean.length % 2 === 0 ? metricsRound2((clean[mid - 1] + clean[mid]) / 2) : metricsRound2(clean[mid]);
+  return clean.length % 2 === 0
+    ? metricsRound2((clean[mid - 1] + clean[mid]) / 2)
+    : metricsRound2(clean[mid]);
 }
 
 function classifyLineItem(description?: string): ItemBucket {
@@ -122,12 +189,21 @@ function classifyLineItem(description?: string): ItemBucket {
   if (/\bdiscount\b|\bcredit\b|\brebate\b/.test(d)) return "discount";
   if (/\btax\b|\bsales tax\b/.test(d)) return "tax";
   if (/\bpermit\b/.test(d)) return "permit";
-  if (/\binstall\b|\blabor\b|\binstallation\b|\bcaulk\b|\bseal\b|\bfoam\b/.test(d)) return "install";
-  if (/\bdemo\b|\bremove\b|\bremoval\b|\bdisposal\b|\bhaul\b|\bcleanup\b/.test(d)) return "demo";
-  if (/\btrim\b|\bstucco\b|\bflashing\b|\bwrap\b|\bwood\b/.test(d)) return "trim";
+  if (
+    /\binstall\b|\blabor\b|\binstallation\b|\bcaulk\b|\bseal\b|\bfoam\b/.test(d)
+  ) return "install";
+  if (
+    /\bdemo\b|\bremove\b|\bremoval\b|\bdisposal\b|\bhaul\b|\bcleanup\b/.test(d)
+  ) return "demo";
+  if (/\btrim\b|\bstucco\b|\bflashing\b|\bwrap\b|\bwood\b/.test(d)) {
+    return "trim";
+  }
   if (/\bscreen\b|\bmesh\b/.test(d)) return "screen";
   if (/\bdoor\b|\bslider\b|\bentry\b|\bfrench\b/.test(d)) return "door";
-  if (/\bwindow\b|\bsingle hung\b|\bdouble hung\b|\bcasement\b|\bpicture\b|\bawning\b/.test(d)) return "window";
+  if (
+    /\bwindow\b|\bsingle hung\b|\bdouble hung\b|\bcasement\b|\bpicture\b|\bawning\b/
+      .test(d)
+  ) return "window";
   return "other";
 }
 
@@ -147,7 +223,9 @@ function metricsItemExtPrice(item: LineItem): number | null {
   if (total !== null) return total;
   const unit = metricsN(item.unit_price);
   const qty = metricsN(item.quantity);
-  if (unit !== null && qty !== null && qty > 0) return metricsRound2(unit * qty);
+  if (unit !== null && qty !== null && qty > 0) {
+    return metricsRound2(unit * qty);
+  }
   return null;
 }
 
@@ -166,9 +244,12 @@ function compareToCountyBenchmark(
       county_label: benchmark.county_label,
       benchmark_available: true,
       comparison_available: false,
-      benchmark_price_per_opening_low: benchmark.installed_price_per_opening_low,
-      benchmark_price_per_opening_avg: benchmark.installed_price_per_opening_avg,
-      benchmark_price_per_opening_high: benchmark.installed_price_per_opening_high,
+      benchmark_price_per_opening_low:
+        benchmark.installed_price_per_opening_low,
+      benchmark_price_per_opening_avg:
+        benchmark.installed_price_per_opening_avg,
+      benchmark_price_per_opening_high:
+        benchmark.installed_price_per_opening_high,
       source_type: benchmark.source_type,
       source_label: benchmark.source_label,
       updated_at: benchmark.updated_at,
@@ -177,21 +258,26 @@ function compareToCountyBenchmark(
       compared_value: null,
       delta_amount: null,
       delta_pct: null,
-      comparability: doorOpenings > 0 ? "approximate_mixed_openings" as const : "direct_window_proxy" as const,
+      comparability: doorOpenings > 0
+        ? "approximate_mixed_openings" as const
+        : "direct_window_proxy" as const,
     };
   }
 
-  const deltaAmount = metricsRound2(comparablePrice - benchmark.installed_price_per_opening_avg);
+  const deltaAmount = metricsRound2(
+    comparablePrice - benchmark.installed_price_per_opening_avg,
+  );
   const deltaPct = benchmark.installed_price_per_opening_avg > 0
-    ? metricsRound2(((deltaAmount ?? 0) / benchmark.installed_price_per_opening_avg) * 100)
+    ? metricsRound2(
+      ((deltaAmount ?? 0) / benchmark.installed_price_per_opening_avg) * 100,
+    )
     : null;
 
-  const status =
-    comparablePrice < benchmark.installed_price_per_opening_low
-      ? "below_county_range" as const
-      : comparablePrice > benchmark.installed_price_per_opening_high
-      ? "above_county_range" as const
-      : "within_county_range" as const;
+  const status = comparablePrice < benchmark.installed_price_per_opening_low
+    ? "below_county_range" as const
+    : comparablePrice > benchmark.installed_price_per_opening_high
+    ? "above_county_range" as const
+    : "within_county_range" as const;
 
   return {
     county_key: benchmark.county_key,
@@ -200,7 +286,8 @@ function compareToCountyBenchmark(
     comparison_available: true,
     benchmark_price_per_opening_low: benchmark.installed_price_per_opening_low,
     benchmark_price_per_opening_avg: benchmark.installed_price_per_opening_avg,
-    benchmark_price_per_opening_high: benchmark.installed_price_per_opening_high,
+    benchmark_price_per_opening_high:
+      benchmark.installed_price_per_opening_high,
     source_type: benchmark.source_type,
     source_label: benchmark.source_label,
     updated_at: benchmark.updated_at,
@@ -211,31 +298,70 @@ function compareToCountyBenchmark(
     status,
     delta_amount: deltaAmount,
     delta_pct: deltaPct,
-    comparability: doorOpenings > 0 ? "approximate_mixed_openings" as const : "direct_window_proxy" as const,
+    comparability: doorOpenings > 0
+      ? "approximate_mixed_openings" as const
+      : "direct_window_proxy" as const,
   };
 }
 
-function computeDerivedMetrics(data: ExtractionResult, countyName?: string | null): Record<string, unknown> {
+function computeDerivedMetrics(
+  data: ExtractionResult,
+  countyName?: string | null,
+): Record<string, unknown> {
   const items = Array.isArray(data.line_items) ? data.line_items : [];
   const warnings: string[] = [];
 
   const contractTotal = metricsN(data.total_quoted_price) ??
-    metricsRound2(items.reduce((sum, item) => sum + (metricsItemExtPrice(item) ?? 0), 0));
+    metricsRound2(
+      items.reduce((sum, item) => sum + (metricsItemExtPrice(item) ?? 0), 0),
+    );
 
-  const bucketTotals: Record<ItemBucket, number> = { window: 0, door: 0, screen: 0, install: 0, permit: 0, trim: 0, demo: 0, discount: 0, tax: 0, other: 0 };
-  const bucketQty: Record<ItemBucket, number> = { window: 0, door: 0, screen: 0, install: 0, permit: 0, trim: 0, demo: 0, discount: 0, tax: 0, other: 0 };
+  const bucketTotals: Record<ItemBucket, number> = {
+    window: 0,
+    door: 0,
+    screen: 0,
+    install: 0,
+    permit: 0,
+    trim: 0,
+    demo: 0,
+    discount: 0,
+    tax: 0,
+    other: 0,
+  };
+  const bucketQty: Record<ItemBucket, number> = {
+    window: 0,
+    door: 0,
+    screen: 0,
+    install: 0,
+    permit: 0,
+    trim: 0,
+    demo: 0,
+    discount: 0,
+    tax: 0,
+    other: 0,
+  };
   const coreLinePrices: number[] = [];
-  let pricedLines = 0, brandKnownCore = 0, dpKnownCore = 0, noaKnownCore = 0, coreLines = 0;
+  let pricedLines = 0,
+    brandKnownCore = 0,
+    dpKnownCore = 0,
+    noaKnownCore = 0,
+    coreLines = 0;
 
   for (const item of items) {
     const bucket = classifyLineItem(item.description);
     const qty = metricsItemQty(item, bucket);
     const ext = metricsItemExtPrice(item);
     bucketQty[bucket] += qty;
-    if (ext !== null) { bucketTotals[bucket] += ext; pricedLines += 1; if (isCoreOpeningBucket(bucket)) coreLinePrices.push(ext); }
+    if (ext !== null) {
+      bucketTotals[bucket] += ext;
+      pricedLines += 1;
+      if (isCoreOpeningBucket(bucket)) coreLinePrices.push(ext);
+    }
     if (isCoreOpeningBucket(bucket)) {
       coreLines += 1;
-      if ((item.brand ?? "").trim() || (item.series ?? "").trim()) brandKnownCore += 1;
+      if ((item.brand ?? "").trim() || (item.series ?? "").trim()) {
+        brandKnownCore += 1;
+      }
       if ((item.dp_rating ?? "").trim()) dpKnownCore += 1;
       if ((item.noa_number ?? "").trim()) noaKnownCore += 1;
     }
@@ -243,51 +369,187 @@ function computeDerivedMetrics(data: ExtractionResult, countyName?: string | nul
 
   const inferredCoreOpenings = bucketQty.window + bucketQty.door;
   const extractedOpenings = metricsN(data.opening_count);
-  const totalOpenings = (extractedOpenings && extractedOpenings > 0) ? extractedOpenings : inferredCoreOpenings > 0 ? inferredCoreOpenings : null;
-  const openingCountSource = (extractedOpenings && extractedOpenings > 0) ? "extracted_header" : inferredCoreOpenings > 0 ? "inferred_from_lines" : "unknown";
+  const totalOpenings = (extractedOpenings && extractedOpenings > 0)
+    ? extractedOpenings
+    : inferredCoreOpenings > 0
+    ? inferredCoreOpenings
+    : null;
+  const openingCountSource = (extractedOpenings && extractedOpenings > 0)
+    ? "extracted_header"
+    : inferredCoreOpenings > 0
+    ? "inferred_from_lines"
+    : "unknown";
 
-  if (extractedOpenings && extractedOpenings > 0 && inferredCoreOpenings > 0 && extractedOpenings !== inferredCoreOpenings) {
-    warnings.push(`Opening count mismatch: extracted=${extractedOpenings}, inferred_from_lines=${inferredCoreOpenings}`);
+  if (
+    extractedOpenings && extractedOpenings > 0 && inferredCoreOpenings > 0 &&
+    extractedOpenings !== inferredCoreOpenings
+  ) {
+    warnings.push(
+      `Opening count mismatch: extracted=${extractedOpenings}, inferred_from_lines=${inferredCoreOpenings}`,
+    );
   }
 
-  const coreProductSubtotal = metricsRound2(bucketTotals.window + bucketTotals.door);
-  const installLikeSubtotal = metricsRound2(bucketTotals.install + bucketTotals.trim + bucketTotals.demo + bucketTotals.permit);
-  const accessorySubtotal = metricsRound2(bucketTotals.screen + bucketTotals.other);
+  const coreProductSubtotal = metricsRound2(
+    bucketTotals.window + bucketTotals.door,
+  );
+  const installLikeSubtotal = metricsRound2(
+    bucketTotals.install + bucketTotals.trim + bucketTotals.demo +
+      bucketTotals.permit,
+  );
+  const accessorySubtotal = metricsRound2(
+    bucketTotals.screen + bucketTotals.other,
+  );
   const discountSubtotal = metricsRound2(Math.abs(bucketTotals.discount));
   const taxSubtotal = metricsRound2(bucketTotals.tax);
   const coreDiv = inferredCoreOpenings || totalOpenings;
-  const installedPPO = metricsSafeDiv(metricsRound2((coreProductSubtotal ?? 0) + (installLikeSubtotal ?? 0) - (discountSubtotal ?? 0)), coreDiv);
+  const installedPPO = metricsSafeDiv(
+    metricsRound2(
+      (coreProductSubtotal ?? 0) + (installLikeSubtotal ?? 0) -
+        (discountSubtotal ?? 0),
+    ),
+    coreDiv,
+  );
 
-  if (items.length > 0 && pricedLines / items.length < 0.7) warnings.push("Low pricing coverage: many line items are missing unit_price and total_price.");
-  if (contractTotal !== null && accessorySubtotal !== null && contractTotal > 0 && accessorySubtotal / contractTotal > 0.25) warnings.push("A large share of the estimate appears to be non-core/accessory cost.");
-  if (totalOpenings === null || totalOpenings <= 0) warnings.push("Unable to compute per-opening metrics because opening_count could not be determined.");
+  if (items.length > 0 && pricedLines / items.length < 0.7) {
+    warnings.push(
+      "Low pricing coverage: many line items are missing unit_price and total_price.",
+    );
+  }
+  if (
+    contractTotal !== null && accessorySubtotal !== null && contractTotal > 0 &&
+    accessorySubtotal / contractTotal > 0.25
+  ) {
+    warnings.push(
+      "A large share of the estimate appears to be non-core/accessory cost.",
+    );
+  }
+  if (totalOpenings === null || totalOpenings <= 0) {
+    warnings.push(
+      "Unable to compute per-opening metrics because opening_count could not be determined.",
+    );
+  }
 
-  const highestPricedOpening = coreLinePrices.length ? metricsRound2(Math.max(...coreLinePrices)) : null;
-  const lowestPricedOpening = coreLinePrices.length ? metricsRound2(Math.min(...coreLinePrices)) : null;
+  const highestPricedOpening = coreLinePrices.length
+    ? metricsRound2(Math.max(...coreLinePrices))
+    : null;
+  const lowestPricedOpening = coreLinePrices.length
+    ? metricsRound2(Math.min(...coreLinePrices))
+    : null;
 
   let quoteMathConfidence = 100;
   if (!contractTotal || contractTotal <= 0) quoteMathConfidence -= 35;
   if (!totalOpenings || totalOpenings <= 0) quoteMathConfidence -= 35;
-  if (items.length > 0 && pricedLines / items.length < 0.7) quoteMathConfidence -= 15;
-  if (extractedOpenings && inferredCoreOpenings > 0 && extractedOpenings !== inferredCoreOpenings) quoteMathConfidence -= 15;
+  if (items.length > 0 && pricedLines / items.length < 0.7) {
+    quoteMathConfidence -= 15;
+  }
+  if (
+    extractedOpenings && inferredCoreOpenings > 0 &&
+    extractedOpenings !== inferredCoreOpenings
+  ) quoteMathConfidence -= 15;
   quoteMathConfidence = Math.max(0, Math.min(100, quoteMathConfidence));
 
   return {
-    totals: { contract_total: metricsRound2(contractTotal), core_product_subtotal: coreProductSubtotal, install_like_subtotal: installLikeSubtotal, accessory_subtotal: accessorySubtotal, discount_subtotal: discountSubtotal, tax_subtotal: taxSubtotal },
-    counts: { total_openings: totalOpenings, opening_count_source: openingCountSource, inferred_core_openings: inferredCoreOpenings || null, window_openings: bucketQty.window || null, door_openings: bucketQty.door || null, total_line_items: items.length, priced_line_items: pricedLines },
-    per_opening: { contract_price_per_opening: metricsSafeDiv(contractTotal, totalOpenings), core_product_price_per_opening: metricsSafeDiv(coreProductSubtotal, coreDiv), installed_price_per_opening: installedPPO, non_core_cost_per_opening: metricsSafeDiv(metricsRound2((contractTotal ?? 0) - (coreProductSubtotal ?? 0)), totalOpenings) },
-    unit_pricing: { window_avg_unit_price: metricsSafeDiv(bucketTotals.window, bucketQty.window || null), door_avg_unit_price: metricsSafeDiv(bucketTotals.door, bucketQty.door || null), median_core_line_price: metricsMedian(coreLinePrices), highest_priced_opening: highestPricedOpening, lowest_priced_opening: lowestPricedOpening, price_spread_ratio: (highestPricedOpening !== null && lowestPricedOpening !== null && lowestPricedOpening > 0) ? metricsRound2(highestPricedOpening / lowestPricedOpening) : null },
-    shares: { install_cost_share_pct: contractTotal ? metricsPct(installLikeSubtotal ?? 0, contractTotal) : null, accessory_cost_share_pct: contractTotal ? metricsPct(accessorySubtotal ?? 0, contractTotal) : null, permit_cost_share_pct: contractTotal ? metricsPct(bucketTotals.permit, contractTotal) : null, discount_share_pct: contractTotal ? metricsPct(discountSubtotal ?? 0, contractTotal) : null, tax_share_pct: contractTotal ? metricsPct(taxSubtotal ?? 0, contractTotal) : null },
-    coverage: { priced_line_coverage_pct: items.length ? metricsPct(pricedLines, items.length) : null, brand_coverage_pct: coreLines ? metricsPct(brandKnownCore, coreLines) : null, dp_coverage_pct: coreLines ? metricsPct(dpKnownCore, coreLines) : null, noa_coverage_pct: coreLines ? metricsPct(noaKnownCore, coreLines) : null },
-    trust_signals: { scope_present: Boolean(data.installation?.scope_detail), permit_stated: data.permits?.included !== undefined && data.permits?.included !== null, warranty_present: Boolean(data.warranty) },
-    county_benchmark: compareToCountyBenchmark(countyName ?? null, installedPPO, metricsSafeDiv(contractTotal, totalOpenings), bucketQty.door),
+    totals: {
+      contract_total: metricsRound2(contractTotal),
+      core_product_subtotal: coreProductSubtotal,
+      install_like_subtotal: installLikeSubtotal,
+      accessory_subtotal: accessorySubtotal,
+      discount_subtotal: discountSubtotal,
+      tax_subtotal: taxSubtotal,
+    },
+    counts: {
+      total_openings: totalOpenings,
+      opening_count_source: openingCountSource,
+      inferred_core_openings: inferredCoreOpenings || null,
+      window_openings: bucketQty.window || null,
+      door_openings: bucketQty.door || null,
+      total_line_items: items.length,
+      priced_line_items: pricedLines,
+    },
+    per_opening: {
+      contract_price_per_opening: metricsSafeDiv(contractTotal, totalOpenings),
+      core_product_price_per_opening: metricsSafeDiv(
+        coreProductSubtotal,
+        coreDiv,
+      ),
+      installed_price_per_opening: installedPPO,
+      non_core_cost_per_opening: metricsSafeDiv(
+        metricsRound2((contractTotal ?? 0) - (coreProductSubtotal ?? 0)),
+        totalOpenings,
+      ),
+    },
+    unit_pricing: {
+      window_avg_unit_price: metricsSafeDiv(
+        bucketTotals.window,
+        bucketQty.window || null,
+      ),
+      door_avg_unit_price: metricsSafeDiv(
+        bucketTotals.door,
+        bucketQty.door || null,
+      ),
+      median_core_line_price: metricsMedian(coreLinePrices),
+      highest_priced_opening: highestPricedOpening,
+      lowest_priced_opening: lowestPricedOpening,
+      price_spread_ratio:
+        (highestPricedOpening !== null && lowestPricedOpening !== null &&
+            lowestPricedOpening > 0)
+          ? metricsRound2(highestPricedOpening / lowestPricedOpening)
+          : null,
+    },
+    shares: {
+      install_cost_share_pct: contractTotal
+        ? metricsPct(installLikeSubtotal ?? 0, contractTotal)
+        : null,
+      accessory_cost_share_pct: contractTotal
+        ? metricsPct(accessorySubtotal ?? 0, contractTotal)
+        : null,
+      permit_cost_share_pct: contractTotal
+        ? metricsPct(bucketTotals.permit, contractTotal)
+        : null,
+      discount_share_pct: contractTotal
+        ? metricsPct(discountSubtotal ?? 0, contractTotal)
+        : null,
+      tax_share_pct: contractTotal
+        ? metricsPct(taxSubtotal ?? 0, contractTotal)
+        : null,
+    },
+    coverage: {
+      priced_line_coverage_pct: items.length
+        ? metricsPct(pricedLines, items.length)
+        : null,
+      brand_coverage_pct: coreLines
+        ? metricsPct(brandKnownCore, coreLines)
+        : null,
+      dp_coverage_pct: coreLines ? metricsPct(dpKnownCore, coreLines) : null,
+      noa_coverage_pct: coreLines ? metricsPct(noaKnownCore, coreLines) : null,
+    },
+    trust_signals: {
+      scope_present: Boolean(data.installation?.scope_detail),
+      permit_stated: data.permits?.included !== undefined &&
+        data.permits?.included !== null,
+      warranty_present: Boolean(data.warranty),
+    },
+    county_benchmark: compareToCountyBenchmark(
+      countyName ?? null,
+      installedPPO,
+      metricsSafeDiv(contractTotal, totalOpenings),
+      bucketQty.door,
+    ),
     diagnostics: { quote_math_confidence: quoteMathConfidence, warnings },
   };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SECTION 5: ORCHESTRATION (HTTP handler)
-type ScanSessionStatus = "idle" | "uploading" | "processing" | "preview_ready" | "complete" | "invalid_document" | "needs_better_upload" | "error";
+type ScanSessionStatus =
+  | "idle"
+  | "uploading"
+  | "processing"
+  | "preview_ready"
+  | "complete"
+  | "invalid_document"
+  | "needs_better_upload"
+  | "error";
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // CRASH RECOVERY:
@@ -298,7 +560,8 @@ type ScanSessionStatus = "idle" | "uploading" | "processing" | "preview_ready" |
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 function jsonResponse(body: Record<string, unknown>, status: number): Response {
@@ -341,12 +604,15 @@ export async function updateScanSessionStatus(
     );
     return {
       success: false,
-      response: jsonResponse(failureBody ?? {
-        error: "Failed to persist scan session state",
-        scan_session_id: scanSessionId,
-        analysis_status: "processing",
-        scan_session_status: "processing",
-      }, 500),
+      response: jsonResponse(
+        failureBody ?? {
+          error: "Failed to persist scan session state",
+          scan_session_id: scanSessionId,
+          analysis_status: "processing",
+          scan_session_status: "processing",
+        },
+        500,
+      ),
     };
   }
 
@@ -359,7 +625,12 @@ export async function upsertAnalysisRecord(
   logMessage: string,
   failureBody: Record<string, unknown>,
   status = 500,
-): Promise<{ success: true; analysisId: string | null } | { success: false; response: Response }> {
+): Promise<
+  { success: true; analysisId: string | null } | {
+    success: false;
+    response: Response;
+  }
+> {
   const { data, error } = await supabase
     .from("analyses")
     .upsert(payload, { onConflict: "scan_session_id" })
@@ -390,7 +661,8 @@ function mimeFromPath(path: string): string {
   return map[ext] || "application/octet-stream";
 }
 
-const GEMINI_EXTRACTION_PROMPT = `You are a forensic document extraction engine for impact window and door quotes.
+const GEMINI_EXTRACTION_PROMPT =
+  `You are a forensic document extraction engine for impact window and door quotes.
 
 Analyze the uploaded document and extract ALL structured data into the JSON schema below.
 
@@ -543,14 +815,23 @@ Deno.serve(async (req: Request) => {
   try {
     rawBody = await req.json();
   } catch (parseErr) {
-    logScanError("request_validation", { detail: "json_parse_failed", error: String(parseErr) });
+    logScanError("request_validation", {
+      detail: "json_parse_failed",
+      error: String(parseErr),
+    });
     return jsonResponse({ error: "Invalid JSON body" }, 400);
   }
 
   const parsedRequest = parseScanQuoteRequest(rawBody);
   if (!parsedRequest.ok) {
-    logScanError("request_validation", { detail: parsedRequest.error, fields: parsedRequest.details });
-    return jsonResponse({ error: parsedRequest.error, details: parsedRequest.details }, 400);
+    logScanError("request_validation", {
+      detail: parsedRequest.error,
+      fields: parsedRequest.details,
+    });
+    return jsonResponse({
+      error: parsedRequest.error,
+      details: parsedRequest.details,
+    }, 400);
   }
 
   const {
@@ -563,9 +844,9 @@ Deno.serve(async (req: Request) => {
   // Forever rule observability: if the schema substituted a bad/oversized
   // event_id with a server-minted UUID, surface it as a warning so we catch
   // frontend regressions without ever 400'ing the scan.
-  const rawIncomingEventId = (rawBody as { event_id?: unknown } | null)?.event_id;
-  const wasSubstituted =
-    typeof rawIncomingEventId !== "string" ||
+  const rawIncomingEventId = (rawBody as { event_id?: unknown } | null)
+    ?.event_id;
+  const wasSubstituted = typeof rawIncomingEventId !== "string" ||
     rawIncomingEventId.trim().length === 0 ||
     rawIncomingEventId.trim().length > 128 ||
     rawIncomingEventId.trim() !== client_event_id;
@@ -573,16 +854,16 @@ Deno.serve(async (req: Request) => {
     logScanWarn("request_validation", {
       scan_session_id,
       detail: "event_id_substituted",
-      reason:
-        typeof rawIncomingEventId !== "string"
-          ? "missing_or_non_string"
-          : rawIncomingEventId.trim().length === 0
-            ? "empty"
-            : rawIncomingEventId.trim().length > 128
-              ? "oversized"
-              : "trimmed",
-      original_length:
-        typeof rawIncomingEventId === "string" ? rawIncomingEventId.length : null,
+      reason: typeof rawIncomingEventId !== "string"
+        ? "missing_or_non_string"
+        : rawIncomingEventId.trim().length === 0
+        ? "empty"
+        : rawIncomingEventId.trim().length > 128
+        ? "oversized"
+        : "trimmed",
+      original_length: typeof rawIncomingEventId === "string"
+        ? rawIncomingEventId.length
+        : null,
       replacement_event_id: client_event_id,
     });
   }
@@ -591,7 +872,10 @@ Deno.serve(async (req: Request) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (!supabaseUrl || !serviceRoleKey) {
-      logScanError("request_validation", { scan_session_id, detail: "supabase_env_missing" });
+      logScanError("request_validation", {
+        scan_session_id,
+        detail: "supabase_env_missing",
+      });
       return jsonResponse({ error: "Server not configured" }, 500);
     }
 
@@ -605,7 +889,10 @@ Deno.serve(async (req: Request) => {
     );
 
     if (!geminiKey && !_isDevBypass) {
-      logScanError("request_validation", { scan_session_id, detail: "gemini_key_missing" });
+      logScanError("request_validation", {
+        scan_session_id,
+        detail: "gemini_key_missing",
+      });
       return jsonResponse({ error: "AI service not configured" }, 500);
     }
 
@@ -635,7 +922,11 @@ Deno.serve(async (req: Request) => {
       .single();
 
     if (sessionErr || !session) {
-      logScanError("session_load", { scan_session_id, detail: "session_not_found", error: sessionErr?.message });
+      logScanError("session_load", {
+        scan_session_id,
+        detail: "session_not_found",
+        error: sessionErr?.message,
+      });
       return jsonResponse({ error: "Session not found" }, 404);
     }
 
@@ -647,7 +938,11 @@ Deno.serve(async (req: Request) => {
     // The dev-bypass path skips this guard so test fixtures stay deterministic.
     if (!_isDevBypass) {
       const decision = decideSessionRecovery(
-        { status: session.status, updated_at: session.updated_at, created_at: session.created_at },
+        {
+          status: session.status,
+          updated_at: session.updated_at,
+          created_at: session.created_at,
+        },
         scannerCfg.staleProcessingMinutes,
       );
 
@@ -691,7 +986,9 @@ Deno.serve(async (req: Request) => {
 
     // ── Rate-limit check (by lead_id — one lead per visitor session) ──
     if (session.lead_id && !_isDevBypass) {
-      const cutoff = new Date(Date.now() - RATE_LIMIT_WINDOW_MINUTES * 60 * 1000).toISOString();
+      const cutoff = new Date(
+        Date.now() - RATE_LIMIT_WINDOW_MINUTES * 60 * 1000,
+      ).toISOString();
       const { count, error: rlErr } = await supabase
         .from("scan_sessions")
         .select("id", { count: "exact", head: true })
@@ -706,10 +1003,14 @@ Deno.serve(async (req: Request) => {
           count,
         });
         // Mark this session so it doesn't sit in "uploading" forever
-        await supabase.from("scan_sessions").update({ status: "error" }).eq("id", scan_session_id);
+        await supabase.from("scan_sessions").update({ status: "error" }).eq(
+          "id",
+          scan_session_id,
+        );
         return jsonResponse({
           error: "rate_limit_exceeded",
-          message: "You've reached the limit for free scans this hour. Please try again in a bit or contact us for a bulk review.",
+          message:
+            "You've reached the limit for free scans this hour. Please try again in a bit or contact us for a bulk review.",
         }, 429);
       }
     }
@@ -722,7 +1023,10 @@ Deno.serve(async (req: Request) => {
       "scan_sessions processing update failed",
     );
     if (!processingUpdate.success) {
-      logScanError("status_processing", { scan_session_id, detail: "status_update_failed" });
+      logScanError("status_processing", {
+        scan_session_id,
+        detail: "status_update_failed",
+      });
       return processingUpdate.response;
     }
 
@@ -733,7 +1037,10 @@ Deno.serve(async (req: Request) => {
           // `quote_uploaded` it generated a deterministic id and forwarded it
           // here. Reusing that id keeps browser+server in lockstep so GTM/CAPI
           // dedup works without rewriting the event format.
-          eventId: typeof client_event_id === "string" && client_event_id.length > 0 ? client_event_id : undefined,
+          eventId:
+            typeof client_event_id === "string" && client_event_id.length > 0
+              ? client_event_id
+              : undefined,
           eventName: "quote_uploaded",
           leadId: session.lead_id ?? undefined,
           scanSessionId: scan_session_id,
@@ -757,278 +1064,306 @@ Deno.serve(async (req: Request) => {
           },
         });
       } catch (canonicalErr) {
-        console.error("quote_uploaded canonical event failed (non-fatal):", canonicalErr);
+        console.error(
+          "quote_uploaded canonical event failed (non-fatal):",
+          canonicalErr,
+        );
       }
       // ── DEV BYPASS: skip file download + Gemini when override provided ──
       const _devBypassSecret = Deno.env.get("DEV_BYPASS_SECRET");
-      const _useBypass = dev_extraction_override && dev_secret && _devBypassSecret && dev_secret === _devBypassSecret;
+      const _useBypass = dev_extraction_override && dev_secret &&
+        _devBypassSecret && dev_secret === _devBypassSecret;
       let parsed: unknown;
 
       if (_useBypass) {
-        console.log(`[DEV BYPASS] Using extraction override for session ${scan_session_id}`);
+        console.log(
+          `[DEV BYPASS] Using extraction override for session ${scan_session_id}`,
+        );
         parsed = dev_extraction_override;
       } else {
-      // 3. Load quote file
-      const { data: qf, error: qfErr } = await supabase
-        .from("quote_files")
-        .select("storage_path")
-        .eq("id", session.quote_file_id)
-        .single();
+        // 3. Load quote file
+        const { data: qf, error: qfErr } = await supabase
+          .from("quote_files")
+          .select("storage_path")
+          .eq("id", session.quote_file_id)
+          .single();
 
-      if (qfErr || !qf) {
-        console.error("Quote file not found:", qfErr);
-        const missingFileStatusUpdate = await updateScanSessionStatus(
-          supabase,
-          scan_session_id,
-          "needs_better_upload",
-          "scan_sessions needs_better_upload update failed after missing quote file",
-          {
-            error: "Failed to persist scan session state",
+        if (qfErr || !qf) {
+          console.error("Quote file not found:", qfErr);
+          const missingFileStatusUpdate = await updateScanSessionStatus(
+            supabase,
             scan_session_id,
-            analysis_status: "processing",
-            scan_session_status: "processing",
-          },
-        );
-        if (!missingFileStatusUpdate.success) return missingFileStatusUpdate.response;
+            "needs_better_upload",
+            "scan_sessions needs_better_upload update failed after missing quote file",
+            {
+              error: "Failed to persist scan session state",
+              scan_session_id,
+              analysis_status: "processing",
+              scan_session_status: "processing",
+            },
+          );
+          if (!missingFileStatusUpdate.success) {
+            return missingFileStatusUpdate.response;
+          }
 
-        return jsonResponse({
-          error: "Quote file not found",
-          scan_session_id,
-          analysis_status: "needs_better_upload",
-          scan_session_status: "needs_better_upload",
-        }, 404);
-      }
-
-      // 4. Download file from storage
-      const { data: fileData, error: dlErr } = await supabase.storage
-        .from("quotes")
-        .download(qf.storage_path);
-
-      if (dlErr || !fileData) {
-        logScanError("storage_download", { scan_session_id, detail: "download_failed", error: dlErr?.message });
-        const downloadFailureStatusUpdate = await updateScanSessionStatus(
-          supabase,
-          scan_session_id,
-          "needs_better_upload",
-          "scan_sessions needs_better_upload update failed after file download error",
-          {
-            error: "Failed to persist scan session state",
+          return jsonResponse({
+            error: "Quote file not found",
             scan_session_id,
-            analysis_status: "processing",
-            scan_session_status: "processing",
-          },
-        );
-        if (!downloadFailureStatusUpdate.success) return downloadFailureStatusUpdate.response;
+            analysis_status: "needs_better_upload",
+            scan_session_status: "needs_better_upload",
+          }, 404);
+        }
 
-        return jsonResponse({
-          error: "File download failed",
-          scan_session_id,
-          analysis_status: "needs_better_upload",
-          scan_session_status: "needs_better_upload",
-        }, 500);
-      }
+        // 4. Download file from storage
+        const { data: fileData, error: dlErr } = await supabase.storage
+          .from("quotes")
+          .download(qf.storage_path);
 
-      // 5. Base64 encode file (with size guard so we never blow up the AI call)
-      const arrayBuf = await fileData.arrayBuffer();
-      if (arrayBuf.byteLength > scannerCfg.maxFileBytes) {
-        logScanError("storage_download", {
-          scan_session_id,
-          detail: "file_too_large",
-          file_bytes: arrayBuf.byteLength,
-          max_bytes: scannerCfg.maxFileBytes,
-        });
-        const oversizeStatusUpdate = await updateScanSessionStatus(
-          supabase,
-          scan_session_id,
-          "needs_better_upload",
-          "scan_sessions needs_better_upload update failed after oversize upload",
-        );
-        if (!oversizeStatusUpdate.success) return oversizeStatusUpdate.response;
-        return jsonResponse({
-          error: "File too large",
-          scan_session_id,
-          analysis_status: "needs_better_upload",
-          scan_session_status: "needs_better_upload",
-        }, 413);
-      }
-      const uint8 = new Uint8Array(arrayBuf);
-      let binary = "";
-      for (let i = 0; i < uint8.length; i++) {
-        binary += String.fromCharCode(uint8[i]);
-      }
-      const base64Data = btoa(binary);
-      const mimeType = mimeFromPath(qf.storage_path);
+        if (dlErr || !fileData) {
+          logScanError("storage_download", {
+            scan_session_id,
+            detail: "download_failed",
+            error: dlErr?.message,
+          });
+          const downloadFailureStatusUpdate = await updateScanSessionStatus(
+            supabase,
+            scan_session_id,
+            "needs_better_upload",
+            "scan_sessions needs_better_upload update failed after file download error",
+            {
+              error: "Failed to persist scan session state",
+              scan_session_id,
+              analysis_status: "processing",
+              scan_session_status: "processing",
+            },
+          );
+          if (!downloadFailureStatusUpdate.success) {
+            return downloadFailureStatusUpdate.response;
+          }
 
-      // 6. Call Gemini API (model + timeout pulled from shared scannerConfig
-      //    so operators can override via GEMINI_SCAN_MODEL / GEMINI_SCAN_TIMEOUT_MS).
-      const geminiUrl = buildGeminiUrl(scannerCfg.geminiModel, geminiKey!);
+          return jsonResponse({
+            error: "File download failed",
+            scan_session_id,
+            analysis_status: "needs_better_upload",
+            scan_session_status: "needs_better_upload",
+          }, 500);
+        }
 
-      const geminiPayload = {
-        contents: [
-          {
-            parts: [
-              { text: GEMINI_EXTRACTION_PROMPT },
-              {
-                inline_data: {
-                  mime_type: mimeType,
-                  data: base64Data,
+        // 5. Base64 encode file (with size guard so we never blow up the AI call)
+        const arrayBuf = await fileData.arrayBuffer();
+        if (arrayBuf.byteLength > scannerCfg.maxFileBytes) {
+          logScanError("storage_download", {
+            scan_session_id,
+            detail: "file_too_large",
+            file_bytes: arrayBuf.byteLength,
+            max_bytes: scannerCfg.maxFileBytes,
+          });
+          const oversizeStatusUpdate = await updateScanSessionStatus(
+            supabase,
+            scan_session_id,
+            "needs_better_upload",
+            "scan_sessions needs_better_upload update failed after oversize upload",
+          );
+          if (!oversizeStatusUpdate.success) {
+            return oversizeStatusUpdate.response;
+          }
+          return jsonResponse({
+            error: "File too large",
+            scan_session_id,
+            analysis_status: "needs_better_upload",
+            scan_session_status: "needs_better_upload",
+          }, 413);
+        }
+        const uint8 = new Uint8Array(arrayBuf);
+        let binary = "";
+        for (let i = 0; i < uint8.length; i++) {
+          binary += String.fromCharCode(uint8[i]);
+        }
+        const base64Data = btoa(binary);
+        const mimeType = mimeFromPath(qf.storage_path);
+
+        // 6. Call Gemini API (model + timeout pulled from shared scannerConfig
+        //    so operators can override via GEMINI_SCAN_MODEL / GEMINI_SCAN_TIMEOUT_MS).
+        const geminiUrl = buildGeminiUrl(scannerCfg.geminiModel, geminiKey!);
+
+        const geminiPayload = {
+          contents: [
+            {
+              parts: [
+                { text: GEMINI_EXTRACTION_PROMPT },
+                {
+                  inline_data: {
+                    mime_type: mimeType,
+                    data: base64Data,
+                  },
                 },
-              },
-            ],
+              ],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 4096,
           },
-        ],
-        generationConfig: {
-          temperature: 0.1,
-          maxOutputTokens: 4096,
-        },
-      };
+        };
 
-      const geminiController = new AbortController();
-      const geminiTimeout = setTimeout(
-        () => geminiController.abort("gemini_timeout"),
-        scannerCfg.geminiTimeoutMs,
-      );
+        const geminiController = new AbortController();
+        const geminiTimeout = setTimeout(
+          () => geminiController.abort("gemini_timeout"),
+          scannerCfg.geminiTimeoutMs,
+        );
 
-      let geminiResp: Response;
-      try {
-        geminiResp = await fetch(geminiUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(geminiPayload),
-          signal: geminiController.signal,
-        });
-      } catch (fetchErr) {
-        // Network error / timeout / abort: keep the session in `processing`
-        // so the stale-recovery sweep can retry, but never leak provider
-        // internals to the client.
-        const isAbort =
-          (fetchErr instanceof DOMException && fetchErr.name === "AbortError") ||
-          String(fetchErr).includes("gemini_timeout");
-        logScanError("gemini_request", {
-          scan_session_id,
-          detail: isAbort ? "timeout" : "network_error",
-          model: scannerCfg.geminiModel,
-          timeout_ms: scannerCfg.geminiTimeoutMs,
-          error: String(fetchErr),
-        });
-        return jsonResponse({
-          error: isAbort ? "AI extraction timed out" : "AI extraction unavailable",
-          scan_session_id,
-          analysis_status: "processing",
-          scan_session_status: "processing",
-        }, 504);
-      } finally {
-        clearTimeout(geminiTimeout);
-      }
-
-      if (!geminiResp.ok) {
-        const errText = await geminiResp.text().catch(() => "");
-        logScanError("gemini_request", {
-          scan_session_id,
-          detail: "non_2xx_response",
-          model: scannerCfg.geminiModel,
-          status: geminiResp.status,
-          // Truncate provider error string so we never log raw document echoes.
-          provider_snippet: errText.slice(0, 240),
-        });
-        // Stay in 'processing' for crash recovery
-        return jsonResponse({
-          error: "AI extraction failed",
-          scan_session_id,
-          analysis_status: "processing",
-          scan_session_status: "processing",
-        }, 502);
-      }
-
-      // 7. Parse Gemini response (defensively — never trust upstream JSON shape)
-      let geminiJson: Record<string, unknown> | null = null;
-      try {
-        geminiJson = await geminiResp.json();
-      } catch (jsonErr) {
-        logScanError("gemini_parse", {
-          scan_session_id,
-          detail: "envelope_not_json",
-          model: scannerCfg.geminiModel,
-          error: String(jsonErr),
-        });
-        return jsonResponse({
-          error: "AI returned malformed response",
-          scan_session_id,
-          analysis_status: "processing",
-          scan_session_status: "processing",
-        }, 502);
-      }
-
-      const rawText = (geminiJson as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> })
-        ?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-      if (!rawText) {
-        logScanError("gemini_parse", {
-          scan_session_id,
-          detail: "empty_text_part",
-          model: scannerCfg.geminiModel,
-        });
-        const emptyResponseStatusUpdate = await updateScanSessionStatus(
-          supabase,
-          scan_session_id,
-          "needs_better_upload",
-          "scan_sessions needs_better_upload update failed after empty Gemini response",
-          {
-            error: "Failed to persist scan session state",
+        let geminiResp: Response;
+        try {
+          geminiResp = await fetch(geminiUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(geminiPayload),
+            signal: geminiController.signal,
+          });
+        } catch (fetchErr) {
+          // Network error / timeout / abort: keep the session in `processing`
+          // so the stale-recovery sweep can retry, but never leak provider
+          // internals to the client.
+          const isAbort = (fetchErr instanceof DOMException &&
+            fetchErr.name === "AbortError") ||
+            String(fetchErr).includes("gemini_timeout");
+          logScanError("gemini_request", {
+            scan_session_id,
+            detail: isAbort ? "timeout" : "network_error",
+            model: scannerCfg.geminiModel,
+            timeout_ms: scannerCfg.geminiTimeoutMs,
+            error: String(fetchErr),
+          });
+          return jsonResponse({
+            error: isAbort
+              ? "AI extraction timed out"
+              : "AI extraction unavailable",
             scan_session_id,
             analysis_status: "processing",
             scan_session_status: "processing",
-          },
-        );
-        if (!emptyResponseStatusUpdate.success) return emptyResponseStatusUpdate.response;
+          }, 504);
+        } finally {
+          clearTimeout(geminiTimeout);
+        }
 
-        return jsonResponse({
-          error: "AI returned empty response",
-          scan_session_id,
-          analysis_status: "needs_better_upload",
-          scan_session_status: "needs_better_upload",
-        }, 502);
-      }
-
-      // Strip markdown fences if present
-      let cleanJson = rawText.trim();
-      if (cleanJson.startsWith("```")) {
-        cleanJson = cleanJson.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "");
-      }
-
-      // parsed is declared above (hoisted for bypass support)
-      try {
-        parsed = JSON.parse(cleanJson);
-      } catch (parseErr) {
-        logScanError("gemini_parse", {
-          scan_session_id,
-          detail: "extraction_json_parse_failed",
-          model: scannerCfg.geminiModel,
-          error: String(parseErr),
-        });
-        const parseFailureStatusUpdate = await updateScanSessionStatus(
-          supabase,
-          scan_session_id,
-          "needs_better_upload",
-          "scan_sessions needs_better_upload update failed after Gemini JSON parse error",
-          {
-            error: "Failed to persist scan session state",
+        if (!geminiResp.ok) {
+          const errText = await geminiResp.text().catch(() => "");
+          logScanError("gemini_request", {
+            scan_session_id,
+            detail: "non_2xx_response",
+            model: scannerCfg.geminiModel,
+            status: geminiResp.status,
+            // Truncate provider error string so we never log raw document echoes.
+            provider_snippet: errText.slice(0, 240),
+          });
+          // Stay in 'processing' for crash recovery
+          return jsonResponse({
+            error: "AI extraction failed",
             scan_session_id,
             analysis_status: "processing",
             scan_session_status: "processing",
-          },
-        );
-        if (!parseFailureStatusUpdate.success) return parseFailureStatusUpdate.response;
+          }, 502);
+        }
 
-        return jsonResponse({
-          error: "AI response not parseable",
-          scan_session_id,
-          analysis_status: "needs_better_upload",
-          scan_session_status: "needs_better_upload",
-        }, 200);
-      }
+        // 7. Parse Gemini response (defensively — never trust upstream JSON shape)
+        let geminiJson: Record<string, unknown> | null = null;
+        try {
+          geminiJson = await geminiResp.json();
+        } catch (jsonErr) {
+          logScanError("gemini_parse", {
+            scan_session_id,
+            detail: "envelope_not_json",
+            model: scannerCfg.geminiModel,
+            error: String(jsonErr),
+          });
+          return jsonResponse({
+            error: "AI returned malformed response",
+            scan_session_id,
+            analysis_status: "processing",
+            scan_session_status: "processing",
+          }, 502);
+        }
+
+        const rawText = (geminiJson as {
+          candidates?: Array<
+            { content?: { parts?: Array<{ text?: string }> } }
+          >;
+        })
+          ?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        if (!rawText) {
+          logScanError("gemini_parse", {
+            scan_session_id,
+            detail: "empty_text_part",
+            model: scannerCfg.geminiModel,
+          });
+          const emptyResponseStatusUpdate = await updateScanSessionStatus(
+            supabase,
+            scan_session_id,
+            "needs_better_upload",
+            "scan_sessions needs_better_upload update failed after empty Gemini response",
+            {
+              error: "Failed to persist scan session state",
+              scan_session_id,
+              analysis_status: "processing",
+              scan_session_status: "processing",
+            },
+          );
+          if (!emptyResponseStatusUpdate.success) {
+            return emptyResponseStatusUpdate.response;
+          }
+
+          return jsonResponse({
+            error: "AI returned empty response",
+            scan_session_id,
+            analysis_status: "needs_better_upload",
+            scan_session_status: "needs_better_upload",
+          }, 502);
+        }
+
+        // Strip markdown fences if present
+        let cleanJson = rawText.trim();
+        if (cleanJson.startsWith("```")) {
+          cleanJson = cleanJson.replace(/^```(?:json)?\s*/, "").replace(
+            /\s*```$/,
+            "",
+          );
+        }
+
+        // parsed is declared above (hoisted for bypass support)
+        try {
+          parsed = JSON.parse(cleanJson);
+        } catch (parseErr) {
+          logScanError("gemini_parse", {
+            scan_session_id,
+            detail: "extraction_json_parse_failed",
+            model: scannerCfg.geminiModel,
+            error: String(parseErr),
+          });
+          const parseFailureStatusUpdate = await updateScanSessionStatus(
+            supabase,
+            scan_session_id,
+            "needs_better_upload",
+            "scan_sessions needs_better_upload update failed after Gemini JSON parse error",
+            {
+              error: "Failed to persist scan session state",
+              scan_session_id,
+              analysis_status: "processing",
+              scan_session_status: "processing",
+            },
+          );
+          if (!parseFailureStatusUpdate.success) {
+            return parseFailureStatusUpdate.response;
+          }
+
+          return jsonResponse({
+            error: "AI response not parseable",
+            scan_session_id,
+            analysis_status: "needs_better_upload",
+            scan_session_status: "needs_better_upload",
+          }, 200);
+        }
       } // end else (non-bypass OCR path)
-
 
       // 8. CLASSIFICATION GATE — check document type BEFORE full extraction validation
       //    This catches invalid documents even when Gemini returns partial/malformed data.
@@ -1036,7 +1371,6 @@ Deno.serve(async (req: Request) => {
 
       if (classCheck.success) {
         const classData = classCheck.data;
-
 
         // 8a. Invalid document gate (not window/door related)
         if (classData.is_window_door_related === false) {
@@ -1060,7 +1394,9 @@ Deno.serve(async (req: Request) => {
               scan_session_status: "processing",
             },
           );
-          if (!invalidDocumentAnalysisUpsert.success) return invalidDocumentAnalysisUpsert.response;
+          if (!invalidDocumentAnalysisUpsert.success) {
+            return invalidDocumentAnalysisUpsert.response;
+          }
 
           const invalidDocumentStatusUpdate = await updateScanSessionStatus(
             supabase,
@@ -1074,19 +1410,24 @@ Deno.serve(async (req: Request) => {
               scan_session_status: "processing",
             },
           );
-          if (!invalidDocumentStatusUpdate.success) return invalidDocumentStatusUpdate.response;
+          if (!invalidDocumentStatusUpdate.success) {
+            return invalidDocumentStatusUpdate.response;
+          }
 
           return jsonResponse({
             scan_session_id,
             analysis_status: "invalid_document",
             scan_session_status: "invalid_document",
-            reason: "This file does not appear to be an impact window or door quote.",
+            reason:
+              "This file does not appear to be an impact window or door quote.",
           }, 200);
         }
 
         // 8b. Low confidence gate — document is related but unreadable
         if ((classData.confidence as number) < CONFIDENCE_THRESHOLD) {
-          console.log(`Low confidence ${classData.confidence} for session ${scan_session_id}`);
+          console.log(
+            `Low confidence ${classData.confidence} for session ${scan_session_id}`,
+          );
           const lowConfidencePayload = {
             scan_session_id,
             lead_id: session.lead_id,
@@ -1107,7 +1448,9 @@ Deno.serve(async (req: Request) => {
               scan_session_status: "processing",
             },
           );
-          if (!lowConfidenceAnalysisUpsert.success) return lowConfidenceAnalysisUpsert.response;
+          if (!lowConfidenceAnalysisUpsert.success) {
+            return lowConfidenceAnalysisUpsert.response;
+          }
 
           const lowConfidenceStatusUpdate = await updateScanSessionStatus(
             supabase,
@@ -1121,14 +1464,17 @@ Deno.serve(async (req: Request) => {
               scan_session_status: "processing",
             },
           );
-          if (!lowConfidenceStatusUpdate.success) return lowConfidenceStatusUpdate.response;
+          if (!lowConfidenceStatusUpdate.success) {
+            return lowConfidenceStatusUpdate.response;
+          }
 
           return jsonResponse({
             scan_session_id,
             analysis_status: "needs_better_upload",
             scan_session_status: "needs_better_upload",
             confidence: classData.confidence,
-            reason: "We couldn't read this file clearly enough. Please upload a higher quality scan or photo.",
+            reason:
+              "We couldn't read this file clearly enough. Please upload a higher quality scan or photo.",
           }, 200);
         }
       }
@@ -1142,9 +1488,15 @@ Deno.serve(async (req: Request) => {
           scan_session_id,
           lead_id: session.lead_id,
           analysis_status: "invalid_document",
-          document_is_window_door_related: classCheck.success ? (classCheck.data.is_window_door_related as boolean) : null,
-          document_type: classCheck.success ? (classCheck.data.document_type as string) : null,
-          confidence_score: classCheck.success ? (classCheck.data.confidence as number) : null,
+          document_is_window_door_related: classCheck.success
+            ? (classCheck.data.is_window_door_related as boolean)
+            : null,
+          document_type: classCheck.success
+            ? (classCheck.data.document_type as string)
+            : null,
+          confidence_score: classCheck.success
+            ? (classCheck.data.confidence as number)
+            : null,
           rubric_version: RUBRIC_VERSION,
         };
         const extractionFailureAnalysisUpsert = await upsertAnalysisRecord(
@@ -1158,7 +1510,9 @@ Deno.serve(async (req: Request) => {
             scan_session_status: "processing",
           },
         );
-        if (!extractionFailureAnalysisUpsert.success) return extractionFailureAnalysisUpsert.response;
+        if (!extractionFailureAnalysisUpsert.success) {
+          return extractionFailureAnalysisUpsert.response;
+        }
 
         const extractionFailureStatusUpdate = await updateScanSessionStatus(
           supabase,
@@ -1172,20 +1526,27 @@ Deno.serve(async (req: Request) => {
             scan_session_status: "processing",
           },
         );
-        if (!extractionFailureStatusUpdate.success) return extractionFailureStatusUpdate.response;
+        if (!extractionFailureStatusUpdate.success) {
+          return extractionFailureStatusUpdate.response;
+        }
 
         return jsonResponse({
           scan_session_id,
           analysis_status: "needs_better_upload",
           scan_session_status: "needs_better_upload",
-          reason: "We found a window quote but couldn't extract all details. Please try a clearer upload.",
+          reason:
+            "We found a window quote but couldn't extract all details. Please try a clearer upload.",
         }, 200);
       }
 
       const extraction = validation.data;
 
       // 10b. Derive jurisdiction mismatch before scoring
-      if (extraction.contractor_address_text && /illinois|il\b/i.test(extraction.contractor_address_text) && session?.lead_id) {
+      if (
+        extraction.contractor_address_text &&
+        /illinois|il\b/i.test(extraction.contractor_address_text) &&
+        session?.lead_id
+      ) {
         extraction.state_jurisdiction_mismatch = true;
       }
 
@@ -1204,7 +1565,10 @@ Deno.serve(async (req: Request) => {
             .maybeSingle();
           countyName = leadRow?.county ?? null;
         } catch (countyErr) {
-          console.warn("County lookup failed (non-fatal, using fallback):", countyErr);
+          console.warn(
+            "County lookup failed (non-fatal, using fallback):",
+            countyErr,
+          );
         }
       }
 
@@ -1213,17 +1577,27 @@ Deno.serve(async (req: Request) => {
       try {
         derivedMetrics = computeDerivedMetrics(extraction, countyName);
       } catch (metricsErr) {
-        console.error("derived metrics computation failed (non-fatal):", metricsErr);
+        console.error(
+          "derived metrics computation failed (non-fatal):",
+          metricsErr,
+        );
         // Non-fatal: report still ships without financial cards
       }
 
       // 11d. Structured trace log for derived metrics (debugging & audit)
-      console.log("[WM_DERIVED_METRICS_TRACE]", JSON.stringify({
-        timestamp: new Date().toISOString(),
-        lead_id: session?.lead_id ?? null,
-        county: countyName ?? null,
-        derived_metrics: derivedMetrics,
-      }, null, 2));
+      console.log(
+        "[WM_DERIVED_METRICS_TRACE]",
+        JSON.stringify(
+          {
+            timestamp: new Date().toISOString(),
+            lead_id: session?.lead_id ?? null,
+            county: countyName ?? null,
+            derived_metrics: derivedMetrics,
+          },
+          null,
+          2,
+        ),
+      );
 
       // 11e. Compile report output (deterministic compiler)
       const compiledReport = compileReportOutput(
@@ -1234,9 +1608,14 @@ Deno.serve(async (req: Request) => {
       );
 
       // 12. Build payloads
-      const openingBucket = (extraction.opening_count || extraction.line_items.length) <= 5 ? "1-5"
-        : (extraction.opening_count || extraction.line_items.length) <= 10 ? "6-10"
-        : (extraction.opening_count || extraction.line_items.length) <= 20 ? "11-20" : "20+";
+      const openingBucket =
+        (extraction.opening_count || extraction.line_items.length) <= 5
+          ? "1-5"
+          : (extraction.opening_count || extraction.line_items.length) <= 10
+          ? "6-10"
+          : (extraction.opening_count || extraction.line_items.length) <= 20
+          ? "11-20"
+          : "20+";
 
       const proofOfRead = {
         page_count: extraction.page_count || null,
@@ -1251,7 +1630,11 @@ Deno.serve(async (req: Request) => {
         grade: gradeResult.letterGrade,
         flag_count: flags.length,
         opening_count_bucket: openingBucket,
-        quality_band: gradeResult.weightedAverage >= 70 ? "good" : gradeResult.weightedAverage >= 50 ? "fair" : "poor",
+        quality_band: gradeResult.weightedAverage >= 70
+          ? "good"
+          : gradeResult.weightedAverage >= 50
+          ? "fair"
+          : "poor",
         hard_cap_applied: gradeResult.hardCapApplied,
         has_warranty: !!extraction.warranty,
         has_permits: !!extraction.permits,
@@ -1290,38 +1673,47 @@ Deno.serve(async (req: Request) => {
       };
 
       // 13. Upsert full analyses row
-      const completeAnalysisUpsert = await upsertAnalysisRecord(supabase, {
-        scan_session_id: scan_session_id,
-        lead_id: session.lead_id,
-        analysis_status: "complete",
-        document_is_window_door_related: true,
-        document_type: extraction.document_type,
-        confidence_score: extraction.confidence,
-        grade: gradeResult.letterGrade,
-        flags: flags,
-        dollar_delta: null,
-        proof_of_read: proofOfRead,
-        preview_json: previewJson,
-        full_json: fullJson,
-        rubric_version: RUBRIC_VERSION,
-        price_fairness: extraction.price_fairness || null,
-        markup_estimate: extraction.markup_estimate || null,
-        negotiation_leverage: extraction.negotiation_leverage || null,
-      }, "analyses upsert failed", {
-        error: "Failed to persist analysis state",
-        scan_session_id,
-        analysis_status: "processing",
-        scan_session_status: "processing",
-      });
-      if (!completeAnalysisUpsert.success) return completeAnalysisUpsert.response;
+      const completeAnalysisUpsert = await upsertAnalysisRecord(
+        supabase,
+        {
+          scan_session_id: scan_session_id,
+          lead_id: session.lead_id,
+          analysis_status: "complete",
+          document_is_window_door_related: true,
+          document_type: extraction.document_type,
+          confidence_score: extraction.confidence,
+          grade: gradeResult.letterGrade,
+          flags: flags,
+          dollar_delta: null,
+          proof_of_read: proofOfRead,
+          preview_json: previewJson,
+          full_json: fullJson,
+          rubric_version: RUBRIC_VERSION,
+          price_fairness: extraction.price_fairness || null,
+          markup_estimate: extraction.markup_estimate || null,
+          negotiation_leverage: extraction.negotiation_leverage || null,
+        },
+        "analyses upsert failed",
+        {
+          error: "Failed to persist analysis state",
+          scan_session_id,
+          analysis_status: "processing",
+          scan_session_status: "processing",
+        },
+      );
+      if (!completeAnalysisUpsert.success) {
+        return completeAnalysisUpsert.response;
+      }
 
       const analysisId = completeAnalysisUpsert.analysisId;
 
       // 13b. LEAD SNAPSHOT SYNC — update leads table with analysis results
       if (session.lead_id && analysisId) {
-        const criticalCount = flags.filter(f => f.severity === "Critical").length;
-        const redCount = flags.filter(f => f.severity === "High").length;
-        const amberCount = flags.filter(f => f.severity === "Medium").length;
+        const criticalCount = flags.filter((f) =>
+          f.severity === "Critical"
+        ).length;
+        const redCount = flags.filter((f) => f.severity === "High").length;
+        const amberCount = flags.filter((f) => f.severity === "Medium").length;
 
         try {
           const { error: leadUpdateErr } = await supabase
@@ -1339,12 +1731,20 @@ Deno.serve(async (req: Request) => {
             .eq("id", session.lead_id);
 
           if (leadUpdateErr) {
-            console.error("Lead snapshot sync failed (non-fatal):", leadUpdateErr);
+            console.error(
+              "Lead snapshot sync failed (non-fatal):",
+              leadUpdateErr,
+            );
           } else {
-            console.log(`[LEAD_SNAPSHOT_SYNC] lead_id=${session.lead_id} analysis_id=${analysisId} grade=${gradeResult.letterGrade}`);
+            console.log(
+              `[LEAD_SNAPSHOT_SYNC] lead_id=${session.lead_id} analysis_id=${analysisId} grade=${gradeResult.letterGrade}`,
+            );
           }
         } catch (leadSyncErr) {
-          console.error("Lead snapshot sync unexpected error (non-fatal):", leadSyncErr);
+          console.error(
+            "Lead snapshot sync unexpected error (non-fatal):",
+            leadSyncErr,
+          );
         }
 
         // 13c. LEAD EVENT — append operational timeline entry
@@ -1369,7 +1769,10 @@ Deno.serve(async (req: Request) => {
             console.error("Lead event insert failed (non-fatal):", eventErr);
           }
         } catch (eventInsertErr) {
-          console.error("Lead event insert unexpected error (non-fatal):", eventInsertErr);
+          console.error(
+            "Lead event insert unexpected error (non-fatal):",
+            eventInsertErr,
+          );
         }
       }
 
@@ -1394,19 +1797,48 @@ Deno.serve(async (req: Request) => {
               quoteFileId: session.quote_file_id ?? undefined,
               documentType: extraction.document_type,
               isQuoteDocument: true,
-              openingCount: typeof extraction.opening_count === "number" ? extraction.opening_count : undefined,
-              quoteAmount: typeof extraction.total_quoted_price === "number" ? extraction.total_quoted_price : undefined,
-              pricePerOpening: typeof compiledReport.price_per_opening === "number" ? compiledReport.price_per_opening : undefined,
-              depositPercent: typeof extraction.deposit_percent === "number" ? extraction.deposit_percent : undefined,
-              impossibleValuesDetected: flags.some((f) => /impossible/i.test(f.flag) || /impossible/i.test(f.detail)),
+              openingCount: typeof extraction.opening_count === "number"
+                ? extraction.opening_count
+                : undefined,
+              quoteAmount: typeof extraction.total_quoted_price === "number"
+                ? extraction.total_quoted_price
+                : undefined,
+              pricePerOpening:
+                typeof compiledReport.price_per_opening === "number"
+                  ? compiledReport.price_per_opening
+                  : undefined,
+              depositPercent: typeof extraction.deposit_percent === "number"
+                ? extraction.deposit_percent
+                : undefined,
+              impossibleValuesDetected: flags.some((f) =>
+                /impossible/i.test(f.flag) || /impossible/i.test(f.detail)
+              ),
             },
             analytics: {
-              ocrConfidence: Math.max(0, Math.min(1, extraction.confidence ?? 0)),
-              completeness: Math.max(0, Math.min(1, gradeResult.pillarScores.safety / 100)),
-              mathConsistency: Math.max(0, Math.min(1, gradeResult.pillarScores.price / 100)),
-              cohortFit: Math.max(0, Math.min(1, gradeResult.pillarScores.price / 100)),
-              scopeConsistency: Math.max(0, Math.min(1, gradeResult.pillarScores.install / 100)),
-              documentValidity: Math.max(0, Math.min(1, gradeResult.pillarScores.finePrint / 100)),
+              ocrConfidence: Math.max(
+                0,
+                Math.min(1, extraction.confidence ?? 0),
+              ),
+              completeness: Math.max(
+                0,
+                Math.min(1, gradeResult.pillarScores.safety / 100),
+              ),
+              mathConsistency: Math.max(
+                0,
+                Math.min(1, gradeResult.pillarScores.price / 100),
+              ),
+              cohortFit: Math.max(
+                0,
+                Math.min(1, gradeResult.pillarScores.price / 100),
+              ),
+              scopeConsistency: Math.max(
+                0,
+                Math.min(1, gradeResult.pillarScores.install / 100),
+              ),
+              documentValidity: Math.max(
+                0,
+                Math.min(1, gradeResult.pillarScores.finePrint / 100),
+              ),
               identityStrength: 0.4,
               anomalyScore: 0,
               trustScore: 0,
@@ -1423,7 +1855,10 @@ Deno.serve(async (req: Request) => {
           },
         });
       } catch (canonicalErr) {
-        console.error("quote_validation_passed canonical event failed (non-fatal):", canonicalErr);
+        console.error(
+          "quote_validation_passed canonical event failed (non-fatal):",
+          canonicalErr,
+        );
       }
 
       // 14. Update session to preview_ready
@@ -1465,7 +1900,8 @@ Deno.serve(async (req: Request) => {
             },
             "analyses rollback after scan_sessions preview_ready failure",
             {
-              error: "Failed to rollback analysis after scan session status failure",
+              error:
+                "Failed to rollback analysis after scan session status failure",
               scan_session_id,
               analysis_status: "processing",
               scan_session_status: "processing",
@@ -1493,7 +1929,6 @@ Deno.serve(async (req: Request) => {
         scan_session_status: "preview_ready",
         grade: gradeResult.letterGrade,
       }, 200);
-
     } catch (innerErr) {
       // CRASH RECOVERY: session stays in 'processing' — recoverable by the
       // stale-takeover path on the next invocation.
@@ -1509,9 +1944,11 @@ Deno.serve(async (req: Request) => {
         scan_session_status: "processing",
       }, 500);
     }
-
   } catch (outerErr) {
-    logScanError("request_validation", { detail: "unexpected_outer_error", error: String(outerErr) });
+    logScanError("request_validation", {
+      detail: "unexpected_outer_error",
+      error: String(outerErr),
+    });
     return jsonResponse({ error: "Bad request" }, 400);
   }
 });

@@ -25,22 +25,34 @@ Deno.serve(async (req) => {
 
     if (!scan_session_id || !call_intent) {
       return new Response(
-        JSON.stringify({ error: "scan_session_id and call_intent are required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({
+          error: "scan_session_id and call_intent are required",
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
-    const validIntents = ["contractor_intro", "report_explainer", "general_callback"];
+    const validIntents = [
+      "contractor_intro",
+      "report_explainer",
+      "general_callback",
+    ];
     if (!validIntents.includes(call_intent)) {
       return new Response(
         JSON.stringify({ error: "Invalid call_intent" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
     // ── Look up session → lead ───────────────────────────────────────────
@@ -53,34 +65,48 @@ Deno.serve(async (req) => {
     if (!session?.lead_id) {
       return new Response(
         JSON.stringify({ error: "Session not found or not linked to a lead" }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
     const { data: lead } = await supabase
       .from("leads")
-      .select("id, phone_e164, phone_verified, first_name, county, project_type, window_count, quote_range")
+      .select(
+        "id, phone_e164, phone_verified, first_name, county, project_type, window_count, quote_range",
+      )
       .eq("id", session.lead_id)
       .maybeSingle();
 
     if (!lead) {
       return new Response(
         JSON.stringify({ error: "Lead not found" }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
     if (!lead.phone_verified) {
       return new Response(
         JSON.stringify({ error: "Phone not verified" }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
     if (!lead.phone_e164) {
       return new Response(
         JSON.stringify({ error: "No phone on file" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -94,8 +120,10 @@ Deno.serve(async (req) => {
 
     const flags = Array.isArray(analysis?.flags) ? analysis.flags : [];
     const majorFlags = flags
+      // deno-lint-ignore no-explicit-any
       .filter((f: any) => f.severity === "Critical" || f.severity === "High")
       .slice(0, 5)
+      // deno-lint-ignore no-explicit-any
       .map((f: any) => f.title || f.name || "Unknown");
 
     const { data: opp } = await supabase
@@ -142,7 +170,10 @@ Deno.serve(async (req) => {
       console.error("[request-callback] insert failed:", followupErr);
       return new Response(
         JSON.stringify({ error: "Failed to queue callback" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -208,7 +239,9 @@ Deno.serve(async (req) => {
         webhookStatus = "failed";
       }
     } else {
-      console.log("[request-callback] PHONECALL_BOT_WEBHOOK_URL not set — skipping");
+      console.log(
+        "[request-callback] PHONECALL_BOT_WEBHOOK_URL not set — skipping",
+      );
     }
 
     // ── Audit trail ──────────────────────────────────────────────────────
@@ -218,18 +251,33 @@ Deno.serve(async (req) => {
       event_name: "voice_followup_queued",
       event_source: "edge_function",
       voice_followup_id: followup.id,
-      metadata: { call_intent, cta_source, webhook_status: webhookStatus, timestamp: now },
+      metadata: {
+        call_intent,
+        cta_source,
+        webhook_status: webhookStatus,
+        timestamp: now,
+      },
     });
 
     return new Response(
-      JSON.stringify({ success: true, followup_id: followup.id, webhook_status: webhookStatus }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({
+        success: true,
+        followup_id: followup.id,
+        webhook_status: webhookStatus,
+      }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
   } catch (err) {
     console.error("[request-callback] unhandled error:", err);
     return new Response(
       JSON.stringify({ error: "Internal server error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
   }
 });

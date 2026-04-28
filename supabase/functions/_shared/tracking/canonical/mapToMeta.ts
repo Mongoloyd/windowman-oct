@@ -32,19 +32,31 @@ export interface MetaMapperResult {
   };
 }
 
-export function mapToMeta(canonical: WMCanonicalEvent, eventSourceUrl: string): MetaMapperResult {
-  if (!canonical.shouldSendMeta) return { suppressed: true, reason: "shouldSendMeta_false" };
+export function mapToMeta(
+  canonical: WMCanonicalEvent,
+  eventSourceUrl: string,
+): MetaMapperResult {
+  if (!canonical.shouldSendMeta) {
+    return { suppressed: true, reason: "shouldSendMeta_false" };
+  }
 
   const mappedEvent = META_EVENT_MAP[canonical.eventName];
   if (!mappedEvent) return { suppressed: true, reason: "no_meta_mapping" };
 
   const analytics = canonical.payload.analytics;
   if (QUOTE_QUALITY_EVENTS.has(canonical.eventName)) {
-    if (analytics?.anomalyStatus !== "safe") return { suppressed: true, reason: "unsafe_anomaly_status" };
-    if ((analytics?.trustScore ?? 0) < WM_QUOTE_TRUST_MIN_FOR_DISPATCH) return { suppressed: true, reason: "trust_below_threshold" };
+    if (analytics?.anomalyStatus !== "safe") {
+      return { suppressed: true, reason: "unsafe_anomaly_status" };
+    }
+    if ((analytics?.trustScore ?? 0) < WM_QUOTE_TRUST_MIN_FOR_DISPATCH) {
+      return { suppressed: true, reason: "trust_below_threshold" };
+    }
   }
 
-  if (canonical.identityQuality === "low" || canonical.identityQuality === "unknown") {
+  if (
+    canonical.identityQuality === "low" ||
+    canonical.identityQuality === "unknown"
+  ) {
     return { suppressed: true, reason: "identity_too_weak" };
   }
 
@@ -67,7 +79,9 @@ export function mapToMeta(canonical: WMCanonicalEvent, eventSourceUrl: string): 
     suppressed: false,
     payload: {
       event_name: mappedEvent,
-      event_time: Math.floor(new Date(canonical.eventTimestamp).getTime() / 1000),
+      event_time: Math.floor(
+        new Date(canonical.eventTimestamp).getTime() / 1000,
+      ),
       event_id: canonical.eventId,
       action_source: "website",
       event_source_url: eventSourceUrl,

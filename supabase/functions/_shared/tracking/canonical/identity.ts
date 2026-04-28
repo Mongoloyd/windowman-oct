@@ -46,25 +46,29 @@ export interface NormalizedIdentity {
   clientIp?: string;
 }
 
-export async function normalizeAndHashIdentity(identity: WMIdentityPayload): Promise<NormalizedIdentity> {
+export async function normalizeAndHashIdentity(
+  identity: WMIdentityPayload,
+): Promise<NormalizedIdentity> {
   const normalizedEmail = normalizeEmail(identity.email);
   const normalizedPhone = normalizeUSPhoneE164(identity.phone);
 
   const emailHash = identity.emailHash
-    ? (isSha256Hex(identity.emailHash) ? identity.emailHash.toLowerCase() : await sha256Hex(identity.emailHash.trim().toLowerCase()))
+    ? (isSha256Hex(identity.emailHash)
+      ? identity.emailHash.toLowerCase()
+      : await sha256Hex(identity.emailHash.trim().toLowerCase()))
     : normalizedEmail
-      ? await sha256Hex(normalizedEmail)
-      : undefined;
+    ? await sha256Hex(normalizedEmail)
+    : undefined;
 
   const phoneHash = identity.phoneHash
     ? (isSha256Hex(identity.phoneHash)
-        ? identity.phoneHash.toLowerCase()
-        : normalizedPhone
-          ? await sha256Hex(normalizedPhone.replace(/\D/g, ""))
-          : await sha256Hex(identity.phoneHash.replace(/\D/g, "")))
-    : normalizedPhone
+      ? identity.phoneHash.toLowerCase()
+      : normalizedPhone
       ? await sha256Hex(normalizedPhone.replace(/\D/g, ""))
-      : undefined;
+      : await sha256Hex(identity.phoneHash.replace(/\D/g, "")))
+    : normalizedPhone
+    ? await sha256Hex(normalizedPhone.replace(/\D/g, ""))
+    : undefined;
 
   return {
     leadId: identity.leadId,
@@ -95,7 +99,10 @@ export function computeIdentityStrength(payload: WMIdentityPayload): number {
   let score = 0;
   const hasRawPii = Boolean(payload.email || payload.phone);
   const hasHashedPii = Boolean(payload.emailHash || payload.phoneHash);
-  const hasClickId = Boolean(payload.clickId || payload.gclid || payload.gbraid || payload.wbraid || payload.fbc);
+  const hasClickId = Boolean(
+    payload.clickId || payload.gclid || payload.gbraid || payload.wbraid ||
+      payload.fbc,
+  );
 
   if (payload.leadId) score += 0.1;
   if (payload.userId) score += 0.1;
@@ -114,9 +121,16 @@ export function computeIdentityStrength(payload: WMIdentityPayload): number {
   return clamp01(score);
 }
 
-export function computeIdentityQuality(payload: WMIdentityPayload): WMIdentityQuality {
-  const hasStrongPii = Boolean(payload.email || payload.phone || payload.emailHash || payload.phoneHash);
-  const hasClickId = Boolean(payload.clickId || payload.gclid || payload.gbraid || payload.wbraid || payload.fbc);
+export function computeIdentityQuality(
+  payload: WMIdentityPayload,
+): WMIdentityQuality {
+  const hasStrongPii = Boolean(
+    payload.email || payload.phone || payload.emailHash || payload.phoneHash,
+  );
+  const hasClickId = Boolean(
+    payload.clickId || payload.gclid || payload.gbraid || payload.wbraid ||
+      payload.fbc,
+  );
   const strength = computeIdentityStrength(payload);
 
   if (hasStrongPii && hasClickId && strength >= 0.6) return "high";

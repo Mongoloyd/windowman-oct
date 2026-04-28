@@ -103,7 +103,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .limit(1);
 
   if (existErr) {
-    console.error("[contractor-mark-no-show] idempotency check error:", existErr);
+    console.error(
+      "[contractor-mark-no-show] idempotency check error:",
+      existErr,
+    );
   }
 
   if (existing && existing.length > 0) {
@@ -157,7 +160,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
     });
 
   if (followupErr) {
-    console.error("[contractor-mark-no-show] followup insert error:", followupErr);
+    console.error(
+      "[contractor-mark-no-show] followup insert error:",
+      followupErr,
+    );
     return json({ error: "Failed to queue followup" }, 500);
   }
 

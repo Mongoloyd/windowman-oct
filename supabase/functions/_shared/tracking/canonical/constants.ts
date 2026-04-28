@@ -17,7 +17,12 @@ export const WM_EVENT_NAMES = [
   "sale_confirmed",
 ] as const;
 
-export const WM_ANOMALY_STATUSES = ["safe", "review", "quarantine", "reject"] as const;
+export const WM_ANOMALY_STATUSES = [
+  "safe",
+  "review",
+  "quarantine",
+  "reject",
+] as const;
 
 export const WM_DISPATCH_STATUSES = [
   "not_applicable",
@@ -31,9 +36,19 @@ export const WM_DISPATCH_STATUSES = [
   "failed",
 ] as const;
 
-export const WM_PLATFORM_NAMES = ["meta", "google_ads", "ga4", "internal"] as const;
+export const WM_PLATFORM_NAMES = [
+  "meta",
+  "google_ads",
+  "ga4",
+  "internal",
+] as const;
 
-export const WM_IDENTITY_QUALITIES = ["unknown", "low", "medium", "high"] as const;
+export const WM_IDENTITY_QUALITIES = [
+  "unknown",
+  "low",
+  "medium",
+  "high",
+] as const;
 
 export const WM_TRUST_WEIGHTS = {
   ocrConfidence: 0.18,

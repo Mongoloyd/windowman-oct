@@ -14,9 +14,10 @@
  */
 
 import {
-  assertEquals,
+  // deno-lint-ignore no-unused-vars
   assert,
   assertArrayIncludes,
+  assertEquals,
 } from "https://deno.land/std@0.168.0/testing/asserts.ts";
 
 import { diagnoseRoute } from "./index.ts";
@@ -44,9 +45,14 @@ function buildMockSupabase(tables: MockTables) {
           rows = rows.filter((r) => r[col] === val);
           return builder;
         },
+        // deno-lint-ignore require-await
         async single() {
-          return { data: rows[0] ?? null, error: rows[0] ? null : { code: "PGRST116" } };
+          return {
+            data: rows[0] ?? null,
+            error: rows[0] ? null : { code: "PGRST116" },
+          };
         },
+        // deno-lint-ignore require-await
         async maybeSingle() {
           return { data: rows[0] ?? null, error: null };
         },
@@ -78,7 +84,9 @@ function installFetchSpy() {
   fetchCallCount = 0;
   globalThis.fetch = ((..._args: unknown[]) => {
     fetchCallCount += 1;
-    throw new Error("preview must not perform any fetch — diagnoseRoute called fetch()");
+    throw new Error(
+      "preview must not perform any fetch — diagnoseRoute called fetch()",
+    );
   }) as typeof fetch;
 }
 
@@ -95,8 +103,19 @@ Deno.test("preview: active client slug resolves to client tier with send-safe fl
     const supabase = buildMockSupabase({
       clients: [{ id: "c1", slug: "acme", is_active: true }],
       meta_configurations: [
-        { client_id: "c1", pixel_id: "PIXEL_ACME", access_token: "TOK_ACME", test_event_code: null },
-        { is_default: true, id: "d1", pixel_id: "PIXEL_DEFAULT", access_token: "TOK_DEFAULT", test_event_code: null },
+        {
+          client_id: "c1",
+          pixel_id: "PIXEL_ACME",
+          access_token: "TOK_ACME",
+          test_event_code: null,
+        },
+        {
+          is_default: true,
+          id: "d1",
+          pixel_id: "PIXEL_DEFAULT",
+          access_token: "TOK_DEFAULT",
+          test_event_code: null,
+        },
       ],
     });
 
@@ -127,7 +146,13 @@ Deno.test("preview: unknown slug falls through to default tier with explicit rea
     const supabase = buildMockSupabase({
       clients: [],
       meta_configurations: [
-        { is_default: true, id: "d1", pixel_id: "PIXEL_DEFAULT", access_token: "TOK_DEFAULT", test_event_code: null },
+        {
+          is_default: true,
+          id: "d1",
+          pixel_id: "PIXEL_DEFAULT",
+          access_token: "TOK_DEFAULT",
+          test_event_code: null,
+        },
       ],
     });
 
@@ -154,7 +179,12 @@ Deno.test("preview: inactive client slug yields client_inactive reason and falls
       clients: [{ id: "c1", slug: "acme", is_active: false }],
       meta_configurations: [
         { client_id: "c1", pixel_id: "PIXEL_ACME", access_token: "TOK_ACME" },
-        { is_default: true, id: "d1", pixel_id: "PIXEL_DEFAULT", access_token: "TOK_DEFAULT" },
+        {
+          is_default: true,
+          id: "d1",
+          pixel_id: "PIXEL_DEFAULT",
+          access_token: "TOK_DEFAULT",
+        },
       ],
     });
 
@@ -179,14 +209,22 @@ Deno.test("preview: client config missing access_token reports client_config_mis
       clients: [{ id: "c1", slug: "acme", is_active: true }],
       meta_configurations: [
         { client_id: "c1", pixel_id: "PIXEL_ACME", access_token: null },
-        { is_default: true, id: "d1", pixel_id: "PIXEL_DEFAULT", access_token: "TOK_DEFAULT" },
+        {
+          is_default: true,
+          id: "d1",
+          pixel_id: "PIXEL_DEFAULT",
+          access_token: "TOK_DEFAULT",
+        },
       ],
     });
 
     const d = await diagnoseRoute(supabase as never, "acme");
 
     assertEquals(d.tier, "default");
-    assertArrayIncludes(d.reasons, ["client_config_missing_token", "default_resolved"]);
+    assertArrayIncludes(d.reasons, [
+      "client_config_missing_token",
+      "default_resolved",
+    ]);
     assertArrayIncludes(d.missing_fields, ["meta_configurations.access_token"]);
     assertEquals(fetchCallCount, 0);
   } finally {
@@ -211,7 +249,10 @@ Deno.test("preview: missing default row falls through to env tier", async () => 
     assertEquals(d.tier, "env");
     assertEquals(d.uses_env_fallback, true);
     assertEquals(d.resolved_pixel_id, "PIXEL_ENV");
-    assertArrayIncludes(d.reasons, ["client_slug_not_provided", "env_resolved"]);
+    assertArrayIncludes(d.reasons, [
+      "client_slug_not_provided",
+      "env_resolved",
+    ]);
     assertEquals(fetchCallCount, 0);
   } finally {
     restoreFetch();
@@ -237,7 +278,12 @@ Deno.test("preview: no default + no env yields degraded with explicit missing_fi
     assertEquals(d.is_send_safe, false);
     assertEquals(d.degraded, true);
     assertEquals(d.resolved_pixel_id, null);
-    assertArrayIncludes(d.reasons, ["client_not_found", "default_missing", "env_missing", "degraded_no_route"]);
+    assertArrayIncludes(d.reasons, [
+      "client_not_found",
+      "default_missing",
+      "env_missing",
+      "degraded_no_route",
+    ]);
     assertArrayIncludes(d.missing_fields, [
       "meta_configurations.is_default_row",
       "env.META_PIXEL_ID",
@@ -258,7 +304,12 @@ Deno.test("preview: no slug supplied previews the default tier directly", async 
     const supabase = buildMockSupabase({
       clients: [],
       meta_configurations: [
-        { is_default: true, id: "d1", pixel_id: "PIXEL_DEFAULT", access_token: "TOK_DEFAULT" },
+        {
+          is_default: true,
+          id: "d1",
+          pixel_id: "PIXEL_DEFAULT",
+          access_token: "TOK_DEFAULT",
+        },
       ],
     });
 
@@ -266,7 +317,10 @@ Deno.test("preview: no slug supplied previews the default tier directly", async 
 
     assertEquals(d.tier, "default");
     assertEquals(d.client_slug, null);
-    assertArrayIncludes(d.reasons, ["client_slug_not_provided", "default_resolved"]);
+    assertArrayIncludes(d.reasons, [
+      "client_slug_not_provided",
+      "default_resolved",
+    ]);
     assertEquals(fetchCallCount, 0);
   } finally {
     restoreFetch();
@@ -280,8 +334,23 @@ Deno.test("preview: diagnoseRoute is hermetic across all tiers (no fetch ever)",
   installFetchSpy();
   try {
     const cases: Array<[string | undefined, MockTables]> = [
-      ["acme", { clients: [{ id: "c1", slug: "acme", is_active: true }], meta_configurations: [{ client_id: "c1", pixel_id: "P", access_token: "T" }] }],
-      ["ghost", { clients: [], meta_configurations: [{ is_default: true, id: "d1", pixel_id: "PD", access_token: "TD" }] }],
+      ["acme", {
+        clients: [{ id: "c1", slug: "acme", is_active: true }],
+        meta_configurations: [{
+          client_id: "c1",
+          pixel_id: "P",
+          access_token: "T",
+        }],
+      }],
+      ["ghost", {
+        clients: [],
+        meta_configurations: [{
+          is_default: true,
+          id: "d1",
+          pixel_id: "PD",
+          access_token: "TD",
+        }],
+      }],
       [undefined, { clients: [], meta_configurations: [] }],
     ];
 
@@ -290,7 +359,11 @@ Deno.test("preview: diagnoseRoute is hermetic across all tiers (no fetch ever)",
       await diagnoseRoute(supabase as never, slug);
     }
 
-    assertEquals(fetchCallCount, 0, "preview must remain hermetic — no live Meta call across any tier");
+    assertEquals(
+      fetchCallCount,
+      0,
+      "preview must remain hermetic — no live Meta call across any tier",
+    );
   } finally {
     restoreFetch();
   }

@@ -54,7 +54,9 @@ function jsonResponse(body: JsonRecord, status = 200) {
 }
 
 function asRecord(value: unknown): JsonRecord | null {
-  return value && typeof value === "object" && !Array.isArray(value) ? value as JsonRecord : null;
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as JsonRecord
+    : null;
 }
 
 function cleanText(value: unknown, max = MAX_TEXT): string | null {
@@ -76,7 +78,9 @@ function normalizePhone(value: unknown): string | null {
   const leadingPlus = raw.trim().startsWith("+");
   const digits = raw.replace(/\D/g, "");
   if (!digits) return null;
-  if (leadingPlus && digits.length >= 8 && digits.length <= 15) return `+${digits}`;
+  if (leadingPlus && digits.length >= 8 && digits.length <= 15) {
+    return `+${digits}`;
+  }
   if (digits.length === 10) return `+1${digits}`;
   if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
   return digits.length >= 8 && digits.length <= 15 ? `+${digits}` : null;
@@ -91,14 +95,22 @@ function normalizeTimestamp(value: unknown): string | null {
 
 function getFieldMap(body: JsonRecord): Record<string, string> {
   const fieldMap: Record<string, string> = {};
-  const fieldData = Array.isArray(body.field_data) ? body.field_data : Array.isArray(body.fieldData) ? body.fieldData : [];
+  const fieldData = Array.isArray(body.field_data)
+    ? body.field_data
+    : Array.isArray(body.fieldData)
+    ? body.fieldData
+    : [];
 
   for (const item of fieldData) {
     const record = asRecord(item);
     if (!record) continue;
     const name = cleanText(record.name, 120)?.toLowerCase();
     if (!name) continue;
-    const values = Array.isArray(record.values) ? record.values : Array.isArray(record.value) ? record.value : [record.value];
+    const values = Array.isArray(record.values)
+      ? record.values
+      : Array.isArray(record.value)
+      ? record.value
+      : [record.value];
     const firstValue = values.find((entry) => cleanText(entry) !== null);
     const cleaned = cleanText(firstValue);
     if (cleaned) fieldMap[name] = cleaned;
@@ -117,7 +129,12 @@ function getNested(body: JsonRecord, path: string[]): unknown {
   return current;
 }
 
-function pick(body: JsonRecord, fieldMap: Record<string, string>, keys: string[], max = MAX_TEXT): string | null {
+function pick(
+  body: JsonRecord,
+  fieldMap: Record<string, string>,
+  keys: string[],
+  max = MAX_TEXT,
+): string | null {
   for (const key of keys) {
     const fromBody = cleanText(body[key], max);
     if (fromBody) return fromBody;
@@ -127,7 +144,9 @@ function pick(body: JsonRecord, fieldMap: Record<string, string>, keys: string[]
   return null;
 }
 
-function splitName(fullName: string | null): { firstName: string | null; lastName: string | null } {
+function splitName(
+  fullName: string | null,
+): { firstName: string | null; lastName: string | null } {
   if (!fullName) return { firstName: null, lastName: null };
   const parts = fullName.split(/\s+/).filter(Boolean);
   if (parts.length === 0) return { firstName: null, lastName: null };
@@ -135,24 +154,41 @@ function splitName(fullName: string | null): { firstName: string | null; lastNam
   return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
 }
 
-function normalizePayload(body: JsonRecord): { ok: true; payload: NormalizedLeadAdPayload } | { ok: false; error: string } {
+function normalizePayload(
+  body: JsonRecord,
+): { ok: true; payload: NormalizedLeadAdPayload } | {
+  ok: false;
+  error: string;
+} {
   const fieldMap = getFieldMap(body);
 
   const platformLeadId = cleanText(
-    body.platform_lead_id ?? body.platformLeadId ?? body.leadgen_id ?? body.leadgenId ?? body.id ?? getNested(body, ["lead", "id"]),
+    body.platform_lead_id ?? body.platformLeadId ?? body.leadgen_id ??
+      body.leadgenId ?? body.id ?? getNested(body, ["lead", "id"]),
     255,
   );
 
   if (!platformLeadId) return { ok: false, error: "platform_lead_id_required" };
 
   const email = cleanEmail(pick(body, fieldMap, ["email", "email_address"]));
-  const phoneE164 = normalizePhone(pick(body, fieldMap, ["phone", "phone_number", "mobile_phone", "phone_e164"]));
+  const phoneE164 = normalizePhone(
+    pick(body, fieldMap, [
+      "phone",
+      "phone_number",
+      "mobile_phone",
+      "phone_e164",
+    ]),
+  );
   const fullName = pick(body, fieldMap, ["full_name", "name", "contact_name"]);
   const split = splitName(fullName);
-  const firstName = pick(body, fieldMap, ["first_name", "firstname"], 120) ?? split.firstName;
-  const lastName = pick(body, fieldMap, ["last_name", "lastname"], 120) ?? split.lastName;
+  const firstName = pick(body, fieldMap, ["first_name", "firstname"], 120) ??
+    split.firstName;
+  const lastName = pick(body, fieldMap, ["last_name", "lastname"], 120) ??
+    split.lastName;
 
-  if (!email && !phoneE164) return { ok: false, error: "email_or_phone_required" };
+  if (!email && !phoneE164) {
+    return { ok: false, error: "email_or_phone_required" };
+  }
 
   return {
     ok: true,
@@ -168,20 +204,30 @@ function normalizePayload(body: JsonRecord): { ok: true; payload: NormalizedLead
       adId: cleanText(body.ad_id ?? body.adId, 255),
       adName: cleanText(body.ad_name ?? body.adName, 500),
       formId: cleanText(body.form_id ?? body.formId, 255),
-      platformCreatedTime: normalizeTimestamp(body.created_time ?? body.createdTime ?? body.platform_created_time),
+      platformCreatedTime: normalizeTimestamp(
+        body.created_time ?? body.createdTime ?? body.platform_created_time,
+      ),
       fbclid: cleanText(body.fbclid, 500),
       gclid: cleanText(body.gclid, 500),
       fbc: cleanText(body.fbc, 500),
       fbp: cleanText(body.fbp, 500),
-      utmSource: cleanText(body.utm_source ?? body.utmSource, 255) ?? "facebook",
+      utmSource: cleanText(body.utm_source ?? body.utmSource, 255) ??
+        "facebook",
       utmMedium: cleanText(body.utm_medium ?? body.utmMedium, 255) ?? "lead_ad",
       utmCampaign: cleanText(body.utm_campaign ?? body.utmCampaign, 500),
       utmTerm: cleanText(body.utm_term ?? body.utmTerm, 500),
       utmContent: cleanText(body.utm_content ?? body.utmContent, 500),
-      landingPageUrl: cleanText(body.landing_page_url ?? body.landingPageUrl, 2000),
+      landingPageUrl: cleanText(
+        body.landing_page_url ?? body.landingPageUrl,
+        2000,
+      ),
       firstPagePath: cleanText(body.first_page_path ?? body.firstPagePath, 500),
-      initialReferrer: cleanText(body.initial_referrer ?? body.initialReferrer, 1000),
-      clientSlug: cleanText(body.client_slug ?? body.clientSlug, 80) ?? "direct",
+      initialReferrer: cleanText(
+        body.initial_referrer ?? body.initialReferrer,
+        1000,
+      ),
+      clientSlug: cleanText(body.client_slug ?? body.clientSlug, 80) ??
+        "direct",
       firstName,
       lastName,
       fullName,
@@ -203,9 +249,15 @@ function authOk(req: Request): boolean {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  if (req.method !== "POST") return jsonResponse({ success: false, error: "method_not_allowed" }, 405);
-  if (!authOk(req)) return jsonResponse({ success: false, error: "unauthorized" }, 401);
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+  if (req.method !== "POST") {
+    return jsonResponse({ success: false, error: "method_not_allowed" }, 405);
+  }
+  if (!authOk(req)) {
+    return jsonResponse({ success: false, error: "unauthorized" }, 401);
+  }
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -220,21 +272,29 @@ Deno.serve(async (req) => {
   }
 
   const body = asRecord(rawBody);
-  if (!body) return jsonResponse({ success: false, error: "payload_must_be_object" }, 400);
+  if (!body) {
+    return jsonResponse(
+      { success: false, error: "payload_must_be_object" },
+      400,
+    );
+  }
 
   const normalized = normalizePayload(body);
-  if (!normalized.ok) return jsonResponse({ success: false, error: normalized.error }, 400);
+  if (!normalized.ok) {
+    return jsonResponse({ success: false, error: normalized.error }, 400);
+  }
 
   const payload = normalized.payload;
   const now = new Date().toISOString();
 
   try {
-    const { data: existingAttribution, error: attributionLookupError } = await supabase
-      .from("lead_attribution_details")
-      .select("id, lead_id")
-      .eq("source_platform", payload.sourcePlatform)
-      .eq("platform_lead_id", payload.platformLeadId)
-      .maybeSingle();
+    const { data: existingAttribution, error: attributionLookupError } =
+      await supabase
+        .from("lead_attribution_details")
+        .select("id, lead_id")
+        .eq("source_platform", payload.sourcePlatform)
+        .eq("platform_lead_id", payload.platformLeadId)
+        .maybeSingle();
 
     if (attributionLookupError) throw attributionLookupError;
 
@@ -375,7 +435,9 @@ Deno.serve(async (req) => {
     }
 
     await supabase.from("event_logs").insert({
-      event_name: deduped ? "facebook_lead_ad_import_deduped" : "facebook_lead_ad_imported",
+      event_name: deduped
+        ? "facebook_lead_ad_import_deduped"
+        : "facebook_lead_ad_imported",
       flow_type: SOURCE,
       route: "import-facebook-lead-ad",
       lead_id: leadId,

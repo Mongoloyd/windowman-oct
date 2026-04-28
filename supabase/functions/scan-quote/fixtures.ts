@@ -57,9 +57,22 @@ export const BASE_GOOD_QUOTE: ExtractionResult = {
       glass_spec_complete: true,
     },
   ],
-  permits: { included: true, responsible_party: "contractor", details: "permit included" },
-  installation: { scope_detail: "remove/replace/flash/seal", disposal_included: true, accessories_mentioned: true },
-  warranty: { labor_years: 5, manufacturer_years: 20, transferable: true, details: "written warranty included" },
+  permits: {
+    included: true,
+    responsible_party: "contractor",
+    details: "permit included",
+  },
+  installation: {
+    scope_detail: "remove/replace/flash/seal",
+    disposal_included: true,
+    accessories_mentioned: true,
+  },
+  warranty: {
+    labor_years: 5,
+    manufacturer_years: 20,
+    transferable: true,
+    details: "written warranty included",
+  },
 
   // ── Area 1: Glass ──────────────────────────────────────────────────────────
   opening_level_glass_specs_present: true,
@@ -98,7 +111,8 @@ export const BASE_GOOD_QUOTE: ExtractionResult = {
   warranty_service_provider_name: "Example Impact Windows",
   leak_callback_sla_days: 7,
   labor_service_sla_days: 5,
-  callback_process_text: "Call main office, technician dispatched within 72 hours",
+  callback_process_text:
+    "Call main office, technician dispatched within 72 hours",
   post_install_stucco_excluded: false,
   post_install_paint_excluded: false,
   water_intrusion_damage_excluded: false,

@@ -11,17 +11,21 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
  */
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Use POST" }), {
-      status: 405, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 405,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ??
+      Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!;
 
     // 1. Authenticate the caller
     const authHeader = req.headers.get("Authorization");
@@ -35,7 +39,9 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: `Bearer ${token}` } },
     });
 
-    const { data: { user }, error: userErr } = await userClient.auth.getUser(token);
+    const { data: { user }, error: userErr } = await userClient.auth.getUser(
+      token,
+    );
     if (userErr || !user) {
       return json(401, { error: "Invalid or expired session" });
     }
@@ -77,7 +83,8 @@ Deno.serve(async (req) => {
     // 5. Validate email match
     if (user.email?.toLowerCase() !== invite.invited_email.toLowerCase()) {
       return json(403, {
-        error: "This invitation was sent to a different email address. Please sign in with the invited email.",
+        error:
+          "This invitation was sent to a different email address. Please sign in with the invited email.",
       });
     }
 
@@ -89,7 +96,9 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (existingBridge && existingBridge.id !== invite.contractor_id) {
-      return json(409, { error: "Your account is already linked to a different contractor." });
+      return json(409, {
+        error: "Your account is already linked to a different contractor.",
+      });
     }
 
     // 7. Link auth user to the contractor business record
@@ -114,18 +123,24 @@ Deno.serve(async (req) => {
       }, { onConflict: "id" });
 
     if (profileErr) {
-      console.error("[accept-invite] profile upsert failed:", profileErr.message);
+      console.error(
+        "[accept-invite] profile upsert failed:",
+        profileErr.message,
+      );
     }
 
     // 9. Seed credits if specified
     if (invite.initial_credits > 0) {
-      const { error: creditErr } = await admin.rpc("admin_adjust_contractor_credits", {
-        p_contractor_id: user.id,
-        p_delta: invite.initial_credits,
-        p_entry_type: "seed",
-        p_notes: `Invitation seed: ${invite.initial_credits} credits`,
-        p_admin_user_id: invite.created_by,
-      });
+      const { error: creditErr } = await admin.rpc(
+        "admin_adjust_contractor_credits",
+        {
+          p_contractor_id: user.id,
+          p_delta: invite.initial_credits,
+          p_entry_type: "seed",
+          p_notes: `Invitation seed: ${invite.initial_credits} credits`,
+          p_admin_user_id: invite.created_by,
+        },
+      );
       if (creditErr) {
         console.error("[accept-invite] credit seed failed:", creditErr.message);
       }

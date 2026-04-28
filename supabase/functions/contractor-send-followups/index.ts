@@ -94,11 +94,12 @@ function contractorName(lead: LeadInfo): string {
 
 function buildEmailContent(
   followup: FollowupRow,
-  lead: LeadInfo
+  lead: LeadInfo,
 ): { subject: string; html: string; text: string } {
   const name = contractorName(lead);
   const company = lead.company_name ? ` (${lead.company_name})` : "";
-  const eventStart = (followup.payload?.calendly_event_start as string | null) ?? null;
+  const eventStart =
+    (followup.payload?.calendly_event_start as string | null) ?? null;
   const eventTime = formatEventTime(eventStart);
 
   switch (followup.followup_type) {
@@ -232,8 +233,10 @@ function buildEmailContent(
 
     default: {
       const subject = "A note from WindowMan";
-      const html = `<p>Hi ${name}${company}, thanks for connecting with WindowMan.</p>`;
-      const text = `Hi ${name}${company}, thanks for connecting with WindowMan.`;
+      const html =
+        `<p>Hi ${name}${company}, thanks for connecting with WindowMan.</p>`;
+      const text =
+        `Hi ${name}${company}, thanks for connecting with WindowMan.`;
       return { subject, html, text };
     }
   }
@@ -247,7 +250,7 @@ async function sendEmail(
   to: string,
   subject: string,
   html: string,
-  text: string
+  text: string,
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     const res = await fetch("https://api.resend.com/emails", {
@@ -299,8 +302,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json({ error: "Email service not configured" }, 500);
   }
 
-  const fromEmail =
-    Deno.env.get("RESEND_FROM_EMAIL") ?? "noreply@windowman.app";
+  const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") ??
+    "noreply@windowman.app";
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -319,7 +322,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .select("id, contractor_lead_id, followup_type, scheduled_for, payload");
 
   if (fetchErr) {
-    console.error("[contractor-send-followups] claim followups error:", fetchErr);
+    console.error(
+      "[contractor-send-followups] claim followups error:",
+      fetchErr,
+    );
     return json({ error: "Failed to claim followups" }, 500);
   }
 
@@ -339,7 +345,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .in("id", leadIds);
 
   if (leadsErr) {
-    console.error("[contractor-send-followups] batch lead fetch error:", leadsErr);
+    console.error(
+      "[contractor-send-followups] batch lead fetch error:",
+      leadsErr,
+    );
     // Mark all claimed followups as failed — we can't proceed without lead data
     await supabase
       .from("contractor_followups")
@@ -364,7 +373,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     if (!leadInfo) {
       console.error(
-        `[contractor-send-followups] lead not found for followup ${followup.id}`
+        `[contractor-send-followups] lead not found for followup ${followup.id}`,
       );
       await markFollowup(supabase, followup.id, "failed");
       failed++;
@@ -380,7 +389,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       leadInfo.email,
       subject,
       html,
-      text
+      text,
     );
 
     if (result.ok) {
@@ -402,7 +411,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     } else {
       console.error(
         `[contractor-send-followups] send failed for ${followup.id}:`,
-        result.error
+        result.error,
       );
       await markFollowup(supabase, followup.id, "failed");
       failed++;
@@ -431,7 +440,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 async function markFollowup(
   supabase: ReturnType<typeof createClient>,
   followupId: string,
-  status: "sent" | "failed"
+  status: "sent" | "failed",
 ): Promise<void> {
   const update: Record<string, unknown> = { status };
   if (status === "sent") {
@@ -446,7 +455,7 @@ async function markFollowup(
   if (error) {
     console.error(
       `[contractor-send-followups] markFollowup error for ${followupId}:`,
-      error
+      error,
     );
   }
 }

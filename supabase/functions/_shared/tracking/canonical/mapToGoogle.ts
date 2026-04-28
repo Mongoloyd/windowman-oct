@@ -52,13 +52,18 @@ export function mapToGoogle(canonical: WMCanonicalEvent): GoogleMapperResult {
       return { suppressed: true, reason: "unsafe_anomaly_status" };
     }
 
-    if ((canonical.payload.analytics?.trustScore ?? 0) < WM_QUOTE_TRUST_MIN_FOR_DISPATCH) {
+    if (
+      (canonical.payload.analytics?.trustScore ?? 0) <
+        WM_QUOTE_TRUST_MIN_FOR_DISPATCH
+    ) {
       return { suppressed: true, reason: "trust_below_threshold" };
     }
   }
 
   const identity = canonical.payload.identity;
-  const hasClickId = Boolean(identity.gclid || identity.gbraid || identity.wbraid);
+  const hasClickId = Boolean(
+    identity.gclid || identity.gbraid || identity.wbraid,
+  );
   const hasHashedPii = Boolean(identity.emailHash || identity.phoneHash);
 
   if (!hasClickId && !hasHashedPii) {
@@ -78,9 +83,14 @@ export function mapToGoogle(canonical: WMCanonicalEvent): GoogleMapperResult {
   if (identity.wbraid) payload.wbraid = identity.wbraid;
 
   if (hasHashedPii) {
-    const userIdentifiers: { hashed_email?: string; hashed_phone_number?: string } = {};
+    const userIdentifiers: {
+      hashed_email?: string;
+      hashed_phone_number?: string;
+    } = {};
     if (identity.emailHash) userIdentifiers.hashed_email = identity.emailHash;
-    if (identity.phoneHash) userIdentifiers.hashed_phone_number = identity.phoneHash;
+    if (identity.phoneHash) {
+      userIdentifiers.hashed_phone_number = identity.phoneHash;
+    }
     payload.user_identifiers = userIdentifiers;
   }
 

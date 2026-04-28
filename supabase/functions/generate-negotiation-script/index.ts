@@ -33,7 +33,8 @@ function json(body: unknown, status = 200) {
 // GEMINI SYSTEM PROMPT — Consumer Advocacy Negotiation Script Generator
 // ═══════════════════════════════════════════════════════════════════════════
 
-const NEGOTIATION_PROMPT = `You are a consumer protection advocate specializing in Florida impact window and door installations. You have 20 years of experience helping homeowners negotiate fair prices and proper scope on hurricane protection projects.
+const NEGOTIATION_PROMPT =
+  `You are a consumer protection advocate specializing in Florida impact window and door installations. You have 20 years of experience helping homeowners negotiate fair prices and proper scope on hurricane protection projects.
 
 A homeowner just had their contractor's quote analyzed by WindowMan's AI scanner. Based on the SPECIFIC issues found in their quote, generate a personalized negotiation script they can use word-for-word when they call their contractor back.
 
@@ -78,18 +79,23 @@ Deno.serve(async (req) => {
     const { scan_session_id, phone_e164 } = await req.json();
 
     if (!scan_session_id || !phone_e164) {
-      return json({ error: "scan_session_id and phone_e164 are required" }, 400);
+      return json(
+        { error: "scan_session_id and phone_e164 are required" },
+        400,
+      );
     }
 
     const geminiKey = Deno.env.get("GEMINI_API_KEY");
     if (!geminiKey) {
-      console.error("[generate-negotiation-script] GEMINI_API_KEY not configured");
+      console.error(
+        "[generate-negotiation-script] GEMINI_API_KEY not configured",
+      );
       return json({ error: "AI service not configured" }, 500);
     }
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
     // ── 1. Auth gate: verify phone is verified for this session ──────────
@@ -99,13 +105,18 @@ Deno.serve(async (req) => {
     });
 
     if (!authCheck || authCheck.length === 0) {
-      return json({ error: "Not authorized. Phone verification required." }, 403);
+      return json(
+        { error: "Not authorized. Phone verification required." },
+        403,
+      );
     }
 
     // ── 2. Get analysis with full_json ───────────────────────────────────
     const { data: analysis } = await supabase
       .from("analyses")
-      .select("id, full_json, negotiation_script, negotiation_script_generated_at, grade, flags")
+      .select(
+        "id, full_json, negotiation_script, negotiation_script_generated_at, grade, flags",
+      )
       .eq("scan_session_id", scan_session_id)
       .eq("analysis_status", "complete")
       .maybeSingle();
@@ -116,7 +127,9 @@ Deno.serve(async (req) => {
 
     // ── 3. Idempotency: return cached script if already generated ────────
     if (analysis.negotiation_script) {
-      console.log(`[generate-negotiation-script] Returning cached script for session ${scan_session_id}`);
+      console.log(
+        `[generate-negotiation-script] Returning cached script for session ${scan_session_id}`,
+      );
       return json({
         success: true,
         script: analysis.negotiation_script,
@@ -140,16 +153,28 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (lead) {
-        leadContext = `\n\nHOMEOWNER CONTEXT:\n- Name: ${lead.first_name || "Homeowner"}\n- County: ${lead.county || "Florida"}\n- Project: ${lead.project_type || "Unknown"}\n- Window count: ${lead.window_count || "Unknown"}\n- Quote range: ${lead.quote_range || "Unknown"}`;
+        leadContext = `\n\nHOMEOWNER CONTEXT:\n- Name: ${
+          lead.first_name || "Homeowner"
+        }\n- County: ${lead.county || "Florida"}\n- Project: ${
+          lead.project_type || "Unknown"
+        }\n- Window count: ${lead.window_count || "Unknown"}\n- Quote range: ${
+          lead.quote_range || "Unknown"
+        }`;
       }
     }
 
     // ── 5. Build Gemini payload ──────────────────────────────────────────
     const fullJson = analysis.full_json as Record<string, unknown>;
-    const extraction = fullJson.extraction as Record<string, unknown> | undefined;
+    const extraction = fullJson.extraction as
+      | Record<string, unknown>
+      | undefined;
     const flags = fullJson.flags as Array<Record<string, unknown>> | undefined;
-    const pillarScores = fullJson.pillar_scores as Record<string, unknown> | undefined;
-    const derivedMetrics = fullJson.derived_metrics as Record<string, unknown> | undefined;
+    const pillarScores = fullJson.pillar_scores as
+      | Record<string, unknown>
+      | undefined;
+    const derivedMetrics = fullJson.derived_metrics as
+      | Record<string, unknown>
+      | undefined;
 
     const quoteData = [
       `QUOTE ANALYSIS RESULTS:`,
@@ -161,31 +186,57 @@ Deno.serve(async (req) => {
       ``,
       `FLAGS FOUND (${Array.isArray(flags) ? flags.length : 0}):`,
       Array.isArray(flags)
-        ? flags.map((f: any) => `- [${f.severity}] ${f.flag}: ${f.detail}`).join("\n")
+        // deno-lint-ignore no-explicit-any
+        ? flags.map((f: any) => `- [${f.severity}] ${f.flag}: ${f.detail}`)
+          .join("\n")
         : "None",
       ``,
       `EXTRACTION SUMMARY:`,
       extraction
         ? [
-            `Contractor: ${extraction.contractor_name || "Not specified"}`,
-            `Total quoted: $${extraction.total_quoted_price || "Unknown"}`,
-            `Opening count: ${extraction.opening_count || "Unknown"}`,
-            `Warranty: ${extraction.warranty ? JSON.stringify(extraction.warranty) : "Not specified"}`,
-            `Permits: ${extraction.permits ? JSON.stringify(extraction.permits) : "Not specified"}`,
-            `Cancellation policy: ${extraction.cancellation_policy || "Not specified"}`,
-          ].join("\n")
+          `Contractor: ${extraction.contractor_name || "Not specified"}`,
+          `Total quoted: $${extraction.total_quoted_price || "Unknown"}`,
+          `Opening count: ${extraction.opening_count || "Unknown"}`,
+          `Warranty: ${
+            extraction.warranty
+              ? JSON.stringify(extraction.warranty)
+              : "Not specified"
+          }`,
+          `Permits: ${
+            extraction.permits
+              ? JSON.stringify(extraction.permits)
+              : "Not specified"
+          }`,
+          `Cancellation policy: ${
+            extraction.cancellation_policy || "Not specified"
+          }`,
+        ].join("\n")
         : "Not available",
       ``,
       derivedMetrics
         ? [
-            `DERIVED FINANCIAL METRICS:`,
-            `Contract total: $${(derivedMetrics.totals as any)?.contract_total || "Unknown"}`,
-            `Price per opening: $${(derivedMetrics.per_opening as any)?.installed_price_per_opening || "Unknown"}`,
-            `Install cost share: ${(derivedMetrics.shares as any)?.install_cost_share_pct || "Unknown"}%`,
-            (derivedMetrics.county_benchmark as any)?.comparison_available
-              ? `County benchmark: $${(derivedMetrics.county_benchmark as any)?.benchmark_price_per_opening_avg}/opening avg (${(derivedMetrics.county_benchmark as any)?.status})`
-              : "County benchmark: Not available",
-          ].join("\n")
+          `DERIVED FINANCIAL METRICS:`,
+          `Contract total: $${
+            // deno-lint-ignore no-explicit-any
+            (derivedMetrics.totals as any)?.contract_total || "Unknown"}`,
+          `Price per opening: $${
+            // deno-lint-ignore no-explicit-any
+            (derivedMetrics.per_opening as any)?.installed_price_per_opening ||
+            "Unknown"}`,
+          `Install cost share: ${
+            // deno-lint-ignore no-explicit-any
+            (derivedMetrics.shares as any)?.install_cost_share_pct ||
+            "Unknown"}%`,
+          // deno-lint-ignore no-explicit-any
+          (derivedMetrics.county_benchmark as any)?.comparison_available
+            ? `County benchmark: $${
+              // deno-lint-ignore no-explicit-any
+              (derivedMetrics.county_benchmark as any)
+                ?.benchmark_price_per_opening_avg
+              // deno-lint-ignore no-explicit-any
+            }/opening avg (${(derivedMetrics.county_benchmark as any)?.status})`
+            : "County benchmark: Not available",
+        ].join("\n")
         : "",
       leadContext,
     ]
@@ -193,7 +244,8 @@ Deno.serve(async (req) => {
       .join("\n");
 
     // ── 6. Call Gemini ───────────────────────────────────────────────────
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`;
+    const geminiUrl =
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`;
 
     const geminiResp = await fetch(geminiUrl, {
       method: "POST",
@@ -216,7 +268,11 @@ Deno.serve(async (req) => {
 
     if (!geminiResp.ok) {
       const errText = await geminiResp.text();
-      console.error("[generate-negotiation-script] Gemini API error:", geminiResp.status, errText);
+      console.error(
+        "[generate-negotiation-script] Gemini API error:",
+        geminiResp.status,
+        errText,
+      );
       return json({ error: "AI generation failed" }, 502);
     }
 
@@ -231,14 +287,22 @@ Deno.serve(async (req) => {
     // ── 7. Parse JSON response ──────────────────────────────────────────
     let cleanJson = rawText.trim();
     if (cleanJson.startsWith("```")) {
-      cleanJson = cleanJson.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "");
+      cleanJson = cleanJson.replace(/^```(?:json)?\s*/, "").replace(
+        /\s*```$/,
+        "",
+      );
     }
 
     let script: Record<string, unknown>;
     try {
       script = JSON.parse(cleanJson);
     } catch (parseErr) {
-      console.error("[generate-negotiation-script] JSON parse failed:", parseErr, "Raw:", cleanJson.slice(0, 500));
+      console.error(
+        "[generate-negotiation-script] JSON parse failed:",
+        parseErr,
+        "Raw:",
+        cleanJson.slice(0, 500),
+      );
       return json({ error: "AI response was not parseable" }, 502);
     }
 
@@ -259,16 +323,23 @@ Deno.serve(async (req) => {
       route: "/report",
       metadata: {
         grade: analysis.grade,
-        talking_point_count: Array.isArray(script.talking_points) ? script.talking_points.length : 0,
+        talking_point_count: Array.isArray(script.talking_points)
+          ? script.talking_points.length
+          : 0,
         confidence_level: script.confidence_level || "unknown",
         timestamp: now,
       },
     });
 
-    console.log(`[generate-negotiation-script] Generated script for session ${scan_session_id}`, {
-      grade: analysis.grade,
-      talkingPoints: Array.isArray(script.talking_points) ? script.talking_points.length : 0,
-    });
+    console.log(
+      `[generate-negotiation-script] Generated script for session ${scan_session_id}`,
+      {
+        grade: analysis.grade,
+        talkingPoints: Array.isArray(script.talking_points)
+          ? script.talking_points.length
+          : 0,
+      },
+    );
 
     return json({
       success: true,

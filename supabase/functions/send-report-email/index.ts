@@ -43,7 +43,8 @@ function json(body: unknown, status = 200) {
 
 // ── Strict input validation ──────────────────────────────────────────────────
 function isUuid(s: unknown): s is string {
-  return typeof s === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+  return typeof s === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 }
 
 // ── Visual helpers ───────────────────────────────────────────────────────────
@@ -62,9 +63,13 @@ function gradeEmoji(grade: string): string {
 function gradeVerdictBand(grade: string): string {
   if (grade === "A") return "Strong quote — within fair market range.";
   if (grade === "B") return "Solid quote with minor gaps worth fixing.";
-  if (grade === "C") return "Quote has real problems. Worth a second look before signing.";
+  if (grade === "C") {
+    return "Quote has real problems. Worth a second look before signing.";
+  }
   if (grade === "D") return "Quote scored well below market standards.";
-  if (grade === "F") return "High-risk quote. We strongly recommend a second opinion.";
+  if (grade === "F") {
+    return "High-risk quote. We strongly recommend a second opinion.";
+  }
   return "Your WindowMan quote analysis is ready.";
 }
 
@@ -88,16 +93,19 @@ type FlagLike = {
   area?: unknown;
 };
 
-function pickTopRedFlags(flags: FlagLike[]): { headline: string; detail: string }[] {
+function pickTopRedFlags(
+  flags: FlagLike[],
+): { headline: string; detail: string }[] {
   const RED = new Set(["Critical", "High"]);
-  const reds = flags.filter((f) => typeof f.severity === "string" && RED.has(f.severity as string));
+  const reds = flags.filter((f) =>
+    typeof f.severity === "string" && RED.has(f.severity as string)
+  );
   return reds.slice(0, 2).map((f) => {
-    const headline =
-      typeof f.flag === "string" && f.flag.trim()
-        ? f.flag.trim()
-        : typeof f.area === "string" && f.area.trim()
-          ? f.area.trim()
-          : "Critical issue found";
+    const headline = typeof f.flag === "string" && f.flag.trim()
+      ? f.flag.trim()
+      : typeof f.area === "string" && f.area.trim()
+      ? f.area.trim()
+      : "Critical issue found";
     const detail = typeof f.detail === "string" ? f.detail.trim() : "";
     return { headline, detail };
   });
@@ -134,8 +142,12 @@ function buildSnapshotReceiptEmail(params: {
       ? `<tr><td style="padding:0 32px 20px;">
            <div style="background:#0A0E14;border:1px solid #1E293B;padding:14px 16px;">
              <div style="font-family:'Helvetica Neue',Arial,sans-serif;font-size:10px;letter-spacing:0.12em;color:#A0B8D8;font-weight:600;text-transform:uppercase;margin-bottom:4px;">Estimated Overcharge Range</div>
-             <div style="font-size:18px;font-weight:800;color:#FFFFFF;">${formatUSD(savingsLow)} – ${formatUSD(savingsHigh)}</div>
-             <div style="font-size:12px;color:#A0B8D8;margin-top:4px;">vs. fair market range for ${county || "your area"}</div>
+             <div style="font-size:18px;font-weight:800;color:#FFFFFF;">${
+        formatUSD(savingsLow)
+      } – ${formatUSD(savingsHigh)}</div>
+             <div style="font-size:12px;color:#A0B8D8;margin-top:4px;">vs. fair market range for ${
+        county || "your area"
+      }</div>
            </div>
          </td></tr>`
       : "";
@@ -143,15 +155,25 @@ function buildSnapshotReceiptEmail(params: {
   const redFlagBlock = topRedFlags.length
     ? `<tr><td style="padding:0 32px 24px;">
          <div style="font-family:'Helvetica Neue',Arial,sans-serif;font-size:10px;letter-spacing:0.12em;color:#A0B8D8;font-weight:600;text-transform:uppercase;margin-bottom:8px;">Top Red Flags</div>
-         ${topRedFlags
-           .map(
-             (f) => `
+         ${
+      topRedFlags
+        .map(
+          (f) => `
            <div style="background:#0A0E14;border-left:3px solid #DC2626;padding:12px 14px;margin-bottom:8px;">
-             <div style="font-size:14px;font-weight:700;color:#FFFFFF;margin-bottom:4px;">${escapeHtml(f.headline)}</div>
-             ${f.detail ? `<div style="font-size:13px;color:#C8DEFF;line-height:1.5;">${escapeHtml(f.detail)}</div>` : ""}
+             <div style="font-size:14px;font-weight:700;color:#FFFFFF;margin-bottom:4px;">${
+            escapeHtml(f.headline)
+          }</div>
+             ${
+            f.detail
+              ? `<div style="font-size:13px;color:#C8DEFF;line-height:1.5;">${
+                escapeHtml(f.detail)
+              }</div>`
+              : ""
+          }
            </div>`,
-           )
-           .join("")}
+        )
+        .join("")
+    }
        </td></tr>`
     : "";
 
@@ -171,9 +193,19 @@ function buildSnapshotReceiptEmail(params: {
 
 <!-- Grade + Verdict -->
 <tr><td style="padding:28px 32px;text-align:center;">
-  <div style="display:inline-block;width:84px;height:84px;line-height:84px;font-size:48px;font-weight:900;color:${gColor};background:${gColor}15;border:2px solid ${gColor}40;text-align:center;">${escapeHtml(grade)}</div>
-  <div style="font-size:15px;color:#FFFFFF;margin-top:14px;font-weight:600;">${escapeHtml(verdict)}</div>
-  ${county ? `<div style="font-size:12px;color:#64748B;margin-top:6px;">${escapeHtml(county)} County market comparison</div>` : ""}
+  <div style="display:inline-block;width:84px;height:84px;line-height:84px;font-size:48px;font-weight:900;color:${gColor};background:${gColor}15;border:2px solid ${gColor}40;text-align:center;">${
+    escapeHtml(grade)
+  }</div>
+  <div style="font-size:15px;color:#FFFFFF;margin-top:14px;font-weight:600;">${
+    escapeHtml(verdict)
+  }</div>
+  ${
+    county
+      ? `<div style="font-size:12px;color:#64748B;margin-top:6px;">${
+        escapeHtml(county)
+      } County market comparison</div>`
+      : ""
+  }
 </td></tr>
 
 ${savingsBlock}
@@ -334,20 +366,20 @@ Deno.serve(async (req) => {
     const topRedFlags = pickTopRedFlags(flags);
 
     // 5. Build email
-    const estimateUrl = `${baseUrl}/estimate?session=${encodeURIComponent(scan_session_id as string)}`;
+    const estimateUrl = `${baseUrl}/estimate?session=${
+      encodeURIComponent(scan_session_id as string)
+    }`;
     const { subject, html } = buildSnapshotReceiptEmail({
       firstName: (lead.first_name as string) || "there",
       grade,
       verdict: gradeVerdictBand(grade),
       county: (lead.county as string) || "",
-      savingsLow:
-        typeof lead.estimated_savings_low === "number"
-          ? (lead.estimated_savings_low as number)
-          : null,
-      savingsHigh:
-        typeof lead.estimated_savings_high === "number"
-          ? (lead.estimated_savings_high as number)
-          : null,
+      savingsLow: typeof lead.estimated_savings_low === "number"
+        ? (lead.estimated_savings_low as number)
+        : null,
+      savingsHigh: typeof lead.estimated_savings_high === "number"
+        ? (lead.estimated_savings_high as number)
+        : null,
       topRedFlags,
       estimateUrl,
     });
@@ -373,7 +405,10 @@ Deno.serve(async (req) => {
       // Persist failure but DO NOT throw — caller (frontend) must not block unlock.
       const errMsg =
         typeof (resendData as Record<string, unknown>)?.message === "string"
-          ? ((resendData as Record<string, unknown>).message as string).slice(0, 500)
+          ? ((resendData as Record<string, unknown>).message as string).slice(
+            0,
+            500,
+          )
           : `provider_status_${resendResp.status}`;
 
       await supabase

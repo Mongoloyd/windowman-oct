@@ -29,26 +29,34 @@ Deno.serve(async (req) => {
     if (!expectedSecret || dev_secret !== expectedSecret) {
       return new Response(
         JSON.stringify({ error: "Forbidden" }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
     if (!scan_session_id || typeof scan_session_id !== "string") {
       return new Response(
         JSON.stringify({ error: "scan_session_id is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
     // ── Query analyses directly via service role ──────────────────────────
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
     const { data: row, error: dbErr } = await supabaseAdmin
       .from("analyses")
-      .select("grade, flags, full_json, proof_of_read, preview_json, confidence_score, document_type, rubric_version")
+      .select(
+        "grade, flags, full_json, proof_of_read, preview_json, confidence_score, document_type, rubric_version",
+      )
       .eq("scan_session_id", scan_session_id)
       .eq("analysis_status", "complete")
       .limit(1)
@@ -58,14 +66,22 @@ Deno.serve(async (req) => {
       console.error("[dev-report-unlock] DB error:", dbErr);
       return new Response(
         JSON.stringify({ error: "Database error" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
     if (!row) {
       return new Response(
-        JSON.stringify({ error: "No complete analysis found for this scan session" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({
+          error: "No complete analysis found for this scan session",
+        }),
+        {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -79,7 +95,10 @@ Deno.serve(async (req) => {
     console.error("[dev-report-unlock] exception:", message);
     return new Response(
       JSON.stringify({ error: message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
   }
 });
