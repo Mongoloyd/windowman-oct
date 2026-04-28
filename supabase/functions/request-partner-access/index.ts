@@ -222,9 +222,62 @@ Deno.serve(async (req) => {
     console.warn("[request-partner-access] audit log skipped", e);
   }
 
+  await notifyOps({
+    companyName,
+    contactName,
+    email,
+    phone: phone ?? null,
+    serviceArea: serviceArea ?? null,
+    website: website ?? null,
+    licenseNumber: licenseNumber ?? null,
+    monthlyCapacity: monthlyCapacity ?? null,
+    notes: notes ?? null,
+  });
+
   return json(200, {
     ok: true,
     user_id: userId,
     status: "pending_review",
   });
 });
+
+async function notifyOps(details: Record<string, string | null>) {
+  const resendKey = Deno.env.get("RESEND_API_KEY");
+  const to = Deno.env.get("CONTRACTOR_EMAIL");
+  if (!resendKey || !to) {
+    console.warn("[request-partner-access] ops email skipped; RESEND_API_KEY or CONTRACTOR_EMAIL missing");
+    return;
+  }
+
+  const rows = Object.entries(details)
+    .map(([key, value]) => `<tr><td style="padding:4px 12px 4px 0;color:#64748b;">${key}</td><td style="padding:4px 0;color:#0f172a;">${escapeHtml(value || "—")}</td></tr>`)
+    .join("");
+
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${resendKey}`,
+      },
+      body: JSON.stringify({
+        from: "WindowMan <onboarding@resend.dev>",
+        to: [to],
+        subject: `New partner access request: ${details.companyName}`,
+        html: `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;"><h2>New partner access request</h2><table>${rows}</table></div>`,
+      }),
+    });
+    if (!res.ok) console.warn("[request-partner-access] ops email rejected", await res.text());
+  } catch (e) {
+    console.warn("[request-partner-access] ops email failed", e);
+  }
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
