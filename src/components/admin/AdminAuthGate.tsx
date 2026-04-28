@@ -4,11 +4,11 @@
  * - Honors existing DEV bypass (sandbox preview unchanged).
  * - In production: no session → redirects to /admin/login.
  * - Listens for SIGNED_OUT to redirect mid-session.
- * - Renders its own polished loading + unauthorized states (no blank screens).
+ * - Renders its own polished loading state (no blank screens).
  *
- * Role-level enforcement (operator/admin/super_admin) is left to backend
- * RLS via is_internal_operator() — failures surface as data errors in the
- * page itself, not by hiding the shell.
+ * Role-level enforcement is intentionally left to backend user_roles checks
+ * in admin-data/adminAuth.ts — failures surface from data calls, not by
+ * decoding app_metadata.role in the browser.
  */
 
 import { useEffect, useState, type ReactNode } from "react";
@@ -17,7 +17,6 @@ import { Loader2, ShieldAlert } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { decodeJwtRole, isAdminRole, type JwtRole } from "@/components/admin/auth/decodeJwtRole";
 
 interface AdminAuthGateProps {
   children: ReactNode;
@@ -30,12 +29,11 @@ export function AdminAuthGate({ children }: AdminAuthGateProps) {
   return <ProductionAdminAuthGate>{children}</ProductionAdminAuthGate>;
 }
 
-type GateStatus = "checking" | "anonymous" | "unauthorized" | "authorized";
+type GateStatus = "checking" | "anonymous" | "authorized";
 
 function ProductionAdminAuthGate({ children }: AdminAuthGateProps) {
   const location = useLocation();
   const [status, setStatus] = useState<GateStatus>("checking");
-  const [decodedRole, setDecodedRole] = useState<JwtRole>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -45,13 +43,10 @@ function ProductionAdminAuthGate({ children }: AdminAuthGateProps) {
     ) => {
       if (!mounted) return;
       if (!session?.user) {
-        setDecodedRole(null);
         setStatus("anonymous");
         return;
       }
-      const role = decodeJwtRole(session.access_token);
-      setDecodedRole(role);
-      setStatus(isAdminRole(role) ? "authorized" : "unauthorized");
+      setStatus("authorized");
     };
 
     supabase.auth
@@ -59,7 +54,6 @@ function ProductionAdminAuthGate({ children }: AdminAuthGateProps) {
       .then(({ data }) => apply(data.session))
       .catch(() => {
         if (!mounted) return;
-        setDecodedRole(null);
         setStatus("anonymous");
       });
 
@@ -88,18 +82,6 @@ function ProductionAdminAuthGate({ children }: AdminAuthGateProps) {
         to="/admin/login"
         replace
         state={{ from: location.pathname + location.search }}
-      />
-    );
-  }
-
-  if (status === "unauthorized") {
-    return (
-      <AdminUnauthorizedPanel
-        message={
-          decodedRole
-            ? `Your account is signed in with role "${decodedRole}", which does not grant operator access. Ask a super admin to upgrade your role.`
-            : "Your account is signed in but does not carry an operator role. Ask a super admin to grant you access."
-        }
       />
     );
   }
