@@ -1,4 +1,4 @@
-import { validateAdminRequestWithRole, corsHeaders, errorResponse } from "../_shared/adminAuth.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const VALID_WINDOWS = new Set(["7d", "30d", "90d", "all"]);
 const CONTACTED_STATES = new Set(["contacted", "meeting_scheduled", "scheduled", "quote_delivered", "sold_closed", "lost_dead"]);
@@ -174,16 +174,23 @@ function buildSummary(accounts: ContractorAccount[], assignments: Assignment[], 
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-  if (req.method !== "POST") return errorResponse(405, "method_not_allowed", "POST required.");
-
-  const validation = await validateAdminRequestWithRole(req, ["super_admin", "operator", "viewer"]);
-  if (!validation.ok) return validation.response;
+  if (req.method !== "POST") return json({ error: "method_not_allowed", message: "POST required." }, 405);
 
   try {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) return json({ error: "unauthenticated", message: "Missing auth token." }, 401);
+
+    const anon = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: authHeader } } });
+    const { data: userData, error: userError } = await anon.auth.getUser(authHeader.replace("Bearer ", ""));
+    if (userError || !userData?.user?.id) return json({ error: "unauthenticated", message: "Invalid auth token." }, 401);
+
+    const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const { data: roleRow, error: roleError } = await admin.from("user_roles").select("role").eq("id", userData.user.id).maybeSingle();
+    const role = roleRow?.role === "admin" ? "super_admin" : roleRow?.role;
+    if (roleError || !["super_admin", "operator", "viewer"].includes(role ?? "")) return json({ error: "forbidden", message: "Internal operator access required." }, 403);
     const body = await req.json().catch(() => ({}));
     const requestedWindow = typeof body.window === "string" && VALID_WINDOWS.has(body.window) ? body.window as WindowValue : "30d";
     const cutoff = cutoffFor(requestedWindow);
-    const admin = validation.supabaseAdmin;
 
     const [{ data: accounts, error: accountError }, { data: assignments, error: assignmentError }, { data: releases, error: releaseError }, { data: outcomes, error: outcomeError }] = await Promise.all([
       admin.from("contractor_accounts").select("id, client_slug, display_name, is_active, access_status").order("display_name", { ascending: true }),
@@ -194,12 +201,12 @@ Deno.serve(async (req) => {
 
     if (accountError || assignmentError || releaseError || outcomeError) {
       console.error("[admin-contractor-performance] source lookup failed", { accountError, assignmentError, releaseError, outcomeError });
-      return errorResponse(500, "performance_lookup_failed", "Contractor performance aggregates could not be loaded safely.");
+      return json({ error: "performance_lookup_failed", message: "Contractor performance aggregates could not be loaded safely." }, 500);
     }
 
     return json({ success: true, window: requestedWindow, denominator: "released_leads", summaries: buildSummary((accounts ?? []) as ContractorAccount[], (assignments ?? []) as Assignment[], (releases ?? []) as Release[], (outcomes ?? []) as Outcome[]) });
   } catch (error) {
     console.error("[admin-contractor-performance] unhandled", error);
-    return errorResponse(500, "internal_error", "Contractor performance request failed safely.");
+    return json({ error: "internal_error", message: "Contractor performance request failed safely." }, 500);
   }
 });
