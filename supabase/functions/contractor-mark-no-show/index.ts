@@ -9,6 +9,7 @@
  * Auth: require x-contractor-secret header matching CONTRACTOR_CRON_SECRET env var.
  */
 
+// deno-lint-ignore no-import-prefix
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders: Record<string, string> = {
@@ -103,7 +104,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .limit(1);
 
   if (existErr) {
-    console.error("[contractor-mark-no-show] idempotency check error:", existErr);
+    console.error(
+      "[contractor-mark-no-show] idempotency check error:",
+      existErr,
+    );
   }
 
   if (existing && existing.length > 0) {
@@ -157,7 +161,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
     });
 
   if (followupErr) {
-    console.error("[contractor-mark-no-show] followup insert error:", followupErr);
+    console.error(
+      "[contractor-mark-no-show] followup insert error:",
+      followupErr,
+    );
     return json({ error: "Failed to queue followup" }, 500);
   }
 

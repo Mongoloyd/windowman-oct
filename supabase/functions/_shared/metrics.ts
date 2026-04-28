@@ -85,12 +85,21 @@ export function classifyLineItem(description?: string): ItemBucket {
   if (/\bdiscount\b|\bcredit\b|\brebate\b/.test(d)) return "discount";
   if (/\btax\b|\bsales tax\b/.test(d)) return "tax";
   if (/\bpermit\b/.test(d)) return "permit";
-  if (/\binstall\b|\blabor\b|\binstallation\b|\bcaulk\b|\bseal\b|\bfoam\b/.test(d)) return "install";
-  if (/\bdemo\b|\bremove\b|\bremoval\b|\bdisposal\b|\bhaul\b|\bcleanup\b/.test(d)) return "demo";
-  if (/\btrim\b|\bstucco\b|\bflashing\b|\bwrap\b|\bwood\b/.test(d)) return "trim";
+  if (
+    /\binstall\b|\blabor\b|\binstallation\b|\bcaulk\b|\bseal\b|\bfoam\b/.test(d)
+  ) return "install";
+  if (
+    /\bdemo\b|\bremove\b|\bremoval\b|\bdisposal\b|\bhaul\b|\bcleanup\b/.test(d)
+  ) return "demo";
+  if (/\btrim\b|\bstucco\b|\bflashing\b|\bwrap\b|\bwood\b/.test(d)) {
+    return "trim";
+  }
   if (/\bscreen\b|\bmesh\b/.test(d)) return "screen";
   if (/\bdoor\b|\bslider\b|\bentry\b|\bfrench\b/.test(d)) return "door";
-  if (/\bwindow\b|\bsingle hung\b|\bdouble hung\b|\bcasement\b|\bpicture\b|\bawning\b/.test(d)) return "window";
+  if (
+    /\bwindow\b|\bsingle hung\b|\bdouble hung\b|\bcasement\b|\bpicture\b|\bawning\b/
+      .test(d)
+  ) return "window";
 
   return "other";
 }

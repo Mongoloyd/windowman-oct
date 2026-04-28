@@ -21,7 +21,14 @@ export interface LineItem {
 
   // ── Glass package fields ────────────────────────────────────────────────
   glass_package_text?: string | null;
-  glass_makeup_type?: "monolithic_laminated" | "insulated_laminated" | "laminated" | "insulated" | "tempered" | "unknown" | null;
+  glass_makeup_type?:
+    | "monolithic_laminated"
+    | "insulated_laminated"
+    | "laminated"
+    | "insulated"
+    | "tempered"
+    | "unknown"
+    | null;
   glass_low_e_present?: boolean | null;
   glass_argon_present?: boolean | null;
   glass_tint_text?: string | null;
@@ -133,7 +140,12 @@ export interface ExtractionResult {
 
   // ── Warranty execution fields ──────────────────────────────────────────────
   warranty_execution_details_present?: boolean | null;
-  warranty_service_provider_type?: "contractor" | "manufacturer" | "third_party" | "unknown" | null;
+  warranty_service_provider_type?:
+    | "contractor"
+    | "manufacturer"
+    | "third_party"
+    | "unknown"
+    | null;
   warranty_service_provider_name?: string | null;
   leak_callback_sla_days?: number | null;
   labor_service_sla_days?: number | null;
@@ -141,7 +153,6 @@ export interface ExtractionResult {
   post_install_stucco_excluded?: boolean | null;
   post_install_paint_excluded?: boolean | null;
   water_intrusion_damage_excluded?: boolean | null;
-
 
   contractor_address_text?: string;
   state_jurisdiction_mismatch?: boolean;
@@ -159,11 +170,22 @@ export const PILLAR_WEIGHTS = {
   warranty: 0.15,
 };
 
-export const GRADE_THRESHOLDS: Record<string, number> = { A: 88, B: 70, C: 52, D: 37 };
+export const GRADE_THRESHOLDS: Record<string, number> = {
+  A: 88,
+  B: 70,
+  C: 52,
+  D: 37,
+};
 
 export const CONFIDENCE_THRESHOLD = 0.4;
 
-export const GRADE_RANK: Record<string, number> = { A: 5, B: 4, C: 3, D: 2, F: 1 };
+export const GRADE_RANK: Record<string, number> = {
+  A: 5,
+  B: 4,
+  C: 3,
+  D: 2,
+  F: 1,
+};
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -188,14 +210,18 @@ export function scoreSafety(data: ExtractionResult): number {
   const isMissing = (val?: string) =>
     !val || /^(n\/a|na|none|unknown|tbd|-|not applicable)$/i.test(val.trim());
 
-  const itemsWithoutDp = items.filter(i => isMissing(i.dp_rating));
-  const itemsWithoutNoa = items.filter(i => isMissing(i.noa_number));
+  const itemsWithoutDp = items.filter((i) => isMissing(i.dp_rating));
+  const itemsWithoutNoa = items.filter((i) => isMissing(i.noa_number));
 
-  if (itemsWithoutDp.length > 0) score -= Math.min(50, itemsWithoutDp.length * 25);
-  if (itemsWithoutNoa.length > 0) score -= Math.min(40, itemsWithoutNoa.length * 20);
+  if (itemsWithoutDp.length > 0) {
+    score -= Math.min(50, itemsWithoutDp.length * 25);
+  }
+  if (itemsWithoutNoa.length > 0) {
+    score -= Math.min(40, itemsWithoutNoa.length * 20);
+  }
   if (data.hvhz_zone === undefined || data.hvhz_zone === null) score -= 10;
 
-  const hasImpactMention = items.some(i =>
+  const hasImpactMention = items.some((i) =>
     /impact|hurricane|storm/i.test(i.description || "")
   );
   if (!hasImpactMention && items.length > 0) score -= 25;
@@ -204,19 +230,21 @@ export function scoreSafety(data: ExtractionResult): number {
   // They matter most when paired with missing specs.
   if (data.generic_product_description_present === true) {
     score -= 15;
-    const completelyMissingSpecs =
-      items.length > 0 &&
-      items.every(i => isMissing(i.dp_rating) && isMissing(i.noa_number));
+    const completelyMissingSpecs = items.length > 0 &&
+      items.every((i) => isMissing(i.dp_rating) && isMissing(i.noa_number));
     if (completelyMissingSpecs) score -= 10;
   }
 
   // ── Glass package spec gaps ────────────────────────────────────────────
-  const incompleteGlassSpecs = items.filter(i => i.glass_spec_complete !== true).length;
+  const incompleteGlassSpecs =
+    items.filter((i) => i.glass_spec_complete !== true).length;
   const lowEOrArgonUnknown = items.filter(
-    i => i.glass_low_e_present === null || i.glass_argon_present === null
+    (i) => i.glass_low_e_present === null || i.glass_argon_present === null,
   ).length;
 
-  if (data.opening_level_glass_specs_present !== true && items.length > 0) score -= 20;
+  if (data.opening_level_glass_specs_present !== true && items.length > 0) {
+    score -= 20;
+  }
   if (data.blanket_glass_language_present === true) score -= 10;
   if (incompleteGlassSpecs > 0) score -= Math.min(20, incompleteGlassSpecs * 5);
   if (lowEOrArgonUnknown > 0) score -= Math.min(10, lowEOrArgonUnknown * 3);
@@ -259,19 +287,32 @@ export function scoreInstall(data: ExtractionResult): number {
   // ── Opening schedule / scope map ───────────────────────────────────────
   const items = data.line_items ?? [];
   const coreOpeningCount = data.opening_count ??
-    items.filter(i => isCoreOpening(classifyLineItem(i.description))).length;
+    items.filter((i) => isCoreOpening(classifyLineItem(i.description))).length;
   const multiOpeningJob = coreOpeningCount > 1;
 
   if (multiOpeningJob && data.opening_schedule_present !== true) score -= 20;
-  if (data.opening_schedule_present === true && data.opening_schedule_room_labels_present !== true) score -= 10;
-  if (data.opening_schedule_present === true && data.opening_schedule_dimensions_complete !== true) score -= 10;
-  if (data.opening_schedule_present === true && data.opening_schedule_product_assignments_present !== true) score -= 15;
+  if (
+    data.opening_schedule_present === true &&
+    data.opening_schedule_room_labels_present !== true
+  ) score -= 10;
+  if (
+    data.opening_schedule_present === true &&
+    data.opening_schedule_dimensions_complete !== true
+  ) score -= 10;
+  if (
+    data.opening_schedule_present === true &&
+    data.opening_schedule_product_assignments_present !== true
+  ) score -= 15;
   if (data.bulk_scope_blob_present === true) score -= 10;
 
   // ── Anchoring / waterproofing / sealant / buck treatment ───────────────
   if (!data.anchoring_method_text && items.length > 0) score -= 15;
-  if (data.anchoring_method_text && data.anchor_spacing_specified !== true) score -= 5;
-  if (data.anchoring_method_text && data.fastener_type_specified !== true) score -= 5;
+  if (data.anchoring_method_text && data.anchor_spacing_specified !== true) {
+    score -= 5;
+  }
+  if (data.anchoring_method_text && data.fastener_type_specified !== true) {
+    score -= 5;
+  }
   if (!data.waterproofing_method_text && items.length > 0) score -= 15;
   if (data.sealant_specified !== true && items.length > 0) score -= 5;
   if (!data.buck_treatment_method_text && items.length > 0) score -= 10;
@@ -284,8 +325,12 @@ export function scorePrice(data: ExtractionResult): number {
   const items = data.line_items ?? [];
 
   // ── Line-item price transparency ───────────────────────────────────────
-  const itemsWithoutPrice = items.filter(i => i.unit_price === undefined && i.total_price === undefined);
-  if (itemsWithoutPrice.length > 0) score -= Math.min(30, itemsWithoutPrice.length * 15);
+  const itemsWithoutPrice = items.filter((i) =>
+    i.unit_price === undefined && i.total_price === undefined
+  );
+  if (itemsWithoutPrice.length > 0) {
+    score -= Math.min(30, itemsWithoutPrice.length * 15);
+  }
   if (!data.total_quoted_price) score -= 10;
 
   // ── Unit price outliers ────────────────────────────────────────────────
@@ -314,13 +359,19 @@ export function scorePrice(data: ExtractionResult): number {
 
   // ── Opening scope ambiguity on price trust ─────────────────────────────
   const coreOpeningCount = data.opening_count ??
-    items.filter(i => isCoreOpening(classifyLineItem(i.description))).length;
+    items.filter((i) => isCoreOpening(classifyLineItem(i.description))).length;
   const multiOpeningJob = coreOpeningCount > 1;
   if (multiOpeningJob && data.opening_schedule_present !== true) score -= 5;
 
   // ── Substrate unit pricing gaps ────────────────────────────────────────
-  if (data.substrate_condition_clause_present === true && data.rot_unit_pricing_present !== true) score -= 10;
-  if (data.substrate_condition_clause_present === true && data.buck_replacement_unit_pricing_present !== true) score -= 10;
+  if (
+    data.substrate_condition_clause_present === true &&
+    data.rot_unit_pricing_present !== true
+  ) score -= 10;
+  if (
+    data.substrate_condition_clause_present === true &&
+    data.buck_replacement_unit_pricing_present !== true
+  ) score -= 10;
 
   return clamp(score);
 }
@@ -336,11 +387,11 @@ export function scoreFinePrint(data: ExtractionResult): number {
 
   // ── Vague line items ───────────────────────────────────────────────────
   const items = data.line_items ?? [];
-  const vague = items.filter(i => (i.description || "").length < 10);
+  const vague = items.filter((i) => (i.description || "").length < 10);
   score -= Math.min(20, vague.length * 10);
 
   // ── Unbranded / unspecified products ───────────────────────────────────
-  const unbranded = items.filter(i => !i.brand && !i.series);
+  const unbranded = items.filter((i) => !i.brand && !i.series);
   score -= Math.min(20, unbranded.length * 10);
 
   // ── Generic product descriptions ───────────────────────────────────────
@@ -363,9 +414,18 @@ export function scoreFinePrint(data: ExtractionResult): number {
 
   // ── Change-order / substrate fine-print ─────────────────────────────────
   if (data.unilateral_price_adjustment_allowed === true) score -= 35;
-  if (data.substrate_condition_clause_present === true && data.written_change_order_required !== true) score -= 15;
-  if (data.substrate_condition_clause_present === true && data.homeowner_approval_required_for_change_orders !== true) score -= 20;
-  if (data.subject_to_remeasure_present === true && data.remeasure_price_adjustment_cap_present !== true) score -= 10;
+  if (
+    data.substrate_condition_clause_present === true &&
+    data.written_change_order_required !== true
+  ) score -= 15;
+  if (
+    data.substrate_condition_clause_present === true &&
+    data.homeowner_approval_required_for_change_orders !== true
+  ) score -= 20;
+  if (
+    data.subject_to_remeasure_present === true &&
+    data.remeasure_price_adjustment_cap_present !== true
+  ) score -= 10;
 
   return clamp(score);
 }
@@ -406,7 +466,10 @@ export function scoreWarranty(data: ExtractionResult): number {
   // ── Warranty execution details ─────────────────────────────────────────
   if (data.warranty_execution_details_present !== true) score -= 15;
 
-  if (!data.warranty_service_provider_type || data.warranty_service_provider_type === "unknown") {
+  if (
+    !data.warranty_service_provider_type ||
+    data.warranty_service_provider_type === "unknown"
+  ) {
     score -= 10;
   }
 
@@ -473,8 +536,7 @@ export function computeGrade(data: ExtractionResult): GradeResult {
     warranty: scoreWarranty(data),
   };
 
-  let weightedAvg =
-    pillarScores.safety * PILLAR_WEIGHTS.safety +
+  let weightedAvg = pillarScores.safety * PILLAR_WEIGHTS.safety +
     pillarScores.install * PILLAR_WEIGHTS.install +
     pillarScores.price * PILLAR_WEIGHTS.price +
     pillarScores.finePrint * PILLAR_WEIGHTS.finePrint +
@@ -497,7 +559,9 @@ export function computeGrade(data: ExtractionResult): GradeResult {
   if (pillarScores.safety < 40 && (data.line_items ?? []).length > 0) {
     if (GRADE_RANK[grade] > GRADE_RANK["D"]) {
       grade = "D";
-      hardCapApplied = hardCapApplied ? hardCapApplied + "+critical_safety" : "critical_safety";
+      hardCapApplied = hardCapApplied
+        ? hardCapApplied + "+critical_safety"
+        : "critical_safety";
     }
   }
 
@@ -506,18 +570,20 @@ export function computeGrade(data: ExtractionResult): GradeResult {
   const isMissing = (val?: string) =>
     !val || /^(n\/a|na|none|unknown|tbd|-|not applicable)$/i.test(val.trim());
 
-  const hasImpactMention = items.some(i =>
+  const hasImpactMention = items.some((i) =>
     /impact|hurricane|storm/i.test(i.description || "")
   );
 
-  const completelyMissingSpecs =
-    items.length > 0 &&
-    items.every(i => isMissing(i.dp_rating) && isMissing(i.noa_number));
+  const completelyMissingSpecs = items.length > 0 &&
+    items.every((i) => isMissing(i.dp_rating) && isMissing(i.noa_number));
 
   const genericAndUnverified =
     data.generic_product_description_present === true && completelyMissingSpecs;
 
-  if (((!hasImpactMention && completelyMissingSpecs) || genericAndUnverified) && items.length > 0) {
+  if (
+    ((!hasImpactMention && completelyMissingSpecs) || genericAndUnverified) &&
+    items.length > 0
+  ) {
     if (GRADE_RANK[grade] > GRADE_RANK["D"]) {
       grade = "D";
       hardCapApplied = hardCapApplied
@@ -527,11 +593,10 @@ export function computeGrade(data: ExtractionResult): GradeResult {
   }
 
   // Hard cap: unverified glass package → max C
-  const noOpeningGlassSpecs =
-    items.length > 0 && data.opening_level_glass_specs_present !== true;
-  const allGlassPackagesUnspecified =
-    items.length > 0 &&
-    items.every(i =>
+  const noOpeningGlassSpecs = items.length > 0 &&
+    data.opening_level_glass_specs_present !== true;
+  const allGlassPackagesUnspecified = items.length > 0 &&
+    items.every((i) =>
       !i.glass_makeup_type ||
       i.glass_makeup_type === "unknown" ||
       i.glass_spec_complete !== true
@@ -551,9 +616,8 @@ export function computeGrade(data: ExtractionResult): GradeResult {
 
   // Hard cap: ambiguous opening scope → max C
   const openingCount = data.opening_count ??
-    items.filter(i => isCoreOpening(classifyLineItem(i.description))).length;
-  const materiallyAmbiguousScope =
-    openingCount >= 5 &&
+    items.filter((i) => isCoreOpening(classifyLineItem(i.description))).length;
+  const materiallyAmbiguousScope = openingCount >= 5 &&
     data.opening_schedule_present !== true &&
     data.opening_schedule_product_assignments_present !== true;
 
@@ -606,8 +670,7 @@ export function computeGrade(data: ExtractionResult): GradeResult {
   }
 
   // Hard cap: install method critically underspecified → max C
-  const installMethodCriticallyUnderspecified =
-    items.length > 0 &&
+  const installMethodCriticallyUnderspecified = items.length > 0 &&
     !data.anchoring_method_text &&
     !data.waterproofing_method_text &&
     data.manufacturer_install_compliance_stated !== true;
@@ -622,9 +685,9 @@ export function computeGrade(data: ExtractionResult): GradeResult {
   }
 
   // Hard cap: warranty exists but execution is opaque → max C
-  const warrantyExistsButExecutionIsOpaque =
-    !!data.warranty &&
-    (!data.warranty_service_provider_type || data.warranty_service_provider_type === "unknown") &&
+  const warrantyExistsButExecutionIsOpaque = !!data.warranty &&
+    (!data.warranty_service_provider_type ||
+      data.warranty_service_provider_type === "unknown") &&
     data.leak_callback_sla_days == null &&
     !data.callback_process_text;
 
@@ -642,7 +705,12 @@ export function computeGrade(data: ExtractionResult): GradeResult {
     hardCapApplied = "zero_line_items";
   }
 
-  return { weightedAverage: weightedAvg, letterGrade: grade, hardCapApplied, pillarScores };
+  return {
+    weightedAverage: weightedAvg,
+    letterGrade: grade,
+    hardCapApplied,
+    pillarScores,
+  };
 }
 
 // ── Preview helpers ──────────────────────────────────────────────────────────
@@ -653,7 +721,9 @@ export function toPreviewPillarStatus(score: number): PreviewPillarStatus {
   return "fail";
 }
 
-export function buildPreviewPillarScores(pillarScores: PillarScores): PreviewPillarScores {
+export function buildPreviewPillarScores(
+  pillarScores: PillarScores,
+): PreviewPillarScores {
   return {
     safety_code: { status: toPreviewPillarStatus(pillarScores.safety) },
     install_scope: { status: toPreviewPillarStatus(pillarScores.install) },

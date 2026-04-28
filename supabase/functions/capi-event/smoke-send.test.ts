@@ -15,27 +15,40 @@
  */
 
 import {
-  assertEquals,
   assert,
+  assertEquals,
   assertStringIncludes,
+  // deno-lint-ignore no-import-prefix
 } from "https://deno.land/std@0.168.0/testing/asserts.ts";
 
-import { dispatchCapiEvent, type CAPIEvent } from "./index.ts";
+import { type CAPIEvent, dispatchCapiEvent } from "./index.ts";
 
 interface CapturedRequest {
   url: string;
   body: Record<string, unknown>;
 }
 
-function installFetchSpy(meta: { ok: boolean; status: number; events_received?: number; error?: unknown }) {
+function installFetchSpy(
+  meta: {
+    ok: boolean;
+    status: number;
+    events_received?: number;
+    error?: unknown;
+  },
+) {
   const captured: CapturedRequest[] = [];
   const original = globalThis.fetch;
+  // deno-lint-ignore require-await
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === "string" ? input : input.toString();
     const body = init?.body ? JSON.parse(init.body as string) : {};
     captured.push({ url, body });
     return new Response(
-      JSON.stringify(meta.ok ? { events_received: meta.events_received ?? 1 } : { error: meta.error ?? "rejected" }),
+      JSON.stringify(
+        meta.ok
+          ? { events_received: meta.events_received ?? 1 }
+          : { error: meta.error ?? "rejected" },
+      ),
       { status: meta.status, headers: { "Content-Type": "application/json" } },
     );
   }) as typeof fetch;
@@ -64,7 +77,11 @@ Deno.test("dispatchCapiEvent — smoke-send forces test_event_code into payload"
     const result = await dispatchCapiEvent(
       baseEvent,
       { pixelId: "1234567890123456", accessToken: "EAA_FAKE_TOKEN_VALUE" },
-      { clientIp: "1.1.1.1", userAgent: "smoke-runner", forceTestEventCode: "TEST_OVERRIDE" },
+      {
+        clientIp: "1.1.1.1",
+        userAgent: "smoke-runner",
+        forceTestEventCode: "TEST_OVERRIDE",
+      },
     );
 
     assertEquals(spy.captured.length, 1, "exactly one Meta call");
@@ -85,7 +102,11 @@ Deno.test("dispatchCapiEvent — forceTestEventCode WINS over config.testEventCo
     await dispatchCapiEvent(
       baseEvent,
       { pixelId: "1111111111", accessToken: "T", testEventCode: "FROM_CONFIG" },
-      { clientIp: "0.0.0.0", userAgent: null, forceTestEventCode: "FROM_OPERATOR" },
+      {
+        clientIp: "0.0.0.0",
+        userAgent: null,
+        forceTestEventCode: "FROM_OPERATOR",
+      },
     );
     assertEquals(spy.captured[0].body.test_event_code, "FROM_OPERATOR");
   } finally {
@@ -110,7 +131,11 @@ Deno.test("dispatchCapiEvent — live mode (no test code) does NOT inject test_e
 });
 
 Deno.test("dispatchCapiEvent — surfaces Meta rejection without throwing", async () => {
-  const spy = installFetchSpy({ ok: false, status: 400, error: { message: "invalid pixel" } });
+  const spy = installFetchSpy({
+    ok: false,
+    status: 400,
+    error: { message: "invalid pixel" },
+  });
   try {
     const result = await dispatchCapiEvent(
       baseEvent,
@@ -133,14 +158,18 @@ Deno.test("dispatchCapiEvent — hashes external_id before sending to Meta", asy
       { pixelId: "1234567890", accessToken: "T" },
       { clientIp: "0.0.0.0", userAgent: null, forceTestEventCode: "TEST" },
     );
-    const data = (spy.captured[0].body.data as Array<Record<string, unknown>>)[0];
+    const data =
+      (spy.captured[0].body.data as Array<Record<string, unknown>>)[0];
     const userData = data.user_data as Record<string, unknown>;
     const ext = userData.external_id as string;
     // external_id must be a 64-char SHA-256 hex digest, NOT the raw value.
     assertEquals(typeof ext, "string");
     assertEquals(ext.length, 64);
     assert(/^[a-f0-9]{64}$/.test(ext), "external_id must be SHA-256 hex");
-    assert(ext !== "smoke-acme-windows", "raw external_id must NOT leak to Meta");
+    assert(
+      ext !== "smoke-acme-windows",
+      "raw external_id must NOT leak to Meta",
+    );
   } finally {
     spy.restore();
   }

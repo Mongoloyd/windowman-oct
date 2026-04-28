@@ -1,6 +1,10 @@
 import { mapToGoogle } from "./mapToGoogle.ts";
 import { mapToMeta } from "./mapToMeta.ts";
-import type { WMCanonicalEvent, WMDispatchStatus, WMPlatformName } from "./types.ts";
+import type {
+  WMCanonicalEvent,
+  WMDispatchStatus,
+  WMPlatformName,
+} from "./types.ts";
 
 const RETRY_DELAYS_MINUTES = [5, 30, 120, 720] as const;
 const MAX_ATTEMPTS = RETRY_DELAYS_MINUTES.length + 1;
@@ -27,7 +31,10 @@ export interface DispatchRowWithEvent {
 }
 
 export interface DBLike {
-  rpc<T>(fn: string, args?: Record<string, unknown>): Promise<{ data: T | null; error: { message?: string } | null }>;
+  rpc<T>(
+    fn: string,
+    args?: Record<string, unknown>,
+  ): Promise<{ data: T | null; error: { message?: string } | null }>;
   from(table: string): {
     select(columns: string): {
       eq(column: string, value: string): {
@@ -37,7 +44,12 @@ export interface DBLike {
             error: { message?: string } | null;
           }>;
         };
-        maybeSingle(): Promise<{ data: Record<string, unknown> | null; error: { message?: string } | null }>;
+        maybeSingle(): Promise<
+          {
+            data: Record<string, unknown> | null;
+            error: { message?: string } | null;
+          }
+        >;
       };
       in(column: string, values: string[]): {
         order(column: string, options?: { ascending?: boolean }): Promise<{
@@ -46,7 +58,10 @@ export interface DBLike {
         }>;
       };
     };
-    upsert(payload: Record<string, unknown> | Record<string, unknown>[], options?: { onConflict?: string }): Promise<{
+    upsert(
+      payload: Record<string, unknown> | Record<string, unknown>[],
+      options?: { onConflict?: string },
+    ): Promise<{
       data: unknown;
       error: { message?: string } | null;
     }>;
@@ -100,7 +115,11 @@ function isRetryableStatus(statusCode?: number): boolean {
   return statusCode === 429 || statusCode >= 500;
 }
 
-function classifyFailure(result: VendorSendResult, attemptCount: number, now: Date): {
+function classifyFailure(
+  result: VendorSendResult,
+  attemptCount: number,
+  now: Date,
+): {
   nextStatus: WMDispatchStatus;
   nextRetryAt: string | null;
   errorMessage: string;
@@ -124,20 +143,37 @@ function classifyFailure(result: VendorSendResult, attemptCount: number, now: Da
   };
 }
 
-async function syncEventDispatchStatus(db: DBLike, eventLogId: string, nowIso: string): Promise<void> {
+async function syncEventDispatchStatus(
+  db: DBLike,
+  eventLogId: string,
+  nowIso: string,
+): Promise<void> {
   const { data: rows, error } = await db
     .from("wm_platform_dispatch_log")
     .select("dispatch_status")
     .eq("event_log_id", eventLogId)
-    .in("dispatch_status", ["pending", "processing", "failed", "sent", "suppressed", "dead_letter", "dispatched", "blocked"])
+    .in("dispatch_status", [
+      "pending",
+      "processing",
+      "failed",
+      "sent",
+      "suppressed",
+      "dead_letter",
+      "dispatched",
+      "blocked",
+    ])
     .order("dispatch_status", { ascending: true });
 
   if (error) {
-    throw new Error(`Failed to load dispatch statuses: ${error.message ?? "unknown"}`);
+    throw new Error(
+      `Failed to load dispatch statuses: ${error.message ?? "unknown"}`,
+    );
   }
 
   const statuses = (rows ?? [])
-    .map((row) => (typeof row.dispatch_status === "string" ? row.dispatch_status : ""))
+    .map((
+      row,
+    ) => (typeof row.dispatch_status === "string" ? row.dispatch_status : ""))
     .filter(Boolean);
 
   let nextStatus: WMDispatchStatus = "not_applicable";
@@ -149,9 +185,18 @@ async function syncEventDispatchStatus(db: DBLike, eventLogId: string, nowIso: s
     nextStatus = "processing";
   } else if (statuses.some((status) => status === "pending")) {
     nextStatus = "pending";
-  } else if (statuses.length > 0 && statuses.every((status) => status === "suppressed" || status === "blocked")) {
+  } else if (
+    statuses.length > 0 &&
+    statuses.every((status) => status === "suppressed" || status === "blocked")
+  ) {
     nextStatus = "suppressed";
-  } else if (statuses.length > 0 && statuses.every((status) => status === "sent" || status === "dispatched" || status === "suppressed" || status === "blocked")) {
+  } else if (
+    statuses.length > 0 &&
+    statuses.every((status) =>
+      status === "sent" || status === "dispatched" || status === "suppressed" ||
+      status === "blocked"
+    )
+  ) {
     nextStatus = "sent";
   }
 
@@ -165,20 +210,30 @@ async function syncEventDispatchStatus(db: DBLike, eventLogId: string, nowIso: s
   );
 
   if (upsertError) {
-    throw new Error(`Failed to upsert wm_event_log dispatch status: ${upsertError.message ?? "unknown"}`);
+    throw new Error(
+      `Failed to upsert wm_event_log dispatch status: ${
+        upsertError.message ?? "unknown"
+      }`,
+    );
   }
 }
 
-export async function runDispatchWorker(deps: WorkerDeps): Promise<{ processed: number }> {
+export async function runDispatchWorker(
+  deps: WorkerDeps,
+): Promise<{ processed: number }> {
   const batchSize = deps.batchSize ?? 25;
 
-  const { data: claimedRows, error: claimError } = await deps.db.rpc<DispatchRowWithEvent[]>("wm_claim_dispatch_rows", {
+  const { data: claimedRows, error: claimError } = await deps.db.rpc<
+    DispatchRowWithEvent[]
+  >("wm_claim_dispatch_rows", {
     p_limit: batchSize,
     p_lock_stale_minutes: LOCK_STALE_MINUTES,
   });
 
   if (claimError) {
-    throw new Error(`Failed to claim dispatch rows: ${claimError.message ?? "unknown"}`);
+    throw new Error(
+      `Failed to claim dispatch rows: ${claimError.message ?? "unknown"}`,
+    );
   }
 
   const rows = claimedRows ?? [];
@@ -190,7 +245,9 @@ export async function runDispatchWorker(deps: WorkerDeps): Promise<{ processed: 
     const currentNowIso = (deps.now?.() ?? new Date()).toISOString();
     const canonical = toCanonicalEvent(row);
 
-    if (row.dispatch_status === "sent" || row.dispatch_status === "dispatched") {
+    if (
+      row.dispatch_status === "sent" || row.dispatch_status === "dispatched"
+    ) {
       continue;
     }
 
@@ -202,21 +259,27 @@ export async function runDispatchWorker(deps: WorkerDeps): Promise<{ processed: 
       if (mapped.suppressed || !mapped.payload) {
         suppressedReason = mapped.reason ?? "meta_suppressed";
       } else {
-        sendResult = await deps.sendToMeta(mapped.payload as Record<string, unknown>);
+        sendResult = await deps.sendToMeta(
+          mapped.payload as Record<string, unknown>,
+        );
       }
     } else if (row.platform_name === "google_ads") {
       const mapped = mapToGoogle(canonical);
       if (mapped.suppressed || !mapped.payload) {
         suppressedReason = mapped.reason ?? "google_suppressed";
       } else {
-        sendResult = await deps.sendToGoogle(mapped.payload as Record<string, unknown>);
+        sendResult = await deps.sendToGoogle(
+          mapped.payload as Record<string, unknown>,
+        );
       }
     } else {
       suppressedReason = `unsupported_platform:${row.platform_name}`;
     }
 
     if (suppressedReason) {
-      const { error: upsertError } = await deps.db.from("wm_platform_dispatch_log").upsert(
+      const { error: upsertError } = await deps.db.from(
+        "wm_platform_dispatch_log",
+      ).upsert(
         {
           id: row.dispatch_id,
           dispatch_status: "suppressed",
@@ -231,7 +294,11 @@ export async function runDispatchWorker(deps: WorkerDeps): Promise<{ processed: 
       );
 
       if (upsertError) {
-        throw new Error(`Failed to upsert suppressed dispatch row: ${upsertError.message ?? "unknown"}`);
+        throw new Error(
+          `Failed to upsert suppressed dispatch row: ${
+            upsertError.message ?? "unknown"
+          }`,
+        );
       }
 
       dirtyEventLogIds.add(row.event_log_id);
@@ -243,13 +310,17 @@ export async function runDispatchWorker(deps: WorkerDeps): Promise<{ processed: 
     }
 
     if (sendResult.ok) {
-      const { error: upsertError } = await deps.db.from("wm_platform_dispatch_log").upsert(
+      const { error: upsertError } = await deps.db.from(
+        "wm_platform_dispatch_log",
+      ).upsert(
         {
           id: row.dispatch_id,
           dispatch_status: "sent",
           last_attempt_at: currentNowIso,
           next_attempt_at: null,
-          provider_response_code: sendResult.statusCode ? String(sendResult.statusCode) : "200",
+          provider_response_code: sendResult.statusCode
+            ? String(sendResult.statusCode)
+            : "200",
           provider_response_body: {
             response: sendResult.responseBody ?? {},
             request_payload: sendResult.requestPayload ?? {},
@@ -261,22 +332,34 @@ export async function runDispatchWorker(deps: WorkerDeps): Promise<{ processed: 
       );
 
       if (upsertError) {
-        throw new Error(`Failed to upsert sent dispatch row: ${upsertError.message ?? "unknown"}`);
+        throw new Error(
+          `Failed to upsert sent dispatch row: ${
+            upsertError.message ?? "unknown"
+          }`,
+        );
       }
 
       dirtyEventLogIds.add(row.event_log_id);
       continue;
     }
 
-    const failure = classifyFailure(sendResult, row.attempt_count, deps.now?.() ?? new Date());
+    const failure = classifyFailure(
+      sendResult,
+      row.attempt_count,
+      deps.now?.() ?? new Date(),
+    );
 
-    const { error: failureUpsertError } = await deps.db.from("wm_platform_dispatch_log").upsert(
+    const { error: failureUpsertError } = await deps.db.from(
+      "wm_platform_dispatch_log",
+    ).upsert(
       {
         id: row.dispatch_id,
         dispatch_status: failure.nextStatus,
         last_attempt_at: currentNowIso,
         next_attempt_at: failure.nextRetryAt,
-        provider_response_code: sendResult.statusCode ? String(sendResult.statusCode) : "error",
+        provider_response_code: sendResult.statusCode
+          ? String(sendResult.statusCode)
+          : "error",
         provider_response_body: {
           response: sendResult.responseBody ?? {},
           request_payload: sendResult.requestPayload ?? {},
@@ -288,7 +371,11 @@ export async function runDispatchWorker(deps: WorkerDeps): Promise<{ processed: 
     );
 
     if (failureUpsertError) {
-      throw new Error(`Failed to upsert failed dispatch row: ${failureUpsertError.message ?? "unknown"}`);
+      throw new Error(
+        `Failed to upsert failed dispatch row: ${
+          failureUpsertError.message ?? "unknown"
+        }`,
+      );
     }
 
     dirtyEventLogIds.add(row.event_log_id);
@@ -309,7 +396,10 @@ export async function fetchWithTimeout(
   timeoutMs = DEFAULT_VENDOR_TIMEOUT_MS,
 ): Promise<Response> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(`Request exceeded ${timeoutMs}ms timeout`), timeoutMs);
+  const timeout = setTimeout(
+    () => controller.abort(`Request exceeded ${timeoutMs}ms timeout`),
+    timeoutMs,
+  );
 
   try {
     return await fetch(input, {

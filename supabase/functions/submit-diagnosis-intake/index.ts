@@ -9,6 +9,7 @@
  * lead_id + scan_session_id from the unlocked-report router-state handoff.
  */
 
+// deno-lint-ignore no-import-prefix
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -83,7 +84,10 @@ Deno.serve(async (req) => {
       },
     );
   }
-  if (body.analysis_id !== undefined && body.analysis_id !== null && !isUuid(body.analysis_id)) {
+  if (
+    body.analysis_id !== undefined && body.analysis_id !== null &&
+    !isUuid(body.analysis_id)
+  ) {
     return new Response(
       JSON.stringify({ error: "analysis_id must be a uuid when provided" }),
       {
@@ -115,7 +119,9 @@ Deno.serve(async (req) => {
 
   const lead_id = body.lead_id as string;
   const scan_session_id = body.scan_session_id as string;
-  const analysis_id = isUuid(body.analysis_id) ? (body.analysis_id as string) : null;
+  const analysis_id = isUuid(body.analysis_id)
+    ? (body.analysis_id as string)
+    : null;
 
   // ── Relationship validation (repo-truth FKs) ──────────────────────────
   // scan_sessions.lead_id → leads.id
@@ -177,7 +183,10 @@ Deno.serve(async (req) => {
       }
     }
   } catch (e) {
-    console.error("[submit-diagnosis-intake] relationship validation threw:", e);
+    console.error(
+      "[submit-diagnosis-intake] relationship validation threw:",
+      e,
+    );
     return new Response(
       JSON.stringify({ error: "Failed to validate report context" }),
       {
@@ -188,8 +197,12 @@ Deno.serve(async (req) => {
   }
   const report_grade = (body.report_grade as string).trim();
   const primary_diagnosis = (body.primary_diagnosis as string).trim();
-  const other_text = isStr(body.other_text) ? (body.other_text as string).trim() : null;
-  const confidence = isStr(body.confidence) ? (body.confidence as string).trim() : null;
+  const other_text = isStr(body.other_text)
+    ? (body.other_text as string).trim()
+    : null;
+  const confidence = isStr(body.confidence)
+    ? (body.confidence as string).trim()
+    : null;
   const prescription_path = isStr(body.prescription_path)
     ? (body.prescription_path as string).trim()
     : null;
@@ -219,7 +232,10 @@ Deno.serve(async (req) => {
       .single();
 
     if (intakeError || !intakeRow) {
-      console.error("[submit-diagnosis-intake] insert intake failed:", intakeError);
+      console.error(
+        "[submit-diagnosis-intake] insert intake failed:",
+        intakeError,
+      );
       return new Response(
         JSON.stringify({ error: "Failed to submit diagnosis" }),
         {
@@ -255,7 +271,10 @@ Deno.serve(async (req) => {
         .single();
 
       if (eventError) {
-        console.warn("[submit-diagnosis-intake] lead_events insert failed:", eventError);
+        console.warn(
+          "[submit-diagnosis-intake] lead_events insert failed:",
+          eventError,
+        );
       } else if (eventRow) {
         event_id = eventRow.id as string;
       }

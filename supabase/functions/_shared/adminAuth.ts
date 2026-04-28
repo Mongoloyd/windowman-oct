@@ -35,7 +35,11 @@
  * ```
  */
 
-import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import {
+  createClient,
+  SupabaseClient,
+  // deno-lint-ignore no-import-prefix
+} from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Type Definitions
@@ -85,7 +89,7 @@ export function errorResponse(
   status: number,
   code: string,
   message: string,
-  details?: Record<string, unknown>
+  details?: Record<string, unknown>,
 ): Response {
   return new Response(
     JSON.stringify({
@@ -98,13 +102,13 @@ export function errorResponse(
     {
       status,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-    }
+    },
   );
 }
 
 export function successResponse(
   data: Record<string, unknown>,
-  status = 200
+  status = 200,
 ): Response {
   return new Response(
     JSON.stringify({
@@ -115,7 +119,7 @@ export function successResponse(
     {
       status,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-    }
+    },
   );
 }
 
@@ -141,7 +145,7 @@ export function jsonResponse(status: number, body: unknown): Response {
  */
 async function getUserRole(
   supabaseAdmin: SupabaseClient,
-  userId: string
+  userId: string,
 ): Promise<AppRole | null> {
   const { data, error } = await supabaseAdmin
     .from("user_roles")
@@ -166,7 +170,7 @@ async function getUserRole(
   if (role === "admin") {
     console.warn(
       `[adminAuth] User ${userId} still has legacy 'admin' role. ` +
-        `Run migration to upgrade to 'super_admin'.`
+        `Run migration to upgrade to 'super_admin'.`,
     );
     return "super_admin";
   }
@@ -181,7 +185,7 @@ async function getUserRole(
  */
 export async function hasAdminRole(
   supabaseAdmin: SupabaseClient,
-  userId: string
+  userId: string,
 ): Promise<boolean> {
   const role = await getUserRole(supabaseAdmin, userId);
   return role !== null && ADMIN_ROLES.includes(role);
@@ -193,7 +197,7 @@ export async function hasAdminRole(
 
 async function validateAndExtractUser(
   req: Request,
-  requiredRoles: AppRole[]
+  requiredRoles: AppRole[],
 ): Promise<ValidationResult> {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
@@ -207,7 +211,7 @@ async function validateAndExtractUser(
       response: errorResponse(
         500,
         "config_error",
-        "Server configuration error"
+        "Server configuration error",
       ),
     };
   }
@@ -233,18 +237,30 @@ async function validateAndExtractUser(
   if (devSecretRaw) {
     // Header was sent — resolve bypass decisively (never fall through to JWT)
     if (!expectedDevSecret) {
-      console.error("[adminAuth] DEV BYPASS FAIL: DEV_BYPASS_SECRET env var is not set on server");
+      console.error(
+        "[adminAuth] DEV BYPASS FAIL: DEV_BYPASS_SECRET env var is not set on server",
+      );
       return {
         ok: false,
-        response: errorResponse(500, "config_error", "Server missing DEV_BYPASS_SECRET"),
+        response: errorResponse(
+          500,
+          "config_error",
+          "Server missing DEV_BYPASS_SECRET",
+        ),
       };
     }
     if (devSecret !== expectedDevSecret) {
-      console.error("[adminAuth] DEV BYPASS FAIL: secret mismatch (lengths: header=" +
-        (devSecret?.length ?? 0) + " env=" + expectedDevSecret.length + ")");
+      console.error(
+        "[adminAuth] DEV BYPASS FAIL: secret mismatch (lengths: header=" +
+          (devSecret?.length ?? 0) + " env=" + expectedDevSecret.length + ")",
+      );
       return {
         ok: false,
-        response: errorResponse(401, "dev_bypass_mismatch", "Dev bypass secret does not match server"),
+        response: errorResponse(
+          401,
+          "dev_bypass_mismatch",
+          "Dev bypass secret does not match server",
+        ),
       };
     }
     // Match — grant super_admin
@@ -269,7 +285,7 @@ async function validateAndExtractUser(
       response: errorResponse(
         401,
         "unauthorized",
-        "Missing or invalid Authorization header"
+        "Missing or invalid Authorization header",
       ),
     };
   }
@@ -289,20 +305,21 @@ async function validateAndExtractUser(
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
   // Validate JWT using getUser() — the correct supabase-js v2 API
-  const { data: userData, error: userError } =
-    await supabaseAuth.auth.getUser(token);
+  const { data: userData, error: userError } = await supabaseAuth.auth.getUser(
+    token,
+  );
 
   if (userError || !userData?.user) {
     console.error(
       "[adminAuth] JWT validation failed:",
-      userError?.message
+      userError?.message,
     );
     return {
       ok: false,
       response: errorResponse(
         401,
         "invalid_token",
-        "Invalid or expired token"
+        "Invalid or expired token",
       ),
     };
   }
@@ -316,7 +333,7 @@ async function validateAndExtractUser(
       response: errorResponse(
         401,
         "no_email",
-        "Token does not contain email claim"
+        "Token does not contain email claim",
       ),
     };
   }
@@ -326,14 +343,14 @@ async function validateAndExtractUser(
 
   if (!role) {
     console.warn(
-      `[adminAuth] No role found for user ${email} (${userId})`
+      `[adminAuth] No role found for user ${email} (${userId})`,
     );
     return {
       ok: false,
       response: errorResponse(
         403,
         "no_role",
-        "No role assigned. Contact a super_admin to request access."
+        "No role assigned. Contact a super_admin to request access.",
       ),
     };
   }
@@ -341,15 +358,17 @@ async function validateAndExtractUser(
   if (!requiredRoles.includes(role)) {
     console.warn(
       `[adminAuth] Insufficient permissions for ${email}: ` +
-        `has '${role}', needs one of [${requiredRoles.join(", ")}]`
+        `has '${role}', needs one of [${requiredRoles.join(", ")}]`,
     );
     return {
       ok: false,
       response: errorResponse(
         403,
         "insufficient_role",
-        `This action requires one of: ${requiredRoles.join(", ")}. Your role: ${role}`,
-        { userRole: role, requiredRoles }
+        `This action requires one of: ${
+          requiredRoles.join(", ")
+        }. Your role: ${role}`,
+        { userRole: role, requiredRoles },
       ),
     };
   }
@@ -377,8 +396,9 @@ async function validateAndExtractUser(
  * @param req - The incoming request
  * @returns ValidationResult with role information on success
  */
+// deno-lint-ignore require-await
 export async function validateAdminRequest(
-  req: Request
+  req: Request,
 ): Promise<ValidationResult> {
   return validateAndExtractUser(req, ADMIN_ROLES);
 }
@@ -400,9 +420,10 @@ export async function validateAdminRequest(
  * // All admin roles including viewer (read-only dashboards)
  * const v = await validateAdminRequestWithRole(req, ['super_admin', 'operator', 'viewer']);
  */
+// deno-lint-ignore require-await
 export async function validateAdminRequestWithRole(
   req: Request,
-  requiredRoles: AppRole[]
+  requiredRoles: AppRole[],
 ): Promise<ValidationResult> {
   return validateAndExtractUser(req, requiredRoles);
 }
@@ -413,7 +434,7 @@ export async function validateAdminRequestWithRole(
 
 export function assertNoError(
   error: unknown,
-  context: string
+  context: string,
 ): asserts error is null {
   if (error) {
     const msg = error instanceof Error ? error.message : String(error);
@@ -445,7 +466,7 @@ export function roleOutranks(roleA: AppRole, roleB: AppRole): boolean {
  */
 export function roleMeetsMinimum(
   userRole: AppRole,
-  minimumRole: AppRole
+  minimumRole: AppRole,
 ): boolean {
   return ROLE_HIERARCHY[userRole] >= ROLE_HIERARCHY[minimumRole];
 }

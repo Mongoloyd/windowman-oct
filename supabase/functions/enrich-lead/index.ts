@@ -18,6 +18,7 @@
  * Returns { success, enrichment: EnrichmentData }
  */
 
+// deno-lint-ignore no-import-prefix
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
@@ -95,7 +96,7 @@ function normalizeCountyKey(county: string | null | undefined): string {
 
 async function fetchPropertyData(
   county: string | null | undefined,
-  windowCount: number | null | undefined
+  windowCount: number | null | undefined,
 ): Promise<PropertyData> {
   await new Promise((resolve) => setTimeout(resolve, 1000));
 
@@ -130,7 +131,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { session_id, lead_id: direct_lead_id, county, window_count } = await req.json();
+    const { session_id, lead_id: direct_lead_id, county, window_count } =
+      await req.json();
 
     // Support both session_id (anon client) and direct lead_id (admin/internal)
     let lead_id = direct_lead_id;
@@ -141,7 +143,7 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
     // ── Resolve lead_id from session_id when called from anon client ──
@@ -167,11 +169,19 @@ Deno.serve(async (req) => {
       }
 
       if (!lead_id) {
-        console.warn(`[enrich-lead] Could not resolve lead from session_id=${session_id?.slice(0, 8)}`);
+        console.warn(
+          `[enrich-lead] Could not resolve lead from session_id=${
+            session_id?.slice(0, 8)
+          }`,
+        );
         return json({ error: "Could not resolve lead from session_id" }, 404);
       }
 
-      console.log(`[enrich-lead] Resolved session_id=${session_id.slice(0, 8)} -> lead_id=${lead_id.slice(0, 8)}`);
+      console.log(
+        `[enrich-lead] Resolved session_id=${
+          session_id.slice(0, 8)
+        } -> lead_id=${lead_id.slice(0, 8)}`,
+      );
     }
 
     // ── 1. Idempotency: check if already enriched ─────────────────────
@@ -186,7 +196,9 @@ Deno.serve(async (req) => {
     }
 
     if (existingLead.enriched_at) {
-      console.log(`[enrich-lead] Lead ${lead_id.slice(0, 8)} already enriched — skipping`);
+      console.log(
+        `[enrich-lead] Lead ${lead_id.slice(0, 8)} already enriched — skipping`,
+      );
       return json({ success: true, already_enriched: true });
     }
 
@@ -194,7 +206,10 @@ Deno.serve(async (req) => {
     const resolvedWindowCount = window_count ?? existingLead.window_count;
 
     // ── 2. Fetch property data (mocked in Phase 1) ───────────────────
-    const propertyData = await fetchPropertyData(resolvedCounty, resolvedWindowCount);
+    const propertyData = await fetchPropertyData(
+      resolvedCounty,
+      resolvedWindowCount,
+    );
 
     // ── 3. Update lead with enrichment data ───────────────────────────
     const now = new Date().toISOString();
@@ -223,7 +238,8 @@ Deno.serve(async (req) => {
       metadata: {
         lead_id,
         county: resolvedCounty,
-        property_value_range: `$${propertyData.property_value_low.toLocaleString()}-$${propertyData.property_value_high.toLocaleString()}`,
+        property_value_range:
+          `$${propertyData.property_value_low.toLocaleString()}-$${propertyData.property_value_high.toLocaleString()}`,
         year_built: propertyData.year_built_estimate,
         property_type: propertyData.property_type,
         source: propertyData.source,
@@ -232,7 +248,11 @@ Deno.serve(async (req) => {
       },
     });
 
-    console.log(`[enrich-lead] Enriched lead ${lead_id.slice(0, 8)}: $${propertyData.property_value_low.toLocaleString()}-$${propertyData.property_value_high.toLocaleString()}, built ~${propertyData.year_built_estimate}, ${resolvedCounty}`);
+    console.log(
+      `[enrich-lead] Enriched lead ${
+        lead_id.slice(0, 8)
+      }: $${propertyData.property_value_low.toLocaleString()}-$${propertyData.property_value_high.toLocaleString()}, built ~${propertyData.year_built_estimate}, ${resolvedCounty}`,
+    );
 
     return json({
       success: true,

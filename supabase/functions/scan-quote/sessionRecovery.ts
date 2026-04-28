@@ -79,7 +79,8 @@ export function decideSessionRecovery(
   }
 
   if (RECOVERABLE_IN_FLIGHT.has(status)) {
-    const reference = parseTimestamp(session.updated_at) ?? parseTimestamp(session.created_at);
+    const reference = parseTimestamp(session.updated_at) ??
+      parseTimestamp(session.created_at);
     // If we have no timestamp at all, prefer caution: treat as in-flight.
     if (reference === null) {
       return { kind: "skip_in_flight", ageMs: 0 };

@@ -15,6 +15,7 @@
  *   - if analysis_id provided: analyses.scan_session_id MUST equal scan_session_id
  */
 
+// deno-lint-ignore no-import-prefix
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -75,8 +76,8 @@ Deno.serve(async (req) => {
       },
     );
   }
-  const analysisIdProvided =
-    body.analysis_id !== undefined && body.analysis_id !== null;
+  const analysisIdProvided = body.analysis_id !== undefined &&
+    body.analysis_id !== null;
   if (analysisIdProvided && !isUuid(body.analysis_id)) {
     return new Response(
       JSON.stringify({ error: "analysis_id must be a uuid when provided" }),

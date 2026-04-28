@@ -1,3 +1,4 @@
+// deno-lint-ignore no-import-prefix
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
@@ -8,10 +9,10 @@ const corsHeaders = {
 
 /* ── Retry schedule (exponential backoff) ─────────────────────────────── */
 const RETRY_DELAYS_MS = [
-  30_000,       // 30s
-  2 * 60_000,   // 2m
-  10 * 60_000,  // 10m
-  60 * 60_000,  // 1h
+  30_000, // 30s
+  2 * 60_000, // 2m
+  10 * 60_000, // 10m
+  60 * 60_000, // 1h
   6 * 60 * 60_000, // 6h
 ];
 
@@ -22,12 +23,12 @@ async function signPayload(payload: string, secret: string): Promise<string> {
     new TextEncoder().encode(secret),
     { name: "HMAC", hash: "SHA-256" },
     false,
-    ["sign"]
+    ["sign"],
   );
   const sig = await crypto.subtle.sign(
     "HMAC",
     key,
-    new TextEncoder().encode(payload)
+    new TextEncoder().encode(payload),
   );
   return Array.from(new Uint8Array(sig))
     .map((b) => b.toString(16).padStart(2, "0"))
@@ -35,15 +36,17 @@ async function signPayload(payload: string, secret: string): Promise<string> {
 }
 
 /* ── Build payload for a delivery ─────────────────────────────────────── */
-// deno-lint-ignore no-explicit-any
 async function buildPayload(
+  // deno-lint-ignore no-explicit-any
   supabase: any,
-  delivery: { id: string; lead_id: string; event_type: string }
+  delivery: { id: string; lead_id: string; event_type: string },
 ): Promise<Record<string, unknown>> {
   // Fetch lead data for the payload
   const { data: lead } = await supabase
     .from("leads")
-    .select("id, phone_e164, grade, grade_score, county, project_type, window_count, latest_analysis_id, suggested_contractor_id, phone_verified_at")
+    .select(
+      "id, phone_e164, grade, grade_score, county, project_type, window_count, latest_analysis_id, suggested_contractor_id, phone_verified_at",
+    )
     .eq("id", delivery.lead_id)
     .single();
 
@@ -64,12 +67,12 @@ async function buildPayload(
 }
 
 /* ── Log audit event to lead_events ───────────────────────────────────── */
-// deno-lint-ignore no-explicit-any
 async function logLeadEvent(
+  // deno-lint-ignore no-explicit-any
   supabase: any,
   leadId: string,
   eventName: string,
-  metadata: Record<string, unknown>
+  metadata: Record<string, unknown>,
 ) {
   const { error } = await supabase.from("lead_events").insert({
     lead_id: leadId,
@@ -90,7 +93,7 @@ Deno.serve(async (req) => {
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
   const webhookUrl = Deno.env.get("CRM_WEBHOOK_URL") || "";
@@ -111,14 +114,20 @@ Deno.serve(async (req) => {
     console.error("[process-webhook] Failed to fetch deliveries:", fetchErr);
     return new Response(
       JSON.stringify({ error: "Failed to fetch deliveries" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
   }
 
   if (!deliveries || deliveries.length === 0) {
     return new Response(
       JSON.stringify({ processed: 0, mode: isMockMode ? "mock" : "live" }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
   }
 
@@ -129,7 +138,8 @@ Deno.serve(async (req) => {
 
     try {
       // Build the payload (cache it on first attempt)
-      const payload = delivery.payload_json ?? await buildPayload(supabase, delivery);
+      const payload = delivery.payload_json ??
+        await buildPayload(supabase, delivery);
       const payloadString = JSON.stringify(payload);
 
       if (isMockMode) {
@@ -138,13 +148,16 @@ Deno.serve(async (req) => {
           ? await signPayload(payloadString, webhookSecret)
           : "no-secret-configured";
 
-        console.log("[process-webhook] MOCK DELIVERY", JSON.stringify({
-          delivery_id: delivery.id,
-          lead_id: delivery.lead_id,
-          event_type: delivery.event_type,
-          hmac_signature: `sha256=${mockSig}`,
-          payload,
-        }));
+        console.log(
+          "[process-webhook] MOCK DELIVERY",
+          JSON.stringify({
+            delivery_id: delivery.id,
+            lead_id: delivery.lead_id,
+            event_type: delivery.event_type,
+            hmac_signature: `sha256=${mockSig}`,
+            payload,
+          }),
+        );
 
         await supabase
           .from("webhook_deliveries")
@@ -157,11 +170,16 @@ Deno.serve(async (req) => {
           })
           .eq("id", delivery.id);
 
-        await logLeadEvent(supabase, delivery.lead_id, "crm_handoff_mock_delivered", {
-          delivery_id: delivery.id,
-          attempt: attemptNum,
-          mode: "mock",
-        });
+        await logLeadEvent(
+          supabase,
+          delivery.lead_id,
+          "crm_handoff_mock_delivered",
+          {
+            delivery_id: delivery.id,
+            attempt: attemptNum,
+            mode: "mock",
+          },
+        );
 
         results.push({ id: delivery.id, status: "mock_delivered" });
       } else {
@@ -200,18 +218,24 @@ Deno.serve(async (req) => {
             })
             .eq("id", delivery.id);
 
-          await logLeadEvent(supabase, delivery.lead_id, "crm_handoff_delivered", {
-            delivery_id: delivery.id,
-            attempt: attemptNum,
-            http_status: httpStatus,
-          });
+          await logLeadEvent(
+            supabase,
+            delivery.lead_id,
+            "crm_handoff_delivered",
+            {
+              delivery_id: delivery.id,
+              attempt: attemptNum,
+              http_status: httpStatus,
+            },
+          );
 
           results.push({ id: delivery.id, status: "delivered" });
         } else {
           // Failed — schedule retry or dead-letter
           const nextStatus = attemptNum >= 5 ? "dead_letter" : "failed";
           const nextRetry = attemptNum < 5
-            ? new Date(Date.now() + RETRY_DELAYS_MS[attemptNum - 1]).toISOString()
+            ? new Date(Date.now() + RETRY_DELAYS_MS[attemptNum - 1])
+              .toISOString()
             : null;
 
           await supabase
@@ -240,7 +264,10 @@ Deno.serve(async (req) => {
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
-      console.error(`[process-webhook] Error processing ${delivery.id}:`, errorMsg);
+      console.error(
+        `[process-webhook] Error processing ${delivery.id}:`,
+        errorMsg,
+      );
 
       const nextStatus = attemptNum >= 5 ? "dead_letter" : "failed";
       const nextRetry = attemptNum < 5
@@ -275,6 +302,9 @@ Deno.serve(async (req) => {
       mode: isMockMode ? "mock" : "live",
       results,
     }),
-    { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    },
   );
 });

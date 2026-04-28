@@ -5,7 +5,11 @@
  * against the deployed function.
  */
 
-import { assertEquals, assertExists } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import {
+  assertEquals,
+  assertExists,
+  // deno-lint-ignore no-import-prefix
+} from "https://deno.land/std@0.224.0/assert/mod.ts";
 
 const SUPABASE_URL = "https://wkrcyxcnzhwjtdpmfpaf.supabase.co";
 const FUNCTION_URL = `${SUPABASE_URL}/functions/v1/contractor-send-followups`;
@@ -60,7 +64,11 @@ Deno.test("contractor-send-followups returns summary with correct secret", async
   // Accept 200 (processed or empty queue) or 500 if RESEND_API_KEY not configured
   const acceptable = [200, 500];
   const body = await res.json();
-  assertEquals(acceptable.includes(res.status), true, `Unexpected status ${res.status}: ${JSON.stringify(body)}`);
+  assertEquals(
+    acceptable.includes(res.status),
+    true,
+    `Unexpected status ${res.status}: ${JSON.stringify(body)}`,
+  );
   if (res.status === 200) {
     assertExists(body.attempted !== undefined ? body : null);
   }

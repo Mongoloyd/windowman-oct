@@ -6,7 +6,11 @@ function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
 }
 
-export function robustZScore(value: number, median: number, mad: number): number {
+export function robustZScore(
+  value: number,
+  median: number,
+  mad: number,
+): number {
   if (mad <= EPSILON) return 0;
   return (0.6745 * (value - median)) / mad;
 }
@@ -30,7 +34,13 @@ export function evaluateAnomaly(input: WMAnomalyInput): WMAnomalyResult {
   const reasons: string[] = [];
   let score = 0;
 
-  const { quoteAmount, pricePerOpening, depositPercent, cohortStats, impossibleValuesDetected } = input;
+  const {
+    quoteAmount,
+    pricePerOpening,
+    depositPercent,
+    cohortStats,
+    impossibleValuesDetected,
+  } = input;
 
   if (impossibleValuesDetected) {
     reasons.push("impossible_values_detected");
@@ -58,8 +68,13 @@ export function evaluateAnomaly(input: WMAnomalyInput): WMAnomalyResult {
   }
 
   if (typeof pricePerOpening === "number" && cohortStats) {
-    if (typeof cohortStats.median === "number" && typeof cohortStats.mad === "number") {
-      const z = Math.abs(robustZScore(pricePerOpening, cohortStats.median, cohortStats.mad));
+    if (
+      typeof cohortStats.median === "number" &&
+      typeof cohortStats.mad === "number"
+    ) {
+      const z = Math.abs(
+        robustZScore(pricePerOpening, cohortStats.median, cohortStats.mad),
+      );
       if (z >= 4.5) {
         reasons.push("price_per_opening_robust_z_extreme");
         score += 0.5;
@@ -69,8 +84,14 @@ export function evaluateAnomaly(input: WMAnomalyInput): WMAnomalyResult {
       }
     }
 
-    if (typeof cohortStats.p25 === "number" && typeof cohortStats.p75 === "number") {
-      const fence = iqrFenceScore(pricePerOpening, cohortStats.p25, cohortStats.p75);
+    if (
+      typeof cohortStats.p25 === "number" && typeof cohortStats.p75 === "number"
+    ) {
+      const fence = iqrFenceScore(
+        pricePerOpening,
+        cohortStats.p25,
+        cohortStats.p75,
+      );
       if (fence >= 0.6) {
         reasons.push("price_per_opening_outside_iqr_fence");
       }

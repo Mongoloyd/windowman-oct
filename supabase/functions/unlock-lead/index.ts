@@ -8,6 +8,7 @@
  * Auth: JWT required (contractor's auth.uid() used as contractor_id)
  */
 
+// deno-lint-ignore no-import-prefix
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
@@ -31,7 +32,11 @@ Deno.serve(async (req) => {
     // ── Auth ──────────────────────────────────────────────────────
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
-      return json({ success: false, error_code: "unauthenticated", message: "Missing auth token." }, 401);
+      return json({
+        success: false,
+        error_code: "unauthenticated",
+        message: "Missing auth token.",
+      }, 401);
     }
 
     const supabase = createClient(
@@ -40,11 +45,16 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } },
     );
 
-    const { data: claimsData, error: claimsErr } = await supabase.auth.getClaims(
-      authHeader.replace("Bearer ", ""),
-    );
+    const { data: claimsData, error: claimsErr } = await supabase.auth
+      .getClaims(
+        authHeader.replace("Bearer ", ""),
+      );
     if (claimsErr || !claimsData?.claims?.sub) {
-      return json({ success: false, error_code: "unauthenticated", message: "Invalid auth token." }, 401);
+      return json({
+        success: false,
+        error_code: "unauthenticated",
+        message: "Invalid auth token.",
+      }, 401);
     }
     const contractorId = claimsData.claims.sub as string;
 
@@ -52,7 +62,11 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const leadId = body?.lead_id;
     if (!leadId || typeof leadId !== "string") {
-      return json({ success: false, error_code: "invalid_input", message: "lead_id is required." }, 400);
+      return json({
+        success: false,
+        error_code: "invalid_input",
+        message: "lead_id is required.",
+      }, 400);
     }
 
     // ── RPC call (service role for SECURITY DEFINER) ──────────────
@@ -68,7 +82,11 @@ Deno.serve(async (req) => {
 
     if (error) {
       console.error("[unlock-lead] RPC error:", error);
-      return json({ success: false, error_code: "rpc_error", message: error.message }, 500);
+      return json({
+        success: false,
+        error_code: "rpc_error",
+        message: error.message,
+      }, 500);
     }
 
     const result = data as Record<string, unknown>;
@@ -107,6 +125,10 @@ Deno.serve(async (req) => {
     );
   } catch (err) {
     console.error("[unlock-lead] Unhandled error:", err);
-    return json({ success: false, error_code: "internal_error", message: "Internal server error." }, 500);
+    return json({
+      success: false,
+      error_code: "internal_error",
+      message: "Internal server error.",
+    }, 500);
   }
 });

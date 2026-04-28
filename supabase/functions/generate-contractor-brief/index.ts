@@ -1,3 +1,4 @@
+// deno-lint-ignore no-import-prefix
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -15,7 +16,7 @@ const corsHeaders = {
 /**
  * Computes contractor opportunity priority score (0-100)
  * Higher scores = higher conversion probability + revenue potential
- * 
+ *
  * Scoring Algorithm:
  * - Grade weight: F=40, D=30, C=20, B=10, A=5
  * - Critical flags: 8 points each (max 40)
@@ -34,36 +35,38 @@ function computePriorityScore(params: {
   confidenceScore: number | null;
 }): number {
   let score = 0;
-  
+
   // Grade-based baseline
   const gradeMap: Record<string, number> = { F: 40, D: 30, C: 20, B: 10, A: 5 };
   score += gradeMap[params.grade || "C"] ?? 15;
-  
+
   // Flag severity weighting
   score += Math.min(params.redFlagCount * 8, 40);
   score += Math.min(params.amberFlagCount * 3, 15);
-  
+
   // Project scale weighting
   if (params.windowCount) {
     if (params.windowCount >= 15) score += 20;
     else if (params.windowCount >= 8) score += 12;
     else if (params.windowCount >= 4) score += 6;
   }
-  
+
   // Revenue potential weighting
   if (params.quoteRange) {
     const match = params.quoteRange.match(/[\d,]+/g);
     if (match) {
-      const maxVal = Math.max(...match.map((s) => parseInt(s.replace(/,/g, ""), 10)));
+      const maxVal = Math.max(
+        ...match.map((s) => parseInt(s.replace(/,/g, ""), 10)),
+      );
       if (maxVal >= 30000) score += 15;
       else if (maxVal >= 15000) score += 10;
       else if (maxVal >= 8000) score += 5;
     }
   }
-  
+
   // Confidence bonus
   if (params.confidenceScore && params.confidenceScore >= 80) score += 5;
-  
+
   return Math.min(score, 100);
 }
 
@@ -73,7 +76,7 @@ function computePriorityScore(params: {
 /**
  * Generates human-readable contractor brief text + structured JSON
  * Used for email delivery and CRM integration
- * 
+ *
  * Output Format:
  * - briefJson: Structured data for programmatic consumption
  * - briefText: Plain-text summary for email/SMS
@@ -90,13 +93,14 @@ function buildBrief(params: {
   rubricVersion: string | null;
   fullJson: Record<string, unknown> | null;
 }) {
+  // deno-lint-ignore no-explicit-any
   const flagSummary = (params.flags || []).map((f: any) => ({
     title: f.title || f.name || "Unnamed flag",
     severity: f.severity || "Medium",
   }));
 
   const redFlags = flagSummary.filter(
-    (f) => f.severity === "Critical" || f.severity === "High"
+    (f) => f.severity === "Critical" || f.severity === "High",
   );
   const amberFlags = flagSummary.filter((f) => f.severity === "Medium");
 
@@ -115,14 +119,13 @@ function buildBrief(params: {
     .map((f) => f.title);
 
   // Pricing posture classification
-  const pricingPosture =
-    params.grade === "F" || params.grade === "D"
-      ? "significantly_above_market"
-      : params.grade === "C"
-      ? "above_market"
-      : params.grade === "B"
-      ? "market_rate"
-      : "competitive";
+  const pricingPosture = params.grade === "F" || params.grade === "D"
+    ? "significantly_above_market"
+    : params.grade === "C"
+    ? "above_market"
+    : params.grade === "B"
+    ? "market_rate"
+    : "competitive";
 
   // Window count bucketing
   let windowCountBucket: string | null = null;
@@ -158,14 +161,18 @@ function buildBrief(params: {
     `WINDOWMAN CONTRACTOR BRIEF`,
     `Generated: ${new Date().toISOString().split("T")[0]}`,
     ``,
-    `Grade: ${params.grade || "—"} | Confidence: ${params.confidenceScore ?? "—"}%`,
+    `Grade: ${params.grade || "—"} | Confidence: ${
+      params.confidenceScore ?? "—"
+    }%`,
     `County: ${params.county || "—"} | Project: ${params.projectType || "—"}`,
-    `Windows: ${params.windowCount ?? "—"} (${windowCountBucket || "—"}) | Quote Range: ${params.quoteRange || "—"}`,
+    `Windows: ${params.windowCount ?? "—"} (${
+      windowCountBucket || "—"
+    }) | Quote Range: ${params.quoteRange || "—"}`,
     `Pricing Posture: ${pricingPosture.replace(/_/g, " ")}`,
     ``,
     `FLAGS: ${flagSummary.length} total (${redFlags.length} red, ${amberFlags.length} amber)`,
     ...flagSummary.slice(0, 8).map(
-      (f) => `  [${f.severity}] ${f.title}`
+      (f) => `  [${f.severity}] ${f.title}`,
     ),
     ``,
     majorScopeGaps.length > 0
@@ -211,7 +218,7 @@ interface MatchCandidate {
 /**
  * Single-client match logic — guarantees a match for every lead.
  * Baseline 50pts + bonuses only (no penalties).
- * 
+ *
  * Scoring: Baseline 50 | Vetted +20 | County match +30 | D/F grade +20
  * Confidence: high (≥70) or medium (all others)
  */
@@ -238,9 +245,11 @@ function computeSuggestedMatch(params: {
     }
 
     // Geography: bonuses only, no penalties
-    if (params.county && c.service_counties.some(
-      (sc) => sc.toLowerCase() === params.county!.toLowerCase()
-    )) {
+    if (
+      params.county && c.service_counties.some(
+        (sc) => sc.toLowerCase() === params.county!.toLowerCase(),
+      )
+    ) {
       score += 30;
       reasons.push("county_specialist");
     } else {
@@ -268,14 +277,20 @@ function computeSuggestedMatch(params: {
     confidence = "high";
   }
 
-  console.log("[MATCH_FORENSIC]", JSON.stringify({
-    finalScore: topCandidate?.score ?? null,
-    matchReasons: topCandidate?.reasons ?? [],
-    confidence,
-    contractorId: topCandidate?.contractor_id ?? null,
-    candidateCount: candidates.length,
-    allScores: candidates.map(c => ({ id: c.contractor_id, score: c.score })),
-  }));
+  console.log(
+    "[MATCH_FORENSIC]",
+    JSON.stringify({
+      finalScore: topCandidate?.score ?? null,
+      matchReasons: topCandidate?.reasons ?? [],
+      confidence,
+      contractorId: topCandidate?.contractor_id ?? null,
+      candidateCount: candidates.length,
+      allScores: candidates.map((c) => ({
+        id: c.contractor_id,
+        score: c.score,
+      })),
+    }),
+  );
 
   return { topCandidate, topThree, confidence };
 }
@@ -289,7 +304,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { scan_session_id, phone_e164: rawPhone, cta_source } = await req.json();
+    const { scan_session_id, phone_e164: rawPhone, cta_source } = await req
+      .json();
     const phone_e164 = typeof rawPhone === "string" ? rawPhone.trim() : "";
 
     console.log("[generate-contractor-brief] invoked", {
@@ -301,14 +317,19 @@ Deno.serve(async (req) => {
     // ── STEP 1: Input Validation ────────────────────────────────────────────
     if (!scan_session_id || !phone_e164) {
       return new Response(
-        JSON.stringify({ error: "scan_session_id and phone_e164 are required." }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({
+          error: "scan_session_id and phone_e164 are required.",
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
     // ── STEP 2: Phone Verification Gate ─────────────────────────────────────
@@ -318,10 +339,17 @@ Deno.serve(async (req) => {
     });
 
     if (!authCheck || authCheck.length === 0) {
-      console.error("[generate-contractor-brief] authorization failed", { scan_session_id });
+      console.error("[generate-contractor-brief] authorization failed", {
+        scan_session_id,
+      });
       return new Response(
-        JSON.stringify({ error: "Not authorized. Phone verification required." }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({
+          error: "Not authorized. Phone verification required.",
+        }),
+        {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -338,7 +366,10 @@ Deno.serve(async (req) => {
       console.error("[generate-contractor-brief] no lead_id on scan_session");
       return new Response(
         JSON.stringify({ error: "Session not linked to a lead." }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -359,7 +390,10 @@ Deno.serve(async (req) => {
     if (!analysisRow) {
       return new Response(
         JSON.stringify({ error: "No completed analysis found." }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -409,7 +443,9 @@ Deno.serve(async (req) => {
     // ── STEP 7: Contractor Matching ─────────────────────────────────────────
     const { data: allContractors } = await supabase
       .from("contractors")
-      .select("id, company_name, status, is_vetted, service_counties, project_types, min_window_count, max_window_count, accepts_low_grade_leads")
+      .select(
+        "id, company_name, status, is_vetted, service_counties, project_types, min_window_count, max_window_count, accepts_low_grade_leads",
+      )
       .eq("status", "active");
 
     const matchResult = computeSuggestedMatch({
@@ -418,13 +454,15 @@ Deno.serve(async (req) => {
       grade: analysis.grade,
     });
 
-    const suggestedMatchSnapshot = matchResult.topCandidate ? {
-      confidence: matchResult.confidence,
-      generated_at: now,
-      reason_count: matchResult.topCandidate.reasons.length,
-    } : null;
+    const suggestedMatchSnapshot = matchResult.topCandidate
+      ? {
+        confidence: matchResult.confidence,
+        generated_at: now,
+        reason_count: matchResult.topCandidate.reasons.length,
+      }
+      : null;
 
-    const suggestedTopCandidates = matchResult.topThree.map(c => ({
+    const suggestedTopCandidates = matchResult.topThree.map((c) => ({
       contractor_id: c.contractor_id,
       score: c.score,
       reasons: c.reasons,
@@ -439,20 +477,29 @@ Deno.serve(async (req) => {
     // ── STEP 8: Idempotency Check ───────────────────────────────────────────
     const { data: existingOpp } = await supabase
       .from("contractor_opportunities")
-      .select("id, suggested_match_snapshot, suggested_match_confidence, suggested_match_reasons, suggested_contractor_id")
+      .select(
+        "id, suggested_match_snapshot, suggested_match_confidence, suggested_match_reasons, suggested_contractor_id",
+      )
       .eq("scan_session_id", scan_session_id)
       .maybeSingle();
 
     if (existingOpp) {
-      console.log("[generate-contractor-brief] idempotent hit — returning existing opportunity", {
-        opportunityId: existingOpp.id,
-      });
+      console.log(
+        "[generate-contractor-brief] idempotent hit — returning existing opportunity",
+        {
+          opportunityId: existingOpp.id,
+        },
+      );
 
-      const existingMatch = existingOpp.suggested_contractor_id ? {
-        confidence: existingOpp.suggested_match_confidence || "low",
-        reasons: (existingOpp.suggested_match_reasons as string[]) || [],
-        contractor_alias: `WM-${existingOpp.suggested_contractor_id.slice(0, 6).toUpperCase()}`,
-      } : null;
+      const existingMatch = existingOpp.suggested_contractor_id
+        ? {
+          confidence: existingOpp.suggested_match_confidence || "low",
+          reasons: (existingOpp.suggested_match_reasons as string[]) || [],
+          contractor_alias: `WM-${
+            existingOpp.suggested_contractor_id.slice(0, 6).toUpperCase()
+          }`,
+        }
+        : null;
 
       return new Response(
         JSON.stringify({
@@ -463,7 +510,10 @@ Deno.serve(async (req) => {
           suggested_match: existingMatch,
           idempotent: true,
         }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -505,10 +555,16 @@ Deno.serve(async (req) => {
       .single();
 
     if (insertErr) {
-      console.error("[generate-contractor-brief] opportunity insert failed", insertErr);
+      console.error(
+        "[generate-contractor-brief] opportunity insert failed",
+        insertErr,
+      );
       return new Response(
         JSON.stringify({ error: "Failed to create opportunity." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -571,19 +627,29 @@ Deno.serve(async (req) => {
         opportunity_id: opportunityId,
         analysis_id: analysisRow.id,
         status: "brief_ready",
-        suggested_match: matchResult.topCandidate ? {
-          confidence: matchResult.confidence,
-          reasons: matchResult.topCandidate.reasons,
-          contractor_alias: `WM-${matchResult.topCandidate.contractor_id.slice(0, 6).toUpperCase()}`,
-        } : null,
+        suggested_match: matchResult.topCandidate
+          ? {
+            confidence: matchResult.confidence,
+            reasons: matchResult.topCandidate.reasons,
+            contractor_alias: `WM-${
+              matchResult.topCandidate.contractor_id.slice(0, 6).toUpperCase()
+            }`,
+          }
+          : null,
       }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
   } catch (err) {
     console.error("[generate-contractor-brief] unhandled exception:", err);
     return new Response(
       JSON.stringify({ error: "Internal server error." }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
   }
 });

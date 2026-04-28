@@ -5,10 +5,15 @@
  * idempotency behaviour against the deployed function.
  */
 
-import { assertEquals, assertExists } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import {
+  assertEquals,
+  assertExists,
+  // deno-lint-ignore no-import-prefix
+} from "https://deno.land/std@0.224.0/assert/mod.ts";
 
 const SUPABASE_URL = "https://wkrcyxcnzhwjtdpmfpaf.supabase.co";
-const FUNCTION_URL = `${SUPABASE_URL}/functions/v1/contractor-booking-confirmed`;
+const FUNCTION_URL =
+  `${SUPABASE_URL}/functions/v1/contractor-booking-confirmed`;
 
 Deno.test("contractor-booking-confirmed CORS preflight returns 200", async () => {
   const res = await fetch(FUNCTION_URL, { method: "OPTIONS" });
@@ -48,13 +53,18 @@ Deno.test("contractor-booking-confirmed rejects missing lead_id", async () => {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-contractor-secret": Deno.env.get("CONTRACTOR_CRON_SECRET") ?? "placeholder",
+      "x-contractor-secret": Deno.env.get("CONTRACTOR_CRON_SECRET") ??
+        "placeholder",
     },
     body: JSON.stringify({}),
   });
   await res.text();
   const acceptable = [400, 401, 500];
-  assertEquals(acceptable.includes(res.status), true, `Unexpected status ${res.status}`);
+  assertEquals(
+    acceptable.includes(res.status),
+    true,
+    `Unexpected status ${res.status}`,
+  );
 });
 
 Deno.test("contractor-booking-confirmed returns 404 for unknown lead_id", async () => {

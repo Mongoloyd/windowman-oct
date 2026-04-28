@@ -1,11 +1,18 @@
+// deno-lint-ignore no-import-prefix
 import "https://deno.land/std@0.224.0/dotenv/load.ts";
-import { assert, assertEquals, assertExists } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import {
+  assert,
+  assertEquals,
+  assertExists,
+  // deno-lint-ignore no-import-prefix
+} from "https://deno.land/std@0.224.0/assert/mod.ts";
+// deno-lint-ignore no-import-prefix
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import {
   computeGrade,
-  letterGrade,
-  GRADE_THRESHOLDS,
   type ExtractionResult,
+  GRADE_THRESHOLDS,
+  letterGrade,
 } from "./scoring.ts";
 
 const SUPABASE_URL = Deno.env.get("VITE_SUPABASE_URL")!;
@@ -40,14 +47,18 @@ function serviceRoleClient() {
 }
 
 function buildTextPdf(text: string): Uint8Array {
-  const streamContent = `BT /F1 12 Tf 72 720 Td (${text.replace(/[()\\]/g, "\\$&").replace(/\n/g, ") Tj T* (")}) Tj ET`;
+  const streamContent = `BT /F1 12 Tf 72 720 Td (${
+    text.replace(/[()\\]/g, "\\$&").replace(/\n/g, ") Tj T* (")
+  }) Tj ET`;
   const stream = new TextEncoder().encode(streamContent);
 
   const objects = [
     `1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj`,
     `2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj`,
     `3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj`,
-    `4 0 obj<</Length ${stream.length}>>stream\n${new TextDecoder().decode(stream)}\nendstream endobj`,
+    `4 0 obj<</Length ${stream.length}>>stream\n${
+      new TextDecoder().decode(stream)
+    }\nendstream endobj`,
     `5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj`,
   ];
 
@@ -62,7 +73,9 @@ function buildTextPdf(text: string): Uint8Array {
   for (const off of offsets) {
     body += `${String(off).padStart(10, "0")} 00000 n \n`;
   }
-  body += `trailer<</Size ${objects.length + 1}/Root 1 0 R>>\nstartxref\n${xrefOffset}\n%%EOF`;
+  body += `trailer<</Size ${
+    objects.length + 1
+  }/Root 1 0 R>>\nstartxref\n${xrefOffset}\n%%EOF`;
   return new TextEncoder().encode(body);
 }
 
@@ -73,7 +86,9 @@ async function setupTestSession(fileContent: Uint8Array, fileName: string) {
   const quoteFileId = crypto.randomUUID();
   const scanSessionId = crypto.randomUUID();
 
-  const contentType = fileName.endsWith(".pdf") ? "application/pdf" : "image/png";
+  const contentType = fileName.endsWith(".pdf")
+    ? "application/pdf"
+    : "image/png";
   const { error: upErr } = await supabase.storage
     .from("quotes")
     .upload(storagePath, fileContent, { contentType });
@@ -86,7 +101,11 @@ async function setupTestSession(fileContent: Uint8Array, fileName: string) {
 
   const { error: ssErr } = await supabase
     .from("scan_sessions")
-    .insert({ id: scanSessionId, status: "uploading", quote_file_id: quoteFileId });
+    .insert({
+      id: scanSessionId,
+      status: "uploading",
+      quote_file_id: quoteFileId,
+    });
   if (ssErr) throw new Error(`scan_sessions insert failed: ${ssErr.message}`);
 
   return { scanSessionId, quoteFileId, storagePath };
@@ -114,7 +133,9 @@ async function fetchPersistedState(scanSessionId: string) {
   ] = await Promise.all([
     supabase
       .from("analyses")
-      .select("scan_session_id, analysis_status, grade, proof_of_read, preview_json, full_json")
+      .select(
+        "scan_session_id, analysis_status, grade, proof_of_read, preview_json, full_json",
+      )
       .eq("scan_session_id", scanSessionId)
       .maybeSingle(),
     supabase
@@ -124,8 +145,12 @@ async function fetchPersistedState(scanSessionId: string) {
       .single(),
   ]);
 
-  if (analysisError) throw new Error(`analyses fetch failed: ${analysisError.message}`);
-  if (sessionError) throw new Error(`scan_sessions fetch failed: ${sessionError.message}`);
+  if (analysisError) {
+    throw new Error(`analyses fetch failed: ${analysisError.message}`);
+  }
+  if (sessionError) {
+    throw new Error(`scan_sessions fetch failed: ${sessionError.message}`);
+  }
 
   return {
     analysis: rawAnalysis as PersistedAnalysis | null,
@@ -186,7 +211,11 @@ Deno.test("valid quote → complete with grade", async () => {
   assertExists(analysis.preview_json, "Expected preview_json to be stored");
   assertExists(analysis.full_json, "Expected full_json to be stored");
   assertEquals(session.status, "preview_ready");
-  assertEquals(["A", "B", "C", "D", "F"].includes(analysis.grade), true, `Expected A-F, got ${analysis.grade}`);
+  assertEquals(
+    ["A", "B", "C", "D", "F"].includes(analysis.grade),
+    true,
+    `Expected A-F, got ${analysis.grade}`,
+  );
   assertEquals(body.grade, analysis.grade);
 });
 
@@ -200,7 +229,10 @@ Deno.test("invalid document → persisted invalid or low-confidence status", asy
     "THANK YOU FOR SHOPPING AT PUBLIX",
   ].join("\n");
   const pdfBytes = buildTextPdf(receiptText);
-  const { scanSessionId } = await setupTestSession(pdfBytes, "grocery-receipt.pdf");
+  const { scanSessionId } = await setupTestSession(
+    pdfBytes,
+    "grocery-receipt.pdf",
+  );
 
   const { status, body } = await invokeScan(scanSessionId);
   const { analysis, session } = await fetchPersistedState(scanSessionId);
@@ -208,7 +240,10 @@ Deno.test("invalid document → persisted invalid or low-confidence status", asy
 
   assertEquals(status, 200);
   const expectedStatus = body.analysis_status;
-  assert(expectedStatus === "invalid_document" || expectedStatus === "needs_better_upload");
+  assert(
+    expectedStatus === "invalid_document" ||
+      expectedStatus === "needs_better_upload",
+  );
   assertStoredFailureState(analysis, session, expectedStatus);
 });
 
@@ -223,7 +258,10 @@ Deno.test("garbled content → persisted controlled failure state", async () => 
 
   assertEquals(status, 200);
   const expectedStatus = body.analysis_status;
-  assert(expectedStatus === "invalid_document" || expectedStatus === "needs_better_upload");
+  assert(
+    expectedStatus === "invalid_document" ||
+      expectedStatus === "needs_better_upload",
+  );
   assertStoredFailureState(analysis, session, expectedStatus);
 });
 
@@ -248,7 +286,9 @@ Deno.test("non-existent session → 404", async () => {
       "Content-Type": "application/json",
       Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
     },
-    body: JSON.stringify({ scan_session_id: "00000000-0000-0000-0000-000000000000" }),
+    body: JSON.stringify({
+      scan_session_id: "00000000-0000-0000-0000-000000000000",
+    }),
   });
   const respBody = await resp.text();
   assertEquals(resp.status, 404);
@@ -295,7 +335,8 @@ function perfectQuote(): ExtractionResult {
     completion_timeline_text: "8-12 weeks from permit approval",
     lead_paint_disclosure_present: true,
     // ── Payment fields ─────────────────────────────────────────────────────
-    payment_schedule_text: "10% deposit, 40% at material delivery, 50% on completion",
+    payment_schedule_text:
+      "10% deposit, 40% at material delivery, 50% on completion",
     deposit_percent: 10,
     subject_to_remeasure_present: false,
     final_payment_before_inspection: false,
@@ -323,38 +364,62 @@ function perfectQuote(): ExtractionResult {
     warranty_service_provider_name: "WindowMan Pro Services",
     leak_callback_sla_days: 3,
     labor_service_sla_days: 5,
-    callback_process_text: "Call main office, technician dispatched within 72 hours",
+    callback_process_text:
+      "Call main office, technician dispatched within 72 hours",
     post_install_stucco_excluded: false,
     post_install_paint_excluded: false,
     water_intrusion_damage_excluded: false,
     line_items: [
       {
         description: "Impact hurricane-rated sliding glass door",
-        quantity: 1, unit_price: 2800, total_price: 2800,
-        brand: "PGT", series: "WinGuard", dp_rating: "DP50", noa_number: "NOA-21-1234",
-        glass_makeup_type: "insulated_laminated", glass_low_e_present: true,
-        glass_argon_present: true, glass_spec_complete: true,
-        opening_location: "Living Room - East Wall", opening_tag: "D1",
+        quantity: 1,
+        unit_price: 2800,
+        total_price: 2800,
+        brand: "PGT",
+        series: "WinGuard",
+        dp_rating: "DP50",
+        noa_number: "NOA-21-1234",
+        glass_makeup_type: "insulated_laminated",
+        glass_low_e_present: true,
+        glass_argon_present: true,
+        glass_spec_complete: true,
+        opening_location: "Living Room - East Wall",
+        opening_tag: "D1",
         product_assignment_text: "PGT WinGuard 770 Sliding Glass Door 72x80",
       },
       {
         description: "Impact hurricane single-hung window",
-        quantity: 7, unit_price: 1500, total_price: 10500,
-        brand: "PGT", series: "WinGuard", dp_rating: "DP40", noa_number: "NOA-21-5678",
-        glass_makeup_type: "insulated_laminated", glass_low_e_present: true,
-        glass_argon_present: true, glass_spec_complete: true,
-        opening_location: "Master Bedroom - South Wall", opening_tag: "W1-W7",
+        quantity: 7,
+        unit_price: 1500,
+        total_price: 10500,
+        brand: "PGT",
+        series: "WinGuard",
+        dp_rating: "DP40",
+        noa_number: "NOA-21-5678",
+        glass_makeup_type: "insulated_laminated",
+        glass_low_e_present: true,
+        glass_argon_present: true,
+        glass_spec_complete: true,
+        opening_location: "Master Bedroom - South Wall",
+        opening_tag: "W1-W7",
         product_assignment_text: "PGT WinGuard 7200 Single Hung 36x60",
       },
     ],
     warranty: {
-      labor_years: 5, manufacturer_years: 10, transferable: true,
+      labor_years: 5,
+      manufacturer_years: 10,
+      transferable: true,
       details: "Full manufacturer and labor warranty included",
     },
-    permits: { included: true, responsible_party: "contractor", details: "All permits included" },
+    permits: {
+      included: true,
+      responsible_party: "contractor",
+      details: "All permits included",
+    },
     installation: {
       scope_detail: "Full removal and replacement with stucco patch",
-      disposal_included: true, accessories_mentioned: true,
+      disposal_included: true,
+      accessories_mentioned: true,
     },
     cancellation_policy: "Full refund within 3 business days",
   };
@@ -390,8 +455,11 @@ Deno.test("BRAIN: caps grade at C when warranty section is missing", () => {
   delete quote.warranty;
   const result = computeGrade(quote);
 
-  assertEquals(["A", "B"].includes(result.letterGrade), false,
-    `Expected C or below, got ${result.letterGrade}`);
+  assertEquals(
+    ["A", "B"].includes(result.letterGrade),
+    false,
+    `Expected C or below, got ${result.letterGrade}`,
+  );
   assertEquals(result.hardCapApplied?.includes("no_warranty_section"), true);
 });
 
@@ -399,7 +467,7 @@ Deno.test("BRAIN: caps grade at C when warranty section is missing", () => {
 
 Deno.test("BRAIN: caps grade at D when no line item mentions impact/hurricane/storm", () => {
   const quote = perfectQuote();
-  quote.line_items = quote.line_items.map(item => ({
+  quote.line_items = quote.line_items.map((item) => ({
     ...item,
     description: "Standard vinyl single-hung window",
     dp_rating: undefined,
@@ -407,12 +475,16 @@ Deno.test("BRAIN: caps grade at D when no line item mentions impact/hurricane/st
   }));
   const result = computeGrade(quote);
 
-  assertEquals(["A", "B", "C"].includes(result.letterGrade), false,
-    `Expected D or F, got ${result.letterGrade} (hardCap: ${result.hardCapApplied})`);
+  assertEquals(
+    ["A", "B", "C"].includes(result.letterGrade),
+    false,
+    `Expected D or F, got ${result.letterGrade} (hardCap: ${result.hardCapApplied})`,
+  );
   assertEquals(
     result.hardCapApplied?.includes("unverified_impact_specs") ||
-    result.hardCapApplied?.includes("critical_safety"), true,
-    `Expected hardcap containing unverified_impact_specs or critical_safety, got: ${result.hardCapApplied}`
+      result.hardCapApplied?.includes("critical_safety"),
+    true,
+    `Expected hardcap containing unverified_impact_specs or critical_safety, got: ${result.hardCapApplied}`,
   );
 });
 
@@ -451,9 +523,21 @@ Deno.test("BRAIN: produces identical output across 100 runs", () => {
   const baseline = computeGrade(perfectQuote());
   for (let i = 0; i < 100; i++) {
     const run = computeGrade(perfectQuote());
-    assertEquals(run.letterGrade, baseline.letterGrade, `Run ${i}: grade drift`);
-    assertEquals(run.weightedAverage, baseline.weightedAverage, `Run ${i}: score drift`);
-    assertEquals(run.hardCapApplied, baseline.hardCapApplied, `Run ${i}: hardCap drift`);
+    assertEquals(
+      run.letterGrade,
+      baseline.letterGrade,
+      `Run ${i}: grade drift`,
+    );
+    assertEquals(
+      run.weightedAverage,
+      baseline.weightedAverage,
+      `Run ${i}: score drift`,
+    );
+    assertEquals(
+      run.hardCapApplied,
+      baseline.hardCapApplied,
+      `Run ${i}: hardCap drift`,
+    );
   }
 });
 

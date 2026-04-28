@@ -1,9 +1,15 @@
-import { assertEquals, assert } from "https://deno.land/std@0.168.0/testing/asserts.ts";
+import {
+  assert,
+  assertEquals,
+  // deno-lint-ignore no-import-prefix
+} from "https://deno.land/std@0.168.0/testing/asserts.ts";
 import { detectFlags } from "./flagging.ts";
 import { BASE_GOOD_QUOTE } from "./fixtures.ts";
 import type { ExtractionResult } from "./scoring.ts";
 
-function makeQuote(overrides: Partial<ExtractionResult> = {}): ExtractionResult {
+function makeQuote(
+  overrides: Partial<ExtractionResult> = {},
+): ExtractionResult {
   const base = structuredClone(BASE_GOOD_QUOTE) as ExtractionResult;
   return {
     ...base,
@@ -16,7 +22,7 @@ function makeQuote(overrides: Partial<ExtractionResult> = {}): ExtractionResult 
 }
 
 function hasFlag(flags: { flag: string }[], name: string): boolean {
-  return flags.some(f => f.flag === name);
+  return flags.some((f) => f.flag === name);
 }
 
 // ── Area 1: Glass ─────────────────────────────────────────────────────────
@@ -45,7 +51,9 @@ Deno.test("Area 1: incomplete_glass_specs", () => {
 });
 
 Deno.test("Area 1: mixed_glass_visibility", () => {
-  const flags = detectFlags(makeQuote({ mixed_glass_package_visibility: true }));
+  const flags = detectFlags(
+    makeQuote({ mixed_glass_package_visibility: true }),
+  );
   assert(hasFlag(flags, "mixed_glass_visibility"));
 });
 
@@ -83,7 +91,9 @@ Deno.test("Area 2: opening_dimensions_incomplete", () => {
 // ── Area 3: Change-order / Substrate ──────────────────────────────────────
 
 Deno.test("Area 3: unilateral_price_adjustment", () => {
-  const flags = detectFlags(makeQuote({ unilateral_price_adjustment_allowed: true }));
+  const flags = detectFlags(
+    makeQuote({ unilateral_price_adjustment_allowed: true }),
+  );
   assert(hasFlag(flags, "unilateral_price_adjustment"));
 });
 
@@ -147,12 +157,16 @@ Deno.test("Area 4: install_compliance_unverified", () => {
 // ── Area 5: Warranty Execution ────────────────────────────────────────────
 
 Deno.test("Area 5: warranty_execution_missing", () => {
-  const flags = detectFlags(makeQuote({ warranty_execution_details_present: false }));
+  const flags = detectFlags(
+    makeQuote({ warranty_execution_details_present: false }),
+  );
   assert(hasFlag(flags, "warranty_execution_missing"));
 });
 
 Deno.test("Area 5: warranty_service_provider_unspecified", () => {
-  const flags = detectFlags(makeQuote({ warranty_service_provider_type: "unknown" }));
+  const flags = detectFlags(
+    makeQuote({ warranty_service_provider_type: "unknown" }),
+  );
   assert(hasFlag(flags, "warranty_service_provider_unspecified"));
 });
 
@@ -172,18 +186,38 @@ Deno.test("Area 5: finish_exclusions_present", () => {
 });
 
 Deno.test("Area 5: water_intrusion_excluded", () => {
-  const flags = detectFlags(makeQuote({ water_intrusion_damage_excluded: true }));
+  const flags = detectFlags(
+    makeQuote({ water_intrusion_damage_excluded: true }),
+  );
   assert(hasFlag(flags, "water_intrusion_excluded"));
 });
 
 // ── Negative Controls ─────────────────────────────────────────────────────
 
 const AREA_1_5_FLAGS = [
-  "blanket_glass_no_per_opening_detail", "glass_package_unverifiable", "incomplete_glass_specs", "mixed_glass_visibility",
-  "opening_schedule_missing", "opening_product_assignments_missing", "bulk_scope_no_schedule", "opening_dimensions_incomplete",
-  "unilateral_price_adjustment", "substrate_clause_no_change_order", "no_homeowner_approval_for_changes", "substrate_open_checkbook", "remeasure_no_price_cap",
-  "anchoring_method_missing", "waterproofing_method_missing", "anchor_spacing_unspecified", "install_compliance_unverified",
-  "warranty_execution_missing", "warranty_service_provider_unspecified", "leak_callback_sla_missing", "callback_process_missing", "finish_exclusions_present", "water_intrusion_excluded",
+  "blanket_glass_no_per_opening_detail",
+  "glass_package_unverifiable",
+  "incomplete_glass_specs",
+  "mixed_glass_visibility",
+  "opening_schedule_missing",
+  "opening_product_assignments_missing",
+  "bulk_scope_no_schedule",
+  "opening_dimensions_incomplete",
+  "unilateral_price_adjustment",
+  "substrate_clause_no_change_order",
+  "no_homeowner_approval_for_changes",
+  "substrate_open_checkbook",
+  "remeasure_no_price_cap",
+  "anchoring_method_missing",
+  "waterproofing_method_missing",
+  "anchor_spacing_unspecified",
+  "install_compliance_unverified",
+  "warranty_execution_missing",
+  "warranty_service_provider_unspecified",
+  "leak_callback_sla_missing",
+  "callback_process_missing",
+  "finish_exclusions_present",
+  "water_intrusion_excluded",
 ];
 
 Deno.test("Negative: clean baseline emits no Area 1-5 flags", () => {

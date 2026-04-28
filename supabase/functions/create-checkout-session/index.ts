@@ -13,7 +13,9 @@
  *   "subscription" — recurring seat fee (uses hardcoded Stripe Price ID)
  */
 
+// deno-lint-ignore no-import-prefix
 import { createClient } from "npm:@supabase/supabase-js@2";
+// deno-lint-ignore no-import-prefix
 import Stripe from "npm:stripe@17.7.0";
 
 /* ── CORS ────────────────────────────────────────────────────────────── */
@@ -37,10 +39,10 @@ function json(body: unknown, status = 200) {
 interface CreditPack {
   code: string;
   label: string;
-  credits: number;       // 0 for subscription tiers (access-based, not credit-based)
-  amount_cents: number;  // display price; for subscriptions, Stripe Price ID governs billing
+  credits: number; // 0 for subscription tiers (access-based, not credit-based)
+  amount_cents: number; // display price; for subscriptions, Stripe Price ID governs billing
   mode: "payment" | "subscription";
-  price_id?: string;     // Stripe Price ID — required for mode: "subscription"
+  price_id?: string; // Stripe Price ID — required for mode: "subscription"
 }
 
 const CREDIT_PACKS: Record<string, CreditPack> = {
@@ -69,8 +71,8 @@ const CREDIT_PACKS: Record<string, CreditPack> = {
   syndicate_broward: {
     code: "syndicate_broward",
     label: "WindowMan Syndicate Access — Broward County",
-    credits: 0,            // Access-based tier; credits field unused for subscriptions
-    amount_cents: 100000,  // $1,000/mo (for display only — Stripe Price ID governs)
+    credits: 0, // Access-based tier; credits field unused for subscriptions
+    amount_cents: 100000, // $1,000/mo (for display only — Stripe Price ID governs)
     mode: "subscription",
     price_id: "price_1TOUYxEt4CZTlrNuhXhwkqWW",
   },
@@ -84,7 +86,13 @@ const CREDIT_PACKS: Record<string, CreditPack> = {
  */
 async function resolveContractorIdentity(
   req: Request,
-): Promise<{ contractorId: string | null; isPreview: boolean; errorResponse: Response | null }> {
+): Promise<
+  {
+    contractorId: string | null;
+    isPreview: boolean;
+    errorResponse: Response | null;
+  }
+> {
   // ── Try real auth first ──────────────────────────────────────────
   const authHeader = req.headers.get("Authorization");
   if (authHeader?.startsWith("Bearer ")) {
@@ -96,38 +104,56 @@ async function resolveContractorIdentity(
 
     const { data: userData, error: userErr } = await anonClient.auth.getUser();
     if (!userErr && userData?.user?.id) {
-      return { contractorId: userData.user.id, isPreview: false, errorResponse: null };
+      return {
+        contractorId: userData.user.id,
+        isPreview: false,
+        errorResponse: null,
+      };
     }
   }
 
   // ── Preview fallback (server-side only, env-gated) ────────────────
-  const previewEnabled = Deno.env.get("PREVIEW_CHECKOUT_ENABLED")?.trim().toLowerCase();
-  const previewContractorId = (
+  const previewEnabled = Deno.env.get("PREVIEW_CHECKOUT_ENABLED")?.trim()
+    .toLowerCase();
+  const previewContractorId =
     Deno.env.get("PREVIEW_CONTRACTOR_PROFILE_ID")?.trim() ||
-    Deno.env.get("PREVIEW_CONTRACTOR_ID")?.trim()
-  );
+    Deno.env.get("PREVIEW_CONTRACTOR_ID")?.trim();
 
   if (previewEnabled === "true" && previewContractorId) {
     // Only allow in Stripe test mode
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY") ?? "";
     if (!stripeKey.startsWith("sk_test_")) {
-      console.warn("[create-checkout-session] Preview fallback blocked — not in Stripe test mode");
+      console.warn(
+        "[create-checkout-session] Preview fallback blocked — not in Stripe test mode",
+      );
       return {
         contractorId: null,
         isPreview: false,
-        errorResponse: json({ error: "preview_blocked", message: "Preview checkout only available in test mode." }, 403),
+        errorResponse: json({
+          error: "preview_blocked",
+          message: "Preview checkout only available in test mode.",
+        }, 403),
       };
     }
 
-    console.log(`[create-checkout-session] Using preview contractor: ${previewContractorId}`);
-    return { contractorId: previewContractorId, isPreview: true, errorResponse: null };
+    console.log(
+      `[create-checkout-session] Using preview contractor: ${previewContractorId}`,
+    );
+    return {
+      contractorId: previewContractorId,
+      isPreview: true,
+      errorResponse: null,
+    };
   }
 
   // ── Neither path available ────────────────────────────────────────
   return {
     contractorId: null,
     isPreview: false,
-    errorResponse: json({ error: "unauthenticated", message: "Sign in to purchase credits." }, 401),
+    errorResponse: json({
+      error: "unauthenticated",
+      message: "Sign in to purchase credits.",
+    }, 401),
   };
 }
 
@@ -147,7 +173,9 @@ async function validateContractor(
 
   if (!profile) {
     const ctx = isPreview ? "preview config" : "auth";
-    console.error(`[create-checkout-session] No contractor_profiles row for ${contractorId} (${ctx})`);
+    console.error(
+      `[create-checkout-session] No contractor_profiles row for ${contractorId} (${ctx})`,
+    );
     return {
       errorResponse: json({
         error: isPreview ? "config_error" : "no_contractor_profile",
@@ -159,7 +187,9 @@ async function validateContractor(
   }
 
   if (profile.status !== "active") {
-    console.error(`[create-checkout-session] Contractor ${contractorId} status is '${profile.status}'`);
+    console.error(
+      `[create-checkout-session] Contractor ${contractorId} status is '${profile.status}'`,
+    );
     return {
       errorResponse: json({
         error: "contractor_inactive",
@@ -176,7 +206,9 @@ async function validateContractor(
     .maybeSingle();
 
   if (!credits) {
-    console.error(`[create-checkout-session] No contractor_credits row for ${contractorId}`);
+    console.error(
+      `[create-checkout-session] No contractor_credits row for ${contractorId}`,
+    );
     return {
       errorResponse: json({
         error: isPreview ? "config_error" : "no_credit_account",
@@ -199,12 +231,12 @@ Deno.serve(async (req) => {
 
   /* ── GET = preview checkout diagnostic (read-only) ────────────── */
   if (req.method === "GET") {
-    const previewEnabled = Deno.env.get("PREVIEW_CHECKOUT_ENABLED")?.trim().toLowerCase() === "true";
-    const contractorId = (
+    const previewEnabled =
+      Deno.env.get("PREVIEW_CHECKOUT_ENABLED")?.trim().toLowerCase() === "true";
+    const contractorId =
       Deno.env.get("PREVIEW_CONTRACTOR_PROFILE_ID")?.trim() ||
       Deno.env.get("PREVIEW_CONTRACTOR_ID")?.trim() ||
-      null
-    );
+      null;
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY") ?? "";
     const stripeTestMode = stripeKey.startsWith("sk_test_");
 
@@ -255,14 +287,12 @@ Deno.serve(async (req) => {
       }
     }
 
-    result.ready = (
-      previewEnabled &&
+    result.ready = previewEnabled &&
       !!contractorId &&
       stripeTestMode &&
       result.profile_exists === true &&
       result.profile_status === "active" &&
-      result.credits_row_exists === true
-    );
+      result.credits_row_exists === true;
 
     return json(result);
   }
@@ -275,12 +305,22 @@ Deno.serve(async (req) => {
     );
 
     // ── 2. Resolve contractor identity ────────────────────────────
-    const { contractorId, isPreview, errorResponse: identityErr } = await resolveContractorIdentity(req);
+    const { contractorId, isPreview, errorResponse: identityErr } =
+      await resolveContractorIdentity(req);
     if (identityErr) return identityErr;
-    if (!contractorId) return json({ error: "unauthenticated", message: "Could not resolve contractor identity." }, 401);
+    if (!contractorId) {
+      return json({
+        error: "unauthenticated",
+        message: "Could not resolve contractor identity.",
+      }, 401);
+    }
 
     // ── 3. Validate contractor profile + credits ──────────────────
-    const { errorResponse: validationErr } = await validateContractor(svc, contractorId, isPreview);
+    const { errorResponse: validationErr } = await validateContractor(
+      svc,
+      contractorId,
+      isPreview,
+    );
     if (validationErr) return validationErr;
 
     // ── 4. Parse & validate request body ──────────────────────────
@@ -288,38 +328,58 @@ Deno.serve(async (req) => {
     try {
       body = await req.json();
     } catch {
-      return json({ error: "invalid_body", message: "Request body must be valid JSON." }, 400);
+      return json({
+        error: "invalid_body",
+        message: "Request body must be valid JSON.",
+      }, 400);
     }
 
     const packCode = body.pack_code as string | undefined;
     if (!packCode) {
-      return json({ error: "missing_pack_code", message: "pack_code is required." }, 400);
+      return json({
+        error: "missing_pack_code",
+        message: "pack_code is required.",
+      }, 400);
     }
 
     const pack = CREDIT_PACKS[packCode];
     if (!pack) {
       return json({
         error: "invalid_pack_code",
-        message: `Unknown pack_code: ${packCode}. Valid: ${Object.keys(CREDIT_PACKS).join(", ")}`,
+        message: `Unknown pack_code: ${packCode}. Valid: ${
+          Object.keys(CREDIT_PACKS).join(", ")
+        }`,
       }, 400);
     }
 
     // ── SYNDICATE: validate subscription packs have a price_id ────
     if (pack.mode === "subscription" && !pack.price_id) {
-      console.error(`[create-checkout-session] Subscription pack ${packCode} missing price_id`);
-      return json({ error: "config_error", message: "Subscription product not configured." }, 500);
+      console.error(
+        `[create-checkout-session] Subscription pack ${packCode} missing price_id`,
+      );
+      return json({
+        error: "config_error",
+        message: "Subscription product not configured.",
+      }, 500);
     }
 
     // ── 5. Build URLs ─────────────────────────────────────────────
-    const origin = (body.origin as string) || Deno.env.get("REPORT_BASE_URL") || "https://wmmvp.lovable.app";
-    const successUrl = `${origin}/partner/opportunities?payment=success&session_id={CHECKOUT_SESSION_ID}`;
-    const cancelUrl  = `${origin}/partner/opportunities?payment=cancel`;
+    const origin = (body.origin as string) || Deno.env.get("REPORT_BASE_URL") ||
+      "https://wmmvp.lovable.app";
+    const successUrl =
+      `${origin}/partner/opportunities?payment=success&session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${origin}/partner/opportunities?payment=cancel`;
 
     // ── 6. Create Stripe Checkout Session ─────────────────────────
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
     if (!stripeKey) {
-      console.error("[create-checkout-session] STRIPE_SECRET_KEY not configured");
-      return json({ error: "config_error", message: "Payment system not configured." }, 500);
+      console.error(
+        "[create-checkout-session] STRIPE_SECRET_KEY not configured",
+      );
+      return json({
+        error: "config_error",
+        message: "Payment system not configured.",
+      }, 500);
     }
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2024-12-18.acacia" });
@@ -343,18 +403,19 @@ Deno.serve(async (req) => {
         ? [{ price: pack.price_id!, quantity: 1 }]
         // One-off: build price_data dynamically (no pre-built Stripe Price needed)
         : [
-            {
-              price_data: {
-                currency: "usd",
-                unit_amount: pack.amount_cents,
-                product_data: {
-                  name: pack.label,
-                  description: `${pack.credits} lead unlock credits for WindowMan.app`,
-                },
+          {
+            price_data: {
+              currency: "usd",
+              unit_amount: pack.amount_cents,
+              product_data: {
+                name: pack.label,
+                description:
+                  `${pack.credits} lead unlock credits for WindowMan.app`,
               },
-              quantity: 1,
             },
-          ],
+            quantity: 1,
+          },
+        ],
 
       metadata: sharedMetadata,
 
@@ -362,19 +423,25 @@ Deno.serve(async (req) => {
       // so stripe-webhook can identify the subscriber on renewal events
       ...(isSubscription
         ? {
-            subscription_data: {
-              metadata: sharedMetadata,
-            },
-          }
+          subscription_data: {
+            metadata: sharedMetadata,
+          },
+        }
         : {}),
 
       success_url: successUrl,
-      cancel_url:  cancelUrl,
+      cancel_url: cancelUrl,
     });
 
     if (!session.url) {
-      console.error("[create-checkout-session] Stripe returned no URL", session.id);
-      return json({ error: "stripe_error", message: "Failed to create checkout session." }, 500);
+      console.error(
+        "[create-checkout-session] Stripe returned no URL",
+        session.id,
+      );
+      return json({
+        error: "stripe_error",
+        message: "Failed to create checkout session.",
+      }, 500);
     }
 
     // ── 7. Insert pending purchase row (FAIL CLOSED) ──────────────
@@ -383,14 +450,14 @@ Deno.serve(async (req) => {
     const { error: insertErr } = await svc
       .from("contractor_credit_purchases")
       .insert({
-        contractor_id:             contractorId,
+        contractor_id: contractorId,
         stripe_checkout_session_id: session.id,
-        credit_pack_code:          pack.code,
-        credits_purchased:         pack.credits,
-        amount_total_cents:        pack.amount_cents,
-        currency:                  "usd",
-        status:                    "pending",
-        mode:                      pack.mode,  // ── SYNDICATE: new column
+        credit_pack_code: pack.code,
+        credits_purchased: pack.credits,
+        amount_total_cents: pack.amount_cents,
+        currency: "usd",
+        status: "pending",
+        mode: pack.mode, // ── SYNDICATE: new column
       });
 
     if (insertErr) {
@@ -402,26 +469,37 @@ Deno.serve(async (req) => {
       // Best-effort: expire the orphaned Stripe session
       try {
         await stripe.checkout.sessions.expire(session.id);
-        console.log(`[create-checkout-session] Expired orphaned Stripe session ${session.id}`);
+        console.log(
+          `[create-checkout-session] Expired orphaned Stripe session ${session.id}`,
+        );
       } catch (expireErr) {
-        console.warn(`[create-checkout-session] Could not expire Stripe session ${session.id}:`, expireErr);
+        console.warn(
+          `[create-checkout-session] Could not expire Stripe session ${session.id}:`,
+          expireErr,
+        );
       }
 
       return json({
-        error:   "purchase_record_failed",
-        message: "Failed to record purchase. Payment was not initiated. Please try again.",
+        error: "purchase_record_failed",
+        message:
+          "Failed to record purchase. Payment was not initiated. Please try again.",
       }, 500);
     }
 
     // ── 8. Return checkout URL (only after confirmed insert) ──────
     console.log(
       `[create-checkout-session] Created ${pack.mode} session ${session.id}` +
-      ` for contractor ${contractorId}${isPreview ? " (preview)" : ""}, pack ${pack.code}`,
+        ` for contractor ${contractorId}${
+          isPreview ? " (preview)" : ""
+        }, pack ${pack.code}`,
     );
 
     return json({ url: session.url, session_id: session.id });
   } catch (err) {
     console.error("[create-checkout-session] Unhandled error:", err);
-    return json({ error: "internal_error", message: "Internal server error." }, 500);
+    return json(
+      { error: "internal_error", message: "Internal server error." },
+      500,
+    );
   }
 });

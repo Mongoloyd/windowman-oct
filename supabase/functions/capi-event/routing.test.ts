@@ -23,8 +23,9 @@
  */
 
 import {
-  assertEquals,
   assert,
+  assertEquals,
+  // deno-lint-ignore no-import-prefix
 } from "https://deno.land/std@0.168.0/testing/asserts.ts";
 
 import { resolvePixelConfig } from "./index.ts";
@@ -56,8 +57,12 @@ function buildMockSupabase(tables: MockTables) {
           rows = rows.filter((r) => r[col] === val);
           return builder;
         },
+        // deno-lint-ignore require-await
         async single() {
-          return { data: rows[0] ?? null, error: rows[0] ? null : { code: "PGRST116" } };
+          return {
+            data: rows[0] ?? null,
+            error: rows[0] ? null : { code: "PGRST116" },
+          };
         },
       };
       return builder;

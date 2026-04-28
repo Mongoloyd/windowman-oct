@@ -1,3 +1,4 @@
+// deno-lint-ignore no-import-prefix
 import { z } from "https://esm.sh/zod@3.22.4";
 import {
   corsHeaders,

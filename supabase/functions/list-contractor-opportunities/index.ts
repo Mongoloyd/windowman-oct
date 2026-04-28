@@ -11,6 +11,7 @@
  * Auth: JWT required (contractor auth user)
  */
 
+// deno-lint-ignore no-import-prefix
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
@@ -34,7 +35,10 @@ Deno.serve(async (req) => {
     // ── Auth ──────────────────────────────────────────────────────
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
-      return json({ error: "unauthenticated", message: "Missing auth token." }, 401);
+      return json(
+        { error: "unauthenticated", message: "Missing auth token." },
+        401,
+      );
     }
 
     const anonClient = createClient(
@@ -43,11 +47,15 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } },
     );
 
-    const { data: claimsData, error: claimsErr } = await anonClient.auth.getClaims(
-      authHeader.replace("Bearer ", ""),
-    );
+    const { data: claimsData, error: claimsErr } = await anonClient.auth
+      .getClaims(
+        authHeader.replace("Bearer ", ""),
+      );
     if (claimsErr || !claimsData?.claims?.sub) {
-      return json({ error: "unauthenticated", message: "Invalid auth token." }, 401);
+      return json(
+        { error: "unauthenticated", message: "Invalid auth token." },
+        401,
+      );
     }
     const authUserId = claimsData.claims.sub as string;
 
@@ -66,7 +74,10 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (!profile) {
-      return json({ error: "no_contractor_profile", message: "No contractor profile found." }, 404);
+      return json({
+        error: "no_contractor_profile",
+        message: "No contractor profile found.",
+      }, 404);
     }
 
     if (profile.status !== "active") {
@@ -120,20 +131,32 @@ Deno.serve(async (req) => {
     // ── Fetch routes for this contractor ──────────────────────────
     const { data: routes, error: routesErr } = await svc
       .from("contractor_opportunity_routes")
-      .select("id, opportunity_id, contractor_id, route_status, release_status, contact_released, sent_at, viewed_at")
+      .select(
+        "id, opportunity_id, contractor_id, route_status, release_status, contact_released, sent_at, viewed_at",
+      )
       .eq("contractor_id", contractorId)
       .order("created_at", { ascending: false })
       .limit(200);
 
     if (routesErr) {
-      console.error("[list-contractor-opportunities] Routes fetch error:", routesErr);
-      return json({ error: "fetch_error", message: "Failed to fetch routes." }, 500);
+      console.error(
+        "[list-contractor-opportunities] Routes fetch error:",
+        routesErr,
+      );
+      return json(
+        { error: "fetch_error", message: "Failed to fetch routes." },
+        500,
+      );
     }
 
     if (!routes || routes.length === 0) {
       return json({
         opportunities: [],
-        meta: { credit_balance: creditBalance, contractor_status: profile.status, total: 0 },
+        meta: {
+          credit_balance: creditBalance,
+          contractor_status: profile.status,
+          total: 0,
+        },
       });
     }
 
@@ -142,7 +165,9 @@ Deno.serve(async (req) => {
 
     let oppQuery = svc
       .from("contractor_opportunities")
-      .select("id, lead_id, analysis_id, scan_session_id, county, project_type, window_count, quote_range, grade, flag_count, red_flag_count, amber_flag_count, priority_score, status, created_at")
+      .select(
+        "id, lead_id, analysis_id, scan_session_id, county, project_type, window_count, quote_range, grade, flag_count, red_flag_count, amber_flag_count, priority_score, status, created_at",
+      )
       .in("id", oppIds);
 
     if (filterStatus) oppQuery = oppQuery.eq("status", filterStatus);
@@ -151,14 +176,22 @@ Deno.serve(async (req) => {
     const { data: opportunities, error: oppErr } = await oppQuery;
 
     if (oppErr) {
-      console.error("[list-contractor-opportunities] Opportunities fetch error:", oppErr);
-      return json({ error: "fetch_error", message: "Failed to fetch opportunities." }, 500);
+      console.error(
+        "[list-contractor-opportunities] Opportunities fetch error:",
+        oppErr,
+      );
+      return json({
+        error: "fetch_error",
+        message: "Failed to fetch opportunities.",
+      }, 500);
     }
 
     const oppMap = new Map((opportunities ?? []).map((o) => [o.id, o]));
 
     // ── Fetch unlock state for all leads ─────────────────────────
-    const leadIds = [...new Set((opportunities ?? []).map((o) => o.lead_id).filter(Boolean))];
+    const leadIds = [
+      ...new Set((opportunities ?? []).map((o) => o.lead_id).filter(Boolean)),
+    ];
 
     let unlockedLeadIds = new Set<string>();
     if (leadIds.length > 0) {
@@ -172,7 +205,7 @@ Deno.serve(async (req) => {
     }
 
     // ── Fetch lead cities for display ────────────────────────────
-    let leadCities = new Map<string, string>();
+    const leadCities = new Map<string, string>();
     if (leadIds.length > 0) {
       const { data: leads } = await svc
         .from("leads")
@@ -187,7 +220,11 @@ Deno.serve(async (req) => {
     }
 
     // ── Check for quote files (document evidence) ────────────────
-    const scanSessionIds = [...new Set((opportunities ?? []).map((o) => o.scan_session_id).filter(Boolean))];
+    const scanSessionIds = [
+      ...new Set(
+        (opportunities ?? []).map((o) => o.scan_session_id).filter(Boolean),
+      ),
+    ];
     let sessionsWithDocs = new Set<string>();
     if (scanSessionIds.length > 0) {
       const { data: sessions } = await svc
@@ -207,7 +244,9 @@ Deno.serve(async (req) => {
       if (!opp) continue;
 
       // Apply release_status filter
-      if (filterReleaseStatus && route.release_status !== filterReleaseStatus) continue;
+      if (filterReleaseStatus && route.release_status !== filterReleaseStatus) {
+        continue;
+      }
 
       const leadId = opp.lead_id as string;
       const isUnlocked = unlockedLeadIds.has(leadId);
@@ -245,9 +284,13 @@ Deno.serve(async (req) => {
     }
 
     // Sort by priority desc, then created_at desc
+    // deno-lint-ignore no-explicit-any
     result.sort((a: any, b: any) => {
-      if (b.priority_score !== a.priority_score) return b.priority_score - a.priority_score;
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      if (b.priority_score !== a.priority_score) {
+        return b.priority_score - a.priority_score;
+      }
+      return new Date(b.created_at).getTime() -
+        new Date(a.created_at).getTime();
     });
 
     return json({
@@ -260,6 +303,9 @@ Deno.serve(async (req) => {
     });
   } catch (err) {
     console.error("[list-contractor-opportunities] Unhandled error:", err);
-    return json({ error: "internal_error", message: "Internal server error." }, 500);
+    return json(
+      { error: "internal_error", message: "Internal server error." },
+      500,
+    );
   }
 });

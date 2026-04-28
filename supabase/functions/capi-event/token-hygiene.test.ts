@@ -14,9 +14,10 @@
  */
 
 import {
-  assertEquals,
   assert,
+  assertEquals,
   assertStringIncludes,
+  // deno-lint-ignore no-import-prefix
 } from "https://deno.land/std@0.168.0/testing/asserts.ts";
 
 import {
@@ -77,7 +78,11 @@ Deno.test("summarizeTokenPresence: full row exposes only masked previews", () =>
 });
 
 Deno.test("summarizeTokenPresence: partial row classifies each field independently", () => {
-  const p = summarizeTokenPresence({ pixel_id: "1234567890123456", access_token: null, test_event_code: null });
+  const p = summarizeTokenPresence({
+    pixel_id: "1234567890123456",
+    access_token: null,
+    test_event_code: null,
+  });
   assertEquals(p.pixel_id_present, true);
   assertEquals(p.access_token_present, false);
   assertEquals(p.access_token_masked, null);
@@ -94,26 +99,36 @@ Deno.test("classifyMetaError: 200 OK → ok", () => {
 
 Deno.test("classifyMetaError: OAuthException 190 → token_invalid_or_revoked", () => {
   const r = classifyMetaError(400, {
-    error: { code: 190, message: "Error validating access token: Session has expired", type: "OAuthException" },
+    error: {
+      code: 190,
+      message: "Error validating access token: Session has expired",
+      type: "OAuthException",
+    },
   });
   assertEquals(r.class, "token_invalid_or_revoked");
   assertStringIncludes(r.hint, "Rotate the token");
 });
 
 Deno.test("classifyMetaError: code 102 → token_invalid_or_revoked", () => {
-  const r = classifyMetaError(400, { error: { code: 102, message: "Session expired" } });
+  const r = classifyMetaError(400, {
+    error: { code: 102, message: "Session expired" },
+  });
   assertEquals(r.class, "token_invalid_or_revoked");
 });
 
 Deno.test("classifyMetaError: text-only 'Access token is invalid' → token_invalid_or_revoked", () => {
-  const r = classifyMetaError(400, { error: { code: 999, message: "The access token is invalid." } });
+  const r = classifyMetaError(400, {
+    error: { code: 999, message: "The access token is invalid." },
+  });
   assertEquals(r.class, "token_invalid_or_revoked");
 });
 
 // ── 5. classifyMetaError: permission-scope problems ────────────────────────
 
 Deno.test("classifyMetaError: code 200 → token_permission_denied", () => {
-  const r = classifyMetaError(403, { error: { code: 200, message: "Permissions error" } });
+  const r = classifyMetaError(403, {
+    error: { code: 200, message: "Permissions error" },
+  });
   assertEquals(r.class, "token_permission_denied");
   assertStringIncludes(r.hint, "scopes");
 });
@@ -122,7 +137,10 @@ Deno.test("classifyMetaError: code 200 → token_permission_denied", () => {
 
 Deno.test("classifyMetaError: pixel-permission mismatch → pixel_token_mismatch", () => {
   const r = classifyMetaError(400, {
-    error: { code: 100, message: "You do not have permission to access this pixel" },
+    error: {
+      code: 100,
+      message: "You do not have permission to access this pixel",
+    },
   });
   assertEquals(r.class, "pixel_token_mismatch");
 });
@@ -130,7 +148,9 @@ Deno.test("classifyMetaError: pixel-permission mismatch → pixel_token_mismatch
 // ── 7. classifyMetaError: rate limit / server / payload / network ──────────
 
 Deno.test("classifyMetaError: code 4 → rate_limited", () => {
-  const r = classifyMetaError(400, { error: { code: 4, message: "App request limit reached" } });
+  const r = classifyMetaError(400, {
+    error: { code: 4, message: "App request limit reached" },
+  });
   assertEquals(r.class, "rate_limited");
 });
 
@@ -140,7 +160,9 @@ Deno.test("classifyMetaError: 503 → meta_server_error", () => {
 });
 
 Deno.test("classifyMetaError: 400 with non-token payload error → meta_rejected_payload", () => {
-  const r = classifyMetaError(400, { error: { code: 100, message: "Invalid parameter event_time" } });
+  const r = classifyMetaError(400, {
+    error: { code: 100, message: "Invalid parameter event_time" },
+  });
   assertEquals(r.class, "meta_rejected_payload");
 });
 

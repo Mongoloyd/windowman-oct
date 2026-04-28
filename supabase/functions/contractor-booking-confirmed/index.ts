@@ -14,6 +14,7 @@
  * Auth: require x-contractor-secret header matching CONTRACTOR_CRON_SECRET env var.
  */
 
+// deno-lint-ignore no-import-prefix
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders: Record<string, string> = {
@@ -34,7 +35,9 @@ function json(body: unknown, status = 200): Response {
 function verifySecret(req: Request): Response | null {
   const cronSecret = Deno.env.get("CONTRACTOR_CRON_SECRET");
   if (!cronSecret) {
-    console.error("[contractor-booking-confirmed] CONTRACTOR_CRON_SECRET not set");
+    console.error(
+      "[contractor-booking-confirmed] CONTRACTOR_CRON_SECRET not set",
+    );
     return json({ error: "Server configuration error" }, 500);
   }
   const provided = req.headers.get("x-contractor-secret");
@@ -115,10 +118,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
     booking_status: "booked",
     pipeline_stage: "booked",
   };
-  if (calendly_event_uri !== undefined) leadUpdate.calendly_event_uri = calendly_event_uri;
-  if (calendly_invitee_uri !== undefined) leadUpdate.calendly_invitee_uri = calendly_invitee_uri;
-  if (calendly_event_start !== undefined) leadUpdate.calendly_event_start = calendly_event_start;
-  if (calendly_event_end !== undefined) leadUpdate.calendly_event_end = calendly_event_end;
+  if (calendly_event_uri !== undefined) {
+    leadUpdate.calendly_event_uri = calendly_event_uri;
+  }
+  if (calendly_invitee_uri !== undefined) {
+    leadUpdate.calendly_invitee_uri = calendly_invitee_uri;
+  }
+  if (calendly_event_start !== undefined) {
+    leadUpdate.calendly_event_start = calendly_event_start;
+  }
+  if (calendly_event_end !== undefined) {
+    leadUpdate.calendly_event_end = calendly_event_end;
+  }
 
   const { error: updateErr } = await supabase
     .from("contractor_leads")
@@ -126,7 +137,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .eq("id", lead_id);
 
   if (updateErr) {
-    console.error("[contractor-booking-confirmed] update lead error:", updateErr);
+    console.error(
+      "[contractor-booking-confirmed] update lead error:",
+      updateErr,
+    );
     return json({ error: "Failed to update lead" }, 500);
   }
 
@@ -146,7 +160,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
     });
 
   if (activityErr) {
-    console.error("[contractor-booking-confirmed] activity log error:", activityErr);
+    console.error(
+      "[contractor-booking-confirmed] activity log error:",
+      activityErr,
+    );
     // Non-fatal — continue
   }
 
@@ -165,7 +182,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const confirmExists = await checkFollowupExistsByType(
     supabase,
     lead_id,
-    "confirmation_email"
+    "confirmation_email",
   );
 
   if (!confirmExists) {
@@ -191,12 +208,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
       const MS_1H = 60 * 60 * 1000;
 
       if (msUntilEvent > MS_24H) {
-        const reminder24Scheduled = new Date(eventStart.getTime() - MS_24H).toISOString();
+        const reminder24Scheduled = new Date(eventStart.getTime() - MS_24H)
+          .toISOString();
         const exists24h = await checkFollowupExistsByTypeAndTime(
           supabase,
           lead_id,
           "reminder_24h",
-          reminder24Scheduled
+          reminder24Scheduled,
         );
 
         if (!exists24h) {
@@ -214,12 +232,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
       }
 
       if (msUntilEvent > MS_1H) {
-        const reminder1hScheduled = new Date(eventStart.getTime() - MS_1H).toISOString();
+        const reminder1hScheduled = new Date(eventStart.getTime() - MS_1H)
+          .toISOString();
         const exists1h = await checkFollowupExistsByTypeAndTime(
           supabase,
           lead_id,
           "reminder_1h",
-          reminder1hScheduled
+          reminder1hScheduled,
         );
 
         if (!exists1h) {
@@ -244,7 +263,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
       .insert(followupsToInsert);
 
     if (followupErr) {
-      console.error("[contractor-booking-confirmed] followup insert error:", followupErr);
+      console.error(
+        "[contractor-booking-confirmed] followup insert error:",
+        followupErr,
+      );
       // Non-fatal — return success but log
     }
   }
@@ -266,7 +288,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 async function checkFollowupExistsByType(
   supabase: ReturnType<typeof createClient>,
   leadId: string,
-  followupType: string
+  followupType: string,
 ): Promise<boolean> {
   const { data, error } = await supabase
     .from("contractor_followups")
@@ -277,7 +299,10 @@ async function checkFollowupExistsByType(
     .limit(1);
 
   if (error) {
-    console.error("[contractor-booking-confirmed] checkFollowupExistsByType error:", error);
+    console.error(
+      "[contractor-booking-confirmed] checkFollowupExistsByType error:",
+      error,
+    );
     return false;
   }
 
@@ -292,10 +317,12 @@ async function checkFollowupExistsByTypeAndTime(
   supabase: ReturnType<typeof createClient>,
   leadId: string,
   followupType: string,
-  scheduledFor: string
+  scheduledFor: string,
 ): Promise<boolean> {
-  const lower = new Date(new Date(scheduledFor).getTime() - 60_000).toISOString();
-  const upper = new Date(new Date(scheduledFor).getTime() + 60_000).toISOString();
+  const lower = new Date(new Date(scheduledFor).getTime() - 60_000)
+    .toISOString();
+  const upper = new Date(new Date(scheduledFor).getTime() + 60_000)
+    .toISOString();
 
   const { data, error } = await supabase
     .from("contractor_followups")
@@ -308,7 +335,10 @@ async function checkFollowupExistsByTypeAndTime(
     .limit(1);
 
   if (error) {
-    console.error("[contractor-booking-confirmed] checkFollowupExistsByTypeAndTime error:", error);
+    console.error(
+      "[contractor-booking-confirmed] checkFollowupExistsByTypeAndTime error:",
+      error,
+    );
     return false;
   }
 

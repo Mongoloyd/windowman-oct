@@ -1,8 +1,24 @@
+// deno-lint-ignore no-import-prefix
 import { z } from "https://esm.sh/zod@3.23.8";
-import { corsHeaders, errorResponse, successResponse, validateAdminRequestWithRole } from "../_shared/adminAuth.ts";
+import {
+  corsHeaders,
+  errorResponse,
+  successResponse,
+  validateAdminRequestWithRole,
+} from "../_shared/adminAuth.ts";
 
-type Mode = "preview_selected" | "preview_filtered" | "materialize_selected" | "materialize_filtered";
-type CandidateStatus = "eligible_not_sent" | "warning_not_sent" | "blocked" | "duplicate_protected" | "skipped" | "superseded";
+type Mode =
+  | "preview_selected"
+  | "preview_filtered"
+  | "materialize_selected"
+  | "materialize_filtered";
+type CandidateStatus =
+  | "eligible_not_sent"
+  | "warning_not_sent"
+  | "blocked"
+  | "duplicate_protected"
+  | "skipped"
+  | "superseded";
 
 interface CandidateRow {
   candidate_id: string;
@@ -36,11 +52,22 @@ interface CandidateRow {
   decision_snapshot: Record<string, unknown> | null;
 }
 
-const ModeSchema = z.enum(["preview_selected", "preview_filtered", "materialize_selected", "materialize_filtered"]);
-const StatusSchema = z.enum(["eligible_not_sent", "warning_not_sent", "blocked", "duplicate_protected"]);
+const ModeSchema = z.enum([
+  "preview_selected",
+  "preview_filtered",
+  "materialize_selected",
+  "materialize_filtered",
+]);
+const StatusSchema = z.enum([
+  "eligible_not_sent",
+  "warning_not_sent",
+  "blocked",
+  "duplicate_protected",
+]);
 const BodySchema = z.object({
   mode: ModeSchema,
-  candidate_ids: z.array(z.string().min(8).max(128)).max(500).optional().default([]),
+  candidate_ids: z.array(z.string().min(8).max(128)).max(500).optional()
+    .default([]),
   filters: z.object({
     client_slug: z.string().min(1).max(120).optional(),
     platform_name: z.string().min(1).max(80).optional(),
@@ -94,10 +121,23 @@ function applyFilters(rows: CandidateRow[], body: z.infer<typeof BodySchema>) {
   } else {
     const filters = body.filters ?? {};
     result = result.filter((row) => {
-      if (filters.client_slug && row.client_slug !== filters.client_slug) return false;
-      if (filters.platform_name && row.platform_name !== filters.platform_name) return false;
-      if (filters.eligibility_status && row.eligibility_status !== filters.eligibility_status) return false;
-      if (!inDateRange(row.canonical_event_timestamp, filters.date_from, filters.date_to)) return false;
+      if (filters.client_slug && row.client_slug !== filters.client_slug) {
+        return false;
+      }
+      if (
+        filters.platform_name && row.platform_name !== filters.platform_name
+      ) return false;
+      if (
+        filters.eligibility_status &&
+        row.eligibility_status !== filters.eligibility_status
+      ) return false;
+      if (
+        !inDateRange(
+          row.canonical_event_timestamp,
+          filters.date_from,
+          filters.date_to,
+        )
+      ) return false;
       return true;
     });
   }
@@ -109,30 +149,46 @@ function emptyReasonBreakdown(): Record<string, number> {
   return {};
 }
 
-function addReasons(breakdown: Record<string, number>, reasons: string[] | null | undefined) {
-  for (const reason of reasons ?? []) breakdown[reason] = (breakdown[reason] ?? 0) + 1;
+function addReasons(
+  breakdown: Record<string, number>,
+  reasons: string[] | null | undefined,
+) {
+  for (const reason of reasons ?? []) {
+    breakdown[reason] = (breakdown[reason] ?? 0) + 1;
+  }
 }
 
 function classifyCandidate(row: CandidateRow, includeWarnings: boolean) {
   const reasons = row.eligibility_reasons ?? [];
-  if (row.outbox_row_exists || row.eligibility_status === "duplicate_protected") return { action: "duplicate" as const, reasons };
-  if (row.eligibility_status === "eligible_not_sent") return { action: "insert" as const, reasons };
-  if (row.eligibility_status === "warning_not_sent") return includeWarnings ? { action: "insert_warning" as const, reasons } : { action: "invalid" as const, reasons: [...reasons, "warning_requires_explicit_include_warnings"] };
-  if (row.eligibility_status === "blocked") return { action: "blocked" as const, reasons };
+  if (
+    row.outbox_row_exists || row.eligibility_status === "duplicate_protected"
+  ) return { action: "duplicate" as const, reasons };
+  if (row.eligibility_status === "eligible_not_sent") {
+    return { action: "insert" as const, reasons };
+  }
+  if (row.eligibility_status === "warning_not_sent") {
+    return includeWarnings ? { action: "insert_warning" as const, reasons } : {
+      action: "invalid" as const,
+      reasons: [...reasons, "warning_requires_explicit_include_warnings"],
+    };
+  }
+  if (row.eligibility_status === "blocked") {
+    return { action: "blocked" as const, reasons };
+  }
   return { action: "invalid" as const, reasons };
 }
 
 function hasRequiredInsertFields(row: CandidateRow) {
   return Boolean(
     row.event_row_id &&
-    row.canonical_event_name &&
-    row.client_slug &&
-    row.platform_config_id &&
-    row.platform_name &&
-    row.dispatch_event_name &&
-    row.mapper_version &&
-    row.idempotency_key &&
-    row.candidate_fingerprint
+      row.canonical_event_name &&
+      row.client_slug &&
+      row.platform_config_id &&
+      row.platform_name &&
+      row.dispatch_event_name &&
+      row.mapper_version &&
+      row.idempotency_key &&
+      row.candidate_fingerprint,
   );
 }
 
@@ -157,7 +213,12 @@ function redactedPayloadSnapshot(row: CandidateRow) {
   };
 }
 
-function decisionSnapshot(row: CandidateRow, operatorId: string, mode: Mode, includeWarnings: boolean) {
+function decisionSnapshot(
+  row: CandidateRow,
+  operatorId: string,
+  mode: Mode,
+  includeWarnings: boolean,
+) {
   return {
     ...(row.decision_snapshot ?? {}),
     materialization: {
@@ -171,7 +232,11 @@ function decisionSnapshot(row: CandidateRow, operatorId: string, mode: Mode, inc
   };
 }
 
-async function fetchExistingOutboxId(supabaseAdmin: any, row: CandidateRow): Promise<string | null> {
+async function fetchExistingOutboxId(
+  // deno-lint-ignore no-explicit-any
+  supabaseAdmin: any,
+  row: CandidateRow,
+): Promise<string | null> {
   if (!row.idempotency_key) return null;
   const { data } = await supabaseAdmin
     .from("platform_dispatch_outbox")
@@ -182,31 +247,65 @@ async function fetchExistingOutboxId(supabaseAdmin: any, row: CandidateRow): Pro
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  if (req.method !== "POST") return errorResponse(405, "method_not_allowed", "Only POST is allowed.");
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+  if (req.method !== "POST") {
+    return errorResponse(405, "method_not_allowed", "Only POST is allowed.");
+  }
 
-  const validation = await validateAdminRequestWithRole(req, ["super_admin", "operator"]);
+  const validation = await validateAdminRequestWithRole(req, [
+    "super_admin",
+    "operator",
+  ]);
   if (!validation.ok) return validation.response;
 
   let parsed: z.infer<typeof BodySchema>;
   try {
     parsed = BodySchema.parse(await req.json());
   } catch (error) {
-    return errorResponse(400, "invalid_request", "Invalid materialization request.", {
-      issues: error instanceof z.ZodError ? error.flatten().fieldErrors : undefined,
-    });
+    return errorResponse(
+      400,
+      "invalid_request",
+      "Invalid materialization request.",
+      {
+        issues: error instanceof z.ZodError
+          ? error.flatten().fieldErrors
+          : undefined,
+      },
+    );
   }
 
   if (isSelectedMode(parsed.mode) && parsed.candidate_ids.length === 0) {
-    return errorResponse(400, "candidate_ids_required", "Selected modes require at least one candidate ID.");
+    return errorResponse(
+      400,
+      "candidate_ids_required",
+      "Selected modes require at least one candidate ID.",
+    );
   }
-  if (isMaterializeMode(parsed.mode) && parsed.confirmation !== "MATERIALIZE_DRY_RUN_ONLY") {
-    return errorResponse(400, "confirmation_required", "Type MATERIALIZE_DRY_RUN_ONLY to materialize dry-run outbox rows.");
+  if (
+    isMaterializeMode(parsed.mode) &&
+    parsed.confirmation !== "MATERIALIZE_DRY_RUN_ONLY"
+  ) {
+    return errorResponse(
+      400,
+      "confirmation_required",
+      "Type MATERIALIZE_DRY_RUN_ONLY to materialize dry-run outbox rows.",
+    );
   }
 
   const { supabaseAuth, supabaseAdmin, userId } = validation;
-  const { data, error } = await supabaseAuth.rpc("admin_dispatch_outbox_candidates");
-  if (error) return errorResponse(500, "candidate_recompute_failed", "Could not recompute dispatch candidates.", { message: error.message });
+  const { data, error } = await supabaseAuth.rpc(
+    "admin_dispatch_outbox_candidates",
+  );
+  if (error) {
+    return errorResponse(
+      500,
+      "candidate_recompute_failed",
+      "Could not recompute dispatch candidates.",
+      { message: error.message },
+    );
+  }
 
   const candidates = applyFilters((data ?? []) as CandidateRow[], parsed);
   const reasonBreakdown = emptyReasonBreakdown();
@@ -230,22 +329,42 @@ Deno.serve(async (req) => {
     if (classification.action === "duplicate") {
       summary.duplicate_protected += 1;
       summary.skipped_duplicate += 1;
-      items.push({ candidate_id: row.candidate_id, status: "duplicate_protected", outbox_id_masked: maskId(row.outbox_id), reasons: row.eligibility_reasons ?? [] });
+      items.push({
+        candidate_id: row.candidate_id,
+        status: "duplicate_protected",
+        outbox_id_masked: maskId(row.outbox_id),
+        reasons: row.eligibility_reasons ?? [],
+      });
       continue;
     }
     if (classification.action === "blocked") {
       summary.skipped_blocked += 1;
-      items.push({ candidate_id: row.candidate_id, status: "skipped_blocked", reasons: row.eligibility_reasons ?? [] });
+      items.push({
+        candidate_id: row.candidate_id,
+        status: "skipped_blocked",
+        reasons: row.eligibility_reasons ?? [],
+      });
       continue;
     }
     if (classification.action === "invalid" || !hasRequiredInsertFields(row)) {
       summary.skipped_invalid += 1;
-      items.push({ candidate_id: row.candidate_id, status: "skipped_invalid", reasons: classification.reasons });
+      items.push({
+        candidate_id: row.candidate_id,
+        status: "skipped_invalid",
+        reasons: classification.reasons,
+      });
       continue;
     }
 
     if (!isMaterializeMode(parsed.mode)) {
-      items.push({ candidate_id: row.candidate_id, status: classification.action === "insert_warning" ? "would_insert_warning" : "would_insert", idempotency_key_masked: maskId(row.idempotency_key), reasons: row.eligibility_reasons ?? [] });
+      items.push({
+        candidate_id: row.candidate_id,
+        status: classification.action === "insert_warning"
+          ? "would_insert_warning"
+          : "would_insert",
+        idempotency_key_masked: maskId(row.idempotency_key),
+        reasons: row.eligibility_reasons ?? [],
+      });
       continue;
     }
 
@@ -271,7 +390,12 @@ Deno.serve(async (req) => {
       send_enabled: false,
       eligibility_version: row.eligibility_version ?? "dispatch-eligibility-v1",
       candidate_fingerprint: row.candidate_fingerprint,
-      decision_snapshot: decisionSnapshot(row, userId, parsed.mode, parsed.include_warnings),
+      decision_snapshot: decisionSnapshot(
+        row,
+        userId,
+        parsed.mode,
+        parsed.include_warnings,
+      ),
       value_usd: toNumber(row.value_usd),
       currency: "USD",
       value_basis: row.value_basis,
@@ -309,10 +433,20 @@ Deno.serve(async (req) => {
         const existingId = await fetchExistingOutboxId(supabaseAdmin, row);
         summary.duplicate_protected += 1;
         summary.skipped_duplicate += 1;
-        items.push({ candidate_id: row.candidate_id, status: "duplicate_protected", outbox_id_masked: maskId(existingId), reasons: ["duplicate_outbox_row_exists"] });
+        items.push({
+          candidate_id: row.candidate_id,
+          status: "duplicate_protected",
+          outbox_id_masked: maskId(existingId),
+          reasons: ["duplicate_outbox_row_exists"],
+        });
       } else {
         summary.errors += 1;
-        items.push({ candidate_id: row.candidate_id, status: "error", error: insertError.message, reasons: row.eligibility_reasons ?? [] });
+        items.push({
+          candidate_id: row.candidate_id,
+          status: "error",
+          error: insertError.message,
+          reasons: row.eligibility_reasons ?? [],
+        });
       }
       continue;
     }
@@ -320,8 +454,18 @@ Deno.serve(async (req) => {
     const maskedId = maskId(inserted?.id) ?? "created";
     createdIdsMasked.push(maskedId);
     summary.inserted += 1;
-    if (classification.action === "insert_warning") summary.inserted_warnings += 1;
-    items.push({ candidate_id: row.candidate_id, status: classification.action === "insert_warning" ? "inserted_warning" : "inserted", outbox_id_masked: maskedId, idempotency_key_masked: maskId(row.idempotency_key), reasons: row.eligibility_reasons ?? [] });
+    if (classification.action === "insert_warning") {
+      summary.inserted_warnings += 1;
+    }
+    items.push({
+      candidate_id: row.candidate_id,
+      status: classification.action === "insert_warning"
+        ? "inserted_warning"
+        : "inserted",
+      outbox_id_masked: maskedId,
+      idempotency_key_masked: maskId(row.idempotency_key),
+      reasons: row.eligibility_reasons ?? [],
+    });
   }
 
   return successResponse({

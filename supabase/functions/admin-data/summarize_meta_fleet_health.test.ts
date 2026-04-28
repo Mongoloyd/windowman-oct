@@ -17,6 +17,7 @@
 // validateAdminRequestWithRole + ACTION_ROLES, which is covered by the
 // shared adminAuth tests.
 
+// deno-lint-ignore no-import-prefix
 import { assertEquals } from "https://deno.land/std@0.208.0/assert/mod.ts";
 import { classifyMetaError } from "../_shared/capiRouting.ts";
 
@@ -25,32 +26,51 @@ import { classifyMetaError } from "../_shared/capiRouting.ts";
 //     is the source of truth; this mirror is intentional and small.
 
 type Bucket = {
-  total: number; success: number; non_2xx: number;
-  meta_reject: number; token_failure: number;
-  rate_limited: number; meta_server_error: number;
+  total: number;
+  success: number;
+  non_2xx: number;
+  meta_reject: number;
+  token_failure: number;
+  rate_limited: number;
+  meta_server_error: number;
   pixel_ids_seen: Set<string>;
   last_seen_at: string | null;
 };
 
 const newBucket = (): Bucket => ({
-  total: 0, success: 0, non_2xx: 0, meta_reject: 0, token_failure: 0,
-  rate_limited: 0, meta_server_error: 0,
-  pixel_ids_seen: new Set(), last_seen_at: null,
+  total: 0,
+  success: 0,
+  non_2xx: 0,
+  meta_reject: 0,
+  token_failure: 0,
+  rate_limited: 0,
+  meta_server_error: 0,
+  pixel_ids_seen: new Set(),
+  last_seen_at: null,
 });
 
-function bucketRow(b: Bucket, status: number, pixel_id: string, response: unknown = null) {
+function bucketRow(
+  b: Bucket,
+  status: number,
+  pixel_id: string,
+  response: unknown = null,
+) {
   b.total++;
   if (status >= 200 && status < 300) {
     b.success++;
   } else {
     b.non_2xx++;
     const f = classifyMetaError(status, response);
-    if (f.class === "token_invalid_or_revoked"
-        || f.class === "pixel_token_mismatch"
-        || f.class === "token_permission_denied") b.token_failure++;
+    if (
+      f.class === "token_invalid_or_revoked" ||
+      f.class === "pixel_token_mismatch" ||
+      f.class === "token_permission_denied"
+    ) b.token_failure++;
     else if (f.class === "rate_limited") b.rate_limited++;
     else if (f.class === "meta_server_error") b.meta_server_error++;
-    else if (f.class === "meta_rejected_payload" || f.class === "unknown_failure") b.meta_reject++;
+    else if (
+      f.class === "meta_rejected_payload" || f.class === "unknown_failure"
+    ) b.meta_reject++;
   }
   b.pixel_ids_seen.add(pixel_id);
   b.last_seen_at = new Date().toISOString();
@@ -69,26 +89,68 @@ function classify(
   let dominant_route: "client" | "default" | "mixed" | "unknown" = "unknown";
   if (bucket && bucket.pixel_ids_seen.size > 0) {
     const seen = [...bucket.pixel_ids_seen];
-    const matches = expected_pixel ? seen.filter((p) => p === expected_pixel) : [];
+    const matches = expected_pixel
+      ? seen.filter((p) => p === expected_pixel)
+      : [];
     const others = seen.filter((p) => p !== expected_pixel);
-    if (expected_pixel && matches.length > 0 && others.length === 0) dominant_route = "client";
-    else if (!expected_pixel || matches.length === 0) dominant_route = "default";
-    else dominant_route = "mixed";
+    if (expected_pixel && matches.length > 0 && others.length === 0) {
+      dominant_route = "client";
+    } else if (!expected_pixel || matches.length === 0) {
+      dominant_route = "default";
+    } else dominant_route = "mixed";
   }
 
-  if (!is_active) return { health_state: "warning", suspected_issue_class: "client_inactive" };
-  if (!config_present) return { health_state: "incident", suspected_issue_class: "config_missing" };
-  if (!expected_pixel || !token_present) return { health_state: "incident", suspected_issue_class: "config_incomplete" };
-  if (total === 0) return { health_state: "warning", suspected_issue_class: "no_recent_traffic" };
-  if (bucket!.token_failure > 0) return { health_state: "incident", suspected_issue_class: "token_failure" };
-  if (dominant_route === "default" || dominant_route === "mixed") return { health_state: "incident", suspected_issue_class: "unexpected_fallback" };
-  if (errPct >= 0.05) return { health_state: "incident", suspected_issue_class: bucket!.meta_reject > 0 ? "meta_reject" : "elevated_errors" };
-  if (errPct >= 0.01 || bucket!.rate_limited > 0 || bucket!.meta_server_error > 0) {
+  if (!is_active) {
+    return {
+      health_state: "warning",
+      suspected_issue_class: "client_inactive",
+    };
+  }
+  if (!config_present) {
+    return {
+      health_state: "incident",
+      suspected_issue_class: "config_missing",
+    };
+  }
+  if (!expected_pixel || !token_present) {
+    return {
+      health_state: "incident",
+      suspected_issue_class: "config_incomplete",
+    };
+  }
+  if (total === 0) {
+    return {
+      health_state: "warning",
+      suspected_issue_class: "no_recent_traffic",
+    };
+  }
+  if (bucket!.token_failure > 0) {
+    return { health_state: "incident", suspected_issue_class: "token_failure" };
+  }
+  if (dominant_route === "default" || dominant_route === "mixed") {
+    return {
+      health_state: "incident",
+      suspected_issue_class: "unexpected_fallback",
+    };
+  }
+  if (errPct >= 0.05) {
+    return {
+      health_state: "incident",
+      suspected_issue_class: bucket!.meta_reject > 0
+        ? "meta_reject"
+        : "elevated_errors",
+    };
+  }
+  if (
+    errPct >= 0.01 || bucket!.rate_limited > 0 || bucket!.meta_server_error > 0
+  ) {
     return {
       health_state: "warning",
       suspected_issue_class: bucket!.rate_limited > 0
         ? "rate_limited"
-        : (bucket!.meta_server_error > 0 ? "meta_transient" : "elevated_errors"),
+        : (bucket!.meta_server_error > 0
+          ? "meta_transient"
+          : "elevated_errors"),
     };
   }
   return { health_state: "healthy", suspected_issue_class: "none" };
@@ -115,7 +177,7 @@ Deno.test("incident: dominant route is default/mixed for active client", () => {
 Deno.test("incident: mixed routes (some right, some wrong)", () => {
   const b = newBucket();
   for (let i = 0; i < 30; i++) bucketRow(b, 200, "9999990001234");
-  for (let i = 0; i < 5; i++)  bucketRow(b, 200, "1111110009999");
+  for (let i = 0; i < 5; i++) bucketRow(b, 200, "1111110009999");
   const r = classify(b, true, "9999990001234", true, true);
   assertEquals(r.health_state, "incident");
   assertEquals(r.suspected_issue_class, "unexpected_fallback");
@@ -138,7 +200,11 @@ Deno.test("incident: active client with config but missing token", () => {
 Deno.test("incident: ≥5% non-2xx with meta_rejected_payload", () => {
   const b = newBucket();
   for (let i = 0; i < 90; i++) bucketRow(b, 200, "9999990001234");
-  for (let i = 0; i < 10; i++) bucketRow(b, 400, "9999990001234", { error: { code: 100, error_subcode: 2804001 } });
+  for (let i = 0; i < 10; i++) {
+    bucketRow(b, 400, "9999990001234", {
+      error: { code: 100, error_subcode: 2804001 },
+    });
+  }
   const r = classify(b, true, "9999990001234", true, true);
   assertEquals(r.health_state, "incident");
   // 10/100 = 10% non-2xx; some rows classified as meta_reject
@@ -190,7 +256,9 @@ Deno.test("warning: active + configured but zero events in window", () => {
 Deno.test("warning: 1-5% non-2xx without token failures", () => {
   const b = newBucket();
   for (let i = 0; i < 97; i++) bucketRow(b, 200, "9999990001234");
-  for (let i = 0; i < 3; i++)  bucketRow(b, 400, "9999990001234", { error: { code: 2 } }); // unknown_failure
+  for (let i = 0; i < 3; i++) {
+    bucketRow(b, 400, "9999990001234", { error: { code: 2 } }); // unknown_failure
+  }
   const r = classify(b, true, "9999990001234", true, true);
   // 3% non-2xx → warning band
   assertEquals(r.health_state, "warning");

@@ -16,6 +16,7 @@
  * Required secrets: RESEND_API_KEY, REPORT_FROM_EMAIL, REPORT_BASE_URL
  */
 
+// deno-lint-ignore no-import-prefix
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
@@ -40,17 +41,24 @@ function buildReactivationEmail(params: {
   county: string;
   deepLink: string;
 }): { subject: string; html: string } {
-  const { firstName, grade, flagCount, redFlagCount, county, deepLink } = params;
+  const { firstName, grade, flagCount, redFlagCount, county, deepLink } =
+    params;
 
-  const gradeColor = grade === "A" || grade === "B" ? "#10B981" : grade === "C" ? "#F59E0B" : "#DC2626";
-  const urgencyLine =
-    grade === "D" || grade === "F"
-      ? `<strong style="color:#DC2626;">Your quote scored a ${grade} — significantly below market standards.</strong> We strongly recommend reviewing the findings before signing.`
-      : grade === "C"
-        ? `Your quote scored a ${grade} — there are items worth reviewing before you commit.`
-        : `Your quote scored a ${grade} — looking good, but we found ${flagCount} item${flagCount !== 1 ? "s" : ""} to review.`;
+  const gradeColor = grade === "A" || grade === "B"
+    ? "#10B981"
+    : grade === "C"
+    ? "#F59E0B"
+    : "#DC2626";
+  const urgencyLine = grade === "D" || grade === "F"
+    ? `<strong style="color:#DC2626;">Your quote scored a ${grade} — significantly below market standards.</strong> We strongly recommend reviewing the findings before signing.`
+    : grade === "C"
+    ? `Your quote scored a ${grade} — there are items worth reviewing before you commit.`
+    : `Your quote scored a ${grade} — looking good, but we found ${flagCount} item${
+      flagCount !== 1 ? "s" : ""
+    } to review.`;
 
-  const subject = `\u23F0 ${firstName}, your WindowMan report is still waiting — Grade: ${grade}`;
+  const subject =
+    `\u23F0 ${firstName}, your WindowMan report is still waiting — Grade: ${grade}`;
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -69,15 +77,25 @@ function buildReactivationEmail(params: {
   <div style="font-size:11px;letter-spacing:0.12em;color:#A0B8D8;font-weight:600;text-transform:uppercase;margin-bottom:12px;">YOUR QUOTE GRADE</div>
   <div style="display:inline-block;width:72px;height:72px;line-height:72px;font-size:44px;font-weight:900;color:${gradeColor};background:${gradeColor}15;border:2px solid ${gradeColor}40;text-align:center;">${grade}</div>
   <div style="font-size:14px;color:#A0B8D8;margin-top:12px;">
-    ${flagCount} issue${flagCount !== 1 ? "s" : ""} found${redFlagCount > 0 ? ` — <span style="color:#DC2626;font-weight:700;">${redFlagCount} critical</span>` : ""}
+    ${flagCount} issue${flagCount !== 1 ? "s" : ""} found${
+    redFlagCount > 0
+      ? ` — <span style="color:#DC2626;font-weight:700;">${redFlagCount} critical</span>`
+      : ""
+  }
   </div>
-  ${county ? `<div style="font-size:13px;color:#64748B;margin-top:6px;">${county} County</div>` : ""}
+  ${
+    county
+      ? `<div style="font-size:13px;color:#64748B;margin-top:6px;">${county} County</div>`
+      : ""
+  }
 </td></tr>
 
 <tr><td style="padding:0 32px 24px;">
   <p style="font-size:15px;color:#C8DEFF;line-height:1.65;margin:0;">
     Hi ${firstName},<br><br>
-    You uploaded your impact window quote ${county ? `for your ${county} County project ` : ""}yesterday, and our AI finished the analysis — but you haven't seen the results yet.<br><br>
+    You uploaded your impact window quote ${
+    county ? `for your ${county} County project ` : ""
+  }yesterday, and our AI finished the analysis — but you haven't seen the results yet.<br><br>
     ${urgencyLine}<br><br>
     Your full report includes detailed findings, red flag explanations, and actionable next steps. It takes 30 seconds to unlock.
   </p>
@@ -110,23 +128,33 @@ Deno.serve(async (req) => {
 
   try {
     const resendKey = Deno.env.get("RESEND_API_KEY");
-    const fromEmail = Deno.env.get("REPORT_FROM_EMAIL") || "WindowMan <onboarding@resend.dev>";
-    const baseUrl = Deno.env.get("REPORT_BASE_URL") || "https://wmmvp.lovable.app";
+    const fromEmail = Deno.env.get("REPORT_FROM_EMAIL") ||
+      "WindowMan <onboarding@resend.dev>";
+    const baseUrl = Deno.env.get("REPORT_BASE_URL") ||
+      "https://wmmvp.lovable.app";
 
     if (!resendKey) {
-      console.warn("[lead-reactivation] RESEND_API_KEY not configured — skipping run");
-      return json({ success: false, skipped: true, reason: "email_not_configured" });
+      console.warn(
+        "[lead-reactivation] RESEND_API_KEY not configured — skipping run",
+      );
+      return json({
+        success: false,
+        skipped: true,
+        reason: "email_not_configured",
+      });
     }
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
     // ── Query cold leads ──────────────────────────────────────────────
     const now = new Date();
-    const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
-    const fortyEightHoursAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString();
+    const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+      .toISOString();
+    const fortyEightHoursAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000)
+      .toISOString();
 
     const { data: coldLeads, error: queryErr } = await supabase
       .from("leads")
@@ -145,10 +173,16 @@ Deno.serve(async (req) => {
 
     if (!coldLeads || coldLeads.length === 0) {
       console.log("[lead-reactivation] No cold leads found in 24-48h window");
-      return json({ success: true, processed: 0, message: "No cold leads to reactivate" });
+      return json({
+        success: true,
+        processed: 0,
+        message: "No cold leads to reactivate",
+      });
     }
 
-    console.log(`[lead-reactivation] Found ${coldLeads.length} cold leads to reactivate`);
+    console.log(
+      `[lead-reactivation] Found ${coldLeads.length} cold leads to reactivate`,
+    );
 
     let processed = 0;
     let skipped = 0;
@@ -166,7 +200,11 @@ Deno.serve(async (req) => {
 
         const scanSessionId = sessions?.[0]?.id;
         if (!scanSessionId) {
-          console.log(`[lead-reactivation] Lead ${lead.id.slice(0, 8)} has no scan session — skipping`);
+          console.log(
+            `[lead-reactivation] Lead ${
+              lead.id.slice(0, 8)
+            } has no scan session — skipping`,
+          );
           skipped++;
           continue;
         }
@@ -180,13 +218,20 @@ Deno.serve(async (req) => {
           .maybeSingle();
 
         if (!analysis) {
-          console.log(`[lead-reactivation] No completed analysis for lead ${lead.id.slice(0, 8)} — skipping`);
+          console.log(
+            `[lead-reactivation] No completed analysis for lead ${
+              lead.id.slice(0, 8)
+            } — skipping`,
+          );
           skipped++;
           continue;
         }
 
         const flags = Array.isArray(analysis.flags) ? analysis.flags : [];
-        const redFlags = flags.filter((f: any) => f.severity === "Critical" || f.severity === "High");
+        // deno-lint-ignore no-explicit-any
+        const redFlags = flags.filter((f: any) =>
+          f.severity === "Critical" || f.severity === "High"
+        );
         const deepLink = `${baseUrl}/?session=${scanSessionId}`;
 
         const { subject, html } = buildReactivationEmail({
@@ -216,7 +261,12 @@ Deno.serve(async (req) => {
         const resendData = await resendResp.json();
 
         if (!resendResp.ok) {
-          console.error(`[lead-reactivation] Resend failed for ${lead.email.slice(0, 3)}***:`, resendData);
+          console.error(
+            `[lead-reactivation] Resend failed for ${
+              lead.email.slice(0, 3)
+            }***:`,
+            resendData,
+          );
           errors++;
           continue;
         }
@@ -243,9 +293,16 @@ Deno.serve(async (req) => {
         });
 
         processed++;
-        console.log(`[lead-reactivation] Sent to ${lead.email.slice(0, 3)}*** (grade: ${analysis.grade}, ${flags.length} flags)`);
+        console.log(
+          `[lead-reactivation] Sent to ${
+            lead.email.slice(0, 3)
+          }*** (grade: ${analysis.grade}, ${flags.length} flags)`,
+        );
       } catch (leadErr) {
-        console.error(`[lead-reactivation] Error processing lead ${lead.id.slice(0, 8)}:`, leadErr);
+        console.error(
+          `[lead-reactivation] Error processing lead ${lead.id.slice(0, 8)}:`,
+          leadErr,
+        );
         errors++;
       }
     }
@@ -263,9 +320,17 @@ Deno.serve(async (req) => {
       },
     });
 
-    console.log(`[lead-reactivation] Batch complete: ${processed} sent, ${skipped} skipped, ${errors} errors`);
+    console.log(
+      `[lead-reactivation] Batch complete: ${processed} sent, ${skipped} skipped, ${errors} errors`,
+    );
 
-    return json({ success: true, processed, skipped, errors, total_candidates: coldLeads.length });
+    return json({
+      success: true,
+      processed,
+      skipped,
+      errors,
+      total_candidates: coldLeads.length,
+    });
   } catch (err) {
     console.error("[lead-reactivation] unhandled error:", err);
     return json({ error: "Internal server error" }, 500);

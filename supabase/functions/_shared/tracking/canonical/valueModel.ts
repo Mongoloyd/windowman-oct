@@ -19,7 +19,8 @@ export interface WMValueModelInput {
 
 export function getOptimizationValueUsd(input: WMValueModelInput): number {
   if (input.eventName === "sale_confirmed" || input.eventName === "sold") {
-    return typeof input.marginUsd === "number" && Number.isFinite(input.marginUsd) && input.marginUsd > 0
+    return typeof input.marginUsd === "number" &&
+        Number.isFinite(input.marginUsd) && input.marginUsd > 0
       ? Math.round(input.marginUsd * 100) / 100
       : 1500;
   }
@@ -36,7 +37,9 @@ function derivePriority(valueUsd: number): number {
   return 0;
 }
 
-export function buildOptimizationPayload(input: WMValueModelInput): WMOptimizationPayload {
+export function buildOptimizationPayload(
+  input: WMValueModelInput,
+): WMOptimizationPayload {
   const valueUsd = getOptimizationValueUsd(input);
   const approvedForIndex = input.approvedForIndex ?? false;
   const approvedForAds = input.approvedForAds ?? false;

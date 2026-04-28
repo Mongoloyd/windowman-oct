@@ -21,8 +21,13 @@
  *   SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... \
  *   deno test --allow-net --allow-env supabase/functions/capi-event/smoke_test.ts
  */
+// deno-lint-ignore no-import-prefix
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import {
+  assert,
+  assertEquals,
+  // deno-lint-ignore no-import-prefix
+} from "https://deno.land/std@0.224.0/assert/mod.ts";
 
 function uuid(): string {
   return crypto.randomUUID();
@@ -67,7 +72,10 @@ Deno.test({
 
     // capi-event returns 200 on both success and graceful failure paths;
     // we only assert the request was accepted, then verify the side-effect.
-    assert(res.status === 200 || res.status === 202, `unexpected status ${res.status}`);
+    assert(
+      res.status === 200 || res.status === 202,
+      `unexpected status ${res.status}`,
+    );
 
     // Wait briefly for the event_logs insert (capi-event awaits it inline,
     // but Postgres + edge function flush has small latency).

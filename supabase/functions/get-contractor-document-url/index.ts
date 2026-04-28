@@ -8,6 +8,7 @@
  * Auth: JWT required (contractor auth user)
  */
 
+// deno-lint-ignore no-import-prefix
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
@@ -31,7 +32,10 @@ Deno.serve(async (req) => {
     // ── Auth ──────────────────────────────────────────────────────
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
-      return json({ error: "unauthenticated", message: "Missing auth token." }, 401);
+      return json(
+        { error: "unauthenticated", message: "Missing auth token." },
+        401,
+      );
     }
 
     const anonClient = createClient(
@@ -40,11 +44,15 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } },
     );
 
-    const { data: claimsData, error: claimsErr } = await anonClient.auth.getClaims(
-      authHeader.replace("Bearer ", ""),
-    );
+    const { data: claimsData, error: claimsErr } = await anonClient.auth
+      .getClaims(
+        authHeader.replace("Bearer ", ""),
+      );
     if (claimsErr || !claimsData?.claims?.sub) {
-      return json({ error: "unauthenticated", message: "Invalid auth token." }, 401);
+      return json(
+        { error: "unauthenticated", message: "Invalid auth token." },
+        401,
+      );
     }
     const authUserId = claimsData.claims.sub as string;
 
@@ -52,7 +60,10 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const analysisId = body?.analysis_id;
     if (!analysisId || typeof analysisId !== "string") {
-      return json({ error: "invalid_input", message: "analysis_id is required." }, 400);
+      return json({
+        error: "invalid_input",
+        message: "analysis_id is required.",
+      }, 400);
     }
 
     // ── Service client ───────────────────────────────────────────
@@ -76,7 +87,10 @@ Deno.serve(async (req) => {
     const scanSessionId = analysis.scan_session_id as string | null;
 
     if (!leadId) {
-      return json({ error: "not_found", message: "No lead linked to this analysis." }, 404);
+      return json({
+        error: "not_found",
+        message: "No lead linked to this analysis.",
+      }, 404);
     }
 
     // ── Authorization check ──────────────────────────────────────
@@ -115,7 +129,11 @@ Deno.serve(async (req) => {
             .eq("contractor_id", contractor.id)
             .maybeSingle();
 
-          if (route && (route.release_status === "released" || route.contact_released === true)) {
+          if (
+            route &&
+            (route.release_status === "released" ||
+              route.contact_released === true)
+          ) {
             authorized = true;
           }
         }
@@ -125,13 +143,17 @@ Deno.serve(async (req) => {
     if (!authorized) {
       return json({
         error: "unauthorized",
-        message: "You must unlock this lead or have an approved release to access the document.",
+        message:
+          "You must unlock this lead or have an approved release to access the document.",
       }, 403);
     }
 
     // ── Resolve quote file path ──────────────────────────────────
     if (!scanSessionId) {
-      return json({ error: "no_document", message: "No scan session linked to this analysis." }, 404);
+      return json({
+        error: "no_document",
+        message: "No scan session linked to this analysis.",
+      }, 404);
     }
 
     const { data: session } = await svc
@@ -141,7 +163,10 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (!session?.quote_file_id) {
-      return json({ error: "no_document", message: "No document attached to this scan." }, 404);
+      return json({
+        error: "no_document",
+        message: "No document attached to this scan.",
+      }, 404);
     }
 
     const { data: quoteFile } = await svc
@@ -151,7 +176,10 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (!quoteFile?.storage_path) {
-      return json({ error: "no_document", message: "Document file record not found." }, 404);
+      return json({
+        error: "no_document",
+        message: "Document file record not found.",
+      }, 404);
     }
 
     // ── Generate signed URL (5 minutes) ──────────────────────────
@@ -162,7 +190,10 @@ Deno.serve(async (req) => {
 
     if (signErr || !signedData?.signedUrl) {
       console.error("[get-contractor-document-url] Signed URL error:", signErr);
-      return json({ error: "storage_error", message: "Failed to generate document URL." }, 500);
+      return json({
+        error: "storage_error",
+        message: "Failed to generate document URL.",
+      }, 500);
     }
 
     return json({
@@ -173,6 +204,9 @@ Deno.serve(async (req) => {
     });
   } catch (err) {
     console.error("[get-contractor-document-url] Unhandled error:", err);
-    return json({ error: "internal_error", message: "Internal server error." }, 500);
+    return json(
+      { error: "internal_error", message: "Internal server error." },
+      500,
+    );
   }
 });

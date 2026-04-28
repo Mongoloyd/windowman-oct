@@ -1,25 +1,42 @@
 import { WM_QUOTE_TRUST_MIN_FOR_DISPATCH } from "./constants.ts";
-import { normalizeAndHashIdentity, computeIdentityQuality } from "./identity.ts";
+import {
+  computeIdentityQuality,
+  normalizeAndHashIdentity,
+} from "./identity.ts";
 import { evaluateQuoteTrust } from "./trustScore.ts";
 import { buildOptimizationPayload } from "./valueModel.ts";
-import type { CreateCanonicalEventInput, WMCanonicalEvent, WMDispatchStatus, WMPlatformName } from "./types.ts";
+import type {
+  CreateCanonicalEventInput,
+  WMCanonicalEvent,
+  WMDispatchStatus,
+  WMPlatformName,
+} from "./types.ts";
 
 interface DBLike {
   from(table: string): {
-    insert(payload: Record<string, unknown> | Record<string, unknown>[]): Promise<{ data?: unknown; error?: { message?: string } | null }>;
+    insert(
+      payload: Record<string, unknown> | Record<string, unknown>[],
+    ): Promise<{ data?: unknown; error?: { message?: string } | null }>;
     upsert(
       payload: Record<string, unknown> | Record<string, unknown>[],
       options?: { onConflict?: string },
     ): Promise<{ data?: unknown; error?: { message?: string } | null }>;
     select(columns: string): {
       eq(column: string, value: string): {
-        maybeSingle(): Promise<{ data?: Record<string, unknown> | null; error?: { message?: string } | null }>;
+        maybeSingle(): Promise<
+          {
+            data?: Record<string, unknown> | null;
+            error?: { message?: string } | null;
+          }
+        >;
       };
     };
   };
 }
 
-function isDuplicateEventIdInsertError(error: { message?: string } | null | undefined): boolean {
+function isDuplicateEventIdInsertError(
+  error: { message?: string } | null | undefined,
+): boolean {
   const message = error?.message?.toLowerCase() ?? "";
   return (
     message.includes("duplicate key") ||
@@ -43,7 +60,11 @@ interface CreateCanonicalEventResult {
 
 // Both names are included so legacy `quote_upload_completed` events still receive
 // trust/anomaly enrichment alongside the canonical `quote_uploaded` name.
-const QUOTE_EVENTS = new Set(["quote_validation_passed", "quote_upload_completed", "quote_uploaded"]);
+const QUOTE_EVENTS = new Set([
+  "quote_validation_passed",
+  "quote_upload_completed",
+  "quote_uploaded",
+]);
 
 function sanitizeEventIdSegment(value: unknown): string {
   if (value === null || value === undefined) {
@@ -57,7 +78,10 @@ function sanitizeEventIdSegment(value: unknown): string {
     .replace(/^-+|-+$/g, "") || "unknown";
 }
 
-function getInputStringValue(input: CreateCanonicalEventInput, key: string): string | null {
+function getInputStringValue(
+  input: CreateCanonicalEventInput,
+  key: string,
+): string | null {
   const value = (input as unknown as Record<string, unknown>)[key];
   if (typeof value !== "string") {
     return null;
@@ -67,8 +91,16 @@ function getInputStringValue(input: CreateCanonicalEventInput, key: string): str
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function getDefaultEventTimestampBucket(input: CreateCanonicalEventInput, now: Date): string {
-  const timestampKeys = ["eventTimestamp", "occurredAt", "timestamp", "createdAt"];
+function getDefaultEventTimestampBucket(
+  input: CreateCanonicalEventInput,
+  now: Date,
+): string {
+  const timestampKeys = [
+    "eventTimestamp",
+    "occurredAt",
+    "timestamp",
+    "createdAt",
+  ];
 
   for (const key of timestampKeys) {
     const rawValue = getInputStringValue(input, key);
@@ -86,7 +118,9 @@ function getDefaultEventTimestampBucket(input: CreateCanonicalEventInput, now: D
 }
 
 function defaultCreateId(input: CreateCanonicalEventInput, now: Date): string {
-  const eventName = sanitizeEventIdSegment((input as unknown as Record<string, unknown>).eventName);
+  const eventName = sanitizeEventIdSegment(
+    (input as unknown as Record<string, unknown>).eventName,
+  );
   const entityKeys = ["leadId", "scanSessionId", "analysisId"];
   const entitySegments = entityKeys
     .map((key) => {
@@ -94,8 +128,12 @@ function defaultCreateId(input: CreateCanonicalEventInput, now: Date): string {
       return value ? `${key}-${sanitizeEventIdSegment(value)}` : null;
     })
     .filter((value): value is string => value !== null);
-  const entityPart = entitySegments.length > 0 ? entitySegments.join("__") : "no-entity";
-  const bucket = sanitizeEventIdSegment(getDefaultEventTimestampBucket(input, now));
+  const entityPart = entitySegments.length > 0
+    ? entitySegments.join("__")
+    : "no-entity";
+  const bucket = sanitizeEventIdSegment(
+    getDefaultEventTimestampBucket(input, now),
+  );
 
   return `wmc_${eventName}_${entityPart}_${bucket}`;
 }
@@ -109,10 +147,13 @@ export async function createCanonicalEvent(
   deps: CreateCanonicalEventDeps,
 ): Promise<CreateCanonicalEventResult> {
   const now = deps.now?.() ?? new Date();
-  const eventId = input.eventId ?? deps.createId?.() ?? defaultCreateId(input, now);
+  const eventId = input.eventId ?? deps.createId?.() ??
+    defaultCreateId(input, now);
   const eventTimestamp = input.eventTimestamp ?? now.toISOString();
 
-  const normalizedIdentity = await normalizeAndHashIdentity(input.payload.identity);
+  const normalizedIdentity = await normalizeAndHashIdentity(
+    input.payload.identity,
+  );
   const identityQuality = computeIdentityQuality(normalizedIdentity);
 
   const basePayload = {
@@ -158,9 +199,14 @@ export async function createCanonicalEvent(
   const trustScore = analytics?.trustScore ?? 0;
   const anomalyStatus = analytics?.anomalyStatus ?? "safe";
   const isQuoteEvent = QUOTE_EVENTS.has(input.eventName);
-  const quoteSafe = !isQuoteEvent || (analytics ? (anomalyStatus === "safe" && trustScore >= WM_QUOTE_TRUST_MIN_FOR_DISPATCH) : true);
+  const quoteSafe = !isQuoteEvent ||
+    (analytics
+      ? (anomalyStatus === "safe" &&
+        trustScore >= WM_QUOTE_TRUST_MIN_FOR_DISPATCH)
+      : true);
 
-  const shouldSendMeta = identityQuality !== "low" && identityQuality !== "unknown" && quoteSafe;
+  const shouldSendMeta = identityQuality !== "low" &&
+    identityQuality !== "unknown" && quoteSafe;
   const shouldSendGoogle = quoteSafe;
 
   const optimization = buildOptimizationPayload({
@@ -171,7 +217,9 @@ export async function createCanonicalEvent(
     manualReviewRequired: anomalyStatus !== "safe",
   });
 
-  const dispatchStatus = resolveDispatchStatus(shouldSendMeta || shouldSendGoogle);
+  const dispatchStatus = resolveDispatchStatus(
+    shouldSendMeta || shouldSendGoogle,
+  );
 
   const canonicalEvent: WMCanonicalEvent = {
     eventId,
@@ -192,36 +240,52 @@ export async function createCanonicalEvent(
     rawPayload: input.rawPayload,
   };
 
-  const analysisId = input.analysisId ?? input.payload.quote?.analysisId ?? null;
+  const analysisId = input.analysisId ?? input.payload.quote?.analysisId ??
+    null;
   const wmEventInsert = {
     event_id: canonicalEvent.eventId,
     event_name: canonicalEvent.eventName,
     event_timestamp: canonicalEvent.eventTimestamp,
     lead_id: input.leadId ?? normalizedIdentity.leadId ?? null,
     account_user_id: input.userId ?? normalizedIdentity.userId ?? null,
-    scan_session_id: input.scanSessionId ?? input.payload.journey.scanSessionId ?? null,
+    scan_session_id: input.scanSessionId ??
+      input.payload.journey.scanSessionId ?? null,
     analysis_id: analysisId,
-    quote_file_id: input.quoteFileId ?? input.payload.quote?.quoteFileId ?? null,
+    quote_file_id: input.quoteFileId ?? input.payload.quote?.quoteFileId ??
+      null,
     schema_version: canonicalEvent.schemaVersion,
     model_version: canonicalEvent.modelVersion ?? null,
     rubric_version: canonicalEvent.rubricVersion ?? null,
     trust_score: canonicalEvent.payload.analytics?.trustScore ?? null,
     anomaly_score: canonicalEvent.payload.analytics?.anomalyScore ?? null,
     anomaly_status: canonicalEvent.payload.analytics?.anomalyStatus ?? null,
-    manual_review_required: canonicalEvent.payload.optimization?.manualReviewRequired ?? false,
-    approved_for_index: canonicalEvent.payload.optimization?.approvedForIndex ?? false,
-    approved_for_ads: canonicalEvent.payload.optimization?.approvedForAds ?? false,
-    optimization_value_usd: canonicalEvent.payload.optimization?.valueUsd ?? null,
-    optimization_priority: canonicalEvent.payload.optimization?.priority ?? null,
+    manual_review_required:
+      canonicalEvent.payload.optimization?.manualReviewRequired ?? false,
+    approved_for_index: canonicalEvent.payload.optimization?.approvedForIndex ??
+      false,
+    approved_for_ads: canonicalEvent.payload.optimization?.approvedForAds ??
+      false,
+    optimization_value_usd: canonicalEvent.payload.optimization?.valueUsd ??
+      null,
+    optimization_priority: canonicalEvent.payload.optimization?.priority ??
+      null,
     dispatch_status: canonicalEvent.dispatchStatus,
     payload: canonicalEvent.payload as unknown as Record<string, unknown>,
     raw_payload: canonicalEvent.rawPayload ?? {},
   };
 
-  const eventInsertResult = await deps.db.from("wm_event_log").insert(wmEventInsert);
-  const shouldRecoverFromDuplicateInsert = isDuplicateEventIdInsertError(eventInsertResult.error);
+  const eventInsertResult = await deps.db.from("wm_event_log").insert(
+    wmEventInsert,
+  );
+  const shouldRecoverFromDuplicateInsert = isDuplicateEventIdInsertError(
+    eventInsertResult.error,
+  );
   if (eventInsertResult.error && !shouldRecoverFromDuplicateInsert) {
-    throw new Error(`wm_event_log insert failed: ${eventInsertResult.error.message ?? "unknown"}`);
+    throw new Error(
+      `wm_event_log insert failed: ${
+        eventInsertResult.error.message ?? "unknown"
+      }`,
+    );
   }
 
   let eventLogId: string | null = null;
@@ -231,13 +295,17 @@ export async function createCanonicalEvent(
     .eq("event_id", canonicalEvent.eventId)
     .maybeSingle();
   if (lookupResult.error) {
-    throw new Error(`wm_event_log lookup failed: ${lookupResult.error.message ?? "unknown"}`);
+    throw new Error(
+      `wm_event_log lookup failed: ${lookupResult.error.message ?? "unknown"}`,
+    );
   }
   if (lookupResult.data && typeof lookupResult.data.id === "string") {
     eventLogId = lookupResult.data.id;
   }
   if (shouldRecoverFromDuplicateInsert && !eventLogId) {
-    throw new Error(`wm_event_log duplicate insert recovery failed for event_id ${canonicalEvent.eventId}`);
+    throw new Error(
+      `wm_event_log duplicate insert recovery failed for event_id ${canonicalEvent.eventId}`,
+    );
   }
 
   if (analysisId && canonicalEvent.payload.quote) {
@@ -250,26 +318,40 @@ export async function createCanonicalEvent(
         document_type: canonicalEvent.payload.quote.documentType ?? null,
         is_quote_document: canonicalEvent.payload.quote.isQuoteDocument,
         ocr_confidence: canonicalEvent.payload.analytics?.ocrConfidence ?? null,
-        completeness_score: canonicalEvent.payload.analytics?.completeness ?? null,
-        math_consistency_score: canonicalEvent.payload.analytics?.mathConsistency ?? null,
+        completeness_score: canonicalEvent.payload.analytics?.completeness ??
+          null,
+        math_consistency_score:
+          canonicalEvent.payload.analytics?.mathConsistency ?? null,
         cohort_fit_score: canonicalEvent.payload.analytics?.cohortFit ?? null,
-        scope_consistency_score: canonicalEvent.payload.analytics?.scopeConsistency ?? null,
-        document_validity_score: canonicalEvent.payload.analytics?.documentValidity ?? null,
-        identity_strength_score: canonicalEvent.payload.analytics?.identityStrength ?? null,
+        scope_consistency_score:
+          canonicalEvent.payload.analytics?.scopeConsistency ?? null,
+        document_validity_score:
+          canonicalEvent.payload.analytics?.documentValidity ?? null,
+        identity_strength_score:
+          canonicalEvent.payload.analytics?.identityStrength ?? null,
         trust_score: canonicalEvent.payload.analytics?.trustScore ?? 0,
         anomaly_score: canonicalEvent.payload.analytics?.anomalyScore ?? 0,
-        anomaly_status: canonicalEvent.payload.analytics?.anomalyStatus ?? "safe",
-        duplicate_suspected: canonicalEvent.payload.quote.duplicateSuspected ?? false,
-        impossible_values_detected: canonicalEvent.payload.quote.impossibleValuesDetected ?? false,
-        manual_review_required: canonicalEvent.payload.optimization?.manualReviewRequired ?? false,
-        approved_for_index: canonicalEvent.payload.optimization?.approvedForIndex ?? false,
-        approved_for_ads: canonicalEvent.payload.optimization?.approvedForAds ?? false,
+        anomaly_status: canonicalEvent.payload.analytics?.anomalyStatus ??
+          "safe",
+        duplicate_suspected: canonicalEvent.payload.quote.duplicateSuspected ??
+          false,
+        impossible_values_detected:
+          canonicalEvent.payload.quote.impossibleValuesDetected ?? false,
+        manual_review_required:
+          canonicalEvent.payload.optimization?.manualReviewRequired ?? false,
+        approved_for_index:
+          canonicalEvent.payload.optimization?.approvedForIndex ?? false,
+        approved_for_ads: canonicalEvent.payload.optimization?.approvedForAds ??
+          false,
         reasons: canonicalEvent.payload.analytics?.reasons ?? [],
         opening_count: canonicalEvent.payload.quote.openingCount ?? null,
         quote_amount: canonicalEvent.payload.quote.quoteAmount ?? null,
         price_per_opening: canonicalEvent.payload.quote.pricePerOpening ?? null,
         deposit_percent: canonicalEvent.payload.quote.depositPercent ?? null,
-        normalized_facts: canonicalEvent.payload.quote as unknown as Record<string, unknown>,
+        normalized_facts: canonicalEvent.payload.quote as unknown as Record<
+          string,
+          unknown
+        >,
         trust_inputs: {
           identity_quality: canonicalEvent.identityQuality,
         },
@@ -278,7 +360,11 @@ export async function createCanonicalEvent(
     );
 
     if (quoteUpsert.error) {
-      throw new Error(`wm_quote_facts upsert failed: ${quoteUpsert.error.message ?? "unknown"}`);
+      throw new Error(
+        `wm_quote_facts upsert failed: ${
+          quoteUpsert.error.message ?? "unknown"
+        }`,
+      );
     }
   }
 
@@ -298,7 +384,11 @@ export async function createCanonicalEvent(
         .from("wm_platform_dispatch_log")
         .upsert(rows, { onConflict: "event_log_id,platform_name" });
       if (dispatchInsert.error) {
-        throw new Error(`wm_platform_dispatch_log upsert failed: ${dispatchInsert.error.message ?? "unknown"}`);
+        throw new Error(
+          `wm_platform_dispatch_log upsert failed: ${
+            dispatchInsert.error.message ?? "unknown"
+          }`,
+        );
       }
     }
   }

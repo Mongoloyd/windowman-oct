@@ -7,7 +7,10 @@
  * Required secrets: PHONECALL_BOT_WEBHOOK_URL (optional — gracefully skips if not set)
  */
 
-import { corsHeaders, validateAdminRequestWithRole } from "../_shared/adminAuth.ts";
+import {
+  corsHeaders,
+  validateAdminRequestWithRole,
+} from "../_shared/adminAuth.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -16,7 +19,10 @@ Deno.serve(async (req) => {
 
   try {
     // Require operator or super_admin role
-    const validation = await validateAdminRequestWithRole(req, ["super_admin", "operator"]);
+    const validation = await validateAdminRequestWithRole(req, [
+      "super_admin",
+      "operator",
+    ]);
     if (!validation.ok) return validation.response;
 
     const { supabaseAdmin: supabase } = validation;
@@ -31,11 +37,15 @@ Deno.serve(async (req) => {
 
     if (!scan_session_id || !phone_e164 || !call_intent) {
       return new Response(
-        JSON.stringify({ error: "scan_session_id, phone_e164, and call_intent required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({
+          error: "scan_session_id, phone_e164, and call_intent required",
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
-
 
     const now = new Date().toISOString();
 
@@ -49,7 +59,10 @@ Deno.serve(async (req) => {
     if (!session?.lead_id) {
       return new Response(
         JSON.stringify({ error: "Session not linked to a lead" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -69,14 +82,18 @@ Deno.serve(async (req) => {
     // Get opportunity for suggested match info
     const { data: opp } = await supabase
       .from("contractor_opportunities")
-      .select("id, suggested_contractor_id, suggested_match_confidence, flag_count, red_flag_count")
+      .select(
+        "id, suggested_contractor_id, suggested_match_confidence, flag_count, red_flag_count",
+      )
       .eq("scan_session_id", scan_session_id)
       .maybeSingle();
 
     const flags = Array.isArray(analysis?.flags) ? analysis.flags : [];
     const majorFlags = flags
+      // deno-lint-ignore no-explicit-any
       .filter((f: any) => f.severity === "Critical" || f.severity === "High")
       .slice(0, 5)
+      // deno-lint-ignore no-explicit-any
       .map((f: any) => f.title || f.name || "Unknown");
 
     // ── 2. Build webhook payload (phonecall.bot format) ─────────────────
@@ -140,7 +157,9 @@ Deno.serve(async (req) => {
           console.log("[voice-followup] webhook sent successfully");
         } else {
           webhookStatus = "failed";
-          webhookError = `HTTP ${resp.status}: ${await resp.text().catch(() => "unknown")}`;
+          webhookError = `HTTP ${resp.status}: ${await resp.text().catch(() =>
+            "unknown"
+          )}`;
           console.error("[voice-followup] webhook failed", webhookError);
         }
       } catch (err) {
@@ -160,7 +179,9 @@ Deno.serve(async (req) => {
           .eq("id", oppId);
       }
     } else {
-      console.log("[voice-followup] PHONECALL_BOT_WEBHOOK_URL not set — skipping webhook fire");
+      console.log(
+        "[voice-followup] PHONECALL_BOT_WEBHOOK_URL not set — skipping webhook fire",
+      );
       webhookStatus = "queued"; // stays queued for manual processing
     }
 
@@ -189,13 +210,19 @@ Deno.serve(async (req) => {
         webhook_status: webhookStatus,
         opportunity_id: oppId,
       }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
   } catch (err) {
     console.error("[voice-followup] unhandled error:", err);
     return new Response(
       JSON.stringify({ error: "Internal server error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
   }
 });

@@ -1,3 +1,4 @@
+// deno-lint-ignore no-import-prefix
 import { z } from "https://esm.sh/zod@3.23.8";
 import {
   corsHeaders,
@@ -210,6 +211,7 @@ function errorFor(
 }
 
 async function nextAttemptNumber(
+  // deno-lint-ignore no-explicit-any
   supabaseAdmin: any,
   outboxId: string,
 ): Promise<number | null> {
@@ -227,6 +229,7 @@ async function nextAttemptNumber(
 }
 
 async function simulateOne(
+  // deno-lint-ignore no-explicit-any
   supabaseAdmin: any,
   outboxId: string,
   write: boolean,

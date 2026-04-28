@@ -8,6 +8,7 @@
  *   - checkout.session.expired   → mark expired
  */
 
+// deno-lint-ignore no-import-prefix
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 /* ── CORS (minimal — webhooks don't need browser CORS, but kept for consistency) */
@@ -104,7 +105,11 @@ Deno.serve(async (req) => {
 
   const rawBody = await req.text();
 
-  const isValid = await verifyStripeSignature(rawBody, sigHeader, webhookSecret);
+  const isValid = await verifyStripeSignature(
+    rawBody,
+    sigHeader,
+    webhookSecret,
+  );
   if (!isValid) {
     console.warn("[stripe-webhook] Invalid signature — rejecting");
     return json({ error: "Invalid signature" }, 401);
@@ -159,7 +164,10 @@ Deno.serve(async (req) => {
       .in("status", ["pending", "paid"]); // idempotent — skip if already fulfilled
 
     if (updateErr) {
-      console.error("[stripe-webhook] Failed to update purchase to paid:", updateErr);
+      console.error(
+        "[stripe-webhook] Failed to update purchase to paid:",
+        updateErr,
+      );
       return json({ error: "Failed to update purchase" }, 500);
     }
 
@@ -183,7 +191,10 @@ Deno.serve(async (req) => {
     );
 
     if (!fulfillResult.success) {
-      console.error("[stripe-webhook] Fulfillment returned failure:", fulfillResult);
+      console.error(
+        "[stripe-webhook] Fulfillment returned failure:",
+        fulfillResult,
+      );
       // Return 200 to prevent Stripe retry if it's a data issue, not transient
       if (fulfillResult.error_code === "purchase_not_found") {
         return json({ received: true, action: "purchase_not_found" });
@@ -193,7 +204,9 @@ Deno.serve(async (req) => {
 
     return json({
       received: true,
-      action: fulfillResult.already_fulfilled ? "already_fulfilled" : "fulfilled",
+      action: fulfillResult.already_fulfilled
+        ? "already_fulfilled"
+        : "fulfilled",
       credits: fulfillResult.credits,
       new_balance: fulfillResult.new_balance,
     });

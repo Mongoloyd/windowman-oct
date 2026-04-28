@@ -12,11 +12,13 @@
  *    drift is caught at parse time rather than mid-pipeline
  */
 
+// deno-lint-ignore no-import-prefix
 import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
 
 // UUID v4-ish pattern (8-4-4-4-12). We do not enforce v4 specifically because
 // scan_sessions ids are gen_random_uuid() and could be any RFC4122 variant.
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const ScanQuoteRequestSchema = z.object({
   scan_session_id: z
@@ -44,7 +46,9 @@ export const ScanQuoteRequestSchema = z.object({
     .preprocess((value) => {
       if (typeof value !== "string") return crypto.randomUUID();
       const trimmed = value.trim();
-      if (trimmed.length === 0 || trimmed.length > 128) return crypto.randomUUID();
+      if (trimmed.length === 0 || trimmed.length > 128) {
+        return crypto.randomUUID();
+      }
       return trimmed;
     }, z.string().min(1).max(128))
     .optional()
@@ -78,7 +82,9 @@ export interface ParseScanRequestError {
  * Parse + validate a raw request body. Always returns a discriminated union
  * so the handler can reject in one branch without throwing.
  */
-export function parseScanQuoteRequest(raw: unknown): ParsedScanRequest | ParseScanRequestError {
+export function parseScanQuoteRequest(
+  raw: unknown,
+): ParsedScanRequest | ParseScanRequestError {
   const result = ScanQuoteRequestSchema.safeParse(raw);
   if (result.success) {
     return { ok: true, value: result.data };

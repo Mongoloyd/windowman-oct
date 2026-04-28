@@ -1,14 +1,17 @@
 import { WM_TRUST_THRESHOLDS, WM_TRUST_WEIGHTS } from "./constants.ts";
 import { evaluateAnomaly } from "./anomaly.ts";
-import type { WMAnomalyStatus, WMTrustScoreInput, WMTrustScoreResult } from "./types.ts";
+import type {
+  WMAnomalyStatus,
+  WMTrustScoreInput,
+  WMTrustScoreResult,
+} from "./types.ts";
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
 }
 
 function weightedTrustScore(input: WMTrustScoreInput): number {
-  const rawScore =
-    input.ocrConfidence * WM_TRUST_WEIGHTS.ocrConfidence +
+  const rawScore = input.ocrConfidence * WM_TRUST_WEIGHTS.ocrConfidence +
     input.completeness * WM_TRUST_WEIGHTS.completeness +
     input.mathConsistency * WM_TRUST_WEIGHTS.mathConsistency +
     input.cohortFit * WM_TRUST_WEIGHTS.cohortFit +
@@ -19,19 +22,34 @@ function weightedTrustScore(input: WMTrustScoreInput): number {
   return clamp01(rawScore);
 }
 
-function routeAnomalyStatus(trustScore: number, anomalyScore: number): WMAnomalyStatus {
+function routeAnomalyStatus(
+  trustScore: number,
+  anomalyScore: number,
+): WMAnomalyStatus {
   if (anomalyScore >= 0.95) return "reject";
-  if (anomalyScore >= 0.75 || trustScore < WM_TRUST_THRESHOLDS.quarantine) return "quarantine";
-  if (anomalyScore >= 0.4 || trustScore < WM_TRUST_THRESHOLDS.review) return "review";
-  if (trustScore >= WM_TRUST_THRESHOLDS.safe && anomalyScore < 0.25) return "safe";
+  if (anomalyScore >= 0.75 || trustScore < WM_TRUST_THRESHOLDS.quarantine) {
+    return "quarantine";
+  }
+  if (anomalyScore >= 0.4 || trustScore < WM_TRUST_THRESHOLDS.review) {
+    return "review";
+  }
+  if (trustScore >= WM_TRUST_THRESHOLDS.safe && anomalyScore < 0.25) {
+    return "safe";
+  }
   return "review";
 }
 
-export function evaluateQuoteTrust(input: WMTrustScoreInput): WMTrustScoreResult {
+export function evaluateQuoteTrust(
+  input: WMTrustScoreInput,
+): WMTrustScoreResult {
   const reasons: string[] = [];
   let trustScore = weightedTrustScore(input);
 
-  if (!input.isQuoteDocument || /\b(?:invoice|receipt|brochure|ad|advert|advertisement|advertising)\b/i.test(input.documentType ?? "")) {
+  if (
+    !input.isQuoteDocument ||
+    /\b(?:invoice|receipt|brochure|ad|advert|advertisement|advertising)\b/i
+      .test(input.documentType ?? "")
+  ) {
     reasons.push("document_not_quote");
     return {
       trustScore: 0,
@@ -76,7 +94,9 @@ export function evaluateQuoteTrust(input: WMTrustScoreInput): WMTrustScoreResult
 
   reasons.push(...anomaly.reasons);
 
-  const anomalyScore = clamp01(anomaly.anomalyScoreContribution + (1 - trustScore) * 0.35);
+  const anomalyScore = clamp01(
+    anomaly.anomalyScoreContribution + (1 - trustScore) * 0.35,
+  );
   const anomalyStatus = routeAnomalyStatus(trustScore, anomalyScore);
 
   const manualReviewRequired = anomalyStatus !== "safe";

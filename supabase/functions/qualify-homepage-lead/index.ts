@@ -1,3 +1,4 @@
+// deno-lint-ignore no-import-prefix
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { normalizePhone } from "../_shared/normalizePhone.ts";
 import { persistCanonicalEvent } from "../_shared/tracking/canonicalBridge.ts";
@@ -59,13 +60,15 @@ function normalizePayload(input: unknown): LeadQualificationRequest | null {
 
   const body = input as Record<string, unknown>;
   const name = typeof body.name === "string" ? body.name.trim() : "";
-  const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+  const email = typeof body.email === "string"
+    ? body.email.trim().toLowerCase()
+    : "";
   const phone = typeof body.phone === "string" ? body.phone.trim() : "";
   const source = typeof body.source === "string" ? body.source.trim() : "";
-  const context =
-    body.context && typeof body.context === "object" && !Array.isArray(body.context)
-      ? (body.context as Record<string, unknown>)
-      : undefined;
+  const context = body.context && typeof body.context === "object" &&
+      !Array.isArray(body.context)
+    ? (body.context as Record<string, unknown>)
+    : undefined;
 
   if (!name || !email || !phone || !source) return null;
 
@@ -97,7 +100,10 @@ async function runTwilioLookup(phoneE164: string): Promise<LookupOutcome> {
   try {
     const encodedPhone = encodeURIComponent(phoneE164);
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort("twilio_lookup_timeout"), 8000);
+    const timeout = setTimeout(
+      () => controller.abort("twilio_lookup_timeout"),
+      8000,
+    );
 
     const res = await fetch(
       `https://lookups.twilio.com/v2/PhoneNumbers/${encodedPhone}?Fields=line_type_intelligence,sms_pumping_risk`,
@@ -112,7 +118,10 @@ async function runTwilioLookup(phoneE164: string): Promise<LookupOutcome> {
 
     if (!res.ok) {
       const body = await res.text();
-      console.error("[qualify-homepage-lead] Twilio Lookup failed", { status: res.status, body });
+      console.error("[qualify-homepage-lead] Twilio Lookup failed", {
+        status: res.status,
+        body,
+      });
       return {
         checked: true,
         valid: false,
@@ -125,7 +134,8 @@ async function runTwilioLookup(phoneE164: string): Promise<LookupOutcome> {
 
     const lookupData = await res.json();
     const lineType = lookupData?.line_type_intelligence?.type ?? null;
-    const carrierName = lookupData?.line_type_intelligence?.carrier_name ?? null;
+    const carrierName = lookupData?.line_type_intelligence?.carrier_name ??
+      null;
     const riskTier = lookupData?.sms_pumping_risk?.risk_level ?? null;
 
     if (!isMobileLineType(lineType)) {
@@ -186,7 +196,9 @@ Deno.serve(async (req) => {
 
     const phoneE164 = normalizePhone(payload.phone);
     if (!/^\+1\d{10}$/.test(phoneE164)) {
-      return badRequest("Invalid US phone number. Expected format: +1XXXXXXXXXX");
+      return badRequest(
+        "Invalid US phone number. Expected format: +1XXXXXXXXXX",
+      );
     }
 
     const lookup = await runTwilioLookup(phoneE164);
@@ -196,8 +208,8 @@ Deno.serve(async (req) => {
     const qualificationStatus = qualified
       ? "homepage_qualified_mobile"
       : lookup.checked
-        ? "homepage_disqualified_phone"
-        : "homepage_lookup_failed";
+      ? "homepage_disqualified_phone"
+      : "homepage_lookup_failed";
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -216,11 +228,15 @@ Deno.serve(async (req) => {
       .limit(5);
 
     if (leadQueryError) {
-      console.error("[qualify-homepage-lead] lead lookup failed", leadQueryError);
+      console.error(
+        "[qualify-homepage-lead] lead lookup failed",
+        leadQueryError,
+      );
     }
 
-    const prioritizedLead =
-      existingLeadRows?.find((row) => row.phone_e164 === phoneE164) ??
+    const prioritizedLead = existingLeadRows?.find((row) =>
+      row.phone_e164 === phoneE164
+    ) ??
       existingLeadRows?.find((row) => row.email === payload.email) ??
       null;
 
@@ -261,7 +277,10 @@ Deno.serve(async (req) => {
         .eq("id", leadId);
 
       if (updateError) {
-        console.error("[qualify-homepage-lead] failed to update lead", updateError);
+        console.error(
+          "[qualify-homepage-lead] failed to update lead",
+          updateError,
+        );
         throw new Error("Failed to persist lead qualification state.");
       }
     } else {
@@ -275,7 +294,10 @@ Deno.serve(async (req) => {
         .single();
 
       if (insertError) {
-        console.error("[qualify-homepage-lead] failed to insert lead", insertError);
+        console.error(
+          "[qualify-homepage-lead] failed to insert lead",
+          insertError,
+        );
         throw new Error("Failed to create lead qualification state.");
       }
 
@@ -302,21 +324,39 @@ Deno.serve(async (req) => {
               leadId,
               email: payload.email,
               phone: phoneE164,
-              clickId: typeof payload.context?.gclid === "string" ? payload.context.gclid : undefined,
-              gclid: typeof payload.context?.gclid === "string" ? payload.context.gclid : undefined,
-              fbc: typeof payload.context?.fbc === "string" ? payload.context.fbc : undefined,
-              fbp: typeof payload.context?.fbp === "string" ? payload.context.fbp : undefined,
+              clickId: typeof payload.context?.gclid === "string"
+                ? payload.context.gclid
+                : undefined,
+              gclid: typeof payload.context?.gclid === "string"
+                ? payload.context.gclid
+                : undefined,
+              fbc: typeof payload.context?.fbc === "string"
+                ? payload.context.fbc
+                : undefined,
+              fbp: typeof payload.context?.fbp === "string"
+                ? payload.context.fbp
+                : undefined,
             },
             journey: {
-              route: typeof payload.context?.route === "string" ? payload.context.route : "/",
+              route: typeof payload.context?.route === "string"
+                ? payload.context.route
+                : "/",
               flow: "public",
-              sessionId: typeof payload.context?.session_id === "string" ? payload.context.session_id : undefined,
+              sessionId: typeof payload.context?.session_id === "string"
+                ? payload.context.session_id
+                : undefined,
             },
             source: {
               sourceSystem: "edge_function",
-              utmSource: typeof payload.context?.utm_source === "string" ? payload.context.utm_source : undefined,
-              utmMedium: typeof payload.context?.utm_medium === "string" ? payload.context.utm_medium : undefined,
-              utmCampaign: typeof payload.context?.utm_campaign === "string" ? payload.context.utm_campaign : undefined,
+              utmSource: typeof payload.context?.utm_source === "string"
+                ? payload.context.utm_source
+                : undefined,
+              utmMedium: typeof payload.context?.utm_medium === "string"
+                ? payload.context.utm_medium
+                : undefined,
+              utmCampaign: typeof payload.context?.utm_campaign === "string"
+                ? payload.context.utm_campaign
+                : undefined,
             },
             metadata: {
               qualification_status: qualificationStatus,
@@ -325,7 +365,10 @@ Deno.serve(async (req) => {
           },
         });
       } catch (canonicalError) {
-        console.error("[qualify-homepage-lead] canonical event failed", canonicalError);
+        console.error(
+          "[qualify-homepage-lead] canonical event failed",
+          canonicalError,
+        );
       }
     }
 

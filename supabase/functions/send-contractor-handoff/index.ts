@@ -7,6 +7,7 @@
  * Required secrets: RESEND_API_KEY, CONTRACTOR_EMAIL, CONTRACTOR_NAME
  */
 
+// deno-lint-ignore no-import-prefix
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { validateAdminRequestWithRole } from "../_shared/adminAuth.ts";
 
@@ -36,7 +37,10 @@ Deno.serve(async (req) => {
 
   try {
     // ── Auth ──
-    const authResult = await validateAdminRequestWithRole(req, ["super_admin", "operator"]);
+    const authResult = await validateAdminRequestWithRole(req, [
+      "super_admin",
+      "operator",
+    ]);
     if (authResult instanceof Response) return authResult;
 
     const body = await req.json();
@@ -48,7 +52,7 @@ Deno.serve(async (req) => {
 
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
     // ── Step 1: Fetch lead ──
@@ -68,11 +72,15 @@ Deno.serve(async (req) => {
     }
 
     if (!lead.latest_scan_session_id || !lead.latest_analysis_id) {
-      return json({ success: false, error: "Lead missing scan session or analysis data" }, 400);
+      return json({
+        success: false,
+        error: "Lead missing scan session or analysis data",
+      }, 400);
     }
 
     const homeownerName =
-      [lead.first_name, lead.last_name].filter(Boolean).join(" ") || "Homeowner";
+      [lead.first_name, lead.last_name].filter(Boolean).join(" ") ||
+      "Homeowner";
 
     // ── Step 2: Fetch analysis ──
     const { data: analysis } = await supabaseAdmin
@@ -82,8 +90,19 @@ Deno.serve(async (req) => {
       .single();
 
     const fullJson = analysis?.full_json as Record<string, unknown> | null;
-    const pillarScores = (fullJson?.pillar_scores as Record<string, { grade?: string; score?: number; summary?: string }> | null) ?? null;
-    const allFlags = (fullJson?.flags as Array<{ severity: string; description?: string; flag?: string; detail?: string }> | null) ?? [];
+    const pillarScores = (fullJson?.pillar_scores as
+      | Record<string, { grade?: string; score?: number; summary?: string }>
+      | null) ?? null;
+    const allFlags = (fullJson?.flags as
+      | Array<
+        {
+          severity: string;
+          description?: string;
+          flag?: string;
+          detail?: string;
+        }
+      >
+      | null) ?? [];
     const topFlags = allFlags
       .filter((f) => f.severity === "High" || f.severity === "Critical")
       .slice(0, 3);
@@ -124,7 +143,10 @@ Deno.serve(async (req) => {
           .single();
 
         if (insertError || !newOpp) {
-          console.error("[send-contractor-handoff] DB insert failed:", insertError);
+          console.error(
+            "[send-contractor-handoff] DB insert failed:",
+            insertError,
+          );
           dbSuccess = false;
           opportunityId = "";
         } else {
@@ -155,16 +177,20 @@ Deno.serve(async (req) => {
     const contractorName = Deno.env.get("CONTRACTOR_NAME") || "Contractor";
 
     if (!resendKey || !contractorEmail) {
-      console.warn("[send-contractor-handoff] Email config missing — skipping send");
+      console.warn(
+        "[send-contractor-handoff] Email config missing — skipping send",
+      );
       return json({
         success: true,
         opportunity_id: opportunityId,
-        warning: "Record created but email not configured — add RESEND_API_KEY and CONTRACTOR_EMAIL secrets",
+        warning:
+          "Record created but email not configured — add RESEND_API_KEY and CONTRACTOR_EMAIL secrets",
       });
     }
 
     const gColor = gradeColorHex(lead.grade || "F");
-    const location = [lead.city, lead.zip].filter(Boolean).join(", ") || "Florida";
+    const location = [lead.city, lead.zip].filter(Boolean).join(", ") ||
+      "Florida";
 
     // Pillar rows
     const pillarConfig = [
@@ -184,11 +210,24 @@ Deno.serve(async (req) => {
         const val = pillarScores[key];
         if (!val) continue;
         seen.add(label);
-        const grade = val.grade || (val.score != null ? (val.score >= 80 ? "A" : val.score >= 65 ? "B" : val.score >= 50 ? "C" : val.score >= 35 ? "D" : "F") : "—");
+        const grade = val.grade ||
+          (val.score != null
+            ? (val.score >= 80
+              ? "A"
+              : val.score >= 65
+              ? "B"
+              : val.score >= 50
+              ? "C"
+              : val.score >= 35
+              ? "D"
+              : "F")
+            : "—");
         const summary = val.summary || "";
         pillarRowsHtml += `<tr>
           <td style="padding:8px 12px;font-size:14px;color:#C8DEFF;border-bottom:1px solid #1E293B;">${label}</td>
-          <td style="padding:8px 12px;font-size:14px;font-weight:700;color:${gradeColorHex(grade)};text-align:center;border-bottom:1px solid #1E293B;">${grade}</td>
+          <td style="padding:8px 12px;font-size:14px;font-weight:700;color:${
+          gradeColorHex(grade)
+        };text-align:center;border-bottom:1px solid #1E293B;">${grade}</td>
           <td style="padding:8px 12px;font-size:12px;color:#94A3B8;border-bottom:1px solid #1E293B;">${summary}</td>
         </tr>`;
       }
@@ -198,10 +237,15 @@ Deno.serve(async (req) => {
     let flagsHtml = "";
     if (topFlags.length > 0) {
       flagsHtml = topFlags
-        .map((f) => `<div style="padding:6px 0;font-size:14px;color:#FCA5A5;">🚩 ${f.flag || f.description || "Issue detected"}</div>`)
+        .map((f) =>
+          `<div style="padding:6px 0;font-size:14px;color:#FCA5A5;">🚩 ${
+            f.flag || f.description || "Issue detected"
+          }</div>`
+        )
         .join("");
     } else {
-      flagsHtml = `<div style="padding:6px 0;font-size:14px;color:#6EE7B7;">✓ No critical flags detected</div>`;
+      flagsHtml =
+        `<div style="padding:6px 0;font-size:14px;color:#6EE7B7;">✓ No critical flags detected</div>`;
     }
 
     const subject = `WindowMan Verified Lead — ${homeownerName}, ${location}`;
@@ -230,17 +274,25 @@ Deno.serve(async (req) => {
 <!-- Grade Section -->
 <tr><td style="padding:16px 32px;text-align:center;">
   <div style="font-size:11px;letter-spacing:0.1em;color:#64748B;text-transform:uppercase;margin-bottom:12px;">OVERALL GRADE</div>
-  <div style="display:inline-block;width:72px;height:72px;line-height:72px;font-size:42px;font-weight:900;color:${gColor};background:${gColor}15;border:2px solid ${gColor}40;text-align:center;">${lead.grade || "?"}</div>
-  <div style="font-size:14px;color:#94A3B8;margin-top:12px;">${lead.flag_count ?? 0} flagged issue${(lead.flag_count ?? 0) !== 1 ? "s" : ""}</div>
+  <div style="display:inline-block;width:72px;height:72px;line-height:72px;font-size:42px;font-weight:900;color:${gColor};background:${gColor}15;border:2px solid ${gColor}40;text-align:center;">${
+      lead.grade || "?"
+    }</div>
+  <div style="font-size:14px;color:#94A3B8;margin-top:12px;">${
+      lead.flag_count ?? 0
+    } flagged issue${(lead.flag_count ?? 0) !== 1 ? "s" : ""}</div>
 </td></tr>
 
 <!-- Pillar Summary -->
-${pillarRowsHtml ? `<tr><td style="padding:0 32px 20px;">
+${
+      pillarRowsHtml
+        ? `<tr><td style="padding:0 32px 20px;">
   <div style="font-size:10px;letter-spacing:0.1em;color:#64748B;text-transform:uppercase;margin-bottom:8px;">PILLAR BREAKDOWN</div>
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0A0E14;border:1px solid #1E293B;">
     ${pillarRowsHtml}
   </table>
-</td></tr>` : ""}
+</td></tr>`
+        : ""
+    }
 
 <!-- Red Flags -->
 <tr><td style="padding:0 32px 20px;">
@@ -320,9 +372,16 @@ ${pillarRowsHtml ? `<tr><td style="padding:0 32px 20px;">
     if (emailSuccess) {
       return json({ success: true, opportunity_id: opportunityId });
     }
-    return json({ success: true, opportunity_id: opportunityId, warning: emailWarning });
+    return json({
+      success: true,
+      opportunity_id: opportunityId,
+      warning: emailWarning,
+    });
   } catch (err) {
     console.error("[send-contractor-handoff] Unhandled error:", err);
-    return json({ success: false, error: err instanceof Error ? err.message : "Internal server error" }, 500);
+    return json({
+      success: false,
+      error: err instanceof Error ? err.message : "Internal server error",
+    }, 500);
   }
 });

@@ -71,12 +71,18 @@ export interface ScannerRuntimeConfig {
 export function getScannerRuntimeConfig(): ScannerRuntimeConfig {
   return {
     geminiModel: readNonEmptyString("GEMINI_SCAN_MODEL", DEFAULT_GEMINI_MODEL),
-    geminiTimeoutMs: readPositiveInt("GEMINI_SCAN_TIMEOUT_MS", DEFAULT_GEMINI_TIMEOUT_MS),
+    geminiTimeoutMs: readPositiveInt(
+      "GEMINI_SCAN_TIMEOUT_MS",
+      DEFAULT_GEMINI_TIMEOUT_MS,
+    ),
     staleProcessingMinutes: readPositiveInt(
       "SCAN_STALE_PROCESSING_MINUTES",
       DEFAULT_STALE_PROCESSING_MINUTES,
     ),
-    maxFileBytes: readPositiveInt("SCAN_MAX_FILE_BYTES", DEFAULT_MAX_FILE_BYTES),
+    maxFileBytes: readPositiveInt(
+      "SCAN_MAX_FILE_BYTES",
+      DEFAULT_MAX_FILE_BYTES,
+    ),
   };
 }
 

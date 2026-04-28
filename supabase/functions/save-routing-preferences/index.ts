@@ -1,3 +1,4 @@
+// deno-lint-ignore no-import-prefix
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -15,8 +16,14 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(
-        JSON.stringify({ error: "unauthorized", message: "Missing auth token" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({
+          error: "unauthorized",
+          message: "Missing auth token",
+        }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -33,7 +40,10 @@ Deno.serve(async (req) => {
     if (authErr || !userData?.user) {
       return new Response(
         JSON.stringify({ error: "unauthorized", message: "Invalid session" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -52,14 +62,26 @@ Deno.serve(async (req) => {
 
     if (!Array.isArray(service_counties) || service_counties.length === 0) {
       return new Response(
-        JSON.stringify({ error: "validation", message: "At least one service county is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({
+          error: "validation",
+          message: "At least one service county is required",
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
     if (!Array.isArray(project_types) || project_types.length === 0) {
       return new Response(
-        JSON.stringify({ error: "validation", message: "At least one project type is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({
+          error: "validation",
+          message: "At least one project type is required",
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -77,8 +99,14 @@ Deno.serve(async (req) => {
 
     if (!contractor) {
       return new Response(
-        JSON.stringify({ error: "not_found", message: "No contractor record linked to this account" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({
+          error: "not_found",
+          message: "No contractor record linked to this account",
+        }),
+        {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -89,10 +117,12 @@ Deno.serve(async (req) => {
         service_counties: service_counties,
         project_types: project_types,
         budget_bands: Array.isArray(budget_bands) ? budget_bands : [],
-        preferred_contact_method:
-          typeof preferred_contact_method === "string" ? preferred_contact_method : null,
-        schedule_notes:
-          typeof schedule_notes === "string" ? schedule_notes.slice(0, 500) : null,
+        preferred_contact_method: typeof preferred_contact_method === "string"
+          ? preferred_contact_method
+          : null,
+        schedule_notes: typeof schedule_notes === "string"
+          ? schedule_notes.slice(0, 500)
+          : null,
         max_leads_per_week:
           typeof max_leads_per_week === "number" && max_leads_per_week > 0
             ? max_leads_per_week
@@ -105,13 +135,19 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({ success: true, contractor_id: contractor.id }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
   } catch (err) {
     console.error("[save-routing-preferences] error:", err);
     return new Response(
       JSON.stringify({ error: "internal", message: String(err) }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
   }
 });

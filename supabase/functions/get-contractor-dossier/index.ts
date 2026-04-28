@@ -9,6 +9,7 @@
  * Auth: JWT required
  */
 
+// deno-lint-ignore no-import-prefix
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
@@ -79,7 +80,10 @@ Deno.serve(async (req) => {
     stage = "auth_header";
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
-      return json({ error: "unauthenticated", message: "Missing auth token." }, 401);
+      return json(
+        { error: "unauthenticated", message: "Missing auth token." },
+        401,
+      );
     }
 
     const anonClient = createClient(
@@ -93,7 +97,10 @@ Deno.serve(async (req) => {
       authHeader.replace("Bearer ", ""),
     );
     if (userErr || !userData?.user?.id) {
-      return json({ error: "unauthenticated", message: "Invalid auth token." }, 401);
+      return json(
+        { error: "unauthenticated", message: "Invalid auth token." },
+        401,
+      );
     }
     contractorId = userData.user.id;
 
@@ -115,7 +122,9 @@ Deno.serve(async (req) => {
     stage = "fetch_analysis";
     const { data: analysis, error: aErr } = await svc
       .from("analyses")
-      .select("id, grade, confidence_score, flags, full_json, proof_of_read, preview_json, document_type, rubric_version, created_at, lead_id")
+      .select(
+        "id, grade, confidence_score, flags, full_json, proof_of_read, preview_json, document_type, rubric_version, created_at, lead_id",
+      )
       .eq("id", routeId)
       .maybeSingle();
 
@@ -125,7 +134,10 @@ Deno.serve(async (req) => {
     }
 
     if (!analysis) {
-      return json({ error: "not_found", message: "Dossier not found for the given ID." }, 404);
+      return json({
+        error: "not_found",
+        message: "Dossier not found for the given ID.",
+      }, 404);
     }
 
     leadId = (analysis.lead_id as string | null) ?? null;
@@ -136,7 +148,9 @@ Deno.serve(async (req) => {
       stage = "fetch_lead";
       const { data: leadRow, error: leadErr } = await svc
         .from("leads")
-        .select("id, first_name, last_name, email, phone_e164, city, state, county, project_type, quote_range, window_count, grade, estimated_savings_low, estimated_savings_high")
+        .select(
+          "id, first_name, last_name, email, phone_e164, city, state, county, project_type, quote_range, window_count, grade, estimated_savings_low, estimated_savings_high",
+        )
         .eq("id", leadId)
         .maybeSingle();
       if (leadErr) {
@@ -187,13 +201,17 @@ Deno.serve(async (req) => {
     }
 
     const creditBalance = (creditRow?.balance as number) ?? 0;
-    const canUnlock = contractorStatus === "active" && creditBalance >= 1 && !!leadId;
+    const canUnlock = contractorStatus === "active" && creditBalance >= 1 &&
+      !!leadId;
 
     // ── Build extraction snapshot ─────────────────────────────────
     stage = "build_extraction";
     const fullJson = (analysis.full_json ?? {}) as Record<string, unknown>;
     const extraction = (fullJson.extraction ?? {}) as Record<string, unknown>;
-    const pillarScores = (fullJson.pillar_scores ?? {}) as Record<string, number>;
+    const pillarScores = (fullJson.pillar_scores ?? {}) as Record<
+      string,
+      number
+    >;
     const flags = Array.isArray(analysis.flags) ? analysis.flags : [];
 
     // ── Apply masking ─────────────────────────────────────────────
@@ -201,20 +219,26 @@ Deno.serve(async (req) => {
 
     const dossierLead = lead
       ? {
-          id: lead.id,
-          first_name: masked ? maskString(lead.first_name as string, 1) : lead.first_name,
-          last_name: masked ? maskString(lead.last_name as string, 1) : lead.last_name,
-          email: masked ? maskEmail(lead.email as string) : lead.email,
-          phone_e164: masked ? maskString(lead.phone_e164 as string, 4) : lead.phone_e164,
-          city: lead.city,
-          state: lead.state,
-          county: lead.county,
-          project_type: lead.project_type,
-          quote_range: lead.quote_range,
-          window_count: lead.window_count,
-          estimated_savings_low: lead.estimated_savings_low,
-          estimated_savings_high: lead.estimated_savings_high,
-        }
+        id: lead.id,
+        first_name: masked
+          ? maskString(lead.first_name as string, 1)
+          : lead.first_name,
+        last_name: masked
+          ? maskString(lead.last_name as string, 1)
+          : lead.last_name,
+        email: masked ? maskEmail(lead.email as string) : lead.email,
+        phone_e164: masked
+          ? maskString(lead.phone_e164 as string, 4)
+          : lead.phone_e164,
+        city: lead.city,
+        state: lead.state,
+        county: lead.county,
+        project_type: lead.project_type,
+        quote_range: lead.quote_range,
+        window_count: lead.window_count,
+        estimated_savings_low: lead.estimated_savings_low,
+        estimated_savings_high: lead.estimated_savings_high,
+      }
       : null;
 
     const dossierAnalysis = {
@@ -239,12 +263,16 @@ Deno.serve(async (req) => {
     // they are safe to render in the locked preview as "sales ammunition".
     // Identifying fields (competitor name, raw quoted phone numbers in
     // line-item text, etc.) remain masked until unlock.
-    const lineItems = Array.isArray(extraction.line_items) ? extraction.line_items : [];
+    const lineItems = Array.isArray(extraction.line_items)
+      ? extraction.line_items
+      : [];
     const itemsWithoutDp = lineItems.filter(
-      (i: Record<string, unknown>) => !i?.dp_rating || String(i.dp_rating).trim() === "",
+      (i: Record<string, unknown>) =>
+        !i?.dp_rating || String(i.dp_rating).trim() === "",
     ).length;
     const itemsWithoutNoa = lineItems.filter(
-      (i: Record<string, unknown>) => !i?.noa_number || String(i.noa_number).trim() === "",
+      (i: Record<string, unknown>) =>
+        !i?.noa_number || String(i.noa_number).trim() === "",
     ).length;
     const itemsWithIncompleteGlass = lineItems.filter(
       (i: Record<string, unknown>) => i?.glass_spec_complete !== true,
@@ -253,7 +281,8 @@ Deno.serve(async (req) => {
     const dossierExtraction = {
       // ── Pricing & scope (always safe) ─────────────────────────
       total_quoted_price: extraction.total_quoted_price ?? null,
-      total_opening_count: extraction.total_opening_count ?? extraction.opening_count ?? null,
+      total_opening_count: extraction.total_opening_count ??
+        extraction.opening_count ?? null,
       project_type: extraction.project_type ?? null,
       page_count: extraction.page_count ?? null,
       line_item_count: lineItems.length,
@@ -277,15 +306,20 @@ Deno.serve(async (req) => {
       items_without_noa: itemsWithoutNoa,
 
       // ── Glass package ─────────────────────────────────────────
-      opening_level_glass_specs_present: extraction.opening_level_glass_specs_present ?? null,
-      blanket_glass_language_present: extraction.blanket_glass_language_present ?? null,
-      mixed_glass_package_visibility: extraction.mixed_glass_package_visibility ?? null,
+      opening_level_glass_specs_present:
+        extraction.opening_level_glass_specs_present ?? null,
+      blanket_glass_language_present:
+        extraction.blanket_glass_language_present ?? null,
+      mixed_glass_package_visibility:
+        extraction.mixed_glass_package_visibility ?? null,
       items_with_incomplete_glass: itemsWithIncompleteGlass,
 
       // ── Opening schedule ──────────────────────────────────────
       opening_schedule_present: extraction.opening_schedule_present ?? null,
-      opening_schedule_room_labels_present: extraction.opening_schedule_room_labels_present ?? null,
-      opening_schedule_dimensions_complete: extraction.opening_schedule_dimensions_complete ?? null,
+      opening_schedule_room_labels_present:
+        extraction.opening_schedule_room_labels_present ?? null,
+      opening_schedule_dimensions_complete:
+        extraction.opening_schedule_dimensions_complete ?? null,
       opening_schedule_product_assignments_present:
         extraction.opening_schedule_product_assignments_present ?? null,
       bulk_scope_blob_present: extraction.bulk_scope_blob_present ?? null,
@@ -300,26 +334,35 @@ Deno.serve(async (req) => {
         extraction.code_compliance_install_statement_present ?? null,
 
       // ── Warranty execution ────────────────────────────────────
-      warranty_labor_years: (extraction.warranty as Record<string, unknown> | undefined)
-        ?.labor_years ?? null,
-      warranty_manufacturer_years: (extraction.warranty as Record<string, unknown> | undefined)
-        ?.manufacturer_years ?? null,
-      warranty_transferable: (extraction.warranty as Record<string, unknown> | undefined)
-        ?.transferable ?? null,
+      warranty_labor_years:
+        (extraction.warranty as Record<string, unknown> | undefined)
+          ?.labor_years ?? null,
+      warranty_manufacturer_years:
+        (extraction.warranty as Record<string, unknown> | undefined)
+          ?.manufacturer_years ?? null,
+      warranty_transferable:
+        (extraction.warranty as Record<string, unknown> | undefined)
+          ?.transferable ?? null,
       warranty_execution_details_present:
         extraction.warranty_execution_details_present ?? null,
-      warranty_service_provider_type: extraction.warranty_service_provider_type ?? null,
+      warranty_service_provider_type:
+        extraction.warranty_service_provider_type ?? null,
       leak_callback_sla_days: extraction.leak_callback_sla_days ?? null,
       labor_service_sla_days: extraction.labor_service_sla_days ?? null,
-      post_install_stucco_excluded: extraction.post_install_stucco_excluded ?? null,
-      post_install_paint_excluded: extraction.post_install_paint_excluded ?? null,
-      water_intrusion_damage_excluded: extraction.water_intrusion_damage_excluded ?? null,
+      post_install_stucco_excluded: extraction.post_install_stucco_excluded ??
+        null,
+      post_install_paint_excluded: extraction.post_install_paint_excluded ??
+        null,
+      water_intrusion_damage_excluded:
+        extraction.water_intrusion_damage_excluded ?? null,
 
       // ── Permits ───────────────────────────────────────────────
-      permits_included: (extraction.permits as Record<string, unknown> | undefined)?.included
-        ?? null,
+      permits_included:
+        (extraction.permits as Record<string, unknown> | undefined)?.included ??
+          null,
       permits_responsible_party:
-        (extraction.permits as Record<string, unknown> | undefined)?.responsible_party ?? null,
+        (extraction.permits as Record<string, unknown> | undefined)
+          ?.responsible_party ?? null,
       permit_fees_itemized: extraction.permit_fees_itemized ?? null,
 
       // ── Scope gaps ────────────────────────────────────────────
@@ -328,29 +371,35 @@ Deno.serve(async (req) => {
       paint_touchup_included: extraction.paint_touchup_included ?? null,
       debris_removal_included: extraction.debris_removal_included ?? null,
       disposal_included:
-        (extraction.installation as Record<string, unknown> | undefined)?.disposal_included
-        ?? null,
+        (extraction.installation as Record<string, unknown> | undefined)
+          ?.disposal_included ??
+          null,
       engineering_mentioned: extraction.engineering_mentioned ?? null,
       engineering_fees_included: extraction.engineering_fees_included ?? null,
 
       // ── Payment traps ─────────────────────────────────────────
       deposit_percent: extraction.deposit_percent ?? null,
       deposit_amount: extraction.deposit_amount ?? null,
-      final_payment_before_inspection: extraction.final_payment_before_inspection ?? null,
-      subject_to_remeasure_present: extraction.subject_to_remeasure_present ?? null,
+      final_payment_before_inspection:
+        extraction.final_payment_before_inspection ?? null,
+      subject_to_remeasure_present: extraction.subject_to_remeasure_present ??
+        null,
 
       // ── Change-order protections ──────────────────────────────
-      written_change_order_required: extraction.written_change_order_required ?? null,
+      written_change_order_required: extraction.written_change_order_required ??
+        null,
       homeowner_approval_required_for_change_orders:
         extraction.homeowner_approval_required_for_change_orders ?? null,
-      unilateral_price_adjustment_allowed: extraction.unilateral_price_adjustment_allowed ?? null,
+      unilateral_price_adjustment_allowed:
+        extraction.unilateral_price_adjustment_allowed ?? null,
       remeasure_price_adjustment_cap_present:
         extraction.remeasure_price_adjustment_cap_present ?? null,
 
       // ── Trust signals ─────────────────────────────────────────
       insurance_proof_mentioned: extraction.insurance_proof_mentioned ?? null,
       licensing_proof_mentioned: extraction.licensing_proof_mentioned ?? null,
-      lead_paint_disclosure_present: extraction.lead_paint_disclosure_present ?? null,
+      lead_paint_disclosure_present: extraction.lead_paint_disclosure_present ??
+        null,
       generic_product_description_present:
         extraction.generic_product_description_present ?? null,
       terms_conditions_present: extraction.terms_conditions_present ?? null,
@@ -383,32 +432,39 @@ Deno.serve(async (req) => {
     // resolve the bridge before reading outcome state.
     let outcome:
       | {
-          id: string;
-          opportunity_id: string;
-          lead_id: string | null;
-          contractor_id: string;
-          disposition_state: string;
-          disposition_reason_code: string | null;
-          projected_value_cents: number | null;
-          final_value_cents: number | null;
-          signed_contract_url: string | null;
-          last_partner_action_at: string | null;
-        }
+        id: string;
+        opportunity_id: string;
+        lead_id: string | null;
+        contractor_id: string;
+        disposition_state: string;
+        disposition_reason_code: string | null;
+        projected_value_cents: number | null;
+        final_value_cents: number | null;
+        signed_contract_url: string | null;
+        last_partner_action_at: string | null;
+      }
       | null = null;
     let opportunityId: string | null = null;
 
     if (leadId) {
       stage = "fetch_marketplace_contractor";
-      const { data: marketplaceContractor, error: marketplaceContractorErr } = await svc
-        .from("contractors")
-        .select("id")
-        .eq("auth_user_id", contractorId)
-        .maybeSingle();
+      const { data: marketplaceContractor, error: marketplaceContractorErr } =
+        await svc
+          .from("contractors")
+          .select("id")
+          .eq("auth_user_id", contractorId)
+          .maybeSingle();
       if (marketplaceContractorErr) {
-        logStageError(stage, marketplaceContractorErr, { routeId, leadId, contractorId });
+        logStageError(stage, marketplaceContractorErr, {
+          routeId,
+          leadId,
+          contractorId,
+        });
       }
 
-      const marketplaceContractorId = marketplaceContractor?.id as string | undefined;
+      const marketplaceContractorId = marketplaceContractor?.id as
+        | string
+        | undefined;
 
       if (marketplaceContractorId) {
         // Find the opportunity row that links this lead to this contractor
@@ -448,12 +504,18 @@ Deno.serve(async (req) => {
               opportunity_id: outcomeRow.opportunity_id as string,
               lead_id: leadId,
               contractor_id: outcomeRow.contractor_id as string,
-              disposition_state: (outcomeRow.disposition_state as string) ?? "new",
-              disposition_reason_code: (outcomeRow.disposition_reason_code as string) ?? null,
-              projected_value_cents: (outcomeRow.projected_value_cents as number) ?? null,
-              final_value_cents: (outcomeRow.final_value_cents as number) ?? null,
-              signed_contract_url: (outcomeRow.signed_contract_url as string) ?? null,
-              last_partner_action_at: (outcomeRow.last_partner_action_at as string) ?? null,
+              disposition_state: (outcomeRow.disposition_state as string) ??
+                "new",
+              disposition_reason_code:
+                (outcomeRow.disposition_reason_code as string) ?? null,
+              projected_value_cents:
+                (outcomeRow.projected_value_cents as number) ?? null,
+              final_value_cents: (outcomeRow.final_value_cents as number) ??
+                null,
+              signed_contract_url: (outcomeRow.signed_contract_url as string) ??
+                null,
+              last_partner_action_at:
+                (outcomeRow.last_partner_action_at as string) ?? null,
             };
           }
         }
