@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { AlertTriangle, Zap, CheckCircle2 } from "lucide-react";
 
 const REPORTS = [
@@ -122,7 +121,7 @@ const GradeRing = ({
     <div className="relative flex items-center justify-center" style={{ width: 140, height: 140 }}>
       <svg width={140} height={140} className="absolute -rotate-90">
         <circle cx={70} cy={70} r={radius} fill="none" className="stroke-border" strokeWidth={stroke} />
-        <motion.circle
+        <circle
           cx={70}
           cy={70}
           r={radius}
@@ -131,9 +130,8 @@ const GradeRing = ({
           strokeWidth={stroke}
           strokeLinecap="butt"
           strokeDasharray={circumference}
-          initial={{ strokeDashoffset: circumference }}
-          animate={{ strokeDashoffset: offset }}
-          transition={{ duration: 1, ease: "easeOut" }}
+          strokeDashoffset={offset}
+          className="wm-grade-ring-progress"
         />
         <defs>
           <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
@@ -142,11 +140,8 @@ const GradeRing = ({
           </linearGradient>
         </defs>
       </svg>
-      <motion.span
-        initial={{ opacity: 0, scale: 0.5 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.15, delay: 0.1 }}
-        className="font-display leading-none"
+      <span
+        className="font-display leading-none wm-grade-letter"
         style={{
           fontSize: 64,
           fontWeight: 900,
@@ -155,7 +150,7 @@ const GradeRing = ({
         }}
       >
         {grade}
-      </motion.span>
+      </span>
     </div>
   );
 };
@@ -191,11 +186,9 @@ const SampleGradeCard = () => {
   const report = REPORTS[currentIndex];
 
   return (
-    <motion.div
+    <div
       ref={cardRef}
-      animate={{ y: [-6, 0, -6] }}
-      transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-      className="relative overflow-hidden card-raised-hero"
+      className="relative overflow-hidden card-raised-hero wm-sample-card-float"
       style={{
         padding: 28,
         maxWidth: 420,
@@ -220,14 +213,7 @@ const SampleGradeCard = () => {
           SAMPLE
         </span>
       </div>
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={currentIndex}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.15 }}
-        >
+      <div key={currentIndex} className="wm-fade-in-soft">
           <div className="flex flex-col items-center relative mb-5">
             <GradeRing
               key={currentIndex}
@@ -272,14 +258,13 @@ const SampleGradeCard = () => {
               );
             })}
           </div>
-        </motion.div>
-      </AnimatePresence>
+      </div>
       <div className="text-center relative border-t border-border mt-3 pt-3.5">
         <p className="font-body text-xs italic text-muted-foreground">
           Sample View. Your Scan Reveals What To Do With Your Grade
         </p>
       </div>
-    </motion.div>
+    </div>
   );
 };
 
