@@ -412,7 +412,7 @@ Deno.serve(async (req) => {
       cutoff
         ? admin.from("lead_contact_releases").select(
           "id, lead_assignment_id, contractor_account_id, client_slug, release_status, released_at, created_at",
-        ).gte("created_at", cutoff)
+        ).gte("released_at", cutoff)
         : admin.from("lead_contact_releases").select(
           "id, lead_assignment_id, contractor_account_id, client_slug, release_status, released_at, created_at",
         ),
