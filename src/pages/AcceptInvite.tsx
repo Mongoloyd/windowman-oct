@@ -8,8 +8,8 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
-import { Shield, ArrowRight, CheckCircle, AlertCircle } from "lucide-react";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
+import { Shield, ArrowRight, CheckCircle, AlertCircle, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -25,6 +25,7 @@ export default function AcceptInvite() {
 
   const [step, setStep] = useState<Step>("checking");
   const [errorMsg, setErrorMsg] = useState("");
+  const [currentEmail, setCurrentEmail] = useState<string | null>(null);
 
   // Auth form state
   const [email, setEmail] = useState("");
@@ -64,7 +65,7 @@ export default function AcceptInvite() {
   useEffect(() => {
     if (!token) {
       setStep("error");
-      setErrorMsg("No invitation token provided.");
+      setErrorMsg("This invite acceptance page needs the full tokenized invitation link.");
       return;
     }
 
@@ -73,6 +74,7 @@ export default function AcceptInvite() {
     finalizeSupabaseAuthLink({ expectedType: "invite", cleanUrl: true }).then(async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (cancelled) return;
+      setCurrentEmail(session?.user?.email ?? null);
       if (session?.user) {
         acceptInvite(session.access_token);
       } else {
@@ -155,9 +157,21 @@ export default function AcceptInvite() {
     return (
       <div className="min-h-screen bg-[hsl(222,47%,6%)] flex items-center justify-center px-6">
         <div className="max-w-md text-center">
-          <AlertCircle className="mx-auto h-10 w-10 text-red-400 mb-4" />
-          <h1 className="text-lg font-semibold text-white mb-2">Invalid Invitation</h1>
-          <p className="text-sm text-slate-400">{errorMsg}</p>
+          <div className="mx-auto mb-6 h-16 w-16 rounded-2xl bg-sky-500/10 flex items-center justify-center">
+            <UserPlus className="h-8 w-8 text-sky-400" />
+          </div>
+          <h1 className="text-xl font-semibold text-white mb-2">Join the Partner Network</h1>
+          <p className="text-sm text-slate-400 mb-6 leading-relaxed">
+            {errorMsg} If you want to become a WindowMan partner, request access and we'll review your market fit.
+          </p>
+          <div className="flex flex-col gap-3">
+            <Button asChild className="h-11 bg-sky-600 hover:bg-sky-500 text-white font-medium">
+              <Link to="/partner/join">Request Partner Access</Link>
+            </Button>
+            <Button asChild variant="outline" className="h-11 border-white/10 text-slate-300 hover:bg-white/5">
+              <Link to="/partner/login">Partner Sign In</Link>
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -185,6 +199,24 @@ export default function AcceptInvite() {
             {errorMsg && (
               <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20">
                 <p className="text-xs text-red-400">{errorMsg}</p>
+                {currentEmail && /different email|already linked/i.test(errorMsg) && (
+                  <div className="mt-3 space-y-2">
+                    <p className="text-[11px] text-slate-400">Current session: {currentEmail}</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-9 w-full border-white/10 text-slate-300 hover:bg-white/5"
+                      onClick={async () => {
+                        await supabase.auth.signOut();
+                        setCurrentEmail(null);
+                        setStep("needs_auth");
+                        setErrorMsg("Signed out. Sign in with the invited email to accept this partner invitation.");
+                      }}
+                    >
+                      Sign out and use invited email
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
 
