@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { AnimatePresence, motion } from "framer-motion";
 import LinearHeader from "@/components/LinearHeader";
 import AuditHero from "@/components/AuditHero";
 import StickyRecoveryBar from "@/components/StickyRecoveryBar";
@@ -41,8 +40,29 @@ import { useClientSlug } from "@/lib/useClientSlug";
 
 import { Skeleton } from "@/components/ui/skeleton";
 
-import DevPreviewPanel from "@/dev/DevPreviewPanel";
-import { DEV_PREVIEW_CONFIGS, type DevPreviewState } from "@/dev/fixtures";
+type DevPreviewState =
+  | "none"
+  | "grade_a_full"
+  | "grade_c_preview"
+  | "grade_d_full"
+  | "grade_d_preview"
+  | "grade_f_full"
+  | "grade_f_preview"
+  | "otp_gate"
+  | "invalid_document"
+  | "needs_better_upload";
+
+type DevPreviewConfig = {
+  analysisData: any | null;
+  specialState?: "invalid_document" | "needs_better_upload";
+};
+
+type DevPreviewPanelComponent = React.ComponentType<{
+  currentState: DevPreviewState;
+  onChange: (state: DevPreviewState) => void;
+  sessionId: string | null;
+  onScanStart: (fileName: string, scanId: string) => void;
+}>;
 import { AlertTriangle, RotateCcw, FileX } from "lucide-react";
 
 const SectionReserve = ({ className = "min-h-[420px]" }: { className?: string }) => (
@@ -56,6 +76,8 @@ const Index = () => {
   const variant = useHomepageVariant();
 
   const [devState, setDevState] = useState<DevPreviewState>("none");
+  const [devPreviewPanel, setDevPreviewPanel] = useState<DevPreviewPanelComponent | null>(null);
+  const [devPreviewConfigs, setDevPreviewConfigs] = useState<Record<DevPreviewState, DevPreviewConfig> | null>(null);
 
   const [flowMode, setFlowMode] = useState<"A" | "B">("A");
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -84,9 +106,24 @@ const Index = () => {
   const [scrolledPast70, setScrolledPast70] = useState(false);
   const [timeOnPage, setTimeOnPage] = useState(false);
 
+  useEffect(() => {
+    if (!IS_DEV_MODE) return;
+
+    let cancelled = false;
+    Promise.all([import("@/dev/DevPreviewPanel"), import("@/dev/fixtures")]).then(([panelModule, fixtureModule]) => {
+      if (cancelled) return;
+      setDevPreviewPanel(() => panelModule.default);
+      setDevPreviewConfigs(fixtureModule.DEV_PREVIEW_CONFIGS);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [IS_DEV_MODE]);
+
   // Dev preview overrides
   const isDevPreview = IS_DEV_MODE && devState !== "none";
-  const devConfig = isDevPreview ? DEV_PREVIEW_CONFIGS[devState] : null;
+  const devConfig = isDevPreview ? devPreviewConfigs?.[devState] ?? null : null;
   const showReportFromDev = isDevPreview && devConfig?.analysisData != null && !devConfig?.specialState;
   const {
     data: analysisData,
@@ -424,43 +461,37 @@ const Index = () => {
           {!shouldShowReport && !isDevPreview && (
             <>
               <div className="min-h-[80vh]">
-                <AnimatePresence mode="wait">
-                  {flowMode === "A" ? (
-                    <motion.div key="flow-a-hero" exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
-                      <AuditHero
-                        onUploadQuote={() => triggerTruthGate("hero_scan_cta")}
-                        triggerPowerTool={powerToolTriggered}
-                        onPowerToolClose={() => setPowerToolTriggered(false)}
-                        variantHeadline={variant.headline}
-                        variantSubheadline={variant.subheadline}
-                        variantBadgeText={variant.badgeText}
-                      />
-                    </motion.div>
-                  ) : (
-                    <React.Suspense fallback={<SectionReserve className="min-h-[760px]" />}>
-                      <motion.div
-                        key="flow-b-entry"
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.4 }}
-                      >
-                        <FlowBEntry
+                {flowMode === "A" ? (
+                  <div key="flow-a-hero">
+                    <AuditHero
+                      onUploadQuote={() => triggerTruthGate("hero_scan_cta")}
+                      triggerPowerTool={powerToolTriggered}
+                      onPowerToolClose={() => setPowerToolTriggered(false)}
+                      variantHeadline={variant.headline}
+                      variantSubheadline={variant.subheadline}
+                      variantBadgeText={variant.badgeText}
+                    />
+                  </div>
+                ) : (
+                  <React.Suspense fallback={<SectionReserve className="min-h-[760px]" />}>
+                    <div key="flow-b-entry" className="wm-fade-in-soft">
+                      <FlowBEntry
                           onContinueToTool={() => {
                             document.getElementById("market-baseline")?.scrollIntoView({ behavior: "smooth" });
                           }}
                           onSwitchToFlowA={() => switchToFlowA("hero_switch")}
                         />
-                        <ScamConcernImage />
-                        <MarketBaselineTool onLeadCaptured={() => setFlowBLeadCaptured(true)} />
-                        {flowBLeadCaptured && (
-                          <>
-                            <ForensicChecklist
+                      <ScamConcernImage />
+                      <MarketBaselineTool onLeadCaptured={() => setFlowBLeadCaptured(true)} />
+                      {flowBLeadCaptured && (
+                        <>
+                          <ForensicChecklist
                               onUploadQuote={() => switchToFlowA("checklist_cta")}
                               onSetReminder={() =>
                                 document.getElementById("quote-watcher")?.scrollIntoView({ behavior: "smooth" })
                               }
-                            />
-                            <QuoteWatcher
+                          />
+                          <QuoteWatcher
                               onReminderSet={(date, time) => {
                                 setQuoteWatcherSet(true);
                                 setFlowBAnswers((prev) => ({ ...prev, appointmentDate: date, appointmentTime: time }));
@@ -469,13 +500,12 @@ const Index = () => {
                               onViewChecklist={() =>
                                 document.getElementById("forensic-checklist")?.scrollIntoView({ behavior: "smooth" })
                               }
-                            />
-                          </>
-                        )}
-                      </motion.div>
-                    </React.Suspense>
-                  )}
-                </AnimatePresence>
+                          />
+                        </>
+                      )}
+                    </div>
+                  </React.Suspense>
+                )}
               </div>
 
               {flowMode === "A" && (
@@ -676,8 +706,9 @@ const Index = () => {
             </React.Suspense>
           )}
 
-          <React.Suspense fallback={null}>
-            <ExitIntentPhoneModal
+          {(timeOnPage || scrolledPast70) && (
+            <React.Suspense fallback={null}>
+              <ExitIntentPhoneModal
               stepsCompleted={stepsCompleted}
               flowMode={flowMode as "A" | "B" | "C"}
               leadCaptured={leadCaptured}
@@ -697,8 +728,9 @@ const Index = () => {
                 setPowerToolTriggered(true);
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
-            />
-          </React.Suspense>
+              />
+            </React.Suspense>
+          )}
 
           <StickyRecoveryBar
             stepsCompleted={stepsCompleted}
@@ -734,16 +766,16 @@ const Index = () => {
           />
 
           {/* Dev-only preview panel */}
-          {IS_DEV_MODE && (
-            <DevPreviewPanel
-              currentState={devState}
-              onChange={setDevState}
-              sessionId={sessionId}
-              onScanStart={(fileName, scanId) => {
+          {IS_DEV_MODE && devPreviewPanel && (
+            React.createElement(devPreviewPanel, {
+              currentState: devState,
+              onChange: setDevState,
+              sessionId,
+              onScanStart: (fileName: string, scanId: string) => {
                 setScanSessionId(scanId);
                 setFileUploaded(true);
-              }}
-            />
+              },
+            })
           )}
           <div className="bg-card pb-[240px] sm:pb-[180px] lg:pb-32">
             <React.Suspense fallback={null}>
