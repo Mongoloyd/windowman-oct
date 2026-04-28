@@ -1,9 +1,10 @@
 /**
- * decodeJwtRole — single source of truth for reading the admin role
+ * decodeJwtRole — optional diagnostic helper for reading role-like claims
  * from a Supabase access token.
  *
- * Reads `app_metadata.role` (the value `is_internal_operator()` checks
- * server-side). Falls back to a top-level `role` claim only as a courtesy.
+ * Backend admin authorization is user_roles-driven in adminAuth.ts. Do not
+ * use this helper as the admin access source of truth unless role claims are
+ * explicitly synchronized into JWTs.
  *
  * Returns null for any unrecognized / missing role so callers can treat
  * "no role" as "not authorized" without ambiguity.
@@ -33,13 +34,11 @@ export function decodeJwtRole(accessToken: string | undefined | null): JwtRole {
       role === "viewer"
     ) {
       if (import.meta.env.DEV) {
-        // eslint-disable-next-line no-console
         console.debug("[admin-auth] decoded role:", role);
       }
       return role;
     }
     if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
       console.debug("[admin-auth] decoded role: <none>", { raw: role });
     }
     return null;

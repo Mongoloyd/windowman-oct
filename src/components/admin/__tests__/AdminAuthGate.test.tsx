@@ -4,10 +4,8 @@
  * Verifies that in production mode (DEV bypass off):
  *   - Anonymous users on any /admin route are redirected to /admin/login
  *     (with the original path captured in router state).
- *   - Authenticated users with a non-admin JWT role land on the
- *     <AdminUnauthorizedPanel /> instead of the protected children.
- *   - Authenticated users with an admin role (operator/admin/super_admin)
- *     see the protected children.
+ *   - Authenticated users reach protected children regardless of JWT role
+ *     claims; backend admin-data/user_roles remains the role authority.
  *   - SIGNED_OUT events fired mid-session evict the user immediately.
  *
  * Each scenario is run against every admin route (/admin, /admin/settings,
@@ -165,38 +163,11 @@ describe("AdminAuthGate (production mode — DEV bypass disabled)", () => {
     });
   });
 
-  describe("non-admin authenticated users", () => {
-    const NON_ADMIN_ROLES = [
-      "viewer", // recognized but not in ADMIN_ROLES
-      "homeowner", // unrecognized → decoded as null
-      "contractor", // unrecognized → decoded as null
-      null, // signed in with no app_metadata.role at all
-    ] as const;
+  describe("authenticated users", () => {
+    const JWT_ROLES = ["viewer", "homeowner", "contractor", null, "operator", "admin", "super_admin"] as const;
 
-    for (const role of NON_ADMIN_ROLES) {
+    for (const role of JWT_ROLES) {
       describe(`role = ${role === null ? "<none>" : `"${role}"`}`, () => {
-        it.each(ADMIN_ROUTES)("blocks %s with the unauthorized panel", async (route) => {
-          setSession(role);
-          renderGated(route);
-
-          await waitFor(() => {
-            expect(screen.getByText(/not authorized/i)).toBeInTheDocument();
-          });
-          // Children of the protected route MUST NOT render.
-          expect(screen.queryByTestId(ROUTE_TESTID[route])).not.toBeInTheDocument();
-          // Anonymous redirect MUST NOT fire — the user is signed in,
-          // they just lack the role. Show the panel, not the login page.
-          expect(screen.queryByTestId("login-page")).not.toBeInTheDocument();
-        });
-      });
-    }
-  });
-
-  describe("admin authenticated users", () => {
-    const ADMIN_ROLES = ["operator", "admin", "super_admin"] as const;
-
-    for (const role of ADMIN_ROLES) {
-      describe(`role = "${role}"`, () => {
         it.each(ADMIN_ROUTES)("renders the protected children at %s", async (route) => {
           setSession(role);
           renderGated(route);
@@ -232,15 +203,16 @@ describe("AdminAuthGate (production mode — DEV bypass disabled)", () => {
       expect(screen.queryByTestId("admin-dashboard")).not.toBeInTheDocument();
     });
 
-    it("upgrades a non-admin to admin if their JWT changes mid-session", async () => {
+    it("continues rendering when JWT role claims change mid-session", async () => {
       setSession("viewer");
       renderGated("/admin");
 
       await waitFor(() => {
-        expect(screen.getByText(/not authorized/i)).toBeInTheDocument();
+        expect(screen.getByTestId("admin-dashboard")).toBeInTheDocument();
       });
 
-      // Backend grants the operator role; client receives a refreshed token.
+      // Backend user_roles is authoritative; token role claim changes should
+      // not decide route access in this client gate.
       mockState.session = {
         user: { email: "test@example.com" },
         access_token: buildJwt("operator"),
