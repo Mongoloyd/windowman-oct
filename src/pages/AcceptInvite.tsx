@@ -7,7 +7,7 @@
  * 3. On success → redirect to /partner/opportunities
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Shield, ArrowRight, CheckCircle, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -55,9 +55,9 @@ export default function AcceptInvite() {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [acceptInvite, token]);
 
-  async function acceptInvite(accessToken: string) {
+  const acceptInvite = useCallback(async (accessToken: string) => {
     setStep("accepting");
     try {
       const { data, error } = await supabase.functions.invoke("accept-invite", {
@@ -83,7 +83,7 @@ export default function AcceptInvite() {
       setStep("error");
       setErrorMsg(err instanceof Error ? err.message : "Unexpected error");
     }
-  }
+  }, [navigate, token]);
 
   async function handleAuth(e: React.FormEvent) {
     e.preventDefault();
@@ -117,8 +117,8 @@ export default function AcceptInvite() {
           setErrorMsg("Sign-in completed, but no active session was available. Please try opening the invite link again.");
         }
       }
-    } catch (err: any) {
-      setErrorMsg(err.message || "Authentication failed");
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "Authentication failed");
     } finally {
       setAuthLoading(false);
     }
