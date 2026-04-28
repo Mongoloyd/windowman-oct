@@ -10,7 +10,7 @@ import {
   assertExists,
 } from "https://deno.land/std@0.224.0/assert/mod.ts";
 
-const SUPABASE_URL = "https://wkrcyxcnzhwjtdpmfpaf.supabase.co";
+const SUPABASE_URL = "https://example.supabase.co";
 const FUNCTION_URL = `${SUPABASE_URL}/functions/v1/contractor-send-followups`;
 
 Deno.test("contractor-send-followups CORS preflight returns 200", async () => {
