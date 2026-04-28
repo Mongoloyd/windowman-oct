@@ -615,6 +615,85 @@
     }
   }
 
+  @keyframes wm-header-status-fill {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
+
+  @keyframes wm-fade-in-soft {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes wm-sample-card-float {
+    0%, 100% {
+      transform: translateY(-6px);
+    }
+    50% {
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes wm-sticky-recovery-enter {
+    from {
+      opacity: 0;
+      transform: translateY(80px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .wm-header-status-bar {
+    transform-origin: left center;
+    animation: wm-header-status-fill 1.8s ease-out both;
+  }
+
+  .wm-fade-in-soft {
+    animation: wm-fade-in-soft 0.18s ease-out both;
+  }
+
+  .wm-sample-card-float {
+    animation: wm-sample-card-float 4s ease-in-out infinite;
+  }
+
+  .wm-grade-ring-progress {
+    transition: stroke-dashoffset 1s ease-out;
+  }
+
+  .wm-grade-letter {
+    animation: wm-fade-in-soft 0.18s ease-out both;
+  }
+
+  .wm-sticky-recovery-enter {
+    animation: wm-sticky-recovery-enter 0.15s ease-out both;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .wm-header-status-bar,
+    .wm-fade-in-soft,
+    .wm-sample-card-float,
+    .wm-grade-letter,
+    .wm-sticky-recovery-enter {
+      animation: none;
+    }
+
+    .wm-grade-ring-progress {
+      transition: none;
+    }
+  }
+
   /* ═══════════════════════════════════════════════════════════
      WM-INPUT-WELL: System input class for form fields
      ═══════════════════════════════════════════════════════════ */
