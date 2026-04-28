@@ -22,7 +22,13 @@ const BodySchema = z.object({
   companyName: z.string().trim().min(1, "missing_company").max(200),
   email: z.string().trim().toLowerCase().email("invalid_email").max(255),
   password: z.string().min(8, "weak_password").max(128),
-  contactName: z.string().trim().max(200).optional().nullable(),
+  contactName: z.string().trim().min(1, "missing_contact_name").max(200),
+  phone: z.string().trim().max(40).optional().nullable(),
+  serviceArea: z.string().trim().max(500).optional().nullable(),
+  website: z.string().trim().max(255).optional().nullable(),
+  licenseNumber: z.string().trim().max(120).optional().nullable(),
+  monthlyCapacity: z.string().trim().max(120).optional().nullable(),
+  notes: z.string().trim().max(1000).optional().nullable(),
 });
 
 function json(status: number, body: Record<string, unknown>) {
@@ -66,7 +72,18 @@ Deno.serve(async (req) => {
     });
   }
 
-  const { companyName, email, password, contactName } = parsed.data;
+  const {
+    companyName,
+    email,
+    password,
+    contactName,
+    phone,
+    serviceArea,
+    website,
+    licenseNumber,
+    monthlyCapacity,
+    notes,
+  } = parsed.data;
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -87,7 +104,12 @@ Deno.serve(async (req) => {
       email_confirm: true,
       user_metadata: {
         company_name: companyName,
-        contact_name: contactName ?? null,
+        contact_name: contactName,
+        phone: phone ?? null,
+        service_area: serviceArea ?? null,
+        website: website ?? null,
+        license_number: licenseNumber ?? null,
+        monthly_capacity: monthlyCapacity ?? null,
         partner_self_serve: true,
       },
     });
