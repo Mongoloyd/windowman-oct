@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, Navigate } from "react-router-dom";
+import { useNavigate, Navigate, Link } from "react-router-dom";
 import { Shield, ShieldCheck, ArrowRight, Lock, ArrowLeft, CheckCircle2, Building2 } from "lucide-react";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -15,19 +15,30 @@ type View = "login" | "forgot" | "register" | "register-success";
 const RegisterSchema = z
   .object({
     companyName: z.string().trim().min(1, "Company name is required").max(200),
+    contactName: z.string().trim().min(1, "Contact name is required").max(200),
     email: z.string().trim().toLowerCase().email("Enter a valid email").max(255),
     password: z.string().min(8, "Password must be at least 8 characters").max(128),
     confirmPassword: z.string(),
+    phone: z.string().trim().max(40).optional(),
+    serviceArea: z.string().trim().max(500).optional(),
+    website: z.string().trim().max(255).optional(),
+    licenseNumber: z.string().trim().max(120).optional(),
+    monthlyCapacity: z.string().trim().max(120).optional(),
+    notes: z.string().trim().max(1000).optional(),
   })
   .refine((d) => d.password === d.confirmPassword, {
     message: "Passwords do not match",
     path: ["confirmPassword"],
   });
 
-type RegisterErrors = Partial<Record<"companyName" | "email" | "password" | "confirmPassword", string>>;
+type RegisterErrors = Partial<Record<"companyName" | "contactName" | "email" | "password" | "confirmPassword" | "phone" | "serviceArea" | "website" | "licenseNumber" | "monthlyCapacity" | "notes", string>>;
 
-export default function ContractorLogin() {
-  const [view, setView] = useState<View>("login");
+interface ContractorLoginProps {
+  initialView?: View;
+}
+
+export default function ContractorLogin({ initialView = "login" }: ContractorLoginProps) {
+  const [view, setView] = useState<View>(initialView);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -35,9 +46,16 @@ export default function ContractorLogin() {
 
   // Register state
   const [regCompany, setRegCompany] = useState("");
+  const [regContactName, setRegContactName] = useState("");
   const [regEmail, setRegEmail] = useState("");
   const [regPassword, setRegPassword] = useState("");
   const [regConfirm, setRegConfirm] = useState("");
+  const [regPhone, setRegPhone] = useState("");
+  const [regServiceArea, setRegServiceArea] = useState("");
+  const [regWebsite, setRegWebsite] = useState("");
+  const [regLicense, setRegLicense] = useState("");
+  const [regCapacity, setRegCapacity] = useState("");
+  const [regNotes, setRegNotes] = useState("");
   const [regErrors, setRegErrors] = useState<RegisterErrors>({});
 
   const { toast } = useToast();
