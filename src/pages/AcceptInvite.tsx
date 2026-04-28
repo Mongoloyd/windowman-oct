@@ -14,13 +14,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
+import { finalizeSupabaseAuthLink } from "@/lib/supabaseAuthLink";
 
 type Step = "checking" | "needs_auth" | "accepting" | "success" | "error";
 
 export default function AcceptInvite() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const token = searchParams.get("token") ?? "";
+  const token = searchParams.get("token") ?? searchParams.get("invite_token") ?? "";
 
   const [step, setStep] = useState<Step>("checking");
   const [errorMsg, setErrorMsg] = useState("");
@@ -39,13 +40,21 @@ export default function AcceptInvite() {
       return;
     }
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    let cancelled = false;
+
+    finalizeSupabaseAuthLink({ expectedType: "invite", cleanUrl: true }).then(async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (cancelled) return;
       if (session?.user) {
         acceptInvite(session.access_token);
       } else {
         setStep("needs_auth");
       }
     });
+
+    return () => {
+      cancelled = true;
+    };
   }, [token]);
 
   async function acceptInvite(accessToken: string) {
@@ -85,24 +94,27 @@ export default function AcceptInvite() {
       if (isSignUp) {
         const { data, error } = await supabase.auth.signUp({
           email, password,
-          options: { emailRedirectTo: `${window.location.origin}/partner/accept-invite?token=${token}` },
+          options: { emailRedirectTo: `${window.location.origin}/partner/accept-invite?token=${encodeURIComponent(token)}` },
         });
         if (error) throw error;
-        if (data.session) {
-          acceptInvite(data.session.access_token);
+        const { data: { session } } = await supabase.auth.getSession();
+        const activeSession = session ?? data.session;
+        if (activeSession) {
+          acceptInvite(activeSession.access_token);
         } else {
-          // Email confirmation required — try signing in directly
-          const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
-          if (signInErr) throw signInErr;
-          if (signInData.session) {
-            acceptInvite(signInData.session.access_token);
-          }
+          setStep("needs_auth");
+          setErrorMsg("Check your email to confirm your account, then return to this invite link.");
         }
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        if (data.session) {
-          acceptInvite(data.session.access_token);
+        const { data: { session } } = await supabase.auth.getSession();
+        const activeSession = session ?? data.session;
+        if (activeSession) {
+          acceptInvite(activeSession.access_token);
+        } else {
+          setStep("needs_auth");
+          setErrorMsg("Sign-in completed, but no active session was available. Please try opening the invite link again.");
         }
       }
     } catch (err: any) {
