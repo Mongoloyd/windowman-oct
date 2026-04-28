@@ -113,9 +113,16 @@ export default function ContractorLogin({ initialView = "login" }: ContractorLog
 
     const parsed = RegisterSchema.safeParse({
       companyName: regCompany,
+      contactName: regContactName,
       email: regEmail,
       password: regPassword,
       confirmPassword: regConfirm,
+      phone: regPhone,
+      serviceArea: regServiceArea,
+      website: regWebsite,
+      licenseNumber: regLicense,
+      monthlyCapacity: regCapacity,
+      notes: regNotes,
     });
 
     if (!parsed.success) {
@@ -133,8 +140,15 @@ export default function ContractorLogin({ initialView = "login" }: ContractorLog
       const { data, error } = await supabase.functions.invoke("request-partner-access", {
         body: {
           companyName: parsed.data.companyName,
+          contactName: parsed.data.contactName,
           email: parsed.data.email,
           password: parsed.data.password,
+          phone: parsed.data.phone,
+          serviceArea: parsed.data.serviceArea,
+          website: parsed.data.website,
+          licenseNumber: parsed.data.licenseNumber,
+          monthlyCapacity: parsed.data.monthlyCapacity,
+          notes: parsed.data.notes,
         },
       });
 
@@ -171,9 +185,16 @@ export default function ContractorLogin({ initialView = "login" }: ContractorLog
 
       // Success
       setRegCompany("");
+      setRegContactName("");
       setRegEmail("");
       setRegPassword("");
       setRegConfirm("");
+      setRegPhone("");
+      setRegServiceArea("");
+      setRegWebsite("");
+      setRegLicense("");
+      setRegCapacity("");
+      setRegNotes("");
       setView("register-success");
     } catch {
       toast({ title: "Error", description: "An unexpected error occurred.", variant: "destructive" });
