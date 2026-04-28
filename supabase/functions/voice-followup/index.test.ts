@@ -1,9 +1,9 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/assert_equals.ts";
 import { assert } from "https://deno.land/std@0.224.0/assert/assert.ts";
 
-const SUPABASE_URL = "https://wkrcyxcnzhwjtdpmfpaf.supabase.co";
+const SUPABASE_URL = "https://example.supabase.co";
 const SUPABASE_ANON_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndrcmN5eGNuemh3anRkcG1mcGFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3MTIxMDksImV4cCI6MjA4OTI4ODEwOX0._5MdqzJgBCDaGNvfqPbbrrDxAhM0Th4E9CMa6YL0aww";
+  "test-public-anon-key";
 const FUNCTION_URL = `${SUPABASE_URL}/functions/v1/voice-followup`;
 
 Deno.test("voice-followup rejects unauthenticated request", async () => {
