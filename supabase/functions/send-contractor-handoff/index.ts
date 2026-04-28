@@ -7,7 +7,6 @@
  * Required secrets: RESEND_API_KEY, CONTRACTOR_EMAIL, CONTRACTOR_NAME
  */
 
-// deno-lint-ignore no-import-prefix
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { validateAdminRequestWithRole } from "../_shared/adminAuth.ts";
 

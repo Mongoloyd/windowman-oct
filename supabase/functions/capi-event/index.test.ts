@@ -19,7 +19,6 @@ import {
   assert,
   assertEquals,
   assertNotEquals,
-  // deno-lint-ignore no-import-prefix
 } from "https://deno.land/std@0.168.0/testing/asserts.ts";
 
 import {

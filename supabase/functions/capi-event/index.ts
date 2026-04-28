@@ -16,7 +16,6 @@
  *   - IP extraction from Cloudflare/proxy headers
  */
 
-// deno-lint-ignore no-import-prefix
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   type CAPIEvent,

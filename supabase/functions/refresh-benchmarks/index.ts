@@ -15,7 +15,6 @@
  * No external API keys needed — purely database-driven.
  */
 
-// deno-lint-ignore no-import-prefix
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {

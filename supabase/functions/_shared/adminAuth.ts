@@ -38,7 +38,6 @@
 import {
   createClient,
   SupabaseClient,
-  // deno-lint-ignore no-import-prefix
 } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -1,4 +1,3 @@
-// deno-lint-ignore no-import-prefix
 import { assertEquals } from "https://deno.land/std@0.168.0/testing/asserts.ts";
 import { computeGrade, type ExtractionResult, GRADE_RANK } from "./scoring.ts";
 import { BASE_GOOD_QUOTE } from "./fixtures.ts";

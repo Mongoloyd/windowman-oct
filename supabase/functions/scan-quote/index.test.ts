@@ -1,12 +1,9 @@
-// deno-lint-ignore no-import-prefix
 import "https://deno.land/std@0.224.0/dotenv/load.ts";
 import {
   assert,
   assertEquals,
   assertExists,
-  // deno-lint-ignore no-import-prefix
 } from "https://deno.land/std@0.224.0/assert/mod.ts";
-// deno-lint-ignore no-import-prefix
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import {
   computeGrade,

@@ -9,7 +9,6 @@
  * lead_id + scan_session_id from the unlocked-report router-state handoff.
  */
 
-// deno-lint-ignore no-import-prefix
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {

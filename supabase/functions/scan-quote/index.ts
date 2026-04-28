@@ -8,7 +8,6 @@
 import {
   createClient,
   SupabaseClient,
-  // deno-lint-ignore no-import-prefix
 } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { getCountyBenchmark } from "../_shared/countyBenchmarks.ts";
 import { persistCanonicalEvent } from "../_shared/tracking/canonicalBridge.ts";

@@ -25,7 +25,6 @@
 import {
   assert,
   assertEquals,
-  // deno-lint-ignore no-import-prefix
 } from "https://deno.land/std@0.168.0/testing/asserts.ts";
 
 import { resolvePixelConfig } from "./index.ts";

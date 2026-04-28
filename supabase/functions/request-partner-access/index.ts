@@ -8,9 +8,7 @@
  * Public (verify_jwt = false). Uses service role on the server only.
  */
 
-// deno-lint-ignore no-import-prefix
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-// deno-lint-ignore no-import-prefix
 import { z } from "https://esm.sh/zod@3.23.8";
 
 const corsHeaders = {

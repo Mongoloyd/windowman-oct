@@ -17,7 +17,6 @@
 // validateAdminRequestWithRole + ACTION_ROLES, which is covered by the
 // shared adminAuth tests.
 
-// deno-lint-ignore no-import-prefix
 import { assertEquals } from "https://deno.land/std@0.208.0/assert/mod.ts";
 import { classifyMetaError } from "../_shared/capiRouting.ts";
 

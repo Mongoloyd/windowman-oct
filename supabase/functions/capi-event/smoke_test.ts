@@ -21,12 +21,10 @@
  *   SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... \
  *   deno test --allow-net --allow-env supabase/functions/capi-event/smoke_test.ts
  */
-// deno-lint-ignore no-import-prefix
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   assert,
   assertEquals,
-  // deno-lint-ignore no-import-prefix
 } from "https://deno.land/std@0.224.0/assert/mod.ts";
 
 function uuid(): string {

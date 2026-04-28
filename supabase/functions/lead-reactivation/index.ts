@@ -16,7 +16,6 @@
  * Required secrets: RESEND_API_KEY, REPORT_FROM_EMAIL, REPORT_BASE_URL
  */
 
-// deno-lint-ignore no-import-prefix
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {

@@ -7,7 +7,6 @@
  * Inputs: { scan_session_id, call_intent, cta_source? }
  */
 
-// deno-lint-ignore no-import-prefix
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {

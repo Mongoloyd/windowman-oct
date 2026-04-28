@@ -15,7 +15,6 @@
  *   - if analysis_id provided: analyses.scan_session_id MUST equal scan_session_id
  */
 
-// deno-lint-ignore no-import-prefix
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {

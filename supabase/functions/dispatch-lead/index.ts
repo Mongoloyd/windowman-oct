@@ -31,7 +31,6 @@
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
-// deno-lint-ignore no-import-prefix
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 // Local loose alias. The Deno typecheck infers ReturnType<typeof createClient>

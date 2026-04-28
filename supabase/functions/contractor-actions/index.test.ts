@@ -1,6 +1,4 @@
-// deno-lint-ignore no-import-prefix
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/assert_equals.ts";
-// deno-lint-ignore no-import-prefix
 import { assert } from "https://deno.land/std@0.224.0/assert/assert.ts";
 
 const SUPABASE_URL = "https://wkrcyxcnzhwjtdpmfpaf.supabase.co";

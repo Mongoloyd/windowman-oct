@@ -8,7 +8,6 @@
 import {
   assertEquals,
   assertExists,
-  // deno-lint-ignore no-import-prefix
 } from "https://deno.land/std@0.224.0/assert/mod.ts";
 
 const SUPABASE_URL = "https://wkrcyxcnzhwjtdpmfpaf.supabase.co";

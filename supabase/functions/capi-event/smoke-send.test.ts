@@ -18,7 +18,6 @@ import {
   assert,
   assertEquals,
   assertStringIncludes,
-  // deno-lint-ignore no-import-prefix
 } from "https://deno.land/std@0.168.0/testing/asserts.ts";
 
 import { type CAPIEvent, dispatchCapiEvent } from "./index.ts";

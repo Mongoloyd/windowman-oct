@@ -12,7 +12,6 @@
  *    drift is caught at parse time rather than mid-pipeline
  */
 
-// deno-lint-ignore no-import-prefix
 import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
 
 // UUID v4-ish pattern (8-4-4-4-12). We do not enforce v4 specifically because

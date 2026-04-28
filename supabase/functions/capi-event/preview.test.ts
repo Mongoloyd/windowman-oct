@@ -18,7 +18,6 @@ import {
   assert,
   assertArrayIncludes,
   assertEquals,
-  // deno-lint-ignore no-import-prefix
 } from "https://deno.land/std@0.168.0/testing/asserts.ts";
 
 import { diagnoseRoute } from "./index.ts";

@@ -1,4 +1,3 @@
-// deno-lint-ignore no-import-prefix
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { createCanonicalEvent } from "./canonical/createCanonicalEvent.ts";
 import type { CreateCanonicalEventInput } from "./canonical/types.ts";

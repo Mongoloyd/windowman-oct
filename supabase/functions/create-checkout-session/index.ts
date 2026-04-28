@@ -13,9 +13,7 @@
  *   "subscription" — recurring seat fee (uses hardcoded Stripe Price ID)
  */
 
-// deno-lint-ignore no-import-prefix
 import { createClient } from "npm:@supabase/supabase-js@2";
-// deno-lint-ignore no-import-prefix
 import Stripe from "npm:stripe@17.7.0";
 
 /* ── CORS ────────────────────────────────────────────────────────────── */

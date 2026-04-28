@@ -1,7 +1,6 @@
 import {
   assert,
   assertEquals,
-  // deno-lint-ignore no-import-prefix
 } from "https://deno.land/std@0.168.0/testing/asserts.ts";
 import { detectFlags } from "./flagging.ts";
 import { BASE_GOOD_QUOTE } from "./fixtures.ts";

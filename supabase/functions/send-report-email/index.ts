@@ -26,7 +26,6 @@
  *   REPORT_BASE_URL    — App URL for the /estimate CTA (e.g. https://wmmvp.lovable.app)
  */
 
-// deno-lint-ignore no-import-prefix
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
