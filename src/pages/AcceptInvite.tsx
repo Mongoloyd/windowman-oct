@@ -32,31 +32,6 @@ export default function AcceptInvite() {
   const [isSignUp, setIsSignUp] = useState(true);
   const [authLoading, setAuthLoading] = useState(false);
 
-  // On mount: check if token exists, check auth state
-  useEffect(() => {
-    if (!token) {
-      setStep("error");
-      setErrorMsg("No invitation token provided.");
-      return;
-    }
-
-    let cancelled = false;
-
-    finalizeSupabaseAuthLink({ expectedType: "invite", cleanUrl: true }).then(async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (cancelled) return;
-      if (session?.user) {
-        acceptInvite(session.access_token);
-      } else {
-        setStep("needs_auth");
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [acceptInvite, token]);
-
   const acceptInvite = useCallback(async (accessToken: string) => {
     setStep("accepting");
     try {
@@ -84,6 +59,31 @@ export default function AcceptInvite() {
       setErrorMsg(err instanceof Error ? err.message : "Unexpected error");
     }
   }, [navigate, token]);
+
+  // On mount: check if token exists, finalize auth callback, then check auth state.
+  useEffect(() => {
+    if (!token) {
+      setStep("error");
+      setErrorMsg("No invitation token provided.");
+      return;
+    }
+
+    let cancelled = false;
+
+    finalizeSupabaseAuthLink({ expectedType: "invite", cleanUrl: true }).then(async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (cancelled) return;
+      if (session?.user) {
+        acceptInvite(session.access_token);
+      } else {
+        setStep("needs_auth");
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [acceptInvite, token]);
 
   async function handleAuth(e: React.FormEvent) {
     e.preventDefault();
