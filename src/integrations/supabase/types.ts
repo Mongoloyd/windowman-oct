@@ -2271,6 +2271,148 @@ export type Database = {
           },
         ]
       }
+      lead_contact_release_events: {
+        Row: {
+          actor_id: string | null
+          allowed_contact_fields: string[]
+          audit_metadata: Json
+          client_slug: string
+          contractor_account_id: string
+          created_at: string
+          decision: string
+          event_type: string
+          id: string
+          lead_assignment_id: string
+          notes: string | null
+          reason: string | null
+          release_id: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          allowed_contact_fields?: string[]
+          audit_metadata?: Json
+          client_slug: string
+          contractor_account_id: string
+          created_at?: string
+          decision: string
+          event_type: string
+          id?: string
+          lead_assignment_id: string
+          notes?: string | null
+          reason?: string | null
+          release_id?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          allowed_contact_fields?: string[]
+          audit_metadata?: Json
+          client_slug?: string
+          contractor_account_id?: string
+          created_at?: string
+          decision?: string
+          event_type?: string
+          id?: string
+          lead_assignment_id?: string
+          notes?: string | null
+          reason?: string | null
+          release_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_contact_release_events_contractor_account_id_fkey"
+            columns: ["contractor_account_id"]
+            isOneToOne: false
+            referencedRelation: "contractor_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_contact_release_events_lead_assignment_id_fkey"
+            columns: ["lead_assignment_id"]
+            isOneToOne: false
+            referencedRelation: "lead_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_contact_release_events_release_id_fkey"
+            columns: ["release_id"]
+            isOneToOne: false
+            referencedRelation: "lead_contact_releases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_contact_releases: {
+        Row: {
+          allowed_contact_fields: string[]
+          audit_metadata: Json
+          block_reason: string | null
+          client_slug: string
+          contractor_account_id: string
+          created_at: string
+          hold_reason: string | null
+          id: string
+          lead_assignment_id: string
+          release_notes: string | null
+          release_status: string
+          released_at: string | null
+          released_by: string | null
+          revoked_at: string | null
+          revoked_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          allowed_contact_fields?: string[]
+          audit_metadata?: Json
+          block_reason?: string | null
+          client_slug: string
+          contractor_account_id: string
+          created_at?: string
+          hold_reason?: string | null
+          id?: string
+          lead_assignment_id: string
+          release_notes?: string | null
+          release_status?: string
+          released_at?: string | null
+          released_by?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          allowed_contact_fields?: string[]
+          audit_metadata?: Json
+          block_reason?: string | null
+          client_slug?: string
+          contractor_account_id?: string
+          created_at?: string
+          hold_reason?: string | null
+          id?: string
+          lead_assignment_id?: string
+          release_notes?: string | null
+          release_status?: string
+          released_at?: string | null
+          released_by?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_contact_releases_contractor_account_id_fkey"
+            columns: ["contractor_account_id"]
+            isOneToOne: false
+            referencedRelation: "contractor_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_contact_releases_lead_assignment_id_fkey"
+            columns: ["lead_assignment_id"]
+            isOneToOne: false
+            referencedRelation: "lead_assignments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_events: {
         Row: {
           analysis_id: string | null

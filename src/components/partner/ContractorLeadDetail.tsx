@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { AlertCircle, ArrowLeft, FileLock2, Loader2, Lock, Route, ShieldCheck } from "lucide-react";
+import { AlertCircle, ArrowLeft, FileLock2, Loader2, Route, ShieldCheck } from "lucide-react";
 import { fetchContractorAssignedLeadDetail, formatContractorLeadStatus } from "@/services/contractorLeads";
+import { ContractorContactReleasePanel } from "@/components/partner/ContractorContactReleasePanel";
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -79,7 +80,7 @@ export function ContractorLeadDetail({ assignmentId, onBack }: { assignmentId: s
 
       <div className="grid gap-5 lg:grid-cols-2">
         <Panel title="Contact Release">
-          <div className="flex items-start gap-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-amber-950"><Lock className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /><p className="text-sm font-semibold leading-6">{lead.contactReleaseMessage}</p></div>
+          <ContractorContactReleasePanel state={lead.contactRelease} />
         </Panel>
         <Panel title="Quote Files">
           <div className="flex items-start gap-3 rounded-md border border-slate-300 bg-slate-50 p-3 text-slate-800"><FileLock2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /><p className="text-sm font-semibold leading-6">{lead.quoteExposureMessage}</p></div>

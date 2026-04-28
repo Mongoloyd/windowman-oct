@@ -64,6 +64,7 @@ import { DispatchGovernanceConsole } from "@/components/admin/DispatchGovernance
 import { LeadAssignmentBoard } from "@/components/admin/LeadAssignmentBoard";
 import { ContractorOutcomeInspector } from "@/components/admin/ContractorOutcomeInspector";
 import { SyndicateHealthDashboard } from "@/components/admin/SyndicateHealthDashboard";
+import { LeadReleaseQueue } from "@/components/admin/LeadReleaseQueue";
 
 import {
   invokeAdminData,
@@ -339,6 +340,10 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
 
           <TabsContent value="lead-assignments" className="w-full px-2 sm:px-6 pt-4">
             <LeadAssignmentBoard />
+          </TabsContent>
+
+          <TabsContent value="lead-release" className="w-full px-2 sm:px-6 pt-4">
+            <LeadReleaseQueue />
           </TabsContent>
 
           <TabsContent value="syndicate-health" className="w-full px-2 sm:px-6 pt-4">
