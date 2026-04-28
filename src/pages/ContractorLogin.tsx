@@ -206,13 +206,19 @@ export default function ContractorLogin({ initialView = "login" }: ContractorLog
   const renderRegister = () => (
     <Card className="border-white/20 bg-white/[0.05] shadow-2xl">
       <CardHeader className="pb-2 pt-8 px-8">
-        <button
-          type="button"
-          onClick={() => { setView("login"); setRegErrors({}); }}
-          className="flex items-center gap-1 text-xs text-slate-300 hover:text-slate-300 transition-colors mb-4 -ml-0.5"
-        >
-          <ArrowLeft className="h-3 w-3" /> Back to sign in
-        </button>
+        {initialView === "register" ? (
+          <Link to="/partner/login" className="flex items-center gap-1 text-xs text-slate-300 hover:text-slate-300 transition-colors mb-4 -ml-0.5">
+            <ArrowLeft className="h-3 w-3" /> Back to sign in
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={() => { setView("login"); setRegErrors({}); }}
+            className="flex items-center gap-1 text-xs text-slate-300 hover:text-slate-300 transition-colors mb-4 -ml-0.5"
+          >
+            <ArrowLeft className="h-3 w-3" /> Back to sign in
+          </button>
+        )}
         <div className="flex items-center gap-2 mb-1">
           <Building2 className="h-4 w-4 text-slate-300" />
           <span className="text-xs font-mono text-slate-300 uppercase tracking-widest">
@@ -241,6 +247,20 @@ export default function ContractorLogin({ initialView = "login" }: ContractorLog
             )}
           </div>
           <div className="space-y-2">
+            <label className="text-xs font-medium text-slate-300 uppercase tracking-wider">Contact Name</label>
+            <Input
+              type="text"
+              value={regContactName}
+              onChange={(e) => setRegContactName(e.target.value)}
+              placeholder="Owner or sales lead"
+              required
+              className="bg-white/[0.04] border-white/25 text-white placeholder:text-slate-300 focus-visible:ring-sky-500/40 h-11"
+            />
+            {regErrors.contactName && (
+              <p className="text-xs text-rose-400">{regErrors.contactName}</p>
+            )}
+          </div>
+          <div className="space-y-2">
             <label className="text-xs font-medium text-slate-300 uppercase tracking-wider">Contact Email</label>
             <Input
               type="email"
@@ -253,6 +273,58 @@ export default function ContractorLogin({ initialView = "login" }: ContractorLog
             {regErrors.email && (
               <p className="text-xs text-rose-400">{regErrors.email}</p>
             )}
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-slate-300 uppercase tracking-wider">Phone</label>
+            <Input
+              type="tel"
+              value={regPhone}
+              onChange={(e) => setRegPhone(e.target.value)}
+              placeholder="Best callback number"
+              className="bg-white/[0.04] border-white/25 text-white placeholder:text-slate-300 focus-visible:ring-sky-500/40 h-11"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-slate-300 uppercase tracking-wider">Service Area</label>
+            <Input
+              type="text"
+              value={regServiceArea}
+              onChange={(e) => setRegServiceArea(e.target.value)}
+              placeholder="Counties, cities, or zip codes served"
+              className="bg-white/[0.04] border-white/25 text-white placeholder:text-slate-300 focus-visible:ring-sky-500/40 h-11"
+            />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-slate-300 uppercase tracking-wider">Website</label>
+              <Input
+                type="text"
+                value={regWebsite}
+                onChange={(e) => setRegWebsite(e.target.value)}
+                placeholder="company.com"
+                className="bg-white/[0.04] border-white/25 text-white placeholder:text-slate-300 focus-visible:ring-sky-500/40 h-11"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-slate-300 uppercase tracking-wider">License</label>
+              <Input
+                type="text"
+                value={regLicense}
+                onChange={(e) => setRegLicense(e.target.value)}
+                placeholder="Optional"
+                className="bg-white/[0.04] border-white/25 text-white placeholder:text-slate-300 focus-visible:ring-sky-500/40 h-11"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-slate-300 uppercase tracking-wider">Monthly Capacity</label>
+            <Input
+              type="text"
+              value={regCapacity}
+              onChange={(e) => setRegCapacity(e.target.value)}
+              placeholder="How many verified leads can you handle?"
+              className="bg-white/[0.04] border-white/25 text-white placeholder:text-slate-300 focus-visible:ring-sky-500/40 h-11"
+            />
           </div>
           <div className="space-y-2">
             <label className="text-xs font-medium text-slate-300 uppercase tracking-wider">Password</label>
