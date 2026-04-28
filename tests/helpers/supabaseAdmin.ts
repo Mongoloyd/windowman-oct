@@ -159,3 +159,28 @@ export async function cleanupTestLead(email: string): Promise<void> {
     // intentionally swallowed — cleanup is best-effort
   }
 }
+
+/**
+ * Best-effort cleanup for partner join E2E rows. Restricted to the dedicated
+ * partner E2E email prefix so this helper can never delete real operator data.
+ */
+export async function cleanupTestPartnerAccount(email: string): Promise<void> {
+  const admin = getAdminClient();
+  if (!admin) return;
+  if (!email.startsWith("wm-partner-e2e-")) return;
+
+  try {
+    const profile = await getPartnerProfileByEmail(email);
+    const account = await getContractorAccountByEmail(email);
+    const authUserId = profile?.id ?? account?.auth_user_id ?? null;
+
+    await admin.from("contractor_accounts").delete().eq("contact_email", email);
+    await admin.from("contractor_profiles").delete().eq("contact_email", email);
+
+    if (authUserId) {
+      await admin.auth.admin.deleteUser(authUserId);
+    }
+  } catch {
+    // intentionally swallowed — unique test emails keep retries deterministic
+  }
+}
