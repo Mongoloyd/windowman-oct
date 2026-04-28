@@ -1,5 +1,4 @@
 import { Check } from "lucide-react";
-import { motion } from "framer-motion";
 
 const trustBullets = [
   "No Account or Credit Card Required",
@@ -9,12 +8,7 @@ const trustBullets = [
 ];
 
 export const TrustBullets = () => (
-  <motion.div
-    initial={{ opacity: 0, y: 10 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.15, delay: 0.2 }}
-    className="mt-6"
-  >
+  <div className="mt-6 wm-fade-in-soft">
     <div className="flex flex-col lg:grid lg:grid-cols-2 gap-y-3 gap-x-6 w-fit">
       {trustBullets.map((item) => (
         <div key={item} className="flex items-center gap-2">
@@ -25,5 +19,5 @@ export const TrustBullets = () => (
         </div>
       ))}
     </div>
-  </motion.div>
+  </div>
 );
