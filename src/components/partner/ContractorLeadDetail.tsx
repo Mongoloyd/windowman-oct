@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { AlertCircle, ArrowLeft, FileLock2, Loader2, Lock, Route, ShieldCheck } from "lucide-react";
+import { AlertCircle, ArrowLeft, FileLock2, Loader2, Route, ShieldCheck } from "lucide-react";
 import { fetchContractorAssignedLeadDetail, formatContractorLeadStatus } from "@/services/contractorLeads";
 import { ContractorContactReleasePanel } from "@/components/partner/ContractorContactReleasePanel";
 
