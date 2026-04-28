@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 
 interface StickyRecoveryBarProps { stepsCompleted: number; county: string; isVisible: boolean; onDismiss: () => void; flowMode?: 'A' | 'B'; flowBLeadCaptured?: boolean; quoteWatcherSet?: boolean; onDemoCTAClick?: () => void; leadCaptured?: boolean; isDevMode?: boolean; gradeRevealed?: boolean; onContractorMatchClick?: () => void; }
 
