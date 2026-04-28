@@ -18,7 +18,7 @@ const json = (body: Record<string, unknown>, status = 200) =>
 type WindowValue = "7d" | "30d" | "90d" | "all";
 type ContractorAccount = { id: string; client_slug: string; display_name: string; is_active: boolean | null; access_status: string | null };
 type Assignment = { id: string; contractor_account_id: string | null; client_slug: string; assigned_at: string | null; created_at: string };
-type Release = { id: string; lead_assignment_id: string; contractor_account_id: string; client_slug: string; release_status: string; approved_at: string | null; created_at: string };
+type Release = { id: string; lead_assignment_id: string; contractor_account_id: string; client_slug: string; release_status: string; released_at: string | null; created_at: string };
 type Outcome = {
   id: string;
   lead_assignment_id: string | null;
@@ -92,6 +92,16 @@ function deriveStatus(releasedCount: number, soldCount: number, closeRate: numbe
   if ((closeRate ?? 0) < 0.1 || (attemptingContactRate ?? 0) > 0.35) return "watch";
   if ((closeRate ?? 0) >= 0.2 && (attemptingContactRate ?? 0) <= 0.25) return "healthy";
   return "watch";
+}
+
+function logSourceError(label: string, error: unknown) {
+  if (!error) return;
+  console.error(`[admin-contractor-performance] ${label} failed`, {
+    message: typeof error === "object" && error && "message" in error ? (error as { message?: string }).message : String(error),
+    details: typeof error === "object" && error && "details" in error ? (error as { details?: string }).details : null,
+    hint: typeof error === "object" && error && "hint" in error ? (error as { hint?: string }).hint : null,
+    code: typeof error === "object" && error && "code" in error ? (error as { code?: string }).code : null,
+  });
 }
 
 function safeDateMax(values: Array<string | null | undefined>): string | null {
@@ -169,7 +179,7 @@ function buildSummary(accounts: ContractorAccount[], assignments: Assignment[], 
       confirmedSoldValueCents,
       marginValueCents,
       averageTimeToFirstUpdateHours: firstUpdateHours.length ? firstUpdateHours.reduce((sum, value) => sum + value, 0) / firstUpdateHours.length : null,
-      lastActivityAt: safeDateMax([...accountAssignments.map((row) => row.assigned_at ?? row.created_at), ...accountReleases.map((row) => row.approved_at ?? row.created_at), ...activeOutcomes.map((row) => row.last_partner_action_at ?? row.updated_at ?? row.created_at)]),
+      lastActivityAt: safeDateMax([...accountAssignments.map((row) => row.assigned_at ?? row.created_at), ...accountReleases.map((row) => row.released_at ?? row.created_at), ...activeOutcomes.map((row) => row.last_partner_action_at ?? row.updated_at ?? row.created_at)]),
       performanceStatus: deriveStatus(denominator, soldOutcomes.length, closeRate, attemptingContactRate),
       warnings,
       lostReasonBreakdown,
@@ -200,13 +210,17 @@ Deno.serve(async (req) => {
     const [{ data: accounts, error: accountError }, { data: assignments, error: assignmentError }, { data: releases, error: releaseError }, { data: outcomes, error: outcomeError }] = await Promise.all([
       admin.from("contractor_accounts").select("id, client_slug, display_name, is_active, access_status").order("display_name", { ascending: true }),
       cutoff ? admin.from("lead_assignments").select("id, contractor_account_id, client_slug, assigned_at, created_at").gte("assigned_at", cutoff) : admin.from("lead_assignments").select("id, contractor_account_id, client_slug, assigned_at, created_at"),
-      cutoff ? admin.from("lead_contact_releases").select("id, lead_assignment_id, contractor_account_id, client_slug, release_status, approved_at, created_at").gte("created_at", cutoff) : admin.from("lead_contact_releases").select("id, lead_assignment_id, contractor_account_id, client_slug, release_status, approved_at, created_at"),
+      cutoff ? admin.from("lead_contact_releases").select("id, lead_assignment_id, contractor_account_id, client_slug, release_status, released_at, created_at").gte("created_at", cutoff) : admin.from("lead_contact_releases").select("id, lead_assignment_id, contractor_account_id, client_slug, release_status, released_at, created_at"),
       cutoff ? admin.from("contractor_outcomes").select("id, lead_assignment_id, contractor_account_id, client_slug, disposition_state, disposition_reason_code, final_value_cents, value_basis, outcome_integrity_status, outcome_verified, outcome_verified_at, created_at, updated_at, last_partner_action_at").gte("updated_at", cutoff) : admin.from("contractor_outcomes").select("id, lead_assignment_id, contractor_account_id, client_slug, disposition_state, disposition_reason_code, final_value_cents, value_basis, outcome_integrity_status, outcome_verified, outcome_verified_at, created_at, updated_at, last_partner_action_at"),
     ]);
 
     if (accountError || assignmentError || releaseError || outcomeError) {
-      console.error("[admin-contractor-performance] source lookup failed", { accountError, assignmentError, releaseError, outcomeError });
-      return json({ error: "performance_lookup_failed", message: "Contractor performance aggregates could not be loaded safely." }, 500);
+      const failedSources: string[] = [];
+      if (accountError) { logSourceError("contractor_accounts", accountError); failedSources.push("contractor_accounts"); }
+      if (assignmentError) { logSourceError("lead_assignments", assignmentError); failedSources.push("lead_assignments"); }
+      if (releaseError) { logSourceError("lead_contact_releases", releaseError); failedSources.push("lead_contact_releases"); }
+      if (outcomeError) { logSourceError("contractor_outcomes", outcomeError); failedSources.push("contractor_outcomes"); }
+      return json({ error: "performance_lookup_failed", message: "Contractor performance aggregates could not be loaded safely.", failed_sources: failedSources }, 500);
     }
 
     return json({ success: true, window: requestedWindow, denominator: "released_leads", summaries: buildSummary((accounts ?? []) as ContractorAccount[], (assignments ?? []) as Assignment[], (releases ?? []) as Release[], (outcomes ?? []) as Outcome[]) });
