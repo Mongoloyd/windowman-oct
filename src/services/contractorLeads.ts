@@ -266,7 +266,13 @@ export async function fetchContractorAssignedLeads(): Promise<ContractorLeadList
     return { state: "error", leads: [], message: "Assigned opportunities could not be loaded safely." };
   }
 
-  const leads = ((data ?? []) as AssignmentRow[]).map((row) => rowToSummary(row, access.account!.clientSlug));
+  const rows = (data ?? []) as AssignmentRow[];
+  const releaseResult = rows.length > 0
+    ? await supabase.from("lead_contact_releases" as never).select("lead_assignment_id, release_status, allowed_contact_fields").in("lead_assignment_id", rows.map((row) => row.id))
+    : { data: [], error: null };
+  if (releaseResult.error) console.warn("[contractorLeads] contact release summary lookup failed", releaseResult.error.message);
+  const releases = new Map(((releaseResult.data ?? []) as unknown as ReleaseRow[]).map((release) => [release.lead_assignment_id, release]));
+  const leads = rows.map((row) => rowToSummary(row, access.account!.clientSlug, releases.get(row.id) ?? null));
   return {
     state: leads.length > 0 ? "allowed" : "empty",
     leads,
@@ -301,9 +307,11 @@ export async function fetchContractorAssignedLeadDetail(assignmentId: string): P
     return { state: "not_found", lead: null, message: "Assigned opportunity was not found." };
   }
 
+  const contactRelease = await fetchContractorLeadRelease(assignmentId);
+
   return {
     state: "allowed",
-    lead: rowToDetail(data as AssignmentRow, access.account.clientSlug),
+    lead: rowToDetail(data as AssignmentRow, access.account.clientSlug, contactRelease),
     message: "Assigned opportunity detail loaded.",
   };
 }
