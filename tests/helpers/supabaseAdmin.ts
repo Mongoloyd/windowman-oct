@@ -53,6 +53,27 @@ export type LeadRow = {
   source: string | null;
 };
 
+export type PartnerProfileRow = {
+  id: string;
+  company_name: string;
+  contact_email: string;
+  status: string;
+};
+
+export type ContractorAccountRow = {
+  id: string;
+  auth_user_id: string | null;
+  client_slug: string;
+  display_name: string;
+  contact_email: string | null;
+  contact_phone: string | null;
+  access_status: string;
+  is_active: boolean;
+  portal_role: string;
+  territory: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+};
+
 export async function getLeadByEmail(email: string): Promise<LeadRow | null> {
   const admin = getAdminClient();
   if (!admin) return null;
@@ -89,6 +110,34 @@ export async function getScanSessionsForLead(leadId: string): Promise<{ count: n
     .order("created_at", { ascending: false });
   if (error) throw error;
   return { count: data?.length ?? 0, firstId: (data?.[0]?.id as string | null) ?? null };
+}
+
+export async function getPartnerProfileByEmail(email: string): Promise<PartnerProfileRow | null> {
+  const admin = getAdminClient();
+  if (!admin) return null;
+  const { data, error } = await admin
+    .from("contractor_profiles")
+    .select("id, company_name, contact_email, status")
+    .eq("contact_email", email)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as PartnerProfileRow | null) ?? null;
+}
+
+export async function getContractorAccountByEmail(email: string): Promise<ContractorAccountRow | null> {
+  const admin = getAdminClient();
+  if (!admin) return null;
+  const { data, error } = await admin
+    .from("contractor_accounts")
+    .select("id, auth_user_id, client_slug, display_name, contact_email, contact_phone, access_status, is_active, portal_role, territory, metadata")
+    .eq("contact_email", email)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as ContractorAccountRow | null) ?? null;
 }
 
 /**
