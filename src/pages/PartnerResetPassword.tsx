@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { finalizeSupabaseAuthLink } from "@/lib/supabaseAuthLink";
 
 type PageState = "loading" | "ready" | "success" | "invalid";
 
@@ -14,33 +15,41 @@ export default function PartnerResetPassword() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Supabase automatically exchanges the recovery token from the URL hash
-    // and fires a PASSWORD_RECOVERY event on onAuthStateChange.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") {
+    let mounted = true;
+    let invalidTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY" && session && mounted) {
         setPageState("ready");
+        setLinkError(null);
       }
     });
 
-    // Also check if we already have a session (e.g. fast token exchange)
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      // If there's a session and the URL contains recovery params, show form
-      const hash = window.location.hash;
-      if (session && (hash.includes("type=recovery") || hash.includes("access_token"))) {
+    finalizeSupabaseAuthLink({ expectedType: "recovery", cleanUrl: true }).then((result) => {
+      if (!mounted) return;
+      if (result.ok && result.session) {
         setPageState("ready");
-      } else if (!session) {
-        // Give Supabase a moment to process the hash
-        setTimeout(() => {
-          setPageState((prev) => (prev === "loading" ? "invalid" : prev));
-        }, 3000);
+        setLinkError(null);
+        return;
       }
+
+      setLinkError(result.error ?? "Session missing after recovery link verification.");
+      invalidTimer = setTimeout(() => {
+        if (!mounted) return;
+        setPageState((prev) => (prev === "loading" ? "invalid" : prev));
+      }, 2500);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      if (invalidTimer) clearTimeout(invalidTimer);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -62,6 +71,7 @@ export default function PartnerResetPassword() {
         toast({ title: "Reset Failed", description: error.message, variant: "destructive" });
       } else {
         setPageState("success");
+        await supabase.auth.signOut();
         setTimeout(() => navigate("/partner/login", { replace: true }), 3000);
       }
     } catch {
@@ -92,7 +102,9 @@ export default function PartnerResetPassword() {
               </div>
               <h2 className="text-lg font-semibold text-white">Invalid or Expired Link</h2>
               <p className="text-sm text-slate-300 max-w-xs">
-                This recovery link is no longer valid. Please request a new one from the login page.
+                {linkError
+                  ? `This recovery link could not be verified: ${linkError}`
+                  : "This recovery link is no longer valid. Please request a new one from the login page."}
               </p>
               <Button
                 onClick={() => navigate("/partner/login")}
