@@ -40,6 +40,7 @@ import { useClientSlug } from "@/lib/useClientSlug";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertTriangle, RotateCcw, FileX } from "lucide-react";
+import type { AnalysisData } from "@/hooks/useAnalysisData";
 
 type DevPreviewState =
   | "none"
@@ -54,7 +55,7 @@ type DevPreviewState =
   | "needs_better_upload";
 
 type DevPreviewConfig = {
-  analysisData: any | null;
+  analysisData: AnalysisData | null;
   specialState?: "invalid_document" | "needs_better_upload";
 };
 
