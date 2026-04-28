@@ -36,5 +36,8 @@ verify_jwt = false
 [functions.request-partner-access]
 verify_jwt = false
 
+[functions.contractor-submit-outcome]
+verify_jwt = false
+
 [functions.import-facebook-lead-ad]
 verify_jwt = false

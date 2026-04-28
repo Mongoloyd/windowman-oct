@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { AlertCircle, ArrowLeft, FileLock2, Loader2, Route, ShieldCheck } from "lucide-react";
 import { fetchContractorAssignedLeadDetail, formatContractorLeadStatus } from "@/services/contractorLeads";
 import { ContractorContactReleasePanel } from "@/components/partner/ContractorContactReleasePanel";
+import { ContractorOutcomeSubmissionPanel } from "@/components/partner/ContractorOutcomeSubmissionPanel";
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -82,12 +83,17 @@ export function ContractorLeadDetail({ assignmentId, onBack }: { assignmentId: s
         <Panel title="Contact Release">
           <ContractorContactReleasePanel state={lead.contactRelease} />
         </Panel>
-        <Panel title="Quote Files">
-          <div className="flex items-start gap-3 rounded-md border border-slate-300 bg-slate-50 p-3 text-slate-800"><FileLock2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /><p className="text-sm font-semibold leading-6">{lead.quoteExposureMessage}</p></div>
+        <Panel title="Outcome Submission">
+          <ContractorOutcomeSubmissionPanel assignmentId={lead.assignmentId} contactRelease={lead.contactRelease} />
         </Panel>
       </div>
 
-      <Panel title="Safe Next Step"><p className="text-sm font-semibold leading-6 text-slate-700">{lead.safeNextStep}</p></Panel>
+      <div className="grid gap-5 lg:grid-cols-2">
+        <Panel title="Quote Files">
+          <div className="flex items-start gap-3 rounded-md border border-slate-300 bg-slate-50 p-3 text-slate-800"><FileLock2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /><p className="text-sm font-semibold leading-6">{lead.quoteExposureMessage}</p></div>
+        </Panel>
+        <Panel title="Safe Next Step"><p className="text-sm font-semibold leading-6 text-slate-700">{lead.safeNextStep}</p></Panel>
+      </div>
     </div>
   );
 }
