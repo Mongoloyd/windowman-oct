@@ -39,6 +39,7 @@ import { trackEvent } from "@/lib/trackEvent";
 import { useClientSlug } from "@/lib/useClientSlug";
 
 import { Skeleton } from "@/components/ui/skeleton";
+import { AlertTriangle, RotateCcw, FileX } from "lucide-react";
 
 type DevPreviewState =
   | "none"
@@ -63,7 +64,6 @@ type DevPreviewPanelComponent = React.ComponentType<{
   sessionId: string | null;
   onScanStart: (fileName: string, scanId: string) => void;
 }>;
-import { AlertTriangle, RotateCcw, FileX } from "lucide-react";
 
 const SectionReserve = ({ className = "min-h-[420px]" }: { className?: string }) => (
   <div className={`w-full bg-background ${className}`} aria-hidden="true" />
