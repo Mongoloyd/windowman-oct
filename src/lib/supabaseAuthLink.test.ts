@@ -62,6 +62,33 @@ describe("finalizeSupabaseAuthLink", () => {
     expect(window.location.pathname + window.location.search + window.location.hash).toBe("/admin/reset-password");
   });
 
+  it("sets a session from invite hash tokens and preserves invite_token when cleaning", async () => {
+    setUrl("/partner/accept-invite?invite_token=invite-456#access_token=hash-access&refresh_token=hash-refresh&type=invite");
+    mockAuth.setSession.mockImplementationOnce(async ({ access_token, refresh_token }) => {
+      mockAuth.session = { access_token, refresh_token, user: { id: "user-1" } };
+      return { data: { session: mockAuth.session }, error: null };
+    });
+
+    const result = await finalizeSupabaseAuthLink({ expectedType: "invite", cleanUrl: true });
+
+    expect(mockAuth.setSession).toHaveBeenCalledWith({ access_token: "hash-access", refresh_token: "hash-refresh" });
+    expect(result.ok).toBe(true);
+    expect(result.source).toBe("hash_tokens");
+    expect(window.location.pathname + window.location.search + window.location.hash).toBe("/partner/accept-invite?invite_token=invite-456");
+  });
+
+  it("rejects mismatched auth callback types before exchanging code", async () => {
+    setUrl("/partner/accept-invite?token=invite-123&code=pkce-code&type=recovery");
+
+    const result = await finalizeSupabaseAuthLink({ expectedType: "invite", cleanUrl: true });
+
+    expect(mockAuth.exchangeCodeForSession).not.toHaveBeenCalled();
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe("Expected invite auth link but received recovery.");
+    expect(window.location.search).toContain("token=invite-123");
+    expect(window.location.search).toContain("code=pkce-code");
+  });
+
   it("returns structured failure for invalid links", async () => {
     setUrl("/admin/reset-password?code=expired-code&type=recovery");
     mockAuth.exchangeCodeForSession.mockResolvedValueOnce({
