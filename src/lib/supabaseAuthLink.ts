@@ -82,7 +82,9 @@ export async function finalizeSupabaseAuthLink(
   let error: string | null = null;
 
   try {
-    if (code) {
+    if (options.expectedType && type && type !== options.expectedType) {
+      error = `Expected ${options.expectedType} auth link but received ${type}.`;
+    } else if (code) {
       const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
       if (exchangeError) {
         error = exchangeError.message;
