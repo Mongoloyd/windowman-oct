@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppTrackingProvider } from "@/components/AppTrackingProvider";
 import { HelmetProvider } from "react-helmet-async";
 import { ScanFunnelProvider } from "@/state/scanFunnel";
+import PartnerLayout from "./components/partner/PartnerLayout.tsx";
 
 // ── Static import for critical home route ────────────────────────────────────
 import Index from "./pages/Index";
@@ -56,7 +57,6 @@ const ContractorPortal = lazy(() => import("./pages/ContractorPortal.tsx"));
 const AcceptInvite = lazy(() => import("./pages/AcceptInvite.tsx"));
 const PartnerResetPassword = lazy(() => import("./pages/PartnerResetPassword.tsx"));
 const ContractorOnboarding = lazy(() => import("./pages/ContractorOnboarding.tsx"));
-const PartnerLayout = lazy(() => import("./components/partner/PartnerLayout.tsx"));
 const LandingPage = lazy(() => import("./pages/LandingPage.tsx"));
 const Estimate = lazy(() => import("./pages/Estimate.tsx"));
 const Diagnosis = lazy(() => import("./pages/Diagnosis.tsx"));
@@ -191,6 +191,7 @@ const App = () => (
                   <Route path="/contractors2" element={<Contractors2 />} />
                 </Route>
                 <Route path="/partner/login" element={<ContractorLogin />} />
+                <Route path="/partner/join" element={<ContractorLogin initialView="register" />} />
                 <Route path="/partner/reset-password" element={<PartnerResetPassword />} />
                 <Route path="/partner/accept-invite" element={<AcceptInvite />} />
                 <Route path="/partner/onboarding" element={<ContractorOnboarding />} />
