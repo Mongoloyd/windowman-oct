@@ -1387,7 +1387,7 @@ export type Database = {
         Row: {
           appointment_booked_at: string | null
           appointment_status: string | null
-          billable_intro_id: string
+          billable_intro_id: string | null
           client_slug: string | null
           closed_at: string | null
           contractor_account_id: string | null
@@ -1404,7 +1404,7 @@ export type Database = {
           id: string
           last_partner_action_at: string | null
           lead_assignment_id: string | null
-          opportunity_id: string
+          opportunity_id: string | null
           outcome_integrity_reasons: string[]
           outcome_integrity_status: string
           outcome_metadata: Json
@@ -1425,7 +1425,7 @@ export type Database = {
         Insert: {
           appointment_booked_at?: string | null
           appointment_status?: string | null
-          billable_intro_id: string
+          billable_intro_id?: string | null
           client_slug?: string | null
           closed_at?: string | null
           contractor_account_id?: string | null
@@ -1442,7 +1442,7 @@ export type Database = {
           id?: string
           last_partner_action_at?: string | null
           lead_assignment_id?: string | null
-          opportunity_id: string
+          opportunity_id?: string | null
           outcome_integrity_reasons?: string[]
           outcome_integrity_status?: string
           outcome_metadata?: Json
@@ -1463,7 +1463,7 @@ export type Database = {
         Update: {
           appointment_booked_at?: string | null
           appointment_status?: string | null
-          billable_intro_id?: string
+          billable_intro_id?: string | null
           client_slug?: string | null
           closed_at?: string | null
           contractor_account_id?: string | null
@@ -1480,7 +1480,7 @@ export type Database = {
           id?: string
           last_partner_action_at?: string | null
           lead_assignment_id?: string | null
-          opportunity_id?: string
+          opportunity_id?: string | null
           outcome_integrity_reasons?: string[]
           outcome_integrity_status?: string
           outcome_metadata?: Json
