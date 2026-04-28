@@ -247,7 +247,7 @@ bun run build                                # pass
 npx tsc --noEmit                             # pass
 deno check supabase/functions/admin-sync-revenue-signals/index.ts # pass
 deno fmt --check supabase/functions/admin-sync-revenue-signals/index.ts # pass
-deno lint supabase/functions/admin-sync-revenue-signals/index.ts # blocked by repo-wide lint rule no-import-prefix on existing esm.sh zod import
+deno lint supabase/functions/admin-sync-revenue-signals/index.ts # pass after zod import-map repair
 ```
 
 Database/catalog checks executed through Supabase read-only tools:
@@ -284,7 +284,7 @@ curl -X POST /functions/v1/admin-sync-revenue-signals --data '{"dry_run":false,"
 | UI safety review | Pass | No raw JSON primary UI, fake states, TODOs, or live controls. |
 | Privacy/redaction | Pass | No PII/token/Vault/click-ID exposure found. |
 | Live sync rejection | Pass | `dry_run:false` rejected by Edge Function. |
-| Build/typecheck/Deno | Pass with lint context debt | Build, TypeScript, Deno check, and Deno fmt passed. Deno lint is blocked by the existing repo convention of importing zod from `https://esm.sh`, which violates the active `no-import-prefix` lint rule. |
+| Build/typecheck/Deno | Pass | Build, TypeScript, Deno check, Deno fmt, and Deno lint passed. |
 
 ## 18. Phase 4 Readiness Verdict
 
