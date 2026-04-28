@@ -7,7 +7,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppTrackingProvider } from "@/components/AppTrackingProvider";
 import { HelmetProvider } from "react-helmet-async";
 import { ScanFunnelProvider } from "@/state/scanFunnel";
-import PartnerLayout from "./components/partner/PartnerLayout.tsx";
 
 // ── Static import for critical home route ────────────────────────────────────
 import Index from "./pages/Index";
@@ -54,6 +53,7 @@ const ContractorLogin = lazy(() => import("./pages/ContractorLogin.tsx"));
 const ContractorOpportunitiesPage = lazy(() => import("./pages/ContractorOpportunitiesPage.tsx"));
 const PartnerRevenueDashboard = lazy(() => import("./pages/PartnerRevenueDashboard.tsx"));
 const ContractorPortal = lazy(() => import("./pages/ContractorPortal.tsx"));
+const PartnerLayout = lazy(() => import("./components/partner/PartnerLayout.tsx"));
 const AcceptInvite = lazy(() => import("./pages/AcceptInvite.tsx"));
 const PartnerResetPassword = lazy(() => import("./pages/PartnerResetPassword.tsx"));
 const ContractorOnboarding = lazy(() => import("./pages/ContractorOnboarding.tsx"));
