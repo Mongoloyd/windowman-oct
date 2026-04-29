@@ -1233,8 +1233,9 @@ export default function OrangeScanner({
               summaryText={safeScenario.summaryText}
               integrityScore={safeScenario.integrityScore}
               activeAnomalies={activeAnomalies}
-              onScanClick={safeInvokeScanClick}
-              onDemoClick={safeInvokeDemoClick}
+              processingAction={processingAction}
+              onScanClick={() => handleDecisionAction("have_quote", safeInvokeScanClick)}
+              onDemoClick={() => handleDecisionAction("want_quote", safeInvokeDemoClick)}
             />
           </div>
 
@@ -1243,7 +1244,7 @@ export default function OrangeScanner({
             <button
               onClick={startScan}
               disabled={isScanning}
-              className={`w-full flex items-center justify-center gap-2 px-6 py-5 rounded-lg font-bold text-sm tracking-widest uppercase transition-all duration-300 ${
+              className={`w-full flex items-center justify-center gap-2 px-6 py-5 rounded-lg font-bold text-sm tracking-widest uppercase transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${
                 isScanning
                   ? "bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700 shadow-inner"
                   : "bg-cyan-500 text-slate-950 hover:bg-cyan-400 hover:shadow-[0_0_20px_rgba(6,182,212,0.5)] shadow-lg hover:scale-[1.02] active:scale-[0.98]"
