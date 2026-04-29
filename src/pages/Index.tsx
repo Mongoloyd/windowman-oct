@@ -4,6 +4,7 @@ import AuditHero from "@/components/AuditHero";
 import StickyRecoveryBar from "@/components/StickyRecoveryBar";
 import StickyCTAFooter from "@/components/StickyCTAFooter";
 import HomepageBackdrop from "@/components/HomepageBackdrop";
+import { LazySection } from "@/components/LazySection";
 
 const FlowBEntry = React.lazy(() => import("@/components/FlowBEntry"));
 const MarketBaselineTool = React.lazy(() => import("@/components/MarketBaselineTool"));
@@ -669,41 +670,53 @@ const Index = () => {
 
           {!shouldShowReport && !isDevPreview && (
             <React.Suspense fallback={<SectionReserve className="min-h-[1800px]" />}>
-              <QuoteSpreadShowcase
-                onScanClick={() => triggerTruthGate("quote_spread")}
-                onDemoClick={() => {
-                  setPowerToolTriggered(true);
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                }}
-              />
-              <IndustryTruth
-                onScanClick={() => triggerTruthGate("industry_truth")}
-                onDemoClick={() => {
-                  setPowerToolTriggered(true);
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                }}
-              />
-              <MarketMakerManifesto
-                onDemoClick={() => {
-                  setPowerToolTriggered(true);
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                }}
-              />
-              <NarrativeProof
-                onScanClick={() => triggerTruthGate("narrative_proof")}
-                onDemoClick={() => {
-                  setPowerToolTriggered(true);
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                }}
-              />
-              <ClosingManifesto
-                onScanClick={() => triggerTruthGate("closing_manifesto")}
-                onDemoClick={() => {
-                  setPowerToolTriggered(true);
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                }}
-              />
-              <Testimonials onScanClick={() => triggerTruthGate("testimonials")} />
+              <LazySection height="760px" rootMargin="400px 0px" skeleton={false}>
+                <QuoteSpreadShowcase
+                  onScanClick={() => triggerTruthGate("quote_spread")}
+                  onDemoClick={() => {
+                    setPowerToolTriggered(true);
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                />
+              </LazySection>
+              <LazySection height="980px" rootMargin="400px 0px" skeleton={false}>
+                <IndustryTruth
+                  onScanClick={() => triggerTruthGate("industry_truth")}
+                  onDemoClick={() => {
+                    setPowerToolTriggered(true);
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                />
+              </LazySection>
+              <LazySection height="760px" rootMargin="400px 0px" skeleton={false}>
+                <MarketMakerManifesto
+                  onDemoClick={() => {
+                    setPowerToolTriggered(true);
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                />
+              </LazySection>
+              <LazySection height="760px" rootMargin="400px 0px" skeleton={false}>
+                <NarrativeProof
+                  onScanClick={() => triggerTruthGate("narrative_proof")}
+                  onDemoClick={() => {
+                    setPowerToolTriggered(true);
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                />
+              </LazySection>
+              <LazySection height="560px" rootMargin="400px 0px" skeleton={false}>
+                <ClosingManifesto
+                  onScanClick={() => triggerTruthGate("closing_manifesto")}
+                  onDemoClick={() => {
+                    setPowerToolTriggered(true);
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                />
+              </LazySection>
+              <LazySection height="620px" rootMargin="400px 0px" skeleton={false}>
+                <Testimonials onScanClick={() => triggerTruthGate("testimonials")} />
+              </LazySection>
             </React.Suspense>
           )}
 
@@ -780,7 +793,9 @@ const Index = () => {
           )}
           <div className="bg-card pb-[240px] sm:pb-[180px] lg:pb-32">
             <React.Suspense fallback={null}>
-              <Footer />
+              <LazySection height="280px" rootMargin="600px 0px" skeleton={false}>
+                <Footer />
+              </LazySection>
             </React.Suspense>
           </div>
         </div>
