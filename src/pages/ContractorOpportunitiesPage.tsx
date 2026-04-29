@@ -943,7 +943,7 @@ function OpportunityCard({
 
         <button
           type="button"
-          onClick={() => navigate(opp.dossier_href)}
+          onClick={() => navigate(isPreview ? `${opp.dossier_href}?demo=1` : opp.dossier_href)}
           className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-sm font-extrabold border-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${ctaToneClasses[ctaConfig.tone]}`}
           aria-label={`${ctaConfig.label} for ${opp.project_type ?? "this opportunity"} in ${locationLabel}`}
         >
