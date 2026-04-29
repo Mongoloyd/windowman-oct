@@ -127,14 +127,15 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AppTrackingProvider>
-          <RouteErrorBoundary>
-            <Suspense fallback={<PageLoader />}>
-              <Routes>
+          <ScanFunnelProvider>
+            <RouteErrorBoundary>
+              <Suspense fallback={<PageLoader />}>
+                <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/lp/:slug" element={<LandingPage />} />
                 <Route path="/estimate" element={<Estimate />} />
                 <Route path="/diagnosis" element={<Diagnosis />} />
-                <Route path="/report/classic/:sessionId" element={<ScanFunnelProvider><ReportClassic /></ScanFunnelProvider>} />
+                <Route path="/report/classic/:sessionId" element={<ReportClassic />} />
                 {/* Legacy V2 route → permanent redirect to Classic */}
                 <Route path="/report/:sessionId" element={<ReportRedirect />} />
                 <Route path="/admin/*" element={<AdminRoutes />} />
@@ -167,9 +168,10 @@ const App = () => (
                 <Route path="/partner/*" element={<PartnerRoutes />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
-              </Routes>
-            </Suspense>
-          </RouteErrorBoundary>
+                </Routes>
+              </Suspense>
+            </RouteErrorBoundary>
+          </ScanFunnelProvider>
         </AppTrackingProvider>
       </BrowserRouter>
     </TooltipProvider>
