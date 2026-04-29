@@ -1,405 +1,79 @@
-Approved. Implement the admin-only Lead Evidence Inspector exactly as planned.
-
-Allowed files only:
-
-- src/routes/AdminRoutes.tsx
-
-- src/services/adminDataService.ts
-
-- src/pages/AdminLeadEvidence.tsx
-
-- supabase/functions/admin-data/index.ts
-
-Goal:
-
-Create a read-only admin ops/debugging page at /admin/lead-evidence that lets an admin select a lead and inspect the evidence chain:
-
-lead -> quote_files -> scan_sessions -> analyses -> existing admin report links
-
-This is not a homeowner feature, not a replacement Lead Inbox, not an AdminDashboard tab, and not a public route.
-
-Implementation preflight:
-
-- Schema verification is an implementation preflight only.
-
-- Do not add a runtime schema preflight endpoint, script, or user-facing schema checker.
-
-- Before coding the backend action, verify the actual available columns on:
-
-  - leads
-
-  - quote_files
-
-  - scan_sessions
-
-  - analyses
-
-- Do not invent relationships.
-
-- If quote_files.lead_id is not reliable, resolve quote files through scan_sessions.quote_file_id.
-
-- Confirm supabase/config.toml remains unchanged and already has explicit verify_jwt=false blocks for all local Edge Functions.
-
-Backend requirements:
-
-- Implement a new read-only fetch_lead_evidence action inside the existing admin-data Edge Function.
-
-- Keep existing fetch_quote_evidence unchanged.
-
-- Use existing admin role validation.
-
-- Roles allowed: super_admin, operator, viewer.
-
-- Require and validate lead_id.
-
-- Fetch the selected lead first with a narrow column list.
-
-- Return a sanitized 404/not_found response if the lead does not exist.
-
-- Return a sanitized unauthorized response if role validation fails.
-
-- Query only evidence for the selected lead.
-
-- Limit returned rows:
-
-  - quote_files: newest 5
-
-  - scan_sessions: newest 25
-
-  - analyses: newest 25
-
-- Generate signed URLs backend-side only, using the private quotes bucket signed URL API.
-
-- Generate signed URLs only for quote files returned for the selected lead.
-
-- If signing fails for one file, return that file with:
-
-  - signed_url: null
-
-  - signed_url_error: "signing_failed"
-
-  and continue returning the rest.
-
-Backend safety rules:
-
-- fetch_lead_evidence must perform no writes, updates, deletes, rescans, tracking events, routing actions, lead status changes, or report reveal changes.
-
-- Do not select, return, or render analyses.full_json.
-
-- Do not return or render raw OCR text.
-
-- Only return lightweight summaries from flags, preview_json, and proof_of_read.
-
-Frontend service requirements:
-
-- In src/services/adminDataService.ts:
-
-  - add fetch_lead_evidence to the AdminAction union.
-
-  - add payload type: fetch_lead_evidence: { lead_id: string }.
-
-  - add LeadEvidenceResponse interfaces.
-
-  - add fetchLeadEvidence(leadId) wrapper.
-
-  - keep fetchQuoteEvidence unchanged.
-
-- Do not query quote_files, scan_sessions, or analyses directly from browser code.
-
-- Use invokeAdminData() for admin-data calls.
-
-Page requirements:
-
-- Create src/pages/AdminLeadEvidence.tsx.
-
-- Use existing admin UI patterns.
-
-- Use existing fetch_leads / invokeAdminData path for the lightweight lead list.
-
-- Do not fetch quote_files, scan_sessions, or analyses during initial page load.
-
-- Fetch evidence only after a specific lead is selected.
-
-- Show these states:
-
-  - no selected lead
-
-  - loading
-
-  - empty
-
-  - error with retry
-
-  - not found
-
-  - unauthorized
-
-- Link to existing /admin/leads/:id.
-
-- Link to existing /admin/leads/:id/report only when report context exists.
-
-- Do not create a duplicate full report viewer.
-
-- Do not create a replacement Lead Inbox.
-
-Page content:
-
-- Lead summary:
-
-  - lead ID
-
-  - created/updated timestamps
-
-  - name
-
-  - email
-
-  - phone
-
-  - city/county/state/zip
-
-  - latest scan session ID
-
-  - latest analysis ID
-
-  - grade/status
-
-- Quote files:
-
-  - ID
-
-  - storage_path as text metadata only
-
-  - status
-
-  - created date
-
-  - related scan session ID when resolvable
-
-  - signed URL button/link only if backend returned signed_url
-
-  - signed URL expiry
-
-  - generic signing failure/null state when signing failed
-
-- Scan sessions:
-
-  - ID
-
-  - lead ID
-
-  - quote file ID
-
-  - status
-
-  - created/updated timestamps
-
-- Analyses:
-
-  - ID
-
-  - lead ID
-
-  - scan session ID
-
-  - grade
-
-  - analysis status
-
-  - confidence score
-
-  - rubric version
-
-  - document type
-
-  - window/door related boolean
-
-  - dollar delta
-
-  - created/updated timestamps
-
-  - flags summary
-
-  - preview/proof presence summaries only
-
-Error handling:
-
-- The page must show clear sanitized user-visible error states when:
-
-  - the lead list cannot load
-
-  - selected lead evidence cannot load
-
-  - the selected lead does not exist
-
-  - the current admin role is not authorized
-
-  - signed URL generation fails for a quote file
-
-- Error messages must be useful but sanitized:
-
-  - no stack traces
-
-  - no service-role details
-
-  - no secret names/values
-
-  - no raw Supabase internals
-
-  - no raw storage signing errors in the UI
-
-  - use a generic signing error such as "signing_failed"
-
-- Technical details may be logged to console for debugging.
-
-Routing requirements:
-
-- In src/routes/AdminRoutes.tsx:
-
-  - add lazy import for AdminLeadEvidence.
-
-  - add explicit protected route /admin/lead-evidence.
-
-  - wrap it with AdminAuthGate.
-
-  - place it above the dynamic /admin/:tab route.
-
-- Do not add it to adminDashboardTabs.ts.
-
-- Do not add a root alias.
-
-- Do not create a public route.
-
-- Do not add it as an AdminDashboard tab.
-
-- Do not modify src/App.tsx.
-
-Do not modify:
-
-- src/components/AdminDashboard.tsx
-
-- src/routes/adminDashboardTabs.ts
-
-- admin tab components
-
-- src/App.tsx
-
-- supabase/config.toml
-
-- migrations
-
-- RLS
-
-- storage policies
-
-- scanner/scan-quote
-
-- OTP/Twilio
-
-- report reveal/full_json gating
-
-- tracking/Meta CAPI/analytics
-
-- package files
-
-- Vite files
-
-- homepage
-
-- partner routes/pages
-
-- public routes
-
-- public contractor routes
-
-Stop conditions:
-
-- Stop if broader changes are required.
-
-- Stop if TypeScript requires broad refactoring outside the allowed files.
-
-- Stop if schema verification shows required columns do not exist and no safe existing relationship can resolve the evidence chain.
-
-- Stop if any change to supabase/config.toml appears necessary.
-
-- Stop if implementation requires database migrations, RLS changes, storage policy changes, public storage URLs, scanner changes, OTP/Twilio changes, report reveal changes, tracking changes, package changes, Vite changes, public route changes, or partner route changes.
-
-Verification required:
-
-1. Changed files are exactly:
-
-   - src/routes/AdminRoutes.tsx
-
-   - src/services/adminDataService.ts
-
-   - src/pages/AdminLeadEvidence.tsx
-
-   - supabase/functions/admin-data/index.ts
-
-2. /admin/lead-evidence loads behind AdminAuthGate.
-
-3. /admin/lead-evidence is explicit and above /admin/:tab.
-
-4. src/App.tsx remains unchanged.
-
-5. src/routes/adminDashboardTabs.ts remains unchanged.
-
-6. supabase/config.toml remains unchanged.
-
-7. Existing routes still work:
-
-   - /admin/leads
-
-   - /admin/leads/:id
-
-   - /admin/leads/:id/report
-
-   - /admin/readiness
-
-   - /admin/lifecycle
-
-8. Lead list loads through existing fetch_leads / invokeAdminData path.
-
-9. No quote_files, scan_sessions, or analyses are fetched during initial list load.
-
-10. Selecting a lead calls fetch_lead_evidence through invokeAdminData.
-
-11. Empty quote_files, scan_sessions, or analyses states do not crash.
-
-12. Missing lead shows sanitized not-found state.
-
-13. Unauthorized role shows sanitized unauthorized state.
-
-14. Quote file rows show signed links only when backend returns signed_url.
-
-15. Signed URL failure does not crash the page.
-
-16. analyses.full_json is not selected, returned, or rendered.
-
-17. Raw OCR text is not shown.
-
-18. fetch_quote_evidence remains unchanged.
-
-19. No protected systems changed.
-
-Final report:
-
-- exact files changed
-
-- schema verification summary
-
-- backend action added
-
-- frontend wrapper added
-
-- route added
-
-- signed URL behavior
-
-- error handling behavior
-
-- confirmation fetch_quote_evidence remained unchanged
-
-- confirmation protected systems remained unchanged
-
-- safe to publish or stop recommendation
+Plan: Make Lead Evidence Inspector discoverable from Command Center
+
+Exact file scope
+- Change exactly one file:
+  - `src/components/admin/MasterCommandCenter.tsx`
+
+No other files will be changed.
+
+Current repo placement found
+- `src/components/AdminDashboard.tsx` renders the main admin Command Center via `<MasterCommandCenter />` for:
+  - `/admin` default mission-control tab
+  - `/admin/command-center`
+  - `/admin/command`
+- `src/components/admin/MasterCommandCenter.tsx` already contains a `Quick-Action HUD` card.
+- That HUD has:
+  - primary in-dashboard tab actions
+  - secondary route links currently including `Lead Inbox` and `Settings`
+
+Exact UI placement
+- Add the Lead Evidence Inspector as a secondary route link in the existing `Quick-Action HUD` card in `src/components/admin/MasterCommandCenter.tsx`.
+- Specifically, add a new item to the existing `secondaryActions` array near the existing `Lead Inbox` and `Settings` links.
+- Label:
+  - `Lead Evidence Inspector`
+- Subtitle/description:
+  - `Inspect quote files, scan sessions, and analysis chain for a selected lead.`
+- Destination:
+  - `/admin/lead-evidence`
+- CTA behavior:
+  - The existing secondary action UI is a clickable card/link row with an arrow. The visible label/subtitle will act as the requested compact card/button. If space allows, the description will use the exact subtitle text; if the current compact row truncates visually, the full text will still be present in the action data and link title for discoverability.
+
+Implementation approach
+1. Update imports only if needed
+- `MasterCommandCenter.tsx` already imports `Link`, `ArrowRight`, and suitable icons from `lucide-react`.
+- It already imports `ScanSearch`, which fits the evidence inspector action, so no new import is expected.
+
+2. Add one route action
+- Extend:
+  - `const secondaryActions: Array<{ to: string; label: string; desc: string; icon: typeof Activity }>`
+- Add:
+  - `{ to: "/admin/lead-evidence", label: "Lead Evidence Inspector", desc: "Inspect quote files, scan sessions, and analysis chain for a selected lead.", icon: ScanSearch }`
+- Prefer placing it immediately after `Lead Inbox` because it is lead/evidence related.
+
+3. Keep routing/security unchanged
+- Do not modify `src/routes/AdminRoutes.tsx`.
+- Do not modify `src/routes/adminDashboardTabs.ts`.
+- Do not add a new route, dashboard tab, root alias, or public route.
+- The link points to the already-existing `/admin/lead-evidence` route, which remains protected by `AdminAuthGate` in `AdminRoutes.tsx`.
+- This change does not query data and does not touch backend code.
+
+Verification plan
+- Confirm `/admin` and `/admin/command-center` show the Quick-Action HUD with a visible `Lead Evidence Inspector` link.
+- Confirm clicking the link navigates to `/admin/lead-evidence`.
+- Confirm `/admin/lead-evidence` remains protected by the existing `AdminAuthGate` route.
+- Confirm no route files changed.
+- Confirm no backend files changed.
+- Confirm no public routes changed.
+
+Why this does not affect routing/security
+- It adds only a client-side navigation link to an already-defined protected admin route.
+- Authorization stays centralized in the existing `AdminRoutes.tsx` wrapper for `/admin/lead-evidence`.
+- No data fetching, backend action, Supabase config, RLS, storage, scanner, OTP, report reveal, tracking, package, Vite, homepage, partner, or public route code is touched.
+
+Stop conditions
+- Stop if the Quick-Action HUD is not the correct Command Center action area.
+- Stop if any required implementation appears to need route changes.
+- Stop if any required implementation appears to need backend/data changes.
+- Stop if any file outside `src/components/admin/MasterCommandCenter.tsx` appears necessary.
+
+Approval prompt
+```text
+Approved. Add the Lead Evidence Inspector link to the main admin Command Center exactly as planned.
+
+Allowed file only:
+- src/components/admin/MasterCommandCenter.tsx
+
+Add it to the existing Quick-Action HUD secondary route links, pointing to /admin/lead-evidence, with label "Lead Evidence Inspector" and subtitle "Inspect quote files, scan sessions, and analysis chain for a selected lead."
+
+Do not modify routes, dashboard tabs, App.tsx, AdminLeadEvidence.tsx, services, backend files, Supabase config, migrations, RLS, scanner/scan-quote, OTP/Twilio, report reveal/full_json gating, tracking/CAPI/analytics, package files, Vite files, homepage, partner routes/pages, or public routes.
+```
