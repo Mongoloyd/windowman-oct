@@ -5,17 +5,13 @@ import StickyRecoveryBar from "@/components/StickyRecoveryBar";
 import StickyCTAFooter from "@/components/StickyCTAFooter";
 import HomepageBackdrop from "@/components/HomepageBackdrop";
 import { LazySection } from "@/components/LazySection";
+import TruthGateFlow from "@/components/TruthGateFlow";
+import UploadZone from "@/components/UploadZone";
+import ScanTheatrics from "@/components/ScanTheatrics";
+import { PostScanReportSwitcher } from "@/components/post-scan/PostScanReportSwitcher";
 
 const FlowBEntry = React.lazy(() => import("@/components/FlowBEntry"));
 const MarketBaselineTool = React.lazy(() => import("@/components/MarketBaselineTool"));
-const TruthGateFlow = React.lazy(() => import("@/components/TruthGateFlow"));
-const UploadZone = React.lazy(() => import("@/components/UploadZone"));
-const ScanTheatrics = React.lazy(() => import("@/components/ScanTheatrics"));
-const PostScanReportSwitcher = React.lazy(() =>
-  import("@/components/post-scan/PostScanReportSwitcher").then((module) => ({
-    default: module.PostScanReportSwitcher,
-  })),
-);
 const ExitIntentPhoneModal = React.lazy(() => import("@/components/ExitIntentPhoneModal"));
 
 // ── Below-fold: lazy-loaded to cut initial bundle ~50% ──
