@@ -493,6 +493,9 @@ const TruthGateFlow = ({
 
       if (funnel) {
         funnel.setSessionId(sessionId);
+        if (captureData.lead_id) {
+          funnel.setLeadId(captureData.lead_id as string);
+        }
         if (phoneE164) {
           funnel.setPhone(phoneE164, "screened_valid");
         } else {
