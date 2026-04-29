@@ -58,6 +58,7 @@ import {
   fetchContractors,
   fetchOpportunities,
   fetchRoutes,
+  fetchStageLeads,
 } from "@/services/adminDataService";
 import type {
   RoutingContractor,
@@ -81,10 +82,17 @@ import {
   type StageKey,
   type FunnelMetrics,
   type StageMetric,
+  STAGE_LABELS,
 } from "@/components/admin/missionControl/funnelMetrics";
-import { TruthStripDrilldown } from "@/components/admin/TruthStripDrilldown";
 import { LeadDossierSheet } from "@/components/admin/LeadDossierSheet";
 import type { StageLeadRow } from "@/components/admin/types";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 const DAILY_GOAL_KEY = "wm_admin_daily_revenue_goal";
@@ -99,6 +107,19 @@ interface MasterCommandCenterProps {
 }
 
 type ReadinessStatus = "operational" | "attention" | "critical" | "unknown";
+
+const SCOPE_LABEL: Record<Scope, string> = {
+  today: "Today",
+  "7d": "Last 7 days",
+  all: "All-time",
+};
+
+function buildLeadEvidenceHref(row: StageLeadRow): string {
+  const params = new URLSearchParams({ lead_id: row.id });
+  if (row.latest_scan_session_id) params.set("scan_session_id", row.latest_scan_session_id);
+  if (row.latest_analysis_id) params.set("analysis_id", row.latest_analysis_id);
+  return `/admin/lead-evidence?${params.toString()}`;
+}
 
 interface ReadinessSignal {
   key: string;
