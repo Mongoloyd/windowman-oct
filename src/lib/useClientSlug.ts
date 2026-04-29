@@ -66,6 +66,11 @@ export function useClientSlug(): UseClientSlugResult {
           setSlug(data.slug);
         }
         setReady(true);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setSlug(null);
+        setReady(true);
       });
 
     return () => { cancelled = true; };
