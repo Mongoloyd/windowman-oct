@@ -5,17 +5,13 @@ import StickyRecoveryBar from "@/components/StickyRecoveryBar";
 import StickyCTAFooter from "@/components/StickyCTAFooter";
 import HomepageBackdrop from "@/components/HomepageBackdrop";
 import { LazySection } from "@/components/LazySection";
+import TruthGateFlow from "@/components/TruthGateFlow";
+import UploadZone from "@/components/UploadZone";
+import ScanTheatrics from "@/components/ScanTheatrics";
+import { PostScanReportSwitcher } from "@/components/post-scan/PostScanReportSwitcher";
 
 const FlowBEntry = React.lazy(() => import("@/components/FlowBEntry"));
 const MarketBaselineTool = React.lazy(() => import("@/components/MarketBaselineTool"));
-const TruthGateFlow = React.lazy(() => import("@/components/TruthGateFlow"));
-const UploadZone = React.lazy(() => import("@/components/UploadZone"));
-const ScanTheatrics = React.lazy(() => import("@/components/ScanTheatrics"));
-const PostScanReportSwitcher = React.lazy(() =>
-  import("@/components/post-scan/PostScanReportSwitcher").then((module) => ({
-    default: module.PostScanReportSwitcher,
-  })),
-);
 const ExitIntentPhoneModal = React.lazy(() => import("@/components/ExitIntentPhoneModal"));
 
 // ── Below-fold: lazy-loaded to cut initial bundle ~50% ──
@@ -517,15 +513,17 @@ const Index = () => {
               </div>
 
               {flowMode === "A" && (
-                <React.Suspense fallback={<SectionReserve className="min-h-[1400px]" />}>
-                  <ScamConcernImage />
-                  <OrangeScanner
-                    onScanClick={() => triggerTruthGate("demo_scan")}
-                    onDemoClick={() => {
-                      setPowerToolTriggered(true);
-                      window.scrollTo({ top: 0, behavior: "smooth" });
-                    }}
-                  />
+                <>
+                  <React.Suspense fallback={<SectionReserve className="min-h-[760px]" />}>
+                    <ScamConcernImage />
+                    <OrangeScanner
+                      onScanClick={() => triggerTruthGate("demo_scan")}
+                      onDemoClick={() => {
+                        setPowerToolTriggered(true);
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                    />
+                  </React.Suspense>
                   <div id="truth-gate-section" className="scroll-mt-24">
                     <TruthGateFlow
                       onLeadCaptured={(sid) => {
@@ -549,45 +547,45 @@ const Index = () => {
                       setFileUploaded(true);
                     }}
                   />
-                  <ProcessSteps
-                    onScanClick={() => triggerTruthGate("process_steps")}
-                    onDemoClick={() => {
-                      setPowerToolTriggered(true);
-                      window.scrollTo({ top: 0, behavior: "smooth" });
-                    }}
-                  />
-                  <div className="mt-24">
-                    <SocialProofStrip />
-                  </div>
-                </React.Suspense>
+                  <React.Suspense fallback={<SectionReserve className="min-h-[640px]" />}>
+                    <ProcessSteps
+                      onScanClick={() => triggerTruthGate("process_steps")}
+                      onDemoClick={() => {
+                        setPowerToolTriggered(true);
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                    />
+                    <div className="mt-24">
+                      <SocialProofStrip />
+                    </div>
+                  </React.Suspense>
+                </>
               )}
             </>
           )}
 
           {fileUploaded && !gradeRevealed && !isDevPreview && (
-            <React.Suspense fallback={<SectionReserve className="min-h-screen" />}>
-              <ScanTheatrics
-                isActive={true}
-                selectedCounty={selectedCounty}
-                scanSessionId={scanSessionId}
-                grade={analysisData?.grade}
-                analysisData={analysisData}
-                onRevealComplete={() => {
-                  setGradeRevealed(true);
-                  setTimeout(() => {
-                    document.getElementById("truth-report-top")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                  }, 100);
-                }}
-                onInvalidDocument={() => {
-                  setFileUploaded(false);
-                  setScanSessionId(null);
-                }}
-                onNeedsBetterUpload={() => {
-                  setFileUploaded(false);
-                  setScanSessionId(null);
-                }}
-              />
-            </React.Suspense>
+            <ScanTheatrics
+              isActive={true}
+              selectedCounty={selectedCounty}
+              scanSessionId={scanSessionId}
+              grade={analysisData?.grade}
+              analysisData={analysisData}
+              onRevealComplete={() => {
+                setGradeRevealed(true);
+                setTimeout(() => {
+                  document.getElementById("truth-report-top")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }, 100);
+              }}
+              onInvalidDocument={() => {
+                setFileUploaded(false);
+                setScanSessionId(null);
+              }}
+              onNeedsBetterUpload={() => {
+                setFileUploaded(false);
+                setScanSessionId(null);
+              }}
+            />
           )}
 
           {/* ─── Report view (real or dev fixture) ─── */}
@@ -639,37 +637,35 @@ const Index = () => {
                   </div>
                 </div>
               ) : activeData ? (
-                <React.Suspense fallback={<SectionReserve className="min-h-screen" />}>
-                  <PostScanReportSwitcher
-                    grade={reportGrade}
-                    flags={reportFlags}
-                    pillarScores={activeData.pillarScores}
-                    contractorName={activeData.contractorName}
-                    county={selectedCounty}
-                    confidenceScore={activeData.confidenceScore}
-                    documentType={activeData.documentType}
-                    analysisId={activeData?.analysisId ?? null}
-                    qualityBand={activeData.qualityBand}
-                    hasWarranty={activeData.hasWarranty}
-                    hasPermits={activeData.hasPermits}
-                    pageCount={activeData.pageCount}
-                    lineItemCount={activeData.lineItemCount}
-                    onSecondScan={() => triggerTruthGate("second_opinion_scan")}
-                    scanSessionId={scanSessionId}
-                    flagCount={activeData?.flagCount}
-                    flagRedCount={activeData?.flagRedCount}
-                    flagAmberCount={activeData?.flagAmberCount}
-                    isFullLoaded={isFullLoaded}
-                    isLoadingFull={isLoadingFull}
-                    fullFetchError={fullFetchError}
-                    priceFairness={activeData?.priceFairness}
-                    markupEstimate={activeData?.markupEstimate}
-                    negotiationLeverage={activeData?.negotiationLeverage}
-                    onVerified={(phoneE164: string) => {
-                      fetchFull(phoneE164);
-                    }}
-                  />
-                </React.Suspense>
+                <PostScanReportSwitcher
+                  grade={reportGrade}
+                  flags={reportFlags}
+                  pillarScores={activeData.pillarScores}
+                  contractorName={activeData.contractorName}
+                  county={selectedCounty}
+                  confidenceScore={activeData.confidenceScore}
+                  documentType={activeData.documentType}
+                  analysisId={activeData?.analysisId ?? null}
+                  qualityBand={activeData.qualityBand}
+                  hasWarranty={activeData.hasWarranty}
+                  hasPermits={activeData.hasPermits}
+                  pageCount={activeData.pageCount}
+                  lineItemCount={activeData.lineItemCount}
+                  onSecondScan={() => triggerTruthGate("second_opinion_scan")}
+                  scanSessionId={scanSessionId}
+                  flagCount={activeData?.flagCount}
+                  flagRedCount={activeData?.flagRedCount}
+                  flagAmberCount={activeData?.flagAmberCount}
+                  isFullLoaded={isFullLoaded}
+                  isLoadingFull={isLoadingFull}
+                  fullFetchError={fullFetchError}
+                  priceFairness={activeData?.priceFairness}
+                  markupEstimate={activeData?.markupEstimate}
+                  negotiationLeverage={activeData?.negotiationLeverage}
+                  onVerified={(phoneE164: string) => {
+                    fetchFull(phoneE164);
+                  }}
+                />
               ) : null}
             </>
           )}

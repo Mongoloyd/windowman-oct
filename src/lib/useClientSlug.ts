@@ -60,13 +60,20 @@ export function useClientSlug(): UseClientSlugResult {
       .eq("is_active", true)
       .limit(1)
       .maybeSingle()
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        if (!error && data?.slug) {
-          setSlug(data.slug);
-        }
-        setReady(true);
-      });
+      .then(
+        ({ data, error }) => {
+          if (cancelled) return;
+          if (!error && data?.slug) {
+            setSlug(data.slug);
+          }
+          setReady(true);
+        },
+        () => {
+          if (cancelled) return;
+          setSlug(null);
+          setReady(true);
+        },
+      );
 
     return () => { cancelled = true; };
   }, []);
