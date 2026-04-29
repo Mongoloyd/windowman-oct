@@ -482,11 +482,6 @@ const VerdictHologram = React.forwardRef<
             className={`absolute inset-0 bg-gradient-to-t ${theme.overlay} to-transparent pointer-events-none animate-pulse rounded-xl`}
           />
 
-          <div className="relative mb-3 md:mb-6">
-            <VerdictIcon className={`${theme.iconColor} mb-1 md:mb-2 w-9 h-9 md:w-16 md:h-16 animate-in fade-in duration-500`} />
-            <div className={`absolute -inset-2 md:-inset-4 ${theme.accentBg} blur-xl rounded-full`} />
-          </div>
-
           <h2 className="text-xl md:text-3xl font-black text-white tracking-tighter mb-2 italic">
             VERDICT: <span className={theme.headlineColor}>{theme.headline}</span>
           </h2>
@@ -539,9 +534,6 @@ const VerdictHologram = React.forwardRef<
             </div>
           </div>
 
-          <div className="mt-6 text-[10px] font-mono uppercase tracking-widest opacity-80 text-slate-300">
-            AI Audit ID: {auditIdRef.current} // v4.2 Compliance Engine
-          </div>
         </div>
       </div>
     );
