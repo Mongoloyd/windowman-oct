@@ -663,6 +663,7 @@ export default function OrangeScanner({
   onDemoClick,
 }: { onScanClick?: () => void; onDemoClick?: () => void } = {}) {
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   // --- State ---
   const [scenarioIndex, setScenarioIndex] = useState(0);
@@ -670,6 +671,7 @@ export default function OrangeScanner({
   const [scanProgress, setScanProgress] = useState(0);
   const [activeAnomalies, setActiveAnomalies] = useState<Array<string | number>>([]);
   const [isComplete, setIsComplete] = useState(false);
+  const [processingAction, setProcessingAction] = useState<DecisionAction>(null);
   const verdictRef = useRef<HTMLDivElement | null>(null);
   const hasRunOnce = useRef(false);
 
@@ -714,6 +716,24 @@ export default function OrangeScanner({
       button: "want_quote",
     });
     navigate("/about?startArb=1&step=scope&src=orange-scanner");
+  };
+
+  const handleDecisionAction = async (action: Exclude<DecisionAction, null>, callback: () => void | Promise<void>) => {
+    if (processingAction) return;
+
+    setProcessingAction(action);
+    try {
+      await Promise.resolve(callback());
+    } catch (error) {
+      console.error("OrangeScanner decision action failed", { action, error });
+      toast({
+        title: "Action failed",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setProcessingAction(null);
+    }
   };
 
   // --- Start scan (no timer engine here) ---
