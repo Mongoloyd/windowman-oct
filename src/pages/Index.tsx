@@ -90,8 +90,10 @@ const Index = () => {
   const [gradeRevealed, setGradeRevealed] = useState(false);
   // contractorMatchVisible removed — CTAs now native in TruthReportClassic
   const [flowBLeadCaptured, setFlowBLeadCaptured] = useState(false);
+  // Flow B preservation hook: reserved for MarketBaselineTool reveal state.
   const [baselineRevealed, setBaselineRevealed] = useState(false);
   const [quoteWatcherSet, setQuoteWatcherSet] = useState(false);
+  // Flow B preservation hook: do not remove, used to retain no-quote path context.
   const [flowBAnswers, setFlowBAnswers] = useState({
     county: "",
     windowCount: "",
@@ -496,7 +498,11 @@ const Index = () => {
                           <QuoteWatcher
                               onReminderSet={(date, time) => {
                                 setQuoteWatcherSet(true);
-                                setFlowBAnswers((prev) => ({ ...prev, appointmentDate: date, appointmentTime: time }));
+                                setFlowBAnswers((prev) => ({
+                                  ...prev,
+                                  appointmentDate: date,
+                                  appointmentTime: time,
+                                }));
                               }}
                               onSwitchToFlowA={() => switchToFlowA("watcher_link")}
                               onViewChecklist={() =>
