@@ -5,6 +5,7 @@ import {
   BrainCircuit,
   Cpu,
   Scan,
+  Loader2,
   ChevronRight,
   FileText,
   Zap,
@@ -17,6 +18,7 @@ import {
   ArrowRight,
   CheckCircle2,
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 // ═══════════════════════════════════════════════════════════════
 // TYPES
@@ -40,6 +42,8 @@ type ScenarioSpecs = {
 };
 
 type AlertLevel = "critical" | "caution" | "verified";
+
+type DecisionAction = "have_quote" | "want_quote" | null;
 
 type QuoteScenario = {
   id: "predatory" | "vague" | "fair";
@@ -412,12 +416,23 @@ const VerdictHologram = React.forwardRef<
     summaryText: string;
     integrityScore: number;
     activeAnomalies: Array<string | number>;
+    processingAction: DecisionAction;
     onScanClick: () => void;
     onDemoClick: () => void;
   }
 >(
   (
-    { isOpen, alertLevel, summaryTitle, summaryText, integrityScore, activeAnomalies, onScanClick, onDemoClick },
+    {
+      isOpen,
+      alertLevel,
+      summaryTitle,
+      summaryText,
+      integrityScore,
+      activeAnomalies,
+      processingAction,
+      onScanClick,
+      onDemoClick,
+    },
     ref,
   ) => {
     if (!isOpen) return null;
@@ -465,6 +480,14 @@ const VerdictHologram = React.forwardRef<
     };
 
     const theme = themeMap[alertLevel];
+    const isHaveQuoteLoading = processingAction === "have_quote";
+    const isWantQuoteLoading = processingAction === "want_quote";
+    const isAnyActionLoading = processingAction !== null;
+    const loadingStatus = isHaveQuoteLoading
+      ? "Opening scanner..."
+      : isWantQuoteLoading
+        ? "Opening quote request..."
+        : "";
 
     return (
       <div
@@ -517,21 +540,44 @@ const VerdictHologram = React.forwardRef<
             <div className="flex flex-col md:flex-row gap-3 md:gap-4 w-full">
               <button
                 onClick={onScanClick}
-                aria-label="I have a quote"
+                disabled={isAnyActionLoading}
+                aria-busy={isHaveQuoteLoading}
+                aria-label="Open the real quote scanner because I already have a window quote"
                 data-testid="orange-scanner-have-quote"
-                className="w-full md:flex-1 h-11 md:h-14 rounded-xl border backdrop-blur-md px-6 font-black text-sm md:text-base tracking-wide transition-all duration-300 active:scale-[0.98] bg-cyan-500 text-slate-950 border-cyan-300/40 hover:bg-cyan-400 shadow-[0_0_24px_rgba(34,211,238,0.25)]"
+                className="w-full md:flex-1 h-11 md:h-14 rounded-xl border backdrop-blur-md px-6 font-black text-sm md:text-base tracking-wide transition-all duration-300 active:scale-[0.98] bg-cyan-500 text-slate-950 border-cyan-300/40 hover:bg-cyan-400 shadow-[0_0_24px_rgba(34,211,238,0.25)] disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:bg-cyan-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 flex items-center justify-center gap-2"
               >
-                I Have a Quote
+                {isHaveQuoteLoading ? (
+                  <>
+                    <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                    Opening scanner...
+                  </>
+                ) : (
+                  "I Have a Quote"
+                )}
               </button>
               <button
                 onClick={onDemoClick}
-                aria-label="I want a quote"
+                disabled={isAnyActionLoading}
+                aria-busy={isWantQuoteLoading}
+                aria-label="Start a quote request because I need a window quote"
                 data-testid="orange-scanner-want-quote"
-                className="w-full md:flex-1 h-11 md:h-14 rounded-xl border backdrop-blur-md px-6 font-black text-sm md:text-base tracking-wide transition-all duration-300 active:scale-[0.98] bg-white/10 text-white border-white/20 hover:bg-white/15 shadow-[0_0_24px_rgba(255,255,255,0.08)]"
+                className="w-full md:flex-1 h-11 md:h-14 rounded-xl border backdrop-blur-md px-6 font-black text-sm md:text-base tracking-wide transition-all duration-300 active:scale-[0.98] bg-white/10 text-white border-white/20 hover:bg-white/15 shadow-[0_0_24px_rgba(255,255,255,0.08)] disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 flex items-center justify-center gap-2"
               >
-                I Want a Quote
+                {isWantQuoteLoading ? (
+                  <>
+                    <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                    Opening quote request...
+                  </>
+                ) : (
+                  "I Want a Quote"
+                )}
               </button>
             </div>
+            {loadingStatus && (
+              <p role="status" aria-live="polite" className="mt-2 text-[11px] text-slate-400">
+                {loadingStatus}
+              </p>
+            )}
           </div>
 
         </div>
@@ -574,7 +620,7 @@ const ScanCTA = () => {
               onClick={() => {
                 document.getElementById("truth-gate-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
               }}
-              className="relative px-8 py-5 bg-cyan-600 hover:bg-cyan-500 text-white font-black text-xl rounded-xl transition-all duration-300 transform group-hover:scale-105 shadow-[0_0_30px_rgba(8,145,178,0.4)] flex items-center gap-4 overflow-hidden"
+              className="relative px-8 py-5 bg-cyan-600 hover:bg-cyan-500 text-white font-black text-xl rounded-xl transition-all duration-300 transform group-hover:scale-105 shadow-[0_0_30px_rgba(8,145,178,0.4)] flex items-center gap-4 overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
             >
               <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
               <span className="relative uppercase tracking-tight flex flex-col items-center md:items-start text-center md:text-left">
@@ -617,6 +663,7 @@ export default function OrangeScanner({
   onDemoClick,
 }: { onScanClick?: () => void; onDemoClick?: () => void } = {}) {
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   // --- State ---
   const [scenarioIndex, setScenarioIndex] = useState(0);
@@ -624,6 +671,7 @@ export default function OrangeScanner({
   const [scanProgress, setScanProgress] = useState(0);
   const [activeAnomalies, setActiveAnomalies] = useState<Array<string | number>>([]);
   const [isComplete, setIsComplete] = useState(false);
+  const [processingAction, setProcessingAction] = useState<DecisionAction>(null);
   const verdictRef = useRef<HTMLDivElement | null>(null);
   const hasRunOnce = useRef(false);
 
@@ -668,6 +716,24 @@ export default function OrangeScanner({
       button: "want_quote",
     });
     navigate("/about?startArb=1&step=scope&src=orange-scanner");
+  };
+
+  const handleDecisionAction = async (action: Exclude<DecisionAction, null>, callback: () => void | Promise<void>) => {
+    if (processingAction) return;
+
+    setProcessingAction(action);
+    try {
+      await Promise.resolve(callback());
+    } catch (error) {
+      console.error("OrangeScanner decision action failed", { action, error });
+      toast({
+        title: "Action failed",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setProcessingAction(null);
+    }
   };
 
   // --- Start scan (no timer engine here) ---
@@ -885,7 +951,7 @@ export default function OrangeScanner({
             <button
               onClick={startScan}
               disabled={isScanning}
-              className={`w-full flex items-center justify-center gap-2 px-6 py-5 rounded-lg font-bold text-sm tracking-widest uppercase transition-all duration-300 ${
+              className={`w-full flex items-center justify-center gap-2 px-6 py-5 rounded-lg font-bold text-sm tracking-widest uppercase transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${
                 isScanning
                   ? "bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700 shadow-inner"
                   : "bg-cyan-500 text-slate-950 hover:bg-cyan-400 hover:shadow-[0_0_20px_rgba(6,182,212,0.5)] shadow-lg hover:scale-[1.02] active:scale-[0.98]"
@@ -1167,8 +1233,9 @@ export default function OrangeScanner({
               summaryText={safeScenario.summaryText}
               integrityScore={safeScenario.integrityScore}
               activeAnomalies={activeAnomalies}
-              onScanClick={safeInvokeScanClick}
-              onDemoClick={safeInvokeDemoClick}
+              processingAction={processingAction}
+              onScanClick={() => handleDecisionAction("have_quote", safeInvokeScanClick)}
+              onDemoClick={() => handleDecisionAction("want_quote", safeInvokeDemoClick)}
             />
           </div>
 
@@ -1177,7 +1244,7 @@ export default function OrangeScanner({
             <button
               onClick={startScan}
               disabled={isScanning}
-              className={`w-full flex items-center justify-center gap-2 px-6 py-5 rounded-lg font-bold text-sm tracking-widest uppercase transition-all duration-300 ${
+              className={`w-full flex items-center justify-center gap-2 px-6 py-5 rounded-lg font-bold text-sm tracking-widest uppercase transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${
                 isScanning
                   ? "bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700 shadow-inner"
                   : "bg-cyan-500 text-slate-950 hover:bg-cyan-400 hover:shadow-[0_0_20px_rgba(6,182,212,0.5)] shadow-lg hover:scale-[1.02] active:scale-[0.98]"
