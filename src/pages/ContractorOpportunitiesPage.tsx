@@ -168,9 +168,6 @@ const statusPill = (status: string) => {
   );
 };
 
-/* ── Hard-disable live fetch ────────────────────────────────────── */
-const FORCE_PREVIEW_MODE = true;
-
 /* ── Mock data for preview mode ────────────────────────────────── */
 const NOW = Date.now();
 const MOCK_OPPORTUNITIES: Opportunity[] = [
@@ -310,10 +307,10 @@ const MOCK_META: Meta = { credit_balance: 5, contractor_status: "preview", total
 export default function ContractorOpportunitiesPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { setCreditBalance, setIsPreview: publishPreview } = usePartnerPortal();
-  const [opportunities, setOpportunities] = useState<Opportunity[]>(FORCE_PREVIEW_MODE ? MOCK_OPPORTUNITIES : []);
-  const [meta, setMeta] = useState<Meta | null>(FORCE_PREVIEW_MODE ? MOCK_META : null);
-  const [isPreview, setIsPreview] = useState(FORCE_PREVIEW_MODE);
+  const { isDemoMode, setCreditBalance, setIsPreview: publishPreview } = usePartnerPortal();
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [meta, setMeta] = useState<Meta | null>(null);
+  const [isPreview, setIsPreview] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
   const [countyFilter, setCountyFilter] = useState("");
@@ -337,21 +334,37 @@ export default function ContractorOpportunitiesPage() {
   }, []);
 
   const fetchOpportunities = useCallback(async () => {
-    if (FORCE_PREVIEW_MODE) return;
+    if (isDemoMode) {
+      fallbackToMock();
+      setErrorMsg(null);
+      return;
+    }
 
     setErrorMsg(null);
+    setIsPreview(false);
     try {
       const res = await supabase.functions.invoke("list-contractor-opportunities", { body: {} });
-      if (res.error) { fallbackToMock(); return; }
+      if (res.error) {
+        setOpportunities([]);
+        setMeta(null);
+        setErrorMsg("Unable to load opportunities right now.");
+        return;
+      }
       const data = res.data as any;
-      if (!data || data.error) { fallbackToMock(); return; }
+      if (!data || data.error) {
+        setOpportunities([]);
+        setMeta(null);
+        setErrorMsg(data?.message ?? "Unable to load opportunities right now.");
+        return;
+      }
       setOpportunities(data.opportunities ?? []);
       setMeta(data.meta ?? null);
-      setIsPreview(false);
     } catch {
-      fallbackToMock();
+      setOpportunities([]);
+      setMeta(null);
+      setErrorMsg("Network error while loading opportunities.");
     }
-  }, [fallbackToMock]);
+  }, [fallbackToMock, isDemoMode]);
 
   useEffect(() => { fetchOpportunities(); }, [fetchOpportunities]);
 
@@ -930,7 +943,7 @@ function OpportunityCard({
 
         <button
           type="button"
-          onClick={() => navigate(opp.dossier_href)}
+          onClick={() => navigate(isPreview ? `${opp.dossier_href}?demo=1` : opp.dossier_href)}
           className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-sm font-extrabold border-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${ctaToneClasses[ctaConfig.tone]}`}
           aria-label={`${ctaConfig.label} for ${opp.project_type ?? "this opportunity"} in ${locationLabel}`}
         >

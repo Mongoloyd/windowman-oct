@@ -15,7 +15,7 @@
 
 import { useState } from "react";
 import { Outlet, Link, useSearchParams } from "react-router-dom";
-import { Shield, CreditCard, Plus, Loader2 } from "lucide-react";
+import { Shield, CreditCard, Plus, Loader2, FlaskConical } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PreviewModeBadge } from "@/components/PreviewModeBadge";
@@ -26,7 +26,7 @@ import {
 import { PartnerPortalNav } from "./PartnerPortalNav";
 
 function PartnerLayoutInner() {
-  const { creditBalance, isPreview } = usePartnerPortal();
+  const { creditBalance, isPreview, isDemoMode, toggleDemoMode } = usePartnerPortal();
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [searchParams] = useSearchParams();
 
@@ -36,6 +36,11 @@ function PartnerLayoutInner() {
   void searchParams;
 
   const handleAddCredits = async () => {
+    if (isDemoMode) {
+      toast("Demo Mode: checkout is disabled.");
+      return;
+    }
+
     setCheckoutLoading(true);
     try {
       const origin = window.location.origin;
@@ -66,11 +71,18 @@ function PartnerLayoutInner() {
   };
 
   const balanceDisplay = creditBalance ?? 0;
+  const demoControlsArmed = isDemoMode || searchParams.get("demo") === "1" || searchParams.get("wm_demo") === "1";
 
   return (
     <div className="wm-dashboard-surface min-h-screen bg-white text-slate-950 font-sans">
+      {isDemoMode && (
+        <div className="sticky top-0 z-40 border-b border-amber-300 bg-amber-100 px-4 py-2 text-center text-sm font-black uppercase tracking-wider text-amber-950">
+          Demo Mode: Viewing Sample Data
+        </div>
+      )}
+
       {/* ─── Sticky Portal Header ─────────────────────────────── */}
-      <header className="border-b border-slate-300 bg-white sticky top-0 z-30 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/95">
+      <header className={`${isDemoMode ? "top-[37px]" : "top-0"} border-b border-slate-300 bg-white sticky z-30 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/95`}>
         <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-3 sm:py-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             {/* Brand */}
@@ -95,7 +107,22 @@ function PartnerLayoutInner() {
             </Link>
 
             {/* Credits + CTA */}
-            <div className="flex items-center gap-2 self-stretch sm:self-auto">
+            <div className="flex items-center gap-2 self-stretch sm:self-auto flex-wrap justify-end">
+              {demoControlsArmed && (
+                <button
+                  type="button"
+                  onClick={toggleDemoMode}
+                  aria-pressed={isDemoMode}
+                  className={`flex min-h-10 items-center gap-1.5 px-3 py-2 rounded-md border text-sm font-extrabold shadow-sm transition-all focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 focus-visible:ring-offset-2 whitespace-nowrap ${
+                    isDemoMode
+                      ? "border-amber-500 bg-amber-100 text-amber-950 hover:bg-amber-200"
+                      : "border-slate-400 bg-white text-slate-950 hover:bg-slate-50"
+                  }`}
+                >
+                  <FlaskConical className="h-3.5 w-3.5" aria-hidden />
+                  Demo {isDemoMode ? "On" : "Off"}
+                </button>
+              )}
               <div
                 className="flex min-h-10 items-center gap-1.5 px-3 py-2 rounded-md border border-slate-400 bg-white shadow-sm flex-1 sm:flex-initial justify-center"
                 aria-label={`Credit balance: ${balanceDisplay}`}
@@ -110,7 +137,11 @@ function PartnerLayoutInner() {
                 onClick={handleAddCredits}
                 disabled={checkoutLoading}
                 aria-label="Add credits"
-                className="flex min-h-10 items-center gap-1.5 px-4 py-2 rounded-md border border-blue-900 bg-blue-900 text-white text-sm font-extrabold shadow-sm hover:bg-blue-800 active:scale-[0.99] transition-all disabled:cursor-not-allowed focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 focus-visible:ring-offset-2 whitespace-nowrap"
+                className={`flex min-h-10 items-center gap-1.5 px-4 py-2 rounded-md border text-sm font-extrabold shadow-sm active:scale-[0.99] transition-all disabled:cursor-not-allowed focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 focus-visible:ring-offset-2 whitespace-nowrap ${
+                  isDemoMode
+                    ? "border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-100"
+                    : "border-blue-900 bg-blue-900 text-white hover:bg-blue-800"
+                }`}
               >
                 {checkoutLoading ? (
                   <>

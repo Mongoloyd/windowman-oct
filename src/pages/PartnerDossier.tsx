@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import {
   Lock,
   Unlock,
@@ -227,7 +227,8 @@ interface DossierErrorDetails {
    ══════════════════════════════════════════════════════════════════ */
 export default function PartnerDossier() {
   const { id } = useParams<{ id: string }>();
-  const { setCreditBalance, setIsPreview: publishPreview } = usePartnerPortal();
+  const navigate = useNavigate();
+  const { isDemoMode, setCreditBalance, setIsPreview: publishPreview } = usePartnerPortal();
 
   const [dossier, setDossier] = useState<DossierData | null>(null);
   const [meta, setMeta] = useState<DossierMeta | null>(null);
@@ -256,10 +257,16 @@ export default function PartnerDossier() {
     setIsPreview(true);
   }, []);
 
-  /* ── Initialize immediately with mock if no id ── */
+  /* ── No-id dossier is demo-only; live mode returns to market ── */
   useEffect(() => {
-    if (!id) fallbackToMock();
-  }, [id, fallbackToMock]);
+    if (id) return;
+    if (isDemoMode) {
+      fallbackToMock();
+      return;
+    }
+    publishPreview(false);
+    navigate("/partner/opportunities", { replace: true });
+  }, [id, isDemoMode, fallbackToMock, navigate, publishPreview]);
 
   /* ── Fetch dossier via edge function ── */
   const fetchDossier = useCallback(async () => {
