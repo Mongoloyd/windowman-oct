@@ -1,6 +1,6 @@
 /**
- * DevReportPreview — Dev-only route for deep UI testing.
- * Route: /dev/report-preview
+ * DevReportPreview — Internal/admin-lab report preview surface.
+ * Routes: /dev/report-preview in development, /admin/lab/report-preview behind AdminAuthGate.
  *
  * Renders TruthReportClassic with hardcoded mock data including post-click match card state.
  * No OTP, no upload, no Supabase calls needed.
@@ -36,14 +36,6 @@ const MOCK_MATCH: SuggestedMatch = {
 export default function DevReportPreview() {
   const [introRequested, setIntroRequested] = useState(false);
   const [reportCallRequested, setReportCallRequested] = useState(false);
-
-  if (!import.meta.env.DEV) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">Dev route — not available in production.</p>
-      </div>
-    );
-  }
 
   return (
     <TruthReportClassic
