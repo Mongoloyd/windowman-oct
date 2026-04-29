@@ -514,14 +514,16 @@ const Index = () => {
 
               {flowMode === "A" && (
                 <>
-                  <ScamConcernImage />
-                  <OrangeScanner
-                    onScanClick={() => triggerTruthGate("demo_scan")}
-                    onDemoClick={() => {
-                      setPowerToolTriggered(true);
-                      window.scrollTo({ top: 0, behavior: "smooth" });
-                    }}
-                  />
+                  <React.Suspense fallback={<SectionReserve className="min-h-[760px]" />}>
+                    <ScamConcernImage />
+                    <OrangeScanner
+                      onScanClick={() => triggerTruthGate("demo_scan")}
+                      onDemoClick={() => {
+                        setPowerToolTriggered(true);
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                    />
+                  </React.Suspense>
                   <div id="truth-gate-section" className="scroll-mt-24">
                     <TruthGateFlow
                       onLeadCaptured={(sid) => {
@@ -545,16 +547,18 @@ const Index = () => {
                       setFileUploaded(true);
                     }}
                   />
-                  <ProcessSteps
-                    onScanClick={() => triggerTruthGate("process_steps")}
-                    onDemoClick={() => {
-                      setPowerToolTriggered(true);
-                      window.scrollTo({ top: 0, behavior: "smooth" });
-                    }}
-                  />
-                  <div className="mt-24">
-                    <SocialProofStrip />
-                  </div>
+                  <React.Suspense fallback={<SectionReserve className="min-h-[640px]" />}>
+                    <ProcessSteps
+                      onScanClick={() => triggerTruthGate("process_steps")}
+                      onDemoClick={() => {
+                        setPowerToolTriggered(true);
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                    />
+                    <div className="mt-24">
+                      <SocialProofStrip />
+                    </div>
+                  </React.Suspense>
                 </>
               )}
             </>
