@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { AlertCircle, ExternalLink, FileSearch, Loader2, RefreshCcw, Search, ShieldAlert } from "lucide-react";
 import { AdminShell } from "@/components/admin/shell/AdminShell";
 import { Button } from "@/components/ui/button";
@@ -144,7 +144,7 @@ function LeadList({ leads, selectedLeadId, onSelect }: { leads: LeadListRow[]; s
   );
 }
 
-function EvidencePanel({ leadId, query }: { leadId: string | null; query: ReturnType<typeof useQuery<LeadEvidenceResponse>> }) {
+function EvidencePanel({ leadId, query }: { leadId: string | null; query: UseQueryResult<LeadEvidenceResponse, Error> }) {
   if (!leadId) return <EmptyState title="No lead selected" message="Choose a lead to inspect quote files, scan sessions, and analysis metadata." icon="search" />;
   if (query.isLoading) return <LoadingState label="Loading selected lead evidence…" />;
   if (query.isError) return <ErrorState title={isAdminDataError(query.error) && query.error.code === "not_found" ? "Lead not found" : "Couldn't load evidence"} message={sanitizeError(query.error)} onRetry={() => query.refetch()} />;
@@ -209,7 +209,7 @@ function Analyses({ evidence }: { evidence: LeadEvidenceResponse }) {
   return <EvidenceTable title="Analyses"><TableHeader><TableRow><TableHead>ID</TableHead><TableHead>Scan</TableHead><TableHead>Grade</TableHead><TableHead>Status</TableHead><TableHead>Confidence</TableHead><TableHead>Document</TableHead><TableHead>Flags</TableHead><TableHead>Safe summaries</TableHead><TableHead>Updated</TableHead></TableRow></TableHeader><TableBody>{evidence.analyses.map((analysis) => <TableRow key={analysis.id}><TableCell className="font-mono text-xs">{shortId(analysis.id)}</TableCell><TableCell className="font-mono text-xs">{shortId(analysis.scan_session_id)}</TableCell><TableCell>{analysis.grade ?? "—"}</TableCell><TableCell>{analysis.analysis_status}</TableCell><TableCell>{analysis.confidence_score ?? "—"}</TableCell><TableCell>{analysis.document_type ?? "—"} · {analysis.document_is_window_door_related == null ? "unknown" : analysis.document_is_window_door_related ? "window/door" : "other"} · Δ {analysis.dollar_delta ?? "—"}</TableCell><TableCell>{analysis.flags_summary.count} ({Object.entries(analysis.flags_summary.severities).map(([k, v]) => `${k}:${v}`).join(", ") || "none"})</TableCell><TableCell>Preview {analysis.preview_summary.present ? analysis.preview_summary.top_level_keys.join(", ") || "present" : "absent"}; Proof {analysis.proof_summary.present ? analysis.proof_summary.top_level_keys.join(", ") || "present" : "absent"}</TableCell><TableCell>{formatDate(analysis.updated_at)}</TableCell></TableRow>)}</TableBody></EvidenceTable>;
 }
 
-function EvidenceTable({ title, children }: { title: string; children: React.ReactNode }) {
+function EvidenceTable({ title, children }: { title: string; children: ReactNode }) {
   return <section className="rounded-lg border border-border bg-card shadow-sm"><div className="border-b border-border px-4 py-3"><h2 className="font-display text-lg font-extrabold text-foreground">{title}</h2></div><Table>{children}</Table></section>;
 }
 
@@ -226,7 +226,7 @@ function ErrorState({ title, message, onRetry }: { title: string; message: strin
   return <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"><div className="flex items-start gap-2"><Icon className="mt-0.5 h-5 w-5 shrink-0" /><div><p className="font-extrabold">{title}</p><p className="mt-1 font-semibold opacity-90">{message}</p><Button variant="outline" size="sm" onClick={onRetry} className="mt-3">Retry</Button></div></div></div>;
 }
 
-function EmptyState({ title, message, icon }: { title: string; message: string; icon?: "search" }) {
+function EmptyState({ title, message }: { title: string; message: string; icon?: "search" }) {
   return <div className="flex min-h-[320px] items-center justify-center rounded-lg border border-border bg-card p-8 text-center shadow-sm"><div><FileSearch className="mx-auto mb-3 h-8 w-8 text-muted-foreground" /><h2 className="font-display text-lg font-extrabold text-foreground">{title}</h2><p className="mt-1 max-w-md text-sm font-semibold text-muted-foreground">{message}</p></div></div>;
 }
 
