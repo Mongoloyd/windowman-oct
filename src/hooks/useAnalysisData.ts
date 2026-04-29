@@ -421,7 +421,7 @@ export function useAnalysisData(
           const statusResult = await fetchScanStatus(scanSessionId);
           if (statusResult.ok && statusResult.data) {
             const sessionStatus = statusResult.data.status;
-            if (sessionStatus && NON_PREVIEW_TERMINAL_STATUSES.has(sessionStatus)) {
+            if (sessionStatus && TERMINAL_STATUSES.has(sessionStatus) && NON_PREVIEW_TERMINAL_STATUSES.has(sessionStatus)) {
               console.warn("[useAnalysisData] terminal session status:", sessionStatus);
               setData(buildTerminalData(sessionStatus));
               setIsLoading(false);
