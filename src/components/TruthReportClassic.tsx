@@ -21,7 +21,7 @@ import { LockedOverlay } from "@/components/LockedOverlay";
 import type { LockedOverlayProps } from "@/components/LockedOverlay";
 import TopViolationSummaryStrip from "@/components/TopViolationSummaryStrip";
 import CriticalFlagCard from "@/components/CriticalFlagCard";
-import windowmanMascot from "@/assets/windowman-truth.avif";
+import windowmanMascot from "@/assets/windowman-mascot-pointing-up.avif";
 import { selectTopViolation } from "@/utils/selectTopViolation";
 import { mapFlagToExhibit } from "@/utils/evidenceMapping";
 import { resolveEffectiveSeverity } from "@/utils/resolveEffectiveSeverity";
