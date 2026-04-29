@@ -49,6 +49,11 @@ const LandingPage = () => {
     return () => { cancelled = true; };
   }, [slug]);
 
+  useEffect(() => {
+    if (state !== "valid" || !slug || funnel.clientSlug === slug) return;
+    funnel.setClientSlug(slug);
+  }, [state, slug, funnel]);
+
   if (state === "loading") {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -59,10 +64,6 @@ const LandingPage = () => {
 
   if (state === "invalid") {
     return <Navigate to="/" replace />;
-  }
-
-  if (funnel.clientSlug !== slug) {
-    funnel.setClientSlug(slug!);
   }
 
   return (
