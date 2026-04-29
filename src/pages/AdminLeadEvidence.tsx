@@ -38,6 +38,7 @@ const sanitizeError = (error: unknown) => {
 const formatDate = (value: string | null | undefined) => value ? new Date(value).toLocaleString() : "—";
 const shortId = (value: string | null | undefined) => value ? `${value.slice(0, 8)}…${value.slice(-4)}` : "—";
 const fullName = (lead: Pick<LeadListRow, "first_name" | "last_name">) => [lead.first_name, lead.last_name].filter(Boolean).join(" ") || "Unnamed lead";
+type InspectorContext = { scanSessionId: string | null; analysisId: string | null; hasUrlContext: boolean };
 
 export default function AdminLeadEvidence() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -164,7 +165,7 @@ function LeadList({ leads, selectedLeadId, onSelect }: { leads: LeadListRow[]; s
   );
 }
 
-function EvidencePanel({ leadId, query }: { leadId: string | null; query: UseQueryResult<LeadEvidenceResponse, Error> }) {
+function EvidencePanel({ leadId, query, context }: { leadId: string | null; query: UseQueryResult<LeadEvidenceResponse, Error>; context: InspectorContext }) {
   if (!leadId) return <EmptyState title="No lead selected" message="Choose a lead to inspect quote files, scan sessions, and analysis metadata." icon="search" />;
   if (query.isLoading) return <LoadingState label="Loading selected lead evidence…" />;
   if (query.isError) return <ErrorState title={isAdminDataError(query.error) && query.error.code === "not_found" ? "Lead not found" : "Couldn't load evidence"} message={sanitizeError(query.error)} onRetry={() => query.refetch()} />;
@@ -173,10 +174,11 @@ function EvidencePanel({ leadId, query }: { leadId: string | null; query: UseQue
   const evidence = query.data;
   return (
     <div className="space-y-5">
+      {context.hasUrlContext && <div className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-2 text-sm font-semibold text-foreground">Opened from Command Center context.</div>}
       <LeadSummary evidence={evidence} />
       <QuoteFiles evidence={evidence} />
-      <ScanSessions evidence={evidence} />
-      <Analyses evidence={evidence} />
+      <ScanSessions evidence={evidence} highlightId={context.scanSessionId} />
+      <Analyses evidence={evidence} highlightId={context.analysisId} />
     </div>
   );
 }
