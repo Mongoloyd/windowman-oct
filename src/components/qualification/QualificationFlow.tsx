@@ -160,16 +160,22 @@ export default function QualificationFlow({ isOpen, onClose }: QualificationFlow
     if (!leadId) return;
 
     try {
-      await supabase.functions.invoke("contractor-booking-confirmed", {
+      const { error } = await supabase.functions.invoke("contractor-booking-confirmed", {
         body: {
           lead_id: leadId,
-      calendly_event_uri: (eventData.event as Record<string, unknown>)?.uri ?? null,
+          calendly_event_uri: (eventData.event as Record<string, unknown>)?.uri ?? null,
           calendly_invitee_uri: (eventData.invitee as Record<string, unknown>)?.uri ?? null,
         },
       });
+      if (error) throw error;
       toast({ title: "Booking confirmed!", description: "We'll be in touch shortly." });
     } catch (err) {
       console.error("[QualificationFlow] Booking confirmation failed:", err);
+      toast({
+        title: "Booking confirmation failed",
+        description: "Please try again.",
+        variant: "destructive",
+      });
     }
   }, [leadId, toast]);
 
