@@ -14,24 +14,15 @@ import Index from "./pages/Index";
 // ── Lazy-loaded routes ──────────────────────────────────────────────────────
 const ReportClassic = lazy(() => import("./pages/ReportClassic.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
+const AdminRoutes = lazy(() =>
+  import("@/routes/AdminRoutes").then((module) => ({ default: module.AdminRoutes })),
+);
+const PartnerRoutes = lazy(() =>
+  import("@/routes/PartnerRoutes").then((module) => ({ default: module.PartnerRoutes })),
+);
 
 // Dev/internal only — not linked from any production CTA
 const DemoClassic = lazy(() => import("./pages/DemoClassic.tsx"));
-const AdminDashboard = lazy(() => import("./components/AdminDashboard.tsx"));
-const AdminAuthGate = lazy(() =>
-  import("@/components/admin/AdminAuthGate").then((module) => ({
-    default: module.AdminAuthGate,
-  })),
-);
-const AdminPartners = lazy(() => import("./pages/AdminPartners.tsx"));
-const AdminLogin = lazy(() => import("./pages/AdminLogin.tsx"));
-const AdminForgotPassword = lazy(() => import("./pages/AdminForgotPassword.tsx"));
-const AdminResetPassword = lazy(() => import("./pages/AdminResetPassword.tsx"));
-const AdminHealth = lazy(() => import("./pages/AdminHealth.tsx"));
-const AdminLeadInbox = lazy(() => import("./pages/AdminLeadInbox.tsx"));
-const AdminLeadDossierPage = lazy(() => import("./pages/AdminLeadDossierPage.tsx"));
-const AdminLeadReport = lazy(() => import("./pages/AdminLeadReport.tsx"));
-const AdminSettings = lazy(() => import("./pages/AdminSettings.tsx"));
 const DevReportPreview = lazy(() => import("./pages/DevReportPreview.tsx"));
 const DevTesting = lazy(() => import("./pages/DevTesting.tsx"));
 const DevTesting2 = lazy(() => import("./pages/DevTesting2.tsx"));
@@ -48,15 +39,6 @@ const HowWeBeatWindowQuotes = lazy(() => import("./pages/HowWeBeatWindowQuotes.t
 const Contractors = lazy(() => import("./pages/Contractors.tsx"));
 const Contractors2 = lazy(() => import("./pages/Contractors2.tsx"));
 const Contractors3 = lazy(() => import("./pages/contractors3/Contractors3.tsx"));
-const PartnerDossier = lazy(() => import("./pages/PartnerDossier.tsx"));
-const ContractorLogin = lazy(() => import("./pages/ContractorLogin.tsx"));
-const ContractorOpportunitiesPage = lazy(() => import("./pages/ContractorOpportunitiesPage.tsx"));
-const PartnerRevenueDashboard = lazy(() => import("./pages/PartnerRevenueDashboard.tsx"));
-const ContractorPortal = lazy(() => import("./pages/ContractorPortal.tsx"));
-const PartnerLayout = lazy(() => import("./components/partner/PartnerLayout.tsx"));
-const AcceptInvite = lazy(() => import("./pages/AcceptInvite.tsx"));
-const PartnerResetPassword = lazy(() => import("./pages/PartnerResetPassword.tsx"));
-const ContractorOnboarding = lazy(() => import("./pages/ContractorOnboarding.tsx"));
 const LandingPage = lazy(() => import("./pages/LandingPage.tsx"));
 const Estimate = lazy(() => import("./pages/Estimate.tsx"));
 const Diagnosis = lazy(() => import("./pages/Diagnosis.tsx"));
@@ -136,41 +118,7 @@ const App = () => (
                 <Route path="/report/classic/:sessionId" element={<ScanFunnelProvider><ReportClassic /></ScanFunnelProvider>} />
                 {/* Legacy V2 route → permanent redirect to Classic */}
                 <Route path="/report/:sessionId" element={<ReportRedirect />} />
-                {/* ── Admin auth (public) ── */}
-                <Route path="/admin/login" element={<AdminLogin />} />
-                <Route path="/admin/forgot-password" element={<AdminForgotPassword />} />
-                <Route path="/admin/reset-password" element={<AdminResetPassword />} />
-                <Route path="/admin/health" element={<AdminHealth />} />
-                {/* ── Admin shell (gated) ── */}
-                <Route path="/admin" element={<AdminAuthGate><AdminDashboard /></AdminAuthGate>} />
-                <Route path="/admin/command-center" element={<AdminAuthGate><AdminDashboard initialTab="mission-control" /></AdminAuthGate>} />
-                {/* ── Tab aliases: mount AdminDashboard with the matching initialTab ── */}
-                <Route path="/admin/launch" element={<AdminAuthGate><AdminDashboard initialTab="launch" /></AdminAuthGate>} />
-                <Route path="/admin/command" element={<AdminAuthGate><AdminDashboard initialTab="command" /></AdminAuthGate>} />
-                <Route path="/admin/pipeline" element={<AdminAuthGate><AdminDashboard initialTab="pipeline" /></AdminAuthGate>} />
-                <Route path="/admin/routing" element={<AdminAuthGate><AdminDashboard initialTab="routing" /></AdminAuthGate>} />
-                <Route path="/admin/lead-assignments" element={<AdminAuthGate><AdminDashboard initialTab="lead-assignments" /></AdminAuthGate>} />
-                <Route path="/admin/lead-release" element={<AdminAuthGate><AdminDashboard initialTab="lead-release" /></AdminAuthGate>} />
-                <Route path="/admin/syndicate-health" element={<AdminAuthGate><AdminDashboard initialTab="syndicate-health" /></AdminAuthGate>} />
-                <Route path="/admin/contractor-performance" element={<AdminAuthGate><AdminDashboard initialTab="contractor-performance" /></AdminAuthGate>} />
-                <Route path="/admin/ghosts" element={<AdminAuthGate><AdminDashboard initialTab="ghosts" /></AdminAuthGate>} />
-                <Route path="/admin/needs-review" element={<AdminAuthGate><AdminDashboard initialTab="needs-review" /></AdminAuthGate>} />
-                <Route path="/admin/contractors" element={<AdminAuthGate><AdminDashboard initialTab="contractors" /></AdminAuthGate>} />
-                <Route path="/admin/outcomes" element={<AdminAuthGate><AdminDashboard initialTab="outcomes" /></AdminAuthGate>} />
-                <Route path="/admin/outcome-inspector" element={<AdminAuthGate><AdminDashboard initialTab="outcome-inspector" /></AdminAuthGate>} />
-                <Route path="/admin/attribution" element={<AdminAuthGate><AdminDashboard initialTab="attribution" /></AdminAuthGate>} />
-                <Route path="/admin/signal-dispatch" element={<AdminAuthGate><AdminDashboard initialTab="signal-dispatch" /></AdminAuthGate>} />
-                <Route path="/admin/dialer" element={<AdminAuthGate><AdminDashboard initialTab="engine" /></AdminAuthGate>} />
-                <Route path="/admin/delivery-inspector" element={<AdminAuthGate><AdminDashboard initialTab="delivery-inspector" /></AdminAuthGate>} />
-                <Route path="/admin/session-diag" element={<AdminAuthGate><AdminDashboard initialTab="session-diag" /></AdminAuthGate>} />
-                <Route path="/admin/leads" element={<AdminAuthGate><AdminLeadInbox /></AdminAuthGate>} />
-                <Route path="/admin/leads/:id" element={<AdminAuthGate><AdminLeadDossierPage /></AdminAuthGate>} />
-                <Route path="/admin/leads/:id/report" element={<AdminAuthGate><AdminLeadReport /></AdminAuthGate>} />
-                <Route path="/admin/settings" element={<AdminAuthGate><AdminSettings /></AdminAuthGate>} />
-                {/* NOTE: /admin/partners = white-label client / Meta pixel management.
-                    Contractor account management lives under the "Contractors" tab (/admin/contractors).
-                    Do not merge these systems. */}
-                <Route path="/admin/partners" element={<AdminAuthGate><AdminPartners /></AdminAuthGate>} />
+                <Route path="/admin/*" element={<AdminRoutes />} />
                 <Route path="/demo-classic" element={<DemoClassic />} />
                 <Route path="/dev/report-preview" element={<DevReportPreview />} />
                 <Route path="/devtesting" element={<DevTesting />} />
@@ -190,17 +138,7 @@ const App = () => (
                   <Route path="/contractors" element={<Contractors />} />
                   <Route path="/contractors2" element={<Contractors2 />} />
                 </Route>
-                <Route path="/partner/login" element={<ContractorLogin />} />
-                <Route path="/partner/join" element={<ContractorLogin initialView="register" />} />
-                <Route path="/partner/reset-password" element={<PartnerResetPassword />} />
-                <Route path="/partner/accept-invite" element={<AcceptInvite />} />
-                <Route path="/partner/onboarding" element={<ContractorOnboarding />} />
-                <Route element={<PartnerLayout />}>
-                  <Route path="/partner/portal" element={<ContractorPortal />} />
-                  <Route path="/partner/opportunities" element={<ContractorOpportunitiesPage />} />
-                  <Route path="/partner/revenue" element={<PartnerRevenueDashboard />} />
-                  <Route path="/partner/dossier/:id?" element={<PartnerDossier />} />
-                </Route>
+                <Route path="/partner/*" element={<PartnerRoutes />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
