@@ -74,6 +74,7 @@ type ActionName =
   | "update_lead_human_context"
   // Phase 26 — Mission Control Truth Strip drilldown
   | "fetch_quote_evidence"
+  | "fetch_lead_evidence"
   | "fetch_stage_leads"
   // Sprint 1D — Partner outcome rollup (read-only admin bridge)
   | "fetch_partner_outcome_rollup";
@@ -133,6 +134,7 @@ const ACTION_ROLES: Record<ActionName, AppRole[]> = {
   update_lead_human_context: ["super_admin", "operator"],
   // Phase 26 — Mission Control Truth Strip drilldown
   fetch_quote_evidence: ["super_admin", "operator", "viewer"],
+  fetch_lead_evidence: ["super_admin", "operator", "viewer"],
   fetch_stage_leads: ["super_admin", "operator", "viewer"],
   // Sprint 1D — read-only partner outcome rollup
   fetch_partner_outcome_rollup: ["super_admin", "operator", "viewer"],
