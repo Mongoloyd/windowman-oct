@@ -89,6 +89,24 @@ const PILLAR_DEFS: { key: string; label: string }[] = [
   { key: "warranty", label: "Warranty Value" },
 ];
 
+const TERMINAL_STATUSES = new Set([
+  "preview_ready",
+  "complete",
+  "invalid_document",
+  "needs_better_upload",
+  "error",
+  "failed",
+  "unreadable",
+]);
+
+const NON_PREVIEW_TERMINAL_STATUSES = new Set([
+  "invalid_document",
+  "needs_better_upload",
+  "error",
+  "failed",
+  "unreadable",
+]);
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function mapSeverity(raw: string | undefined | null): "red" | "amber" | "green" {
@@ -384,8 +402,6 @@ export function useAnalysisData(
   }, [scanSessionId]);
 
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  const TERMINAL_STATUSES = new Set(["invalid_document", "failed", "error", "unreadable"]);
-
   // ── Phase 1: Preview fetch ─────────────────────────────────────────────
   useEffect(() => {
     if (!enabled || !scanSessionId || previewFetchedRef.current === scanSessionId) return;
@@ -405,7 +421,7 @@ export function useAnalysisData(
           const statusResult = await fetchScanStatus(scanSessionId);
           if (statusResult.ok && statusResult.data) {
             const sessionStatus = statusResult.data.status;
-            if (sessionStatus && TERMINAL_STATUSES.has(sessionStatus)) {
+            if (sessionStatus && NON_PREVIEW_TERMINAL_STATUSES.has(sessionStatus)) {
               console.warn("[useAnalysisData] terminal session status:", sessionStatus);
               setData(buildTerminalData(sessionStatus));
               setIsLoading(false);
