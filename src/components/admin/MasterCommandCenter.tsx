@@ -58,6 +58,7 @@ import {
   fetchContractors,
   fetchOpportunities,
   fetchRoutes,
+  fetchStageLeads,
 } from "@/services/adminDataService";
 import type {
   RoutingContractor,
@@ -81,10 +82,17 @@ import {
   type StageKey,
   type FunnelMetrics,
   type StageMetric,
+  STAGE_LABELS,
 } from "@/components/admin/missionControl/funnelMetrics";
-import { TruthStripDrilldown } from "@/components/admin/TruthStripDrilldown";
 import { LeadDossierSheet } from "@/components/admin/LeadDossierSheet";
 import type { StageLeadRow } from "@/components/admin/types";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 const DAILY_GOAL_KEY = "wm_admin_daily_revenue_goal";
@@ -99,6 +107,19 @@ interface MasterCommandCenterProps {
 }
 
 type ReadinessStatus = "operational" | "attention" | "critical" | "unknown";
+
+const SCOPE_LABEL: Record<Scope, string> = {
+  today: "Today",
+  "7d": "Last 7 days",
+  all: "All-time",
+};
+
+function buildLeadEvidenceHref(row: StageLeadRow): string {
+  const params = new URLSearchParams({ lead_id: row.id });
+  if (row.latest_scan_session_id) params.set("scan_session_id", row.latest_scan_session_id);
+  if (row.latest_analysis_id) params.set("analysis_id", row.latest_analysis_id);
+  return `/admin/lead-evidence?${params.toString()}`;
+}
 
 interface ReadinessSignal {
   key: string;
@@ -207,6 +228,12 @@ function KpiTile({ label, metric, hint, icon: Icon, onClick }: KpiTileProps) {
       </div>
     </button>
   );
+}
+
+function CommandCenterDrilldown({ open, onOpenChange, stage, scope, onJumpToDossier }: { open: boolean; onOpenChange: (open: boolean) => void; stage: StageKey | null; scope: Scope; onJumpToDossier: (row: StageLeadRow) => void }) {
+  const q = useQuery<{ leads: StageLeadRow[] }>({ queryKey: ["truth-strip-drilldown", stage, scope], queryFn: () => fetchStageLeads(stage as StageKey, scope, 200), enabled: open && stage != null, staleTime: 30_000 });
+  const rows = q.data?.leads ?? [];
+  return <Sheet open={open} onOpenChange={onOpenChange}><SheetContent side="right" className="w-full sm:max-w-[640px] lg:max-w-[820px] bg-card/95 p-0 flex flex-col"><SheetHeader className="px-5 pt-5 pb-3 border-b border-border/60"><SheetTitle>{stage ? STAGE_LABELS[stage] : "Stage"} drilldown</SheetTitle><SheetDescription>{q.isLoading ? "Loading leads…" : q.isError ? "Failed to load stage leads." : `${rows.length.toLocaleString()} leads matched · forensic triage without leaving Mission Control.`} <Badge variant="outline" className="ml-2 text-xs uppercase">{SCOPE_LABEL[scope]}</Badge></SheetDescription></SheetHeader><div className="flex-1 overflow-y-auto px-5 py-4 space-y-2.5">{rows.map((row) => <div key={row.id} className="rounded-lg border border-border/60 bg-card p-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="truncate text-sm font-bold">{[row.first_name, row.last_name].filter(Boolean).join(" ") || "Unnamed lead"}</p><p className="text-xs text-muted-foreground font-mono">Lead {row.id.slice(0, 8)} · Scan {row.latest_scan_session_id ? row.latest_scan_session_id.slice(0, 8) : "—"} · Analysis {row.latest_analysis_id ? row.latest_analysis_id.slice(0, 8) : "—"}</p></div><Badge variant="outline">{row.grade ?? "—"}</Badge></div><div className="mt-3 flex flex-wrap justify-end gap-1.5"><Button asChild variant="outline" size="sm" className="h-7 px-2 text-xs gap-1"><Link to={buildLeadEvidenceHref(row)}>Open Inspector<ScanSearch className="h-3 w-3" /></Link></Button><Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1" onClick={() => onJumpToDossier(row)}>Jump to Dossier<ArrowRight className="h-3 w-3" /></Button></div></div>)}</div></SheetContent></Sheet>;
 }
 
 /* ─── Helpers ────────────────────────────────────────────────────────── */
@@ -613,6 +640,7 @@ export function MasterCommandCenter({
   ];
   const secondaryActions: Array<{ to: string; label: string; desc: string; icon: typeof Activity }> = [
     { to: "/admin/leads", label: "Lead Inbox", desc: "Open the homeowner inbox", icon: Inbox },
+    { to: "/admin/lead-evidence", label: "Lead Evidence Inspector", desc: "Inspect quote files, scan sessions, and analysis chain for a selected lead.", icon: ScanSearch },
     { to: "/admin/settings", label: "Settings", desc: "Admin & integrations", icon: Settings },
   ];
 
@@ -1132,7 +1160,7 @@ export function MasterCommandCenter({
           </CardContent>
         </Card>
       </div>
-      <TruthStripDrilldown
+      <CommandCenterDrilldown
         open={drilldownStage != null}
         onOpenChange={(o) => { if (!o) setDrilldownStage(null); }}
         stage={drilldownStage}
