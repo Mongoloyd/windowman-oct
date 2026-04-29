@@ -14,7 +14,6 @@ import {
   Activity,
   ShieldAlert,
   ZoomIn,
-  AlertOctagon,
   ArrowRight,
   CheckCircle2,
 } from "lucide-react";
