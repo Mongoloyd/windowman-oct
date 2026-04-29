@@ -25,7 +25,6 @@ const PartnerRoutes = lazy(() =>
 const DemoClassic = lazy(() => import("./pages/DemoClassic.tsx"));
 const DevReportPreview = lazy(() => import("./pages/DevReportPreview.tsx"));
 const DevTesting = lazy(() => import("./pages/DevTesting.tsx"));
-const DevTesting2 = lazy(() => import("./pages/DevTesting2.tsx"));
 
 // ── Static content pages ─────────────────────────────────────────────────────
 const PublicLayout = lazy(() => import("@/components/PublicLayout"));
@@ -99,6 +98,7 @@ class RouteErrorBoundary extends Component<
 }
 
 const queryClient = new QueryClient();
+const isDevMode = import.meta.env.DEV;
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -119,10 +119,13 @@ const App = () => (
                 {/* Legacy V2 route → permanent redirect to Classic */}
                 <Route path="/report/:sessionId" element={<ReportRedirect />} />
                 <Route path="/admin/*" element={<AdminRoutes />} />
-                <Route path="/demo-classic" element={<DemoClassic />} />
-                <Route path="/dev/report-preview" element={<DevReportPreview />} />
-                <Route path="/devtesting" element={<DevTesting />} />
-                <Route path="/devtesting2" element={<DevTesting2 />} />
+                {isDevMode && (
+                  <>
+                    <Route path="/demo-classic" element={<DemoClassic />} />
+                    <Route path="/dev/report-preview" element={<DevReportPreview />} />
+                    <Route path="/devtesting" element={<DevTesting />} />
+                  </>
+                )}
                 <Route path="/contractors3" element={<Contractors3 />} />
                 
 
