@@ -21,6 +21,7 @@ import { LockedOverlay } from "@/components/LockedOverlay";
 import type { LockedOverlayProps } from "@/components/LockedOverlay";
 import TopViolationSummaryStrip from "@/components/TopViolationSummaryStrip";
 import CriticalFlagCard from "@/components/CriticalFlagCard";
+import windowmanMascot from "@/assets/windowman-mascot-pointing-up.avif";
 import { selectTopViolation } from "@/utils/selectTopViolation";
 import { mapFlagToExhibit } from "@/utils/evidenceMapping";
 import { resolveEffectiveSeverity } from "@/utils/resolveEffectiveSeverity";
@@ -530,17 +531,31 @@ I'm ready to move forward if we can get these items addressed. What's the fastes
 
       {/* ─── FULL REPORT DECISION FORK ─── */}
       {isFull && (
-        <ReportDecisionFork
-          grade={grade}
-          redCount={redCount}
-          amberCount={amberCount}
-          flags={flags}
-          pricePerOpeningBand={pricePerOpeningBand}
-          onContractorMatchClick={onContractorMatchClick}
-          onStartDiagnosisFlow={onStartDiagnosisFlow}
-          isCtaLoading={isCtaLoading}
-          introRequested={introRequested}
-        />
+        <div className="relative">
+          <ReportDecisionFork
+            grade={grade}
+            redCount={redCount}
+            amberCount={amberCount}
+            flags={flags}
+            pricePerOpeningBand={pricePerOpeningBand}
+            onContractorMatchClick={onContractorMatchClick}
+            onStartDiagnosisFlow={onStartDiagnosisFlow}
+            isCtaLoading={isCtaLoading}
+            introRequested={introRequested}
+          />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 hidden translate-y-full lg:block" aria-hidden="true">
+            <div className="mx-auto flex max-w-4xl">
+              <div className="flex w-1/2 justify-center">
+                <img
+                  src={windowmanMascot}
+                  alt=""
+                  className="h-auto max-w-full object-contain lg:w-[210px] xl:w-[240px]"
+                  loading="lazy"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ─── PROOF-OF-READ TRUST STRIP (preview only) ─── */}
@@ -611,8 +626,23 @@ I'm ready to move forward if we can get these items addressed. What's the fastes
       {/* ─── (Financial Forensics + Quote Price Math + Red Flags + Missing Items + WhatToDoNow + Pillar Section
           all render AFTER the Forensic Findings accordion below — see the section starting at id="forensic-findings".) ─── */}
 
-      <section id="forensic-findings" className="scroll-mt-20 py-10 md:py-14 px-4 md:px-14 bg-background border-b border-border">
+      <section
+        id="forensic-findings"
+        className={`scroll-mt-20 px-4 md:px-14 bg-background border-b border-border ${
+          isFull ? "pt-8 pb-10 md:pt-10 md:pb-14 lg:pt-56" : "py-10 md:py-14"
+        }`}
+      >
         <div className="max-w-4xl mx-auto">
+          {isFull && (
+            <div className="mb-6 flex justify-center lg:hidden">
+              <img
+                src={windowmanMascot}
+                alt="WindowMan mascot pointing toward the recommended action"
+                className="mx-auto h-auto max-w-full object-contain w-[min(72vw,220px)]"
+                loading="lazy"
+              />
+            </div>
+          )}
           <motion.div {...stagger(3)}>
             <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6">
               <div>
