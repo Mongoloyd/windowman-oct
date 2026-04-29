@@ -613,8 +613,16 @@ export function MasterCommandCenter({
   ];
   const secondaryActions: Array<{ to: string; label: string; desc: string; icon: typeof Activity }> = [
     { to: "/admin/leads", label: "Lead Inbox", desc: "Open the homeowner inbox", icon: Inbox },
+    { to: "/admin/lead-evidence", label: "Lead Evidence Inspector", desc: "Inspect quote files, scan sessions, and analysis chain for a selected lead.", icon: ScanSearch },
     { to: "/admin/settings", label: "Settings", desc: "Admin & integrations", icon: Settings },
   ];
+
+  function buildLeadEvidenceHref(row: StageLeadRow): string {
+    const params = new URLSearchParams({ lead_id: row.id });
+    if (row.latest_scan_session_id) params.set("scan_session_id", row.latest_scan_session_id);
+    if (row.latest_analysis_id) params.set("analysis_id", row.latest_analysis_id);
+    return `/admin/lead-evidence?${params.toString()}`;
+  }
 
   /* ── Snapshot export ─────────────────────────────────────────────── */
   function handleExportSnapshot() {
