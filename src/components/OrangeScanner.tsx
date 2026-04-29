@@ -420,8 +420,6 @@ const VerdictHologram = React.forwardRef<
     { isOpen, alertLevel, summaryTitle, summaryText, integrityScore, activeAnomalies, onScanClick, onDemoClick },
     ref,
   ) => {
-    const auditIdRef = useRef(Date.now().toString(36).toUpperCase().slice(-9));
-
     if (!isOpen) return null;
 
     const themeMap = {
@@ -430,7 +428,6 @@ const VerdictHologram = React.forwardRef<
         glow: "shadow-[0_0_50px_rgba(239,68,68,0.4)]",
         overlay: "from-red-500/10",
         iconColor: "text-red-500",
-        accentBg: "bg-red-500/20",
         headline: "DO NOT SIGN",
         headlineColor: "text-red-500",
         riskCards: [
@@ -444,7 +441,6 @@ const VerdictHologram = React.forwardRef<
         glow: "shadow-[0_0_50px_rgba(245,158,11,0.4)]",
         overlay: "from-amber-500/10",
         iconColor: "text-amber-500",
-        accentBg: "bg-amber-500/20",
         headline: "REQUEST REVISIONS",
         headlineColor: "text-amber-500",
         riskCards: [
@@ -458,7 +454,6 @@ const VerdictHologram = React.forwardRef<
         glow: "shadow-[0_0_50px_rgba(16,185,129,0.4)]",
         overlay: "from-emerald-500/10",
         iconColor: "text-emerald-500",
-        accentBg: "bg-emerald-500/20",
         headline: "PROCEED WITH CONFIDENCE",
         headlineColor: "text-emerald-500",
         riskCards: [
@@ -470,7 +465,6 @@ const VerdictHologram = React.forwardRef<
     };
 
     const theme = themeMap[alertLevel];
-    const VerdictIcon = alertLevel === "verified" ? CheckCircle2 : AlertOctagon;
 
     return (
       <div
