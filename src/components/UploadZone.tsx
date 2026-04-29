@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { trackEvent } from "@/lib/trackEvent";
 import { trackGtmEvent } from "@/lib/trackConversion";
 import { useScanPolling } from "@/hooks/useScanPolling";
+import { useScanFunnelSafe } from "@/state/scanFunnel";
 // Forever rule: event_id is an opaque UUID v4. Never descriptive, never
 // concatenated with metadata, never allowed to block a scan. Metadata
 // (event_name, lead_id, scan_session_id, …) rides in separate fields.
@@ -75,6 +76,7 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
   // the retry path. Guarantees no duplicate quote_files / scan_sessions
   // rows for the same user intent, even if React state is stale.
   const uploadedOnceRef = useRef(false);
+  const funnel = useScanFunnelSafe();
 
   // Live scan status — only polled once we have a real session id.
   const { status: liveStatus } = useScanPolling({ scanSessionId: activeScanSessionId });
@@ -409,6 +411,23 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
       const newScanSessionId = bootstrapData.scan_session_id as string;
       const quoteFileId = bootstrapData.quote_file_id as string;
       const leadId = (bootstrapData.lead_id as string | null) ?? null;
+
+      if (funnel) {
+        if (leadId) funnel.setLeadId(leadId);
+        funnel.setQuoteFileId(quoteFileId);
+        funnel.setScanSessionId(newScanSessionId);
+      }
+
+      if (import.meta.env.DEV) {
+        console.info("[UploadZone] start-upload-scan-session success", {
+          sessionId: bootstrapSessionId,
+          leadId,
+          quoteFileId,
+          scanSessionId: newScanSessionId,
+          phoneStatus: funnel?.phoneStatus ?? null,
+          clientSlug: funnel?.clientSlug ?? null,
+        });
+      }
 
       // ── Commit identity ──────────────────────────────────────────────
       // Persist scan_session_id locally AND flip uploadedOnceRef BEFORE
