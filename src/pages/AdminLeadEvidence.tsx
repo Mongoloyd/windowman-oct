@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { AlertCircle, ExternalLink, FileSearch, Loader2, RefreshCcw, Search, ShieldAlert } from "lucide-react";
 import { AdminShell } from "@/components/admin/shell/AdminShell";
@@ -40,12 +40,32 @@ const shortId = (value: string | null | undefined) => value ? `${value.slice(0, 
 const fullName = (lead: Pick<LeadListRow, "first_name" | "last_name">) => [lead.first_name, lead.last_name].filter(Boolean).join(" ") || "Unnamed lead";
 
 export default function AdminLeadEvidence() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlLeadId = searchParams.get("lead_id");
+  const contextScanSessionId = searchParams.get("scan_session_id");
+  const contextAnalysisId = searchParams.get("analysis_id");
+  const hasUrlContext = Boolean(urlLeadId || contextScanSessionId || contextAnalysisId);
   const [search, setSearch] = useState("");
-  const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
+  const [selectedLeadId, setSelectedLeadId] = useState<string | null>(urlLeadId);
 
   useEffect(() => {
     document.title = "Lead Evidence Inspector · WindowMan Admin";
   }, []);
+
+  useEffect(() => {
+    if (!urlLeadId || selectedLeadId === urlLeadId) return;
+    setSelectedLeadId(urlLeadId);
+  }, [urlLeadId, selectedLeadId]);
+
+  useEffect(() => {
+    if (!urlLeadId) return;
+    setSearch(contextScanSessionId ?? contextAnalysisId ?? urlLeadId);
+  }, [urlLeadId, contextScanSessionId, contextAnalysisId]);
+
+  const handleSelectLead = (id: string) => {
+    if (selectedLeadId !== id) setSelectedLeadId(id);
+    setSearchParams({ lead_id: id });
+  };
 
   const leadsQuery = useQuery({
     queryKey: ["admin", "lead-evidence", "leads"],
@@ -102,8 +122,8 @@ export default function AdminLeadEvidence() {
         <ErrorState title="Couldn't load leads" message={sanitizeError(leadsQuery.error)} onRetry={() => leadsQuery.refetch()} />
       ) : (
         <div className="grid gap-5 xl:grid-cols-[minmax(420px,0.85fr)_minmax(0,1.15fr)]">
-          <LeadList leads={filteredLeads} selectedLeadId={selectedLeadId} onSelect={setSelectedLeadId} />
-          <EvidencePanel leadId={selectedLeadId} query={evidenceQuery} />
+          <LeadList leads={filteredLeads} selectedLeadId={selectedLeadId} onSelect={handleSelectLead} />
+          <EvidencePanel leadId={selectedLeadId} query={evidenceQuery} context={{ scanSessionId: contextScanSessionId, analysisId: contextAnalysisId, hasUrlContext }} />
         </div>
       )}
     </AdminShell>
