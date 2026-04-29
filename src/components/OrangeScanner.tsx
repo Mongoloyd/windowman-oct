@@ -416,12 +416,23 @@ const VerdictHologram = React.forwardRef<
     summaryText: string;
     integrityScore: number;
     activeAnomalies: Array<string | number>;
+    processingAction: DecisionAction;
     onScanClick: () => void;
     onDemoClick: () => void;
   }
 >(
   (
-    { isOpen, alertLevel, summaryTitle, summaryText, integrityScore, activeAnomalies, onScanClick, onDemoClick },
+    {
+      isOpen,
+      alertLevel,
+      summaryTitle,
+      summaryText,
+      integrityScore,
+      activeAnomalies,
+      processingAction,
+      onScanClick,
+      onDemoClick,
+    },
     ref,
   ) => {
     if (!isOpen) return null;
@@ -469,6 +480,14 @@ const VerdictHologram = React.forwardRef<
     };
 
     const theme = themeMap[alertLevel];
+    const isHaveQuoteLoading = processingAction === "have_quote";
+    const isWantQuoteLoading = processingAction === "want_quote";
+    const isAnyActionLoading = processingAction !== null;
+    const loadingStatus = isHaveQuoteLoading
+      ? "Opening scanner..."
+      : isWantQuoteLoading
+        ? "Opening quote request..."
+        : "";
 
     return (
       <div
@@ -521,21 +540,44 @@ const VerdictHologram = React.forwardRef<
             <div className="flex flex-col md:flex-row gap-3 md:gap-4 w-full">
               <button
                 onClick={onScanClick}
-                aria-label="I have a quote"
+                disabled={isAnyActionLoading}
+                aria-busy={isHaveQuoteLoading}
+                aria-label="Open the real quote scanner because I already have a window quote"
                 data-testid="orange-scanner-have-quote"
-                className="w-full md:flex-1 h-11 md:h-14 rounded-xl border backdrop-blur-md px-6 font-black text-sm md:text-base tracking-wide transition-all duration-300 active:scale-[0.98] bg-cyan-500 text-slate-950 border-cyan-300/40 hover:bg-cyan-400 shadow-[0_0_24px_rgba(34,211,238,0.25)]"
+                className="w-full md:flex-1 h-11 md:h-14 rounded-xl border backdrop-blur-md px-6 font-black text-sm md:text-base tracking-wide transition-all duration-300 active:scale-[0.98] bg-cyan-500 text-slate-950 border-cyan-300/40 hover:bg-cyan-400 shadow-[0_0_24px_rgba(34,211,238,0.25)] disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:bg-cyan-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 flex items-center justify-center gap-2"
               >
-                I Have a Quote
+                {isHaveQuoteLoading ? (
+                  <>
+                    <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                    Opening scanner...
+                  </>
+                ) : (
+                  "I Have a Quote"
+                )}
               </button>
               <button
                 onClick={onDemoClick}
-                aria-label="I want a quote"
+                disabled={isAnyActionLoading}
+                aria-busy={isWantQuoteLoading}
+                aria-label="Start a quote request because I need a window quote"
                 data-testid="orange-scanner-want-quote"
-                className="w-full md:flex-1 h-11 md:h-14 rounded-xl border backdrop-blur-md px-6 font-black text-sm md:text-base tracking-wide transition-all duration-300 active:scale-[0.98] bg-white/10 text-white border-white/20 hover:bg-white/15 shadow-[0_0_24px_rgba(255,255,255,0.08)]"
+                className="w-full md:flex-1 h-11 md:h-14 rounded-xl border backdrop-blur-md px-6 font-black text-sm md:text-base tracking-wide transition-all duration-300 active:scale-[0.98] bg-white/10 text-white border-white/20 hover:bg-white/15 shadow-[0_0_24px_rgba(255,255,255,0.08)] disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 flex items-center justify-center gap-2"
               >
-                I Want a Quote
+                {isWantQuoteLoading ? (
+                  <>
+                    <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                    Opening quote request...
+                  </>
+                ) : (
+                  "I Want a Quote"
+                )}
               </button>
             </div>
+            {loadingStatus && (
+              <p role="status" aria-live="polite" className="mt-2 text-[11px] text-slate-400">
+                {loadingStatus}
+              </p>
+            )}
           </div>
 
         </div>
