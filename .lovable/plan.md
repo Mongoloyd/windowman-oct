@@ -1,79 +1,72 @@
-Plan: Make Lead Evidence Inspector discoverable from Command Center
+My opinion: yes, I agree with your instinct. On a 390px mobile viewport, this verdict panel is doing too much vertically. The top icon and bottom audit subtext are low-conversion decoration at this moment. The user has already watched the scanner; once the verdict appears, the job is to get them to choose one of two actions quickly.
+
+I would not remove the risk cards or the verdict copy. Those are the persuasion payload. I would remove/reduce the parts that do not help the decision.
+
+Recommended direction
+
+1. Remove the top verdict icon for all three versions
+   - Critical: remove red alert octagon from the verdict modal.
+   - Caution: remove amber alert icon.
+   - Verified: remove green check icon.
+   - Keep the color-coded headline and risk cards so the state is still clear.
+
+2. Remove the bottom audit/compliance subtext for all three versions
+   - Remove: `AI Audit ID: ... // v4.2 Compliance Engine`.
+   - This line feels technical/demo-like and costs vertical space without helping the user act.
+
+3. Tighten mobile spacing inside the panel
+   - Reduce mobile padding from `p-4` to a more compact vertical layout, while keeping desktop close to current.
+   - Reduce the summary/risk/CTA margins on mobile.
+   - Keep desktop spacing more generous via existing `md:` classes.
+
+4. Keep the decision prompt unless you want maximum compression
+   - My recommendation: keep `This was a demo estimate. Choose your next step.` for now, but make it smaller/tighter.
+   - Reason: it explains why the demo verdict is asking for a real next step.
+   - If we need an even shorter version after previewing, remove this line too. But I would first delete the top icon and audit footer because those are the clearest dead weight.
 
 Exact file scope
-- Change exactly one file:
-  - `src/components/admin/MasterCommandCenter.tsx`
 
-No other files will be changed.
+Only change:
+- `src/components/OrangeScanner.tsx`
 
-Current repo placement found
-- `src/components/AdminDashboard.tsx` renders the main admin Command Center via `<MasterCommandCenter />` for:
-  - `/admin` default mission-control tab
-  - `/admin/command-center`
-  - `/admin/command`
-- `src/components/admin/MasterCommandCenter.tsx` already contains a `Quick-Action HUD` card.
-- That HUD has:
-  - primary in-dashboard tab actions
-  - secondary route links currently including `Lead Inbox` and `Settings`
+Exact UI placement affected
 
-Exact UI placement
-- Add the Lead Evidence Inspector as a secondary route link in the existing `Quick-Action HUD` card in `src/components/admin/MasterCommandCenter.tsx`.
-- Specifically, add a new item to the existing `secondaryActions` array near the existing `Lead Inbox` and `Settings` links.
-- Label:
-  - `Lead Evidence Inspector`
-- Subtitle/description:
-  - `Inspect quote files, scan sessions, and analysis chain for a selected lead.`
-- Destination:
-  - `/admin/lead-evidence`
-- CTA behavior:
-  - The existing secondary action UI is a clickable card/link row with an arrow. The visible label/subtitle will act as the requested compact card/button. If space allows, the description will use the exact subtitle text; if the current compact row truncates visually, the full text will still be present in the action data and link title for discoverability.
+Inside `VerdictHologram`:
+- Remove the top icon block above the `VERDICT:` headline.
+- Remove the bottom audit ID block below the two CTA buttons.
+- Adjust spacing around:
+  - verdict headline
+  - summary paragraph
+  - risk cards list
+  - decision gate section
+  - CTA buttons
 
-Implementation approach
-1. Update imports only if needed
-- `MasterCommandCenter.tsx` already imports `Link`, `ArrowRight`, and suitable icons from `lucide-react`.
-- It already imports `ScanSearch`, which fits the evidence inspector action, so no new import is expected.
+What I would not touch
 
-2. Add one route action
-- Extend:
-  - `const secondaryActions: Array<{ to: string; label: string; desc: string; icon: typeof Activity }>`
-- Add:
-  - `{ to: "/admin/lead-evidence", label: "Lead Evidence Inspector", desc: "Inspect quote files, scan sessions, and analysis chain for a selected lead.", icon: ScanSearch }`
-- Prefer placing it immediately after `Lead Inbox` because it is lead/evidence related.
+- No route changes.
+- No backend changes.
+- No scanner logic changes.
+- No Supabase changes.
+- No upload/OTP/report gating changes.
+- No copy changes to the three verdict scenarios unless you ask for that separately.
+- No change to the actual CTA destinations/actions.
 
-3. Keep routing/security unchanged
-- Do not modify `src/routes/AdminRoutes.tsx`.
-- Do not modify `src/routes/adminDashboardTabs.ts`.
-- Do not add a new route, dashboard tab, root alias, or public route.
-- The link points to the already-existing `/admin/lead-evidence` route, which remains protected by `AdminAuthGate` in `AdminRoutes.tsx`.
-- This change does not query data and does not touch backend code.
+Why this is safe
 
-Verification plan
-- Confirm `/admin` and `/admin/command-center` show the Quick-Action HUD with a visible `Lead Evidence Inspector` link.
-- Confirm clicking the link navigates to `/admin/lead-evidence`.
-- Confirm `/admin/lead-evidence` remains protected by the existing `AdminAuthGate` route.
-- Confirm no route files changed.
-- Confirm no backend files changed.
-- Confirm no public routes changed.
+This is a presentational compression of the existing `OrangeScanner` verdict overlay. It does not affect acquisition routing, quote scanning, verification, report access, private storage, deterministic scoring, or any backend security boundary.
 
-Why this does not affect routing/security
-- It adds only a client-side navigation link to an already-defined protected admin route.
-- Authorization stays centralized in the existing `AdminRoutes.tsx` wrapper for `/admin/lead-evidence`.
-- No data fetching, backend action, Supabase config, RLS, storage, scanner, OTP, report reveal, tracking, package, Vite, homepage, partner, or public route code is touched.
+Implementation plan after approval
 
-Stop conditions
-- Stop if the Quick-Action HUD is not the correct Command Center action area.
-- Stop if any required implementation appears to need route changes.
-- Stop if any required implementation appears to need backend/data changes.
-- Stop if any file outside `src/components/admin/MasterCommandCenter.tsx` appears necessary.
+1. Edit `src/components/OrangeScanner.tsx` only.
+2. In `VerdictHologram`, remove the rendered icon container and the unused `VerdictIcon` assignment if it becomes unnecessary.
+3. Remove the bottom audit ID JSX block.
+4. Tighten mobile Tailwind classes while preserving desktop readability:
+   - smaller mobile panel padding
+   - smaller mobile margins
+   - slightly tighter risk-card padding/gaps
+   - keep buttons large enough to tap comfortably
+5. Verify visually at the current mobile viewport that the full verdict panel no longer traps the user and the two CTAs are visible sooner.
 
 Approval prompt
-```text
-Approved. Add the Lead Evidence Inspector link to the main admin Command Center exactly as planned.
 
-Allowed file only:
-- src/components/admin/MasterCommandCenter.tsx
-
-Add it to the existing Quick-Action HUD secondary route links, pointing to /admin/lead-evidence, with label "Lead Evidence Inspector" and subtitle "Inspect quote files, scan sessions, and analysis chain for a selected lead."
-
-Do not modify routes, dashboard tabs, App.tsx, AdminLeadEvidence.tsx, services, backend files, Supabase config, migrations, RLS, scanner/scan-quote, OTP/Twilio, report reveal/full_json gating, tracking/CAPI/analytics, package files, Vite files, homepage, partner routes/pages, or public routes.
-```
+Approve this plan if you want me to implement the shorter mobile verdict panel in `src/components/OrangeScanner.tsx` only.

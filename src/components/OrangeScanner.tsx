@@ -14,7 +14,6 @@ import {
   Activity,
   ShieldAlert,
   ZoomIn,
-  AlertOctagon,
   ArrowRight,
   CheckCircle2,
 } from "lucide-react";
@@ -421,8 +420,6 @@ const VerdictHologram = React.forwardRef<
     { isOpen, alertLevel, summaryTitle, summaryText, integrityScore, activeAnomalies, onScanClick, onDemoClick },
     ref,
   ) => {
-    const auditIdRef = useRef(Date.now().toString(36).toUpperCase().slice(-9));
-
     if (!isOpen) return null;
 
     const themeMap = {
@@ -431,7 +428,6 @@ const VerdictHologram = React.forwardRef<
         glow: "shadow-[0_0_50px_rgba(239,68,68,0.4)]",
         overlay: "from-red-500/10",
         iconColor: "text-red-500",
-        accentBg: "bg-red-500/20",
         headline: "DO NOT SIGN",
         headlineColor: "text-red-500",
         riskCards: [
@@ -445,7 +441,6 @@ const VerdictHologram = React.forwardRef<
         glow: "shadow-[0_0_50px_rgba(245,158,11,0.4)]",
         overlay: "from-amber-500/10",
         iconColor: "text-amber-500",
-        accentBg: "bg-amber-500/20",
         headline: "REQUEST REVISIONS",
         headlineColor: "text-amber-500",
         riskCards: [
@@ -459,7 +454,6 @@ const VerdictHologram = React.forwardRef<
         glow: "shadow-[0_0_50px_rgba(16,185,129,0.4)]",
         overlay: "from-emerald-500/10",
         iconColor: "text-emerald-500",
-        accentBg: "bg-emerald-500/20",
         headline: "PROCEED WITH CONFIDENCE",
         headlineColor: "text-emerald-500",
         riskCards: [
@@ -471,7 +465,6 @@ const VerdictHologram = React.forwardRef<
     };
 
     const theme = themeMap[alertLevel];
-    const VerdictIcon = alertLevel === "verified" ? CheckCircle2 : AlertOctagon;
 
     return (
       <div
@@ -482,29 +475,24 @@ const VerdictHologram = React.forwardRef<
           ref={ref}
           tabIndex={-1}
           aria-live="polite"
-          className={`relative pointer-events-auto bg-slate-900/60 backdrop-blur-xl border-2 ${theme.border} p-4 md:p-8 rounded-xl ${theme.glow} w-[85%] max-w-md max-h-[85vh] overflow-y-auto animate-in zoom-in-95 fade-in duration-700 delay-300 flex flex-col items-center text-center ring-1 ring-white/20 outline-none`}
+          className={`relative pointer-events-auto bg-slate-900/60 backdrop-blur-xl border-2 ${theme.border} px-4 py-5 md:p-8 rounded-xl ${theme.glow} w-[85%] max-w-md max-h-[85vh] overflow-y-auto animate-in zoom-in-95 fade-in duration-700 delay-300 flex flex-col items-center text-center ring-1 ring-white/20 outline-none`}
           data-testid="orange-scanner-verdict-cta"
         >
           <div
             className={`absolute inset-0 bg-gradient-to-t ${theme.overlay} to-transparent pointer-events-none animate-pulse rounded-xl`}
           />
 
-          <div className="relative mb-3 md:mb-6">
-            <VerdictIcon className={`${theme.iconColor} mb-1 md:mb-2 w-9 h-9 md:w-16 md:h-16 animate-in fade-in duration-500`} />
-            <div className={`absolute -inset-2 md:-inset-4 ${theme.accentBg} blur-xl rounded-full`} />
-          </div>
-
-          <h2 className="text-xl md:text-3xl font-black text-white tracking-tighter mb-2 italic">
+          <h2 className="text-xl md:text-3xl font-black text-white tracking-tighter mb-2 md:mb-3 italic">
             VERDICT: <span className={theme.headlineColor}>{theme.headline}</span>
           </h2>
 
-          <p className="text-slate-300 text-xs md:text-sm mb-4 md:mb-8 max-w-md">{summaryText}</p>
+          <p className="text-slate-300 text-xs md:text-sm mb-3 md:mb-8 max-w-md">{summaryText}</p>
 
-          <div className="w-full space-y-2 md:space-y-3 mb-4 md:mb-8">
+          <div className="w-full space-y-2 md:space-y-3 mb-3 md:mb-8">
             {theme.riskCards.map((card, i) => (
               <div
                 key={i}
-                className={`${alertLevel === "verified" ? "bg-emerald-500/10 border-emerald-500/20" : alertLevel === "caution" ? "bg-amber-500/10 border-amber-500/20" : "bg-red-500/10 border-red-500/20"} border p-3 rounded flex items-center gap-3 text-left`}
+                className={`${alertLevel === "verified" ? "bg-emerald-500/10 border-emerald-500/20" : alertLevel === "caution" ? "bg-amber-500/10 border-amber-500/20" : "bg-red-500/10 border-red-500/20"} border p-2.5 md:p-3 rounded flex items-center gap-2.5 md:gap-3 text-left`}
               >
                 {alertLevel === "verified" ? (
                   <CheckCircle2 size={20} className="text-emerald-500 shrink-0" />
@@ -524,9 +512,9 @@ const VerdictHologram = React.forwardRef<
           </div>
 
           {/* Decision Gate */}
-          <div className="w-full mt-4 md:mt-8">
-            <p className="text-slate-300 text-sm mb-4 text-center">This was a demo estimate. Choose your next step.</p>
-            <div className="flex flex-col md:flex-row gap-4 w-full">
+          <div className="w-full mt-2 md:mt-8">
+            <p className="text-slate-300 text-xs md:text-sm mb-3 md:mb-4 text-center">This was a demo estimate. Choose your next step.</p>
+            <div className="flex flex-col md:flex-row gap-3 md:gap-4 w-full">
               <button
                 onClick={onScanClick}
                 aria-label="I have a quote"
@@ -546,9 +534,6 @@ const VerdictHologram = React.forwardRef<
             </div>
           </div>
 
-          <div className="mt-6 text-[10px] font-mono uppercase tracking-widest opacity-80 text-slate-300">
-            AI Audit ID: {auditIdRef.current} // v4.2 Compliance Engine
-          </div>
         </div>
       </div>
     );
