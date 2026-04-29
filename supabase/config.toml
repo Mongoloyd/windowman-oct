@@ -47,3 +47,105 @@ verify_jwt = false
 
 [functions.contractor-performance-summary]
 verify_jwt = false
+
+[functions.accept-invite]
+verify_jwt = false
+
+[functions.admin-client-platform-config]
+verify_jwt = false
+
+[functions.admin-materialize-dispatch-outbox]
+verify_jwt = false
+
+[functions.admin-route-lead]
+verify_jwt = false
+
+[functions.admin-simulate-dispatch-attempt]
+verify_jwt = false
+
+[functions.calculate-estimate-metrics]
+verify_jwt = false
+
+[functions.capi-event]
+verify_jwt = false
+
+[functions.capture-truth-gate-lead]
+verify_jwt = false
+
+[functions.compare-quotes]
+verify_jwt = false
+
+[functions.contractor-booking-confirmed]
+verify_jwt = false
+
+[functions.contractor-mark-no-show]
+verify_jwt = false
+
+[functions.contractor-send-followups]
+verify_jwt = false
+
+[functions.create-checkout-session]
+verify_jwt = false
+
+[functions.dev-report-unlock]
+verify_jwt = false
+
+[functions.enrich-lead]
+verify_jwt = false
+
+[functions.generate-negotiation-script]
+verify_jwt = false
+
+[functions.get-contractor-document-url]
+verify_jwt = false
+
+[functions.get-contractor-dossier]
+verify_jwt = false
+
+[functions.lead-reactivation]
+verify_jwt = false
+
+[functions.list-contractor-opportunities]
+verify_jwt = false
+
+[functions.partner-update-disposition]
+verify_jwt = false
+
+[functions.persist-diagnosis-start]
+verify_jwt = false
+
+[functions.process-webhook]
+verify_jwt = false
+
+[functions.qualify-homepage-lead]
+verify_jwt = false
+
+[functions.refresh-benchmarks]
+verify_jwt = false
+
+[functions.request-callback]
+verify_jwt = false
+
+[functions.save-routing-preferences]
+verify_jwt = false
+
+[functions.scan-quote]
+verify_jwt = false
+
+[functions.send-report-email]
+verify_jwt = false
+
+[functions.start-upload-scan-session]
+verify_jwt = false
+
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.submit-diagnosis-intake]
+verify_jwt = false
+
+[functions.unlock-lead]
+verify_jwt = false
+
+[functions.update-homeowner-context]
+verify_jwt = false
