@@ -141,6 +141,8 @@ function clearPersistedFunnel() {
 export function readPersistedFunnelSnapshot(): {
   scanSessionId: string | null;
   sessionId: string | null;
+  leadId: string | null;
+  quoteFileId: string | null;
   phoneE164: string | null;
   phoneStatus: PhoneFunnelStatus;
 } | null {
@@ -149,6 +151,8 @@ export function readPersistedFunnelSnapshot(): {
   return {
     scanSessionId: persisted.scanSessionId,
     sessionId: persisted.sessionId ?? null,
+    leadId: persisted.leadId ?? null,
+    quoteFileId: persisted.quoteFileId ?? null,
     phoneE164: persisted.phoneE164 ?? null,
     phoneStatus: persisted.phoneStatus ?? "none",
   };
@@ -202,6 +206,7 @@ export function ScanFunnelProvider({ children, initialClientSlug }: { children: 
 
   const setLeadId = useCallback((id: string) => {
     setState((s) => ({ ...s, leadId: id }));
+    persistFields({ leadId: id });
   }, []);
 
   const setSessionId = useCallback((id: string) => {
@@ -216,10 +221,12 @@ export function ScanFunnelProvider({ children, initialClientSlug }: { children: 
 
   const setQuoteFileId = useCallback((id: string) => {
     setState((s) => ({ ...s, quoteFileId: id }));
+    persistFields({ quoteFileId: id });
   }, []);
 
   const setClientSlug = useCallback((slug: string | null) => {
     setState((s) => ({ ...s, clientSlug: slug }));
+    persistFields({ clientSlug: slug });
   }, []);
 
   const resetFunnel = useCallback(() => {
