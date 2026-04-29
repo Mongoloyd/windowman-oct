@@ -101,7 +101,15 @@ function normalizeSummary(row: EdgeSummary): ContractorPerformanceSummary {
 }
 
 async function invokePerformanceFunction(functionName: string, window: ContractorPerformanceWindow): Promise<ContractorPerformanceResult> {
-  const { data, error } = await supabase.functions.invoke<EdgeResponse>(functionName, { body: { window } });
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError || !session?.access_token) {
+    return { success: false, window, denominator: "released_leads", summaries: [], message: "Session unavailable." };
+  }
+
+  const { data, error } = await supabase.functions.invoke<EdgeResponse>(functionName, {
+    body: { window },
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  });
 
   if (error) {
     return { success: false, window, denominator: "released_leads", summaries: [], message: error.message || "Contractor performance failed safely." };
