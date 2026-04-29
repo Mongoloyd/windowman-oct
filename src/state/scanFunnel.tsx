@@ -54,8 +54,11 @@ const LS_PREFIX = "wm_funnel_";
 const LS_KEYS = {
   phoneE164: `${LS_PREFIX}phoneE164`,
   phoneStatus: `${LS_PREFIX}phoneStatus`,
+  leadId: `${LS_PREFIX}leadId`,
   sessionId: `${LS_PREFIX}sessionId`,
   scanSessionId: `${LS_PREFIX}scanSessionId`,
+  quoteFileId: `${LS_PREFIX}quoteFileId`,
+  clientSlug: `${LS_PREFIX}clientSlug`,
   timestamp: `${LS_PREFIX}ts`,
 } as const;
 
@@ -70,16 +73,19 @@ function readPersistedState(): Partial<ScanFunnelState> {
     }
     const phoneE164 = localStorage.getItem(LS_KEYS.phoneE164) || null;
     const phoneStatus = (localStorage.getItem(LS_KEYS.phoneStatus) as PhoneFunnelStatus) || "none";
+    const leadId = localStorage.getItem(LS_KEYS.leadId) || null;
     const sessionId = localStorage.getItem(LS_KEYS.sessionId) || null;
     const scanSessionId = localStorage.getItem(LS_KEYS.scanSessionId) ?? null;
-    if (!phoneE164 && phoneStatus === "none" && !sessionId && !scanSessionId) return {};
-    return { phoneE164, phoneStatus, sessionId, scanSessionId };
+    const quoteFileId = localStorage.getItem(LS_KEYS.quoteFileId) || null;
+    const clientSlug = localStorage.getItem(LS_KEYS.clientSlug) || null;
+    if (!phoneE164 && phoneStatus === "none" && !leadId && !sessionId && !scanSessionId && !quoteFileId && !clientSlug) return {};
+    return { phoneE164, phoneStatus, leadId, sessionId, scanSessionId, quoteFileId, clientSlug };
   } catch {
     return {};
   }
 }
 
-function persistFields(fields: { phoneE164?: string | null; phoneStatus?: PhoneFunnelStatus; sessionId?: string | null; scanSessionId?: string | null }) {
+function persistFields(fields: { phoneE164?: string | null; phoneStatus?: PhoneFunnelStatus; leadId?: string | null; sessionId?: string | null; scanSessionId?: string | null; quoteFileId?: string | null; clientSlug?: string | null }) {
   try {
     if (fields.phoneE164 !== undefined) {
       if (fields.phoneE164) localStorage.setItem(LS_KEYS.phoneE164, fields.phoneE164);
@@ -87,6 +93,10 @@ function persistFields(fields: { phoneE164?: string | null; phoneStatus?: PhoneF
     }
     if (fields.phoneStatus !== undefined) {
       localStorage.setItem(LS_KEYS.phoneStatus, fields.phoneStatus);
+    }
+    if (fields.leadId !== undefined) {
+      if (fields.leadId) localStorage.setItem(LS_KEYS.leadId, fields.leadId);
+      else localStorage.removeItem(LS_KEYS.leadId);
     }
     if (fields.sessionId !== undefined) {
       if (fields.sessionId) localStorage.setItem(LS_KEYS.sessionId, fields.sessionId);
@@ -98,6 +108,14 @@ function persistFields(fields: { phoneE164?: string | null; phoneStatus?: PhoneF
       } else if (fields.scanSessionId === null) {
         localStorage.removeItem(LS_KEYS.scanSessionId);
       }
+    }
+    if (fields.quoteFileId !== undefined) {
+      if (fields.quoteFileId) localStorage.setItem(LS_KEYS.quoteFileId, fields.quoteFileId);
+      else localStorage.removeItem(LS_KEYS.quoteFileId);
+    }
+    if (fields.clientSlug !== undefined) {
+      if (fields.clientSlug) localStorage.setItem(LS_KEYS.clientSlug, fields.clientSlug);
+      else localStorage.removeItem(LS_KEYS.clientSlug);
     }
     localStorage.setItem(LS_KEYS.timestamp, String(Date.now()));
   } catch { /* localStorage unavailable */ }
