@@ -1,5 +1,6 @@
 import { lazy } from "react";
 import { Route, Routes } from "react-router-dom";
+import PartnerGuard from "@/components/auth/PartnerGuard";
 
 const PartnerDossier = lazy(() => import("@/pages/PartnerDossier.tsx"));
 const ContractorLogin = lazy(() => import("@/pages/ContractorLogin.tsx"));
@@ -20,7 +21,13 @@ export function PartnerRoutes() {
       <Route path="reset-password" element={<PartnerResetPassword />} />
       <Route path="accept-invite" element={<AcceptInvite />} />
       <Route path="onboarding" element={<ContractorOnboarding />} />
-      <Route element={<PartnerLayout />}>
+      <Route
+        element={
+          <PartnerGuard>
+            <PartnerLayout />
+          </PartnerGuard>
+        }
+      >
         <Route path="portal" element={<ContractorPortal />} />
         <Route path="opportunities" element={<ContractorOpportunitiesPage />} />
         <Route path="revenue" element={<PartnerRevenueDashboard />} />
