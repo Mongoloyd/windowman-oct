@@ -102,6 +102,20 @@ export function PostScanReportSwitcher(props: Props) {
   const [comparisonResult, setComparisonResult] = useState<Record<string, unknown> | null>(null);
   const [comparisonLoading, setComparisonLoading] = useState(false);
 
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    console.info("[PostScanReportSwitcher] mount", {
+      sessionId: funnel?.sessionId ?? null,
+      leadId: funnel?.leadId ?? null,
+      quoteFileId: funnel?.quoteFileId ?? null,
+      scanSessionId: props.scanSessionId ?? null,
+      funnelScanSessionId: funnel?.scanSessionId ?? null,
+      phoneStatus: funnel?.phoneStatus ?? null,
+      clientSlug: funnel?.clientSlug ?? null,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount diagnostic only
+  }, []);
+
   // ═══ CANONICAL BUSINESS EVENT: report_revealed ═══
   // Fires ONCE when full report data loads after OTP verification.
   // Does NOT fire on resume (resume is a returning-user operational event, not a conversion).
