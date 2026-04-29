@@ -13,13 +13,14 @@ import { useParams, Navigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { supabase } from "@/integrations/supabase/client";
 import Index from "./Index";
-import { ScanFunnelProvider } from "@/state/scanFunnel";
+import { useScanFunnel } from "@/state/scanFunnel";
 
 type SlugState = "loading" | "valid" | "invalid";
 
 const LandingPage = () => {
   const { slug } = useParams<{ slug: string }>();
   const [state, setState] = useState<SlugState>("loading");
+  const funnel = useScanFunnel();
 
   useEffect(() => {
     if (!slug) {
@@ -60,14 +61,16 @@ const LandingPage = () => {
     return <Navigate to="/" replace />;
   }
 
+  if (funnel.clientSlug !== slug) {
+    funnel.setClientSlug(slug!);
+  }
+
   return (
     <>
       <Helmet>
         <meta name="robots" content="noindex, nofollow" />
       </Helmet>
-      <ScanFunnelProvider initialClientSlug={slug!}>
-        <Index />
-      </ScanFunnelProvider>
+      <Index />
     </>
   );
 };
