@@ -74,6 +74,7 @@ type ActionName =
   | "update_lead_human_context"
   // Phase 26 — Mission Control Truth Strip drilldown
   | "fetch_quote_evidence"
+  | "fetch_lead_evidence"
   | "fetch_stage_leads"
   // Sprint 1D — Partner outcome rollup (read-only admin bridge)
   | "fetch_partner_outcome_rollup";
@@ -133,6 +134,7 @@ const ACTION_ROLES: Record<ActionName, AppRole[]> = {
   update_lead_human_context: ["super_admin", "operator"],
   // Phase 26 — Mission Control Truth Strip drilldown
   fetch_quote_evidence: ["super_admin", "operator", "viewer"],
+  fetch_lead_evidence: ["super_admin", "operator", "viewer"],
   fetch_stage_leads: ["super_admin", "operator", "viewer"],
   // Sprint 1D — read-only partner outcome rollup
   fetch_partner_outcome_rollup: ["super_admin", "operator", "viewer"],
@@ -167,6 +169,26 @@ const redactToken = sharedRedactToken;
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
 const PIXEL_RE = /^[0-9]{6,20}$/;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function summarizeJson(value: unknown): { present: boolean; top_level_keys: string[] } {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { present: value != null, top_level_keys: [] };
+  }
+  return { present: true, top_level_keys: Object.keys(value as Record<string, unknown>).slice(0, 20) };
+}
+
+function summarizeFlags(value: unknown): { count: number; severities: Record<string, number> } {
+  const flags = Array.isArray(value) ? value : [];
+  const severities: Record<string, number> = {};
+  for (const flag of flags) {
+    if (!flag || typeof flag !== "object") continue;
+    const raw = (flag as Record<string, unknown>).severity;
+    const severity = typeof raw === "string" && raw.trim() ? raw : "unknown";
+    severities[severity] = (severities[severity] ?? 0) + 1;
+  }
+  return { count: flags.length, severities };
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -2544,6 +2566,125 @@ Deno.serve(async (req) => {
           file_name: null,
           scan_session_id,
           expires_in: 3600,
+        },
+      });
+    }
+
+    if (action === "fetch_lead_evidence") {
+      const { lead_id } = payload;
+      if (!lead_id || typeof lead_id !== "string") {
+        return errorResponse(400, "missing_param", "lead_id is required");
+      }
+      if (!UUID_RE.test(lead_id)) {
+        return errorResponse(400, "invalid_param", "lead_id must be a valid UUID");
+      }
+
+      const leadCols = `
+        id, created_at, updated_at, first_name, last_name, email, phone_e164,
+        city, county, state, zip, latest_scan_session_id, latest_analysis_id,
+        grade, status
+      `;
+      const { data: lead, error: leadError } = await supabaseAdmin
+        .from("leads")
+        .select(leadCols)
+        .eq("id", lead_id)
+        .maybeSingle();
+      if (leadError) throw leadError;
+      if (!lead) return errorResponse(404, "not_found", "Lead not found");
+
+      const { data: sessions, error: sessionsError } = await supabaseAdmin
+        .from("scan_sessions")
+        .select("id, lead_id, quote_file_id, status, created_at, updated_at")
+        .eq("lead_id", lead_id)
+        .order("created_at", { ascending: false })
+        .limit(25);
+      if (sessionsError) throw sessionsError;
+
+      const { data: files, error: filesError } = await supabaseAdmin
+        .from("quote_files")
+        .select("id, lead_id, storage_path, status, created_at")
+        .eq("lead_id", lead_id)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      if (filesError) throw filesError;
+
+      const { data: analyses, error: analysesError } = await supabaseAdmin
+        .from("analyses")
+        .select(`
+          id, lead_id, scan_session_id, grade, analysis_status, confidence_score,
+          rubric_version, document_type, document_is_window_door_related,
+          dollar_delta, flags, preview_json, proof_of_read, created_at, updated_at
+        `)
+        .eq("lead_id", lead_id)
+        .order("created_at", { ascending: false })
+        .limit(25);
+      if (analysesError) throw analysesError;
+
+      const sessionByFileId = new Map<string, string>();
+      for (const session of sessions ?? []) {
+        if (session.quote_file_id && !sessionByFileId.has(session.quote_file_id)) {
+          sessionByFileId.set(session.quote_file_id, session.id);
+        }
+      }
+
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const storageClient = createClient(supabaseUrl, serviceRoleKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+
+      const quoteFiles = [];
+      for (const file of files ?? []) {
+        let signed_url: string | null = null;
+        let signed_url_error: "signing_failed" | null = null;
+        if (file.storage_path) {
+          const { data: signed, error: signError } = await storageClient.storage
+            .from("quotes")
+            .createSignedUrl(file.storage_path, 3600);
+          if (signError || !signed?.signedUrl) {
+            console.error("[admin-data] fetch_lead_evidence signing failed", { lead_id, file_id: file.id });
+            signed_url_error = "signing_failed";
+          } else {
+            signed_url = signed.signedUrl;
+          }
+        }
+        quoteFiles.push({
+          id: file.id,
+          lead_id: file.lead_id,
+          storage_path: file.storage_path,
+          status: file.status,
+          created_at: file.created_at,
+          related_scan_session_id: sessionByFileId.get(file.id) ?? null,
+          signed_url,
+          signed_url_expires_in: signed_url ? 3600 : null,
+          signed_url_error,
+        });
+      }
+
+      const safeAnalyses = (analyses ?? []).map((analysis) => ({
+        id: analysis.id,
+        lead_id: analysis.lead_id,
+        scan_session_id: analysis.scan_session_id,
+        grade: analysis.grade,
+        analysis_status: analysis.analysis_status,
+        confidence_score: analysis.confidence_score,
+        rubric_version: analysis.rubric_version,
+        document_type: analysis.document_type,
+        document_is_window_door_related: analysis.document_is_window_door_related,
+        dollar_delta: analysis.dollar_delta,
+        created_at: analysis.created_at,
+        updated_at: analysis.updated_at,
+        flags_summary: summarizeFlags(analysis.flags),
+        preview_summary: summarizeJson(analysis.preview_json),
+        proof_summary: summarizeJson(analysis.proof_of_read),
+      }));
+
+      return successResponse({
+        data: {
+          lead,
+          quote_files: quoteFiles,
+          scan_sessions: sessions ?? [],
+          analyses: safeAnalyses,
         },
       });
     }

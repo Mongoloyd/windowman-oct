@@ -82,6 +82,7 @@ export type AdminAction =
   | "update_lead_human_context"
   // Phase 26 — Mission Control Truth Strip drilldown
   | "fetch_quote_evidence"
+  | "fetch_lead_evidence"
   | "fetch_stage_leads";
 
 /**
@@ -176,6 +177,7 @@ export interface AdminActionPayloads {
   };
   // Phase 26 — Mission Control Truth Strip drilldown
   fetch_quote_evidence: { lead_id: string };
+  fetch_lead_evidence: { lead_id: string };
   fetch_stage_leads: {
     stage: "captured" | "verified" | "scanned" | "routed" | "booked" | "closed";
     scope: "today" | "7d" | "all";
@@ -241,6 +243,62 @@ export interface ListUserRolesResponse {
 
 export interface RoleAuditLogResponse {
   entries: RoleAuditLogEntry[];
+}
+
+export interface LeadEvidenceResponse {
+  lead: {
+    id: string;
+    created_at: string;
+    updated_at: string | null;
+    first_name: string | null;
+    last_name: string | null;
+    email: string | null;
+    phone_e164: string | null;
+    city: string | null;
+    county: string | null;
+    state: string | null;
+    zip: string | null;
+    latest_scan_session_id: string | null;
+    latest_analysis_id: string | null;
+    grade: string | null;
+    status: string | null;
+  };
+  quote_files: Array<{
+    id: string;
+    lead_id: string | null;
+    storage_path: string;
+    status: string | null;
+    created_at: string;
+    related_scan_session_id: string | null;
+    signed_url: string | null;
+    signed_url_expires_in: number | null;
+    signed_url_error: "signing_failed" | null;
+  }>;
+  scan_sessions: Array<{
+    id: string;
+    lead_id: string | null;
+    quote_file_id: string | null;
+    status: string;
+    created_at: string;
+    updated_at: string;
+  }>;
+  analyses: Array<{
+    id: string;
+    lead_id: string | null;
+    scan_session_id: string | null;
+    grade: string | null;
+    analysis_status: string;
+    confidence_score: number | null;
+    rubric_version: string | null;
+    document_type: string | null;
+    document_is_window_door_related: boolean | null;
+    dollar_delta: number | null;
+    created_at: string;
+    updated_at: string;
+    flags_summary: { count: number; severities: Record<string, number> };
+    preview_summary: { present: boolean; top_level_keys: string[] };
+    proof_summary: { present: boolean; top_level_keys: string[] };
+  }>;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -750,6 +808,10 @@ import type { StageLeadRow, QuoteEvidence } from "@/components/admin/types";
 
 export async function fetchQuoteEvidence(leadId: string): Promise<QuoteEvidence> {
   return invokeAdminData("fetch_quote_evidence", { lead_id: leadId });
+}
+
+export async function fetchLeadEvidence(leadId: string): Promise<LeadEvidenceResponse> {
+  return invokeAdminData("fetch_lead_evidence", { lead_id: leadId });
 }
 
 export async function fetchStageLeads(

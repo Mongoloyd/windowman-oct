@@ -16,6 +16,7 @@ const AdminHealth = lazy(() => import("@/pages/AdminHealth.tsx"));
 const AdminLeadInbox = lazy(() => import("@/pages/AdminLeadInbox.tsx"));
 const AdminLeadDossierPage = lazy(() => import("@/pages/AdminLeadDossierPage.tsx"));
 const AdminLeadReport = lazy(() => import("@/pages/AdminLeadReport.tsx"));
+const AdminLeadEvidence = lazy(() => import("@/pages/AdminLeadEvidence.tsx"));
 const AdminSettings = lazy(() => import("@/pages/AdminSettings.tsx"));
 const DemoClassic = lazy(() => import("@/pages/DemoClassic.tsx"));
 const DevReportPreview = lazy(() => import("@/pages/DevReportPreview.tsx"));
@@ -62,6 +63,7 @@ export function AdminRoutes() {
       <Route path="leads" element={<AdminAuthGate><AdminLeadInbox /></AdminAuthGate>} />
       <Route path="leads/:id" element={<AdminAuthGate><AdminLeadDossierPage /></AdminAuthGate>} />
       <Route path="leads/:id/report" element={<AdminAuthGate><AdminLeadReport /></AdminAuthGate>} />
+      <Route path="lead-evidence" element={<AdminAuthGate><AdminLeadEvidence /></AdminAuthGate>} />
       <Route path="settings" element={<AdminAuthGate><AdminSettings /></AdminAuthGate>} />
       <Route path="partners" element={<AdminAuthGate><AdminPartners /></AdminAuthGate>} />
       <Route path="lab/demo-classic" element={<AdminAuthGate><DemoClassic /></AdminAuthGate>} />
