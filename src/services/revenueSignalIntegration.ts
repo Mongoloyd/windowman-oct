@@ -63,6 +63,28 @@ export interface RevenueSignalSyncResult {
   error?: string;
 }
 
+function safeRevenueSignalSyncResult(error: string): RevenueSignalSyncResult {
+  return {
+    ok: false,
+    dry_run: true,
+    external_dispatch: false,
+    dispatch_created: false,
+    inserted: 0,
+    duplicate_protected: 0,
+    blocked: 0,
+    error,
+  };
+}
+
+function warnRevenueSignalSync(message: string, cause?: unknown): RevenueSignalSyncResult {
+  if (cause) {
+    console.warn(`[revenueSignalIntegration] ${message}`, cause);
+  } else {
+    console.warn(`[revenueSignalIntegration] ${message}`);
+  }
+  return safeRevenueSignalSyncResult(message);
+}
+
 function toNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string" && value.trim()) {
@@ -136,32 +158,57 @@ export async function fetchRevenueSignalEligibility(): Promise<RevenueSignalElig
 
 export async function syncRevenueSignals({ dryRun = true, limit = 100 }: RevenueSignalSyncRequest = {}): Promise<RevenueSignalSyncResult> {
   if (dryRun !== true) {
-    throw new Error("Live revenue signal sync is not exposed from the frontend service layer.");
+    return warnRevenueSignalSync("Live revenue signal sync is blocked from the frontend service layer.");
   }
 
   const safeLimit = Math.min(Math.max(Math.trunc(limit), 1), 500);
   const devSecret = peekDevSecret();
 
   if (devSecret) {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const resp = await fetch(`${supabaseUrl}/functions/v1/admin-sync-revenue-signals`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-dev-secret": devSecret },
-      body: JSON.stringify({ dry_run: true, limit: safeLimit }),
-    });
-    const body = await resp.json().catch(() => ({}));
-    if (!resp.ok || body.ok === false) throw new Error(body.error || "Revenue signal sync failed");
-    return body as RevenueSignalSyncResult;
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const resp = await fetch(`${supabaseUrl}/functions/v1/admin-sync-revenue-signals`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-dev-secret": devSecret },
+        body: JSON.stringify({ dry_run: true, limit: safeLimit }),
+      });
+      const body = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        return warnRevenueSignalSync(
+          `Revenue signal sync function returned HTTP ${resp.status}.`,
+          body,
+        );
+      }
+      if (body.ok === false) {
+        return warnRevenueSignalSync(body.error || "Revenue signal sync function returned ok=false.", body);
+      }
+      return body as RevenueSignalSyncResult;
+    } catch (error) {
+      return warnRevenueSignalSync("Revenue signal sync raw fetch failed.", error);
+    }
   }
 
-  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-  if (sessionError || !session?.access_token) throw new Error("User is not authenticated or session has expired.");
+  try {
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) {
+      return warnRevenueSignalSync("Revenue signal sync session lookup failed.", sessionError);
+    }
+    if (!session?.access_token) {
+      return warnRevenueSignalSync("Revenue signal sync skipped because user session is missing or expired.");
+    }
 
-  const { data, error } = await supabase.functions.invoke("admin-sync-revenue-signals", {
-    body: { dry_run: true, limit: safeLimit },
-    headers: { Authorization: `Bearer ${session.access_token}` },
-  });
-  if (error) throw new Error(error.message || "Revenue signal sync failed");
-  if (!data?.ok) throw new Error(data?.error || "Revenue signal sync failed");
-  return data as RevenueSignalSyncResult;
+    const { data, error } = await supabase.functions.invoke("admin-sync-revenue-signals", {
+      body: { dry_run: true, limit: safeLimit },
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    if (error) {
+      return warnRevenueSignalSync(error.message || "Revenue signal sync function invoke failed.", error);
+    }
+    if (!data?.ok) {
+      return warnRevenueSignalSync(data?.error || "Revenue signal sync function returned ok=false.", data);
+    }
+    return data as RevenueSignalSyncResult;
+  } catch (error) {
+    return warnRevenueSignalSync("Revenue signal sync invoke path failed.", error);
+  }
 }
