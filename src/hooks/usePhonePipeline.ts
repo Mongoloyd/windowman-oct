@@ -174,7 +174,6 @@ export function usePhonePipeline(
     // validate_and_send_otp
     isSendingRef.current = true;
     setPhoneStatus("sending_otp");
-    console.log("[usePhonePipeline] submitPhone → calling send-otp", { phone: normalizedE164 });
     try {
       const result = await sendOtp(normalizedE164, options?.scanSessionId || undefined);
 
@@ -216,9 +215,6 @@ export function usePhonePipeline(
       setPhoneStatus("verifying");
       setErrorMsg(""); setErrorType(null);
 
-      console.log("[usePhonePipeline] submitOtp → calling verify-otp", {
-        phone: activePhone, code, scanSessionId: options?.scanSessionId,
-      });
       try {
         const result = await verifyOtp(activePhone, code, options?.scanSessionId || undefined);
 
@@ -233,7 +229,6 @@ export function usePhonePipeline(
         }
 
         const canonicalPhone = result.data.phone_e164;
-        console.log("[usePhonePipeline] verify-otp SUCCESS — canonical phone:", canonicalPhone);
         setPhoneStatus("verified");
         trackEvent({ event_name: "otp_verify_success", session_id: options?.scanSessionId, metadata: { phone_last4: canonicalPhone.slice(-4) } });
         options?.onVerified?.();

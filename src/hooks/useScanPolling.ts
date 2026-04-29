@@ -9,6 +9,9 @@ const TERMINAL_STATUSES = new Set([
   "complete",
   "invalid_document",
   "needs_better_upload",
+  "error",
+  "failed",
+  "unreadable",
 ]);
 
 export type ScanStatus =
@@ -19,7 +22,9 @@ export type ScanStatus =
   | "complete"
   | "invalid_document"
   | "needs_better_upload"
-  | "error";
+  | "error"
+  | "failed"
+  | "unreadable";
 
 interface UseScanPollingOptions {
   /** scan_sessions.id to poll */
