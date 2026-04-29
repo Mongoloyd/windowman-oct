@@ -169,6 +169,26 @@ const redactToken = sharedRedactToken;
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
 const PIXEL_RE = /^[0-9]{6,20}$/;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function summarizeJson(value: unknown): { present: boolean; top_level_keys: string[] } {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { present: value != null, top_level_keys: [] };
+  }
+  return { present: true, top_level_keys: Object.keys(value as Record<string, unknown>).slice(0, 20) };
+}
+
+function summarizeFlags(value: unknown): { count: number; severities: Record<string, number> } {
+  const flags = Array.isArray(value) ? value : [];
+  const severities: Record<string, number> = {};
+  for (const flag of flags) {
+    if (!flag || typeof flag !== "object") continue;
+    const raw = (flag as Record<string, unknown>).severity;
+    const severity = typeof raw === "string" && raw.trim() ? raw : "unknown";
+    severities[severity] = (severities[severity] ?? 0) + 1;
+  }
+  return { count: flags.length, severities };
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
