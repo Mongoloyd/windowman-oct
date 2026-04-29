@@ -11,7 +11,7 @@
  * Wrap the quote-upload funnel subtree with <ScanFunnelProvider>.
  */
 
-import React, { createContext, useContext, useState, useCallback, useMemo } from "react";
+import React, { createContext, useContext, useState, useCallback, useMemo, useEffect } from "react";
 
 /* ── Types ─────────────────────────────────────────────── */
 
@@ -151,6 +151,18 @@ const DEFAULT_STATE: ScanFunnelState = {
 
 export const ScanFunnelContext = createContext<ScanFunnelContextValue | null>(null);
 
+function devLogFunnel(label: string, state: ScanFunnelState) {
+  if (!import.meta.env.DEV) return;
+  console.info(`[ScanFunnelProvider] ${label}`, {
+    sessionId: state.sessionId,
+    leadId: state.leadId,
+    quoteFileId: state.quoteFileId,
+    scanSessionId: state.scanSessionId,
+    phoneStatus: state.phoneStatus,
+    clientSlug: state.clientSlug,
+  });
+}
+
 /* ── Provider ──────────────────────────────────────────── */
 
 export function ScanFunnelProvider({ children, initialClientSlug }: { children: React.ReactNode; initialClientSlug?: string }) {
@@ -196,6 +208,16 @@ export function ScanFunnelProvider({ children, initialClientSlug }: { children: 
     setState(DEFAULT_STATE);
     clearPersistedFunnel();
   }, []);
+
+  useEffect(() => {
+    devLogFunnel("mount", state);
+    return () => devLogFunnel("unmount", state);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount/unmount diagnostic only
+  }, []);
+
+  useEffect(() => {
+    devLogFunnel("state_change", state);
+  }, [state]);
 
   const value = useMemo<ScanFunnelContextValue>(
     () => ({

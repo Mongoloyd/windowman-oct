@@ -500,6 +500,17 @@ const TruthGateFlow = ({
         }
       }
 
+      if (import.meta.env.DEV) {
+        console.info("[TruthGateFlow] capture-truth-gate-lead success", {
+          sessionId,
+          leadId: (captureData.lead_id as string | null) ?? null,
+          quoteFileId: null,
+          scanSessionId: null,
+          phoneStatus: phoneE164 ? "screened_valid" : "none",
+          clientSlug: effectiveClientSlug,
+        });
+      }
+
       // Note: success telemetry is written server-side by the edge function.
       // No browser-side event_logs insert here — it would race with the
       // anon-only RLS policy when an admin/operator session is present.
