@@ -124,6 +124,21 @@ const App = () => (
                     <Route path="/demo-classic" element={<DemoClassic />} />
                     <Route path="/dev/report-preview" element={<DevReportPreview />} />
                     <Route path="/devtesting" element={<DevTesting />} />
+                    <Route path="/lead-assignments" element={<Navigate to="/admin/lead-assignments" replace />} />
+                    <Route path="/lead-release" element={<Navigate to="/admin/lead-release" replace />} />
+                    <Route path="/syndicate-health" element={<Navigate to="/admin/syndicate-health" replace />} />
+                    <Route path="/contractor-performance" element={<Navigate to="/admin/contractor-performance" replace />} />
+                    <Route path="/ghosts" element={<Navigate to="/admin/ghosts" replace />} />
+                    <Route path="/needs-review" element={<Navigate to="/admin/needs-review" replace />} />
+                    <Route path="/outcomes" element={<Navigate to="/admin/outcomes" replace />} />
+                    <Route path="/outcome-inspector" element={<Navigate to="/admin/outcome-inspector" replace />} />
+                    <Route path="/attribution" element={<Navigate to="/admin/attribution" replace />} />
+                    <Route path="/signal-dispatch" element={<Navigate to="/admin/signal-dispatch" replace />} />
+                    <Route path="/dialer" element={<Navigate to="/admin/dialer" replace />} />
+                    <Route path="/delivery-inspector" element={<Navigate to="/admin/delivery-inspector" replace />} />
+                    <Route path="/session-diag" element={<Navigate to="/admin/session-diag" replace />} />
+                    <Route path="/settings" element={<Navigate to="/admin/settings" replace />} />
+                    <Route path="/partners" element={<Navigate to="/admin/partners" replace />} />
                   </>
                 )}
                 <Route path="/contractors3" element={<Contractors3 />} />
