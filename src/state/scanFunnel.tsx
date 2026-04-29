@@ -40,6 +40,7 @@ export interface ScanFunnelActions {
   setSessionId: (id: string) => void;
   setScanSessionId: (id: string) => void;
   setQuoteFileId: (id: string) => void;
+  setClientSlug: (slug: string | null) => void;
   resetFunnel: () => void;
   /** Clear persisted state (on report unlock or stale cleanup) */
   clearFunnel: () => void;
@@ -199,6 +200,10 @@ export function ScanFunnelProvider({ children, initialClientSlug }: { children: 
     setState((s) => ({ ...s, quoteFileId: id }));
   }, []);
 
+  const setClientSlug = useCallback((slug: string | null) => {
+    setState((s) => ({ ...s, clientSlug: slug }));
+  }, []);
+
   const resetFunnel = useCallback(() => {
     setState(DEFAULT_STATE);
     clearPersistedFunnel();
@@ -228,10 +233,11 @@ export function ScanFunnelProvider({ children, initialClientSlug }: { children: 
       setSessionId,
       setScanSessionId,
       setQuoteFileId,
+      setClientSlug,
       resetFunnel,
       clearFunnel,
     }),
-    [state, setPhone, setPhoneStatus, setLeadId, setSessionId, setScanSessionId, setQuoteFileId, resetFunnel, clearFunnel]
+    [state, setPhone, setPhoneStatus, setLeadId, setSessionId, setScanSessionId, setQuoteFileId, setClientSlug, resetFunnel, clearFunnel]
   );
 
   return (
