@@ -1,5 +1,6 @@
 import { lazy } from "react";
-import { Route, Routes } from "react-router-dom";
+import { Route, Routes, useParams } from "react-router-dom";
+import { isAdminDashboardTab } from "@/routes/adminDashboardTabs";
 
 const AdminDashboard = lazy(() => import("@/components/AdminDashboard.tsx"));
 const AdminAuthGate = lazy(() =>
@@ -20,6 +21,16 @@ const DemoClassic = lazy(() => import("@/pages/DemoClassic.tsx"));
 const DevReportPreview = lazy(() => import("@/pages/DevReportPreview.tsx"));
 const DevTesting = lazy(() => import("@/pages/DevTesting.tsx"));
 const NotFound = lazy(() => import("@/pages/NotFound.tsx"));
+
+function AdminDashboardTabRoute() {
+  const { tab } = useParams<{ tab: string }>();
+
+  if (!tab || !isAdminDashboardTab(tab)) {
+    return <NotFound />;
+  }
+
+  return <AdminAuthGate><AdminDashboard initialTab={tab} /></AdminAuthGate>;
+}
 
 export function AdminRoutes() {
   return (
@@ -56,6 +67,7 @@ export function AdminRoutes() {
       <Route path="lab/demo-classic" element={<AdminAuthGate><DemoClassic /></AdminAuthGate>} />
       <Route path="lab/report-preview" element={<AdminAuthGate><DevReportPreview /></AdminAuthGate>} />
       <Route path="lab/devtesting" element={<AdminAuthGate><DevTesting /></AdminAuthGate>} />
+      <Route path=":tab" element={<AdminDashboardTabRoute />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
