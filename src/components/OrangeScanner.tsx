@@ -5,6 +5,7 @@ import {
   BrainCircuit,
   Cpu,
   Scan,
+  Loader2,
   ChevronRight,
   FileText,
   Zap,
@@ -17,6 +18,7 @@ import {
   ArrowRight,
   CheckCircle2,
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 // ═══════════════════════════════════════════════════════════════
 // TYPES
@@ -40,6 +42,8 @@ type ScenarioSpecs = {
 };
 
 type AlertLevel = "critical" | "caution" | "verified";
+
+type DecisionAction = "have_quote" | "want_quote" | null;
 
 type QuoteScenario = {
   id: "predatory" | "vague" | "fair";
