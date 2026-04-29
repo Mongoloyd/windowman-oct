@@ -33,6 +33,7 @@ import { useHomepageVariant } from "@/hooks/useHomepageVariant";
 import { useScanFunnel, readPersistedFunnelSnapshot } from "@/state/scanFunnel";
 import { getVerifiedAccess, clearVerifiedAccess } from "@/lib/verifiedAccess";
 import { trackEvent } from "@/lib/trackEvent";
+import { useClientSlug } from "@/lib/useClientSlug";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertTriangle, RotateCcw, FileX } from "lucide-react";
@@ -273,7 +274,13 @@ const Index = () => {
   const reportFlags = activeData?.flags || [];
   const shouldShowReport = showReportFromDev || gradeRevealed;
 
-  useScanFunnel();
+  const funnel = useScanFunnel();
+  const { slug: queryClientSlug, ready: clientSlugReady } = useClientSlug();
+
+  useEffect(() => {
+    if (!clientSlugReady || !queryClientSlug || funnel.clientSlug === queryClientSlug) return;
+    funnel.setClientSlug(queryClientSlug);
+  }, [clientSlugReady, queryClientSlug, funnel]);
 
   return (
       <div className="min-h-screen bg-background relative overflow-hidden">
