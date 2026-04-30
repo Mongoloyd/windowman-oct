@@ -424,6 +424,12 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
       const quoteFileId = bootstrapData.quote_file_id as string;
       const leadId = (bootstrapData.lead_id as string | null) ?? null;
 
+      if (funnel) {
+        funnel.setScanSessionId(newScanSessionId);
+        funnel.setQuoteFileId(quoteFileId);
+        if (leadId) funnel.setLeadId(leadId);
+      }
+
       if (import.meta.env.DEV) {
         console.info("[UploadZone] start-upload-scan-session success", {
           sessionId: bootstrapSessionId,
