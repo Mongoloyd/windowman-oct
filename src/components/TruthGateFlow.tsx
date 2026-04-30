@@ -530,6 +530,9 @@ const TruthGateFlow = ({
       // anon-only RLS policy when an admin/operator session is present.
 
       setSubmitState("success");
+      // CTA micro-source has been persisted on the lead — clear local copy
+      // so a future fresh visit can re-attribute cleanly.
+      clearCtaSource();
       onLeadCaptured?.(sessionId);
 
       supabase.functions
