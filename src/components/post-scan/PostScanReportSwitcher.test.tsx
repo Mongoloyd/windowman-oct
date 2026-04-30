@@ -160,7 +160,7 @@ describe("PostScanReportSwitcher shared OTP status wiring", () => {
   it("auto-sends OTP when phone is pre-hydrated and status is screened_valid", async () => {
     funnelState.phoneE164 = "+13055551234";
     funnelState.phoneStatus = "screened_valid";
-    renderSwitcher();
+    renderSwitcher({ scanSessionId: VALID_SCAN_SESSION_ID });
     // The auto-send effect must fire because phone is pre-hydrated and the
     // gate landed in send_code — this is the unlock path for returning leads.
     // After the send completes, localGateOverride flips to enter_code so the
@@ -179,7 +179,7 @@ describe("PostScanReportSwitcher shared OTP status wiring", () => {
   it("manual resend still calls pipeline.resend", async () => {
     funnelState.phoneE164 = "+13055551234";
     funnelState.phoneStatus = "otp_sent";
-    renderSwitcher();
+    renderSwitcher({ scanSessionId: VALID_SCAN_SESSION_ID });
     fireEvent.click(screen.getAllByText("resend")[0]);
     await waitFor(() => expect(resendMock).toHaveBeenCalledTimes(1));
   });
@@ -188,7 +188,7 @@ describe("PostScanReportSwitcher shared OTP status wiring", () => {
     funnelState.phoneE164 = "+13055551234";
     funnelState.phoneStatus = "otp_sent";
     resendMock.mockResolvedValueOnce({ status: "blocked", error: "Please wait before requesting another code." });
-    renderSwitcher();
+    renderSwitcher({ scanSessionId: VALID_SCAN_SESSION_ID });
 
     fireEvent.click(screen.getAllByText("resend")[0]);
     await waitFor(() => expect(resendMock).toHaveBeenCalledTimes(1));
@@ -200,11 +200,11 @@ describe("PostScanReportSwitcher shared OTP status wiring", () => {
   it("auto-send fires exactly once for a pre-hydrated phone (no double-fire on re-render)", async () => {
     funnelState.phoneE164 = "+13055551234";
     funnelState.phoneStatus = "screened_valid";
-    const { rerender } = renderSwitcher();
+    const { rerender } = renderSwitcher({ scanSessionId: VALID_SCAN_SESSION_ID });
     await waitFor(() => expect(submitPhoneMock).toHaveBeenCalledTimes(1));
     rerender(
       <MemoryRouter>
-        <PostScanReportSwitcher {...baseProps()} />
+        <PostScanReportSwitcher {...baseProps()} scanSessionId={VALID_SCAN_SESSION_ID} />
       </MemoryRouter>
     );
     // The autoSendFiredRef guard must prevent a second send.
