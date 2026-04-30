@@ -401,6 +401,38 @@ describe("PostScanReportSwitcher — post-OTP unlock transition", () => {
     expect(onVerifiedMock).not.toHaveBeenCalled();
   });
 
+  it("blocks OTP verify when scanSessionId becomes null between code entry and submit", async () => {
+    const { rerender } = render(
+      <MemoryRouter>
+        <PostScanReportSwitcher
+          {...baseProps()}
+          scanSessionId={VALID_SCAN_SESSION_ID}
+          onVerified={onVerifiedMock}
+        />
+      </MemoryRouter>
+    );
+
+    fireEvent.change(screen.getByTestId("otp-input"), { target: { value: "123456" } });
+
+    rerender(
+      <MemoryRouter>
+        <PostScanReportSwitcher
+          {...baseProps()}
+          scanSessionId={null}
+          onVerified={onVerifiedMock}
+        />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByText("otp-submit"));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(LOST_SCAN_SESSION_MESSAGE));
+    expect(submitOtpMock).not.toHaveBeenCalled();
+    expect(funnelState.setPhone).not.toHaveBeenCalledWith("+13055551234", "verified");
+    expect(funnelState.setPhoneStatus).not.toHaveBeenCalledWith("verified");
+    expect(onVerifiedMock).not.toHaveBeenCalled();
+  });
+
   it("missing scanSessionId blocks phone submit before pipeline or sending_otp mutation", async () => {
     funnelState.phoneE164 = null;
     funnelState.phoneStatus = "none";
