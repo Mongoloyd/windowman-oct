@@ -4,10 +4,14 @@
  * (real DOM, not an image) showing a B+ grade and red-flag count.
  * Pure presentational prototype.
  */
+import { useNavigate } from "react-router-dom";
 import wman from "@/assets/wman_phone_hero.avif";
 import HeroShell from "./HeroShell";
 
 export default function Hero3Portal() {
+  const navigate = useNavigate();
+  const startUpload = () =>
+    navigate("/?cta=hero_dev3#truth-gate");
   return (
     <HeroShell active="/dev/hero-3">
       <section className="relative min-h-[calc(100vh-44px)] overflow-hidden bg-gradient-to-b from-[#06080f] to-[#0a1428]">
