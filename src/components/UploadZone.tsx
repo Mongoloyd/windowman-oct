@@ -39,6 +39,7 @@ const STATUS_PROGRESS: Record<string, { pct: number; label: string }> = {
 interface UploadZoneProps {
   isVisible: boolean;
   onScanStart?: (fileName: string, scanSessionId: string) => void;
+  onUploadReset?: () => void;
   sessionId?: string;
 }
 
@@ -53,7 +54,7 @@ const formatSize = (bytes: number) => {
 // Storage-path helpers extracted to ./uploadZone/storagePath for testability.
 // Imported above. Determinism is locked by storagePath.test.ts.
 
-const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
+const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId }: UploadZoneProps) => {
   const [file, setFile] = useState<File | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -126,6 +127,22 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
       inputRef.current.click();
     }
   }, [uploading]);
+
+  const resetUploadSelection = useCallback(() => {
+    setFile(null);
+    if (inputRef.current) inputRef.current.value = "";
+    setActiveScanSessionId(null);
+    setUploadError(null);
+    setUploadErrorDiag(null);
+    setFileError(null);
+    setUploading(false);
+    setIsDragOver(false);
+    inFlightRef.current = false;
+    uploadedOnceRef.current = false;
+    funnel?.setScanSessionId(null);
+    funnel?.setQuoteFileId(null);
+    onUploadReset?.();
+  }, [funnel, onUploadReset]);
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -533,8 +550,7 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      setFile(null);
-                      if (inputRef.current) inputRef.current.value = "";
+                      resetUploadSelection();
                     }}
                     className="font-body text-xs text-primary bg-transparent border-none underline cursor-pointer mt-2"
                   >
@@ -618,7 +634,15 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
             <p className="font-body text-[13px] text-muted-foreground text-center mt-4">
               Don't Have a Digital Copy?{" "}
               <button
-                onClick={() => trackEvent({ event_name: "photo_option_clicked" })}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  trackEvent({ event_name: "photo_option_clicked" });
+                  if (inputRef.current) {
+                    inputRef.current.value = "";
+                    inputRef.current.click();
+                  }
+                }}
                 className="font-body text-[13px] text-primary bg-transparent border-none underline cursor-pointer"
               >
                 Take a Photo With Your Phone →
