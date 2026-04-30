@@ -533,6 +533,7 @@ export default function ReportClassic() {
     onPhoneSubmit: handlePhoneSubmit,
     isLoading: pipeline.phoneStatus === "sending_otp" || pipeline.phoneStatus === "verifying" || isLoadingFull,
     errorMsg: pipeline.errorMsg || fullFetchError || "",
+    errorType: pipeline.errorType ?? undefined,
     resendCooldown: pipeline.resendCooldown,
     onResend: handleResend,
     fetchStalled: !!fullFetchError && !isFullLoaded,
