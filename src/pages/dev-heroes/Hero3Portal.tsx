@@ -4,10 +4,14 @@
  * (real DOM, not an image) showing a B+ grade and red-flag count.
  * Pure presentational prototype.
  */
+import { useNavigate } from "react-router-dom";
 import wman from "@/assets/wman_phone_hero.avif";
 import HeroShell from "./HeroShell";
 
 export default function Hero3Portal() {
+  const navigate = useNavigate();
+  const startUpload = () =>
+    navigate("/?cta=hero_dev3#truth-gate");
   return (
     <HeroShell active="/dev/hero-3">
       <section className="relative min-h-[calc(100vh-44px)] overflow-hidden bg-gradient-to-b from-[#06080f] to-[#0a1428]">
@@ -27,7 +31,10 @@ export default function Hero3Portal() {
               quote, scored on 37 signals.
             </p>
             <div className="mt-8 flex flex-col sm:flex-row gap-3">
-              <button className="px-6 py-4 rounded-xl bg-blue-600 hover:bg-blue-500 transition font-bold text-white">
+              <button
+                onClick={startUpload}
+                className="px-6 py-4 rounded-xl bg-blue-600 hover:bg-blue-500 transition font-bold text-white"
+              >
                 Get My Truth Report →
               </button>
               <button className="px-6 py-4 rounded-xl bg-transparent hover:bg-white/5 border border-white/20 transition font-bold text-white">
