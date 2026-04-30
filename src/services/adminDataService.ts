@@ -348,36 +348,15 @@ export async function invokeAdminData<T extends AdminAction>(
   action: T,
   payload: AdminActionPayloads[T] = {} as AdminActionPayloads[T],
 ): Promise<any> {
-  // ── DEV BYPASS: Use direct fetch to avoid supabase auto-attaching anon key ──
-  const devSecret = peekDevSecret();
-  if (devSecret) {
-    console.log(`[adminDataService] DEV BYPASS: Using direct fetch for action "${action}"`);
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const resp = await fetch(`${supabaseUrl}/functions/v1/admin-data`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-dev-secret": devSecret,
-      },
-      body: JSON.stringify({ action, payload }),
-    });
+  // ── DEV BYPASS DISABLED (temporary): the manual fetch path was producing
+  // `POST undefined/functions/v1/admin-data` → 404 because VITE_SUPABASE_URL
+  // is not set in this preview. Force the standard authenticated invoke path
+  // for admin-data only so the request always carries the user's session JWT.
+  // peekDevSecret() is intentionally referenced (no-op) to keep the import
+  // valid without changing other call sites.
+  void peekDevSecret;
 
-    if (!resp.ok) {
-      const body = await resp.json().catch(() => ({ error: resp.statusText }));
-      const adminError: AdminDataError = {
-        code: body.code || "invocation_error",
-        message: body.error || `Edge function returned ${resp.status}`,
-        status: resp.status,
-      };
-      console.error(`[adminDataService] ${action} failed:`, adminError);
-      throw adminError;
-    }
-
-    const body = await resp.json();
-    return body.data;
-  }
-
-  // ── Production: Use supabase client with session JWT ──
+  // ── Standard path: supabase client with session JWT ──
   const {
     data: { session },
     error: sessionError,
