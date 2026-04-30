@@ -47,10 +47,10 @@ export default function Hero3Portal() {
             <img
               src={wman}
               alt="WindowMan holding a Truth Report"
-              className="absolute bottom-0 left-1/2 -translate-x-1/2 h-full w-auto object-contain"
+              className="absolute bottom-0 left-1/2 -translate-x-1/2 h-full w-auto object-contain z-20"
             />
 
-            <div className="absolute top-6 right-0 md:right-4 w-[280px] rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 border border-white/10 shadow-2xl shadow-blue-500/20 p-5 rotate-[-4deg] hover:rotate-0 transition-transform duration-300">
+            <div className="absolute top-6 right-0 md:right-4 w-[280px] rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 border border-white/10 shadow-2xl shadow-blue-500/20 p-5 rotate-[-4deg] hover:rotate-0 transition-transform duration-300 z-10">
               <div className="flex items-center justify-between mb-4">
                 <span className="text-[10px] font-mono uppercase tracking-widest text-slate-500">
                   Truth Report
