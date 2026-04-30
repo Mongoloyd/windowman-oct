@@ -40,7 +40,7 @@ export const StickyCTAFooter = ({
   // In account-only mode, route to a free estimate request.
   const postConversionText =
     conversionType === "account"
-      ? "Requet a Phone Estimate"
+      ? "Request a Phone Estimate"
       : conversionType === "scan"
         ? CTA_LABEL
         : null;

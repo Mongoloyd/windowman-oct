@@ -1,72 +1,43 @@
-Baseline confirmed: latest git commit is `47b46443 Added OTP scan-session guard`.
+## Pre-Publish Cleanup Plan
 
-Plan to implement the requested regression tests without touching production behavior:
+Two small, surgical edits. No routing, no funnel, no backend, no auth touched.
 
-1. Touch only `src/components/post-scan/PostScanReportSwitcher.test.tsx`
-   - Do not edit Edge Functions, OTP services, routing, upload, storage, report styling, database/RLS, or production component files.
-   - Do not create a `ReportClassic.test.tsx` in this pass because no existing ReportClassic harness is present and building one would require broad mocks; per your instruction, that should be separate if needed.
+### 1. `src/components/about/AboutCTASection.tsx`
 
-2. Update the existing `TruthReportClassic` test mock
-   - Add the required controlled OTP input:
-     ```tsx
-     <input
-       data-testid="otp-input"
-       value={gateProps?.otpValue ?? ""}
-       onChange={(e) => gateProps?.onOtpChange?.(e.target.value)}
-     />
-     ```
-   - Keep the existing mock buttons for `otp-submit`, `phone-submit`, and `resend`.
-   - This lets tests exercise the real `PostScanReportSwitcher` handler path instead of manually calling mocked pipeline functions.
+Remove the tertiary "See a Sample Report" link (which points to the dev-only `/demo-classic` route) and any code that becomes unused.
 
-3. Add a focused guard regression suite for `PostScanReportSwitcher`
-   - Shared setup will mock:
-     - funnel state
-     - `usePhonePipeline`
-     - `toast.error`
-     - `onVerified`
-   - Assertions will verify no guarded action leaks past invalid session checks.
+**Remove:**
+- The `<Link to="/demo-classic">See a Sample Report</Link>` JSX block (the third CTA inside the card).
+- The `handleSampleReport` callback (becomes unused).
+- The `onSampleReportClick` prop from the `AboutCTASectionProps` interface (becomes unused).
 
-4. Add missing/invalid verify-block tests
-   - `scanSessionId: null`, phone present, `phoneStatus: "otp_sent"`.
-   - `scanSessionId: "not-a-valid-uuid"`, phone present, `phoneStatus: "otp_sent"`.
-   - Action: set OTP with the rendered `otp-input`, then click `otp-submit`.
-   - Assert:
-     - `pipeline.submitOtp` not called
-     - `funnel.setPhone` not called with verified
-     - `funnel.setPhoneStatus` not called with verified
-     - `onVerified` not called
-     - `toast.error("We lost the scan session. Please restart the scan.")` called
+**Keep:**
+- The "Analyze My Quote" primary CTA → `/`
+- The "Create My Vault" secondary CTA → `/`
+- All tracking, IntersectionObserver view-tracking, and section styling.
 
-5. Add missing-session send/resend-block tests
-   - Phone submit/send:
-     - `scanSessionId: null`
-     - click `phone-submit`
-     - assert `pipeline.submitPhone` not called, no `sending_otp` funnel mutation, and toast error called.
-   - Resend:
-     - `scanSessionId: null`, phone present, `phoneStatus: "otp_sent"`
-     - click `resend`
-     - assert `pipeline.resend` not called, no `sending_otp` funnel mutation, and toast error called.
+**Caller check:** `src/pages/About.tsx` renders `<AboutCTASection onTrack={handleTrack} />` and does not pass `onSampleReportClick`, so removing the prop is safe.
 
-6. Replace the current weak successful-OTP test with a real handler-driven test
-   - Use a valid UUID.
-   - Set OTP through `otp-input` with `fireEvent.change(... "123456")`.
-   - Click `otp-submit`.
-   - Assert:
-     - `pipeline.submitOtp` called once with `"123456"`
-     - `funnel.setPhone("+13055551234", "verified")` called
-     - `onVerified("+13055551234")` called
-   - Remove the existing manual mock invocation pattern that directly calls `submitOtpMock` and manually invokes `onVerified`, because it does not test the component invariant.
+### 2. `src/components/StickyCTAFooter.tsx`
 
-7. Verification command to run after implementation
-   - `bunx vitest run src/components/post-scan/PostScanReportSwitcher.test.tsx`
+Single typo fix on line ~44:
+- `"Requet a Phone Estimate"` → `"Request a Phone Estimate"`
 
-Final output after implementation will include:
-1. files changed
-2. tests added
-3. exact invariant each test proves
-4. command to run the tests
-5. confirmation that no production behavior changed
-6. confirmation that no Edge Functions were touched
+No other changes in this file.
 
-And will end exactly with:
-`✅ COMMIT READY. Please verify the latest git commit before continuing.`
+### Out of scope (explicitly untouched)
+- Homepage resume logic, `Index.tsx`, scan funnel, UploadZone
+- `scan-quote`, `send-otp`, `verify-otp`, Twilio, Gemini
+- Supabase RLS, report authorization, `adminDataService`
+- Any route definitions in `App.tsx` (the `/demo-classic` route itself stays; we only remove the public link to it)
+
+### Validation after implementation
+1. TypeScript check passes (no unused-prop or unused-import errors).
+2. Build passes.
+3. `/about` renders with the cleaned CTA card (two buttons, no third link).
+4. `/` still loads and the scan CTA still works.
+5. No console errors introduced.
+
+### Files changed
+- `src/components/about/AboutCTASection.tsx`
+- `src/components/StickyCTAFooter.tsx`
