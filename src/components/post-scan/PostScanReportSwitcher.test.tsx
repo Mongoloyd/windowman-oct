@@ -1,8 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import React from "react";
 import { MemoryRouter } from "react-router-dom";
 import { PostScanReportSwitcher } from "./PostScanReportSwitcher";
+import { toast } from "sonner";
+
+const VALID_SCAN_SESSION_ID = "11111111-1111-4111-8111-111111111111";
+const LOST_SCAN_SESSION_MESSAGE = "We lost the scan session. Please restart the scan.";
 
 const { mockUseReportAccess, mockUseScanFunnelSafe, mockUsePhonePipeline } = vi.hoisted(() => ({
   mockUseReportAccess: vi.fn(),
@@ -48,6 +52,11 @@ vi.mock("../TruthReportClassic", () => ({
       <div data-testid="is-loading">{String(!!gateProps?.isLoading)}</div>
       <div data-testid="error-msg">{gateProps?.errorMsg ?? ""}</div>
       <div data-testid="fetch-stalled">{String(!!gateProps?.fetchStalled)}</div>
+      <input
+        data-testid="otp-input"
+        value={gateProps?.otpValue ?? ""}
+        onChange={(e) => gateProps?.onOtpChange?.(e.target.value)}
+      />
       <button onClick={gateProps?.onResend}>resend</button>
       <button onClick={gateProps?.onPhoneSubmit}>phone-submit</button>
       <button onClick={gateProps?.onChangePhone}>change-phone</button>
