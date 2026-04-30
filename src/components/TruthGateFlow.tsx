@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useScanFunnelSafe } from "@/state/scanFunnel";
 import { captureUtmFromUrl } from "@/lib/useUtmCapture";
 import { readLateFbCookies } from "@/lib/attribution/fbCookies";
+import { getCtaSource, clearCtaSource } from "@/lib/ctaSource";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STEP CONFIGURATION
