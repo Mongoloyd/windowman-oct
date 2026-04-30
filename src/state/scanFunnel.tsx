@@ -36,10 +36,10 @@ export interface ScanFunnelState {
 export interface ScanFunnelActions {
   setPhone: (e164: string, status: PhoneFunnelStatus) => void;
   setPhoneStatus: (status: PhoneFunnelStatus) => void;
-  setLeadId: (id: string) => void;
-  setSessionId: (id: string) => void;
-  setScanSessionId: (id: string) => void;
-  setQuoteFileId: (id: string) => void;
+  setLeadId: (id: string | null) => void;
+  setSessionId: (id: string | null) => void;
+  setScanSessionId: (id: string | null) => void;
+  setQuoteFileId: (id: string | null) => void;
   setClientSlug: (slug: string | null) => void;
   resetFunnel: () => void;
   /** Clear persisted state (on report unlock or stale cleanup) */
@@ -204,22 +204,22 @@ export function ScanFunnelProvider({ children, initialClientSlug }: { children: 
     persistFields({ phoneStatus: status });
   }, []);
 
-  const setLeadId = useCallback((id: string) => {
+  const setLeadId = useCallback((id: string | null) => {
     setState((s) => ({ ...s, leadId: id }));
     persistFields({ leadId: id });
   }, []);
 
-  const setSessionId = useCallback((id: string) => {
+  const setSessionId = useCallback((id: string | null) => {
     setState((s) => ({ ...s, sessionId: id }));
     persistFields({ sessionId: id });
   }, []);
 
-  const setScanSessionId = useCallback((id: string) => {
+  const setScanSessionId = useCallback((id: string | null) => {
     setState((s) => ({ ...s, scanSessionId: id }));
     persistFields({ scanSessionId: id });
   }, []);
 
-  const setQuoteFileId = useCallback((id: string) => {
+  const setQuoteFileId = useCallback((id: string | null) => {
     setState((s) => ({ ...s, quoteFileId: id }));
     persistFields({ quoteFileId: id });
   }, []);
