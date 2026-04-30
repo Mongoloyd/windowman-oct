@@ -34,7 +34,6 @@ import { useScanFunnel, readPersistedFunnelSnapshot } from "@/state/scanFunnel";
 import { getVerifiedAccess, clearVerifiedAccess } from "@/lib/verifiedAccess";
 import { trackEvent } from "@/lib/trackEvent";
 import { useClientSlug } from "@/lib/useClientSlug";
-import { captureCtaSourceFromUrl, getCtaSource } from "@/lib/ctaSource";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertTriangle, RotateCcw, FileX } from "lucide-react";
@@ -121,14 +120,6 @@ const Index = () => {
       cancelled = true;
     };
   }, [IS_DEV_MODE]);
-
-  // Capture `?cta=` micro-source attribution (e.g. hero_dev1) on mount.
-  // Persisted to localStorage by ctaSource helper so TruthGateFlow can
-  // append it to the lead's `source` field at submit time. First-touch
-  // wins inside the 60-min TTL.
-  useEffect(() => {
-    captureCtaSourceFromUrl();
-  }, []);
 
   // Dev preview overrides
   const isDevPreview = IS_DEV_MODE && devState !== "none";
@@ -243,8 +234,7 @@ const Index = () => {
   }, []);
 
   const triggerTruthGate = (source: string) => {
-    const cta = getCtaSource();
-    trackEvent({ event_name: "cta_scan_funnel", session_id: sessionId, metadata: { source, cta_source: cta } });
+    trackEvent({ event_name: "cta_scan_funnel", session_id: sessionId, metadata: { source } });
     // Destructive reset: clear previous scan state so a fresh scan starts clean
     if (gradeRevealed) {
       setGradeRevealed(false);

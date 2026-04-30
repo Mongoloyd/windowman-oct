@@ -3,7 +3,6 @@
  * WindowMan at center; quote thumbnails orbit around him with red-flag /
  * green-flag stickers. Pure presentational prototype.
  */
-import { useNavigate } from "react-router-dom";
 import wman from "@/assets/wman_phone_hero.avif";
 import HeroShell from "./HeroShell";
 
@@ -17,9 +16,6 @@ const RECEIPTS = [
 ];
 
 export default function Hero4Receipts() {
-  const navigate = useNavigate();
-  const startUpload = () =>
-    navigate("/?cta=hero_dev4#truth-gate");
   return (
     <HeroShell active="/dev/hero-4">
       <style>{`
@@ -92,10 +88,7 @@ export default function Hero4Receipts() {
         </div>
 
         <div className="relative z-10 text-center pb-10">
-          <button
-            onClick={startUpload}
-            className="px-8 py-4 rounded-xl bg-blue-600 hover:bg-blue-500 transition font-bold text-white shadow-[0_0_40px_rgba(37,99,235,0.5)]"
-          >
+          <button className="px-8 py-4 rounded-xl bg-blue-600 hover:bg-blue-500 transition font-bold text-white shadow-[0_0_40px_rgba(37,99,235,0.5)]">
             Upload My Quote →
           </button>
           <p className="mt-3 text-xs text-slate-500 font-mono">

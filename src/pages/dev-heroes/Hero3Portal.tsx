@@ -4,14 +4,10 @@
  * (real DOM, not an image) showing a B+ grade and red-flag count.
  * Pure presentational prototype.
  */
-import { useNavigate } from "react-router-dom";
 import wman from "@/assets/wman_phone_hero.avif";
 import HeroShell from "./HeroShell";
 
 export default function Hero3Portal() {
-  const navigate = useNavigate();
-  const startUpload = () =>
-    navigate("/?cta=hero_dev3#truth-gate");
   return (
     <HeroShell active="/dev/hero-3">
       <section className="relative min-h-[calc(100vh-44px)] overflow-hidden bg-gradient-to-b from-[#06080f] to-[#0a1428]">
@@ -31,10 +27,7 @@ export default function Hero3Portal() {
               quote, scored on 37 signals.
             </p>
             <div className="mt-8 flex flex-col sm:flex-row gap-3">
-              <button
-                onClick={startUpload}
-                className="px-6 py-4 rounded-xl bg-blue-600 hover:bg-blue-500 transition font-bold text-white"
-              >
+              <button className="px-6 py-4 rounded-xl bg-blue-600 hover:bg-blue-500 transition font-bold text-white">
                 Get My Truth Report →
               </button>
               <button className="px-6 py-4 rounded-xl bg-transparent hover:bg-white/5 border border-white/20 transition font-bold text-white">
@@ -47,10 +40,10 @@ export default function Hero3Portal() {
             <img
               src={wman}
               alt="WindowMan holding a Truth Report"
-              className="absolute bottom-0 left-1/2 -translate-x-1/2 h-full w-auto object-contain z-20"
+              className="absolute bottom-0 left-1/2 -translate-x-1/2 h-full w-auto object-contain"
             />
 
-            <div className="absolute top-6 right-0 md:right-4 w-[280px] rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 border border-white/10 shadow-2xl shadow-blue-500/20 p-5 rotate-[-4deg] hover:rotate-0 transition-transform duration-300 z-10">
+            <div className="absolute top-6 right-0 md:right-4 w-[280px] rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 border border-white/10 shadow-2xl shadow-blue-500/20 p-5 rotate-[-4deg] hover:rotate-0 transition-transform duration-300">
               <div className="flex items-center justify-between mb-4">
                 <span className="text-[10px] font-mono uppercase tracking-widest text-slate-500">
                   Truth Report

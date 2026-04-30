@@ -4,14 +4,10 @@
  * over him. Headline + CTAs sit on the left, with a live-feel ticker.
  * Pure presentational prototype — no backend, no real CTAs wired.
  */
-import { useNavigate } from "react-router-dom";
 import wman from "@/assets/wman_phone_hero.avif";
 import HeroShell from "./HeroShell";
 
 export default function Hero1Inspector() {
-  const navigate = useNavigate();
-  const startUpload = () =>
-    navigate("/?cta=hero_dev1#truth-gate");
   return (
     <HeroShell active="/dev/hero-1">
       <style>{`
@@ -54,10 +50,7 @@ export default function Hero1Inspector() {
               every overcharge, missing spec, and red flag.
             </p>
             <div className="mt-8 flex flex-col sm:flex-row gap-3">
-              <button
-                onClick={startUpload}
-                className="px-6 py-4 rounded-xl bg-blue-600 hover:bg-blue-500 transition font-bold text-white shadow-[0_0_30px_rgba(37,99,235,0.4)]"
-              >
+              <button className="px-6 py-4 rounded-xl bg-blue-600 hover:bg-blue-500 transition font-bold text-white shadow-[0_0_30px_rgba(37,99,235,0.4)]">
                 Upload My Quote →
               </button>
               <button className="px-6 py-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 transition font-bold text-white">
