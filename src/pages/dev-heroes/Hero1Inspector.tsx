@@ -4,10 +4,14 @@
  * over him. Headline + CTAs sit on the left, with a live-feel ticker.
  * Pure presentational prototype — no backend, no real CTAs wired.
  */
+import { useNavigate } from "react-router-dom";
 import wman from "@/assets/wman_phone_hero.avif";
 import HeroShell from "./HeroShell";
 
 export default function Hero1Inspector() {
+  const navigate = useNavigate();
+  const startUpload = () =>
+    navigate("/?cta=hero_dev1#truth-gate");
   return (
     <HeroShell active="/dev/hero-1">
       <style>{`
