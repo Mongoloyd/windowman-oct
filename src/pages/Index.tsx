@@ -243,7 +243,8 @@ const Index = () => {
   }, []);
 
   const triggerTruthGate = (source: string) => {
-    trackEvent({ event_name: "cta_scan_funnel", session_id: sessionId, metadata: { source } });
+    const cta = getCtaSource();
+    trackEvent({ event_name: "cta_scan_funnel", session_id: sessionId, metadata: { source, cta_source: cta } });
     // Destructive reset: clear previous scan state so a fresh scan starts clean
     if (gradeRevealed) {
       setGradeRevealed(false);
