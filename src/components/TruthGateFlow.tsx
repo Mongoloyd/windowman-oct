@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useScanFunnelSafe } from "@/state/scanFunnel";
 import { captureUtmFromUrl } from "@/lib/useUtmCapture";
 import { readLateFbCookies } from "@/lib/attribution/fbCookies";
+import { getCtaSource, clearCtaSource } from "@/lib/ctaSource";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STEP CONFIGURATION
@@ -427,6 +428,16 @@ const TruthGateFlow = ({
           : null);
 
       // Build the full intake payload as a named object for clean diagnostics.
+      // Compose `source` with the originating CTA tag (e.g. `hero_dev1`)
+      // when present. Result looks like `truth-gate:hero_dev1` and stays
+      // within the 64-char limit enforced by the capture-truth-gate-lead
+      // edge function. Falls back to plain `truth-gate` when no cta is
+      // stored. Also surfaces the cta in `utm_content` only when no
+      // utm_content was captured from the URL, so paid attribution is
+      // never overwritten.
+      const ctaSource = getCtaSource();
+      const composedSource = ctaSource ? `truth-gate:${ctaSource}` : "truth-gate";
+
       const leadInsertPayload = {
         session_id: sessionId,
         first_name: answers.firstName,
@@ -436,7 +447,7 @@ const TruthGateFlow = ({
         project_type: answers.projectType,
         window_count: parseWindowCount(answers.windowCount),
         quote_range: answers.quoteRange,
-        source: "truth-gate",
+        source: composedSource,
 
         client_slug: effectiveClientSlug,
 
@@ -444,7 +455,7 @@ const TruthGateFlow = ({
         utm_medium: utm.utm_medium,
         utm_campaign: utm.utm_campaign,
         utm_term: utm.utm_term,
-        utm_content: utm.utm_content,
+        utm_content: utm.utm_content || ctaSource || null,
         fbclid: utm.fbclid,
         gclid: utm.gclid,
         fbc: fb.fbc,
@@ -519,6 +530,9 @@ const TruthGateFlow = ({
       // anon-only RLS policy when an admin/operator session is present.
 
       setSubmitState("success");
+      // CTA micro-source has been persisted on the lead — clear local copy
+      // so a future fresh visit can re-attribute cleanly.
+      clearCtaSource();
       onLeadCaptured?.(sessionId);
 
       supabase.functions
