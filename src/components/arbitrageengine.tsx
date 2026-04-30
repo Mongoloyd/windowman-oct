@@ -387,7 +387,7 @@ export default function ArbitrageEngine({
       if (wasCompleted) {
         toast.success("You're matched! Let's scan your quote.");
         setTimeout(() => {
-          const safeUrl = new URL("/#truth-gate-section", window.location.origin);
+          const safeUrl = new URL("/#truth-gate", window.location.origin);
           window.location.assign(safeUrl.toString());
         }, 1200);
         return;
@@ -882,7 +882,7 @@ export default function ArbitrageEngine({
                     <div className="relative z-10">
                       <button
                         onClick={() => {
-                          const safeUrl = new URL("/#truth-gate-section", window.location.origin);
+                          const safeUrl = new URL("/#truth-gate", window.location.origin);
                           window.location.assign(safeUrl.toString());
                         }}
                         aria-label="Upload your real quote for a full audit"
