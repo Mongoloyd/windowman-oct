@@ -282,11 +282,6 @@ const Index = () => {
     funnel.setClientSlug(queryClientSlug);
   }, [clientSlugReady, queryClientSlug, funnel]);
 
-  useEffect(() => {
-    if (funnel.sessionId && funnel.sessionId !== sessionId) setSessionId(funnel.sessionId);
-    if (funnel.scanSessionId && funnel.scanSessionId !== scanSessionId) setScanSessionId(funnel.scanSessionId);
-  }, [funnel.sessionId, funnel.scanSessionId, sessionId, scanSessionId]);
-
   return (
       <div className="min-h-screen bg-background relative overflow-hidden">
         <HomepageBackdrop />
