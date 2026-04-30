@@ -482,6 +482,39 @@ const Index = () => {
             </div>
           )}
 
+          {!shouldShowReport && !isDevPreview && pendingResume && (
+            <div className="max-w-3xl mx-auto px-4 pt-4">
+              <div
+                role="region"
+                aria-label="Unfinished scan"
+                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-border/60 bg-card/80 backdrop-blur-sm px-4 py-3 shadow-sm"
+              >
+                <div className="text-sm text-foreground">
+                  <span className="font-semibold">You have an unfinished scan.</span>{" "}
+                  <span className="text-muted-foreground">
+                    {pendingResume.hasVerified
+                      ? "Continue to your verified report?"
+                      : "Continue where you left off?"}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => runRestore({ explicit: true })}
+                    className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+                  >
+                    Continue scan
+                  </button>
+                  <button
+                    onClick={handleStartOver}
+                    className="px-4 py-2 rounded-lg border border-border/60 bg-background text-muted-foreground text-sm font-medium hover:text-foreground hover:border-border transition-colors"
+                  >
+                    Start over
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ─── Normal acquisition flow (hidden when dev preview active) ─── */}
           {!shouldShowReport && !isDevPreview && (
             <>
