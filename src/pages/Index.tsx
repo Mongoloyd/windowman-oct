@@ -30,7 +30,7 @@ const QuoteSpreadShowcase = React.lazy(() => import("@/components/QuoteSpreadSho
 const Footer = React.lazy(() => import("@/components/Footer"));
 import { useAnalysisData } from "@/hooks/useAnalysisData";
 import { useHomepageVariant } from "@/hooks/useHomepageVariant";
-import { useScanFunnel, readPersistedFunnelSnapshot } from "@/state/scanFunnel";
+import { useScanFunnel, readPersistedFunnelSnapshot, clearPersistedFunnelKeys } from "@/state/scanFunnel";
 import { getVerifiedAccess, clearVerifiedAccess } from "@/lib/verifiedAccess";
 import { trackEvent } from "@/lib/trackEvent";
 import { useClientSlug } from "@/lib/useClientSlug";
