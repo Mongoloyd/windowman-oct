@@ -528,6 +528,10 @@ const Index = () => {
                   <UploadZone
                     isVisible={leadCaptured}
                     sessionId={sessionId || undefined}
+                    onUploadReset={() => {
+                      setScanSessionId(null);
+                      setFileUploaded(false);
+                    }}
                     onScanStart={(_fileName, ssId) => {
                       trackEvent({ event_name: "scan_started", session_id: ssId, metadata: { file_name: _fileName } });
                       setScanSessionId(ssId);
