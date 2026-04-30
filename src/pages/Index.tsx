@@ -30,7 +30,7 @@ const QuoteSpreadShowcase = React.lazy(() => import("@/components/QuoteSpreadSho
 const Footer = React.lazy(() => import("@/components/Footer"));
 import { useAnalysisData } from "@/hooks/useAnalysisData";
 import { useHomepageVariant } from "@/hooks/useHomepageVariant";
-import { useScanFunnel, readPersistedFunnelSnapshot } from "@/state/scanFunnel";
+import { useScanFunnel, readPersistedFunnelSnapshot, clearPersistedFunnelKeys } from "@/state/scanFunnel";
 import { getVerifiedAccess, clearVerifiedAccess } from "@/lib/verifiedAccess";
 import { trackEvent } from "@/lib/trackEvent";
 import { useClientSlug } from "@/lib/useClientSlug";
@@ -137,43 +137,40 @@ const Index = () => {
     isResuming,
   } = useAnalysisData(scanSessionId, fileUploaded || !!scanSessionId);
 
-  // ── Refresh / Return restore (P0 fix) ─────────────────────────────────
-  // Restore the in-flight scan flow on a bare refresh of "/" using the
-  // already-persisted funnel state (scanFunnel.tsx LS) and verified-access
-  // record (verifiedAccess.ts LS). Fail-closed: if no valid persisted
-  // scanSessionId exists, fall through to the marketing hero unchanged.
-  //
-  // Three restore paths:
-  //   1. ?resume=1 + verified record  → legacy explicit resume (full reveal)
-  //   2. verified record matching persisted scanSessionId → auto full reveal
-  //   3. funnel snapshot only         → restore preview / OTP gate
+  // ── Refresh / Return restore (homepage hijack fix) ────────────────────
+  // RULE: Bare "/" must always show the marketing homepage.
+  // Persisted scan/report state may be DETECTED on mount, but it must
+  // never auto-take-over the homepage. Restore happens only when:
+  //   - URL has ?resume=1, OR
+  //   - the user clicks the "Continue previous scan" recovery CTA.
   //
   // No full report data is preloaded; useAnalysisData fetches preview only
   // until tryResume()/fetchFull() is called against the verified backend gate.
   const resumeCheckedRef = useRef(false);
   const shouldAutoResumeFullRef = useRef(false);
-  useEffect(() => {
-    if (resumeCheckedRef.current) return;
-    resumeCheckedRef.current = true;
+  const [pendingResume, setPendingResume] = useState<{
+    scanSessionId: string;
+    sessionId: string | null;
+    phoneE164: string | null;
+    hasVerified: boolean;
+  } | null>(null);
 
-    const params = new URLSearchParams(window.location.search);
-    const explicitResume = params.get("resume") === "1";
-
+  const runRestore = useCallback((opts?: { explicit?: boolean }) => {
     const snapshot = readPersistedFunnelSnapshot();
     const verified = getVerifiedAccess(snapshot?.scanSessionId ?? null);
 
-    // Path 1 + 2: verified record present → restore as already-revealed
-    if (verified && (snapshot?.scanSessionId === verified.scan_session_id || explicitResume)) {
+    // Verified record present → restore as already-revealed
+    if (verified && (snapshot?.scanSessionId === verified.scan_session_id || opts?.explicit)) {
       setScanSessionId(verified.scan_session_id);
       setFileUploaded(true);
       setGradeRevealed(true);
       setLeadCaptured(true);
       shouldAutoResumeFullRef.current = true;
-      return;
+      setPendingResume(null);
+      return true;
     }
 
-    // Path 3: in-flight scan (preview / OTP) → restore preview only.
-    // useAnalysisData will fetch preview because fileUploaded || !!scanSessionId.
+    // In-flight scan (preview / OTP) → restore preview only.
     // Full report stays gated behind backend OTP verification.
     if (snapshot?.scanSessionId) {
       setScanSessionId(snapshot.scanSessionId);
@@ -181,14 +178,55 @@ const Index = () => {
       setGradeRevealed(true); // show report shell with locked-preview state
       if (snapshot.sessionId) setSessionId(snapshot.sessionId);
       if (snapshot.phoneE164) setLeadCaptured(true);
+      setPendingResume(null);
+      return true;
+    }
+
+    return false;
+  }, []);
+
+  const handleStartOver = useCallback(() => {
+    clearVerifiedAccess();
+    clearPersistedFunnelKeys();
+    setPendingResume(null);
+    // Strip ?resume=1 from URL so a refresh stays on the hero.
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has("resume")) {
+        url.searchParams.delete("resume");
+        window.history.replaceState({}, "", url.toString());
+      }
+    } catch { /* noop */ }
+  }, []);
+
+  useEffect(() => {
+    if (resumeCheckedRef.current) return;
+    resumeCheckedRef.current = true;
+
+    const params = new URLSearchParams(window.location.search);
+    const explicitResume = params.get("resume") === "1";
+
+    if (explicitResume) {
+      const restored = runRestore({ explicit: true });
+      if (!restored) {
+        // Stale ?resume=1 with no valid record → clear and fall through.
+        clearVerifiedAccess();
+      }
       return;
     }
 
-    // Stale ?resume=1 with no valid record → clear and fall through.
-    if (explicitResume && !verified) {
-      clearVerifiedAccess();
+    // Bare "/": only DETECT persisted state, do not auto-restore.
+    const snapshot = readPersistedFunnelSnapshot();
+    const verified = getVerifiedAccess(snapshot?.scanSessionId ?? null);
+    if (snapshot?.scanSessionId) {
+      setPendingResume({
+        scanSessionId: snapshot.scanSessionId,
+        sessionId: snapshot.sessionId,
+        phoneE164: snapshot.phoneE164,
+        hasVerified: !!verified,
+      });
     }
-  }, []);
+  }, [runRestore]);
 
   // After scanSessionId is restored from a verified record, auto-fetch full data.
   useEffect(() => {
@@ -444,6 +482,39 @@ const Index = () => {
             </div>
           )}
 
+          {!shouldShowReport && !isDevPreview && pendingResume && (
+            <div className="max-w-3xl mx-auto px-4 pt-4">
+              <div
+                role="region"
+                aria-label="Unfinished scan"
+                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-border/60 bg-card/80 backdrop-blur-sm px-4 py-3 shadow-sm"
+              >
+                <div className="text-sm text-foreground">
+                  <span className="font-semibold">You have an unfinished scan.</span>{" "}
+                  <span className="text-muted-foreground">
+                    {pendingResume.hasVerified
+                      ? "Continue to your verified report?"
+                      : "Continue where you left off?"}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => runRestore({ explicit: true })}
+                    className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+                  >
+                    Continue scan
+                  </button>
+                  <button
+                    onClick={handleStartOver}
+                    className="px-4 py-2 rounded-lg border border-border/60 bg-background text-muted-foreground text-sm font-medium hover:text-foreground hover:border-border transition-colors"
+                  >
+                    Start over
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ─── Normal acquisition flow (hidden when dev preview active) ─── */}
           {!shouldShowReport && !isDevPreview && (
             <>
@@ -511,7 +582,7 @@ const Index = () => {
                       }}
                     />
                   </React.Suspense>
-                  <div id="truth-gate-section" className="scroll-mt-24">
+                  <div className="scroll-mt-24">
                     <TruthGateFlow
                       onLeadCaptured={(sid) => {
                         setLeadCaptured(true);
@@ -586,10 +657,12 @@ const Index = () => {
                 <button
                   onClick={() => {
                     clearVerifiedAccess();
+                    clearPersistedFunnelKeys();
                     setScanSessionId(null);
                     setFileUploaded(false);
                     setGradeRevealed(false);
                     setLeadCaptured(false);
+                    setPendingResume(null);
                   }}
                   className="group flex items-center gap-2 px-5 py-2.5 rounded-lg border border-border/60 bg-card/80 backdrop-blur-sm text-muted-foreground text-sm font-medium transition-all duration-200 hover:border-primary/40 hover:text-primary hover:shadow-[0_0_12px_hsl(var(--primary)/0.15)]"
                 >
