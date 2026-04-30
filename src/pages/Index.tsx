@@ -122,6 +122,14 @@ const Index = () => {
     };
   }, [IS_DEV_MODE]);
 
+  // Capture `?cta=` micro-source attribution (e.g. hero_dev1) on mount.
+  // Persisted to localStorage by ctaSource helper so TruthGateFlow can
+  // append it to the lead's `source` field at submit time. First-touch
+  // wins inside the 60-min TTL.
+  useEffect(() => {
+    captureCtaSourceFromUrl();
+  }, []);
+
   // Dev preview overrides
   const isDevPreview = IS_DEV_MODE && devState !== "none";
   const devConfig = isDevPreview ? devPreviewConfigs?.[devState] ?? null : null;
