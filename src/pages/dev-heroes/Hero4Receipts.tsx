@@ -17,6 +17,9 @@ const RECEIPTS = [
 ];
 
 export default function Hero4Receipts() {
+  const navigate = useNavigate();
+  const startUpload = () =>
+    navigate("/?cta=hero_dev4#truth-gate");
   return (
     <HeroShell active="/dev/hero-4">
       <style>{`
