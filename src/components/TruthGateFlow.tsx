@@ -455,7 +455,7 @@ const TruthGateFlow = ({
         utm_medium: utm.utm_medium,
         utm_campaign: utm.utm_campaign,
         utm_term: utm.utm_term,
-        utm_content: utm.utm_content,
+        utm_content: utm.utm_content || ctaSource || null,
         fbclid: utm.fbclid,
         gclid: utm.gclid,
         fbc: fb.fbc,
