@@ -54,7 +54,10 @@ export default function Hero1Inspector() {
               every overcharge, missing spec, and red flag.
             </p>
             <div className="mt-8 flex flex-col sm:flex-row gap-3">
-              <button className="px-6 py-4 rounded-xl bg-blue-600 hover:bg-blue-500 transition font-bold text-white shadow-[0_0_30px_rgba(37,99,235,0.4)]">
+              <button
+                onClick={startUpload}
+                className="px-6 py-4 rounded-xl bg-blue-600 hover:bg-blue-500 transition font-bold text-white shadow-[0_0_30px_rgba(37,99,235,0.4)]"
+              >
                 Upload My Quote →
               </button>
               <button className="px-6 py-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 transition font-bold text-white">
