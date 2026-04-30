@@ -35,6 +35,8 @@ const PIPELINE_TO_OUTCOME: Record<string, OtpVerifyOutcome> = {
   error: "error",
 };
 
+const LOST_SCAN_SESSION_MESSAGE = "We lost the scan session. Please restart the scan.";
+
 // ── GateMode derivation ─────────────────────────────────────────────────────
 function deriveGateMode(funnelPhoneStatus: string | undefined, funnelPhoneE164: string | null | undefined): GateMode {
   if (funnelPhoneStatus === "otp_sent" || funnelPhoneStatus === "verified") {
@@ -183,7 +185,16 @@ export default function ReportClassic() {
 
   // ── Gate callbacks ─────────────────────────────────────────────────────
 
+  const requireValidReportSession = useCallback(() => {
+    if (!sessionId || !sessionIdValid) {
+      toast.error(LOST_SCAN_SESSION_MESSAGE);
+      return false;
+    }
+    return true;
+  }, [sessionId, sessionIdValid]);
+
   const handleOtpSubmit = useCallback(async () => {
+    if (!requireValidReportSession()) return;
     if (otpValue.length < 6) return;
     const result = await pipeline.submitOtp(otpValue);
     const outcome = PIPELINE_TO_OUTCOME[result.status] || "error";
@@ -199,26 +210,29 @@ export default function ReportClassic() {
       }
       setOtpValue("");
     }
-  }, [otpValue, pipeline, funnel, fetchFull]);
+  }, [otpValue, pipeline, funnel, fetchFull, requireValidReportSession]);
 
   const handleSendCode = useCallback(async () => {
+    if (!requireValidReportSession()) return;
     if (!gatedPhoneE164) return;
     const result = await pipeline.submitPhone();
     if (result.status === "otp_sent") {
       funnel?.setPhoneStatus("otp_sent");
     }
-  }, [gatedPhoneE164, funnel, pipeline]);
+  }, [gatedPhoneE164, funnel, pipeline, requireValidReportSession]);
 
   const handlePhoneSubmit = useCallback(async () => {
+    if (!requireValidReportSession()) return;
     const result = await pipeline.submitPhone();
     if (result.status === "otp_sent" && result.e164) {
       funnel?.setPhone(result.e164, "otp_sent");
     }
-  }, [pipeline, funnel]);
+  }, [pipeline, funnel, requireValidReportSession]);
 
   const handleResend = useCallback(async () => {
+    if (!requireValidReportSession()) return;
     await pipeline.resend({ scanSessionId: sessionId });
-  }, [pipeline, sessionId]);
+  }, [pipeline, sessionId, requireValidReportSession]);
 
   // ── CTA A: Get Counter-Quote (generate-contractor-brief + voice-followup) ─
   const phoneE164 = gatedPhoneE164 || pipeline.e164 || null;
