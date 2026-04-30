@@ -31,7 +31,10 @@ export default function Hero3Portal() {
               quote, scored on 37 signals.
             </p>
             <div className="mt-8 flex flex-col sm:flex-row gap-3">
-              <button className="px-6 py-4 rounded-xl bg-blue-600 hover:bg-blue-500 transition font-bold text-white">
+              <button
+                onClick={startUpload}
+                className="px-6 py-4 rounded-xl bg-blue-600 hover:bg-blue-500 transition font-bold text-white"
+              >
                 Get My Truth Report →
               </button>
               <button className="px-6 py-4 rounded-xl bg-transparent hover:bg-white/5 border border-white/20 transition font-bold text-white">
