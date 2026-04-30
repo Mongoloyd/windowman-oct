@@ -362,13 +362,21 @@ export function PostScanReportSwitcher(props: Props) {
   const verifyLockRef = useRef(false);
 
   const handleOtpSubmit = useCallback(async () => {
+    if (!requireValidScanSession()) return;
     if (otpValue.length < 6 || verifyLockRef.current) return;
     verifyLockRef.current = true;
     setIsVerifyingOtp(true);
     try {
       const result = await pipeline.submitOtp(otpValue);
       if (result.status === "verified" && result.e164) {
+        funnel?.setPhone(result.e164, "verified");
         setCapturedPhone(result.e164);
+        setOtpValue("");
+        setFetchStallTimerFired(false);
+        if (stallTimerRef.current) {
+          clearTimeout(stallTimerRef.current);
+          stallTimerRef.current = null;
+        }
         // Stash the server-issued report_revealed event_id so the
         // report_revealed effect uses the SAME id as the server canonical event.
         reportRevealedEventIdRef.current = result.reportRevealedEventId ?? null;
@@ -387,9 +395,10 @@ export function PostScanReportSwitcher(props: Props) {
       setIsVerifyingOtp(false);
       verifyLockRef.current = false;
     }
-  }, [otpValue, pipeline, props]);
+  }, [otpValue, pipeline, props, funnel, requireValidScanSession]);
 
   const handleSendCode = useCallback(async () => {
+    if (!requireValidScanSession()) return;
     if (!funnel?.phoneE164 || isSendInFlight) return;
     funnel.setPhoneStatus("sending_otp");
     setIsSendInFlight(true);
@@ -407,7 +416,7 @@ export function PostScanReportSwitcher(props: Props) {
     } finally {
       setIsSendInFlight(false);
     }
-  }, [funnel, pipeline, isSendInFlight]);
+  }, [funnel, pipeline, isSendInFlight, requireValidScanSession]);
 
   // Auto-send OTP when phone is pre-filled (e.g. hydrated from leads table)
   const autoSendFiredRef = useRef(false);
@@ -421,6 +430,7 @@ export function PostScanReportSwitcher(props: Props) {
   }, [currentGateMode, funnel?.phoneE164]);
 
   const handlePhoneSubmit = useCallback(async () => {
+    if (!requireValidScanSession()) return;
     if (isSendInFlight) return;
     funnel?.setPhoneStatus("sending_otp");
     setIsSendInFlight(true);
@@ -439,7 +449,7 @@ export function PostScanReportSwitcher(props: Props) {
     } finally {
       setIsSendInFlight(false);
     }
-  }, [pipeline, funnel, isSendInFlight, props.scanSessionId]);
+  }, [pipeline, funnel, isSendInFlight, props.scanSessionId, requireValidScanSession]);
 
   const handleChangePhone = useCallback(() => {
     pipeline.reset();
@@ -450,6 +460,7 @@ export function PostScanReportSwitcher(props: Props) {
   }, [pipeline, funnel]);
 
   const handleResend = useCallback(async () => {
+    if (!requireValidScanSession()) return;
     if (!funnel?.phoneE164) return;
     funnel.setPhoneStatus("sending_otp");
     const result = await pipeline.resend();
@@ -462,7 +473,7 @@ export function PostScanReportSwitcher(props: Props) {
       return;
     }
     funnel.setPhoneStatus("send_failed");
-  }, [pipeline, funnel]);
+  }, [pipeline, funnel, requireValidScanSession]);
 
   // ── Detect 2+ completed analyses for this lead via SECURITY DEFINER RPC ──
   useEffect(() => {
