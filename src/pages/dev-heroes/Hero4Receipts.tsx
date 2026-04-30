@@ -3,6 +3,7 @@
  * WindowMan at center; quote thumbnails orbit around him with red-flag /
  * green-flag stickers. Pure presentational prototype.
  */
+import { useNavigate } from "react-router-dom";
 import wman from "@/assets/wman_phone_hero.avif";
 import HeroShell from "./HeroShell";
 
