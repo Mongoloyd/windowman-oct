@@ -1,8 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import React from "react";
 import { MemoryRouter } from "react-router-dom";
 import { PostScanReportSwitcher } from "./PostScanReportSwitcher";
+import { toast } from "sonner";
+
+const VALID_SCAN_SESSION_ID = "11111111-1111-4111-8111-111111111111";
+const LOST_SCAN_SESSION_MESSAGE = "We lost the scan session. Please restart the scan.";
 
 const { mockUseReportAccess, mockUseScanFunnelSafe, mockUsePhonePipeline } = vi.hoisted(() => ({
   mockUseReportAccess: vi.fn(),
@@ -48,6 +52,11 @@ vi.mock("../TruthReportClassic", () => ({
       <div data-testid="is-loading">{String(!!gateProps?.isLoading)}</div>
       <div data-testid="error-msg">{gateProps?.errorMsg ?? ""}</div>
       <div data-testid="fetch-stalled">{String(!!gateProps?.fetchStalled)}</div>
+      <input
+        data-testid="otp-input"
+        value={gateProps?.otpValue ?? ""}
+        onChange={(e) => gateProps?.onOtpChange?.(e.target.value)}
+      />
       <button onClick={gateProps?.onResend}>resend</button>
       <button onClick={gateProps?.onPhoneSubmit}>phone-submit</button>
       <button onClick={gateProps?.onChangePhone}>change-phone</button>
@@ -151,7 +160,7 @@ describe("PostScanReportSwitcher shared OTP status wiring", () => {
   it("auto-sends OTP when phone is pre-hydrated and status is screened_valid", async () => {
     funnelState.phoneE164 = "+13055551234";
     funnelState.phoneStatus = "screened_valid";
-    renderSwitcher();
+    renderSwitcher({ scanSessionId: VALID_SCAN_SESSION_ID });
     // The auto-send effect must fire because phone is pre-hydrated and the
     // gate landed in send_code — this is the unlock path for returning leads.
     // After the send completes, localGateOverride flips to enter_code so the
@@ -170,7 +179,7 @@ describe("PostScanReportSwitcher shared OTP status wiring", () => {
   it("manual resend still calls pipeline.resend", async () => {
     funnelState.phoneE164 = "+13055551234";
     funnelState.phoneStatus = "otp_sent";
-    renderSwitcher();
+    renderSwitcher({ scanSessionId: VALID_SCAN_SESSION_ID });
     fireEvent.click(screen.getAllByText("resend")[0]);
     await waitFor(() => expect(resendMock).toHaveBeenCalledTimes(1));
   });
@@ -179,7 +188,7 @@ describe("PostScanReportSwitcher shared OTP status wiring", () => {
     funnelState.phoneE164 = "+13055551234";
     funnelState.phoneStatus = "otp_sent";
     resendMock.mockResolvedValueOnce({ status: "blocked", error: "Please wait before requesting another code." });
-    renderSwitcher();
+    renderSwitcher({ scanSessionId: VALID_SCAN_SESSION_ID });
 
     fireEvent.click(screen.getAllByText("resend")[0]);
     await waitFor(() => expect(resendMock).toHaveBeenCalledTimes(1));
@@ -191,11 +200,11 @@ describe("PostScanReportSwitcher shared OTP status wiring", () => {
   it("auto-send fires exactly once for a pre-hydrated phone (no double-fire on re-render)", async () => {
     funnelState.phoneE164 = "+13055551234";
     funnelState.phoneStatus = "screened_valid";
-    const { rerender } = renderSwitcher();
+    const { rerender } = renderSwitcher({ scanSessionId: VALID_SCAN_SESSION_ID });
     await waitFor(() => expect(submitPhoneMock).toHaveBeenCalledTimes(1));
     rerender(
       <MemoryRouter>
-        <PostScanReportSwitcher {...baseProps()} />
+        <PostScanReportSwitcher {...baseProps()} scanSessionId={VALID_SCAN_SESSION_ID} />
       </MemoryRouter>
     );
     // The autoSendFiredRef guard must prevent a second send.
@@ -322,6 +331,8 @@ describe("PostScanReportSwitcher — Identity Ladder partial access (Level 0/1)"
 describe("PostScanReportSwitcher — post-OTP unlock transition", () => {
   let funnelState: any;
   let submitOtpMock: any;
+  let submitPhoneMock: any;
+  let resendMock: any;
   let onVerifiedMock: any;
 
   beforeEach(() => {
@@ -343,6 +354,8 @@ describe("PostScanReportSwitcher — post-OTP unlock transition", () => {
       phoneVerifiedEventId: "evt-pv",
       reportRevealedEventId: "evt-rr",
     });
+    submitPhoneMock = vi.fn().mockResolvedValue({ status: "otp_sent", e164: "+13055551234" });
+    resendMock = vi.fn().mockResolvedValue({ status: "otp_sent", e164: "+13055551234" });
     onVerifiedMock = vi.fn();
 
     mockUsePhonePipeline.mockReturnValue({
@@ -355,44 +368,78 @@ describe("PostScanReportSwitcher — post-OTP unlock transition", () => {
       errorType: null,
       resendCooldown: 0,
       handlePhoneChange: vi.fn(),
-      submitPhone: vi.fn(),
+      submitPhone: submitPhoneMock,
       submitOtp: submitOtpMock,
-      resend: vi.fn(),
+      resend: resendMock,
       reset: vi.fn(),
     });
   });
 
-  it("calls onVerified with the server-canonical phone after successful OTP", async () => {
+  it("missing scanSessionId blocks OTP verify before pipeline or funnel mutation", async () => {
+    renderSwitcher({ scanSessionId: null, onVerified: onVerifiedMock });
+
+    fireEvent.change(screen.getByTestId("otp-input"), { target: { value: "123456" } });
+    fireEvent.click(screen.getByText("otp-submit"));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(LOST_SCAN_SESSION_MESSAGE));
+    expect(submitOtpMock).not.toHaveBeenCalled();
+    expect(funnelState.setPhone).not.toHaveBeenCalledWith("+13055551234", "verified");
+    expect(funnelState.setPhoneStatus).not.toHaveBeenCalledWith("verified");
+    expect(onVerifiedMock).not.toHaveBeenCalled();
+  });
+
+  it("invalid scanSessionId blocks OTP verify before pipeline or funnel mutation", async () => {
+    renderSwitcher({ scanSessionId: "not-a-valid-uuid", onVerified: onVerifiedMock });
+
+    fireEvent.change(screen.getByTestId("otp-input"), { target: { value: "123456" } });
+    fireEvent.click(screen.getByText("otp-submit"));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(LOST_SCAN_SESSION_MESSAGE));
+    expect(submitOtpMock).not.toHaveBeenCalled();
+    expect(funnelState.setPhone).not.toHaveBeenCalledWith("+13055551234", "verified");
+    expect(funnelState.setPhoneStatus).not.toHaveBeenCalledWith("verified");
+    expect(onVerifiedMock).not.toHaveBeenCalled();
+  });
+
+  it("missing scanSessionId blocks phone submit before pipeline or sending_otp mutation", async () => {
+    funnelState.phoneE164 = null;
+    funnelState.phoneStatus = "none";
+    renderSwitcher({ scanSessionId: null });
+
+    fireEvent.click(screen.getByText("phone-submit"));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(LOST_SCAN_SESSION_MESSAGE));
+    expect(submitPhoneMock).not.toHaveBeenCalled();
+    expect(funnelState.setPhoneStatus).not.toHaveBeenCalledWith("sending_otp");
+  });
+
+  it("missing scanSessionId blocks resend before pipeline or sending_otp mutation", async () => {
+    renderSwitcher({ scanSessionId: null });
+
+    fireEvent.click(screen.getByText("resend"));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(LOST_SCAN_SESSION_MESSAGE));
+    expect(resendMock).not.toHaveBeenCalled();
+    expect(funnelState.setPhoneStatus).not.toHaveBeenCalledWith("sending_otp");
+  });
+
+  it("valid scanSessionId permits OTP verify and hands off unlock with server-canonical phone", async () => {
     render(
       <MemoryRouter>
         <PostScanReportSwitcher
           {...baseProps()}
-          scanSessionId="11111111-1111-4111-8111-111111111111"
+          scanSessionId={VALID_SCAN_SESSION_ID}
           onVerified={onVerifiedMock}
         />
       </MemoryRouter>
     );
-    // Simulate the OTP submit by directly invoking handleOtpSubmit via the gate.
-    // The mocked TruthReportClassic exposes an "otp-submit" button.
-    // The OTP value must reach 6 chars first; fast-forward by directly calling.
-    // Because otpValue is internal state, simulate by clicking the otp-submit
-    // button after the component was rendered with a 6-digit code seeded via
-    // a re-render. Simpler: call submitOtp directly via the pipeline mock to
-    // verify the contract; then assert onVerified is called once submitOtp
-    // resolves with status=verified.
-    //
-    // The integration we care about: "when submitOtp resolves verified,
-    // onVerified is called with server-canonical e164".
-    // PostScanReportSwitcher's handleOtpSubmit gates on otpValue.length>=6;
-    // the test here proves the wiring downstream of that branch by spying
-    // on the pipeline contract.
-    await act(async () => {
-      const result = await submitOtpMock("123456");
-      // Reproduce the post-success branch contract used by handleOtpSubmit:
-      if (result.status === "verified" && result.e164) {
-        onVerifiedMock(result.e164);
-      }
-    });
+
+    fireEvent.change(screen.getByTestId("otp-input"), { target: { value: "123456" } });
+    fireEvent.click(screen.getByText("otp-submit"));
+
+    await waitFor(() => expect(submitOtpMock).toHaveBeenCalledTimes(1));
+    expect(submitOtpMock).toHaveBeenCalledWith("123456");
+    expect(funnelState.setPhone).toHaveBeenCalledWith("+13055551234", "verified");
     expect(onVerifiedMock).toHaveBeenCalledWith("+13055551234");
   });
 
