@@ -34,6 +34,7 @@ import { useScanFunnel, readPersistedFunnelSnapshot } from "@/state/scanFunnel";
 import { getVerifiedAccess, clearVerifiedAccess } from "@/lib/verifiedAccess";
 import { trackEvent } from "@/lib/trackEvent";
 import { useClientSlug } from "@/lib/useClientSlug";
+import { captureCtaSourceFromUrl, getCtaSource } from "@/lib/ctaSource";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertTriangle, RotateCcw, FileX } from "lucide-react";
