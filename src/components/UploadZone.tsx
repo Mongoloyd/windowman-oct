@@ -229,10 +229,17 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
           .select("quote_file_id, lead_id")
           .eq("id", boundScanSessionId)
           .maybeSingle();
+        const retryLeadId = (ss?.lead_id as string | null) ?? null;
+        const retryQuoteFileId = (ss?.quote_file_id as string | null) ?? "";
+        if (funnel) {
+          funnel.setScanSessionId(boundScanSessionId);
+          if (retryQuoteFileId) funnel.setQuoteFileId(retryQuoteFileId);
+          if (retryLeadId) funnel.setLeadId(retryLeadId);
+        }
         const ok = await invokeScan(
           boundScanSessionId,
-          (ss?.lead_id as string | null) ?? null,
-          (ss?.quote_file_id as string | null) ?? "",
+          retryLeadId,
+          retryQuoteFileId,
         );
         if (ok) {
           onScanStart?.(file.name, boundScanSessionId);
@@ -287,6 +294,11 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
         // Re-bind to the existing mapping — this is the canonical retry.
         uploadedOnceRef.current = true;
         setActiveScanSessionId(existingScanSessionId);
+        if (funnel) {
+          funnel.setScanSessionId(existingScanSessionId);
+          funnel.setQuoteFileId(existingQuoteFileId);
+          if (existingLeadId) funnel.setLeadId(existingLeadId);
+        }
         const ok = await invokeScan(existingScanSessionId, existingLeadId, existingQuoteFileId);
         if (ok) {
           onScanStart?.(file.name, existingScanSessionId);
@@ -411,6 +423,12 @@ const UploadZone = ({ isVisible, onScanStart, sessionId }: UploadZoneProps) => {
       const newScanSessionId = bootstrapData.scan_session_id as string;
       const quoteFileId = bootstrapData.quote_file_id as string;
       const leadId = (bootstrapData.lead_id as string | null) ?? null;
+
+      if (funnel) {
+        funnel.setScanSessionId(newScanSessionId);
+        funnel.setQuoteFileId(quoteFileId);
+        if (leadId) funnel.setLeadId(leadId);
+      }
 
       if (import.meta.env.DEV) {
         console.info("[UploadZone] start-upload-scan-session success", {
