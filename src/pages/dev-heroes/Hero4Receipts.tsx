@@ -92,7 +92,10 @@ export default function Hero4Receipts() {
         </div>
 
         <div className="relative z-10 text-center pb-10">
-          <button className="px-8 py-4 rounded-xl bg-blue-600 hover:bg-blue-500 transition font-bold text-white shadow-[0_0_40px_rgba(37,99,235,0.5)]">
+          <button
+            onClick={startUpload}
+            className="px-8 py-4 rounded-xl bg-blue-600 hover:bg-blue-500 transition font-bold text-white shadow-[0_0_40px_rgba(37,99,235,0.5)]"
+          >
             Upload My Quote →
           </button>
           <p className="mt-3 text-xs text-slate-500 font-mono">
