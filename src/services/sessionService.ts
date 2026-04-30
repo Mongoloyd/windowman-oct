@@ -1,9 +1,14 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
- * GOLDEN THREAD SESSION SERVICE v3.0
+ * LEGACY SESSION SERVICE v3.0 — NOT THE CANONICAL SCANNER GOLDEN THREAD
  * ═══════════════════════════════════════════════════════════════════════════════
  *
- * Production-ready session management for the WindowMan AI Quote Audit funnel.
+ * Legacy session management for the pre-scanner WindowMan AI Quote Audit funnel.
+ *
+ * Canonical Homeowner Scan Journey source of truth now flows through:
+ * TruthGateFlow → UploadZone → start-upload-scan-session → scan-quote → preview → OTP.
+ * This file may still support older/demo paths that use `impact-windows-session`,
+ * but it must not be treated as proof of scanner `session_id → lead_id → quote_file_id → scan_session_id` continuity.
  *
  * Features:
  * - Single-funnel state machine (6 stages)

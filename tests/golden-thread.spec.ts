@@ -1,9 +1,17 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
- * GOLDEN THREAD E2E TEST SUITE v3.0
+ * LEGACY GOLDEN THREAD E2E TEST SUITE v3.0 — NOT CANONICAL SCANNER COVERAGE
  * ═══════════════════════════════════════════════════════════════════════════════
  * 
- * Streamlined for the single AI Quote Audit funnel:
+ * Legacy coverage for the pre-scanner AI Quote Audit funnel.
+ *
+ * This suite manipulates `impact-windows-session` localStorage and does not prove the
+ * canonical Homeowner Scan Journey:
+ * TruthGateFlow → capture-truth-gate-lead → UploadZone → quotes bucket upload →
+ * start-upload-scan-session → scan-quote → preview → OTP gate.
+ * Do not use this file as evidence that scanner backend ID continuity is working.
+ *
+ * Original legacy funnel model:
  * 
  * FUNNEL STAGES:
  * ┌─────────────────────────────────────────────────────────────────────────────┐
