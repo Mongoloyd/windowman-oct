@@ -28,9 +28,6 @@ const DevReportPreview = lazy(() => import("./pages/DevReportPreview.tsx"));
 const DevTesting = lazy(() => import("./pages/DevTesting.tsx"));
 const DevTesting1 = lazy(() => import("./pages/DevTesting1.tsx"));
 const TwoChoices = lazy(() => import("./pages/TwoChoices.tsx"));
-const Hero1Inspector = lazy(() => import("./pages/dev-heroes/Hero1Inspector.tsx"));
-const Hero3Portal = lazy(() => import("./pages/dev-heroes/Hero3Portal.tsx"));
-const Hero4Receipts = lazy(() => import("./pages/dev-heroes/Hero4Receipts.tsx"));
 
 // ── Static content pages ─────────────────────────────────────────────────────
 const PublicLayout = lazy(() => import("@/components/PublicLayout"));
@@ -150,9 +147,6 @@ const App = () => (
                     <Route path="/dev/report-preview" element={<DevReportPreview />} />
                     <Route path="/devtesting" element={<DevTesting />} />
                     <Route path="/dev/testing1" element={<DevTesting1 />} />
-                    <Route path="/dev/hero-1" element={<Hero1Inspector />} />
-                    <Route path="/dev/hero-3" element={<Hero3Portal />} />
-                    <Route path="/dev/hero-4" element={<Hero4Receipts />} />
                     <Route path="/dialer" element={<Navigate to="/admin/dialer" replace />} />
                     <Route path="/settings" element={<Navigate to="/admin/settings" replace />} />
                     <Route path="/partners" element={<Navigate to="/admin/partners" replace />} />
