@@ -428,6 +428,16 @@ const TruthGateFlow = ({
           : null);
 
       // Build the full intake payload as a named object for clean diagnostics.
+      // Compose `source` with the originating CTA tag (e.g. `hero_dev1`)
+      // when present. Result looks like `truth-gate:hero_dev1` and stays
+      // within the 64-char limit enforced by the capture-truth-gate-lead
+      // edge function. Falls back to plain `truth-gate` when no cta is
+      // stored. Also surfaces the cta in `utm_content` only when no
+      // utm_content was captured from the URL, so paid attribution is
+      // never overwritten.
+      const ctaSource = getCtaSource();
+      const composedSource = ctaSource ? `truth-gate:${ctaSource}` : "truth-gate";
+
       const leadInsertPayload = {
         session_id: sessionId,
         first_name: answers.firstName,
@@ -437,7 +447,7 @@ const TruthGateFlow = ({
         project_type: answers.projectType,
         window_count: parseWindowCount(answers.windowCount),
         quote_range: answers.quoteRange,
-        source: "truth-gate",
+        source: composedSource,
 
         client_slug: effectiveClientSlug,
 
