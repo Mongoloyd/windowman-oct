@@ -24,6 +24,7 @@ import { usePhonePipeline } from "@/hooks/usePhonePipeline";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { deriveRevealPhase, phaseToAccessLevel } from "@/lib/deriveRevealPhase";
+import { isValidScanSessionId } from "@/lib/routeIdGuards";
 import TruthReportClassic from "../TruthReportClassic";
 import type { SuggestedMatch } from "../TruthReportClassic";
 import type { GateMode, LockedOverlayProps } from "@/components/LockedOverlay";
@@ -31,6 +32,8 @@ import type { AnalysisFlag, PillarScore } from "@/hooks/useAnalysisData";
 import { CTA_LABEL } from "./ctaConstants";
 
 export { CTA_LABEL };
+
+const LOST_SCAN_SESSION_MESSAGE = "We lost the scan session. Please restart the scan.";
 
 type Props = {
   grade: string;
@@ -254,6 +257,14 @@ export function PostScanReportSwitcher(props: Props) {
 
   // Resolve phone for CTA calls
   const phoneE164 = capturedPhone || funnel?.phoneE164 || pipeline.e164 || null;
+
+  const requireValidScanSession = useCallback(() => {
+    if (!props.scanSessionId || !isValidScanSessionId(props.scanSessionId)) {
+      toast.error(LOST_SCAN_SESSION_MESSAGE);
+      return false;
+    }
+    return true;
+  }, [props.scanSessionId]);
 
   // ── Stall detection timer ──
   // Sets fetchStallTimerFired=true when verified but full not loaded after 5s.
