@@ -1,43 +1,72 @@
-# Plan: Import "WindowMan — The Market Maker" as `/twochoices`
+Baseline confirmed: latest git commit is `47b46443 Added OTP scan-session guard`.
 
-## Approach
+Plan to implement the requested regression tests without touching production behavior:
 
-The uploaded file is a complete 1675-line standalone HTML page with:
-- Inline Tailwind CDN script + custom `tailwind.config`
-- ~250 lines of custom CSS (gate background, scan-line animations, modal transitions, OTP boxes, toast, etc.)
-- Vanilla JS handling 6-step upload modal, scan theatrics, OTP, drag-drop, etc.
-- Hard-coded color palette (`wm-blue`, `wm-dark1`, etc.) that conflicts with the project's existing Tailwind config
+1. Touch only `src/components/post-scan/PostScanReportSwitcher.test.tsx`
+   - Do not edit Edge Functions, OTP services, routing, upload, storage, report styling, database/RLS, or production component files.
+   - Do not create a `ReportClassic.test.tsx` in this pass because no existing ReportClassic harness is present and building one would require broad mocks; per your instruction, that should be separate if needed.
 
-To honor "**import exactly as is**" with zero drift, the safest approach is to serve the HTML byte-for-byte as a static asset and mount it inside an iframe at the React route. This preserves every animation, modal, script, and pixel of the original.
+2. Update the existing `TruthReportClassic` test mock
+   - Add the required controlled OTP input:
+     ```tsx
+     <input
+       data-testid="otp-input"
+       value={gateProps?.otpValue ?? ""}
+       onChange={(e) => gateProps?.onOtpChange?.(e.target.value)}
+     />
+     ```
+   - Keep the existing mock buttons for `otp-submit`, `phone-submit`, and `resend`.
+   - This lets tests exercise the real `PostScanReportSwitcher` handler path instead of manually calling mocked pipeline functions.
 
-Rewriting the 1675 lines into idiomatic React/JSX would (a) introduce drift, (b) force conversion of vanilla DOM event handlers to React state, and (c) collide with the existing project Tailwind config. Iframe embedding sidesteps all three.
+3. Add a focused guard regression suite for `PostScanReportSwitcher`
+   - Shared setup will mock:
+     - funnel state
+     - `usePhonePipeline`
+     - `toast.error`
+     - `onVerified`
+   - Assertions will verify no guarded action leaks past invalid session checks.
 
-## Files
+4. Add missing/invalid verify-block tests
+   - `scanSessionId: null`, phone present, `phoneStatus: "otp_sent"`.
+   - `scanSessionId: "not-a-valid-uuid"`, phone present, `phoneStatus: "otp_sent"`.
+   - Action: set OTP with the rendered `otp-input`, then click `otp-submit`.
+   - Assert:
+     - `pipeline.submitOtp` not called
+     - `funnel.setPhone` not called with verified
+     - `funnel.setPhoneStatus` not called with verified
+     - `onVerified` not called
+     - `toast.error("We lost the scan session. Please restart the scan.")` called
 
-1. **`public/twochoices.html`** (new, copied verbatim from the upload) — 1675 lines, byte-identical to the upload. Loads its own Tailwind CDN + lucide UMD inside the iframe, isolated from the host app's bundle.
-2. **`src/pages/TwoChoices.tsx`** (new, ~15 lines) — thin React wrapper that renders a full-viewport iframe pointing at `/twochoices.html`.
-3. **`src/App.tsx`** (1-line edit) — add lazy import + one route:
-   ```text
-   const TwoChoices = lazy(() => import("./pages/TwoChoices.tsx"));
-   <Route path="/twochoices" element={<TwoChoices />} />
-   ```
-   Placed alongside other public routes (not gated to dev-only, since the request did not specify dev-only).
+5. Add missing-session send/resend-block tests
+   - Phone submit/send:
+     - `scanSessionId: null`
+     - click `phone-submit`
+     - assert `pipeline.submitPhone` not called, no `sending_otp` funnel mutation, and toast error called.
+   - Resend:
+     - `scanSessionId: null`, phone present, `phoneStatus: "otp_sent"`
+     - click `resend`
+     - assert `pipeline.resend` not called, no `sending_otp` funnel mutation, and toast error called.
 
-## What this preserves
+6. Replace the current weak successful-OTP test with a real handler-driven test
+   - Use a valid UUID.
+   - Set OTP through `otp-input` with `fireEvent.change(... "123456")`.
+   - Click `otp-submit`.
+   - Assert:
+     - `pipeline.submitOtp` called once with `"123456"`
+     - `funnel.setPhone("+13055551234", "verified")` called
+     - `onVerified("+13055551234")` called
+   - Remove the existing manual mock invocation pattern that directly calls `submitOtpMock` and manually invokes `onVerified`, because it does not test the component invariant.
 
-- Exact CSS, animations, gate gradient, scan-line effects, modal transitions
-- Original `wm-*` Tailwind color palette without polluting project tokens
-- Vanilla JS 6-step upload flow, OTP boxes, toast, drag-drop, testimonial carousel
-- All `data-id` attributes, lucide icons, accessibility attrs
+7. Verification command to run after implementation
+   - `bunx vitest run src/components/post-scan/PostScanReportSwitcher.test.tsx`
 
-## What it does NOT do
+Final output after implementation will include:
+1. files changed
+2. tests added
+3. exact invariant each test proves
+4. command to run the tests
+5. confirmation that no production behavior changed
+6. confirmation that no Edge Functions were touched
 
-- No backend wiring — modal submits remain client-side as authored
-- No integration with `usePhonePipeline`, `scan-quote`, OTP edge functions, or Supabase
-- No styling drift, no React-ification of the JS
-
-If you later want this page to actually wire into the real WindowMan pipeline (real OTP, real scan, real reveal), that would be a separate sprint to port the markup into native React components.
-
-## NO-TOUCH (confirmed untouched)
-
-All previously listed no-touch zones remain untouched. This change is purely additive: one new public asset + one new page file + one new route line.
+And will end exactly with:
+`✅ COMMIT READY. Please verify the latest git commit before continuing.`

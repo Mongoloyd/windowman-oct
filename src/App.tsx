@@ -26,8 +26,6 @@ const PartnerRoutes = lazy(() =>
 const DemoClassic = lazy(() => import("./pages/DemoClassic.tsx"));
 const DevReportPreview = lazy(() => import("./pages/DevReportPreview.tsx"));
 const DevTesting = lazy(() => import("./pages/DevTesting.tsx"));
-const DevTesting1 = lazy(() => import("./pages/DevTesting1.tsx"));
-const TwoChoices = lazy(() => import("./pages/TwoChoices.tsx"));
 
 // ── Static content pages ─────────────────────────────────────────────────────
 const PublicLayout = lazy(() => import("@/components/PublicLayout"));
@@ -146,7 +144,6 @@ const App = () => (
                     <Route path="/demo-classic" element={<DemoClassic />} />
                     <Route path="/dev/report-preview" element={<DevReportPreview />} />
                     <Route path="/devtesting" element={<DevTesting />} />
-                    <Route path="/dev/testing1" element={<DevTesting1 />} />
                     <Route path="/dialer" element={<Navigate to="/admin/dialer" replace />} />
                     <Route path="/settings" element={<Navigate to="/admin/settings" replace />} />
                     <Route path="/partners" element={<Navigate to="/admin/partners" replace />} />
@@ -154,7 +151,6 @@ const App = () => (
                   </>
                 )}
                 <Route path="/contractors3" element={<Contractors3 />} />
-                <Route path="/twochoices" element={<TwoChoices />} />
                 
 
                 {/* ── Static content pages (shared PublicNavbar via PublicLayout) ── */}

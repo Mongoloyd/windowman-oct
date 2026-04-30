@@ -79,19 +79,6 @@ export default {
         navy: {
           DEFAULT: "hsl(var(--color-obsidian))",
         },
-        dossier: {
-          surface: "#0f1419",
-          elevated: "#1a1f2e",
-          border: "#2a2f3e",
-          accent: "#3b82f6",
-          "txt-primary": "#f1f5f9",
-          "txt-secondary": "#94a3b8",
-          "txt-muted": "#64748b",
-          danger: "#ff4444",
-          success: "#00ff88",
-          warning: "#ffaa00",
-          info: "#44aaff",
-        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
