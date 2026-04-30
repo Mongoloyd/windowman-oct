@@ -7,14 +7,12 @@ import { trackEvent } from "@/lib/trackEvent";
 interface AboutCTASectionProps {
   onAnalyzeClick?: () => void;
   onCreateVaultClick?: () => void;
-  onSampleReportClick?: () => void;
   onTrack?: (eventName: string) => void;
 }
 
 export default function AboutCTASection({
   onAnalyzeClick,
   onCreateVaultClick,
-  onSampleReportClick,
   onTrack,
 }: AboutCTASectionProps) {
   const sectionRef = useRef<HTMLElement>(null);
@@ -66,11 +64,6 @@ export default function AboutCTASection({
   const handleVault = () => {
     track("about_bottom_cta_vault_clicked");
     if (onCreateVaultClick) onCreateVaultClick();
-  };
-
-  const handleSampleReport = () => {
-    track("about_bottom_cta_sample_report_clicked");
-    if (onSampleReportClick) onSampleReportClick();
   };
 
   return (
@@ -159,15 +152,6 @@ export default function AboutCTASection({
               }}
             >
               Create My Vault
-            </Link>
-
-            {/* Tertiary link */}
-            <Link
-              to="/demo-classic"
-              onClick={handleSampleReport}
-              className="text-sm font-medium text-foreground/50 underline-offset-4 transition-colors hover:text-foreground/70 hover:underline"
-            >
-              See a Sample Report
             </Link>
           </div>
         </div>
