@@ -137,43 +137,40 @@ const Index = () => {
     isResuming,
   } = useAnalysisData(scanSessionId, fileUploaded || !!scanSessionId);
 
-  // ── Refresh / Return restore (P0 fix) ─────────────────────────────────
-  // Restore the in-flight scan flow on a bare refresh of "/" using the
-  // already-persisted funnel state (scanFunnel.tsx LS) and verified-access
-  // record (verifiedAccess.ts LS). Fail-closed: if no valid persisted
-  // scanSessionId exists, fall through to the marketing hero unchanged.
-  //
-  // Three restore paths:
-  //   1. ?resume=1 + verified record  → legacy explicit resume (full reveal)
-  //   2. verified record matching persisted scanSessionId → auto full reveal
-  //   3. funnel snapshot only         → restore preview / OTP gate
+  // ── Refresh / Return restore (homepage hijack fix) ────────────────────
+  // RULE: Bare "/" must always show the marketing homepage.
+  // Persisted scan/report state may be DETECTED on mount, but it must
+  // never auto-take-over the homepage. Restore happens only when:
+  //   - URL has ?resume=1, OR
+  //   - the user clicks the "Continue previous scan" recovery CTA.
   //
   // No full report data is preloaded; useAnalysisData fetches preview only
   // until tryResume()/fetchFull() is called against the verified backend gate.
   const resumeCheckedRef = useRef(false);
   const shouldAutoResumeFullRef = useRef(false);
-  useEffect(() => {
-    if (resumeCheckedRef.current) return;
-    resumeCheckedRef.current = true;
+  const [pendingResume, setPendingResume] = useState<{
+    scanSessionId: string;
+    sessionId: string | null;
+    phoneE164: string | null;
+    hasVerified: boolean;
+  } | null>(null);
 
-    const params = new URLSearchParams(window.location.search);
-    const explicitResume = params.get("resume") === "1";
-
+  const runRestore = useCallback((opts?: { explicit?: boolean }) => {
     const snapshot = readPersistedFunnelSnapshot();
     const verified = getVerifiedAccess(snapshot?.scanSessionId ?? null);
 
-    // Path 1 + 2: verified record present → restore as already-revealed
-    if (verified && (snapshot?.scanSessionId === verified.scan_session_id || explicitResume)) {
+    // Verified record present → restore as already-revealed
+    if (verified && (snapshot?.scanSessionId === verified.scan_session_id || opts?.explicit)) {
       setScanSessionId(verified.scan_session_id);
       setFileUploaded(true);
       setGradeRevealed(true);
       setLeadCaptured(true);
       shouldAutoResumeFullRef.current = true;
-      return;
+      setPendingResume(null);
+      return true;
     }
 
-    // Path 3: in-flight scan (preview / OTP) → restore preview only.
-    // useAnalysisData will fetch preview because fileUploaded || !!scanSessionId.
+    // In-flight scan (preview / OTP) → restore preview only.
     // Full report stays gated behind backend OTP verification.
     if (snapshot?.scanSessionId) {
       setScanSessionId(snapshot.scanSessionId);
@@ -181,14 +178,55 @@ const Index = () => {
       setGradeRevealed(true); // show report shell with locked-preview state
       if (snapshot.sessionId) setSessionId(snapshot.sessionId);
       if (snapshot.phoneE164) setLeadCaptured(true);
+      setPendingResume(null);
+      return true;
+    }
+
+    return false;
+  }, []);
+
+  const handleStartOver = useCallback(() => {
+    clearVerifiedAccess();
+    clearPersistedFunnelKeys();
+    setPendingResume(null);
+    // Strip ?resume=1 from URL so a refresh stays on the hero.
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has("resume")) {
+        url.searchParams.delete("resume");
+        window.history.replaceState({}, "", url.toString());
+      }
+    } catch { /* noop */ }
+  }, []);
+
+  useEffect(() => {
+    if (resumeCheckedRef.current) return;
+    resumeCheckedRef.current = true;
+
+    const params = new URLSearchParams(window.location.search);
+    const explicitResume = params.get("resume") === "1";
+
+    if (explicitResume) {
+      const restored = runRestore({ explicit: true });
+      if (!restored) {
+        // Stale ?resume=1 with no valid record → clear and fall through.
+        clearVerifiedAccess();
+      }
       return;
     }
 
-    // Stale ?resume=1 with no valid record → clear and fall through.
-    if (explicitResume && !verified) {
-      clearVerifiedAccess();
+    // Bare "/": only DETECT persisted state, do not auto-restore.
+    const snapshot = readPersistedFunnelSnapshot();
+    const verified = getVerifiedAccess(snapshot?.scanSessionId ?? null);
+    if (snapshot?.scanSessionId) {
+      setPendingResume({
+        scanSessionId: snapshot.scanSessionId,
+        sessionId: snapshot.sessionId,
+        phoneE164: snapshot.phoneE164,
+        hasVerified: !!verified,
+      });
     }
-  }, []);
+  }, [runRestore]);
 
   // After scanSessionId is restored from a verified record, auto-fetch full data.
   useEffect(() => {
