@@ -1,0 +1,1675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <title>WindowMan — The Market Maker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            wm: {
+              blue: '#2563eb',
+              'blue-light': '#93c5fd',
+              'blue-hover': '#3b82f6',
+              dark1: '#1a1a2e',
+              dark2: '#16213e',
+              dark3: '#0f3460',
+              footer: '#0f172a',
+              muted: '#94a3b8',
+              border: '#374151',
+              success: '#22c55e',
+              card: '#ffffff',
+            }
+          }
+        }
+      }
+    };
+    </script>
+    <style>
+      *, *::before, *::after { box-sizing: border-box; }
+      body { margin: 0; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; overflow-x: hidden; }
+
+      .gate-bg {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        position: relative;
+      }
+      .gate-bg::before {
+        content: '';
+        position: absolute; inset: 0;
+        background: repeating-linear-gradient(45deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 1px, transparent 1px, transparent 40px);
+        pointer-events: none; z-index: 1;
+      }
+      .gate-bg::after {
+        content: '';
+        position: absolute; inset: 0;
+        background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.5) 100%);
+        pointer-events: none; z-index: 1;
+      }
+      .gate-content { position: relative; z-index: 2; }
+
+      .window-silhouette {
+        position: absolute; top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        opacity: 0.06; pointer-events: none; z-index: 0;
+      }
+
+      .cta-card { transition: transform 120ms ease, box-shadow 120ms ease; }
+      .cta-card:hover, .cta-card:focus-visible { transform: scale(1.03); }
+      .cta-a:hover, .cta-a:focus-visible { box-shadow: 0 0 30px rgba(37,99,235,0.4); }
+      .cta-b:hover, .cta-b:focus-visible { border-color: #6b7280; }
+
+      .modal-overlay {
+        opacity: 0; pointer-events: none;
+        transition: opacity 200ms ease;
+      }
+      .modal-overlay.active { opacity: 1; pointer-events: auto; }
+      .modal-card {
+        transform: translateY(24px); opacity: 0;
+        transition: transform 200ms ease, opacity 200ms ease, border 200ms ease;
+      }
+      .modal-overlay.active .modal-card {
+        transform: translateY(0); opacity: 1;
+      }
+      .modal-overlay.closing .modal-card {
+        transform: translateY(24px); opacity: 0;
+        transition: transform 150ms ease, opacity 150ms ease;
+      }
+
+      @keyframes scanLine {
+        0% { top: 0; }
+        100% { top: 100%; }
+      }
+      .scan-line {
+        position: absolute; left: 0; right: 0; height: 3px;
+        background: linear-gradient(90deg, transparent, #2563eb, transparent);
+        animation: scanLine 1.5s ease-in-out infinite;
+        border-radius: 2px;
+      }
+
+      @keyframes scanLineGlow {
+        0% { top: 0; opacity: 0.7; }
+        50% { opacity: 1; }
+        100% { top: 100%; opacity: 0.7; }
+      }
+      .scan-line-glow {
+        position: absolute; left: 0; right: 0; height: 4px;
+        background: #2563eb;
+        box-shadow: 0 0 12px 4px rgba(37,99,235,0.5), 0 0 24px 8px rgba(37,99,235,0.3);
+        animation: scanLineGlow 1.8s ease-in-out infinite;
+        border-radius: 2px;
+      }
+
+      .testimonial-item {
+        position: absolute; inset: 0;
+        display: flex; align-items: center; justify-content: center;
+        opacity: 0; transition: opacity 0.8s ease;
+      }
+      .testimonial-item.active { opacity: 1; }
+
+      @keyframes checkDraw {
+        0% { stroke-dashoffset: 30; }
+        100% { stroke-dashoffset: 0; }
+      }
+      .check-animated path {
+        stroke-dasharray: 30;
+        stroke-dashoffset: 30;
+        animation: checkDraw 0.5s ease forwards;
+      }
+
+      .drop-zone.drag-over {
+        border-color: #2563eb !important;
+        background-color: rgba(37,99,235,0.08) !important;
+      }
+
+      .radio-card { transition: border-color 120ms ease, background-color 120ms ease; cursor: pointer; }
+      .radio-card.selected { border-color: #2563eb; background-color: rgba(37,99,235,0.08); }
+
+      .modal-card input[type="text"],
+      .modal-card input[type="email"],
+      .modal-card input[type="number"],
+      .modal-card input[type="tel"] {
+        background-color: #ffffff !important;
+        border-color: #d1d5db !important;
+        color: #111827 !important;
+      }
+      .modal-card input[type="text"]::placeholder,
+      .modal-card input[type="email"]::placeholder,
+      .modal-card input[type="number"]::placeholder,
+      .modal-card input[type="tel"]::placeholder {
+        color: #9ca3af !important;
+      }
+
+      input:focus, select:focus, textarea:focus, button:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(37,99,235,0.5);
+      }
+
+      .time-slot { transition: border-color 120ms ease, background-color 120ms ease; }
+      .time-slot.selected { border-color: #2563eb; background-color: rgba(37,99,235,0.08); }
+
+      @media (max-width: 767px) {
+        .modal-card { max-height: 100vh; height: 100%; border-radius: 0 !important; margin: 0 !important; max-width: 100% !important; }
+      }
+
+      .phone-wrapper { position: relative; }
+      .phone-wrapper input.phone-complete { border-color: #22c55e !important; }
+      .phone-wrapper input.phone-incomplete { border-color: #ef4444 !important; }
+      .phone-check {
+        position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+        font-size: 14px; line-height: 1; display: none;
+      }
+      .phone-check.visible { display: block; }
+
+      /* Step fade transitions */
+      .step-panel { transition: opacity 200ms ease; }
+      .step-panel.step-fading { opacity: 0; }
+
+      /* OTP digit boxes */
+      .otp-box {
+        width: 48px; height: 56px; text-align: center; font-size: 1.5rem; font-weight: 700;
+        border: 2px solid #d1d5db; border-radius: 0.5rem;
+        background: #ffffff; color: #111827;
+        transition: border-color 120ms ease;
+      }
+      .otp-box:focus { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37,99,235,0.3); }
+
+      /* Scan theatrics */
+      .scan-bg { background-color: #0f172a; transition: background-color 200ms ease; }
+      .scan-progress-track { height: 6px; border-radius: 9999px; background: #1e293b; overflow: hidden; }
+      .scan-progress-fill {
+        height: 100%; border-radius: 9999px;
+        background: linear-gradient(90deg, #2563eb, #22c55e);
+        transition: width 100ms linear;
+      }
+
+      @keyframes ellipsis {
+        0% { content: ''; }
+        25% { content: '.'; }
+        50% { content: '..'; }
+        75% { content: '...'; }
+      }
+      .ellipsis-anim::after {
+        content: '';
+        animation: ellipsis 1.5s steps(4, end) infinite;
+      }
+
+      /* Spinner */
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .btn-spinner {
+        display: inline-block; width: 16px; height: 16px;
+        border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff;
+        border-radius: 50%; animation: spin 0.6s linear infinite;
+        margin-right: 6px; vertical-align: middle;
+      }
+
+      /* Toast */
+      .toast-msg {
+        position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
+        background: #22c55e; color: white; font-size: 14px; font-weight: 600;
+        padding: 8px 20px; border-radius: 8px; z-index: 100;
+        opacity: 0; transition: opacity 200ms ease; pointer-events: none;
+      }
+      .toast-msg.visible { opacity: 1; }
+
+      /* Slide down animation for correction fields */
+      .correction-fields {
+        max-height: 0; overflow: hidden; opacity: 0;
+        transition: max-height 300ms ease, opacity 300ms ease, margin 300ms ease;
+      }
+      .correction-fields.open {
+        max-height: 400px; opacity: 1; margin-top: 16px;
+      }
+
+      /* Large animated checkmark */
+      @keyframes circleGrow {
+        0% { transform: scale(0); opacity: 0; }
+        60% { transform: scale(1.1); }
+        100% { transform: scale(1); opacity: 1; }
+      }
+      @keyframes checkStroke {
+        0% { stroke-dashoffset: 50; }
+        100% { stroke-dashoffset: 0; }
+      }
+      .confirm-check-circle {
+        animation: circleGrow 0.5s ease forwards;
+      }
+      .confirm-check-path {
+        stroke-dasharray: 50;
+        stroke-dashoffset: 50;
+        animation: checkStroke 0.4s ease 0.3s forwards;
+      }
+
+      /* Window-frame double border for Truth Report step */
+      .window-frame {
+        border: 4px double white !important;
+      }
+    </style>
+</head>
+<body data-id="0" class="bg-wm-dark1 text-white">
+    <app-icon data-id="1" hidden data-icon="shield" data-palette="Blue"></app-icon>
+
+    <!-- ===== GATE SECTION ===== -->
+    <section data-id="2" id="gate-section-a1b2" class="gate-bg min-h-screen flex flex-col items-center justify-center px-4 py-8 relative">
+        <svg data-id="3" class="window-silhouette w-64 h-80 md:w-80 md:h-96" viewBox="0 0 200 260" fill="none" stroke="#9ca3af" stroke-width="2">
+            <rect data-id="4" x="20" y="10" width="160" height="240" rx="4" />
+            <rect data-id="5" x="30" y="20" width="140" height="110" rx="2" />
+            <rect data-id="6" x="30" y="140" width="140" height="100" rx="2" />
+            <line data-id="7" x1="100" y1="20" x2="100" y2="130" />
+            <line data-id="8" x1="100" y1="140" x2="100" y2="240" />
+            <line data-id="9" x1="30" y1="75" x2="170" y2="75" />
+            <line data-id="10" x1="30" y1="190" x2="170" y2="190" />
+        </svg>
+
+        <div data-id="11" class="gate-content flex flex-col items-center text-center w-full max-w-4xl">
+            <div data-id="12" id="logo-c3d4" class="mb-6">
+                <h1 data-id="13" class="text-3xl md:text-4xl font-extrabold tracking-tight text-white inline-block">
+                    <span data-id="14" style="font-size: 1.8rem; margin-right: 0.35rem;" class="md:hidden" role="img" aria-label="Shield">🛡️</span><span data-id="15" style="font-size: 2.25rem; margin-right: 0.35rem;" class="hidden md:inline" role="img" aria-label="Shield">🛡️</span>Window<span data-id="16" style="color: #2563EB;">Man</span><sup data-id="17" class="text-xs align-super opacity-70">™</sup>
+                </h1>
+                <div data-id="18" class="h-1 w-16 bg-wm-blue mx-auto mt-2 rounded-full"></div>
+            </div>
+
+            <h2 data-id="19" id="headline-e5f6" class="text-2xl md:text-4xl font-bold text-white max-w-[800px] mb-4 leading-tight">
+                I'm WindowMan — The Market Maker. I get homeowners the REAL price on windows.
+            </h2>
+
+            <p data-id="20" id="subhead-g7h8" class="text-base md:text-lg text-wm-muted max-w-[600px] mb-10">
+                Tell me where you're at. I'll take it from here.
+            </p>
+
+            <div data-id="21" id="cta-container-i9j0" class="flex flex-col md:flex-row gap-5 w-full max-w-[700px] mb-10">
+                <button data-id="22" id="cta-upload-k1l2" class="cta-card cta-a flex-1 bg-wm-blue rounded-xl p-6 text-left cursor-pointer border-2 border-transparent min-h-[44px]" aria-label="I already have a quote — upload it for analysis">
+                    <span data-id="23" class="block text-sm md:text-base font-bold uppercase tracking-wide text-white mb-2">I Already Have a Quote</span>
+                    <span data-id="24" class="block text-sm text-white font-normal mb-1">Upload it. I'll expose the truth in under 2 minutes.</span>
+                    <span data-id="25" class="block text-xs text-wm-blue-light italic">And before today's over, I'll send you a better quote — guaranteed.</span>
+                </button>
+
+                <button data-id="26" id="cta-want-m3n4" class="cta-card cta-b flex-1 bg-gray-900 rounded-xl p-6 text-left cursor-pointer border-2 border-wm-border min-h-[44px]" aria-label="I want a quote — get the best price">
+                    <span data-id="27" class="block text-sm md:text-base font-bold uppercase tracking-wide text-white mb-2">I Want a Quote</span>
+                    <span data-id="28" class="block text-sm text-white font-normal mb-1">I'll show you how to get the best price — without getting played.</span>
+                    <span data-id="29" class="block text-xs text-gray-400 italic">Tell me what you're planning, and I'll build the perfect window plan for your home.</span>
+                </button>
+            </div>
+
+            <div data-id="30" id="trust-strip-o5p6" class="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-8 bg-white/5 rounded-lg px-6 py-3 mb-6 w-full max-w-[750px]">
+                <div data-id="31" class="flex items-center gap-2 text-xs md:text-sm text-wm-muted">
+                    <span data-id="32" class="text-base" role="img" aria-label="Shield">🛡️</span>
+                    <span data-id="33">Exposed $12,400+ in overcharges last month alone</span>
+                </div>
+                <div data-id="34" class="flex items-center gap-2 text-xs md:text-sm text-wm-muted">
+                    <span data-id="35" class="text-base" role="img" aria-label="Star">⭐</span>
+                    <span data-id="36">4.9/5 from 1,200+ homeowners</span>
+                </div>
+                <div data-id="37" class="flex items-center gap-2 text-xs md:text-sm text-wm-muted">
+                    <span data-id="38" class="text-base" role="img" aria-label="Money">💰</span>
+                    <span data-id="39">Average savings: $3,800 per project</span>
+                </div>
+            </div>
+
+            <div data-id="40" id="carousel-q7r8" class="relative h-8 w-full max-w-[500px]" aria-live="polite" aria-label="Savings testimonials">
+                <div data-id="41" class="testimonial-item active text-xs md:text-sm italic text-gray-400" data-index="0">Sarah M. saved $4,200 in Tampa, FL</div>
+                <div data-id="42" class="testimonial-item text-xs md:text-sm italic text-gray-400" data-index="1">James R. saved $6,100 in Charlotte, NC</div>
+                <div data-id="43" class="testimonial-item text-xs md:text-sm italic text-gray-400" data-index="2">Linda K. saved $3,400 in Dallas, TX</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== FOOTER ===== -->
+    <footer data-id="44" id="footer-s9t0" class="hidden bg-wm-footer text-gray-500 text-xs text-center py-6 px-4">
+        <div data-id="45" class="flex flex-wrap justify-center gap-4 mb-3">
+            <a data-id="46" href="#" class="hover:text-gray-300 transition-colors">About</a>
+            <a data-id="47" href="#" class="hover:text-gray-300 transition-colors">How it Works</a>
+            <a data-id="48" href="#" class="hover:text-gray-300 transition-colors">Privacy</a>
+            <a data-id="49" href="#" class="hover:text-gray-300 transition-colors">Terms</a>
+            <a data-id="50" href="#" class="hover:text-gray-300 transition-colors">Contact</a>
+        </div>
+        <p data-id="51" class="mb-1">© 2026 WindowMan. All rights reserved. WindowMan is not a licensed contractor. Results may vary.</p>
+        <p data-id="52" class="text-gray-600">Made by Copilot</p>
+    </footer>
+
+    <!-- ===== UPLOAD MODAL (Restructured 6-Step Flow) ===== -->
+    <div data-id="53" id="upload-modal-u1v2" class="modal-overlay fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" role="dialog" aria-modal="true" aria-labelledby="upload-modal-title">
+        <div data-id="54" id="upload-modal-card" class="modal-card bg-white text-gray-900 rounded-2xl w-full max-w-[540px] p-6 md:p-8 relative overflow-y-auto max-h-[95vh]">
+            <!-- Toast -->
+            <div data-id="55" id="upload-toast" class="toast-msg">✅ Updated!</div>
+
+            <!-- Close button -->
+            <button data-id="56" id="upload-close-w3x4" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 p-1 min-w-[44px] min-h-[44px] flex items-center justify-center z-10" aria-label="Close dialog">
+                <i data-id="57" data-lucide="x" class="w-5 h-5"></i>
+            </button>
+
+            <!-- STEP 1: File Upload -->
+            <div data-id="58" id="upload-step1" class="step-panel">
+                <h3 data-id="59" id="upload-modal-title" class="text-xl font-bold mb-1">Upload Your Quote</h3>
+                <p data-id="60" class="text-sm text-gray-500 mb-5">Drop your contractor quote here — photo or PDF. I'll do the rest.</p>
+
+                <div data-id="61" id="drop-zone" class="drop-zone border-2 border-dashed border-gray-300 rounded-xl min-h-[200px] flex flex-col items-center justify-center p-6 cursor-pointer transition-colors" role="button" aria-label="Drop zone for file upload" tabindex="0">
+                    <i data-id="62" data-lucide="upload-cloud" class="w-12 h-12 text-gray-400 mb-3"></i>
+                    <p data-id="63" class="text-sm font-medium text-gray-600 mb-1">Drag & drop your file here</p>
+                    <p data-id="64" class="text-xs text-gray-400 mb-3">or</p>
+                    <label data-id="65" class="inline-block bg-wm-blue text-white text-sm font-semibold px-5 py-2.5 rounded-lg cursor-pointer hover:bg-wm-blue-hover transition-colors min-h-[44px] flex items-center">
+                        Browse Files
+                        <input data-id="66" type="file" id="file-input" class="hidden" accept=".jpg,.jpeg,.png,.heic,.pdf" aria-label="Browse files to upload" />
+                    </label>
+                    <label data-id="67" class="inline-flex items-center gap-1 mt-3 text-sm text-wm-blue cursor-pointer hover:underline min-h-[44px]">
+                        <span data-id="68" role="img" aria-label="Camera">📸</span> Take a Photo
+                        <input data-id="69" type="file" id="camera-input" class="hidden" accept="image/*" capture="environment" aria-label="Take a photo of your quote" />
+                    </label>
+                    <p data-id="70" class="text-[11px] text-gray-400 mt-3">Accepted: JPG, PNG, HEIC, PDF — Max 20MB</p>
+                </div>
+
+                <!-- File Preview -->
+                <div data-id="71" id="file-preview" class="hidden mt-4 p-3 bg-gray-50 rounded-lg flex items-center gap-3">
+                    <div data-id="72" id="preview-thumb" class="w-12 h-12 rounded bg-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+                        <i data-id="73" data-lucide="file-text" class="w-6 h-6 text-gray-400"></i>
+                    </div>
+                    <div data-id="74" class="flex-1 min-w-0">
+                        <p data-id="75" id="preview-name" class="text-sm font-medium truncate"></p>
+                        <p data-id="76" id="preview-size" class="text-xs text-gray-400"></p>
+                    </div>
+                </div>
+
+                <!-- Progress Bar -->
+                <div data-id="77" id="progress-wrap" class="hidden mt-4">
+                    <div data-id="78" class="flex justify-between text-xs text-gray-500 mb-1">
+                        <span data-id="79">Uploading...</span>
+                        <span data-id="80" id="progress-pct">0%</span>
+                    </div>
+                    <div data-id="81" class="h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div data-id="82" id="progress-bar" class="h-full bg-wm-blue rounded-full transition-all duration-100" style="width:0%"></div>
+                    </div>
+                </div>
+
+                <!-- File Received Confirmation -->
+                <div data-id="83" id="file-received" class="hidden mt-5 flex items-center justify-center gap-2">
+                    <svg data-id="84" class="check-animated w-6 h-6 text-wm-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path data-id="85" d="M5 13l4 4L19 7" /></svg>
+                    <span data-id="86" class="text-sm font-semibold text-green-700">File received ✅</span>
+                </div>
+            </div>
+
+            <!-- STEP 2: OTP Bot Gate -->
+            <div data-id="87" id="upload-step2" class="step-panel hidden">
+                <!-- Phone Entry Sub-Step -->
+                <div data-id="88" id="otp-phone-entry">
+                    <h3 data-id="89" class="text-xl font-bold mb-2">Great. Now prove you're not a bot. 🤖</h3>
+                    <p data-id="90" class="text-sm text-gray-500 mb-6">We verify every request to protect homeowners like you.<br data-id="91">Enter your mobile number and we'll text you a code.</p>
+                </div>
+
+                <!-- OTP Code Entry Sub-Step -->
+                <div data-id="92" id="otp-code-entry" class="hidden">
+                    <h3 data-id="93" class="text-xl font-bold mb-2">Great. Now prove you're not a bot.</h3>
+
+                    <div data-id="94" class="flex items-center gap-2 mb-4 bg-gray-50 rounded-lg p-3">
+                        <span data-id="95" class="text-sm text-gray-600">📱</span>
+                        <span data-id="96" id="otp-display-phone" class="text-sm font-medium text-gray-800"></span>
+                        <button data-id="97" id="otp-change-phone" class="text-xs text-wm-blue hover:underline ml-auto">Change</button>
+                    </div>
+
+                    <p data-id="98" class="text-sm text-gray-500 mb-4">Enter the 6-digit code we sent to <strong data-id="99" id="otp-sent-to-phone"></strong></p>
+
+                    <div data-id="100" id="otp-boxes" class="flex justify-center gap-2 mb-4">
+                        <input data-id="101" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" class="otp-box" aria-label="Digit 1" />
+                        <input data-id="102" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" class="otp-box" aria-label="Digit 2" />
+                        <input data-id="103" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" class="otp-box" aria-label="Digit 3" />
+                        <input data-id="104" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" class="otp-box" aria-label="Digit 4" />
+                        <input data-id="105" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" class="otp-box" aria-label="Digit 5" />
+                        <input data-id="106" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" class="otp-box" aria-label="Digit 6" />
+                    </div>
+
+                    <p data-id="107" id="otp-code-error" class="text-xs text-red-500 mb-3 hidden"></p>
+
+                    <button data-id="108" id="otp-verify-btn" class="w-full bg-wm-blue text-white font-semibold py-3 rounded-lg transition-colors min-h-[44px] opacity-50 cursor-not-allowed mb-3" disabled>Verify</button>
+
+                    <p data-id="109" class="text-center text-xs text-gray-400">
+                        Didn't get a code? <button data-id="110" id="otp-resend-btn" class="text-wm-blue hover:underline">Resend</button>
+                    </p>
+                </div>
+
+                    <div data-id="111" class="mb-4">
+                        <label data-id="112" for="otp-phone" class="block text-sm font-medium text-gray-700 mb-1">Mobile Phone Number</label>
+                        <div data-id="113" class="phone-wrapper">
+                            <input data-id="114" id="otp-phone" type="tel" maxlength="14" placeholder="e.g. 2035551234" class="wm-phone-input w-full border rounded-lg px-3 py-2.5 text-base pr-10" style="background-color:#ffffff;border-color:#d1d5db;color:#111827;" />
+                            <span data-id="115" class="phone-check">✅</span>
+                        </div>
+                        <p data-id="116" class="text-[11px] text-gray-400 mt-1">US mobile numbers only — no VOIP or landline</p>
+                        <p data-id="117" id="otp-phone-error" class="text-xs text-red-500 mt-1 hidden"></p>
+                    </div>
+
+                    <button data-id="118" id="otp-get-code-btn" class="w-full bg-wm-blue text-white font-semibold py-3 rounded-lg transition-colors min-h-[44px] opacity-50 cursor-not-allowed" disabled>Get My Code</button>
+
+                <div data-id="119" class="flex items-start gap-2 text-xs text-gray-400 mt-5">
+                    <span data-id="120">🔒</span>
+                    <span data-id="121">Your number is used for verification only and is never shared or sold.</span>
+                </div>
+            </div>
+
+            <!-- STEP 3: Scan Theatrics -->
+            <div data-id="122" id="upload-step3" class="step-panel hidden">
+                <div data-id="123" class="flex flex-col items-center justify-center py-8">
+                    <!-- Document with scan line -->
+                    <div data-id="124" class="relative w-20 h-28 mb-6">
+                        <svg data-id="125" class="w-full h-full" viewBox="0 0 80 112" fill="none" stroke="#475569" stroke-width="2">
+                            <rect data-id="126" x="4" y="4" width="72" height="104" rx="4" fill="#1e293b" />
+                            <line data-id="127" x1="16" y1="24" x2="64" y2="24" stroke="#334155" stroke-width="2" />
+                            <line data-id="128" x1="16" y1="36" x2="56" y2="36" stroke="#334155" stroke-width="2" />
+                            <line data-id="129" x1="16" y1="48" x2="60" y2="48" stroke="#334155" stroke-width="2" />
+                            <line data-id="130" x1="16" y1="60" x2="48" y2="60" stroke="#334155" stroke-width="2" />
+                            <line data-id="131" x1="16" y1="72" x2="58" y2="72" stroke="#334155" stroke-width="2" />
+                            <line data-id="132" x1="16" y1="84" x2="52" y2="84" stroke="#334155" stroke-width="2" />
+                        </svg>
+                        <div data-id="133" class="scan-line-glow"></div>
+                    </div>
+
+                    <h3 data-id="134" id="scan-headline" class="text-lg font-bold text-gray-800 mb-4 text-center">Uploading to WindowMan servers<span data-id="135" class="ellipsis-anim"></span></h3>
+
+                    <div data-id="136" class="w-full max-w-[320px] mb-3">
+                        <div data-id="137" class="scan-progress-track">
+                            <div data-id="138" id="scan-progress-fill" class="scan-progress-fill" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <p data-id="139" id="scan-pct-text" class="text-xs text-gray-400 font-mono">0%</p>
+                </div>
+            </div>
+
+            <!-- STEP 4: Results & Correction (Truth Report) -->
+            <div data-id="140" id="upload-step4" class="step-panel hidden">
+                <h3 data-id="141" class="text-2xl font-extrabold mb-1 text-black">📋 Your Truth Report</h3>
+                <p data-id="142" class="text-base text-black font-medium mb-5">Here's what WindowMan found in your quote.</p>
+
+                <!-- Results Card — blue borders on BOTH left and right -->
+                <div data-id="143" id="truth-report-card" class="bg-gray-50 rounded-lg p-5 mb-5" style="border-left: 4px solid #2563eb; border-right: 4px solid #2563eb;">
+                    <div data-id="144" class="space-y-3 text-base">
+                        <div data-id="145" class="flex justify-between items-center">
+                            <span data-id="146" class="text-black font-bold">Contractor Name:</span>
+                            <span data-id="147" id="truth-contractor" class="font-extrabold text-black"></span>
+                        </div>
+                        <div data-id="148" class="flex justify-between items-center">
+                            <span data-id="149" class="text-black font-bold">Quote Total:</span>
+                            <span data-id="150" id="truth-total" class="font-extrabold text-black"></span>
+                        </div>
+                        <div data-id="151" class="flex justify-between items-center">
+                            <span data-id="152" class="text-black font-bold">Window Count:</span>
+                            <span data-id="153" id="truth-count" class="font-extrabold text-black"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <p data-id="154" class="text-base font-bold text-black mb-3">Does this look right?</p>
+
+                <div data-id="155" id="truth-actions" class="flex gap-3 mb-4">
+                    <button data-id="156" id="truth-yes-btn" class="flex-1 border-2 border-green-500 text-green-600 font-bold text-base py-3 rounded-lg hover:bg-green-50 transition-colors min-h-[44px]" style="background-color: rgba(34, 197, 94, 0.25);">✅ Yes, looks good</button>
+                    <button data-id="157" id="truth-no-btn" class="flex-1 border-2 border-gray-300 text-gray-600 font-bold text-base py-3 rounded-lg hover:bg-gray-50 transition-colors min-h-[44px]" style="background-color: rgba(255, 255, 255, 0.5);">No, let me fix it</button>
+                </div>
+
+                <!-- Correction Fields -->
+                <div data-id="158" id="correction-fields" class="correction-fields">
+                    <div data-id="159" class="space-y-3 bg-gray-50 rounded-lg p-4">
+                        <div data-id="160">
+                            <label data-id="161" for="correct-contractor" class="block text-base font-bold text-black mb-1">Contractor Name</label>
+                            <input data-id="162" id="correct-contractor" type="text" class="w-full border rounded-lg px-3 py-2.5 text-lg" />
+                        </div>
+                        <div data-id="163">
+                            <label data-id="164" for="correct-total" class="block text-base font-bold text-black mb-1">Quote Total ($)</label>
+                            <input data-id="165" id="correct-total" type="number" min="0" class="w-full border rounded-lg px-3 py-2.5 text-lg" />
+                        </div>
+                        <div data-id="166">
+                            <label data-id="167" for="correct-count" class="block text-base font-bold text-black mb-1">Window Count</label>
+                            <input data-id="168" id="correct-count" type="number" min="1" class="w-full border rounded-lg px-3 py-2.5 text-lg" />
+                        </div>
+                        <button data-id="169" id="save-corrections-btn" class="w-full bg-wm-blue text-white font-bold text-base py-3 rounded-lg hover:bg-wm-blue-hover transition-colors min-h-[44px]">Save Corrections</button>
+                    </div>
+                </div>
+
+                <!-- Continue button (appears after Yes or after corrections saved) -->
+                <button data-id="170" id="truth-continue-btn" class="hidden w-full bg-wm-blue text-white font-bold text-base py-3 rounded-lg hover:bg-wm-blue-hover transition-colors min-h-[44px] mt-4">Continue</button>
+            </div>
+
+            <!-- STEP 5: Contact Info -->
+            <div data-id="171" id="upload-step5" class="step-panel hidden">
+                <h3 data-id="172" class="text-lg font-bold mb-1">Almost done — where should we send your Truth Report?</h3>
+                <p data-id="173" class="text-sm text-gray-500 mb-5"></p>
+                <form data-id="174" id="upload-contact-form" class="space-y-4" novalidate>
+                    <div data-id="175" class="flex gap-3">
+                        <div data-id="176" class="flex-1">
+                            <label data-id="177" for="upload-contact-fname" class="block text-sm font-medium text-gray-700 mb-1">First Name <span data-id="178" class="text-red-500">*</span></label>
+                            <input data-id="179" id="upload-contact-fname" type="text" placeholder="First Name" class="w-full border rounded-lg px-3 py-2.5 text-base" required />
+                            <p data-id="180" id="upload-contact-fname-err" class="text-xs text-red-500 mt-1 hidden"></p>
+                        </div>
+                        <div data-id="181" class="flex-1">
+                            <label data-id="182" for="upload-contact-lname" class="block text-sm font-medium text-gray-700 mb-1">Last Name <span data-id="183" class="text-red-500">*</span></label>
+                            <input data-id="184" id="upload-contact-lname" type="text" placeholder="Last Name" class="w-full border rounded-lg px-3 py-2.5 text-base" required />
+                            <p data-id="185" id="upload-contact-lname-err" class="text-xs text-red-500 mt-1 hidden"></p>
+                        </div>
+                    </div>
+                    <div data-id="186">
+                        <label data-id="187" for="upload-contact-email" class="block text-sm font-medium text-gray-700 mb-1">Email <span data-id="188" class="text-red-500">*</span></label>
+                        <input data-id="189" id="upload-contact-email" type="email" placeholder="you@email.com" class="w-full border rounded-lg px-3 py-2.5 text-base" required />
+                        <p data-id="190" id="upload-contact-email-err" class="text-xs text-red-500 mt-1 hidden"></p>
+                    </div>
+                    <div data-id="191">
+                        <label data-id="192" for="upload-contact-zip" class="block text-sm font-medium text-gray-700 mb-1">Zip Code <span data-id="193" class="text-red-500">*</span></label>
+                        <input data-id="194" id="upload-contact-zip" type="text" maxlength="5" pattern="[0-9]{5}" placeholder="e.g. 33062" class="w-full border rounded-lg px-3 py-2.5 text-base" required />
+                        <p data-id="195" id="upload-contact-zip-err" class="text-xs text-red-500 mt-1 hidden"></p>
+                    </div>
+                    <div data-id="196" class="flex items-start gap-2 text-xs text-gray-400">
+                        <span data-id="197">🔒</span>
+                        <span data-id="198">Your info is encrypted and never shared. We delete uploaded files within 30 days.</span>
+                    </div>
+                    <button data-id="199" type="submit" class="w-full bg-wm-blue text-white font-semibold py-3 rounded-lg hover:bg-wm-blue-hover transition-colors min-h-[44px]">Send My Truth Report</button>
+                </form>
+            </div>
+
+            <!-- STEP 6: Confirmation -->
+            <div data-id="200" id="upload-step6" class="step-panel hidden">
+                <div data-id="201" class="text-center py-4">
+                    <h3 data-id="202" class="text-lg font-bold mb-2">Got it. WindowMan is analyzing your quote.</h3>
+                    <p data-id="203" class="text-sm text-gray-500 mb-6">Your full Truth Report will hit your inbox shortly.</p>
+
+                    <div data-id="204" class="flex justify-center mb-6">
+                        <svg data-id="205" class="confirm-check-circle w-24 h-24" viewBox="0 0 96 96" fill="none">
+                            <circle data-id="206" cx="48" cy="48" r="44" stroke="#22c55e" stroke-width="4" fill="#f0fdf4" />
+                            <path data-id="207" class="confirm-check-path" d="M28 50l14 14L68 34" stroke="#22c55e" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+                        </svg>
+                    </div>
+
+                    <p data-id="208" class="text-sm text-gray-500 mb-6">📧 And before today's over, I'll send you a better quote — guaranteed.</p>
+
+                    <button data-id="209" id="upload-done-btn" class="bg-wm-blue text-white font-semibold px-8 py-3 rounded-lg hover:bg-wm-blue-hover transition-colors min-h-[44px]">Done</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== WANT QUOTE MODAL ===== -->
+    <div data-id="210" id="want-modal-e9f0" class="modal-overlay fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" role="dialog" aria-modal="true" aria-labelledby="want-modal-title">
+        <div data-id="211" class="modal-card bg-white text-gray-900 rounded-2xl w-full max-w-[540px] p-6 md:p-8 relative overflow-y-auto max-h-[95vh]">
+            <button data-id="212" id="want-close-g1h2" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 p-1 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Close dialog">
+                <i data-id="213" data-lucide="x" class="w-5 h-5"></i>
+            </button>
+
+            <!-- Step 1: Intake -->
+            <div data-id="214" id="want-step1-i3j4" class="step-panel">
+                <h3 data-id="215" id="want-modal-title" class="text-xl font-bold mb-1">Let's Build Your Window Plan</h3>
+                <p data-id="216" class="text-sm text-gray-500 mb-5">Three quick questions and I'll take it from here.</p>
+
+                <fieldset data-id="217" class="mb-5">
+                    <legend data-id="218" class="text-sm font-semibold text-gray-700 mb-2">Project Type <span data-id="219" class="text-red-500">*</span></legend>
+                    <div data-id="220" class="space-y-2" id="project-type-k5l6">
+                        <div data-id="221" class="radio-card border-2 border-gray-200 rounded-lg p-3 flex items-center gap-3" data-value="replace" tabindex="0" role="radio" aria-checked="false" aria-label="Replace existing windows">
+                            <div data-id="222" class="w-5 h-5 rounded-full border-2 border-gray-300 flex items-center justify-center flex-shrink-0"><div data-id="223" class="dot w-2.5 h-2.5 rounded-full bg-wm-blue hidden"></div></div>
+                            <span data-id="224" class="text-sm">Replace existing windows</span>
+                        </div>
+                        <div data-id="225" class="radio-card border-2 border-gray-200 rounded-lg p-3 flex items-center gap-3" data-value="new" tabindex="0" role="radio" aria-checked="false" aria-label="New window installation">
+                            <div data-id="226" class="w-5 h-5 rounded-full border-2 border-gray-300 flex items-center justify-center flex-shrink-0"><div data-id="227" class="dot w-2.5 h-2.5 rounded-full bg-wm-blue hidden"></div></div>
+                            <span data-id="228" class="text-sm">New window installation</span>
+                        </div>
+                        <div data-id="229" class="radio-card border-2 border-gray-200 rounded-lg p-3 flex items-center gap-3" data-value="whole-house" tabindex="0" role="radio" aria-checked="false" aria-label="Multiple rooms / whole house">
+                            <div data-id="230" class="w-5 h-5 rounded-full border-2 border-gray-300 flex items-center justify-center flex-shrink-0"><div data-id="231" class="dot w-2.5 h-2.5 rounded-full bg-wm-blue hidden"></div></div>
+                            <span data-id="232" class="text-sm">Multiple rooms / whole house</span>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <fieldset data-id="233" class="mb-5">
+                    <legend data-id="234" class="text-sm font-semibold text-gray-700 mb-2">Timeline <span data-id="235" class="text-red-500">*</span></legend>
+                    <div data-id="236" class="space-y-2" id="timeline-m7n8">
+                        <div data-id="237" class="radio-card border-2 border-gray-200 rounded-lg p-3 flex items-center gap-3" data-value="asap" tabindex="0" role="radio" aria-checked="false" aria-label="ASAP — ready now">
+                            <div data-id="238" class="w-5 h-5 rounded-full border-2 border-gray-300 flex items-center justify-center flex-shrink-0"><div data-id="239" class="dot w-2.5 h-2.5 rounded-full bg-wm-blue hidden"></div></div>
+                            <span data-id="240" class="text-sm">ASAP — ready now</span>
+                        </div>
+                        <div data-id="241" class="radio-card border-2 border-gray-200 rounded-lg p-3 flex items-center gap-3" data-value="1-3months" tabindex="0" role="radio" aria-checked="false" aria-label="1–3 months">
+                            <div data-id="242" class="w-5 h-5 rounded-full border-2 border-gray-300 flex items-center justify-center flex-shrink-0"><div data-id="243" class="dot w-2.5 h-2.5 rounded-full bg-wm-blue hidden"></div></div>
+                            <span data-id="244" class="text-sm">1–3 months</span>
+                        </div>
+                        <div data-id="245" class="radio-card border-2 border-gray-200 rounded-lg p-3 flex items-center gap-3" data-value="3plus" tabindex="0" role="radio" aria-checked="false" aria-label="3+ months — just planning">
+                            <div data-id="246" class="w-5 h-5 rounded-full border-2 border-gray-300 flex items-center justify-center flex-shrink-0"><div data-id="247" class="dot w-2.5 h-2.5 rounded-full bg-wm-blue hidden"></div></div>
+                            <span data-id="248" class="text-sm">3+ months — just planning</span>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <div data-id="249" class="mb-5">
+                    <label data-id="250" for="want-zip-o9p0" class="block text-sm font-semibold text-gray-700 mb-1">Zip Code <span data-id="251" class="text-red-500">*</span></label>
+                    <input data-id="252" id="want-zip-o9p0" type="text" maxlength="5" pattern="[0-9]{5}" placeholder="e.g. 33062" class="w-full border rounded-lg px-3 py-2.5 text-base" style="background-color:#ffffff;border-color:#d1d5db;color:#111827;" required />
+                    <p data-id="253" id="want-zip-err-q1r2" class="text-xs text-red-500 mt-1 hidden"></p>
+                </div>
+
+                <button data-id="254" id="want-continue-s3t4" class="w-full bg-wm-blue text-white font-semibold py-3 rounded-lg hover:bg-wm-blue-hover transition-colors min-h-[44px]">Continue</button>
+            </div>
+
+            <!-- Step 2: Choose Your Path -->
+            <div data-id="255" id="want-step2-u5v6" class="step-panel hidden">
+                <h3 data-id="256" class="text-xl font-bold mb-1">How do you want to move forward?</h3>
+                <p data-id="257" class="text-sm text-gray-500 mb-5"></p>
+                <div data-id="258" class="space-y-4">
+                    <button data-id="259" id="path-contractors-w7x8" class="w-full text-left border-2 border-gray-200 rounded-xl p-5 hover:border-wm-blue hover:bg-blue-50/50 transition-colors cursor-pointer min-h-[44px]" aria-label="Get pre-qualified contractor quotes">
+                        <div data-id="260" class="flex items-start gap-3">
+                            <span data-id="261" class="text-2xl" role="img" aria-label="Construction">🏗️</span>
+                            <div data-id="262">
+                                <p data-id="263" class="font-bold text-sm mb-1">Get Pre-Qualified Contractor Quotes</p>
+                                <p data-id="264" class="text-xs text-gray-500">I'll connect you with vetted, pre-screened contractors in your area. No cold calls, no pressure.</p>
+                            </div>
+                        </div>
+                    </button>
+                    <button data-id="265" id="path-negotiate-y9z0" class="w-full text-left border-2 border-gray-200 rounded-xl p-5 hover:border-wm-blue hover:bg-blue-50/50 transition-colors cursor-pointer min-h-[44px]" aria-label="Get WindowMan's negotiation plan">
+                        <div data-id="266" class="flex items-start gap-3">
+                            <span data-id="267" class="text-2xl" role="img" aria-label="Clipboard">📋</span>
+                            <div data-id="268">
+                                <p data-id="269" class="font-bold text-sm mb-1">Get WindowMan's Negotiation Plan</p>
+                                <p data-id="270" class="text-xs text-gray-500">I'll give you my playbook — the exact script and checklist to negotiate the best deal yourself.</p>
+                            </div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 3a: Contractor Quotes -->
+            <div data-id="271" id="want-step3a-a1b2" class="step-panel hidden">
+                <h3 data-id="272" class="text-lg font-bold mb-1">Let's Get You Connected</h3>
+                <p data-id="273" class="text-sm text-gray-500 mb-5">Choose how you'd like to proceed:</p>
+
+                <div data-id="274" class="space-y-4 mb-5">
+                    <button data-id="275" id="option-schedule-c3d4" class="w-full text-left border-2 border-gray-200 rounded-xl p-4 hover:border-wm-blue transition-colors cursor-pointer min-h-[44px]" aria-label="Schedule a 15-minute call">
+                        <p data-id="276" class="font-semibold text-sm">📅 Schedule a 15-min call</p>
+                    </button>
+                    <button data-id="277" id="option-email-e5f6" class="w-full text-left border-2 border-gray-200 rounded-xl p-4 hover:border-wm-blue transition-colors cursor-pointer min-h-[44px]" aria-label="Send my info to vetted partners">
+                        <p data-id="278" class="font-semibold text-sm">📧 Just send my info to vetted partners</p>
+                    </button>
+                </div>
+
+                <div data-id="279" id="schedule-panel-g7h8" class="hidden">
+                    <p data-id="280" class="text-sm font-semibold text-gray-700 mb-3">Pick a time slot:</p>
+                    <div data-id="281" id="time-slots-i9j0" class="grid grid-cols-2 gap-2 mb-4"></div>
+                    <form data-id="282" id="schedule-form-k1l2" class="space-y-3" novalidate>
+                        <div data-id="283">
+                            <label data-id="284" for="sched-name-m3n4" class="block text-sm font-medium text-gray-700 mb-1">Full Name <span data-id="285" class="text-red-500">*</span></label>
+                            <input data-id="286" id="sched-name-m3n4" type="text" class="w-full border rounded-lg px-3 py-2.5 text-base" style="background-color:#ffffff;border-color:#d1d5db;color:#111827;" required />
+                        </div>
+                        <div data-id="287">
+                            <label data-id="288" for="sched-email-o5p6" class="block text-sm font-medium text-gray-700 mb-1">Email <span data-id="289" class="text-red-500">*</span></label>
+                            <input data-id="290" id="sched-email-o5p6" type="email" class="w-full border rounded-lg px-3 py-2.5 text-base" style="background-color:#ffffff;border-color:#d1d5db;color:#111827;" required />
+                        </div>
+                        <div data-id="291">
+                            <label data-id="292" for="sched-phone-q7r8" class="block text-sm font-medium text-gray-700 mb-1">Phone <span data-id="293" class="text-gray-400">(optional)</span></label>
+                            <div data-id="294" class="phone-wrapper">
+                                <input data-id="295" id="sched-phone-q7r8" type="tel" maxlength="14" placeholder="e.g. 2035551234" class="wm-phone-input w-full border rounded-lg px-3 py-2.5 text-base pr-10" style="background-color:#ffffff;border-color:#d1d5db;color:#111827;" />
+                                <span data-id="296" class="phone-check">✅</span>
+                            </div>
+                            <p data-id="297" class="text-[11px] text-gray-400 mt-1">US phone number — 10 digits</p>
+                        </div>
+                        <button data-id="298" type="submit" class="w-full bg-wm-blue text-white font-semibold py-3 rounded-lg hover:bg-wm-blue-hover transition-colors min-h-[44px]">Submit</button>
+                    </form>
+                </div>
+
+                <div data-id="299" id="email-panel-u1v2" class="hidden">
+                    <form data-id="300" id="partner-form-w3x4" class="space-y-3" novalidate>
+                        <div data-id="301">
+                            <label data-id="302" for="partner-name-y5z6" class="block text-sm font-medium text-gray-700 mb-1">Full Name <span data-id="303" class="text-red-500">*</span></label>
+                            <input data-id="304" id="partner-name-y5z6" type="text" class="w-full border rounded-lg px-3 py-2.5 text-base" style="background-color:#ffffff;border-color:#d1d5db;color:#111827;" required />
+                        </div>
+                        <div data-id="305">
+                            <label data-id="306" for="partner-email-a7b8" class="block text-sm font-medium text-gray-700 mb-1">Email <span data-id="307" class="text-red-500">*</span></label>
+                            <input data-id="308" id="partner-email-a7b8" type="email" class="w-full border rounded-lg px-3 py-2.5 text-base" style="background-color:#ffffff;border-color:#d1d5db;color:#111827;" required />
+                        </div>
+                        <div data-id="309">
+                            <label data-id="310" for="partner-phone-c9d0" class="block text-sm font-medium text-gray-700 mb-1">Phone <span data-id="311" class="text-gray-400">(optional)</span></label>
+                            <div data-id="312" class="phone-wrapper">
+                                <input data-id="313" id="partner-phone-c9d0" type="tel" maxlength="14" placeholder="e.g. 2035551234" class="wm-phone-input w-full border rounded-lg px-3 py-2.5 text-base pr-10" style="background-color:#ffffff;border-color:#d1d5db;color:#111827;" />
+                                <span data-id="314" class="phone-check">✅</span>
+                            </div>
+                            <p data-id="315" class="text-[11px] text-gray-400 mt-1">US phone number — 10 digits</p>
+                        </div>
+                        <button data-id="316" type="submit" class="w-full bg-wm-blue text-white font-semibold py-3 rounded-lg hover:bg-wm-blue-hover transition-colors min-h-[44px]">Submit</button>
+                    </form>
+                </div>
+
+                <div data-id="317" id="contractor-confirm-g3h4" class="hidden text-center py-6">
+                    <svg data-id="318" class="check-animated w-16 h-16 text-wm-success mx-auto mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path data-id="319" d="M5 13l4 4L19 7" /></svg>
+                    <h3 data-id="320" class="text-lg font-bold text-green-700 mb-2">You're all set!</h3>
+                    <p data-id="321" class="text-sm text-gray-500 mb-5">Our vetted contractors will reach out within 24 hours. No cold calls — ever.</p>
+                    <button data-id="322" id="contractor-done-i5j6" class="bg-wm-blue text-white font-semibold px-8 py-3 rounded-lg hover:bg-wm-blue-hover transition-colors min-h-[44px]">Done</button>
+                </div>
+            </div>
+
+            <!-- Step 3b: Negotiation Plan -->
+            <div data-id="323" id="want-step3b-k7l8" class="step-panel hidden">
+                <h3 data-id="324" class="text-lg font-bold mb-4">Your Negotiation Playbook</h3>
+                <div data-id="325" class="bg-gray-50 rounded-xl p-5 mb-5 space-y-3">
+                    <div data-id="326" class="flex items-start gap-2 text-sm"><span data-id="327" class="text-wm-success font-bold flex-shrink-0">✅</span><span data-id="328">Always get 3+ quotes</span></div>
+                    <div data-id="329" class="flex items-start gap-2 text-sm"><span data-id="330" class="text-wm-success font-bold flex-shrink-0">✅</span><span data-id="331">Ask for itemized pricing (labor vs. materials)</span></div>
+                    <div data-id="332" class="flex items-start gap-2 text-sm"><span data-id="333" class="text-wm-success font-bold flex-shrink-0">✅</span><span data-id="334">Never accept the first offer</span></div>
+                    <div data-id="335" class="flex items-start gap-2 text-sm"><span data-id="336" class="text-wm-success font-bold flex-shrink-0">✅</span><span data-id="337">Ask about manufacturer rebates</span></div>
+                    <div data-id="338" class="flex items-start gap-2 text-sm"><span data-id="339" class="text-wm-success font-bold flex-shrink-0">✅</span><span data-id="340">Request the "cash price" discount</span></div>
+                    <div data-id="341" class="flex items-start gap-2 text-sm"><span data-id="342" class="text-wm-success font-bold flex-shrink-0">✅</span><span data-id="343">Check contractor licensing and insurance</span></div>
+                    <div data-id="344" class="flex items-start gap-2 text-sm"><span data-id="345" class="text-wm-success font-bold flex-shrink-0">✅</span><span data-id="346">Negotiate installation timeline for better rates</span></div>
+                </div>
+                <p data-id="347" class="text-sm text-gray-600 mb-4">Want the full script? Enter your email and I'll send the complete WindowMan Negotiation Guide.</p>
+                <form data-id="348" id="guide-form-m9n0" class="space-y-3" novalidate>
+                    <div data-id="349">
+                        <label data-id="350" for="guide-name-o1p2" class="block text-sm font-medium text-gray-700 mb-1">Full Name <span data-id="351" class="text-red-500">*</span></label>
+                        <input data-id="352" id="guide-name-o1p2" type="text" class="w-full border rounded-lg px-3 py-2.5 text-base" style="background-color:#ffffff;border-color:#d1d5db;color:#111827;" required />
+                    </div>
+                    <div data-id="353">
+                        <label data-id="354" for="guide-email-q3r4" class="block text-sm font-medium text-gray-700 mb-1">Email <span data-id="355" class="text-red-500">*</span></label>
+                        <input data-id="356" id="guide-email-q3r4" type="email" class="w-full border rounded-lg px-3 py-2.5 text-base" style="background-color:#ffffff;border-color:#d1d5db;color:#111827;" required />
+                    </div>
+                    <button data-id="357" type="submit" class="w-full bg-wm-blue text-white font-semibold py-3 rounded-lg hover:bg-wm-blue-hover transition-colors min-h-[44px]">Send Me the Guide</button>
+                </form>
+
+                <div data-id="358" id="guide-confirm-u7v8" class="hidden text-center py-6">
+                    <svg data-id="359" class="check-animated w-16 h-16 text-wm-success mx-auto mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path data-id="360" d="M5 13l4 4L19 7" /></svg>
+                    <h3 data-id="361" class="text-lg font-bold text-green-700 mb-2">Check your inbox!</h3>
+                    <p data-id="362" class="text-sm text-gray-500 mb-5">Your negotiation script is on the way. 💪</p>
+                    <button data-id="363" id="guide-done-w9x0" class="bg-wm-blue text-white font-semibold px-8 py-3 rounded-lg hover:bg-wm-blue-hover transition-colors min-h-[44px]">Done</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // =========================================================
+    // PHONE INPUT FORMATTING MODULE
+    // =========================================================
+    (function() {
+        function formatPhone(digits) {
+            if (digits.length === 10) {
+                return '(' + digits.substring(0,3) + ') ' + digits.substring(3,6) + '-' + digits.substring(6,10);
+            }
+            return digits;
+        }
+
+        function initPhoneInput(input) {
+            input._rawDigits = '';
+            input._touched = false;
+
+            const wrapper = input.closest('.phone-wrapper');
+            const checkEl = wrapper ? wrapper.querySelector('.phone-check') : null;
+
+            function updateVisual() {
+                const digits = input._rawDigits;
+                if (digits.length === 10) {
+                    input.value = formatPhone(digits);
+                    input.classList.add('phone-complete');
+                    input.classList.remove('phone-incomplete');
+                    if (checkEl) checkEl.classList.add('visible');
+                } else {
+                    input.value = digits;
+                    input.classList.remove('phone-complete');
+                    if (checkEl) checkEl.classList.remove('visible');
+                    if (input._touched && digits.length > 0) {
+                        input.classList.add('phone-incomplete');
+                    } else {
+                        input.classList.remove('phone-incomplete');
+                    }
+                }
+                if (digits.length === 10) {
+                    input.dataset.e164 = '+1' + digits;
+                } else {
+                    input.dataset.e164 = '';
+                }
+                input.dispatchEvent(new CustomEvent('phonechange', { detail: { digits, valid: digits.length === 10 } }));
+            }
+
+            function handleInput() {
+                const raw = input.value.replace(/\D/g, '');
+                input._rawDigits = raw.substring(0, 10);
+                updateVisual();
+            }
+
+            input.addEventListener('input', handleInput);
+            input.addEventListener('keyup', handleInput);
+            input.addEventListener('blur', function() {
+                input._touched = true;
+                updateVisual();
+            });
+        }
+
+        function initAll() {
+            document.querySelectorAll('.wm-phone-input').forEach(function(input) {
+                if (!input._phoneInitialized) {
+                    initPhoneInput(input);
+                    input._phoneInitialized = true;
+                }
+            });
+        }
+
+        initAll();
+        window._initPhoneInputs = initAll;
+        window._formatPhone = formatPhone;
+
+        const observer = new MutationObserver(function() { initAll(); });
+        observer.observe(document.body, { childList: true, subtree: true });
+    })();
+
+    // =========================================================
+    // ANALYTICS MODULE
+    // =========================================================
+    (function() {
+        window.__wm_events = [];
+        const urlParams = new URLSearchParams(window.location.search);
+        const utmKeys = ['utm_source','utm_medium','utm_campaign','utm_term','utm_content','ad_id'];
+        const utmData = {};
+        utmKeys.forEach(k => { if (urlParams.get(k)) utmData[k] = urlParams.get(k); });
+
+        window.wmTrack = function(eventName, meta) {
+            const evt = { event: eventName, timestamp: new Date().toISOString(), ...utmData, ...(meta || {}) };
+            window.__wm_events.push(evt);
+            console.log('[WindowMan Analytics]', eventName, evt);
+        };
+        wmTrack('gate_view');
+    })();
+
+    // =========================================================
+    // HELPERS
+    // =========================================================
+    const $ = (sel) => document.querySelector(sel);
+    const $$ = (sel) => document.querySelectorAll(sel);
+
+    // Helper to add/remove window-frame class on the modal card
+    function setWindowFrame(on) {
+        const card = $('#upload-modal-card');
+        if (on) {
+            card.classList.add('window-frame');
+        } else {
+            card.classList.remove('window-frame');
+        }
+    }
+
+    function showStep(parent, stepId) {
+        const panels = parent.querySelectorAll('.step-panel');
+        panels.forEach(p => {
+            if (!p.classList.contains('hidden')) {
+                p.classList.add('step-fading');
+                setTimeout(() => {
+                    p.classList.add('hidden');
+                    p.classList.remove('step-fading');
+                }, 200);
+            }
+        });
+        setTimeout(() => {
+            const target = $(stepId);
+            target.classList.remove('hidden');
+            target.style.opacity = '0';
+            requestAnimationFrame(() => {
+                target.style.transition = 'opacity 200ms ease';
+                target.style.opacity = '1';
+            });
+
+            // Toggle window-frame border for Step 4 of the upload modal
+            if (parent === uploadModal || parent.id === 'upload-modal-u1v2') {
+                if (stepId === '#upload-step4') {
+                    setWindowFrame(true);
+                } else {
+                    setWindowFrame(false);
+                }
+            }
+        }, 210);
+    }
+
+    function openModal(modal) {
+        modal.classList.add('active');
+        modal.classList.remove('closing');
+        document.body.style.overflow = 'hidden';
+        const focusable = modal.querySelectorAll('button, input, [tabindex="0"]');
+        if (focusable.length) focusable[0].focus();
+        modal._trapHandler = function(e) {
+            if (e.key === 'Tab') {
+                const visibleFocusable = Array.from(modal.querySelectorAll('button:not([disabled]), input:not([disabled]):not([readonly]), [tabindex="0"]')).filter(el => el.offsetParent !== null);
+                if (visibleFocusable.length === 0) return;
+                const first = visibleFocusable[0];
+                const last = visibleFocusable[visibleFocusable.length - 1];
+                if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+                else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+            }
+            if (e.key === 'Escape') closeModal(modal);
+        };
+        document.addEventListener('keydown', modal._trapHandler);
+    }
+
+    function closeModal(modal) {
+        // Remove window-frame when closing
+        if (modal === uploadModal || modal.id === 'upload-modal-u1v2') {
+            setWindowFrame(false);
+        }
+        modal.classList.add('closing');
+        setTimeout(() => {
+            modal.classList.remove('active', 'closing');
+            document.body.style.overflow = '';
+        }, 150);
+        if (modal._trapHandler) document.removeEventListener('keydown', modal._trapHandler);
+        revealFooter();
+    }
+
+    function revealFooter() { $('#footer-s9t0').classList.remove('hidden'); }
+    function validateEmail(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
+    function validateZip(v) { return /^[0-9]{5}$/.test(v); }
+
+    function getPhoneRaw(input) {
+        return input._rawDigits || input.value.replace(/\D/g, '').substring(0, 10);
+    }
+
+    // =========================================================
+    // TESTIMONIAL CAROUSEL
+    // =========================================================
+    (function() {
+        const items = $$('#carousel-q7r8 .testimonial-item');
+        let idx = 0;
+        setInterval(() => {
+            items[idx].classList.remove('active');
+            idx = (idx + 1) % items.length;
+            items[idx].classList.add('active');
+        }, 4000);
+    })();
+
+    // =========================================================
+    // GATE CTA BUTTONS
+    // =========================================================
+    const uploadModal = $('#upload-modal-u1v2');
+    const wantModal = $('#want-modal-e9f0');
+
+    $('#cta-upload-k1l2').addEventListener('click', () => {
+        wmTrack('gate_quote_upload_click');
+        resetUploadModal();
+        openModal(uploadModal);
+    });
+
+    $('#cta-want-m3n4').addEventListener('click', () => {
+        wmTrack('gate_want_quote_click');
+        resetWantModal();
+        openModal(wantModal);
+    });
+
+    $('#upload-close-w3x4').addEventListener('click', () => closeModal(uploadModal));
+    $('#want-close-g1h2').addEventListener('click', () => closeModal(wantModal));
+
+    uploadModal.addEventListener('click', (e) => { if (e.target === uploadModal) closeModal(uploadModal); });
+    wantModal.addEventListener('click', (e) => { if (e.target === wantModal) closeModal(wantModal); });
+
+    // =========================================================
+    // UPLOAD MODAL LOGIC (New 6-Step Flow)
+    // =========================================================
+    let uploadedFileInfo = null;
+    let truthReportData = { contractor: '', total: '', count: '', parsed: false, parsedFirstName: '', parsedLastName: '' };
+
+    function resetUploadModal() {
+        // Reset modal card background to white
+        const card = $('#upload-modal-card');
+        card.style.backgroundColor = '#ffffff';
+        card.style.color = '#111827';
+
+        // Remove window-frame border on reset
+        setWindowFrame(false);
+
+        // Show step 1, hide all others
+        const allSteps = uploadModal.querySelectorAll('.step-panel');
+        allSteps.forEach(p => p.classList.add('hidden'));
+        $('#upload-step1').classList.remove('hidden');
+        $('#upload-step1').style.opacity = '1';
+
+        // Reset step 1
+        $('#file-preview').classList.add('hidden');
+        $('#progress-wrap').classList.add('hidden');
+        $('#file-received').classList.add('hidden');
+        $('#progress-bar').style.width = '0%';
+        $('#progress-pct').textContent = '0%';
+        $('#file-input').value = '';
+        $('#camera-input').value = '';
+        $('#drop-zone').classList.remove('hidden');
+
+        // Reset step 2 (OTP)
+        $('#otp-phone-entry').classList.remove('hidden');
+        $('#otp-code-entry').classList.add('hidden');
+        $('#otp-phone-error').classList.add('hidden');
+        const otpPhone = $('#otp-phone');
+        otpPhone.value = '';
+        otpPhone._rawDigits = '';
+        otpPhone._touched = false;
+        otpPhone.classList.remove('phone-complete', 'phone-incomplete');
+        const otpPhoneWrapper = otpPhone.closest('.phone-wrapper');
+        if (otpPhoneWrapper) {
+            const ch = otpPhoneWrapper.querySelector('.phone-check');
+            if (ch) ch.classList.remove('visible');
+        }
+        const getCodeBtn = $('#otp-get-code-btn');
+        getCodeBtn.disabled = true;
+        getCodeBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        getCodeBtn.classList.remove('hover:bg-wm-blue-hover');
+        getCodeBtn.innerHTML = 'Get My Code';
+
+        // Reset OTP boxes
+        $$('#otp-boxes .otp-box').forEach(b => { b.value = ''; });
+        $('#otp-code-error').classList.add('hidden');
+        const verifyBtn = $('#otp-verify-btn');
+        verifyBtn.disabled = true;
+        verifyBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        verifyBtn.innerHTML = 'Verify';
+
+        // Reset step 3 (Scan)
+        $('#scan-progress-fill').style.width = '0%';
+        $('#scan-pct-text').textContent = '0%';
+        $('#scan-headline').innerHTML = 'Uploading to WindowMan servers<span class="ellipsis-anim"></span>';
+
+        // Reset step 4 (Truth Report)
+        $('#correction-fields').classList.remove('open');
+        $('#truth-continue-btn').classList.add('hidden');
+        $('#truth-actions').classList.remove('hidden');
+
+        // Reset step 5 (Contact)
+        $('#upload-contact-form').reset();
+        $('#upload-contact-fname-err').classList.add('hidden');
+        $('#upload-contact-lname-err').classList.add('hidden');
+        $('#upload-contact-email-err').classList.add('hidden');
+        $('#upload-contact-zip-err').classList.add('hidden');
+
+        uploadedFileInfo = null;
+        truthReportData = { contractor: '', total: '', count: '', parsed: false, parsedFirstName: '', parsedLastName: '' };
+    }
+
+    // Drag & drop
+    const dropZone = $('#drop-zone');
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('drag-over'); });
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault(); dropZone.classList.remove('drag-over');
+        if (e.dataTransfer.files.length) handleFileUpload(e.dataTransfer.files[0]);
+    });
+
+    $('#file-input').addEventListener('change', (e) => { if (e.target.files.length) handleFileUpload(e.target.files[0]); });
+    $('#camera-input').addEventListener('change', (e) => { if (e.target.files.length) handleFileUpload(e.target.files[0]); });
+
+    function handleFileUpload(file) {
+        const allowed = ['image/jpeg','image/png','image/heic','application/pdf'];
+        if (!allowed.includes(file.type) && !file.name.match(/\.(jpg|jpeg|png|heic|pdf)$/i)) {
+            alert('Please upload a JPG, PNG, HEIC, or PDF file.');
+            return;
+        }
+        if (file.size > 20 * 1024 * 1024) {
+            alert('File is too large. Maximum size is 20MB.');
+            return;
+        }
+
+        uploadedFileInfo = { name: file.name, size: file.size, type: file.type };
+
+        // Show preview
+        const preview = $('#file-preview');
+        preview.classList.remove('hidden');
+        $('#preview-name').textContent = file.name;
+        $('#preview-size').textContent = (file.size / 1024 / 1024).toFixed(2) + ' MB';
+
+        const thumb = $('#preview-thumb');
+        if (file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = (e) => { thumb.innerHTML = '<img src="'+e.target.result+'" alt="Preview" class="w-full h-full object-cover" />'; };
+            reader.readAsDataURL(file);
+        } else {
+            thumb.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+        }
+
+        // Hide drop zone, show progress
+        dropZone.classList.add('hidden');
+        const progressWrap = $('#progress-wrap');
+        progressWrap.classList.remove('hidden');
+
+        // Simulate upload over 1.5 seconds
+        let pct = 0;
+        const progressBar = $('#progress-bar');
+        const progressPct = $('#progress-pct');
+        const startTime = Date.now();
+        const duration = 1500;
+
+        const uploadInterval = setInterval(() => {
+            const elapsed = Date.now() - startTime;
+            pct = Math.min(100, (elapsed / duration) * 100);
+            progressBar.style.width = Math.round(pct) + '%';
+            progressPct.textContent = Math.round(pct) + '%';
+            if (pct >= 100) {
+                clearInterval(uploadInterval);
+                progressWrap.classList.add('hidden');
+                $('#file-received').classList.remove('hidden');
+                wmTrack('quote_uploaded');
+                setTimeout(() => {
+                    showStep(uploadModal, '#upload-step2');
+                    setTimeout(() => { $('#otp-phone').focus(); }, 250);
+                }, 1000);
+            }
+        }, 50);
+    }
+
+    // =========================================================
+    // STEP 2: OTP Bot Gate
+    // =========================================================
+    const otpPhoneInput = $('#otp-phone');
+    const getCodeBtn = $('#otp-get-code-btn');
+
+    otpPhoneInput.addEventListener('phonechange', (e) => {
+        if (e.detail.valid) {
+            getCodeBtn.disabled = false;
+            getCodeBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            getCodeBtn.classList.add('hover:bg-wm-blue-hover');
+        } else {
+            getCodeBtn.disabled = true;
+            getCodeBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            getCodeBtn.classList.remove('hover:bg-wm-blue-hover');
+        }
+    });
+
+    getCodeBtn.addEventListener('click', () => {
+        if (getCodeBtn.disabled) return;
+        const phoneDigits = getPhoneRaw(otpPhoneInput);
+        if (phoneDigits.length !== 10) return;
+
+        getCodeBtn.disabled = true;
+        getCodeBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        getCodeBtn.innerHTML = '<span class="btn-spinner"></span>Sending...';
+        $('#otp-phone-error').classList.add('hidden');
+
+        wmTrack('otp_requested', { phone: '+1' + phoneDigits });
+
+        setTimeout(() => {
+            if (Math.random() < 0.8) {
+                const formatted = window._formatPhone(phoneDigits);
+                $('#otp-display-phone').textContent = formatted;
+                $('#otp-sent-to-phone').textContent = formatted;
+                $('#otp-phone-entry').classList.add('hidden');
+                $('#otp-code-entry').classList.remove('hidden');
+                const firstBox = $('#otp-boxes .otp-box');
+                if (firstBox) firstBox.focus();
+            } else {
+                $('#otp-phone-error').textContent = '❌ Please enter a valid mobile number. VOIP and landline numbers are not accepted.';
+                $('#otp-phone-error').classList.remove('hidden');
+                getCodeBtn.innerHTML = 'Get My Code';
+                getCodeBtn.disabled = false;
+                getCodeBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                getCodeBtn.classList.add('hover:bg-wm-blue-hover');
+            }
+        }, 1500);
+    });
+
+    // OTP Box Logic
+    const otpBoxes = Array.from($$('#otp-boxes .otp-box'));
+    const verifyBtn = $('#otp-verify-btn');
+
+    function checkOTPComplete() {
+        const allFilled = otpBoxes.every(b => b.value.length === 1);
+        if (allFilled) {
+            verifyBtn.disabled = false;
+            verifyBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            verifyBtn.classList.add('hover:bg-wm-blue-hover');
+        } else {
+            verifyBtn.disabled = true;
+            verifyBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            verifyBtn.classList.remove('hover:bg-wm-blue-hover');
+        }
+    }
+
+    otpBoxes.forEach((box, i) => {
+        box.addEventListener('input', (e) => {
+            const val = box.value.replace(/\D/g, '');
+            box.value = val.charAt(0) || '';
+            if (val && i < otpBoxes.length - 1) {
+                otpBoxes[i + 1].focus();
+            }
+            checkOTPComplete();
+        });
+
+        box.addEventListener('keydown', (e) => {
+            if (e.key === 'Backspace') {
+                if (!box.value && i > 0) {
+                    otpBoxes[i - 1].focus();
+                    otpBoxes[i - 1].value = '';
+                }
+                checkOTPComplete();
+            }
+        });
+
+        box.addEventListener('paste', (e) => {
+            e.preventDefault();
+            const pasted = (e.clipboardData.getData('text') || '').replace(/\D/g, '').substring(0, 6);
+            pasted.split('').forEach((digit, j) => {
+                if (otpBoxes[j]) otpBoxes[j].value = digit;
+            });
+            const focusIdx = Math.min(pasted.length, otpBoxes.length - 1);
+            otpBoxes[focusIdx].focus();
+            checkOTPComplete();
+        });
+
+        box.addEventListener('focus', () => { box.select(); });
+    });
+
+    verifyBtn.addEventListener('click', () => {
+        if (verifyBtn.disabled) return;
+        verifyBtn.disabled = true;
+        verifyBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        verifyBtn.innerHTML = '<span class="btn-spinner"></span>Verifying...';
+        $('#otp-code-error').classList.add('hidden');
+
+        setTimeout(() => {
+            if (Math.random() < 0.9) {
+                wmTrack('otp_verified');
+                startScanTheatrics();
+            } else {
+                $('#otp-code-error').textContent = '❌ Invalid code. Please try again.';
+                $('#otp-code-error').classList.remove('hidden');
+                otpBoxes.forEach(b => { b.value = ''; });
+                otpBoxes[0].focus();
+                verifyBtn.innerHTML = 'Verify';
+                verifyBtn.disabled = true;
+                verifyBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+        }, 1000);
+    });
+
+    $('#otp-change-phone').addEventListener('click', () => {
+        $('#otp-code-entry').classList.add('hidden');
+        $('#otp-phone-entry').classList.remove('hidden');
+        getCodeBtn.innerHTML = 'Get My Code';
+        const digits = getPhoneRaw(otpPhoneInput);
+        if (digits.length === 10) {
+            getCodeBtn.disabled = false;
+            getCodeBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+        otpPhoneInput.focus();
+    });
+
+    $('#otp-resend-btn').addEventListener('click', () => {
+        const btn = $('#otp-resend-btn');
+        btn.textContent = 'Sending...';
+        btn.disabled = true;
+        setTimeout(() => {
+            btn.textContent = 'Resend';
+            btn.disabled = false;
+            wmTrack('otp_requested', { type: 'resend' });
+        }, 1500);
+    });
+
+    // =========================================================
+    // STEP 3: Scan Theatrics (10 Seconds with Easing)
+    // =========================================================
+    function startScanTheatrics() {
+        const card = $('#upload-modal-card');
+        card.style.backgroundColor = '#0f172a';
+        card.style.color = '#e2e8f0';
+
+        showStep(uploadModal, '#upload-step3');
+        wmTrack('scan_started');
+
+        const scanFill = $('#scan-progress-fill');
+        const scanPct = $('#scan-pct-text');
+        const scanHeadline = $('#scan-headline');
+
+        const startTime = Date.now();
+        const totalDuration = 10000;
+
+        const phases = [
+            { at: 0, text: 'Uploading to WindowMan servers<span class="ellipsis-anim"></span>' },
+            { at: 3000, text: 'Running forensic scan<span class="ellipsis-anim"></span>' },
+            { at: 6000, text: 'Extracting the truth<span class="ellipsis-anim"></span>' },
+            { at: 9000, text: 'Almost there<span class="ellipsis-anim"></span>' },
+        ];
+        let phaseIdx = 0;
+
+        const scanInterval = setInterval(() => {
+            const elapsed = Date.now() - startTime;
+            const t = Math.min(1, elapsed / totalDuration);
+            // Ease-out curve: fast start, slow finish
+            // progress = 1 - (1 - t)^0.45
+            const easedProgress = 1 - Math.pow(1 - t, 0.45);
+            const pct = easedProgress * 100;
+
+            scanFill.style.width = pct.toFixed(1) + '%';
+            scanPct.textContent = Math.round(pct) + '%';
+
+            // Update headline based on phase
+            while (phaseIdx < phases.length - 1 && elapsed >= phases[phaseIdx + 1].at) {
+                phaseIdx++;
+                scanHeadline.innerHTML = phases[phaseIdx].text;
+            }
+
+            if (elapsed >= totalDuration) {
+                clearInterval(scanInterval);
+                scanFill.style.width = '100%';
+                scanPct.textContent = '100%';
+                wmTrack('scan_completed');
+
+                setTimeout(() => {
+                    card.style.backgroundColor = '#ffffff';
+                    card.style.color = '#111827';
+                    generateTruthReport();
+                    showStep(uploadModal, '#upload-step4');
+                }, 200);
+            }
+        }, 50);
+    }
+
+    // =========================================================
+    // STEP 4: Truth Report
+    // =========================================================
+    const contractorNames = ['Sunshine Windows LLC','ProView Glass Co.','ClearVista Window Solutions','PremiumPanes Inc.','AllStar Window Group'];
+
+    // Simulated OCR name pools for auto-fill
+    const ocrFirstNames = ['Michael','David','Robert','Jennifer','Patricia','Christopher','Daniel','Matthew','Andrew','Jessica'];
+    const ocrLastNames = ['Thompson','Anderson','Williams','Martinez','Johnson','Garcia','Wilson','Taylor','Brown','Miller'];
+
+    function generateTruthReport() {
+        const success = Math.random() < 0.7;
+
+        if (success) {
+            const contractor = contractorNames[Math.floor(Math.random() * contractorNames.length)];
+            const total = Math.floor(Math.random() * 17000) + 8000;
+            const count = Math.floor(Math.random() * 13) + 4;
+            const parsedFirst = ocrFirstNames[Math.floor(Math.random() * ocrFirstNames.length)];
+            const parsedLast = ocrLastNames[Math.floor(Math.random() * ocrLastNames.length)];
+            truthReportData = {
+                contractor: contractor,
+                total: '$' + total.toLocaleString(),
+                count: count + ' windows',
+                parsed: true,
+                parsedFirstName: parsedFirst,
+                parsedLastName: parsedLast
+            };
+        } else {
+            // CHANGE 1: Show em dashes for ALL fields when OCR fails
+            truthReportData = {
+                contractor: '—',
+                total: '—',
+                count: '—',
+                parsed: false,
+                parsedFirstName: '',
+                parsedLastName: ''
+            };
+        }
+
+        $('#truth-contractor').textContent = truthReportData.contractor;
+        $('#truth-total').textContent = truthReportData.total;
+        $('#truth-count').textContent = truthReportData.count;
+
+        // Pre-fill correction fields
+        if (truthReportData.parsed) {
+            $('#correct-contractor').value = truthReportData.contractor;
+            $('#correct-total').value = truthReportData.total.replace(/[$,]/g, '');
+            $('#correct-count').value = truthReportData.count.replace(/\D/g, '');
+        } else {
+            $('#correct-contractor').value = '';
+            $('#correct-total').value = '';
+            $('#correct-count').value = '';
+        }
+
+        // Reset state
+        $('#correction-fields').classList.remove('open');
+        $('#truth-continue-btn').classList.add('hidden');
+        $('#truth-actions').classList.remove('hidden');
+    }
+
+    // "Yes, looks good" button
+    $('#truth-yes-btn').addEventListener('click', () => {
+        $('#truth-actions').classList.add('hidden');
+        $('#truth-continue-btn').classList.remove('hidden');
+    });
+
+    // "No, let me fix it" button
+    $('#truth-no-btn').addEventListener('click', () => {
+        $('#correction-fields').classList.add('open');
+        $('#truth-actions').classList.add('hidden');
+    });
+
+    // Save corrections
+    $('#save-corrections-btn').addEventListener('click', () => {
+        const contractor = $('#correct-contractor').value.trim();
+        const total = $('#correct-total').value.trim();
+        const count = $('#correct-count').value.trim();
+
+        $('#truth-contractor').textContent = contractor || '—';
+        $('#truth-total').textContent = total ? '$' + Number(total).toLocaleString() : '—';
+        $('#truth-count').textContent = count ? count + ' windows' : '—';
+
+        truthReportData.contractor = contractor;
+        truthReportData.total = total ? '$' + Number(total).toLocaleString() : '—';
+        truthReportData.count = count ? count + ' windows' : '—';
+
+        wmTrack('corrections_submitted', { contractor, total, count });
+
+        $('#correction-fields').classList.remove('open');
+
+        const toast = $('#upload-toast');
+        toast.classList.add('visible');
+        setTimeout(() => { toast.classList.remove('visible'); }, 2000);
+
+        $('#truth-continue-btn').classList.remove('hidden');
+    });
+
+    // Continue from Truth Report to Contact Info
+    $('#truth-continue-btn').addEventListener('click', () => {
+        // CHANGE 3: Auto-fill name fields if OCR succeeded
+        const fnameInput = $('#upload-contact-fname');
+        const lnameInput = $('#upload-contact-lname');
+        if (truthReportData.parsed && truthReportData.parsedFirstName) {
+            fnameInput.value = truthReportData.parsedFirstName;
+            lnameInput.value = truthReportData.parsedLastName;
+        } else {
+            fnameInput.value = '';
+            lnameInput.value = '';
+        }
+
+        showStep(uploadModal, '#upload-step5');
+    });
+
+    // =========================================================
+    // STEP 5: Contact Form
+    // =========================================================
+    $('#upload-contact-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        let valid = true;
+        const fname = $('#upload-contact-fname');
+        const lname = $('#upload-contact-lname');
+        const email = $('#upload-contact-email');
+        const zip = $('#upload-contact-zip');
+
+        if (!fname.value.trim()) {
+            $('#upload-contact-fname-err').textContent = 'First name is required.';
+            $('#upload-contact-fname-err').classList.remove('hidden');
+            valid = false;
+        } else { $('#upload-contact-fname-err').classList.add('hidden'); }
+
+        if (!lname.value.trim()) {
+            $('#upload-contact-lname-err').textContent = 'Last name is required.';
+            $('#upload-contact-lname-err').classList.remove('hidden');
+            valid = false;
+        } else { $('#upload-contact-lname-err').classList.add('hidden'); }
+
+        if (!validateEmail(email.value)) {
+            $('#upload-contact-email-err').textContent = 'Please enter a valid email.';
+            $('#upload-contact-email-err').classList.remove('hidden');
+            valid = false;
+        } else { $('#upload-contact-email-err').classList.add('hidden'); }
+
+        if (!validateZip(zip.value)) {
+            $('#upload-contact-zip-err').textContent = 'Please enter a 5-digit zip code.';
+            $('#upload-contact-zip-err').classList.remove('hidden');
+            valid = false;
+        } else { $('#upload-contact-zip-err').classList.add('hidden'); }
+
+        if (valid) {
+            const fullName = fname.value.trim() + ' ' + lname.value.trim();
+            wmTrack('email_collected', { name: fullName, firstName: fname.value.trim(), lastName: lname.value.trim(), email: email.value, zip: zip.value });
+            showStep(uploadModal, '#upload-step6');
+            wmTrack('followup_sent');
+        }
+    });
+
+    // =========================================================
+    // STEP 6: Done
+    // =========================================================
+    $('#upload-done-btn').addEventListener('click', () => {
+        closeModal(uploadModal);
+    });
+
+    // =========================================================
+    // WANT QUOTE MODAL LOGIC
+    // =========================================================
+    let wantData = { projectType: null, timeline: null, zip: '' };
+
+    function resetWantModal() {
+        const allSteps = wantModal.querySelectorAll('.step-panel');
+        allSteps.forEach(p => p.classList.add('hidden'));
+        $('#want-step1-i3j4').classList.remove('hidden');
+        $('#want-step1-i3j4').style.opacity = '1';
+
+        wantData = { projectType: null, timeline: null, zip: '' };
+        $$('#project-type-k5l6 .radio-card').forEach(c => { c.classList.remove('selected'); c.querySelector('.dot').classList.add('hidden'); c.setAttribute('aria-checked','false'); });
+        $$('#timeline-m7n8 .radio-card').forEach(c => { c.classList.remove('selected'); c.querySelector('.dot').classList.add('hidden'); c.setAttribute('aria-checked','false'); });
+        $('#want-zip-o9p0').value = '';
+        $('#schedule-panel-g7h8').classList.add('hidden');
+        $('#email-panel-u1v2').classList.add('hidden');
+        $('#contractor-confirm-g3h4').classList.add('hidden');
+        $('#guide-confirm-u7v8').classList.add('hidden');
+        $('#guide-form-m9n0').classList.remove('hidden');
+
+        document.querySelectorAll('#want-modal-e9f0 .wm-phone-input').forEach(function(input) {
+            input.value = '';
+            input._rawDigits = '';
+            input._touched = false;
+            input.classList.remove('phone-complete', 'phone-incomplete');
+            const wrapper = input.closest('.phone-wrapper');
+            if (wrapper) {
+                const check = wrapper.querySelector('.phone-check');
+                if (check) check.classList.remove('visible');
+            }
+        });
+    }
+
+    // Radio card selection
+    function setupRadioGroup(containerId, dataKey) {
+        $$(containerId + ' .radio-card').forEach(card => {
+            card.addEventListener('click', () => {
+                $$(containerId + ' .radio-card').forEach(c => { c.classList.remove('selected'); c.querySelector('.dot').classList.add('hidden'); c.setAttribute('aria-checked','false'); });
+                card.classList.add('selected');
+                card.querySelector('.dot').classList.remove('hidden');
+                card.setAttribute('aria-checked','true');
+                wantData[dataKey] = card.dataset.value;
+            });
+            card.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); card.click(); } });
+        });
+    }
+    setupRadioGroup('#project-type-k5l6', 'projectType');
+    setupRadioGroup('#timeline-m7n8', 'timeline');
+
+    $('#want-continue-s3t4').addEventListener('click', () => {
+        let valid = true;
+        if (!wantData.projectType || !wantData.timeline) { valid = false; }
+        const zip = $('#want-zip-o9p0').value;
+        if (!validateZip(zip)) {
+            $('#want-zip-err-q1r2').textContent = 'Please enter a 5-digit zip code.';
+            $('#want-zip-err-q1r2').classList.remove('hidden');
+            valid = false;
+        } else { $('#want-zip-err-q1r2').classList.add('hidden'); }
+        if (!valid) { if (!wantData.projectType || !wantData.timeline) alert('Please select a project type and timeline.'); return; }
+        wantData.zip = zip;
+        wmTrack('want_quote_intent', wantData);
+        showStep(wantModal, '#want-step2-u5v6');
+    });
+
+    $('#path-contractors-w7x8').addEventListener('click', () => {
+        showStep(wantModal, '#want-step3a-a1b2');
+        setTimeout(() => {
+            $('#schedule-panel-g7h8').classList.add('hidden');
+            $('#email-panel-u1v2').classList.add('hidden');
+            $('#contractor-confirm-g3h4').classList.add('hidden');
+            const optionsContainer = $('#want-step3a-a1b2 > .space-y-4');
+            if (optionsContainer) optionsContainer.classList.remove('hidden');
+        }, 220);
+    });
+    $('#path-negotiate-y9z0').addEventListener('click', () => { showStep(wantModal, '#want-step3b-k7l8'); });
+
+    $('#option-schedule-c3d4').addEventListener('click', () => {
+        $('#schedule-panel-g7h8').classList.remove('hidden');
+        $('#email-panel-u1v2').classList.add('hidden');
+        generateTimeSlots();
+    });
+    $('#option-email-e5f6').addEventListener('click', () => {
+        $('#email-panel-u1v2').classList.remove('hidden');
+        $('#schedule-panel-g7h8').classList.add('hidden');
+    });
+
+    function generateTimeSlots() {
+        const container = $('#time-slots-i9j0');
+        container.innerHTML = '';
+        const now = new Date();
+        const tomorrow = new Date(now); tomorrow.setDate(tomorrow.getDate() + 1);
+        const dayAfter = new Date(now); dayAfter.setDate(dayAfter.getDate() + 2);
+        const times = ['9:00 AM', '11:30 AM', '2:00 PM'];
+        const days = [tomorrow, dayAfter];
+        const dayNames = ['Tomorrow', 'Day After'];
+
+        days.forEach((day, di) => {
+            times.forEach(t => {
+                const btn = document.createElement('button');
+                btn.className = 'time-slot border-2 border-gray-200 rounded-lg p-3 text-sm text-center cursor-pointer hover:border-wm-blue transition-colors min-h-[44px]';
+                btn.setAttribute('aria-label', dayNames[di] + ' at ' + t);
+                btn.innerHTML = '<span class="block text-xs text-gray-400">' + dayNames[di] + ' (' + (day.getMonth()+1) + '/' + day.getDate() + ')</span><span class="font-semibold">' + t + '</span>';
+                btn.addEventListener('click', () => {
+                    container.querySelectorAll('.time-slot').forEach(s => s.classList.remove('selected'));
+                    btn.classList.add('selected');
+                });
+                container.appendChild(btn);
+            });
+        });
+    }
+
+    $('#schedule-form-k1l2').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const name = $('#sched-name-m3n4').value.trim();
+        const email = $('#sched-email-o5p6').value.trim();
+        const phoneInput = $('#sched-phone-q7r8');
+        const phoneRaw = getPhoneRaw(phoneInput);
+        if (!name || !validateEmail(email)) { alert('Please fill in your name and a valid email.'); return; }
+        const trackData = { name, email, path: 'schedule' };
+        if (phoneRaw.length === 10) trackData.phone = '+1' + phoneRaw;
+        wmTrack('email_collected', trackData);
+        $('#schedule-panel-g7h8').classList.add('hidden');
+        const optionsEl = $('#want-step3a-a1b2 > .space-y-4');
+        if (optionsEl) optionsEl.classList.add('hidden');
+        $('#contractor-confirm-g3h4').classList.remove('hidden');
+    });
+
+    $('#partner-form-w3x4').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const name = $('#partner-name-y5z6').value.trim();
+        const email = $('#partner-email-a7b8').value.trim();
+        const phoneInput = $('#partner-phone-c9d0');
+        const phoneRaw = getPhoneRaw(phoneInput);
+        if (!name || !validateEmail(email)) { alert('Please fill in your name and a valid email.'); return; }
+        const trackData = { name, email, path: 'partner' };
+        if (phoneRaw.length === 10) trackData.phone = '+1' + phoneRaw;
+        wmTrack('email_collected', trackData);
+        $('#email-panel-u1v2').classList.add('hidden');
+        const optionsEl = $('#want-step3a-a1b2 > .space-y-4');
+        if (optionsEl) optionsEl.classList.add('hidden');
+        $('#contractor-confirm-g3h4').classList.remove('hidden');
+    });
+
+    $('#contractor-done-i5j6').addEventListener('click', () => { closeModal(wantModal); });
+
+    $('#guide-form-m9n0').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const name = $('#guide-name-o1p2').value.trim();
+        const email = $('#guide-email-q3r4').value.trim();
+        if (!name || !validateEmail(email)) { alert('Please fill in your name and a valid email.'); return; }
+        wmTrack('email_collected', { name, email, path: 'guide' });
+        $('#guide-form-m9n0').classList.add('hidden');
+        $('#guide-confirm-u7v8').classList.remove('hidden');
+    });
+
+    $('#guide-done-w9x0').addEventListener('click', () => { closeModal(wantModal); });
+
+    // =========================================================
+    // INIT LUCIDE ICONS
+    // =========================================================
+    lucide.createIcons();
+    </script>
+</body>
+</html>
