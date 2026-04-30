@@ -657,10 +657,12 @@ const Index = () => {
                 <button
                   onClick={() => {
                     clearVerifiedAccess();
+                    clearPersistedFunnelKeys();
                     setScanSessionId(null);
                     setFileUploaded(false);
                     setGradeRevealed(false);
                     setLeadCaptured(false);
+                    setPendingResume(null);
                   }}
                   className="group flex items-center gap-2 px-5 py-2.5 rounded-lg border border-border/60 bg-card/80 backdrop-blur-sm text-muted-foreground text-sm font-medium transition-all duration-200 hover:border-primary/40 hover:text-primary hover:shadow-[0_0_12px_hsl(var(--primary)/0.15)]"
                 >
