@@ -549,7 +549,7 @@ const Index = () => {
                       }}
                     />
                   </React.Suspense>
-                  <div id="truth-gate-section" className="scroll-mt-24">
+                  <div className="scroll-mt-24">
                     <TruthGateFlow
                       onLeadCaptured={(sid) => {
                         setLeadCaptured(true);
