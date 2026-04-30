@@ -128,6 +128,15 @@ function clearPersistedFunnel() {
 }
 
 /**
+ * Standalone helper to clear all persisted `wm_funnel_*` keys without
+ * needing access to the ScanFunnelContext. Safe to call from anywhere
+ * (e.g. the homepage "Start over" recovery CTA).
+ */
+export function clearPersistedFunnelKeys(): void {
+  clearPersistedFunnel();
+}
+
+/**
  * Additive read-back helper for restoring an in-flight scan funnel
  * after a bare page refresh. Returns null if no valid (non-expired)
  * persisted state exists.
