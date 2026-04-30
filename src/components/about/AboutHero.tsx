@@ -11,10 +11,6 @@ export default function AboutHero({ onTrack }: AboutHeroProps) {
     if (onTrack) onTrack("about_hero_primary_cta_clicked");
   };
 
-  const handleSecondaryCTA = () => {
-    if (onTrack) onTrack("about_hero_secondary_cta_clicked");
-  };
-
   return (
     <section className="relative overflow-hidden px-6 py-16 md:px-8 md:py-24" style={{ background: "transparent" }}>
       {/* Depth L1 — deep blue radial field, upper-left */}
@@ -78,14 +74,6 @@ export default function AboutHero({ onTrack }: AboutHeroProps) {
                 className="btn-depth-primary inline-flex items-center justify-center rounded-lg px-8 py-4 text-base font-bold"
               >
                 Analyze My Quote
-              </Link>
-
-              <Link
-                to="/demo-classic"
-                onClick={handleSecondaryCTA}
-                className="inline-flex items-center justify-center text-sm font-semibold text-cobalt transition-colors hover:text-cobalt-dim"
-              >
-                See a Sample Report →
               </Link>
             </div>
           </div>
