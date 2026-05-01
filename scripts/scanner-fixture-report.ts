@@ -13,6 +13,11 @@ import {
   computeGrade,
   type ExtractionResult,
 } from "../supabase/functions/scan-quote/scoring.ts";
+import {
+  analyzeFixtureInheritance,
+} from "./fixture-inheritance.ts";
+
+const showInheritance = process.argv.includes("--inheritance");
 
 type Row = {
   key: string;
@@ -121,6 +126,26 @@ for (const r of rows) {
     `   pillars: safety=${r.pillars.safety} install=${r.pillars.install} ` +
       `price=${r.pillars.price} finePrint=${r.pillars.finePrint} warranty=${r.pillars.warranty}`,
   );
+  if (showInheritance && r.status !== "SKIP") {
+    const fx = (SCENARIO_FIXTURES as any[]).find((f) => f.key === r.key);
+    if (fx?.extraction) {
+      const ih = analyzeFixtureInheritance(fx);
+      console.log(
+        `   ↳ overridden (${ih.overridden.length}): ${ih.overridden.join(", ") || "—"}`,
+      );
+      console.log(
+        `   ↳ risky inherited (${ih.riskyInherited.length}): ${ih.riskyInherited.join(", ") || "—"}`,
+      );
+      const liRisky = ih.lineItemReports.flatMap((li) =>
+        li.riskyInherited.length
+          ? [`item#${li.index}[${li.riskyInherited.join(",")}]`]
+          : [],
+      );
+      console.log(
+        `   ↳ line-item risky inherited: ${liRisky.length ? liRisky.join("  ") : "—"}`,
+      );
+    }
+  }
   console.log("");
 }
 
