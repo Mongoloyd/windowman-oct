@@ -457,12 +457,14 @@ export const SCENARIO_FIXTURES: ScenarioFixture[] = [
     },
     [
       {
+        // Keep DP/NOA so safety doesn't crater below 40 (which would trip the
+        // critical_safety D-cap and mask the intended ambiguous_opening_scope C-cap).
         description: "Impact single hung window",
         quantity: 3,
         unit_price: 950,
         total_price: 2850,
-        dp_rating: undefined,
-        noa_number: undefined,
+        dp_rating: "DP40",
+        noa_number: "NOA 17-0501.06",
         glass_makeup_type: "laminated",
         glass_argon_present: false,
       },
@@ -602,12 +604,14 @@ export const SCENARIO_FIXTURES: ScenarioFixture[] = [
     },
   ),
 
-  // Kept hand-crafted so severe deficiencies stay explicit and stable.
+  // v1.6.0 caps "impact-labeled + spec-less" quotes at D, not F.
+  // F is reserved for zero_line_items or !hasImpactMention + completelyMissingSpecs.
+  // Descriptions here say "Impact" so hasImpactMention=true; safety craters → critical_safety D-cap.
   {
     key: "cornerCutting",
     label: "Corner-Cutting",
     description: "$150/unit, no brand/series, no DP — critical_safety D-cap from missing specs",
-    expectedGrade: "F",
+    expectedGrade: "D",
     extraction: {
       document_type: "impact_window_quote",
       is_window_door_related: true,
@@ -634,6 +638,9 @@ export const SCENARIO_FIXTURES: ScenarioFixture[] = [
       opening_count: 5,
       total_quoted_price: 22000,
       cancellation_policy: undefined,
+      // Add narrow gaps so the inherited base doesn't keep this in A-territory.
+      terms_conditions_present: false,
+      completion_timeline_text: undefined,
       payment_schedule_text: "33% deposit, 33% delivery, 34% completion",
       deposit_percent: 33,
       callback_process_text: "Call our warranty line for all service requests",
@@ -745,6 +752,12 @@ export const SCENARIO_FIXTURES: ScenarioFixture[] = [
       contractor_name: "AllStar Construction",
       total_quoted_price: 9000,
       cancellation_policy: undefined,
+      // Trigger the substrate_open_checkbook C-cap deterministically — matches the
+      // "fine print trap" narrative without changing the rubric.
+      terms_conditions_present: false,
+      substrate_condition_clause_present: true,
+      rot_unit_pricing_present: undefined,
+      buck_replacement_unit_pricing_present: undefined,
       permits: { included: true, responsible_party: "homeowner" },
       installation: {
         scope_detail: "Standard installation per manufacturer specs.",
