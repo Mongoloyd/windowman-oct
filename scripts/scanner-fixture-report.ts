@@ -13,6 +13,11 @@ import {
   computeGrade,
   type ExtractionResult,
 } from "../supabase/functions/scan-quote/scoring.ts";
+import {
+  analyzeFixtureInheritance,
+} from "./fixture-inheritance.ts";
+
+const showInheritance = process.argv.includes("--inheritance");
 
 type Row = {
   key: string;
