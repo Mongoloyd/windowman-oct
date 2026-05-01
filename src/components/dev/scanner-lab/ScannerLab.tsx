@@ -244,10 +244,12 @@ function TabButton({
   label: string;
   active?: boolean;
   disabled?: boolean;
+  onClick?: () => void;
 }) {
   return (
     <button
       disabled={disabled}
+      onClick={onClick}
       style={{
         background: "transparent",
         color: active ? "#C8952A" : disabled ? "#444" : "#888",
