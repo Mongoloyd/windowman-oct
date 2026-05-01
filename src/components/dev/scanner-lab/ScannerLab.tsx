@@ -174,7 +174,11 @@ export function ScannerLab({ sessionId, onScanStart }: ScannerLabProps = {}) {
           label="Inheritance"
           onClick={() => setTab("inheritance")}
         />
-        <TabButton disabled label="Backend Runner" />
+        <TabButton
+          active={tab === "backend"}
+          label="Backend Runner"
+          onClick={() => setTab("backend")}
+        />
         <TabButton disabled label="Rubric Intelligence" />
       </div>
 
