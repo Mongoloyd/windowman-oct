@@ -32,6 +32,9 @@ export function DevQuoteGenerator({ sessionId, onScanStart }: DevQuoteGeneratorP
   const [results, setResults] = useState<RunResult[]>([]);
   const [running, setRunning] = useState<string | null>(null);
   const [runningAll, setRunningAll] = useState(false);
+  // One dev_run_id per mounted generator session — namespaces all scaffolded
+  // rows + storage paths for future cleanup (>30d sweep, see plan).
+  const [devRunId] = useState(() => crypto.randomUUID());
 
   const runScenario = useCallback(async (fixture: ScenarioFixture): Promise<RunResult> => {
     const result: RunResult = {
@@ -55,60 +58,32 @@ export function DevQuoteGenerator({ sessionId, onScanStart }: DevQuoteGeneratorP
         return result;
       }
 
-      // 1. Get or create lead_id — scan_sessions MUST have a non-null lead_id
-      let leadId: string | null = null;
-      if (sessionId) {
-        const { data: leads } = await supabase.rpc("get_lead_by_session", { p_session_id: sessionId });
-        leadId = leads?.[0]?.id || null;
-      }
-      if (!leadId) {
-        const fallbackLeadId = crypto.randomUUID();
-        const fallbackSessionId = sessionId || crypto.randomUUID();
-        const { error: leadErr } = await supabase
-          .from("leads")
-          .insert({ id: fallbackLeadId, session_id: fallbackSessionId, source: "dev_bypass" });
-        if (leadErr) {
-          result.error = `lead creation: ${leadErr.message}`;
-          return result;
-        }
-        leadId = fallbackLeadId;
-      }
-
-      // 2. Create placeholder quote_files record
-      const quoteFileId = crypto.randomUUID();
-      const { error: qfError } = await supabase.from("quote_files").insert({
-        id: quoteFileId,
-        lead_id: leadId,
-        storage_path: `dev-bypass/${fixture.key}/${quoteFileId}.json`,
-        status: "pending",
-      });
-      if (qfError) { result.error = `quote_files: ${qfError.message}`; return result; }
-
-      // 3. Create scan_sessions record
-      const scanSessionId = crypto.randomUUID();
-      const { error: ssError } = await supabase.from("scan_sessions").insert({
-        id: scanSessionId,
-        status: "uploading",
-        lead_id: leadId,
-        quote_file_id: quoteFileId,
-      });
-      if (ssError) { result.error = `scan_sessions: ${ssError.message}`; return result; }
-
-      // 4. Skip page transition for single runs so results table stays visible
-
-      // 5. Invoke scan-quote with bypass
-      const { error: fnError } = await supabase.functions.invoke("scan-quote", {
-        body: {
-          scan_session_id: scanSessionId,
-          dev_extraction_override: fixture.extraction,
-          dev_secret: devSecret,
+      // All scaffolding now happens server-side in dev-create-quote-scenario
+      // (service-role) so RLS is never weakened. Browser only invokes the
+      // dev edge function; lead/quote_file/scan_session inserts run there.
+      const { data: scaffold, error: fnError } = await supabase.functions.invoke(
+        "dev-create-quote-scenario",
+        {
+          body: {
+            scenario_key: fixture.key,
+            dev_secret: devSecret,
+            dev_run_id: devRunId,
+            dev_extraction_override: fixture.extraction,
+            existing_session_id: sessionId ?? null,
+          },
         },
-      });
+      );
 
       if (fnError) {
         result.error = `invoke: ${fnError.message}`;
         return result;
       }
+      const scaffoldObj = scaffold as { ok?: boolean; error?: string; scan_session_id?: string; details?: unknown } | null;
+      if (!scaffoldObj?.ok || !scaffoldObj.scan_session_id) {
+        result.error = `scaffold: ${scaffoldObj?.error || "unknown"}${scaffoldObj?.details ? ` (${JSON.stringify(scaffoldObj.details).slice(0, 120)})` : ""}`;
+        return result;
+      }
+      const scanSessionId = scaffoldObj.scan_session_id;
 
       // 6. Fetch result via get_analysis_preview
       const { data: rows, error: rpcErr } = await supabase.rpc("get_analysis_preview", {
@@ -156,7 +131,7 @@ export function DevQuoteGenerator({ sessionId, onScanStart }: DevQuoteGeneratorP
       result.error = String(err);
       return result;
     }
-  }, [sessionId, runningAll, onScanStart]);
+  }, [sessionId, devRunId]);
 
   const handleRunSingle = async (fixture: ScenarioFixture) => {
     setRunning(fixture.key);
@@ -219,7 +194,7 @@ export function DevQuoteGenerator({ sessionId, onScanStart }: DevQuoteGeneratorP
 
       <p style={{ color: "#999", fontSize: 12, marginBottom: 12 }}>
         {peekDevSecret()
-          ? `Bypass secret: ✓ stored in localStorage | Session: ${sessionId ? sessionId.slice(0, 8) + "…" : "none (will create records without lead)"}`
+          ? `Bypass secret: ✓ | dev_run_id: ${devRunId.slice(0, 8)}… | Session: ${sessionId ? sessionId.slice(0, 8) + "…" : "server-scaffolded"}`
           : "⚠️ Click a scenario — you'll be prompted once for DEV_BYPASS_SECRET (stored in localStorage.wm_dev_secret)"}
       </p>
 
