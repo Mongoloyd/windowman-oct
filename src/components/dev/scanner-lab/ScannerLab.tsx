@@ -240,6 +240,7 @@ function TabButton({
   label,
   active,
   disabled,
+  onClick,
 }: {
   label: string;
   active?: boolean;
