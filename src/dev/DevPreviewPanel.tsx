@@ -212,7 +212,7 @@ export default function DevPreviewPanel({ currentState, onChange, sessionId, onS
             style={{ position: "fixed", bottom: 60, left: 4, zIndex: 9998 }}
           >
             <Suspense fallback={null}>
-              <ScannerLab />
+              <ScannerLab sessionId={sessionId} onScanStart={onScanStart} />
             </Suspense>
           </motion.div>
         )}
