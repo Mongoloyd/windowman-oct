@@ -5,11 +5,12 @@
 
 import { useState, Suspense, lazy } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bug, ChevronUp, ChevronDown, BarChart3, FlaskConical } from "lucide-react";
+import { Bug, ChevronUp, ChevronDown, BarChart3, FlaskConical, Beaker } from "lucide-react";
 import { DEV_PREVIEW_CONFIGS, type DevPreviewState } from "./fixtures";
 import { RubricComparison } from "@/components/dev/RubricComparison";
 
 const DevQuoteGenerator = lazy(() => import("@/components/dev/DevQuoteGenerator").then(m => ({ default: m.DevQuoteGenerator })));
+const ScannerLab = lazy(() => import("@/components/dev/scanner-lab/ScannerLab").then(m => ({ default: m.ScannerLab })));
 
 interface DevPreviewPanelProps {
   currentState: DevPreviewState;
