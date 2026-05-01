@@ -18,7 +18,8 @@
     "typecheck": "tsc --noEmit",
     "proof:pageview": "vitest run --config vitest.proof.config.ts",
     "typegen": "npx supabase gen types typescript --project-id wkrcyxcnzhwjtdpmfpaf > src/integrations/supabase/types.ts",
-    "typegen:check": "npx supabase gen types typescript --project-id wkrcyxcnzhwjtdpmfpaf | diff - src/integrations/supabase/types.ts"
+    "typegen:check": "npx supabase gen types typescript --project-id wkrcyxcnzhwjtdpmfpaf | diff - src/integrations/supabase/types.ts",
+    "scanner:fixtures": "bun run scripts/scanner-fixture-report.ts"
   },
   "dependencies": {
     "@fontsource/barlow-condensed": "^5.2.8",
