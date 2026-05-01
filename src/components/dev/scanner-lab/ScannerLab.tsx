@@ -12,6 +12,7 @@ import {
   computeGrade,
   type ExtractionResult,
 } from "../../../../supabase/functions/scan-quote/scoring.ts";
+import { InheritanceInspectorTab } from "./tabs/InheritanceInspectorTab";
 
 type Status = "PASS" | "FAIL" | "SKIP";
 
@@ -123,10 +124,10 @@ function GradeCell({ g }: { g: string | null | undefined }) {
   return <span style={{ color, fontWeight: 700 }}>{g}</span>;
 }
 
-type TabKey = "local";
+type TabKey = "local" | "inheritance";
 
 export function ScannerLab() {
-  const [tab] = useState<TabKey>("local");
+  const [tab, setTab] = useState<TabKey>("local");
   const rows = useMemo(() => runFixtures(), []);
 
   const total = rows.length;
@@ -155,68 +156,82 @@ export function ScannerLab() {
         <span style={{ fontSize: 10, color: "#666" }}>DEV · local only · no network</span>
       </div>
 
-      {/* Tab strip (Phase 1: only Local Fixture Brain wired) */}
+      {/* Tab strip */}
       <div style={{ display: "flex", gap: 4, marginBottom: 10, borderBottom: "1px solid #222" }}>
-        <TabButton active={tab === "local"} label="Local Fixture Brain" />
-        <TabButton disabled label="Inheritance" />
+        <TabButton
+          active={tab === "local"}
+          label="Local Fixture Brain"
+          onClick={() => setTab("local")}
+        />
+        <TabButton
+          active={tab === "inheritance"}
+          label="Inheritance"
+          onClick={() => setTab("inheritance")}
+        />
         <TabButton disabled label="Backend Runner" />
         <TabButton disabled label="Rubric Intelligence" />
       </div>
 
-      {/* Summary */}
-      <div style={{ display: "flex", gap: 12, fontSize: 11, color: "#999", marginBottom: 8 }}>
-        <span>total: <b style={{ color: "#e5e5e5" }}>{total}</b></span>
-        <span>pass: <b style={{ color: "#22c55e" }}>{pass}</b></span>
-        <span>fail: <b style={{ color: "#ef4444" }}>{fail}</b></span>
-        <span>skip: <b style={{ color: "#94a3b8" }}>{skip}</b></span>
-      </div>
+      {tab === "local" && (
+        <>
+          {/* Summary */}
+          <div style={{ display: "flex", gap: 12, fontSize: 11, color: "#999", marginBottom: 8 }}>
+            <span>total: <b style={{ color: "#e5e5e5" }}>{total}</b></span>
+            <span>pass: <b style={{ color: "#22c55e" }}>{pass}</b></span>
+            <span>fail: <b style={{ color: "#ef4444" }}>{fail}</b></span>
+            <span>skip: <b style={{ color: "#94a3b8" }}>{skip}</b></span>
+          </div>
 
-      <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
-          <thead>
-            <tr style={{ borderBottom: "1px solid #333", color: "#999" }}>
-              <th style={th}>Status</th>
-              <th style={th}>Scenario</th>
-              <th style={th}>Exp</th>
-              <th style={th}>Act</th>
-              <th style={th}>Wtd</th>
-              <th style={th}>HardCap</th>
-              <th style={th}>S</th>
-              <th style={th}>I</th>
-              <th style={th}>P</th>
-              <th style={th}>FP</th>
-              <th style={th}>W</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.key} style={{ borderBottom: "1px solid #1a1a1a" }}>
-                <td style={td}><StatusChip status={r.status} /></td>
-                <td style={{ ...td, color: "#e5e5e5" }}>
-                  <div style={{ fontWeight: 600 }}>{r.key}</div>
-                  <div style={{ color: "#666", fontSize: 10 }}>{r.label}</div>
-                  {r.expectedTerminal && (
-                    <div style={{ color: "#94a3b8", fontSize: 9 }}>terminal: {r.expectedTerminal}</div>
-                  )}
-                </td>
-                <td style={td}><GradeCell g={r.expected ?? null} /></td>
-                <td style={td}><GradeCell g={r.actual} /></td>
-                <td style={{ ...td, color: "#999" }}>{r.weighted ?? "—"}</td>
-                <td style={{ ...td, color: r.hardCap ? "#f97316" : "#444", fontSize: 10 }}>{r.hardCap ?? "—"}</td>
-                <td style={{ ...td, color: "#999" }}>{r.pillars.safety ?? "—"}</td>
-                <td style={{ ...td, color: "#999" }}>{r.pillars.install ?? "—"}</td>
-                <td style={{ ...td, color: "#999" }}>{r.pillars.price ?? "—"}</td>
-                <td style={{ ...td, color: "#999" }}>{r.pillars.finePrint ?? "—"}</td>
-                <td style={{ ...td, color: "#999" }}>{r.pillars.warranty ?? "—"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+              <thead>
+                <tr style={{ borderBottom: "1px solid #333", color: "#999" }}>
+                  <th style={th}>Status</th>
+                  <th style={th}>Scenario</th>
+                  <th style={th}>Exp</th>
+                  <th style={th}>Act</th>
+                  <th style={th}>Wtd</th>
+                  <th style={th}>HardCap</th>
+                  <th style={th}>S</th>
+                  <th style={th}>I</th>
+                  <th style={th}>P</th>
+                  <th style={th}>FP</th>
+                  <th style={th}>W</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.key} style={{ borderBottom: "1px solid #1a1a1a" }}>
+                    <td style={td}><StatusChip status={r.status} /></td>
+                    <td style={{ ...td, color: "#e5e5e5" }}>
+                      <div style={{ fontWeight: 600 }}>{r.key}</div>
+                      <div style={{ color: "#666", fontSize: 10 }}>{r.label}</div>
+                      {r.expectedTerminal && (
+                        <div style={{ color: "#94a3b8", fontSize: 9 }}>terminal: {r.expectedTerminal}</div>
+                      )}
+                    </td>
+                    <td style={td}><GradeCell g={r.expected ?? null} /></td>
+                    <td style={td}><GradeCell g={r.actual} /></td>
+                    <td style={{ ...td, color: "#999" }}>{r.weighted ?? "—"}</td>
+                    <td style={{ ...td, color: r.hardCap ? "#f97316" : "#444", fontSize: 10 }}>{r.hardCap ?? "—"}</td>
+                    <td style={{ ...td, color: "#999" }}>{r.pillars.safety ?? "—"}</td>
+                    <td style={{ ...td, color: "#999" }}>{r.pillars.install ?? "—"}</td>
+                    <td style={{ ...td, color: "#999" }}>{r.pillars.price ?? "—"}</td>
+                    <td style={{ ...td, color: "#999" }}>{r.pillars.finePrint ?? "—"}</td>
+                    <td style={{ ...td, color: "#999" }}>{r.pillars.warranty ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-      <p style={{ marginTop: 10, fontSize: 10, color: "#555" }}>
-        Pure local: SCENARIO_FIXTURES → computeGrade(). No Supabase, no edge functions, no network.
-      </p>
+          <p style={{ marginTop: 10, fontSize: 10, color: "#555" }}>
+            Pure local: SCENARIO_FIXTURES → computeGrade(). No Supabase, no edge functions, no network.
+          </p>
+        </>
+      )}
+
+      {tab === "inheritance" && <InheritanceInspectorTab />}
     </div>
   );
 }
@@ -225,14 +240,17 @@ function TabButton({
   label,
   active,
   disabled,
+  onClick,
 }: {
   label: string;
   active?: boolean;
   disabled?: boolean;
+  onClick?: () => void;
 }) {
   return (
     <button
       disabled={disabled}
+      onClick={onClick}
       style={{
         background: "transparent",
         color: active ? "#C8952A" : disabled ? "#444" : "#888",
