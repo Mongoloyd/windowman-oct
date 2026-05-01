@@ -242,6 +242,10 @@ export function ScannerLab({ sessionId, onScanStart }: ScannerLabProps = {}) {
       )}
 
       {tab === "inheritance" && <InheritanceInspectorTab />}
+
+      {tab === "backend" && (
+        <BackendRunnerTab sessionId={sessionId} onScanStart={onScanStart} />
+      )}
     </div>
   );
 }
