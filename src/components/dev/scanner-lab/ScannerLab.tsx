@@ -96,11 +96,25 @@ const GRADE_COLORS: Record<string, string> = {
   F: "#ef4444",
 };
 
+const SANS = "'DM Sans', system-ui, -apple-system, sans-serif";
+const MONO = "'DM Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
+
+const COLOR = {
+  bg: "#0a0f1a",
+  panel: "#0F1F35",
+  border: "#1f2a3d",
+  divider: "#16213a",
+  textPrimary: "#F8FAFC",
+  textSecondary: "#CBD5E1",
+  textMuted: "#94A3B8",
+  accent: "#C8952A",
+};
+
 function StatusChip({ status }: { status: Status }) {
   const map: Record<Status, { bg: string; fg: string; label: string }> = {
-    PASS: { bg: "rgba(34,197,94,0.15)", fg: "#22c55e", label: "PASS" },
-    FAIL: { bg: "rgba(239,68,68,0.15)", fg: "#ef4444", label: "FAIL" },
-    SKIP: { bg: "rgba(148,163,184,0.15)", fg: "#94a3b8", label: "SKIP" },
+    PASS: { bg: "rgba(34,197,94,0.18)", fg: "#4ade80", label: "PASS" },
+    FAIL: { bg: "rgba(239,68,68,0.18)", fg: "#f87171", label: "FAIL" },
+    SKIP: { bg: "rgba(148,163,184,0.18)", fg: "#cbd5e1", label: "SKIP" },
   };
   const s = map[status];
   return (
@@ -108,11 +122,12 @@ function StatusChip({ status }: { status: Status }) {
       style={{
         background: s.bg,
         color: s.fg,
-        padding: "2px 6px",
-        borderRadius: 3,
-        fontSize: 10,
+        padding: "3px 8px",
+        borderRadius: 4,
+        fontSize: 12,
         fontWeight: 700,
-        letterSpacing: "0.05em",
+        letterSpacing: "0.06em",
+        fontFamily: SANS,
       }}
     >
       {s.label}
@@ -121,9 +136,9 @@ function StatusChip({ status }: { status: Status }) {
 }
 
 function GradeCell({ g }: { g: string | null | undefined }) {
-  if (!g || g === "—") return <span style={{ color: "#444" }}>—</span>;
-  const color = GRADE_COLORS[g] ?? "#94a3b8";
-  return <span style={{ color, fontWeight: 700 }}>{g}</span>;
+  if (!g || g === "—") return <span style={{ color: COLOR.textMuted }}>—</span>;
+  const color = GRADE_COLORS[g] ?? COLOR.textSecondary;
+  return <span style={{ color, fontWeight: 700, fontSize: 15 }}>{g}</span>;
 }
 
 type TabKey = "local" | "inheritance" | "backend" | "rubric";
@@ -145,62 +160,55 @@ export function ScannerLab({ sessionId, onScanStart }: ScannerLabProps = {}) {
   return (
     <div
       style={{
-        background: "#0a0a0a",
-        border: "1px dashed #555",
-        borderRadius: 8,
-        padding: 14,
-        width: 760,
-        maxHeight: "70vh",
+        background: COLOR.bg,
+        border: `1px solid ${COLOR.border}`,
+        borderRadius: 12,
+        padding: 20,
+        width: "min(1280px, 88vw)",
+        maxHeight: "84vh",
         overflowY: "auto",
-        fontFamily: "'DM Mono', monospace",
-        color: "#e5e5e5",
+        fontFamily: SANS,
+        color: COLOR.textPrimary,
+        boxShadow: "0 24px 64px rgba(0,0,0,0.55)",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-        <h3 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#e5e5e5", fontFamily: "'DM Sans', sans-serif" }}>
-          🧪 Scanner Lab
-        </h3>
-        <span style={{ fontSize: 10, color: "#666" }}>DEV · local only · no network</span>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <h3 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: COLOR.textPrimary, fontFamily: SANS, letterSpacing: "-0.01em" }}>
+            🧪 Scanner Lab
+          </h3>
+          <span style={{ fontSize: 12, color: COLOR.textMuted, fontFamily: SANS }}>
+            DEV cockpit
+          </span>
+        </div>
+        <span style={{ fontSize: 13, color: COLOR.textMuted, fontFamily: MONO, letterSpacing: "0.03em" }}>
+          local-first · no production exposure
+        </span>
       </div>
 
       {/* Tab strip */}
-      <div style={{ display: "flex", gap: 4, marginBottom: 10, borderBottom: "1px solid #222" }}>
-        <TabButton
-          active={tab === "local"}
-          label="Local Fixture Brain"
-          onClick={() => setTab("local")}
-        />
-        <TabButton
-          active={tab === "inheritance"}
-          label="Inheritance"
-          onClick={() => setTab("inheritance")}
-        />
-        <TabButton
-          active={tab === "backend"}
-          label="Backend Runner"
-          onClick={() => setTab("backend")}
-        />
-        <TabButton
-          active={tab === "rubric"}
-          label="Rubric Intelligence"
-          onClick={() => setTab("rubric")}
-        />
+      <div style={{ display: "flex", gap: 4, marginBottom: 16, borderBottom: `1px solid ${COLOR.border}` }}>
+        <TabButton active={tab === "local"} label="Local Fixture Brain" onClick={() => setTab("local")} />
+        <TabButton active={tab === "inheritance"} label="Inheritance" onClick={() => setTab("inheritance")} />
+        <TabButton active={tab === "backend"} label="Backend Runner" onClick={() => setTab("backend")} />
+        <TabButton active={tab === "rubric"} label="Rubric Intelligence" onClick={() => setTab("rubric")} />
       </div>
 
       {tab === "local" && (
         <>
           {/* Summary */}
-          <div style={{ display: "flex", gap: 12, fontSize: 11, color: "#999", marginBottom: 8 }}>
-            <span>total: <b style={{ color: "#e5e5e5" }}>{total}</b></span>
-            <span>pass: <b style={{ color: "#22c55e" }}>{pass}</b></span>
-            <span>fail: <b style={{ color: "#ef4444" }}>{fail}</b></span>
-            <span>skip: <b style={{ color: "#94a3b8" }}>{skip}</b></span>
+          <div style={{ display: "flex", gap: 18, fontSize: 14, color: COLOR.textSecondary, marginBottom: 14, fontFamily: SANS }}>
+            <span>total: <b style={{ color: COLOR.textPrimary, fontFamily: MONO }}>{total}</b></span>
+            <span>pass: <b style={{ color: "#4ade80", fontFamily: MONO }}>{pass}</b></span>
+            <span>fail: <b style={{ color: "#f87171", fontFamily: MONO }}>{fail}</b></span>
+            <span>skip: <b style={{ color: COLOR.textMuted, fontFamily: MONO }}>{skip}</b></span>
           </div>
 
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+          <div style={{ overflowX: "auto", border: `1px solid ${COLOR.divider}`, borderRadius: 8 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
               <thead>
-                <tr style={{ borderBottom: "1px solid #333", color: "#999" }}>
+                <tr style={{ borderBottom: `1px solid ${COLOR.border}`, color: COLOR.textSecondary, background: "rgba(255,255,255,0.02)" }}>
                   <th style={th}>Status</th>
                   <th style={th}>Scenario</th>
                   <th style={th}>Exp</th>
@@ -216,42 +224,42 @@ export function ScannerLab({ sessionId, onScanStart }: ScannerLabProps = {}) {
               </thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.key} style={{ borderBottom: "1px solid #1a1a1a" }}>
+                  <tr key={r.key} style={{ borderBottom: `1px solid ${COLOR.divider}` }}>
                     <td style={td}><StatusChip status={r.status} /></td>
-                    <td style={{ ...td, color: "#e5e5e5" }}>
-                      <div style={{ fontWeight: 600 }}>{r.key}</div>
-                      <div style={{ color: "#666", fontSize: 10 }}>{r.label}</div>
+                    <td style={{ ...td, color: COLOR.textPrimary }}>
+                      <div style={{ fontWeight: 600, fontFamily: MONO, fontSize: 14 }}>{r.key}</div>
+                      <div style={{ color: COLOR.textSecondary, fontSize: 13, fontFamily: SANS, marginTop: 2 }}>{r.label}</div>
                       {r.expectedTerminal && (
-                        <div style={{ color: "#94a3b8", fontSize: 9 }}>terminal: {r.expectedTerminal}</div>
+                        <div style={{ color: COLOR.textMuted, fontSize: 12, fontFamily: SANS, marginTop: 2 }}>
+                          terminal: {r.expectedTerminal}
+                        </div>
                       )}
                     </td>
                     <td style={td}><GradeCell g={r.expected ?? null} /></td>
                     <td style={td}><GradeCell g={r.actual} /></td>
-                    <td style={{ ...td, color: "#999" }}>{r.weighted ?? "—"}</td>
-                    <td style={{ ...td, color: r.hardCap ? "#f97316" : "#444", fontSize: 10 }}>{r.hardCap ?? "—"}</td>
-                    <td style={{ ...td, color: "#999" }}>{r.pillars.safety ?? "—"}</td>
-                    <td style={{ ...td, color: "#999" }}>{r.pillars.install ?? "—"}</td>
-                    <td style={{ ...td, color: "#999" }}>{r.pillars.price ?? "—"}</td>
-                    <td style={{ ...td, color: "#999" }}>{r.pillars.finePrint ?? "—"}</td>
-                    <td style={{ ...td, color: "#999" }}>{r.pillars.warranty ?? "—"}</td>
+                    <td style={tdMono}>{r.weighted ?? "—"}</td>
+                    <td style={{ ...tdMono, color: r.hardCap ? "#fb923c" : COLOR.textMuted, fontSize: 13 }}>
+                      {r.hardCap ?? "—"}
+                    </td>
+                    <td style={tdMono}>{r.pillars.safety ?? "—"}</td>
+                    <td style={tdMono}>{r.pillars.install ?? "—"}</td>
+                    <td style={tdMono}>{r.pillars.price ?? "—"}</td>
+                    <td style={tdMono}>{r.pillars.finePrint ?? "—"}</td>
+                    <td style={tdMono}>{r.pillars.warranty ?? "—"}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
-          <p style={{ marginTop: 10, fontSize: 10, color: "#555" }}>
+          <p style={{ marginTop: 14, fontSize: 13, color: COLOR.textMuted, fontFamily: SANS, lineHeight: 1.5 }}>
             Pure local: SCENARIO_FIXTURES → computeGrade(). No Supabase, no edge functions, no network.
           </p>
         </>
       )}
 
       {tab === "inheritance" && <InheritanceInspectorTab />}
-
-      {tab === "backend" && (
-        <BackendRunnerTab sessionId={sessionId} onScanStart={onScanStart} />
-      )}
-
+      {tab === "backend" && <BackendRunnerTab sessionId={sessionId} onScanStart={onScanStart} />}
       {tab === "rubric" && <RubricIntelligenceTab />}
     </div>
   );
@@ -273,15 +281,17 @@ function TabButton({
       disabled={disabled}
       onClick={onClick}
       style={{
-        background: "transparent",
-        color: active ? "#C8952A" : disabled ? "#444" : "#888",
+        background: active ? "rgba(200,149,42,0.10)" : "transparent",
+        color: active ? COLOR.accent : disabled ? "#3a4358" : COLOR.textSecondary,
         border: "none",
-        borderBottom: active ? "2px solid #C8952A" : "2px solid transparent",
-        padding: "6px 10px",
-        fontSize: 11,
+        borderBottom: active ? `2px solid ${COLOR.accent}` : "2px solid transparent",
+        padding: "10px 16px",
+        fontSize: 14,
         fontWeight: 600,
         cursor: disabled ? "not-allowed" : "pointer",
-        fontFamily: "'DM Sans', sans-serif",
+        fontFamily: SANS,
+        transition: "color 0.15s, background 0.15s",
+        marginBottom: -1,
       }}
       title={disabled ? "Coming in next phase" : undefined}
     >
@@ -290,7 +300,26 @@ function TabButton({
   );
 }
 
-const th: React.CSSProperties = { textAlign: "left", padding: "6px 6px", fontWeight: 600, fontSize: 10 };
-const td: React.CSSProperties = { padding: "6px 6px", verticalAlign: "top" };
+const th: React.CSSProperties = {
+  textAlign: "left",
+  padding: "10px 10px",
+  fontWeight: 600,
+  fontSize: 13,
+  fontFamily: SANS,
+  letterSpacing: "0.02em",
+};
+const td: React.CSSProperties = {
+  padding: "10px 10px",
+  verticalAlign: "top",
+  fontSize: 14,
+  fontFamily: SANS,
+};
+const tdMono: React.CSSProperties = {
+  padding: "10px 10px",
+  verticalAlign: "top",
+  fontSize: 14,
+  fontFamily: MONO,
+  color: COLOR.textSecondary,
+};
 
 export default ScannerLab;
