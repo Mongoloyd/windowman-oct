@@ -131,7 +131,7 @@ export function DevQuoteGenerator({ sessionId, onScanStart }: DevQuoteGeneratorP
       result.error = String(err);
       return result;
     }
-  }, [sessionId, runningAll, onScanStart]);
+  }, [sessionId, devRunId]);
 
   const handleRunSingle = async (fixture: ScenarioFixture) => {
     setRunning(fixture.key);
@@ -194,7 +194,7 @@ export function DevQuoteGenerator({ sessionId, onScanStart }: DevQuoteGeneratorP
 
       <p style={{ color: "#999", fontSize: 12, marginBottom: 12 }}>
         {peekDevSecret()
-          ? `Bypass secret: ✓ stored in localStorage | Session: ${sessionId ? sessionId.slice(0, 8) + "…" : "none (will create records without lead)"}`
+          ? `Bypass secret: ✓ | dev_run_id: ${devRunId.slice(0, 8)}… | Session: ${sessionId ? sessionId.slice(0, 8) + "…" : "server-scaffolded"}`
           : "⚠️ Click a scenario — you'll be prompted once for DEV_BYPASS_SECRET (stored in localStorage.wm_dev_secret)"}
       </p>
 
