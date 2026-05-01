@@ -132,7 +132,7 @@ Deno.serve(async (req) => {
       id: leadId,
       session_id: sessionMarker,
       source: "dev_quote_generator",
-      client_slug: "dev",
+      // client_slug intentionally omitted — column does not exist on public.leads
     });
     if (leadErr) {
       console.error("[dev-create-quote-scenario] lead insert failed", leadErr);
