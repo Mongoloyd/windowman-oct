@@ -155,8 +155,6 @@ const passing = rows.filter((r) => r.status === "PASS").length;
 const failing = rows.filter((r) => r.status === "FAIL").length;
 const skipped = rows.filter((r) => r.status === "SKIP").length;
 const mismatches = rows.filter((r) => r.status === "FAIL");
-const skipped = rows.filter((r) => r.status === "SKIP").length;
-const mismatches = rows.filter((r) => r.status === "FAIL");
 
 console.log("───────────────────────────────────────────────────────────────");
 console.log("SUMMARY");
