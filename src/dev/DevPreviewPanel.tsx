@@ -200,6 +200,23 @@ export default function DevPreviewPanel({ currentState, onChange, sessionId, onS
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Scanner Lab Panel */}
+      <AnimatePresence>
+        {showScannerLab && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+            transition={{ duration: 0.15 }}
+            style={{ position: "fixed", bottom: 60, left: 4, zIndex: 9998 }}
+          >
+            <Suspense fallback={null}>
+              <ScannerLab />
+            </Suspense>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
