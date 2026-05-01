@@ -11,24 +11,39 @@ import {
   type InheritanceReport,
 } from "@/test/fixtureInheritance";
 
+const SANS = "'DM Sans', system-ui, -apple-system, sans-serif";
+const MONO = "'DM Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
+
+const C = {
+  textPrimary: "#F8FAFC",
+  textSecondary: "#CBD5E1",
+  textMuted: "#94A3B8",
+  border: "#1f2a3d",
+  divider: "#16213a",
+  panel: "#0f1729",
+  panelAlt: "#0a0f1a",
+};
+
 const sectionTitle: React.CSSProperties = {
-  fontSize: 10,
+  fontSize: 13,
   fontWeight: 700,
-  color: "#999",
+  color: C.textSecondary,
   textTransform: "uppercase",
-  letterSpacing: "0.06em",
-  margin: "8px 0 4px",
+  letterSpacing: "0.08em",
+  margin: "12px 0 6px",
+  fontFamily: SANS,
 };
 
 const chip = (color: string): React.CSSProperties => ({
   display: "inline-block",
-  background: `${color}22`,
+  background: `${color}26`,
   color,
-  padding: "1px 5px",
-  borderRadius: 3,
-  fontSize: 10,
-  margin: "1px 3px 1px 0",
-  fontFamily: "'DM Mono', monospace",
+  padding: "3px 8px",
+  borderRadius: 4,
+  fontSize: 13,
+  margin: "2px 4px 2px 0",
+  fontFamily: MONO,
+  fontWeight: 500,
 });
 
 function FieldList({
@@ -40,7 +55,8 @@ function FieldList({
   color: string;
   empty?: string;
 }) {
-  if (!fields.length) return <span style={{ color: "#555", fontSize: 10 }}>{empty}</span>;
+  if (!fields.length)
+    return <span style={{ color: C.textMuted, fontSize: 13, fontFamily: SANS }}>{empty}</span>;
   return (
     <div style={{ display: "flex", flexWrap: "wrap" }}>
       {fields.map((f) => (
@@ -54,53 +70,51 @@ function FieldList({
 
 function ScenarioDetail({ report }: { report: InheritanceReport }) {
   return (
-    <div style={{ padding: "8px 10px", background: "#0f0f0f", borderTop: "1px solid #1a1a1a" }}>
-      <div style={{ fontSize: 11, color: "#999", marginBottom: 6 }}>
+    <div style={{ padding: "14px 16px", background: C.panelAlt, borderTop: `1px solid ${C.divider}` }}>
+      <div style={{ fontSize: 13, color: C.textSecondary, marginBottom: 8, fontFamily: SANS, lineHeight: 1.6 }}>
         expected grade:{" "}
-        <b style={{ color: "#e5e5e5" }}>{report.expectedGrade ?? "—"}</b>{" "}
-        · overridden: <b style={{ color: "#22c55e" }}>{report.overridden.length}</b>{" "}
-        · inherited: <b style={{ color: "#94a3b8" }}>{report.inherited.length}</b>{" "}
+        <b style={{ color: C.textPrimary, fontFamily: MONO }}>{report.expectedGrade ?? "—"}</b>{" "}
+        · overridden:{" "}
+        <b style={{ color: "#4ade80", fontFamily: MONO }}>{report.overridden.length}</b>{" "}
+        · inherited:{" "}
+        <b style={{ color: C.textSecondary, fontFamily: MONO }}>{report.inherited.length}</b>{" "}
         · risky inherited:{" "}
-        <b style={{ color: report.riskyInherited.length ? "#f97316" : "#555" }}>
+        <b style={{ color: report.riskyInherited.length ? "#fb923c" : C.textMuted, fontFamily: MONO }}>
           {report.riskyInherited.length}
         </b>
       </div>
 
       <div style={sectionTitle}>Risky inherited (top-level)</div>
-      <FieldList fields={report.riskyInherited} color="#f97316" empty="none" />
+      <FieldList fields={report.riskyInherited} color="#fb923c" empty="none" />
 
       <div style={sectionTitle}>Overridden (top-level)</div>
-      <FieldList fields={report.overridden} color="#22c55e" />
+      <FieldList fields={report.overridden} color="#4ade80" />
 
       <div style={sectionTitle}>Inherited (top-level)</div>
-      <FieldList fields={report.inherited} color="#64748b" />
+      <FieldList fields={report.inherited} color="#94A3B8" />
 
       {report.lineItemReports.length > 0 && (
         <>
           <div style={sectionTitle}>Line items</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {report.lineItemReports.map((li) => (
               <div
                 key={li.index}
                 style={{
-                  border: "1px solid #1a1a1a",
-                  borderRadius: 4,
-                  padding: 6,
-                  background: "#0a0a0a",
+                  border: `1px solid ${C.divider}`,
+                  borderRadius: 6,
+                  padding: 10,
+                  background: C.panel,
                 }}
               >
-                <div style={{ fontSize: 11, color: "#e5e5e5", marginBottom: 3 }}>
-                  <b>#{li.index}</b>{" "}
-                  <span style={{ color: "#888" }}>{li.description}</span>
+                <div style={{ fontSize: 14, color: C.textPrimary, marginBottom: 4, fontFamily: SANS }}>
+                  <b style={{ fontFamily: MONO }}>#{li.index}</b>{" "}
+                  <span style={{ color: C.textSecondary }}>{li.description}</span>
                 </div>
-                <div style={{ fontSize: 10, color: "#666", marginBottom: 2 }}>
+                <div style={{ fontSize: 13, color: C.textMuted, marginBottom: 4, fontFamily: SANS }}>
                   risky inherited:
                 </div>
-                <FieldList
-                  fields={li.riskyInherited}
-                  color="#f97316"
-                  empty="none"
-                />
+                <FieldList fields={li.riskyInherited} color="#fb923c" empty="none" />
               </div>
             ))}
           </div>
@@ -116,25 +130,25 @@ export function InheritanceInspectorTab() {
 
   return (
     <div>
-      <p style={{ fontSize: 10, color: "#888", margin: "0 0 8px", lineHeight: 1.4 }}>
+      <p style={{ fontSize: 13, color: C.textSecondary, margin: "0 0 12px", lineHeight: 1.55, fontFamily: SANS }}>
         Inherited fields matter because scenarios are built by starting from a perfect base
         quote and overriding only selected fields. If a risky scenario accidentally inherits
         too many strong fields, its grade may look too generous.
       </p>
 
-      <div style={{ display: "flex", gap: 12, fontSize: 11, color: "#999", marginBottom: 8 }}>
+      <div style={{ display: "flex", gap: 18, fontSize: 14, color: C.textSecondary, marginBottom: 12, fontFamily: SANS }}>
         <span>
-          scenarios: <b style={{ color: "#e5e5e5" }}>{reports.length}</b>
+          scenarios: <b style={{ color: C.textPrimary, fontFamily: MONO }}>{reports.length}</b>
         </span>
         <span>
           with risky inheritance:{" "}
-          <b style={{ color: "#f97316" }}>
+          <b style={{ color: "#fb923c", fontFamily: MONO }}>
             {reports.filter((r) => r.riskyInherited.length > 0).length}
           </b>
         </span>
       </div>
 
-      <div style={{ border: "1px solid #1a1a1a", borderRadius: 4 }}>
+      <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
         {reports.map((r) => {
           const open = openKey === r.key;
           return (
@@ -144,29 +158,29 @@ export function InheritanceInspectorTab() {
                 style={{
                   width: "100%",
                   textAlign: "left",
-                  background: open ? "#181818" : "transparent",
-                  color: "#e5e5e5",
+                  background: open ? "rgba(255,255,255,0.04)" : "transparent",
+                  color: C.textPrimary,
                   border: "none",
-                  borderBottom: "1px solid #1a1a1a",
-                  padding: "8px 10px",
-                  fontFamily: "'DM Mono', monospace",
+                  borderBottom: `1px solid ${C.divider}`,
+                  padding: "12px 14px",
+                  fontFamily: SANS,
                   cursor: "pointer",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  fontSize: 11,
+                  fontSize: 14,
                 }}
               >
                 <span>
-                  <span style={{ color: "#888", marginRight: 6 }}>{open ? "▾" : "▸"}</span>
-                  <b>{r.key}</b>
-                  <span style={{ color: "#666", marginLeft: 8 }}>{r.label}</span>
+                  <span style={{ color: C.textMuted, marginRight: 8 }}>{open ? "▾" : "▸"}</span>
+                  <b style={{ fontFamily: MONO }}>{r.key}</b>
+                  <span style={{ color: C.textSecondary, marginLeft: 10 }}>{r.label}</span>
                 </span>
-                <span style={{ fontSize: 10, color: "#666" }}>
-                  exp <b style={{ color: "#e5e5e5" }}>{r.expectedGrade ?? "—"}</b>
-                  {" · "}
+                <span style={{ fontSize: 13, color: C.textSecondary, fontFamily: SANS }}>
+                  exp <b style={{ color: C.textPrimary, fontFamily: MONO }}>{r.expectedGrade ?? "—"}</b>
+                  {"  ·  "}
                   risky{" "}
-                  <b style={{ color: r.riskyInherited.length ? "#f97316" : "#555" }}>
+                  <b style={{ color: r.riskyInherited.length ? "#fb923c" : C.textMuted, fontFamily: MONO }}>
                     {r.riskyInherited.length}
                   </b>
                 </span>

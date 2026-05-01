@@ -205,11 +205,11 @@ export default function DevPreviewPanel({ currentState, onChange, sessionId, onS
       <AnimatePresence>
         {showScannerLab && (
           <motion.div
-            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+            initial={{ opacity: 0, y: 10, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+            exit={{ opacity: 0, y: 10, scale: 0.98 }}
             transition={{ duration: 0.15 }}
-            style={{ position: "fixed", bottom: 60, left: 4, zIndex: 9998 }}
+            style={{ position: "fixed", bottom: 60, left: 16, right: 16, zIndex: 9998, display: "flex", justifyContent: "flex-start" }}
           >
             <Suspense fallback={null}>
               <ScannerLab sessionId={sessionId} onScanStart={onScanStart} />

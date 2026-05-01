@@ -28,31 +28,30 @@ export function BackendRunnerTab({ sessionId, onScanStart }: BackendRunnerTabPro
       {/* Static informational banner — pure text, no links, no buttons, no logic */}
       <div
         style={{
-          background: "rgba(249,115,22,0.08)",
-          border: "1px solid rgba(249,115,22,0.35)",
-          borderRadius: 6,
-          padding: "10px 12px",
-          marginBottom: 12,
-          fontFamily: "'DM Mono', monospace",
+          background: "rgba(251,146,60,0.08)",
+          border: "1px solid rgba(251,146,60,0.35)",
+          borderRadius: 8,
+          padding: "14px 16px",
+          marginBottom: 16,
+          fontFamily: "'DM Sans', system-ui, sans-serif",
         }}
       >
         <div
           style={{
-            fontSize: 12,
+            fontSize: 14,
             fontWeight: 700,
-            color: "#f97316",
-            letterSpacing: "0.04em",
-            marginBottom: 4,
+            color: "#fb923c",
+            letterSpacing: "0.02em",
+            marginBottom: 6,
           }}
         >
           Backend Scenario Runner
         </div>
-        <div style={{ fontSize: 11, color: "#a3a3a3", lineHeight: 1.45 }}>
-          Requires <span style={{ color: "#e5e5e5" }}>DEV_BYPASS_SECRET</span> and deployed{" "}
-          <span style={{ color: "#e5e5e5" }}>dev-create-quote-scenario</span>. This tab writes
-          scaffolded dev rows and invokes <span style={{ color: "#e5e5e5" }}>scan-quote</span>.
-          Use <span style={{ color: "#e5e5e5" }}>Local Fixture Brain</span> for zero-network
-          scoring.
+        <div style={{ fontSize: 13, color: "#CBD5E1", lineHeight: 1.55 }}>
+          Requires <code style={{ color: "#F8FAFC", fontFamily: "'DM Mono', ui-monospace, monospace" }}>DEV_BYPASS_SECRET</code> and the deployed{" "}
+          <code style={{ color: "#F8FAFC", fontFamily: "'DM Mono', ui-monospace, monospace" }}>dev-create-quote-scenario</code> edge function. This tab writes
+          scaffolded dev rows and invokes <code style={{ color: "#F8FAFC", fontFamily: "'DM Mono', ui-monospace, monospace" }}>scan-quote</code> only after you click a scenario.
+          Use the <b style={{ color: "#F8FAFC" }}>Local Fixture Brain</b> tab for zero-network scoring.
         </div>
       </div>
 
