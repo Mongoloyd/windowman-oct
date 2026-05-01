@@ -5,11 +5,12 @@
 
 import { useState, Suspense, lazy } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bug, ChevronUp, ChevronDown, BarChart3, FlaskConical } from "lucide-react";
+import { Bug, ChevronUp, ChevronDown, BarChart3, FlaskConical, Beaker } from "lucide-react";
 import { DEV_PREVIEW_CONFIGS, type DevPreviewState } from "./fixtures";
 import { RubricComparison } from "@/components/dev/RubricComparison";
 
 const DevQuoteGenerator = lazy(() => import("@/components/dev/DevQuoteGenerator").then(m => ({ default: m.DevQuoteGenerator })));
+const ScannerLab = lazy(() => import("@/components/dev/scanner-lab/ScannerLab").then(m => ({ default: m.ScannerLab })));
 
 interface DevPreviewPanelProps {
   currentState: DevPreviewState;
@@ -24,6 +25,7 @@ export default function DevPreviewPanel({ currentState, onChange, sessionId, onS
   const [isOpen, setIsOpen] = useState(false);
   const [showRubricStats, setShowRubricStats] = useState(false);
   const [showQuoteGen, setShowQuoteGen] = useState(false);
+  const [showScannerLab, setShowScannerLab] = useState(false);
 
   return (
     <div className="fixed bottom-4 left-4 z-[9999]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
@@ -108,6 +110,24 @@ export default function DevPreviewPanel({ currentState, onChange, sessionId, onS
           <FlaskConical size={14} />
         </button>
         <button
+          onClick={() => setShowScannerLab(!showScannerLab)}
+          style={{
+            display: "flex", alignItems: "center", gap: 4,
+            background: showScannerLab ? "#C8952A" : "#0F1F35",
+            color: "white",
+            border: "1px solid rgba(255,255,255,0.15)",
+            borderRadius: 10,
+            padding: "8px 10px",
+            fontSize: 12,
+            fontWeight: 600,
+            cursor: "pointer",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
+          }}
+          title="Scanner Lab (local fixture diagnostics)"
+        >
+          <Beaker size={14} />
+        </button>
+        <button
           onClick={() => setShowRubricStats(!showRubricStats)}
           style={{
             display: "flex", alignItems: "center", gap: 4,
@@ -176,6 +196,23 @@ export default function DevPreviewPanel({ currentState, onChange, sessionId, onS
           >
             <Suspense fallback={null}>
               <DevQuoteGenerator sessionId={sessionId} onScanStart={onScanStart} />
+            </Suspense>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Scanner Lab Panel */}
+      <AnimatePresence>
+        {showScannerLab && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+            transition={{ duration: 0.15 }}
+            style={{ position: "fixed", bottom: 60, left: 4, zIndex: 9998 }}
+          >
+            <Suspense fallback={null}>
+              <ScannerLab />
             </Suspense>
           </motion.div>
         )}
