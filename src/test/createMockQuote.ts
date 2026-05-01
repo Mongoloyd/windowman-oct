@@ -658,7 +658,6 @@ export const SCENARIO_FIXTURES: ScenarioFixture[] = [
         disposal_included: true,
         accessories_mentioned: true,
       },
-      completion_timeline_text: "8-12 weeks from signed contract",
     },
     [
       {
