@@ -12,6 +12,7 @@ import {
   computeGrade,
   type ExtractionResult,
 } from "../../../../supabase/functions/scan-quote/scoring.ts";
+import { InheritanceInspectorTab } from "./tabs/InheritanceInspectorTab";
 
 type Status = "PASS" | "FAIL" | "SKIP";
 
