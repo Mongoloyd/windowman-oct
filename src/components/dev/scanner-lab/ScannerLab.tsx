@@ -13,6 +13,7 @@ import {
   type ExtractionResult,
 } from "../../../../supabase/functions/scan-quote/scoring.ts";
 import { InheritanceInspectorTab } from "./tabs/InheritanceInspectorTab";
+import { BackendRunnerTab } from "./tabs/BackendRunnerTab";
 
 type Status = "PASS" | "FAIL" | "SKIP";
 
