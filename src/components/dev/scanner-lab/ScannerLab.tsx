@@ -124,10 +124,10 @@ function GradeCell({ g }: { g: string | null | undefined }) {
   return <span style={{ color, fontWeight: 700 }}>{g}</span>;
 }
 
-type TabKey = "local";
+type TabKey = "local" | "inheritance";
 
 export function ScannerLab() {
-  const [tab] = useState<TabKey>("local");
+  const [tab, setTab] = useState<TabKey>("local");
   const rows = useMemo(() => runFixtures(), []);
 
   const total = rows.length;
