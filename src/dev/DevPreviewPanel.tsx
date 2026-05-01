@@ -25,6 +25,7 @@ export default function DevPreviewPanel({ currentState, onChange, sessionId, onS
   const [isOpen, setIsOpen] = useState(false);
   const [showRubricStats, setShowRubricStats] = useState(false);
   const [showQuoteGen, setShowQuoteGen] = useState(false);
+  const [showScannerLab, setShowScannerLab] = useState(false);
 
   return (
     <div className="fixed bottom-4 left-4 z-[9999]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
