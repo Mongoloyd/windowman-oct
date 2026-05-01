@@ -179,7 +179,9 @@ export function RubricComparison() {
       {error && <p style={{ color: "#ef4444", fontSize: 12 }}>Error: {error}</p>}
 
       {!loading && rows.length === 0 && (
-        <p style={{ color: "#666", fontSize: 12 }}>No analysis data yet. Run some scenarios first.</p>
+        <p style={{ color: "#666", fontSize: 12 }}>
+          No live analysis data visible. This view requires internal operator access and completed analyses rows. Run backend scenarios or real scans while signed in as an operator.
+        </p>
       )}
 
       {rows.length > 0 && (

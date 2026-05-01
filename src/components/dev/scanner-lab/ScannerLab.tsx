@@ -14,6 +14,7 @@ import {
 } from "../../../../supabase/functions/scan-quote/scoring.ts";
 import { InheritanceInspectorTab } from "./tabs/InheritanceInspectorTab";
 import { BackendRunnerTab } from "./tabs/BackendRunnerTab";
+import { RubricIntelligenceTab } from "./tabs/RubricIntelligenceTab";
 
 type Status = "PASS" | "FAIL" | "SKIP";
 
@@ -125,7 +126,7 @@ function GradeCell({ g }: { g: string | null | undefined }) {
   return <span style={{ color, fontWeight: 700 }}>{g}</span>;
 }
 
-type TabKey = "local" | "inheritance" | "backend";
+type TabKey = "local" | "inheritance" | "backend" | "rubric";
 
 interface ScannerLabProps {
   sessionId?: string | null;
@@ -179,7 +180,11 @@ export function ScannerLab({ sessionId, onScanStart }: ScannerLabProps = {}) {
           label="Backend Runner"
           onClick={() => setTab("backend")}
         />
-        <TabButton disabled label="Rubric Intelligence" />
+        <TabButton
+          active={tab === "rubric"}
+          label="Rubric Intelligence"
+          onClick={() => setTab("rubric")}
+        />
       </div>
 
       {tab === "local" && (
@@ -246,6 +251,8 @@ export function ScannerLab({ sessionId, onScanStart }: ScannerLabProps = {}) {
       {tab === "backend" && (
         <BackendRunnerTab sessionId={sessionId} onScanStart={onScanStart} />
       )}
+
+      {tab === "rubric" && <RubricIntelligenceTab />}
     </div>
   );
 }
