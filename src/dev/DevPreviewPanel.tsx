@@ -110,6 +110,24 @@ export default function DevPreviewPanel({ currentState, onChange, sessionId, onS
           <FlaskConical size={14} />
         </button>
         <button
+          onClick={() => setShowScannerLab(!showScannerLab)}
+          style={{
+            display: "flex", alignItems: "center", gap: 4,
+            background: showScannerLab ? "#C8952A" : "#0F1F35",
+            color: "white",
+            border: "1px solid rgba(255,255,255,0.15)",
+            borderRadius: 10,
+            padding: "8px 10px",
+            fontSize: 12,
+            fontWeight: 600,
+            cursor: "pointer",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
+          }}
+          title="Scanner Lab (local fixture diagnostics)"
+        >
+          <Beaker size={14} />
+        </button>
+        <button
           onClick={() => setShowRubricStats(!showRubricStats)}
           style={{
             display: "flex", alignItems: "center", gap: 4,
