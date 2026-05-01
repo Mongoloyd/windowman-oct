@@ -34,7 +34,22 @@ type Row = {
 
 const rows: Row[] = [];
 
-for (const fx of SCENARIO_FIXTURES) {
+// Optional CLI filter:  --scenario=gradeC   (or)   --scenario=gradeC,finePrintTrap
+const filterArg = process.argv.find((a) => a.startsWith("--scenario="));
+const filterKeys = filterArg
+  ? filterArg.replace("--scenario=", "").split(",").map((s) => s.trim()).filter(Boolean)
+  : null;
+
+const fixturesToRun = filterKeys
+  ? SCENARIO_FIXTURES.filter((f: any) => filterKeys.includes(f.key))
+  : SCENARIO_FIXTURES;
+
+if (filterKeys && fixturesToRun.length === 0) {
+  console.error(`No fixtures matched: ${filterKeys.join(", ")}`);
+  process.exit(2);
+}
+
+for (const fx of fixturesToRun) {
   const key = (fx as any).key ?? (fx as any).id ?? "(unknown)";
   const label = (fx as any).label ?? (fx as any).name ?? "";
   const expected = (fx as any).expectedGrade as string | undefined;
