@@ -68,8 +68,8 @@ type Props = {
   fullFetchError?: string | null;
   /** Full-mode payload fields forwarded to TruthReportClassic (parity with /report/classic route). */
   derivedMetrics?: any;
-  warnings?: unknown[];
-  missingItems?: unknown[];
+  warnings?: any[];
+  missingItems?: any[];
   summary?: string | null;
   topWarning?: string | null;
   topMissingItem?: string | null;
