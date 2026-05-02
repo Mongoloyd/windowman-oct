@@ -67,7 +67,7 @@ type Props = {
   /** Error message from fetchFull — surfaces immediately instead of waiting for stall timer */
   fullFetchError?: string | null;
   /** Full-mode payload fields forwarded to TruthReportClassic (parity with /report/classic route). */
-  derivedMetrics?: Record<string, unknown> | null;
+  derivedMetrics?: any;
   warnings?: unknown[];
   missingItems?: unknown[];
   summary?: string | null;
