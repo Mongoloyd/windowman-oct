@@ -66,6 +66,19 @@ type Props = {
   isLoadingFull?: boolean;
   /** Error message from fetchFull — surfaces immediately instead of waiting for stall timer */
   fullFetchError?: string | null;
+  /** Full-mode payload fields forwarded to TruthReportClassic (parity with /report/classic route). */
+  derivedMetrics?: Record<string, unknown> | null;
+  warnings?: unknown[];
+  missingItems?: unknown[];
+  summary?: string | null;
+  topWarning?: string | null;
+  topMissingItem?: string | null;
+  pricePerOpening?: number | null;
+  pricePerOpeningBand?: "low" | "market" | "high" | "extreme" | null;
+  paymentRiskDetected?: boolean;
+  scopeGapDetected?: boolean;
+  summaryTeaser?: string | null;
+  missingItemsCount?: number;
 };
 
 function maskPhone(e164: string): string {

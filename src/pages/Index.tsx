@@ -726,6 +726,18 @@ const Index = () => {
                   priceFairness={activeData?.priceFairness}
                   markupEstimate={activeData?.markupEstimate}
                   negotiationLeverage={activeData?.negotiationLeverage}
+                  derivedMetrics={activeData.derivedMetrics as any}
+                  warnings={activeData.warnings}
+                  missingItems={activeData.missingItems}
+                  summary={activeData.summary}
+                  topWarning={activeData.topWarning}
+                  topMissingItem={activeData.topMissingItem}
+                  pricePerOpening={activeData.pricePerOpening}
+                  pricePerOpeningBand={activeData.pricePerOpeningBand}
+                  paymentRiskDetected={activeData.paymentRiskDetected}
+                  scopeGapDetected={activeData.scopeGapDetected}
+                  summaryTeaser={activeData.summaryTeaser}
+                  missingItemsCount={activeData.missingItemsCount}
                   onVerified={(phoneE164: string) => {
                     fetchFull(phoneE164);
                   }}
