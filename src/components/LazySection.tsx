@@ -7,6 +7,14 @@
  * 3. Shows a lightweight skeleton placeholder until loaded
  * 4. Uses rootMargin to pre-load 200px before visible (smooth UX)
  *
+ * Structural stability:
+ * The wrapper <div> is rendered in BOTH the pre-visible and post-visible
+ * states. Only the wrapper's children swap. This keeps the host node and
+ * ref target stable across reveal, which prevents:
+ *   - sibling reconciliation hiccups under shared <Suspense> boundaries
+ *   - useInView({ once: true }) state loss on scroll-back
+ *   - the "Function components cannot be given refs" warning
+ *
  * Usage:
  *   <LazySection height="400px">
  *     <HeavyComponent />
@@ -47,6 +55,9 @@ export function LazySection({
       return;
     }
 
+    // Already visible at mount? (e.g., SSR hydration above the fold)
+    if (isVisible) return;
+
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
@@ -59,27 +70,25 @@ export function LazySection({
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, [rootMargin]);
-
-  if (isVisible) {
-    return <>{children}</>;
-  }
+  }, [rootMargin, isVisible]);
 
   return (
     <div
       ref={ref}
       className={className}
       style={{ minHeight: height }}
-      aria-hidden="true"
+      aria-hidden={isVisible ? undefined : true}
     >
-      {skeleton && (
-        <div className="animate-pulse space-y-4 p-6">
-          <div className="h-6 w-48 rounded bg-slate-800/50" />
-          <div className="h-4 w-full rounded bg-slate-800/30" />
-          <div className="h-4 w-3/4 rounded bg-slate-800/30" />
-          <div className="h-20 w-full rounded-lg bg-slate-800/20" />
-        </div>
-      )}
+      {isVisible
+        ? children
+        : skeleton && (
+            <div className="animate-pulse space-y-4 p-6">
+              <div className="h-6 w-48 rounded bg-slate-800/50" />
+              <div className="h-4 w-full rounded bg-slate-800/30" />
+              <div className="h-4 w-3/4 rounded bg-slate-800/30" />
+              <div className="h-20 w-full rounded-lg bg-slate-800/20" />
+            </div>
+          )}
     </div>
   );
 }
