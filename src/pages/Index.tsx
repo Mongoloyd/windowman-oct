@@ -747,8 +747,8 @@ const Index = () => {
           )}
 
           {!shouldShowReport && !isDevPreview && (
-            <React.Suspense fallback={<SectionReserve className="min-h-[1800px]" />}>
-              <LazySection height="760px" rootMargin="400px 0px" skeleton={false}>
+            <>
+              <LazySection height="760px" rootMargin="900px 0px" skeleton={true}>
                 <QuoteSpreadShowcase
                   onScanClick={() => triggerTruthGate("quote_spread")}
                   onDemoClick={() => {
@@ -757,7 +757,7 @@ const Index = () => {
                   }}
                 />
               </LazySection>
-              <LazySection height="980px" rootMargin="400px 0px" skeleton={false}>
+              <LazySection height="980px" rootMargin="900px 0px" skeleton={true}>
                 <IndustryTruth
                   onScanClick={() => triggerTruthGate("industry_truth")}
                   onDemoClick={() => {
@@ -766,7 +766,7 @@ const Index = () => {
                   }}
                 />
               </LazySection>
-              <LazySection height="760px" rootMargin="400px 0px" skeleton={false}>
+              <LazySection height="760px" rootMargin="900px 0px" skeleton={true}>
                 <MarketMakerManifesto
                   onDemoClick={() => {
                     setPowerToolTriggered(true);
@@ -774,7 +774,7 @@ const Index = () => {
                   }}
                 />
               </LazySection>
-              <LazySection height="760px" rootMargin="400px 0px" skeleton={false}>
+              <LazySection height="760px" rootMargin="900px 0px" skeleton={true}>
                 <NarrativeProof
                   onScanClick={() => triggerTruthGate("narrative_proof")}
                   onDemoClick={() => {
@@ -783,7 +783,7 @@ const Index = () => {
                   }}
                 />
               </LazySection>
-              <LazySection height="560px" rootMargin="400px 0px" skeleton={false}>
+              <LazySection height="560px" rootMargin="900px 0px" skeleton={true}>
                 <ClosingManifesto
                   onScanClick={() => triggerTruthGate("closing_manifesto")}
                   onDemoClick={() => {
@@ -792,10 +792,10 @@ const Index = () => {
                   }}
                 />
               </LazySection>
-              <LazySection height="620px" rootMargin="400px 0px" skeleton={false}>
+              <LazySection height="620px" rootMargin="900px 0px" skeleton={true}>
                 <Testimonials onScanClick={() => triggerTruthGate("testimonials")} />
               </LazySection>
-            </React.Suspense>
+            </>
           )}
 
           {(timeOnPage || scrolledPast70) && (
