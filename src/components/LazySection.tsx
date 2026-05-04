@@ -5,7 +5,7 @@
  * 1. Only renders children when they enter the viewport
  * 2. Reduces initial DOM size and JS execution
  * 3. Shows a lightweight skeleton placeholder until loaded
- * 4. Uses rootMargin to pre-load 200px before visible (smooth UX)
+ * 4. Uses rootMargin to pre-load before visible (smooth UX)
  *
  * Structural stability:
  * The wrapper <div> is rendered in BOTH the pre-visible and post-visible
@@ -15,13 +15,19 @@
  *   - useInView({ once: true }) state loss on scroll-back
  *   - the "Function components cannot be given refs" warning
  *
+ * Local Suspense boundary:
+ * When children become visible, they are rendered inside a LOCAL
+ * <Suspense> boundary scoped to this LazySection. This prevents one
+ * pending lazy chunk from collapsing an entire shared parent Suspense
+ * region into a single giant blank fallback.
+ *
  * Usage:
  *   <LazySection height="400px">
  *     <HeavyComponent />
  *   </LazySection>
  */
 
-import { useRef, useState, useEffect, type ReactNode } from "react";
+import { Suspense, useRef, useState, useEffect, type ReactNode } from "react";
 
 interface LazySectionProps {
   children: ReactNode;
@@ -72,6 +78,15 @@ export function LazySection({
     return () => observer.disconnect();
   }, [rootMargin, isVisible]);
 
+  const placeholder = skeleton ? (
+    <div className="animate-pulse space-y-4 p-6">
+      <div className="h-6 w-48 rounded bg-slate-800/50" />
+      <div className="h-4 w-full rounded bg-slate-800/30" />
+      <div className="h-4 w-3/4 rounded bg-slate-800/30" />
+      <div className="h-20 w-full rounded-lg bg-slate-800/20" />
+    </div>
+  ) : null;
+
   return (
     <div
       ref={ref}
@@ -79,16 +94,11 @@ export function LazySection({
       style={{ minHeight: height }}
       aria-hidden={isVisible ? undefined : true}
     >
-      {isVisible
-        ? children
-        : skeleton && (
-            <div className="animate-pulse space-y-4 p-6">
-              <div className="h-6 w-48 rounded bg-slate-800/50" />
-              <div className="h-4 w-full rounded bg-slate-800/30" />
-              <div className="h-4 w-3/4 rounded bg-slate-800/30" />
-              <div className="h-20 w-full rounded-lg bg-slate-800/20" />
-            </div>
-          )}
+      {isVisible ? (
+        <Suspense fallback={placeholder}>{children}</Suspense>
+      ) : (
+        placeholder
+      )}
     </div>
   );
 }
