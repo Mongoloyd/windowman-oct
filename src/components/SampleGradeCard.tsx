@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useLayoutEffect } from "react";
+import { motion, useAnimationControls } from "framer-motion";
 import { AlertTriangle, Zap, CheckCircle2 } from "lucide-react";
 
 const REPORTS = [
@@ -98,6 +99,9 @@ const REPORTS = [
 ];
 
 const ANIM_DURATION = 1500;
+const SCAN_MS = 2000;
+const REVEAL_MS = 4000;
+const CYCLE_MS = SCAN_MS + REVEAL_MS;
 
 const GradeRing = ({
   percent,
@@ -174,16 +178,162 @@ const AnimatedCounter = ({ target }: { target: number }) => {
   return <span className="font-mono font-bold text-xl text-destructive">${value.toLocaleString()}</span>;
 };
 
+type Phase = "scanning" | "reveal";
+
 const SampleGradeCard = () => {
   const cardRef = useRef<HTMLDivElement>(null);
-  const inView = useRef(false);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [phase, setPhase] = useState<Phase>("reveal");
+  const [cardHeight, setCardHeight] = useState(0);
+  const [reducedMotion, setReducedMotion] = useState(false);
+
+  const laserControls = useAnimationControls();
+  const overlayControls = useAnimationControls();
+  const gradeControls = useAnimationControls();
+
+  const timersRef = useRef<number[]>([]);
+  const startedRef = useRef(false);
+
+  // Detect prefers-reduced-motion
   useEffect(() => {
-    inView.current = true;
-    const interval = setInterval(() => setCurrentIndex((i) => (i + 1) % REPORTS.length), 5000);
-    return () => clearInterval(interval);
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setReducedMotion(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setReducedMotion(e.matches);
+    mq.addEventListener?.("change", handler);
+    return () => mq.removeEventListener?.("change", handler);
   }, []);
+
+  // Measure card height + observe resize
+  useLayoutEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+    setCardHeight(el.offsetHeight);
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const h = (entry.target as HTMLElement).offsetHeight;
+        if (h > 0) setCardHeight(h);
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const clearAllTimers = () => {
+    timersRef.current.forEach((id) => window.clearTimeout(id));
+    timersRef.current = [];
+  };
+
+  const pushTimer = (id: number) => {
+    timersRef.current.push(id);
+  };
+
+  // Reduced-motion branch: simple 6s rotation, content always visible
+  useEffect(() => {
+    if (!reducedMotion) return;
+    setPhase("reveal");
+    const interval = window.setInterval(() => {
+      setCurrentIndex((i) => (i + 1) % REPORTS.length);
+    }, CYCLE_MS);
+    return () => window.clearInterval(interval);
+  }, [reducedMotion]);
+
+  // Kick off the first loop after 500ms (idle if available)
+  useEffect(() => {
+    if (reducedMotion) return;
+    if (startedRef.current) return;
+    if (cardHeight <= 0) return;
+
+    startedRef.current = true;
+
+    const start = () => setPhase("scanning");
+
+    const w = window as Window & {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+    };
+
+    if (typeof w.requestIdleCallback === "function") {
+      const idleId = w.requestIdleCallback(
+        () => {
+          const t = window.setTimeout(start, 0);
+          pushTimer(t);
+        },
+        { timeout: 800 },
+      );
+      // Safety fallback in case idle never fires
+      const safety = window.setTimeout(start, 800);
+      pushTimer(safety);
+      return () => {
+        const wAny = window as Window & { cancelIdleCallback?: (id: number) => void };
+        wAny.cancelIdleCallback?.(idleId);
+      };
+    }
+
+    const t = window.setTimeout(start, 500);
+    pushTimer(t);
+  }, [cardHeight, reducedMotion]);
+
+  // Phase machine
+  useEffect(() => {
+    if (reducedMotion) return;
+    if (cardHeight <= 0) return;
+    if (!startedRef.current) return;
+
+    let cancelled = false;
+
+    if (phase === "scanning") {
+      // Hide grade, show overlay + laser
+      gradeControls.set({ opacity: 0, scale: 0.96 });
+      overlayControls.set({ opacity: 0 });
+      overlayControls.start({ opacity: 1, transition: { duration: 0.2, ease: "easeOut" } });
+
+      laserControls.set({ y: 0, opacity: 1 });
+      laserControls.start({
+        y: cardHeight,
+        transition: { duration: SCAN_MS / 1000, ease: "easeInOut", type: "tween" },
+      });
+
+      const t = window.setTimeout(() => {
+        if (cancelled) return;
+        setPhase("reveal");
+      }, SCAN_MS);
+      pushTimer(t);
+    } else {
+      // Reveal: hide laser/overlay, spring grade in
+      laserControls.start({ opacity: 0, transition: { duration: 0.2, ease: "easeOut" } });
+      overlayControls.start({ opacity: 0, transition: { duration: 0.2, ease: "easeOut" } });
+      gradeControls.start({
+        opacity: 1,
+        scale: 1,
+        transition: { type: "spring", stiffness: 200, damping: 20 },
+      });
+
+      const t = window.setTimeout(() => {
+        if (cancelled) return;
+        setCurrentIndex((i) => (i + 1) % REPORTS.length);
+        setPhase("scanning");
+      }, REVEAL_MS);
+      pushTimer(t);
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [phase, cardHeight, reducedMotion, laserControls, overlayControls, gradeControls]);
+
+  // Final cleanup on unmount
+  useEffect(() => {
+    return () => {
+      clearAllTimers();
+      laserControls.stop();
+      overlayControls.stop();
+      gradeControls.stop();
+    };
+  }, [laserControls, overlayControls, gradeControls]);
+
   const report = REPORTS[currentIndex];
+  const showScanChrome = !reducedMotion && phase === "scanning";
 
   return (
     <div
@@ -193,18 +343,105 @@ const SampleGradeCard = () => {
         padding: 28,
         maxWidth: 420,
         width: "100%",
-        boxShadow: "var(--shadow-elevated), 0 24px 48px rgba(10,25,55,0.12), 0 0 0 1px rgba(37,99,235,0.06)",
+        border: "1px solid rgba(37, 99, 235, 0.22)",
+        background: "linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,252,0.96))",
+        boxShadow:
+          "var(--shadow-elevated), 0 28px 64px rgba(10,25,55,0.18), 0 0 0 1px rgba(37,99,235,0.14), 0 0 36px rgba(0,217,255,0.10)",
       }}
     >
+      {/* CONFIDENTIAL watermark — existing low layer */}
       <div
         className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden"
-        style={{ transform: "rotate(-12deg)" }}
+        style={{ transform: "rotate(-12deg)", zIndex: 0 }}
       >
         <span className="font-mono text-[22px] md:text-[28px] font-bold tracking-[0.3em] text-primary/10 uppercase border-2 border-primary/10 px-4 py-1 rounded-sm whitespace-nowrap">
           CONFIDENTIAL
         </span>
       </div>
-      <div className="flex items-center justify-between mb-5 relative">
+
+      {/* Cyan scan overlay (z 20) */}
+      {!reducedMotion && (
+        <motion.div
+          aria-hidden
+          initial={{ opacity: 0 }}
+          animate={overlayControls}
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 20,
+            pointerEvents: "none",
+            background: "rgba(0,255,255,0.05)",
+          }}
+        />
+      )}
+
+      {/* Laser line (z 30) */}
+      {!reducedMotion && (
+        <motion.div
+          aria-hidden
+          initial={{ y: 0, opacity: 0 }}
+          animate={laserControls}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: 2,
+            zIndex: 30,
+            pointerEvents: "none",
+            background: "#00FFFF",
+            boxShadow: "0 0 15px 2px rgba(0,255,255,0.7)",
+            willChange: "transform, opacity",
+            transform: "translateZ(0)",
+          }}
+        />
+      )}
+
+      {/* SCANNING… label (z 40) */}
+      {showScanChrome && (
+        <span
+          aria-hidden
+          style={{
+            position: "absolute",
+            top: 12,
+            left: 12,
+            zIndex: 40,
+            pointerEvents: "none",
+            fontFamily: "'DM Mono', monospace",
+            fontSize: 10,
+            letterSpacing: "0.14em",
+            color: "#00FFFF",
+          }}
+        >
+          SCANNING…
+        </span>
+      )}
+
+      {/* CASE-ID watermark (z 40) */}
+      {showScanChrome && (
+        <span
+          aria-hidden
+          style={{
+            position: "absolute",
+            bottom: 12,
+            right: 12,
+            zIndex: 40,
+            pointerEvents: "none",
+            fontFamily: "'DM Mono', monospace",
+            fontSize: 10,
+            opacity: 0.15,
+            color: "#0A0A0A",
+          }}
+        >
+          CASE-ID: 4N0M-22X
+        </span>
+      )}
+
+      {/* Header row — promoted to z 40 so SAMPLE chip sits above the laser */}
+      <div
+        className="flex items-center justify-between mb-5"
+        style={{ position: "relative", zIndex: 40 }}
+      >
         <p className="font-mono tracking-[0.12em] font-bold text-sm text-[#005ef5]">WINDOW TRUTH REPORT</p>
         <span
           className="inline-flex items-center font-mono text-[9px] font-bold tracking-[0.08em] text-primary bg-primary/10 border border-primary/20 px-2 py-0.5"
@@ -213,53 +450,65 @@ const SampleGradeCard = () => {
           SAMPLE
         </span>
       </div>
-      <div key={currentIndex} className="wm-fade-in-soft">
-          <div className="flex flex-col items-center relative mb-5">
-            <GradeRing
-              key={currentIndex}
-              percent={report.percent}
-              gradeColor={report.gradeColor}
-              gradientStops={report.gradientStops}
-              grade={report.grade}
-              id={currentIndex}
-            />
-            <p className="font-mono text-[11px] text-muted-foreground mt-2">{report.subtitle}</p>
+
+      {/* Main report content — wrapped in motion.div for spring reveal (z 10) */}
+      <motion.div
+        key={currentIndex}
+        className="wm-fade-in-soft"
+        initial={reducedMotion ? false : { opacity: 0, scale: 0.96 }}
+        animate={gradeControls}
+        style={{ position: "relative", zIndex: 10 }}
+      >
+        <div className="flex flex-col items-center relative mb-5">
+          <GradeRing
+            key={currentIndex}
+            percent={report.percent}
+            gradeColor={report.gradeColor}
+            gradientStops={report.gradientStops}
+            grade={report.grade}
+            id={currentIndex}
+          />
+          <p className="font-mono text-[11px] text-muted-foreground mt-2">{report.subtitle}</p>
+        </div>
+        <div
+          className="relative mb-5 bg-destructive/5 border border-destructive/15 p-3.5"
+          style={{ borderRadius: "var(--radius-input)" }}
+        >
+          <div className="flex items-baseline gap-2">
+            <AnimatedCounter key={currentIndex} target={report.delta} />
+            <span className="font-body text-[13px] font-semibold text-destructive/80">Above Fair Market</span>
           </div>
-          <div
-            className="relative mb-5 bg-destructive/5 border border-destructive/15 p-3.5"
-            style={{ borderRadius: "var(--radius-input)" }}
-          >
-            <div className="flex items-baseline gap-2">
-              <AnimatedCounter key={currentIndex} target={report.delta} />
-              <span className="font-body text-[13px] font-semibold text-destructive/80">Above Fair Market</span>
-            </div>
-            <p className="font-mono text-[10px] text-muted-foreground mt-1">Broward County Benchmark · Q1 2025</p>
-          </div>
-          <div className="flex flex-col gap-2 relative">
-            {report.flags.map((flag, i) => {
-              const Icon = flag.icon;
-              return (
-                <div
-                  key={i}
-                  className="flex overflow-hidden bg-muted/50 border border-border"
-                  style={{ borderRadius: "var(--radius-input)" }}
-                >
-                  <div style={{ width: 3, backgroundColor: flag.stripe, flexShrink: 0 }} />
-                  <div className="flex items-start gap-2.5 p-2.5">
-                    <Icon size={15} color={flag.color} strokeWidth={2.5} className="mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="font-body text-[13px] font-bold" style={{ color: flag.color }}>
-                        {flag.label}
-                      </p>
-                      <p className="font-body text-[11px] text-muted-foreground mt-0.5">{flag.sub}</p>
-                    </div>
+          <p className="font-mono text-[10px] text-muted-foreground mt-1">Broward County Benchmark · Q1 2025</p>
+        </div>
+        <div className="flex flex-col gap-2 relative">
+          {report.flags.map((flag, i) => {
+            const Icon = flag.icon;
+            return (
+              <div
+                key={i}
+                className="flex overflow-hidden bg-muted/50 border border-border"
+                style={{ borderRadius: "var(--radius-input)" }}
+              >
+                <div style={{ width: 3, backgroundColor: flag.stripe, flexShrink: 0 }} />
+                <div className="flex items-start gap-2.5 p-2.5">
+                  <Icon size={15} color={flag.color} strokeWidth={2.5} className="mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="font-body text-[13px] font-bold" style={{ color: flag.color }}>
+                      {flag.label}
+                    </p>
+                    <p className="font-body text-[11px] text-muted-foreground mt-0.5">{flag.sub}</p>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-      </div>
-      <div className="text-center relative border-t border-border mt-3 pt-3.5">
+              </div>
+            );
+          })}
+        </div>
+      </motion.div>
+
+      <div
+        className="text-center border-t border-border mt-3 pt-3.5"
+        style={{ position: "relative", zIndex: 10 }}
+      >
         <p className="font-body text-xs italic text-muted-foreground">
           Sample View. Your Scan Reveals What To Do With Your Grade
         </p>
