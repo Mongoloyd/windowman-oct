@@ -10,13 +10,9 @@ import UploadZone from "@/components/UploadZone";
 import ScanTheatrics from "@/components/ScanTheatrics";
 import { PostScanReportSwitcher } from "@/components/post-scan/PostScanReportSwitcher";
 
-const FlowBEntry = React.lazy(() => import("@/components/FlowBEntry"));
-const MarketBaselineTool = React.lazy(() => import("@/components/MarketBaselineTool"));
 const ExitIntentPhoneModal = React.lazy(() => import("@/components/ExitIntentPhoneModal"));
 
 // ── Below-fold: lazy-loaded to cut initial bundle ~50% ──
-const ForensicChecklist = React.lazy(() => import("@/components/ForensicChecklist"));
-const QuoteWatcher = React.lazy(() => import("@/components/QuoteWatcher"));
 const SocialProofStrip = React.lazy(() => import("@/components/SocialProofStrip"));
 const IndustryTruth = React.lazy(() => import("@/components/IndustryTruth"));
 const ProcessSteps = React.lazy(() => import("@/components/ProcessSteps"));
@@ -63,6 +59,7 @@ type DevPreviewPanelComponent = React.ComponentType<{
   onScanStart: (fileName: string, scanId: string) => void;
 }>;
 
+
 const SectionReserve = ({ className = "min-h-[420px]" }: { className?: string }) => (
   <div className={`w-full bg-background ${className}`} aria-hidden="true" />
 );
@@ -77,7 +74,6 @@ const Index = () => {
   const [devPreviewPanel, setDevPreviewPanel] = useState<DevPreviewPanelComponent | null>(null);
   const [devPreviewConfigs, setDevPreviewConfigs] = useState<Record<DevPreviewState, DevPreviewConfig> | null>(null);
 
-  const [flowMode, setFlowMode] = useState<"A" | "B">("A");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [scanSessionId, setScanSessionId] = useState<string | null>(null);
   const [leadCaptured, setLeadCaptured] = useState(false);
@@ -85,18 +81,6 @@ const Index = () => {
   const [fileUploaded, setFileUploaded] = useState(false);
   const [gradeRevealed, setGradeRevealed] = useState(false);
   // contractorMatchVisible removed — CTAs now native in TruthReportClassic
-  const [flowBLeadCaptured, setFlowBLeadCaptured] = useState(false);
-  // Flow B preservation hook: reserved for MarketBaselineTool reveal state.
-  const [baselineRevealed, setBaselineRevealed] = useState(false);
-  const [quoteWatcherSet, setQuoteWatcherSet] = useState(false);
-  // Flow B preservation hook: do not remove, used to retain no-quote path context.
-  const [flowBAnswers, setFlowBAnswers] = useState({
-    county: "",
-    windowCount: "",
-    windowType: "",
-    appointmentDate: "",
-    appointmentTime: "",
-  });
   const [powerToolTriggered, setPowerToolTriggered] = useState(false);
   const [stepsCompleted, setStepsCompleted] = useState(0);
   const [selectedCounty, setSelectedCounty] = useState("your county");
@@ -254,15 +238,11 @@ const Index = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const anyLeadCaptured = flowMode === "A" ? leadCaptured : flowBLeadCaptured;
   const conversionType: "scan" | "account" | null =
-    leadCaptured || flowBLeadCaptured ? "account" : gradeRevealed ? "scan" : null;
-  const flowBComplete = flowMode === "B" && quoteWatcherSet;
+    leadCaptured ? "account" : gradeRevealed ? "scan" : null;
   const showRecoveryBar = IS_DEV_MODE
     ? false
-    : scrolledPast70 && !anyLeadCaptured && timeOnPage && !recoveryBarDismissed && !gradeRevealed && !flowBComplete;
-
-  const pendingScrollRef = useRef(false);
+    : scrolledPast70 && !leadCaptured && timeOnPage && !recoveryBarDismissed && !gradeRevealed;
 
   const scrollToTruthGate = useCallback(() => {
     requestAnimationFrame(() => {
@@ -280,29 +260,11 @@ const Index = () => {
       setScanSessionId(null);
       clearVerifiedAccess();
     }
-    if (flowMode !== "A") {
-      setFlowMode("A");
-      pendingScrollRef.current = true;
-    } else {
-      // Already in flow A with no report — scroll immediately
-      scrollToTruthGate();
-    }
+    scrollToTruthGate();
     setTruthGateHighlight(true);
   };
 
-  useEffect(() => {
-    if (pendingScrollRef.current && flowMode === "A" && !gradeRevealed) {
-      pendingScrollRef.current = false;
-      scrollToTruthGate();
-    }
-  }, [flowMode, gradeRevealed, scrollToTruthGate]);
-
   // Auto-scroll removed — CTA auto-scroll is now handled natively in TruthReportClassic
-
-  const switchToFlowA = (triggeredFrom: string) => {
-    setFlowMode("A");
-    pendingScrollRef.current = true;
-  };
 
   // Resolve active data: dev fixtures override real backend data
   const activeData = showReportFromDev ? devConfig!.analysisData : analysisData;
@@ -519,110 +481,69 @@ const Index = () => {
           {!shouldShowReport && !isDevPreview && (
             <>
               <div className="min-h-[80vh]">
-                {flowMode === "A" ? (
-                  <div key="flow-a-hero">
-                    <AuditHero
-                      onUploadQuote={() => triggerTruthGate("hero_scan_cta")}
-                      triggerPowerTool={powerToolTriggered}
-                      onPowerToolClose={() => setPowerToolTriggered(false)}
-                      variantHeadline={variant.headline}
-                      variantSubheadline={variant.subheadline}
-                      variantBadgeText={variant.badgeText}
-                    />
-                  </div>
-                ) : (
-                  <React.Suspense fallback={<SectionReserve className="min-h-[760px]" />}>
-                    <div key="flow-b-entry" className="wm-fade-in-soft">
-                      <FlowBEntry
-                          onContinueToTool={() => {
-                            document.getElementById("market-baseline")?.scrollIntoView({ behavior: "smooth" });
-                          }}
-                          onSwitchToFlowA={() => switchToFlowA("hero_switch")}
-                        />
-                      <ScamConcernImage />
-                      <MarketBaselineTool onLeadCaptured={() => setFlowBLeadCaptured(true)} />
-                      {flowBLeadCaptured && (
-                        <>
-                          <ForensicChecklist
-                              onUploadQuote={() => switchToFlowA("checklist_cta")}
-                              onSetReminder={() =>
-                                document.getElementById("quote-watcher")?.scrollIntoView({ behavior: "smooth" })
-                              }
-                          />
-                          <QuoteWatcher
-                              onReminderSet={(date, time) => {
-                                setQuoteWatcherSet(true);
-                                setFlowBAnswers((prev) => ({
-                                  ...prev,
-                                  appointmentDate: date,
-                                  appointmentTime: time,
-                                }));
-                              }}
-                              onSwitchToFlowA={() => switchToFlowA("watcher_link")}
-                              onViewChecklist={() =>
-                                document.getElementById("forensic-checklist")?.scrollIntoView({ behavior: "smooth" })
-                              }
-                          />
-                        </>
-                      )}
-                    </div>
-                  </React.Suspense>
-                )}
+                <div key="flow-a-hero">
+                  <AuditHero
+                    onUploadQuote={() => triggerTruthGate("hero_scan_cta")}
+                    triggerPowerTool={powerToolTriggered}
+                    onPowerToolClose={() => setPowerToolTriggered(false)}
+                    variantHeadline={variant.headline}
+                    variantSubheadline={variant.subheadline}
+                    variantBadgeText={variant.badgeText}
+                  />
+                </div>
               </div>
 
-              {flowMode === "A" && (
-                <>
-                  <React.Suspense fallback={<SectionReserve className="min-h-[760px]" />}>
-                    <ScamConcernImage />
-                    <OrangeScanner
-                      onScanClick={() => triggerTruthGate("demo_scan")}
-                      onDemoClick={() => {
-                        setPowerToolTriggered(true);
-                        window.scrollTo({ top: 0, behavior: "smooth" });
-                      }}
-                    />
-                  </React.Suspense>
-                  <div className="scroll-mt-24">
-                    <TruthGateFlow
-                      onLeadCaptured={(sid) => {
-                        setLeadCaptured(true);
-                        setSessionId(sid);
-                      }}
-                      onStepChange={(step, county) => {
-                        setStepsCompleted(step);
-                        setSelectedCounty(county);
-                      }}
-                      highlight={truthGateHighlight}
-                      onHighlightDone={() => setTruthGateHighlight(false)}
-                    />
-                  </div>
-                  <UploadZone
-                    isVisible={leadCaptured}
-                    sessionId={sessionId || undefined}
-                    onUploadReset={() => {
-                      setScanSessionId(null);
-                      setFileUploaded(false);
-                    }}
-                    onScanStart={(_fileName, ssId) => {
-                      trackEvent({ event_name: "scan_started", session_id: ssId, metadata: { file_name: _fileName } });
-                      setScanSessionId(ssId);
-                      setFileUploaded(true);
+              <>
+                <React.Suspense fallback={<SectionReserve className="min-h-[760px]" />}>
+                  <ScamConcernImage />
+                  <OrangeScanner
+                    onScanClick={() => triggerTruthGate("demo_scan")}
+                    onDemoClick={() => {
+                      setPowerToolTriggered(true);
+                      window.scrollTo({ top: 0, behavior: "smooth" });
                     }}
                   />
-                  <React.Suspense fallback={<SectionReserve className="min-h-[640px]" />}>
-                    <ProcessSteps
-                      onScanClick={() => triggerTruthGate("process_steps")}
-                      onDemoClick={() => {
-                        setPowerToolTriggered(true);
-                        window.scrollTo({ top: 0, behavior: "smooth" });
-                      }}
-                    />
-                    <div className="mt-24">
-                      <SocialProofStrip />
-                    </div>
-                  </React.Suspense>
-                </>
-              )}
+                </React.Suspense>
+                <div className="scroll-mt-24">
+                  <TruthGateFlow
+                    onLeadCaptured={(sid) => {
+                      setLeadCaptured(true);
+                      setSessionId(sid);
+                    }}
+                    onStepChange={(step, county) => {
+                      setStepsCompleted(step);
+                      setSelectedCounty(county);
+                    }}
+                    highlight={truthGateHighlight}
+                    onHighlightDone={() => setTruthGateHighlight(false)}
+                  />
+                </div>
+                <UploadZone
+                  isVisible={leadCaptured}
+                  sessionId={sessionId || undefined}
+                  onUploadReset={() => {
+                    setScanSessionId(null);
+                    setFileUploaded(false);
+                  }}
+                  onScanStart={(_fileName, ssId) => {
+                    trackEvent({ event_name: "scan_started", session_id: ssId, metadata: { file_name: _fileName } });
+                    setScanSessionId(ssId);
+                    setFileUploaded(true);
+                  }}
+                />
+                <React.Suspense fallback={<SectionReserve className="min-h-[640px]" />}>
+                  <ProcessSteps
+                    onScanClick={() => triggerTruthGate("process_steps")}
+                    onDemoClick={() => {
+                      setPowerToolTriggered(true);
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
+                  />
+                  <div className="mt-24">
+                    <SocialProofStrip />
+                  </div>
+                </React.Suspense>
+              </>
             </>
           )}
 
@@ -802,9 +723,9 @@ const Index = () => {
             <React.Suspense fallback={null}>
               <ExitIntentPhoneModal
               stepsCompleted={stepsCompleted}
-              flowMode={flowMode as "A" | "B" | "C"}
+              flowMode="A"
               leadCaptured={leadCaptured}
-              flowBLeadCaptured={flowBLeadCaptured}
+              flowBLeadCaptured={false}
               county={selectedCounty}
               answers={{
                 windowCount: null,
@@ -829,9 +750,6 @@ const Index = () => {
             county={selectedCounty}
             isVisible={showRecoveryBar}
             onDismiss={() => setRecoveryBarDismissed(true)}
-            flowMode={flowMode}
-            flowBLeadCaptured={flowBLeadCaptured}
-            quoteWatcherSet={quoteWatcherSet}
             onDemoCTAClick={() => {
               setPowerToolTriggered(true);
               window.scrollTo({ top: 0, behavior: "smooth" });
