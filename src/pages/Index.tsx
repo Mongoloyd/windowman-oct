@@ -59,12 +59,6 @@ type DevPreviewPanelComponent = React.ComponentType<{
   onScanStart: (fileName: string, scanId: string) => void;
 }>;
 
-type ExitIntentPhoneModalFlowAProps = Pick<
-  React.ComponentProps<typeof ExitIntentPhoneModal>,
-  "stepsCompleted" | "leadCaptured" | "county" | "answers" | "onClose" | "onCTAClick"
-> & { flowMode: "A" };
-
-const ExitIntentPhoneModalFlowA = ExitIntentPhoneModal as React.ComponentType<ExitIntentPhoneModalFlowAProps>;
 
 const SectionReserve = ({ className = "min-h-[420px]" }: { className?: string }) => (
   <div className={`w-full bg-background ${className}`} aria-hidden="true" />
@@ -727,10 +721,11 @@ const Index = () => {
 
           {(timeOnPage || scrolledPast70) && (
             <React.Suspense fallback={null}>
-              <ExitIntentPhoneModalFlowA
+              <ExitIntentPhoneModal
               stepsCompleted={stepsCompleted}
               flowMode="A"
               leadCaptured={leadCaptured}
+              flowBLeadCaptured={false}
               county={selectedCounty}
               answers={{
                 windowCount: null,
