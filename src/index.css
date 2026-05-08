@@ -953,3 +953,42 @@
     animation: none;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   Forensic Audit Report (v3) — Dark Premium Report Surface
+   Scoped to `.report-dark` so it does not affect global theme.
+   ═══════════════════════════════════════════════════════════ */
+.report-dark {
+  /* Deep navy canvas */
+  --fr-bg: 220 45% 6%;
+  --fr-surface: 220 38% 9%;
+  --fr-surface-2: 220 32% 12%;
+  --fr-border: 220 28% 18%;
+  --fr-border-strong: 220 25% 26%;
+
+  --fr-text: 210 30% 96%;
+  --fr-text-muted: 215 18% 65%;
+  --fr-text-dim: 215 14% 48%;
+
+  /* Accents */
+  --fr-cyan: 195 92% 55%;
+  --fr-gold: 42 88% 58%;
+  --fr-danger: 358 78% 58%;
+  --fr-caution: 38 92% 56%;
+  --fr-success: 152 64% 48%;
+
+  background-color: hsl(var(--fr-bg));
+  color: hsl(var(--fr-text));
+  font-family: var(--wm-font-body);
+}
+
+.report-dark .fr-card {
+  background: hsl(var(--fr-surface));
+  border: 1px solid hsl(var(--fr-border));
+  border-radius: 10px;
+}
+.report-dark .fr-mono {
+  font-family: var(--wm-font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
