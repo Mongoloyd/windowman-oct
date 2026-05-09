@@ -1,0 +1,127 @@
+/**
+ * ExecutiveSummaryCard — grade dial + confidence bar + flag counts + overpayment range.
+ * Mirrors the top card in both reference mockups (preview shows same layout).
+ */
+import GradeDial from "./GradeDial";
+
+interface Props {
+  grade: string;
+  confidenceScore: number | null;
+  signalsExtracted?: number | null;
+  signalsTotal?: number | null;
+  flagRedCount: number;
+  flagAmberCount: number;
+  flagClearCount?: number;
+  overpaymentLow?: number | null;
+  overpaymentHigh?: number | null;
+  overpaymentBasis?: string | null;
+}
+
+function fmtMoney(n: number | null | undefined): string {
+  if (n == null) return "—";
+  return `$${Math.round(n).toLocaleString()}`;
+}
+
+export default function ExecutiveSummaryCard({
+  grade,
+  confidenceScore,
+  signalsExtracted,
+  signalsTotal,
+  flagRedCount,
+  flagAmberCount,
+  flagClearCount,
+  overpaymentLow,
+  overpaymentHigh,
+  overpaymentBasis,
+}: Props) {
+  const conf = Math.max(0, Math.min(100, Math.round(confidenceScore ?? 0)));
+
+  return (
+    <section
+      className="fr-card p-5 sm:p-6"
+      style={{ borderColor: "hsl(var(--fr-cyan) / 0.35)" }}
+    >
+      <h2 className="fr-mono text-[11px] font-bold text-[hsl(var(--fr-cyan))] mb-5">
+        ▦ EXECUTIVE SUMMARY
+      </h2>
+
+      <div className="grid grid-cols-1 md:grid-cols-[auto_1fr_auto_auto] gap-6 md:gap-8 items-center">
+        {/* Grade dial */}
+        <GradeDial grade={grade} />
+
+        {/* Confidence + signals */}
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-[hsl(var(--fr-text))]">Confidence Score</div>
+          <div className="mt-1 text-lg font-bold text-[hsl(var(--fr-text))]">
+            {conf}% <span className="text-xs font-normal text-[hsl(var(--fr-text-muted))]">Signal Coverage</span>
+          </div>
+          <div
+            className="mt-2 h-1.5 w-full rounded-full overflow-hidden"
+            style={{ background: "hsl(var(--fr-border))" }}
+          >
+            <div
+              className="h-full rounded-full"
+              style={{
+                width: `${conf}%`,
+                background: "hsl(var(--fr-cyan))",
+                boxShadow: "0 0 8px hsl(var(--fr-cyan) / 0.6)",
+              }}
+            />
+          </div>
+          {signalsExtracted != null && signalsTotal != null && (
+            <div className="mt-3 text-xs text-[hsl(var(--fr-text-muted))]">
+              <span className="block fr-mono text-[10px]">Signals Extracted</span>
+              <span className="font-mono text-sm font-bold text-[hsl(var(--fr-text))]">
+                {signalsExtracted} <span className="text-[hsl(var(--fr-text-dim))]">of {signalsTotal}</span>
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Flag counts */}
+        <div className="space-y-1.5 text-sm">
+          <FlagRow color="hsl(var(--fr-danger))" label="Critical Flags" count={flagRedCount} />
+          <FlagRow color="hsl(var(--fr-caution))" label="Warnings" count={flagAmberCount} />
+          {flagClearCount != null && (
+            <FlagRow color="hsl(var(--fr-success))" label="Clear" count={flagClearCount} />
+          )}
+        </div>
+
+        {/* Overpayment */}
+        <div className="min-w-0">
+          <div className="text-xs text-[hsl(var(--fr-text-muted))]">Estimated Overpayment</div>
+          <div className="mt-1 font-mono text-2xl font-extrabold text-[hsl(var(--fr-danger))] leading-tight">
+            {overpaymentLow != null && overpaymentHigh != null
+              ? <>{fmtMoney(overpaymentLow)} <span className="text-[hsl(var(--fr-text-dim))] text-lg">–</span></>
+              : fmtMoney(overpaymentLow ?? overpaymentHigh)}
+          </div>
+          {overpaymentLow != null && overpaymentHigh != null && (
+            <div className="font-mono text-2xl font-extrabold text-[hsl(var(--fr-danger))] leading-tight">
+              {fmtMoney(overpaymentHigh)}
+            </div>
+          )}
+          {overpaymentBasis && (
+            <div className="mt-1.5 text-[10px] text-[hsl(var(--fr-text-dim))] leading-snug max-w-[200px]">
+              {overpaymentBasis}
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function FlagRow({ color, label, count }: { color: string; label: string; count: number }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span
+        className="inline-block w-2 h-2 rounded-full"
+        style={{ background: color, boxShadow: `0 0 6px ${color}` }}
+      />
+      <span className="text-[hsl(var(--fr-text-muted))] text-xs">{label}</span>
+      <span className="ml-auto font-mono font-bold" style={{ color }}>
+        {count}
+      </span>
+    </div>
+  );
+}
