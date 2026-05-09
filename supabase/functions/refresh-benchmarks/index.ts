@@ -74,6 +74,14 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // ── Cron auth ─────────────────────────────────────────────────────────
+  const provided = req.headers.get("x-cron-secret");
+  const expected = Deno.env.get("BENCHMARK_CRON_SECRET") ??
+    Deno.env.get("CONTRACTOR_CRON_SECRET");
+  if (!expected || provided !== expected) {
+    return json({ error: "Forbidden" }, 403);
+  }
+
   try {
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
