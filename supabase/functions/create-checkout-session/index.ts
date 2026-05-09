@@ -227,8 +227,18 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  /* ── GET = preview checkout diagnostic (read-only) ────────────── */
+  /* ── GET = preview checkout diagnostic (auth-gated, admin-only) ───
+     Previously this returned preview/contractor/Stripe state to any
+     unauthenticated caller. Now it requires a super_admin/operator JWT. */
   if (req.method === "GET") {
+    const { validateAdminRequestWithRole } = await import(
+      "../_shared/adminAuth.ts"
+    );
+    const authResult = await validateAdminRequestWithRole(req, [
+      "super_admin",
+      "operator",
+    ]);
+    if (!authResult.ok) return authResult.response;
     const previewEnabled =
       Deno.env.get("PREVIEW_CHECKOUT_ENABLED")?.trim().toLowerCase() === "true";
     const contractorId =
