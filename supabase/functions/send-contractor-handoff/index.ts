@@ -13,7 +13,7 @@ import { validateAdminRequestWithRole } from "../_shared/adminAuth.ts";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-dev-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 function json(body: unknown, status = 200) {
@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
       "super_admin",
       "operator",
     ]);
-    if (authResult instanceof Response) return authResult;
+    if (!authResult.ok) return authResult.response;
 
     const body = await req.json();
     const { lead_id } = body;

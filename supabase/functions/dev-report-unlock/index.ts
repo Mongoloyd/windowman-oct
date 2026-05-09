@@ -22,6 +22,17 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // ── Production guard ──────────────────────────────────────────────────
+    // This function MUST be explicitly enabled via env. In production, it 404s.
+    const enabled =
+      Deno.env.get("DEV_BYPASS_ENABLED")?.trim().toLowerCase() === "true";
+    if (!enabled) {
+      return new Response(JSON.stringify({ error: "Not found" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { scan_session_id, dev_secret } = await req.json();
 
     // ── Validate secret ───────────────────────────────────────────────────
