@@ -2,21 +2,25 @@
  * DevReportPreview — Internal/admin-lab report preview surface.
  * Routes: /dev/report-preview in development, /admin/lab/report-preview behind AdminAuthGate.
  *
- * Renders TruthReportClassic with hardcoded mock data including post-click match card state.
- * No OTP, no upload, no Supabase calls needed.
+ * Query params:
+ *   ?v=v3            → render the new ForensicAuditReport shell (Phase 1)
+ *   ?mode=preview    → preview/locked access level
+ *   ?mode=full       → full reveal (default)
+ *   (no params)      → legacy TruthReportClassic (rollback target)
  */
 
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import TruthReportClassic from "@/components/TruthReportClassic";
 import type { SuggestedMatch } from "@/components/TruthReportClassic";
 import type { AnalysisFlag, PillarScore } from "@/hooks/useAnalysisData";
+import ForensicAuditReport from "@/components/forensic-report/ForensicAuditReport";
 
 const MOCK_FLAGS: AnalysisFlag[] = [
-  { id: 1, label: "Missing NOA documentation", severity: "red", pillar: "safety_code", detail: "No Florida product approval or NOA numbers listed for any windows.", tip: null },
-  { id: 2, label: "No cancellation clause", severity: "red", pillar: "fine_print", detail: "Contract has no cancellation or rescission language.", tip: null },
-  { id: 3, label: "Vague disposal terms", severity: "red", pillar: "install_scope", detail: "No mention of debris removal or old window disposal.", tip: null },
+  { id: 1, label: "Hidden Fees Not Disclosed", severity: "red", pillar: "fine_print", detail: "Your quote excludes disposal fees ($300–$500), stucco patching ($1,200–$2,400), and permit costs ($800–$1,500). That's up to $4,400 in costs you won't see until it's too late.", tip: null },
+  { id: 2, label: "No Per-Unit Line Items", severity: "red", pillar: "price_fairness", detail: "A single lump sum of $22,000 with zero per-window pricing. Without line items, there's no way to verify what you're actually paying for each opening.", tip: null },
+  { id: 3, label: "Missing Code Language", severity: "red", pillar: "safety_code", detail: "No Florida Building Code reference anywhere in the contract. In Broward County's HVHZ zone, this is a permit rejection waiting to happen.", tip: null },
   { id: 4, label: "Warranty duration unclear", severity: "amber", pillar: "warranty", detail: "Warranty mentioned but no specific duration or coverage details.", tip: null },
-  { id: 5, label: "Per-unit pricing not itemized", severity: "amber", pillar: "price_fairness", detail: "Total price given but no per-opening breakdown.", tip: null },
 ];
 
 const MOCK_PILLARS: PillarScore[] = [
@@ -34,8 +38,41 @@ const MOCK_MATCH: SuggestedMatch = {
 };
 
 export default function DevReportPreview() {
+  const [params] = useSearchParams();
   const [introRequested, setIntroRequested] = useState(false);
   const [reportCallRequested, setReportCallRequested] = useState(false);
+
+  if (params.get("v") === "v3") {
+    const mode = params.get("mode") === "preview" ? "preview" : "full";
+    return (
+      <ForensicAuditReport
+        accessLevel={mode}
+        analysisId="abcd-1234-ef56-7829"
+        grade="D-"
+        confidenceScore={78}
+        signalsExtracted={31}
+        signalsTotal={37}
+        flagRedCount={4}
+        flagAmberCount={3}
+        flagClearCount={24}
+        overpaymentLow={3400}
+        overpaymentHigh={4200}
+        overpaymentBasis="Based on Central Florida Impact Window Index, DP 50, single-hung"
+        pricePerOpening={1833}
+        pricePerOpeningBand="high"
+        marketLow={1120}
+        marketHigh={1350}
+        totalContractPrice={22000}
+        totalOpenings={12}
+        flags={MOCK_FLAGS}
+        homeownerName="Maria Gonzalez"
+        propertyAddress="4521 NW 18th Ct, Coconut Creek, FL 33073"
+        propertyType="Single Family"
+        windZone="HVHZ"
+        codeJurisdiction="Broward County"
+      />
+    );
+  }
 
   return (
     <TruthReportClassic
