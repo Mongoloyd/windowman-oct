@@ -1193,15 +1193,16 @@ const PillarSlice = ({
       exit={{ opacity: 0, scaleX: 0 }}
       transition={{ duration: reducedMotion ? 0.05 : 0.2, delay: reducedMotion ? 0 : delay }}
       style={{
-        background: "#111111",
-        border: "1px solid #1A1A1A",
-        borderLeft: `3px solid ${resolvedColor}`,
-        borderRadius: 0,
-        padding: "12px 16px",
-        marginBottom: 8,
+        background: "#101010",
+        border: "1px solid #222",
+        borderLeft: `4px solid ${resolvedColor}`,
+        borderRadius: 4,
+        padding: "16px 18px",
+        marginBottom: 10,
         textAlign: "left",
         position: "relative",
         overflow: "hidden",
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03)",
       }}
     >
       {/* Slice highlight strip */}
@@ -1212,17 +1213,18 @@ const PillarSlice = ({
           left: 0,
           right: 0,
           height: 1,
-          background: `linear-gradient(90deg, ${resolvedColor}40, transparent)`,
+          background: `linear-gradient(90deg, ${resolvedColor}66, transparent)`,
         }}
       />
 
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 3 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
         <p
           style={{
             fontFamily: "'DM Mono', monospace",
-            fontSize: 8,
-            color: "#4B5563",
-            letterSpacing: "0.1em",
+            fontSize: 11,
+            fontWeight: 600,
+            color: "#9CA3AF",
+            letterSpacing: "0.16em",
           }}
         >
           PILLAR {index + 1} / 5
@@ -1234,11 +1236,14 @@ const PillarSlice = ({
             transition={{ duration: reducedMotion ? 0.05 : 0.15 }}
             style={{
               fontFamily: "'DM Mono', monospace",
-              fontSize: 8,
+              fontSize: 11,
+              fontWeight: 700,
               color: resolvedColor,
-              background: `${resolvedColor}1A`,
-              padding: "1px 7px",
-              letterSpacing: "0.08em",
+              background: `${resolvedColor}22`,
+              border: `1px solid ${resolvedColor}55`,
+              padding: "3px 10px",
+              borderRadius: 2,
+              letterSpacing: "0.12em",
             }}
           >
             {pillarStatusBadge(pillarStatus)}
@@ -1249,10 +1254,12 @@ const PillarSlice = ({
       <p
         style={{
           fontFamily: "'DM Mono', monospace",
-          fontSize: 9,
-          color: "#E5E7EB",
-          letterSpacing: "0.1em",
-          marginBottom: 5,
+          fontSize: 13,
+          fontWeight: 700,
+          color: "#F3F4F6",
+          letterSpacing: "0.12em",
+          marginBottom: 8,
+          textTransform: "uppercase",
         }}
       >
         {label}
@@ -1261,29 +1268,42 @@ const PillarSlice = ({
       <p
         style={{
           fontFamily: "'DM Sans', sans-serif",
-          fontSize: 12,
-          color: isDone ? "#4B5563" : "#9CA3AF",
-          marginBottom: 7,
+          fontSize: 14,
+          lineHeight: 1.5,
+          color: isDone ? "#9CA3AF" : "#D1D5DB",
+          marginBottom: 12,
         }}
       >
         {isDone ? "Analysis complete" : text.replace("{county}", county)}
       </p>
 
       {/* Score bar — no fake numeric values */}
-      <div style={{ background: "#1A1A1A", height: 3, overflow: "hidden" }}>
+      <div
+        style={{
+          background: "#1A1A1A",
+          height: 6,
+          overflow: "hidden",
+          borderRadius: 2,
+          border: "1px solid #262626",
+        }}
+      >
         {isDone ? (
           <motion.div
             initial={{ width: "0%" }}
             animate={{ width: score != null ? `${Math.max(0, Math.min(100, score))}%` : "5%" }}
             transition={{ duration: reducedMotion ? 0.05 : 0.3, ease: "easeOut" }}
-            style={{ height: 3, backgroundColor: resolvedColor }}
+            style={{
+              height: "100%",
+              backgroundColor: resolvedColor,
+              boxShadow: `0 0 10px ${resolvedColor}80`,
+            }}
           />
         ) : (
           // Indeterminate shimmer — does not imply a specific value
           <motion.div
             animate={reducedMotion ? {} : { opacity: [0.35, 0.7, 0.35] }}
             transition={{ duration: 1.6, repeat: Infinity }}
-            style={{ height: 3, backgroundColor: accentColor, width: "28%" }}
+            style={{ height: "100%", backgroundColor: accentColor, width: "28%" }}
           />
         )}
       </div>
@@ -1293,10 +1313,11 @@ const PillarSlice = ({
         <p
           style={{
             fontFamily: "'DM Mono', monospace",
-            fontSize: 8,
+            fontSize: 12,
+            fontWeight: 700,
             color: resolvedColor,
-            letterSpacing: "0.08em",
-            marginTop: 3,
+            letterSpacing: "0.1em",
+            marginTop: 6,
             textAlign: "right",
           }}
         >
