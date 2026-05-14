@@ -220,21 +220,41 @@ async function validateAndExtractUser(
     value ? value.trim().replace(/^['"]+|['"]+$/g, "") : null;
 
   const devSecretRaw = req.headers.get("x-dev-secret");
-  const expectedDevSecretRaw = Deno.env.get("DEV_BYPASS_SECRET");
-  const devSecret = normalizeSecretValue(devSecretRaw);
-  const expectedDevSecret = normalizeSecretValue(expectedDevSecretRaw ?? null);
-
-  // Diagnostic logging (never logs actual secret values)
-  console.log("[adminAuth] Dev bypass check:", {
-    headerPresent: !!devSecretRaw,
-    envPresent: !!expectedDevSecretRaw,
-    headerLen: devSecret?.length ?? 0,
-    envLen: expectedDevSecret?.length ?? 0,
-    match: devSecret !== null && devSecret === expectedDevSecret,
-  });
 
   if (devSecretRaw) {
-    // Header was sent — resolve bypass decisively (never fall through to JWT)
+    // Header was sent — resolve bypass decisively (never fall through to JWT).
+    // Canonical pattern matches supabase/functions/dev-report-unlock/index.ts:
+    // tolerates whitespace and case, requires strict "true".
+    const bypassEnabled =
+      Deno.env.get("DEV_BYPASS_ENABLED")?.trim().toLowerCase() === "true";
+    const expectedDevSecretRaw = Deno.env.get("DEV_BYPASS_SECRET");
+    const devSecret = normalizeSecretValue(devSecretRaw);
+    const expectedDevSecret = normalizeSecretValue(
+      expectedDevSecretRaw ?? null,
+    );
+
+    // Diagnostic log — no `match` field, no secret values, no lengths leaked.
+    console.log("[adminAuth] Dev bypass attempt:", {
+      bypassEnabled,
+      envPresent: !!expectedDevSecretRaw,
+    });
+
+    // Gate 1: feature flag must be explicitly enabled.
+    if (!bypassEnabled) {
+      console.error(
+        "[adminAuth] DEV BYPASS FAIL: DEV_BYPASS_ENABLED is not 'true'",
+      );
+      return {
+        ok: false,
+        response: errorResponse(
+          403,
+          "dev_bypass_disabled",
+          "Dev bypass is not enabled on this environment",
+        ),
+      };
+    }
+
+    // Gate 2: server must have the secret configured.
     if (!expectedDevSecret) {
       console.error(
         "[adminAuth] DEV BYPASS FAIL: DEV_BYPASS_SECRET env var is not set on server",
@@ -248,11 +268,10 @@ async function validateAndExtractUser(
         ),
       };
     }
+
+    // Gate 3: secret must match.
     if (devSecret !== expectedDevSecret) {
-      console.error(
-        "[adminAuth] DEV BYPASS FAIL: secret mismatch (lengths: header=" +
-          (devSecret?.length ?? 0) + " env=" + expectedDevSecret.length + ")",
-      );
+      console.error("[adminAuth] DEV BYPASS FAIL: secret mismatch");
       return {
         ok: false,
         response: errorResponse(
@@ -262,7 +281,8 @@ async function validateAndExtractUser(
         ),
       };
     }
-    // Match — grant super_admin
+
+    // All gates passed — grant super_admin.
     console.log("[adminAuth] DEV BYPASS GRANTED: super_admin");
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
     const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey);
