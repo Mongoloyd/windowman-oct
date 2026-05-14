@@ -817,7 +817,7 @@ const DocumentSilhouette = ({
             top: `${marker.y}%`,
             width: `${marker.w}%`,
             height: `${marker.h}%`,
-            border: `1px dashed ${marker.color}60`,
+            border: `1px dashed ${marker.color}80`,
             zIndex: 6,
             pointerEvents: "none",
           }}
@@ -825,14 +825,15 @@ const DocumentSilhouette = ({
           <span
             style={{
               position: "absolute",
-              top: -7,
+              top: -8,
               left: 1,
               fontFamily: "'DM Mono', monospace",
-              fontSize: 6,
+              fontSize: 8,
+              fontWeight: 700,
               color: marker.color,
-              letterSpacing: "0.05em",
-              background: "#0F0F0F",
-              padding: "0 2px",
+              letterSpacing: "0.08em",
+              background: "#0B0B0B",
+              padding: "1px 4px",
               lineHeight: 1,
             }}
           >
