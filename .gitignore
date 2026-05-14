@@ -30,3 +30,4 @@ dist-ssr
 
 # Supabase CLI artifacts
 supabase/.temp/
+supabase/.branches/
