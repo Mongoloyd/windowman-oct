@@ -711,18 +711,20 @@ const DocumentSilhouette = ({
   isScanning: boolean;
   reducedMotion: boolean;
 }) => (
-  <div style={{ width: 210 }}>
+  <div style={{ width: 232 }}>
     <div
       style={{
         fontFamily: "'DM Mono', monospace",
-        fontSize: 8,
-        color: "#D1D5DB",
-        letterSpacing: "0.1em",
-        marginBottom: 4,
+        fontSize: 11,
+        fontWeight: 600,
+        color: "#93C5FD",
+        letterSpacing: "0.22em",
+        marginBottom: 8,
         textAlign: "center",
+        textTransform: "uppercase",
       }}
     >
-      DOCUMENT X-RAY
+      Document X-Ray
     </div>
     <motion.div
       animate={{ opacity: dimmed ? 0.35 : 1 }}
