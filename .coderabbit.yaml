@@ -2,7 +2,7 @@
 language: "en-US"
 early_access: false
 reviews:
-  profile: "Senior Systems Architect"
+  profile: "assertive"
   request_changes_workflow: true
   system_instructions: |
     You are the Lead Systems Architect for WindowMan (wm-mvp). Review this PR against our strict architectural and design guardrails. If ANY of these rules are violated, you MUST request changes, point out the exact line numbers, and explicitly block the PR.
