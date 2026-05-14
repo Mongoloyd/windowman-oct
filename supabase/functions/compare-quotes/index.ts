@@ -190,10 +190,13 @@ Deno.serve(async (req) => {
 
     // ── 2. Check cache (only after all sessions authorized) ───────────────
     const sortedIds = [...uniqueIds].sort();
+    // Exact set match: both .contains() and .containedBy() must pass so
+    // a cached superset (e.g. [A,B,C]) is never served for a subset request ([A,B]).
     const { data: cached } = await supabase
       .from("quote_comparisons")
       .select("comparison_json")
       .contains("scan_session_ids", sortedIds)
+      .containedBy("scan_session_ids", sortedIds)
       .maybeSingle();
 
     if (cached?.comparison_json) {
