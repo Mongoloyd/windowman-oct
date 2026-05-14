@@ -536,10 +536,8 @@ export function useAnalysisData(
       try {
         let fullRow: RawFullRow | null;
 
-        if (devBypassEnabled) {
-          console.info("[fetchFull] 🔓 DEV BYPASS — skipping get_analysis_full RPC");
-          fullRow = await doDevBypassFetch(scanSessionId);
-        } else {
+        if (isValidPhone(phoneE164)) {
+          // Real OTP-verified phone always wins. Dev bypass cannot override this.
           const result = await fetchAnalysisFull(scanSessionId, phoneE164);
           if (!result.ok) {
             const err = result as ServiceErr;
@@ -547,7 +545,7 @@ export function useAnalysisData(
               "[FETCH_FULL_FORENSIC] error",
               JSON.stringify({
                 scanSessionId,
-                phone_last4: phoneE164?.slice(-4),
+                phone_last4: phoneE164.slice(-4),
                 code: err.code,
                 message: err.message,
               })
@@ -560,6 +558,19 @@ export function useAnalysisData(
             return;
           }
           fullRow = result.data;
+        } else if (devBypassEnabled) {
+          // Explicit dev/design path — only when no real phone is available.
+          console.info("[fetchFull] 🔓 DEV BYPASS — no phoneE164, using dev-report-unlock");
+          try {
+            fullRow = await doDevBypassFetch(scanSessionId);
+          } catch (e) {
+            console.warn("[fetchFull] dev bypass failed", e);
+            setFullFetchError("Verification required to unlock report.");
+            return;
+          }
+        } else {
+          setFullFetchError("Verification required to unlock report.");
+          return;
         }
 
         if (!fullRow) {
