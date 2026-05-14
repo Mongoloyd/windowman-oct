@@ -573,10 +573,11 @@ const ScanTheatrics = ({
                   <p
                     style={{
                       fontFamily: "'DM Mono', monospace",
-                      fontSize: 12,
-                      color: "#4B5563",
-                      letterSpacing: "0.12em",
-                      marginBottom: 14,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: "#93C5FD",
+                      letterSpacing: "0.18em",
+                      marginBottom: 18,
                     }}
                   >
                     DECONSTRUCTING DOCUMENT · 5 PILLARS
