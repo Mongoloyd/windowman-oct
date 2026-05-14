@@ -439,18 +439,34 @@ const ScanTheatrics = ({
             transition={{ duration: 0.15 }}
             style={{ maxWidth: 720, width: "100%" }}
           >
-            <p
-              style={{
-                fontFamily: "'DM Mono', monospace",
-                fontSize: 12,
-                color: "#60A5FA",
-                letterSpacing: "0.14em",
-                marginBottom: 14,
-                textAlign: "center",
-              }}
-            >
-              WINDOWMAN AI · FORENSIC DOCUMENT ANALYSIS
-            </p>
+            <div style={{ marginBottom: 18, textAlign: "center" }}>
+              <p
+                style={{
+                  fontFamily: "'DM Mono', monospace",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: "#93C5FD",
+                  letterSpacing: "0.28em",
+                  marginBottom: 6,
+                  textTransform: "uppercase",
+                }}
+              >
+                WindowMan AI
+              </p>
+              <p
+                style={{
+                  fontFamily: "'DM Mono', monospace",
+                  fontSize: 18,
+                  fontWeight: 700,
+                  color: "#F3F4F6",
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                  textShadow: "0 0 24px rgba(96,165,250,0.25)",
+                }}
+              >
+                Forensic Document Analysis
+              </p>
+            </div>
 
             {/* Two-panel: doc silhouette (left) + forensic terminal (right) */}
             <div className="flex flex-col md:flex-row" style={{ gap: 10, width: "100%" }}>
