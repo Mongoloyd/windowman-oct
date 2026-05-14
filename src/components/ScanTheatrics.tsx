@@ -916,14 +916,16 @@ const ForensicTerminal = ({
       {/* Terminal panel */}
       <div
         style={{
-          background: "#0D0D0D",
-          border: "1px solid #1F1F1F",
-          padding: "10px 14px",
+          background: "#0B0B0B",
+          border: "1px solid #2A2A2A",
+          borderRadius: 4,
+          padding: "14px 18px",
           fontFamily: "'DM Mono', monospace",
           flex: 1,
           display: "flex",
           flexDirection: "column",
-          minHeight: 200,
+          minHeight: 220,
+          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04), 0 0 32px rgba(96,165,250,0.06)",
         }}
       >
         {/* macOS-style terminal titlebar */}
@@ -931,17 +933,26 @@ const ForensicTerminal = ({
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 5,
-            marginBottom: 10,
-            paddingBottom: 8,
-            borderBottom: "1px solid #1A1A1A",
+            gap: 6,
+            marginBottom: 14,
+            paddingBottom: 10,
+            borderBottom: "1px solid #242424",
           }}
         >
           {(["#FF5F57", "#FFBD2E", "#28C840"] as const).map((c, i) => (
-            <div key={i} style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: c }} />
+            <div key={i} style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: c }} />
           ))}
-          <span style={{ fontSize: 8, color: "#D1D5DB", marginLeft: 6, letterSpacing: "0.1em" }}>
-            WINDOWMAN-AI · FORENSIC ENGINE
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              color: "#D1D5DB",
+              marginLeft: 10,
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+            }}
+          >
+            WindowMan-AI · Forensic Engine
           </span>
         </div>
 
@@ -954,36 +965,69 @@ const ForensicTerminal = ({
             const isActiveStep = i === effectiveIndex;
 
             if (isComplete) {
+              const doneText = step.done.replace("{county}", county);
+              const okIdx = doneText.lastIndexOf("[OK]");
+              const head = okIdx >= 0 ? doneText.slice(0, okIdx) : doneText;
+              const ok = okIdx >= 0 ? "[OK]" : "";
               return (
                 <div
                   key={i}
                   style={{
-                    fontSize: 13,
-                    color: "#D1D5DB",
-                    marginBottom: 5,
-                    letterSpacing: "0.02em",
-                    lineHeight: 1.5,
+                    fontSize: 14,
+                    color: "#E5E7EB",
+                    marginBottom: 7,
+                    letterSpacing: "0.01em",
+                    lineHeight: 1.55,
+                    fontWeight: 500,
                   }}
                 >
-                  {step.done.replace("{county}", county)}
+                  <span>{head}</span>
+                  {ok && (
+                    <span
+                      style={{
+                        color: "#34D399",
+                        fontWeight: 700,
+                        letterSpacing: "0.06em",
+                      }}
+                    >
+                      {ok}
+                    </span>
+                  )}
                 </div>
               );
             }
 
             if (isActiveStep) {
               return (
-                <div key={i} style={{ display: "flex", alignItems: "center", marginBottom: 5 }}>
-                  <motion.span
-                    animate={reducedMotion ? {} : { color: ["#FB923C", "#FB923C", "#FB923C"] }}
-                    transition={{ duration: 1.2, repeat: Infinity }}
-                    style={{ fontSize: 13, letterSpacing: "0.02em", lineHeight: 1.5, color: "#FB923C" }}
+                <div
+                  key={i}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    marginBottom: 7,
+                    padding: "4px 8px",
+                    marginLeft: -8,
+                    marginRight: -8,
+                    borderLeft: "2px solid #FB923C",
+                    background: "linear-gradient(90deg, rgba(251,146,60,0.08), transparent 70%)",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 14,
+                      letterSpacing: "0.01em",
+                      lineHeight: 1.55,
+                      color: "#FDBA74",
+                      fontWeight: 700,
+                      textShadow: "0 0 12px rgba(251,146,60,0.35)",
+                    }}
                   >
                     {typedText}
-                  </motion.span>
+                  </span>
                   <motion.span
                     animate={reducedMotion ? {} : { opacity: [1, 0, 1] }}
                     transition={{ duration: 0.7, repeat: Infinity }}
-                    style={{ fontSize: 13, color: "#FB923C", marginLeft: 1 }}
+                    style={{ fontSize: 14, color: "#FB923C", marginLeft: 2, fontWeight: 700 }}
                   >
                     ▋
                   </motion.span>
@@ -997,14 +1041,25 @@ const ForensicTerminal = ({
       </div>
 
       {/* Progress bar */}
-      <div style={{ marginTop: 6, background: "#1A1A1A", height: 4, overflow: "hidden" }}>
+      <div
+        style={{
+          marginTop: 10,
+          background: "#161616",
+          height: 8,
+          overflow: "hidden",
+          borderRadius: 2,
+          border: "1px solid #2A2A2A",
+          boxShadow: "inset 0 1px 2px rgba(0,0,0,0.6)",
+        }}
+      >
         <motion.div
           style={{
-            height: 4,
-            background: "linear-gradient(90deg, #60A5FA, #FB923C)",
+            height: "100%",
+            background: "linear-gradient(90deg, #60A5FA 0%, #93C5FD 45%, #FDBA74 100%)",
             width: `${progressWidth}%`,
+            boxShadow: "0 0 12px rgba(96,165,250,0.5)",
           }}
-          animate={isCliffhanger && !reducedMotion ? { opacity: [0.6, 1, 0.6] } : {}}
+          animate={isCliffhanger && !reducedMotion ? { opacity: [0.7, 1, 0.7] } : {}}
           transition={isCliffhanger && !reducedMotion ? { duration: 1.2, repeat: Infinity } : {}}
         />
       </div>
