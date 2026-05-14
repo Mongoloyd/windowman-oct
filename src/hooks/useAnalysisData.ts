@@ -402,6 +402,9 @@ export function useAnalysisData(
   }, [scanSessionId]);
 
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const E164_RE = /^\+[1-9]\d{7,14}$/;
+  const isValidPhone = (p: string | null | undefined): p is string =>
+    typeof p === "string" && E164_RE.test(p.trim());
   // ── Phase 1: Preview fetch ─────────────────────────────────────────────
   useEffect(() => {
     if (!enabled || !scanSessionId || previewFetchedRef.current === scanSessionId) return;
@@ -533,10 +536,8 @@ export function useAnalysisData(
       try {
         let fullRow: RawFullRow | null;
 
-        if (devBypassEnabled) {
-          console.info("[fetchFull] 🔓 DEV BYPASS — skipping get_analysis_full RPC");
-          fullRow = await doDevBypassFetch(scanSessionId);
-        } else {
+        if (isValidPhone(phoneE164)) {
+          // Real OTP-verified phone always wins. Dev bypass cannot override this.
           const result = await fetchAnalysisFull(scanSessionId, phoneE164);
           if (!result.ok) {
             const err = result as ServiceErr;
@@ -544,7 +545,7 @@ export function useAnalysisData(
               "[FETCH_FULL_FORENSIC] error",
               JSON.stringify({
                 scanSessionId,
-                phone_last4: phoneE164?.slice(-4),
+                phone_last4: phoneE164.slice(-4),
                 code: err.code,
                 message: err.message,
               })
@@ -557,6 +558,19 @@ export function useAnalysisData(
             return;
           }
           fullRow = result.data;
+        } else if (devBypassEnabled) {
+          // Explicit dev/design path — only when no real phone is available.
+          console.info("[fetchFull] 🔓 DEV BYPASS — no phoneE164, using dev-report-unlock");
+          try {
+            fullRow = await doDevBypassFetch(scanSessionId);
+          } catch (e) {
+            console.warn("[fetchFull] dev bypass failed", e);
+            setFullFetchError("Verification required to unlock report.");
+            return;
+          }
+        } else {
+          setFullFetchError("Verification required to unlock report.");
+          return;
         }
 
         if (!fullRow) {
@@ -615,16 +629,9 @@ export function useAnalysisData(
     try {
       let fullRow: RawFullRow | null;
 
-      if (devBypassEnabled) {
-        console.info("[tryResume] 🔓 DEV BYPASS — skipping get_analysis_full RPC");
-        try {
-          fullRow = await doDevBypassFetch(scanSessionId);
-        } catch (e) {
-          console.warn("[tryResume] dev bypass error", e);
-          return false;
-        }
-      } else {
-        const result = await fetchAnalysisFull(scanSessionId, record!.phone_e164);
+      if (record && isValidPhone(record.phone_e164)) {
+        // Stored verified-access phone always uses the gated RPC.
+        const result = await fetchAnalysisFull(scanSessionId, record.phone_e164);
         if (!result.ok) {
           const err = result as ServiceErr;
           console.warn("[tryResume] RPC error — clearing stale record", err.message);
@@ -632,6 +639,16 @@ export function useAnalysisData(
           return false;
         }
         fullRow = result.data;
+      } else if (devBypassEnabled) {
+        console.info("[tryResume] 🔓 DEV BYPASS — no verified phone record");
+        try {
+          fullRow = await doDevBypassFetch(scanSessionId);
+        } catch (e) {
+          console.warn("[tryResume] dev bypass error", e);
+          return false;
+        }
+      } else {
+        return false;
       }
 
       if (!fullRow) {
