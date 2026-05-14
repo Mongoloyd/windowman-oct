@@ -439,18 +439,34 @@ const ScanTheatrics = ({
             transition={{ duration: 0.15 }}
             style={{ maxWidth: 720, width: "100%" }}
           >
-            <p
-              style={{
-                fontFamily: "'DM Mono', monospace",
-                fontSize: 12,
-                color: "#60A5FA",
-                letterSpacing: "0.14em",
-                marginBottom: 14,
-                textAlign: "center",
-              }}
-            >
-              WINDOWMAN AI · FORENSIC DOCUMENT ANALYSIS
-            </p>
+            <div style={{ marginBottom: 18, textAlign: "center" }}>
+              <p
+                style={{
+                  fontFamily: "'DM Mono', monospace",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: "#93C5FD",
+                  letterSpacing: "0.28em",
+                  marginBottom: 6,
+                  textTransform: "uppercase",
+                }}
+              >
+                WindowMan AI
+              </p>
+              <p
+                style={{
+                  fontFamily: "'DM Mono', monospace",
+                  fontSize: 18,
+                  fontWeight: 700,
+                  color: "#F3F4F6",
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                  textShadow: "0 0 24px rgba(96,165,250,0.25)",
+                }}
+              >
+                Forensic Document Analysis
+              </p>
+            </div>
 
             {/* Two-panel: doc silhouette (left) + forensic terminal (right) */}
             <div className="flex flex-col md:flex-row" style={{ gap: 10, width: "100%" }}>
@@ -529,10 +545,12 @@ const ScanTheatrics = ({
                 <p
                   style={{
                     fontFamily: "'DM Mono', monospace",
-                    fontSize: 13,
-                    color: "#FB923C",
-                    letterSpacing: "0.06em",
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: "#FDBA74",
+                    letterSpacing: "0.1em",
                     textAlign: "center",
+                    textShadow: "0 0 18px rgba(251,146,60,0.3)",
                   }}
                 >
                   Data extracted successfully. Analysis ready to compile.
@@ -557,10 +575,11 @@ const ScanTheatrics = ({
                   <p
                     style={{
                       fontFamily: "'DM Mono', monospace",
-                      fontSize: 12,
-                      color: "#4B5563",
-                      letterSpacing: "0.12em",
-                      marginBottom: 14,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: "#93C5FD",
+                      letterSpacing: "0.18em",
+                      marginBottom: 18,
                     }}
                   >
                     DECONSTRUCTING DOCUMENT · 5 PILLARS
@@ -659,13 +678,16 @@ const ScanTheatrics = ({
                     transition={{ delay: 0.4, duration: 0.2 }}
                     style={{
                       fontFamily: "'DM Mono', monospace",
-                      fontSize: 13,
-                      color: "#FB923C",
-                      letterSpacing: "0.12em",
-                      marginTop: 20,
+                      fontSize: 14,
+                      fontWeight: 700,
+                      color: "#FDBA74",
+                      letterSpacing: "0.18em",
+                      marginTop: 24,
+                      textTransform: "uppercase",
+                      textShadow: "0 0 18px rgba(251,146,60,0.35)",
                     }}
                   >
-                    ANALYSIS COMPLETE — GRADE ASSIGNED
+                    Analysis Complete — Grade Assigned
                   </motion.p>
                 </motion.div>
               )}
@@ -694,18 +716,20 @@ const DocumentSilhouette = ({
   isScanning: boolean;
   reducedMotion: boolean;
 }) => (
-  <div style={{ width: 210 }}>
+  <div style={{ width: 232 }}>
     <div
       style={{
         fontFamily: "'DM Mono', monospace",
-        fontSize: 8,
-        color: "#D1D5DB",
-        letterSpacing: "0.1em",
-        marginBottom: 4,
+        fontSize: 11,
+        fontWeight: 600,
+        color: "#93C5FD",
+        letterSpacing: "0.22em",
+        marginBottom: 8,
         textAlign: "center",
+        textTransform: "uppercase",
       }}
     >
-      DOCUMENT X-RAY
+      Document X-Ray
     </div>
     <motion.div
       animate={{ opacity: dimmed ? 0.35 : 1 }}
@@ -798,7 +822,7 @@ const DocumentSilhouette = ({
             top: `${marker.y}%`,
             width: `${marker.w}%`,
             height: `${marker.h}%`,
-            border: `1px dashed ${marker.color}60`,
+            border: `1px dashed ${marker.color}80`,
             zIndex: 6,
             pointerEvents: "none",
           }}
@@ -806,14 +830,15 @@ const DocumentSilhouette = ({
           <span
             style={{
               position: "absolute",
-              top: -7,
+              top: -8,
               left: 1,
               fontFamily: "'DM Mono', monospace",
-              fontSize: 6,
+              fontSize: 8,
+              fontWeight: 700,
               color: marker.color,
-              letterSpacing: "0.05em",
-              background: "#0F0F0F",
-              padding: "0 2px",
+              letterSpacing: "0.08em",
+              background: "#0B0B0B",
+              padding: "1px 4px",
               lineHeight: 1,
             }}
           >
@@ -897,14 +922,16 @@ const ForensicTerminal = ({
       {/* Terminal panel */}
       <div
         style={{
-          background: "#0D0D0D",
-          border: "1px solid #1F1F1F",
-          padding: "10px 14px",
+          background: "#0B0B0B",
+          border: "1px solid #2A2A2A",
+          borderRadius: 4,
+          padding: "14px 18px",
           fontFamily: "'DM Mono', monospace",
           flex: 1,
           display: "flex",
           flexDirection: "column",
-          minHeight: 200,
+          minHeight: 220,
+          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04), 0 0 32px rgba(96,165,250,0.06)",
         }}
       >
         {/* macOS-style terminal titlebar */}
@@ -912,17 +939,26 @@ const ForensicTerminal = ({
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 5,
-            marginBottom: 10,
-            paddingBottom: 8,
-            borderBottom: "1px solid #1A1A1A",
+            gap: 6,
+            marginBottom: 14,
+            paddingBottom: 10,
+            borderBottom: "1px solid #242424",
           }}
         >
           {(["#FF5F57", "#FFBD2E", "#28C840"] as const).map((c, i) => (
-            <div key={i} style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: c }} />
+            <div key={i} style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: c }} />
           ))}
-          <span style={{ fontSize: 8, color: "#D1D5DB", marginLeft: 6, letterSpacing: "0.1em" }}>
-            WINDOWMAN-AI · FORENSIC ENGINE
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              color: "#D1D5DB",
+              marginLeft: 10,
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+            }}
+          >
+            WindowMan-AI · Forensic Engine
           </span>
         </div>
 
@@ -935,36 +971,69 @@ const ForensicTerminal = ({
             const isActiveStep = i === effectiveIndex;
 
             if (isComplete) {
+              const doneText = step.done.replace("{county}", county);
+              const okIdx = doneText.lastIndexOf("[OK]");
+              const head = okIdx >= 0 ? doneText.slice(0, okIdx) : doneText;
+              const ok = okIdx >= 0 ? "[OK]" : "";
               return (
                 <div
                   key={i}
                   style={{
-                    fontSize: 13,
-                    color: "#D1D5DB",
-                    marginBottom: 5,
-                    letterSpacing: "0.02em",
-                    lineHeight: 1.5,
+                    fontSize: 14,
+                    color: "#E5E7EB",
+                    marginBottom: 7,
+                    letterSpacing: "0.01em",
+                    lineHeight: 1.55,
+                    fontWeight: 500,
                   }}
                 >
-                  {step.done.replace("{county}", county)}
+                  <span>{head}</span>
+                  {ok && (
+                    <span
+                      style={{
+                        color: "#34D399",
+                        fontWeight: 700,
+                        letterSpacing: "0.06em",
+                      }}
+                    >
+                      {ok}
+                    </span>
+                  )}
                 </div>
               );
             }
 
             if (isActiveStep) {
               return (
-                <div key={i} style={{ display: "flex", alignItems: "center", marginBottom: 5 }}>
-                  <motion.span
-                    animate={reducedMotion ? {} : { color: ["#FB923C", "#FB923C", "#FB923C"] }}
-                    transition={{ duration: 1.2, repeat: Infinity }}
-                    style={{ fontSize: 13, letterSpacing: "0.02em", lineHeight: 1.5, color: "#FB923C" }}
+                <div
+                  key={i}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    marginBottom: 7,
+                    padding: "4px 8px",
+                    marginLeft: -8,
+                    marginRight: -8,
+                    borderLeft: "2px solid #FB923C",
+                    background: "linear-gradient(90deg, rgba(251,146,60,0.08), transparent 70%)",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 14,
+                      letterSpacing: "0.01em",
+                      lineHeight: 1.55,
+                      color: "#FDBA74",
+                      fontWeight: 700,
+                      textShadow: "0 0 12px rgba(251,146,60,0.35)",
+                    }}
                   >
                     {typedText}
-                  </motion.span>
+                  </span>
                   <motion.span
                     animate={reducedMotion ? {} : { opacity: [1, 0, 1] }}
                     transition={{ duration: 0.7, repeat: Infinity }}
-                    style={{ fontSize: 13, color: "#FB923C", marginLeft: 1 }}
+                    style={{ fontSize: 14, color: "#FB923C", marginLeft: 2, fontWeight: 700 }}
                   >
                     ▋
                   </motion.span>
@@ -978,14 +1047,25 @@ const ForensicTerminal = ({
       </div>
 
       {/* Progress bar */}
-      <div style={{ marginTop: 6, background: "#1A1A1A", height: 4, overflow: "hidden" }}>
+      <div
+        style={{
+          marginTop: 10,
+          background: "#161616",
+          height: 8,
+          overflow: "hidden",
+          borderRadius: 2,
+          border: "1px solid #2A2A2A",
+          boxShadow: "inset 0 1px 2px rgba(0,0,0,0.6)",
+        }}
+      >
         <motion.div
           style={{
-            height: 4,
-            background: "linear-gradient(90deg, #60A5FA, #FB923C)",
+            height: "100%",
+            background: "linear-gradient(90deg, #60A5FA 0%, #93C5FD 45%, #FDBA74 100%)",
             width: `${progressWidth}%`,
+            boxShadow: "0 0 12px rgba(96,165,250,0.5)",
           }}
-          animate={isCliffhanger && !reducedMotion ? { opacity: [0.6, 1, 0.6] } : {}}
+          animate={isCliffhanger && !reducedMotion ? { opacity: [0.7, 1, 0.7] } : {}}
           transition={isCliffhanger && !reducedMotion ? { duration: 1.2, repeat: Infinity } : {}}
         />
       </div>
@@ -1067,12 +1147,15 @@ const FlagPulsar = ({
           transform: "translateX(-50%)",
           marginTop: 8,
           fontFamily: "'DM Mono', monospace",
-          fontSize: 6,
-          color: "#F87171",
-          letterSpacing: "0.05em",
+          fontSize: 9,
+          fontWeight: 700,
+          color: "#FCA5A5",
+          letterSpacing: "0.1em",
           whiteSpace: "nowrap",
-          background: "rgba(10,10,10,0.9)",
-          padding: "1px 3px",
+          background: "rgba(10,10,10,0.95)",
+          border: "1px solid rgba(248,113,113,0.4)",
+          padding: "2px 5px",
+          borderRadius: 2,
           zIndex: 2,
         }}
       >
@@ -1118,15 +1201,16 @@ const PillarSlice = ({
       exit={{ opacity: 0, scaleX: 0 }}
       transition={{ duration: reducedMotion ? 0.05 : 0.2, delay: reducedMotion ? 0 : delay }}
       style={{
-        background: "#111111",
-        border: "1px solid #1A1A1A",
-        borderLeft: `3px solid ${resolvedColor}`,
-        borderRadius: 0,
-        padding: "12px 16px",
-        marginBottom: 8,
+        background: "#101010",
+        border: "1px solid #222",
+        borderLeft: `4px solid ${resolvedColor}`,
+        borderRadius: 4,
+        padding: "16px 18px",
+        marginBottom: 10,
         textAlign: "left",
         position: "relative",
         overflow: "hidden",
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03)",
       }}
     >
       {/* Slice highlight strip */}
@@ -1137,17 +1221,18 @@ const PillarSlice = ({
           left: 0,
           right: 0,
           height: 1,
-          background: `linear-gradient(90deg, ${resolvedColor}40, transparent)`,
+          background: `linear-gradient(90deg, ${resolvedColor}66, transparent)`,
         }}
       />
 
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 3 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
         <p
           style={{
             fontFamily: "'DM Mono', monospace",
-            fontSize: 8,
-            color: "#4B5563",
-            letterSpacing: "0.1em",
+            fontSize: 11,
+            fontWeight: 600,
+            color: "#9CA3AF",
+            letterSpacing: "0.16em",
           }}
         >
           PILLAR {index + 1} / 5
@@ -1159,11 +1244,14 @@ const PillarSlice = ({
             transition={{ duration: reducedMotion ? 0.05 : 0.15 }}
             style={{
               fontFamily: "'DM Mono', monospace",
-              fontSize: 8,
+              fontSize: 11,
+              fontWeight: 700,
               color: resolvedColor,
-              background: `${resolvedColor}1A`,
-              padding: "1px 7px",
-              letterSpacing: "0.08em",
+              background: `${resolvedColor}22`,
+              border: `1px solid ${resolvedColor}55`,
+              padding: "3px 10px",
+              borderRadius: 2,
+              letterSpacing: "0.12em",
             }}
           >
             {pillarStatusBadge(pillarStatus)}
@@ -1174,10 +1262,12 @@ const PillarSlice = ({
       <p
         style={{
           fontFamily: "'DM Mono', monospace",
-          fontSize: 9,
-          color: "#E5E7EB",
-          letterSpacing: "0.1em",
-          marginBottom: 5,
+          fontSize: 13,
+          fontWeight: 700,
+          color: "#F3F4F6",
+          letterSpacing: "0.12em",
+          marginBottom: 8,
+          textTransform: "uppercase",
         }}
       >
         {label}
@@ -1186,29 +1276,42 @@ const PillarSlice = ({
       <p
         style={{
           fontFamily: "'DM Sans', sans-serif",
-          fontSize: 12,
-          color: isDone ? "#4B5563" : "#9CA3AF",
-          marginBottom: 7,
+          fontSize: 14,
+          lineHeight: 1.5,
+          color: isDone ? "#9CA3AF" : "#D1D5DB",
+          marginBottom: 12,
         }}
       >
         {isDone ? "Analysis complete" : text.replace("{county}", county)}
       </p>
 
       {/* Score bar — no fake numeric values */}
-      <div style={{ background: "#1A1A1A", height: 3, overflow: "hidden" }}>
+      <div
+        style={{
+          background: "#1A1A1A",
+          height: 6,
+          overflow: "hidden",
+          borderRadius: 2,
+          border: "1px solid #262626",
+        }}
+      >
         {isDone ? (
           <motion.div
             initial={{ width: "0%" }}
             animate={{ width: score != null ? `${Math.max(0, Math.min(100, score))}%` : "5%" }}
             transition={{ duration: reducedMotion ? 0.05 : 0.3, ease: "easeOut" }}
-            style={{ height: 3, backgroundColor: resolvedColor }}
+            style={{
+              height: "100%",
+              backgroundColor: resolvedColor,
+              boxShadow: `0 0 10px ${resolvedColor}80`,
+            }}
           />
         ) : (
           // Indeterminate shimmer — does not imply a specific value
           <motion.div
             animate={reducedMotion ? {} : { opacity: [0.35, 0.7, 0.35] }}
             transition={{ duration: 1.6, repeat: Infinity }}
-            style={{ height: 3, backgroundColor: accentColor, width: "28%" }}
+            style={{ height: "100%", backgroundColor: accentColor, width: "28%" }}
           />
         )}
       </div>
@@ -1218,10 +1321,11 @@ const PillarSlice = ({
         <p
           style={{
             fontFamily: "'DM Mono', monospace",
-            fontSize: 8,
+            fontSize: 12,
+            fontWeight: 700,
             color: resolvedColor,
-            letterSpacing: "0.08em",
-            marginTop: 3,
+            letterSpacing: "0.1em",
+            marginTop: 6,
             textAlign: "right",
           }}
         >
