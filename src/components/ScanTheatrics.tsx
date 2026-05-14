@@ -545,10 +545,12 @@ const ScanTheatrics = ({
                 <p
                   style={{
                     fontFamily: "'DM Mono', monospace",
-                    fontSize: 13,
-                    color: "#FB923C",
-                    letterSpacing: "0.06em",
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: "#FDBA74",
+                    letterSpacing: "0.1em",
                     textAlign: "center",
+                    textShadow: "0 0 18px rgba(251,146,60,0.3)",
                   }}
                 >
                   Data extracted successfully. Analysis ready to compile.
