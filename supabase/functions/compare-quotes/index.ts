@@ -4,7 +4,7 @@
  * Accepts 2+ scan_session_ids, verifies auth for each, pulls full_json
  * extractions, and sends them to Gemini for a structured comparison.
  *
- * Auth: requires phone_e164 + at least one verified session.
+ * Auth: requires phone_e164 + all submitted sessions individually verified.
  * Caches: stores result in quote_comparisons table.
  *
  * POST { scan_session_ids: string[], phone_e164: string }
@@ -99,6 +99,15 @@ Deno.serve(async (req) => {
       return json({ error: "Maximum 5 quotes can be compared at once" }, 400);
     }
 
+    // Deduplicate to prevent a repeated ID from satisfying the >= 2 check.
+    const uniqueIds: string[] = [...new Set<string>(scan_session_ids)];
+    if (uniqueIds.length < 2) {
+      return json(
+        { error: "At least 2 distinct scan_session_ids are required" },
+        400,
+      );
+    }
+
     const geminiKey = Deno.env.get("GEMINI_API_KEY");
     if (!geminiKey) {
       return json({ error: "AI service not configured" }, 500);
@@ -118,17 +127,31 @@ Deno.serve(async (req) => {
       analysis_status: "complete";
     }> = [];
     let unauthorizedCount = 0;
+    let incompleteCount = 0;
 
-    for (const sid of scan_session_ids) {
-      const { data, error } = await supabase.rpc("get_analysis_full", {
-        p_scan_session_id: sid,
-        p_phone_e164: phone_e164,
-      });
+    const rpcResults = await Promise.all(
+      uniqueIds.map((sid) =>
+        supabase.rpc("get_analysis_full", {
+          p_scan_session_id: sid,
+          p_phone_e164: phone_e164,
+        })
+      ),
+    );
 
+    for (let i = 0; i < rpcResults.length; i++) {
+      const { data, error } = rpcResults[i];
+      const sid = uniqueIds[i];
       const row = Array.isArray(data) ? data[0] : null;
 
-      if (error || !row || row.grade === "__UNAUTHORIZED__" || !row.full_json) {
+      if (error || !row || row.grade === "__UNAUTHORIZED__") {
+        // Phone not verified for this session, or RPC error.
         unauthorizedCount++;
+        continue;
+      }
+
+      if (!row.full_json) {
+        // Phone verified but analysis is not yet complete.
+        incompleteCount++;
         continue;
       }
 
@@ -143,7 +166,7 @@ Deno.serve(async (req) => {
 
     if (unauthorizedCount > 0) {
       console.log("[compare-quotes] Auth failed", {
-        submittedCount: scan_session_ids.length,
+        submittedCount: uniqueIds.length,
         authorizedCount: authorizedAnalyses.length,
         unauthorizedCount,
       });
@@ -156,17 +179,17 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (authorizedAnalyses.length < 2) {
+    if (incompleteCount > 0 || authorizedAnalyses.length < 2) {
       return json(
         {
-          error: `Need at least 2 authorized complete analyses. Found ${authorizedAnalyses.length}.`,
+          error: `Need at least 2 complete analyses. Found ${authorizedAnalyses.length} complete, ${incompleteCount} still processing.`,
         },
         400,
       );
     }
 
     // ── 2. Check cache (only after all sessions authorized) ───────────────
-    const sortedIds = [...scan_session_ids].sort();
+    const sortedIds = [...uniqueIds].sort();
     const { data: cached } = await supabase
       .from("quote_comparisons")
       .select("comparison_json")
@@ -338,7 +361,7 @@ Deno.serve(async (req) => {
     const { data: firstSession } = await supabase
       .from("scan_sessions")
       .select("lead_id")
-      .eq("id", scan_session_ids[0])
+      .eq("id", uniqueIds[0])
       .maybeSingle();
     leadId = firstSession?.lead_id || null;
 
@@ -354,7 +377,7 @@ Deno.serve(async (req) => {
     const now = new Date().toISOString();
     await supabase.from("event_logs").insert({
       event_name: "quotes_compared",
-      session_id: scan_session_ids[0],
+      session_id: uniqueIds[0],
       route: "/report",
       metadata: {
         analysis_count: authorizedAnalyses.length,
