@@ -4,7 +4,7 @@
  * Accepts 2+ scan_session_ids, verifies auth for each, pulls full_json
  * extractions, and sends them to Gemini for a structured comparison.
  *
- * Auth: requires phone_e164 + at least one verified session.
+ * Auth: requires phone_e164 + all submitted sessions individually verified.
  * Caches: stores result in quote_comparisons table.
  *
  * POST { scan_session_ids: string[], phone_e164: string }
@@ -99,6 +99,15 @@ Deno.serve(async (req) => {
       return json({ error: "Maximum 5 quotes can be compared at once" }, 400);
     }
 
+    // Deduplicate to prevent a repeated ID from satisfying the >= 2 check.
+    const uniqueIds: string[] = [...new Set<string>(scan_session_ids)];
+    if (uniqueIds.length < 2) {
+      return json(
+        { error: "At least 2 distinct scan_session_ids are required" },
+        400,
+      );
+    }
+
     const geminiKey = Deno.env.get("GEMINI_API_KEY");
     if (!geminiKey) {
       return json({ error: "AI service not configured" }, 500);
@@ -109,36 +118,91 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // ── 1. Verify auth for at least one session ───────────────────────
-    let authorized = false;
-    for (const sid of scan_session_ids) {
-      const { data } = await supabase.rpc("get_analysis_full", {
-        p_scan_session_id: sid,
-        p_phone_e164: phone_e164,
-      });
-      if (data && data.length > 0) {
-        authorized = true;
-        break;
+    // ── 1. Per-session authorization + data collection ───────────────────
+    const authorizedAnalyses: Array<{
+      scan_session_id: string;
+      grade: string;
+      flags: unknown;
+      full_json: Record<string, unknown>;
+      analysis_status: "complete";
+    }> = [];
+    let unauthorizedCount = 0;
+    let incompleteCount = 0;
+
+    const rpcResults = await Promise.all(
+      uniqueIds.map((sid) =>
+        supabase.rpc("get_analysis_full", {
+          p_scan_session_id: sid,
+          p_phone_e164: phone_e164,
+        })
+      ),
+    );
+
+    for (let i = 0; i < rpcResults.length; i++) {
+      const { data, error } = rpcResults[i];
+      const sid = uniqueIds[i];
+      const row = Array.isArray(data) ? data[0] : null;
+
+      if (error || !row || row.grade === "__UNAUTHORIZED__") {
+        // Phone not verified for this session, or RPC error.
+        unauthorizedCount++;
+        continue;
       }
+
+      if (!row.full_json) {
+        // Phone verified but analysis is not yet complete.
+        incompleteCount++;
+        continue;
+      }
+
+      authorizedAnalyses.push({
+        scan_session_id: sid,
+        grade: row.grade as string,
+        flags: row.flags,
+        full_json: row.full_json as Record<string, unknown>,
+        analysis_status: "complete",
+      });
     }
 
-    if (!authorized) {
+    if (unauthorizedCount > 0) {
+      console.log("[compare-quotes] Auth failed", {
+        submittedCount: uniqueIds.length,
+        authorizedCount: authorizedAnalyses.length,
+        unauthorizedCount,
+      });
       return json(
-        { error: "Not authorized. Phone verification required." },
+        {
+          error:
+            "Not authorized for all submitted quotes. Phone verification is required for each quote.",
+        },
         403,
       );
     }
 
-    // ── 2. Check cache ────────────────────────────────────────────────
-    const sortedIds = [...scan_session_ids].sort();
+    if (incompleteCount > 0 || authorizedAnalyses.length < 2) {
+      return json(
+        {
+          error: `Need at least 2 complete analyses. Found ${authorizedAnalyses.length} complete, ${incompleteCount} still processing.`,
+        },
+        400,
+      );
+    }
+
+    // ── 2. Check cache (only after all sessions authorized) ───────────────
+    const sortedIds = [...uniqueIds].sort();
+    // Exact set match: both .contains() and .containedBy() must pass so
+    // a cached superset (e.g. [A,B,C]) is never served for a subset request ([A,B]).
     const { data: cached } = await supabase
       .from("quote_comparisons")
       .select("comparison_json")
       .contains("scan_session_ids", sortedIds)
+      .containedBy("scan_session_ids", sortedIds)
       .maybeSingle();
 
     if (cached?.comparison_json) {
-      console.log("[compare-quotes] Returning cached comparison");
+      console.log("[compare-quotes] Returning cached comparison", {
+        authorizedCount: authorizedAnalyses.length,
+      });
       return json({
         success: true,
         comparison: cached.comparison_json,
@@ -146,23 +210,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── 3. Fetch all analyses ─────────────────────────────────────────
-    const { data: analyses, error: fetchErr } = await supabase
-      .from("analyses")
-      .select("scan_session_id, grade, flags, full_json, analysis_status")
-      .in("scan_session_id", scan_session_ids)
-      .eq("analysis_status", "complete");
-
-    if (fetchErr || !analyses || analyses.length < 2) {
-      return json({
-        error: `Need at least 2 completed analyses. Found ${
-          analyses?.length || 0
-        }.`,
-      }, 400);
-    }
-
-    // ── 4. Build Gemini payload ───────────────────────────────────────
-    const quoteDataBlocks = analyses.map((a, i) => {
+    // ── 3. Build Gemini payload ───────────────────────────────────────
+    const quoteDataBlocks = authorizedAnalyses.map((a, i) => {
       const fullJson = a.full_json as Record<string, unknown>;
       const extraction = fullJson?.extraction as
         | Record<string, unknown>
@@ -245,11 +294,11 @@ Deno.serve(async (req) => {
     });
 
     const fullPayload =
-      `HOMEOWNER QUOTE COMPARISON REQUEST\n\nThe homeowner has ${analyses.length} quotes to compare for the same project.\n${
+      `HOMEOWNER QUOTE COMPARISON REQUEST\n\nThe homeowner has ${authorizedAnalyses.length} quotes to compare for the same project.\n${
         quoteDataBlocks.join("\n")
       }`;
 
-    // ── 5. Call Gemini ─────────────────────────────────────────────────
+    // ── 4. Call Gemini ─────────────────────────────────────────────────
     const geminiUrl =
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`;
 
@@ -288,7 +337,7 @@ Deno.serve(async (req) => {
       return json({ error: "AI returned empty response" }, 502);
     }
 
-    // ── 6. Parse response ──────────────────────────────────────────────
+    // ── 5. Parse response ──────────────────────────────────────────────
     let cleanJson = rawText.trim();
     if (cleanJson.startsWith("```")) {
       cleanJson = cleanJson.replace(/^```(?:json)?\s*/, "").replace(
@@ -310,40 +359,40 @@ Deno.serve(async (req) => {
       return json({ error: "AI response was not parseable" }, 502);
     }
 
-    // ── 7. Resolve lead_id for caching ───────────────────────────────
+    // ── 6. Resolve lead_id for caching ───────────────────────────────
     let leadId: string | null = null;
     const { data: firstSession } = await supabase
       .from("scan_sessions")
       .select("lead_id")
-      .eq("id", scan_session_ids[0])
+      .eq("id", uniqueIds[0])
       .maybeSingle();
     leadId = firstSession?.lead_id || null;
 
-    // ── 8. Cache comparison ───────────────────────────────────────────
+    // ── 7. Cache comparison ───────────────────────────────────────────
     await supabase.from("quote_comparisons").insert({
       lead_id: leadId,
       scan_session_ids: sortedIds,
       comparison_json: comparison,
-      analysis_count: analyses.length,
+      analysis_count: authorizedAnalyses.length,
     });
 
-    // ── 9. Log event ──────────────────────────────────────────────────
+    // ── 8. Log event ──────────────────────────────────────────────────
     const now = new Date().toISOString();
     await supabase.from("event_logs").insert({
       event_name: "quotes_compared",
-      session_id: scan_session_ids[0],
+      session_id: uniqueIds[0],
       route: "/report",
       metadata: {
-        analysis_count: analyses.length,
-        grades: analyses.map((a) => a.grade),
+        analysis_count: authorizedAnalyses.length,
+        grades: authorizedAnalyses.map((a) => a.grade),
         // deno-lint-ignore no-explicit-any
         best_value: (comparison.recommendation as any)?.best_value || null,
         timestamp: now,
       },
     });
 
-    console.log(`[compare-quotes] Compared ${analyses.length} quotes`, {
-      grades: analyses.map((a) => a.grade),
+    console.log(`[compare-quotes] Compared ${authorizedAnalyses.length} quotes`, {
+      grades: authorizedAnalyses.map((a) => a.grade),
       // deno-lint-ignore no-explicit-any
       bestValue: (comparison.recommendation as any)?.best_value,
     });
