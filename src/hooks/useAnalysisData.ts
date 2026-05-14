@@ -402,6 +402,9 @@ export function useAnalysisData(
   }, [scanSessionId]);
 
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const E164_RE = /^\+[1-9]\d{7,14}$/;
+  const isValidPhone = (p: string | null | undefined): p is string =>
+    typeof p === "string" && E164_RE.test(p.trim());
   // ── Phase 1: Preview fetch ─────────────────────────────────────────────
   useEffect(() => {
     if (!enabled || !scanSessionId || previewFetchedRef.current === scanSessionId) return;
