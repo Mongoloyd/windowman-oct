@@ -1,142 +1,179 @@
-# Phase 1 — Preflight Plan: Scan Theatrics Visual Polish
-
-Visual-only refinement of the dark forensic scanner experience. Zero changes to data flow, payloads, OTP, reveal gating, or scanner state.
-
-## PREFLIGHT FILES
-
-
-| File                                       | Controls                                                                                                                                                                                 | Type                                | Touching?                                                                                                                                                   |
-| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/components/ScanTheatrics.tsx`         | Dark forensic terminal, X-ray document overlay, [OK] status lines, pillar reveal cards, progress UI. Reads `useScanPolling`, `usePhonePipeline`, `useScanFunnelSafe` for *display only*. | Visual + reads existing logic hooks | YES — visual JSX/Tailwind/CSS only. No hook calls, props, state, effects, payloads, or callbacks modified.                                                  |
-| `src/components/OrangeScanner.tsx`         | Sibling scanner visual used on Index above ScanTheatrics. Same scanning ceremony layer.                                                                                                  | Visual                              | YES — visual JSX/Tailwind only.                                                                                                                             |
-| `src/components/XRayScannerBackground.tsx` | Decorative scanning bar background wrapper (14 lines, pure presentational).                                                                                                              | Pure visual                         | Possibly — minor opacity/contrast tweak only.                                                                                                               |
-| `src/index.css`                            | Houses `.report-dark` and forensic tokens.                                                                                                                                               | Tokens/CSS                          | Possibly — may add 2–4 forensic tokens (e.g., `--scan-ok`, `--scan-active`, `--scan-muted`) used by the components above. No existing token values changed. |
-
-
-No other files in scope. No new files created.
-
-## PROTECTED FILES — NOT TOUCHED
-
-Confirmed I will NOT touch:
-
-- `supabase/functions/start-upload-scan-session/*`
-- `supabase/functions/scan-quote/*`
-- `supabase/functions/send-otp/*`
-- `supabase/functions/verify-otp/*`
-- `src/services/reportService.ts`
-- `src/services/phoneVerificationService.ts`
-- `src/hooks/useAnalysisData.ts`
-- `src/hooks/usePhonePipeline.ts`
-- `src/hooks/useScanPolling.ts` (scanner logic — read-only consumer)
-- `src/state/scanFunnel.tsx` (state machine — read-only consumer)
-- Supabase schema, RLS, storage policies, Twilio config, secrets
-
-No backend payloads, RPC params, Edge Function bodies, OTP transport, preview/full reveal authorization, or scanner state semantics will be changed.
-
-## VISUAL CHANGES (summary)
-
-**Typography & contrast**
-
-- Raise terminal/status line size from ~xs to sm (mobile) / base (desktop); line-height 1.5–1.6.
-- Active step: `font-semibold`, full-opacity foreground, subtle blue glow.
-- Completed steps: `font-medium` at ~75–80% opacity (not 40%); legible secondary.
-- Main scan heading: heavier weight, tracked-tight, larger; clear eyebrow above.
-- Replace thin gray `[OK]` with bold amber/emerald token, monospace, slightly enlarged.
-
-**Hierarchy**
-
-- 5-tier visual stack: Title → Active line → Completed lines → Supporting labels → X-ray decoration.
-- Active step gets a left accent rule + faint surgical-blue background wash.
-- X-ray markers and document silhouette dropped to lower z-contrast so text always wins.
-
-**Progress / pillar cards**
-
-- Progress bar: thicker (8–10px), inner gradient, inset border, accessible contrast track.
-- Pillar cards: stronger card border, clearer header, status chip with icon + label (not color-only).
-
-**Palette discipline**
-
-- Restrained: deep noir surface, single surgical blue (`hsl(210 90% 60%)`), single amber accent (`hsl(30 95% 55%)`), emerald for OK only. No neon.
-
-**Mobile**
-
-- Min 14px terminal text, no clipped lines, single-column pillar stack, progress bar always visible above-the-fold of the panel.
-
-**Motion / a11y**
-
-- Existing Framer Motion easing softened only where already declared. `prefers-reduced-motion` respected (disable typewriter cursor blink + scan bar pulse).
-- Status communicated via icon + label + color (not color alone).
-
-## STATE / FLOW INVARIANTS PRESERVED
-
-- No new React state, context, or storage keys.
-- No new effects, timers, polling, or retries.
-- No new Supabase / RPC / Edge Function calls.
-- No new props on `ScanTheatrics` or `OrangeScanner`.
-- No exposure of `phone_e164`, `lead_id`, `scan_session_id`, `quote_file_id`, `analysis_id`, request/response bodies, logs, or `full_json`.
-- Upload → scan → preview → OTP → full reveal state machine untouched.
-
-## TEST CHECKLIST (post-build)
-
-1. Upload quote → ScanTheatrics renders.
-2. Terminal lines readable on 375px mobile and desktop.
-3. Active step visually dominant; completed steps still legible.
-4. Progress bar visible and high-contrast.
-5. Partial reveal appears as before.
-6. OTP send + verify unchanged.
-7. Full reveal appears as before.
-8. Refresh mid-flow does not break reveal state.
-9. `prefers-reduced-motion` disables blink/pulse.
-
-## FINAL VERDICT
-
-SAFE_VISUAL_ONLY_CHANGE: **YES**
-
-Proceed with Phase 2 build only under this additional hard constraint:
-
-In ScanTheatrics.tsx and OrangeScanner.tsx, do not modify:
-
-- imports
-
-- hook calls
-
-- useState declarations
-
-- useEffect blocks
-
-- useRef declarations
-
-- useCallback declarations
-
-- timer logic
-
-- polling logic
-
-- navigation logic
-
-- callback props
-
-- function signatures
-
-- scanStatus conditions
-
-- OTP auto-send behavior
-
-- onRevealComplete timing
-
-- invalid_document / needs_better_upload / error handling branches
-
-Allowed edits inside these files are limited to:
-
-- className strings
-
-- inline style visual values
-
-- copy for non-sensitive status labels
-
-- decorative markup that does not read or change state
-
-- Tailwind/CSS visual structure only
-
-If any desired visual change requires touching logic, stop and report it instead of implementing it.  
+## ROLE:  
+Act as a senior React/Supabase engineer for WindowMan.  
   
+TASK:  
+Fix the dev-bypass precedence bug after OTP verification.  
+  
+This is a small surgical bugfix. Do not redesign UI. Do not touch backend infrastructure.  
+  
+GOAL:  
+After OTP verification, `fetchFull(phoneE164)` must always call the normal gated full-report RPC:  
+  
+fetchAnalysisFull(scanSessionId, phoneE164)  
+  
+Dev bypass may only run when no valid phoneE164 is available, and only in DEV mode when a stored dev secret exists.  
+  
+BUG:  
+After a user enters a phone number at partial reveal, receives OTP, and enters the OTP code, the app can call:  
+  
+/functions/v1/dev-report-unlock  
+  
+instead of the normal:  
+  
+rpc/get_analysis_full  
+  
+Observed runtime error:  
+Edge function returned 404: {"error":"Not found"}  
+filename: supabase/functions/dev-report-unlock/index.ts  
+  
+ROOT CAUSE:  
+In `src/hooks/useAnalysisData.ts`, the current logic enables dev bypass when:  
+  
+[import.meta.env.DEV](http://import.meta.env.DEV) && !!peekDevSecret()  
+  
+Then `fetchFull(phoneE164)` chooses dev bypass before checking whether a real phoneE164 exists.  
+  
+That means a stale localStorage value at `wm_dev_secret` can hijack the real OTP unlock path in Lovable/dev preview.  
+  
+CORRECT PRECEDENCE:  
+Real OTP unlock always wins.  
+  
+Required behavior:  
+  
+if (phoneE164 is present and valid E.164) {  
+ call fetchAnalysisFull(scanSessionId, phoneE164)  
+} else if (devBypassEnabled) {  
+ call doDevBypassFetch(scanSessionId)  
+} else {  
+ set a safe fullFetchError such as "Verification required to unlock report."  
+}  
+  
+Dev bypass must never override a real phone-based unlock.  
+  
+STRICT CONSTRAINTS:  
+Do not modify Edge Functions.  
+Do not modify Supabase schema.  
+Do not modify RLS.  
+Do not modify storage policies.  
+Do not modify Twilio logic.  
+Do not modify send-otp.  
+Do not modify verify-otp.  
+Do not modify scan-quote.  
+Do not modify start-upload-scan-session.  
+Do not modify reportService.ts unless absolutely required and reported first.  
+Do not change RPC names.  
+Do not change RPC params.  
+Do not change OTP verification behavior.  
+Do not change scan/upload behavior.  
+Do not change preview/full reveal authorization.  
+Do not change UI design.  
+Do not add fallback from failed get_analysis_full to dev-report-unlock.  
+Do not expose phone_e164, lead_id, scan_session_id, request bodies, response bodies, logs, or full_json in UI.  
+  
+PREFERRED FILES:  
+Modify only:  
+- src/hooks/useAnalysisData.ts  
+  
+Optionally modify or add one focused test file only if existing test infrastructure supports it.  
+  
+TEST-FIRST REQUIREMENT:  
+Before editing production code:  
+  
+1. Verify whether `src/hooks/useAnalysisData.fetchFull.test.ts` actually exists.  
+  
+2. If it exists:  
+ - Add one failing test proving:  
+ - `peekDevSecret()` returns a value  
+ - `fetchFull(validPhoneE164)` is called  
+ - `fetchAnalysisFull(scanSessionId, validPhoneE164)` is called  
+ - `fetchFullViaDevBypassService` is NOT called  
+ - Do not weaken, delete, or rewrite existing tests.  
+  
+3. If that exact file does not exist:  
+ - Check whether the repo already has Vitest/test infrastructure.  
+ - If yes, create the smallest focused test file for this hook behavior.  
+ - If no suitable test infrastructure exists, do not introduce a new framework. Report that and proceed with the smallest production fix.  
+  
+4. If any existing test fails unexpectedly, stop and report the failure. Do not rewrite tests to hide a regression.  
+  
+PRODUCTION FIX REQUIREMENTS:  
+  
+1. Add a local E.164 phone validator near the existing UUID validation logic:  
+  
+const E164_RE = /^\+[1-9]\d{7,14}$/;  
+const isValidPhone = (p: string | null | undefined): p is string =>  
+ typeof p === "string" && E164_RE.test(p.trim());  
+  
+2. In `fetchFull(phoneE164)`:  
+ - Check for valid phoneE164 before checking devBypassEnabled.  
+ - If phoneE164 is valid, always call:  
+ fetchAnalysisFull(scanSessionId, phoneE164)  
+ - If phoneE164 is valid, never call:  
+ doDevBypassFetch(scanSessionId)  
+ - If fetchAnalysisFull returns unauthorized or another error, surface the existing safe fullFetchError.  
+ - Do not fallback to dev-report-unlock.  
+  
+3. In `tryResume()`:  
+ - Read the stored verifiedAccess record as it does now.  
+ - If a valid stored `record.phone_e164` exists, always call:  
+ fetchAnalysisFull(scanSessionId, [record.phone](http://record.phone)_e164)  
+ - Dev bypass may only run when no valid verifiedAccess phone record exists.  
+ - If the RPC fails for a stored verifiedAccess phone, clear stale verified access as the code already does.  
+ - Do not fallback to dev-report-unlock after a failed RPC.  
+  
+4. Dev bypass behavior:  
+ - Keep dev bypass available for explicit dev/design flows where no phoneE164 is available.  
+ - If dev bypass is attempted and returns 404/403, do not crash the app.  
+ - Set a safe fullFetchError or return false in tryResume.  
+ - Do not show raw function errors to the user.  
+  
+5. Preserve existing safe logging:  
+ - Keep phone_last4-only logging if already present.  
+ - Do not log full phone_e164.  
+ - Do not log request bodies, response bodies, lead_id, full_json, or secrets.  
+  
+ACCEPTANCE CRITERIA:  
+  
+A) Normal OTP path with no dev secret:  
+- localStorage.removeItem("wm_dev_secret")  
+- User uploads quote  
+- Partial reveal appears  
+- User enters phone  
+- OTP sends  
+- OTP verifies  
+- Full reveal appears  
+- Network shows one get_analysis_full RPC  
+- Network shows zero calls to /functions/v1/dev-report-unlock after OTP  
+  
+B) Normal OTP path with stale dev secret present:  
+- localStorage.setItem("wm_dev_secret", "fake")  
+- User uploads quote  
+- Partial reveal appears  
+- User enters phone  
+- OTP sends  
+- OTP verifies  
+- Full reveal appears  
+- Network still shows get_analysis_full  
+- Network shows zero calls to /functions/v1/dev-report-unlock after OTP  
+  
+C) Dev bypass path:  
+- Dev bypass may only run when no valid phoneE164 is available and DEV mode allows it.  
+- If dev-report-unlock returns 404 because DEV_BYPASS_ENABLED is not true, that remains a separate pre-existing environment issue.  
+- The app must not white-screen.  
+  
+AFTER CHANGES REPORT:  
+Return:  
+- files changed  
+- whether `src/hooks/useAnalysisData.fetchFull.test.ts` existed  
+- test added/updated, or exact reason no test was added  
+- exact production logic change  
+- confirmation no Edge Functions changed  
+- confirmation no Supabase schema/RLS/storage/Twilio changes  
+- confirmation no send-otp/verify-otp/scan-quote/start-upload-scan-session changes  
+- confirmation no reportService.ts changes unless explicitly required  
+- confirmation real OTP unlock now always uses get_analysis_full  
+- confirmation dev bypass cannot override valid phoneE164  
+- manual test checklist for cases A, B, and C  
+  
+FINAL VERDICT REQUIRED:  
+SAFE_SURGICAL_FIX: YES/NO
