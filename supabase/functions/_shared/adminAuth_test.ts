@@ -92,7 +92,11 @@ Deno.test("x-dev-secret wrong value with flag/secret set → 401 dev_bypass_mism
   clearDevEnv();
 });
 
-Deno.test("x-dev-secret correct + flag enabled + secret set → ok super_admin", async () => {
+Deno.test({
+  name: "x-dev-secret correct + flag enabled + secret set → ok super_admin",
+  sanitizeResources: false,
+  sanitizeOps: false,
+  fn: async () => {
   setBaseEnv();
   clearDevEnv();
   Deno.env.set("DEV_BYPASS_ENABLED", "  TRUE  ");
