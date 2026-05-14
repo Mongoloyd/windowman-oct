@@ -110,4 +110,5 @@ Deno.test({
     assertExists(res.supabaseAdmin);
   }
   clearDevEnv();
+  },
 });
