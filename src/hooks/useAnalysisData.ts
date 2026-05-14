@@ -629,16 +629,9 @@ export function useAnalysisData(
     try {
       let fullRow: RawFullRow | null;
 
-      if (devBypassEnabled) {
-        console.info("[tryResume] 🔓 DEV BYPASS — skipping get_analysis_full RPC");
-        try {
-          fullRow = await doDevBypassFetch(scanSessionId);
-        } catch (e) {
-          console.warn("[tryResume] dev bypass error", e);
-          return false;
-        }
-      } else {
-        const result = await fetchAnalysisFull(scanSessionId, record!.phone_e164);
+      if (record && isValidPhone(record.phone_e164)) {
+        // Stored verified-access phone always uses the gated RPC.
+        const result = await fetchAnalysisFull(scanSessionId, record.phone_e164);
         if (!result.ok) {
           const err = result as ServiceErr;
           console.warn("[tryResume] RPC error — clearing stale record", err.message);
@@ -646,6 +639,16 @@ export function useAnalysisData(
           return false;
         }
         fullRow = result.data;
+      } else if (devBypassEnabled) {
+        console.info("[tryResume] 🔓 DEV BYPASS — no verified phone record");
+        try {
+          fullRow = await doDevBypassFetch(scanSessionId);
+        } catch (e) {
+          console.warn("[tryResume] dev bypass error", e);
+          return false;
+        }
+      } else {
+        return false;
       }
 
       if (!fullRow) {
