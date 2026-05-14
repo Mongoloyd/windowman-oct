@@ -678,13 +678,16 @@ const ScanTheatrics = ({
                     transition={{ delay: 0.4, duration: 0.2 }}
                     style={{
                       fontFamily: "'DM Mono', monospace",
-                      fontSize: 13,
-                      color: "#FB923C",
-                      letterSpacing: "0.12em",
-                      marginTop: 20,
+                      fontSize: 14,
+                      fontWeight: 700,
+                      color: "#FDBA74",
+                      letterSpacing: "0.18em",
+                      marginTop: 24,
+                      textTransform: "uppercase",
+                      textShadow: "0 0 18px rgba(251,146,60,0.35)",
                     }}
                   >
-                    ANALYSIS COMPLETE — GRADE ASSIGNED
+                    Analysis Complete — Grade Assigned
                   </motion.p>
                 </motion.div>
               )}
