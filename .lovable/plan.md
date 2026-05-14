@@ -1,179 +1,201 @@
-## ROLE:  
-Act as a senior React/Supabase engineer for WindowMan.  
-  
-TASK:  
-Fix the dev-bypass precedence bug after OTP verification.  
-  
-This is a small surgical bugfix. Do not redesign UI. Do not touch backend infrastructure.  
-  
-GOAL:  
-After OTP verification, `fetchFull(phoneE164)` must always call the normal gated full-report RPC:  
-  
-fetchAnalysisFull(scanSessionId, phoneE164)  
-  
-Dev bypass may only run when no valid phoneE164 is available, and only in DEV mode when a stored dev secret exists.  
-  
-BUG:  
-After a user enters a phone number at partial reveal, receives OTP, and enters the OTP code, the app can call:  
-  
-/functions/v1/dev-report-unlock  
-  
-instead of the normal:  
-  
-rpc/get_analysis_full  
-  
-Observed runtime error:  
-Edge function returned 404: {"error":"Not found"}  
-filename: supabase/functions/dev-report-unlock/index.ts  
-  
-ROOT CAUSE:  
-In `src/hooks/useAnalysisData.ts`, the current logic enables dev bypass when:  
-  
-[import.meta.env.DEV](http://import.meta.env.DEV) && !!peekDevSecret()  
-  
-Then `fetchFull(phoneE164)` chooses dev bypass before checking whether a real phoneE164 exists.  
-  
-That means a stale localStorage value at `wm_dev_secret` can hijack the real OTP unlock path in Lovable/dev preview.  
-  
-CORRECT PRECEDENCE:  
-Real OTP unlock always wins.  
-  
-Required behavior:  
-  
-if (phoneE164 is present and valid E.164) {  
- call fetchAnalysisFull(scanSessionId, phoneE164)  
-} else if (devBypassEnabled) {  
- call doDevBypassFetch(scanSessionId)  
-} else {  
- set a safe fullFetchError such as "Verification required to unlock report."  
-}  
-  
-Dev bypass must never override a real phone-based unlock.  
-  
-STRICT CONSTRAINTS:  
-Do not modify Edge Functions.  
-Do not modify Supabase schema.  
-Do not modify RLS.  
-Do not modify storage policies.  
-Do not modify Twilio logic.  
-Do not modify send-otp.  
-Do not modify verify-otp.  
-Do not modify scan-quote.  
-Do not modify start-upload-scan-session.  
-Do not modify reportService.ts unless absolutely required and reported first.  
-Do not change RPC names.  
-Do not change RPC params.  
-Do not change OTP verification behavior.  
-Do not change scan/upload behavior.  
-Do not change preview/full reveal authorization.  
-Do not change UI design.  
-Do not add fallback from failed get_analysis_full to dev-report-unlock.  
-Do not expose phone_e164, lead_id, scan_session_id, request bodies, response bodies, logs, or full_json in UI.  
-  
-PREFERRED FILES:  
-Modify only:  
-- src/hooks/useAnalysisData.ts  
-  
-Optionally modify or add one focused test file only if existing test infrastructure supports it.  
-  
-TEST-FIRST REQUIREMENT:  
-Before editing production code:  
-  
-1. Verify whether `src/hooks/useAnalysisData.fetchFull.test.ts` actually exists.  
-  
-2. If it exists:  
- - Add one failing test proving:  
- - `peekDevSecret()` returns a value  
- - `fetchFull(validPhoneE164)` is called  
- - `fetchAnalysisFull(scanSessionId, validPhoneE164)` is called  
- - `fetchFullViaDevBypassService` is NOT called  
- - Do not weaken, delete, or rewrite existing tests.  
-  
-3. If that exact file does not exist:  
- - Check whether the repo already has Vitest/test infrastructure.  
- - If yes, create the smallest focused test file for this hook behavior.  
- - If no suitable test infrastructure exists, do not introduce a new framework. Report that and proceed with the smallest production fix.  
-  
-4. If any existing test fails unexpectedly, stop and report the failure. Do not rewrite tests to hide a regression.  
-  
-PRODUCTION FIX REQUIREMENTS:  
-  
-1. Add a local E.164 phone validator near the existing UUID validation logic:  
-  
-const E164_RE = /^\+[1-9]\d{7,14}$/;  
-const isValidPhone = (p: string | null | undefined): p is string =>  
- typeof p === "string" && E164_RE.test(p.trim());  
-  
-2. In `fetchFull(phoneE164)`:  
- - Check for valid phoneE164 before checking devBypassEnabled.  
- - If phoneE164 is valid, always call:  
- fetchAnalysisFull(scanSessionId, phoneE164)  
- - If phoneE164 is valid, never call:  
- doDevBypassFetch(scanSessionId)  
- - If fetchAnalysisFull returns unauthorized or another error, surface the existing safe fullFetchError.  
- - Do not fallback to dev-report-unlock.  
-  
-3. In `tryResume()`:  
- - Read the stored verifiedAccess record as it does now.  
- - If a valid stored `record.phone_e164` exists, always call:  
- fetchAnalysisFull(scanSessionId, [record.phone](http://record.phone)_e164)  
- - Dev bypass may only run when no valid verifiedAccess phone record exists.  
- - If the RPC fails for a stored verifiedAccess phone, clear stale verified access as the code already does.  
- - Do not fallback to dev-report-unlock after a failed RPC.  
-  
-4. Dev bypass behavior:  
- - Keep dev bypass available for explicit dev/design flows where no phoneE164 is available.  
- - If dev bypass is attempted and returns 404/403, do not crash the app.  
- - Set a safe fullFetchError or return false in tryResume.  
- - Do not show raw function errors to the user.  
-  
-5. Preserve existing safe logging:  
- - Keep phone_last4-only logging if already present.  
- - Do not log full phone_e164.  
- - Do not log request bodies, response bodies, lead_id, full_json, or secrets.  
-  
-ACCEPTANCE CRITERIA:  
-  
-A) Normal OTP path with no dev secret:  
-- localStorage.removeItem("wm_dev_secret")  
-- User uploads quote  
-- Partial reveal appears  
-- User enters phone  
-- OTP sends  
-- OTP verifies  
-- Full reveal appears  
-- Network shows one get_analysis_full RPC  
-- Network shows zero calls to /functions/v1/dev-report-unlock after OTP  
-  
-B) Normal OTP path with stale dev secret present:  
-- localStorage.setItem("wm_dev_secret", "fake")  
-- User uploads quote  
-- Partial reveal appears  
-- User enters phone  
-- OTP sends  
-- OTP verifies  
-- Full reveal appears  
-- Network still shows get_analysis_full  
-- Network shows zero calls to /functions/v1/dev-report-unlock after OTP  
-  
-C) Dev bypass path:  
-- Dev bypass may only run when no valid phoneE164 is available and DEV mode allows it.  
-- If dev-report-unlock returns 404 because DEV_BYPASS_ENABLED is not true, that remains a separate pre-existing environment issue.  
-- The app must not white-screen.  
-  
-AFTER CHANGES REPORT:  
-Return:  
-- files changed  
-- whether `src/hooks/useAnalysisData.fetchFull.test.ts` existed  
-- test added/updated, or exact reason no test was added  
-- exact production logic change  
-- confirmation no Edge Functions changed  
-- confirmation no Supabase schema/RLS/storage/Twilio changes  
-- confirmation no send-otp/verify-otp/scan-quote/start-upload-scan-session changes  
-- confirmation no reportService.ts changes unless explicitly required  
-- confirmation real OTP unlock now always uses get_analysis_full  
-- confirmation dev bypass cannot override valid phoneE164  
-- manual test checklist for cases A, B, and C  
-  
-FINAL VERDICT REQUIRED:  
-SAFE_SURGICAL_FIX: YES/NO
+## FIX 1 — adminAuth Dev Bypass Gate (Corrected)
+
+**Verdicts**
+- SAFE_TO_BUILD: **YES** (corrections C-1 and C-2 incorporated)
+- SAFE_TO_DEPLOY: **CONDITIONAL_ON_OPERATOR_STEPS** (Section 7 secrets check + per-importer Case C verification must run post-deploy)
+
+---
+
+### 1. Goal
+Force `supabase/functions/_shared/adminAuth.ts` to fail closed unless `DEV_BYPASS_ENABLED` is explicitly truthy (canonical `dev-report-unlock` pattern). Eliminate the log oracle. Add Deno coverage. Force redeploy of all 12 importer functions (11 validator-surface + 1 bundle-freshness).
+
+---
+
+### 2. Files changed
+1. `supabase/functions/_shared/adminAuth.ts` — insert `DEV_BYPASS_ENABLED` gate; rework diagnostic log; no other logic touched.
+2. `supabase/functions/_shared/adminAuth_test.ts` — **new** Deno test file (5 cases).
+3. `.env.example` — add `DEV_BYPASS_ENABLED=false` and `DEV_BYPASS_SECRET=` with security comments.
+
+**Not changed:** Edge Function business logic, RLS, schema, storage, Twilio, frontend, scanner/OTP/upload code, `dev-report-unlock` (already gated).
+
+---
+
+### 3. Code change — `adminAuth.ts` (lines 218–277)
+
+Replace the existing block with:
+
+```ts
+// ── DEV BYPASS: Check X-Dev-Secret header ──────────────────────────
+const normalizeSecretValue = (value: string | null): string | null =>
+  value ? value.trim().replace(/^['"]+|['"]+$/g, "") : null;
+
+const devSecretRaw = req.headers.get("x-dev-secret");
+
+if (devSecretRaw) {
+  // Header was sent — resolve bypass decisively (never fall through to JWT).
+  // Canonical pattern matches supabase/functions/dev-report-unlock/index.ts:
+  // tolerates whitespace and case, requires strict "true".
+  const bypassEnabled =
+    Deno.env.get("DEV_BYPASS_ENABLED")?.trim().toLowerCase() === "true";
+  const expectedDevSecretRaw = Deno.env.get("DEV_BYPASS_SECRET");
+  const devSecret = normalizeSecretValue(devSecretRaw);
+  const expectedDevSecret = normalizeSecretValue(expectedDevSecretRaw ?? null);
+
+  // Diagnostic log — no `match` field, no secret values, no lengths leaked
+  // outside the gated branch.
+  console.log("[adminAuth] Dev bypass attempt:", {
+    bypassEnabled,
+    envPresent: !!expectedDevSecretRaw,
+  });
+
+  // Gate 1: feature flag must be explicitly enabled.
+  if (!bypassEnabled) {
+    console.error(
+      "[adminAuth] DEV BYPASS FAIL: DEV_BYPASS_ENABLED is not 'true'",
+    );
+    return {
+      ok: false,
+      response: errorResponse(
+        403,
+        "dev_bypass_disabled",
+        "Dev bypass is not enabled on this environment",
+      ),
+    };
+  }
+
+  // Gate 2: server must have the secret configured.
+  if (!expectedDevSecret) {
+    console.error(
+      "[adminAuth] DEV BYPASS FAIL: DEV_BYPASS_SECRET env var is not set on server",
+    );
+    return {
+      ok: false,
+      response: errorResponse(
+        500,
+        "config_error",
+        "Server missing DEV_BYPASS_SECRET",
+      ),
+    };
+  }
+
+  // Gate 3: secret must match.
+  if (devSecret !== expectedDevSecret) {
+    console.error("[adminAuth] DEV BYPASS FAIL: secret mismatch");
+    return {
+      ok: false,
+      response: errorResponse(
+        401,
+        "dev_bypass_mismatch",
+        "Dev bypass secret does not match server",
+      ),
+    };
+  }
+
+  // All gates passed — grant super_admin.
+  console.log("[adminAuth] DEV BYPASS GRANTED: super_admin");
+  const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+  const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey);
+  return {
+    ok: true,
+    email: "dev-sandbox@windowman.app",
+    userId: "dev-sandbox-bypass",
+    role: "super_admin",
+    supabaseAdmin,
+    supabaseAuth,
+  };
+}
+```
+
+**Logic deltas vs current code:**
+- New first gate uses canonical `?.trim().toLowerCase() === "true"` (C-1).
+- Diagnostic `console.log` moved inside `if (devSecretRaw)`, drops `match`, `headerLen`, `envLen` fields → no timing/log oracle.
+- Failure response order: 403 `dev_bypass_disabled` → 500 `config_error` → 401 `dev_bypass_mismatch`.
+- JWT path (line 279+), role lookup, helpers, exports: untouched.
+
+---
+
+### 4. New file — `supabase/functions/_shared/adminAuth_test.ts`
+
+Deno test cases:
+1. No `x-dev-secret` header, no JWT → 401 `unauthorized`.
+2. `x-dev-secret` present, `DEV_BYPASS_ENABLED` unset → 403 `dev_bypass_disabled`.
+3. `x-dev-secret` present, `DEV_BYPASS_ENABLED=true`, `DEV_BYPASS_SECRET` unset → 500 `config_error`.
+4. `x-dev-secret` wrong value, `DEV_BYPASS_ENABLED=true`, secret set → 401 `dev_bypass_mismatch`.
+5. `x-dev-secret` correct, `DEV_BYPASS_ENABLED=true`, secret set → `ok: true`, `role: "super_admin"`.
+
+Uses `Deno.env.set/delete` with cleanup; mocks `Request` with headers only.
+
+---
+
+### 5. `.env.example` additions
+
+```
+# Dev-only bypass for _shared/adminAuth.ts and dev-report-unlock.
+# MUST remain unset or "false" in production. Setting to "true"
+# enables x-dev-secret header to grant super_admin.
+DEV_BYPASS_ENABLED=false
+DEV_BYPASS_SECRET=
+```
+
+---
+
+### 6. Importer redeploy scope (canonical grep, ACK-1)
+
+```
+grep -rEn "from ['\"]\.\./\_shared/adminAuth(\.ts)?['\"]|import\(['\"]\.\./\_shared/adminAuth" \
+  supabase/functions --include="*.ts" \
+  | grep -v "^supabase/functions/_shared/"
+```
+
+**12 importer functions total, classified per C-2:**
+
+**11 validator/bypass-surface importers** (call `validateAdminRequest` / `validateAdminRequestWithRole` — patched gate is live on these):
+1. `admin-data`
+2. `contractor-actions`
+3. `send-contractor-handoff`
+4. `create-checkout-session` (dynamic `await import()`)
+5. `dial-lead`
+6. `voice-followup`
+7. `admin-route-lead`
+8. `admin-sync-revenue-signals`
+9. `enrich-lead`
+10. `lead-reactivation`
+11. `refresh-benchmarks`
+
+> Names 5–11 are placeholders pending grep run during Build; final list is whatever the canonical grep returns minus `_shared/` and minus item 12 below.
+
+**1 corsHeaders-only / bundle-freshness importer** (no validator surface, no bypass exposure, redeploy only to keep shared bundle current):
+12. `accept-invite`
+
+All 12 redeploy. Only the 11 validator-surface importers carry bypass risk.
+
+---
+
+### 7. Operator post-deploy steps
+
+**Secrets check (must run, ACK-3):**
+```
+supabase secrets list --project-ref wkrcyxcnzhwjtdpmfpaf | grep DEV_BYPASS
+# If DEV_BYPASS_ENABLED present in production → unset:
+supabase secrets unset DEV_BYPASS_ENABLED --project-ref wkrcyxcnzhwjtdpmfpaf
+# Re-list to confirm absent.
+```
+
+**Per-importer Case C verification (CL-1) — production, correct `x-dev-secret`, expect `403 dev_bypass_disabled`:**
+- `admin-data`
+- `contractor-actions`
+- `send-contractor-handoff`
+- `create-checkout-session`
+
+Plus spot-check Case B (valid JWT) on `admin-data` to confirm normal auth still works. `accept-invite` does not need a Case C check (no validator surface).
+
+---
+
+### 8. Risks
+- **Low.** Logic is additive-restrictive; matches `dev-report-unlock` precedent verbatim. JWT path untouched.
+- Operator forgets to redeploy a dynamic importer → bundle stale → still vulnerable. Mitigated by CL-1 multi-importer check.
+- Operator sets `DEV_BYPASS_ENABLED=true` in prod by accident → bypass live. Mitigated by Section 7 audit + `.env.example` warning.
+
+---
+
+Awaiting your **Implement plan** click to enter Build mode and apply exactly the three file changes above.
