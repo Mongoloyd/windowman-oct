@@ -21,7 +21,7 @@ export default function PartialUnlockOverlay({
           className="mx-auto w-14 h-14 rounded-full flex items-center justify-center mb-4 bg-blue-500/15 border border-blue-500/40"
           style={{ boxShadow: "0 0 30px -6px hsl(217 91% 60% / 0.45)" }}
         >
-          <Lock size={22} className="text-blue-300" />
+          <span className="text-[26px] leading-none">🔒</span>
         </div>
         <p className="text-[10px] font-mono tracking-[0.22em] text-blue-300/90 mb-2">
           LOCKED · VERIFICATION REQUIRED

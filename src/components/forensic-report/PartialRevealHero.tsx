@@ -147,7 +147,7 @@ export default function PartialRevealHero({
               boxShadow: "0 0 24px -6px hsl(var(--fr-cyan) / 0.35)",
             }}
           >
-            <Lock size={18} className="text-[hsl(var(--fr-cyan-soft))]" />
+            <span className="text-[28px] leading-none">🔒</span>
           </div>
           <p className="fr-mono text-[10px] font-bold tracking-[0.2em] text-[hsl(var(--fr-cyan-soft))] mb-2">
             SCAN COMPLETE · CASE FILE READY

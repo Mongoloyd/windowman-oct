@@ -80,7 +80,7 @@ export default function PreviewUnlockSlot() {
           className="shrink-0 w-11 h-11 rounded-xl bg-blue-500/15 border border-blue-500/40 flex items-center justify-center"
           style={{ boxShadow: "0 0 24px -6px hsl(217 91% 60% / 0.45)" }}
         >
-          <Lock size={18} className="text-blue-300" />
+          <span className="text-[18px] leading-none">🔒</span>
         </div>
         <div className="space-y-1">
           <p className="text-[11px] font-mono tracking-[0.2em] text-blue-300/90">
