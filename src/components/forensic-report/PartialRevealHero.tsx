@@ -71,35 +71,38 @@ export default function PartialRevealHero({
 
       <div className="relative p-6 sm:p-8">
         {/* Eyebrow */}
-        <div className="flex items-center gap-2 mb-3">
+        <div className="inline-flex items-center gap-2 mb-3 px-2.5 py-1 rounded-full border border-[hsl(var(--fr-danger)/0.35)] bg-[hsl(var(--fr-danger)/0.08)]">
           <span className="inline-flex h-1.5 w-1.5 rounded-full bg-[hsl(var(--fr-danger))] shadow-[0_0_10px_hsl(var(--fr-danger)/0.8)]" />
-          <span className="fr-mono text-[10px] font-bold text-[hsl(var(--fr-danger))]">
+          <span className="fr-mono text-[10px] font-bold tracking-[0.18em] text-[hsl(var(--fr-danger))]">
             FORENSIC AUDIT · PREVIEW LOCKED
           </span>
         </div>
 
         {/* Heading + subtitle */}
-        <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight text-white leading-tight">
+        <h1 className="text-2xl sm:text-3xl md:text-[2.5rem] font-extrabold tracking-tight text-white leading-[1.1]">
           Unlock Your Forensic Audit
         </h1>
-        <p className="mt-2 text-sm sm:text-base text-slate-400 leading-relaxed max-w-2xl">
-          We've scanned your quote. Here's a preview of what we found —
-          verify your phone below to unlock the full Truth Report.
+        <p className="mt-3 text-sm sm:text-base text-slate-300/90 leading-relaxed max-w-2xl">
+          WindowMan reviewed your quote like a private forensic second opinion.
+          Here's the preview of what we found before you sign.
         </p>
 
         {/* Grade + tiles row */}
         <div className="mt-7 grid grid-cols-1 md:grid-cols-[auto_1fr] gap-7 md:gap-8 items-center">
           {/* Grade with red glow */}
-          <div className="flex justify-center md:justify-start">
+          <div className="flex flex-col items-center md:items-start gap-2">
             <div
-              className="rounded-full p-1"
+              className="rounded-full p-1.5 ring-1 ring-[hsl(var(--fr-danger)/0.35)]"
               style={{
                 background:
-                  "radial-gradient(circle, hsl(var(--fr-danger) / 0.28) 0%, transparent 70%)",
+                  "radial-gradient(circle, hsl(var(--fr-danger) / 0.38) 0%, hsl(var(--fr-danger) / 0.08) 55%, transparent 75%)",
               }}
             >
               <GradeDial grade={grade} />
             </div>
+            <span className="fr-mono text-[10px] font-bold tracking-[0.2em] text-slate-400 uppercase">
+              Audit Verdict · Quote Grade
+            </span>
           </div>
 
           {/* Three metric tiles */}
@@ -127,24 +130,32 @@ export default function PartialRevealHero({
 
         {/* Locked teaser block */}
         <div
-          className="mt-7 relative rounded-2xl p-5 sm:p-6 text-center"
+          className="mt-8 relative rounded-2xl p-5 sm:p-7 text-center"
           style={{
-            background: "hsl(var(--fr-bg) / 0.7)",
+            background: "hsl(var(--fr-bg) / 0.75)",
             border: "1px solid hsl(var(--fr-border) / 0.9)",
-            backdropFilter: "blur(6px)",
-            WebkitBackdropFilter: "blur(6px)",
+            boxShadow: "inset 0 1px 0 hsl(0 0% 100% / 0.04), 0 8px 28px -16px hsl(220 60% 2% / 0.6)",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
           }}
         >
           <div
-            className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full"
+            className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full"
             style={{
-              background: "hsl(var(--fr-cyan) / 0.12)",
-              border: "1px solid hsl(var(--fr-cyan) / 0.4)",
+              background: "hsl(var(--fr-cyan) / 0.14)",
+              border: "1px solid hsl(var(--fr-cyan) / 0.45)",
+              boxShadow: "0 0 24px -6px hsl(var(--fr-cyan) / 0.35)",
             }}
           >
             <Lock size={18} className="text-[hsl(var(--fr-cyan-soft))]" />
           </div>
-          <p className="text-sm sm:text-base text-slate-200 leading-relaxed max-w-xl mx-auto">
+          <p className="fr-mono text-[10px] font-bold tracking-[0.2em] text-[hsl(var(--fr-cyan-soft))] mb-2">
+            SCAN COMPLETE · CASE FILE READY
+          </p>
+          <h2 className="text-lg sm:text-xl font-bold text-white leading-snug mb-2">
+            Unlock Your Private Truth Report
+          </h2>
+          <p className="text-sm sm:text-base text-slate-300 leading-relaxed max-w-xl mx-auto">
             Your quote received a{" "}
             <span className="font-bold text-[hsl(var(--fr-danger))]">{grade}</span>.
             We detected{" "}
@@ -156,10 +167,10 @@ export default function PartialRevealHero({
             <span className="font-bold text-[hsl(var(--fr-caution))]">
               {overpayMid != null ? fmtMoney(overpayMid) : "—"}
             </span>
-            . Verify your phone below to unlock the full Truth Report.
+            . Verify your phone to unlock the full forensic audit.
           </p>
           {overpaymentBasis && (
-            <p className="mt-2 text-[11px] text-slate-500 leading-snug max-w-md mx-auto">
+            <p className="mt-3 text-[11px] text-slate-500 leading-snug max-w-md mx-auto">
               {overpaymentBasis}
             </p>
           )}
@@ -189,15 +200,29 @@ function MetricTile({
         ? "text-[hsl(var(--fr-caution))]"
         : "text-[hsl(var(--fr-cyan-soft))]";
 
+  const railVar =
+    variant === "critical"
+      ? "--fr-danger"
+      : variant === "warning"
+        ? "--fr-caution"
+        : "--fr-cyan-soft";
+
   return (
-    <div className={`fr-tile fr-tile--${variant} text-center`}>
+    <div className={`fr-tile fr-tile--${variant} text-center relative overflow-hidden pt-4`}>
+      <div
+        aria-hidden
+        className="absolute top-0 left-0 right-0 h-[2px]"
+        style={{
+          background: `linear-gradient(90deg, transparent 0%, hsl(var(${railVar})) 50%, transparent 100%)`,
+        }}
+      />
       <div className={`flex items-center justify-center gap-1.5 ${colorClass}`}>
         {icon}
-        <span className="font-mono text-xl sm:text-2xl font-extrabold leading-none">
+        <span className="font-mono text-2xl sm:text-3xl font-extrabold leading-none tracking-tight">
           {value}
         </span>
       </div>
-      <div className="mt-1.5 text-[11px] sm:text-xs font-medium text-slate-300 leading-tight">
+      <div className="mt-2 text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-slate-400 leading-tight">
         {label}
       </div>
     </div>
