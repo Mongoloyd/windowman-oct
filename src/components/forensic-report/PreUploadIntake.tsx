@@ -27,7 +27,7 @@ import {
   MapPin,
   Sparkles,
 } from "lucide-react";
-import wmPointing from "@/assets/wm-pointing.png";
+import wmPointing from "@/assets/wm-pointing-tall.png";
 import wmReceiptBg from "@/assets/wm-receipt-bg.png";
 
 /**
@@ -204,18 +204,17 @@ export function PreUploadIntake() {
         />
       </div>
 
-      {/* Sentinel at the Threshold — WindowMan pointing at Zone B */}
+      {/* Sentinel at the Threshold — full-height WindowMan pointing at Zone B */}
       <div
         aria-hidden
-        className="pointer-events-none fixed right-0 top-0 z-[1] hidden h-screen items-center justify-end pr-2 lg:flex xl:pr-6"
+        className="pointer-events-none fixed right-0 bottom-0 z-[1] hidden h-screen items-end justify-end lg:flex"
       >
-        <div className="relative">
-          <div className="absolute inset-0 -z-10 translate-x-6 translate-y-10 rounded-full bg-[#F4A261]/20 blur-3xl" />
+        <div className="relative h-full">
+          <div className="absolute inset-x-0 bottom-10 -z-10 mx-auto h-2/3 w-3/4 rounded-full bg-[#F4A261]/15 blur-3xl" />
           <img
             src={wmPointing}
             alt=""
-            className="h-[78vh] max-h-[820px] w-auto select-none object-contain opacity-95 drop-shadow-[0_30px_60px_rgba(0,0,0,0.6)] motion-safe:animate-float-soft"
-            style={{ transform: "translateX(8%)" }}
+            className="h-[96vh] w-auto select-none object-contain object-bottom opacity-95 drop-shadow-[0_30px_60px_rgba(0,0,0,0.65)] motion-safe:animate-float-soft"
           />
         </div>
       </div>
