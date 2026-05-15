@@ -690,7 +690,7 @@ const PathCard = ({
   tabIndex,
   onClick,
 }: {
-  ref: (el: HTMLButtonElement | null) => void;
+  btnRef: (el: HTMLButtonElement | null) => void;
   icon: React.ReactNode;
   title: string;
   subtitle: string;
@@ -701,7 +701,7 @@ const PathCard = ({
 }) => {
   return (
     <button
-      ref={ref}
+      ref={btnRef}
       type="button"
       role="radio"
       aria-checked={selected}
@@ -759,7 +759,7 @@ const PillChoice = ({
   tabIndex,
   onClick,
 }: {
-  ref: (el: HTMLButtonElement | null) => void;
+  btnRef: (el: HTMLButtonElement | null) => void;
   icon: React.ReactNode;
   label: string;
   selected: boolean;
@@ -768,7 +768,7 @@ const PillChoice = ({
 }) => {
   return (
     <button
-      ref={ref}
+      ref={btnRef}
       type="button"
       role="radio"
       aria-checked={selected}
