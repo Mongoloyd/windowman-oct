@@ -76,8 +76,8 @@ function Tile({
       >
         {value}
       </div>
-      <div className="mt-2 text-xs text-[hsl(var(--fr-text-muted))]">{label}</div>
-      {sub && <div className="mt-1 text-[10px] text-[hsl(var(--fr-text-dim))]">{sub}</div>}
+      <div className="mt-2 text-[hsl(var(--fr-text-muted))] text-sm">{label}</div>
+      {sub && <div className="mt-1 text-[hsl(var(--fr-text-dim))] text-sm">{sub}</div>}
     </div>
   );
 }
