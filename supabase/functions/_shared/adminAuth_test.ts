@@ -50,8 +50,8 @@ Deno.test("no x-dev-secret + no JWT → 401 unauthorized", async () => {
 Deno.test("x-dev-secret present, DEV_BYPASS_ENABLED unset → 403 dev_bypass_disabled", async () => {
   setBaseEnv();
   clearDevEnv();
-  Deno.env.set("DEV_BYPASS_SECRET", "correct-secret");
   try {
+    Deno.env.set("DEV_BYPASS_SECRET", "correct-secret");
     const res = await validateAdminRequest(
       makeReq({ "x-dev-secret": "correct-secret" }),
     );
@@ -69,8 +69,8 @@ Deno.test("x-dev-secret present, DEV_BYPASS_ENABLED unset → 403 dev_bypass_dis
 Deno.test("x-dev-secret + DEV_BYPASS_ENABLED=true, secret unset → 500 config_error", async () => {
   setBaseEnv();
   clearDevEnv();
-  Deno.env.set("DEV_BYPASS_ENABLED", "true");
   try {
+    Deno.env.set("DEV_BYPASS_ENABLED", "true");
     const res = await validateAdminRequest(
       makeReq({ "x-dev-secret": "anything" }),
     );
@@ -88,9 +88,9 @@ Deno.test("x-dev-secret + DEV_BYPASS_ENABLED=true, secret unset → 500 config_e
 Deno.test("x-dev-secret wrong value with flag/secret set → 401 dev_bypass_mismatch", async () => {
   setBaseEnv();
   clearDevEnv();
-  Deno.env.set("DEV_BYPASS_ENABLED", "true");
-  Deno.env.set("DEV_BYPASS_SECRET", "correct-secret");
   try {
+    Deno.env.set("DEV_BYPASS_ENABLED", "true");
+    Deno.env.set("DEV_BYPASS_SECRET", "correct-secret");
     const res = await validateAdminRequest(
       makeReq({ "x-dev-secret": "wrong-secret" }),
     );
@@ -112,9 +112,9 @@ Deno.test({
   fn: async () => {
     setBaseEnv();
     clearDevEnv();
-    Deno.env.set("DEV_BYPASS_ENABLED", "  TRUE  ");
-    Deno.env.set("DEV_BYPASS_SECRET", "correct-secret");
     try {
+      Deno.env.set("DEV_BYPASS_ENABLED", "  TRUE  ");
+      Deno.env.set("DEV_BYPASS_SECRET", "correct-secret");
       const res = await validateAdminRequest(
         makeReq({ "x-dev-secret": "correct-secret" }),
       );
@@ -134,9 +134,9 @@ Deno.test({
 Deno.test("DEV_BYPASS_SECRET alone without DEV_BYPASS_ENABLED → 403 dev_bypass_disabled", async () => {
   setBaseEnv();
   clearDevEnv();
-  Deno.env.set("DEV_BYPASS_SECRET", "correct-secret");
   // Intentionally do NOT set DEV_BYPASS_ENABLED
   try {
+    Deno.env.set("DEV_BYPASS_SECRET", "correct-secret");
     const res = await validateAdminRequest(
       makeReq({ "x-dev-secret": "correct-secret" }),
     );
