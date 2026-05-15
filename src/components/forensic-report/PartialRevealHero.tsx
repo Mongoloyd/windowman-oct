@@ -86,6 +86,15 @@ export default function PartialRevealHero({
           WindowMan reviewed your quote like a private forensic second opinion.
           Here's the preview of what we found before you sign.
         </p>
+        {flagRedCount + flagAmberCount > 0 && (
+          <p className="mt-2 text-sm sm:text-base text-slate-200 leading-relaxed">
+            We found{" "}
+            <span className="font-bold text-[hsl(var(--fr-danger))]">
+              {flagRedCount + flagAmberCount}
+            </span>{" "}
+            {flagRedCount + flagAmberCount === 1 ? "issue" : "issues"} with your estimate.
+          </p>
+        )}
 
         {/* Grade + tiles row */}
         <div className="mt-7 grid grid-cols-1 md:grid-cols-[auto_1fr] gap-7 md:gap-8 items-center">

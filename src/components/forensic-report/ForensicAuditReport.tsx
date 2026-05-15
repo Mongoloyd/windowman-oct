@@ -16,6 +16,7 @@ import ExecutiveSummaryCard from "./ExecutiveSummaryCard";
 import PartialRevealHero from "./PartialRevealHero";
 import TopFindingsList from "./TopFindingsList";
 import PartialUnlockOverlay from "./PartialUnlockOverlay";
+import ExecutiveSummaryBand from "./ExecutiveSummaryBand";
 import PropertyProfileCard from "./PropertyProfileCard";
 import ScopeOverviewCard from "./ScopeOverviewCard";
 import MoneyAtRiskCard from "./MoneyAtRiskCard";
@@ -124,6 +125,11 @@ export default function ForensicAuditReport(props: ForensicAuditReportProps) {
             />
             {isPreview && <PartialUnlockOverlay />}
           </div>
+
+          <ExecutiveSummaryBand
+            flagRedCount={props.flagRedCount}
+            flagAmberCount={props.flagAmberCount}
+          />
 
           <ScopeOverviewCard
             totalOpenings={props.totalOpenings}
