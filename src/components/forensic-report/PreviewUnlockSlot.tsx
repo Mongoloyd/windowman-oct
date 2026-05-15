@@ -1,23 +1,23 @@
 /**
  * PreviewUnlockSlot — DEV/SANDBOX VISUAL ONLY.
  *
- * This component is a presentational harness used exclusively by
- * `/dev/report-preview?v=v3&mode=preview` to visually QA the unlock
- * form / phone field / OTP states inside the forensic dark surface.
+ * Phone-only unlock gate for the Partial Reveal page. First name, last name,
+ * and email are captured BEFORE quote upload elsewhere in the funnel; this
+ * card only verifies the phone to unlock the full forensic report.
  *
- * It does NOT:
+ * This component does NOT:
  *  - call Supabase
  *  - call send-otp / verify-otp
  *  - fetch the full report
  *  - mutate any backend state
  *  - bypass the real Verify-to-Reveal gate
  *
- * The real production gate lives in `src/components/LockedOverlay.tsx`,
- * orchestrated by the post-scan flow. This file mirrors its visual states
- * (phone entry → code sent → verifying) using local component state only.
+ * The real production gate lives in `src/components/LockedOverlay.tsx`.
+ * This file mirrors its visual states (phone entry → code sent → verifying)
+ * using local component state only.
  */
 import { useMemo, useState } from "react";
-import { ShieldCheck, Loader2, Lock, CheckCircle2, AlertCircle } from "lucide-react";
+import { ShieldCheck, Loader2, Lock, CheckCircle2, AlertCircle, FileCheck2 } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
 type Step = "phone" | "code";
@@ -56,7 +56,6 @@ export default function PreviewUnlockSlot() {
   const handleSendCode = () => {
     if (!isValid || sending) return;
     setSending(true);
-    // VISUAL ONLY — no real network call. Mimic latency for QA.
     setTimeout(() => {
       setSending(false);
       setStep("code");
@@ -73,7 +72,7 @@ export default function PreviewUnlockSlot() {
     <div
       className="bg-slate-900 border border-blue-500/25 rounded-2xl shadow-2xl p-6 md:p-8 space-y-5 max-w-2xl mx-auto"
       role="region"
-      aria-label="Unlock your full forensic report"
+      aria-label="Unlock your private Truth Report"
     >
       {/* Header */}
       <div className="flex items-start gap-3">
@@ -85,59 +84,29 @@ export default function PreviewUnlockSlot() {
             VERIFICATION REQUIRED
           </p>
           <h3 className="text-xl md:text-2xl font-bold text-white leading-tight">
-            Unlock Your Full Report
+            Unlock Your Private Truth Report
           </h3>
           <p className="text-sm text-slate-400">
-            Your report stays private until your phone is verified. Used only
-            to send your secure one-time code. No spam. No obligation.
+            Your scan is complete. Verify your phone to open the full forensic audit.
+          </p>
+        </div>
+      </div>
+
+      {/* Case file ready summary */}
+      <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 flex items-start gap-3">
+        <FileCheck2 size={18} className="text-emerald-400 shrink-0 mt-0.5" />
+        <div className="space-y-0.5">
+          <p className="text-sm font-medium text-emerald-300">
+            Scan complete · Case file created
+          </p>
+          <p className="text-xs text-slate-400 leading-relaxed">
+            We'll send the full Truth Report to the contact details you already provided.
           </p>
         </div>
       </div>
 
       {step === "phone" && (
         <div className="space-y-4">
-          {/* Name row — visual only */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-slate-300" htmlFor="pus-fname">
-                First name
-              </label>
-              <input
-                id="pus-fname"
-                type="text"
-                autoComplete="given-name"
-                placeholder="Maria"
-                className="w-full h-12 min-h-[48px] text-base rounded-xl bg-slate-800 border border-slate-600 text-white placeholder:text-slate-500 px-4 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-slate-300" htmlFor="pus-lname">
-                Last name
-              </label>
-              <input
-                id="pus-lname"
-                type="text"
-                autoComplete="family-name"
-                placeholder="Gonzalez"
-                className="w-full h-12 min-h-[48px] text-base rounded-xl bg-slate-800 border border-slate-600 text-white placeholder:text-slate-500 px-4 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
-              />
-            </div>
-          </div>
-
-          {/* Email */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-slate-300" htmlFor="pus-email">
-              Email
-            </label>
-            <input
-              id="pus-email"
-              type="email"
-              autoComplete="email"
-              placeholder="you@example.com"
-              className="w-full h-12 min-h-[48px] text-base rounded-xl bg-slate-800 border border-slate-600 text-white placeholder:text-slate-500 px-4 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
-            />
-          </div>
-
           {/* Phone */}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-slate-300" htmlFor="pus-phone">
@@ -174,25 +143,12 @@ export default function PreviewUnlockSlot() {
               }`}
             >
               {showInvalid
-                ? "Enter a valid 10-digit US mobile number"
+                ? "Enter a valid mobile number to receive your secure unlock code."
                 : isValid
-                  ? "Ready to send verification code"
-                  : "We'll text you a 6-digit code. Standard message rates apply."}
+                  ? "Ready to send verification code."
+                  : "We'll text a 6-digit code to unlock your report."}
             </p>
           </div>
-
-          {/* TCPA */}
-          <label className="flex items-start gap-3 text-xs text-slate-400 leading-relaxed cursor-pointer select-none">
-            <input
-              type="checkbox"
-              defaultChecked
-              className="mt-0.5 h-4 w-4 rounded border-slate-600 bg-slate-800 text-blue-500 focus:ring-2 focus:ring-blue-500/40"
-            />
-            <span>
-              I agree to receive a one-time verification code by SMS. Message
-              and data rates may apply. Reply STOP to opt out.
-            </span>
-          </label>
 
           {/* CTA */}
           <button
@@ -205,8 +161,9 @@ export default function PreviewUnlockSlot() {
             {ctaLabel}
           </button>
 
-          <p className="text-[11px] text-center text-slate-500">
-            🔒 Secure verification · Your number is never shared
+          <p className="text-[11px] text-center text-slate-500 leading-relaxed">
+            Your report stays private. We only use your number to send a secure
+            one-time verification code. No spam. No obligation.
           </p>
         </div>
       )}
@@ -281,6 +238,11 @@ export default function PreviewUnlockSlot() {
               Resend code
             </button>
           </div>
+
+          <p className="text-[11px] text-center text-slate-500 leading-relaxed">
+            Your report stays private. We only use your number to send a secure
+            one-time verification code. No spam. No obligation.
+          </p>
         </div>
       )}
 
