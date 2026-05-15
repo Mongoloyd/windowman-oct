@@ -49,10 +49,10 @@ export default function TopFindingsList({ flags, blurred, totalRedCount }: Props
           Top Forensic Findings
         </h2>
       </div>
-      <p className="text-xs sm:text-sm text-slate-400 mb-4">
+      <p className="text-xs mb-4 text-slate-300 sm:text-base font-semibold">
         {blurred
           ? totalRedCount != null
-            ? `${Math.min(3, totalRedCount)} critical red flags identified in your quote`
+            ? `${Math.min(3, totalRedCount)} Critical Red Flags Identified in Your Quote`
             : "The 3 most critical red flags in your quote"
           : "Plain-English breakdown of what we found in your contract"}
       </p>

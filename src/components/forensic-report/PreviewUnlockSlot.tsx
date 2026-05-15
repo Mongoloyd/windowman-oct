@@ -91,7 +91,7 @@ export default function PreviewUnlockSlot() {
           </h3>
           <p className="text-sm text-slate-300/90 leading-relaxed">
             WindowMan found risk signals in your quote. Verify your phone to
-            unlock the full forensic audit.
+            access your full Forensic Audit.
           </p>
         </div>
       </div>
@@ -101,10 +101,10 @@ export default function PreviewUnlockSlot() {
         <FileCheck2 size={18} className="text-emerald-400 shrink-0 mt-0.5" />
         <div className="space-y-0.5">
           <p className="text-sm font-semibold text-emerald-300">
-            Scan complete · Case file created
+            Scan Complete · Case File Created
           </p>
           <p className="text-xs text-slate-400 leading-relaxed">
-            Your case file is saved. Verify your phone to unlock the full private audit.
+            Your case file is saved. Verify your phone to access your full Forensic Audit.
           </p>
         </div>
       </div>
@@ -125,7 +125,7 @@ export default function PreviewUnlockSlot() {
                 type="tel"
                 inputMode="numeric"
                 autoComplete="tel-national"
-                placeholder="(555) 123-4567"
+                placeholder="(561) 123-4567"
                 value={formatPhoneDisplay(digits)}
                 onChange={(e) => {
                   setPhone(e.target.value);
@@ -150,7 +150,7 @@ export default function PreviewUnlockSlot() {
                 ? "Enter a valid mobile number to receive your secure unlock code."
                 : isValid
                   ? "Ready to send verification code."
-                  : "We'll text a 6-digit code to unlock your report."}
+                  : "Check SMS For Your Secure Code"}
             </p>
           </div>
 
@@ -159,15 +159,14 @@ export default function PreviewUnlockSlot() {
             type="button"
             onClick={handleSendCode}
             disabled={!isValid || sending}
-            className="w-full min-h-[52px] rounded-xl bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:hover:bg-blue-500 text-white font-semibold text-base shadow-[0_8px_24px_-8px_rgba(59,130,246,0.6)] focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors flex items-center justify-center gap-2"
+            className="w-full min-h-[52px] rounded-xl bg-blue-500 hover:bg-blue-600 disabled:hover:bg-blue-500 text-white font-semibold text-base shadow-[0_8px_24px_-8px_rgba(59,130,246,0.6)] focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors flex items-center justify-center gap-2 opacity-100"
           >
             {sending ? <Loader2 size={18} className="animate-spin" /> : <ShieldCheck size={18} />}
             {ctaLabel}
           </button>
 
-          <p className="text-[11px] text-center text-slate-500 leading-relaxed">
-            Your report stays private. We only use your number to send a secure
-            one-time verification code. No spam. No obligation.
+          <p className="text-[11px] text-center leading-relaxed text-slate-400">
+            Your report is free no strings attached No contractor Calls. No spam. No obligation.
           </p>
         </div>
       )}
@@ -218,7 +217,7 @@ export default function PreviewUnlockSlot() {
             type="button"
             disabled={otp.length !== 6 || verifying}
             onClick={() => handleVerify(otp)}
-            className="w-full min-h-[52px] rounded-xl bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:hover:bg-blue-500 text-white font-semibold text-base shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition-colors flex items-center justify-center gap-2"
+            className="w-full min-h-[52px] rounded-xl bg-blue-500 hover:bg-blue-600 disabled:hover:bg-blue-500 text-white font-semibold text-base shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition-colors flex items-center justify-center gap-2 opacity-100"
           >
             {verifying ? (
               <>
@@ -243,15 +242,14 @@ export default function PreviewUnlockSlot() {
             </button>
           </div>
 
-          <p className="text-[11px] text-center text-slate-500 leading-relaxed">
-            Your report stays private. We only use your number to send a secure
-            one-time verification code. No spam. No obligation.
+          <p className="text-[11px] text-center leading-relaxed text-slate-400">
+            Your report is free no strings attached No contractor Calls. No spam. No obligation.
           </p>
         </div>
       )}
 
-      <p className="text-[10px] text-center text-slate-600 font-mono tracking-wider">
-        DEV PREVIEW · NO REAL OTP IS SENT
+      <p className="text-[10px] text-center font-mono tracking-wider text-slate-300">
+        DEV PREVIEW
       </p>
     </div>
   );

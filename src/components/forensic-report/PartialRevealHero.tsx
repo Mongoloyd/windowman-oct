@@ -150,7 +150,7 @@ export default function PartialRevealHero({
             <span className="text-[28px] leading-none">🔒</span>
           </div>
           <p className="fr-mono text-[10px] font-bold tracking-[0.2em] text-[hsl(var(--fr-cyan-soft))] mb-2">
-            SCAN COMPLETE · CASE FILE READY
+            Scan Complete · Case File Created
           </p>
           <h2 className="text-lg sm:text-xl font-bold text-white leading-snug mb-2">
             Unlock Your Private Truth Report
@@ -167,10 +167,10 @@ export default function PartialRevealHero({
             <span className="font-bold text-[hsl(var(--fr-caution))]">
               {overpayMid != null ? fmtMoney(overpayMid) : "—"}
             </span>
-            . Verify your phone to unlock the full forensic audit.
+            . Verify your phone to access your full Forensic Audit.
           </p>
           {overpaymentBasis && (
-            <p className="mt-3 text-[11px] text-slate-500 leading-snug max-w-md mx-auto">
+            <p className="mt-3 text-[11px] leading-snug max-w-md mx-auto text-slate-400">
               {overpaymentBasis}
             </p>
           )}
@@ -222,7 +222,7 @@ function MetricTile({
           {value}
         </span>
       </div>
-      <div className="mt-2 text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-slate-400 leading-tight">
+      <div className="mt-2 text-[10px] sm:text-[11px] uppercase tracking-wider leading-tight text-slate-300 font-semibold">
         {label}
       </div>
     </div>
