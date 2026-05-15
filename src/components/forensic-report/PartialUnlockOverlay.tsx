@@ -14,24 +14,16 @@ export default function PartialUnlockOverlay({
   return (
     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
       <div
-        className="pointer-events-auto rounded-lg px-6 py-5 max-w-xs text-center"
-        style={{
-          background: "hsl(var(--fr-bg) / 0.92)",
-          border: "1px solid hsl(var(--fr-border-strong))",
-          boxShadow: "0 12px 40px hsl(0 0% 0% / 0.5)",
-          backdropFilter: "blur(4px)",
-        }}
+        className="pointer-events-auto rounded-2xl px-7 py-6 max-w-sm text-center bg-slate-900/80 border border-slate-700/60 shadow-2xl"
+        style={{ backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)" }}
       >
-        <div
-          className="mx-auto w-10 h-10 rounded-full flex items-center justify-center mb-3"
-          style={{
-            background: "hsl(var(--fr-cyan) / 0.12)",
-            border: "1px solid hsl(var(--fr-cyan) / 0.4)",
-          }}
-        >
-          <Lock size={18} className="text-[hsl(var(--fr-cyan))]" />
+        <div className="mx-auto w-12 h-12 rounded-full flex items-center justify-center mb-4 bg-blue-500/15 border border-blue-500/40">
+          <Lock size={20} className="text-blue-400" />
         </div>
-        <p className="text-sm font-semibold text-[hsl(var(--fr-text))] leading-snug">
+        <p className="text-[10px] font-mono tracking-widest text-blue-400 mb-2">
+          LOCKED · VERIFICATION REQUIRED
+        </p>
+        <p className="text-sm font-semibold text-white leading-snug">
           {message}
         </p>
       </div>
