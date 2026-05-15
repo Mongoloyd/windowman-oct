@@ -150,6 +150,8 @@ const App = () => (
                     <Route path=":devAdminAlias" element={<DevAdminAliasRedirect />} />
                   </>
                 )}
+                {/* Sandbox visual QA harness — unlisted, noindex, mock-only. Outside dev gate so Lovable preview can render it. */}
+                <Route path="/sandbox/report-preview" element={<DevReportPreview />} />
                 <Route path="/contractors3" element={<Contractors3 />} />
                 
 
