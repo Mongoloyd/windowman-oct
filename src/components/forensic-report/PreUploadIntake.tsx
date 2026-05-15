@@ -27,6 +27,8 @@ import {
   MapPin,
   Sparkles,
 } from "lucide-react";
+import wmPointing from "@/assets/wm-pointing.png";
+import wmReceiptBg from "@/assets/wm-receipt-bg.png";
 
 /**
  * PreUploadIntake — Phase 4L.9.2 visual harness.
@@ -186,19 +188,36 @@ export function PreUploadIntake() {
     selectedPath || homeType || name || email || zip;
 
   return (
-    <div className="min-h-screen bg-[#020617] text-slate-100 antialiased">
-      {/* Ambient atmospheric layer */}
+    <div className="min-h-screen bg-gradient-to-br from-[#0B1A2E] via-[#102A47] to-[#1A2332] text-slate-100 antialiased">
+      {/* Ambient atmospheric layer — lighter blue/amber blend */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -top-40 left-1/3 h-[600px] w-[600px] rounded-full bg-blue-500/[0.06] blur-[120px]" />
-        <div className="absolute top-1/2 -right-40 h-[500px] w-[500px] rounded-full bg-indigo-500/[0.05] blur-[120px]" />
+        <div className="absolute -top-40 left-1/4 h-[680px] w-[680px] rounded-full bg-[#3B82F6]/[0.14] blur-[130px]" />
+        <div className="absolute top-1/3 -right-40 h-[560px] w-[560px] rounded-full bg-[#F4A261]/[0.10] blur-[130px]" />
+        <div className="absolute -bottom-40 left-1/2 h-[500px] w-[500px] rounded-full bg-[#E8924A]/[0.07] blur-[120px]" />
         <div
-          className="absolute inset-0 opacity-[0.025]"
+          className="absolute inset-0 opacity-[0.04]"
           style={{
             backgroundImage:
-              "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.6) 1px, transparent 0)",
+              "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.7) 1px, transparent 0)",
             backgroundSize: "32px 32px",
           }}
         />
+      </div>
+
+      {/* Sentinel at the Threshold — WindowMan pointing at Zone B */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed right-0 top-0 z-[1] hidden h-screen items-center justify-end pr-2 lg:flex xl:pr-6"
+      >
+        <div className="relative">
+          <div className="absolute inset-0 -z-10 translate-x-6 translate-y-10 rounded-full bg-[#F4A261]/20 blur-3xl" />
+          <img
+            src={wmPointing}
+            alt=""
+            className="h-[78vh] max-h-[820px] w-auto select-none object-contain opacity-95 drop-shadow-[0_30px_60px_rgba(0,0,0,0.6)] motion-safe:animate-float-soft"
+            style={{ transform: "translateX(8%)" }}
+          />
+        </div>
       </div>
 
       {/* SR-only live region */}
