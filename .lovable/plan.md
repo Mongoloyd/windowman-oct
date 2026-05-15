@@ -1,52 +1,88 @@
-## Phase 4L.8A — Phone-Only Unlock Gate on Partial Reveal
+# Phase 4L.8B — Premium Partial Reveal Polish
 
-### Audit (Task 1)
+Pure visual/UX pass on the sandbox Partial Reveal (`/sandbox/report-preview?v=v3&mode=preview`). No state, handler, route, backend, or gating changes.
 
-**File:** `src/components/forensic-report/PreviewUnlockSlot.tsx`
+## Preflight audit (report before editing)
 
-- This is the **sandbox/preview-only visual harness** (header docblock confirms it does not call Supabase, send-otp, verify-otp, or fetch reports). It is mounted only via `DevReportPreview` → `/dev/report-preview` and `/sandbox/report-preview`.
-- Currently renders: First Name, Last Name, Email, Mobile Number, TCPA checkbox, Send Verification Code CTA, then OTP boxes + Verify CTA + Resend in step `"code"`.
-- Phone field has valid (emerald + check), invalid (red + alert), and neutral states already.
-- OTP boxes render when local `step === "code"` (after the visual-only "Send" tap).
-- **Confirmed safe to edit** — not the production OTP component (`LockedOverlay` is real prod and lives elsewhere; `DemoClassic` uses its own gate orchestration and is untouched).
+Confirm in `PreviewUnlockSlot.tsx`:
+1. Sandbox/preview-only — no Supabase, no `send-otp`, no `verify-otp`, no report fetch.
+2. Local state only: `step`, `phone`, `touched`, `otp`, `sending`, `verifying`.
+3. No First Name / Last Name / Email / TCPA fields present.
+4. Phone CTA disabled when `!isValid || sending`; OTP verify disabled when `otp.length !== 6 || verifying`.
+5. OTP UI only renders when `step === "code"` (after local 600ms simulated send).
+6. Visual states present: neutral / invalid / valid phone, code sent, verifying.
 
-### Changes
+Component ownership map (record in report):
+- Hero, grade dial, metric tiles, locked teaser → `PartialRevealHero.tsx`
+- Blurred finding cards → `TopFindingsList.tsx`
+- Lock overlay → `PartialUnlockOverlay.tsx`
+- Phone-only unlock card → `PreviewUnlockSlot.tsx`
+- Shell composition → `ForensicAuditReport.tsx`
 
-**Single file edited:** `src/components/forensic-report/PreviewUnlockSlot.tsx`
+If any item fails, STOP and report instead of editing.
 
-1. **Remove fields** from the `step === "phone"` view: First Name, Last Name, Email inputs, and the TCPA checkbox block. Keep all local state (`phone`, `touched`, `otp`, `sending`, `verifying`, `step`) — no new state added.
+## Files to touch (visual only)
 
-2. **Add "case file ready" summary** above the phone field:
-   - Small emerald check + label: `Scan complete · Case file created`
-   - Heading: **"Unlock Your Private Truth Report"**
-   - Sub: "Your scan is complete. Verify your phone to open the full forensic audit."
-   - Muted line: "We'll send the full Truth Report to the contact details you already provided." (No invented email — mock data has none here.)
+- `src/components/forensic-report/PartialRevealHero.tsx`
+- `src/components/forensic-report/TopFindingsList.tsx` (blurred branch only)
+- `src/components/forensic-report/PartialUnlockOverlay.tsx`
+- `src/components/forensic-report/PreviewUnlockSlot.tsx`
+- `src/components/forensic-report/tokens.ts` (only if a small token addition genuinely helps)
+- `src/index.css` (only if a `.report-dark`-scoped helper is genuinely needed)
 
-3. **Phone states (visuals preserved, helper copy updated):**
-   - Empty/neutral: "We'll text a 6-digit code to unlock your report."
-   - Invalid: "Enter a valid mobile number to receive your secure unlock code." (replaces the previous "valid 10-digit US mobile number" text and removes any "prove you're not a bot" framing — that string lives in a different component and isn't touched here)
-   - Valid: "Ready to send verification code."
-   - CTA label logic preserved: `Send Verification Code` when valid, `Unlock My Report` when empty, `Sending…` while pending.
+Forbidden to touch: `App.tsx`, `DevReportPreview.tsx`, `ForensicAuditReport.tsx` (logic), `LockedOverlay.tsx`, `usePhonePipeline`, `usePhoneInput`, edge functions, anything in `src/services`, `src/hooks`, Supabase, RLS, migrations, packages, lockfiles.
 
-4. **Trust copy replacement** (footer microcopy under CTA):
-   - Replace any contractor-protection framing with: "Your report stays private. We only use your number to send a secure one-time verification code. No spam. No obligation."
+## Visual changes
 
-5. **Code-sent step:** unchanged structurally — OTP boxes, Verify & Unlock CTA, Resend link all retained. Header swapped to match the new "Private Truth Report" framing.
+### 1. PartialRevealHero
+- Tighten hero rhythm: stronger eyebrow chip ("FORENSIC AUDIT · PREVIEW LOCKED"), refined headline weight/tracking, more confident subtitle:
+  - Headline: "Unlock Your Forensic Audit" (kept)
+  - Subtitle: "WindowMan reviewed your quote like a private forensic second opinion. Here's the preview of what we found before you sign."
+- Grade dial: deeper red radial glow, thin inner ring, small supporting label under dial ("Audit Verdict · Quote Grade"). No grade value or data binding changes.
+- Metric tiles: stronger numeric hierarchy (larger mono numerals, smaller label, severity-colored top hairline), tighter mobile stack, even desktop 3-col rhythm. No new metrics, no data shape change.
+- Locked teaser block:
+  - Eyebrow: "SCAN COMPLETE · CASE FILE READY"
+  - Heading: "Unlock Your Private Truth Report"
+  - Subheading: "WindowMan found risk signals in your quote. Verify your phone to unlock the full forensic audit."
+  - Keep dynamic grade + missingRegulatory + overpayMid sentence; soften secondary line.
 
-6. **Card visual polish:** keep existing `bg-slate-900 border-blue-500/25 rounded-2xl shadow-2xl`, dark phone input, blue CTA, emerald valid, red invalid, `min-h-[48px]` mobile spacing. No white inputs.
+### 2. TopFindingsList (blurred branch only)
+- Stronger frosted treatment on placeholder cards: slightly denser blur, deeper card border, soft red/amber severity glow on left rail, consistent height.
+- Section header copy unchanged structurally; keep "Top Forensic Findings".
+- Full-mode branch untouched.
 
-7. Keep the `DEV PREVIEW · NO REAL OTP IS SENT` footer stamp.
+### 3. PartialUnlockOverlay
+- Increase frosted glass quality (bg-slate-900/70, stronger backdrop blur, ring-1 ring-blue-500/20, larger lock chip).
+- Copy: keep "LOCKED · VERIFICATION REQUIRED" eyebrow; main line: "Verify your phone to unlock the full forensic audit."
+- Better mobile centering and max-width.
 
-### Out of scope (explicitly NOT touched)
+### 4. PreviewUnlockSlot (phone-only gate polish)
+- Header eyebrow → "VERIFICATION REQUIRED" (kept), heading "Unlock Your Private Truth Report", subline "WindowMan found risk signals in your quote. Verify your phone to unlock the full forensic audit."
+- Case-file summary chip: keep emerald check + "Scan complete · Case file created"; replace second line with "Your case file is saved. Verify your phone to unlock the full private audit."
+- Phone field: keep three states (neutral slate, red invalid, emerald valid + check). Helpers exactly as spec'd.
+- CTA: replace `h-13` with `min-h-[52px]`. Keep exact `disabled` condition and `onClick`. Same label logic.
+- OTP step: dark slots, stronger focus ring, ensure row fits 390px (use `gap-1.5 sm:gap-2`, `w-10 sm:w-12`). No behavior change.
+- Footer trust line unchanged. Keep `DEV PREVIEW · NO REAL OTP IS SENT` stamp.
 
-- `LockedOverlay.tsx`, `DemoClassic.tsx`, `usePhonePipeline`, `send-otp`/`verify-otp` Edge Functions, `usePhoneInput`, Supabase, RLS, migrations, routes, `App.tsx`, `DevReportPreview.tsx`, blurred findings, lock overlay, full-mode rendering.
-- The pre-upload "Where should we send your Truth Report?" screen — deferred to a later phase as you noted (zip → home type → has-quote/wants-quote branch happens earlier in the funnel).
+### 5. tokens.ts / index.css
+- Only add a token/helper if it removes a meaningfully repeated literal in the files above. Otherwise skip and list remaining hardcoded classes as "future token cleanup" in the report.
 
-### Verification
+## Guardrails (verify after edit)
 
-- Visual check at `/sandbox/report-preview?v=v3&mode=preview`: only phone + OTP fields visible, blurred findings + lock overlay intact.
-- Visual check at `/sandbox/report-preview?v=v3&mode=full`: unchanged.
-- No new state variables, no new network calls, no route changes.
+- No new imports from `@/integrations/supabase/*`, `@/hooks/usePhonePipeline`, `@/hooks/usePhoneInput`, `@/services/*`.
+- No new `useEffect`, no new state variables, no new fetch/RPC/edge calls.
+- No name/email/TCPA fields anywhere in `PreviewUnlockSlot`.
+- `ForensicAuditReport` still drops real flags in preview (`safeFlags`).
+- `/sandbox/report-preview?v=v3&mode=full` still renders unchanged structurally.
 
-### Final line on completion
-`PHASE 4L.8A COMPLETE — Partial Reveal now uses phone-only unlock gate. Logic preserved.`
+## Verification
+
+- `git diff --name-status` — expect only the files listed above.
+- Build/typecheck via the harness (no manual `npm run build`).
+- Visual QA at 390px and 1280px on `?v=v3&mode=preview` and a smoke check on `?v=v3&mode=full`.
+
+## Final report
+
+Deliver the Phase 4L.8B report with all 19 sections from the spec and end with:
+
+`PHASE 4L.8B COMPLETE — Premium Partial Reveal polish finished. Logic preserved.`

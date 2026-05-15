@@ -76,31 +76,35 @@ export default function PreviewUnlockSlot() {
     >
       {/* Header */}
       <div className="flex items-start gap-3">
-        <div className="shrink-0 w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center">
-          <Lock size={18} className="text-blue-400" />
+        <div
+          className="shrink-0 w-11 h-11 rounded-xl bg-blue-500/15 border border-blue-500/40 flex items-center justify-center"
+          style={{ boxShadow: "0 0 24px -6px hsl(217 91% 60% / 0.45)" }}
+        >
+          <Lock size={18} className="text-blue-300" />
         </div>
         <div className="space-y-1">
-          <p className="text-[11px] font-mono tracking-widest text-blue-400">
+          <p className="text-[11px] font-mono tracking-[0.2em] text-blue-300/90">
             VERIFICATION REQUIRED
           </p>
-          <h3 className="text-xl md:text-2xl font-bold text-white leading-tight">
+          <h3 className="text-xl md:text-2xl font-bold text-white leading-tight tracking-tight">
             Unlock Your Private Truth Report
           </h3>
-          <p className="text-sm text-slate-400">
-            Your scan is complete. Verify your phone to open the full forensic audit.
+          <p className="text-sm text-slate-300/90 leading-relaxed">
+            WindowMan found risk signals in your quote. Verify your phone to
+            unlock the full forensic audit.
           </p>
         </div>
       </div>
 
       {/* Case file ready summary */}
-      <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 flex items-start gap-3">
+      <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-3.5 flex items-start gap-3">
         <FileCheck2 size={18} className="text-emerald-400 shrink-0 mt-0.5" />
         <div className="space-y-0.5">
-          <p className="text-sm font-medium text-emerald-300">
+          <p className="text-sm font-semibold text-emerald-300">
             Scan complete · Case file created
           </p>
           <p className="text-xs text-slate-400 leading-relaxed">
-            We'll send the full Truth Report to the contact details you already provided.
+            Your case file is saved. Verify your phone to unlock the full private audit.
           </p>
         </div>
       </div>
@@ -155,7 +159,7 @@ export default function PreviewUnlockSlot() {
             type="button"
             onClick={handleSendCode}
             disabled={!isValid || sending}
-            className="w-full min-h-[52px] h-13 rounded-xl bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:hover:bg-blue-500 text-white font-semibold text-base shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition-colors flex items-center justify-center gap-2"
+            className="w-full min-h-[52px] rounded-xl bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:hover:bg-blue-500 text-white font-semibold text-base shadow-[0_8px_24px_-8px_rgba(59,130,246,0.6)] focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors flex items-center justify-center gap-2"
           >
             {sending ? <Loader2 size={18} className="animate-spin" /> : <ShieldCheck size={18} />}
             {ctaLabel}
@@ -198,12 +202,12 @@ export default function PreviewUnlockSlot() {
                 handleVerify(v);
               }}
             >
-              <InputOTPGroup className="gap-2">
+              <InputOTPGroup className="gap-1.5 sm:gap-2">
                 {[0, 1, 2, 3, 4, 5].map((i) => (
                   <InputOTPSlot
                     key={i}
                     index={i}
-                    className="h-12 w-11 sm:h-14 sm:w-12 rounded-xl border border-slate-600 bg-slate-800 text-white text-lg font-mono first:rounded-l-xl last:rounded-r-xl border-l data-[active=true]:border-blue-500 data-[active=true]:ring-2 data-[active=true]:ring-blue-500/30"
+                    className="h-12 w-10 sm:h-14 sm:w-12 rounded-xl border border-slate-600 bg-slate-800 text-white text-lg font-mono first:rounded-l-xl last:rounded-r-xl border-l data-[active=true]:border-blue-400 data-[active=true]:ring-2 data-[active=true]:ring-blue-500/40 data-[active=true]:bg-slate-800/80"
                   />
                 ))}
               </InputOTPGroup>

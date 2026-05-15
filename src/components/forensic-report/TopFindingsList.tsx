@@ -66,14 +66,15 @@ export default function TopFindingsList({ flags, blurred, totalRedCount }: Props
               className="fr-card overflow-hidden relative"
               style={{
                 borderColor: `hsl(var(${sev.var}) / 0.4)`,
-                filter: blurred ? "blur(6px)" : undefined,
+                filter: blurred ? "blur(7px) saturate(85%)" : undefined,
+                minHeight: blurred ? 96 : undefined,
               }}
             >
               <div
                 className="absolute left-0 top-0 bottom-0 w-[3px]"
                 style={{
                   background: `hsl(var(${sev.var}))`,
-                  boxShadow: `0 0 10px hsl(var(${sev.var}) / 0.6)`,
+                  boxShadow: `0 0 14px hsl(var(${sev.var}) / 0.7)`,
                 }}
               />
               <div className="p-4 sm:p-5 pl-5 sm:pl-6">
