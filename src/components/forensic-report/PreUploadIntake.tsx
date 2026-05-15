@@ -230,12 +230,12 @@ export function PreUploadIntake() {
               <span className="text-[13px] font-semibold tracking-tight text-white">
                 WindowMan
               </span>
-              <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-500">
+              <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">
                 Forensic Audit System
               </span>
             </div>
           </div>
-          <div className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[11px] font-mono uppercase tracking-wider text-slate-400 sm:flex">
+          <div className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[11px] font-mono uppercase tracking-wider sm:flex text-slate-400">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
             Secure intake · TLS
           </div>
@@ -247,7 +247,7 @@ export function PreUploadIntake() {
             type="button"
             onClick={handleCopyCaseId}
             aria-label={`Copy case ID ${caseId}`}
-            className="group mb-3 inline-flex items-center gap-2 rounded-full border border-blue-400/20 bg-blue-500/[0.08] px-3 py-1 text-[10px] font-mono uppercase tracking-[0.16em] text-blue-300 transition-all hover:border-blue-400/40 hover:bg-blue-500/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+            className="group mb-3 inline-flex items-center gap-2 rounded-full border border-blue-400/20 bg-blue-500/[0.08] px-3 py-1 text-[10px] font-mono uppercase tracking-[0.16em] text-slate-200 transition-all hover:border-blue-400/40 hover:bg-blue-500/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
           >
             <Lock className="h-3 w-3" />
             <span>Case · {caseId}</span>
@@ -260,7 +260,7 @@ export function PreUploadIntake() {
           <h1 className="text-[28px] font-semibold leading-[1.1] tracking-tight text-white sm:text-[36px]">
             Open your private case file.
           </h1>
-          <p className="mt-3 text-[15px] leading-relaxed text-slate-400">
+          <p className="mt-3 text-[15px] leading-relaxed text-slate-300">
             Tell us where you are in your window project. We'll prep a
             forensic-grade audit profile before you upload anything.
           </p>
@@ -272,7 +272,7 @@ export function PreUploadIntake() {
             <div className="flex items-center gap-2 text-[10.5px] font-mono uppercase tracking-[0.18em]">
               <span
                 className={
-                  step === 1 ? "text-blue-300" : "text-slate-500"
+                  step === 1 ? "text-slate-200" : "text-slate-400"
                 }
               >
                 01 · Intake
@@ -280,7 +280,7 @@ export function PreUploadIntake() {
               <span className="text-slate-700">›</span>
               <span
                 className={
-                  step === 2 ? "text-blue-300" : "text-slate-500"
+                  step === 2 ? "text-slate-200" : "text-slate-400"
                 }
               >
                 02 · Chain of Custody
@@ -296,7 +296,7 @@ export function PreUploadIntake() {
                   <ArrowLeft className="h-3 w-3" /> Back
                 </button>
               )}
-              <span className="text-[11px] font-mono uppercase tracking-wider text-slate-500">
+              <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400">
                 Step {step} of 2
               </span>
             </div>
@@ -320,7 +320,7 @@ export function PreUploadIntake() {
             ].join(" ")}
           >
             <header className="mb-5">
-              <div className="mb-2 flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.18em] text-slate-500">
+              <div className="mb-2 flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.18em] text-slate-400">
                 <span className="h-px w-6 bg-slate-600" /> § 01 — INTAKE
               </div>
               <h2
@@ -385,7 +385,7 @@ export function PreUploadIntake() {
             ].join(" ")}
           >
             <header className="mb-5">
-              <div className="mb-2 flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.18em] text-slate-500">
+              <div className="mb-2 flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.18em] text-slate-400">
                 <span className="h-px w-6 bg-slate-600" /> § 02 — CHAIN OF CUSTODY
               </div>
               <h2
