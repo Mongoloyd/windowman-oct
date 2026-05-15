@@ -41,8 +41,20 @@ const MOCK_MATCH: SuggestedMatch = {
 
 export default function DevReportPreview() {
   const [params] = useSearchParams();
+  const location = useLocation();
   const [introRequested, setIntroRequested] = useState(false);
   const [reportCallRequested, setReportCallRequested] = useState(false);
+
+  const isSandboxPreview = location.pathname.startsWith("/sandbox/report-preview");
+
+  // Sandbox: normalize to v=v3 and a whitelisted mode. Never let sandbox land on classic.
+  if (isSandboxPreview) {
+    const v = params.get("v");
+    const mode = params.get("mode");
+    if (v !== "v3" || (mode !== "preview" && mode !== "full")) {
+      return <Navigate to="/sandbox/report-preview?v=v3&mode=preview" replace />;
+    }
+  }
 
   if (params.get("v") === "v3") {
     const mode = params.get("mode") === "preview" ? "preview" : "full";
