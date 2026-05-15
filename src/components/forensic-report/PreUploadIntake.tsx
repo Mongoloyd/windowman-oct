@@ -27,6 +27,8 @@ import {
   MapPin,
   Sparkles,
 } from "lucide-react";
+import wmPointing from "@/assets/wm-pointing.png";
+import wmReceiptBg from "@/assets/wm-receipt-bg.png";
 
 /**
  * PreUploadIntake — Phase 4L.9.2 visual harness.
@@ -186,19 +188,36 @@ export function PreUploadIntake() {
     selectedPath || homeType || name || email || zip;
 
   return (
-    <div className="min-h-screen bg-[#020617] text-slate-100 antialiased">
-      {/* Ambient atmospheric layer */}
+    <div className="min-h-screen bg-gradient-to-br from-[#0B1A2E] via-[#102A47] to-[#1A2332] text-slate-100 antialiased">
+      {/* Ambient atmospheric layer — lighter blue/amber blend */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -top-40 left-1/3 h-[600px] w-[600px] rounded-full bg-blue-500/[0.06] blur-[120px]" />
-        <div className="absolute top-1/2 -right-40 h-[500px] w-[500px] rounded-full bg-indigo-500/[0.05] blur-[120px]" />
+        <div className="absolute -top-40 left-1/4 h-[680px] w-[680px] rounded-full bg-[#3B82F6]/[0.14] blur-[130px]" />
+        <div className="absolute top-1/3 -right-40 h-[560px] w-[560px] rounded-full bg-[#F4A261]/[0.10] blur-[130px]" />
+        <div className="absolute -bottom-40 left-1/2 h-[500px] w-[500px] rounded-full bg-[#E8924A]/[0.07] blur-[120px]" />
         <div
-          className="absolute inset-0 opacity-[0.025]"
+          className="absolute inset-0 opacity-[0.04]"
           style={{
             backgroundImage:
-              "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.6) 1px, transparent 0)",
+              "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.7) 1px, transparent 0)",
             backgroundSize: "32px 32px",
           }}
         />
+      </div>
+
+      {/* Sentinel at the Threshold — WindowMan pointing at Zone B */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed right-0 top-0 z-[1] hidden h-screen items-center justify-end pr-2 lg:flex xl:pr-6"
+      >
+        <div className="relative">
+          <div className="absolute inset-0 -z-10 translate-x-6 translate-y-10 rounded-full bg-[#F4A261]/20 blur-3xl" />
+          <img
+            src={wmPointing}
+            alt=""
+            className="h-[78vh] max-h-[820px] w-auto select-none object-contain opacity-95 drop-shadow-[0_30px_60px_rgba(0,0,0,0.6)] motion-safe:animate-float-soft"
+            style={{ transform: "translateX(8%)" }}
+          />
+        </div>
       </div>
 
       {/* SR-only live region */}
@@ -219,24 +238,24 @@ export function PreUploadIntake() {
           }}
         />
       ) : (
-      <div className="relative mx-auto max-w-[1180px] px-4 py-10 sm:px-6 sm:py-14 lg:py-20">
+      <div className="relative z-[2] mx-auto max-w-[1180px] px-4 py-10 sm:px-6 sm:py-14 lg:py-20 lg:pr-[300px] xl:pr-[360px]">
         {/* Header bar */}
         <div className="mb-10 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 shadow-[0_4px_12px_-2px_rgba(59,130,246,0.5),inset_0_1px_0_rgba(255,255,255,0.2)]">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-blue-400 to-indigo-600 shadow-[0_6px_16px_-3px_rgba(59,130,246,0.6),inset_0_1px_0_rgba(255,255,255,0.3)]">
               <ShieldCheck className="h-5 w-5 text-white" strokeWidth={2.25} />
             </div>
             <div className="flex flex-col leading-tight">
               <span className="text-[13px] font-semibold tracking-tight text-white">
                 WindowMan
               </span>
-              <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">
+              <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-300">
                 Forensic Audit System
               </span>
             </div>
           </div>
-          <div className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[11px] font-mono uppercase tracking-wider sm:flex text-slate-400">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+          <div className="hidden items-center gap-2 rounded-full border border-white/15 bg-white/[0.06] px-3 py-1.5 text-[11px] font-mono uppercase tracking-wider text-slate-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:flex">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.9)]" />
             Secure intake · TLS
           </div>
         </div>
@@ -247,14 +266,14 @@ export function PreUploadIntake() {
             type="button"
             onClick={handleCopyCaseId}
             aria-label={`Copy case ID ${caseId}`}
-            className="group mb-3 inline-flex items-center gap-2 rounded-full border border-blue-400/20 bg-blue-500/[0.08] px-3 py-1 text-[10px] font-mono uppercase tracking-[0.16em] text-slate-200 transition-all hover:border-blue-400/40 hover:bg-blue-500/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+            className="group mb-3 inline-flex items-center gap-2 rounded-full border border-amber-300/30 bg-amber-400/[0.10] px-3 py-1 text-[10px] font-mono uppercase tracking-[0.16em] text-amber-100 transition-all hover:border-amber-300/50 hover:bg-amber-400/[0.16] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 shadow-[0_4px_12px_-4px_rgba(244,162,97,0.4),inset_0_1px_0_rgba(255,255,255,0.12)]"
           >
             <Lock className="h-3 w-3" />
             <span>Case · {caseId}</span>
             {copied ? (
-              <Check className="h-3 w-3 text-emerald-400" />
+              <Check className="h-3 w-3 text-emerald-300" />
             ) : (
-              <Copy className="h-3 w-3 opacity-60 group-hover:opacity-100" />
+              <Copy className="h-3 w-3 opacity-70 group-hover:opacity-100" />
             )}
           </button>
           <h1 className="text-[28px] font-semibold leading-[1.1] tracking-tight text-white sm:text-[36px]">
@@ -267,22 +286,14 @@ export function PreUploadIntake() {
         </div>
 
         {/* Step indicator */}
-        <div className="mb-6 rounded-xl border border-white/[0.06] bg-slate-950/40 p-3 sm:p-4">
+        <div className="mb-6 rounded-xl border border-white/15 bg-gradient-to-b from-white/[0.06] to-white/[0.01] p-3 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.10)] backdrop-blur-md sm:p-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-[10.5px] font-mono uppercase tracking-[0.18em]">
-              <span
-                className={
-                  step === 1 ? "text-slate-200" : "text-slate-400"
-                }
-              >
+              <span className={step === 1 ? "text-white" : "text-slate-300"}>
                 01 · Intake
               </span>
-              <span className="text-slate-700">›</span>
-              <span
-                className={
-                  step === 2 ? "text-slate-200" : "text-slate-400"
-                }
-              >
+              <span className="text-slate-300">›</span>
+              <span className={step === 2 ? "text-white" : "text-slate-300"}>
                 02 · Chain of Custody
               </span>
             </div>
@@ -291,19 +302,19 @@ export function PreUploadIntake() {
                 <button
                   type="button"
                   onClick={() => setStep(1)}
-                  className="flex items-center gap-1 text-[11px] font-mono uppercase tracking-wider text-slate-400 transition-colors hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 rounded px-1"
+                  className="flex items-center gap-1 text-[11px] font-mono uppercase tracking-wider text-slate-300 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 rounded px-1"
                 >
                   <ArrowLeft className="h-3 w-3" /> Back
                 </button>
               )}
-              <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400">
+              <span className="text-[11px] font-mono uppercase tracking-wider text-slate-300">
                 Step {step} of 2
               </span>
             </div>
           </div>
-          <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-slate-800/80 shadow-[inset_0_1px_2px_rgba(0,0,0,0.6)]">
+          <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-slate-900/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.7)]">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 motion-safe:transition-all motion-safe:duration-500 ease-out shadow-[0_0_12px_rgba(59,130,246,0.5)]"
+              className="h-full rounded-full bg-gradient-to-r from-blue-400 via-indigo-400 to-amber-300 motion-safe:transition-all motion-safe:duration-500 ease-out shadow-[0_0_14px_rgba(244,162,97,0.6)]"
               style={{ width: `${stepProgress}%` }}
             />
           </div>
@@ -314,22 +325,30 @@ export function PreUploadIntake() {
           <section
             aria-labelledby="zone-a-heading"
             className={[
-              "relative rounded-2xl border border-white/[0.08] bg-gradient-to-b from-slate-900/80 to-slate-950/80 p-6 shadow-[0_24px_60px_-30px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-sm sm:p-7",
+              "relative overflow-hidden rounded-2xl border border-white/15 p-6 sm:p-7",
+              "bg-gradient-to-br from-[#13294A]/90 via-[#1E3A5F]/85 to-[#0E1F38]/90",
+              "shadow-[0_30px_70px_-25px_rgba(0,0,0,0.85),0_8px_24px_-8px_rgba(244,162,97,0.18),inset_0_1px_0_rgba(255,255,255,0.12),inset_0_-1px_0_rgba(0,0,0,0.5)]",
+              "backdrop-blur-xl ring-1 ring-black/30",
               "motion-safe:transition-opacity motion-safe:duration-300",
-              step === 2 ? "opacity-60" : "opacity-100",
+              step === 2 ? "opacity-70" : "opacity-100",
             ].join(" ")}
           >
-            <header className="mb-5">
-              <div className="mb-2 flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.18em] text-slate-400">
-                <span className="h-px w-6 bg-slate-600" /> § 01 — INTAKE
+            {/* Amber rim-light glow */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -top-24 -left-16 h-48 w-48 rounded-full bg-[#F4A261]/25 blur-3xl"
+            />
+            <header className="relative mb-5">
+              <div className="mb-2 flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.18em] text-amber-200/90">
+                <span className="h-px w-6 bg-amber-300/60" /> § 01 — INTAKE
               </div>
               <h2
                 id="zone-a-heading"
-                className="text-[20px] font-semibold tracking-tight text-white"
+                className="text-[20px] font-semibold tracking-tight text-white drop-shadow-[0_1px_0_rgba(0,0,0,0.5)]"
               >
                 Where are you in the process?
               </h2>
-              <p className="mt-1 text-[13px] text-slate-400">
+              <p className="mt-1 text-[13px] text-slate-300">
                 Pick the closest match — it changes how we triage your audit.
               </p>
             </header>
@@ -344,7 +363,7 @@ export function PreUploadIntake() {
 
             {/* Home type */}
             <div className="mt-6">
-              <div className="mb-1.5 text-[12px] font-medium text-slate-300">
+              <div className="mb-1.5 text-[12px] font-medium text-slate-100">
                 Home type
               </div>
               <PillRadioGroup
@@ -357,12 +376,12 @@ export function PreUploadIntake() {
             </div>
 
             {/* Footer support card */}
-            <div className="mt-6 flex items-start gap-3 rounded-xl border border-white/[0.06] bg-slate-950/60 p-4">
-              <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-400">
+            <div className="relative mt-6 flex items-start gap-3 rounded-xl border border-white/15 bg-gradient-to-b from-white/[0.06] to-white/[0.01] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_8px_20px_-12px_rgba(0,0,0,0.6)]">
+              <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-amber-400/15 text-amber-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]">
                 <Clock className="h-4 w-4" />
               </div>
-              <div className="text-[12.5px] leading-relaxed text-slate-400">
-                <span className="font-semibold text-slate-200">
+              <div className="text-[12.5px] leading-relaxed text-slate-200">
+                <span className="font-semibold text-white">
                   What happens next.
                 </span>{" "}
                 After this step you'll upload your quote (PDF, photo, or scan).
@@ -379,23 +398,35 @@ export function PreUploadIntake() {
               if (step === 1 && selectedPath && homeType) setStep(2);
             }}
             className={[
-              "relative rounded-2xl border border-white/[0.08] bg-gradient-to-b from-slate-900/80 to-slate-950/80 p-6 shadow-[0_24px_60px_-30px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-sm sm:p-7",
+              "relative overflow-hidden rounded-2xl border border-white/12 p-6 sm:p-7",
+              "bg-gradient-to-br from-[#1A2332]/95 via-[#252F40]/90 to-[#0F1722]/95",
+              "shadow-[0_30px_70px_-25px_rgba(0,0,0,0.9),0_10px_28px_-10px_rgba(232,146,74,0.22),inset_0_1px_0_rgba(255,255,255,0.10),inset_0_-1px_0_rgba(0,0,0,0.55)]",
+              "backdrop-blur-xl ring-1 ring-black/40",
               "motion-safe:transition-opacity motion-safe:duration-300",
-              step === 1 ? "opacity-70" : "opacity-100",
+              step === 1 ? "opacity-80" : "opacity-100",
             ].join(" ")}
           >
-            <header className="mb-5">
-              <div className="mb-2 flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.18em] text-slate-400">
-                <span className="h-px w-6 bg-slate-600" /> § 02 — CHAIN OF CUSTODY
+            {/* Warm orange rim light */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -top-20 -right-20 h-56 w-56 rounded-full bg-[#E8924A]/30 blur-3xl"
+            />
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"
+            />
+            <header className="relative mb-5">
+              <div className="mb-2 flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.18em] text-orange-200/90">
+                <span className="h-px w-6 bg-orange-300/60" /> § 02 — CHAIN OF CUSTODY
               </div>
               <h2
                 id="zone-b-heading"
-                className="text-[20px] font-semibold tracking-tight text-white"
+                className="text-[20px] font-semibold tracking-tight text-white drop-shadow-[0_1px_0_rgba(0,0,0,0.5)]"
               >
                 Set up your case file
               </h2>
-              <div className="mt-1.5 flex items-center gap-2 text-[11.5px] text-slate-400">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 motion-safe:animate-pulse shadow-[0_0_6px_rgba(52,211,153,0.7)]" />
+              <div className="mt-1.5 flex items-center gap-2 text-[11.5px] text-slate-300">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 motion-safe:animate-pulse shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
                 Benchmarked against 2,847 South FL quotes
               </div>
             </header>
@@ -453,14 +484,22 @@ export function PreUploadIntake() {
               />
             </div>
 
-            {/* Case File Preview / Receipt */}
+            {/* Case File Preview / Receipt — uses skeuomorphic paper texture cue */}
             {hasAnyPreview && (
-              <div className="mt-6 rounded-lg border border-dashed border-slate-700 bg-slate-950/40 px-4 py-3 font-mono">
-                <div className="mb-2 flex items-center justify-between text-[10px] uppercase tracking-[0.18em] text-slate-500">
+              <div
+                className="relative mt-6 overflow-hidden rounded-lg border border-amber-200/20 px-4 py-3 font-mono shadow-[0_8px_24px_-10px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.08)]"
+                style={{
+                  backgroundImage: `linear-gradient(180deg, rgba(15,28,46,0.88), rgba(8,16,28,0.92)), url(${wmReceiptBg})`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                  backgroundBlendMode: "overlay",
+                }}
+              >
+                <div className="mb-2 flex items-center justify-between text-[10px] uppercase tracking-[0.18em] text-amber-200/90">
                   <span>§ Case File Preview</span>
-                  <span className="text-slate-600">{caseId}</span>
+                  <span className="text-slate-300">{caseId}</span>
                 </div>
-                <div className="space-y-1 text-[11.5px] text-slate-300">
+                <div className="space-y-1 text-[11.5px] text-slate-100">
                   {selectedPath && (
                     <ReceiptLine
                       label="PATH"
@@ -489,7 +528,7 @@ export function PreUploadIntake() {
             {showErrorSummary && !canContinue && (
               <div
                 role="alert"
-                className="mt-4 rounded-lg border border-red-400/30 bg-red-500/[0.08] px-3 py-2 text-[12px] text-red-300"
+                className="mt-4 rounded-lg border border-red-400/40 bg-red-500/[0.12] px-3 py-2 text-[12px] text-red-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
               >
                 Complete required fields to open your case file.
               </div>
@@ -502,13 +541,20 @@ export function PreUploadIntake() {
                 onClick={handleContinueAttempt}
                 aria-disabled={!canContinue}
                 className={[
-                  "group relative w-full overflow-hidden rounded-xl px-5 py-3.5 text-[15px] font-semibold text-white motion-safe:transition-all motion-safe:duration-200",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950",
+                  "group relative w-full overflow-hidden rounded-xl px-5 py-3.5 text-[15px] font-semibold text-white motion-safe:transition-all motion-safe:duration-150",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950",
                   canContinue
-                    ? "bg-gradient-to-b from-blue-500 to-blue-600 shadow-[0_10px_28px_-10px_rgba(59,130,246,0.7),inset_0_1px_0_rgba(255,255,255,0.25)] hover:from-blue-400 hover:to-blue-600"
-                    : "bg-slate-800/60 cursor-not-allowed opacity-60 shadow-none",
+                    ? "bg-gradient-to-b from-[#3B82F6] via-[#2563EB] to-[#1E40AF] shadow-[0_14px_32px_-10px_rgba(59,130,246,0.75),0_4px_10px_-2px_rgba(244,162,97,0.35),inset_0_1px_0_rgba(255,255,255,0.35),inset_0_-1px_0_rgba(0,0,0,0.45)] hover:from-[#60A5FA] hover:via-[#3B82F6] hover:to-[#1D4ED8] active:translate-y-px active:shadow-[inset_0_3px_6px_rgba(0,0,0,0.5),0_2px_8px_-2px_rgba(0,0,0,0.6)]"
+                    : "bg-slate-800/60 cursor-not-allowed opacity-60 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",
                 ].join(" ")}
               >
+                {/* glint */}
+                {canContinue && (
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute inset-y-0 -left-1/2 w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-white/25 to-transparent motion-safe:animate-glint"
+                  />
+                )}
                 <span className="relative flex items-center justify-center gap-2">
                   {submitted ? (
                     <>
@@ -523,7 +569,7 @@ export function PreUploadIntake() {
                 </span>
               </button>
 
-              <div className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-slate-500">
+              <div className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-slate-300">
                 <Lock className="h-3 w-3" /> Encrypted in transit · No spam ·
                 You control the unlock
               </div>
@@ -532,16 +578,16 @@ export function PreUploadIntake() {
         </div>
 
         {/* Trust strip */}
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[11px] font-mono uppercase tracking-wider text-slate-500">
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[11px] font-mono uppercase tracking-wider text-slate-300">
           <span className="flex items-center gap-1.5">
-            <ShieldCheck className="h-3.5 w-3.5 text-emerald-400/70" /> SMS-gated
+            <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" /> SMS-gated
             reveal
           </span>
           <span className="flex items-center gap-1.5">
-            <Lock className="h-3.5 w-3.5 text-blue-400/70" /> Private storage
+            <Lock className="h-3.5 w-3.5 text-blue-300" /> Private storage
           </span>
           <span className="flex items-center gap-1.5">
-            <FileText className="h-3.5 w-3.5 text-indigo-400/70" /> Deterministic
+            <FileText className="h-3.5 w-3.5 text-amber-300" /> Deterministic
             scoring
           </span>
         </div>
@@ -734,19 +780,20 @@ function PathCard({
       tabIndex={tabIndex}
       onClick={onClick}
       className={[
-        "group relative w-full text-left rounded-xl border px-4 py-4 motion-safe:transition-all motion-safe:duration-200 ease-out",
-        "flex items-center gap-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950",
+        "group relative w-full text-left rounded-xl border px-4 py-4 motion-safe:transition-all motion-safe:duration-150 ease-out",
+        "flex items-center gap-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950",
+        "active:translate-y-px",
         selected
-          ? "border-blue-400/40 bg-gradient-to-b from-blue-500/[0.12] to-blue-500/[0.04] motion-safe:translate-y-[2px] shadow-inner shadow-black/40"
-          : "border-white/[0.07] bg-slate-950/40 hover:border-white/15 hover:bg-slate-900/60",
+          ? "border-amber-300/50 bg-gradient-to-b from-[#3B82F6]/25 via-[#1E3A8A]/25 to-[#0F172A]/40 shadow-[inset_0_2px_4px_rgba(0,0,0,0.55),0_0_0_1px_rgba(244,162,97,0.25),0_8px_22px_-12px_rgba(244,162,97,0.45)]"
+          : "border-white/15 bg-gradient-to-b from-white/[0.06] to-white/[0.01] hover:border-white/25 hover:from-white/[0.10] hover:to-white/[0.02] shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_8px_18px_-12px_rgba(0,0,0,0.7)]",
       ].join(" ")}
     >
       <div
         className={[
           "flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg motion-safe:transition-colors",
           selected
-            ? "bg-blue-500/20 text-blue-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
-            : "bg-white/[0.04] text-slate-400 group-hover:text-slate-200",
+            ? "bg-gradient-to-b from-amber-300/30 to-amber-500/10 text-amber-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.25),inset_0_-1px_0_rgba(0,0,0,0.4)]"
+            : "bg-white/[0.06] text-slate-200 group-hover:text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]",
         ].join(" ")}
       >
         {icon}
@@ -755,20 +802,20 @@ function PathCard({
         <div className="flex items-center gap-2">
           <span className="text-[14.5px] font-semibold text-white">{title}</span>
           {tag && (
-            <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider text-emerald-300">
+            <span className="rounded-full border border-amber-300/40 bg-amber-400/15 px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider text-amber-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]">
               {tag}
             </span>
           )}
         </div>
-        <div className="mt-0.5 text-[12.5px] text-slate-400">{subtitle}</div>
+        <div className="mt-0.5 text-[12.5px] text-slate-300">{subtitle}</div>
       </div>
       <div
         aria-hidden
         className={[
           "flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border motion-safe:transition-colors",
           selected
-            ? "border-blue-400 bg-blue-500"
-            : "border-white/15 bg-transparent",
+            ? "border-amber-300 bg-gradient-to-b from-amber-300 to-amber-500 shadow-[0_0_10px_rgba(244,162,97,0.6),inset_0_1px_0_rgba(255,255,255,0.4)]"
+            : "border-white/25 bg-transparent",
         ].join(" ")}
       >
         {selected && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
@@ -798,11 +845,12 @@ function PillChoice({
       tabIndex={tabIndex}
       onClick={onClick}
       className={[
-        "flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-[12px] font-medium motion-safe:transition-all motion-safe:duration-200 ease-out",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950",
+        "flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-[12px] font-medium motion-safe:transition-all motion-safe:duration-150 ease-out",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950",
+        "active:translate-y-px",
         selected
-          ? "border-blue-400/40 bg-blue-500/[0.12] text-white motion-safe:translate-y-[1px] shadow-inner shadow-black/40"
-          : "border-white/[0.07] bg-slate-950/40 text-slate-400 hover:border-white/15 hover:text-slate-200",
+          ? "border-amber-300/50 bg-gradient-to-b from-[#3B82F6]/30 to-[#1E3A8A]/30 text-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),0_0_0_1px_rgba(244,162,97,0.2),0_4px_10px_-4px_rgba(244,162,97,0.4)]"
+          : "border-white/15 bg-gradient-to-b from-white/[0.06] to-white/[0.01] text-slate-200 hover:border-white/25 hover:text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_4px_10px_-6px_rgba(0,0,0,0.6)]",
       ].join(" ")}
     >
       {icon}
@@ -844,25 +892,25 @@ function SecureField({
 }) {
   const showError = touched && !valid;
   const lockColor = !value
-    ? "text-slate-600"
+    ? "text-slate-300"
     : typing
-      ? "text-amber-400 motion-safe:animate-pulse"
+      ? "text-amber-300 motion-safe:animate-pulse"
       : valid
-        ? "text-emerald-400"
-        : "text-slate-600";
+        ? "text-emerald-300"
+        : "text-slate-300";
 
   return (
     <label className="group relative block">
-      <div className="mb-1.5 text-[12px] font-medium text-slate-300">
+      <div className="mb-1.5 text-[12px] font-medium text-slate-100">
         {label}
       </div>
-      <div className="relative rounded-lg motion-safe:transition-shadow focus-within:ring-1 focus-within:ring-blue-400/50">
+      <div className="relative rounded-lg motion-safe:transition-shadow focus-within:ring-1 focus-within:ring-amber-300/50">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 rounded-lg opacity-0 motion-safe:transition-opacity motion-safe:duration-300 group-focus-within:opacity-100"
           style={{
             background:
-              "radial-gradient(120% 80% at 50% 50%, rgba(59,130,246,0.12), transparent 70%)",
+              "radial-gradient(120% 80% at 50% 50%, rgba(244,162,97,0.16), transparent 70%)",
           }}
         />
         <div className="relative">
@@ -877,11 +925,12 @@ function SecureField({
             placeholder={placeholder}
             aria-invalid={showError}
             className={[
-              "w-full rounded-lg bg-slate-950/80 px-3.5 py-2.5 pr-9 text-[14px] text-white placeholder:text-slate-600 outline-none ring-0 border motion-safe:transition-colors focus:border-blue-400/40",
+              "w-full rounded-lg bg-gradient-to-b from-[#0A1422] to-[#0F1B2E] px-3.5 py-2.5 pr-9 text-[14px] text-white placeholder:text-slate-300 outline-none ring-0 border motion-safe:transition-colors focus:border-amber-300/50",
+              "shadow-[inset_0_2px_4px_rgba(0,0,0,0.55),inset_0_-1px_0_rgba(255,255,255,0.04)]",
               tracking ? "tracking-wider" : "",
               showError
-                ? "border-red-400/40"
-                : "border-white/[0.06]",
+                ? "border-red-400/50"
+                : "border-white/15",
             ].join(" ")}
           />
           <Lock
@@ -890,7 +939,7 @@ function SecureField({
         </div>
       </div>
       {showError && (
-        <div className="mt-1 text-[11px] text-red-400/80">{error}</div>
+        <div className="mt-1 text-[11px] text-red-300">{error}</div>
       )}
     </label>
   );
@@ -899,11 +948,11 @@ function SecureField({
 function ReceiptLine({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline gap-2">
-      <span className="text-slate-500">{label}</span>
-      <span className="flex-1 truncate border-b border-dotted border-slate-800/80 text-slate-700">
+      <span className="text-amber-200/90">{label}</span>
+      <span className="flex-1 truncate border-b border-dotted border-slate-500/60 text-slate-300">
         {"·".repeat(40)}
       </span>
-      <span className="text-slate-200 truncate max-w-[60%] text-right">
+      <span className="truncate max-w-[60%] text-right text-white">
         {value}
       </span>
     </div>
@@ -937,12 +986,12 @@ function BranchPanel({
         <button
           type="button"
           onClick={onBack}
-          className="group inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[11px] font-mono uppercase tracking-wider text-slate-400 motion-safe:transition-colors hover:border-white/20 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+          className="group inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[11px] font-mono uppercase tracking-wider text-slate-300 motion-safe:transition-colors hover:border-white/20 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
         >
           <ArrowLeft className="h-3 w-3 motion-safe:transition-transform group-hover:-translate-x-0.5" />
           Edit my answers
         </button>
-        <div className="flex items-center gap-2 text-[10.5px] font-mono uppercase tracking-[0.18em] text-slate-500">
+        <div className="flex items-center gap-2 text-[10.5px] font-mono uppercase tracking-[0.18em] text-slate-300">
           <Lock className="h-3 w-3 text-blue-400/70" />
           Case · {caseId}
         </div>
@@ -983,7 +1032,7 @@ function PanelShell({
         <h2 className="text-[24px] font-semibold leading-[1.15] tracking-tight text-white sm:text-[30px]">
           {heading}
         </h2>
-        <p className="mt-3 text-[14.5px] leading-relaxed text-slate-400">
+        <p className="mt-3 text-[14.5px] leading-relaxed text-slate-300">
           {subcopy}
         </p>
       </div>
@@ -1014,7 +1063,7 @@ function PanelCTA({
 
 function PreviewOnlyNote() {
   return (
-    <div className="mt-5 flex items-center justify-center gap-1.5 text-[11px] font-mono uppercase tracking-wider text-slate-600">
+    <div className="mt-5 flex items-center justify-center gap-1.5 text-[11px] font-mono uppercase tracking-wider text-slate-300">
       <span className="h-1 w-1 rounded-full bg-amber-400/70" />
       Visual preview only — wiring comes later
     </div>
@@ -1037,14 +1086,14 @@ function UploadIntentPanel({ firstName }: { firstName: string }) {
         <div className="text-[15px] font-semibold text-white">
           Drop your quote here
         </div>
-        <div className="mt-1 text-[12.5px] text-slate-400">
+        <div className="mt-1 text-[12.5px] text-slate-300">
           or tap to browse — we'll do the rest
         </div>
         <div className="mt-4 flex items-center justify-center gap-2">
           {["PDF", "JPG", "PNG"].map((t) => (
             <span
               key={t}
-              className="rounded-md border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-slate-400"
+              className="rounded-md border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-slate-300"
             >
               {t}
             </span>
@@ -1093,7 +1142,7 @@ function BaselinePanel({
 
       {/* Baseline preview card */}
       <div className="mt-4 rounded-xl border border-white/[0.08] bg-slate-950/60 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-        <div className="mb-3 flex items-center justify-between text-[10.5px] font-mono uppercase tracking-[0.18em] text-slate-500">
+        <div className="mb-3 flex items-center justify-between text-[10.5px] font-mono uppercase tracking-[0.18em] text-slate-300">
           <span>§ Baseline preview</span>
           <span className="flex items-center gap-1.5 text-emerald-400/80">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 motion-safe:animate-pulse" />
@@ -1102,16 +1151,16 @@ function BaselinePanel({
         </div>
         <div className="flex items-end justify-between">
           <div>
-            <div className="text-[11px] uppercase tracking-wider text-slate-500">
+            <div className="text-[11px] uppercase tracking-wider text-slate-300">
               Expected range
             </div>
             <div className="mt-1 text-[26px] font-semibold tracking-tight text-white">
-              $1,180<span className="text-slate-500"> – </span>$1,640
+              $1,180<span className="text-slate-300"> – </span>$1,640
             </div>
-            <div className="mt-0.5 text-[12px] text-slate-400">per opening · installed</div>
+            <div className="mt-0.5 text-[12px] text-slate-300">per opening · installed</div>
           </div>
           <div className="text-right">
-            <div className="text-[11px] uppercase tracking-wider text-slate-500">
+            <div className="text-[11px] uppercase tracking-wider text-slate-300">
               Sample size
             </div>
             <div className="mt-1 font-mono text-[18px] text-blue-300">2,847</div>
@@ -1121,7 +1170,7 @@ function BaselinePanel({
         <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-800/80 shadow-[inset_0_1px_2px_rgba(0,0,0,0.6)]">
           <div className="h-full w-[58%] rounded-full bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-500 shadow-[0_0_12px_rgba(59,130,246,0.5)]" />
         </div>
-        <div className="mt-1.5 flex justify-between text-[10px] font-mono uppercase tracking-wider text-slate-600">
+        <div className="mt-1.5 flex justify-between text-[10px] font-mono uppercase tracking-wider text-slate-300">
           <span>Low</span>
           <span>Median</span>
           <span>High</span>
@@ -1153,7 +1202,7 @@ function SummaryTile({
         {icon}
       </div>
       <div className="min-w-0">
-        <div className="text-[10.5px] font-mono uppercase tracking-[0.18em] text-slate-500">
+        <div className="text-[10.5px] font-mono uppercase tracking-[0.18em] text-slate-300">
           {label}
         </div>
         <div className="truncate text-[14px] font-semibold text-white">
@@ -1174,7 +1223,7 @@ function SampleReportPanel({ firstName }: { firstName: string }) {
     >
       {/* Sample report card */}
       <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-gradient-to-b from-slate-900 to-slate-950 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-        <div className="mb-4 flex items-center justify-between text-[10.5px] font-mono uppercase tracking-[0.18em] text-slate-500">
+        <div className="mb-4 flex items-center justify-between text-[10.5px] font-mono uppercase tracking-[0.18em] text-slate-300">
           <span>Sample · Truth Report</span>
           <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-amber-300">
             Demo
@@ -1187,7 +1236,7 @@ function SampleReportPanel({ firstName }: { firstName: string }) {
             <div className="absolute inset-1 rounded-full border border-amber-400/30" />
             <div className="text-center">
               <div className="text-[28px] font-bold leading-none text-amber-300">C+</div>
-              <div className="mt-0.5 text-[9px] font-mono uppercase tracking-wider text-slate-400">
+              <div className="mt-0.5 text-[9px] font-mono uppercase tracking-wider text-slate-300">
                 Grade
               </div>
             </div>
@@ -1231,7 +1280,7 @@ function PillarRow({
   }[tone];
   return (
     <div className="flex items-center gap-2.5">
-      <span className="w-[88px] flex-shrink-0 text-[11px] text-slate-400">
+      <span className="w-[88px] flex-shrink-0 text-[11px] text-slate-300">
         {label}
       </span>
       <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-800/80">
