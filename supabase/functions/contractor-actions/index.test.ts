@@ -2,8 +2,7 @@ import { assertEquals } from "https://deno.land/std@0.224.0/assert/assert_equals
 import { assert } from "https://deno.land/std@0.224.0/assert/assert.ts";
 
 const SUPABASE_URL = "https://example.supabase.co";
-const SUPABASE_ANON_KEY =
-  "test-public-anon-key";
+const SUPABASE_ANON_KEY = "test-public-anon-key";
 const FUNCTION_URL = `${SUPABASE_URL}/functions/v1/contractor-actions`;
 
 Deno.test("contractor-actions rejects unauthenticated request", async () => {

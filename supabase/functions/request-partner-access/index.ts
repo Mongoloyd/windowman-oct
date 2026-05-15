@@ -198,7 +198,12 @@ Deno.serve(async (req) => {
       submitted_at: new Date().toISOString(),
     },
   }).then(({ error }) => {
-    if (error) console.warn("[request-partner-access] contractor_account insert skipped", error.message);
+    if (error) {
+      console.warn(
+        "[request-partner-access] contractor_account insert skipped",
+        error.message,
+      );
+    }
   });
 
   // 3. Best-effort ops audit log (non-fatal)
@@ -245,12 +250,18 @@ async function notifyOps(details: Record<string, string | null>) {
   const resendKey = Deno.env.get("RESEND_API_KEY");
   const to = Deno.env.get("CONTRACTOR_EMAIL");
   if (!resendKey || !to) {
-    console.warn("[request-partner-access] ops email skipped; RESEND_API_KEY or CONTRACTOR_EMAIL missing");
+    console.warn(
+      "[request-partner-access] ops email skipped; RESEND_API_KEY or CONTRACTOR_EMAIL missing",
+    );
     return;
   }
 
   const rows = Object.entries(details)
-    .map(([key, value]) => `<tr><td style="padding:4px 12px 4px 0;color:#64748b;">${key}</td><td style="padding:4px 0;color:#0f172a;">${escapeHtml(value || "—")}</td></tr>`)
+    .map(([key, value]) =>
+      `<tr><td style="padding:4px 12px 4px 0;color:#64748b;">${key}</td><td style="padding:4px 0;color:#0f172a;">${
+        escapeHtml(value || "—")
+      }</td></tr>`
+    )
     .join("");
 
   try {
@@ -264,10 +275,16 @@ async function notifyOps(details: Record<string, string | null>) {
         from: "WindowMan <onboarding@resend.dev>",
         to: [to],
         subject: `New partner access request: ${details.companyName}`,
-        html: `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;"><h2>New partner access request</h2><table>${rows}</table></div>`,
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;"><h2>New partner access request</h2><table>${rows}</table></div>`,
       }),
     });
-    if (!res.ok) console.warn("[request-partner-access] ops email rejected", await res.text());
+    if (!res.ok) {
+      console.warn(
+        "[request-partner-access] ops email rejected",
+        await res.text(),
+      );
+    }
   } catch (e) {
     console.warn("[request-partner-access] ops email failed", e);
   }
