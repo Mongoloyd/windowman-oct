@@ -547,6 +547,7 @@ export function PreUploadIntake() {
           </span>
         </div>
       </div>
+      )}
     </div>
   );
 }
