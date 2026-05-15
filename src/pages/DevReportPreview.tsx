@@ -98,9 +98,9 @@ export default function DevReportPreview() {
         </Helmet>
         <div
           role="status"
-          className="fixed top-0 inset-x-0 z-50 h-7 flex items-center justify-center text-[11px] font-mono uppercase tracking-wider bg-amber-500/15 text-amber-200 border-b border-amber-500/30 backdrop-blur"
+          className="fixed top-0 inset-x-0 z-50 h-7 flex items-center justify-center text-[11px] font-mono uppercase tracking-wider text-amber-200 border-b border-amber-500/30 backdrop-blur bg-[#3068e8]/[0.21]"
         >
-          Sandbox preview — visual QA only, not production traffic
+          {" "}
         </div>
         <div className="pt-7">{report}</div>
       </>
