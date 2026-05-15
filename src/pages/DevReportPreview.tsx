@@ -15,6 +15,7 @@ import TruthReportClassic from "@/components/TruthReportClassic";
 import type { SuggestedMatch } from "@/components/TruthReportClassic";
 import type { AnalysisFlag, PillarScore } from "@/hooks/useAnalysisData";
 import ForensicAuditReport from "@/components/forensic-report/ForensicAuditReport";
+import PreviewUnlockSlot from "@/components/forensic-report/PreviewUnlockSlot";
 
 const MOCK_FLAGS: AnalysisFlag[] = [
   { id: 1, label: "Hidden Fees Not Disclosed", severity: "red", pillar: "fine_print", detail: "Your quote excludes disposal fees ($300–$500), stucco patching ($1,200–$2,400), and permit costs ($800–$1,500). That's up to $4,400 in costs you won't see until it's too late.", tip: null },
@@ -70,6 +71,7 @@ export default function DevReportPreview() {
         propertyType="Single Family"
         windZone="HVHZ"
         codeJurisdiction="Broward County"
+        unlockSlot={mode === "preview" ? <PreviewUnlockSlot /> : undefined}
       />
     );
   }
