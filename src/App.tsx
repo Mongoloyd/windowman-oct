@@ -26,6 +26,7 @@ const PartnerRoutes = lazy(() =>
 const DemoClassic = lazy(() => import("./pages/DemoClassic.tsx"));
 const DevReportPreview = lazy(() => import("./pages/DevReportPreview.tsx"));
 const DevTesting = lazy(() => import("./pages/DevTesting.tsx"));
+const PreUploadIntake = lazy(() => import("@/components/forensic-report/PreUploadIntake"));
 
 // ── Static content pages ─────────────────────────────────────────────────────
 const PublicLayout = lazy(() => import("@/components/PublicLayout"));
