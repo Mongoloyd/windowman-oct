@@ -4,8 +4,8 @@
  */
 export const FR = {
   pagePad: "px-4 sm:px-6 lg:px-8",
-  cardPad: "p-5 sm:p-6",
-  sectionGap: "space-y-5 sm:space-y-6",
+  cardPad: "p-6 sm:p-7",
+  sectionGap: "space-y-6 sm:space-y-7",
   maxWidth: "max-w-5xl mx-auto",
 } as const;
 

@@ -959,36 +959,103 @@
    Scoped to `.report-dark` so it does not affect global theme.
    ═══════════════════════════════════════════════════════════ */
 .report-dark {
-  /* Deep navy canvas */
-  --fr-bg: 220 45% 6%;
-  --fr-surface: 220 38% 9%;
-  --fr-surface-2: 220 32% 12%;
-  --fr-border: 220 28% 18%;
-  --fr-border-strong: 220 25% 26%;
+  /* Premium near-black canvas (4L.1 foundation) */
+  --fr-bg: 218 40% 4%;            /* ~ #070B12 */
+  --fr-surface: 220 36% 8%;       /* card base, slate-900-ish */
+  --fr-surface-2: 220 30% 11%;    /* elevated tier, slate-800/70 */
+  --fr-border: 220 22% 17%;       /* slate-700/70 */
+  --fr-border-strong: 220 22% 28%;
 
-  --fr-text: 210 30% 96%;
-  --fr-text-muted: 215 18% 65%;
-  --fr-text-dim: 215 14% 48%;
+  --fr-text: 210 30% 98%;
+  --fr-text-muted: 215 16% 70%;   /* slate-300/400 blend */
+  --fr-text-dim: 215 14% 52%;
 
-  /* Accents */
-  --fr-cyan: 195 92% 55%;
+  /* Accents — aligned to spec (red-400, amber-400, blue-400/500, emerald-400) */
+  --fr-cyan: 213 94% 60%;         /* primary CTA / info — blue-500 */
+  --fr-cyan-soft: 213 94% 68%;    /* blue-400 for secondary info */
   --fr-gold: 42 88% 58%;
-  --fr-danger: 358 78% 58%;
-  --fr-caution: 38 92% 56%;
-  --fr-success: 152 64% 48%;
+  --fr-danger: 0 84% 64%;         /* red-400 */
+  --fr-caution: 38 92% 60%;       /* amber-400 */
+  --fr-success: 152 64% 52%;      /* emerald-400 */
 
   background-color: hsl(var(--fr-bg));
   color: hsl(var(--fr-text));
   font-family: var(--wm-font-body);
+  -webkit-font-smoothing: antialiased;
 }
 
+/* Shared premium card primitive */
 .report-dark .fr-card {
-  background: hsl(var(--fr-surface));
-  border: 1px solid hsl(var(--fr-border));
-  border-radius: 10px;
+  background: hsl(var(--fr-surface) / 0.92);
+  border: 1px solid hsl(var(--fr-border) / 0.9);
+  border-radius: 1rem;            /* rounded-2xl */
+  box-shadow:
+    0 1px 0 hsl(0 0% 100% / 0.02) inset,
+    0 24px 60px -28px hsl(220 60% 2% / 0.9),
+    0 8px 24px -12px hsl(220 60% 2% / 0.6);
 }
+.report-dark .fr-card-elevated {
+  background: hsl(var(--fr-surface-2) / 0.85);
+}
+
+/* Shared section header eyebrow (mono uppercase) */
 .report-dark .fr-mono {
   font-family: var(--wm-font-mono);
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+.report-dark .fr-section-title {
+  font-family: var(--wm-font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: hsl(var(--fr-cyan));
+}
+
+/* Shared severity tile (used later by partial-reveal stat row + full-reveal pillars) */
+.report-dark .fr-tile {
+  border-radius: 0.875rem;
+  border: 1px solid;
+  padding: 0.75rem 1rem;
+  background: hsl(var(--fr-surface-2) / 0.6);
+}
+.report-dark .fr-tile--critical { border-color: hsl(var(--fr-danger) / 0.35); background: hsl(var(--fr-danger) / 0.08); }
+.report-dark .fr-tile--warning  { border-color: hsl(var(--fr-caution) / 0.35); background: hsl(var(--fr-caution) / 0.08); }
+.report-dark .fr-tile--info     { border-color: hsl(var(--fr-cyan) / 0.35);   background: hsl(var(--fr-cyan) / 0.08); }
+.report-dark .fr-tile--success  { border-color: hsl(var(--fr-success) / 0.35); background: hsl(var(--fr-success) / 0.08); }
+
+/* Shared CTA primitive — used by later 4L.3 unlock surface; harmless if unused now */
+.report-dark .fr-cta-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 52px;
+  padding: 0.875rem 1.25rem;
+  border-radius: 0.875rem;
+  font-weight: 600;
+  font-size: 1rem;
+  color: white;
+  background: hsl(var(--fr-cyan));
+  box-shadow:
+    0 8px 24px -8px hsl(var(--fr-cyan) / 0.45),
+    0 1px 0 hsl(0 0% 100% / 0.12) inset;
+  transition: background-color 120ms ease, transform 80ms ease, box-shadow 120ms ease;
+}
+.report-dark .fr-cta-primary:hover:not(:disabled) {
+  background: hsl(var(--fr-cyan) / 0.92);
+  box-shadow:
+    0 12px 32px -8px hsl(var(--fr-cyan) / 0.55),
+    0 1px 0 hsl(0 0% 100% / 0.15) inset;
+}
+.report-dark .fr-cta-primary:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px hsl(var(--fr-cyan) / 0.35);
+}
+.report-dark .fr-cta-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
 }
