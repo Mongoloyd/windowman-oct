@@ -6,7 +6,7 @@ export const FR = {
   pagePad: "px-4 sm:px-6 lg:px-8",
   cardPad: "p-6 sm:p-7",
   sectionGap: "space-y-6 sm:space-y-7",
-  maxWidth: "max-w-5xl mx-auto",
+  maxWidth: "max-w-6xl mx-auto",
 } as const;
 
 export function formatReportId(analysisId: string | null | undefined, createdAt?: Date): string {
