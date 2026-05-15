@@ -21,6 +21,12 @@ import {
   CheckCircle2,
   Copy,
   Check,
+  UploadCloud,
+  BarChart3,
+  Eye,
+  MapPin,
+  Sparkles,
+  Pencil,
 } from "lucide-react";
 
 /**
