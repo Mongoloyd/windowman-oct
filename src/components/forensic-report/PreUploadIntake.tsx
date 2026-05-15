@@ -238,24 +238,24 @@ export function PreUploadIntake() {
           }}
         />
       ) : (
-      <div className="relative mx-auto max-w-[1180px] px-4 py-10 sm:px-6 sm:py-14 lg:py-20">
+      <div className="relative z-[2] mx-auto max-w-[1180px] px-4 py-10 sm:px-6 sm:py-14 lg:py-20 lg:pr-[300px] xl:pr-[360px]">
         {/* Header bar */}
         <div className="mb-10 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 shadow-[0_4px_12px_-2px_rgba(59,130,246,0.5),inset_0_1px_0_rgba(255,255,255,0.2)]">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-blue-400 to-indigo-600 shadow-[0_6px_16px_-3px_rgba(59,130,246,0.6),inset_0_1px_0_rgba(255,255,255,0.3)]">
               <ShieldCheck className="h-5 w-5 text-white" strokeWidth={2.25} />
             </div>
             <div className="flex flex-col leading-tight">
               <span className="text-[13px] font-semibold tracking-tight text-white">
                 WindowMan
               </span>
-              <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">
+              <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-300">
                 Forensic Audit System
               </span>
             </div>
           </div>
-          <div className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[11px] font-mono uppercase tracking-wider sm:flex text-slate-400">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+          <div className="hidden items-center gap-2 rounded-full border border-white/15 bg-white/[0.06] px-3 py-1.5 text-[11px] font-mono uppercase tracking-wider text-slate-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:flex">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.9)]" />
             Secure intake · TLS
           </div>
         </div>
@@ -266,14 +266,14 @@ export function PreUploadIntake() {
             type="button"
             onClick={handleCopyCaseId}
             aria-label={`Copy case ID ${caseId}`}
-            className="group mb-3 inline-flex items-center gap-2 rounded-full border border-blue-400/20 bg-blue-500/[0.08] px-3 py-1 text-[10px] font-mono uppercase tracking-[0.16em] text-slate-200 transition-all hover:border-blue-400/40 hover:bg-blue-500/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+            className="group mb-3 inline-flex items-center gap-2 rounded-full border border-amber-300/30 bg-amber-400/[0.10] px-3 py-1 text-[10px] font-mono uppercase tracking-[0.16em] text-amber-100 transition-all hover:border-amber-300/50 hover:bg-amber-400/[0.16] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 shadow-[0_4px_12px_-4px_rgba(244,162,97,0.4),inset_0_1px_0_rgba(255,255,255,0.12)]"
           >
             <Lock className="h-3 w-3" />
             <span>Case · {caseId}</span>
             {copied ? (
-              <Check className="h-3 w-3 text-emerald-400" />
+              <Check className="h-3 w-3 text-emerald-300" />
             ) : (
-              <Copy className="h-3 w-3 opacity-60 group-hover:opacity-100" />
+              <Copy className="h-3 w-3 opacity-70 group-hover:opacity-100" />
             )}
           </button>
           <h1 className="text-[28px] font-semibold leading-[1.1] tracking-tight text-white sm:text-[36px]">
