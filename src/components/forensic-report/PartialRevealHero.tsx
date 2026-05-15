@@ -89,18 +89,10 @@ export default function PartialRevealHero({
 
         {/* Grade + tiles row */}
         <div className="mt-7 grid grid-cols-1 md:grid-cols-[auto_1fr] gap-7 md:gap-8 items-center">
-          {/* Grade with red glow */}
+          {/* Grade badge */}
           <div className="flex flex-col items-center md:items-start gap-2">
-            <div
-              className="rounded-full p-1.5 ring-1 ring-[hsl(var(--fr-danger)/0.35)]"
-              style={{
-                background:
-                  "radial-gradient(circle, hsl(var(--fr-danger) / 0.38) 0%, hsl(var(--fr-danger) / 0.08) 55%, transparent 75%)",
-              }}
-            >
-              <GradeDial grade={grade} />
-            </div>
-            <span className="fr-mono text-[10px] font-bold tracking-[0.2em] text-slate-400 uppercase">
+            <GradeDial grade={grade} />
+            <span className="fr-mono text-[10px] font-bold tracking-[0.2em] text-slate-200 uppercase">
               Audit Verdict · Quote Grade
             </span>
           </div>
