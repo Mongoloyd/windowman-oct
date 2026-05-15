@@ -10,13 +10,16 @@
  */
 import { useMemo } from "react";
 import type { AnalysisFlag } from "@/hooks/useAnalysisData";
-import ReportHeader from "./ReportHeader";
+// Legacy ReportHeader retained in repo but no longer rendered by this shell (UnlockedHeader replaces it).
+import UnlockedHeader from "./UnlockedHeader";
 import ExecutiveSummaryCard from "./ExecutiveSummaryCard";
 import PartialRevealHero from "./PartialRevealHero";
 import TopFindingsList from "./TopFindingsList";
 import PartialUnlockOverlay from "./PartialUnlockOverlay";
 import PropertyProfileCard from "./PropertyProfileCard";
 import ScopeOverviewCard from "./ScopeOverviewCard";
+import MoneyAtRiskCard from "./MoneyAtRiskCard";
+import NextActionCard from "./NextActionCard";
 import { FR } from "./tokens";
 
 export interface ForensicAuditReportProps {
@@ -65,13 +68,17 @@ export default function ForensicAuditReport(props: ForensicAuditReportProps) {
     [isPreview, props.flags],
   );
 
-  return (
-    <div className={`report-dark min-h-screen ${FR.pagePad} py-6 sm:py-8`}>
-      <div className={FR.maxWidth}>
-        {/* Full-reveal keeps the report header chrome; preview leads with the hero teaser. */}
-        {!isPreview && <ReportHeader analysisId={props.analysisId} />}
+  const hasOverpayment = props.overpaymentLow != null || props.overpaymentHigh != null;
 
-        <div className={`${FR.sectionGap} ${isPreview ? "" : "mt-6"}`}>
+  return (
+    <div className={`report-dark min-h-screen ${FR.pagePad} py-6 sm:py-10`}>
+      <div className={FR.maxWidth}>
+        {/* Full-reveal leads with the premium "Case File Unlocked" header. */}
+        {isPreview ? null : (
+          <UnlockedHeader analysisId={props.analysisId} />
+        )}
+
+        <div className={`${FR.sectionGap} ${isPreview ? "" : "mt-6 sm:mt-8"}`}>
           {isPreview ? (
             <PartialRevealHero
               grade={props.grade}
@@ -98,6 +105,17 @@ export default function ForensicAuditReport(props: ForensicAuditReportProps) {
             />
           )}
 
+          {!isPreview && hasOverpayment && (
+            <MoneyAtRiskCard
+              overpaymentLow={props.overpaymentLow}
+              overpaymentHigh={props.overpaymentHigh}
+              overpaymentBasis={props.overpaymentBasis}
+              totalContractPrice={props.totalContractPrice}
+              marketLow={props.marketLow}
+              marketHigh={props.marketHigh}
+            />
+          )}
+
           <div className="relative">
             <TopFindingsList
               flags={safeFlags}
@@ -106,6 +124,15 @@ export default function ForensicAuditReport(props: ForensicAuditReportProps) {
             />
             {isPreview && <PartialUnlockOverlay />}
           </div>
+
+          <ScopeOverviewCard
+            totalOpenings={props.totalOpenings}
+            pricePerOpening={props.pricePerOpening}
+            pricePerOpeningBand={props.pricePerOpeningBand}
+            marketLow={props.marketLow}
+            marketHigh={props.marketHigh}
+            totalContractPrice={props.totalContractPrice}
+          />
 
           {!isPreview && (
             <PropertyProfileCard
@@ -117,17 +144,11 @@ export default function ForensicAuditReport(props: ForensicAuditReportProps) {
             />
           )}
 
-          <ScopeOverviewCard
-            totalOpenings={props.totalOpenings}
-            pricePerOpening={props.pricePerOpening}
-            pricePerOpeningBand={props.pricePerOpeningBand}
-            marketLow={props.marketLow}
-            marketHigh={props.marketHigh}
-            totalContractPrice={props.totalContractPrice}
-          />
+          {!isPreview && <NextActionCard />}
 
           {props.unlockSlot && <div className="pt-2">{props.unlockSlot}</div>}
         </div>
+
       </div>
     </div>
   );
