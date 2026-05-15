@@ -188,21 +188,27 @@ export function PreUploadIntake() {
     selectedPath || homeType || name || email || zip;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0B1A2E] via-[#102A47] to-[#1A2332] text-slate-100 antialiased">
-      {/* Ambient atmospheric layer — lighter blue/amber blend */}
+    <div className="relative min-h-screen text-slate-100 antialiased bg-[radial-gradient(ellipse_at_85%_55%,#E89B5A_0%,#C97A3F_18%,#3F6B92_45%,#1E3A5F_70%,#0E1F36_100%)]">
+      {/* Ambient atmospheric layer — cinematic blue → golden-amber blend */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -top-40 left-1/4 h-[680px] w-[680px] rounded-full bg-[#3B82F6]/[0.14] blur-[130px]" />
-        <div className="absolute top-1/3 -right-40 h-[560px] w-[560px] rounded-full bg-[#F4A261]/[0.10] blur-[130px]" />
-        <div className="absolute -bottom-40 left-1/2 h-[500px] w-[500px] rounded-full bg-[#E8924A]/[0.07] blur-[120px]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_15%_30%,rgba(59,130,246,0.22),transparent_55%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_90%_60%,rgba(244,162,97,0.32),transparent_55%)]" />
+        <div className="absolute -top-40 left-1/4 h-[680px] w-[680px] rounded-full bg-[#60A5FA]/[0.14] blur-[140px]" />
+        <div className="absolute top-1/3 -right-32 h-[640px] w-[640px] rounded-full bg-[#F4A261]/[0.22] blur-[150px]" />
+        <div className="absolute -bottom-40 left-1/3 h-[520px] w-[520px] rounded-full bg-[#E8924A]/[0.14] blur-[130px]" />
+        {/* film grain dot pattern */}
         <div
-          className="absolute inset-0 opacity-[0.04]"
+          className="absolute inset-0 opacity-[0.05] mix-blend-overlay"
           style={{
             backgroundImage:
-              "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.7) 1px, transparent 0)",
+              "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.8) 1px, transparent 0)",
             backgroundSize: "32px 32px",
           }}
         />
+        {/* subtle vignette for depth */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_55%,rgba(0,0,0,0.45)_100%)]" />
       </div>
+
 
       {/* Sentinel at the Threshold — full-height WindowMan pointing at Zone B */}
       <div
