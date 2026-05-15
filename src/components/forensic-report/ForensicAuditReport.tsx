@@ -68,21 +68,35 @@ export default function ForensicAuditReport(props: ForensicAuditReportProps) {
   return (
     <div className={`report-dark min-h-screen ${FR.pagePad} py-6 sm:py-8`}>
       <div className={FR.maxWidth}>
-        <ReportHeader analysisId={props.analysisId} />
+        {/* Full-reveal keeps the report header chrome; preview leads with the hero teaser. */}
+        {!isPreview && <ReportHeader analysisId={props.analysisId} />}
 
-        <div className={`${FR.sectionGap} mt-6`}>
-          <ExecutiveSummaryCard
-            grade={props.grade}
-            confidenceScore={props.confidenceScore}
-            signalsExtracted={props.signalsExtracted}
-            signalsTotal={props.signalsTotal}
-            flagRedCount={props.flagRedCount}
-            flagAmberCount={props.flagAmberCount}
-            flagClearCount={props.flagClearCount}
-            overpaymentLow={props.overpaymentLow}
-            overpaymentHigh={props.overpaymentHigh}
-            overpaymentBasis={props.overpaymentBasis}
-          />
+        <div className={`${FR.sectionGap} ${isPreview ? "" : "mt-6"}`}>
+          {isPreview ? (
+            <PartialRevealHero
+              grade={props.grade}
+              flagRedCount={props.flagRedCount}
+              flagAmberCount={props.flagAmberCount}
+              overpaymentLow={props.overpaymentLow}
+              overpaymentHigh={props.overpaymentHigh}
+              overpaymentBasis={props.overpaymentBasis}
+              signalsExtracted={props.signalsExtracted}
+              signalsTotal={props.signalsTotal}
+            />
+          ) : (
+            <ExecutiveSummaryCard
+              grade={props.grade}
+              confidenceScore={props.confidenceScore}
+              signalsExtracted={props.signalsExtracted}
+              signalsTotal={props.signalsTotal}
+              flagRedCount={props.flagRedCount}
+              flagAmberCount={props.flagAmberCount}
+              flagClearCount={props.flagClearCount}
+              overpaymentLow={props.overpaymentLow}
+              overpaymentHigh={props.overpaymentHigh}
+              overpaymentBasis={props.overpaymentBasis}
+            />
+          )}
 
           <div className="relative">
             <TopFindingsList
