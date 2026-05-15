@@ -282,7 +282,7 @@ export function PreUploadIntake() {
             )}
           </button>
           <h1 className="text-[28px] font-semibold leading-[1.1] tracking-tight text-white sm:text-[36px]">
-            Open your private case file.
+            Open Your Private Case File.
           </h1>
           <p className="mt-3 text-[15px] leading-relaxed text-slate-300">
             Tell us where you are in your window project. We'll prep a
