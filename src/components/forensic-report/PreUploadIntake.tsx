@@ -780,19 +780,20 @@ function PathCard({
       tabIndex={tabIndex}
       onClick={onClick}
       className={[
-        "group relative w-full text-left rounded-xl border px-4 py-4 motion-safe:transition-all motion-safe:duration-200 ease-out",
-        "flex items-center gap-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950",
+        "group relative w-full text-left rounded-xl border px-4 py-4 motion-safe:transition-all motion-safe:duration-150 ease-out",
+        "flex items-center gap-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950",
+        "active:translate-y-px",
         selected
-          ? "border-blue-400/40 bg-gradient-to-b from-blue-500/[0.12] to-blue-500/[0.04] motion-safe:translate-y-[2px] shadow-inner shadow-black/40"
-          : "border-white/[0.07] bg-slate-950/40 hover:border-white/15 hover:bg-slate-900/60",
+          ? "border-amber-300/50 bg-gradient-to-b from-[#3B82F6]/25 via-[#1E3A8A]/25 to-[#0F172A]/40 shadow-[inset_0_2px_4px_rgba(0,0,0,0.55),0_0_0_1px_rgba(244,162,97,0.25),0_8px_22px_-12px_rgba(244,162,97,0.45)]"
+          : "border-white/15 bg-gradient-to-b from-white/[0.06] to-white/[0.01] hover:border-white/25 hover:from-white/[0.10] hover:to-white/[0.02] shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_8px_18px_-12px_rgba(0,0,0,0.7)]",
       ].join(" ")}
     >
       <div
         className={[
           "flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg motion-safe:transition-colors",
           selected
-            ? "bg-blue-500/20 text-blue-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
-            : "bg-white/[0.04] text-slate-400 group-hover:text-slate-200",
+            ? "bg-gradient-to-b from-amber-300/30 to-amber-500/10 text-amber-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.25),inset_0_-1px_0_rgba(0,0,0,0.4)]"
+            : "bg-white/[0.06] text-slate-200 group-hover:text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]",
         ].join(" ")}
       >
         {icon}
@@ -801,20 +802,20 @@ function PathCard({
         <div className="flex items-center gap-2">
           <span className="text-[14.5px] font-semibold text-white">{title}</span>
           {tag && (
-            <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider text-emerald-300">
+            <span className="rounded-full border border-amber-300/40 bg-amber-400/15 px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider text-amber-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]">
               {tag}
             </span>
           )}
         </div>
-        <div className="mt-0.5 text-[12.5px] text-slate-400">{subtitle}</div>
+        <div className="mt-0.5 text-[12.5px] text-slate-300">{subtitle}</div>
       </div>
       <div
         aria-hidden
         className={[
           "flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border motion-safe:transition-colors",
           selected
-            ? "border-blue-400 bg-blue-500"
-            : "border-white/15 bg-transparent",
+            ? "border-amber-300 bg-gradient-to-b from-amber-300 to-amber-500 shadow-[0_0_10px_rgba(244,162,97,0.6),inset_0_1px_0_rgba(255,255,255,0.4)]"
+            : "border-white/25 bg-transparent",
         ].join(" ")}
       >
         {selected && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
