@@ -948,11 +948,11 @@ function SecureField({
 function ReceiptLine({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline gap-2">
-      <span className="text-slate-500">{label}</span>
-      <span className="flex-1 truncate border-b border-dotted border-slate-800/80 text-slate-700">
+      <span className="text-amber-200/90">{label}</span>
+      <span className="flex-1 truncate border-b border-dotted border-slate-500/60 text-slate-400">
         {"·".repeat(40)}
       </span>
-      <span className="text-slate-200 truncate max-w-[60%] text-right">
+      <span className="truncate max-w-[60%] text-right text-white">
         {value}
       </span>
     </div>
