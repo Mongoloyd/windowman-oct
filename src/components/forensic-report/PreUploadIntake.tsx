@@ -484,14 +484,22 @@ export function PreUploadIntake() {
               />
             </div>
 
-            {/* Case File Preview / Receipt */}
+            {/* Case File Preview / Receipt — uses skeuomorphic paper texture cue */}
             {hasAnyPreview && (
-              <div className="mt-6 rounded-lg border border-dashed border-slate-700 bg-slate-950/40 px-4 py-3 font-mono">
-                <div className="mb-2 flex items-center justify-between text-[10px] uppercase tracking-[0.18em] text-slate-500">
+              <div
+                className="relative mt-6 overflow-hidden rounded-lg border border-amber-200/20 px-4 py-3 font-mono shadow-[0_8px_24px_-10px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.08)]"
+                style={{
+                  backgroundImage: `linear-gradient(180deg, rgba(15,28,46,0.88), rgba(8,16,28,0.92)), url(${wmReceiptBg})`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                  backgroundBlendMode: "overlay",
+                }}
+              >
+                <div className="mb-2 flex items-center justify-between text-[10px] uppercase tracking-[0.18em] text-amber-200/90">
                   <span>§ Case File Preview</span>
-                  <span className="text-slate-600">{caseId}</span>
+                  <span className="text-slate-300">{caseId}</span>
                 </div>
-                <div className="space-y-1 text-[11.5px] text-slate-300">
+                <div className="space-y-1 text-[11.5px] text-slate-100">
                   {selectedPath && (
                     <ReceiptLine
                       label="PATH"
@@ -520,7 +528,7 @@ export function PreUploadIntake() {
             {showErrorSummary && !canContinue && (
               <div
                 role="alert"
-                className="mt-4 rounded-lg border border-red-400/30 bg-red-500/[0.08] px-3 py-2 text-[12px] text-red-300"
+                className="mt-4 rounded-lg border border-red-400/40 bg-red-500/[0.12] px-3 py-2 text-[12px] text-red-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
               >
                 Complete required fields to open your case file.
               </div>
@@ -533,13 +541,20 @@ export function PreUploadIntake() {
                 onClick={handleContinueAttempt}
                 aria-disabled={!canContinue}
                 className={[
-                  "group relative w-full overflow-hidden rounded-xl px-5 py-3.5 text-[15px] font-semibold text-white motion-safe:transition-all motion-safe:duration-200",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950",
+                  "group relative w-full overflow-hidden rounded-xl px-5 py-3.5 text-[15px] font-semibold text-white motion-safe:transition-all motion-safe:duration-150",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950",
                   canContinue
-                    ? "bg-gradient-to-b from-blue-500 to-blue-600 shadow-[0_10px_28px_-10px_rgba(59,130,246,0.7),inset_0_1px_0_rgba(255,255,255,0.25)] hover:from-blue-400 hover:to-blue-600"
-                    : "bg-slate-800/60 cursor-not-allowed opacity-60 shadow-none",
+                    ? "bg-gradient-to-b from-[#3B82F6] via-[#2563EB] to-[#1E40AF] shadow-[0_14px_32px_-10px_rgba(59,130,246,0.75),0_4px_10px_-2px_rgba(244,162,97,0.35),inset_0_1px_0_rgba(255,255,255,0.35),inset_0_-1px_0_rgba(0,0,0,0.45)] hover:from-[#60A5FA] hover:via-[#3B82F6] hover:to-[#1D4ED8] active:translate-y-px active:shadow-[inset_0_3px_6px_rgba(0,0,0,0.5),0_2px_8px_-2px_rgba(0,0,0,0.6)]"
+                    : "bg-slate-800/60 cursor-not-allowed opacity-60 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",
                 ].join(" ")}
               >
+                {/* glint */}
+                {canContinue && (
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute inset-y-0 -left-1/2 w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-white/25 to-transparent motion-safe:animate-glint"
+                  />
+                )}
                 <span className="relative flex items-center justify-center gap-2">
                   {submitted ? (
                     <>
@@ -554,7 +569,7 @@ export function PreUploadIntake() {
                 </span>
               </button>
 
-              <div className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-slate-500">
+              <div className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-slate-300">
                 <Lock className="h-3 w-3" /> Encrypted in transit · No spam ·
                 You control the unlock
               </div>
@@ -563,16 +578,16 @@ export function PreUploadIntake() {
         </div>
 
         {/* Trust strip */}
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[11px] font-mono uppercase tracking-wider text-slate-500">
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[11px] font-mono uppercase tracking-wider text-slate-300">
           <span className="flex items-center gap-1.5">
-            <ShieldCheck className="h-3.5 w-3.5 text-emerald-400/70" /> SMS-gated
+            <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" /> SMS-gated
             reveal
           </span>
           <span className="flex items-center gap-1.5">
-            <Lock className="h-3.5 w-3.5 text-blue-400/70" /> Private storage
+            <Lock className="h-3.5 w-3.5 text-blue-300" /> Private storage
           </span>
           <span className="flex items-center gap-1.5">
-            <FileText className="h-3.5 w-3.5 text-indigo-400/70" /> Deterministic
+            <FileText className="h-3.5 w-3.5 text-amber-300" /> Deterministic
             scoring
           </span>
         </div>
