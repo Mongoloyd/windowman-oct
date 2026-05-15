@@ -10,7 +10,8 @@
  */
 
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useLocation, Navigate } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import TruthReportClassic from "@/components/TruthReportClassic";
 import type { SuggestedMatch } from "@/components/TruthReportClassic";
 import type { AnalysisFlag, PillarScore } from "@/hooks/useAnalysisData";
@@ -40,12 +41,24 @@ const MOCK_MATCH: SuggestedMatch = {
 
 export default function DevReportPreview() {
   const [params] = useSearchParams();
+  const location = useLocation();
   const [introRequested, setIntroRequested] = useState(false);
   const [reportCallRequested, setReportCallRequested] = useState(false);
 
+  const isSandboxPreview = location.pathname.startsWith("/sandbox/report-preview");
+
+  // Sandbox: normalize to v=v3 and a whitelisted mode. Never let sandbox land on classic.
+  if (isSandboxPreview) {
+    const v = params.get("v");
+    const mode = params.get("mode");
+    if (v !== "v3" || (mode !== "preview" && mode !== "full")) {
+      return <Navigate to="/sandbox/report-preview?v=v3&mode=preview" replace />;
+    }
+  }
+
   if (params.get("v") === "v3") {
     const mode = params.get("mode") === "preview" ? "preview" : "full";
-    return (
+    const report = (
       <ForensicAuditReport
         accessLevel={mode}
         analysisId="abcd-1234-ef56-7829"
@@ -73,6 +86,24 @@ export default function DevReportPreview() {
         codeJurisdiction="Broward County"
         unlockSlot={mode === "preview" ? <PreviewUnlockSlot /> : undefined}
       />
+    );
+
+    if (!isSandboxPreview) return report;
+
+    return (
+      <>
+        <Helmet>
+          <title>Sandbox · Report Preview</title>
+          <meta name="robots" content="noindex,nofollow" />
+        </Helmet>
+        <div
+          role="status"
+          className="fixed top-0 inset-x-0 z-50 h-7 flex items-center justify-center text-[11px] font-mono uppercase tracking-wider bg-amber-500/15 text-amber-200 border-b border-amber-500/30 backdrop-blur"
+        >
+          Sandbox preview — visual QA only, not production traffic
+        </div>
+        <div className="pt-7">{report}</div>
+      </>
     );
   }
 
