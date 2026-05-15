@@ -182,7 +182,8 @@ Deno.serve(async (req) => {
     if (incompleteCount > 0 || authorizedAnalyses.length < 2) {
       return json(
         {
-          error: `Need at least 2 complete analyses. Found ${authorizedAnalyses.length} complete, ${incompleteCount} still processing.`,
+          error:
+            `Need at least 2 complete analyses. Found ${authorizedAnalyses.length} complete, ${incompleteCount} still processing.`,
         },
         400,
       );
@@ -391,11 +392,14 @@ Deno.serve(async (req) => {
       },
     });
 
-    console.log(`[compare-quotes] Compared ${authorizedAnalyses.length} quotes`, {
-      grades: authorizedAnalyses.map((a) => a.grade),
-      // deno-lint-ignore no-explicit-any
-      bestValue: (comparison.recommendation as any)?.best_value,
-    });
+    console.log(
+      `[compare-quotes] Compared ${authorizedAnalyses.length} quotes`,
+      {
+        grades: authorizedAnalyses.map((a) => a.grade),
+        // deno-lint-ignore no-explicit-any
+        bestValue: (comparison.recommendation as any)?.best_value,
+      },
+    );
 
     return json({ success: true, comparison, cached: false });
   } catch (err) {

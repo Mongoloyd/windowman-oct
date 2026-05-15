@@ -127,15 +127,27 @@ function traceSafety(d: ExtractionResult): PillarTrace {
     /impact|hurricane|storm/i.test(i.description || "")
   );
   if (!hasImpactMention && items.length > 0) {
-    L.deduct(25, "no_impact_mention", "No line item references impact/hurricane/storm");
+    L.deduct(
+      25,
+      "no_impact_mention",
+      "No line item references impact/hurricane/storm",
+    );
   }
 
   if (d.generic_product_description_present === true) {
-    L.deduct(15, "generic_product_description", "Generic product description present");
+    L.deduct(
+      15,
+      "generic_product_description",
+      "Generic product description present",
+    );
     const completelyMissingSpecs = items.length > 0 &&
       items.every((i) => isMissing(i.dp_rating) && isMissing(i.noa_number));
     if (completelyMissingSpecs) {
-      L.deduct(10, "generic_plus_no_specs", "Generic + zero DP/NOA specs across all items");
+      L.deduct(
+        10,
+        "generic_plus_no_specs",
+        "Generic + zero DP/NOA specs across all items",
+      );
     }
   }
 
@@ -146,7 +158,11 @@ function traceSafety(d: ExtractionResult): PillarTrace {
   ).length;
 
   if (d.opening_level_glass_specs_present !== true && items.length > 0) {
-    L.deduct(20, "no_opening_level_glass_specs", "Opening-level glass specs not present");
+    L.deduct(
+      20,
+      "no_opening_level_glass_specs",
+      "Opening-level glass specs not present",
+    );
   }
   if (d.blanket_glass_language_present === true) {
     L.deduct(10, "blanket_glass_language", "Blanket glass language present");
@@ -166,10 +182,18 @@ function traceSafety(d: ExtractionResult): PillarTrace {
     );
   }
   if (d.manufacturer_install_compliance_stated !== true) {
-    L.deduct(5, "no_manufacturer_install_compliance", "Manufacturer install compliance not stated");
+    L.deduct(
+      5,
+      "no_manufacturer_install_compliance",
+      "Manufacturer install compliance not stated",
+    );
   }
   if (d.code_compliance_install_statement_present !== true) {
-    L.deduct(5, "no_code_compliance_statement", "Code-compliance install statement absent");
+    L.deduct(
+      5,
+      "no_code_compliance_statement",
+      "Code-compliance install statement absent",
+    );
   }
 
   return L.finish();
@@ -179,35 +203,90 @@ function traceInstall(d: ExtractionResult): PillarTrace {
   const L = ledger(100);
   const items = d.line_items ?? [];
 
-  if (!d.installation?.scope_detail) L.deduct(20, "no_scope_detail", "Install scope detail missing");
-  if (!d.permits || d.permits.included === undefined) L.deduct(15, "permits_unclear", "Permit handling unclear");
-  if (d.permit_fees_itemized === false) L.deduct(5, "permit_fees_not_itemized", "Permit fees not itemized");
-  if (!d.installation?.disposal_included) L.deduct(10, "no_disposal", "Disposal not included");
-  if (d.debris_removal_included === false) L.deduct(10, "no_debris_removal", "Debris removal not included");
-  if (!d.wall_repair_scope) L.deduct(10, "no_wall_repair_scope", "Wall repair scope missing");
-  if (d.stucco_repair_included === false) L.deduct(5, "no_stucco_repair", "Stucco repair not included");
-  if (d.drywall_repair_included === false) L.deduct(5, "no_drywall_repair", "Drywall repair not included");
-  if (d.paint_touchup_included === false) L.deduct(5, "no_paint_touchup", "Paint touch-up not included");
-  if (d.engineering_mentioned === false) L.deduct(5, "no_engineering_mention", "Engineering not mentioned");
-  if (d.engineering_fees_included === false) L.deduct(5, "no_engineering_fees", "Engineering fees not included");
-  if (!d.opening_count && items.length === 0) L.deduct(10, "no_opening_count_no_items", "No opening count and no line items");
-  if (!d.installation?.accessories_mentioned) L.deduct(5, "no_accessories", "Accessories not mentioned");
+  if (!d.installation?.scope_detail) {
+    L.deduct(20, "no_scope_detail", "Install scope detail missing");
+  }
+  if (!d.permits || d.permits.included === undefined) {
+    L.deduct(15, "permits_unclear", "Permit handling unclear");
+  }
+  if (d.permit_fees_itemized === false) {
+    L.deduct(5, "permit_fees_not_itemized", "Permit fees not itemized");
+  }
+  if (!d.installation?.disposal_included) {
+    L.deduct(10, "no_disposal", "Disposal not included");
+  }
+  if (d.debris_removal_included === false) {
+    L.deduct(10, "no_debris_removal", "Debris removal not included");
+  }
+  if (!d.wall_repair_scope) {
+    L.deduct(10, "no_wall_repair_scope", "Wall repair scope missing");
+  }
+  if (d.stucco_repair_included === false) {
+    L.deduct(5, "no_stucco_repair", "Stucco repair not included");
+  }
+  if (d.drywall_repair_included === false) {
+    L.deduct(5, "no_drywall_repair", "Drywall repair not included");
+  }
+  if (d.paint_touchup_included === false) {
+    L.deduct(5, "no_paint_touchup", "Paint touch-up not included");
+  }
+  if (d.engineering_mentioned === false) {
+    L.deduct(5, "no_engineering_mention", "Engineering not mentioned");
+  }
+  if (d.engineering_fees_included === false) {
+    L.deduct(5, "no_engineering_fees", "Engineering fees not included");
+  }
+  if (!d.opening_count && items.length === 0) {
+    L.deduct(
+      10,
+      "no_opening_count_no_items",
+      "No opening count and no line items",
+    );
+  }
+  if (!d.installation?.accessories_mentioned) {
+    L.deduct(5, "no_accessories", "Accessories not mentioned");
+  }
 
   const coreOpeningCount = d.opening_count ??
     items.filter((i) => isCoreOpening(classifyLineItem(i.description))).length;
   const multiOpeningJob = coreOpeningCount > 1;
 
   if (multiOpeningJob && d.opening_schedule_present !== true) {
-    L.deduct(20, "no_opening_schedule_multi_opening", "Multi-opening job without opening schedule");
+    L.deduct(
+      20,
+      "no_opening_schedule_multi_opening",
+      "Multi-opening job without opening schedule",
+    );
   }
-  if (d.opening_schedule_present === true && d.opening_schedule_room_labels_present !== true) {
-    L.deduct(10, "schedule_no_room_labels", "Opening schedule lacks room labels");
+  if (
+    d.opening_schedule_present === true &&
+    d.opening_schedule_room_labels_present !== true
+  ) {
+    L.deduct(
+      10,
+      "schedule_no_room_labels",
+      "Opening schedule lacks room labels",
+    );
   }
-  if (d.opening_schedule_present === true && d.opening_schedule_dimensions_complete !== true) {
-    L.deduct(10, "schedule_dimensions_incomplete", "Opening schedule dimensions incomplete");
+  if (
+    d.opening_schedule_present === true &&
+    d.opening_schedule_dimensions_complete !== true
+  ) {
+    L.deduct(
+      10,
+      "schedule_dimensions_incomplete",
+      "Opening schedule dimensions incomplete",
+    );
   }
-  if (d.opening_schedule_present === true && d.opening_schedule_product_assignments_present !== true) {
-    L.deduct(15, "schedule_no_product_assignments", "Opening schedule lacks product assignments");
+  if (
+    d.opening_schedule_present === true &&
+    d.opening_schedule_product_assignments_present !== true
+  ) {
+    L.deduct(
+      15,
+      "schedule_no_product_assignments",
+      "Opening schedule lacks product assignments",
+    );
   }
   if (d.bulk_scope_blob_present === true) {
     L.deduct(10, "bulk_scope_blob", "Bulk scope blob present");
@@ -223,13 +302,21 @@ function traceInstall(d: ExtractionResult): PillarTrace {
     L.deduct(5, "no_fastener_type", "Fastener type not specified");
   }
   if (!d.waterproofing_method_text && items.length > 0) {
-    L.deduct(15, "no_waterproofing_method", "Waterproofing method not specified");
+    L.deduct(
+      15,
+      "no_waterproofing_method",
+      "Waterproofing method not specified",
+    );
   }
   if (d.sealant_specified !== true && items.length > 0) {
     L.deduct(5, "no_sealant_specified", "Sealant not specified");
   }
   if (!d.buck_treatment_method_text && items.length > 0) {
-    L.deduct(10, "no_buck_treatment_method", "Buck treatment method not specified");
+    L.deduct(
+      10,
+      "no_buck_treatment_method",
+      "Buck treatment method not specified",
+    );
   }
 
   return L.finish();
@@ -249,23 +336,45 @@ function tracePrice(d: ExtractionResult): PillarTrace {
       `${itemsWithoutPrice.length} line item(s) missing price`,
     );
   }
-  if (!d.total_quoted_price) L.deduct(10, "no_total_price", "Total quoted price missing");
+  if (!d.total_quoted_price) {
+    L.deduct(10, "no_total_price", "Total quoted price missing");
+  }
 
   for (const item of items) {
     if (item.unit_price !== undefined) {
-      if (item.unit_price < 100) L.deduct(5, "unit_price_too_low", `Unit price ${item.unit_price} < $100`);
-      if (item.unit_price > 5000) L.deduct(5, "unit_price_too_high", `Unit price ${item.unit_price} > $5000`);
+      if (item.unit_price < 100) {
+        L.deduct(
+          5,
+          "unit_price_too_low",
+          `Unit price ${item.unit_price} < $100`,
+        );
+      }
+      if (item.unit_price > 5000) {
+        L.deduct(
+          5,
+          "unit_price_too_high",
+          `Unit price ${item.unit_price} > $5000`,
+        );
+      }
     }
   }
 
   if (d.deposit_percent !== undefined && d.deposit_percent !== null) {
-    if (d.deposit_percent > 50) L.deduct(25, "deposit_over_50", `Deposit ${d.deposit_percent}% > 50%`);
-    else if (d.deposit_percent > 40) L.deduct(15, "deposit_over_40", `Deposit ${d.deposit_percent}% > 40%`);
-    else if (d.deposit_percent > 33) L.deduct(5, "deposit_over_33", `Deposit ${d.deposit_percent}% > 33%`);
+    if (d.deposit_percent > 50) {
+      L.deduct(25, "deposit_over_50", `Deposit ${d.deposit_percent}% > 50%`);
+    } else if (d.deposit_percent > 40) {
+      L.deduct(15, "deposit_over_40", `Deposit ${d.deposit_percent}% > 40%`);
+    } else if (d.deposit_percent > 33) {
+      L.deduct(5, "deposit_over_33", `Deposit ${d.deposit_percent}% > 33%`);
+    }
   }
 
   if (d.final_payment_before_inspection === true) {
-    L.deduct(20, "final_payment_before_inspection", "Final payment due before inspection");
+    L.deduct(
+      20,
+      "final_payment_before_inspection",
+      "Final payment due before inspection",
+    );
   }
   if (d.subject_to_remeasure_present === true) {
     L.deduct(15, "subject_to_remeasure", "Subject-to-remeasure clause present");
@@ -277,14 +386,32 @@ function tracePrice(d: ExtractionResult): PillarTrace {
   const coreOpeningCount = d.opening_count ??
     items.filter((i) => isCoreOpening(classifyLineItem(i.description))).length;
   if (coreOpeningCount > 1 && d.opening_schedule_present !== true) {
-    L.deduct(5, "price_trust_scope_ambiguity", "Multi-opening job without opening schedule (price trust)");
+    L.deduct(
+      5,
+      "price_trust_scope_ambiguity",
+      "Multi-opening job without opening schedule (price trust)",
+    );
   }
 
-  if (d.substrate_condition_clause_present === true && d.rot_unit_pricing_present !== true) {
-    L.deduct(10, "substrate_no_rot_pricing", "Substrate clause without rot unit pricing");
+  if (
+    d.substrate_condition_clause_present === true &&
+    d.rot_unit_pricing_present !== true
+  ) {
+    L.deduct(
+      10,
+      "substrate_no_rot_pricing",
+      "Substrate clause without rot unit pricing",
+    );
   }
-  if (d.substrate_condition_clause_present === true && d.buck_replacement_unit_pricing_present !== true) {
-    L.deduct(10, "substrate_no_buck_pricing", "Substrate clause without buck replacement unit pricing");
+  if (
+    d.substrate_condition_clause_present === true &&
+    d.buck_replacement_unit_pricing_present !== true
+  ) {
+    L.deduct(
+      10,
+      "substrate_no_buck_pricing",
+      "Substrate clause without buck replacement unit pricing",
+    );
   }
 
   return L.finish();
@@ -294,39 +421,98 @@ function traceFinePrint(d: ExtractionResult): PillarTrace {
   const L = ledger(100);
   const items = d.line_items ?? [];
 
-  if (!d.cancellation_policy) L.deduct(25, "no_cancellation_policy", "Cancellation policy missing");
-  if (d.terms_conditions_present === false) L.deduct(10, "no_terms_conditions", "Terms & conditions absent");
+  if (!d.cancellation_policy) {
+    L.deduct(25, "no_cancellation_policy", "Cancellation policy missing");
+  }
+  if (d.terms_conditions_present === false) {
+    L.deduct(10, "no_terms_conditions", "Terms & conditions absent");
+  }
 
   const vague = items.filter((i) => (i.description || "").length < 10);
   if (vague.length > 0) {
-    L.deduct(Math.min(20, vague.length * 10), "vague_line_items", `${vague.length} vague line item(s)`);
+    L.deduct(
+      Math.min(20, vague.length * 10),
+      "vague_line_items",
+      `${vague.length} vague line item(s)`,
+    );
   }
   const unbranded = items.filter((i) => !i.brand && !i.series);
   if (unbranded.length > 0) {
-    L.deduct(Math.min(20, unbranded.length * 10), "unbranded_items", `${unbranded.length} unbranded item(s)`);
+    L.deduct(
+      Math.min(20, unbranded.length * 10),
+      "unbranded_items",
+      `${unbranded.length} unbranded item(s)`,
+    );
   }
   if (d.generic_product_description_present === true) {
-    L.deduct(10, "generic_product_description_fp", "Generic product description (fine-print pillar)");
+    L.deduct(
+      10,
+      "generic_product_description_fp",
+      "Generic product description (fine-print pillar)",
+    );
   }
-  if (d.insurance_proof_mentioned === false) L.deduct(5, "no_insurance_proof", "Insurance proof not mentioned");
-  if (d.licensing_proof_mentioned === false) L.deduct(5, "no_licensing_proof", "Licensing proof not mentioned");
-  if (!d.completion_timeline_text) L.deduct(5, "no_completion_timeline", "Completion timeline missing");
-  if (d.state_jurisdiction_mismatch === true) L.deduct(10, "jurisdiction_mismatch", "State jurisdiction mismatch");
-  if (d.lead_paint_disclosure_present === false) L.deduct(5, "no_lead_paint_disclosure", "Lead paint disclosure missing");
-  if (d.blanket_glass_language_present === true) L.deduct(5, "blanket_glass_language_fp", "Blanket glass language (fine-print)");
-  if (d.mixed_glass_package_visibility === true) L.deduct(5, "mixed_glass_visibility", "Mixed glass package visibility");
+  if (d.insurance_proof_mentioned === false) {
+    L.deduct(5, "no_insurance_proof", "Insurance proof not mentioned");
+  }
+  if (d.licensing_proof_mentioned === false) {
+    L.deduct(5, "no_licensing_proof", "Licensing proof not mentioned");
+  }
+  if (!d.completion_timeline_text) {
+    L.deduct(5, "no_completion_timeline", "Completion timeline missing");
+  }
+  if (d.state_jurisdiction_mismatch === true) {
+    L.deduct(10, "jurisdiction_mismatch", "State jurisdiction mismatch");
+  }
+  if (d.lead_paint_disclosure_present === false) {
+    L.deduct(5, "no_lead_paint_disclosure", "Lead paint disclosure missing");
+  }
+  if (d.blanket_glass_language_present === true) {
+    L.deduct(
+      5,
+      "blanket_glass_language_fp",
+      "Blanket glass language (fine-print)",
+    );
+  }
+  if (d.mixed_glass_package_visibility === true) {
+    L.deduct(5, "mixed_glass_visibility", "Mixed glass package visibility");
+  }
 
   if (d.unilateral_price_adjustment_allowed === true) {
-    L.deduct(35, "unilateral_price_adjustment", "Unilateral price adjustment allowed");
+    L.deduct(
+      35,
+      "unilateral_price_adjustment",
+      "Unilateral price adjustment allowed",
+    );
   }
-  if (d.substrate_condition_clause_present === true && d.written_change_order_required !== true) {
-    L.deduct(15, "substrate_no_written_co", "Substrate clause without written change-order requirement");
+  if (
+    d.substrate_condition_clause_present === true &&
+    d.written_change_order_required !== true
+  ) {
+    L.deduct(
+      15,
+      "substrate_no_written_co",
+      "Substrate clause without written change-order requirement",
+    );
   }
-  if (d.substrate_condition_clause_present === true && d.homeowner_approval_required_for_change_orders !== true) {
-    L.deduct(20, "substrate_no_homeowner_approval", "Substrate clause without homeowner approval");
+  if (
+    d.substrate_condition_clause_present === true &&
+    d.homeowner_approval_required_for_change_orders !== true
+  ) {
+    L.deduct(
+      20,
+      "substrate_no_homeowner_approval",
+      "Substrate clause without homeowner approval",
+    );
   }
-  if (d.subject_to_remeasure_present === true && d.remeasure_price_adjustment_cap_present !== true) {
-    L.deduct(10, "remeasure_no_cap", "Subject-to-remeasure without price adjustment cap");
+  if (
+    d.subject_to_remeasure_present === true &&
+    d.remeasure_price_adjustment_cap_present !== true
+  ) {
+    L.deduct(
+      10,
+      "remeasure_no_cap",
+      "Subject-to-remeasure without price adjustment cap",
+    );
   }
 
   return L.finish();
@@ -340,36 +526,79 @@ function traceWarranty(d: ExtractionResult): PillarTrace {
     return L.finish();
   }
 
-  if (d.warranty.labor_years === undefined) L.deduct(20, "labor_years_missing", "Labor years missing");
-  else if (d.warranty.labor_years < 1) L.deduct(20, "labor_years_lt_1", "Labor warranty < 1 year");
-  else if (d.warranty.labor_years < 2) L.deduct(10, "labor_years_lt_2", "Labor warranty < 2 years");
-  else if (d.warranty.labor_years < 5) L.deduct(5, "labor_years_lt_5", "Labor warranty < 5 years");
+  if (d.warranty.labor_years === undefined) {
+    L.deduct(20, "labor_years_missing", "Labor years missing");
+  } else if (d.warranty.labor_years < 1) {
+    L.deduct(20, "labor_years_lt_1", "Labor warranty < 1 year");
+  } else if (d.warranty.labor_years < 2) {
+    L.deduct(10, "labor_years_lt_2", "Labor warranty < 2 years");
+  } else if (d.warranty.labor_years < 5) {
+    L.deduct(5, "labor_years_lt_5", "Labor warranty < 5 years");
+  }
 
-  if (d.warranty.manufacturer_years === undefined) L.deduct(20, "mfr_years_missing", "Manufacturer years missing");
-  else if (d.warranty.manufacturer_years < 10) L.deduct(15, "mfr_years_lt_10", "Manufacturer warranty < 10 years");
-  else if (d.warranty.manufacturer_years < 20) L.deduct(5, "mfr_years_lt_20", "Manufacturer warranty < 20 years");
+  if (d.warranty.manufacturer_years === undefined) {
+    L.deduct(20, "mfr_years_missing", "Manufacturer years missing");
+  } else if (d.warranty.manufacturer_years < 10) {
+    L.deduct(15, "mfr_years_lt_10", "Manufacturer warranty < 10 years");
+  } else if (d.warranty.manufacturer_years < 20) {
+    L.deduct(5, "mfr_years_lt_20", "Manufacturer warranty < 20 years");
+  }
 
-  if (d.warranty.transferable === undefined) L.deduct(10, "transferable_unknown", "Transferability unknown");
-  if (d.warranty.transferable === false) L.deduct(5, "not_transferable", "Warranty not transferable");
-  if (!d.warranty.details) L.deduct(10, "no_warranty_details", "No written warranty details");
+  if (d.warranty.transferable === undefined) {
+    L.deduct(10, "transferable_unknown", "Transferability unknown");
+  }
+  if (d.warranty.transferable === false) {
+    L.deduct(5, "not_transferable", "Warranty not transferable");
+  }
+  if (!d.warranty.details) {
+    L.deduct(10, "no_warranty_details", "No written warranty details");
+  }
 
   if (d.warranty_execution_details_present !== true) {
     L.deduct(15, "no_execution_details", "Warranty execution details missing");
   }
-  if (!d.warranty_service_provider_type || d.warranty_service_provider_type === "unknown") {
-    L.deduct(10, "service_provider_unknown", "Warranty service provider unknown");
+  if (
+    !d.warranty_service_provider_type ||
+    d.warranty_service_provider_type === "unknown"
+  ) {
+    L.deduct(
+      10,
+      "service_provider_unknown",
+      "Warranty service provider unknown",
+    );
   }
-  if (d.leak_callback_sla_days == null) L.deduct(15, "no_leak_sla", "Leak callback SLA missing");
-  else if (d.leak_callback_sla_days > 14) L.deduct(10, "leak_sla_gt_14", "Leak callback SLA > 14 days");
-  else if (d.leak_callback_sla_days > 7) L.deduct(5, "leak_sla_gt_7", "Leak callback SLA > 7 days");
+  if (d.leak_callback_sla_days == null) {
+    L.deduct(15, "no_leak_sla", "Leak callback SLA missing");
+  } else if (d.leak_callback_sla_days > 14) {
+    L.deduct(10, "leak_sla_gt_14", "Leak callback SLA > 14 days");
+  } else if (d.leak_callback_sla_days > 7) {
+    L.deduct(5, "leak_sla_gt_7", "Leak callback SLA > 7 days");
+  }
 
-  if (d.labor_service_sla_days == null) L.deduct(5, "no_labor_sla", "Labor service SLA missing");
-  if (!d.callback_process_text) L.deduct(10, "no_callback_process", "Callback process text missing");
-  if (d.post_install_stucco_excluded === true) L.deduct(5, "post_install_stucco_excluded", "Post-install stucco excluded");
-  if (d.post_install_paint_excluded === true) L.deduct(5, "post_install_paint_excluded", "Post-install paint excluded");
-  if (d.water_intrusion_damage_excluded === true) L.deduct(15, "water_intrusion_excluded", "Water intrusion damage excluded");
-  if (d.warranty_service_provider_type === "third_party" && !d.warranty_service_provider_name) {
-    L.deduct(5, "third_party_no_name", "Third-party warranty without provider name");
+  if (d.labor_service_sla_days == null) {
+    L.deduct(5, "no_labor_sla", "Labor service SLA missing");
+  }
+  if (!d.callback_process_text) {
+    L.deduct(10, "no_callback_process", "Callback process text missing");
+  }
+  if (d.post_install_stucco_excluded === true) {
+    L.deduct(5, "post_install_stucco_excluded", "Post-install stucco excluded");
+  }
+  if (d.post_install_paint_excluded === true) {
+    L.deduct(5, "post_install_paint_excluded", "Post-install paint excluded");
+  }
+  if (d.water_intrusion_damage_excluded === true) {
+    L.deduct(15, "water_intrusion_excluded", "Water intrusion damage excluded");
+  }
+  if (
+    d.warranty_service_provider_type === "third_party" &&
+    !d.warranty_service_provider_name
+  ) {
+    L.deduct(
+      5,
+      "third_party_no_name",
+      "Third-party warranty without provider name",
+    );
   }
 
   return L.finish();
@@ -403,12 +632,13 @@ function evaluateHardCaps(
   );
   const completelyMissingSpecs = items.length > 0 &&
     items.every((i) => isMissing(i.dp_rating) && isMissing(i.noa_number));
-  const genericAndUnverified =
-    d.generic_product_description_present === true && completelyMissingSpecs;
+  const genericAndUnverified = d.generic_product_description_present === true &&
+    completelyMissingSpecs;
 
   evals.push({
     cap: "unverified_impact_specs",
-    applied: ((!hasImpactMention && completelyMissingSpecs) || genericAndUnverified) &&
+    applied:
+      ((!hasImpactMention && completelyMissingSpecs) || genericAndUnverified) &&
       items.length > 0,
     reason: "No impact mention with no DP/NOA, or generic + no specs",
     resultingMaxGrade: "D",
@@ -426,7 +656,8 @@ function evaluateHardCaps(
     cap: "unverified_glass_package",
     applied: noOpeningGlassSpecs && allGlassPackagesUnspecified &&
       d.generic_product_description_present === true,
-    reason: "No opening-level glass specs + all glass packages unspecified + generic description",
+    reason:
+      "No opening-level glass specs + all glass packages unspecified + generic description",
     resultingMaxGrade: "C",
   });
 
@@ -437,7 +668,8 @@ function evaluateHardCaps(
     applied: openingCount >= 5 &&
       d.opening_schedule_present !== true &&
       d.opening_schedule_product_assignments_present !== true,
-    reason: `Opening count ${openingCount} >= 5 with no opening schedule or product assignments`,
+    reason:
+      `Opening count ${openingCount} >= 5 with no opening schedule or product assignments`,
     resultingMaxGrade: "C",
   });
 
@@ -519,8 +751,7 @@ export function computeGradeWithTrace(data: ExtractionResult): GradeTrace {
     warranty: warranty.finalScore,
   };
 
-  let weightedAverage =
-    pillarScores.safety * PILLAR_WEIGHTS.safety +
+  let weightedAverage = pillarScores.safety * PILLAR_WEIGHTS.safety +
     pillarScores.install * PILLAR_WEIGHTS.install +
     pillarScores.price * PILLAR_WEIGHTS.price +
     pillarScores.finePrint * PILLAR_WEIGHTS.finePrint +
@@ -541,8 +772,7 @@ export function computeGradeWithTrace(data: ExtractionResult): GradeTrace {
     pillarScores,
   };
 
-  const parityOk =
-    canonical.letterGrade === diagnosticView.letterGrade &&
+  const parityOk = canonical.letterGrade === diagnosticView.letterGrade &&
     canonical.weightedAverage === diagnosticView.weightedAverage &&
     canonical.hardCapApplied === diagnosticView.hardCapApplied &&
     canonical.pillarScores.safety === pillarScores.safety &&

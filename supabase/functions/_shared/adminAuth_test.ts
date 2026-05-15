@@ -34,62 +34,75 @@ function makeReq(headers: Record<string, string> = {}): Request {
 Deno.test("no x-dev-secret + no JWT → 401 unauthorized", async () => {
   setBaseEnv();
   clearDevEnv();
-  const res = await validateAdminRequest(makeReq());
-  assertEquals(res.ok, false);
-  if (!res.ok) {
-    assertEquals(res.response.status, 401);
-    const body = await res.response.json();
-    assertEquals(body.code, "unauthorized");
+  try {
+    const res = await validateAdminRequest(makeReq());
+    assertEquals(res.ok, false);
+    if (!res.ok) {
+      assertEquals(res.response.status, 401);
+      const body = await res.response.json();
+      assertEquals(body.code, "unauthorized");
+    }
+  } finally {
+    clearDevEnv();
   }
 });
 
 Deno.test("x-dev-secret present, DEV_BYPASS_ENABLED unset → 403 dev_bypass_disabled", async () => {
   setBaseEnv();
   clearDevEnv();
-  Deno.env.set("DEV_BYPASS_SECRET", "correct-secret");
-  const res = await validateAdminRequest(
-    makeReq({ "x-dev-secret": "correct-secret" }),
-  );
-  assertEquals(res.ok, false);
-  if (!res.ok) {
-    assertEquals(res.response.status, 403);
-    const body = await res.response.json();
-    assertEquals(body.code, "dev_bypass_disabled");
+  try {
+    Deno.env.set("DEV_BYPASS_SECRET", "correct-secret");
+    const res = await validateAdminRequest(
+      makeReq({ "x-dev-secret": "correct-secret" }),
+    );
+    assertEquals(res.ok, false);
+    if (!res.ok) {
+      assertEquals(res.response.status, 403);
+      const body = await res.response.json();
+      assertEquals(body.code, "dev_bypass_disabled");
+    }
+  } finally {
+    clearDevEnv();
   }
-  clearDevEnv();
 });
 
 Deno.test("x-dev-secret + DEV_BYPASS_ENABLED=true, secret unset → 500 config_error", async () => {
   setBaseEnv();
   clearDevEnv();
-  Deno.env.set("DEV_BYPASS_ENABLED", "true");
-  const res = await validateAdminRequest(
-    makeReq({ "x-dev-secret": "anything" }),
-  );
-  assertEquals(res.ok, false);
-  if (!res.ok) {
-    assertEquals(res.response.status, 500);
-    const body = await res.response.json();
-    assertEquals(body.code, "config_error");
+  try {
+    Deno.env.set("DEV_BYPASS_ENABLED", "true");
+    const res = await validateAdminRequest(
+      makeReq({ "x-dev-secret": "anything" }),
+    );
+    assertEquals(res.ok, false);
+    if (!res.ok) {
+      assertEquals(res.response.status, 500);
+      const body = await res.response.json();
+      assertEquals(body.code, "config_error");
+    }
+  } finally {
+    clearDevEnv();
   }
-  clearDevEnv();
 });
 
 Deno.test("x-dev-secret wrong value with flag/secret set → 401 dev_bypass_mismatch", async () => {
   setBaseEnv();
   clearDevEnv();
-  Deno.env.set("DEV_BYPASS_ENABLED", "true");
-  Deno.env.set("DEV_BYPASS_SECRET", "correct-secret");
-  const res = await validateAdminRequest(
-    makeReq({ "x-dev-secret": "wrong-secret" }),
-  );
-  assertEquals(res.ok, false);
-  if (!res.ok) {
-    assertEquals(res.response.status, 401);
-    const body = await res.response.json();
-    assertEquals(body.code, "dev_bypass_mismatch");
+  try {
+    Deno.env.set("DEV_BYPASS_ENABLED", "true");
+    Deno.env.set("DEV_BYPASS_SECRET", "correct-secret");
+    const res = await validateAdminRequest(
+      makeReq({ "x-dev-secret": "wrong-secret" }),
+    );
+    assertEquals(res.ok, false);
+    if (!res.ok) {
+      assertEquals(res.response.status, 401);
+      const body = await res.response.json();
+      assertEquals(body.code, "dev_bypass_mismatch");
+    }
+  } finally {
+    clearDevEnv();
   }
-  clearDevEnv();
 });
 
 Deno.test({
@@ -97,18 +110,43 @@ Deno.test({
   sanitizeResources: false,
   sanitizeOps: false,
   fn: async () => {
+    setBaseEnv();
+    clearDevEnv();
+    try {
+      Deno.env.set("DEV_BYPASS_ENABLED", "  TRUE  ");
+      Deno.env.set("DEV_BYPASS_SECRET", "correct-secret");
+      const res = await validateAdminRequest(
+        makeReq({ "x-dev-secret": "correct-secret" }),
+      );
+      assertEquals(res.ok, true);
+      if (res.ok) {
+        assertEquals(res.role, "super_admin");
+        assertExists(res.supabaseAdmin);
+      }
+    } finally {
+      clearDevEnv();
+    }
+  },
+});
+
+// Regression: DEV_BYPASS_SECRET present but DEV_BYPASS_ENABLED absent must NOT grant bypass.
+// Proves the original scanner finding (secret alone is sufficient) is now impossible.
+Deno.test("DEV_BYPASS_SECRET alone without DEV_BYPASS_ENABLED → 403 dev_bypass_disabled", async () => {
   setBaseEnv();
   clearDevEnv();
-  Deno.env.set("DEV_BYPASS_ENABLED", "  TRUE  ");
-  Deno.env.set("DEV_BYPASS_SECRET", "correct-secret");
-  const res = await validateAdminRequest(
-    makeReq({ "x-dev-secret": "correct-secret" }),
-  );
-  assertEquals(res.ok, true);
-  if (res.ok) {
-    assertEquals(res.role, "super_admin");
-    assertExists(res.supabaseAdmin);
+  // Intentionally do NOT set DEV_BYPASS_ENABLED
+  try {
+    Deno.env.set("DEV_BYPASS_SECRET", "correct-secret");
+    const res = await validateAdminRequest(
+      makeReq({ "x-dev-secret": "correct-secret" }),
+    );
+    assertEquals(res.ok, false);
+    if (!res.ok) {
+      assertEquals(res.response.status, 403);
+      const body = await res.response.json();
+      assertEquals(body.code, "dev_bypass_disabled");
+    }
+  } finally {
+    clearDevEnv();
   }
-  clearDevEnv();
-  },
 });

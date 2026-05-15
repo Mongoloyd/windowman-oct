@@ -101,8 +101,10 @@ Deno.serve(async (req) => {
   } = body;
 
   // ── 3. Auth (timing-safe) ──────────────────────────────────────────────────
-  if (!dev_secret || typeof dev_secret !== "string" ||
-      !timingSafeEqual(dev_secret, devSecretEnv)) {
+  if (
+    !dev_secret || typeof dev_secret !== "string" ||
+    !timingSafeEqual(dev_secret, devSecretEnv)
+  ) {
     return fail("auth", "forbidden", 403);
   }
 
@@ -149,7 +151,10 @@ Deno.serve(async (req) => {
       status: "pending",
     });
     if (qfErr) {
-      console.error("[dev-create-quote-scenario] quote_files insert failed", qfErr);
+      console.error(
+        "[dev-create-quote-scenario] quote_files insert failed",
+        qfErr,
+      );
       return fail("quote_file", "failed to create quote file", 500);
     }
 
@@ -162,7 +167,10 @@ Deno.serve(async (req) => {
       quote_file_id: quoteFileId,
     });
     if (ssErr) {
-      console.error("[dev-create-quote-scenario] scan_sessions insert failed", ssErr);
+      console.error(
+        "[dev-create-quote-scenario] scan_sessions insert failed",
+        ssErr,
+      );
       return fail("scan_session", "failed to create scan session", 500);
     }
 

@@ -169,16 +169,24 @@ const redactToken = sharedRedactToken;
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
 const PIXEL_RE = /^[0-9]{6,20}$/;
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function summarizeJson(value: unknown): { present: boolean; top_level_keys: string[] } {
+function summarizeJson(
+  value: unknown,
+): { present: boolean; top_level_keys: string[] } {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return { present: value != null, top_level_keys: [] };
   }
-  return { present: true, top_level_keys: Object.keys(value as Record<string, unknown>).slice(0, 20) };
+  return {
+    present: true,
+    top_level_keys: Object.keys(value as Record<string, unknown>).slice(0, 20),
+  };
 }
 
-function summarizeFlags(value: unknown): { count: number; severities: Record<string, number> } {
+function summarizeFlags(
+  value: unknown,
+): { count: number; severities: Record<string, number> } {
   const flags = Array.isArray(value) ? value : [];
   const severities: Record<string, number> = {};
   for (const flag of flags) {
@@ -2576,7 +2584,11 @@ Deno.serve(async (req) => {
         return errorResponse(400, "missing_param", "lead_id is required");
       }
       if (!UUID_RE.test(lead_id)) {
-        return errorResponse(400, "invalid_param", "lead_id must be a valid UUID");
+        return errorResponse(
+          400,
+          "invalid_param",
+          "lead_id must be a valid UUID",
+        );
       }
 
       const leadCols = `
@@ -2622,7 +2634,9 @@ Deno.serve(async (req) => {
 
       const sessionByFileId = new Map<string, string>();
       for (const session of sessions ?? []) {
-        if (session.quote_file_id && !sessionByFileId.has(session.quote_file_id)) {
+        if (
+          session.quote_file_id && !sessionByFileId.has(session.quote_file_id)
+        ) {
           sessionByFileId.set(session.quote_file_id, session.id);
         }
       }
@@ -2642,7 +2656,10 @@ Deno.serve(async (req) => {
             .from("quotes")
             .createSignedUrl(file.storage_path, 3600);
           if (signError || !signed?.signedUrl) {
-            console.error("[admin-data] fetch_lead_evidence signing failed", { lead_id, file_id: file.id });
+            console.error("[admin-data] fetch_lead_evidence signing failed", {
+              lead_id,
+              file_id: file.id,
+            });
             signed_url_error = "signing_failed";
           } else {
             signed_url = signed.signedUrl;
@@ -2670,7 +2687,8 @@ Deno.serve(async (req) => {
         confidence_score: analysis.confidence_score,
         rubric_version: analysis.rubric_version,
         document_type: analysis.document_type,
-        document_is_window_door_related: analysis.document_is_window_door_related,
+        document_is_window_door_related:
+          analysis.document_is_window_door_related,
         dollar_delta: analysis.dollar_delta,
         created_at: analysis.created_at,
         updated_at: analysis.updated_at,
