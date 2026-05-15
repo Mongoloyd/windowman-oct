@@ -911,4 +911,335 @@ function ReceiptLine({ label, value }: { label: string; value: string }) {
   );
 }
 
+/* ────────────────────────────── Branch Panels ────────────────────────────── */
+
+function BranchPanel({
+  path,
+  caseId,
+  name,
+  zip,
+  homeType,
+  onBack,
+}: {
+  path: Exclude<VisitorPath, null>;
+  caseId: string;
+  name: string;
+  zip: string;
+  homeType: HomeType;
+  onBack: () => void;
+}) {
+  const firstName = name.trim().split(/\s+/)[0] || "";
+  const homeLabel = homeType ? HOME_LABELS[homeType] : "";
+
+  return (
+    <div className="relative mx-auto max-w-[920px] px-4 py-10 sm:px-6 sm:py-14 lg:py-20">
+      {/* Top utility bar */}
+      <div className="mb-8 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={onBack}
+          className="group inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[11px] font-mono uppercase tracking-wider text-slate-400 motion-safe:transition-colors hover:border-white/20 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+        >
+          <ArrowLeft className="h-3 w-3 motion-safe:transition-transform group-hover:-translate-x-0.5" />
+          Edit my answers
+        </button>
+        <div className="flex items-center gap-2 text-[10.5px] font-mono uppercase tracking-[0.18em] text-slate-500">
+          <Lock className="h-3 w-3 text-blue-400/70" />
+          Case · {caseId}
+        </div>
+      </div>
+
+      {path === "has_quote" && (
+        <UploadIntentPanel firstName={firstName} />
+      )}
+      {path === "getting_quotes" && (
+        <BaselinePanel firstName={firstName} zip={zip} homeLabel={homeLabel} />
+      )}
+      {path === "researching" && (
+        <SampleReportPanel firstName={firstName} />
+      )}
+
+      <PreviewOnlyNote />
+    </div>
+  );
+}
+
+function PanelShell({
+  eyebrow,
+  heading,
+  subcopy,
+  children,
+}: {
+  eyebrow: string;
+  heading: string;
+  subcopy: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="relative rounded-2xl border border-white/[0.08] bg-gradient-to-b from-slate-900/80 to-slate-950/80 p-6 shadow-[0_24px_60px_-30px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-sm sm:p-9">
+      <div className="mb-6">
+        <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-blue-400/20 bg-blue-500/[0.08] px-3 py-1 text-[10px] font-mono uppercase tracking-[0.16em] text-blue-300">
+          <Sparkles className="h-3 w-3" /> {eyebrow}
+        </div>
+        <h2 className="text-[24px] font-semibold leading-[1.15] tracking-tight text-white sm:text-[30px]">
+          {heading}
+        </h2>
+        <p className="mt-3 text-[14.5px] leading-relaxed text-slate-400">
+          {subcopy}
+        </p>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function PanelCTA({
+  label,
+  icon,
+}: {
+  label: string;
+  icon: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      className="group relative w-full overflow-hidden rounded-xl bg-gradient-to-b from-blue-500 to-blue-600 px-5 py-3.5 text-[15px] font-semibold text-white shadow-[0_10px_28px_-10px_rgba(59,130,246,0.7),inset_0_1px_0_rgba(255,255,255,0.25)] motion-safe:transition-all motion-safe:duration-200 hover:from-blue-400 hover:to-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+    >
+      <span className="relative flex items-center justify-center gap-2">
+        {label}
+        {icon}
+      </span>
+    </button>
+  );
+}
+
+function PreviewOnlyNote() {
+  return (
+    <div className="mt-5 flex items-center justify-center gap-1.5 text-[11px] font-mono uppercase tracking-wider text-slate-600">
+      <span className="h-1 w-1 rounded-full bg-amber-400/70" />
+      Visual preview only — wiring comes later
+    </div>
+  );
+}
+
+/* ─────── Path 1 — Upload intent ─────── */
+function UploadIntentPanel({ firstName }: { firstName: string }) {
+  return (
+    <PanelShell
+      eyebrow={firstName ? `Step 2 · ${firstName}` : "Step 2 · Scan"}
+      heading="Ready to scan your quote"
+      subcopy="Upload your estimate next and WindowMan will check pricing, missing scope, warranty traps, and code-risk signals."
+    >
+      {/* Dropzone mock */}
+      <div className="relative rounded-xl border-2 border-dashed border-blue-400/25 bg-slate-950/60 px-6 py-10 text-center motion-safe:transition-colors hover:border-blue-400/40">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-b from-blue-500/20 to-blue-600/10 text-blue-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+          <UploadCloud className="h-7 w-7" />
+        </div>
+        <div className="text-[15px] font-semibold text-white">
+          Drop your quote here
+        </div>
+        <div className="mt-1 text-[12.5px] text-slate-400">
+          or tap to browse — we'll do the rest
+        </div>
+        <div className="mt-4 flex items-center justify-center gap-2">
+          {["PDF", "JPG", "PNG"].map((t) => (
+            <span
+              key={t}
+              className="rounded-md border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-slate-400"
+            >
+              {t}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <PanelCTA
+          label="Continue to Quote Upload"
+          icon={<ArrowRight className="h-4 w-4 motion-safe:transition-transform group-hover:translate-x-0.5" />}
+        />
+      </div>
+    </PanelShell>
+  );
+}
+
+/* ─────── Path 2 — Baseline ─────── */
+function BaselinePanel({
+  firstName,
+  zip,
+  homeLabel,
+}: {
+  firstName: string;
+  zip: string;
+  homeLabel: string;
+}) {
+  return (
+    <PanelShell
+      eyebrow={firstName ? `Step 2 · ${firstName}` : "Step 2 · Baseline"}
+      heading="Build your fair-price baseline"
+      subcopy="Before contractors come out, WindowMan can help you understand the range you should expect in your area."
+    >
+      <div className="grid gap-3 sm:grid-cols-2">
+        <SummaryTile
+          icon={<MapPin className="h-4 w-4" />}
+          label="ZIP / County"
+          value={zip ? `${zip} · South FL` : "—"}
+        />
+        <SummaryTile
+          icon={<Home className="h-4 w-4" />}
+          label="Project type"
+          value={homeLabel || "—"}
+        />
+      </div>
+
+      {/* Baseline preview card */}
+      <div className="mt-4 rounded-xl border border-white/[0.08] bg-slate-950/60 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+        <div className="mb-3 flex items-center justify-between text-[10.5px] font-mono uppercase tracking-[0.18em] text-slate-500">
+          <span>§ Baseline preview</span>
+          <span className="flex items-center gap-1.5 text-emerald-400/80">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 motion-safe:animate-pulse" />
+            Live data
+          </span>
+        </div>
+        <div className="flex items-end justify-between">
+          <div>
+            <div className="text-[11px] uppercase tracking-wider text-slate-500">
+              Expected range
+            </div>
+            <div className="mt-1 text-[26px] font-semibold tracking-tight text-white">
+              $1,180<span className="text-slate-500"> – </span>$1,640
+            </div>
+            <div className="mt-0.5 text-[12px] text-slate-400">per opening · installed</div>
+          </div>
+          <div className="text-right">
+            <div className="text-[11px] uppercase tracking-wider text-slate-500">
+              Sample size
+            </div>
+            <div className="mt-1 font-mono text-[18px] text-blue-300">2,847</div>
+          </div>
+        </div>
+        {/* faux distribution bar */}
+        <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-800/80 shadow-[inset_0_1px_2px_rgba(0,0,0,0.6)]">
+          <div className="h-full w-[58%] rounded-full bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-500 shadow-[0_0_12px_rgba(59,130,246,0.5)]" />
+        </div>
+        <div className="mt-1.5 flex justify-between text-[10px] font-mono uppercase tracking-wider text-slate-600">
+          <span>Low</span>
+          <span>Median</span>
+          <span>High</span>
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <PanelCTA
+          label="Build My Baseline"
+          icon={<BarChart3 className="h-4 w-4" />}
+        />
+      </div>
+    </PanelShell>
+  );
+}
+
+function SummaryTile({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-slate-950/60 p-4">
+      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-300">
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <div className="text-[10.5px] font-mono uppercase tracking-[0.18em] text-slate-500">
+          {label}
+        </div>
+        <div className="truncate text-[14px] font-semibold text-white">
+          {value}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────── Path 3 — Sample Truth Report ─────── */
+function SampleReportPanel({ firstName }: { firstName: string }) {
+  return (
+    <PanelShell
+      eyebrow={firstName ? `Step 2 · ${firstName}` : "Step 2 · Demo"}
+      heading="See how WindowMan works"
+      subcopy="Preview a sample Truth Report so you know what risks WindowMan looks for before you upload your own quote."
+    >
+      {/* Sample report card */}
+      <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-gradient-to-b from-slate-900 to-slate-950 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+        <div className="mb-4 flex items-center justify-between text-[10.5px] font-mono uppercase tracking-[0.18em] text-slate-500">
+          <span>Sample · Truth Report</span>
+          <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-amber-300">
+            Demo
+          </span>
+        </div>
+
+        <div className="flex items-center gap-5">
+          {/* Grade dial */}
+          <div className="relative flex h-24 w-24 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-b from-amber-400/20 to-amber-600/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_0_24px_-4px_rgba(251,191,36,0.4)]">
+            <div className="absolute inset-1 rounded-full border border-amber-400/30" />
+            <div className="text-center">
+              <div className="text-[28px] font-bold leading-none text-amber-300">C+</div>
+              <div className="mt-0.5 text-[9px] font-mono uppercase tracking-wider text-slate-400">
+                Grade
+              </div>
+            </div>
+          </div>
+
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <PillarRow label="Safety & code" tone="amber" />
+            <PillarRow label="Install scope" tone="emerald" />
+            <PillarRow label="Price fairness" tone="red" />
+            <PillarRow label="Warranty" tone="amber" />
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-lg border border-red-400/20 bg-red-500/[0.06] px-3 py-2 text-[12px] text-red-200/90">
+          <span className="font-semibold text-red-300">3 red flags</span> · DP rating
+          missing · permit handling unclear · deposit above market
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <PanelCTA
+          label="View Sample Truth Report"
+          icon={<Eye className="h-4 w-4" />}
+        />
+      </div>
+    </PanelShell>
+  );
+}
+
+function PillarRow({
+  label,
+  tone,
+}: {
+  label: string;
+  tone: "emerald" | "amber" | "red";
+}) {
+  const colors = {
+    emerald: { bar: "bg-emerald-400", w: "w-[82%]" },
+    amber: { bar: "bg-amber-400", w: "w-[55%]" },
+    red: { bar: "bg-red-400", w: "w-[28%]" },
+  }[tone];
+  return (
+    <div className="flex items-center gap-2.5">
+      <span className="w-[88px] flex-shrink-0 text-[11px] text-slate-400">
+        {label}
+      </span>
+      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-800/80">
+        <div className={`h-full ${colors.bar} ${colors.w}`} />
+      </div>
+    </div>
+  );
+}
+
 export default PreUploadIntake;
