@@ -667,7 +667,7 @@ function PillRadioGroup({
         return (
           <PillChoice
             key={h}
-            ref={(el) => (refs.current[i] = el)}
+            btnRef={(el) => (refs.current[i] = el)}
             icon={icons[h]}
             label={HOME_LABELS[h]}
             selected={isSelected}
@@ -681,7 +681,7 @@ function PillRadioGroup({
 }
 
 const PathCard = ({
-  ref,
+  btnRef,
   icon,
   title,
   subtitle,
@@ -752,7 +752,7 @@ const PathCard = ({
 };
 
 const PillChoice = ({
-  ref,
+  btnRef,
   icon,
   label,
   selected,
