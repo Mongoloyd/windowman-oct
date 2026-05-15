@@ -286,22 +286,14 @@ export function PreUploadIntake() {
         </div>
 
         {/* Step indicator */}
-        <div className="mb-6 rounded-xl border border-white/[0.06] bg-slate-950/40 p-3 sm:p-4">
+        <div className="mb-6 rounded-xl border border-white/15 bg-gradient-to-b from-white/[0.06] to-white/[0.01] p-3 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.10)] backdrop-blur-md sm:p-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-[10.5px] font-mono uppercase tracking-[0.18em]">
-              <span
-                className={
-                  step === 1 ? "text-slate-200" : "text-slate-400"
-                }
-              >
+              <span className={step === 1 ? "text-white" : "text-slate-300"}>
                 01 · Intake
               </span>
-              <span className="text-slate-700">›</span>
-              <span
-                className={
-                  step === 2 ? "text-slate-200" : "text-slate-400"
-                }
-              >
+              <span className="text-slate-400">›</span>
+              <span className={step === 2 ? "text-white" : "text-slate-300"}>
                 02 · Chain of Custody
               </span>
             </div>
@@ -310,19 +302,19 @@ export function PreUploadIntake() {
                 <button
                   type="button"
                   onClick={() => setStep(1)}
-                  className="flex items-center gap-1 text-[11px] font-mono uppercase tracking-wider text-slate-400 transition-colors hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 rounded px-1"
+                  className="flex items-center gap-1 text-[11px] font-mono uppercase tracking-wider text-slate-300 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 rounded px-1"
                 >
                   <ArrowLeft className="h-3 w-3" /> Back
                 </button>
               )}
-              <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400">
+              <span className="text-[11px] font-mono uppercase tracking-wider text-slate-300">
                 Step {step} of 2
               </span>
             </div>
           </div>
-          <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-slate-800/80 shadow-[inset_0_1px_2px_rgba(0,0,0,0.6)]">
+          <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-slate-900/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.7)]">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 motion-safe:transition-all motion-safe:duration-500 ease-out shadow-[0_0_12px_rgba(59,130,246,0.5)]"
+              className="h-full rounded-full bg-gradient-to-r from-blue-400 via-indigo-400 to-amber-300 motion-safe:transition-all motion-safe:duration-500 ease-out shadow-[0_0_14px_rgba(244,162,97,0.6)]"
               style={{ width: `${stepProgress}%` }}
             />
           </div>
