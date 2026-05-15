@@ -604,7 +604,7 @@ function PathRadioGroup({
         return (
           <PathCard
             key={p}
-            ref={(el) => (refs.current[i] = el)}
+            btnRef={(el) => (refs.current[i] = el)}
             icon={meta[p].icon}
             title={PATH_LABELS[p]}
             subtitle={meta[p].subtitle}
