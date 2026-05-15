@@ -207,6 +207,19 @@ export function PreUploadIntake() {
         {liveMsg}
       </div>
 
+      {submitted && selectedPath ? (
+        <BranchPanel
+          path={selectedPath}
+          caseId={caseId}
+          name={name}
+          zip={zip}
+          homeType={homeType}
+          onBack={() => {
+            setSubmitted(false);
+            setLiveMsg("Returned to intake. Your answers are preserved.");
+          }}
+        />
+      ) : (
       <div className="relative mx-auto max-w-[1180px] px-4 py-10 sm:px-6 sm:py-14 lg:py-20">
         {/* Header bar */}
         <div className="mb-10 flex items-center justify-between">
