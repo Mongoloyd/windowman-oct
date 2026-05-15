@@ -325,22 +325,30 @@ export function PreUploadIntake() {
           <section
             aria-labelledby="zone-a-heading"
             className={[
-              "relative rounded-2xl border border-white/[0.08] bg-gradient-to-b from-slate-900/80 to-slate-950/80 p-6 shadow-[0_24px_60px_-30px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-sm sm:p-7",
+              "relative overflow-hidden rounded-2xl border border-white/15 p-6 sm:p-7",
+              "bg-gradient-to-br from-[#13294A]/90 via-[#1E3A5F]/85 to-[#0E1F38]/90",
+              "shadow-[0_30px_70px_-25px_rgba(0,0,0,0.85),0_8px_24px_-8px_rgba(244,162,97,0.18),inset_0_1px_0_rgba(255,255,255,0.12),inset_0_-1px_0_rgba(0,0,0,0.5)]",
+              "backdrop-blur-xl ring-1 ring-black/30",
               "motion-safe:transition-opacity motion-safe:duration-300",
-              step === 2 ? "opacity-60" : "opacity-100",
+              step === 2 ? "opacity-70" : "opacity-100",
             ].join(" ")}
           >
-            <header className="mb-5">
-              <div className="mb-2 flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.18em] text-slate-400">
-                <span className="h-px w-6 bg-slate-600" /> § 01 — INTAKE
+            {/* Amber rim-light glow */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -top-24 -left-16 h-48 w-48 rounded-full bg-[#F4A261]/25 blur-3xl"
+            />
+            <header className="relative mb-5">
+              <div className="mb-2 flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.18em] text-amber-200/90">
+                <span className="h-px w-6 bg-amber-300/60" /> § 01 — INTAKE
               </div>
               <h2
                 id="zone-a-heading"
-                className="text-[20px] font-semibold tracking-tight text-white"
+                className="text-[20px] font-semibold tracking-tight text-white drop-shadow-[0_1px_0_rgba(0,0,0,0.5)]"
               >
                 Where are you in the process?
               </h2>
-              <p className="mt-1 text-[13px] text-slate-400">
+              <p className="mt-1 text-[13px] text-slate-300">
                 Pick the closest match — it changes how we triage your audit.
               </p>
             </header>
@@ -355,7 +363,7 @@ export function PreUploadIntake() {
 
             {/* Home type */}
             <div className="mt-6">
-              <div className="mb-1.5 text-[12px] font-medium text-slate-300">
+              <div className="mb-1.5 text-[12px] font-medium text-slate-100">
                 Home type
               </div>
               <PillRadioGroup
@@ -368,12 +376,12 @@ export function PreUploadIntake() {
             </div>
 
             {/* Footer support card */}
-            <div className="mt-6 flex items-start gap-3 rounded-xl border border-white/[0.06] bg-slate-950/60 p-4">
-              <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-400">
+            <div className="relative mt-6 flex items-start gap-3 rounded-xl border border-white/15 bg-gradient-to-b from-white/[0.06] to-white/[0.01] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_8px_20px_-12px_rgba(0,0,0,0.6)]">
+              <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-amber-400/15 text-amber-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]">
                 <Clock className="h-4 w-4" />
               </div>
-              <div className="text-[12.5px] leading-relaxed text-slate-400">
-                <span className="font-semibold text-slate-200">
+              <div className="text-[12.5px] leading-relaxed text-slate-200">
+                <span className="font-semibold text-white">
                   What happens next.
                 </span>{" "}
                 After this step you'll upload your quote (PDF, photo, or scan).
@@ -390,23 +398,35 @@ export function PreUploadIntake() {
               if (step === 1 && selectedPath && homeType) setStep(2);
             }}
             className={[
-              "relative rounded-2xl border border-white/[0.08] bg-gradient-to-b from-slate-900/80 to-slate-950/80 p-6 shadow-[0_24px_60px_-30px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-sm sm:p-7",
+              "relative overflow-hidden rounded-2xl border border-white/12 p-6 sm:p-7",
+              "bg-gradient-to-br from-[#1A2332]/95 via-[#252F40]/90 to-[#0F1722]/95",
+              "shadow-[0_30px_70px_-25px_rgba(0,0,0,0.9),0_10px_28px_-10px_rgba(232,146,74,0.22),inset_0_1px_0_rgba(255,255,255,0.10),inset_0_-1px_0_rgba(0,0,0,0.55)]",
+              "backdrop-blur-xl ring-1 ring-black/40",
               "motion-safe:transition-opacity motion-safe:duration-300",
-              step === 1 ? "opacity-70" : "opacity-100",
+              step === 1 ? "opacity-80" : "opacity-100",
             ].join(" ")}
           >
-            <header className="mb-5">
-              <div className="mb-2 flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.18em] text-slate-400">
-                <span className="h-px w-6 bg-slate-600" /> § 02 — CHAIN OF CUSTODY
+            {/* Warm orange rim light */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -top-20 -right-20 h-56 w-56 rounded-full bg-[#E8924A]/30 blur-3xl"
+            />
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"
+            />
+            <header className="relative mb-5">
+              <div className="mb-2 flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.18em] text-orange-200/90">
+                <span className="h-px w-6 bg-orange-300/60" /> § 02 — CHAIN OF CUSTODY
               </div>
               <h2
                 id="zone-b-heading"
-                className="text-[20px] font-semibold tracking-tight text-white"
+                className="text-[20px] font-semibold tracking-tight text-white drop-shadow-[0_1px_0_rgba(0,0,0,0.5)]"
               >
                 Set up your case file
               </h2>
-              <div className="mt-1.5 flex items-center gap-2 text-[11.5px] text-slate-400">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 motion-safe:animate-pulse shadow-[0_0_6px_rgba(52,211,153,0.7)]" />
+              <div className="mt-1.5 flex items-center gap-2 text-[11.5px] text-slate-300">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 motion-safe:animate-pulse shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
                 Benchmarked against 2,847 South FL quotes
               </div>
             </header>
