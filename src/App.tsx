@@ -153,6 +153,7 @@ const App = () => (
                 )}
                 {/* Sandbox visual QA harness — unlisted, noindex, mock-only. Outside dev gate so Lovable preview can render it. */}
                 <Route path="/sandbox/report-preview" element={<DevReportPreview />} />
+                <Route path="/sandbox/intake" element={<PreUploadIntake />} />
                 <Route path="/contractors3" element={<Contractors3 />} />
                 
 
