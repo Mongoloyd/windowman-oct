@@ -10,7 +10,7 @@
  */
 import { useMemo } from "react";
 import type { AnalysisFlag } from "@/hooks/useAnalysisData";
-import ReportHeader from "./ReportHeader";
+// Legacy ReportHeader retained in repo but no longer rendered by this shell (UnlockedHeader replaces it).
 import UnlockedHeader from "./UnlockedHeader";
 import ExecutiveSummaryCard from "./ExecutiveSummaryCard";
 import PartialRevealHero from "./PartialRevealHero";
@@ -149,12 +149,6 @@ export default function ForensicAuditReport(props: ForensicAuditReportProps) {
           {props.unlockSlot && <div className="pt-2">{props.unlockSlot}</div>}
         </div>
 
-        {/* Quiet legacy header retained at footer for report ID continuity in dev preview only. */}
-        {!isPreview && (
-          <div className="mt-10 opacity-50">
-            <ReportHeader analysisId={props.analysisId} />
-          </div>
-        )}
       </div>
     </div>
   );
