@@ -126,6 +126,11 @@ export default function ForensicAuditReport(props: ForensicAuditReportProps) {
             {isPreview && <PartialUnlockOverlay />}
           </div>
 
+          <ExecutiveSummaryBand
+            flagRedCount={props.flagRedCount}
+            flagAmberCount={props.flagAmberCount}
+          />
+
           <ScopeOverviewCard
             totalOpenings={props.totalOpenings}
             pricePerOpening={props.pricePerOpening}
