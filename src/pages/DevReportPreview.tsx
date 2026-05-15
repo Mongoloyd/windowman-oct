@@ -10,7 +10,8 @@
  */
 
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useLocation, Navigate } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import TruthReportClassic from "@/components/TruthReportClassic";
 import type { SuggestedMatch } from "@/components/TruthReportClassic";
 import type { AnalysisFlag, PillarScore } from "@/hooks/useAnalysisData";
