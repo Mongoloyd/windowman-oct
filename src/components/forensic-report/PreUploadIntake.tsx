@@ -26,7 +26,6 @@ import {
   Eye,
   MapPin,
   Sparkles,
-  Pencil,
 } from "lucide-react";
 
 /**
