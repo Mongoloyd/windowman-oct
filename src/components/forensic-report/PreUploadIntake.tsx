@@ -541,11 +541,16 @@ function PathRadioGroup({
   selected: VisitorPath;
   onSelect: (p: Exclude<VisitorPath, null>) => void;
 }) {
-  const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  const groupRef = useRef<HTMLDivElement>(null);
   const focusedIdx = Math.max(
     0,
     PATHS.findIndex((p) => p === selected)
   );
+
+  const focusAt = (i: number) =>
+    groupRef.current
+      ?.querySelectorAll<HTMLButtonElement>('[role="radio"]')[i]
+      ?.focus();
 
   const onKey = (e: ReactKeyboardEvent<HTMLDivElement>) => {
     const current = PATHS.findIndex((p) => p === selected);
@@ -554,21 +559,21 @@ function PathRadioGroup({
       e.preventDefault();
       const next = (idx + 1) % PATHS.length;
       onSelect(PATHS[next]);
-      refs.current[next]?.focus();
+      focusAt(next);
     } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
       e.preventDefault();
       const next = (idx - 1 + PATHS.length) % PATHS.length;
       onSelect(PATHS[next]);
-      refs.current[next]?.focus();
+      focusAt(next);
     } else if (e.key === "Home") {
       e.preventDefault();
       onSelect(PATHS[0]);
-      refs.current[0]?.focus();
+      focusAt(0);
     } else if (e.key === "End") {
       e.preventDefault();
       const last = PATHS.length - 1;
       onSelect(PATHS[last]);
-      refs.current[last]?.focus();
+      focusAt(last);
     }
   };
 
@@ -593,6 +598,7 @@ function PathRadioGroup({
 
   return (
     <div
+      ref={groupRef}
       role="radiogroup"
       aria-label="Visitor type"
       onKeyDown={onKey}
@@ -604,7 +610,6 @@ function PathRadioGroup({
         return (
           <PathCard
             key={p}
-            btnRef={(el) => (refs.current[i] = el)}
             icon={meta[p].icon}
             title={PATH_LABELS[p]}
             subtitle={meta[p].subtitle}
@@ -626,11 +631,16 @@ function PillRadioGroup({
   selected: HomeType;
   onSelect: (h: Exclude<HomeType, null>) => void;
 }) {
-  const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  const groupRef = useRef<HTMLDivElement>(null);
   const focusedIdx = Math.max(
     0,
     HOME_TYPES.findIndex((h) => h === selected)
   );
+
+  const focusAt = (i: number) =>
+    groupRef.current
+      ?.querySelectorAll<HTMLButtonElement>('[role="radio"]')[i]
+      ?.focus();
 
   const onKey = (e: ReactKeyboardEvent<HTMLDivElement>) => {
     const current = HOME_TYPES.findIndex((h) => h === selected);
@@ -639,12 +649,12 @@ function PillRadioGroup({
       e.preventDefault();
       const next = (idx + 1) % HOME_TYPES.length;
       onSelect(HOME_TYPES[next]);
-      refs.current[next]?.focus();
+      focusAt(next);
     } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
       e.preventDefault();
       const next = (idx - 1 + HOME_TYPES.length) % HOME_TYPES.length;
       onSelect(HOME_TYPES[next]);
-      refs.current[next]?.focus();
+      focusAt(next);
     }
   };
 
@@ -656,6 +666,7 @@ function PillRadioGroup({
 
   return (
     <div
+      ref={groupRef}
       role="radiogroup"
       aria-label="Home type"
       onKeyDown={onKey}
@@ -667,7 +678,6 @@ function PillRadioGroup({
         return (
           <PillChoice
             key={h}
-            btnRef={(el) => (refs.current[i] = el)}
             icon={icons[h]}
             label={HOME_LABELS[h]}
             selected={isSelected}
@@ -680,8 +690,7 @@ function PillRadioGroup({
   );
 }
 
-const PathCard = ({
-  btnRef,
+function PathCard({
   icon,
   title,
   subtitle,
@@ -690,7 +699,6 @@ const PathCard = ({
   tabIndex,
   onClick,
 }: {
-  btnRef: (el: HTMLButtonElement | null) => void;
   icon: React.ReactNode;
   title: string;
   subtitle: string;
@@ -698,10 +706,9 @@ const PathCard = ({
   selected: boolean;
   tabIndex: number;
   onClick: () => void;
-}) => {
+}) {
   return (
     <button
-      ref={btnRef}
       type="button"
       role="radio"
       aria-checked={selected}
@@ -749,26 +756,23 @@ const PathCard = ({
       </div>
     </button>
   );
-};
+}
 
-const PillChoice = ({
-  btnRef,
+function PillChoice({
   icon,
   label,
   selected,
   tabIndex,
   onClick,
 }: {
-  btnRef: (el: HTMLButtonElement | null) => void;
   icon: React.ReactNode;
   label: string;
   selected: boolean;
   tabIndex: number;
   onClick: () => void;
-}) => {
+}) {
   return (
     <button
-      ref={btnRef}
       type="button"
       role="radio"
       aria-checked={selected}
@@ -786,7 +790,7 @@ const PillChoice = ({
       <span>{label}</span>
     </button>
   );
-};
+}
 
 function SecureField({
   label,
