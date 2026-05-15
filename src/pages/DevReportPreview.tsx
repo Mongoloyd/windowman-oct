@@ -58,7 +58,7 @@ export default function DevReportPreview() {
 
   if (params.get("v") === "v3") {
     const mode = params.get("mode") === "preview" ? "preview" : "full";
-    return (
+    const report = (
       <ForensicAuditReport
         accessLevel={mode}
         analysisId="abcd-1234-ef56-7829"
@@ -86,6 +86,24 @@ export default function DevReportPreview() {
         codeJurisdiction="Broward County"
         unlockSlot={mode === "preview" ? <PreviewUnlockSlot /> : undefined}
       />
+    );
+
+    if (!isSandboxPreview) return report;
+
+    return (
+      <>
+        <Helmet>
+          <title>Sandbox · Report Preview</title>
+          <meta name="robots" content="noindex,nofollow" />
+        </Helmet>
+        <div
+          role="status"
+          className="fixed top-0 inset-x-0 z-50 h-7 flex items-center justify-center text-[11px] font-mono uppercase tracking-wider bg-amber-500/15 text-amber-200 border-b border-amber-500/30 backdrop-blur"
+        >
+          Sandbox preview — visual QA only, not production traffic
+        </div>
+        <div className="pt-7">{report}</div>
+      </>
     );
   }
 
