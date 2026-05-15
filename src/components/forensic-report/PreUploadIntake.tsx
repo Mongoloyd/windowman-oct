@@ -351,10 +351,10 @@ export function PreUploadIntake() {
                 id="zone-a-heading"
                 className="text-[20px] font-semibold tracking-tight text-white drop-shadow-[0_1px_0_rgba(0,0,0,0.5)]"
               >
-                Where are you in the process?
+                Where Are You In The Process?
               </h2>
-              <p className="mt-1 text-[13px] text-slate-300">
-                Pick the closest match — it changes how we triage your audit.
+              <p className="mt-1 text-[13px] text-slate-50">
+                It Helps How We Triage Your Set Up
               </p>
             </header>
 
@@ -428,7 +428,7 @@ export function PreUploadIntake() {
                 id="zone-b-heading"
                 className="text-[20px] font-semibold tracking-tight text-white drop-shadow-[0_1px_0_rgba(0,0,0,0.5)]"
               >
-                Set up your case file
+                Set Up Your Market Baesline
               </h2>
               <div className="mt-1.5 flex items-center gap-2 text-[11.5px] text-slate-300">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 motion-safe:animate-pulse shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
@@ -807,7 +807,7 @@ function PathCard({
         <div className="flex items-center gap-2">
           <span className="text-[14.5px] font-semibold text-white">{title}</span>
           {tag && (
-            <span className="rounded-full border border-amber-300/40 bg-amber-400/15 px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider text-amber-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]">
+            <span className="border border-amber-300/40 bg-amber-400/15 px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider text-amber-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.15)] rounded-xl">
               {tag}
             </span>
           )}
