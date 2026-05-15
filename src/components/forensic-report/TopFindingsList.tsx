@@ -28,10 +28,13 @@ export default function TopFindingsList({ flags, blurred, totalRedCount }: Props
 
   return (
     <section>
-      <h2 className="fr-mono text-[11px] font-bold text-[hsl(var(--fr-cyan))] mb-1">
-        🔍 TOP FORENSIC FINDINGS
-      </h2>
-      <p className="text-xs text-[hsl(var(--fr-text-dim))] mb-4">
+      <div className="flex items-center gap-2 mb-1">
+        <AlertTriangle size={14} className="text-[hsl(var(--fr-danger))]" />
+        <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
+          Top Forensic Findings
+        </h2>
+      </div>
+      <p className="text-xs sm:text-sm text-slate-400 mb-4">
         {totalRedCount != null
           ? `${Math.min(3, totalRedCount)} critical red flags identified in your quote`
           : "The 3 most critical red flags in your quote"}
