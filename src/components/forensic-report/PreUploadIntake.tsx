@@ -292,7 +292,7 @@ export function PreUploadIntake() {
               <span className={step === 1 ? "text-white" : "text-slate-300"}>
                 01 · Intake
               </span>
-              <span className="text-slate-400">›</span>
+              <span className="text-slate-300">›</span>
               <span className={step === 2 ? "text-white" : "text-slate-300"}>
                 02 · Chain of Custody
               </span>
@@ -925,7 +925,7 @@ function SecureField({
             placeholder={placeholder}
             aria-invalid={showError}
             className={[
-              "w-full rounded-lg bg-gradient-to-b from-[#0A1422] to-[#0F1B2E] px-3.5 py-2.5 pr-9 text-[14px] text-white placeholder:text-slate-400 outline-none ring-0 border motion-safe:transition-colors focus:border-amber-300/50",
+              "w-full rounded-lg bg-gradient-to-b from-[#0A1422] to-[#0F1B2E] px-3.5 py-2.5 pr-9 text-[14px] text-white placeholder:text-slate-300 outline-none ring-0 border motion-safe:transition-colors focus:border-amber-300/50",
               "shadow-[inset_0_2px_4px_rgba(0,0,0,0.55),inset_0_-1px_0_rgba(255,255,255,0.04)]",
               tracking ? "tracking-wider" : "",
               showError
@@ -949,7 +949,7 @@ function ReceiptLine({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline gap-2">
       <span className="text-amber-200/90">{label}</span>
-      <span className="flex-1 truncate border-b border-dotted border-slate-500/60 text-slate-400">
+      <span className="flex-1 truncate border-b border-dotted border-slate-500/60 text-slate-300">
         {"·".repeat(40)}
       </span>
       <span className="truncate max-w-[60%] text-right text-white">
@@ -986,12 +986,12 @@ function BranchPanel({
         <button
           type="button"
           onClick={onBack}
-          className="group inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[11px] font-mono uppercase tracking-wider text-slate-400 motion-safe:transition-colors hover:border-white/20 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+          className="group inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[11px] font-mono uppercase tracking-wider text-slate-300 motion-safe:transition-colors hover:border-white/20 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
         >
           <ArrowLeft className="h-3 w-3 motion-safe:transition-transform group-hover:-translate-x-0.5" />
           Edit my answers
         </button>
-        <div className="flex items-center gap-2 text-[10.5px] font-mono uppercase tracking-[0.18em] text-slate-500">
+        <div className="flex items-center gap-2 text-[10.5px] font-mono uppercase tracking-[0.18em] text-slate-300">
           <Lock className="h-3 w-3 text-blue-400/70" />
           Case · {caseId}
         </div>
@@ -1032,7 +1032,7 @@ function PanelShell({
         <h2 className="text-[24px] font-semibold leading-[1.15] tracking-tight text-white sm:text-[30px]">
           {heading}
         </h2>
-        <p className="mt-3 text-[14.5px] leading-relaxed text-slate-400">
+        <p className="mt-3 text-[14.5px] leading-relaxed text-slate-300">
           {subcopy}
         </p>
       </div>
@@ -1063,7 +1063,7 @@ function PanelCTA({
 
 function PreviewOnlyNote() {
   return (
-    <div className="mt-5 flex items-center justify-center gap-1.5 text-[11px] font-mono uppercase tracking-wider text-slate-600">
+    <div className="mt-5 flex items-center justify-center gap-1.5 text-[11px] font-mono uppercase tracking-wider text-slate-300">
       <span className="h-1 w-1 rounded-full bg-amber-400/70" />
       Visual preview only — wiring comes later
     </div>
@@ -1086,14 +1086,14 @@ function UploadIntentPanel({ firstName }: { firstName: string }) {
         <div className="text-[15px] font-semibold text-white">
           Drop your quote here
         </div>
-        <div className="mt-1 text-[12.5px] text-slate-400">
+        <div className="mt-1 text-[12.5px] text-slate-300">
           or tap to browse — we'll do the rest
         </div>
         <div className="mt-4 flex items-center justify-center gap-2">
           {["PDF", "JPG", "PNG"].map((t) => (
             <span
               key={t}
-              className="rounded-md border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-slate-400"
+              className="rounded-md border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-slate-300"
             >
               {t}
             </span>
@@ -1142,7 +1142,7 @@ function BaselinePanel({
 
       {/* Baseline preview card */}
       <div className="mt-4 rounded-xl border border-white/[0.08] bg-slate-950/60 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-        <div className="mb-3 flex items-center justify-between text-[10.5px] font-mono uppercase tracking-[0.18em] text-slate-500">
+        <div className="mb-3 flex items-center justify-between text-[10.5px] font-mono uppercase tracking-[0.18em] text-slate-300">
           <span>§ Baseline preview</span>
           <span className="flex items-center gap-1.5 text-emerald-400/80">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 motion-safe:animate-pulse" />
@@ -1151,16 +1151,16 @@ function BaselinePanel({
         </div>
         <div className="flex items-end justify-between">
           <div>
-            <div className="text-[11px] uppercase tracking-wider text-slate-500">
+            <div className="text-[11px] uppercase tracking-wider text-slate-300">
               Expected range
             </div>
             <div className="mt-1 text-[26px] font-semibold tracking-tight text-white">
-              $1,180<span className="text-slate-500"> – </span>$1,640
+              $1,180<span className="text-slate-300"> – </span>$1,640
             </div>
-            <div className="mt-0.5 text-[12px] text-slate-400">per opening · installed</div>
+            <div className="mt-0.5 text-[12px] text-slate-300">per opening · installed</div>
           </div>
           <div className="text-right">
-            <div className="text-[11px] uppercase tracking-wider text-slate-500">
+            <div className="text-[11px] uppercase tracking-wider text-slate-300">
               Sample size
             </div>
             <div className="mt-1 font-mono text-[18px] text-blue-300">2,847</div>
@@ -1170,7 +1170,7 @@ function BaselinePanel({
         <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-800/80 shadow-[inset_0_1px_2px_rgba(0,0,0,0.6)]">
           <div className="h-full w-[58%] rounded-full bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-500 shadow-[0_0_12px_rgba(59,130,246,0.5)]" />
         </div>
-        <div className="mt-1.5 flex justify-between text-[10px] font-mono uppercase tracking-wider text-slate-600">
+        <div className="mt-1.5 flex justify-between text-[10px] font-mono uppercase tracking-wider text-slate-300">
           <span>Low</span>
           <span>Median</span>
           <span>High</span>
@@ -1202,7 +1202,7 @@ function SummaryTile({
         {icon}
       </div>
       <div className="min-w-0">
-        <div className="text-[10.5px] font-mono uppercase tracking-[0.18em] text-slate-500">
+        <div className="text-[10.5px] font-mono uppercase tracking-[0.18em] text-slate-300">
           {label}
         </div>
         <div className="truncate text-[14px] font-semibold text-white">
@@ -1223,7 +1223,7 @@ function SampleReportPanel({ firstName }: { firstName: string }) {
     >
       {/* Sample report card */}
       <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-gradient-to-b from-slate-900 to-slate-950 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-        <div className="mb-4 flex items-center justify-between text-[10.5px] font-mono uppercase tracking-[0.18em] text-slate-500">
+        <div className="mb-4 flex items-center justify-between text-[10.5px] font-mono uppercase tracking-[0.18em] text-slate-300">
           <span>Sample · Truth Report</span>
           <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-amber-300">
             Demo
@@ -1236,7 +1236,7 @@ function SampleReportPanel({ firstName }: { firstName: string }) {
             <div className="absolute inset-1 rounded-full border border-amber-400/30" />
             <div className="text-center">
               <div className="text-[28px] font-bold leading-none text-amber-300">C+</div>
-              <div className="mt-0.5 text-[9px] font-mono uppercase tracking-wider text-slate-400">
+              <div className="mt-0.5 text-[9px] font-mono uppercase tracking-wider text-slate-300">
                 Grade
               </div>
             </div>
@@ -1280,7 +1280,7 @@ function PillarRow({
   }[tone];
   return (
     <div className="flex items-center gap-2.5">
-      <span className="w-[88px] flex-shrink-0 text-[11px] text-slate-400">
+      <span className="w-[88px] flex-shrink-0 text-[11px] text-slate-300">
         {label}
       </span>
       <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-800/80">
