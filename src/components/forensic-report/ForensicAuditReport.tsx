@@ -18,10 +18,6 @@ import PartialUnlockOverlay from "./PartialUnlockOverlay";
 import PropertyProfileCard from "./PropertyProfileCard";
 import ScopeOverviewCard from "./ScopeOverviewCard";
 import { FR } from "./tokens";
-import PartialUnlockOverlay from "./PartialUnlockOverlay";
-import PropertyProfileCard from "./PropertyProfileCard";
-import ScopeOverviewCard from "./ScopeOverviewCard";
-import { FR } from "./tokens";
 
 export interface ForensicAuditReportProps {
   accessLevel: "preview" | "full";
