@@ -892,25 +892,25 @@ function SecureField({
 }) {
   const showError = touched && !valid;
   const lockColor = !value
-    ? "text-slate-600"
+    ? "text-slate-300"
     : typing
-      ? "text-amber-400 motion-safe:animate-pulse"
+      ? "text-amber-300 motion-safe:animate-pulse"
       : valid
-        ? "text-emerald-400"
-        : "text-slate-600";
+        ? "text-emerald-300"
+        : "text-slate-300";
 
   return (
     <label className="group relative block">
-      <div className="mb-1.5 text-[12px] font-medium text-slate-300">
+      <div className="mb-1.5 text-[12px] font-medium text-slate-100">
         {label}
       </div>
-      <div className="relative rounded-lg motion-safe:transition-shadow focus-within:ring-1 focus-within:ring-blue-400/50">
+      <div className="relative rounded-lg motion-safe:transition-shadow focus-within:ring-1 focus-within:ring-amber-300/50">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 rounded-lg opacity-0 motion-safe:transition-opacity motion-safe:duration-300 group-focus-within:opacity-100"
           style={{
             background:
-              "radial-gradient(120% 80% at 50% 50%, rgba(59,130,246,0.12), transparent 70%)",
+              "radial-gradient(120% 80% at 50% 50%, rgba(244,162,97,0.16), transparent 70%)",
           }}
         />
         <div className="relative">
@@ -925,11 +925,12 @@ function SecureField({
             placeholder={placeholder}
             aria-invalid={showError}
             className={[
-              "w-full rounded-lg bg-slate-950/80 px-3.5 py-2.5 pr-9 text-[14px] text-white placeholder:text-slate-600 outline-none ring-0 border motion-safe:transition-colors focus:border-blue-400/40",
+              "w-full rounded-lg bg-gradient-to-b from-[#0A1422] to-[#0F1B2E] px-3.5 py-2.5 pr-9 text-[14px] text-white placeholder:text-slate-400 outline-none ring-0 border motion-safe:transition-colors focus:border-amber-300/50",
+              "shadow-[inset_0_2px_4px_rgba(0,0,0,0.55),inset_0_-1px_0_rgba(255,255,255,0.04)]",
               tracking ? "tracking-wider" : "",
               showError
-                ? "border-red-400/40"
-                : "border-white/[0.06]",
+                ? "border-red-400/50"
+                : "border-white/15",
             ].join(" ")}
           />
           <Lock
@@ -938,7 +939,7 @@ function SecureField({
         </div>
       </div>
       {showError && (
-        <div className="mt-1 text-[11px] text-red-400/80">{error}</div>
+        <div className="mt-1 text-[11px] text-red-300">{error}</div>
       )}
     </label>
   );
