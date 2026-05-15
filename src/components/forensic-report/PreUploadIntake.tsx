@@ -845,11 +845,12 @@ function PillChoice({
       tabIndex={tabIndex}
       onClick={onClick}
       className={[
-        "flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-[12px] font-medium motion-safe:transition-all motion-safe:duration-200 ease-out",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950",
+        "flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-[12px] font-medium motion-safe:transition-all motion-safe:duration-150 ease-out",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950",
+        "active:translate-y-px",
         selected
-          ? "border-blue-400/40 bg-blue-500/[0.12] text-white motion-safe:translate-y-[1px] shadow-inner shadow-black/40"
-          : "border-white/[0.07] bg-slate-950/40 text-slate-400 hover:border-white/15 hover:text-slate-200",
+          ? "border-amber-300/50 bg-gradient-to-b from-[#3B82F6]/30 to-[#1E3A8A]/30 text-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),0_0_0_1px_rgba(244,162,97,0.2),0_4px_10px_-4px_rgba(244,162,97,0.4)]"
+          : "border-white/15 bg-gradient-to-b from-white/[0.06] to-white/[0.01] text-slate-200 hover:border-white/25 hover:text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_4px_10px_-6px_rgba(0,0,0,0.6)]",
       ].join(" ")}
     >
       {icon}
