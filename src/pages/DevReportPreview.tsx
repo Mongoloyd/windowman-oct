@@ -10,11 +10,13 @@
  */
 
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useLocation, Navigate } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import TruthReportClassic from "@/components/TruthReportClassic";
 import type { SuggestedMatch } from "@/components/TruthReportClassic";
 import type { AnalysisFlag, PillarScore } from "@/hooks/useAnalysisData";
 import ForensicAuditReport from "@/components/forensic-report/ForensicAuditReport";
+import PreviewUnlockSlot from "@/components/forensic-report/PreviewUnlockSlot";
 
 const MOCK_FLAGS: AnalysisFlag[] = [
   { id: 1, label: "Hidden Fees Not Disclosed", severity: "red", pillar: "fine_print", detail: "Your quote excludes disposal fees ($300–$500), stucco patching ($1,200–$2,400), and permit costs ($800–$1,500). That's up to $4,400 in costs you won't see until it's too late.", tip: null },
@@ -39,12 +41,24 @@ const MOCK_MATCH: SuggestedMatch = {
 
 export default function DevReportPreview() {
   const [params] = useSearchParams();
+  const location = useLocation();
   const [introRequested, setIntroRequested] = useState(false);
   const [reportCallRequested, setReportCallRequested] = useState(false);
 
+  const isSandboxPreview = location.pathname.startsWith("/sandbox/report-preview");
+
+  // Sandbox: normalize to v=v3 and a whitelisted mode. Never let sandbox land on classic.
+  if (isSandboxPreview) {
+    const v = params.get("v");
+    const mode = params.get("mode");
+    if (v !== "v3" || (mode !== "preview" && mode !== "full")) {
+      return <Navigate to="/sandbox/report-preview?v=v3&mode=preview" replace />;
+    }
+  }
+
   if (params.get("v") === "v3") {
     const mode = params.get("mode") === "preview" ? "preview" : "full";
-    return (
+    const report = (
       <ForensicAuditReport
         accessLevel={mode}
         analysisId="abcd-1234-ef56-7829"
@@ -70,7 +84,26 @@ export default function DevReportPreview() {
         propertyType="Single Family"
         windZone="HVHZ"
         codeJurisdiction="Broward County"
+        unlockSlot={mode === "preview" ? <PreviewUnlockSlot /> : undefined}
       />
+    );
+
+    if (!isSandboxPreview) return report;
+
+    return (
+      <>
+        <Helmet>
+          <title>Sandbox · Report Preview</title>
+          <meta name="robots" content="noindex,nofollow" />
+        </Helmet>
+        <div
+          role="status"
+          className="fixed top-0 inset-x-0 z-50 h-7 flex items-center justify-center text-[11px] font-mono uppercase tracking-wider text-amber-200 border-b border-amber-500/30 backdrop-blur bg-[#3068e8]/[0.21]"
+        >
+          Sandbox Preview
+        </div>
+        <div className="pt-7">{report}</div>
+      </>
     );
   }
 

@@ -9,29 +9,24 @@ interface Props {
 }
 
 export default function PartialUnlockOverlay({
-  message = "Complete verification to unlock your full forensic analysis",
+  message = "Verify your phone to access your full Forensic Audit.",
 }: Props) {
   return (
-    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+    <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-4">
       <div
-        className="pointer-events-auto rounded-lg px-6 py-5 max-w-xs text-center"
-        style={{
-          background: "hsl(var(--fr-bg) / 0.92)",
-          border: "1px solid hsl(var(--fr-border-strong))",
-          boxShadow: "0 12px 40px hsl(0 0% 0% / 0.5)",
-          backdropFilter: "blur(4px)",
-        }}
+        className="pointer-events-auto rounded-2xl px-6 sm:px-8 py-6 sm:py-7 max-w-sm w-full text-center bg-slate-900/75 border border-slate-700/70 ring-1 ring-blue-500/20 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.7)]"
+        style={{ backdropFilter: "blur(14px) saturate(140%)", WebkitBackdropFilter: "blur(14px) saturate(140%)" }}
       >
         <div
-          className="mx-auto w-10 h-10 rounded-full flex items-center justify-center mb-3"
-          style={{
-            background: "hsl(var(--fr-cyan) / 0.12)",
-            border: "1px solid hsl(var(--fr-cyan) / 0.4)",
-          }}
+          className="mx-auto w-14 h-14 rounded-full flex items-center justify-center mb-4 bg-blue-500/15 border border-blue-500/40"
+          style={{ boxShadow: "0 0 30px -6px hsl(217 91% 60% / 0.45)" }}
         >
-          <Lock size={18} className="text-[hsl(var(--fr-cyan))]" />
+          <span className="text-[26px] leading-none">🔒</span>
         </div>
-        <p className="text-sm font-semibold text-[hsl(var(--fr-text))] leading-snug">
+        <p className="text-[10px] font-mono tracking-[0.22em] text-blue-300/90 mb-2">
+          LOCKED · VERIFICATION REQUIRED
+        </p>
+        <p className="text-sm sm:text-base font-semibold text-white leading-snug">
           {message}
         </p>
       </div>

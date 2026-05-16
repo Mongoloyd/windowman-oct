@@ -26,6 +26,7 @@ const PartnerRoutes = lazy(() =>
 const DemoClassic = lazy(() => import("./pages/DemoClassic.tsx"));
 const DevReportPreview = lazy(() => import("./pages/DevReportPreview.tsx"));
 const DevTesting = lazy(() => import("./pages/DevTesting.tsx"));
+const PreUploadIntake = lazy(() => import("@/components/forensic-report/PreUploadIntake"));
 
 // ── Static content pages ─────────────────────────────────────────────────────
 const PublicLayout = lazy(() => import("@/components/PublicLayout"));
@@ -148,6 +149,13 @@ const App = () => (
                     <Route path="/settings" element={<Navigate to="/admin/settings" replace />} />
                     <Route path="/partners" element={<Navigate to="/admin/partners" replace />} />
                     <Route path=":devAdminAlias" element={<DevAdminAliasRedirect />} />
+                  </>
+                )}
+                {isDevMode && (
+                  <>
+                    {/* Sandbox visual QA harness — unlisted, noindex, mock-only. */}
+                    <Route path="/sandbox/report-preview" element={<DevReportPreview />} />
+                    <Route path="/sandbox/intake" element={<PreUploadIntake />} />
                   </>
                 )}
                 <Route path="/contractors3" element={<Contractors3 />} />
