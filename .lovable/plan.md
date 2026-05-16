@@ -1,45 +1,42 @@
-## Goal
+# PRODUCTION FREEZE — STANDBY MODE
 
-Add a new thin, full-width "EXECUTIVE SUMMARY" band that sits **above** the `▢ SCOPE OVERVIEW` section and **below** the blurred Top Forensic Findings. Also surface a one-line issue count ("We found N issues with your estimate.") on the partial reveal hero.
+Status: **STANDBY**. No runtime code changes until further notice.
 
-## What to build
+## What just happened
 
-### 1. New component: `src/components/forensic-report/ExecutiveSummaryBand.tsx`
+- PR #130 merged into `main`. The dark forensic UI surface (`src/components/forensic-report/*`) is present and structurally complete.
+- `ExecutiveSummaryBand.tsx`, `ForensicAuditReport.tsx`, and `PartialRevealHero.tsx` already contain the required band wiring and issue-count line.
+- All production backend-connected integration work is moving to a **local Cursor/VS Code environment** on a separate GitHub branch + Supabase staging branch.
 
-A thin, full-width section (roughly half the height of the Scope Overview tile row, ~80–96px tall) containing:
+## Current architecture decisions (locked)
 
-- Section label: `▦ EXECUTIVE SUMMARY` — same `fr-mono text-[11px] font-bold text-[hsl(var(--fr-cyan))]` style used by other section headers.
-- Issue-count line (when `flagRedCount + flagAmberCount > 0`):
-  - `We found <N> issues with your estimate.`
-  - N is computed from props (red + amber). Red number colored `--fr-danger`, total bolded.
-- Summary sentence:
-  - `This quote shows multiple high-risk issues, including contract traps and missing technical proof that should be resolved before signing.`
-  - Rendered in `text-[hsl(var(--fr-text))]` at ~`text-sm sm:text-base`, single-line on desktop, wraps on mobile.
-- Container: uses existing `fr-card` styling with reduced vertical padding (`py-3 sm:py-4 px-5 sm:px-6`) so the band reads as a thin strip, full-width inside the existing `max-w-6xl` container — matches the width of the Scope Overview row.
+| Route | Decision |
+|---|---|
+| `/` | **Stays the existing homepage** (`src/pages/Index.tsx`). No cutover. |
+| `/scan` | Will become the V2 intake/funnel route (`PreUploadIntake` + production wiring). |
+| `/report/forensic/:sessionId` | Will become the dark forensic reveal route. |
+| `/report/classic/:sessionId` | Remains fallback until QA passes on forensic reveal. |
 
-Props:
-```ts
-{ flagRedCount: number; flagAmberCount: number; summary?: string | null; }
-```
+## Off-limits (DO NOT TOUCH in Lovable)
 
-`summary` defaults to the static sentence above when not supplied (it will later be wired to live OCR-derived copy).
+- `src/App.tsx`
+- `/` homepage route or homepage components
+- Production report routing
+- Supabase Edge Functions
+- Database migrations
+- RLS policies
+- Storage policies
+- OTP / Twilio logic
+- `scan-quote`
+- CAPI / conversion tracking
+- Report reveal authorization logic
 
-### 2. Wire it into `ForensicAuditReport.tsx`
+## What is okay in Lovable (if requested)
 
-Render `<ExecutiveSummaryBand />` between `<TopFindingsList>`/`PartialUnlockOverlay` block and `<ScopeOverviewCard>`, in **both** `preview` and `full` modes. Pass `flagRedCount` and `flagAmberCount` from props.
+- Purely presentational UI tweaks inside `src/components/forensic-report/*` (colors, spacing, copy) — **only if they do not require new backend wiring**.
+- Updates to this plan file.
+- Documentation, comments, or Markdown.
 
-### 3. Partial reveal: add issue-count line
+## Next gate
 
-In `PartialRevealHero.tsx`, add a single short line under the subtitle (or inside the locked teaser block) that reads:
-`We found <N> issues with your estimate.` — using `flagRedCount + flagAmberCount`. No detail breakdown — preserves the verify-to-reveal moat.
-
-## Files changed
-
-- **new** `src/components/forensic-report/ExecutiveSummaryBand.tsx`
-- **edit** `src/components/forensic-report/ForensicAuditReport.tsx` — insert band between Top Findings and Scope Overview
-- **edit** `src/components/forensic-report/PartialRevealHero.tsx` — add one-line issue count
-
-## Out of scope
-
-- No backend, RPC, or scoring changes. The dynamic issue count already flows through existing props (`flagRedCount`, `flagAmberCount`); when live OCR data lands, the number updates automatically.
-- No changes to `ExecutiveSummaryCard` (the larger top card) — this new band is a separate, narrower strip lower in the page.
+Local dev will wire `PreUploadIntake` → `start-upload-scan-session` → `scan-quote` → preview → OTP → `ForensicAuditReport` reveal. Once that staging branch passes QA, a new Lovable session may be opened to promote `/scan` and `/report/forensic/:sessionId` to public routes in `App.tsx`.
