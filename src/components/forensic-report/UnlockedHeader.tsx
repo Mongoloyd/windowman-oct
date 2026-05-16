@@ -3,6 +3,7 @@
  * Pure presentation. No data fetching. No gating.
  */
 import { ShieldCheck, Lock } from "lucide-react";
+import { useMemo } from "react";
 import { formatReportId } from "./tokens";
 
 interface Props {
@@ -12,7 +13,7 @@ interface Props {
 }
 
 export default function UnlockedHeader({ analysisId, generatedAt, verifiedPhone }: Props) {
-  const date = generatedAt ?? new Date();
+  const date = useMemo(() => generatedAt ?? new Date(), [generatedAt]);
   const dateStr = date.toLocaleString("en-US", {
     month: "short",
     day: "numeric",

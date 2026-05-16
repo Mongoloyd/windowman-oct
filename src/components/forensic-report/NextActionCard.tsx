@@ -55,14 +55,24 @@ export default function NextActionCard({
             {primaryLabel}
             <ArrowRight size={16} />
           </button>
-          <button
-            type="button"
-            onClick={onSecondary}
-            className="text-xs sm:text-sm text-[hsl(var(--fr-text-muted))] hover:text-[hsl(var(--fr-text))] inline-flex items-center gap-1.5 transition-colors"
-          >
-            <Phone size={12} />
-            {secondaryLabel}
-          </button>
+          {onSecondary ? (
+            <button
+              type="button"
+              onClick={onSecondary}
+              className="text-xs sm:text-sm text-[hsl(var(--fr-text-muted))] hover:text-[hsl(var(--fr-text))] inline-flex items-center gap-1.5 transition-colors"
+            >
+              <Phone size={12} />
+              {secondaryLabel}
+            </button>
+          ) : (
+            <span
+              className="text-xs sm:text-sm text-[hsl(var(--fr-text-dim))] inline-flex items-center gap-1.5"
+              aria-disabled="true"
+            >
+              <Phone size={12} />
+              {secondaryLabel}
+            </span>
+          )}
         </div>
       </div>
     </section>

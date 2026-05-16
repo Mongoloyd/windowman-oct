@@ -1,5 +1,5 @@
 /**
- * TopFindingsList — top 3 critical/high flag cards.
+ * TopFindingsList — top 5 critical/high flag cards.
  * In preview mode renders blurred placeholder cards so PartialUnlockOverlay can sit on top.
  * Real flag data is NEVER passed in preview mode (orchestrator enforces this).
  */

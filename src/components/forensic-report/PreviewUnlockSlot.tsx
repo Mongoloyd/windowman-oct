@@ -150,7 +150,7 @@ export default function PreviewUnlockSlot() {
                 ? "Enter a valid mobile number to receive your secure unlock code."
                 : isValid
                   ? "Ready to send verification code."
-                  : "Check SMS For Your Secure Code"}
+                  : "Check SMS for your secure code."}
             </p>
           </div>
 
@@ -166,7 +166,7 @@ export default function PreviewUnlockSlot() {
           </button>
 
           <p className="text-[11px] text-center leading-relaxed text-slate-400">
-            Your report is free no strings attached No contractor Calls. No spam. No obligation.
+            Your report is free — no strings attached. No contractor calls, no spam, no obligation.
           </p>
         </div>
       )}
