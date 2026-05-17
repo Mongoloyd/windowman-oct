@@ -10,8 +10,10 @@ BEGIN
     FROM vault.decrypted_secrets WHERE name = 'dispatch_lead_secret';
 
   IF v_dispatch_url IS NULL OR v_dispatch_secret IS NULL THEN
-    RAISE EXCEPTION
-      'dispatch_lead_url / dispatch_lead_secret not present in Vault — boot dispatch-lead once to self-seed, then re-run.';
+    -- Vault secrets absent on clean/local replay — skip cron scheduling.
+    -- In production/staging, boot dispatch-lead once to self-seed before relying on this job.
+    RAISE NOTICE 'dispatch_lead_url / dispatch_lead_secret not present in Vault — skipping cron schedule. Boot dispatch-lead once to self-seed.';
+    RETURN;
   END IF;
 
   -- Idempotently unschedule the legacy minute job (process-webhook caller)
