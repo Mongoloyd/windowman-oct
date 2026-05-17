@@ -270,6 +270,16 @@ $$;
 COMMENT ON FUNCTION public.resolve_route_for_slug(text) IS
 'Sprint 4 slug-only resolver. Operator convenience for previewing routing for a given client_slug.';
 
+-- Ensure leads.latest_analysis_id exists before Sprint 4 admin routing views reference it.
+-- Later dispatch/handoff logic also uses this nullable analysis pointer to determine
+-- when a verified lead is ready for routing.
+ALTER TABLE public.leads
+  ADD COLUMN IF NOT EXISTS latest_analysis_id uuid;
+
+CREATE INDEX IF NOT EXISTS idx_leads_latest_analysis_id
+  ON public.leads (latest_analysis_id)
+  WHERE latest_analysis_id IS NOT NULL;
+
 -- ─── 3. Admin view: routing resolution per active client ─────────────────
 
 CREATE OR REPLACE VIEW public.v_admin_routing_resolution

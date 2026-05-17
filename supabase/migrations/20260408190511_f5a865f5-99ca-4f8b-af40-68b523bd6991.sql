@@ -1,9 +1,9 @@
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- Contractor invitation table for invite-only onboarding
 CREATE TABLE public.contractor_invitations (
   id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
-  invite_token text NOT NULL DEFAULT encode(gen_random_bytes(32), 'hex') UNIQUE,
-  invited_email text NOT NULL,
+  invite_token text NOT NULL DEFAULT encode(gen_random_bytes(32), 'hex') UNIQUE,  invited_email text NOT NULL,
   contractor_id uuid NOT NULL,
   initial_credits integer NOT NULL DEFAULT 0,
   status text NOT NULL DEFAULT 'pending',

@@ -55,17 +55,32 @@ CREATE POLICY "contractor_opportunities_delete_internal"
 -- Access model: refresh-benchmarks edge function writes (service-role)
 -- Frontend uses hardcoded countyData.ts, not this table
 -- Allow public SELECT for future benchmark display
+-- Guarded because clean staging may not include this optional/future table.
 
-CREATE POLICY "county_benchmarks_service_role_all"
-  ON public.county_benchmarks FOR ALL
-  TO service_role
-  USING (true)
-  WITH CHECK (true);
+DO $$
+BEGIN
+  IF to_regclass('public.county_benchmarks') IS NOT NULL THEN
+    EXECUTE 'DROP POLICY IF EXISTS "county_benchmarks_service_role_all" ON public.county_benchmarks';
+    EXECUTE 'DROP POLICY IF EXISTS "county_benchmarks_select_public" ON public.county_benchmarks';
 
-CREATE POLICY "county_benchmarks_select_public"
-  ON public.county_benchmarks FOR SELECT
-  TO anon, authenticated
-  USING (true);
+    EXECUTE $policy$
+      CREATE POLICY "county_benchmarks_service_role_all"
+        ON public.county_benchmarks FOR ALL
+        TO service_role
+        USING (true)
+        WITH CHECK (true)
+    $policy$;
+
+    EXECUTE $policy$
+      CREATE POLICY "county_benchmarks_select_public"
+        ON public.county_benchmarks FOR SELECT
+        TO anon, authenticated
+        USING (true)
+    $policy$;
+  ELSE
+    RAISE NOTICE 'Skipping county_benchmarks policies: public.county_benchmarks does not exist.';
+  END IF;
+END $$;
 
 -- ─── 4. lead_events ──────────────────────────────────────────────
 -- Access model: triggers + edge functions write (service-role)
@@ -103,26 +118,53 @@ CREATE POLICY "quote_analyses_service_role_all"
 
 -- ─── 7. quote_comparisons ────────────────────────────────────────
 -- Access model: compare-quotes edge function (service-role)
+-- Guarded because clean staging may not include this optional/legacy table.
 
-CREATE POLICY "quote_comparisons_service_role_all"
-  ON public.quote_comparisons FOR ALL
-  TO service_role
-  USING (true)
-  WITH CHECK (true);
+DO $$
+BEGIN
+  IF to_regclass('public.quote_comparisons') IS NOT NULL THEN
+    EXECUTE 'DROP POLICY IF EXISTS "quote_comparisons_service_role_all" ON public.quote_comparisons';
+    EXECUTE 'DROP POLICY IF EXISTS "quote_comparisons_select_internal" ON public.quote_comparisons';
 
-CREATE POLICY "quote_comparisons_select_internal"
-  ON public.quote_comparisons FOR SELECT
-  TO authenticated
-  USING (public.is_internal_operator());
+    EXECUTE $policy$
+      CREATE POLICY "quote_comparisons_service_role_all"
+        ON public.quote_comparisons FOR ALL
+        TO service_role
+        USING (true)
+        WITH CHECK (true)
+    $policy$;
+
+    EXECUTE $policy$
+      CREATE POLICY "quote_comparisons_select_internal"
+        ON public.quote_comparisons FOR SELECT
+        TO authenticated
+        USING (public.is_internal_operator())
+    $policy$;
+  ELSE
+    RAISE NOTICE 'Skipping quote_comparisons policies: public.quote_comparisons does not exist.';
+  END IF;
+END $$;
 
 -- ─── 8. service_tickets (legacy/unrelated) ───────────────────────
 -- Not part of core product. Legacy or test table.
+-- Guarded because clean staging may not include this legacy/unrelated table.
 
-CREATE POLICY "service_tickets_service_role_all"
-  ON public.service_tickets FOR ALL
-  TO service_role
-  USING (true)
-  WITH CHECK (true);
+DO $$
+BEGIN
+  IF to_regclass('public.service_tickets') IS NOT NULL THEN
+    EXECUTE 'DROP POLICY IF EXISTS "service_tickets_service_role_all" ON public.service_tickets';
+
+    EXECUTE $policy$
+      CREATE POLICY "service_tickets_service_role_all"
+        ON public.service_tickets FOR ALL
+        TO service_role
+        USING (true)
+        WITH CHECK (true)
+    $policy$;
+  ELSE
+    RAISE NOTICE 'Skipping service_tickets policies: public.service_tickets does not exist.';
+  END IF;
+END $$;
 
 -- ═══════════════════════════════════════════════════════════════════
 -- FIX: Function search_path warnings

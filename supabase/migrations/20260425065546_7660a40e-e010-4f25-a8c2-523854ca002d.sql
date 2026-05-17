@@ -46,6 +46,30 @@ DROP POLICY IF EXISTS lead_attribution_details_update_internal
 DROP POLICY IF EXISTS lead_attribution_details_delete_internal
   ON public.lead_attribution_details;
 
+-- Ensure website attribution/admin fields exist on leads before backfilling lead_attribution_details.
+-- These fields may be absent on clean staging because early funnel attribution was captured before
+-- the dedicated lead_attribution_details spine existed.
+-- last_name is required later in this same migration by get_admin_attribution_spine.
+ALTER TABLE public.leads
+  ADD COLUMN IF NOT EXISTS utm_source text,
+  ADD COLUMN IF NOT EXISTS utm_medium text,
+  ADD COLUMN IF NOT EXISTS utm_campaign text,
+  ADD COLUMN IF NOT EXISTS utm_term text,
+  ADD COLUMN IF NOT EXISTS utm_content text,
+  ADD COLUMN IF NOT EXISTS fbclid text,
+  ADD COLUMN IF NOT EXISTS gclid text,
+  ADD COLUMN IF NOT EXISTS fbc text,
+  ADD COLUMN IF NOT EXISTS fbp text,
+  ADD COLUMN IF NOT EXISTS landing_page_url text,
+  ADD COLUMN IF NOT EXISTS first_page_path text,
+  ADD COLUMN IF NOT EXISTS initial_referrer text,
+  ADD COLUMN IF NOT EXISTS last_name text,
+  ADD COLUMN IF NOT EXISTS latest_opportunity_id uuid;
+
+CREATE INDEX IF NOT EXISTS idx_leads_latest_opportunity_id
+  ON public.leads (latest_opportunity_id)
+  WHERE latest_opportunity_id IS NOT NULL;
+
 INSERT INTO public.lead_attribution_details (
   lead_id,
   source_platform,

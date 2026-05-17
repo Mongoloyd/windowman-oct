@@ -121,7 +121,7 @@ CREATE INDEX IF NOT EXISTS idx_wm_event_log_analysis_id
   ON public.wm_event_log (analysis_id);
 
 CREATE INDEX IF NOT EXISTS idx_wm_event_log_dispatch_status
-  ON public.wm_event_log (platform_dispatch_status, event_timestamp DESC);
+  ON public.wm_event_log (dispatch_status, event_timestamp DESC);
 
 DROP TRIGGER IF EXISTS trg_wm_event_log_updated_at ON public.wm_event_log;
 CREATE TRIGGER trg_wm_event_log_updated_at

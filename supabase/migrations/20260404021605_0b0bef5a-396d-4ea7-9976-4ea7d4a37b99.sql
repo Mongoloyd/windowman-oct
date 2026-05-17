@@ -36,10 +36,10 @@ CREATE POLICY webhook_deliveries_delete_internal ON public.webhook_deliveries
 CREATE POLICY webhook_deliveries_service_role_all ON public.webhook_deliveries
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 
--- Auto-update updated_at
+-- Auto-update updated_at (uses canonical helper from 20260318033552; set_updated_at() is defined later)
 CREATE TRIGGER set_webhook_deliveries_updated_at
   BEFORE UPDATE ON public.webhook_deliveries
-  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 
 -- Step 4: Dual-gate trigger on leads
 CREATE OR REPLACE FUNCTION public.fire_crm_handoff()

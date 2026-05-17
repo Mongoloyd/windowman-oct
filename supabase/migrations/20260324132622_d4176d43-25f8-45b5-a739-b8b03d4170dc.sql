@@ -11,5 +11,13 @@ DROP POLICY IF EXISTS "authenticated_select_billable"       ON public.billable_i
 DROP POLICY IF EXISTS "authenticated_select_outcomes"       ON public.contractor_outcomes;
 
 -- Drop authenticated SELECT on voice_followups and lead_events
+-- voice_followups: created by 20260324132621 immediately before this migration.
 DROP POLICY IF EXISTS "Authenticated read voice_followups"  ON public.voice_followups;
-DROP POLICY IF EXISTS "Authenticated read lead_events"      ON public.lead_events;
+
+-- lead_events: legacy table with no CREATE migration in repo; may be absent on fresh staging.
+DO $$
+BEGIN
+  IF to_regclass('public.lead_events') IS NOT NULL THEN
+    DROP POLICY IF EXISTS "Authenticated read lead_events" ON public.lead_events;
+  END IF;
+END $$;

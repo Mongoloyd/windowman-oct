@@ -1,3 +1,15 @@
+-- Define set_updated_at before first use in this migration chain.
+-- 20260416154937 may CREATE OR REPLACE the same helper; this keeps earlier triggers valid.
+CREATE OR REPLACE FUNCTION public.set_updated_at()
+  RETURNS trigger
+  LANGUAGE plpgsql
+  SET search_path = public
+AS $function$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$function$;
 
 -- ============================================================
 -- 1) contractor_profiles

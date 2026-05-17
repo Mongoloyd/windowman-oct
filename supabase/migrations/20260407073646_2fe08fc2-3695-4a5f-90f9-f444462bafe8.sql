@@ -1,6 +1,6 @@
 -- Step 1: Fix lead_events constraints to allow crm_handoff_queued + db_trigger
 
-ALTER TABLE public.lead_events DROP CONSTRAINT lead_events_event_name_check;
+ALTER TABLE public.lead_events DROP CONSTRAINT IF EXISTS lead_events_event_name_check;
 ALTER TABLE public.lead_events ADD CONSTRAINT lead_events_event_name_check CHECK (
   event_name = ANY (ARRAY[
     'lead_created','lead_captured',
@@ -18,7 +18,7 @@ ALTER TABLE public.lead_events ADD CONSTRAINT lead_events_event_name_check CHECK
   ]::text[])
 );
 
-ALTER TABLE public.lead_events DROP CONSTRAINT lead_events_event_source_check;
+ALTER TABLE public.lead_events DROP CONSTRAINT IF EXISTS lead_events_event_source_check;
 ALTER TABLE public.lead_events ADD CONSTRAINT lead_events_event_source_check CHECK (
   event_source IS NULL OR event_source = ANY (ARRAY[
     'web','edge_function','admin','phonecall_bot','system','db_trigger'

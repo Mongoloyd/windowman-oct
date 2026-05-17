@@ -22,10 +22,12 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-# Local Env files
+# Local env files (never commit real credentials)
 .env
 .env.*
 !.env.example
+.env.local
+.env.*.local
 *.local
 
 # Supabase CLI artifacts

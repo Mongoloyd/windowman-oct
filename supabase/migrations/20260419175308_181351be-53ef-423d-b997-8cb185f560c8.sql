@@ -33,6 +33,11 @@ CREATE INDEX IF NOT EXISTS idx_phone_verifications_scan_session
   WHERE scan_session_id IS NOT NULL;
 
 -- ── 2. Hardened RPC ────────────────────────────────────────────────────
+-- PostgreSQL cannot CREATE OR REPLACE a function when OUT/RETURNS TABLE
+-- columns change. Drop the exact overload first, without CASCADE, then
+-- recreate it below with the intended hardened return shape.
+DROP FUNCTION IF EXISTS public.get_analysis_full(uuid, text);
+
 CREATE OR REPLACE FUNCTION public.get_analysis_full(
   p_scan_session_id uuid,
   p_phone_e164      text

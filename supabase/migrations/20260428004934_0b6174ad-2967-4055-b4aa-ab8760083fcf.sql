@@ -165,6 +165,12 @@ WITH CHECK (true);
 COMMENT ON TABLE public.lead_contact_releases IS 'Controlled contractor contact release decisions for assigned leads. No quote files or raw report data.';
 COMMENT ON TABLE public.lead_contact_release_events IS 'Append-only audit trail for lead contact release decisions.';
 
+-- Ensure contractor contact-release fields exist on leads before get_contractor_released_contact references them.
+-- These fields are optional contact fields controlled by lead_contact_releases.allowed_contact_fields.
+ALTER TABLE public.leads
+  ADD COLUMN IF NOT EXISTS city text,
+  ADD COLUMN IF NOT EXISTS county text;
+
 CREATE OR REPLACE FUNCTION public.get_contractor_released_contact(_lead_assignment_id uuid)
 RETURNS TABLE(
   release_status text,

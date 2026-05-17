@@ -1,7 +1,18 @@
-INSERT INTO public.contractor_profiles (id, company_name, contact_email, status)
-VALUES ('f184e9db-dcc4-4a54-a818-7a8e95db8697', 'Your Partner LLC', 'preview@windowman.pro', 'active')
-ON CONFLICT (id) DO NOTHING;
+-- Preview contractor seed intentionally disabled.
+--
+-- This migration previously inserted a hardcoded contractor profile:
+--   id: f184e9db-dcc4-4a54-a818-7a8e95db8697
+--   company_name: Your Partner LLC
+--   contact_email: preview@windowman.pro
+--
+-- That row depends on a matching Supabase Auth user in auth.users.
+-- Clean staging/branch environments do not contain that Auth user, causing
+-- contractor_profiles_id_fkey violations during migration replay.
+--
+-- Contractor/admin seed identities must be created through explicit environment
+-- setup or a dedicated seed process, not required schema migrations.
 
-INSERT INTO public.contractor_credits (contractor_id, balance)
-VALUES ('f184e9db-dcc4-4a54-a818-7a8e95db8697', 0)
-ON CONFLICT (contractor_id) DO NOTHING;
+DO $$
+BEGIN
+  RAISE NOTICE 'Skipping hardcoded preview contractor seed; create contractor users through environment setup instead.';
+END $$;
