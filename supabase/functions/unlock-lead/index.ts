@@ -44,18 +44,18 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } },
     );
 
-    const { data: claimsData, error: claimsErr } = await supabase.auth
-      .getClaims(
-        authHeader.replace("Bearer ", ""),
-      );
-    if (claimsErr || !claimsData?.claims?.sub) {
+    const jwt = authHeader.replace("Bearer ", "");
+    const { data: userData, error: userErr } = await supabase.auth.getUser(
+      jwt,
+    );
+    if (userErr || !userData?.user?.id) {
       return json({
         success: false,
         error_code: "unauthenticated",
         message: "Invalid auth token.",
       }, 401);
     }
-    const contractorId = claimsData.claims.sub as string;
+    const contractorId = userData.user.id;
 
     // ── Input ─────────────────────────────────────────────────────
     const body = await req.json();

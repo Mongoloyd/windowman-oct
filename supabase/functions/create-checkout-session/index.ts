@@ -16,6 +16,11 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import Stripe from "npm:stripe@17.7.0";
 
+// Local loose alias for helper signatures only. Runtime still receives the
+// Supabase client created below.
+// deno-lint-ignore no-explicit-any
+type AnySupabaseClient = any; // eslint-disable-line @typescript-eslint/no-explicit-any
+
 /* ── CORS ────────────────────────────────────────────────────────────── */
 
 const corsHeaders = {
@@ -158,7 +163,7 @@ async function resolveContractorIdentity(
 /* ── Validate contractor profile + credits ───────────────────────────── */
 
 async function validateContractor(
-  svc: ReturnType<typeof createClient>,
+  svc: AnySupabaseClient,
   contractorId: string,
   isPreview: boolean,
 ): Promise<{ errorResponse: Response | null }> {
@@ -390,7 +395,7 @@ Deno.serve(async (req) => {
       }, 500);
     }
 
-    const stripe = new Stripe(stripeKey, { apiVersion: "2024-12-18.acacia" });
+    const stripe = new Stripe(stripeKey, { apiVersion: "2025-02-24.acacia" });
 
     const sharedMetadata = {
       contractor_id: contractorId,

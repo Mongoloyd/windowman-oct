@@ -22,6 +22,11 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
+// Local loose alias for helper signatures only. Runtime still receives the
+// Supabase client created above.
+// deno-lint-ignore no-explicit-any
+type AnySupabaseClient = any; // eslint-disable-line @typescript-eslint/no-explicit-any
+
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -438,7 +443,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 // ── Helper: update followup status ───────────────────────────────────────────
 
 async function markFollowup(
-  supabase: ReturnType<typeof createClient>,
+  supabase: AnySupabaseClient,
   followupId: string,
   status: "sent" | "failed",
 ): Promise<void> {

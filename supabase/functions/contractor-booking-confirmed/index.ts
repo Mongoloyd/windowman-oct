@@ -16,6 +16,11 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
+// Local loose alias for helper signatures only. Runtime still receives the
+// Supabase client created above.
+// deno-lint-ignore no-explicit-any
+type AnySupabaseClient = any; // eslint-disable-line @typescript-eslint/no-explicit-any
+
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -285,7 +290,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
  * Used for confirmation_email — dedupes by (lead_id, followup_type) regardless of time.
  */
 async function checkFollowupExistsByType(
-  supabase: ReturnType<typeof createClient>,
+  supabase: AnySupabaseClient,
   leadId: string,
   followupType: string,
 ): Promise<boolean> {
@@ -313,7 +318,7 @@ async function checkFollowupExistsByType(
  * Used for reminder_24h / reminder_1h — dedupes by (lead_id, followup_type, scheduled_for).
  */
 async function checkFollowupExistsByTypeAndTime(
-  supabase: ReturnType<typeof createClient>,
+  supabase: AnySupabaseClient,
   leadId: string,
   followupType: string,
   scheduledFor: string,
