@@ -7,12 +7,24 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 const VALID_SCAN_SESSION_ID = "11111111-1111-4111-8111-111111111111";
+const OTHER_VALID_SCAN_SESSION_ID = "22222222-2222-4222-8222-222222222222";
+const FUNNEL_MISMATCH_SCAN_SESSION_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const LOST_SCAN_SESSION_MESSAGE = "We lost the scan session. Please restart the scan.";
 
-const { mockUseReportAccess, mockUseScanFunnelSafe, mockUsePhonePipeline } = vi.hoisted(() => ({
+const {
+  mockUseReportAccess,
+  mockUseScanFunnelSafe,
+  mockUsePhonePipeline,
+  navigateSpy,
+  trackEventMock,
+  trackGtmEventMock,
+} = vi.hoisted(() => ({
   mockUseReportAccess: vi.fn(),
   mockUseScanFunnelSafe: vi.fn(),
   mockUsePhonePipeline: vi.fn(),
+  navigateSpy: vi.fn(),
+  trackEventMock: vi.fn(),
+  trackGtmEventMock: vi.fn(),
 }));
 
 vi.mock("@/hooks/useReportAccess", () => ({
@@ -25,6 +37,22 @@ vi.mock("@/state/scanFunnel", () => ({
 
 vi.mock("@/hooks/usePhonePipeline", () => ({
   usePhonePipeline: mockUsePhonePipeline,
+}));
+
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual<typeof import("react-router-dom")>("react-router-dom");
+  return {
+    ...actual,
+    useNavigate: () => navigateSpy,
+  };
+});
+
+vi.mock("@/lib/trackEvent", () => ({
+  trackEvent: trackEventMock,
+}));
+
+vi.mock("@/lib/trackConversion", () => ({
+  trackGtmEvent: trackGtmEventMock,
 }));
 
 vi.mock("@/integrations/supabase/client", () => ({
@@ -46,7 +74,17 @@ vi.mock("@/integrations/supabase/client", () => ({
 // Render the gate as a real form so onOtpSubmit can be exercised in tests
 // for the post-OTP transition.
 vi.mock("../TruthReportClassic", () => ({
-  default: ({ gateProps, accessLevel }: { gateProps?: any; accessLevel: string }) => (
+  default: ({
+    gateProps,
+    accessLevel,
+    onContractorMatchClick,
+    onReportHelpCall,
+  }: {
+    gateProps?: any;
+    accessLevel: string;
+    onContractorMatchClick?: () => void;
+    onReportHelpCall?: () => void;
+  }) => (
     <div>
       <div data-testid="access-level">{accessLevel}</div>
       <div data-testid="gate-mode">{gateProps?.gateMode ?? "none"}</div>
@@ -64,6 +102,16 @@ vi.mock("../TruthReportClassic", () => ({
       <button onClick={gateProps?.onOtpSubmit}>otp-submit</button>
       <button onClick={gateProps?.onRetryFetchFull}>retry-fetch-full</button>
       <div data-testid="masked-phone">{gateProps?.maskedPhone ?? ""}</div>
+      {onContractorMatchClick ? (
+        <button type="button" onClick={onContractorMatchClick}>
+          diagnosis-cta
+        </button>
+      ) : null}
+      {onReportHelpCall ? (
+        <button type="button" onClick={onReportHelpCall}>
+          report-help-call
+        </button>
+      ) : null}
     </div>
   ),
 }));
@@ -670,5 +718,678 @@ describe("PostScanReportSwitcher — post-OTP unlock transition", () => {
       fullFetchError: "Failed to unlock report.",
     });
     expect(screen.getByTestId("fetch-stalled")).toHaveTextContent("true");
+  });
+});
+
+describe("PostScanReportSwitcher — gated phone in OTP/full-fetch callbacks", () => {
+  let funnelState: any;
+  let resendMock: ReturnType<typeof vi.fn>;
+  let submitOtpMock: ReturnType<typeof vi.fn>;
+  let onVerifiedMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseReportAccess.mockReturnValue("preview");
+
+    funnelState = {
+      phoneE164: "+13055551234",
+      phoneStatus: "otp_sent",
+      scanSessionId: VALID_SCAN_SESSION_ID,
+      setPhone: vi.fn(),
+      setPhoneStatus: vi.fn(),
+      sessionId: "sess-gated",
+    };
+    mockUseScanFunnelSafe.mockImplementation(() => funnelState);
+
+    resendMock = vi.fn().mockResolvedValue({ status: "otp_sent", e164: "+13055551234" });
+    submitOtpMock = vi.fn().mockResolvedValue({
+      status: "verified",
+      e164: "+13055551234",
+      phoneVerifiedEventId: "evt-pv",
+      reportRevealedEventId: "evt-rr",
+    });
+    onVerifiedMock = vi.fn();
+
+    mockUsePhonePipeline.mockReturnValue({
+      displayValue: "(305) 555-1234",
+      rawDigits: "3055551234",
+      e164: "+13055551234",
+      inputComplete: true,
+      phoneStatus: "otp_sent",
+      errorMsg: "",
+      errorType: null,
+      resendCooldown: 0,
+      handlePhoneChange: vi.fn(),
+      submitPhone: vi.fn(),
+      submitOtp: submitOtpMock,
+      resend: resendMock,
+      reset: vi.fn(),
+    });
+  });
+
+  it("blocks resend when funnel scanSessionId mismatches active scan session", async () => {
+    funnelState.scanSessionId = FUNNEL_MISMATCH_SCAN_SESSION_ID;
+    renderSwitcher({ scanSessionId: VALID_SCAN_SESSION_ID });
+    fireEvent.click(screen.getByText("resend"));
+    await Promise.resolve();
+    expect(resendMock).not.toHaveBeenCalled();
+    expect(funnelState.setPhoneStatus).not.toHaveBeenCalledWith("sending_otp");
+  });
+
+  it("allows resend when funnel scanSessionId matches active scan session", async () => {
+    funnelState.scanSessionId = VALID_SCAN_SESSION_ID;
+    renderSwitcher({ scanSessionId: VALID_SCAN_SESSION_ID });
+    fireEvent.click(screen.getByText("resend"));
+    await waitFor(() => expect(resendMock).toHaveBeenCalledTimes(1));
+    expect(funnelState.setPhoneStatus).toHaveBeenCalledWith("sending_otp");
+  });
+
+  it("blocks retry full fetch on session mismatch even after verify captured phone for another session", async () => {
+    funnelState.scanSessionId = VALID_SCAN_SESSION_ID;
+    funnelState.phoneStatus = "otp_sent";
+    const { rerender } = render(
+      <MemoryRouter>
+        <PostScanReportSwitcher
+          {...baseProps()}
+          scanSessionId={VALID_SCAN_SESSION_ID}
+          onVerified={onVerifiedMock}
+          fullFetchError="Failed to unlock report."
+        />
+      </MemoryRouter>
+    );
+
+    fireEvent.change(screen.getByTestId("otp-input"), { target: { value: "123456" } });
+    fireEvent.click(screen.getByText("otp-submit"));
+    await waitFor(() => expect(onVerifiedMock).toHaveBeenCalledWith("+13055551234"));
+
+    onVerifiedMock.mockClear();
+    funnelState.scanSessionId = FUNNEL_MISMATCH_SCAN_SESSION_ID;
+    funnelState.phoneStatus = "verified";
+    rerender(
+      <MemoryRouter>
+        <PostScanReportSwitcher
+          {...baseProps()}
+          scanSessionId={OTHER_VALID_SCAN_SESSION_ID}
+          onVerified={onVerifiedMock}
+          fullFetchError="Failed to unlock report."
+        />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByText("retry-fetch-full"));
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith("Unable to retry. Please resend your verification code."),
+    );
+    expect(onVerifiedMock).not.toHaveBeenCalled();
+  });
+
+  it("allows retry full fetch with session-matched captured phone after verify stall", async () => {
+    funnelState.scanSessionId = VALID_SCAN_SESSION_ID;
+    funnelState.phoneStatus = "verified";
+    renderSwitcher({
+      scanSessionId: VALID_SCAN_SESSION_ID,
+      onVerified: onVerifiedMock,
+      fullFetchError: "Failed to unlock report.",
+    });
+
+    fireEvent.change(screen.getByTestId("otp-input"), { target: { value: "123456" } });
+    fireEvent.click(screen.getByText("otp-submit"));
+    await waitFor(() => expect(onVerifiedMock).toHaveBeenCalledWith("+13055551234"));
+
+    onVerifiedMock.mockClear();
+    fireEvent.click(screen.getByText("retry-fetch-full"));
+    await waitFor(() => expect(onVerifiedMock).toHaveBeenCalledWith("+13055551234"));
+  });
+
+  it("does not call onVerified from retry when only otp_sent (no verify)", async () => {
+    funnelState.phoneStatus = "otp_sent";
+    renderSwitcher({
+      scanSessionId: VALID_SCAN_SESSION_ID,
+      onVerified: onVerifiedMock,
+      fullFetchError: "Failed to unlock report.",
+    });
+    fireEvent.click(screen.getByText("retry-fetch-full"));
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith("Unable to retry. Please resend your verification code."),
+    );
+    expect(onVerifiedMock).not.toHaveBeenCalled();
+  });
+
+  it("invalidates session-captured phone when scanSessionId changes", async () => {
+    funnelState.scanSessionId = VALID_SCAN_SESSION_ID;
+    const { rerender } = renderSwitcher({ scanSessionId: VALID_SCAN_SESSION_ID });
+
+    fireEvent.change(screen.getByTestId("otp-input"), { target: { value: "123456" } });
+    fireEvent.click(screen.getByText("otp-submit"));
+    await waitFor(() => expect(screen.getByTestId("masked-phone")).toHaveTextContent("1234"));
+
+    funnelState.scanSessionId = FUNNEL_MISMATCH_SCAN_SESSION_ID;
+    funnelState.phoneStatus = "otp_sent";
+    rerender(
+      <MemoryRouter>
+        <PostScanReportSwitcher
+          {...baseProps()}
+          scanSessionId={OTHER_VALID_SCAN_SESSION_ID}
+        />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByTestId("masked-phone")).toHaveTextContent("");
+  });
+});
+
+const STALE_PIPELINE_E164 = "+19998887777";
+const SESSION_SAFE_E164 = "+13055551234";
+
+function mockPipeline(overrides: Record<string, unknown> = {}) {
+  mockUsePhonePipeline.mockReturnValue({
+    displayValue: "(305) 555-1234",
+    rawDigits: "3055551234",
+    e164: STALE_PIPELINE_E164,
+    inputComplete: true,
+    phoneStatus: "verified",
+    errorMsg: "",
+    errorType: null,
+    resendCooldown: 0,
+    handlePhoneChange: vi.fn(),
+    submitPhone: vi.fn(),
+    submitOtp: vi.fn(),
+    resend: vi.fn(),
+    reset: vi.fn(),
+    ...overrides,
+  });
+}
+
+function renderFullUnlocked(extraProps: Record<string, unknown> = {}) {
+  mockUseReportAccess.mockReturnValue("full");
+  return renderSwitcher({
+    scanSessionId: VALID_SCAN_SESSION_ID,
+    isFullLoaded: true,
+    ...extraProps,
+  });
+}
+
+describe("PostScanReportSwitcher — post-full helper phone (session-safe)", () => {
+  let funnelState: Record<string, unknown>;
+  let invokeMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    navigateSpy.mockClear();
+    invokeMock = vi.mocked(supabase.functions.invoke);
+    invokeMock.mockResolvedValue({ data: { success: true }, error: null });
+    vi.mocked(supabase.rpc).mockImplementation((fn: string) => {
+      if (fn === "get_comparable_sessions") {
+        return Promise.resolve({
+          data: [
+            { scan_session_id: VALID_SCAN_SESSION_ID },
+            { scan_session_id: OTHER_VALID_SCAN_SESSION_ID },
+          ],
+          error: null,
+        }) as ReturnType<typeof supabase.rpc>;
+      }
+      return Promise.resolve({ data: [], error: null }) as ReturnType<typeof supabase.rpc>;
+    });
+
+    funnelState = {
+      phoneE164: null,
+      phoneStatus: "verified",
+      scanSessionId: FUNNEL_MISMATCH_SCAN_SESSION_ID,
+      setPhone: vi.fn(),
+      setPhoneStatus: vi.fn(),
+      sessionId: "sess-post-full",
+    };
+    mockUseScanFunnelSafe.mockImplementation(() => funnelState);
+    mockPipeline();
+  });
+
+  it("does not pass stale pipeline.e164 to compare, diagnosis, or voice when session phone is gated off", async () => {
+    renderFullUnlocked();
+
+    await waitFor(() =>
+      expect(screen.getByText("Compare My 2 Quotes Side-by-Side →")).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByText("Compare My 2 Quotes Side-by-Side →"));
+    fireEvent.click(screen.getByText("diagnosis-cta"));
+    fireEvent.click(screen.getByText("report-help-call"));
+
+    await Promise.resolve();
+
+    const compareInvoke = invokeMock.mock.calls.find(([name]) => name === "compare-quotes");
+    expect(compareInvoke).toBeUndefined();
+
+    expect(navigateSpy).toHaveBeenCalledWith(
+      "/diagnosis",
+      expect.objectContaining({
+        state: expect.objectContaining({ phone: null }),
+      }),
+    );
+    const voiceInvoke = invokeMock.mock.calls.find(([name]) => name === "voice-followup");
+    expect(voiceInvoke).toBeUndefined();
+    expect(toast.error).toHaveBeenCalledWith(
+      "Unable to process request. Please verify your phone number first.",
+    );
+  });
+
+  it("passes session-safe phone to diagnosis and voice when funnel session matches", async () => {
+    funnelState.phoneE164 = SESSION_SAFE_E164;
+    funnelState.scanSessionId = VALID_SCAN_SESSION_ID;
+    renderFullUnlocked();
+
+    fireEvent.click(screen.getByText("diagnosis-cta"));
+    fireEvent.click(screen.getByText("report-help-call"));
+
+    await waitFor(() => expect(navigateSpy).toHaveBeenCalled());
+    expect(navigateSpy).toHaveBeenCalledWith(
+      "/diagnosis",
+      expect.objectContaining({
+        state: expect.objectContaining({ phone: SESSION_SAFE_E164 }),
+      }),
+    );
+
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith(
+        "voice-followup",
+        expect.objectContaining({
+          body: expect.objectContaining({ phone_e164: SESSION_SAFE_E164 }),
+        }),
+      ),
+    );
+    const compareBody = invokeMock.mock.calls.find(([name]) => name === "compare-quotes")?.[1];
+    expect(compareBody?.body?.phone_e164).not.toBe(STALE_PIPELINE_E164);
+  });
+
+  it("uses session-captured phone for compare when funnel phone is mismatched", async () => {
+    const submitOtpMock = vi.fn().mockResolvedValue({
+      status: "verified",
+      e164: SESSION_SAFE_E164,
+      phoneVerifiedEventId: "evt-pv",
+      reportRevealedEventId: "evt-rr",
+    });
+    mockPipeline({ submitOtp: submitOtpMock, e164: STALE_PIPELINE_E164, phoneStatus: "otp_sent" });
+    funnelState.phoneE164 = SESSION_SAFE_E164;
+    funnelState.phoneStatus = "otp_sent";
+    funnelState.scanSessionId = VALID_SCAN_SESSION_ID;
+
+    mockUseReportAccess.mockReturnValue("preview");
+    const { rerender } = renderSwitcher({
+      scanSessionId: VALID_SCAN_SESSION_ID,
+      onVerified: vi.fn(),
+    });
+
+    fireEvent.change(screen.getByTestId("otp-input"), { target: { value: "123456" } });
+    fireEvent.click(screen.getByText("otp-submit"));
+    await waitFor(() => expect(submitOtpMock).toHaveBeenCalled());
+
+    funnelState.scanSessionId = FUNNEL_MISMATCH_SCAN_SESSION_ID;
+    funnelState.phoneE164 = null;
+    mockUseReportAccess.mockReturnValue("full");
+    rerender(
+      <MemoryRouter>
+        <PostScanReportSwitcher
+          {...baseProps()}
+          scanSessionId={VALID_SCAN_SESSION_ID}
+          isFullLoaded={true}
+        />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByText("Compare My 2 Quotes Side-by-Side →")).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByText("Compare My 2 Quotes Side-by-Side →"));
+
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith(
+        "compare-quotes",
+        expect.objectContaining({
+          body: expect.objectContaining({ phone_e164: SESSION_SAFE_E164 }),
+        }),
+      ),
+    );
+    expect(
+      invokeMock.mock.calls.find(
+        ([name, args]) =>
+          name === "compare-quotes" && args?.body?.phone_e164 === STALE_PIPELINE_E164,
+      ),
+    ).toBeUndefined();
+  });
+});
+
+describe("PostScanReportSwitcher — async session guard", () => {
+  let funnelState: Record<string, unknown>;
+  let submitOtpMock: ReturnType<typeof vi.fn>;
+  let onVerifiedMock: ReturnType<typeof vi.fn>;
+  let resolveOtp: (value: {
+    status: string;
+    e164: string;
+    phoneVerifiedEventId: string;
+    reportRevealedEventId: string;
+  }) => void;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseReportAccess.mockReturnValue("preview");
+
+    funnelState = {
+      phoneE164: SESSION_SAFE_E164,
+      phoneStatus: "otp_sent",
+      scanSessionId: VALID_SCAN_SESSION_ID,
+      setPhone: vi.fn(),
+      setPhoneStatus: vi.fn(),
+      sessionId: "sess-async",
+    };
+    mockUseScanFunnelSafe.mockImplementation(() => funnelState);
+
+    submitOtpMock = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          resolveOtp = resolve;
+        }),
+    );
+    onVerifiedMock = vi.fn();
+    mockUsePhonePipeline.mockReturnValue({
+      displayValue: "(305) 555-1234",
+      rawDigits: "3055551234",
+      e164: SESSION_SAFE_E164,
+      inputComplete: true,
+      phoneStatus: "otp_sent",
+      errorMsg: "",
+      errorType: null,
+      resendCooldown: 0,
+      handlePhoneChange: vi.fn(),
+      submitPhone: vi.fn(),
+      submitOtp: submitOtpMock,
+      resend: vi.fn(),
+      reset: vi.fn(),
+    });
+  });
+
+  it("does not call onVerified when OTP verify resolves after scanSessionId changes", async () => {
+    const { rerender } = renderSwitcher({
+      scanSessionId: VALID_SCAN_SESSION_ID,
+      onVerified: onVerifiedMock,
+    });
+
+    fireEvent.change(screen.getByTestId("otp-input"), { target: { value: "123456" } });
+    fireEvent.click(screen.getByText("otp-submit"));
+    expect(submitOtpMock).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <MemoryRouter>
+        <PostScanReportSwitcher
+          {...baseProps()}
+          scanSessionId={OTHER_VALID_SCAN_SESSION_ID}
+          onVerified={onVerifiedMock}
+        />
+      </MemoryRouter>,
+    );
+
+    resolveOtp!({
+      status: "verified",
+      e164: SESSION_SAFE_E164,
+      phoneVerifiedEventId: "evt-pv",
+      reportRevealedEventId: "evt-rr",
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(onVerifiedMock).not.toHaveBeenCalled();
+    expect(funnelState.setPhone).not.toHaveBeenCalled();
+    expect(trackGtmEventMock).not.toHaveBeenCalledWith(
+      "phone_verified",
+      expect.anything(),
+    );
+
+    await waitFor(() => expect(screen.getByTestId("is-loading")).toHaveTextContent("false"));
+
+    fireEvent.change(screen.getByTestId("otp-input"), { target: { value: "654321" } });
+    fireEvent.click(screen.getByText("otp-submit"));
+    await waitFor(() => expect(submitOtpMock).toHaveBeenCalledTimes(2));
+  });
+});
+
+describe("PostScanReportSwitcher — async cleanup (FIX-3.2)", () => {
+  let funnelState: Record<string, unknown>;
+  let submitPhoneMock: ReturnType<typeof vi.fn>;
+  let resendMock: ReturnType<typeof vi.fn>;
+  let submitOtpMock: ReturnType<typeof vi.fn>;
+  let onVerifiedMock: ReturnType<typeof vi.fn>;
+  let resolvePhoneSubmit: (value: { status: string; e164: string }) => void;
+  let resolveResend: (value: { status: string }) => void;
+  let rejectPhoneSubmit: (reason?: unknown) => void;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseReportAccess.mockReturnValue("preview");
+
+    funnelState = {
+      phoneE164: SESSION_SAFE_E164,
+      phoneStatus: "otp_sent",
+      scanSessionId: VALID_SCAN_SESSION_ID,
+      setPhone: vi.fn(),
+      setPhoneStatus: vi.fn(),
+      sessionId: "sess-cleanup",
+    };
+    mockUseScanFunnelSafe.mockImplementation(() => funnelState);
+
+    onVerifiedMock = vi.fn();
+    submitOtpMock = vi.fn().mockResolvedValue({
+      status: "verified",
+      e164: SESSION_SAFE_E164,
+      phoneVerifiedEventId: "evt-pv",
+      reportRevealedEventId: "evt-rr",
+    });
+    submitPhoneMock = vi.fn(
+      () =>
+        new Promise((resolve, reject) => {
+          resolvePhoneSubmit = resolve;
+          rejectPhoneSubmit = reject;
+        }),
+    );
+    resendMock = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          resolveResend = resolve;
+        }),
+    );
+
+    mockUsePhonePipeline.mockReturnValue({
+      displayValue: "(305) 555-1234",
+      rawDigits: "3055551234",
+      e164: SESSION_SAFE_E164,
+      inputComplete: true,
+      phoneStatus: "otp_sent",
+      errorMsg: "",
+      errorType: null,
+      resendCooldown: 0,
+      handlePhoneChange: vi.fn(),
+      submitPhone: submitPhoneMock,
+      submitOtp: submitOtpMock,
+      resend: resendMock,
+      reset: vi.fn(),
+    });
+  });
+
+  it("releases send in-flight lock after scanSessionId changes mid-flight", async () => {
+    funnelState.phoneStatus = "screened_valid";
+    const { rerender } = renderSwitcher({ scanSessionId: VALID_SCAN_SESSION_ID });
+
+    fireEvent.click(screen.getByText("phone-submit"));
+    expect(screen.getByTestId("is-loading")).toHaveTextContent("true");
+
+    rerender(
+      <MemoryRouter>
+        <PostScanReportSwitcher
+          {...baseProps()}
+          scanSessionId={OTHER_VALID_SCAN_SESSION_ID}
+        />
+      </MemoryRouter>,
+    );
+
+    resolvePhoneSubmit!({ status: "otp_sent", e164: SESSION_SAFE_E164 });
+    await waitFor(() => expect(screen.getByTestId("is-loading")).toHaveTextContent("false"));
+
+    funnelState.phoneStatus = "screened_valid";
+    fireEvent.click(screen.getByText("phone-submit"));
+    await waitFor(() => expect(submitPhoneMock).toHaveBeenCalledTimes(2));
+  });
+
+  it("releases resend in-flight lock after scanSessionId changes mid-flight", async () => {
+    const { rerender } = renderSwitcher({ scanSessionId: VALID_SCAN_SESSION_ID });
+
+    fireEvent.click(screen.getByText("resend"));
+    expect(screen.getByTestId("is-loading")).toHaveTextContent("true");
+
+    rerender(
+      <MemoryRouter>
+        <PostScanReportSwitcher
+          {...baseProps()}
+          scanSessionId={OTHER_VALID_SCAN_SESSION_ID}
+        />
+      </MemoryRouter>,
+    );
+
+    resolveResend!({ status: "otp_sent" });
+    await waitFor(() => expect(screen.getByTestId("is-loading")).toHaveTextContent("false"));
+
+    funnelState.scanSessionId = VALID_SCAN_SESSION_ID;
+    funnelState.phoneE164 = SESSION_SAFE_E164;
+    funnelState.phoneStatus = "otp_sent";
+    rerender(
+      <MemoryRouter>
+        <PostScanReportSwitcher
+          {...baseProps()}
+          scanSessionId={VALID_SCAN_SESSION_ID}
+        />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByText("resend"));
+    await waitFor(() => expect(resendMock).toHaveBeenCalledTimes(2));
+  });
+
+  it("does not apply send_failed funnel status to a new session after rejected send", async () => {
+    funnelState.phoneStatus = "screened_valid";
+    const { rerender } = renderSwitcher({ scanSessionId: VALID_SCAN_SESSION_ID });
+
+    fireEvent.click(screen.getByText("phone-submit"));
+    vi.mocked(funnelState.setPhoneStatus as ReturnType<typeof vi.fn>).mockClear();
+
+    rerender(
+      <MemoryRouter>
+        <PostScanReportSwitcher
+          {...baseProps()}
+          scanSessionId={OTHER_VALID_SCAN_SESSION_ID}
+        />
+      </MemoryRouter>,
+    );
+
+    rejectPhoneSubmit!(new Error("network fail"));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(funnelState.setPhoneStatus).not.toHaveBeenCalledWith("send_failed");
+    expect(toast.error).not.toHaveBeenCalledWith("Connection error. Please try again.");
+  });
+
+  it("does not fire phone_verified GTM event for inactive session after OTP resolves", async () => {
+    let resolveOtp: (value: {
+      status: string;
+      e164: string;
+      phoneVerifiedEventId: string;
+      reportRevealedEventId: string;
+    }) => void;
+    submitOtpMock.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveOtp = resolve;
+        }),
+    );
+
+    const { rerender } = renderSwitcher({
+      scanSessionId: VALID_SCAN_SESSION_ID,
+      onVerified: onVerifiedMock,
+    });
+
+    fireEvent.change(screen.getByTestId("otp-input"), { target: { value: "123456" } });
+    fireEvent.click(screen.getByText("otp-submit"));
+
+    rerender(
+      <MemoryRouter>
+        <PostScanReportSwitcher
+          {...baseProps()}
+          scanSessionId={OTHER_VALID_SCAN_SESSION_ID}
+          onVerified={onVerifiedMock}
+        />
+      </MemoryRouter>,
+    );
+
+    resolveOtp!({
+      status: "verified",
+      e164: SESSION_SAFE_E164,
+      phoneVerifiedEventId: "evt-pv",
+      reportRevealedEventId: "evt-rr",
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(trackGtmEventMock).not.toHaveBeenCalledWith("phone_verified", expect.anything());
+    expect(onVerifiedMock).not.toHaveBeenCalled();
+  });
+
+  it("does not show compare toast on new session after compare fails on prior session", async () => {
+    funnelState.phoneE164 = SESSION_SAFE_E164;
+    funnelState.scanSessionId = VALID_SCAN_SESSION_ID;
+    mockUseReportAccess.mockReturnValue("full");
+    const invokeMock = vi.mocked(supabase.functions.invoke);
+    let resolveCompare: (value: { data: unknown; error: unknown }) => void;
+    invokeMock.mockImplementation((name: string) => {
+      if (name === "compare-quotes") {
+        return new Promise((resolve) => {
+          resolveCompare = resolve;
+        });
+      }
+      return Promise.resolve({ data: { success: true }, error: null });
+    });
+    vi.mocked(supabase.rpc).mockImplementation((fn: string) => {
+      if (fn === "get_comparable_sessions") {
+        return Promise.resolve({
+          data: [
+            { scan_session_id: VALID_SCAN_SESSION_ID },
+            { scan_session_id: OTHER_VALID_SCAN_SESSION_ID },
+          ],
+          error: null,
+        }) as ReturnType<typeof supabase.rpc>;
+      }
+      return Promise.resolve({ data: [], error: null }) as ReturnType<typeof supabase.rpc>;
+    });
+
+    const { rerender } = renderFullUnlocked();
+
+    await waitFor(() =>
+      expect(screen.getByText("Compare My 2 Quotes Side-by-Side →")).toBeInTheDocument(),
+    );
+    toast.error.mockClear();
+    fireEvent.click(screen.getByText("Compare My 2 Quotes Side-by-Side →"));
+
+    rerender(
+      <MemoryRouter>
+        <PostScanReportSwitcher
+          {...baseProps()}
+          scanSessionId={OTHER_VALID_SCAN_SESSION_ID}
+          isFullLoaded={true}
+        />
+      </MemoryRouter>,
+    );
+
+    resolveCompare!({ data: null, error: new Error("stale") });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(toast.error).not.toHaveBeenCalledWith("Comparison failed. Please try again.");
+    expect(toast.error).not.toHaveBeenCalledWith("Connection error. Please try again.");
   });
 });

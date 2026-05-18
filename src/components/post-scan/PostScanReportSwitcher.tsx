@@ -36,6 +36,9 @@ export { CTA_LABEL };
 
 const LOST_SCAN_SESSION_MESSAGE = "We lost the scan session. Please restart the scan.";
 
+/** OTP-verified phone bound to the scan session that completed verify. */
+type SessionCapturedPhone = { e164: string; scanSessionId: string };
+
 type Props = {
   grade: string;
   flags: AnalysisFlag[];
@@ -95,9 +98,12 @@ export function PostScanReportSwitcher(props: Props) {
   const [isSendInFlight, setIsSendInFlight] = useState(false);
   const [tcpaConsent, setTcpaConsent] = useState(false);
   const [localGateOverride, setLocalGateOverride] = useState<GateMode | null>(null);
-  const [capturedPhone, setCapturedPhone] = useState<string | null>(null);
+  const [capturedPhoneSession, setCapturedPhoneSession] = useState<SessionCapturedPhone | null>(null);
   const [fetchStallTimerFired, setFetchStallTimerFired] = useState(false);
   const stallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stallTimerSessionRef = useRef<string | null>(null);
+  const activeScanSessionIdRef = useRef(props.scanSessionId);
+  const isMountedRef = useRef(true);
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   // Canonical lead identity hydrated once per scan_session.
   // Used for identity continuity on dual-routed business events
@@ -133,25 +139,8 @@ export function PostScanReportSwitcher(props: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount diagnostic only
   }, []);
 
-  // ═══ CANONICAL BUSINESS EVENT: report_revealed ═══
-  // Fires ONCE when full report data loads after OTP verification.
-  // Does NOT fire on resume (resume is a returning-user operational event, not a conversion).
-  // event_id is supplied by verify-otp and reused here so browser dataLayer +
-  // server canonical persistence share one id (cross-lane dedup-safe).
   const reportRevealedRef = useRef(false);
   const reportRevealedEventIdRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (reportRevealedRef.current) return;
-    if (props.isFullLoaded && capturedPhone) {
-      reportRevealedRef.current = true;
-      trackGtmEvent("report_revealed", {
-        event_id: reportRevealedEventIdRef.current ?? undefined,
-        scan_session_id: props.scanSessionId || undefined,
-        lead_id: leadId ?? undefined,
-        grade: props.grade,
-      });
-    }
-  }, [props.isFullLoaded, capturedPhone, props.scanSessionId, props.grade, leadId]);
 
   // ── Hydrate CTA state from DB on mount (prevents duplicates after refresh) ──
   useEffect(() => {
@@ -233,6 +222,36 @@ export function PostScanReportSwitcher(props: Props) {
     [funnel, props.scanSessionId],
   );
 
+  const activeGatePhoneE164 = gatedFunnelPhone.phoneE164;
+
+  const activeCapturedPhone = useMemo(() => {
+    if (!capturedPhoneSession || !props.scanSessionId) return null;
+    if (capturedPhoneSession.scanSessionId !== props.scanSessionId) return null;
+    return capturedPhoneSession.e164;
+  }, [capturedPhoneSession, props.scanSessionId]);
+
+  const capturePhoneForSession = useCallback(
+    (e164: string) => {
+      if (!props.scanSessionId || !isValidScanSessionId(props.scanSessionId)) return;
+      setCapturedPhoneSession({ e164, scanSessionId: props.scanSessionId });
+    },
+    [props.scanSessionId],
+  );
+
+  // ═══ CANONICAL BUSINESS EVENT: report_revealed ═══
+  useEffect(() => {
+    if (reportRevealedRef.current) return;
+    if (props.isFullLoaded && activeCapturedPhone) {
+      reportRevealedRef.current = true;
+      trackGtmEvent("report_revealed", {
+        event_id: reportRevealedEventIdRef.current ?? undefined,
+        scan_session_id: props.scanSessionId || undefined,
+        lead_id: leadId ?? undefined,
+        grade: props.grade,
+      });
+    }
+  }, [props.isFullLoaded, activeCapturedPhone, props.scanSessionId, props.grade, leadId]);
+
   const pipeline = usePhonePipeline("validate_and_send_otp", {
     scanSessionId: props.scanSessionId,
     externalPhoneE164: gatedFunnelPhone.phoneE164,
@@ -250,7 +269,7 @@ export function PostScanReportSwitcher(props: Props) {
     if (snapshotEmailFiredRef.current) return;
     if (!props.scanSessionId) return;
     if (!props.isFullLoaded) return;
-    if (!capturedPhone) return; // proves OTP success in this tab
+    if (!activeCapturedPhone) return; // proves OTP success for this scan session
 
     snapshotEmailFiredRef.current = true;
     supabase.functions
@@ -275,10 +294,28 @@ export function PostScanReportSwitcher(props: Props) {
         // Never let email delivery interfere with reveal.
         console.warn("[PostScanReportSwitcher] snapshot email invoke threw:", err);
       });
-  }, [props.scanSessionId, props.isFullLoaded, capturedPhone]);
+  }, [props.scanSessionId, props.isFullLoaded, activeCapturedPhone]);
 
-  // Resolve phone for CTA calls
-  const phoneE164 = capturedPhone || gatedFunnelPhone.phoneE164 || pipeline.e164 || null;
+  // Post-unlock CTAs only — never fall back to pipeline.e164 (not session-gated).
+  const postFullActionPhoneE164 = activeCapturedPhone || activeGatePhoneE164 || null;
+
+  useEffect(() => {
+    activeScanSessionIdRef.current = props.scanSessionId;
+  }, [props.scanSessionId]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  const isScanSessionStillActive = useCallback(
+    (requestScanSessionId: string | null | undefined) =>
+      !!requestScanSessionId &&
+      activeScanSessionIdRef.current === requestScanSessionId,
+    [],
+  );
 
   const requireValidScanSession = useCallback(() => {
     if (!props.scanSessionId || !isValidScanSessionId(props.scanSessionId)) {
@@ -298,12 +335,26 @@ export function PostScanReportSwitcher(props: Props) {
       return;
     }
     if (gatedFunnelPhone.phoneStatus === "verified" && !props.isFullLoaded) {
-      stallTimerRef.current = setTimeout(() => setFetchStallTimerFired(true), 5000);
-      return () => { if (stallTimerRef.current) clearTimeout(stallTimerRef.current); };
+      const timerSessionId = props.scanSessionId ?? null;
+      stallTimerSessionRef.current = timerSessionId;
+      stallTimerRef.current = setTimeout(() => {
+        if (stallTimerSessionRef.current !== timerSessionId) return;
+        if (!isMountedRef.current) return;
+        setFetchStallTimerFired(true);
+      }, 5000);
+      return () => {
+        if (stallTimerSessionRef.current === timerSessionId && stallTimerRef.current) {
+          clearTimeout(stallTimerRef.current);
+          stallTimerRef.current = null;
+        }
+      };
     }
     if (props.isFullLoaded && fetchStallTimerFired) setFetchStallTimerFired(false);
-    if (stallTimerRef.current) { clearTimeout(stallTimerRef.current); stallTimerRef.current = null; }
-  }, [gatedFunnelPhone.phoneStatus, props.isFullLoaded, props.fullFetchError, fetchStallTimerFired]);
+    if (stallTimerRef.current) {
+      clearTimeout(stallTimerRef.current);
+      stallTimerRef.current = null;
+    }
+  }, [gatedFunnelPhone.phoneStatus, props.isFullLoaded, props.fullFetchError, fetchStallTimerFired, props.scanSessionId]);
 
   // ═══ CANONICAL PHASE DERIVATION ═══
   // This is the SINGLE source of truth for render decisions.
@@ -364,7 +415,13 @@ export function PostScanReportSwitcher(props: Props) {
   }, [currentGateMode, accessLevel]);
 
   const handleRetryFetchFull = useCallback(() => {
-    const phone = capturedPhone || funnel?.phoneE164 || pipeline.e164;
+    if (!requireValidScanSession()) return;
+    const requestScanSessionId = props.scanSessionId;
+    if (gatedFunnelPhone.phoneStatus !== "verified") {
+      toast.error("Unable to retry. Please resend your verification code.");
+      return;
+    }
+    const phone = activeCapturedPhone || activeGatePhoneE164;
     if (!phone) {
       toast.error("Unable to retry. Please resend your verification code.");
       return;
@@ -373,72 +430,82 @@ export function PostScanReportSwitcher(props: Props) {
       toast.error("Unable to retry. Please refresh the page and try again.");
       return;
     }
-    trackEvent({ event_name: "fetch_stall_retry", session_id: props.scanSessionId, metadata: { phone_last4: phone.slice(-4) } });
-    setFetchStallTimerFired(false);
+    if (!isScanSessionStillActive(requestScanSessionId)) return;
+    trackEvent({ event_name: "fetch_stall_retry", session_id: requestScanSessionId, metadata: { phone_last4: phone.slice(-4) } });
+    if (isMountedRef.current) setFetchStallTimerFired(false);
     props.onVerified(phone);
-    // Restart the stall timer so the retry button reappears if the fetch stalls again
-    if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
-    stallTimerRef.current = setTimeout(() => setFetchStallTimerFired(true), 5000);
-  }, [capturedPhone, gatedFunnelPhone.phoneE164, pipeline.e164, props]);
+    if (stallTimerRef.current && stallTimerSessionRef.current === requestScanSessionId) {
+      clearTimeout(stallTimerRef.current);
+      stallTimerRef.current = null;
+    }
+    stallTimerSessionRef.current = requestScanSessionId;
+    stallTimerRef.current = setTimeout(() => {
+      if (stallTimerSessionRef.current !== requestScanSessionId) return;
+      if (!isScanSessionStillActive(requestScanSessionId)) return;
+      if (!isMountedRef.current) return;
+      setFetchStallTimerFired(true);
+    }, 5000);
+  }, [activeCapturedPhone, activeGatePhoneE164, gatedFunnelPhone.phoneStatus, props, requireValidScanSession, isScanSessionStillActive]);
 
   const verifyLockRef = useRef(false);
 
   const handleOtpSubmit = useCallback(async () => {
     if (!requireValidScanSession()) return;
+    const requestScanSessionId = props.scanSessionId;
     if (otpValue.length < 6 || verifyLockRef.current) return;
     verifyLockRef.current = true;
     setIsVerifyingOtp(true);
     try {
       const result = await pipeline.submitOtp(otpValue);
+      if (!isScanSessionStillActive(requestScanSessionId)) return;
       if (result.status === "verified" && result.e164) {
         funnel?.setPhone(result.e164, "verified");
-        setCapturedPhone(result.e164);
+        capturePhoneForSession(result.e164);
         setOtpValue("");
-        setFetchStallTimerFired(false);
-        if (stallTimerRef.current) {
+        if (isMountedRef.current) setFetchStallTimerFired(false);
+        if (stallTimerRef.current && stallTimerSessionRef.current === requestScanSessionId) {
           clearTimeout(stallTimerRef.current);
           stallTimerRef.current = null;
+          stallTimerSessionRef.current = null;
         }
-        // Stash the server-issued report_revealed event_id so the
-        // report_revealed effect uses the SAME id as the server canonical event.
         reportRevealedEventIdRef.current = result.reportRevealedEventId ?? null;
-        // ═══ CANONICAL BUSINESS EVENT: phone_verified ═══
-        // Single fire location. event_id is supplied by verify-otp so the
-        // browser dataLayer push and the server canonical event share one id.
         trackGtmEvent("phone_verified", {
           event_id: result.phoneVerifiedEventId ?? undefined,
-          scan_session_id: props.scanSessionId || undefined,
+          scan_session_id: requestScanSessionId || undefined,
           phone_e164_last4: result.e164.slice(-4),
         });
-        // Canonical phone handoff: use server-returned phone to trigger fetchFull
         props.onVerified?.(result.e164);
       }
     } finally {
-      setIsVerifyingOtp(false);
       verifyLockRef.current = false;
+      if (isMountedRef.current) setIsVerifyingOtp(false);
     }
-  }, [otpValue, pipeline, props, funnel, requireValidScanSession]);
+  }, [otpValue, pipeline, props, funnel, requireValidScanSession, capturePhoneForSession, isScanSessionStillActive]);
 
   const handleSendCode = useCallback(async () => {
     if (!requireValidScanSession()) return;
-    if (!gatedFunnelPhone.phoneE164 || isSendInFlight) return;
+    const requestScanSessionId = props.scanSessionId;
+    if (!activeGatePhoneE164 || isSendInFlight) return;
     funnel?.setPhoneStatus("sending_otp");
     setIsSendInFlight(true);
     try {
       const result = await pipeline.submitPhone();
+      if (!isScanSessionStillActive(requestScanSessionId)) return;
       if (result.status === "otp_sent") {
         funnel?.setPhoneStatus("otp_sent");
-        setCapturedPhone(gatedFunnelPhone.phoneE164);
+        capturePhoneForSession(activeGatePhoneE164);
         setLocalGateOverride("enter_code");
       } else {
         funnel?.setPhoneStatus("send_failed");
       }
     } catch {
-      funnel?.setPhoneStatus("send_failed");
+      if (isScanSessionStillActive(requestScanSessionId)) {
+        funnel?.setPhoneStatus("send_failed");
+      }
     } finally {
-      setIsSendInFlight(false);
+      if (isMountedRef.current) setIsSendInFlight(false);
     }
-  }, [funnel, gatedFunnelPhone.phoneE164, pipeline, isSendInFlight, requireValidScanSession]);
+  }, [funnel, activeGatePhoneE164, pipeline, isSendInFlight, requireValidScanSession, capturePhoneForSession, props.scanSessionId, isScanSessionStillActive]);
 
   // Auto-send OTP when phone is pre-filled (intake) and not already sent during theatrics
   const autoSendFiredRef = useRef(false);
@@ -454,30 +521,34 @@ export function PostScanReportSwitcher(props: Props) {
 
   const handlePhoneSubmit = useCallback(async () => {
     if (!requireValidScanSession()) return;
+    const requestScanSessionId = props.scanSessionId;
     if (isSendInFlight) return;
     funnel?.setPhoneStatus("sending_otp");
     setIsSendInFlight(true);
-    trackEvent({ event_name: "phone_submitted", session_id: props.scanSessionId, metadata: {} });
+    trackEvent({ event_name: "phone_submitted", session_id: requestScanSessionId, metadata: {} });
     try {
       const result = await pipeline.submitPhone();
+      if (!isScanSessionStillActive(requestScanSessionId)) return;
       if (result.status === "otp_sent" && result.e164) {
         funnel?.setPhone(result.e164, "otp_sent");
-        setCapturedPhone(result.e164);
+        capturePhoneForSession(result.e164);
         setLocalGateOverride("enter_code");
       } else {
         funnel?.setPhoneStatus("send_failed");
       }
     } catch {
-      funnel?.setPhoneStatus("send_failed");
+      if (isScanSessionStillActive(requestScanSessionId)) {
+        funnel?.setPhoneStatus("send_failed");
+      }
     } finally {
-      setIsSendInFlight(false);
+      if (isMountedRef.current) setIsSendInFlight(false);
     }
-  }, [pipeline, funnel, isSendInFlight, props.scanSessionId, requireValidScanSession]);
+  }, [pipeline, funnel, isSendInFlight, props.scanSessionId, requireValidScanSession, capturePhoneForSession, isScanSessionStillActive]);
 
   const handleChangePhone = useCallback(() => {
     pipeline.reset();
     setOtpValue("");
-    setCapturedPhone(null);
+    setCapturedPhoneSession(null);
     setLocalGateOverride("enter_phone");
     autoSendFiredRef.current = false;
     funnel?.setPhone("", "none");
@@ -485,19 +556,26 @@ export function PostScanReportSwitcher(props: Props) {
 
   const handleResend = useCallback(async () => {
     if (!requireValidScanSession()) return;
-    if (!funnel?.phoneE164) return;
-    funnel.setPhoneStatus("sending_otp");
-    const result = await pipeline.resend();
-    if (result.status === "otp_sent") {
-      funnel.setPhoneStatus("otp_sent");
-      return;
+    const requestScanSessionId = props.scanSessionId;
+    if (!activeGatePhoneE164 || isSendInFlight) return;
+    setIsSendInFlight(true);
+    funnel?.setPhoneStatus("sending_otp");
+    try {
+      const result = await pipeline.resend();
+      if (!isScanSessionStillActive(requestScanSessionId)) return;
+      if (result.status === "otp_sent") {
+        funnel?.setPhoneStatus("otp_sent");
+        return;
+      }
+      if (result.status === "blocked") {
+        funnel?.setPhoneStatus("otp_sent");
+        return;
+      }
+      funnel?.setPhoneStatus("send_failed");
+    } finally {
+      if (isMountedRef.current) setIsSendInFlight(false);
     }
-    if (result.status === "blocked") {
-      funnel.setPhoneStatus("otp_sent");
-      return;
-    }
-    funnel.setPhoneStatus("send_failed");
-  }, [pipeline, funnel, requireValidScanSession]);
+  }, [pipeline, funnel, requireValidScanSession, activeGatePhoneE164, isSendInFlight, props.scanSessionId, isScanSessionStillActive]);
 
   // ── Detect 2+ completed analyses for this lead via SECURITY DEFINER RPC ──
   useEffect(() => {
@@ -522,15 +600,17 @@ export function PostScanReportSwitcher(props: Props) {
 
   // ── CTA C: Compare My Quotes ──
   const handleCompareQuotes = useCallback(async () => {
-    if (availableComparisons.length < 2 || !phoneE164) return;
+    const requestScanSessionId = props.scanSessionId;
+    if (availableComparisons.length < 2 || !postFullActionPhoneE164) return;
     setComparisonLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("compare-quotes", {
         body: {
           scan_session_ids: availableComparisons,
-          phone_e164: phoneE164,
+          phone_e164: postFullActionPhoneE164,
         },
       });
+      if (!isScanSessionStillActive(requestScanSessionId)) return;
       if (error || !data?.success) {
         console.error("[compare-quotes] failed:", error || data);
         toast.error("Comparison failed. Please try again.");
@@ -539,11 +619,13 @@ export function PostScanReportSwitcher(props: Props) {
       }
     } catch (err) {
       console.error("[compare-quotes] error:", err);
-      toast.error("Connection error. Please try again.");
+      if (isScanSessionStillActive(requestScanSessionId)) {
+        toast.error("Connection error. Please try again.");
+      }
     } finally {
-      setComparisonLoading(false);
+      if (isMountedRef.current) setComparisonLoading(false);
     }
-  }, [availableComparisons, phoneE164]);
+  }, [availableComparisons, postFullActionPhoneE164, props.scanSessionId, isScanSessionStillActive]);
 
   // Primary unlocked-report CTA → Diagnosis Intake.
   // Router-state handoff only (no public URL contract change in this pass).
@@ -629,7 +711,7 @@ export function PostScanReportSwitcher(props: Props) {
         analysis_id: null,
         report_grade: leadGrade ?? props.grade,
         first_name: leadFirstName,
-        phone: phoneE164,
+        phone: postFullActionPhoneE164,
         email: leadEmail,
         top_insights: topInsights,
         returnTo,
@@ -645,12 +727,13 @@ export function PostScanReportSwitcher(props: Props) {
     leadGrade,
     leadFirstName,
     leadEmail,
-    phoneE164,
+    postFullActionPhoneE164,
   ]);
 
   // ── CTA B: Call WindowMan About My Report ──
   const handleReportHelpCall = useCallback(async () => {
-    if (!props.scanSessionId || !phoneE164) {
+    const requestScanSessionId = props.scanSessionId;
+    if (!requestScanSessionId || !postFullActionPhoneE164) {
       toast.error("Unable to process request. Please verify your phone number first.");
       return;
     }
@@ -658,25 +741,28 @@ export function PostScanReportSwitcher(props: Props) {
     try {
       await supabase.functions.invoke("voice-followup", {
         body: {
-          scan_session_id: props.scanSessionId,
-          phone_e164: phoneE164,
+          scan_session_id: requestScanSessionId,
+          phone_e164: postFullActionPhoneE164,
           call_intent: "report_explainer",
           cta_source: "report_help",
         },
       });
+      if (!isScanSessionStillActive(requestScanSessionId)) return;
       setReportCallRequested(true);
     } catch (err) {
       console.error("[PostScanReportSwitcher] report help call failed", err);
-      toast.error("Connection error. Please try again.");
+      if (isScanSessionStillActive(requestScanSessionId)) {
+        toast.error("Connection error. Please try again.");
+      }
     } finally {
-      setIsCtaLoading(false);
+      if (isMountedRef.current) setIsCtaLoading(false);
     }
-  }, [props.scanSessionId, phoneE164]);
+  }, [props.scanSessionId, postFullActionPhoneE164, isScanSessionStillActive]);
 
-  const maskedPhone = capturedPhone
-    ? maskPhone(capturedPhone)
-    : gatedFunnelPhone.phoneE164
-      ? maskPhone(gatedFunnelPhone.phoneE164)
+  const maskedPhone = activeCapturedPhone
+    ? maskPhone(activeCapturedPhone)
+    : activeGatePhoneE164
+      ? maskPhone(activeGatePhoneE164)
       : undefined;
   const sharedSendFailed = gatedFunnelPhone.phoneStatus === "send_failed";
   const effectiveErrorMsg =
