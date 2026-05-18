@@ -27,7 +27,7 @@ const DemoClassic = lazy(() => import("./pages/DemoClassic.tsx"));
 const DevReportPreview = lazy(() => import("./pages/DevReportPreview.tsx"));
 const DevTesting = lazy(() => import("./pages/DevTesting.tsx"));
 const PreUploadIntake = lazy(() => import("@/components/forensic-report/PreUploadIntake"));
-const ScanFunnelPage = lazy(() => import("./pages/ScanFunnelPage.tsx"));
+const VisualPreUploadIntake = lazy(() => import("./pages/VisualPreUploadIntake.tsx"));
 
 // ── Static content pages ─────────────────────────────────────────────────────
 const PublicLayout = lazy(() => import("@/components/PublicLayout"));
@@ -134,8 +134,6 @@ const App = () => (
               <Suspense fallback={<PageLoader />}>
                 <Routes>
                 <Route path="/" element={<Index />} />
-                {/* V2 funnel — isolated from homepage `/`; production wiring follows in Phase 6+ */}
-                <Route path="/scan" element={<ScanFunnelPage />} />
                 <Route path="/lp/:slug" element={<LandingPage />} />
                 <Route path="/estimate" element={<Estimate />} />
                 <Route path="/diagnosis" element={<Diagnosis />} />
@@ -143,6 +141,9 @@ const App = () => (
                 {/* Legacy V2 route → permanent redirect to Classic */}
                 <Route path="/report/:sessionId" element={<ReportRedirect />} />
                 <Route path="/admin/*" element={<AdminRoutes />} />
+                {/* Visual lab — unlisted mock QA; not production funnel */}
+                <Route path="/visual/report-preview" element={<DevReportPreview />} />
+                <Route path="/visual/pre-upload-intake" element={<VisualPreUploadIntake />} />
                 {isDevMode && (
                   <>
                     <Route path="/demo-classic" element={<DemoClassic />} />

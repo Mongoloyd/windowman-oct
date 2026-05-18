@@ -1,11 +1,12 @@
 /**
  * DevReportPreview — Internal/admin-lab report preview surface.
- * Routes: /dev/report-preview in development, /admin/lab/report-preview behind AdminAuthGate.
+ * Routes: /dev/report-preview (dev), /sandbox/report-preview (dev),
+ * /visual/report-preview (visual lab, not DEV-gated), /admin/lab/report-preview (admin).
  *
  * Query params:
  *   ?v=v3            → render the new ForensicAuditReport shell (Phase 1)
  *   ?mode=preview    → preview/locked access level
- *   ?mode=full       → full reveal (default)
+ *   ?mode=full       → full reveal
  *   (no params)      → legacy TruthReportClassic (rollback target)
  */
 
@@ -39,25 +40,61 @@ const MOCK_MATCH: SuggestedMatch = {
   contractor_alias: "WM-TEST01",
 };
 
+type LabAccessMode = "preview" | "full";
+
+function parseLabMode(modeParam: string | null): LabAccessMode | null {
+  if (modeParam === "preview" || modeParam === "full") return modeParam;
+  return null;
+}
+
+function normalizeLabPreviewParams(
+  pathname: string,
+  params: URLSearchParams,
+): { redirectTo: string } | { accessMode: LabAccessMode } {
+  const base = pathname.startsWith("/visual/report-preview")
+    ? "/visual/report-preview"
+    : "/sandbox/report-preview";
+
+  const v = params.get("v");
+  const validMode = parseLabMode(params.get("mode"));
+
+  if (v !== "v3") {
+    return { redirectTo: `${base}?v=v3&mode=${validMode ?? "preview"}` };
+  }
+  if (!validMode) {
+    return { redirectTo: `${base}?v=v3&mode=preview` };
+  }
+  return { accessMode: validMode };
+}
+
+function LabPreviewBanner({ label }: { label: string }) {
+  return (
+    <div
+      role="status"
+      className="fixed top-0 inset-x-0 z-50 h-7 flex items-center justify-center text-[11px] font-mono uppercase tracking-wider text-amber-200 border-b border-amber-500/30 backdrop-blur bg-[#3068e8]/[0.21]"
+    >
+      {label}
+    </div>
+  );
+}
+
 export default function DevReportPreview() {
   const [params] = useSearchParams();
   const location = useLocation();
   const [introRequested, setIntroRequested] = useState(false);
   const [reportCallRequested, setReportCallRequested] = useState(false);
 
+  const isVisualLabPreview = location.pathname.startsWith("/visual/report-preview");
   const isSandboxPreview = location.pathname.startsWith("/sandbox/report-preview");
+  const isLabPreview = isVisualLabPreview || isSandboxPreview;
 
-  // Sandbox: normalize to v=v3 and a whitelisted mode. Never let sandbox land on classic.
-  if (isSandboxPreview) {
-    const v = params.get("v");
-    const mode = params.get("mode");
-    if (v !== "v3" || (mode !== "preview" && mode !== "full")) {
-      return <Navigate to="/sandbox/report-preview?v=v3&mode=preview" replace />;
+  if (isLabPreview) {
+    const normalized = normalizeLabPreviewParams(location.pathname, params);
+    if ("redirectTo" in normalized) {
+      return <Navigate to={normalized.redirectTo} replace />;
     }
-  }
 
-  if (params.get("v") === "v3") {
-    const mode = params.get("mode") === "preview" ? "preview" : "full";
+    const mode = normalized.accessMode;
     const report = (
       <ForensicAuditReport
         accessLevel={mode}
@@ -88,7 +125,18 @@ export default function DevReportPreview() {
       />
     );
 
-    if (!isSandboxPreview) return report;
+    if (isVisualLabPreview) {
+      return (
+        <>
+          <Helmet>
+            <title>Visual Lab · Report Preview</title>
+            <meta name="robots" content="noindex,nofollow" />
+          </Helmet>
+          <LabPreviewBanner label="VISUAL LAB · MOCK DATA · NOT PRODUCTION FLOW" />
+          <div className="pt-7">{report}</div>
+        </>
+      );
+    }
 
     return (
       <>
@@ -96,14 +144,42 @@ export default function DevReportPreview() {
           <title>Sandbox · Report Preview</title>
           <meta name="robots" content="noindex,nofollow" />
         </Helmet>
-        <div
-          role="status"
-          className="fixed top-0 inset-x-0 z-50 h-7 flex items-center justify-center text-[11px] font-mono uppercase tracking-wider text-amber-200 border-b border-amber-500/30 backdrop-blur bg-[#3068e8]/[0.21]"
-        >
-          Sandbox Preview
-        </div>
+        <LabPreviewBanner label="Sandbox Preview" />
         <div className="pt-7">{report}</div>
       </>
+    );
+  }
+
+  if (params.get("v") === "v3") {
+    const mode = params.get("mode") === "preview" ? "preview" : "full";
+    return (
+      <ForensicAuditReport
+        accessLevel={mode}
+        analysisId="abcd-1234-ef56-7829"
+        grade="D-"
+        confidenceScore={78}
+        signalsExtracted={31}
+        signalsTotal={37}
+        flagRedCount={4}
+        flagAmberCount={3}
+        flagClearCount={24}
+        overpaymentLow={3400}
+        overpaymentHigh={4200}
+        overpaymentBasis="Based on Central Florida Impact Window Index, DP 50, single-hung"
+        pricePerOpening={1833}
+        pricePerOpeningBand="high"
+        marketLow={1120}
+        marketHigh={1350}
+        totalContractPrice={22000}
+        totalOpenings={12}
+        flags={MOCK_FLAGS}
+        homeownerName="Maria Gonzalez"
+        propertyAddress="4521 NW 18th Ct, Coconut Creek, FL 33073"
+        propertyType="Single Family"
+        windZone="HVHZ"
+        codeJurisdiction="Broward County"
+        unlockSlot={mode === "preview" ? <PreviewUnlockSlot /> : undefined}
+      />
     );
   }
 
