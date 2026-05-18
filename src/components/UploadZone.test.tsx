@@ -95,38 +95,57 @@ function makeFile(name = "quote.pdf", size = 1024) {
   return new File([blob], name, { type: "application/pdf" });
 }
 
+function makeRpcResult(result: any) {
+  return Promise.resolve(result);
+}
+
+// Canonical valid UUIDs for test fixtures.
+// The isValidUuid guard added in PREP-2A-PATCH requires all IDs emitted by
+// bootstrap Edge Function mocks to be properly-formatted v4 UUIDs.
+const DEFAULT_SCAN_SESSION_ID = "00000000-0000-4000-8000-000000000001";
+const DEFAULT_QUOTE_FILE_ID   = "00000000-0000-4000-8000-000000000002";
+
 function setupHappyPath() {
   storageUpload.mockResolvedValue({ error: null, data: { path: "x" } });
-  rpcMock.mockResolvedValue({ data: [], error: null }); // no existing lead
-  invokeMock.mockResolvedValue({ data: { ok: true }, error: null });
+
+  // RPC calls now replace direct from() queries on scan_sessions and quote_files:
+  //   get_upload_retry_context → fresh-path cross-component retry guard (returns null = no existing session)
+  //   get_scan_session_context → retry-path bound-session lookup (returns valid UUID for happy path)
+  rpcMock.mockImplementation((fnName: string) => {
+    if (fnName === "get_upload_retry_context") {
+      return makeRpcResult({ data: null, error: null });
+    }
+    if (fnName === "get_scan_session_context") {
+      // Happy-path retry: return a valid quote_file_id so the UUID guard passes.
+      return makeRpcResult({
+        data: { quote_file_id: DEFAULT_QUOTE_FILE_ID, lead_id: null },
+        error: null,
+      });
+    }
+    return Promise.resolve({ data: [], error: null });
+  });
+
+  // Differentiate start-upload-scan-session (must return success) from scan-quote.
+  // IDs must be valid v4 UUIDs — the isValidUuid guard rejects anything else.
+  invokeMock.mockImplementation((name: string) => {
+    if (name === "start-upload-scan-session") {
+      return Promise.resolve({
+        data: {
+          success: true,
+          scan_session_id: DEFAULT_SCAN_SESSION_ID,
+          quote_file_id: DEFAULT_QUOTE_FILE_ID,
+          lead_id: null,
+        },
+        error: null,
+      });
+    }
+    return Promise.resolve({ data: { ok: true }, error: null });
+  });
 
   fromMock.mockImplementation((table: string) => {
-    if (table === "quote_files") {
-      // Lookup: storage_path → no existing rows
-      return {
-        select: () => ({
-          eq: () => ({
-            order: () => ({ limit: () => Promise.resolve({ data: [], error: null }) }),
-          }),
-        }),
-        insert: vi.fn().mockResolvedValue({ error: null, data: null }),
-      };
-    }
-    if (table === "scan_sessions") {
-      return {
-        select: () => ({
-          eq: () => ({
-            order: () => ({ limit: () => Promise.resolve({ data: [], error: null }) }),
-            maybeSingle: () => Promise.resolve({ data: null, error: null }),
-          }),
-        }),
-        insert: vi.fn().mockResolvedValue({ error: null, data: null }),
-      };
-    }
     if (table === "leads") return buildInsertChain();
     if (table === "event_logs") return buildInsertChain();
     return {
-      select: () => ({ eq: () => ({ order: () => ({ limit: () => Promise.resolve({ data: [], error: null }) }) }) }),
       insert: vi.fn().mockResolvedValue({ error: null, data: null }),
     };
   });
@@ -208,29 +227,12 @@ describe("UploadZone — idempotency", () => {
   it("storage failure surfaces a Retry button and does NOT insert scan_sessions", async () => {
     storageUpload.mockResolvedValueOnce({ error: { message: "boom" }, data: null });
 
-    const ssInsert = vi.fn().mockResolvedValue({ error: null, data: null });
+    // scan_sessions and quote_files are no longer written by UploadZone directly
+    // (the start-upload-scan-session Edge Function handles those inserts).
+    // Only verifying that invokeMock (start-upload-scan-session) is NOT called
+    // after a storage failure — storage fails before the EF is reached.
     fromMock.mockImplementation((table: string) => {
-      if (table === "scan_sessions") {
-        return {
-          select: () => ({
-            eq: () => ({
-              order: () => ({ limit: () => Promise.resolve({ data: [], error: null }) }),
-              maybeSingle: () => Promise.resolve({ data: null, error: null }),
-            }),
-          }),
-          insert: ssInsert,
-        };
-      }
-      if (table === "quote_files") {
-        return {
-          select: () => ({
-            eq: () => ({
-              order: () => ({ limit: () => Promise.resolve({ data: [], error: null }) }),
-            }),
-          }),
-          insert: vi.fn().mockResolvedValue({ error: null, data: null }),
-        };
-      }
+      if (table === "event_logs") return buildInsertChain();
       return buildInsertChain();
     });
 
@@ -242,15 +244,55 @@ describe("UploadZone — idempotency", () => {
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /Retry Scan/i })).toBeInTheDocument();
     });
-    expect(ssInsert).not.toHaveBeenCalled();
+    // invokeMock (start-upload-scan-session EF) must NOT have been called —
+    // storage failure happens before the bootstrap EF is reached.
+    expect(invokeMock).not.toHaveBeenCalled();
   });
 
   it("retry path after first success does NOT call storage.upload again", async () => {
-    // First click: full happy path (storage upload + inserts succeed),
-    // but scan-quote returns error so the user can hit Retry.
-    invokeMock.mockResolvedValueOnce({
-      data: { error: "transient" },
-      error: { message: "scan-quote failed" },
+    // First click: bootstrap (start-upload-scan-session) succeeds so uploadedOnceRef is
+    // set, then scan-quote fails → Retry button surfaces.
+    // Retry click: takes the retry path (no storage.upload) and scan-quote succeeds.
+    const SCAN_ID_004 = "00000000-0000-4000-8000-000000000004";
+    const QF_ID_004   = "00000000-0000-4000-8000-000000000044";
+
+    let scanQuoteCallCount = 0;
+    invokeMock.mockImplementation((name: string) => {
+      if (name === "start-upload-scan-session") {
+        return Promise.resolve({
+          data: {
+            success: true,
+            scan_session_id: SCAN_ID_004,
+            quote_file_id: QF_ID_004,
+            lead_id: null,
+          },
+          error: null,
+        });
+      }
+      // scan-quote: first call fails, subsequent calls succeed.
+      scanQuoteCallCount++;
+      if (scanQuoteCallCount === 1) {
+        return Promise.resolve({
+          data: { error: "transient" },
+          error: { message: "scan-quote failed" },
+        });
+      }
+      return Promise.resolve({ data: { ok: true }, error: null });
+    });
+
+    // Retry path: get_scan_session_context must return a valid UUID so the
+    // isValidUuid guard allows invokeScan to proceed.
+    rpcMock.mockImplementation((fnName: string) => {
+      if (fnName === "get_upload_retry_context") {
+        return makeRpcResult({ data: null, error: null });
+      }
+      if (fnName === "get_scan_session_context") {
+        return makeRpcResult({
+          data: { quote_file_id: QF_ID_004, lead_id: null },
+          error: null,
+        });
+      }
+      return Promise.resolve({ data: [], error: null });
     });
 
     render(<UploadZone isVisible sessionId="00000000-0000-0000-0000-000000000004" />);
@@ -259,18 +301,222 @@ describe("UploadZone — idempotency", () => {
     const btn = await findStartButton();
     await act(async () => { fireEvent.click(btn); });
 
-    // Retry button surfaces from the scan-quote failure
+    // Retry button surfaces from the scan-quote failure (bootstrap succeeded).
     const retryBtn = await findRetryButton();
 
-    // Second invokeScan should succeed; storage.upload must NOT be called again
-    invokeMock.mockResolvedValueOnce({ data: { ok: true }, error: null });
     storageUpload.mockClear();
+    await act(async () => { fireEvent.click(retryBtn); });
+
+    // bootstrap + scan-quote(fail) + scan-quote(retry via rpc path) = 3 invoke calls
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledTimes(3);
+    });
+    expect(storageUpload).not.toHaveBeenCalled();
+  });
+});
+
+// ── UUID guard suite (PREP-2A-PATCH) ────────────────────────────────────
+/**
+ * Validates that invokeScan() is never reached when the RPC retry context
+ * returns null, an empty-string quote_file_id, or a malformed UUID.
+ * Also validates that UI state recovers so the user is not frozen.
+ */
+describe("UploadZone — UUID guard on RPC retry paths (PREP-2A-PATCH)", () => {
+  const GUARD_SCAN_ID = "00000000-0000-4000-8000-000000000099";
+  const GUARD_QF_ID   = "00000000-0000-4000-8000-000000000098";
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setupHappyPath();
+  });
+
+  /**
+   * Helper: render the component, perform a first upload (bootstrap succeeds,
+   * scan-quote fails), and return the Retry button element.
+   * After this, activeScanSessionId is set and uploadedOnceRef is true.
+   */
+  async function renderAndReachRetryState(sessionId: string): Promise<HTMLElement> {
+    let scanQuoteCount = 0;
+    invokeMock.mockImplementation((name: string) => {
+      if (name === "start-upload-scan-session") {
+        return Promise.resolve({
+          data: {
+            success: true,
+            scan_session_id: GUARD_SCAN_ID,
+            quote_file_id: GUARD_QF_ID,
+            lead_id: null,
+          },
+          error: null,
+        });
+      }
+      scanQuoteCount++;
+      if (scanQuoteCount === 1) {
+        return Promise.resolve({
+          data: { error: "transient" },
+          error: { message: "scan-quote failed" },
+        });
+      }
+      return Promise.resolve({ data: { ok: true }, error: null });
+    });
+    // RPC: fresh path has no retry context; scan-quote will fail so retry state is reached.
+    rpcMock.mockImplementation((fnName: string) => {
+      if (fnName === "get_upload_retry_context") {
+        return makeRpcResult({ data: null, error: null });
+      }
+      if (fnName === "get_scan_session_context") {
+        return makeRpcResult({ data: { quote_file_id: GUARD_QF_ID, lead_id: null }, error: null });
+      }
+      return Promise.resolve({ data: [], error: null });
+    });
+
+    render(<UploadZone isVisible sessionId={sessionId} />);
+    await selectFile(makeFile("quote.pdf", 1024));
+    const btn = await findStartButton();
+    await act(async () => { fireEvent.click(btn); });
+    return findRetryButton();
+  }
+
+  it("retry: null get_scan_session_context blocks scan-quote and restores actionable UI", async () => {
+    const retryBtn = await renderAndReachRetryState("00000000-0000-0000-0000-000000000010");
+
+    rpcMock.mockImplementation((fnName: string) => {
+      if (fnName === "get_scan_session_context") {
+        return makeRpcResult({ data: null, error: null });
+      }
+      return makeRpcResult({ data: null, error: null });
+    });
+    invokeMock.mockClear();
+
+    await act(async () => { fireEvent.click(retryBtn); });
+
+    // scan-quote must NOT be invoked when session context is null
+    await waitFor(() => {
+      const scanQuoteCalls = invokeMock.mock.calls.filter((args) => args[0] === "scan-quote");
+      expect(scanQuoteCalls).toHaveLength(0);
+    });
+    // UI must not be frozen: a start/retry action button must be available
+    await waitFor(() => {
+      const buttons = Array.from(document.querySelectorAll("button"));
+      const hasAction = buttons.some((b) =>
+        /Retry Scan|Start My AI Scan/i.test(b.textContent || "")
+      );
+      expect(hasAction).toBe(true);
+    });
+  });
+
+  it("retry: empty-string quote_file_id from get_scan_session_context blocks scan-quote", async () => {
+    const retryBtn = await renderAndReachRetryState("00000000-0000-0000-0000-000000000011");
+
+    rpcMock.mockImplementation((fnName: string) => {
+      if (fnName === "get_scan_session_context") {
+        return makeRpcResult({
+          data: { quote_file_id: "", lead_id: null },
+          error: null,
+        });
+      }
+      return makeRpcResult({ data: null, error: null });
+    });
+    invokeMock.mockClear();
 
     await act(async () => { fireEvent.click(retryBtn); });
 
     await waitFor(() => {
-      expect(invokeMock).toHaveBeenCalledTimes(2);
+      const scanQuoteCalls = invokeMock.mock.calls.filter((args) => args[0] === "scan-quote");
+      expect(scanQuoteCalls).toHaveLength(0);
     });
-    expect(storageUpload).not.toHaveBeenCalled();
+  });
+
+  it("retry: malformed UUID from get_scan_session_context blocks scan-quote", async () => {
+    const retryBtn = await renderAndReachRetryState("00000000-0000-0000-0000-000000000012");
+
+    rpcMock.mockImplementation((fnName: string) => {
+      if (fnName === "get_scan_session_context") {
+        return makeRpcResult({
+          data: { quote_file_id: "not-a-uuid", lead_id: null },
+          error: null,
+        });
+      }
+      return makeRpcResult({ data: null, error: null });
+    });
+    invokeMock.mockClear();
+
+    await act(async () => { fireEvent.click(retryBtn); });
+
+    await waitFor(() => {
+      const scanQuoteCalls = invokeMock.mock.calls.filter((args) => args[0] === "scan-quote");
+      expect(scanQuoteCalls).toHaveLength(0);
+    });
+  });
+
+  it("fresh: malformed UUID from get_upload_retry_context falls through to storage upload", async () => {
+    // Malformed retry context must be ignored — fresh upload path must still proceed.
+    rpcMock.mockImplementation((fnName: string) => {
+      if (fnName === "get_upload_retry_context") {
+        return makeRpcResult({
+          data: { quote_file_id: "not-a-uuid", scan_session_id: "also-not-a-uuid", lead_id: null },
+          error: null,
+        });
+      }
+      if (fnName === "get_scan_session_context") {
+        return makeRpcResult({ data: { quote_file_id: GUARD_QF_ID, lead_id: null }, error: null });
+      }
+      return Promise.resolve({ data: [], error: null });
+    });
+
+    render(<UploadZone isVisible sessionId="00000000-0000-0000-0000-000000000013" />);
+    await selectFile(makeFile("quote.pdf", 1024));
+    const btn = await findStartButton();
+    await act(async () => { fireEvent.click(btn); });
+
+    // Malformed retry context is skipped; fresh upload path must reach storage.upload
+    await waitFor(() => expect(storageUpload).toHaveBeenCalled());
+    expect(invokeMock).toHaveBeenCalledWith("start-upload-scan-session", expect.anything());
+  });
+
+  it("fresh: empty-string quote_file_id from get_upload_retry_context falls through to storage upload", async () => {
+    rpcMock.mockImplementation((fnName: string) => {
+      if (fnName === "get_upload_retry_context") {
+        return makeRpcResult({
+          data: { quote_file_id: "", scan_session_id: "", lead_id: null },
+          error: null,
+        });
+      }
+      if (fnName === "get_scan_session_context") {
+        return makeRpcResult({ data: { quote_file_id: GUARD_QF_ID, lead_id: null }, error: null });
+      }
+      return Promise.resolve({ data: [], error: null });
+    });
+
+    render(<UploadZone isVisible sessionId="00000000-0000-0000-0000-000000000014" />);
+    await selectFile(makeFile("quote.pdf", 1024));
+    const btn = await findStartButton();
+    await act(async () => { fireEvent.click(btn); });
+
+    await waitFor(() => expect(storageUpload).toHaveBeenCalled());
+    expect(invokeMock).toHaveBeenCalledWith("start-upload-scan-session", expect.anything());
+  });
+
+  it("retry: valid UUID from get_scan_session_context allows scan-quote to proceed", async () => {
+    const retryBtn = await renderAndReachRetryState("00000000-0000-0000-0000-000000000015");
+
+    // Valid UUID → guard passes → invokeScan proceeds
+    rpcMock.mockImplementation((fnName: string) => {
+      if (fnName === "get_scan_session_context") {
+        return makeRpcResult({
+          data: { quote_file_id: GUARD_QF_ID, lead_id: null },
+          error: null,
+        });
+      }
+      return makeRpcResult({ data: null, error: null });
+    });
+    invokeMock.mockClear();
+    invokeMock.mockResolvedValue({ data: { ok: true }, error: null });
+
+    await act(async () => { fireEvent.click(retryBtn); });
+
+    await waitFor(() => {
+      const scanQuoteCalls = invokeMock.mock.calls.filter((args) => args[0] === "scan-quote");
+      expect(scanQuoteCalls).toHaveLength(1);
+    });
   });
 });

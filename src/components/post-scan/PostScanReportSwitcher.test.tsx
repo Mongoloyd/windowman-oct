@@ -64,6 +64,8 @@ vi.mock("@/integrations/supabase/client", () => ({
       limit: vi.fn().mockReturnThis(),
       maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
     })),
+    // Runtime now uses direct await supabase.rpc(...), so tests return
+    // plain Promise<{ data, error }> instead of chained rpc(...).maybeSingle().
     rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
     functions: {
       invoke: vi.fn().mockResolvedValue({ data: { success: true }, error: null }),
@@ -279,37 +281,25 @@ describe("PostScanReportSwitcher — OTP handoff hydration (lead read unknown)",
     | { mode: "loaded"; phoneE164: string | null };
 
   function mockLeadHydration(source: MockLeadSource) {
-    vi.mocked(supabase.from).mockImplementation((table: string) => {
-      const chain = {
-        insert: vi.fn().mockResolvedValue({ data: null, error: null }),
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockReturnThis(),
-        maybeSingle: vi.fn().mockImplementation(() => {
-          if (table === "scan_sessions") {
-            return Promise.resolve({ data: { lead_id: "lead-1" }, error: null });
-          }
-          if (table === "leads") {
-            if (source.mode === "unknown") {
-              return Promise.resolve({
-                data: null,
-                error: source.withError ? { message: "RLS blocked" } : null,
-              });
-            }
-            return Promise.resolve({
-              data: {
-                phone_e164: source.phoneE164,
-                first_name: null,
-                email: null,
-                grade: null,
+    // Hydration uses direct await rpc("get_lead_context_for_session", ...).
+    vi.mocked(supabase.rpc).mockImplementation((fnName: string) => {
+      if (fnName === "get_lead_context_for_session") {
+        return Promise.resolve(
+          source.mode === "unknown"
+            ? { data: null, error: source.withError ? { message: "RLS blocked" } : null }
+            : {
+                data: {
+                  lead_id: "lead-1",
+                  first_name: null,
+                  county: null,
+                  phone_e164: source.phoneE164,
+                },
+                error: null,
               },
-              error: null,
-            });
-          }
-          return Promise.resolve({ data: null, error: null });
-        }),
-      };
-      return chain as ReturnType<typeof supabase.from>;
+        ) as any;
+      }
+      // Other RPCs (get_comparable_sessions, etc.) keep default behavior.
+      return Promise.resolve({ data: [], error: null }) as any;
     });
   }
 

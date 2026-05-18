@@ -35,6 +35,10 @@ import { CTA_LABEL } from "./ctaConstants";
 export { CTA_LABEL };
 
 const LOST_SCAN_SESSION_MESSAGE = "We lost the scan session. Please restart the scan.";
+function firstRpcRow<T>(data: T[] | T | null | undefined): T | null {
+  if (Array.isArray(data)) return data[0] ?? null;
+  return data ?? null;
+}
 
 /** OTP-verified phone bound to the scan session that completed verify. */
 type SessionCapturedPhone = { e164: string; scanSessionId: string };
@@ -113,6 +117,10 @@ export function PostScanReportSwitcher(props: Props) {
   const [leadFirstName, setLeadFirstName] = useState<string | null>(null);
   const [leadEmail, setLeadEmail] = useState<string | null>(null);
   const [leadGrade, setLeadGrade] = useState<string | null>(null);
+  const rpc = supabase.rpc as unknown as (
+    fnName: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ data: unknown; error: unknown }>;
 
   // ── CTA state ──
   const [introRequested, setIntroRequested] = useState(false);
@@ -162,7 +170,10 @@ export function PostScanReportSwitcher(props: Props) {
     return () => { cancelled = true; };
   }, [props.scanSessionId, props.isFullLoaded]);
 
-  // ── Hydrate/validate phone from leads table on mount ──
+  // ── Hydrate/validate phone from scan_session via safe RPC on mount ──
+  // Uses get_lead_context_for_session (SECURITY DEFINER) to avoid direct
+  // browser SELECTs on scan_sessions and leads. email and grade are
+  // intentionally not returned by this RPC.
   const phoneValidatedRef = useRef<string | null>(null);
   useEffect(() => {
     if (!props.scanSessionId || phoneValidatedRef.current === props.scanSessionId) return;
@@ -170,38 +181,40 @@ export function PostScanReportSwitcher(props: Props) {
 
     (async () => {
       try {
-        const { data: session } = await supabase
-          .from("scan_sessions")
-          .select("lead_id")
-          .eq("id", props.scanSessionId)
-          .maybeSingle();
+        type LeadContextForSessionRow = {
+          lead_id: string;
+          first_name: string | null;
+          county: string | null;
+          phone_e164: string | null;
+        };
+        const { data, error: rowError } = await rpc("get_lead_context_for_session", {
+          p_scan_session_id: props.scanSessionId,
+        });
+        const row = firstRpcRow<LeadContextForSessionRow>(
+          data as LeadContextForSessionRow[] | LeadContextForSessionRow | null | undefined,
+        );
 
-        if (cancelled || !session?.lead_id) return;
+        if (cancelled) return;
 
-        // Cache canonical lead identity for measurement parity on
-        // dual-routed business events.
-        setLeadId(session.lead_id);
-
-        const { data: lead, error: leadError } = await supabase
-          .from("leads")
-          .select("phone_e164, first_name, email, grade")
-          .eq("id", session.lead_id)
-          .maybeSingle();
-
-        if (!cancelled && lead) {
-          setLeadFirstName(lead.first_name ?? null);
-          setLeadEmail(lead.email ?? null);
-          setLeadGrade(lead.grade ?? null);
+        if (row?.lead_id) {
+          // Cache canonical lead identity for measurement parity on
+          // dual-routed business events.
+          setLeadId(row.lead_id);
         }
+        if (row?.first_name !== undefined) {
+          setLeadFirstName(row.first_name ?? null);
+        }
+        // email and grade are not returned by the safe RPC;
+        // leadEmail and leadGrade remain null (leadGrade falls back to props.grade).
 
         if (cancelled || !funnel) return;
 
         phoneValidatedRef.current = props.scanSessionId;
 
-        const leadSource =
-          leadError || lead == null
-            ? ({ kind: "unknown" } as const)
-            : ({ kind: "loaded", phoneE164: lead.phone_e164 ?? null } as const);
+        const leadSource: { kind: "unknown" } | { kind: "loaded"; phoneE164: string | null } =
+          rowError || row == null
+            ? { kind: "unknown" }
+            : { kind: "loaded", phoneE164: row.phone_e164 ?? null };
 
         applyLeadPhoneHydration({
           lead: leadSource,

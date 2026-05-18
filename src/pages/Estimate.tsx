@@ -32,9 +32,12 @@ type LeadSnapshot = {
   leadId: string;
   firstName: string | null;
   county: string | null;
-  grade: string | null;
   phoneE164: string | null;
 };
+function firstRpcRow<T>(data: T[] | T | null | undefined): T | null {
+  if (Array.isArray(data)) return data[0] ?? null;
+  return data ?? null;
+}
 
 export default function Estimate() {
   const [searchParams] = useSearchParams();
@@ -43,34 +46,38 @@ export default function Estimate() {
   const [snapshot, setSnapshot] = useState<LeadSnapshot | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [unverified, setUnverified] = useState(false);
+  const rpc = supabase.rpc as unknown as (
+    fnName: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ data: unknown; error: unknown }>;
 
-  // ── Hydrate lead context from scan_session ──
+  // ── Hydrate lead context from scan_session via safe RPC ──
+  // Uses get_lead_context_for_session (SECURITY DEFINER) to avoid direct
+  // browser SELECTs on scan_sessions and leads. grade and phone_verified
+  // are intentionally not returned by this RPC.
   useEffect(() => {
     if (!scanSessionId) return;
     let cancelled = false;
     (async () => {
-      const { data: session } = await supabase
-        .from("scan_sessions")
-        .select("lead_id")
-        .eq("id", scanSessionId)
-        .maybeSingle();
-      if (cancelled || !session?.lead_id) return;
+      type LeadContextForSessionRow = {
+        lead_id: string;
+        first_name: string | null;
+        county: string | null;
+        phone_e164: string | null;
+      };
+      const { data } = await rpc("get_lead_context_for_session", {
+        p_scan_session_id: scanSessionId,
+      });
+      const row = firstRpcRow<LeadContextForSessionRow>(
+        data as LeadContextForSessionRow[] | LeadContextForSessionRow | null | undefined,
+      );
+      if (cancelled || !row?.lead_id) return;
 
-      const { data: lead } = await supabase
-        .from("leads")
-        .select("first_name, county, grade, phone_e164, phone_verified")
-        .eq("id", session.lead_id)
-        .maybeSingle();
-      if (cancelled || !lead) return;
-
-      setUnverified(!lead.phone_verified);
       setSnapshot({
-        leadId: session.lead_id,
-        firstName: lead.first_name ?? null,
-        county: lead.county ?? null,
-        grade: lead.grade ?? null,
-        phoneE164: lead.phone_e164 ?? null,
+        leadId: row.lead_id,
+        firstName: row.first_name ?? null,
+        county: row.county ?? null,
+        phoneE164: row.phone_e164 ?? null,
       });
     })();
     return () => {
@@ -108,15 +115,14 @@ export default function Estimate() {
         event_id: eventId,
         scan_session_id: scanSessionId ?? undefined,
         lead_id: snapshot?.leadId ?? undefined,
-        grade: snapshot?.grade ?? undefined,
         county: snapshot?.county ?? undefined,
         cta_source: "estimate_page",
       });
 
-      // If we have a verified lead with a phone, route a callback intent
+      // If we have a lead with a phone number, route a callback intent
       // through the existing voice-followup pipe. Otherwise we still mark the
       // page as a conversion event in our operational log.
-      if (scanSessionId && snapshot?.phoneE164 && !unverified) {
+      if (scanSessionId && snapshot?.phoneE164) {
         const { error } = await supabase.functions.invoke("voice-followup", {
           body: {
             scan_session_id: scanSessionId,
@@ -136,8 +142,6 @@ export default function Estimate() {
         route: "/estimate",
         metadata: {
           lead_id: snapshot?.leadId ?? null,
-          grade: snapshot?.grade ?? null,
-          unverified,
         },
       });
 
@@ -230,12 +234,6 @@ export default function Estimate() {
                 One request. No spam. We will not share your contact with
                 anyone until you tell us to.
               </p>
-              {unverified && (
-                <p className="mt-2 text-xs text-amber-300/80">
-                  We&apos;ll follow up by email — this lead has not been
-                  phone-verified yet.
-                </p>
-              )}
             </>
           )}
         </div>

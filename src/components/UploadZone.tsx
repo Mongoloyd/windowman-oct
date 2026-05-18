@@ -51,6 +51,18 @@ const formatSize = (bytes: number) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
+// UUID v4 format guard — must be verified before any RPC-derived ID is
+// forwarded to scan-quote.  Using `?? ""` or `|| ""` as a fallback is
+// explicitly forbidden; callers must validate or bail out.
+const UUID_V4_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const isValidUuid = (value: unknown): value is string =>
+  typeof value === "string" && UUID_V4_RE.test(value);
+function firstRpcRow<T>(data: T[] | T | null | undefined): T | null {
+  if (Array.isArray(data)) return data[0] ?? null;
+  return data ?? null;
+}
+
 // Storage-path helpers extracted to ./uploadZone/storagePath for testability.
 // Imported above. Determinism is locked by storagePath.test.ts.
 
@@ -78,6 +90,10 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId }: Upload
   // rows for the same user intent, even if React state is stale.
   const uploadedOnceRef = useRef(false);
   const funnel = useScanFunnelSafe();
+  const rpc = supabase.rpc as unknown as (
+    fnName: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ data: unknown; error: unknown }>;
 
   // Live scan status — only polled once we have a real session id.
   const { status: liveStatus } = useScanPolling({ scanSessionId: activeScanSessionId });
@@ -241,16 +257,32 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId }: Upload
           failWith("retry_session_lost", "Scan session lost. Please refresh and try again.");
           return;
         }
-        const { data: ss } = await supabase
-          .from("scan_sessions")
-          .select("quote_file_id, lead_id")
-          .eq("id", boundScanSessionId)
-          .maybeSingle();
+        type ScanSessionContextRow = { quote_file_id: string | null; lead_id: string | null };
+        const { data: ssData, error: ssError } = await rpc("get_scan_session_context", {
+          p_scan_session_id: boundScanSessionId,
+        });
+        const ss = firstRpcRow<ScanSessionContextRow>(
+          ssData as ScanSessionContextRow[] | ScanSessionContextRow | null | undefined,
+        );
         const retryLeadId = (ss?.lead_id as string | null) ?? null;
-        const retryQuoteFileId = (ss?.quote_file_id as string | null) ?? "";
+        // Treat absent/null/malformed quote_file_id as a stale or missing session.
+        // Never forward "" or an untrusted string into invokeScan — the Edge
+        // Function expects a real UUID and will 500 on anything else.
+        const retryQuoteFileId = ss?.quote_file_id ?? null;
+        if (ssError || !isValidUuid(retryQuoteFileId)) {
+          // Reset retry state so the user can start a fresh upload rather than
+          // being stuck behind a stale activeScanSessionId on every click.
+          uploadedOnceRef.current = false;
+          setActiveScanSessionId(null);
+          failWith(
+            "retry_context_invalid",
+            "Session not found or expired. Please upload again.",
+          );
+          return;
+        }
         if (funnel) {
           funnel.setScanSessionId(boundScanSessionId);
-          if (retryQuoteFileId) funnel.setQuoteFileId(retryQuoteFileId);
+          funnel.setQuoteFileId(retryQuoteFileId);
           if (retryLeadId) funnel.setLeadId(retryLeadId);
         }
         const ok = await invokeScan(
@@ -277,28 +309,50 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId }: Upload
       // to this exact storage_path. If one exists, this is a retry of an
       // upload whose component state was lost (page refresh, route
       // change). Re-bind to it instead of duplicating rows.
+      // Uses a SECURITY DEFINER RPC so no direct SELECT on quote_files or
+      // scan_sessions is needed from the browser.
       let existingScanSessionId: string | null = null;
       let existingLeadId: string | null = null;
       let existingQuoteFileId: string | null = null;
+      let hasPartialRetryQuoteFile = false;
 
       try {
-        const { data: existingFiles } = await supabase
-          .from("quote_files")
-          .select("id, lead_id")
-          .eq("storage_path", filePath)
-          .order("created_at", { ascending: false })
-          .limit(1);
-        const ef = existingFiles?.[0];
-        if (ef?.id) {
-          existingQuoteFileId = ef.id as string;
-          existingLeadId = (ef.lead_id as string | null) ?? null;
-          const { data: existingSessions } = await supabase
-            .from("scan_sessions")
-            .select("id")
-            .eq("quote_file_id", existingQuoteFileId)
-            .order("created_at", { ascending: false })
-            .limit(1);
-          existingScanSessionId = (existingSessions?.[0]?.id as string | null) ?? null;
+        type UploadRetryContextRow = {
+          quote_file_id: string;
+          scan_session_id: string | null;
+          lead_id: string | null;
+        };
+        const { data: retryData, error: retryError } = await rpc("get_upload_retry_context", {
+          p_session_scope: sessionScope,
+          p_storage_path: filePath,
+        });
+        const retryCtx = firstRpcRow<UploadRetryContextRow>(
+          retryData as UploadRetryContextRow[] | UploadRetryContextRow | null | undefined,
+        );
+        if (retryError) {
+          console.warn("[UploadZone] retry-by-path lookup failed:", retryError);
+        }
+        // Only trust the RPC result if both IDs are well-formed UUIDs.
+        // A truthy-but-malformed value (e.g. "not-a-uuid") must not reach
+        // invokeScan; fall through to the fresh upload path instead.
+        if (
+          isValidUuid(retryCtx?.quote_file_id) &&
+          isValidUuid(retryCtx?.scan_session_id)
+        ) {
+          existingQuoteFileId = retryCtx!.quote_file_id;
+          existingLeadId = retryCtx!.lead_id ?? null;
+          existingScanSessionId = retryCtx!.scan_session_id ?? null;
+        } else if (
+          isValidUuid(retryCtx?.quote_file_id) &&
+          retryCtx?.scan_session_id == null
+        ) {
+          // Partial context means quote metadata already exists but scan session
+          // did not survive. Do not invoke scan directly. Continue through the
+          // canonical bootstrap path so the backend can idempotently reuse
+          // quote_files and (re)create/reuse scan_sessions for this storage path.
+          hasPartialRetryQuoteFile = true;
+          existingLeadId = retryCtx.lead_id ?? null;
+          existingQuoteFileId = retryCtx.quote_file_id;
         }
       } catch (lookupErr) {
         // Lookup failure must not block fresh path — log and continue.
@@ -307,7 +361,7 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId }: Upload
         console.warn("[UploadZone] retry-by-path lookup failed:", lookupErr);
       }
 
-      if (existingScanSessionId && existingQuoteFileId) {
+      if (isValidUuid(existingScanSessionId) && isValidUuid(existingQuoteFileId)) {
         // Re-bind to the existing mapping — this is the canonical retry.
         uploadedOnceRef.current = true;
         setActiveScanSessionId(existingScanSessionId);
@@ -335,7 +389,7 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId }: Upload
       // policy". A plain INSERT on the first attempt matches the existing
       // anon INSERT policy and succeeds. Retries reuse the deterministic path
       // and need upsert to overwrite the prior object.
-      const useUpsert = isRetry;
+      const useUpsert = isRetry || hasPartialRetryQuoteFile;
       console.info("[UploadZone] storage.upload →", {
         bucket: "quotes",
         filePath,
@@ -440,6 +494,17 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId }: Upload
       const newScanSessionId = bootstrapData.scan_session_id as string;
       const quoteFileId = bootstrapData.quote_file_id as string;
       const leadId = (bootstrapData.lead_id as string | null) ?? null;
+
+      // Defensive: the EF is authoritative, but guard against any unexpected
+      // shape before forwarding to invokeScan.
+      if (!isValidUuid(newScanSessionId) || !isValidUuid(quoteFileId)) {
+        failWith(
+          "scan_session_invalid_ids",
+          "Failed to start scan session. Please try again.",
+          { newScanSessionId, quoteFileId },
+        );
+        return;
+      }
 
       if (funnel) {
         funnel.setScanSessionId(newScanSessionId);

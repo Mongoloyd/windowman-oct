@@ -34,9 +34,6 @@ export const STORAGE_KEY = "impact-windows-session";
 export const SESSION_EXPIRY_DAYS = 30;
 export const SESSION_VERSION = "3.0.0";
 
-// Debounce delay for Supabase sync (ms)
-const SYNC_DEBOUNCE_MS = 2000;
-
 // ═══════════════════════════════════════════════════════════════════════════════
 // FUNNEL STAGES
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -487,72 +484,10 @@ export function getQuoteBracket(amount: number | undefined): string {
 // ═══════════════════════════════════════════════════════════════════════════════
 // SUPABASE SYNC (Non-blocking)
 // ═══════════════════════════════════════════════════════════════════════════════
-
-// Debounce timer
-let syncTimeoutId: ReturnType<typeof setTimeout> | null = null;
-
-/**
- * Debounced sync to Supabase - never blocks UI
- */
-async function syncToSupabase(session: SessionData): Promise<void> {
-  // Clear existing timeout
-  if (syncTimeoutId) {
-    clearTimeout(syncTimeoutId);
-  }
-
-  // Debounce the sync
-  syncTimeoutId = setTimeout(async () => {
-    try {
-      const client = getSupabaseClient();
-      if (!client) return;
-
-      // Only sync if we have a leadId (identified user)
-      if (!session.leadId) return;
-
-      const payload = {
-        id: session.leadId,
-        anonymous_id: session.anonymousId,
-        email: session.email,
-        phone: session.phone,
-        name: session.name,
-        funnel_stage: session.funnelStage,
-        county: session.county,
-        window_count: session.windowCount,
-        quote_amount: session.quoteAmount,
-        grade: session.grade,
-        grade_score: session.gradeScore,
-        forensic_flags: session.forensicFlags,
-        flag_count: session.flagCount,
-        utm_source: session.initialUtm?.source,
-        utm_medium: session.initialUtm?.medium,
-        utm_campaign: session.initialUtm?.campaign,
-        utm_content: session.initialUtm?.content,
-        utm_term: session.initialUtm?.term,
-        gclid: session.initialUtm?.gclid,
-        fbclid: session.initialUtm?.fbclid,
-        initial_referrer: session.initialReferrer,
-        landing_page: session.landingPage,
-        lead_score: calculateLeadScore(session),
-        first_seen_at: session.firstSeenAt,
-        last_activity_at: session.lastActivityAt,
-        promoted_to_lead_at: session.promotedToLeadAt,
-        audit_started_at: session.auditStartedAt,
-        audit_completed_at: session.auditCompletedAt,
-        truth_gate_hit_at: session.truthGateHitAt,
-        truth_gate_abandoned: session.truthGateAbandoned,
-        session_data: session, // Full JSON backup
-        updated_at: new Date().toISOString(),
-      };
-
-      await client.from("leads").upsert(payload, {
-        onConflict: "id",
-      });
-    } catch (error) {
-      // Silent fail - never block UI
-      console.warn("[GoldenThread] Supabase sync failed (non-blocking):", error);
-    }
-  }, SYNC_DEBOUNCE_MS);
-}
+// syncToSupabase (browser UPSERT into leads with protected scoring fields)
+// was removed. It was dead code — no live UI component imported or called it.
+// Grade, grade_score, forensic_flags, flag_count, and session_data must only
+// be written by the scan-quote Edge Function via service role.
 
 /**
  * Archive expired session to Supabase
@@ -725,11 +660,6 @@ export function updateSession(updates: Partial<SessionData>): SessionData {
 
   setLocalSession(session);
 
-  // Trigger sync if lead is identified
-  if (session.leadId) {
-    syncToSupabase(session);
-  }
-
   return session;
 }
 
@@ -895,9 +825,6 @@ export async function captureLead(data: LeadCaptureData): Promise<SessionData> {
     },
   });
 
-  // Sync to Supabase
-  syncToSupabase(session);
-
   return session;
 }
 
@@ -951,11 +878,6 @@ export function revealGrade(results: GradeResults): SessionData {
       first_touch_campaign: session.initialUtm?.campaign,
     },
   });
-
-  // Sync to Supabase
-  if (session.leadId) {
-    syncToSupabase(session);
-  }
 
   return session;
 }
