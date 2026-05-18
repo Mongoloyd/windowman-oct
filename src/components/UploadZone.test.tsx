@@ -313,6 +313,74 @@ describe("UploadZone — idempotency", () => {
     });
     expect(storageUpload).not.toHaveBeenCalled();
   });
+
+  it("after invalid retry context, next attempt escapes retry loop and re-enters fresh bootstrap", async () => {
+    let scanQuoteCallCount = 0;
+    invokeMock.mockImplementation((name: string) => {
+      if (name === "start-upload-scan-session") {
+        return Promise.resolve({
+          data: {
+            success: true,
+            scan_session_id: "00000000-0000-4000-8000-000000000104",
+            quote_file_id: "00000000-0000-4000-8000-000000000204",
+            lead_id: null,
+          },
+          error: null,
+        });
+      }
+      scanQuoteCallCount += 1;
+      if (scanQuoteCallCount === 1) {
+        return Promise.resolve({
+          data: { error: "transient" },
+          error: { message: "scan-quote failed" },
+        });
+      }
+      return Promise.resolve({ data: { ok: true }, error: null });
+    });
+
+    rpcMock.mockImplementation((fnName: string) => {
+      if (fnName === "get_upload_retry_context") {
+        return makeRpcResult({ data: null, error: null });
+      }
+      if (fnName === "get_scan_session_context") {
+        return makeRpcResult({ data: null, error: null });
+      }
+      return Promise.resolve({ data: [], error: null });
+    });
+
+    render(<UploadZone isVisible sessionId="00000000-0000-0000-0000-000000000104" />);
+    await selectFile(makeFile());
+
+    const btn = await findStartButton();
+    await act(async () => { fireEvent.click(btn); });
+
+    // First attempt completed; bootstrap called once.
+    await waitFor(() => {
+      const bootstrapCalls = invokeMock.mock.calls.filter((args) => args[0] === "start-upload-scan-session");
+      expect(bootstrapCalls).toHaveLength(1);
+    });
+
+    const retryBtn = await findRetryButton();
+    await act(async () => { fireEvent.click(retryBtn); });
+
+    await waitFor(() => {
+      expect(screen.getByText("Session not found or expired. Please upload again.")).toBeInTheDocument();
+    });
+    // Invalid retry context must not call bootstrap again on the same click.
+    {
+      const bootstrapCalls = invokeMock.mock.calls.filter((args) => args[0] === "start-upload-scan-session");
+      expect(bootstrapCalls).toHaveLength(1);
+    }
+
+    // Next click should escape retry loop and proceed to fresh bootstrap.
+    const retryBtnAgain = await findRetryButton();
+    await act(async () => { fireEvent.click(retryBtnAgain); });
+
+    await waitFor(() => {
+      const bootstrapCalls = invokeMock.mock.calls.filter((args) => args[0] === "start-upload-scan-session");
+      expect(bootstrapCalls).toHaveLength(2);
+    });
+  });
 });
 
 // ── UUID guard suite (PREP-2A-PATCH) ────────────────────────────────────

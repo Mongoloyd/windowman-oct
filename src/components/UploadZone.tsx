@@ -169,6 +169,10 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId }: Upload
     },
     [handleFile],
   );
+  const clearStaleRetryState = () => {
+    uploadedOnceRef.current = false;
+    setActiveScanSessionId(null);
+  };
 
   /**
    * Invoke the scan-quote edge function. Used by both the initial scan and
@@ -254,7 +258,8 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId }: Upload
       if (activeScanSessionId || uploadedOnceRef.current) {
         const boundScanSessionId = activeScanSessionId;
         if (!boundScanSessionId) {
-          failWith("retry_session_lost", "Scan session lost. Please refresh and try again.");
+          clearStaleRetryState();
+          failWith("retry_session_lost", "Scan session lost. Please upload again.");
           return;
         }
         type ScanSessionContextRow = { quote_file_id: string | null; lead_id: string | null };
@@ -272,8 +277,7 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId }: Upload
         if (ssError || !isValidUuid(retryQuoteFileId)) {
           // Reset retry state so the user can start a fresh upload rather than
           // being stuck behind a stale activeScanSessionId on every click.
-          uploadedOnceRef.current = false;
-          setActiveScanSessionId(null);
+          clearStaleRetryState();
           failWith(
             "retry_context_invalid",
             "Session not found or expired. Please upload again.",
