@@ -182,6 +182,8 @@ Use these core entities:
 - `/signup`
 - `/verify`
 - `/demo`
+- `/visual/*` — **mock-only UI harnesses** (e.g. `/visual/report-preview`, `/visual/pre-upload-intake`). No production funnel, no backend full-report reveal. Intentionally **not** wrapped in `isDevMode` so cloud staging and Lovable preview can QA layouts without a dev build flag.
+- `/sandbox/*` — related **UI-only** harness paths when enabled (e.g. `/sandbox/intake`, `/sandbox/report-preview`). Same mock/QA purpose as visual lab; may remain `isDevMode`-gated in `App.tsx` while `/visual/*` stays always public.
 
 ### Authenticated
 - `/vault`
