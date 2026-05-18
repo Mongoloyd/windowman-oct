@@ -169,6 +169,7 @@ describe("PostScanReportSwitcher shared OTP status wiring", () => {
     funnelState = {
       phoneE164: null,
       phoneStatus: "none",
+      scanSessionId: VALID_SCAN_SESSION_ID,
       setPhone: vi.fn(),
       setPhoneStatus: vi.fn(),
       sessionId: "sess-1",
@@ -197,14 +198,14 @@ describe("PostScanReportSwitcher shared OTP status wiring", () => {
   it("shows code entry mode when shared status is otp_sent", () => {
     funnelState.phoneE164 = "+13055551234";
     funnelState.phoneStatus = "otp_sent";
-    renderSwitcher();
+    renderSwitcher({ scanSessionId: VALID_SCAN_SESSION_ID });
     expect(screen.getByTestId("gate-mode")).toHaveTextContent("enter_code");
   });
 
   it("shows send_code mode and loading while shared status is sending_otp", () => {
     funnelState.phoneE164 = "+13055551234";
     funnelState.phoneStatus = "sending_otp";
-    renderSwitcher();
+    renderSwitcher({ scanSessionId: VALID_SCAN_SESSION_ID });
     expect(screen.getByTestId("gate-mode")).toHaveTextContent("send_code");
     expect(screen.getByTestId("is-loading")).toHaveTextContent("true");
   });
@@ -212,7 +213,7 @@ describe("PostScanReportSwitcher shared OTP status wiring", () => {
   it("shows fallback copy when shared status is send_failed", () => {
     funnelState.phoneE164 = "+13055551234";
     funnelState.phoneStatus = "send_failed";
-    renderSwitcher();
+    renderSwitcher({ scanSessionId: VALID_SCAN_SESSION_ID });
     expect(screen.getByTestId("error-msg")).toHaveTextContent("Send or confirm your number to receive a code.");
   });
 
@@ -413,12 +414,12 @@ describe("PostScanReportSwitcher — OTP handoff hydration (lead read unknown)",
     expect(onVerifiedMock).not.toHaveBeenCalled();
   });
 
-  it("shows send_code (not enter_code) when status is screened_valid after failed preemptive path", () => {
+  it("shows enter_phone when status is screened_valid but active session is missing", () => {
     funnelState.phoneStatus = "screened_valid";
     mockLeadHydration({ mode: "unknown" });
-    // No scanSessionId so auto-send cannot flip localGateOverride to enter_code in tests.
+    // With strict session gating, missing active session must fail closed.
     renderSwitcher({ scanSessionId: null });
-    expect(screen.getByTestId("gate-mode")).toHaveTextContent("send_code");
+    expect(screen.getByTestId("gate-mode")).toHaveTextContent("enter_phone");
     expect(screen.getByTestId("gate-mode")).not.toHaveTextContent("enter_code");
   });
 

@@ -3,7 +3,35 @@ import { applyLeadPhoneHydration, resolveGatedFunnelPhone } from "./gatedFunnelP
 import type { PhoneFunnelStatus } from "@/state/scanFunnel";
 
 describe("resolveGatedFunnelPhone", () => {
-  it("passes through phone when funnel scanSessionId is unset", () => {
+  it("passes through phone when both active and funnel sessions are unset", () => {
+    const result = resolveGatedFunnelPhone(
+      {
+        phoneE164: "+13055551234",
+        phoneStatus: "otp_sent",
+        scanSessionId: null,
+      },
+      null,
+    );
+    expect(result.phoneE164).toBe("+13055551234");
+    expect(result.phoneStatus).toBe("otp_sent");
+    expect(result.isSessionMatch).toBe(true);
+  });
+
+  it("hides phone when active session is missing but funnel session is set", () => {
+    const result = resolveGatedFunnelPhone(
+      {
+        phoneE164: "+13055551234",
+        phoneStatus: "otp_sent",
+        scanSessionId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      },
+      null,
+    );
+    expect(result.phoneE164).toBeNull();
+    expect(result.phoneStatus).toBeUndefined();
+    expect(result.isSessionMatch).toBe(false);
+  });
+
+  it("hides phone when active session is set but funnel session is missing", () => {
     const result = resolveGatedFunnelPhone(
       {
         phoneE164: "+13055551234",
@@ -11,6 +39,20 @@ describe("resolveGatedFunnelPhone", () => {
         scanSessionId: null,
       },
       "11111111-1111-4111-8111-111111111111",
+    );
+    expect(result.phoneE164).toBeNull();
+    expect(result.phoneStatus).toBeUndefined();
+    expect(result.isSessionMatch).toBe(false);
+  });
+
+  it("passes through phone when funnel scanSessionId matches active session", () => {
+    const result = resolveGatedFunnelPhone(
+      {
+        phoneE164: "+13055551234",
+        phoneStatus: "otp_sent",
+        scanSessionId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      },
+      "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     );
     expect(result.phoneE164).toBe("+13055551234");
     expect(result.phoneStatus).toBe("otp_sent");

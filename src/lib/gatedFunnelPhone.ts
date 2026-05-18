@@ -17,7 +17,7 @@ export type GatedFunnelPhone = {
 
 /**
  * Gate funnel phone/status to the active scan session.
- * If funnel.scanSessionId is unset, do not hide phone (UploadZone may not have written it yet).
+ * Fail closed on mixed known/unknown session states to prevent stale cross-session phone exposure.
  */
 export function resolveGatedFunnelPhone(
   funnel:
@@ -35,10 +35,13 @@ export function resolveGatedFunnelPhone(
   }
 
   const funnelScanSessionId = funnel.scanSessionId;
+  const hasActiveSession = Boolean(activeScanSessionId);
+  const hasFunnelSession = Boolean(funnelScanSessionId);
   const isSessionMatch =
-    !funnelScanSessionId ||
-    !activeScanSessionId ||
-    funnelScanSessionId === activeScanSessionId;
+    (!hasActiveSession && !hasFunnelSession) ||
+    (hasActiveSession &&
+      hasFunnelSession &&
+      funnelScanSessionId === activeScanSessionId);
 
   if (!isSessionMatch) {
     return { phoneE164: null, phoneStatus: undefined, isSessionMatch: false };
