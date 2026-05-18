@@ -77,7 +77,9 @@ type ActionName =
   | "fetch_lead_evidence"
   | "fetch_stage_leads"
   // Sprint 1D — Partner outcome rollup (read-only admin bridge)
-  | "fetch_partner_outcome_rollup";
+  | "fetch_partner_outcome_rollup"
+  // PREP-2B — dispatch attribution freshness (aggregate-only)
+  | "get_attribution_freshness";
 
 const ACTION_ROLES: Record<ActionName, AppRole[]> = {
   fetch_leads: ["super_admin", "operator", "viewer"],
@@ -138,6 +140,8 @@ const ACTION_ROLES: Record<ActionName, AppRole[]> = {
   fetch_stage_leads: ["super_admin", "operator", "viewer"],
   // Sprint 1D — read-only partner outcome rollup
   fetch_partner_outcome_rollup: ["super_admin", "operator", "viewer"],
+  // PREP-2B — dispatch attribution freshness (read-only)
+  get_attribution_freshness: ["super_admin", "operator", "viewer"],
 };
 
 // Allowed funnel stages (Sprint 5 — kept in sync with frontend constants)
@@ -327,6 +331,117 @@ Deno.serve(async (req) => {
           sold_missing_value,
           sold_missing_proof,
           total_outcome_rows: rows.length,
+        },
+      });
+    }
+
+    if (action === "get_attribution_freshness") {
+      // PREP-2B: fixed, bounded 24h window for admin dispatch health only.
+      const since = new Date(Date.now() - 24 * 60 * 60_000).toISOString();
+
+      const {
+        count: total24hCount,
+        error: totalErr,
+      } = await supabaseAdmin
+        .from("leads")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", since);
+      if (totalErr) {
+        console.error("[admin-data] get_attribution_freshness total count failed");
+        return errorResponse(
+          500,
+          "attribution_freshness_unavailable",
+          "Unable to fetch attribution freshness",
+        );
+      }
+
+      const {
+        count: withFbpCount,
+        error: withFbpErr,
+      } = await supabaseAdmin
+        .from("leads")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", since)
+        .not("fbp", "is", null)
+        .neq("fbp", "");
+      if (withFbpErr) {
+        console.error("[admin-data] get_attribution_freshness fbp count failed");
+        return errorResponse(
+          500,
+          "attribution_freshness_unavailable",
+          "Unable to fetch attribution freshness",
+        );
+      }
+
+      const {
+        count: withFbcCount,
+        error: withFbcErr,
+      } = await supabaseAdmin
+        .from("leads")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", since)
+        .not("fbc", "is", null)
+        .neq("fbc", "");
+      if (withFbcErr) {
+        console.error("[admin-data] get_attribution_freshness fbc count failed");
+        return errorResponse(
+          500,
+          "attribution_freshness_unavailable",
+          "Unable to fetch attribution freshness",
+        );
+      }
+
+      const {
+        count: withBothCount,
+        error: withBothErr,
+      } = await supabaseAdmin
+        .from("leads")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", since)
+        .not("fbp", "is", null)
+        .neq("fbp", "")
+        .not("fbc", "is", null)
+        .neq("fbc", "");
+      if (withBothErr) {
+        console.error("[admin-data] get_attribution_freshness overlap count failed");
+        return errorResponse(
+          500,
+          "attribution_freshness_unavailable",
+          "Unable to fetch attribution freshness",
+        );
+      }
+
+      const {
+        data: mostRecentLeadRow,
+        error: mostRecentErr,
+      } = await supabaseAdmin
+        .from("leads")
+        .select("created_at")
+        .gte("created_at", since)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (mostRecentErr) {
+        console.error("[admin-data] get_attribution_freshness latest lead failed");
+        return errorResponse(
+          500,
+          "attribution_freshness_unavailable",
+          "Unable to fetch attribution freshness",
+        );
+      }
+
+      const total24h = total24hCount ?? 0;
+      const withFbp = withFbpCount ?? 0;
+      const withFbc = withFbcCount ?? 0;
+      const withEither = withFbp + withFbc - (withBothCount ?? 0);
+
+      return successResponse({
+        data: {
+          total24h,
+          withFbp,
+          withFbc,
+          withEither,
+          mostRecentLeadAt: mostRecentLeadRow?.created_at ?? null,
         },
       });
     }

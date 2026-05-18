@@ -203,39 +203,32 @@ export interface AttributionFreshnessSnapshot {
 }
 
 export async function fetchAttributionFreshness(): Promise<AttributionFreshnessSnapshot> {
-  const since = new Date(Date.now() - 24 * 60 * 60_000).toISOString();
+  const invokeResult = await supabase.functions.invoke(
+    "admin-data",
+    {
+      body: { action: "get_attribution_freshness", payload: {} },
+    },
+  );
 
-  const { data, error } = await supabase
-    .from("leads")
-    .select("created_at, fbp, fbc")
-    .gte("created_at", since)
-    .order("created_at", { ascending: false })
-    .limit(1000);
+  if (invokeResult.error) {
+    throw new Error("Failed to fetch attribution freshness");
+  }
 
-  if (error) throw error;
+  const snapshot = (invokeResult.data as {
+    data?: Partial<AttributionFreshnessSnapshot>;
+  } | null)?.data;
 
-  const rows = (data ?? []) as Array<{
-    created_at: string;
-    fbp: string | null;
-    fbc: string | null;
-  }>;
-
-  let withFbp = 0;
-  let withFbc = 0;
-  let withEither = 0;
-  for (const r of rows) {
-    const hasFbp = typeof r.fbp === "string" && r.fbp.length > 0;
-    const hasFbc = typeof r.fbc === "string" && r.fbc.length > 0;
-    if (hasFbp) withFbp += 1;
-    if (hasFbc) withFbc += 1;
-    if (hasFbp || hasFbc) withEither += 1;
+  if (!snapshot) {
+    throw new Error("Invalid attribution freshness response");
   }
 
   return {
-    total24h: rows.length,
-    withFbp,
-    withFbc,
-    withEither,
-    mostRecentLeadAt: rows[0]?.created_at ?? null,
+    total24h: Number(snapshot.total24h ?? 0),
+    withFbp: Number(snapshot.withFbp ?? 0),
+    withFbc: Number(snapshot.withFbc ?? 0),
+    withEither: Number(snapshot.withEither ?? 0),
+    mostRecentLeadAt: typeof snapshot.mostRecentLeadAt === "string"
+      ? snapshot.mostRecentLeadAt
+      : null,
   };
 }
