@@ -24,6 +24,7 @@ import { usePhonePipeline } from "@/hooks/usePhonePipeline";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { deriveRevealPhase, phaseToAccessLevel } from "@/lib/deriveRevealPhase";
+import { applyLeadPhoneHydration, resolveGatedFunnelPhone } from "@/lib/gatedFunnelPhone";
 import { isValidScanSessionId } from "@/lib/routeIdGuards";
 import TruthReportClassic from "../TruthReportClassic";
 import type { SuggestedMatch } from "../TruthReportClassic";
@@ -208,25 +209,28 @@ export function PostScanReportSwitcher(props: Props) {
 
         phoneValidatedRef.current = props.scanSessionId;
 
-        if (lead?.phone_e164) {
-          if (!funnel.phoneE164) {
-            funnel.setPhone(lead.phone_e164, "none");
-          }
-        } else if (funnel.phoneE164) {
-          console.log("[PostScanReportSwitcher] Clearing stale funnel phone (lead has no phone)");
-          funnel.setPhone("", "none");
-        }
+        applyLeadPhoneHydration({
+          leadPhoneE164: lead?.phone_e164,
+          funnelPhoneE164: funnel.phoneE164,
+          funnelPhoneStatus: funnel.phoneStatus,
+          setPhone: funnel.setPhone,
+        });
       } catch (err) {
-        console.warn("[PostScanReportSwitcher] phone hydration failed:", err);
+        console.warn("[PostScanReportSwitcher] phone hydration failed (funnel phone preserved):", err);
       }
     })();
 
     return () => { cancelled = true; };
   }, [props.scanSessionId, funnel]);
 
+  const gatedFunnelPhone = useMemo(
+    () => resolveGatedFunnelPhone(funnel, props.scanSessionId),
+    [funnel, props.scanSessionId],
+  );
+
   const pipeline = usePhonePipeline("validate_and_send_otp", {
     scanSessionId: props.scanSessionId,
-    externalPhoneE164: funnel?.phoneE164 ?? null,
+    externalPhoneE164: gatedFunnelPhone.phoneE164,
     onVerified: () => {
       funnel?.setPhoneStatus("verified");
     },
@@ -269,7 +273,7 @@ export function PostScanReportSwitcher(props: Props) {
   }, [props.scanSessionId, props.isFullLoaded, capturedPhone]);
 
   // Resolve phone for CTA calls
-  const phoneE164 = capturedPhone || funnel?.phoneE164 || pipeline.e164 || null;
+  const phoneE164 = capturedPhone || gatedFunnelPhone.phoneE164 || pipeline.e164 || null;
 
   const requireValidScanSession = useCallback(() => {
     if (!props.scanSessionId || !isValidScanSessionId(props.scanSessionId)) {
@@ -288,13 +292,13 @@ export function PostScanReportSwitcher(props: Props) {
       setFetchStallTimerFired(true);
       return;
     }
-    if (funnel?.phoneStatus === "verified" && !props.isFullLoaded) {
+    if (gatedFunnelPhone.phoneStatus === "verified" && !props.isFullLoaded) {
       stallTimerRef.current = setTimeout(() => setFetchStallTimerFired(true), 5000);
       return () => { if (stallTimerRef.current) clearTimeout(stallTimerRef.current); };
     }
     if (props.isFullLoaded && fetchStallTimerFired) setFetchStallTimerFired(false);
     if (stallTimerRef.current) { clearTimeout(stallTimerRef.current); stallTimerRef.current = null; }
-  }, [funnel?.phoneStatus, props.isFullLoaded, props.fullFetchError, fetchStallTimerFired]);
+  }, [gatedFunnelPhone.phoneStatus, props.isFullLoaded, props.fullFetchError, fetchStallTimerFired]);
 
   // ═══ CANONICAL PHASE DERIVATION ═══
   // This is the SINGLE source of truth for render decisions.
@@ -303,16 +307,16 @@ export function PostScanReportSwitcher(props: Props) {
     isFullLoaded: !!props.isFullLoaded,
     isLoadingFull: !!props.isLoadingFull,
     fullFetchError: props.fullFetchError ?? null,
-    funnelPhoneStatus: funnel?.phoneStatus,
-    funnelPhoneE164: funnel?.phoneE164,
+    funnelPhoneStatus: gatedFunnelPhone.phoneStatus,
+    funnelPhoneE164: gatedFunnelPhone.phoneE164,
     localGateOverride,
     fetchStallTimerFired,
   }), [
     props.isFullLoaded,
     props.isLoadingFull,
     props.fullFetchError,
-    funnel?.phoneStatus,
-    funnel?.phoneE164,
+    gatedFunnelPhone.phoneStatus,
+    gatedFunnelPhone.phoneE164,
     localGateOverride,
     fetchStallTimerFired,
   ]);
@@ -370,7 +374,7 @@ export function PostScanReportSwitcher(props: Props) {
     // Restart the stall timer so the retry button reappears if the fetch stalls again
     if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
     stallTimerRef.current = setTimeout(() => setFetchStallTimerFired(true), 5000);
-  }, [capturedPhone, funnel?.phoneE164, pipeline.e164, props]);
+  }, [capturedPhone, gatedFunnelPhone.phoneE164, pipeline.e164, props]);
 
   const verifyLockRef = useRef(false);
 
@@ -412,35 +416,36 @@ export function PostScanReportSwitcher(props: Props) {
 
   const handleSendCode = useCallback(async () => {
     if (!requireValidScanSession()) return;
-    if (!funnel?.phoneE164 || isSendInFlight) return;
-    funnel.setPhoneStatus("sending_otp");
+    if (!gatedFunnelPhone.phoneE164 || isSendInFlight) return;
+    funnel?.setPhoneStatus("sending_otp");
     setIsSendInFlight(true);
     try {
       const result = await pipeline.submitPhone();
       if (result.status === "otp_sent") {
-        funnel.setPhoneStatus("otp_sent");
-        setCapturedPhone(funnel.phoneE164);
+        funnel?.setPhoneStatus("otp_sent");
+        setCapturedPhone(gatedFunnelPhone.phoneE164);
         setLocalGateOverride("enter_code");
       } else {
-        funnel.setPhoneStatus("send_failed");
+        funnel?.setPhoneStatus("send_failed");
       }
     } catch {
-      funnel.setPhoneStatus("send_failed");
+      funnel?.setPhoneStatus("send_failed");
     } finally {
       setIsSendInFlight(false);
     }
-  }, [funnel, pipeline, isSendInFlight, requireValidScanSession]);
+  }, [funnel, gatedFunnelPhone.phoneE164, pipeline, isSendInFlight, requireValidScanSession]);
 
-  // Auto-send OTP when phone is pre-filled (e.g. hydrated from leads table)
+  // Auto-send OTP when phone is pre-filled (intake) and not already sent during theatrics
   const autoSendFiredRef = useRef(false);
   useEffect(() => {
     if (autoSendFiredRef.current) return;
-    if (currentGateMode === "send_code" && funnel?.phoneE164 && !isSendInFlight) {
-      autoSendFiredRef.current = true;
-      handleSendCode();
-    }
+    if (currentGateMode !== "send_code") return;
+    if (!gatedFunnelPhone.phoneE164 || isSendInFlight) return;
+    if (gatedFunnelPhone.phoneStatus !== "screened_valid") return;
+    autoSendFiredRef.current = true;
+    handleSendCode();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally fire only once
-  }, [currentGateMode, funnel?.phoneE164]);
+  }, [currentGateMode, gatedFunnelPhone.phoneE164, gatedFunnelPhone.phoneStatus, isSendInFlight]);
 
   const handlePhoneSubmit = useCallback(async () => {
     if (!requireValidScanSession()) return;
@@ -469,6 +474,7 @@ export function PostScanReportSwitcher(props: Props) {
     setOtpValue("");
     setCapturedPhone(null);
     setLocalGateOverride("enter_phone");
+    autoSendFiredRef.current = false;
     funnel?.setPhone("", "none");
   }, [pipeline, funnel]);
 
@@ -662,8 +668,12 @@ export function PostScanReportSwitcher(props: Props) {
     }
   }, [props.scanSessionId, phoneE164]);
 
-  const maskedPhone = capturedPhone ? maskPhone(capturedPhone) : funnel?.phoneE164 ? maskPhone(funnel.phoneE164) : undefined;
-  const sharedSendFailed = funnel?.phoneStatus === "send_failed";
+  const maskedPhone = capturedPhone
+    ? maskPhone(capturedPhone)
+    : gatedFunnelPhone.phoneE164
+      ? maskPhone(gatedFunnelPhone.phoneE164)
+      : undefined;
+  const sharedSendFailed = gatedFunnelPhone.phoneStatus === "send_failed";
   const effectiveErrorMsg =
     pipeline.errorMsg || (sharedSendFailed ? "Send or confirm your number to receive a code." : "");
 
@@ -686,7 +696,7 @@ export function PostScanReportSwitcher(props: Props) {
     flagRedCount: props.flagRedCount,
     isLoading:
       isSendInFlight ||
-      funnel?.phoneStatus === "sending_otp" ||
+      gatedFunnelPhone.phoneStatus === "sending_otp" ||
       isVerifyingOtp,
     errorMsg: effectiveErrorMsg,
     errorType: pipeline.errorType ?? (sharedSendFailed ? "generic" : undefined),

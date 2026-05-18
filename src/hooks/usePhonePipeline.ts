@@ -111,6 +111,13 @@ export function usePhonePipeline(
 
   const activePhone = options?.externalPhoneE164 || e164;
 
+  // Seed display when funnel/intake already captured E.164 (does not own OTP status).
+  useEffect(() => {
+    const ext = options?.externalPhoneE164;
+    if (!ext) return;
+    setValue(ext);
+  }, [options?.externalPhoneE164, setValue]);
+
   // Cooldown ticker
   useEffect(() => {
     if (cooldown <= 0) {

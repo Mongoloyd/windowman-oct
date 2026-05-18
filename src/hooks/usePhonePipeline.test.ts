@@ -24,17 +24,27 @@ vi.mock("@/lib/trackEvent", () => ({
 }));
 
 describe("usePhonePipeline resend cooldown", () => {
+  const setValueMock = vi.fn();
+
   beforeEach(() => {
     vi.clearAllMocks();
+    setValueMock.mockClear();
     mockUsePhoneInput.mockReturnValue({
       displayValue: "(305) 555-1234",
       rawDigits: "3055551234",
       e164: "+13055551234",
       isValid: true,
       handleChange: vi.fn(),
-      setValue: vi.fn(),
+      setValue: setValueMock,
     });
     mockInvoke.mockResolvedValue({ data: { success: true }, error: null });
+  });
+
+  it("seeds phone input display from externalPhoneE164", () => {
+    renderHook(() =>
+      usePhonePipeline("validate_and_send_otp", { externalPhoneE164: "+13055551234" }),
+    );
+    expect(setValueMock).toHaveBeenCalledWith("+13055551234");
   });
 
   it("sets a user-facing message when resend is blocked by cooldown", async () => {

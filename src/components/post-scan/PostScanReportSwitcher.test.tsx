@@ -3,6 +3,7 @@ import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import React from "react";
 import { MemoryRouter } from "react-router-dom";
 import { PostScanReportSwitcher } from "./PostScanReportSwitcher";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 const VALID_SCAN_SESSION_ID = "11111111-1111-4111-8111-111111111111";
@@ -197,6 +198,15 @@ describe("PostScanReportSwitcher shared OTP status wiring", () => {
     expect(funnelState.setPhoneStatus).not.toHaveBeenCalledWith("send_failed");
   });
 
+  it("does not auto-send when preemptive OTP already set status to otp_sent", async () => {
+    funnelState.phoneE164 = "+13055551234";
+    funnelState.phoneStatus = "otp_sent";
+    renderSwitcher({ scanSessionId: VALID_SCAN_SESSION_ID });
+    await Promise.resolve();
+    expect(submitPhoneMock).not.toHaveBeenCalled();
+    expect(screen.getByTestId("gate-mode")).toHaveTextContent("enter_code");
+  });
+
   it("auto-send fires exactly once for a pre-hydrated phone (no double-fire on re-render)", async () => {
     funnelState.phoneE164 = "+13055551234";
     funnelState.phoneStatus = "screened_valid";
@@ -210,6 +220,115 @@ describe("PostScanReportSwitcher shared OTP status wiring", () => {
     // The autoSendFiredRef guard must prevent a second send.
     await Promise.resolve();
     expect(submitPhoneMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("PostScanReportSwitcher — OTP handoff hydration (lead read unknown)", () => {
+  let funnelState: any;
+
+  function mockLeadHydration(leadPhoneE164: string | null) {
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      const chain = {
+        insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockImplementation(() => {
+          if (table === "scan_sessions") {
+            return Promise.resolve({ data: { lead_id: "lead-1" }, error: null });
+          }
+          if (table === "leads") {
+            return Promise.resolve({
+              data: leadPhoneE164 ? { phone_e164: leadPhoneE164 } : null,
+              error: null,
+            });
+          }
+          return Promise.resolve({ data: null, error: null });
+        }),
+      };
+      return chain as ReturnType<typeof supabase.from>;
+    });
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseReportAccess.mockReturnValue("preview");
+    funnelState = {
+      phoneE164: "+13055551234",
+      phoneStatus: "otp_sent",
+      scanSessionId: VALID_SCAN_SESSION_ID,
+      setPhone: vi.fn(),
+      setPhoneStatus: vi.fn(),
+      sessionId: "sess-1",
+    };
+    mockUseScanFunnelSafe.mockImplementation(() => funnelState);
+    mockUsePhonePipeline.mockReturnValue({
+      displayValue: "(305) 555-1234",
+      rawDigits: "3055551234",
+      e164: "+13055551234",
+      inputComplete: true,
+      phoneStatus: "idle",
+      errorMsg: "",
+      errorType: null,
+      resendCooldown: 0,
+      handlePhoneChange: vi.fn(),
+      submitPhone: vi.fn(),
+      submitOtp: vi.fn(),
+      resend: vi.fn(),
+      reset: vi.fn(),
+    });
+  });
+
+  it("preserves otp_sent and shows enter_code when lead hydration returns null", async () => {
+    mockLeadHydration(null);
+    renderSwitcher({ scanSessionId: VALID_SCAN_SESSION_ID });
+    await waitFor(() => {
+      expect(screen.getByTestId("gate-mode")).toHaveTextContent("enter_code");
+    });
+    expect(funnelState.setPhone).not.toHaveBeenCalledWith("", "none");
+    expect(funnelState.setPhone).not.toHaveBeenCalledWith("", expect.anything());
+  });
+
+  it("does not call onVerified when only otp_sent (no verify)", async () => {
+    const onVerifiedMock = vi.fn();
+    mockLeadHydration(null);
+    renderSwitcher({ scanSessionId: VALID_SCAN_SESSION_ID, onVerified: onVerifiedMock });
+    await waitFor(() => {
+      expect(screen.getByTestId("gate-mode")).toHaveTextContent("enter_code");
+    });
+    expect(onVerifiedMock).not.toHaveBeenCalled();
+  });
+
+  it("shows send_code (not enter_code) when status is screened_valid after failed preemptive path", () => {
+    funnelState.phoneStatus = "screened_valid";
+    mockLeadHydration(null);
+    // No scanSessionId so auto-send cannot flip localGateOverride to enter_code in tests.
+    renderSwitcher({ scanSessionId: null });
+    expect(screen.getByTestId("gate-mode")).toHaveTextContent("send_code");
+    expect(screen.getByTestId("gate-mode")).not.toHaveTextContent("enter_code");
+  });
+
+  it("shows send_code when status is send_failed (not OTP grid as if sent)", () => {
+    funnelState.phoneStatus = "send_failed";
+    mockLeadHydration(null);
+    renderSwitcher({ scanSessionId: VALID_SCAN_SESSION_ID });
+    expect(screen.getByTestId("gate-mode")).toHaveTextContent("send_code");
+    expect(screen.getByTestId("gate-mode")).not.toHaveTextContent("enter_code");
+  });
+
+  it("change-phone resets to enter_phone and clears funnel phone", () => {
+    mockLeadHydration(null);
+    renderSwitcher({ scanSessionId: VALID_SCAN_SESSION_ID });
+    fireEvent.click(screen.getByText("change-phone"));
+    expect(screen.getByTestId("gate-mode")).toHaveTextContent("enter_phone");
+    expect(funnelState.setPhone).toHaveBeenCalledWith("", "none");
+  });
+
+  it("ignores funnel phone when scanSessionId mismatches active session", () => {
+    funnelState.scanSessionId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    mockLeadHydration(null);
+    renderSwitcher({ scanSessionId: VALID_SCAN_SESSION_ID });
+    expect(screen.getByTestId("gate-mode")).toHaveTextContent("enter_phone");
   });
 });
 
@@ -310,6 +429,8 @@ describe("PostScanReportSwitcher — Identity Ladder partial access (Level 0/1)"
     renderSwitcher({ isFullLoaded: false });
     // otp_failed should not unlock access; the user must remain gated.
     expect(screen.getByTestId("gate-mode")).not.toHaveTextContent("none");
+    expect(screen.getByTestId("gate-mode")).toHaveTextContent("send_code");
+    expect(screen.getByTestId("gate-mode")).not.toHaveTextContent("enter_code");
   });
 
   it("blocks full report access even if phone is present but isFullLoaded is false", () => {
