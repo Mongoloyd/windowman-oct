@@ -14,12 +14,13 @@
  * Auth: require x-contractor-secret header matching CONTRACTOR_CRON_SECRET env var.
  */
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import {
+  createClient,
+  type SupabaseClient,
+} from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
-// Local loose alias for helper signatures only. Runtime still receives the
-// Supabase client created above.
-// deno-lint-ignore no-explicit-any
-type AnySupabaseClient = any; // eslint-disable-line @typescript-eslint/no-explicit-any
+// Helper signatures only; runtime still uses the client created above.
+type AnySupabaseClient = SupabaseClient;
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",

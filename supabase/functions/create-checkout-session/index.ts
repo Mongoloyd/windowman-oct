@@ -13,13 +13,11 @@
  *   "subscription" — recurring seat fee (uses hardcoded Stripe Price ID)
  */
 
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import Stripe from "npm:stripe@17.7.0";
 
-// Local loose alias for helper signatures only. Runtime still receives the
-// Supabase client created below.
-// deno-lint-ignore no-explicit-any
-type AnySupabaseClient = any; // eslint-disable-line @typescript-eslint/no-explicit-any
+// Helper signatures only; runtime still uses the client created below.
+type AnySupabaseClient = SupabaseClient;
 
 /* ── CORS ────────────────────────────────────────────────────────────── */
 
