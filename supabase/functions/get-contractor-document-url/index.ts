@@ -43,17 +43,17 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } },
     );
 
-    const { data: claimsData, error: claimsErr } = await anonClient.auth
-      .getClaims(
-        authHeader.replace("Bearer ", ""),
-      );
-    if (claimsErr || !claimsData?.claims?.sub) {
+    const jwt = authHeader.replace("Bearer ", "");
+    const { data: userData, error: userErr } = await anonClient.auth.getUser(
+      jwt,
+    );
+    if (userErr || !userData?.user?.id) {
       return json(
         { error: "unauthenticated", message: "Invalid auth token." },
         401,
       );
     }
-    const authUserId = claimsData.claims.sub as string;
+    const authUserId = userData.user.id;
 
     // ── Input ─────────────────────────────────────────────────────
     const body = await req.json();

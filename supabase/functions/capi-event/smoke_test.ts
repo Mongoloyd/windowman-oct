@@ -38,6 +38,12 @@ const SUPA_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
 const liveModeReady = Boolean(BASE && AUTH && SUPA_URL && SUPA_KEY);
 
+type EventLogSmokeRow = {
+  event_name: string;
+  lead_id: string | null;
+  metadata: Record<string, unknown> | null;
+};
+
 Deno.test({
   name: "capi-event smoke: Lead event lands in event_logs (live mode)",
   ignore: !liveModeReady,
@@ -78,7 +84,7 @@ Deno.test({
     // Wait briefly for the event_logs insert (capi-event awaits it inline,
     // but Postgres + edge function flush has small latency).
     const supabase = createClient(SUPA_URL!, SUPA_KEY!);
-    let row: { event_name: string; lead_id: string | null } | null = null;
+    let row: EventLogSmokeRow | null = null;
     for (let i = 0; i < 10; i++) {
       const { data } = await supabase
         .from("event_logs")
@@ -87,15 +93,16 @@ Deno.test({
         .order("created_at", { ascending: false })
         .limit(1);
       if (data && data.length > 0) {
-        row = data[0] as typeof row;
+        row = data[0] as EventLogSmokeRow;
         break;
       }
       await new Promise((r) => setTimeout(r, 500));
     }
 
     assert(row !== null, "no event_logs row landed for smoke external_id");
-    assertEquals(row!.event_name, "capi_lead_dispatched");
-    assertEquals(row!.lead_id, externalId);
+    const landedRow = row;
+    assertEquals(landedRow.event_name, "capi_lead_dispatched");
+    assertEquals(landedRow.lead_id, externalId);
   },
 });
 
