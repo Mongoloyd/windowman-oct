@@ -40,11 +40,25 @@ describe("usePhonePipeline resend cooldown", () => {
     mockInvoke.mockResolvedValue({ data: { success: true }, error: null });
   });
 
-  it("seeds phone input display from externalPhoneE164", () => {
-    renderHook(() =>
-      usePhonePipeline("validate_and_send_otp", { externalPhoneE164: "+13055551234" }),
+  it("seeds phone input display from externalPhoneE164 without OTP or verification side effects", () => {
+    const onVerified = vi.fn();
+
+    const { result } = renderHook(() =>
+      usePhonePipeline("validate_and_send_otp", {
+        externalPhoneE164: "+13055551234",
+        onVerified,
+      }),
     );
+
     expect(setValueMock).toHaveBeenCalledWith("+13055551234");
+    expect(setValueMock).toHaveBeenCalledTimes(1);
+
+    expect(mockInvoke).not.toHaveBeenCalled();
+    expect(result.current.phoneStatus).toBe("idle");
+    expect(result.current.phoneStatus).not.toBe("otp_sent");
+    expect(result.current.phoneStatus).not.toBe("sending_otp");
+    expect(result.current.phoneStatus).not.toBe("verified");
+    expect(onVerified).not.toHaveBeenCalled();
   });
 
   it("sets a user-facing message when resend is blocked by cooldown", async () => {

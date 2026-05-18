@@ -226,7 +226,11 @@ describe("PostScanReportSwitcher shared OTP status wiring", () => {
 describe("PostScanReportSwitcher — OTP handoff hydration (lead read unknown)", () => {
   let funnelState: any;
 
-  function mockLeadHydration(leadPhoneE164: string | null) {
+  type MockLeadSource =
+    | { mode: "unknown"; withError?: boolean }
+    | { mode: "loaded"; phoneE164: string | null };
+
+  function mockLeadHydration(source: MockLeadSource) {
     vi.mocked(supabase.from).mockImplementation((table: string) => {
       const chain = {
         insert: vi.fn().mockResolvedValue({ data: null, error: null }),
@@ -238,8 +242,19 @@ describe("PostScanReportSwitcher — OTP handoff hydration (lead read unknown)",
             return Promise.resolve({ data: { lead_id: "lead-1" }, error: null });
           }
           if (table === "leads") {
+            if (source.mode === "unknown") {
+              return Promise.resolve({
+                data: null,
+                error: source.withError ? { message: "RLS blocked" } : null,
+              });
+            }
             return Promise.resolve({
-              data: leadPhoneE164 ? { phone_e164: leadPhoneE164 } : null,
+              data: {
+                phone_e164: source.phoneE164,
+                first_name: null,
+                email: null,
+                grade: null,
+              },
               error: null,
             });
           }
@@ -279,8 +294,8 @@ describe("PostScanReportSwitcher — OTP handoff hydration (lead read unknown)",
     });
   });
 
-  it("preserves otp_sent and shows enter_code when lead hydration returns null", async () => {
-    mockLeadHydration(null);
+  it("preserves otp_sent and shows enter_code when lead hydration is unknown (null row)", async () => {
+    mockLeadHydration({ mode: "unknown" });
     renderSwitcher({ scanSessionId: VALID_SCAN_SESSION_ID });
     await waitFor(() => {
       expect(screen.getByTestId("gate-mode")).toHaveTextContent("enter_code");
@@ -289,9 +304,32 @@ describe("PostScanReportSwitcher — OTP handoff hydration (lead read unknown)",
     expect(funnelState.setPhone).not.toHaveBeenCalledWith("", expect.anything());
   });
 
+  it("preserves funnel phone when lead hydration is unknown and status is none", async () => {
+    funnelState.phoneStatus = "none";
+    mockLeadHydration({ mode: "unknown" });
+    renderSwitcher({ scanSessionId: VALID_SCAN_SESSION_ID });
+    await waitFor(() => expect(funnelState.setPhone).not.toHaveBeenCalled());
+  });
+
+  it("preserves funnel phone when lead read returns an error (unknown)", async () => {
+    funnelState.phoneStatus = "none";
+    mockLeadHydration({ mode: "unknown", withError: true });
+    renderSwitcher({ scanSessionId: VALID_SCAN_SESSION_ID });
+    await waitFor(() => expect(funnelState.setPhone).not.toHaveBeenCalled());
+  });
+
+  it("does not clear otp_sent when trusted loaded lead has no phone", async () => {
+    mockLeadHydration({ mode: "loaded", phoneE164: null });
+    renderSwitcher({ scanSessionId: VALID_SCAN_SESSION_ID });
+    await waitFor(() => {
+      expect(screen.getByTestId("gate-mode")).toHaveTextContent("enter_code");
+    });
+    expect(funnelState.setPhone).not.toHaveBeenCalledWith("", "none");
+  });
+
   it("does not call onVerified when only otp_sent (no verify)", async () => {
     const onVerifiedMock = vi.fn();
-    mockLeadHydration(null);
+    mockLeadHydration({ mode: "unknown" });
     renderSwitcher({ scanSessionId: VALID_SCAN_SESSION_ID, onVerified: onVerifiedMock });
     await waitFor(() => {
       expect(screen.getByTestId("gate-mode")).toHaveTextContent("enter_code");
@@ -301,7 +339,7 @@ describe("PostScanReportSwitcher — OTP handoff hydration (lead read unknown)",
 
   it("shows send_code (not enter_code) when status is screened_valid after failed preemptive path", () => {
     funnelState.phoneStatus = "screened_valid";
-    mockLeadHydration(null);
+    mockLeadHydration({ mode: "unknown" });
     // No scanSessionId so auto-send cannot flip localGateOverride to enter_code in tests.
     renderSwitcher({ scanSessionId: null });
     expect(screen.getByTestId("gate-mode")).toHaveTextContent("send_code");
@@ -310,14 +348,14 @@ describe("PostScanReportSwitcher — OTP handoff hydration (lead read unknown)",
 
   it("shows send_code when status is send_failed (not OTP grid as if sent)", () => {
     funnelState.phoneStatus = "send_failed";
-    mockLeadHydration(null);
+    mockLeadHydration({ mode: "unknown" });
     renderSwitcher({ scanSessionId: VALID_SCAN_SESSION_ID });
     expect(screen.getByTestId("gate-mode")).toHaveTextContent("send_code");
     expect(screen.getByTestId("gate-mode")).not.toHaveTextContent("enter_code");
   });
 
   it("change-phone resets to enter_phone and clears funnel phone", () => {
-    mockLeadHydration(null);
+    mockLeadHydration({ mode: "unknown" });
     renderSwitcher({ scanSessionId: VALID_SCAN_SESSION_ID });
     fireEvent.click(screen.getByText("change-phone"));
     expect(screen.getByTestId("gate-mode")).toHaveTextContent("enter_phone");
@@ -326,7 +364,7 @@ describe("PostScanReportSwitcher — OTP handoff hydration (lead read unknown)",
 
   it("ignores funnel phone when scanSessionId mismatches active session", () => {
     funnelState.scanSessionId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
-    mockLeadHydration(null);
+    mockLeadHydration({ mode: "unknown" });
     renderSwitcher({ scanSessionId: VALID_SCAN_SESSION_ID });
     expect(screen.getByTestId("gate-mode")).toHaveTextContent("enter_phone");
   });

@@ -1,8 +1,12 @@
 import type { PhoneFunnelStatus } from "@/state/scanFunnel";
 
-/** Funnel phone statuses that must survive ambiguous lead hydration reads. */
+/** Funnel phone statuses that must survive a trusted loaded lead with no phone. */
 export const FUNNEL_PHONE_STATUSES_PRESERVED_ON_HYDRATION: ReadonlySet<PhoneFunnelStatus> =
   new Set(["screened_valid", "sending_otp", "otp_sent", "verified", "send_failed"]);
+
+export type LeadPhoneHydrationSource =
+  | { kind: "unknown" }
+  | { kind: "loaded"; phoneE164: string | null };
 
 export type GatedFunnelPhone = {
   phoneE164: string | null;
@@ -48,19 +52,24 @@ export function resolveGatedFunnelPhone(
 }
 
 /**
- * Apply lead hydration only when it is safe — never clear funnel phone on null/RLS-unknown reads.
+ * Apply lead hydration only from a trusted lead-read outcome.
+ * Unknown reads must never clear or mutate funnel phone/status.
  */
 export function applyLeadPhoneHydration(args: {
-  leadPhoneE164: string | null | undefined;
+  lead: LeadPhoneHydrationSource;
   funnelPhoneE164: string | null;
   funnelPhoneStatus: PhoneFunnelStatus;
   setPhone: (e164: string, status: PhoneFunnelStatus) => void;
 }): void {
-  const { leadPhoneE164, funnelPhoneE164, funnelPhoneStatus, setPhone } = args;
+  const { lead, funnelPhoneE164, funnelPhoneStatus, setPhone } = args;
 
-  if (leadPhoneE164) {
+  if (lead.kind === "unknown") {
+    return;
+  }
+
+  if (lead.phoneE164) {
     if (!funnelPhoneE164) {
-      setPhone(leadPhoneE164, "screened_valid");
+      setPhone(lead.phoneE164, "screened_valid");
     }
     return;
   }
@@ -69,7 +78,6 @@ export function applyLeadPhoneHydration(args: {
     return;
   }
 
-  // Positive trusted signal: lead row exists with no phone on file and funnel is idle.
   if (funnelPhoneE164 && funnelPhoneStatus === "none") {
     setPhone("", "none");
   }

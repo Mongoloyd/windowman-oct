@@ -193,7 +193,7 @@ export function PostScanReportSwitcher(props: Props) {
         // dual-routed business events.
         setLeadId(session.lead_id);
 
-        const { data: lead } = await supabase
+        const { data: lead, error: leadError } = await supabase
           .from("leads")
           .select("phone_e164, first_name, email, grade")
           .eq("id", session.lead_id)
@@ -209,8 +209,13 @@ export function PostScanReportSwitcher(props: Props) {
 
         phoneValidatedRef.current = props.scanSessionId;
 
+        const leadSource =
+          leadError || lead == null
+            ? ({ kind: "unknown" } as const)
+            : ({ kind: "loaded", phoneE164: lead.phone_e164 ?? null } as const);
+
         applyLeadPhoneHydration({
-          leadPhoneE164: lead?.phone_e164,
+          lead: leadSource,
           funnelPhoneE164: funnel.phoneE164,
           funnelPhoneStatus: funnel.phoneStatus,
           setPhone: funnel.setPhone,
