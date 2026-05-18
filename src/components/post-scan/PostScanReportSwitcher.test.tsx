@@ -122,6 +122,14 @@ vi.mock("sonner", () => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }));
 
+beforeEach(() => {
+  Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+    configurable: true,
+    writable: true,
+    value: vi.fn(),
+  });
+});
+
 // Helper: every render must be wrapped in a Router because the component
 // uses useNavigate() for the diagnosis handoff CTA. Without this, tests
 // crash before any assertion can run.
@@ -220,6 +228,36 @@ describe("PostScanReportSwitcher shared OTP status wiring", () => {
     await waitFor(() =>
       expect(screen.getByTestId("gate-mode")).toHaveTextContent("enter_code")
     );
+  });
+
+  it("send-code path captures server e164 (not stale gated phone) and stays preview-locked", async () => {
+    const staleGatePhone = "+13055550000";
+    const serverValidatedPhone = "+13055551234";
+    const onVerifiedMock = vi.fn();
+    funnelState.phoneE164 = staleGatePhone;
+    funnelState.phoneStatus = "screened_valid";
+    submitPhoneMock.mockResolvedValueOnce({
+      status: "otp_sent",
+      e164: serverValidatedPhone,
+    });
+
+    renderSwitcher({
+      scanSessionId: VALID_SCAN_SESSION_ID,
+      onVerified: onVerifiedMock,
+      isFullLoaded: false,
+    });
+
+    await waitFor(() => expect(submitPhoneMock).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(funnelState.setPhone).toHaveBeenCalledWith(serverValidatedPhone, "otp_sent"),
+    );
+    expect(funnelState.setPhone).not.toHaveBeenCalledWith(staleGatePhone, "otp_sent");
+    await waitFor(() =>
+      expect(screen.getByTestId("masked-phone")).toHaveTextContent("1234"),
+    );
+    expect(screen.getByTestId("gate-mode")).toHaveTextContent("enter_code");
+    expect(screen.getByTestId("access-level")).toHaveTextContent("preview");
+    expect(onVerifiedMock).not.toHaveBeenCalled();
   });
 
   it("shows enter_phone mode when no phone exists", () => {

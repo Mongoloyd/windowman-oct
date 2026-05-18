@@ -504,9 +504,9 @@ export function PostScanReportSwitcher(props: Props) {
     try {
       const result = await pipeline.submitPhone();
       if (!isScanSessionStillActive(requestScanSessionId)) return;
-      if (result.status === "otp_sent") {
-        funnel?.setPhoneStatus("otp_sent");
-        capturePhoneForSession(activeGatePhoneE164);
+      if (result.status === "otp_sent" && result.e164) {
+        funnel?.setPhone(result.e164, "otp_sent");
+        capturePhoneForSession(result.e164);
         setLocalGateOverride("enter_code");
       } else {
         funnel?.setPhoneStatus("send_failed");
