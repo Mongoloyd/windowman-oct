@@ -309,3 +309,15 @@ When uncertain, prefer the option that:
 
 ### One-line reminder
 WindowMan.PRO converts homeowner quote uncertainty into a **verified, high-intent, monetizable lead** using a **server-gated Truth Report**, an **Identity Ladder**, and a **deterministic Scanner Brain**.
+
+---
+
+## 14) Developer babysitter (protected surfaces)
+
+Before editing Tier A–D paths listed in [`.cursor/PROTECTED_FILES.md`](.cursor/PROTECTED_FILES.md), invoke the **`developer-babysitter`** subagent for a pre-flight verdict.
+
+Protected paths require explicit approval:
+
+```text
+SPRINT APPROVAL: <sprint-name> — <one-line scope>
+```
