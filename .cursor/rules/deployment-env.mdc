@@ -1,0 +1,382 @@
+---
+description: "WindowMan deployment and environment safety rules. Use when editing environment variables, secrets, deployment config, build settings, Supabase deployment, Edge Function deployment, Vercel/Netlify config, CI/CD, package scripts, or production/runtime configuration."
+alwaysApply: false
+---
+
+# WindowMan Deployment & Environment Rules
+
+These rules apply whenever Cursor touches environment variables, secrets, deployment configuration, build settings, runtime configuration, Supabase deployment, Edge Function deployment, CI/CD, package scripts, or production-related setup.
+
+Deployment and environment changes are high-risk because they can break production without changing visible application code.
+
+---
+
+## 1. Prime Directive
+
+Never expose secrets. Never deploy accidentally. Never assume local and production environments are identical.
+
+Environment and deployment changes must be explicit, reviewable, and reversible.
+
+Do not treat a local fix as production-safe until deployment variables, build behavior, runtime behavior, and rollback path are understood.
+
+---
+
+## 2. Inspect Before Editing
+
+Before editing deployment or environment-related code, inspect the relevant existing implementation.
+
+Check only what is relevant, but prefer this order:
+
+1. `package.json`
+2. lockfile / package manager
+3. workspace config
+4. `.env.example` or env documentation
+5. deployment config files
+6. Supabase config and functions config
+7. Edge Function env usage
+8. CI/CD workflows
+9. build scripts
+10. server/client environment variable usage
+11. existing docs/runbooks for deployment
+12. current error logs if provided
+
+Do not assume:
+
+- package manager
+- deployment provider
+- build command
+- env var names
+- public/private env prefixes
+- Supabase project ref
+- Edge Function names
+- production secrets
+- CI behavior
+- Node/Deno/runtime version
+- local and deployed behavior match
+
+If context is missing, stop and report what must be inspected before editing.
+
+---
+
+## 3. Secret Rules
+
+Never ask for, print, log, paste, or commit raw secrets.
+
+Forbidden in client-side code:
+
+- Supabase service-role key
+- database URL
+- Twilio auth token
+- private API keys
+- webhook secrets
+- admin tokens
+- privileged JWTs
+- production-only credentials
+
+Rules:
+
+- Public env prefixes must never contain secrets.
+- Service-role keys must remain server-only.
+- Database URLs must remain server-only.
+- Secrets must not appear in code comments, docs, logs, screenshots, or generated examples.
+- Use redacted examples only.
+- Do not create fallback secrets in code.
+- Do not hardcode temporary keys.
+- Do not suggest copying production secrets into frontend env files.
+
+Safe redaction examples:
+
+```txt
+SUPABASE_URL=https://xxxxx.supabase.co
+SUPABASE_ANON_KEY=eyJ...redacted
+SUPABASE_SERVICE_ROLE_KEY=***redacted***
+DATABASE_URL=postgresql://user:***@host:5432/db
+TWILIO_AUTH_TOKEN=***redacted***
+```
+
+---
+
+## 4. Environment Variable Rules
+
+Before changing env usage, verify:
+
+- exact env var name
+- whether it is client-safe or server-only
+- local file where it should live
+- deployment provider location where it should be configured
+- whether the variable is required at build time or runtime
+- whether Edge Functions need their own secret configuration
+- whether CI/CD needs it
+- whether docs/examples need updating
+
+Rules:
+
+- Do not rename env vars without checking all consumers.
+- Do not add new env vars without documenting them.
+- Do not expose server-only variables via public prefixes.
+- Do not rely on local `.env` behavior for deployed runtime.
+- Do not assume browser code can access server env vars.
+- Do not assume Edge Functions inherit frontend app env vars.
+- Do not log env values.
+- Do not commit `.env` files unless the repo already explicitly tracks safe examples.
+
+---
+
+## 5. PowerShell and URL Encoding Rules
+
+Be suspicious of shell and URL formatting.
+
+When commands involve Windows PowerShell, verify quoting.
+
+Common risks:
+
+- unquoted env values
+- `&` splitting commands
+- `%` escaping issues
+- `$` interpolation
+- semicolons
+- passwords with special characters
+- database URLs with unencoded characters
+
+Database passwords in URLs must be URL-encoded.
+
+If debugging connection strings, request redacted structure only.
+
+Do not ask for raw passwords.
+
+---
+
+## 6. Package Manager and Scripts
+
+Never assume `npm`.
+
+Before running or recommending commands, inspect:
+
+- `package.json`
+- lockfile
+- workspace config
+- scripts
+- toolchain config
+
+Use the actual project package manager.
+
+Do not invent:
+
+- `npm test`
+- `npm run build`
+- `npm run lint`
+- `pnpm test`
+- `bun run build`
+
+unless those scripts exist.
+
+Do not modify lockfiles unless dependency changes require it.
+
+Do not change package manager.
+
+Do not add dependencies as part of env/deployment work unless explicitly justified.
+
+---
+
+## 7. Build and Runtime Rules
+
+Before changing build or runtime config, verify:
+
+- framework
+- runtime target
+- Node version
+- Deno version if Edge Functions are involved
+- bundler behavior
+- client/server boundaries
+- build command
+- output directory
+- route rewrites
+- environment variable injection timing
+- platform-specific behavior
+
+Rules:
+
+- Do not import server-only code into client bundles.
+- Do not move secrets into client-accessible code to fix build errors.
+- Do not hide build errors by weakening types broadly.
+- Do not change runtime targets without checking affected files.
+- Do not change deployment config without explaining blast radius.
+
+---
+
+## 8. Supabase Deployment Rules
+
+If touching Supabase deployment, also inspect `.cursor/rules/supabase.mdc`.
+
+Before Supabase deployment or config changes, verify:
+
+- project ref
+- local vs remote environment
+- migrations
+- generated types
+- RLS policies
+- Edge Functions
+- secrets
+- storage buckets
+- production risk
+- rollback path
+
+Rules:
+
+- Do not push migrations without understanding current DB state.
+- Do not deploy Edge Functions unless explicitly instructed.
+- Do not assume local Supabase matches remote.
+- Do not expose service-role keys to frontend.
+- Do not run production-impacting commands without explicit approval.
+- Keep local code changes separate from deployment commands.
+
+---
+
+## 9. Edge Function Deployment Rules
+
+Edge Function deployment is separate from code editing.
+
+Before deployment, verify:
+
+- function name
+- project ref
+- required secrets
+- auth/JWT behavior
+- CORS behavior
+- request schema
+- response schema
+- logging
+- idempotency
+- local test result
+- rollback plan
+
+Rules:
+
+- Do not deploy unless explicitly instructed.
+- Do not combine risky code edits and deployment into one opaque step.
+- Do not suggest `supabase functions deploy <name>` unless deployment is requested.
+- Do not log secrets during local serve or deploy.
+- After deployment, require a smoke test.
+
+---
+
+## 10. CI/CD and GitHub Rules
+
+If editing CI/CD or GitHub workflow files, inspect:
+
+- workflow triggers
+- branches
+- secrets used by workflow
+- build/test commands
+- deployment steps
+- permissions
+- cache behavior
+- environment protection rules
+- rollback behavior
+
+Rules:
+
+- Do not broaden workflow permissions unless necessary.
+- Do not print secrets in CI logs.
+- Do not deploy from unintended branches.
+- Do not add production deployment triggers casually.
+- Do not change CI commands without checking package scripts.
+- Do not make CI pass by skipping important checks unless explicitly approved.
+
+---
+
+## 11. Deployment Safety
+
+Before production-affecting changes, require:
+
+- changed-file summary
+- affected environment summary
+- migration/deployment risk
+- rollback path
+- smoke test plan
+- manual approval
+
+Production-affecting actions include:
+
+- deploying app
+- deploying Edge Functions
+- pushing migrations
+- changing production env vars
+- changing CI deployment triggers
+- changing domain/redirect/rewrite config
+- changing auth callback URLs
+- changing storage bucket access
+- changing RLS policies
+
+Do not perform or recommend these casually.
+
+---
+
+## 12. Verification Rules
+
+For deployment/env changes, verification must be concrete.
+
+Relevant checks may include:
+
+- typecheck
+- lint
+- build
+- local dev boot
+- env var presence check using redacted output
+- local Edge Function serve test
+- preview deployment smoke test
+- production smoke test only after explicit deployment
+- auth redirect test
+- Supabase connection test
+- Twilio send test in safe environment
+- no-secrets-in-client-bundle check if relevant
+
+Cursor must report which checks were run and which were not.
+
+Do not claim production verification unless production was actually checked.
+
+---
+
+## 13. Final Response Requirements
+
+After deployment/env-related edits, Cursor must report:
+
+- files changed
+- why each file changed
+- env vars added/renamed/removed
+- deployment config changed
+- CI/CD changed
+- package scripts changed
+- Supabase deployment behavior changed
+- Edge Function deployment behavior changed
+- secrets touched or intentionally not touched
+- tests/checks run
+- manual verification still needed
+- unresolved risks
+- rollback notes
+
+If no files were edited because inspection showed uncertainty, report exactly what is missing.
+
+---
+
+## 14. Hard Red Lines
+
+Never:
+
+- expose secrets to client code
+- print raw secrets
+- commit `.env` secrets
+- invent env var names
+- assume npm
+- assume local equals production
+- deploy without explicit instruction
+- push migrations without explicit instruction
+- broaden CI permissions casually
+- add production deployment triggers casually
+- hide build errors by weakening types broadly
+- move privileged keys into frontend code
+- log sensitive payloads
+- perform destructive commands without approval
+- claim production verification without evidence
+
+When uncertain, stop and inspect.

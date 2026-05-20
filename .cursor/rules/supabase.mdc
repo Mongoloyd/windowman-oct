@@ -1,0 +1,553 @@
+---
+description: "Supabase backend authority rules for WindowMan. Use when editing Supabase migrations, RLS policies, RPCs, database functions, Edge Functions, Supabase clients, storage policies, generated database types, service-role usage, auth-backed database access, or scan/session hydration."
+alwaysApply: false
+---
+Supabase is a backend-authority layer. Treat every change here as security-sensitive, data-sensitive, and production-sensitive.
+
+---
+
+## 1. Prime Directive
+
+Never bypass backend authority.
+
+Canonical workflow state must be enforced by:
+
+- Postgres constraints
+- RLS policies
+- RPCs/database functions
+- Supabase Edge Functions
+- protected server-side services
+
+Do not solve backend authority problems with UI-only patches.
+
+Do not trust client state for:
+
+- user identity
+- ownership
+- authorization
+- scan/session state
+- upload completion
+- final submission state
+- payment/billing state
+- irreversible workflow transitions
+
+---
+
+## 2. Inspect Before Editing
+
+Before editing Supabase-related files, inspect the relevant existing implementation.
+
+Check only what is relevant, but prefer this order:
+
+1. Existing migrations in `supabase/migrations/`
+2. Current table/function/RPC definitions
+3. Current RLS policies
+4. Supabase client initialization files
+5. Generated database types
+6. Call sites consuming the RPC/query/function
+7. Edge Functions if involved
+8. Storage bucket policies if involved
+9. Environment variable usage if involved
+10. Existing tests, scripts, or verification patterns
+
+Do not assume:
+
+- table names
+- column names
+- enum values
+- RPC names
+- RPC return shapes
+- policy names
+- bucket names
+- generated type structure
+- package manager commands
+
+If required context is missing, stop and report what must be inspected before editing.
+
+---
+
+## 3. Service Role and Secret Rules
+
+Never expose privileged secrets to client-side code.
+
+Forbidden in browser/client code:
+
+- Supabase service-role key
+- database connection string
+- admin API keys
+- private webhook secrets
+- privileged JWTs
+- Edge Function secrets
+
+Service-role usage is allowed only in trusted server-side contexts:
+
+- Supabase Edge Functions
+- server-only API routes
+- server actions
+- protected backend services
+- controlled admin scripts
+
+Before using a service-role client, verify:
+
+- the file cannot run in the browser
+- the key is loaded only from server-side env vars
+- the operation genuinely requires elevated privileges
+- user authorization is checked before privileged access
+- logs do not expose secrets or sensitive payloads
+
+Never fix RLS failures by moving a service-role key into frontend code.
+
+---
+
+## 4. RLS Rules
+
+RLS is a security boundary.
+
+Before modifying or relying on RLS, verify:
+
+- RLS is enabled on the table
+- policies exist for the intended operation
+- policies distinguish `SELECT`, `INSERT`, `UPDATE`, and `DELETE`
+- unauthenticated behavior is explicit
+- ownership checks use trusted auth context
+- inserts validate ownership with `WITH CHECK`
+- updates validate both old-row access and new-row validity
+- deletes are intentionally allowed
+- relevant ownership columns are indexed
+
+Rules:
+
+- Never trust client-provided `user_id`.
+- Never use client-side filtering as security.
+- Never use UI route guards as the only protection.
+- Do not rely on user-editable metadata for authorization.
+- Keep unauthenticated, unauthorized, forbidden, not-found, and expired-session states distinct.
+- Prefer explicit `TO authenticated` policies where appropriate.
+- Avoid broad “all authenticated users can read/write” policies unless intentionally shared.
+
+Remember: `auth.uid()` can be null for unauthenticated or expired-session requests.
+
+---
+
+## 5. RPC and Database Function Rules
+
+RPCs and database functions are contracts.
+
+Before creating or changing one, verify:
+
+- function name
+- schema
+- parameters
+- return type
+- nullability
+- security mode
+- grants/permissions
+- search path
+- RLS interaction
+- downstream consumers
+- generated types
+- backward compatibility
+
+Default preference:
+
+- use `SECURITY INVOKER` unless elevated execution is specifically required
+
+If using `SECURITY DEFINER`:
+
+- justify why elevated execution is required
+- set a safe `search_path`
+- schema-qualify referenced tables/functions when appropriate
+- restrict execution privileges
+- verify it cannot bypass ownership checks incorrectly
+- keep the function narrowly scoped
+
+Do not create broad admin RPCs for convenience.
+
+Do not change an RPC signature without finding and updating all consumers.
+
+---
+
+## 6. Hydration RPC Rules
+
+Hydration RPCs such as `get_scan_session_context` are strict backend/frontend contracts.
+
+Treat them as canonical sources of session/workflow state.
+
+Before changing a hydration RPC or its consumers, inspect:
+
+- RPC definition
+- parameters
+- auth/session assumptions
+- exact return shape
+- nullability
+- loading behavior
+- empty-state behavior
+- unauthorized behavior
+- error behavior
+- downstream consumers
+- client state mapping
+- cache/revalidation behavior
+- RLS requirements
+- generated types
+
+Rules:
+
+- Do not duplicate canonical scan/session logic in UI state.
+- Do not derive backend-authoritative session status from scattered client flags.
+- Do not treat null, unauthorized, missing, and empty states as equivalent.
+- Do not patch missing RPC fields across multiple components.
+- If the return shape is insufficient, fix the RPC/protected-service contract.
+- Keep UI consumers thin and predictable.
+- Preserve backward compatibility unless intentionally changing the contract.
+
+Required states to handle explicitly:
+
+- loading
+- valid hydrated session
+- missing session
+- unauthorized/forbidden
+- empty but valid state
+- backend error
+- stale session state
+
+---
+
+## 7. Migration Rules
+
+Migrations are high-risk.
+
+Before creating or editing migrations:
+
+- inspect existing migration naming patterns
+- inspect existing schema conventions
+- inspect dependent RPCs, policies, Edge Functions, and frontend consumers
+- determine whether generated types must be updated
+
+Rules:
+
+- Prefer additive migrations.
+- Avoid destructive migrations unless explicitly approved.
+- Do not casually edit old migrations that may already be applied.
+- Do not drop columns, tables, enum values, functions, policies, or data without explicit warning.
+- Include rollback notes for risky changes.
+- Preserve backward compatibility when possible.
+- Update generated database types if the project uses them.
+- Flag production risk clearly.
+
+High-risk migration actions:
+
+- dropping columns
+- renaming columns
+- changing enum values
+- changing primary keys
+- changing foreign keys
+- modifying RLS policies
+- changing RPC signatures
+- changing storage policies
+- backfilling production data
+- deleting records
+- altering ownership rules
+- changing auth identity linkage
+
+For high-risk migrations, stop and explain blast radius before editing.
+
+---
+
+## 8. Generated Type Rules
+
+If schema, enum, table, view, RPC, function signature, or return shape changes, check whether generated types must be updated.
+
+Before editing generated type files:
+
+- inspect how types are generated
+- do not hand-edit generated files unless the repo already does so
+- prefer the existing generation command
+- verify package manager and scripts first
+- report whether generated types were updated or intentionally left unchanged
+
+Do not use `any` to hide stale generated types.
+
+---
+
+## 9. Supabase Client Rules
+
+Before changing Supabase client code, identify the client type:
+
+- browser/client Supabase client
+- server Supabase client
+- service-role/admin client
+- Edge Function client
+- test/mock client
+
+Rules:
+
+- Browser clients may use public anon keys only.
+- Server clients may access server-only env vars.
+- Service-role clients must never be imported into client components.
+- Auth/session-aware clients must preserve user context.
+- Do not trust client-provided user IDs.
+- Do not bypass RLS when user-scoped behavior is required.
+- Do not create duplicate clients if a project pattern already exists.
+- Do not change global client initialization unless necessary.
+
+When changing client helpers, inspect all call sites.
+
+---
+
+## 10. Edge Function Rules
+
+Supabase Edge Functions are protected backend/service code.
+
+Before editing, inspect:
+
+- function name
+- function directory
+- imports/import map
+- request method
+- CORS behavior
+- auth/JWT validation
+- required secrets
+- request schema
+- response schema
+- error handling
+- logging
+- database access pattern
+- idempotency behavior
+- local test path
+- deployment path
+
+Rules:
+
+- Do not deploy unless explicitly instructed.
+- Separate local code changes from deployment.
+- Validate input server-side.
+- Validate auth/session server-side.
+- Never trust client-provided user IDs.
+- Never expose privileged secrets.
+- Avoid logging secrets or sensitive payloads.
+- Return stable response shapes.
+- Make mutation handlers idempotent where retries are possible.
+- Handle CORS deliberately.
+- Distinguish user errors from internal errors.
+
+Deployment requires explicit user instruction.
+
+Do not run or suggest `supabase functions deploy` as part of a code-only task unless the user explicitly asked for deployment.
+
+---
+
+## 11. Storage Policy Rules
+
+Supabase Storage is backend authority.
+
+Before changing storage logic or policies, verify:
+
+- bucket name
+- public/private bucket status
+- path convention
+- ownership model
+- upload permissions
+- read permissions
+- delete permissions
+- signed URL behavior
+- file size/type validation
+- cleanup behavior for failed uploads
+- relationship between storage object and database row
+
+Rules:
+
+- Do not make private files public unless explicitly intended.
+- Do not trust client-provided paths for ownership.
+- Storage paths should encode ownership safely when relevant.
+- Validate uploads client-side for UX and server-side for authority.
+- Do not trust MIME type alone.
+- Handle duplicate uploads and failed upload cleanup.
+- Verify final upload state server-side before marking workflow complete.
+
+---
+
+## 12. Query Rules
+
+Before changing queries, verify:
+
+- selected columns
+- filters
+- ownership constraints
+- expected cardinality
+- null behavior
+- error behavior
+- pagination needs
+- sorting
+- indexes
+- RLS interaction
+
+Rules:
+
+- Avoid `select('*')` unless justified.
+- Avoid over-fetching sensitive data.
+- Avoid client-side filtering as a security boundary.
+- Add filters that align with RLS predicates when possible.
+- Handle `data`, `error`, and empty results distinctly.
+- Do not ignore Supabase errors.
+- Do not collapse permission errors into fake success.
+- Avoid repeated queries when one authoritative hydration call should provide the state.
+
+---
+
+## 13. Error Handling Rules
+
+Supabase errors must be handled explicitly.
+
+Distinguish:
+
+- unauthenticated
+- unauthorized/forbidden
+- not found
+- validation error
+- constraint violation
+- network failure
+- Edge Function failure
+- unexpected server error
+
+Rules:
+
+- Do not swallow errors silently.
+- Do not leak internal database details to users.
+- Preserve useful diagnostics in server logs.
+- Return stable error shapes from protected services and Edge Functions.
+- Show user-safe messages in the UI.
+- Do not treat backend failure as successful completion.
+
+---
+
+## 14. Concurrency and Idempotency Rules
+
+For any Supabase mutation, ask:
+
+- What happens if the user clicks twice?
+- What happens if the network retries?
+- What happens if two tabs mutate the same record?
+- What happens if the session is stale?
+- What happens if the Edge Function succeeds but the client times out?
+- What happens if upload succeeds but the database update fails?
+- What happens if database update succeeds but UI hydration is stale?
+
+Prefer:
+
+- backend uniqueness constraints
+- idempotency keys where appropriate
+- status transition checks
+- transactions/RPCs for multi-step mutations
+- server-side verification before final state changes
+- explicit retry behavior
+
+Do not rely on disabled buttons alone to prevent duplicate backend mutations.
+
+---
+
+## 15. Environment Variable Rules
+
+Never ask for or expose raw secrets.
+
+When debugging env vars, use redacted structure only.
+
+Check:
+
+- local env file expected by framework
+- deployment env configuration
+- `SUPABASE_URL`
+- anon/public key
+- service-role key
+- database URL
+- Edge Function secrets
+- PowerShell quoting if commands are involved
+- URL encoding for passwords
+- public/private variable prefixes
+
+Rules:
+
+- Public prefixes must never contain secrets.
+- Service-role keys must remain server-only.
+- Database URLs must not be exposed to browser code.
+- Do not log env values.
+- Do not paste secrets into generated code or comments.
+
+---
+
+## 16. Verification Rules
+
+For Supabase changes, verification must be concrete.
+
+Cursor must inspect project scripts before inventing commands.
+
+Do not assume `npm`, `pnpm`, `yarn`, or `bun`.
+
+Verification should include relevant checks:
+
+- typecheck
+- lint
+- build
+- migration validation
+- generated type check
+- local Supabase test if available
+- Edge Function local test if relevant
+- manual app flow test
+- RLS/auth behavior check
+- unauthorized access check
+- regression check for existing users/session flows
+
+For security-sensitive changes, verify both allowed and denied cases.
+
+Example:
+
+- authenticated owner can read/update their own scan session
+- authenticated non-owner cannot read/update it
+- unauthenticated request fails safely
+- UI shows the correct user-safe state
+
+---
+
+## 17. Final Response Requirements
+
+After Supabase-related edits, Cursor must report:
+
+- files changed
+- why each file changed
+- migrations added or changed
+- RPCs/functions changed
+- RLS policies changed
+- generated types updated or not updated
+- Supabase clients changed
+- Edge Functions changed
+- storage policies changed
+- environment variables touched
+- tests/checks run
+- manual verification still needed
+- unresolved risks
+- rollback notes for risky changes
+
+If no files were edited because inspection showed uncertainty, report exactly what is missing.
+
+---
+
+## 18. Hard Red Lines
+
+Never:
+
+- expose service-role keys to client code
+- bypass RLS from browser code
+- trust client-provided user IDs
+- patch backend authority failures in UI only
+- hand-wave missing RLS policies
+- create destructive migrations without explicit warning
+- deploy Edge Functions without explicit instruction
+- change RPC signatures without checking consumers
+- use `any` to hide stale generated types
+- treat unauthorized, missing, and empty states as the same
+- mark uploads/submissions complete based only on client state
+- log secrets
+- fabricate schema details
+- fabricate function signatures
+- fabricate policy behavior
+
+When uncertain, stop and inspect.

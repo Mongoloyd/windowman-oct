@@ -1,0 +1,76 @@
+---
+alwaysApply: false
+---
+---
+description: Always-on WindowMan core safety rules for Cursor. Keep edits small, inspect before editing, preserve working behavior, and avoid dangerous repo mutations.
+globs:
+alwaysApply: true
+---
+
+# WindowMan Core Cursor Rules
+
+These rules always apply in the WindowMan repo.
+
+## 1. Inspect Before Editing
+
+Before making changes, inspect the relevant existing files, nearby patterns, package scripts, and project rules.
+
+If a task touches a specific domain, also inspect the matching rule:
+
+- Supabase/database/RLS/RPC/Edge Functions: `.cursor/rules/supabase.mdc`
+- UI/components/flows/accessibility: `.cursor/rules/ui-ux.mdc`
+- SMS/OTP/Twilio: `.cursor/rules/twilio.mdc`
+- env/deployment/secrets: `.cursor/rules/deployment-env.mdc`
+
+Do not assume file names, package scripts, schemas, routes, or environment variables.
+
+## 2. Smallest Coherent Change
+
+Make the smallest safe change that solves the task.
+
+Do not perform unrelated cleanup, formatting churn, broad rewrites, mass renames, dependency upgrades, or public API changes unless explicitly requested.
+
+Preserve existing working behavior unless the task explicitly changes it.
+
+## 3. Repo Safety
+
+Before non-trivial edits, check current changes when possible.
+
+Do not overwrite unrelated user work.
+
+Do not run or recommend destructive commands without explicit approval:
+
+- `git reset --hard`
+- `git clean -fd`
+- force push
+- destructive migration
+- production deploy
+
+Do not commit unless explicitly asked.
+
+## 4. Dependency Safety
+
+Do not add dependencies unless existing project tools cannot reasonably solve the problem.
+
+Before suggesting installs, inspect `package.json`, lockfiles, workspace config, and existing libraries.
+
+Do not assume npm. Use the repo’s actual package manager.
+
+## 5. Backend Authority
+
+Never trust client state for security-sensitive, database-mutating, ownership, billing, upload-completion, scan/session, or irreversible workflow state.
+
+Do not bypass auth, RLS, backend authority, or protected service boundaries.
+
+Never expose secrets or privileged keys to client code.
+
+## 6. Final Report Required
+
+After edits, report:
+
+- files changed
+- why each file changed
+- tests/checks run
+- assumptions verified
+- unresolved risks
+- manual verification still needed
