@@ -47,15 +47,34 @@ function parseLabMode(modeParam: string | null): LabAccessMode | null {
   return null;
 }
 
+function isLabReportPreviewPath(pathname: string): boolean {
+  return (
+    pathname.startsWith("/visual/report-preview") ||
+    pathname.startsWith("/sandbox/report-preview") ||
+    pathname.startsWith("/dev/report-preview") ||
+    pathname.includes("lab/report-preview")
+  );
+}
+
+function getLabReportPreviewBase(pathname: string): string {
+  if (pathname.startsWith("/visual/report-preview")) return "/visual/report-preview";
+  if (pathname.startsWith("/sandbox/report-preview")) return "/sandbox/report-preview";
+  if (pathname.startsWith("/dev/report-preview")) return "/dev/report-preview";
+  if (pathname.includes("lab/report-preview")) {
+    const idx = pathname.indexOf("lab/report-preview");
+    return pathname.slice(0, idx + "lab/report-preview".length);
+  }
+  return pathname;
+}
+
 function normalizeLabPreviewParams(
   pathname: string,
   params: URLSearchParams,
-): { redirectTo: string } | { accessMode: LabAccessMode } {
-  const base = pathname.startsWith("/visual/report-preview")
-    ? "/visual/report-preview"
-    : "/sandbox/report-preview";
+): { redirectTo: string } | { accessMode: LabAccessMode } | { classic: true } {
+  const base = getLabReportPreviewBase(pathname);
 
   const v = params.get("v");
+  if (v === "classic") return { classic: true };
   const validMode = parseLabMode(params.get("mode"));
 
   if (v !== "v3") {
@@ -86,7 +105,37 @@ export default function DevReportPreview() {
 
   const isVisualLabPreview = location.pathname.startsWith("/visual/report-preview");
   const isSandboxPreview = location.pathname.startsWith("/sandbox/report-preview");
-  const isLabPreview = isVisualLabPreview || isSandboxPreview;
+  const isLabPreview = isLabReportPreviewPath(location.pathname);
+
+  const renderForensicReport = (mode: LabAccessMode) => (
+    <ForensicAuditReport
+      accessLevel={mode}
+      analysisId="abcd-1234-ef56-7829"
+      grade="D-"
+      confidenceScore={78}
+      signalsExtracted={31}
+      signalsTotal={37}
+      flagRedCount={4}
+      flagAmberCount={3}
+      flagClearCount={24}
+      overpaymentLow={3400}
+      overpaymentHigh={4200}
+      overpaymentBasis="Based on Central Florida Impact Window Index, DP 50, single-hung"
+      pricePerOpening={1833}
+      pricePerOpeningBand="high"
+      marketLow={1120}
+      marketHigh={1350}
+      totalContractPrice={22000}
+      totalOpenings={12}
+      flags={MOCK_FLAGS}
+      homeownerName="Maria Gonzalez"
+      propertyAddress="4521 NW 18th Ct, Coconut Creek, FL 33073"
+      propertyType="Single Family"
+      windZone="HVHZ"
+      codeJurisdiction="Broward County"
+      unlockSlot={mode === "preview" ? <PreviewUnlockSlot /> : undefined}
+    />
+  );
 
   if (isLabPreview) {
     const normalized = normalizeLabPreviewParams(location.pathname, params);
@@ -94,36 +143,46 @@ export default function DevReportPreview() {
       return <Navigate to={normalized.redirectTo} replace />;
     }
 
+    if ("classic" in normalized) {
+      return (
+        <>
+          <Helmet>
+            <title>Lab · Report Preview (Classic)</title>
+            <meta name="robots" content="noindex,nofollow" />
+          </Helmet>
+          <LabPreviewBanner label="LAB PREVIEW · CLASSIC ROLLBACK" />
+          <div className="pt-7">
+            <TruthReportClassic
+              grade="D"
+              flags={MOCK_FLAGS}
+              pillarScores={MOCK_PILLARS}
+              contractorName="Sample Contractor LLC"
+              county="Broward"
+              confidenceScore={82}
+              documentType="contractor_quote"
+              accessLevel="full"
+              qualityBand="poor"
+              hasWarranty={true}
+              hasPermits={false}
+              pageCount={3}
+              lineItemCount={8}
+              flagCount={5}
+              flagRedCount={3}
+              flagAmberCount={2}
+              onContractorMatchClick={() => setIntroRequested(true)}
+              onReportHelpCall={() => setReportCallRequested(true)}
+              onSecondScan={() => window.location.assign("/")}
+              introRequested={introRequested}
+              reportCallRequested={reportCallRequested}
+              suggestedMatch={introRequested ? MOCK_MATCH : null}
+            />
+          </div>
+        </>
+      );
+    }
+
     const mode = normalized.accessMode;
-    const report = (
-      <ForensicAuditReport
-        accessLevel={mode}
-        analysisId="abcd-1234-ef56-7829"
-        grade="D-"
-        confidenceScore={78}
-        signalsExtracted={31}
-        signalsTotal={37}
-        flagRedCount={4}
-        flagAmberCount={3}
-        flagClearCount={24}
-        overpaymentLow={3400}
-        overpaymentHigh={4200}
-        overpaymentBasis="Based on Central Florida Impact Window Index, DP 50, single-hung"
-        pricePerOpening={1833}
-        pricePerOpeningBand="high"
-        marketLow={1120}
-        marketHigh={1350}
-        totalContractPrice={22000}
-        totalOpenings={12}
-        flags={MOCK_FLAGS}
-        homeownerName="Maria Gonzalez"
-        propertyAddress="4521 NW 18th Ct, Coconut Creek, FL 33073"
-        propertyType="Single Family"
-        windZone="HVHZ"
-        codeJurisdiction="Broward County"
-        unlockSlot={mode === "preview" ? <PreviewUnlockSlot /> : undefined}
-      />
-    );
+    const report = renderForensicReport(mode);
 
     if (isVisualLabPreview) {
       return (
@@ -150,37 +209,38 @@ export default function DevReportPreview() {
     );
   }
 
-  if (params.get("v") === "v3") {
-    const mode = params.get("mode") === "preview" ? "preview" : "full";
+  if (params.get("v") === "classic") {
     return (
-      <ForensicAuditReport
-        accessLevel={mode}
-        analysisId="abcd-1234-ef56-7829"
-        grade="D-"
-        confidenceScore={78}
-        signalsExtracted={31}
-        signalsTotal={37}
-        flagRedCount={4}
-        flagAmberCount={3}
-        flagClearCount={24}
-        overpaymentLow={3400}
-        overpaymentHigh={4200}
-        overpaymentBasis="Based on Central Florida Impact Window Index, DP 50, single-hung"
-        pricePerOpening={1833}
-        pricePerOpeningBand="high"
-        marketLow={1120}
-        marketHigh={1350}
-        totalContractPrice={22000}
-        totalOpenings={12}
+      <TruthReportClassic
+        grade="D"
         flags={MOCK_FLAGS}
-        homeownerName="Maria Gonzalez"
-        propertyAddress="4521 NW 18th Ct, Coconut Creek, FL 33073"
-        propertyType="Single Family"
-        windZone="HVHZ"
-        codeJurisdiction="Broward County"
-        unlockSlot={mode === "preview" ? <PreviewUnlockSlot /> : undefined}
+        pillarScores={MOCK_PILLARS}
+        contractorName="Sample Contractor LLC"
+        county="Broward"
+        confidenceScore={82}
+        documentType="contractor_quote"
+        accessLevel="full"
+        qualityBand="poor"
+        hasWarranty={true}
+        hasPermits={false}
+        pageCount={3}
+        lineItemCount={8}
+        flagCount={5}
+        flagRedCount={3}
+        flagAmberCount={2}
+        onContractorMatchClick={() => setIntroRequested(true)}
+        onReportHelpCall={() => setReportCallRequested(true)}
+        onSecondScan={() => window.location.assign("/")}
+        introRequested={introRequested}
+        reportCallRequested={reportCallRequested}
+        suggestedMatch={introRequested ? MOCK_MATCH : null}
       />
     );
+  }
+
+  if (params.get("v") === "v3") {
+    const mode = params.get("mode") === "preview" ? "preview" : "full";
+    return renderForensicReport(mode);
   }
 
   return (
