@@ -134,6 +134,7 @@ export default function ReportClassic() {
 
   // ── OTP value state ────────────────────────────────────────────────────
   const [otpValue, setOtpValue] = useState("");
+  const [tcpaConsent, setTcpaConsent] = useState(false);
 
   // ── CTA post-click state ───────────────────────────────────────────────
   const [introRequested, setIntroRequested] = useState(false);
@@ -531,6 +532,8 @@ export default function ReportClassic() {
     phoneDigitCount: pipeline.rawDigits.length,
     onPhoneChange: pipeline.handlePhoneChange,
     onPhoneSubmit: handlePhoneSubmit,
+    tcpaConsent,
+    onTcpaChange: setTcpaConsent,
     isLoading: pipeline.phoneStatus === "sending_otp" || pipeline.phoneStatus === "verifying" || isLoadingFull,
     errorMsg: pipeline.errorMsg || fullFetchError || "",
     errorType: pipeline.errorType ?? undefined,
