@@ -1,15 +1,15 @@
 /**
- * PartialRevealHero — premium forensic teaser shown ONLY in preview/locked mode.
+ * PartialRevealHero — FOG layer of the forensic ritual.
  *
- * Pure presentation. No data fetch, no gating logic. Receives the same numeric
- * props the ExecutiveSummaryCard does and re-presents them as a high-conversion
- * teaser: headline → grade → 3 metric tiles → locked teaser block.
+ * Pure presentation. No data fetch, no gating logic. Same prop signature as
+ * before; visual hierarchy now leads with a dominant, frosted, grade-tinted
+ * verdict plate ("the glass before it clears") and falls down to severity
+ * counts, metric tiles, and a locked teaser pointing at the OTP gate.
  *
- * Full reveal continues to use ExecutiveSummaryCard. This component is only
- * rendered when `accessLevel === "preview"`.
+ * Rendered only when the orchestrator passes accessLevel === "preview".
  */
 import { Lock, AlertOctagon, DollarSign, FileWarning } from "lucide-react";
-import GradeDial from "./GradeDial";
+import WindowManMark from "./WindowManMark";
 
 interface Props {
   grade: string;
@@ -32,6 +32,20 @@ function midpoint(a?: number | null, b?: number | null): number | null {
   return a ?? b ?? null;
 }
 
+type Band = {
+  rgb: string;
+  tone: "good" | "fair" | "poor" | "critical";
+};
+
+function gradeBand(grade: string): Band {
+  const g = (grade || "").toUpperCase().charAt(0);
+  if (g === "A") return { rgb: "16, 185, 129", tone: "good" };
+  if (g === "B") return { rgb: "132, 204, 22", tone: "good" };
+  if (g === "C") return { rgb: "245, 158, 11", tone: "fair" };
+  if (g === "D") return { rgb: "239, 68, 68", tone: "poor" };
+  return { rgb: "220, 38, 38", tone: "critical" };
+}
+
 export default function PartialRevealHero({
   grade,
   flagRedCount,
@@ -42,7 +56,10 @@ export default function PartialRevealHero({
   signalsExtracted,
   signalsTotal,
 }: Props) {
-  // "Missing Regulatory Items" = signals expected but not found
+  const band = gradeBand(grade);
+  const totalIssues = flagRedCount + flagAmberCount;
+
+  // "Missing Regulatory Items" = signals expected but not found (preserved from prior behavior)
   const missingRegulatory =
     signalsTotal != null && signalsExtracted != null
       ? Math.max(0, signalsTotal - signalsExtracted)
@@ -53,28 +70,70 @@ export default function PartialRevealHero({
   return (
     <section
       className="relative fr-card overflow-hidden"
+      aria-label="Forensic audit preview"
       style={{
-        borderColor: "hsl(var(--fr-danger) / 0.45)",
-        boxShadow:
-          "0 0 0 1px hsl(var(--fr-danger) / 0.15), 0 24px 70px -28px hsl(var(--fr-danger) / 0.35), 0 8px 32px -12px hsl(220 60% 2% / 0.7)",
+        borderColor: `rgba(${band.rgb}, 0.45)`,
+        boxShadow: `0 0 0 1px rgba(${band.rgb}, 0.15), 0 24px 70px -28px rgba(${band.rgb}, 0.35), 0 8px 32px -12px hsl(220 60% 2% / 0.7)`,
       }}
     >
-      {/* Soft red glow wash, behind everything */}
+      {/* Layer 1 — grade-tinted radial wash from the top */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
         style={{
-          background:
-            "radial-gradient(60% 50% at 50% 0%, hsl(var(--fr-danger) / 0.18) 0%, hsl(var(--fr-danger) / 0.04) 35%, transparent 70%)",
+          background: `radial-gradient(70% 60% at 50% 0%, rgba(${band.rgb}, 0.20) 0%, rgba(${band.rgb}, 0.05) 38%, transparent 72%)`,
         }}
       />
 
-      <div className="relative p-6 sm:p-8">
-        {/* Eyebrow */}
-        <div className="inline-flex items-center gap-2 mb-3 px-2.5 py-1 rounded-full border border-[hsl(var(--fr-danger)/0.35)] bg-[hsl(var(--fr-danger)/0.08)]">
-          <span className="inline-flex h-1.5 w-1.5 rounded-full bg-[hsl(var(--fr-danger))] shadow-[0_0_10px_hsl(var(--fr-danger)/0.8)]" />
-          <span className="fr-mono text-[10px] font-bold tracking-[0.18em] text-[hsl(var(--fr-danger))]">
-            FORENSIC AUDIT · PREVIEW LOCKED
+      {/* Layer 2 — frosted scan-line / condensation texture */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-[0.35] mix-blend-overlay"
+        style={{
+          background:
+            "repeating-linear-gradient(180deg, hsl(0 0% 100% / 0.04) 0px, hsl(0 0% 100% / 0.04) 1px, transparent 1px, transparent 3px)",
+        }}
+      />
+
+      {/* Layer 3 — soft inner vignette to deepen the glass feel */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          boxShadow:
+            "inset 0 1px 0 hsl(0 0% 100% / 0.05), inset 0 -80px 120px -60px hsl(220 60% 2% / 0.6)",
+        }}
+      />
+
+      {/* WindowMan presence — corner watermark, no face, no motion */}
+      <WindowManMark
+        size={28}
+        opacity={0.18}
+        className="absolute top-4 right-4 sm:top-6 sm:right-6"
+        style={{ color: `rgba(${band.rgb}, 1)` }}
+      />
+
+      <div className="relative p-6 sm:p-8 md:p-10">
+        {/* Eyebrow — tinted to grade band */}
+        <div
+          className="inline-flex items-center gap-2 mb-3 px-2.5 py-1 rounded-full"
+          style={{
+            border: `1px solid rgba(${band.rgb}, 0.35)`,
+            background: `rgba(${band.rgb}, 0.08)`,
+          }}
+        >
+          <span
+            className="inline-flex h-1.5 w-1.5 rounded-full"
+            style={{
+              background: `rgb(${band.rgb})`,
+              boxShadow: `0 0 10px rgba(${band.rgb}, 0.8)`,
+            }}
+          />
+          <span
+            className="fr-mono text-[10px] font-bold tracking-[0.18em] uppercase"
+            style={{ color: `rgb(${band.rgb})` }}
+          >
+            Forensic Audit · Preview Locked
           </span>
         </div>
 
@@ -86,95 +145,183 @@ export default function PartialRevealHero({
           WindowMan reviewed your quote like a private forensic second opinion.
           Here's the preview of what we found before you sign.
         </p>
-        {flagRedCount + flagAmberCount > 0 && (
+        {totalIssues > 0 && (
           <p className="mt-2 text-sm sm:text-base text-slate-200 leading-relaxed">
             We found{" "}
-            <span className="font-bold text-[hsl(var(--fr-danger))]">
-              {flagRedCount + flagAmberCount}
+            <span
+              className="font-bold"
+              style={{ color: `rgb(${band.rgb})` }}
+            >
+              {totalIssues}
             </span>{" "}
-            {flagRedCount + flagAmberCount === 1 ? "issue" : "issues"} with your estimate.
+            {totalIssues === 1 ? "issue" : "issues"} with your estimate.
           </p>
         )}
 
-        {/* Grade + tiles row */}
-        <div className="mt-7 grid grid-cols-1 md:grid-cols-[auto_1fr] gap-7 md:gap-8 items-center">
-          {/* Grade badge */}
-          <div className="flex flex-col items-center md:items-start gap-2">
-            <GradeDial grade={grade} />
-            <span className="fr-mono text-[10px] font-bold tracking-[0.2em] text-slate-200 uppercase">
-              Audit Verdict · Quote Grade
-            </span>
+        {/* Dominant grade plate — the focal point of the FOG layer */}
+        <div className="mt-8 sm:mt-10 flex flex-col items-center text-center">
+          <div
+            className="relative flex items-center justify-center"
+            style={{ width: "min(190px, 60vw)", height: "min(190px, 60vw)" }}
+          >
+            {/* Outer halo */}
+            <div
+              aria-hidden
+              className="absolute -inset-3 rounded-full"
+              style={{
+                background: `radial-gradient(circle, rgba(${band.rgb}, 0.22) 0%, rgba(${band.rgb}, 0.08) 50%, transparent 75%)`,
+                filter: "blur(10px)",
+              }}
+            />
+            {/* Frosted plate */}
+            <div
+              className="relative flex items-center justify-center rounded-full"
+              style={{
+                width: "100%",
+                height: "100%",
+                background: `linear-gradient(180deg, rgba(${band.rgb}, 0.18) 0%, rgba(${band.rgb}, 0.08) 55%, hsl(var(--fr-surface) / 0.65) 100%)`,
+                border: `1.5px solid rgba(${band.rgb}, 0.45)`,
+                backdropFilter: "blur(12px)",
+                WebkitBackdropFilter: "blur(12px)",
+                boxShadow: `inset 0 1px 0 hsl(0 0% 100% / 0.08), inset 0 -2px 0 rgba(0,0,0,0.25), 0 12px 40px -10px rgba(${band.rgb}, 0.35)`,
+              }}
+            >
+              <span
+                className="font-mono font-extrabold leading-none text-[4.5rem] sm:text-[5.5rem] md:text-[6.25rem]"
+                style={{
+                  color: `rgb(${band.rgb})`,
+                  letterSpacing: "0.02em",
+                  textShadow: `0 0 28px rgba(${band.rgb}, 0.55)`,
+                }}
+                aria-label={`Quote grade ${grade}`}
+              >
+                {grade}
+              </span>
+            </div>
+          </div>
+          <div className="mt-4 fr-mono text-[11px] font-bold tracking-[0.22em] text-slate-200 uppercase">
+            Audit Verdict · Quote Grade
           </div>
 
-          {/* Three metric tiles */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <MetricTile
-              variant="critical"
-              icon={<AlertOctagon size={16} />}
-              value={String(flagRedCount)}
-              label="Critical Issues Detected"
-            />
-            <MetricTile
-              variant="warning"
-              icon={<DollarSign size={16} />}
-              value={overpayMid != null ? fmtMoney(overpayMid) : "—"}
-              label="Potential Overcharge"
-            />
-            <MetricTile
-              variant="info"
-              icon={<FileWarning size={16} />}
-              value={String(missingRegulatory)}
-              label="Missing Regulatory Items"
-            />
-          </div>
+          {/* Inline severity summary */}
+          {totalIssues > 0 && (
+            <div className="mt-4 inline-flex items-center gap-3 text-sm font-medium text-slate-200">
+              <span className="inline-flex items-center gap-1.5">
+                <span
+                  className="h-2 w-2 rounded-full"
+                  style={{
+                    background: "hsl(var(--fr-danger))",
+                    boxShadow: "0 0 8px hsl(var(--fr-danger) / 0.6)",
+                  }}
+                />
+                <span className="tabular-nums">{flagRedCount}</span>{" "}
+                <span className="text-slate-300">critical</span>
+              </span>
+              <span aria-hidden className="text-slate-600">·</span>
+              <span className="inline-flex items-center gap-1.5">
+                <span
+                  className="h-2 w-2 rounded-full"
+                  style={{
+                    background: "hsl(var(--fr-caution))",
+                    boxShadow: "0 0 8px hsl(var(--fr-caution) / 0.6)",
+                  }}
+                />
+                <span className="tabular-nums">{flagAmberCount}</span>{" "}
+                <span className="text-slate-300">warnings</span>
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* Locked teaser block */}
+        {/* Metric tiles — frosted, secondary to the grade */}
+        <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <MetricTile
+            variant="critical"
+            icon={<AlertOctagon size={16} />}
+            value={String(flagRedCount)}
+            label="Critical Issues Detected"
+          />
+          <MetricTile
+            variant="warning"
+            icon={<DollarSign size={16} />}
+            value={overpayMid != null ? fmtMoney(overpayMid) : "—"}
+            label="Potential Overcharge"
+          />
+          <MetricTile
+            variant="info"
+            icon={<FileWarning size={16} />}
+            value={String(missingRegulatory)}
+            label="Missing Regulatory Items"
+          />
+        </div>
+
+        {/* Locked teaser block — points at the OTP gate */}
         <div
-          className="mt-8 relative rounded-2xl p-5 sm:p-7 text-center"
+          className="mt-8 relative rounded-2xl p-5 sm:p-7 text-center overflow-hidden"
           style={{
-            background: "hsl(var(--fr-bg) / 0.75)",
+            background: "hsl(var(--fr-bg) / 0.78)",
             border: "1px solid hsl(var(--fr-border) / 0.9)",
-            boxShadow: "inset 0 1px 0 hsl(0 0% 100% / 0.04), 0 8px 28px -16px hsl(220 60% 2% / 0.6)",
-            backdropFilter: "blur(8px)",
-            WebkitBackdropFilter: "blur(8px)",
+            boxShadow:
+              "inset 0 1px 0 hsl(0 0% 100% / 0.05), 0 8px 28px -16px hsl(220 60% 2% / 0.6)",
+            backdropFilter: "blur(10px)",
+            WebkitBackdropFilter: "blur(10px)",
           }}
         >
+          {/* Frosted underlay — subtle grade tint on the locked block */}
           <div
-            className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full"
+            aria-hidden
+            className="pointer-events-none absolute inset-0"
             style={{
-              background: "hsl(var(--fr-cyan) / 0.14)",
-              border: "1px solid hsl(var(--fr-cyan) / 0.45)",
-              boxShadow: "0 0 24px -6px hsl(var(--fr-cyan) / 0.35)",
+              background: `radial-gradient(80% 60% at 50% 0%, rgba(${band.rgb}, 0.10) 0%, transparent 60%)`,
             }}
-          >
-            <span className="text-[28px] leading-none">🔒</span>
-          </div>
-          <p className="fr-mono text-[10px] font-bold tracking-[0.2em] text-[hsl(var(--fr-cyan-soft))] mb-2">
-            Scan Complete · Case File Created
-          </p>
-          <h2 className="text-lg sm:text-xl font-bold text-white leading-snug mb-2">
-            Unlock Your Private Truth Report
-          </h2>
-          <p className="text-sm sm:text-base text-slate-300 leading-relaxed max-w-xl mx-auto">
-            Your quote received a{" "}
-            <span className="font-bold text-[hsl(var(--fr-danger))]">{grade}</span>.
-            We detected{" "}
-            <span className="font-bold text-[hsl(var(--fr-danger))]">
-              {missingRegulatory} missing regulatory line item
-              {missingRegulatory === 1 ? "" : "s"}
-            </span>{" "}
-            and a potential overcharge of{" "}
-            <span className="font-bold text-[hsl(var(--fr-caution))]">
-              {overpayMid != null ? fmtMoney(overpayMid) : "—"}
-            </span>
-            . Verify your phone to access your full Forensic Audit.
-          </p>
-          {overpaymentBasis && (
-            <p className="mt-3 text-[11px] leading-snug max-w-md mx-auto text-slate-400">
-              {overpaymentBasis}
+          />
+
+          <div className="relative">
+            <div
+              className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full"
+              style={{
+                background: "hsl(var(--fr-cyan) / 0.14)",
+                border: "1px solid hsl(var(--fr-cyan) / 0.45)",
+                boxShadow: "0 0 24px -6px hsl(var(--fr-cyan) / 0.35)",
+                color: "hsl(var(--fr-cyan-soft))",
+              }}
+            >
+              <Lock size={20} strokeWidth={2.25} />
+            </div>
+            <p className="fr-mono text-[10px] font-bold tracking-[0.2em] text-[hsl(var(--fr-cyan-soft))] mb-2 uppercase">
+              Scan Complete · Case File Created
             </p>
-          )}
+            <h2 className="text-lg sm:text-xl font-bold text-white leading-snug mb-2">
+              Unlock Your Private Truth Report
+            </h2>
+            <p className="text-sm sm:text-base text-slate-300 leading-relaxed max-w-xl mx-auto">
+              Your quote received a{" "}
+              <span
+                className="font-bold"
+                style={{ color: `rgb(${band.rgb})` }}
+              >
+                {grade}
+              </span>
+              . We detected{" "}
+              <span
+                className="font-bold"
+                style={{ color: `rgb(${band.rgb})` }}
+              >
+                {missingRegulatory} missing regulatory line item
+                {missingRegulatory === 1 ? "" : "s"}
+              </span>{" "}
+              and a potential overcharge of{" "}
+              <span className="font-bold text-[hsl(var(--fr-caution))]">
+                {overpayMid != null ? fmtMoney(overpayMid) : "—"}
+              </span>
+              . Verify your phone to access your full Forensic Audit.
+            </p>
+            {overpaymentBasis && (
+              <p className="mt-3 text-[11px] leading-snug max-w-md mx-auto text-slate-400">
+                {overpaymentBasis}
+              </p>
+            )}
+          </div>
         </div>
       </div>
     </section>
@@ -209,7 +356,13 @@ function MetricTile({
         : "--fr-cyan-soft";
 
   return (
-    <div className={`fr-tile fr-tile--${variant} text-center relative overflow-hidden pt-4`}>
+    <div
+      className={`fr-tile fr-tile--${variant} text-center relative overflow-hidden pt-4`}
+      style={{
+        backdropFilter: "blur(6px)",
+        WebkitBackdropFilter: "blur(6px)",
+      }}
+    >
       <div
         aria-hidden
         className="absolute top-0 left-0 right-0 h-[2px]"
@@ -219,7 +372,7 @@ function MetricTile({
       />
       <div className={`flex items-center justify-center gap-1.5 ${colorClass}`}>
         {icon}
-        <span className="font-mono text-2xl sm:text-3xl font-extrabold leading-none tracking-tight">
+        <span className="font-mono text-2xl sm:text-3xl font-extrabold leading-none tracking-tight tabular-nums">
           {value}
         </span>
       </div>
