@@ -1,3 +1,298 @@
 ---
-alwaysApply: true
+description: Use intelligently for UI/UX, visual design, report skins, landing pages, Tailwind/shadcn components, animations, responsive layout, accessibility, and conversion-focused copy.
+alwaysApply: false
 ---
+
+# WindowMan UI/UX Rules
+
+These rules apply whenever Cursor touches frontend UI, React components, pages, user flows, styling, accessibility, or Lovable-generated code.
+
+UI is the presentation layer. It may display state, stage user input, and improve usability. It must not become the source of truth for security-sensitive, database-mutating, ownership, billing, upload-completion, scan/session, or irreversible workflow state.
+
+---
+
+## 1. Prime Directive
+
+Never solve backend authority problems in the UI.
+
+The UI must not be trusted for:
+
+- user identity
+- authorization
+- ownership
+- scan/session state
+- upload completion
+- final submission state
+- billing/payment state
+- irreversible workflow transitions
+
+If UI behavior depends on missing backend data, do not fake it with local state. Route the issue to the protected service, RPC, Edge Function, or backend authority layer.
+
+If frontend work touches Supabase, RLS, RPCs, Edge Functions, storage, or generated types, also inspect `.cursor/rules/supabase.mdc`.
+
+---
+
+## 2. Lovable Rules
+
+Lovable is allowed to generate UI only.
+
+Lovable-generated code must not define or invent:
+
+- canonical business logic
+- database writes
+- fake RPC return shapes
+- fake Supabase clients
+- fake Twilio/OTP flows
+- authorization logic
+- ownership checks
+- final workflow status
+- service-role behavior
+- production routing behavior
+
+When importing or modifying Lovable output:
+
+- preserve the visual idea only if it fits WindowMan
+- strip hallucinated backend logic
+- replace fake data with real typed props or existing service boundaries
+- keep components thin
+- move business rules out of the component
+- verify accessibility
+- verify responsive behavior
+- verify no new dependency was added casually
+
+Lovable is a visual drafting tool, not the system architect.
+
+---
+
+## 3. Visual Style
+
+Default to restrained, premium, enterprise UI.
+
+Use:
+
+- native OS system font stack
+- clear hierarchy
+- accessible contrast
+- precise spacing
+- subtle depth
+- restrained shadows
+- crisp cards and panels
+- deliberate empty/loading/error states
+- minimal animation
+- explicit user control
+
+Preferred font stack:
+
+```css
+font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+Reject custom web fonts by default unless explicitly required for brand reasons.
+
+Avoid:
+
+noisy gradients
+gratuitous glassmorphism
+excessive skeuomorphism
+novelty animations
+overdesigned decorative elements
+vague “AI startup” visual clutter
+layout shifts caused by font or asset loading
+4. User Flow Rules
+
+For uploads, submissions, scans, payments, verification, or irreversible actions:
+
+prefer staged flows
+require explicit user action
+avoid surprise auto-advance
+show clear progress
+show clear success and failure states
+allow recovery where possible
+prevent duplicate submissions in the UI
+still rely on backend authority for final state
+do not mark completion from client-only flags
+
+File upload flows must separate:
+
+file selected
+file staged
+user confirms
+upload starts
+upload succeeds or fails
+backend verifies final state
+UI reflects authoritative result
+
+Do not auto-advance the funnel unless explicitly requested and verified as safe.
+
+5. Component Boundaries
+
+Keep UI components focused on presentation and interaction.
+
+Components may handle:
+
+local UI state
+form input state
+visual loading states
+staged previews
+local validation for user experience
+calling existing service hooks/functions
+
+Components must not contain:
+
+canonical business authority
+ownership decisions
+permission checks as the only protection
+direct privileged API calls
+service-role usage
+hardcoded fake backend results
+duplicated RPC logic
+large orchestration workflows
+
+If logic grows large, extract it to the appropriate existing hook, service, route, protected service, or backend layer.
+
+6. Frontend State Rules
+
+Use frontend state for temporary UI concerns only.
+
+Good frontend state:
+
+modal open/closed
+selected tab
+staged file before upload
+form field values
+local validation messages
+optimistic display only when safe
+temporary preview state
+
+Bad frontend state:
+
+“this scan is complete”
+“this upload is verified”
+“this user owns this record”
+“this payment is settled”
+“this OTP is valid”
+“this session is authorized”
+“this backend mutation succeeded” without backend confirmation
+
+Do not duplicate canonical server state across scattered components.
+
+7. Accessibility Rules
+
+Accessibility is required.
+
+When editing UI, preserve or improve:
+
+semantic HTML
+keyboard navigation
+visible focus states
+form labels
+accessible error messages
+contrast
+touch target size
+reduced-motion compatibility
+screen-reader-safe status changes
+logical heading order
+real buttons for actions
+real links for navigation
+
+Do not use div or span as buttons.
+
+Do not remove focus outlines unless replacing them with visible accessible focus styles.
+
+Do not rely on color alone to communicate state.
+
+Do not add motion that ignores reduced-motion preferences.
+
+8. Error, Loading, and Empty States
+
+Every user-facing async flow should distinguish:
+
+loading
+empty
+unauthorized
+forbidden
+not found
+validation error
+backend error
+network error
+success
+
+Do not collapse everything into theatrical loading.
+
+Do not hide backend errors behind indefinite spinners.
+
+Do not show success until the backend/protected service confirms success.
+
+For the scan flow specifically, avoid UI that stays permanently in “processing,” “analyzing,” “theatrics,” or similar visual states without exposing the actual failed dependency.
+
+9. Dependency Rules
+
+Do not add UI dependencies casually.
+
+Before adding:
+
+UI kits
+icon libraries
+animation libraries
+form libraries
+state managers
+date libraries
+styling systems
+
+inspect existing dependencies and patterns.
+
+Prefer existing stack and components.
+
+Do not modify lockfiles unless a dependency change is explicitly justified.
+
+Do not introduce heavy UI libraries for one component.
+
+10. Responsive and Layout Rules
+
+UI must work across reasonable viewport sizes.
+
+Check:
+
+mobile width
+desktop width
+long text
+empty content
+error content
+loading skeletons
+overflow behavior
+scroll behavior
+sticky/fixed elements
+keyboard/focus behavior
+modals/dialogs
+
+Avoid layout that only works for the happy-path screenshot.
+
+11. Performance Rules
+
+Avoid frontend performance regressions.
+
+Watch for:
+
+unnecessary re-renders
+repeated polling
+duplicate network calls
+oversized components
+excessive client hydration
+heavy animation
+unbounded lists
+large images/assets without sizing
+importing server-only code into client components
+
+Do not optimize prematurely, but do not introduce obvious waste.
+
+12. Final Response Requirements
+
+After UI/UX edits, Cursor must report:
+
+files changed
+why each file changed
+whether any backend, auth, Supabase, Twilio, or routing behavior changed
+accessibility checks performed
+responsive checks performed
+manual verification needed
+unresolved risks
+
+If the UI issue appears to be caused by backend/RPC/auth failure, stop and report that instead of masking it in the component.

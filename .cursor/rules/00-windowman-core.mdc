@@ -1,9 +1,5 @@
 ---
-alwaysApply: false
----
----
-description: Always-on WindowMan core safety rules for Cursor. Keep edits small, inspect before editing, preserve working behavior, and avoid dangerous repo mutations.
-globs:
+description: Core WindowMan project guardrails. Always apply to every AI-assisted task in this repo.
 alwaysApply: true
 ---
 
