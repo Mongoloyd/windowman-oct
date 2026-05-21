@@ -38,8 +38,25 @@ const PIPELINE_TO_OUTCOME: Record<string, OtpVerifyOutcome> = {
 const LOST_SCAN_SESSION_MESSAGE = "We lost the scan session. Please restart the scan.";
 
 // ── GateMode derivation ─────────────────────────────────────────────────────
-function deriveGateMode(funnelPhoneStatus: string | undefined, funnelPhoneE164: string | null | undefined): GateMode {
+function deriveGateMode(
+  funnelPhoneStatus: string | undefined,
+  funnelPhoneE164: string | null | undefined,
+  pipelineStatus?: string
+): GateMode {
   if (funnelPhoneStatus === "otp_sent" || funnelPhoneStatus === "verified") {
+    return "enter_code";
+  }
+  // Fallback for direct-URL navigation where funnel.scanSessionId doesn't
+  // match the route's sessionId (isSessionMatch = false, so gatedPhoneStatus
+  // is always undefined). The pipeline's own status is authoritative for UX
+  // transitions; the backend remains the authority for actual data access.
+  // "verifying" is included so the OTP screen does not flicker back to phone
+  // entry during the verify-otp HTTP roundtrip.
+  if (
+    pipelineStatus === "otp_sent" ||
+    pipelineStatus === "verifying" ||
+    pipelineStatus === "verified"
+  ) {
     return "enter_code";
   }
   if (funnelPhoneE164) {
@@ -164,12 +181,18 @@ export default function ReportClassic() {
     };
   }, [sessionId, isFullLoaded]);
 
-  // ── Gate mode derived from funnel state ────────────────────────────────
-  const gateMode = deriveGateMode(gatedPhoneStatus, gatedPhoneE164);
+  // ── Gate mode derived from funnel state (+ pipeline fallback) ─────────
+  const gateMode = deriveGateMode(gatedPhoneStatus, gatedPhoneE164, pipeline.phoneStatus);
 
   // ── Dev-only invariant assertion ───────────────────────────────────────
+  // Allow either the funnel-bound phone OR the pipeline's own normalized E.164.
+  // After the deriveGateMode pipeline-status fallback, direct-URL navigation
+  // can reach "enter_code" with the verified phone held in pipeline.e164 even
+  // when funnel.scanSessionId does not match the route (so gatedPhoneE164
+  // remains null). Backend authorization is still the authority for reveal.
   if (import.meta.env.DEV) {
-    if (gateMode === "enter_code" && !gatedPhoneE164) {
+    const phoneAvailable = !!gatedPhoneE164 || !!pipeline.e164;
+    if (gateMode === "enter_code" && !phoneAvailable) {
       throw new Error(
         "Invariant violation: OTP UI rendered without phone input for current session."
       );
