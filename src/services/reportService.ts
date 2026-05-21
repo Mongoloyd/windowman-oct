@@ -1,8 +1,16 @@
 /**
  * reportService — Supabase transport for the analysis/report pipeline.
  *
- * Owns all RPC calls, response parsing, and error normalization.
+ * Owns transport, response parsing, and error normalization.
  * Hooks call these functions instead of touching supabase directly.
+ *
+ * Preview and full report fetches route through the `report-access` Edge Function
+ * (service-role proxy) because get_analysis_preview and get_analysis_full are
+ * SECURITY DEFINER RPCs executable only by service_role.
+ * Direct browser supabase.rpc() calls to those RPCs will always fail.
+ *
+ * Scan status uses supabase.rpc() directly (not service_role-restricted).
+ * Dev bypass uses the dev-report-unlock Edge Function (dev/staging only).
  */
 
 import { supabase } from "@/integrations/supabase/client";
@@ -38,14 +46,20 @@ export async function fetchAnalysisPreview(
   scanSessionId: string
 ): Promise<ServiceResult<RawPreviewRow | null>> {
   try {
-    const { data: rows, error: rpcErr } = await supabase.rpc(
-      "get_analysis_preview",
-      { p_scan_session_id: scanSessionId }
+    const { data: fnData, error: fnErr } = await supabase.functions.invoke(
+      "report-access",
+      { body: { mode: "preview", scan_session_id: scanSessionId } }
     );
-    if (rpcErr) {
-      return { ok: false, code: "rpc_error", message: rpcErr.message };
+    if (fnErr) {
+      return { ok: false, code: "rpc_error", message: String(fnErr) };
     }
-    const row = (Array.isArray(rows) ? rows[0] : rows) as any;
+    // Unwrap Edge Function envelope: { ok: true, mode: "preview", data: <row> }
+    // A not-yet-ready analysis returns { ok: false, error: "..." } — treat as
+    // null so useAnalysisData retries (same behavior as the previous RPC path).
+    const row =
+      fnData?.ok === true && fnData?.mode === "preview" && fnData?.data
+        ? (fnData.data as any)
+        : null;
     if (!row || !row.grade) {
       return { ok: true, data: null };
     }
@@ -76,23 +90,29 @@ export async function fetchAnalysisFull(
   phoneE164: string
 ): Promise<ServiceResult<RawFullRow | null>> {
   try {
-    const { data: rows, error: rpcErr } = await (supabase.rpc as any)(
-      "get_analysis_full",
-      { p_scan_session_id: scanSessionId, p_phone_e164: phoneE164 }
+    const { data: fnData, error: fnErr } = await supabase.functions.invoke(
+      "report-access",
+      { body: { mode: "full", scan_session_id: scanSessionId, phone_e164: phoneE164 } }
     );
-    if (rpcErr) {
-      return { ok: false, code: "rpc_error", message: rpcErr.message };
+    if (fnErr) {
+      return { ok: false, code: "rpc_error", message: String(fnErr) };
     }
-    const row = Array.isArray(rows) ? rows[0] : rows;
-    if (!row || !row.grade) {
-      return { ok: true, data: null };
-    }
-    if (row.grade === "__UNAUTHORIZED__") {
+    // Unauthorized sentinel: the Edge Function normalizes the __UNAUTHORIZED__ grade
+    // into this explicit shape (HTTP 200). It cannot be detected via fnErr.
+    if (fnData?.ok === true && fnData?.authorized === false) {
       return {
         ok: false,
         code: "unauthorized",
         message: "Verification failed. Please re-verify your phone number.",
       };
+    }
+    // Unwrap authorized full envelope: { ok: true, mode: "full", authorized: true, data: <row> }
+    const row =
+      fnData?.ok === true && fnData?.authorized === true && fnData?.data
+        ? (fnData.data as any)
+        : null;
+    if (!row || !row.grade) {
+      return { ok: true, data: null };
     }
     return {
       ok: true,

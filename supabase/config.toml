@@ -90,6 +90,9 @@ verify_jwt = false
 [functions.dev-report-unlock]
 verify_jwt = false
 
+[functions.report-access]
+verify_jwt = false
+
 [functions.enrich-lead]
 verify_jwt = false
 
