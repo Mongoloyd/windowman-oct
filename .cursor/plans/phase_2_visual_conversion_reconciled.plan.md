@@ -1,6 +1,6 @@
 # Truth Report V2 — Phase 2 Visual + Conversion Reconciled Plan
 
-**Status:** READY — NO BUILD until P0 gates clear.
+**Status:** Phase 2A (narrowed visual-lab polish) **cleared to start**. Classic `report-access` Browser QA **practically passed** (deferred wrong-phone binding caveat). Production V2 wiring **still blocked**.
 
 **Source audit:** generated from a read-only reconciliation pass against the post-`report-access` repo state. Anchors back to [docs/report/SIGNAL_CONTAINER_MAP.md](../../docs/report/SIGNAL_CONTAINER_MAP.md) and [docs/report/FORENSIC_PROPS_CONTRACT.md](../../docs/report/FORENSIC_PROPS_CONTRACT.md) for data-shape ground truth, and to [.cursor/plans/truth_report_v2_ritual_fb8e206c.plan.md](./truth_report_v2_ritual_fb8e206c.plan.md) for the FOG → CASE FILE → TAP → EVIDENCE → BRIEFCASE ritual.
 
@@ -13,7 +13,7 @@
 - [supabase/config.toml](../../supabase/config.toml) declares `[functions.report-access] verify_jwt = false` (lines 93–94).
 - API tests passed against `.env.local` Supabase project (per user).
 - `report-access` is deployed to the app-linked Supabase project (per user).
-- **Manual browser QA has NOT been verified in-repo.** No CI artifact, no playwright fixture, no playbook checkmark.
+- **Classic `report-access` Browser QA practically passed** — recorded in [docs/v2-cutover/REPORT_ACCESS_BROWSER_QA.md](../../docs/v2-cutover/REPORT_ACCESS_BROWSER_QA.md) (2026-05-21). Happy-path full unlock, wrong OTP, and resend/cooldown verified. **Wrong verified phone binding against same `scan_session_id` remains DEFERRED.** No Playwright fixture; no HAR binary in repo yet.
 - Production report path: `/report/:sessionId` → `<Navigate>` to `/report/classic/:sessionId` → [`ReportClassic`](../../src/pages/ReportClassic.tsx) → `<TruthReportClassic .../>` (see [src/App.tsx:51–54, 140–142](../../src/App.tsx)).
 - V2 components (`ForensicAuditReport`, `PartialRevealHero`, `WindowManMark`, `ExecutiveSummaryCard`, etc.) are **lab-only**. Only [src/pages/DevReportPreview.tsx](../../src/pages/DevReportPreview.tsx) imports `ForensicAuditReport`.
 - `/visual/report-preview`, `/sandbox/report-preview` (dev), `/dev/report-preview` (dev) all render `DevReportPreview` with `noindex,nofollow` and a "VISUAL LAB · MOCK DATA · NOT PRODUCTION FLOW" banner.
@@ -54,7 +54,7 @@
 
 ## 4. What Must Wait
 
-- All V2 production wiring waits until manual browser QA of `report-access` passes.
+- All V2 **production** wiring remains blocked until explicit later approval (and completion of deferred wrong-phone binding QA before promotion).
 - Case File / Tap / Evidence / Briefcase visual prototypes wait until FOG preview-safety polish lands (small).
 - Mapper foundation waits until visual prototypes are signed off.
 - Conversion / CAPI new event spec waits until visual ritual ships.
@@ -65,11 +65,9 @@
 
 ## 5. Next Safest Build Step
 
-**Phase 2-PRE: Manual Browser QA of `report-access`.** No code changes. Drive a real browser session through the preview → OTP → full path against the linked Supabase project. Record evidence in-repo so future audits don't have to re-ask.
+**Phase 2A (narrowed): FOG preview-safety polish on visual lab only** — **next build step** (see [docs/v2-cutover/REPORT_ACCESS_BROWSER_QA.md](../../docs/v2-cutover/REPORT_ACCESS_BROWSER_QA.md)).
 
-If QA passes → proceed to **Phase 2A (narrowed): FOG preview-safety polish on visual lab only**.
-
-If QA fails → triage the proxy / transport / DB authorization chain before any V2 work.
+Phase 2-PRE Browser QA is **practically closed** (Classic happy path + wrong OTP + resend). Deferred: wrong verified phone binding trial. If authorization anomalies appear, triage `report-access` / DB sentinel before V2 production promotion.
 
 ---
 
@@ -108,13 +106,14 @@ After QA passes:
 
 ### Phase 2-PRE (Browser QA gate)
 
-- [ ] Open `/report/classic/{realSessionId}` in a real browser; preview renders with grade + counts from `report-access` preview mode.
-- [ ] DevTools Network panel shows POSTs to `/functions/v1/report-access` with `mode: "preview"`, **and no** direct browser calls to `/rest/v1/rpc/get_analysis_preview`.
-- [ ] OTP send → `/functions/v1/send-otp` returns 200.
-- [ ] OTP submit → `/functions/v1/verify-otp` returns 200.
-- [ ] Full reveal triggers a second POST to `/functions/v1/report-access` with `mode: "full"`; response is `{ ok: true, mode: "full", authorized: true, data: { ... } }`; flags + full_json render.
-- [ ] Wrong-phone trial: response is `{ ok: true, mode: "full", authorized: false, locked: true, reason: "unauthorized" }`; UI shows locked / re-verify state with no flag DOM leak.
-- [ ] Evidence captured (HAR file or screenshots) and referenced in a new `docs/v2-cutover/REPORT_ACCESS_BROWSER_QA.md` note.
+- [x] Open `/report/classic/{realSessionId}` in a real browser; preview renders with grade + counts from `report-access` preview mode.
+- [x] DevTools Network panel shows POSTs to `/functions/v1/report-access` with `mode: "preview"`, **and no** direct browser calls to `/rest/v1/rpc/get_analysis_preview`.
+- [x] OTP send → `/functions/v1/send-otp` returns 200.
+- [x] OTP submit → `/functions/v1/verify-otp` returns 200 (correct OTP).
+- [x] Full reveal triggers POST to `/functions/v1/report-access` with `mode: "full"`, `scan_session_id`, `phone_e164`; response `{ ok: true, mode: "full", authorized: true, data: { ... } }`; flags + full report render. Session: `8ecb10ff-5c29-45be-a44e-4e933358d68b`.
+- [x] Wrong OTP: `verify-otp` failure (400); report did not unlock; cooldown/resend; correct OTP after retest unlocks.
+- [ ] **DEFERRED** Wrong-phone trial: different verified phone, same `scan_session_id` → `{ ok: true, mode: "full", authorized: false, locked: true, reason: "unauthorized" }` + locked UI, no flag leak. **Do not mark passed.**
+- [x] QA note captured: [docs/v2-cutover/REPORT_ACCESS_BROWSER_QA.md](../../docs/v2-cutover/REPORT_ACCESS_BROWSER_QA.md) (network shapes + behavioral evidence; HAR binary optional follow-up).
 
 ### Phase 2A (Narrowed, after QA gate)
 
@@ -137,25 +136,29 @@ After QA passes:
 
 ## 11. Browser QA Gate
 
-This is a **P0 gate**. No V2 production wiring may proceed without:
+**Status (2026-05-21): Practically passed — proceed to Phase 2A lab work.** Production V2 wiring **remains blocked.**
 
-- [ ] A real-browser smoke against `/report/classic/{sessionId}` showing preview-mode `report-access` requests in DevTools.
-- [ ] A real-browser OTP success → full-reveal cycle with `authorized: true`.
-- [ ] A real-browser wrong-phone trial showing `authorized: false` and the lock state in UI.
-- [ ] Evidence (HAR / screenshots / network log) captured to the repo.
+Practical gate checklist:
 
-> Browser QA must not be marked complete unless repo evidence proves it.
+- [x] Real-browser smoke: `/report/classic/8ecb10ff-5c29-45be-a44e-4e933358d68b` — preview `report-access` in DevTools.
+- [x] OTP success → full reveal with `authorized: true` (TCPA, send, verify, full render; no phone-entry flicker post `deriveGateMode` fix).
+- [x] Wrong OTP → `verify-otp` 400, no unlock, cooldown/resend, correct OTP recovery.
+- [ ] **DEFERRED** Wrong verified phone binding (same `scan_session_id`, different phone) → `authorized: false` + locked UI. **Not passed; do not claim.**
+- [x] Repo QA note: [docs/v2-cutover/REPORT_ACCESS_BROWSER_QA.md](../../docs/v2-cutover/REPORT_ACCESS_BROWSER_QA.md).
 
-### Browser QA Update (partial — not GREEN)
+> Wrong-phone verified-binding QA is the only open P0-class browser test before V2 **production** promotion. Phase 2A visual-lab polish does not require it.
 
-**Status:** Preview path verified in Browser QA; full OTP / full reveal **not** cleared. **P0 gate remains open.**
+### Browser QA Update — practically passed (2026-05-21)
+
+**Verdict:** Classic Verify-to-Reveal **PASS** · Wrong OTP **PASS** · Resend/cooldown **PASS** · Wrong verified phone binding **DEFERRED** · Phase 2A **cleared** · V2 production routes **blocked**
 
 | Check | Status | Notes |
 |---|---|---|
-| Preview: `/report/classic/{sessionId}` + `report-access` `mode: "preview"` | **Passed** | Grade + counts render; Network shows POST to `/functions/v1/report-access`; no direct browser RPC to `get_analysis_preview`. |
-| Full OTP send → verify → `report-access` `mode: "full"` `authorized: true` | **Pending retest** | Blocked on TCPA checkbox fix in the unlock gate UI; re-run after fix lands. |
-| Wrong-phone trial → `authorized: false` + locked UI | **Pending retest** | Same gate dependency as full reveal. |
-| Repo evidence (`docs/v2-cutover/REPORT_ACCESS_BROWSER_QA.md` HAR/screenshots) | **Not complete** | Do not mark full Browser QA complete without in-repo artifacts. |
+| Preview: `/report/classic/{sessionId}` + `report-access` `mode: "preview"` | **Passed** | Grade + counts; no direct browser RPC to `get_analysis_preview`. |
+| Full OTP → `report-access` `mode: "full"` `authorized: true` | **Passed** | `scan_session_id` + `phone_e164` in body; `data` + `flags`; full UI render. Local: `http://localhost:8080/report/classic/8ecb10ff-5c29-45be-a44e-4e933358d68b`. |
+| Wrong OTP / resend / cooldown | **Passed** | Deliberate wrong code → verify-otp 400; cooldown; resend; same-code Twilio window expected; correct OTP unlocks. |
+| Wrong verified phone binding (unauthorized full) | **DEFERRED** | Not run. High architectural confidence; not formally proven. Revisit before V2 prod wiring. |
+| Repo evidence | **Passed (doc)** | [REPORT_ACCESS_BROWSER_QA.md](../../docs/v2-cutover/REPORT_ACCESS_BROWSER_QA.md). HAR binary optional follow-up. |
 
 ### event_logs Telemetry Clarification
 
@@ -194,11 +197,11 @@ Gemini’s earlier statement that `report-access` logs access before retrieval i
 
 | Priority | Risk | Evidence | Resolution |
 |---|---|---|---|
-| **P0** | Browser QA of `report-access` is **partially complete** (preview passed; full OTP/full reveal + wrong-phone trial pending retest after TCPA checkbox fix; repo evidence not filed). | §11 Browser QA Update. Playwright suites still intercept the **old** direct-RPC path ([tests/session-isolation.spec.ts:70, 173](../../tests/session-isolation.spec.ts), [tests/otp-resend.spec.ts:79](../../tests/otp-resend.spec.ts)). | Finish full-path Browser QA and capture HAR/screenshots to `docs/v2-cutover/REPORT_ACCESS_BROWSER_QA.md` before any V2 production wiring. |
+| **P0** | Browser QA **practically passed**; wrong verified phone binding **deferred**. Playwright suites still intercept the **old** direct-RPC path ([tests/session-isolation.spec.ts:70, 173](../../tests/session-isolation.spec.ts), [tests/otp-resend.spec.ts:79](../../tests/otp-resend.spec.ts)). | [REPORT_ACCESS_BROWSER_QA.md](../../docs/v2-cutover/REPORT_ACCESS_BROWSER_QA.md) §5, §9. | Phase 2A lab OK. Complete deferred wrong-phone trial before V2 **production** promotion; optional HAR under `docs/v2-cutover/evidence/`. |
 | **P0** | Config/env project mismatch risk. [supabase/config.toml:1](../../supabase/config.toml) hard-codes `project_id = "wkrcyxcnzhwjtdpmfpaf"`. | If `.env.local` points the browser at a different Supabase project, `supabase.functions.invoke("report-access", ...)` will fail because the Edge Function is not deployed to that project. | Confirm `.env.local` `VITE_SUPABASE_URL` matches the project where `report-access` is deployed before browser QA. |
 | **P0** | V2 component touching full-only data in preview — none confirmed in production flow (no V2 component is production-routed). | Verified via [src/App.tsx](../../src/App.tsx) route audit; only [src/pages/DevReportPreview.tsx](../../src/pages/DevReportPreview.tsx) and the component itself import `ForensicAuditReport`. | Continue to gate V2 promotion behind QA. |
 | **P1** | `[functions.report-access] verify_jwt = false` ([supabase/config.toml:93–94](../../supabase/config.toml)). Endpoint is open to abuse (rate-limit / enumeration); DB sentinel is the authorization gate for full mode. | [supabase/functions/report-access/index.ts:160–193](../../supabase/functions/report-access/index.ts) calls the RPC with the supplied `phone_e164` and only the DB-side check protects the full payload. | Acceptable — DB gate is canonical. Add rate-limit + structured logging before V2 promotion. |
-| **P1** | Production V2 wiring is blocked until browser QA passes. | §5, §11. | No work until P0 cleared. |
+| **P1** | Production V2 wiring blocked until explicit approval + deferred wrong-phone binding QA. | §5, §11. | Phase 2A lab polish may proceed; prod V2 routes may not. |
 | **P1** | `get_county_by_scan_session` may be missing. [`useCountyForSession`](../../src/pages/ReportClassic.tsx) silently falls back to `"Your County"` on failure. | [src/pages/ReportClassic.tsx:62–72](../../src/pages/ReportClassic.tsx). | Independent of V2 work; verify RPC presence; if missing, redirect to `full_json.derived_metrics.county_benchmark.county_label` post-OTP. **Not blocking V2 lab work.** |
 | **P2** | Outdated visual mocks in `DevReportPreview.tsx` (grade suffix `"D-"`, signalsExtracted/Total, flagClearCount as "Clear", flat pillar/flag shapes). | [src/pages/DevReportPreview.tsx:113–135](../../src/pages/DevReportPreview.tsx); Mock Upgrade Spec §12. | Update during Phase 2C mapper sprint. |
 | **P2** | Dev-only direct `get_analysis_preview` calls in [src/components/dev/DevQuoteGenerator.tsx:89](../../src/components/dev/DevQuoteGenerator.tsx) and [src/components/dev/scanner-lab/tabs/BackendRunnerTab.tsx:9](../../src/components/dev/scanner-lab/tabs/BackendRunnerTab.tsx). | Confirmed by grep. | Migrate to `report-access` invocation in a dev-tooling cleanup pass. Not blocking. |
@@ -222,13 +225,13 @@ Gemini’s earlier statement that `report-access` logs access before retrieval i
 - [ ] No conversion tracking changes.
 - [ ] No fake CLEAR states.
 - [ ] No `full_json` or `flags` in preview.
-- [ ] No claim of completed browser QA without repo evidence.
+- [x] Browser QA documented in [docs/v2-cutover/REPORT_ACCESS_BROWSER_QA.md](../../docs/v2-cutover/REPORT_ACCESS_BROWSER_QA.md) (wrong-phone binding explicitly deferred).
 
 ---
 
 ## 15. Final Next-Step Prompts
 
-### Prompt A — `report-access` Browser QA (use this next)
+### Prompt A — `report-access` Browser QA (completed 2026-05-21; wrong-phone binding deferred)
 
 ```
 PROMPT: report-access Browser QA — Read-only smoke
@@ -282,14 +285,19 @@ If any step fails:
 
 If all steps pass:
 - Browser QA is GREEN. Phase 2A (narrowed) becomes safe to start.
+
+**2026-05-21 closeout:** Steps 1–10 and 12 passed for session
+`8ecb10ff-5c29-45be-a44e-4e933358d68b`. Step 11 (wrong verified phone) **deferred**.
+Phase 2A cleared. See REPORT_ACCESS_BROWSER_QA.md.
 ```
 
-### Prompt B — Phase 2A (narrowed), FOG preview-safety polish (only after QA is GREEN)
+### Prompt B — Phase 2A (narrowed), FOG preview-safety polish (**use this next**)
 
 ```
 PROMPT: Phase 2A (narrowed) — FOG preview-safety polish in visual lab only
 
-Pre-condition: browser QA of report-access has passed and evidence is in
+Pre-condition: Classic report-access browser QA practically passed (2026-05-21);
+wrong verified phone binding deferred. Evidence in
 docs/v2-cutover/REPORT_ACCESS_BROWSER_QA.md.
 
 Allowed file edits:
@@ -343,4 +351,4 @@ STOP. Revert. Do not deploy.
 
 ---
 
-**Final verdict:** READY — NO BUILD. Preview Browser QA passed; **P0 gate not cleared** until full OTP/full reveal + wrong-phone trial retest (post-TCPA fix) and repo evidence lands. Phase 2A remains blocked until full Browser QA is GREEN.
+**Final verdict:** Classic `report-access` Browser QA **practically passed** (see [REPORT_ACCESS_BROWSER_QA.md](../../docs/v2-cutover/REPORT_ACCESS_BROWSER_QA.md)). **Phase 2A (narrowed) visual-lab polish may proceed.** Wrong verified phone binding QA **DEFERRED — not passed.** Production V2 route migration **remains blocked.**
