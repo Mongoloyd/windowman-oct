@@ -27,6 +27,12 @@ Truth Report V2 is **FINDINGS-FIRST in presentation, PILLAR-BACKED in scoring.**
 - Homeowner experience target: **grade → danger → evidence → action**.
 - Do not fake unsupported "37 signal" coverage. The spreadsheet is a **product target**, not the current backend reality.
 
+### Scanner Brain — extraction vs interpretation
+
+Gemini extracts quote evidence. Deterministic TypeScript computes grades, flags, derived financial metrics, bands, and report interpretation (`scoring.ts` → `flagging.ts` → `computeDerivedMetrics` → `reportCompiler.ts` in [`scan-quote/index.ts`](../../supabase/functions/scan-quote/index.ts)).
+
+Legacy nullable display fields `price_fairness`, `markup_estimate`, and `negotiation_leverage` remain pass-through keys on `full_json` and `analyses` columns, but the current Gemini extraction prompt does **not** request them. Prefer `derived_metrics`, `price_per_opening`, and `price_per_opening_band` for financial interpretation. The Classic UI label **FINANCIAL FORENSICS** is a presentation section name only — it does not imply Gemini produces pricing judgment.
+
 ---
 
 ## 2. Source verification discipline
@@ -103,15 +109,15 @@ From [`scan-quote/index.ts`](../../supabase/functions/scan-quote/index.ts) lines
 | `pillar_scores` | **Numeric** `{ safety, install, price, finePrint, warranty }` |
 | `flags` | Full `Flag[]` array |
 | `extraction` | Full `ExtractionResult` |
-| `derived_metrics` | Financial breakdown + `county_benchmark` |
+| `derived_metrics` | Deterministic financial breakdown + `county_benchmark` (`computeDerivedMetrics`, post-extraction) |
 | `rubric_version` | e.g. `"1.6.0"` |
-| `price_fairness`, `markup_estimate`, `negotiation_leverage` | From `extraction` (AI-labeled strings; not grade authority) |
+| `price_fairness`, `markup_estimate`, `negotiation_leverage` | Legacy nullable display/pass-through fields copied from `extraction.*` if present ([`index.ts`](../../supabase/functions/scan-quote/index.ts) ~1678–1680). Not requested by the current Gemini prompt. Not scoring authority. Use `derived_metrics` / `reportCompiler` outputs instead. |
 | `warnings` | `string[]` |
 | `missing_items` | `string[]` |
 | `summary` | string |
 | `top_warning`, `top_missing_item` | strings |
-| `price_per_opening` | number \| null |
-| `price_per_opening_band` | band enum |
+| `price_per_opening` | `reportCompiler` from `derived_metrics` (deterministic) |
+| `price_per_opening_band` | `reportCompiler.resolvePricePerOpeningBand(derived_metrics)` (deterministic) |
 | `payment_risk_detected`, `scope_gap_detected` | booleans |
 
 ---
