@@ -20,10 +20,29 @@ export const MOCK_AUTHORIZED_FULL_REPORT_SOURCE = {
       homeowner_approval_required_for_change_orders: false,
       unilateral_price_adjustment_allowed: true,
       substrate_condition_clause_present: true,
-      rot_unit_pricing_present: false,
+      rot_unit_pricing_present: true,
       buck_replacement_unit_pricing_present: false,
-      substrate_allowance_text: "",
+      substrate_allowance_text:
+        "Wood rot and substrate repair billed at $95/LF if discovered during removal.",
       remeasure_price_adjustment_cap_present: false,
+      debris_removal_included: true,
+      waterproofing_method_text:
+        "Polyurethane sealant and flashing tape installed per manufacturer installation guide.",
+      stucco_repair_included: false,
+      post_install_stucco_excluded: true,
+      permit_fees_itemized: true,
+      wall_repair_scope: "Stucco patch as needed after installation.",
+      permits: {
+        included: true,
+        responsible_party: "Contractor",
+        details: "Permit filing and municipal fees included in contract total.",
+      },
+      installation: {
+        scope_detail:
+          "Remove and replace impact units. We do not exclude cleanup from base scope, but final disposal is subject to field conditions.",
+        disposal_included: true,
+        accessories_mentioned: true,
+      },
       line_items: [
         {
           description: "Impact Window 32x54 — Living Room",

@@ -11,7 +11,7 @@
  *   ?ledger=full|partial|empty → QuoteMathLedger fixture (full + v3 only)
  *   ?matrix=high|protected|unknown → ChangeOrderDefenseMatrix fixture (full + v3 only)
  *   ?scope=protected|gaps|excluded → ScopeGapChecklist fixture (full + v3 only; default gaps)
- *   ?source=adapter     → adapter-derived ledger + matrix props (full + v3 only)
+ *   ?source=adapter     → adapter-derived ledger, matrix, and ScopeGap props (full + v3 only)
  *   (no params)      → legacy TruthReportClassic (rollback target)
  */
 
@@ -39,6 +39,7 @@ import {
 import type { ChangeOrderDefenseMatrixProps } from "@/components/forensic-report/ChangeOrderDefenseMatrix.types";
 import { mapFullReportToQuoteMathLedgerProps } from "@/components/forensic-report/adapters/quoteMathLedgerAdapter";
 import { mapFullReportToChangeOrderDefenseMatrixProps } from "@/components/forensic-report/adapters/changeOrderDefenseAdapter";
+import { mapFullReportToScopeGapChecklistProps } from "@/components/forensic-report/adapters/scopeGapChecklistAdapter";
 import { MOCK_AUTHORIZED_FULL_REPORT_SOURCE } from "@/components/forensic-report/adapters/reportV2Adapter.fixtures";
 import ScopeGapChecklist from "@/components/forensic-report/ScopeGapChecklist";
 import {
@@ -691,7 +692,8 @@ export default function DevReportPreview() {
 
     let ledgerProps: QuoteMathLedgerProps;
     let matrixProps: ChangeOrderDefenseMatrixProps;
-    const scopeProps = getScopeFixture(params.get("scope"));
+    let scopeProps: ScopeGapChecklistProps | null = getScopeFixture(params.get("scope"));
+    let scopeAdapterNull = false;
 
     if (useAdapterSource) {
       ledgerProps =
@@ -700,6 +702,15 @@ export default function DevReportPreview() {
       matrixProps =
         mapFullReportToChangeOrderDefenseMatrixProps(MOCK_AUTHORIZED_FULL_REPORT_SOURCE) ??
         FIX_CHANGE_ORDER_UNKNOWN_STATE;
+      const adapterScopeProps = mapFullReportToScopeGapChecklistProps(
+        MOCK_AUTHORIZED_FULL_REPORT_SOURCE,
+      );
+      if (adapterScopeProps) {
+        scopeProps = adapterScopeProps;
+      } else {
+        scopeProps = null;
+        scopeAdapterNull = true;
+      }
     } else {
       ledgerProps = getLedgerFixture(params.get("ledger"));
       matrixProps = getMatrixFixture(params.get("matrix"));
@@ -756,7 +767,18 @@ export default function DevReportPreview() {
               role="separator"
               aria-hidden
             />
-            <ScopeGapChecklist {...scopeProps} />
+            {scopeAdapterNull ? (
+              <section
+                role="status"
+                className="rounded-lg border border-amber-500/40 bg-amber-950/20 p-5 text-sm text-amber-200/90 leading-relaxed"
+              >
+                ScopeGap adapter returned null for this lab source. Check{" "}
+                <code className="text-xs">MOCK_AUTHORIZED_FULL_REPORT_SOURCE.extraction</code>{" "}
+                shape — fixture ScopeGap props were not substituted.
+              </section>
+            ) : scopeProps ? (
+              <ScopeGapChecklist {...scopeProps} />
+            ) : null}
           </>
         ) : null}
       </>
