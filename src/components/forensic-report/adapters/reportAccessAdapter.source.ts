@@ -25,6 +25,29 @@ import {
   isRecord,
 } from "./reportAccessAdapter.helpers";
 
+/**
+ * TRANSITIONAL V2 BRIDGE — NOT PERMANENT ARCHITECTURE
+ *
+ * This block exists only until report-access ships curated `data.v2_source` on
+ * authorized full responses. Until then, `rawFullRowToV2ReportSource` may derive
+ * a curated `V2SourceProjection` from internal `row.full_json` via
+ * `deriveV2SourceProjectionFromLegacyFullJson`.
+ *
+ * Public `V2ReportSource` must never expose full_json, extraction, RawFullRow,
+ * raw OCR, or PII. Legacy reads stay inside this adapter module only.
+ *
+ * Removal condition: report-access reliably returns `data.v2_source` and
+ * `v2_source_version` for authorized full responses (primary path in
+ * `rawFullRowToV2ReportSource` always wins; fallback unused in production).
+ *
+ * Removal targets: LEGACY_FULL_JSON_V2_SOURCE_VERSION,
+ * deriveV2SourceProjectionFromLegacyFullJson, and related legacy builders
+ * (buildQuoteMathFromLegacy, buildChangeOrderFromLegacy, buildScopeGapFromLegacy,
+ * buildScopeGapInstallationFromLegacy, buildScopeGapPermitsFromLegacy).
+ *
+ * Do not expand this fallback into a permanent data contract. See
+ * docs/adr/ADR-002-v2-source-transitional-bridge.md.
+ */
 const LEGACY_FULL_JSON_V2_SOURCE_VERSION = "v2-source-legacy-full-json-fallback";
 
 function hasDefinedKey(record: JsonRecord, key: string): boolean {
