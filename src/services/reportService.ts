@@ -20,6 +20,31 @@ import type {
   RawFullRow,
   ScanStatusRow,
 } from "@/types/serviceResults";
+import { parseV2SourceProjection, parseV2SourceVersion } from "@/types/v2ReportTransport";
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function mapRawFullRow(row: Record<string, unknown>): RawFullRow {
+  return {
+    analysis_id:
+      typeof row.analysis_id === "string"
+        ? row.analysis_id
+        : null,
+    grade: typeof row.grade === "string" ? row.grade : "",
+    flags: row.flags,
+    full_json: isRecord(row.full_json) ? row.full_json : null,
+    proof_of_read: isRecord(row.proof_of_read) ? row.proof_of_read : null,
+    preview_json: isRecord(row.preview_json) ? row.preview_json : null,
+    confidence_score:
+      typeof row.confidence_score === "number" ? row.confidence_score : null,
+    document_type: typeof row.document_type === "string" ? row.document_type : null,
+    rubric_version: typeof row.rubric_version === "string" ? row.rubric_version : null,
+    v2_source_version: parseV2SourceVersion(row.v2_source_version),
+    v2_source: parseV2SourceProjection(row.v2_source),
+  };
+}
 
 // ── Scan status ─────────────────────────────────────────────────────────────
 
@@ -56,26 +81,32 @@ export async function fetchAnalysisPreview(
     // Unwrap Edge Function envelope: { ok: true, mode: "preview", data: <row> }
     // A not-yet-ready analysis returns { ok: false, error: "..." } — treat as
     // null so useAnalysisData retries (same behavior as the previous RPC path).
+    const envelope = isRecord(fnData) ? fnData : null;
     const row =
-      fnData?.ok === true && fnData?.mode === "preview" && fnData?.data
-        ? (fnData.data as any)
+      envelope?.ok === true && envelope.mode === "preview" && isRecord(envelope.data)
+        ? envelope.data
         : null;
-    if (!row || !row.grade) {
+    if (!row || typeof row.grade !== "string" || !row.grade) {
       return { ok: true, data: null };
     }
+    // Preview whitelist: never preserve v2_source / v2_source_version (belt-and-suspenders).
     return {
       ok: true,
       data: {
-        analysis_id: row.analysis_id ?? null,
+        analysis_id:
+      typeof row.analysis_id === "string"
+        ? row.analysis_id
+        : null,
         grade: row.grade,
-        flag_count: row.flag_count ?? 0,
-        flag_red_count: row.flag_red_count ?? 0,
-        flag_amber_count: row.flag_amber_count ?? 0,
-        proof_of_read: (row.proof_of_read as Record<string, unknown>) ?? null,
-        preview_json: (row.preview_json as Record<string, unknown>) ?? null,
-        confidence_score: row.confidence_score ?? null,
-        document_type: row.document_type ?? null,
-        rubric_version: row.rubric_version ?? null,
+        flag_count: typeof row.flag_count === "number" ? row.flag_count : 0,
+        flag_red_count: typeof row.flag_red_count === "number" ? row.flag_red_count : 0,
+        flag_amber_count: typeof row.flag_amber_count === "number" ? row.flag_amber_count : 0,
+        proof_of_read: isRecord(row.proof_of_read) ? row.proof_of_read : null,
+        preview_json: isRecord(row.preview_json) ? row.preview_json : null,
+        confidence_score:
+          typeof row.confidence_score === "number" ? row.confidence_score : null,
+        document_type: typeof row.document_type === "string" ? row.document_type : null,
+        rubric_version: typeof row.rubric_version === "string" ? row.rubric_version : null,
       },
     };
   } catch (err) {
@@ -99,7 +130,7 @@ export async function fetchAnalysisFull(
     }
     // Unauthorized sentinel: the Edge Function normalizes the __UNAUTHORIZED__ grade
     // into this explicit shape (HTTP 200). It cannot be detected via fnErr.
-    if (fnData?.ok === true && fnData?.authorized === false) {
+    if (isRecord(fnData) && fnData.ok === true && fnData.authorized === false) {
       return {
         ok: false,
         code: "unauthorized",
@@ -107,26 +138,19 @@ export async function fetchAnalysisFull(
       };
     }
     // Unwrap authorized full envelope: { ok: true, mode: "full", authorized: true, data: <row> }
+    const envelope = isRecord(fnData) ? fnData : null;
     const row =
-      fnData?.ok === true && fnData?.authorized === true && fnData?.data
-        ? (fnData.data as any)
+      envelope?.ok === true &&
+      envelope.authorized === true &&
+      isRecord(envelope.data)
+        ? envelope.data
         : null;
-    if (!row || !row.grade) {
+    if (!row || typeof row.grade !== "string" || !row.grade) {
       return { ok: true, data: null };
     }
     return {
       ok: true,
-      data: {
-        analysis_id: row.analysis_id ?? null,
-        grade: row.grade,
-        flags: row.flags,
-        full_json: (row.full_json as Record<string, unknown>) ?? null,
-        proof_of_read: (row.proof_of_read as Record<string, unknown>) ?? null,
-        preview_json: (row.preview_json as Record<string, unknown>) ?? null,
-        confidence_score: row.confidence_score ?? null,
-        document_type: row.document_type ?? null,
-        rubric_version: row.rubric_version ?? null,
-      },
+      data: mapRawFullRow(row),
     };
   } catch (err) {
     return { ok: false, code: "network", message: String(err) };
@@ -147,22 +171,12 @@ export async function fetchFullViaDevBypass(
     if (fnErr) {
       return { ok: false, code: "dev_bypass_error", message: String(fnErr) };
     }
-    if (!fnData || !fnData.grade) {
+    if (!isRecord(fnData) || typeof fnData.grade !== "string" || !fnData.grade) {
       return { ok: false, code: "empty", message: "Dev bypass returned no data." };
     }
     return {
       ok: true,
-      data: {
-        analysis_id: fnData.analysis_id ?? null,
-        grade: fnData.grade,
-        flags: fnData.flags,
-        full_json: (fnData.full_json as Record<string, unknown>) ?? null,
-        proof_of_read: (fnData.proof_of_read as Record<string, unknown>) ?? null,
-        preview_json: (fnData.preview_json as Record<string, unknown>) ?? null,
-        confidence_score: fnData.confidence_score ?? null,
-        document_type: fnData.document_type ?? null,
-        rubric_version: fnData.rubric_version ?? null,
-      },
+      data: mapRawFullRow(fnData),
     };
   } catch (err) {
     return { ok: false, code: "network", message: String(err) };

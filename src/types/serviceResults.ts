@@ -5,6 +5,8 @@
  * transport layer can change without touching UI state logic.
  */
 
+import type { V2SourceProjection } from "@/types/v2ReportTransport";
+
 // ── Generic envelope ────────────────────────────────────────────────────────
 
 export interface ServiceOk<T> {
@@ -45,6 +47,8 @@ export interface RawFullRow {
   confidence_score: number | null;
   document_type: string | null;
   rubric_version: string | null;
+  v2_source_version?: string | null;
+  v2_source?: V2SourceProjection | null;
 }
 
 export interface ScanStatusRow {

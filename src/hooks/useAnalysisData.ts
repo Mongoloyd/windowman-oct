@@ -25,6 +25,8 @@ import {
   fetchFullViaDevBypass as fetchFullViaDevBypassService,
 } from "@/services/reportService";
 import { peekDevSecret } from "@/lib/devSecret";
+import type { V2ReportSource } from "@/components/forensic-report/adapters/reportAccessAdapter.types";
+import { rawFullRowToV2ReportSource } from "@/components/forensic-report/adapters/reportAccessAdapter.source";
 
 // ── Public types ─────────────────────────────────────────────────────────────
 
@@ -361,6 +363,8 @@ function buildTerminalData(sessionStatus: string): AnalysisData {
 
 export interface UseAnalysisDataResult {
   data: AnalysisData | null;
+  /** Curated V2 transport only — set after authorized full load; never in preview. */
+  v2ReportSource: V2ReportSource | null;
   isLoading: boolean;
   error: string | null;
   fullFetchError: string | null;
@@ -378,6 +382,7 @@ export function useAnalysisData(
   enabled: boolean
 ): UseAnalysisDataResult {
   const [data, setData] = useState<AnalysisData | null>(null);
+  const [v2ReportSource, setV2ReportSource] = useState<V2ReportSource | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fullFetchError, setFullFetchError] = useState<string | null>(null);
@@ -390,6 +395,7 @@ export function useAnalysisData(
 
   useEffect(() => {
     setData(null);
+    setV2ReportSource(null);
     setIsFullLoaded(false);
     isFullLoadedRef.current = false;
     setIsLoadingFull(false);
@@ -589,6 +595,7 @@ export function useAnalysisData(
 
         const assembled = buildFullData(fullRow);
         setData(assembled);
+        setV2ReportSource(rawFullRowToV2ReportSource(fullRow));
         setIsFullLoaded(true);
         isFullLoadedRef.current = true;
         saveVerifiedAccess(scanSessionId, phoneE164);
@@ -659,6 +666,7 @@ export function useAnalysisData(
 
       const assembled = buildFullData(fullRow);
       setData(assembled);
+      setV2ReportSource(rawFullRowToV2ReportSource(fullRow));
       previewFetchedRef.current = scanSessionId;
       setIsFullLoaded(true);
       isFullLoadedRef.current = true;
@@ -680,6 +688,7 @@ export function useAnalysisData(
 
   return {
     data,
+    v2ReportSource,
     isLoading,
     error,
     fullFetchError,
