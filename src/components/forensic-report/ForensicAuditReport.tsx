@@ -57,6 +57,13 @@ export interface ForensicAuditReportProps {
 
   // Slot for the OTP gate / verify CTA — keeps gating ownership outside this shell
   unlockSlot?: React.ReactNode;
+
+  /** Lab full-reveal evidence modules (ledger, matrix, scope gap, etc.) */
+  fullEvidenceStack?: React.ReactNode;
+  /** When true, built-in NextActionCard is omitted (lab renders CTA after evidence stack) */
+  suppressBuiltInNextAction?: boolean;
+  /** Optional teaser copy for ExecutiveSummaryBand (e.g. preview_json.summary_teaser) */
+  executiveSummaryTeaser?: string | null;
 }
 
 export default function ForensicAuditReport(props: ForensicAuditReportProps) {
@@ -129,6 +136,7 @@ export default function ForensicAuditReport(props: ForensicAuditReportProps) {
           <ExecutiveSummaryBand
             flagRedCount={props.flagRedCount}
             flagAmberCount={props.flagAmberCount}
+            summary={props.executiveSummaryTeaser}
           />
 
           <ScopeOverviewCard
@@ -150,7 +158,11 @@ export default function ForensicAuditReport(props: ForensicAuditReportProps) {
             />
           )}
 
-          {!isPreview && <NextActionCard />}
+          {!isPreview && props.fullEvidenceStack ? (
+            <div className="space-y-0">{props.fullEvidenceStack}</div>
+          ) : null}
+
+          {!isPreview && !props.suppressBuiltInNextAction && <NextActionCard />}
 
           {props.unlockSlot && <div className="pt-2">{props.unlockSlot}</div>}
         </div>

@@ -14,7 +14,8 @@ export const V2_SOURCE_VERSION = "v2-source-2026-05";
 
 export type V2ReportAccessLevel = "preview" | "full";
 
-export type V2ReportSourceMode = "fixture" | "adapter";
+/** Lab/debug only — source=live in DevReportPreview; not a production contract. */
+export type V2ReportSourceMode = "fixture" | "adapter" | "live";
 
 /**
  * Lab-only optional presentation slices used by DevReportPreview until Edge v2_source expands.

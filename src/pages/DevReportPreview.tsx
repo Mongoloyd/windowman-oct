@@ -12,10 +12,11 @@
  *   ?matrix=high|protected|unknown → ChangeOrderDefenseMatrix fixture (full + v3 only)
  *   ?scope=protected|gaps|excluded → ScopeGapChecklist fixture (full + v3 only; default gaps)
  *   ?source=adapter     → adapter-derived ledger, matrix, and ScopeGap props (full + v3 only)
+ *   ?source=live        → staging report-access smoke test (requires scan_session_id)
  *   (no params)      → legacy TruthReportClassic (rollback target)
  */
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, useLocation, Navigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import TruthReportClassic from "@/components/TruthReportClassic";
@@ -49,6 +50,26 @@ import CodeComplianceProofSection from "@/components/forensic-report/CodeComplia
 import FinancialIntegritySection from "@/components/forensic-report/FinancialIntegritySection";
 import WarrantyFinePrintSection from "@/components/forensic-report/WarrantyFinePrintSection";
 import { useV2ReportModules } from "@/hooks/useV2ReportModules";
+import type { V2ReportModulesResult } from "@/hooks/useV2ReportModules";
+import LabLiveReportAccessPanel, {
+  LabLiveMissingSessionPanel,
+  LabLiveTransportDiagnosticStrip,
+  type LabLiveDiagnosticProps,
+} from "@/components/forensic-report/LabLiveReportAccessPanel";
+import {
+  classifyFullFetchResult,
+  classifyPreviewFetchResult,
+  countDerivedModuleProps,
+  fetchLabLiveFull,
+  fetchLabLivePreview,
+  isValidScanSessionId,
+  mapLiveFullRowToShellProps,
+  mapLivePreviewRowToShellProps,
+  type LabLiveFetchMeta,
+  type LabLiveFullShellProps,
+  type LabLiveRequestState,
+} from "@/lib/labLiveReportAccess";
+import type { RawPreviewRow } from "@/types/serviceResults";
 import type { V2ReportModuleSource, V2ReportSourceMode } from "@/types/v2ReportTransport";
 
 type LabMode = "preview" | "full" | "unauthorized";
@@ -559,6 +580,60 @@ function LabPreviewBanner({ label }: { label: string }) {
   );
 }
 
+const INITIAL_LIVE_FETCH_META: LabLiveFetchMeta = {
+  authorized: "unknown",
+  locked: "unknown",
+  reason: null,
+  code: null,
+};
+
+function buildFullV3EvidenceStack(
+  v2Modules: V2ReportModulesResult,
+  scopeAdapterNull: boolean,
+) {
+  return (
+    <>
+      {v2Modules.contractorIdentityProps ? (
+        <ContractorQuoteIdentityCard {...v2Modules.contractorIdentityProps} />
+      ) : null}
+      <ForensicLabSectionDivider index={1} eyebrow="Evidence" label="Quote Math Ledger" />
+      {v2Modules.quoteMathLedgerProps ? (
+        <QuoteMathLedger {...v2Modules.quoteMathLedgerProps} />
+      ) : null}
+      <ForensicLabSectionDivider index={2} eyebrow="Evidence" label="Code & Compliance Proof" />
+      {v2Modules.codeComplianceProps ? (
+        <CodeComplianceProofSection {...v2Modules.codeComplianceProps} />
+      ) : null}
+      <ForensicLabSectionDivider index={3} eyebrow="Evidence" label="Change-Order Defense" />
+      {v2Modules.changeOrderDefenseProps ? (
+        <ChangeOrderDefenseMatrix {...v2Modules.changeOrderDefenseProps} />
+      ) : null}
+      <ForensicLabSectionDivider index={4} eyebrow="Evidence" label="Scope Gap Checklist" />
+      {scopeAdapterNull ? (
+        <section
+          role="status"
+          className="rounded-lg border border-amber-500/40 bg-amber-950/20 p-5 text-sm text-amber-200/90 leading-relaxed"
+        >
+          ScopeGap adapter returned null for this lab source. Check extraction / v2_source scope_gap
+          slices — fixture ScopeGap props were not substituted.
+        </section>
+      ) : v2Modules.scopeGapChecklistProps ? (
+        <ScopeGapChecklist {...v2Modules.scopeGapChecklistProps} />
+      ) : null}
+      <ForensicLabSectionDivider index={5} eyebrow="Evidence" label="Financial Integrity" />
+      {v2Modules.financialIntegrityProps ? (
+        <FinancialIntegritySection {...v2Modules.financialIntegrityProps} />
+      ) : null}
+      <ForensicLabSectionDivider index={6} eyebrow="Evidence" label="Warranty & Fine Print" />
+      {v2Modules.warrantyFinePrintProps ? (
+        <WarrantyFinePrintSection {...v2Modules.warrantyFinePrintProps} />
+      ) : null}
+      <ForensicLabSectionDivider eyebrow="Next Step" label="Recommended Action" />
+      <NextActionCard />
+    </>
+  );
+}
+
 function LabUnauthorizedPanel() {
   const fixture = getLabReportFixture("unauthorized");
   if (!isUnauthorizedFixture(fixture)) {
@@ -588,16 +663,90 @@ export default function DevReportPreview() {
   const location = useLocation();
   const [introRequested, setIntroRequested] = useState(false);
   const [reportCallRequested, setReportCallRequested] = useState(false);
+  const [phoneE164, setPhoneE164] = useState("");
+  const [liveRequestState, setLiveRequestState] = useState<LabLiveRequestState>("idle");
+  const [liveFetchMeta, setLiveFetchMeta] = useState<LabLiveFetchMeta>(INITIAL_LIVE_FETCH_META);
+  const [livePreviewRow, setLivePreviewRow] = useState<RawPreviewRow | null>(null);
+  const [liveFullShell, setLiveFullShell] = useState<LabLiveFullShellProps | null>(null);
+  const [liveModuleSource, setLiveModuleSource] = useState<V2ReportModuleSource | null>(null);
+  const liveRequestIdRef = useRef(0);
 
   const isVisualLabPreview = location.pathname.startsWith("/visual/report-preview");
   const isLabPreview = isLabReportPreviewPath(location.pathname);
 
   const isFullV3ForModules = params.get("v") === "v3";
   const parsedModeForModules = parseLabMode(params.get("mode"));
+  const isLiveSource = isFullV3ForModules && params.get("source") === "live";
+  const scanSessionId = params.get("scan_session_id");
+  const liveMode: "preview" | "full" =
+    parsedModeForModules === "full" ? "full" : "preview";
   const useAdapterSource = isFullV3ForModules && params.get("source") === "adapter";
-  const moduleSourceMode: V2ReportSourceMode = useAdapterSource ? "adapter" : "fixture";
+  const moduleSourceMode: V2ReportSourceMode = isLiveSource
+    ? "live"
+    : useAdapterSource
+      ? "adapter"
+      : "fixture";
+
+  useEffect(() => {
+    if (!isLiveSource) return;
+
+    liveRequestIdRef.current += 1;
+    setLiveRequestState("idle");
+    setLiveFetchMeta(INITIAL_LIVE_FETCH_META);
+    setLivePreviewRow(null);
+    setLiveFullShell(null);
+    setLiveModuleSource(null);
+    setPhoneE164("");
+  }, [isLiveSource, scanSessionId, parsedModeForModules]);
+
+  useEffect(() => {
+    if (!isLiveSource || liveMode !== "preview") return;
+    if (!isValidScanSessionId(scanSessionId)) return;
+
+    let cancelled = false;
+    const requestId = ++liveRequestIdRef.current;
+    setLiveRequestState("loading");
+    setLivePreviewRow(null);
+    setLiveModuleSource(null);
+
+    void fetchLabLivePreview(scanSessionId).then((result) => {
+      if (cancelled || requestId !== liveRequestIdRef.current) return;
+      const classified = classifyPreviewFetchResult(result);
+      setLiveFetchMeta(classified.meta);
+      setLiveRequestState(classified.state);
+      setLivePreviewRow(classified.row);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isLiveSource, liveMode, scanSessionId]);
+
+  const handleLiveFullFetch = useCallback(async () => {
+    if (!isValidScanSessionId(scanSessionId)) return;
+    const phone = phoneE164.trim();
+    if (!phone) return;
+
+    const requestId = ++liveRequestIdRef.current;
+    setLiveRequestState("loading");
+    setLiveModuleSource(null);
+    setLiveFullShell(null);
+
+    const result = await fetchLabLiveFull(scanSessionId, phone);
+    if (requestId !== liveRequestIdRef.current) return;
+
+    const classified = classifyFullFetchResult(result);
+    setLiveFetchMeta(classified.meta);
+    setLiveRequestState(classified.state);
+    setLiveModuleSource(classified.moduleSource);
+    setLiveFullShell(classified.row ? mapLiveFullRowToShellProps(classified.row) : null);
+  }, [scanSessionId, phoneE164]);
 
   const v2ModuleSource = useMemo((): V2ReportModuleSource | null => {
+    if (isLiveSource) {
+      return liveModuleSource;
+    }
+
     if (!isFullV3ForModules || parsedModeForModules !== "full") {
       return null;
     }
@@ -612,10 +761,15 @@ export default function DevReportPreview() {
       document_type: data.document_type,
       rubric_version: data.rubric_version,
     };
-  }, [isFullV3ForModules, parsedModeForModules]);
+  }, [isLiveSource, liveModuleSource, isFullV3ForModules, parsedModeForModules]);
 
   const v2LabModuleOverrides = useMemo(() => {
-    if (!isFullV3ForModules || parsedModeForModules !== "full" || moduleSourceMode !== "fixture") {
+    if (
+      isLiveSource ||
+      !isFullV3ForModules ||
+      parsedModeForModules !== "full" ||
+      moduleSourceMode !== "fixture"
+    ) {
       return undefined;
     }
 
@@ -624,13 +778,147 @@ export default function DevReportPreview() {
       changeOrderDefenseProps: getMatrixFixture(params.get("matrix")),
       scopeGapChecklistProps: getScopeFixture(params.get("scope")),
     };
-  }, [isFullV3ForModules, parsedModeForModules, moduleSourceMode, params]);
+  }, [isLiveSource, isFullV3ForModules, parsedModeForModules, moduleSourceMode, params]);
+
+  const v2AccessLevel =
+    isLiveSource && liveRequestState === "success-full-authorized" && liveModuleSource
+      ? "full"
+      : isFullV3ForModules && parsedModeForModules === "full" && !isLiveSource
+        ? "full"
+        : "preview";
 
   const v2Modules = useV2ReportModules(v2ModuleSource, {
-    accessLevel: isFullV3ForModules && parsedModeForModules === "full" ? "full" : "preview",
+    accessLevel: v2AccessLevel,
     sourceMode: moduleSourceMode,
     labModuleOverrides: v2LabModuleOverrides,
   });
+
+  const liveDiagnostic = useMemo((): LabLiveDiagnosticProps => {
+    return {
+      mode: liveMode,
+      scanSessionIdPresent: isValidScanSessionId(scanSessionId),
+      requestState: liveRequestState,
+      fetchMeta: liveFetchMeta,
+      v2SourceVersion: liveModuleSource?.v2_source_version ?? null,
+      v2SourcePresent: liveModuleSource?.v2_source != null,
+      moduleSourceReady: liveModuleSource != null,
+      modulePropsDerived: countDerivedModuleProps(v2Modules),
+      transportPath: liveMode,
+    };
+  }, [
+    liveMode,
+    scanSessionId,
+    liveRequestState,
+    liveFetchMeta,
+    liveModuleSource,
+    v2Modules,
+  ]);
+
+  const renderLiveLabReport = () => {
+    if (!isValidScanSessionId(scanSessionId)) {
+      return (
+        <>
+          <LabLiveTransportDiagnosticStrip diagnostic={liveDiagnostic} />
+          <LabLiveMissingSessionPanel />
+        </>
+      );
+    }
+
+    const panel = (
+      <LabLiveReportAccessPanel
+        mode={liveMode}
+        requestState={liveRequestState}
+        fetchMeta={liveFetchMeta}
+        phoneValue={phoneE164}
+        onPhoneChange={setPhoneE164}
+        onFetchFull={() => {
+          void handleLiveFullFetch();
+        }}
+        fetchDisabled={liveRequestState === "loading"}
+        diagnostic={liveDiagnostic}
+      />
+    );
+
+    if (liveMode === "preview") {
+      if (liveRequestState === "success-preview" && livePreviewRow) {
+        const shell = mapLivePreviewRowToShellProps(livePreviewRow);
+        return (
+          <>
+            {panel}
+            <ForensicAuditReport
+              accessLevel="preview"
+              analysisId={shell.analysisId}
+              grade={shell.grade}
+              confidenceScore={shell.confidenceScore}
+              signalsExtracted={null}
+              signalsTotal={null}
+              flagRedCount={shell.flagRedCount}
+              flagAmberCount={shell.flagAmberCount}
+              flagClearCount={shell.flagClearCount}
+              overpaymentLow={null}
+              overpaymentHigh={null}
+              overpaymentBasis={null}
+              pricePerOpening={null}
+              pricePerOpeningBand={shell.pricePerOpeningBand}
+              marketLow={null}
+              marketHigh={null}
+              totalContractPrice={null}
+              totalOpenings={shell.totalOpenings}
+              unlockSlot={<PreviewUnlockSlot />}
+            />
+          </>
+        );
+      }
+
+      return panel;
+    }
+
+    if (
+      liveRequestState === "success-full-authorized" &&
+      liveFullShell &&
+      liveModuleSource
+    ) {
+      const scopeAdapterNull =
+        moduleSourceMode === "live" && v2Modules.scopeGapChecklistProps === null;
+
+      return (
+        <>
+          {panel}
+          <ForensicAuditReport
+            accessLevel="full"
+            analysisId={liveFullShell.analysisId}
+            grade={liveFullShell.grade}
+            confidenceScore={liveFullShell.confidenceScore}
+            signalsExtracted={null}
+            signalsTotal={null}
+            flagRedCount={liveFullShell.flagRedCount}
+            flagAmberCount={liveFullShell.flagAmberCount}
+            flagClearCount={liveFullShell.flagClearCount}
+            overpaymentLow={liveFullShell.overpaymentLow}
+            overpaymentHigh={liveFullShell.overpaymentHigh}
+            overpaymentBasis={null}
+            pricePerOpening={liveFullShell.pricePerOpening}
+            pricePerOpeningBand={liveFullShell.pricePerOpeningBand}
+            marketLow={liveFullShell.marketLow}
+            marketHigh={liveFullShell.marketHigh}
+            totalContractPrice={liveFullShell.totalContractPrice}
+            totalOpenings={liveFullShell.totalOpenings}
+            flags={liveFullShell.flags}
+            homeownerName={null}
+            propertyAddress={null}
+            propertyType={null}
+            windZone={null}
+            codeJurisdiction={liveFullShell.codeJurisdiction}
+            executiveSummaryTeaser={liveFullShell.executiveSummaryTeaser}
+            fullEvidenceStack={buildFullV3EvidenceStack(v2Modules, scopeAdapterNull)}
+            suppressBuiltInNextAction
+          />
+        </>
+      );
+    }
+
+    return panel;
+  };
 
   const renderForensicReport = (mode: LabMode) => {
     if (mode === "unauthorized") {
@@ -732,48 +1020,9 @@ export default function DevReportPreview() {
     const isFullV3 = params.get("v") === "v3";
     const scopeAdapterNull = useAdapterSource && v2Modules.scopeGapChecklistProps === null;
 
-    const fullEvidenceStack = isFullV3 ? (
-      <>
-        {v2Modules.contractorIdentityProps ? (
-          <ContractorQuoteIdentityCard {...v2Modules.contractorIdentityProps} />
-        ) : null}
-        <ForensicLabSectionDivider index={1} eyebrow="Evidence" label="Quote Math Ledger" />
-        {v2Modules.quoteMathLedgerProps ? (
-          <QuoteMathLedger {...v2Modules.quoteMathLedgerProps} />
-        ) : null}
-        <ForensicLabSectionDivider index={2} eyebrow="Evidence" label="Code & Compliance Proof" />
-        {v2Modules.codeComplianceProps ? (
-          <CodeComplianceProofSection {...v2Modules.codeComplianceProps} />
-        ) : null}
-        <ForensicLabSectionDivider index={3} eyebrow="Evidence" label="Change-Order Defense" />
-        {v2Modules.changeOrderDefenseProps ? (
-          <ChangeOrderDefenseMatrix {...v2Modules.changeOrderDefenseProps} />
-        ) : null}
-        <ForensicLabSectionDivider index={4} eyebrow="Evidence" label="Scope Gap Checklist" />
-        {scopeAdapterNull ? (
-          <section
-            role="status"
-            className="rounded-lg border border-amber-500/40 bg-amber-950/20 p-5 text-sm text-amber-200/90 leading-relaxed"
-          >
-            ScopeGap adapter returned null for this lab source. Check{" "}
-            <code className="text-xs">MOCK_AUTHORIZED_FULL_REPORT_SOURCE.extraction</code>{" "}
-            shape — fixture ScopeGap props were not substituted.
-          </section>
-        ) : v2Modules.scopeGapChecklistProps ? (
-          <ScopeGapChecklist {...v2Modules.scopeGapChecklistProps} />
-        ) : null}
-        <ForensicLabSectionDivider index={5} eyebrow="Evidence" label="Financial Integrity" />
-        {v2Modules.financialIntegrityProps ? (
-          <FinancialIntegritySection {...v2Modules.financialIntegrityProps} />
-        ) : null}
-        <ForensicLabSectionDivider index={6} eyebrow="Evidence" label="Warranty & Fine Print" />
-        {v2Modules.warrantyFinePrintProps ? (
-          <WarrantyFinePrintSection {...v2Modules.warrantyFinePrintProps} />
-        ) : null}
-        <ForensicLabSectionDivider eyebrow="Next Step" label="Recommended Action" />
-        <NextActionCard />
-      </>
-    ) : undefined;
+    const fullEvidenceStack = isFullV3
+      ? buildFullV3EvidenceStack(v2Modules, scopeAdapterNull)
+      : undefined;
 
     return (
       <ForensicAuditReport
@@ -852,6 +1101,37 @@ export default function DevReportPreview() {
               suggestedMatch={introRequested ? MOCK_MATCH : null}
             />
           </div>
+        </>
+      );
+    }
+
+    if (params.get("source") === "live") {
+      const liveReport = renderLiveLabReport();
+      const liveBanner = isVisualLabPreview
+        ? "VISUAL LAB · LIVE STAGING TRANSPORT · NOT PRODUCTION FLOW"
+        : "LAB · LIVE STAGING TRANSPORT · NOT PRODUCTION FLOW";
+
+      if (isVisualLabPreview) {
+        return (
+          <>
+            <Helmet>
+              <title>Visual Lab · Live Report Preview</title>
+              <meta name="robots" content="noindex,nofollow" />
+            </Helmet>
+            <LabPreviewBanner label={liveBanner} />
+            <div className="pt-7">{liveReport}</div>
+          </>
+        );
+      }
+
+      return (
+        <>
+          <Helmet>
+            <title>Sandbox · Live Report Preview</title>
+            <meta name="robots" content="noindex,nofollow" />
+          </Helmet>
+          <LabPreviewBanner label={liveBanner} />
+          <div className="pt-7">{liveReport}</div>
         </>
       );
     }
