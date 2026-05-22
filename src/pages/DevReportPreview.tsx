@@ -10,6 +10,7 @@
  *   ?mode=unauthorized → unauthorized full envelope fixture (locked state only)
  *   ?ledger=full|partial|empty → QuoteMathLedger fixture (full + v3 only)
  *   ?matrix=high|protected|unknown → ChangeOrderDefenseMatrix fixture (full + v3 only)
+ *   ?source=adapter     → adapter-derived ledger + matrix props (full + v3 only)
  *   (no params)      → legacy TruthReportClassic (rollback target)
  */
 
@@ -35,6 +36,9 @@ import {
   FIX_CHANGE_ORDER_UNKNOWN_STATE,
 } from "@/components/forensic-report/ChangeOrderDefenseMatrix.fixtures";
 import type { ChangeOrderDefenseMatrixProps } from "@/components/forensic-report/ChangeOrderDefenseMatrix.types";
+import { mapFullReportToQuoteMathLedgerProps } from "@/components/forensic-report/adapters/quoteMathLedgerAdapter";
+import { mapFullReportToChangeOrderDefenseMatrixProps } from "@/components/forensic-report/adapters/changeOrderDefenseAdapter";
+import { MOCK_AUTHORIZED_FULL_REPORT_SOURCE } from "@/components/forensic-report/adapters/reportV2Adapter.fixtures";
 
 type LabMode = "preview" | "full" | "unauthorized";
 type LabPillarStatus = "pass" | "warn" | "fail";
@@ -668,9 +672,23 @@ export default function DevReportPreview() {
           )
         : undefined;
     const confidenceScore = normalizeConfidenceScore(fixture.data.confidence_score);
-    const showLedger = params.get("v") === "v3";
-    const ledgerProps = getLedgerFixture(params.get("ledger"));
-    const matrixProps = getMatrixFixture(params.get("matrix"));
+    const isFullV3 = params.get("v") === "v3";
+    const useAdapterSource = isFullV3 && params.get("source") === "adapter";
+
+    let ledgerProps: QuoteMathLedgerProps;
+    let matrixProps: ChangeOrderDefenseMatrixProps;
+
+    if (useAdapterSource) {
+      ledgerProps =
+        mapFullReportToQuoteMathLedgerProps(MOCK_AUTHORIZED_FULL_REPORT_SOURCE) ??
+        LEDGER_FIXTURE_EMPTY;
+      matrixProps =
+        mapFullReportToChangeOrderDefenseMatrixProps(MOCK_AUTHORIZED_FULL_REPORT_SOURCE) ??
+        FIX_CHANGE_ORDER_UNKNOWN_STATE;
+    } else {
+      ledgerProps = getLedgerFixture(params.get("ledger"));
+      matrixProps = getMatrixFixture(params.get("matrix"));
+    }
 
     return (
       <>
@@ -704,7 +722,7 @@ export default function DevReportPreview() {
               : null
           }
         />
-        {showLedger ? (
+        {isFullV3 ? (
           <>
             <div
               className="my-8 border-t border-[hsl(var(--fr-border))]"
