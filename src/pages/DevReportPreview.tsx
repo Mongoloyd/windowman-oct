@@ -8,6 +8,7 @@
  *   ?mode=preview    → preview-safe report-access fixture
  *   ?mode=full       → authorized full report-access fixture
  *   ?mode=unauthorized → unauthorized full envelope fixture (locked state only)
+ *   ?ledger=full|partial|empty → QuoteMathLedger fixture (full + v3 only)
  *   (no params)      → legacy TruthReportClassic (rollback target)
  */
 
@@ -19,6 +20,13 @@ import type { SuggestedMatch } from "@/components/TruthReportClassic";
 import type { AnalysisFlag, PillarScore } from "@/hooks/useAnalysisData";
 import ForensicAuditReport from "@/components/forensic-report/ForensicAuditReport";
 import PreviewUnlockSlot from "@/components/forensic-report/PreviewUnlockSlot";
+import QuoteMathLedger from "@/components/forensic-report/QuoteMathLedger";
+import {
+  LEDGER_FIXTURE_FULL_DETECTION,
+  LEDGER_FIXTURE_PARTIAL_DETECTION,
+  LEDGER_FIXTURE_EMPTY,
+} from "@/components/forensic-report/QuoteMathLedger.fixtures";
+import type { QuoteMathLedgerProps } from "@/components/forensic-report/QuoteMathLedger.types";
 
 type LabMode = "preview" | "full" | "unauthorized";
 type LabPillarStatus = "pass" | "warn" | "fail";
@@ -499,6 +507,12 @@ function normalizeConfidenceScore(value: number): number {
   return value;
 }
 
+function getLedgerFixture(ledgerParam: string | null): QuoteMathLedgerProps {
+  if (ledgerParam === "partial") return LEDGER_FIXTURE_PARTIAL_DETECTION;
+  if (ledgerParam === "empty") return LEDGER_FIXTURE_EMPTY;
+  return LEDGER_FIXTURE_FULL_DETECTION;
+}
+
 function LabPreviewBanner({ label }: { label: string }) {
   return (
     <div
@@ -640,38 +654,52 @@ export default function DevReportPreview() {
           )
         : undefined;
     const confidenceScore = normalizeConfidenceScore(fixture.data.confidence_score);
+    const showLedger = params.get("v") === "v3";
+    const ledgerProps = getLedgerFixture(params.get("ledger"));
 
     return (
-      <ForensicAuditReport
-        accessLevel="full"
-        analysisId={fixture.data.analysis_id}
-        grade={fixture.data.grade}
-        confidenceScore={confidenceScore}
-        signalsExtracted={null}
-        signalsTotal={null}
-        flagRedCount={redFlags.length}
-        flagAmberCount={amberFlags.length}
-        flagClearCount={clearCount}
-        overpaymentLow={overpayment?.overpaymentLow}
-        overpaymentHigh={overpayment?.overpaymentHigh}
-        overpaymentBasis={null}
-        pricePerOpening={pricePerOpening}
-        pricePerOpeningBand={previewData.price_per_opening_band}
-        marketLow={benchmarkLow}
-        marketHigh={benchmarkHigh}
-        totalContractPrice={contractTotal}
-        totalOpenings={openingCount}
-        flags={mapFullFlagsToAnalysisFlags(flags)}
-        homeownerName={null}
-        propertyAddress={null}
-        propertyType={null}
-        windZone={null}
-        codeJurisdiction={
-          countyBenchmark && typeof countyBenchmark.county === "string"
-            ? countyBenchmark.county
-            : null
-        }
-      />
+      <>
+        <ForensicAuditReport
+          accessLevel="full"
+          analysisId={fixture.data.analysis_id}
+          grade={fixture.data.grade}
+          confidenceScore={confidenceScore}
+          signalsExtracted={null}
+          signalsTotal={null}
+          flagRedCount={redFlags.length}
+          flagAmberCount={amberFlags.length}
+          flagClearCount={clearCount}
+          overpaymentLow={overpayment?.overpaymentLow}
+          overpaymentHigh={overpayment?.overpaymentHigh}
+          overpaymentBasis={null}
+          pricePerOpening={pricePerOpening}
+          pricePerOpeningBand={previewData.price_per_opening_band}
+          marketLow={benchmarkLow}
+          marketHigh={benchmarkHigh}
+          totalContractPrice={contractTotal}
+          totalOpenings={openingCount}
+          flags={mapFullFlagsToAnalysisFlags(flags)}
+          homeownerName={null}
+          propertyAddress={null}
+          propertyType={null}
+          windZone={null}
+          codeJurisdiction={
+            countyBenchmark && typeof countyBenchmark.county === "string"
+              ? countyBenchmark.county
+              : null
+          }
+        />
+        {showLedger ? (
+          <>
+            <div
+              className="my-8 border-t border-[hsl(var(--fr-border))]"
+              role="separator"
+              aria-hidden
+            />
+            <QuoteMathLedger {...ledgerProps} />
+          </>
+        ) : null}
+      </>
     );
   };
 
