@@ -676,8 +676,8 @@ Rules:
 - Extract every line item you can identify (windows, doors, panels, screens, etc.)
 - For each line item, extract brand, series, DP rating, NOA number, dimensions, quantity, unit price, and total price where visible.
 - Extract warranty, permit, installation, and cancellation details if present.
-- If a field is not found in the document, omit it from the output (do not guess).
-- Detect contract traps such as "subject to remeasure", excessive deposit percentage, payment due before final inspection, or missing terms and conditions.
+- If a field is not explicitly stated in the document, return the key with a literal JSON null value. Do not guess, infer, fabricate, or omit the key.
+- Extract payment facts exactly as stated in the document: deposit_percent, deposit_amount, payment_schedule_text, final_payment_before_inspection, subject_to_remeasure_present, and subject_to_remeasure_text. Do not label deposits excessive. Do not call payment terms predatory. Do not determine severity.
 - Detect scope gaps such as missing wall repair, debris removal, engineering, or permit fee clarity.
 - Detect generic product descriptions that do not clearly identify the manufacturer/series.
 - Extract the contractor address if shown.
@@ -691,6 +691,29 @@ Rules:
 - Extract installation method specifics including anchoring method, fastener/anchor spacing, waterproofing/sealant method, buck treatment, and any statement that installation follows manufacturer instructions or local code.
 - Extract warranty execution details, including who performs service, leak callback timelines, callback process, and exclusions for stucco, paint, or water intrusion.
 - If the quote does not say something explicitly, leave the field null. Do not infer premium glass features or approval mechanics from branding alone.
+
+hvhz_zone:
+- Set true only if the document explicitly references HVHZ, High-Velocity Hurricane Zone, Miami-Dade, Broward HVHZ, or equivalent high-velocity wind zone/code language.
+- Return null if not explicitly stated. Do not infer HVHZ from project location alone.
+
+insurance_proof_mentioned:
+- Set true only if the document explicitly mentions or attaches Certificate of Insurance, COI, liability insurance, general liability insurance, workers compensation proof, or proof of insurance.
+- Return null if not explicitly stated. Do not infer insurance status from contractor name, logo, or general professionalism.
+
+licensing_proof_mentioned:
+- Set true only if the document explicitly shows a Florida contractor license number, license credential, license ID, explicit licensing proof, or "licensed and insured" with license detail.
+- Return null if not explicitly stated. Do not infer licensing from contractor name, logo, or general professionalism.
+
+glass_spec_complete (per relevant line item):
+- Set true only when the document explicitly includes glass makeup/type (laminated, insulated, monolithic, impact laminated, or equivalent) AND at least one specific performance/detail feature (Low-E, argon, tint, thickness, glass package, or equivalent).
+- Set false when glass is mentioned but the specification is incomplete.
+- Return null when no glass detail is present. Do not infer glass package completeness from product type alone.
+
+dimensions (per line item):
+- Extract dimensions exactly as printed, including units where present (examples: 36" x 60", 3 ft x 5 ft, 914mm x 1524mm, or 36 x 60 if that is exactly what the quote prints).
+- Do not normalize units. Do not invent missing units. Do not convert dimensions.
+- If dimensions are printed without units, preserve the raw printed dimension text. Do not null it solely because units are missing.
+- Return null only if no dimensions are shown.
 
 Return ONLY valid JSON matching this exact schema — no markdown, no explanation:
 {
@@ -795,14 +818,8 @@ Return ONLY valid JSON matching this exact schema — no markdown, no explanatio
     "scope_detail": "string | null",
     "disposal_included": boolean | null,
     "accessories_mentioned": boolean | null
-  } | null,
-  "price_fairness": "string | null",
-  "markup_estimate": "string | null",
-  "negotiation_leverage": "string | null"
-}
-
-Financial Forensics Protocol:
-Assume standard Florida wholesale costs of $500-$800 per impact window unit and $250-$400 per opening for installation labor. Use these baselines to calculate markup estimates. Identify inflated retail tactics such as fake "Buy 1 Get 1 Free" promotions, bundled admin fees, or permit cost padding. If you cannot determine pricing from the document, set these three fields to null.`;
+  } | null
+}`;
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
