@@ -9,6 +9,7 @@
  *   ?mode=full       → authorized full report-access fixture
  *   ?mode=unauthorized → unauthorized full envelope fixture (locked state only)
  *   ?ledger=full|partial|empty → QuoteMathLedger fixture (full + v3 only)
+ *   ?matrix=high|protected|unknown → ChangeOrderDefenseMatrix fixture (full + v3 only)
  *   (no params)      → legacy TruthReportClassic (rollback target)
  */
 
@@ -27,6 +28,13 @@ import {
   LEDGER_FIXTURE_EMPTY,
 } from "@/components/forensic-report/QuoteMathLedger.fixtures";
 import type { QuoteMathLedgerProps } from "@/components/forensic-report/QuoteMathLedger.types";
+import ChangeOrderDefenseMatrix from "@/components/forensic-report/ChangeOrderDefenseMatrix";
+import {
+  FIX_CHANGE_ORDER_HIGH_RISK,
+  FIX_CHANGE_ORDER_PROTECTED_STATE,
+  FIX_CHANGE_ORDER_UNKNOWN_STATE,
+} from "@/components/forensic-report/ChangeOrderDefenseMatrix.fixtures";
+import type { ChangeOrderDefenseMatrixProps } from "@/components/forensic-report/ChangeOrderDefenseMatrix.types";
 
 type LabMode = "preview" | "full" | "unauthorized";
 type LabPillarStatus = "pass" | "warn" | "fail";
@@ -513,6 +521,12 @@ function getLedgerFixture(ledgerParam: string | null): QuoteMathLedgerProps {
   return LEDGER_FIXTURE_FULL_DETECTION;
 }
 
+function getMatrixFixture(matrixParam: string | null): ChangeOrderDefenseMatrixProps {
+  if (matrixParam === "protected") return FIX_CHANGE_ORDER_PROTECTED_STATE;
+  if (matrixParam === "unknown") return FIX_CHANGE_ORDER_UNKNOWN_STATE;
+  return FIX_CHANGE_ORDER_HIGH_RISK;
+}
+
 function LabPreviewBanner({ label }: { label: string }) {
   return (
     <div
@@ -656,6 +670,7 @@ export default function DevReportPreview() {
     const confidenceScore = normalizeConfidenceScore(fixture.data.confidence_score);
     const showLedger = params.get("v") === "v3";
     const ledgerProps = getLedgerFixture(params.get("ledger"));
+    const matrixProps = getMatrixFixture(params.get("matrix"));
 
     return (
       <>
@@ -697,6 +712,12 @@ export default function DevReportPreview() {
               aria-hidden
             />
             <QuoteMathLedger {...ledgerProps} />
+            <div
+              className="mt-8 border-t border-[hsl(var(--fr-border))]"
+              role="separator"
+              aria-hidden
+            />
+            <ChangeOrderDefenseMatrix {...matrixProps} />
           </>
         ) : null}
       </>
