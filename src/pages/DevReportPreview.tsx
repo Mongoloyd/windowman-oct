@@ -10,6 +10,7 @@
  *   ?mode=unauthorized → unauthorized full envelope fixture (locked state only)
  *   ?ledger=full|partial|empty → QuoteMathLedger fixture (full + v3 only)
  *   ?matrix=high|protected|unknown → ChangeOrderDefenseMatrix fixture (full + v3 only)
+ *   ?scope=protected|gaps|excluded → ScopeGapChecklist fixture (full + v3 only; default gaps)
  *   ?source=adapter     → adapter-derived ledger + matrix props (full + v3 only)
  *   (no params)      → legacy TruthReportClassic (rollback target)
  */
@@ -39,6 +40,13 @@ import type { ChangeOrderDefenseMatrixProps } from "@/components/forensic-report
 import { mapFullReportToQuoteMathLedgerProps } from "@/components/forensic-report/adapters/quoteMathLedgerAdapter";
 import { mapFullReportToChangeOrderDefenseMatrixProps } from "@/components/forensic-report/adapters/changeOrderDefenseAdapter";
 import { MOCK_AUTHORIZED_FULL_REPORT_SOURCE } from "@/components/forensic-report/adapters/reportV2Adapter.fixtures";
+import ScopeGapChecklist from "@/components/forensic-report/ScopeGapChecklist";
+import {
+  FIX_SCOPE_PROTECTED,
+  FIX_SCOPE_GAPS,
+  FIX_SCOPE_EXCLUDED,
+} from "@/components/forensic-report/ScopeGapChecklist.fixtures";
+import type { ScopeGapChecklistProps } from "@/components/forensic-report/ScopeGapChecklist.types";
 
 type LabMode = "preview" | "full" | "unauthorized";
 type LabPillarStatus = "pass" | "warn" | "fail";
@@ -531,6 +539,12 @@ function getMatrixFixture(matrixParam: string | null): ChangeOrderDefenseMatrixP
   return FIX_CHANGE_ORDER_HIGH_RISK;
 }
 
+function getScopeFixture(scopeParam: string | null): ScopeGapChecklistProps {
+  if (scopeParam === "protected") return FIX_SCOPE_PROTECTED;
+  if (scopeParam === "excluded") return FIX_SCOPE_EXCLUDED;
+  return FIX_SCOPE_GAPS;
+}
+
 function LabPreviewBanner({ label }: { label: string }) {
   return (
     <div
@@ -677,6 +691,7 @@ export default function DevReportPreview() {
 
     let ledgerProps: QuoteMathLedgerProps;
     let matrixProps: ChangeOrderDefenseMatrixProps;
+    const scopeProps = getScopeFixture(params.get("scope"));
 
     if (useAdapterSource) {
       ledgerProps =
@@ -736,6 +751,12 @@ export default function DevReportPreview() {
               aria-hidden
             />
             <ChangeOrderDefenseMatrix {...matrixProps} />
+            <div
+              className="mt-8 border-t border-[hsl(var(--fr-border))]"
+              role="separator"
+              aria-hidden
+            />
+            <ScopeGapChecklist {...scopeProps} />
           </>
         ) : null}
       </>
