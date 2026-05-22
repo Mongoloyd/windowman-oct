@@ -3,7 +3,73 @@
  * Not raw full_json; not React component props.
  */
 
+import type {
+  JsonRecord,
+  V2ReportSource,
+} from "@/components/forensic-report/adapters/reportAccessAdapter.types";
+
+export type { V2ReportSource };
+
 export const V2_SOURCE_VERSION = "v2-source-2026-05";
+
+export type V2ReportAccessLevel = "preview" | "full";
+
+export type V2ReportSourceMode = "fixture" | "adapter";
+
+/**
+ * Lab-only optional presentation slices used by DevReportPreview until Edge v2_source expands.
+ * Not a backend contract. Do not rely on these fields in production routes.
+ */
+export type V2ReportLabSections = {
+  code_compliance?: {
+    noa_identifiers?: string[] | null;
+    fl_product_approval_identifiers?: string[] | null;
+    dp_ratings?: string[] | null;
+    hvhz_language?: string | null;
+    miami_dade_language?: string | null;
+    impact_language?: string | null;
+    laminated_glass_language?: string | null;
+    jurisdiction_context?: string | null;
+    source_notes?: string[] | null;
+  } | null;
+  financial_integrity?: {
+    deposit_text?: string | null;
+    payment_schedule_text?: string | null;
+    final_payment_timing_text?: string | null;
+    permit_fee_text?: string | null;
+    engineering_fee_text?: string | null;
+    financing_fee_text?: string | null;
+    discount_or_promo_text?: string | null;
+    line_item_transparency_text?: string | null;
+    math_confidence_text?: string | null;
+    source_notes?: string[] | null;
+  } | null;
+  warranty_fine_print?: {
+    labor_warranty_text?: string | null;
+    manufacturer_warranty_text?: string | null;
+    installation_warranty_text?: string | null;
+    warranty_exclusions_text?: string | null;
+    transferable_warranty_text?: string | null;
+    cancellation_language?: string | null;
+    restocking_or_nonrefundable_language?: string | null;
+    subject_to_remeasure_language?: string | null;
+    change_order_language?: string | null;
+    source_notes?: string[] | null;
+  } | null;
+};
+
+/**
+ * Frontend/lab module transport input for useV2ReportModules.
+ * Extends curated V2ReportSource with optional lab scaffolding — not an Edge payload contract.
+ */
+export type V2ReportModuleSource = V2ReportSource & {
+  full_json?: JsonRecord | null;
+  analysis_id?: string | null;
+  document_type?: string | null;
+  rubric_version?: string | null;
+  /** Temporary lab-only slices; future Edge expansion should replace or formalize. */
+  lab_sections?: V2ReportLabSections | null;
+};
 
 export interface V2QuoteMathSource {
   line_items?: unknown[];

@@ -15,7 +15,7 @@
  *   (no params)      → legacy TruthReportClassic (rollback target)
  */
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useSearchParams, useLocation, Navigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import TruthReportClassic from "@/components/TruthReportClassic";
@@ -29,17 +29,12 @@ import {
   LEDGER_FIXTURE_PARTIAL_DETECTION,
   LEDGER_FIXTURE_EMPTY,
 } from "@/components/forensic-report/QuoteMathLedger.fixtures";
-import type { QuoteMathLedgerProps } from "@/components/forensic-report/QuoteMathLedger.types";
 import ChangeOrderDefenseMatrix from "@/components/forensic-report/ChangeOrderDefenseMatrix";
 import {
   FIX_CHANGE_ORDER_HIGH_RISK,
   FIX_CHANGE_ORDER_PROTECTED_STATE,
   FIX_CHANGE_ORDER_UNKNOWN_STATE,
 } from "@/components/forensic-report/ChangeOrderDefenseMatrix.fixtures";
-import type { ChangeOrderDefenseMatrixProps } from "@/components/forensic-report/ChangeOrderDefenseMatrix.types";
-import { mapFullReportToQuoteMathLedgerProps } from "@/components/forensic-report/adapters/quoteMathLedgerAdapter";
-import { mapFullReportToChangeOrderDefenseMatrixProps } from "@/components/forensic-report/adapters/changeOrderDefenseAdapter";
-import { mapFullReportToScopeGapChecklistProps } from "@/components/forensic-report/adapters/scopeGapChecklistAdapter";
 import { MOCK_AUTHORIZED_FULL_REPORT_SOURCE } from "@/components/forensic-report/adapters/reportV2Adapter.fixtures";
 import ScopeGapChecklist from "@/components/forensic-report/ScopeGapChecklist";
 import {
@@ -47,7 +42,14 @@ import {
   FIX_SCOPE_GAPS,
   FIX_SCOPE_EXCLUDED,
 } from "@/components/forensic-report/ScopeGapChecklist.fixtures";
-import type { ScopeGapChecklistProps } from "@/components/forensic-report/ScopeGapChecklist.types";
+import ForensicLabSectionDivider from "@/components/forensic-report/ForensicLabSectionDivider";
+import ContractorQuoteIdentityCard from "@/components/forensic-report/ContractorQuoteIdentityCard";
+import NextActionCard from "@/components/forensic-report/NextActionCard";
+import CodeComplianceProofSection from "@/components/forensic-report/CodeComplianceProofSection";
+import FinancialIntegritySection from "@/components/forensic-report/FinancialIntegritySection";
+import WarrantyFinePrintSection from "@/components/forensic-report/WarrantyFinePrintSection";
+import { useV2ReportModules } from "@/hooks/useV2ReportModules";
+import type { V2ReportModuleSource, V2ReportSourceMode } from "@/types/v2ReportTransport";
 
 type LabMode = "preview" | "full" | "unauthorized";
 type LabPillarStatus = "pass" | "warn" | "fail";
@@ -528,19 +530,19 @@ function normalizeConfidenceScore(value: number): number {
   return value;
 }
 
-function getLedgerFixture(ledgerParam: string | null): QuoteMathLedgerProps {
+function getLedgerFixture(ledgerParam: string | null) {
   if (ledgerParam === "partial") return LEDGER_FIXTURE_PARTIAL_DETECTION;
   if (ledgerParam === "empty") return LEDGER_FIXTURE_EMPTY;
   return LEDGER_FIXTURE_FULL_DETECTION;
 }
 
-function getMatrixFixture(matrixParam: string | null): ChangeOrderDefenseMatrixProps {
+function getMatrixFixture(matrixParam: string | null) {
   if (matrixParam === "protected") return FIX_CHANGE_ORDER_PROTECTED_STATE;
   if (matrixParam === "unknown") return FIX_CHANGE_ORDER_UNKNOWN_STATE;
   return FIX_CHANGE_ORDER_HIGH_RISK;
 }
 
-function getScopeFixture(scopeParam: string | null): ScopeGapChecklistProps {
+function getScopeFixture(scopeParam: string | null) {
   if (scopeParam === "protected") return FIX_SCOPE_PROTECTED;
   if (scopeParam === "excluded") return FIX_SCOPE_EXCLUDED;
   return FIX_SCOPE_GAPS;
@@ -589,6 +591,46 @@ export default function DevReportPreview() {
 
   const isVisualLabPreview = location.pathname.startsWith("/visual/report-preview");
   const isLabPreview = isLabReportPreviewPath(location.pathname);
+
+  const isFullV3ForModules = params.get("v") === "v3";
+  const parsedModeForModules = parseLabMode(params.get("mode"));
+  const useAdapterSource = isFullV3ForModules && params.get("source") === "adapter";
+  const moduleSourceMode: V2ReportSourceMode = useAdapterSource ? "adapter" : "fixture";
+
+  const v2ModuleSource = useMemo((): V2ReportModuleSource | null => {
+    if (!isFullV3ForModules || parsedModeForModules !== "full") {
+      return null;
+    }
+
+    const data = mockFullReportAccessResponse.data;
+    return {
+      proof_of_read: data.proof_of_read,
+      confidence_score: data.confidence_score,
+      full_json: MOCK_AUTHORIZED_FULL_REPORT_SOURCE.full_json,
+      lab_sections: MOCK_AUTHORIZED_FULL_REPORT_SOURCE.lab_sections,
+      analysis_id: data.analysis_id,
+      document_type: data.document_type,
+      rubric_version: data.rubric_version,
+    };
+  }, [isFullV3ForModules, parsedModeForModules]);
+
+  const v2LabModuleOverrides = useMemo(() => {
+    if (!isFullV3ForModules || parsedModeForModules !== "full" || moduleSourceMode !== "fixture") {
+      return undefined;
+    }
+
+    return {
+      quoteMathLedgerProps: getLedgerFixture(params.get("ledger")),
+      changeOrderDefenseProps: getMatrixFixture(params.get("matrix")),
+      scopeGapChecklistProps: getScopeFixture(params.get("scope")),
+    };
+  }, [isFullV3ForModules, parsedModeForModules, moduleSourceMode, params]);
+
+  const v2Modules = useV2ReportModules(v2ModuleSource, {
+    accessLevel: isFullV3ForModules && parsedModeForModules === "full" ? "full" : "preview",
+    sourceMode: moduleSourceMode,
+    labModuleOverrides: v2LabModuleOverrides,
+  });
 
   const renderForensicReport = (mode: LabMode) => {
     if (mode === "unauthorized") {
@@ -688,100 +730,85 @@ export default function DevReportPreview() {
         : undefined;
     const confidenceScore = normalizeConfidenceScore(fixture.data.confidence_score);
     const isFullV3 = params.get("v") === "v3";
-    const useAdapterSource = isFullV3 && params.get("source") === "adapter";
+    const scopeAdapterNull = useAdapterSource && v2Modules.scopeGapChecklistProps === null;
 
-    let ledgerProps: QuoteMathLedgerProps;
-    let matrixProps: ChangeOrderDefenseMatrixProps;
-    let scopeProps: ScopeGapChecklistProps | null = getScopeFixture(params.get("scope"));
-    let scopeAdapterNull = false;
-
-    if (useAdapterSource) {
-      ledgerProps =
-        mapFullReportToQuoteMathLedgerProps(MOCK_AUTHORIZED_FULL_REPORT_SOURCE) ??
-        LEDGER_FIXTURE_EMPTY;
-      matrixProps =
-        mapFullReportToChangeOrderDefenseMatrixProps(MOCK_AUTHORIZED_FULL_REPORT_SOURCE) ??
-        FIX_CHANGE_ORDER_UNKNOWN_STATE;
-      const adapterScopeProps = mapFullReportToScopeGapChecklistProps(
-        MOCK_AUTHORIZED_FULL_REPORT_SOURCE,
-      );
-      if (adapterScopeProps) {
-        scopeProps = adapterScopeProps;
-      } else {
-        scopeProps = null;
-        scopeAdapterNull = true;
-      }
-    } else {
-      ledgerProps = getLedgerFixture(params.get("ledger"));
-      matrixProps = getMatrixFixture(params.get("matrix"));
-    }
+    const fullEvidenceStack = isFullV3 ? (
+      <>
+        {v2Modules.contractorIdentityProps ? (
+          <ContractorQuoteIdentityCard {...v2Modules.contractorIdentityProps} />
+        ) : null}
+        <ForensicLabSectionDivider index={1} eyebrow="Evidence" label="Quote Math Ledger" />
+        {v2Modules.quoteMathLedgerProps ? (
+          <QuoteMathLedger {...v2Modules.quoteMathLedgerProps} />
+        ) : null}
+        <ForensicLabSectionDivider index={2} eyebrow="Evidence" label="Code & Compliance Proof" />
+        {v2Modules.codeComplianceProps ? (
+          <CodeComplianceProofSection {...v2Modules.codeComplianceProps} />
+        ) : null}
+        <ForensicLabSectionDivider index={3} eyebrow="Evidence" label="Change-Order Defense" />
+        {v2Modules.changeOrderDefenseProps ? (
+          <ChangeOrderDefenseMatrix {...v2Modules.changeOrderDefenseProps} />
+        ) : null}
+        <ForensicLabSectionDivider index={4} eyebrow="Evidence" label="Scope Gap Checklist" />
+        {scopeAdapterNull ? (
+          <section
+            role="status"
+            className="rounded-lg border border-amber-500/40 bg-amber-950/20 p-5 text-sm text-amber-200/90 leading-relaxed"
+          >
+            ScopeGap adapter returned null for this lab source. Check{" "}
+            <code className="text-xs">MOCK_AUTHORIZED_FULL_REPORT_SOURCE.extraction</code>{" "}
+            shape — fixture ScopeGap props were not substituted.
+          </section>
+        ) : v2Modules.scopeGapChecklistProps ? (
+          <ScopeGapChecklist {...v2Modules.scopeGapChecklistProps} />
+        ) : null}
+        <ForensicLabSectionDivider index={5} eyebrow="Evidence" label="Financial Integrity" />
+        {v2Modules.financialIntegrityProps ? (
+          <FinancialIntegritySection {...v2Modules.financialIntegrityProps} />
+        ) : null}
+        <ForensicLabSectionDivider index={6} eyebrow="Evidence" label="Warranty & Fine Print" />
+        {v2Modules.warrantyFinePrintProps ? (
+          <WarrantyFinePrintSection {...v2Modules.warrantyFinePrintProps} />
+        ) : null}
+        <ForensicLabSectionDivider eyebrow="Next Step" label="Recommended Action" />
+        <NextActionCard />
+      </>
+    ) : undefined;
 
     return (
-      <>
-        <ForensicAuditReport
-          accessLevel="full"
-          analysisId={fixture.data.analysis_id}
-          grade={fixture.data.grade}
-          confidenceScore={confidenceScore}
-          signalsExtracted={null}
-          signalsTotal={null}
-          flagRedCount={redFlags.length}
-          flagAmberCount={amberFlags.length}
-          flagClearCount={clearCount}
-          overpaymentLow={overpayment?.overpaymentLow}
-          overpaymentHigh={overpayment?.overpaymentHigh}
-          overpaymentBasis={null}
-          pricePerOpening={pricePerOpening}
-          pricePerOpeningBand={previewData.price_per_opening_band}
-          marketLow={benchmarkLow}
-          marketHigh={benchmarkHigh}
-          totalContractPrice={contractTotal}
-          totalOpenings={openingCount}
-          flags={mapFullFlagsToAnalysisFlags(flags)}
-          homeownerName={null}
-          propertyAddress={null}
-          propertyType={null}
-          windZone={null}
-          codeJurisdiction={
-            countyBenchmark && typeof countyBenchmark.county === "string"
-              ? countyBenchmark.county
-              : null
-          }
-        />
-        {isFullV3 ? (
-          <>
-            <div
-              className="my-8 border-t border-[hsl(var(--fr-border))]"
-              role="separator"
-              aria-hidden
-            />
-            <QuoteMathLedger {...ledgerProps} />
-            <div
-              className="mt-8 border-t border-[hsl(var(--fr-border))]"
-              role="separator"
-              aria-hidden
-            />
-            <ChangeOrderDefenseMatrix {...matrixProps} />
-            <div
-              className="mt-8 border-t border-[hsl(var(--fr-border))]"
-              role="separator"
-              aria-hidden
-            />
-            {scopeAdapterNull ? (
-              <section
-                role="status"
-                className="rounded-lg border border-amber-500/40 bg-amber-950/20 p-5 text-sm text-amber-200/90 leading-relaxed"
-              >
-                ScopeGap adapter returned null for this lab source. Check{" "}
-                <code className="text-xs">MOCK_AUTHORIZED_FULL_REPORT_SOURCE.extraction</code>{" "}
-                shape — fixture ScopeGap props were not substituted.
-              </section>
-            ) : scopeProps ? (
-              <ScopeGapChecklist {...scopeProps} />
-            ) : null}
-          </>
-        ) : null}
-      </>
+      <ForensicAuditReport
+        accessLevel="full"
+        analysisId={fixture.data.analysis_id}
+        grade={fixture.data.grade}
+        confidenceScore={confidenceScore}
+        signalsExtracted={null}
+        signalsTotal={null}
+        flagRedCount={redFlags.length}
+        flagAmberCount={amberFlags.length}
+        flagClearCount={clearCount}
+        overpaymentLow={overpayment?.overpaymentLow}
+        overpaymentHigh={overpayment?.overpaymentHigh}
+        overpaymentBasis={null}
+        pricePerOpening={pricePerOpening}
+        pricePerOpeningBand={previewData.price_per_opening_band}
+        marketLow={benchmarkLow}
+        marketHigh={benchmarkHigh}
+        totalContractPrice={contractTotal}
+        totalOpenings={openingCount}
+        flags={mapFullFlagsToAnalysisFlags(flags)}
+        homeownerName={null}
+        propertyAddress={null}
+        propertyType={null}
+        windZone={null}
+        codeJurisdiction={
+          countyBenchmark && typeof countyBenchmark.county === "string"
+            ? countyBenchmark.county
+            : null
+        }
+        executiveSummaryTeaser={previewData.summary_teaser}
+        fullEvidenceStack={fullEvidenceStack}
+        suppressBuiltInNextAction={isFullV3}
+      />
     );
   };
 
