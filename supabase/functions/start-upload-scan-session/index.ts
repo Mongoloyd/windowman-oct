@@ -260,21 +260,55 @@ Deno.serve(async (req: Request) => {
     return badRequest("invalid_json", "Request body must be valid JSON.");
   }
 
-  const parsed = parsePayload(raw);
-  if (!parsed.ok) {
+  // ── Request contract validation (zod) ─────────────────────────────────────
+  // The RequestSchema enforces shape, UUID, length, and the storage_path
+  // scope rule (must start with `${session_id}/...`). Scope-rule failures
+  // are routed to the dedicated `storage_path_scope_mismatch` error code
+  // for observability parity with the pre-zod handler.
+  const SCOPE_REASONS = new Set([
+    "leading_slash",
+    "double_slash",
+    "path_traversal",
+    "prefix_mismatch",
+    "empty_filename",
+    "trailing_slash",
+    "empty_segment",
+  ]);
+  const parsed = RequestSchema.safeParse(raw);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    const isScopeIssue =
+      issue?.path?.[0] === "storage_path" && SCOPE_REASONS.has(issue.message);
+    if (isScopeIssue) {
+      audit(null, {
+        stage: "storage_path_scope_mismatch",
+        status: "failed",
+        error_code: "storage_path_scope_mismatch",
+        error_message: `storage_path scope rejected: ${issue.message}`,
+      });
+      return jsonResponse(400, {
+        success: false,
+        code: "storage_path_scope_mismatch",
+        message: "storage_path must be scoped to the supplied session_id.",
+      });
+    }
+    const reason = issue
+      ? `${issue.path.join(".") || "(root)"}: ${issue.message}`
+      : "unknown";
     audit(null, {
       stage: "validation_failed",
       status: "failed",
       error_code: "invalid_payload",
-      error_message: `Payload validation failed: ${parsed.reason}`,
+      error_message: `Payload validation failed: ${reason}`,
     });
-    return badRequest(
-      "invalid_payload",
-      `Payload validation failed: ${parsed.reason}`,
-    );
+    return badRequest("invalid_payload", `Payload validation failed: ${reason}`);
   }
-  const { session_id, storage_path, file_name, file_size, file_type } =
-    parsed.value;
+  const { session_id, storage_path, file_name, file_size, file_type } = {
+    file_name: null as string | null,
+    file_size: null as number | null,
+    file_type: null as string | null,
+    ...parsed.data,
+  };
 
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
   const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -293,24 +327,6 @@ Deno.serve(async (req: Request) => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  // ── Storage path scope check ───────────────────────────────────────────────
-  // storage_path MUST be scoped to `${session_id}/...filename`. Reject path
-  // traversal, leading/double slashes, empty filename segments.
-  const scopeCheck = validateStoragePathScope(storage_path, session_id);
-  if (!scopeCheck.ok) {
-    audit(admin, {
-      stage: "storage_path_scope_mismatch",
-      status: "failed",
-      session_id,
-      error_code: "storage_path_scope_mismatch",
-      error_message: `storage_path scope rejected: ${scopeCheck.reason}`,
-    });
-    return jsonResponse(400, {
-      success: false,
-      code: "storage_path_scope_mismatch",
-      message: "storage_path must be scoped to the supplied session_id.",
-    });
-  }
 
   // ── Storage object existence check ─────────────────────────────────────────
   // Verify the uploaded object actually exists in the private quotes bucket
