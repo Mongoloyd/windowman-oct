@@ -4,9 +4,8 @@
  * Pure wrapper around the existing DevQuoteGenerator. Renders a static
  * informational banner + DevQuoteGenerator. No state, no effects, no
  * network logic. Network calls only fire when the user explicitly clicks
- * a scenario inside DevQuoteGenerator (existing, unchanged behavior:
- * supabase.functions.invoke("dev-create-quote-scenario") +
- * supabase.rpc("get_analysis_preview")).
+ * a scenario inside DevQuoteGenerator (dev-create-quote-scenario scaffold,
+ * then fetchAnalysisPreview via report-access — never direct browser RPC).
  *
  * sessionId is passed through unchanged — never generated here.
  *
