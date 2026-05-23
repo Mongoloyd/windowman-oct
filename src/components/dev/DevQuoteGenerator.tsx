@@ -5,6 +5,7 @@
 import { SCENARIO_FIXTURES, type ScenarioFixture } from "@/test/createMockQuote";
 import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAnalysisPreview, fetchScanStatus } from "@/services/reportService";
 import { toast } from "sonner";
 import { getDevSecret, peekDevSecret } from "@/lib/devSecret";
 
@@ -19,6 +20,10 @@ interface RunResult {
   pillarScores: Record<string, string> | null;
   hardCap: string | null;
   match: boolean;
+  scanSessionId?: string;
+  scaffoldOk?: boolean;
+  previewVerified?: boolean;
+  onScanStartFired?: boolean;
   error?: string;
 }
 
@@ -84,18 +89,24 @@ export function DevQuoteGenerator({ sessionId, onScanStart }: DevQuoteGeneratorP
         return result;
       }
       const scanSessionId = scaffoldObj.scan_session_id;
+      result.scanSessionId = scanSessionId;
+      result.scaffoldOk = true;
 
-      // 6. Fetch result via get_analysis_preview
-      const { data: rows, error: rpcErr } = await supabase.rpc("get_analysis_preview", {
-        p_scan_session_id: scanSessionId,
-      });
+      // Verify preview through report-access (same transport as production)
+      const previewResult = await fetchAnalysisPreview(scanSessionId);
 
-      if (rpcErr || !rows || (Array.isArray(rows) && rows.length === 0)) {
-        // Check scan status for terminal states
-        const { data: statusRows } = await supabase.rpc("get_scan_status", {
-          p_scan_session_id: scanSessionId,
-        });
-        const scanStatus = statusRows?.[0]?.status || "unknown";
+      if (!previewResult.ok) {
+        result.error = `preview-verify: scaffold ok but report-access failed (${previewResult.message})`;
+        return result;
+      }
+
+      const row = previewResult.data;
+      if (!row) {
+        const statusResult = await fetchScanStatus(scanSessionId);
+        const scanStatus =
+          statusResult.ok && statusResult.data?.status
+            ? statusResult.data.status
+            : "unknown";
         result.actualStatus = scanStatus;
 
         if (fixture.expectedTerminal && scanStatus === fixture.expectedTerminal) {
@@ -104,14 +115,13 @@ export function DevQuoteGenerator({ sessionId, onScanStart }: DevQuoteGeneratorP
         return result;
       }
 
-      const row = Array.isArray(rows) ? rows[0] : rows;
+      result.previewVerified = true;
       result.actualGrade = row.grade;
       result.actualStatus = "complete";
       result.rubricVersion = row.rubric_version || null;
       result.flagCount = row.flag_count ?? 0;
 
-      // Extract pillar scores and hard cap from preview_json
-      const preview = row.preview_json as Record<string, unknown> | null;
+      const preview = row.preview_json;
       if (preview?.pillar_scores && typeof preview.pillar_scores === "object") {
         const ps = preview.pillar_scores as Record<string, { status?: string }>;
         result.pillarScores = {};
@@ -121,9 +131,13 @@ export function DevQuoteGenerator({ sessionId, onScanStart }: DevQuoteGeneratorP
       }
       result.hardCap = (preview?.hard_cap_applied as string) || null;
 
-      // Check match
       if (fixture.expectedGrade) {
         result.match = row.grade === fixture.expectedGrade;
+      }
+
+      if (onScanStart) {
+        onScanStart(`dev-quote-generator-${fixture.key}.pdf`, scanSessionId);
+        result.onScanStartFired = true;
       }
 
       return result;
@@ -131,7 +145,7 @@ export function DevQuoteGenerator({ sessionId, onScanStart }: DevQuoteGeneratorP
       result.error = String(err);
       return result;
     }
-  }, [sessionId, devRunId]);
+  }, [sessionId, devRunId, onScanStart]);
 
   const handleRunSingle = async (fixture: ScenarioFixture) => {
     setRunning(fixture.key);
@@ -143,7 +157,11 @@ export function DevQuoteGenerator({ sessionId, onScanStart }: DevQuoteGeneratorP
     setRunning(null);
 
     if (result.error) toast.error(`${fixture.key}: ${result.error}`);
-    else if (result.match) toast.success(`${fixture.key}: ✅ ${result.actualGrade || result.actualStatus}`);
+    else if (result.previewVerified && result.onScanStartFired) {
+      toast.success(
+        `${fixture.key}: preview verified via report-access · flow started · ${result.actualGrade || result.actualStatus}`,
+      );
+    } else if (result.match) toast.success(`${fixture.key}: ✅ ${result.actualGrade || result.actualStatus}`);
     else toast.warning(`${fixture.key}: expected ${fixture.expectedGrade || fixture.expectedTerminal}, got ${result.actualGrade || result.actualStatus}`);
   };
 
@@ -244,6 +262,8 @@ export function DevQuoteGenerator({ sessionId, onScanStart }: DevQuoteGeneratorP
                 <th style={{ textAlign: "left", padding: "4px 8px" }}>Pillars</th>
                 <th style={{ textAlign: "left", padding: "4px 8px" }}>Hard Cap</th>
                 <th style={{ textAlign: "center", padding: "4px 8px" }}>Rubric</th>
+                <th style={{ textAlign: "center", padding: "4px 8px" }}>Pipeline</th>
+                <th style={{ textAlign: "left", padding: "4px 8px" }}>Links</th>
                 <th style={{ textAlign: "left", padding: "4px 8px" }}>Error</th>
               </tr>
             </thead>
@@ -271,6 +291,43 @@ export function DevQuoteGenerator({ sessionId, onScanStart }: DevQuoteGeneratorP
                   </td>
                   <td style={{ textAlign: "center", padding: "4px 8px", fontSize: 11, color: "#C8952A" }}>
                     {r.rubricVersion || "—"}
+                  </td>
+                  <td style={{ textAlign: "center", padding: "4px 8px", fontSize: 10, whiteSpace: "nowrap" }}>
+                    <span style={{ color: r.scaffoldOk ? "#22c55e" : "#666" }} title="dev-create-quote-scenario">
+                      {r.scaffoldOk ? "scaffold✓" : "—"}
+                    </span>
+                    {" · "}
+                    <span style={{ color: r.previewVerified ? "#22c55e" : "#666" }} title="report-access preview">
+                      {r.previewVerified ? "preview✓" : "—"}
+                    </span>
+                    {" · "}
+                    <span style={{ color: r.onScanStartFired ? "#22c55e" : "#666" }} title="onScanStart callback">
+                      {r.onScanStartFired ? "flow✓" : "—"}
+                    </span>
+                  </td>
+                  <td style={{ padding: "4px 8px", fontSize: 11, whiteSpace: "nowrap" }}>
+                    {r.scanSessionId && r.previewVerified ? (
+                      <>
+                        <a
+                          href={`/report/classic/${r.scanSessionId}`}
+                          style={{ color: "#60a5fa", marginRight: 8 }}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          Classic
+                        </a>
+                        <a
+                          href={`/report/classic/${r.scanSessionId}?renderer=v2`}
+                          style={{ color: "#a78bfa" }}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          Dark V2
+                        </a>
+                      </>
+                    ) : (
+                      "—"
+                    )}
                   </td>
                   <td style={{ padding: "4px 8px", color: "#ef4444", fontSize: 11, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {r.error || ""}
