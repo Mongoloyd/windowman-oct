@@ -782,8 +782,12 @@ const Index = () => {
               onChange: setDevState,
               sessionId,
               onScanStart: (fileName: string, scanId: string) => {
+                if (devState !== "none") setDevState("none");
                 setScanSessionId(scanId);
                 setFileUploaded(true);
+                requestAnimationFrame(() => {
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                });
               },
             })
           )}
