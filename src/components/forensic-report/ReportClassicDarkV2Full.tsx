@@ -9,7 +9,6 @@ import ContractorQuoteIdentityCard from "@/components/forensic-report/Contractor
 import FinancialIntegritySection from "@/components/forensic-report/FinancialIntegritySection";
 import ForensicAuditReport from "@/components/forensic-report/ForensicAuditReport";
 import { ForensicDiagnosisCtaContext } from "@/components/forensic-report/ExecutiveSummaryCard";
-import MobileStickyCTA from "@/components/forensic-report/MobileStickyCTA";
 import NextActionCard from "@/components/forensic-report/NextActionCard";
 import QuoteMathLedger from "@/components/forensic-report/QuoteMathLedger";
 import ScopeGapChecklist from "@/components/forensic-report/ScopeGapChecklist";
@@ -164,31 +163,28 @@ export default function ReportClassicDarkV2Full({
 
   return (
     <ForensicDiagnosisCtaContext.Provider value={handleDiagnosisCta}>
-      <div className="pb-24 md:pb-0">
-        <ForensicAuditReport
-          accessLevel="full"
-          analysisId={shellProps.analysisId}
-          grade={shellProps.grade}
-          confidenceScore={shellProps.confidenceScore}
-          flagRedCount={shellProps.flagRedCount}
-          flagAmberCount={shellProps.flagAmberCount}
-          flagClearCount={shellProps.flagClearCount}
-          overpaymentLow={shellProps.overpaymentLow}
-          overpaymentHigh={shellProps.overpaymentHigh}
-          pricePerOpening={shellProps.pricePerOpening}
-          pricePerOpeningBand={shellProps.pricePerOpeningBand}
-          marketLow={shellProps.marketLow}
-          marketHigh={shellProps.marketHigh}
-          totalContractPrice={shellProps.totalContractPrice}
-          totalOpenings={shellProps.totalOpenings}
-          flags={shellProps.flags}
-          codeJurisdiction={shellProps.codeJurisdiction}
-          executiveSummaryTeaser={shellProps.executiveSummaryTeaser}
-          fullEvidenceStack={buildFullEvidenceStack(v2Modules, handleDiagnosisCta)}
-          suppressBuiltInNextAction={true}
-        />
-        <MobileStickyCTA onClick={handleDiagnosisCta} />
-      </div>
+      <ForensicAuditReport
+        accessLevel="full"
+        analysisId={shellProps.analysisId}
+        grade={shellProps.grade}
+        confidenceScore={shellProps.confidenceScore}
+        flagRedCount={shellProps.flagRedCount}
+        flagAmberCount={shellProps.flagAmberCount}
+        flagClearCount={shellProps.flagClearCount}
+        overpaymentLow={shellProps.overpaymentLow}
+        overpaymentHigh={shellProps.overpaymentHigh}
+        pricePerOpening={shellProps.pricePerOpening}
+        pricePerOpeningBand={shellProps.pricePerOpeningBand}
+        marketLow={shellProps.marketLow}
+        marketHigh={shellProps.marketHigh}
+        totalContractPrice={shellProps.totalContractPrice}
+        totalOpenings={shellProps.totalOpenings}
+        flags={shellProps.flags}
+        codeJurisdiction={shellProps.codeJurisdiction}
+        executiveSummaryTeaser={shellProps.executiveSummaryTeaser}
+        fullEvidenceStack={buildFullEvidenceStack(v2Modules, handleDiagnosisCta)}
+        suppressBuiltInNextAction={true}
+      />
     </ForensicDiagnosisCtaContext.Provider>
   );
 }
