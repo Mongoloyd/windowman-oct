@@ -22,6 +22,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import TruthReportClassic from "@/components/TruthReportClassic";
 import ReportClassicDarkV2Full from "@/components/forensic-report/ReportClassicDarkV2Full";
+import ReportClassicDarkV2Partial from "@/components/forensic-report/ReportClassicDarkV2Partial";
 import type { SuggestedMatch } from "@/components/TruthReportClassic";
 import type { GateMode, LockedOverlayProps } from "@/components/LockedOverlay";
 import type { OtpVerifyOutcome } from "@/types/report-v2";
@@ -584,12 +585,28 @@ export default function ReportClassic() {
     isFullLoaded &&
     accessLevel === "full";
 
+  const showDarkV2Partial =
+    labRendererV2 &&
+    accessLevel === "preview" &&
+    !isFullLoaded &&
+    !!analysisData;
+
   if (showDarkV2Full) {
     return (
       <ReportClassicDarkV2Full
         analysisData={analysisData}
         v2ReportSource={v2ReportSource}
         county={county}
+      />
+    );
+  }
+
+  if (showDarkV2Partial) {
+    return (
+      <ReportClassicDarkV2Partial
+        analysisData={analysisData}
+        county={county}
+        gateProps={accessLevel === "preview" ? gateProps : undefined}
       />
     );
   }
