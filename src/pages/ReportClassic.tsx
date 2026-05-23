@@ -12,7 +12,7 @@
  */
 
 import { useState, useCallback, useEffect, useRef, type ReactNode } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useAnalysisData } from "@/hooks/useAnalysisData";
 import { usePhonePipeline } from "@/hooks/usePhonePipeline";
 import { useReportAccess } from "@/hooks/useReportAccess";
@@ -21,6 +21,7 @@ import { isValidScanSessionId } from "@/lib/routeIdGuards";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import TruthReportClassic from "@/components/TruthReportClassic";
+import ReportClassicDarkV2Full from "@/components/forensic-report/ReportClassicDarkV2Full";
 import type { SuggestedMatch } from "@/components/TruthReportClassic";
 import type { GateMode, LockedOverlayProps } from "@/components/LockedOverlay";
 import type { OtpVerifyOutcome } from "@/types/report-v2";
@@ -106,7 +107,16 @@ function useCountyForSession(sessionId: string | undefined): string {
 export default function ReportClassic() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const sessionIdValid = isValidScanSessionId(sessionId);
+
+  const isV2HarnessEnabled =
+    import.meta.env.DEV ||
+    import.meta.env.VITE_ENABLE_DARK_V2_HARNESS === "true";
+
+  const labRendererV2 =
+    isV2HarnessEnabled &&
+    searchParams.get("renderer") === "v2";
 
   // ── Funnel context (safe — null when outside provider) ─────────────────
   const funnel = useScanFunnelSafe();
@@ -119,6 +129,7 @@ export default function ReportClassic() {
   // ── Data loading ───────────────────────────────────────────────────────
   const {
     data: analysisData,
+    v2ReportSource,
     isLoading,
     error,
     fetchFull,
@@ -567,6 +578,21 @@ export default function ReportClassic() {
   };
 
   // ── Render ─────────────────────────────────────────────────────────────
+
+  const showDarkV2Full =
+    labRendererV2 &&
+    isFullLoaded &&
+    accessLevel === "full";
+
+  if (showDarkV2Full) {
+    return (
+      <ReportClassicDarkV2Full
+        analysisData={analysisData}
+        v2ReportSource={v2ReportSource}
+        county={county}
+      />
+    );
+  }
 
   return (
     <TruthReportClassic
