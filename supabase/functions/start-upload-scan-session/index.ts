@@ -41,6 +41,11 @@ import {
   createClient,
   SupabaseClient,
 } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import {
+  RequestSchema,
+  ResponseSchema,
+  type BootstrapResponse,
+} from "./contracts/schemas.ts";
 
 const FUNCTION_NAME = "start-upload-scan-session";
 
@@ -51,16 +56,12 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// NOTE: Request shape (incl. UUID + storage_path scope) is owned by
+// `./contracts/schemas.ts` (RequestSchema). The historical UUID_RE and
+// BootstrapPayload/validateStoragePathScope helpers have been removed in
+// favor of zod parsing — see Deno.serve handler below.
 
-interface BootstrapPayload {
-  session_id: string;
-  storage_path: string;
-  file_name?: string | null;
-  file_size?: number | null;
-  file_type?: string | null;
-}
+
 
 type AuditStatus = "started" | "succeeded" | "failed" | "reused" | "skipped";
 
@@ -145,41 +146,34 @@ function audit(
 
 const STORAGE_BUCKET = "quotes";
 
-/**
- * Strict scope check: storage_path must be `${session_id}/...filename`.
- * Rejects path traversal, leading slashes, double slashes, and empty
- * filename segments.
- */
-function validateStoragePathScope(
-  storage_path: string,
-  session_id: string,
-): { ok: true } | { ok: false; reason: string } {
-  if (!storage_path) return { ok: false, reason: "empty_path" };
-  if (storage_path.startsWith("/")) {
-    return { ok: false, reason: "leading_slash" };
-  }
-  if (storage_path.includes("//")) return { ok: false, reason: "double_slash" };
-  if (storage_path.includes("../") || storage_path.includes("..\\")) {
-    return { ok: false, reason: "path_traversal" };
-  }
-  const requiredPrefix = `${session_id}/`;
-  if (!storage_path.startsWith(requiredPrefix)) {
-    return { ok: false, reason: "prefix_mismatch" };
-  }
-  const remainder = storage_path.slice(requiredPrefix.length);
-  if (remainder.length === 0) return { ok: false, reason: "empty_filename" };
-  // Reject any empty segment (e.g. "sess/sub//file.pdf" — covered above —
-  // and trailing slash).
-  if (remainder.endsWith("/")) return { ok: false, reason: "trailing_slash" };
-  const segments = remainder.split("/");
-  if (segments.some((s) => s.length === 0)) {
-    return { ok: false, reason: "empty_segment" };
-  }
-  return { ok: true };
-}
 
+/**
+ * Validate the outgoing body against the published ResponseSchema before
+ * serializing. A schema violation here means the handler itself drifted
+ * (e.g. forgot a field, returned a non-UUID id) — fail closed with a
+ * generic 500 rather than shipping a malformed envelope to the client.
+ */
 function jsonResponse(status: number, body: Record<string, unknown>): Response {
-  return new Response(JSON.stringify(body), {
+  let validatedBody: BootstrapResponse;
+  try {
+    validatedBody = ResponseSchema.parse(body);
+  } catch (e) {
+    console.error(`[${FUNCTION_NAME}] response contract violation`, {
+      status,
+      body,
+      issues: (e as { issues?: unknown }).issues,
+    });
+    const fallback = {
+      success: false as const,
+      code: "unexpected_error" as const,
+      message: "Response contract violation.",
+    };
+    return new Response(JSON.stringify(fallback), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  return new Response(JSON.stringify(validatedBody), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
@@ -201,45 +195,6 @@ function serverError(
   return jsonResponse(500, { success: false, code, message, details });
 }
 
-function parsePayload(
-  raw: unknown,
-): { ok: true; value: BootstrapPayload } | { ok: false; reason: string } {
-  if (!raw || typeof raw !== "object") {
-    return { ok: false, reason: "body_not_object" };
-  }
-  const r = raw as Record<string, unknown>;
-
-  const session_id = typeof r.session_id === "string"
-    ? r.session_id.trim()
-    : "";
-  if (!UUID_RE.test(session_id)) {
-    return { ok: false, reason: "invalid_session_id" };
-  }
-
-  const storage_path = typeof r.storage_path === "string"
-    ? r.storage_path.trim()
-    : "";
-  if (!storage_path || storage_path.length > 1024) {
-    return { ok: false, reason: "invalid_storage_path" };
-  }
-
-  const file_name = typeof r.file_name === "string" && r.file_name.length <= 512
-    ? r.file_name
-    : null;
-  const file_size =
-    typeof r.file_size === "number" && Number.isFinite(r.file_size) &&
-      r.file_size >= 0
-      ? Math.floor(r.file_size)
-      : null;
-  const file_type = typeof r.file_type === "string" && r.file_type.length <= 128
-    ? r.file_type
-    : null;
-
-  return {
-    ok: true,
-    value: { session_id, storage_path, file_name, file_size, file_type },
-  };
-}
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -269,21 +224,55 @@ Deno.serve(async (req: Request) => {
     return badRequest("invalid_json", "Request body must be valid JSON.");
   }
 
-  const parsed = parsePayload(raw);
-  if (!parsed.ok) {
+  // ── Request contract validation (zod) ─────────────────────────────────────
+  // The RequestSchema enforces shape, UUID, length, and the storage_path
+  // scope rule (must start with `${session_id}/...`). Scope-rule failures
+  // are routed to the dedicated `storage_path_scope_mismatch` error code
+  // for observability parity with the pre-zod handler.
+  const SCOPE_REASONS = new Set([
+    "leading_slash",
+    "double_slash",
+    "path_traversal",
+    "prefix_mismatch",
+    "empty_filename",
+    "trailing_slash",
+    "empty_segment",
+  ]);
+  const parsed = RequestSchema.safeParse(raw);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    const isScopeIssue =
+      issue?.path?.[0] === "storage_path" && SCOPE_REASONS.has(issue.message);
+    if (isScopeIssue) {
+      audit(null, {
+        stage: "storage_path_scope_mismatch",
+        status: "failed",
+        error_code: "storage_path_scope_mismatch",
+        error_message: `storage_path scope rejected: ${issue.message}`,
+      });
+      return jsonResponse(400, {
+        success: false,
+        code: "storage_path_scope_mismatch",
+        message: "storage_path must be scoped to the supplied session_id.",
+      });
+    }
+    const reason = issue
+      ? `${issue.path.join(".") || "(root)"}: ${issue.message}`
+      : "unknown";
     audit(null, {
       stage: "validation_failed",
       status: "failed",
       error_code: "invalid_payload",
-      error_message: `Payload validation failed: ${parsed.reason}`,
+      error_message: `Payload validation failed: ${reason}`,
     });
-    return badRequest(
-      "invalid_payload",
-      `Payload validation failed: ${parsed.reason}`,
-    );
+    return badRequest("invalid_payload", `Payload validation failed: ${reason}`);
   }
-  const { session_id, storage_path, file_name, file_size, file_type } =
-    parsed.value;
+  const { session_id, storage_path, file_name, file_size, file_type } = {
+    file_name: null as string | null,
+    file_size: null as number | null,
+    file_type: null as string | null,
+    ...parsed.data,
+  };
 
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
   const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -302,24 +291,6 @@ Deno.serve(async (req: Request) => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  // ── Storage path scope check ───────────────────────────────────────────────
-  // storage_path MUST be scoped to `${session_id}/...filename`. Reject path
-  // traversal, leading/double slashes, empty filename segments.
-  const scopeCheck = validateStoragePathScope(storage_path, session_id);
-  if (!scopeCheck.ok) {
-    audit(admin, {
-      stage: "storage_path_scope_mismatch",
-      status: "failed",
-      session_id,
-      error_code: "storage_path_scope_mismatch",
-      error_message: `storage_path scope rejected: ${scopeCheck.reason}`,
-    });
-    return jsonResponse(400, {
-      success: false,
-      code: "storage_path_scope_mismatch",
-      message: "storage_path must be scoped to the supplied session_id.",
-    });
-  }
 
   // ── Storage object existence check ─────────────────────────────────────────
   // Verify the uploaded object actually exists in the private quotes bucket

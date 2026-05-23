@@ -14,7 +14,13 @@
  * Auth: require x-contractor-secret header matching CONTRACTOR_CRON_SECRET env var.
  */
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import {
+  createClient,
+  type SupabaseClient,
+} from "https://esm.sh/@supabase/supabase-js@2.49.1";
+
+// Helper signatures only; runtime still uses the client created above.
+type AnySupabaseClient = SupabaseClient;
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -285,7 +291,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
  * Used for confirmation_email — dedupes by (lead_id, followup_type) regardless of time.
  */
 async function checkFollowupExistsByType(
-  supabase: ReturnType<typeof createClient>,
+  supabase: AnySupabaseClient,
   leadId: string,
   followupType: string,
 ): Promise<boolean> {
@@ -313,7 +319,7 @@ async function checkFollowupExistsByType(
  * Used for reminder_24h / reminder_1h — dedupes by (lead_id, followup_type, scheduled_for).
  */
 async function checkFollowupExistsByTypeAndTime(
-  supabase: ReturnType<typeof createClient>,
+  supabase: AnySupabaseClient,
   leadId: string,
   followupType: string,
   scheduledFor: string,
