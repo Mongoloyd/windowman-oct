@@ -183,8 +183,33 @@ function validateStoragePathScope(
   return { ok: true };
 }
 
+/**
+ * Validate the outgoing body against the published ResponseSchema before
+ * serializing. A schema violation here means the handler itself drifted
+ * (e.g. forgot a field, returned a non-UUID id) — fail closed with a
+ * generic 500 rather than shipping a malformed envelope to the client.
+ */
 function jsonResponse(status: number, body: Record<string, unknown>): Response {
-  return new Response(JSON.stringify(body), {
+  let validatedBody: BootstrapResponse;
+  try {
+    validatedBody = ResponseSchema.parse(body);
+  } catch (e) {
+    console.error(`[${FUNCTION_NAME}] response contract violation`, {
+      status,
+      body,
+      issues: (e as { issues?: unknown }).issues,
+    });
+    const fallback = {
+      success: false as const,
+      code: "unexpected_error" as const,
+      message: "Response contract violation.",
+    };
+    return new Response(JSON.stringify(fallback), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  return new Response(JSON.stringify(validatedBody), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
@@ -206,45 +231,6 @@ function serverError(
   return jsonResponse(500, { success: false, code, message, details });
 }
 
-function parsePayload(
-  raw: unknown,
-): { ok: true; value: BootstrapPayload } | { ok: false; reason: string } {
-  if (!raw || typeof raw !== "object") {
-    return { ok: false, reason: "body_not_object" };
-  }
-  const r = raw as Record<string, unknown>;
-
-  const session_id = typeof r.session_id === "string"
-    ? r.session_id.trim()
-    : "";
-  if (!UUID_RE.test(session_id)) {
-    return { ok: false, reason: "invalid_session_id" };
-  }
-
-  const storage_path = typeof r.storage_path === "string"
-    ? r.storage_path.trim()
-    : "";
-  if (!storage_path || storage_path.length > 1024) {
-    return { ok: false, reason: "invalid_storage_path" };
-  }
-
-  const file_name = typeof r.file_name === "string" && r.file_name.length <= 512
-    ? r.file_name
-    : null;
-  const file_size =
-    typeof r.file_size === "number" && Number.isFinite(r.file_size) &&
-      r.file_size >= 0
-      ? Math.floor(r.file_size)
-      : null;
-  const file_type = typeof r.file_type === "string" && r.file_type.length <= 128
-    ? r.file_type
-    : null;
-
-  return {
-    ok: true,
-    value: { session_id, storage_path, file_name, file_size, file_type },
-  };
-}
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
