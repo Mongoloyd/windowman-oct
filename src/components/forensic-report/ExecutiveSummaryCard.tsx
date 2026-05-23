@@ -15,6 +15,8 @@ interface Props {
   overpaymentLow?: number | null;
   overpaymentHigh?: number | null;
   overpaymentBasis?: string | null;
+  marketLow?: number | null;
+  marketHigh?: number | null;
 }
 
 function fmtMoney(n: number | null | undefined): string {
@@ -33,8 +35,23 @@ export default function ExecutiveSummaryCard({
   overpaymentLow,
   overpaymentHigh,
   overpaymentBasis,
+  marketLow,
+  marketHigh,
 }: Props) {
   const conf = Math.max(0, Math.min(100, Math.round(confidenceScore ?? 0)));
+
+  const hasPositiveOverpayment =
+    (overpaymentLow ?? 0) > 0 || (overpaymentHigh ?? 0) > 0;
+  const hasMarketBenchmark = marketLow != null || marketHigh != null;
+
+  let heroMetricLabel: string;
+  if (hasPositiveOverpayment) {
+    heroMetricLabel = "Estimated Overpayment";
+  } else if (hasMarketBenchmark) {
+    heroMetricLabel = "Benchmark Result";
+  } else {
+    heroMetricLabel = "Benchmark Status";
+  }
 
   return (
     <section
@@ -87,22 +104,35 @@ export default function ExecutiveSummaryCard({
           )}
         </div>
 
-        {/* Overpayment */}
+        {/* Hero metric: overpayment or benchmark status */}
         <div className="min-w-0">
-          <div className="text-xs text-[hsl(var(--fr-text-muted))]">Estimated Overpayment</div>
-          <div className="mt-1 font-mono text-2xl font-extrabold text-[hsl(var(--fr-danger))] leading-tight">
-            {overpaymentLow != null && overpaymentHigh != null
-              ? <>{fmtMoney(overpaymentLow)} <span className="text-[hsl(var(--fr-text-dim))] text-lg">–</span></>
-              : fmtMoney(overpaymentLow ?? overpaymentHigh)}
-          </div>
-          {overpaymentLow != null && overpaymentHigh != null && (
-            <div className="font-mono text-2xl font-extrabold text-[hsl(var(--fr-danger))] leading-tight">
-              {fmtMoney(overpaymentHigh)}
-            </div>
-          )}
-          {overpaymentBasis && (
-            <div className="mt-1.5 text-[10px] text-[hsl(var(--fr-text-dim))] leading-snug max-w-[200px]">
-              {overpaymentBasis}
+          <div className="text-xs text-[hsl(var(--fr-text-muted))]">{heroMetricLabel}</div>
+          {hasPositiveOverpayment ? (
+            <>
+              <div className="mt-1 font-mono text-2xl font-extrabold text-[hsl(var(--fr-danger))] leading-tight">
+                {overpaymentLow != null && overpaymentHigh != null ? (
+                  <>
+                    {fmtMoney(overpaymentLow)}{" "}
+                    <span className="text-[hsl(var(--fr-text-dim))] text-lg">–</span>
+                  </>
+                ) : (
+                  fmtMoney(overpaymentLow ?? overpaymentHigh)
+                )}
+              </div>
+              {overpaymentLow != null && overpaymentHigh != null && (
+                <div className="font-mono text-2xl font-extrabold text-[hsl(var(--fr-danger))] leading-tight">
+                  {fmtMoney(overpaymentHigh)}
+                </div>
+              )}
+              {overpaymentBasis && (
+                <div className="mt-1.5 text-[10px] text-[hsl(var(--fr-text-dim))] leading-snug max-w-[200px]">
+                  {overpaymentBasis}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="mt-1 text-base font-semibold text-[hsl(var(--fr-text-muted))] leading-snug max-w-[200px]">
+              {hasMarketBenchmark ? "No confirmed overpayment" : "Needs market benchmark"}
             </div>
           )}
         </div>

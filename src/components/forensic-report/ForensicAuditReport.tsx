@@ -23,6 +23,12 @@ import MoneyAtRiskCard from "./MoneyAtRiskCard";
 import NextActionCard from "./NextActionCard";
 import { FR } from "./tokens";
 
+function normalizeConfidencePercent(value: number | null | undefined): number | null {
+  if (value == null || !Number.isFinite(value)) return null;
+  const pct = value >= 0 && value <= 1 ? value * 100 : value;
+  return Math.max(0, Math.min(100, Math.round(pct)));
+}
+
 export interface ForensicAuditReportProps {
   accessLevel: "preview" | "full";
 
@@ -76,7 +82,10 @@ export default function ForensicAuditReport(props: ForensicAuditReportProps) {
     [isPreview, props.flags],
   );
 
-  const hasOverpayment = props.overpaymentLow != null || props.overpaymentHigh != null;
+  const displayConfidenceScore = normalizeConfidencePercent(props.confidenceScore);
+
+  const hasOverpayment =
+    (props.overpaymentLow ?? 0) > 0 || (props.overpaymentHigh ?? 0) > 0;
 
   return (
     <div className={`report-dark min-h-screen ${FR.pagePad} py-6 sm:py-10`}>
@@ -101,7 +110,7 @@ export default function ForensicAuditReport(props: ForensicAuditReportProps) {
           ) : (
             <ExecutiveSummaryCard
               grade={props.grade}
-              confidenceScore={props.confidenceScore}
+              confidenceScore={displayConfidenceScore}
               signalsExtracted={props.signalsExtracted}
               signalsTotal={props.signalsTotal}
               flagRedCount={props.flagRedCount}
@@ -110,6 +119,8 @@ export default function ForensicAuditReport(props: ForensicAuditReportProps) {
               overpaymentLow={props.overpaymentLow}
               overpaymentHigh={props.overpaymentHigh}
               overpaymentBasis={props.overpaymentBasis}
+              marketLow={props.marketLow}
+              marketHigh={props.marketHigh}
             />
           )}
 

@@ -93,18 +93,18 @@ function buildNoaRow(
       : rowStatusFromCoverage(documented, totalOpenings > 0 ? totalOpenings : identifiers.length);
 
   return {
-    id: "noa-fl-approval",
-    label: "NOA / FL approval identifiers",
+    id: "product-approval-documentation",
+    label: "Product approval / code documentation",
     value:
       identifiers.length === 0
         ? "Not documented"
         : summarizeMultiValueLabel(identifiers.length, "identifier documented", "identifiers documented"),
     detail:
       identifiers.length === 0
-        ? "The fixture does not show a specific NOA / FL approval identifier on every opening."
+        ? "No product approval or code documentation identifiers (e.g., NOA, Florida Product Approval, Miami-Dade) were detected in the parsed quote."
         : documented < totalOpenings && totalOpenings > 0
-          ? `${documented} of ${totalOpenings} line items include an identifier in parsed text.`
-          : "Identifiers appear in parsed line-item fields — verification against the approval database is not performed here.",
+          ? `${documented} of ${totalOpenings} line items include an identifier in parsed text. Examples may include NOA or jurisdiction-specific approvals when applicable.`
+          : "Identifiers appear in parsed line-item fields — verification against an approval database is not performed here.",
     examples: identifiers.slice(0, 3),
     status,
     severity: status === "missing" ? "danger" : status === "partial" ? "warning" : "info",
@@ -129,15 +129,15 @@ function buildDpRow(
 
   return {
     id: "dp-rating-visibility",
-    label: "DP rating visibility",
+    label: "Performance rating visibility",
     value:
       ratings.length === 0
         ? "Not documented"
         : summarizeMultiValueLabel(ratings.length, "rating found", "ratings found"),
     detail:
       ratings.length === 0
-        ? "DP rating visibility helps verify performance expectations, but none were detected in the lab source."
-        : "DP ratings appear in parsed line items — this checks documentation visibility only.",
+        ? "Performance rating visibility (e.g., DP rating) helps verify expectations, but none were detected in the available extraction."
+        : "Performance ratings appear in parsed line items — this checks documentation visibility only.",
     examples: ratings.slice(0, 3),
     status,
     severity: status === "missing" ? "warning" : "info",
@@ -182,27 +182,27 @@ export function buildCodeComplianceProofProps(
     buildDpRow(lineItems, asStringArray(raw?.dp_ratings)),
     buildTextRow(
       "hvhz-language",
-      "HVHZ / high-velocity language",
+      "Impact or wind-load language, if applicable",
       asString(raw?.hvhz_language),
-      "HVHZ-related install language is not visible in the lab source.",
+      "High-wind or HVHZ-related language (e.g., HVHZ, Miami-Dade) is not shown in the parsed quote — this may be not applicable outside high-wind jurisdictions.",
     ),
     buildTextRow(
       "impact-language",
-      "Impact product language",
+      "Impact-rated product language, if applicable",
       asString(raw?.impact_language),
-      "Impact-rated product language is not clearly documented in the lab source.",
+      "Impact-rated product language is not clearly documented in the available extraction.",
     ),
     buildTextRow(
       "laminated-glass",
-      "Laminated glass / interlayer language",
+      "Permit / code proof visibility",
       asString(raw?.laminated_glass_language),
-      "Laminated or interlayer glass language is not documented in the lab source.",
+      "Laminated or interlayer glass language is not documented in the parsed quote.",
     ),
     buildTextRow(
       "jurisdiction-context",
-      "Jurisdiction / county context",
+      "Local jurisdiction context",
       asString(raw?.jurisdiction_context),
-      "County or jurisdiction context is not documented in the lab source.",
+      "Local jurisdiction or county context is not documented in the parsed quote.",
     ),
   ];
 
@@ -222,7 +222,7 @@ export function buildCodeComplianceProofProps(
   const { status, statusLabel } = deriveSectionStatus(rows);
   const missingStateMessage =
     status === "missing"
-      ? "No documented NOA / FL approval identifier, DP rating, or compliance language found in the lab source."
+      ? "No product approval numbers, performance ratings, or permit/code proof language were detected in the parsed quote."
       : null;
 
   const footerBadges = collectUnique(
@@ -238,12 +238,12 @@ export function buildCodeComplianceProofProps(
   return {
     title: "Code & Compliance Proof",
     subtitle:
-      "Does this quote document the code and product proof a homeowner would expect to see before signing?",
+      "Does this quote document the product approval, performance ratings, and permit/code proof a homeowner would expect before signing?",
     status,
     statusLabel,
     rows,
     whyItMatters:
-      "This section checks whether the quote shows approval numbers, performance ratings, and compliance language. It does not independently validate whether a product is approved or legal to install.",
+      "This section checks whether the quote shows approval documentation, performance ratings, and permit/code language visible in the parsed quote. Jurisdiction-specific terms (for example NOA, HVHZ, or Miami-Dade) appear only when extracted from the quote. It does not independently validate whether a product is approved or legal to install.",
     missingStateMessage,
     footerBadges,
   };

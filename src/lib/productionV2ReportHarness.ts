@@ -28,6 +28,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function normalizeConfidencePercent(value: number | null | undefined): number | null {
+  if (value == null || !Number.isFinite(value)) return null;
+  const pct = value >= 0 && value <= 1 ? value * 100 : value;
+  return Math.max(0, Math.min(100, Math.round(pct)));
+}
+
 function computeOverpaymentRange(
   contractTotal: number,
   openingCount: number,
@@ -46,11 +52,13 @@ export function toProductionV2ModuleSource(
   v2ReportSource: V2ReportSource,
   analysisData: AnalysisData,
 ): V2ReportModuleSource {
+  const rawConfidence = v2ReportSource.confidence_score ?? analysisData.confidenceScore;
   return {
     ...v2ReportSource,
     analysis_id: analysisData.analysisId,
     document_type: analysisData.documentType,
     rubric_version: null,
+    confidence_score: normalizeConfidencePercent(rawConfidence),
   };
 }
 
@@ -106,15 +114,19 @@ export function mapAnalysisDataToForensicShellProps(
     analysisData.flagCount - analysisData.flagRedCount - analysisData.flagAmberCount,
   );
 
+  const hasPositiveOverpayment =
+    overpayment != null &&
+    (overpayment.overpaymentLow > 0 || overpayment.overpaymentHigh > 0);
+
   return {
     analysisId: analysisData.analysisId,
     grade: analysisData.grade,
-    confidenceScore: analysisData.confidenceScore,
+    confidenceScore: normalizeConfidencePercent(analysisData.confidenceScore),
     flagRedCount: analysisData.flagRedCount,
     flagAmberCount: analysisData.flagAmberCount,
     flagClearCount,
-    overpaymentLow: overpayment?.overpaymentLow ?? null,
-    overpaymentHigh: overpayment?.overpaymentHigh ?? null,
+    overpaymentLow: hasPositiveOverpayment ? overpayment!.overpaymentLow : null,
+    overpaymentHigh: hasPositiveOverpayment ? overpayment!.overpaymentHigh : null,
     pricePerOpening,
     pricePerOpeningBand: analysisData.pricePerOpeningBand,
     marketLow: benchmarkLow,

@@ -11,9 +11,9 @@ import type {
 
 const DEFAULT_TITLE = "Code & Compliance Proof";
 const DEFAULT_SUBTITLE =
-  "Does this quote document the code and product proof a homeowner would expect to see before signing?";
+  "Does this quote document the product approval, performance ratings, and permit/code proof a homeowner would expect before signing?";
 const DEFAULT_WHY =
-  "This section checks whether the quote shows approval numbers, performance ratings, and compliance language. It does not independently validate whether a product is approved or legal to install.";
+  "This section checks whether the quote shows approval documentation, performance ratings, and permit/code language visible in the parsed quote. Jurisdiction-specific terms (for example NOA, HVHZ, or Miami-Dade) appear only when extracted from the quote. It does not independently validate whether a product is approved or legal to install.";
 
 const FONT_STACK =
   '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
