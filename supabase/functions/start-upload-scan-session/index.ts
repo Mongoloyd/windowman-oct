@@ -41,6 +41,11 @@ import {
   createClient,
   SupabaseClient,
 } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import {
+  RequestSchema,
+  ResponseSchema,
+  type BootstrapResponse,
+} from "./contracts/schemas.ts";
 
 const FUNCTION_NAME = "start-upload-scan-session";
 
