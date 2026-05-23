@@ -146,38 +146,6 @@ function audit(
 
 const STORAGE_BUCKET = "quotes";
 
-/**
- * Strict scope check: storage_path must be `${session_id}/...filename`.
- * Rejects path traversal, leading slashes, double slashes, and empty
- * filename segments.
- */
-function validateStoragePathScope(
-  storage_path: string,
-  session_id: string,
-): { ok: true } | { ok: false; reason: string } {
-  if (!storage_path) return { ok: false, reason: "empty_path" };
-  if (storage_path.startsWith("/")) {
-    return { ok: false, reason: "leading_slash" };
-  }
-  if (storage_path.includes("//")) return { ok: false, reason: "double_slash" };
-  if (storage_path.includes("../") || storage_path.includes("..\\")) {
-    return { ok: false, reason: "path_traversal" };
-  }
-  const requiredPrefix = `${session_id}/`;
-  if (!storage_path.startsWith(requiredPrefix)) {
-    return { ok: false, reason: "prefix_mismatch" };
-  }
-  const remainder = storage_path.slice(requiredPrefix.length);
-  if (remainder.length === 0) return { ok: false, reason: "empty_filename" };
-  // Reject any empty segment (e.g. "sess/sub//file.pdf" — covered above —
-  // and trailing slash).
-  if (remainder.endsWith("/")) return { ok: false, reason: "trailing_slash" };
-  const segments = remainder.split("/");
-  if (segments.some((s) => s.length === 0)) {
-    return { ok: false, reason: "empty_segment" };
-  }
-  return { ok: true };
-}
 
 /**
  * Validate the outgoing body against the published ResponseSchema before
