@@ -56,16 +56,12 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// NOTE: Request shape (incl. UUID + storage_path scope) is owned by
+// `./contracts/schemas.ts` (RequestSchema). The historical UUID_RE and
+// BootstrapPayload/validateStoragePathScope helpers have been removed in
+// favor of zod parsing — see Deno.serve handler below.
 
-interface BootstrapPayload {
-  session_id: string;
-  storage_path: string;
-  file_name?: string | null;
-  file_size?: number | null;
-  file_type?: string | null;
-}
+
 
 type AuditStatus = "started" | "succeeded" | "failed" | "reused" | "skipped";
 
