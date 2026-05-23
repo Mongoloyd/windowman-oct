@@ -194,9 +194,11 @@ const ScanTheatrics = ({
       : false,
   ).current;
 
-  const { status: scanStatus, error: pollError } = useScanPolling({
+  const { status: scanStatus, error: pollError, fatalPollError } = useScanPolling({
     scanSessionId: isActive ? resolvedScanSessionId : null,
   });
+
+  const fatalPollHandledRef = useRef(false);
 
   // Keep submitPhone ref stable
   useEffect(() => {
@@ -314,8 +316,22 @@ const ScanTheatrics = ({
   }, [scanStatus, scanningMinDone, phase, isActive]);
 
   useEffect(() => {
-    if (pollError) toast.error(pollError);
-  }, [pollError]);
+    if (!isActive) {
+      fatalPollHandledRef.current = false;
+      return;
+    }
+    if (!fatalPollError || fatalPollHandledRef.current) return;
+
+    fatalPollHandledRef.current = true;
+    console.error("[ScanTheatrics] scan status poll failed fatally:", fatalPollError);
+    toast.error(fatalPollError.message);
+    clearAll();
+    onNeedsBetterUpload?.();
+  }, [isActive, fatalPollError, clearAll, onNeedsBetterUpload]);
+
+  useEffect(() => {
+    if (pollError && !fatalPollError) toast.error(pollError);
+  }, [pollError, fatalPollError]);
 
   // ── Scanning phase ───────────────────────────────────────────────────────
 

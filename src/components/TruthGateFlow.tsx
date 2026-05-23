@@ -278,26 +278,33 @@ const TruthGateFlow = ({
     phone: "untouched",
   });
   const funnel = useScanFunnelSafe();
+  const stepChangeNotifiedRef = useRef(false);
 
   const selectedCounty = answers.county || "your county";
   const selectedRange = answers.quoteRange || "your";
+
+  // Notify parent after quiz step advances — never from inside a setState updater.
+  useEffect(() => {
+    if (!stepChangeNotifiedRef.current) {
+      stepChangeNotifiedRef.current = true;
+      return;
+    }
+    if (currentStep >= 2 && currentStep <= 4) {
+      onStepChange?.(currentStep - 1, answers.county || "your county");
+    }
+  }, [currentStep, answers.county, onStepChange]);
 
   // ── Option selection (quiz steps 1-4) ───────────────────────────────
   const handleOptionClick = useCallback(
     (key: string, value: string) => {
       setSelectedOption(value);
-      const newAnswers = { ...answers, [key]: value };
       setAnswers((prev) => ({ ...prev, [key]: value }));
 
       if (currentStep < 4) {
         setTimeout(() => {
           if (!mountedRef.current) return;
           setSelectedOption("");
-          setCurrentStep((s) => {
-            const next = s + 1;
-            onStepChange?.(next - 1, newAnswers.county || "your county");
-            return next;
-          });
+          setCurrentStep((s) => s + 1);
         }, 300);
       } else {
         setTimeout(() => {
@@ -315,7 +322,7 @@ const TruthGateFlow = ({
         }, 400);
       }
     },
-    [currentStep, answers, onStepChange],
+    [currentStep],
   );
 
   // ── Field validation ────────────────────────────────────────────────

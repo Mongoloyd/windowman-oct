@@ -14,6 +14,11 @@ const TERMINAL_STATUSES = new Set([
   "unreadable",
 ]);
 
+const RPC_FAILURE_THRESHOLD = 3;
+
+const FATAL_POLL_USER_MESSAGE =
+  "We couldn't verify scan progress. Please try uploading your quote again.";
+
 export type ScanStatus =
   | "idle"
   | "uploading"
@@ -25,6 +30,12 @@ export type ScanStatus =
   | "error"
   | "failed"
   | "unreadable";
+
+export type ScanPollFatalError = {
+  message: string;
+  code?: string;
+  detail?: string;
+};
 
 interface UseScanPollingOptions {
   /** scan_sessions.id to poll */
@@ -39,6 +50,8 @@ interface UseScanPollingResult {
   status: ScanStatus;
   isPolling: boolean;
   error: string | null;
+  /** Set after RPC_FAILURE_THRESHOLD consecutive get_scan_status failures. */
+  fatalPollError: ScanPollFatalError | null;
 }
 
 /**
@@ -54,7 +67,9 @@ export function useScanPolling({
   const [status, setStatus] = useState<ScanStatus>("idle");
   const [isPolling, setIsPolling] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fatalPollError, setFatalPollError] = useState<ScanPollFatalError | null>(null);
   const pollCountRef = useRef(0);
+  const rpcFailureCountRef = useRef(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const stopPolling = useCallback(() => {
@@ -64,6 +79,15 @@ export function useScanPolling({
     }
     setIsPolling(false);
   }, []);
+
+  const failPollingFatally = useCallback(
+    (detail: ScanPollFatalError) => {
+      setFatalPollError(detail);
+      setError(detail.message);
+      stopPolling();
+    },
+    [stopPolling],
+  );
 
   const poll = useCallback(async () => {
     if (!scanSessionId) return;
@@ -80,9 +104,23 @@ export function useScanPolling({
         .rpc("get_scan_status", { p_scan_session_id: scanSessionId });
 
       if (rpcErr) {
-        console.error("Scan poll RPC error:", rpcErr);
-        return; // transient — keep polling
+        rpcFailureCountRef.current += 1;
+        console.error(
+          "Scan poll RPC error:",
+          rpcErr,
+          `(consecutive failures: ${rpcFailureCountRef.current}/${RPC_FAILURE_THRESHOLD})`,
+        );
+        if (rpcFailureCountRef.current >= RPC_FAILURE_THRESHOLD) {
+          failPollingFatally({
+            message: FATAL_POLL_USER_MESSAGE,
+            code: rpcErr.code,
+            detail: rpcErr.message,
+          });
+        }
+        return;
       }
+
+      rpcFailureCountRef.current = 0;
 
       // RPC returns an array of rows; take first
       const row = Array.isArray(data) ? data[0] : data;
@@ -95,23 +133,40 @@ export function useScanPolling({
         stopPolling();
       }
     } catch (err) {
-      console.error("Scan poll exception:", err);
+      rpcFailureCountRef.current += 1;
+      const detail = err instanceof Error ? err.message : String(err);
+      console.error(
+        "Scan poll exception:",
+        err,
+        `(consecutive failures: ${rpcFailureCountRef.current}/${RPC_FAILURE_THRESHOLD})`,
+      );
+      if (rpcFailureCountRef.current >= RPC_FAILURE_THRESHOLD) {
+        failPollingFatally({
+          message: FATAL_POLL_USER_MESSAGE,
+          code: "exception",
+          detail,
+        });
+      }
     }
-  }, [scanSessionId, maxPolls, stopPolling]);
+  }, [scanSessionId, maxPolls, stopPolling, failPollingFatally]);
 
   useEffect(() => {
     if (!scanSessionId) {
       stopPolling();
       setStatus("idle");
       setError(null);
+      setFatalPollError(null);
       pollCountRef.current = 0;
+      rpcFailureCountRef.current = 0;
       return;
     }
 
     setStatus("uploading");
     setError(null);
+    setFatalPollError(null);
     setIsPolling(true);
     pollCountRef.current = 0;
+    rpcFailureCountRef.current = 0;
 
     // Immediate first poll
     poll();
@@ -120,5 +175,5 @@ export function useScanPolling({
     return () => { stopPolling(); };
   }, [scanSessionId, intervalMs, poll, stopPolling]);
 
-  return { status, isPolling, error };
+  return { status, isPolling, error, fatalPollError };
 }
