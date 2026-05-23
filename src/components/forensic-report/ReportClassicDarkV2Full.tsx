@@ -1,3 +1,5 @@
+import { useCallback, type ReactNode } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import type { AnalysisData } from "@/hooks/useAnalysisData";
 import { useV2ReportModules } from "@/hooks/useV2ReportModules";
 import type { V2ReportSource } from "@/components/forensic-report/adapters/reportAccessAdapter.types";
@@ -6,6 +8,8 @@ import CodeComplianceProofSection from "@/components/forensic-report/CodeComplia
 import ContractorQuoteIdentityCard from "@/components/forensic-report/ContractorQuoteIdentityCard";
 import FinancialIntegritySection from "@/components/forensic-report/FinancialIntegritySection";
 import ForensicAuditReport from "@/components/forensic-report/ForensicAuditReport";
+import { ForensicDiagnosisCtaContext } from "@/components/forensic-report/ExecutiveSummaryCard";
+import MobileStickyCTA from "@/components/forensic-report/MobileStickyCTA";
 import NextActionCard from "@/components/forensic-report/NextActionCard";
 import QuoteMathLedger from "@/components/forensic-report/QuoteMathLedger";
 import ScopeGapChecklist from "@/components/forensic-report/ScopeGapChecklist";
@@ -14,13 +18,39 @@ import {
   mapAnalysisDataToForensicShellProps,
   toProductionV2ModuleSource,
 } from "@/lib/productionV2ReportHarness";
-import type { ReactNode } from "react";
+import {
+  saveReportDiagnosisHandoff,
+  type ReportDiagnosisHandoff,
+} from "@/lib/reportDiagnosisHandoff";
 
 type Props = {
   analysisData: AnalysisData | null;
   v2ReportSource: V2ReportSource | null;
   county: string;
 };
+
+const MAX_INSIGHT_LENGTH = 120;
+
+function truncateInsight(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed.length <= MAX_INSIGHT_LENGTH) return trimmed;
+  return `${trimmed.slice(0, MAX_INSIGHT_LENGTH - 1)}…`;
+}
+
+function buildTopInsights(analysisData: AnalysisData): string[] {
+  const fromFlags = analysisData.flags
+    .filter((flag) => flag.severity === "red" || flag.severity === "amber")
+    .map((flag) => truncateInsight(flag.label || flag.detail))
+    .filter(Boolean)
+    .slice(0, 3);
+
+  if (fromFlags.length > 0) return fromFlags;
+
+  return [analysisData.topWarning, analysisData.topMissingItem]
+    .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    .map((item) => truncateInsight(item))
+    .slice(0, 3);
+}
 
 function AnalysisDataUnavailablePanel() {
   return (
@@ -50,6 +80,7 @@ function V2SourceUnavailablePanel() {
 
 function buildFullEvidenceStack(
   modules: ReturnType<typeof useV2ReportModules>,
+  onDiagnosisCta: () => void,
 ): ReactNode {
   return (
     <>
@@ -74,7 +105,12 @@ function buildFullEvidenceStack(
       {modules.warrantyFinePrintProps ? (
         <WarrantyFinePrintSection {...modules.warrantyFinePrintProps} />
       ) : null}
-      <NextActionCard />
+      <NextActionCard
+        onPrimary={onDiagnosisCta}
+        onSecondary={onDiagnosisCta}
+        primaryLabel="Get a Same-Scope Second Opinion"
+        secondaryLabel="Show Me My Safest Next Move"
+      />
     </>
   );
 }
@@ -84,6 +120,9 @@ export default function ReportClassicDarkV2Full({
   v2ReportSource,
   county,
 }: Props) {
+  const navigate = useNavigate();
+  const { sessionId } = useParams<{ sessionId: string }>();
+
   const moduleSource =
     analysisData && v2ReportSource
       ? toProductionV2ModuleSource(v2ReportSource, analysisData)
@@ -92,6 +131,26 @@ export default function ReportClassicDarkV2Full({
     accessLevel: "full",
     sourceMode: "live",
   });
+
+  const handleDiagnosisCta = useCallback(() => {
+    if (!sessionId || !analysisData?.grade) return;
+
+    const handoff: ReportDiagnosisHandoff = {
+      lead_id: "",
+      scan_session_id: sessionId,
+      analysis_id: analysisData.analysisId ?? null,
+      report_grade: analysisData.grade,
+      first_name: null,
+      phone: null,
+      email: null,
+      top_insights: buildTopInsights(analysisData),
+      returnTo: `/report/classic/${sessionId}?renderer=v2`,
+      saved_at: new Date().toISOString(),
+    };
+
+    saveReportDiagnosisHandoff(handoff);
+    navigate("/diagnosis", { state: handoff });
+  }, [analysisData, navigate, sessionId]);
 
   if (!analysisData) {
     return <AnalysisDataUnavailablePanel />;
@@ -104,27 +163,32 @@ export default function ReportClassicDarkV2Full({
   const shellProps = mapAnalysisDataToForensicShellProps(analysisData, county);
 
   return (
-    <ForensicAuditReport
-      accessLevel="full"
-      analysisId={shellProps.analysisId}
-      grade={shellProps.grade}
-      confidenceScore={shellProps.confidenceScore}
-      flagRedCount={shellProps.flagRedCount}
-      flagAmberCount={shellProps.flagAmberCount}
-      flagClearCount={shellProps.flagClearCount}
-      overpaymentLow={shellProps.overpaymentLow}
-      overpaymentHigh={shellProps.overpaymentHigh}
-      pricePerOpening={shellProps.pricePerOpening}
-      pricePerOpeningBand={shellProps.pricePerOpeningBand}
-      marketLow={shellProps.marketLow}
-      marketHigh={shellProps.marketHigh}
-      totalContractPrice={shellProps.totalContractPrice}
-      totalOpenings={shellProps.totalOpenings}
-      flags={shellProps.flags}
-      codeJurisdiction={shellProps.codeJurisdiction}
-      executiveSummaryTeaser={shellProps.executiveSummaryTeaser}
-      fullEvidenceStack={buildFullEvidenceStack(v2Modules)}
-      suppressBuiltInNextAction={true}
-    />
+    <ForensicDiagnosisCtaContext.Provider value={handleDiagnosisCta}>
+      <div className="pb-24 md:pb-0">
+        <ForensicAuditReport
+          accessLevel="full"
+          analysisId={shellProps.analysisId}
+          grade={shellProps.grade}
+          confidenceScore={shellProps.confidenceScore}
+          flagRedCount={shellProps.flagRedCount}
+          flagAmberCount={shellProps.flagAmberCount}
+          flagClearCount={shellProps.flagClearCount}
+          overpaymentLow={shellProps.overpaymentLow}
+          overpaymentHigh={shellProps.overpaymentHigh}
+          pricePerOpening={shellProps.pricePerOpening}
+          pricePerOpeningBand={shellProps.pricePerOpeningBand}
+          marketLow={shellProps.marketLow}
+          marketHigh={shellProps.marketHigh}
+          totalContractPrice={shellProps.totalContractPrice}
+          totalOpenings={shellProps.totalOpenings}
+          flags={shellProps.flags}
+          codeJurisdiction={shellProps.codeJurisdiction}
+          executiveSummaryTeaser={shellProps.executiveSummaryTeaser}
+          fullEvidenceStack={buildFullEvidenceStack(v2Modules, handleDiagnosisCta)}
+          suppressBuiltInNextAction={true}
+        />
+        <MobileStickyCTA onClick={handleDiagnosisCta} />
+      </div>
+    </ForensicDiagnosisCtaContext.Provider>
   );
 }

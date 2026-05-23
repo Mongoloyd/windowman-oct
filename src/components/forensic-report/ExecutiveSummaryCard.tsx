@@ -2,7 +2,10 @@
  * ExecutiveSummaryCard — grade dial + confidence bar + flag counts + overpayment range.
  * Mirrors the top card in both reference mockups (preview shows same layout).
  */
+import { createContext, useContext } from "react";
 import GradeDial from "./GradeDial";
+
+export const ForensicDiagnosisCtaContext = createContext<(() => void) | null>(null);
 
 interface Props {
   grade: string;
@@ -38,6 +41,7 @@ export default function ExecutiveSummaryCard({
   marketLow,
   marketHigh,
 }: Props) {
+  const onDiagnosisCta = useContext(ForensicDiagnosisCtaContext);
   const conf = Math.max(0, Math.min(100, Math.round(confidenceScore ?? 0)));
 
   const hasPositiveOverpayment =
@@ -137,6 +141,26 @@ export default function ExecutiveSummaryCard({
           )}
         </div>
       </div>
+
+      {onDiagnosisCta ? (
+        <div
+          className="mt-5 pt-4 border-t"
+          style={{ borderColor: "hsl(var(--fr-border) / 0.6)" }}
+        >
+          <button
+            type="button"
+            onClick={onDiagnosisCta}
+            className="group w-full text-left rounded-lg border border-[hsl(var(--fr-border))] bg-[hsl(var(--fr-surface)/0.45)] px-4 py-3 backdrop-blur-sm transition-colors hover:border-[hsl(var(--fr-cyan)/0.3)] hover:bg-[hsl(var(--fr-surface)/0.65)] active:scale-[0.995]"
+          >
+            <span className="block text-sm font-semibold text-[hsl(var(--fr-text))] group-hover:text-[hsl(var(--fr-cyan))] transition-colors">
+              WindowMan&apos;s next move is ready →
+            </span>
+            <span className="mt-1 block text-xs text-[hsl(var(--fr-text-muted))] leading-snug">
+              Use this report to compare your quote against a cleaner same-scope option.
+            </span>
+          </button>
+        </div>
+      ) : null}
     </section>
   );
 }
