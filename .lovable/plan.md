@@ -1,90 +1,85 @@
-# Funnel → Supabase Call Map
+# Plan: Zod Contract Tests for `start-upload-scan-session`
 
-Target file: `docs/funnel/FUNNEL_SUPABASE_CALL_MAP.md` (new, docs-only — no runtime code touched).
+## Scope (hard isolation)
+- **Touched:** `supabase/functions/start-upload-scan-session/` only.
+- **Not touched:** any other Edge Function, `src/`, DB schema, RLS, storage policies, secrets, `.lovable/plan.md`, `App.tsx`, `/` route.
 
-Purpose: give the local Cursor/staging team a single authoritative reference of which Supabase surface (table / RPC / Storage bucket / Edge Function) each UI step must invoke, in order. This is the contract the `/scan` + `/report/forensic/:sessionId` wiring will be built against.
+## Files to create
 
-## Document structure
+### 1. `supabase/functions/start-upload-scan-session/contracts/schemas.ts`
+Single source of truth for request + response shapes. Exports:
 
-### 0. Conventions
-- Identity keys: `lead_id` (persistent), `scan_session_id` (per scan), `event_id` (CAPI dedup), `client_slug` (never null; route → `localStorage.wm_client_slug` → `"direct"`).
-- All writes to protected tables go through Edge Functions or RPCs. Frontend uses anon key only.
-- Order shown = required temporal order. Steps marked **GATE** must succeed before the next step renders authorized data.
+- `UUID` — `z.string().uuid()`
+- `StoragePath` — `z.string().min(1).max(1024)` + `.refine()` enforcing the existing scope rules (no leading `/`, no `//`, no `..`, must start with `${session_id}/`, non-empty filename). The refinement runs as a cross-field check inside `RequestSchema.superRefine`, not in `StoragePath` alone.
+- `FileName` — `z.string().min(1).max(512).nullish()`
+- `FileSize` — `z.number().int().nonnegative().nullish()`
+- `FileType` — `z.string().max(128).nullish()`
+- `RequestSchema` — `z.object({ session_id: UUID, storage_path: z.string().min(1).max(1024), file_name: FileName, file_size: FileSize, file_type: FileType }).strict().superRefine(...)` for the cross-field storage-path scope check.
+- `ErrorCode` — `z.enum(["invalid_json","invalid_payload","storage_path_scope_mismatch","storage_object_missing","method_not_allowed","server_misconfigured","lead_create_failed","quote_file_create_failed","scan_session_create_failed","unexpected_error"])` mirroring the codes already emitted by the handler.
+- `SuccessResponseSchema` — `z.object({ success: z.literal(true), scan_session_id: UUID, quote_file_id: UUID, lead_id: UUID }).strict()`
+- `ErrorResponseSchema` — `z.object({ success: z.literal(false), code: ErrorCode, message: z.string().min(1), details: z.unknown().optional() }).strict()`
+- `ResponseSchema` — `z.discriminatedUnion("success", [SuccessResponseSchema, ErrorResponseSchema])`
+- Inferred types: `BootstrapRequest`, `BootstrapResponse`, `BootstrapSuccess`, `BootstrapError`.
 
-### 1. Step-by-step map
+Zod imported as `import { z } from "npm:zod@3.23.8";` to match the project's existing `npm:` specifier pattern (no `deno.json` import-map edit required).
 
-For each UI step, document: **Trigger → Client call → Backend surface → Tables touched → Returns → Failure mode**.
+### 2. `supabase/functions/start-upload-scan-session/contracts/schemas.test.ts`
+Deno-native (`Deno.test`) suite, no network, no env. Asserts:
 
-1. **Landing `/scan` mounted**
-   - Client: `useUtmCapture`, `useClientSlug`, `useLeadId` (read-only).
-   - Backend: none (anonymous).
-   - Telemetry: `supabase.from("event_logs").insert({ event_name: "page_view", ... })` (anon insert policy already in place).
+**Request — valid:**
+- Minimal valid body parses (UUID `session_id`, scoped `storage_path`, all optional fields absent).
+- Full valid body parses (`file_name`, `file_size`, `file_type`, including explicit `null`s).
 
-2. **PreUploadIntake — homeowner submits name/email/phone/address**
-   - Client: `qualifyHomepageLead()` → `supabase.functions.invoke("qualify-homepage-lead", { body })`.
-   - Backend writes: `leads` (insert/upsert), `lead_attribution_details` (insert), Twilio line-type check.
-   - Returns: `{ lead_id, qualified, can_run_ai, phone_e164 }`.
-   - Persist `lead_id` + `phone_e164` to `sessionStorage`. **GATE** — `can_run_ai === true` required to proceed to upload.
+**Request — invalid (each its own test, asserts `.success === false` AND the expected `issues[0].path`):**
+- Missing `session_id`.
+- Non-UUID `session_id`.
+- Missing `storage_path`.
+- `storage_path` over 1024 chars.
+- `storage_path` with leading `/`.
+- `storage_path` with `//`.
+- `storage_path` with `../`.
+- `storage_path` not prefixed by `${session_id}/` (cross-field).
+- `storage_path` equal to `${session_id}/` (empty filename).
+- `file_size` negative.
+- `file_size` non-integer.
+- `file_type` over 128 chars.
+- `file_name` over 512 chars.
+- Extra/unknown property (e.g. `lead_id` injected) — rejected by `.strict()`.
+- Body is array / string / null.
 
-3. **Quote file selected → upload**
-   - Client: `supabase.functions.invoke("start-upload-scan-session", { body: { lead_id, client_slug } })` to mint a `scan_session_id` + signed upload URL.
-   - Backend writes: `scan_sessions` (insert), `quote_files` (insert pending row).
-   - Client: `supabase.storage.from("quotes").uploadToSignedUrl(path, token, file)` — private bucket, no public read.
-   - Telemetry: `event_logs` `upload_started`, `upload_completed`.
+**Response — valid:**
+- Success envelope with three UUIDs parses.
+- Each known error code parses with a message.
 
-4. **Scan kickoff**
-   - Client: `supabase.functions.invoke("scan-quote", { body: { scan_session_id } })`.
-   - Backend writes: `analyses` (insert with `analysis_status='pending'` → `'ready'`), `wm_event_log` via `createCanonicalEvent` (`quote_uploaded`), `wm_quote_facts` upsert, `wm_platform_dispatch_log` rows.
-   - Deterministic TS scoring (not LLM) sets `grade`, `flags`, `preview_json`, `full_json`, `proof_of_read`, `confidence_score`.
+**Response — invalid:**
+- `success: true` with missing `scan_session_id` fails.
+- `success: false` with unknown `code` fails enum.
+- Extra property on success envelope rejected by `.strict()`.
+- Mixing `success: true` with an error `code` field fails the discriminated union.
 
-5. **Polling for status**
-   - Client: `useScanPolling` → `supabase.rpc("get_scan_status", { p_scan_session_id })` (already in `reportService.fetchScanStatus`).
-   - Returns: `{ status, analysis_id }`. Poll until `ready` or `failed`.
+All tests use `assert`/`assertEquals` from `https://deno.land/std@0.224.0/assert/...` (already used elsewhere in this project). No `--allow-net` required.
 
-6. **PartialRevealHero — preview fetch (no PII gate)**
-   - Client: `supabase.rpc("get_analysis_preview", { p_scan_session_id })` via `fetchAnalysisPreview`.
-   - Returns: `grade`, `flag_count`, `flag_red_count`, `flag_amber_count`, `preview_json`, `proof_of_read`, `confidence_score`, `document_type`, `rubric_version`.
-   - Renders ExecutiveSummaryBand + one-line issue count. **Never** fetch `full_json` here.
+### 3. `supabase/functions/start-upload-scan-session/index.ts` — minimal handler update
+Two surgical changes, no behavior change for currently-valid traffic:
 
-7. **OTP request**
-   - Client: `usePhonePipeline` mode `validate_and_send_otp` → `supabase.functions.invoke("send-otp", { body: { phone_e164, scan_session_id, lead_id } })`.
-   - Backend writes: `phone_verifications` (insert/update), Twilio Verify send.
-   - Telemetry: `otp_started`.
+- **Request:** Replace the hand-rolled `parsePayload` body (kept as-is for safe `file_*` defaulting fallback? — **no**, fully replace) with `RequestSchema.safeParse(raw)`. On failure return `badRequest("invalid_payload", "Payload validation failed: " + firstIssue)` and audit `validation_failed` exactly as today. The existing `validateStoragePathScope` helper is removed because `RequestSchema.superRefine` now owns it — the `storage_path_scope_mismatch` error code remains reachable via a dedicated branch that re-checks after parse OR, simpler, the scope failure now surfaces as `invalid_payload` with `path: ["storage_path"]`. **Decision needed (open item below).**
+- **Response:** Before every `jsonResponse(...)` return inside the main handler, wrap the body in `ResponseSchema.parse(body)`. On throw, log `unexpected_error` audit and return a hard-coded `500 { success:false, code:"unexpected_error", message:"Response contract violation." }`. Wrap in a single helper `respond(status, body)` to keep diffs tight.
 
-8. **OTP verify — GATE**
-   - Client: `supabase.functions.invoke("verify-otp", { body: { phone_e164, code, scan_session_id } })`.
-   - Backend writes: `phone_verifications.phone_verified_at`, `leads.phone_verified_at`, conversion event row.
-   - Telemetry: `otp_verified`. Must succeed before any full-report fetch.
+No changes to: CORS headers, storage probe, lead/quote_file/scan_session resolution logic, audit persistence rules, service-role usage.
 
-9. **ForensicAuditReport — authorized full fetch**
-   - Client: `supabase.rpc("get_analysis_full", { p_scan_session_id, p_phone_e164 })` via `fetchAnalysisFull`. RPC re-checks `phone_verified_at` server-side and returns `__UNAUTHORIZED__` grade if not verified.
-   - Returns: `grade`, `flags`, `full_json`, `proof_of_read`, `preview_json`, `confidence_score`, `document_type`, `rubric_version`.
-   - Telemetry: `report_revealed`; CAPI dispatched server-side via `capi-event` queue (already enqueued during scan).
+## Open items (need your call before I write code)
 
-10. **Diagnosis intake (post-report)**
-    - Client: `supabase.functions.invoke("submit-diagnosis-intake", ...)` (or RPC, TBD by local team) → writes `diagnosis_intakes`.
+1. **Scope-mismatch error code preservation.** The handler currently returns a distinct `storage_path_scope_mismatch` (HTTP 400) so the frontend / event_logs can distinguish it from generic shape errors. With Zod owning the cross-field check, options are:
+   - **(a)** Keep `validateStoragePathScope` *after* Zod parse and keep emitting `storage_path_scope_mismatch` as a separate code. (Recommended — preserves observability.)
+   - **(b)** Fold it into `invalid_payload` and retire the code from `ErrorCode` enum. (Cleaner, but breaks any consumer keying on the code string.)
 
-11. **Contractor handoff request**
-    - Client: `supabase.functions.invoke("contractor-actions", { body: { action: "request_intro", scan_session_id, lead_id } })`.
-    - Backend writes: `contractor_opportunities`, `contractor_opportunity_routes`, optionally `billable_intros`; canonical event `contractor_match_requested`.
-    - Telemetry: `contractor_match_requested`, `qualified_lead`.
+2. **`.strict()` vs `.passthrough()` on the request.** The current frontend caller is `UploadZone`. If you want me to first `code--view` it and confirm no extra keys are sent before locking `.strict()`, say so; otherwise I'll ship `.strict()` and note it in the PR description as a deliberate tightening.
 
-12. **Dev bypass (non-prod only)**
-    - Client: `supabase.functions.invoke("dev-report-unlock", { body: { scan_session_id, dev_secret } })` → `fetchFullViaDevBypass`. Gate stays hardened in `adminAuth.ts`.
+3. **Zod pin.** OK to introduce `npm:zod@3.23.8` for this function only (no `deno.json` change needed thanks to `nodeModulesDir: true`)?
 
-### 2. Table-touch matrix (appendix)
-A compact table at the end with rows = UI steps and columns = each table/bucket, marking R/W/Upsert. Quick visual for the staging engineer.
-
-### 3. Forbidden patterns reminder (appendix)
-- No direct `supabase.from("analyses").select(...)` for full payloads from the browser.
-- No `localStorage`/CSS gating of full report.
-- No frontend OCR/LLM scoring.
-- No write to `phone_verifications`, `analyses`, `contractor_*` tables from the browser.
-
-## Open items to confirm before writing
-
-1. Intake Edge Function name: **`qualify-homepage-lead`** (existing) vs new `capture-intake`? Default: reuse existing.
-2. Upload session function name: confirm `start-upload-scan-session` exists in `/supabase/functions` or substitute the real name.
-3. Diagnosis intake transport: Edge Function vs RPC — confirm with local team before locking the doc.
-
-If those three are answered "use existing names as listed", I write the doc as drafted. Otherwise I'll substitute the corrected names.
+## Non-goals
+- No changes to other functions (`scan-quote`, `verify-otp`, etc.).
+- No `src/` updates, no shared type export to the frontend (can be a follow-up).
+- No CI workflow changes.
+- No live-network contract job.
+- No DB, RLS, or storage changes.
