@@ -34,17 +34,101 @@ function normalizeConfidencePercent(value: number | null | undefined): number | 
   return Math.max(0, Math.min(100, Math.round(pct)));
 }
 
-function computeOverpaymentRange(
+/** Strict finite numeric read — rejects NaN, Infinity, and non-numeric strings. */
+export function readFiniteNumber(value: unknown): number | null {
+  if (value == null) return null;
+  const num = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(num)) return null;
+  return num;
+}
+
+/** Positive finite count — used for opening counts where zero/negative is invalid. */
+export function readPositiveFiniteNumber(value: unknown): number | null {
+  const num = readFiniteNumber(value);
+  if (num === null || num <= 0) return null;
+  return num;
+}
+
+export function isPlaceholderCounty(county: string): boolean {
+  return county.trim().toLowerCase() === "your county";
+}
+
+export function resolveOpeningCount(
+  analysisData: AnalysisData,
+  derivedMetrics: Record<string, unknown> | null,
+): number | null {
+  const fromProof = readPositiveFiniteNumber(analysisData.openingCount);
+  if (fromProof !== null) return fromProof;
+
+  const counts =
+    derivedMetrics && isRecord(derivedMetrics.counts) ? derivedMetrics.counts : null;
+  return readPositiveFiniteNumber(counts?.total_openings);
+}
+
+export function resolveMarketBenchmark(countyBenchmark: Record<string, unknown> | null): {
+  marketLow: number | null;
+  marketHigh: number | null;
+} {
+  if (!countyBenchmark) return { marketLow: null, marketHigh: null };
+  return {
+    marketLow: readFiniteNumber(countyBenchmark.benchmark_price_per_opening_low),
+    marketHigh: readFiniteNumber(countyBenchmark.benchmark_price_per_opening_high),
+  };
+}
+
+export function resolvePricePerOpening(
+  analysisData: AnalysisData,
+  derivedMetrics: Record<string, unknown> | null,
+): number | null {
+  const primary = readFiniteNumber(analysisData.pricePerOpening);
+  if (primary !== null) return primary;
+
+  const perOpening =
+    derivedMetrics && isRecord(derivedMetrics.per_opening) ? derivedMetrics.per_opening : null;
+  const installed = readFiniteNumber(perOpening?.installed_price_per_opening);
+  if (installed !== null) return installed;
+
+  const contract = readFiniteNumber(perOpening?.contract_price_per_opening);
+  if (contract !== null) return contract;
+
+  return null;
+}
+
+export function resolveCodeJurisdiction(
+  countyBenchmark: Record<string, unknown> | null,
+  county: string,
+): string | null {
+  const label =
+    countyBenchmark && typeof countyBenchmark.county_label === "string"
+      ? countyBenchmark.county_label.trim()
+      : null;
+  if (label) return label;
+
+  const trimmedCounty = county.trim();
+  if (trimmedCounty && !isPlaceholderCounty(trimmedCounty)) {
+    return trimmedCounty;
+  }
+
+  return null;
+}
+
+export function computeOverpaymentRange(
   contractTotal: number,
   openingCount: number,
-  benchmarkLow: number,
-  benchmarkHigh: number,
-): { overpaymentLow: number; overpaymentHigh: number } {
-  const totalLow = openingCount * benchmarkLow;
-  const totalHigh = openingCount * benchmarkHigh;
+  marketLow: number,
+  marketHigh: number,
+): { overpaymentLow: number; overpaymentHigh: number } | null {
+  const contract = readFiniteNumber(contractTotal);
+  const openings = readPositiveFiniteNumber(openingCount);
+  const low = readFiniteNumber(marketLow);
+  const high = readFiniteNumber(marketHigh);
+  if (contract === null || openings === null || low === null || high === null) {
+    return null;
+  }
+
   return {
-    overpaymentLow: Math.max(0, contractTotal - totalHigh),
-    overpaymentHigh: Math.max(0, contractTotal - totalLow),
+    overpaymentLow: Math.round(Math.max(0, contract - openings * high)),
+    overpaymentHigh: Math.round(Math.max(0, contract - openings * low)),
   };
 }
 
@@ -70,44 +154,22 @@ export function mapAnalysisDataToForensicShellProps(
     ? analysisData.derivedMetrics
     : null;
   const totals = derivedMetrics && isRecord(derivedMetrics.totals) ? derivedMetrics.totals : null;
-  const unitPricing =
-    derivedMetrics && isRecord(derivedMetrics.unit_pricing) ? derivedMetrics.unit_pricing : null;
   const countyBenchmark =
     derivedMetrics && isRecord(derivedMetrics.county_benchmark)
       ? derivedMetrics.county_benchmark
       : null;
 
-  const contractTotal =
-    totals && typeof totals.contract_total === "number" ? totals.contract_total : null;
-  const benchmarkLow =
-    countyBenchmark && typeof countyBenchmark.benchmark_low === "number"
-      ? countyBenchmark.benchmark_low
-      : null;
-  const benchmarkHigh =
-    countyBenchmark && typeof countyBenchmark.benchmark_high === "number"
-      ? countyBenchmark.benchmark_high
-      : null;
-  const openingCount = analysisData.openingCount;
-  const pricePerOpening =
-    analysisData.pricePerOpening ??
-    (unitPricing && typeof unitPricing.blended_avg_unit_price === "number"
-      ? unitPricing.blended_avg_unit_price
-      : null);
+  const contractTotal = readFiniteNumber(totals?.contract_total);
+  const { marketLow, marketHigh } = resolveMarketBenchmark(countyBenchmark);
+  const openingCount = resolveOpeningCount(analysisData, derivedMetrics);
+  const pricePerOpening = resolvePricePerOpening(analysisData, derivedMetrics);
 
   const overpayment =
-    contractTotal != null &&
-    openingCount != null &&
-    benchmarkLow != null &&
-    benchmarkHigh != null
-      ? computeOverpaymentRange(contractTotal, openingCount, benchmarkLow, benchmarkHigh)
+    contractTotal !== null && openingCount !== null && marketLow !== null && marketHigh !== null
+      ? computeOverpaymentRange(contractTotal, openingCount, marketLow, marketHigh)
       : null;
 
-  const benchmarkCounty =
-    countyBenchmark && typeof countyBenchmark.county === "string"
-      ? countyBenchmark.county
-      : null;
-  const codeJurisdiction =
-    benchmarkCounty ?? (county !== "Your County" ? county : null);
+  const codeJurisdiction = resolveCodeJurisdiction(countyBenchmark, county);
 
   const flagClearCount = Math.max(
     0,
@@ -129,8 +191,8 @@ export function mapAnalysisDataToForensicShellProps(
     overpaymentHigh: hasPositiveOverpayment ? overpayment!.overpaymentHigh : null,
     pricePerOpening,
     pricePerOpeningBand: analysisData.pricePerOpeningBand,
-    marketLow: benchmarkLow,
-    marketHigh: benchmarkHigh,
+    marketLow,
+    marketHigh,
     totalContractPrice: contractTotal,
     totalOpenings: openingCount,
     flags: analysisData.flags,

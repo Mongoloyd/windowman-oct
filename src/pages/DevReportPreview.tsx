@@ -69,6 +69,13 @@ import {
   type LabLiveFullShellProps,
   type LabLiveRequestState,
 } from "@/lib/labLiveReportAccess";
+import {
+  computeOverpaymentRange,
+  readFiniteNumber,
+  readPositiveFiniteNumber,
+  resolveCodeJurisdiction,
+  resolveMarketBenchmark,
+} from "@/lib/productionV2ReportHarness";
 import type { RawPreviewRow } from "@/types/serviceResults";
 import type { V2ReportModuleSource, V2ReportSourceMode } from "@/types/v2ReportTransport";
 
@@ -159,16 +166,19 @@ interface LabDerivedMetrics {
     install_like_subtotal: number;
     accessory_subtotal: number;
   };
-  unit_pricing: {
+  unit_pricing?: {
     window_avg_unit_price: number;
     door_avg_unit_price: number;
-    blended_avg_unit_price: number;
+  };
+  per_opening?: {
+    installed_price_per_opening: number;
+    contract_price_per_opening?: number;
   };
   county_benchmark: {
-    county: string;
-    market_position: string;
-    benchmark_low: number;
-    benchmark_high: number;
+    county_label: string;
+    benchmark_price_per_opening_low: number;
+    benchmark_price_per_opening_high: number;
+    market_position?: string;
   };
 }
 
@@ -384,13 +394,16 @@ const mockFullReportAccessResponse: LabFullReportAccessResponse = {
         unit_pricing: {
           window_avg_unit_price: 1250,
           door_avg_unit_price: 2200,
-          blended_avg_unit_price: 1375,
+        },
+        per_opening: {
+          installed_price_per_opening: 1375,
+          contract_price_per_opening: 1375,
         },
         county_benchmark: {
-          county: "Broward",
+          county_label: "Broward County",
           market_position: "below_documented_market_range_due_to_missing_scope",
-          benchmark_low: 1700,
-          benchmark_high: 2400,
+          benchmark_price_per_opening_low: 1700,
+          benchmark_price_per_opening_high: 2400,
         },
       },
       extraction: {
@@ -530,19 +543,6 @@ function mapFullFlagsToAnalysisFlags(flags: LabFullFlag[]): AnalysisFlag[] {
         ? flag.evidence.join(" ")
         : flag.summary ?? "No supporting evidence text provided in this lab fixture.",
   }));
-}
-
-function computeOverpaymentRange(
-  contractTotal: number,
-  openingCount: number,
-  benchmarkLow: number,
-  benchmarkHigh: number,
-): { overpaymentLow: number; overpaymentHigh: number } {
-  const totalLow = openingCount * benchmarkLow;
-  const totalHigh = openingCount * benchmarkHigh;
-  const overpaymentLow = Math.max(0, contractTotal - totalHigh);
-  const overpaymentHigh = Math.max(0, contractTotal - totalLow);
-  return { overpaymentLow, overpaymentHigh };
 }
 
 function normalizeConfidenceScore(value: number): number {
@@ -971,8 +971,8 @@ export default function DevReportPreview() {
     const proofOfRead = fixture.data.proof_of_read;
     const derivedMetrics = fullData?.derived_metrics;
     const totals = derivedMetrics?.totals;
-    const unitPricing = derivedMetrics?.unit_pricing;
     const countyBenchmark = derivedMetrics?.county_benchmark;
+    const perOpening = derivedMetrics?.per_opening;
     const flags = Array.isArray(fixture.data.flags) ? fixture.data.flags : [];
 
     const redFlags = flags.filter((flag) => flag.severity === "red");
@@ -983,38 +983,23 @@ export default function DevReportPreview() {
       previewData.flag_count - redFlags.length - amberFlags.length,
     );
 
-    const contractTotal =
-      totals && typeof totals.contract_total === "number"
-        ? totals.contract_total
-        : undefined;
-    const benchmarkLow =
-      countyBenchmark && typeof countyBenchmark.benchmark_low === "number"
-        ? countyBenchmark.benchmark_low
-        : undefined;
-    const benchmarkHigh =
-      countyBenchmark && typeof countyBenchmark.benchmark_high === "number"
-        ? countyBenchmark.benchmark_high
-        : undefined;
+    const contractTotal = readFiniteNumber(totals?.contract_total) ?? undefined;
+    const { marketLow: benchmarkLow, marketHigh: benchmarkHigh } = resolveMarketBenchmark(
+      countyBenchmark ?? null,
+    );
     const openingCount =
-      proofOfRead && typeof proofOfRead.opening_count === "number"
-        ? proofOfRead.opening_count
-        : undefined;
+      readPositiveFiniteNumber(proofOfRead?.opening_count) ?? undefined;
     const pricePerOpening =
-      unitPricing && typeof unitPricing.blended_avg_unit_price === "number"
-        ? unitPricing.blended_avg_unit_price
-        : undefined;
+      readFiniteNumber(perOpening?.installed_price_per_opening) ??
+      readFiniteNumber(perOpening?.contract_price_per_opening) ??
+      undefined;
 
     const overpayment =
       contractTotal != null &&
       openingCount != null &&
       benchmarkLow != null &&
       benchmarkHigh != null
-        ? computeOverpaymentRange(
-            contractTotal,
-            openingCount,
-            benchmarkLow,
-            benchmarkHigh,
-          )
+        ? computeOverpaymentRange(contractTotal, openingCount, benchmarkLow, benchmarkHigh)
         : undefined;
     const confidenceScore = normalizeConfidenceScore(fixture.data.confidence_score);
     const isFullV3 = params.get("v") === "v3";
@@ -1035,13 +1020,13 @@ export default function DevReportPreview() {
         flagRedCount={redFlags.length}
         flagAmberCount={amberFlags.length}
         flagClearCount={clearCount}
-        overpaymentLow={overpayment?.overpaymentLow}
-        overpaymentHigh={overpayment?.overpaymentHigh}
+        overpaymentLow={overpayment?.overpaymentLow ?? undefined}
+        overpaymentHigh={overpayment?.overpaymentHigh ?? undefined}
         overpaymentBasis={null}
         pricePerOpening={pricePerOpening}
         pricePerOpeningBand={previewData.price_per_opening_band}
-        marketLow={benchmarkLow}
-        marketHigh={benchmarkHigh}
+        marketLow={benchmarkLow ?? undefined}
+        marketHigh={benchmarkHigh ?? undefined}
         totalContractPrice={contractTotal}
         totalOpenings={openingCount}
         flags={mapFullFlagsToAnalysisFlags(flags)}
@@ -1049,11 +1034,7 @@ export default function DevReportPreview() {
         propertyAddress={null}
         propertyType={null}
         windZone={null}
-        codeJurisdiction={
-          countyBenchmark && typeof countyBenchmark.county === "string"
-            ? countyBenchmark.county
-            : null
-        }
+        codeJurisdiction={resolveCodeJurisdiction(countyBenchmark ?? null, "your county")}
         executiveSummaryTeaser={previewData.summary_teaser}
         fullEvidenceStack={fullEvidenceStack}
         suppressBuiltInNextAction={isFullV3}

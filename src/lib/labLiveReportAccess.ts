@@ -6,6 +6,13 @@
 import { rawFullRowToV2ReportSource } from "@/components/forensic-report/adapters/reportAccessAdapter.source";
 import type { AnalysisFlag } from "@/hooks/useAnalysisData";
 import {
+  computeOverpaymentRange,
+  readFiniteNumber,
+  readPositiveFiniteNumber,
+  resolveCodeJurisdiction,
+  resolveMarketBenchmark,
+} from "@/lib/productionV2ReportHarness";
+import {
   fetchAnalysisFull,
   fetchAnalysisPreview,
 } from "@/services/reportService";
@@ -253,18 +260,17 @@ function mapLiveFlags(raw: unknown): AnalysisFlag[] {
   });
 }
 
-function computeOverpaymentRange(
-  contractTotal: number,
-  openingCount: number,
-  benchmarkLow: number,
-  benchmarkHigh: number,
-): { overpaymentLow: number; overpaymentHigh: number } {
-  const totalLow = openingCount * benchmarkLow;
-  const totalHigh = openingCount * benchmarkHigh;
-  return {
-    overpaymentLow: Math.max(0, contractTotal - totalHigh),
-    overpaymentHigh: Math.max(0, contractTotal - totalLow),
-  };
+function readPricePerOpeningFromDerivedMetrics(
+  fullJson: Record<string, unknown> | null,
+): number | undefined {
+  const derivedMetrics = isRecord(fullJson?.derived_metrics) ? fullJson.derived_metrics : null;
+  const perOpening =
+    derivedMetrics && isRecord(derivedMetrics.per_opening) ? derivedMetrics.per_opening : null;
+  const installed = readFiniteNumber(perOpening?.installed_price_per_opening);
+  if (installed !== null) return installed;
+  const contract = readFiniteNumber(perOpening?.contract_price_per_opening);
+  if (contract !== null) return contract;
+  return undefined;
 }
 
 function readPricePerOpeningBand(
@@ -306,33 +312,25 @@ export function mapLiveFullRowToShellProps(row: RawFullRow): LabLiveFullShellPro
   const fullJson = isRecord(row.full_json) ? row.full_json : null;
   const derivedMetrics = isRecord(fullJson?.derived_metrics) ? fullJson.derived_metrics : null;
   const totals = isRecord(derivedMetrics?.totals) ? derivedMetrics.totals : null;
-  const unitPricing = isRecord(derivedMetrics?.unit_pricing) ? derivedMetrics.unit_pricing : null;
   const countyBenchmark = isRecord(derivedMetrics?.county_benchmark)
     ? derivedMetrics.county_benchmark
     : null;
+  const counts = isRecord(derivedMetrics?.counts) ? derivedMetrics.counts : null;
 
   const flags = mapLiveFlags(row.flags);
   const redFlags = flags.filter((flag) => flag.severity === "red");
   const amberFlags = flags.filter((flag) => flag.severity === "amber");
 
-  const contractTotal =
-    totals && typeof totals.contract_total === "number" ? totals.contract_total : undefined;
-  const benchmarkLow =
-    countyBenchmark && typeof countyBenchmark.benchmark_low === "number"
-      ? countyBenchmark.benchmark_low
-      : undefined;
-  const benchmarkHigh =
-    countyBenchmark && typeof countyBenchmark.benchmark_high === "number"
-      ? countyBenchmark.benchmark_high
-      : undefined;
+  const contractTotal = readFiniteNumber(totals?.contract_total) ?? undefined;
+  const { marketLow: benchmarkLow, marketHigh: benchmarkHigh } =
+    resolveMarketBenchmark(countyBenchmark);
   const openingCount =
-    proofOfRead && typeof proofOfRead.opening_count === "number"
-      ? proofOfRead.opening_count
-      : undefined;
+    readPositiveFiniteNumber(proofOfRead?.opening_count) ??
+    readPositiveFiniteNumber(counts?.total_openings) ??
+    undefined;
+  const hybridPricePerOpening = readFiniteNumber(fullJson?.price_per_opening);
   const pricePerOpening =
-    unitPricing && typeof unitPricing.blended_avg_unit_price === "number"
-      ? unitPricing.blended_avg_unit_price
-      : undefined;
+    hybridPricePerOpening ?? readPricePerOpeningFromDerivedMetrics(fullJson);
 
   const overpayment =
     contractTotal != null &&
@@ -357,21 +355,26 @@ export function mapLiveFullRowToShellProps(row: RawFullRow): LabLiveFullShellPro
     ),
     overpaymentLow: overpayment?.overpaymentLow,
     overpaymentHigh: overpayment?.overpaymentHigh,
-    pricePerOpening,
+    pricePerOpening: pricePerOpening ?? undefined,
     pricePerOpeningBand: readPricePerOpeningBand(previewJson),
-    marketLow: benchmarkLow,
-    marketHigh: benchmarkHigh,
+    marketLow: benchmarkLow ?? undefined,
+    marketHigh: benchmarkHigh ?? undefined,
     totalContractPrice: contractTotal,
     totalOpenings: openingCount,
     flags,
-    codeJurisdiction:
-      countyBenchmark && typeof countyBenchmark.county === "string"
-        ? countyBenchmark.county
-        : null,
-    executiveSummaryTeaser:
-      previewJson && typeof previewJson.summary_teaser === "string"
-        ? previewJson.summary_teaser
-        : null,
+    codeJurisdiction: resolveCodeJurisdiction(countyBenchmark, ""),
+    executiveSummaryTeaser: (() => {
+      const summary =
+        fullJson && typeof fullJson.summary === "string" ? fullJson.summary.trim() : "";
+      if (summary.length > 0) return summary;
+      const topWarning =
+        fullJson && typeof fullJson.top_warning === "string" ? fullJson.top_warning.trim() : "";
+      if (topWarning.length > 0) return topWarning;
+      if (previewJson && typeof previewJson.summary_teaser === "string") {
+        return previewJson.summary_teaser;
+      }
+      return null;
+    })(),
   };
 }
 

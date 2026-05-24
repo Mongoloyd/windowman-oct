@@ -273,8 +273,26 @@ export function buildFullData(row: RawFullRow): AnalysisData {
 
   const derivedMetrics = (fullJsonRaw?.derived_metrics as Record<string, unknown>) || null;
   const hybridFull = fullJsonRaw as unknown as HybridFullPayload | null;
+  const hybridPreview = previewJson as unknown as HybridPreviewPayload | null;
   const fullWarnings = Array.isArray(hybridFull?.warnings) ? hybridFull.warnings : [];
   const fullMissingItems = Array.isArray(hybridFull?.missing_items) ? hybridFull.missing_items : [];
+
+  const fullSummary =
+    typeof hybridFull?.summary === "string" ? hybridFull.summary.trim() : "";
+  const fullTopWarning =
+    typeof hybridFull?.top_warning === "string" ? hybridFull.top_warning.trim() : "";
+  const previewSummaryTeaser =
+    typeof hybridPreview?.summary_teaser === "string"
+      ? hybridPreview.summary_teaser.trim()
+      : "";
+  const summaryTeaser =
+    fullSummary.length > 0
+      ? fullSummary
+      : fullTopWarning.length > 0
+        ? fullTopWarning
+        : previewSummaryTeaser.length > 0
+          ? previewSummaryTeaser
+          : null;
 
   return {
     analysisId: row.analysis_id ?? null,
@@ -317,7 +335,7 @@ export function buildFullData(row: RawFullRow): AnalysisData {
     pricePerOpeningBand: hybridFull?.price_per_opening_band ?? null,
     paymentRiskDetected: Boolean(hybridFull?.payment_risk_detected),
     scopeGapDetected: Boolean(hybridFull?.scope_gap_detected),
-    summaryTeaser: null,
+    summaryTeaser,
     missingItemsCount: fullMissingItems.length,
   };
 }
