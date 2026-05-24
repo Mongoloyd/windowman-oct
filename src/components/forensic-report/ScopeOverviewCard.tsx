@@ -58,11 +58,11 @@ export default function ScopeOverviewCard({
         <Tile
           value={isPreview ? fmtPreviewMoney(pricePerOpening, true) : fmtMoney(pricePerOpening)}
           valueColor={bandColor(pricePerOpeningBand)}
-          label="Price Per Opening"
+          label="Installed Price Per Opening"
           sub={
             marketLow != null && marketHigh != null
-              ? `Market avg: ${fmtMoney(marketLow)}–${fmtMoney(marketHigh)}`
-              : undefined
+              ? `Product + install scope, before tax where available · Market range uses installed price assumptions where available: ${fmtMoney(marketLow)}–${fmtMoney(marketHigh)}`
+              : "Product + install scope, before tax where available"
           }
         />
         <Tile

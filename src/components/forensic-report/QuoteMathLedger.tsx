@@ -163,7 +163,7 @@ function SummaryChips({
   currency: string;
 }) {
   const chips: { label: string; value: string }[] = [
-    { label: "Line items detected", value: String(lineItemCount) },
+    { label: "Extracted Quote Rows", value: String(lineItemCount) },
   ];
   if (isPresent(openingCount) && typeof openingCount === "number") {
     chips.push({ label: "Openings", value: String(openingCount) });

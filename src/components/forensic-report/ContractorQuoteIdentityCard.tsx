@@ -39,7 +39,7 @@ function buildRows(props: ContractorQuoteIdentityCardProps): MetadataRow[] {
     rows.push({ label: "Pages Scanned", value: String(props.pageCount), mono: true });
   }
   if (isFiniteNumber(props.lineItemCount)) {
-    rows.push({ label: "Line Items Detected", value: String(props.lineItemCount), mono: true });
+    rows.push({ label: "Extracted Quote Rows", value: String(props.lineItemCount), mono: true });
   }
   if (isFiniteNumber(props.openingCount)) {
     rows.push({ label: "Openings Counted", value: String(props.openingCount), mono: true });
@@ -106,8 +106,8 @@ export default function ContractorQuoteIdentityCard(props: ContractorQuoteIdenti
             What WindowMan Actually Read
           </h2>
           <p className="text-sm text-[hsl(var(--fr-text-muted))] leading-relaxed max-w-3xl">
-            This is the document fingerprint WindowMan extracted from your uploaded quote — before
-            scoring, flags, or recommendations.
+            Key quote facts WindowMan extracted from your uploaded quote — before scoring, flags,
+            or recommendations.
           </p>
         </header>
 
