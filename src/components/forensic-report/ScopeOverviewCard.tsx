@@ -1,7 +1,10 @@
 /**
  * ScopeOverviewCard — total openings, price-per-opening, total contract price.
  */
+const LOCKED_METRIC_VALUE = "Locked";
+
 interface Props {
+  accessLevel?: "preview" | "full";
   totalOpenings?: number | null;
   pricePerOpening?: number | null;
   pricePerOpeningBand?: "low" | "market" | "high" | "extreme" | null;
@@ -10,9 +13,15 @@ interface Props {
   totalContractPrice?: number | null;
 }
 
-function fmt(n: number | null | undefined): string {
-  if (n == null) return "—";
+function fmtMoney(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n)) return "—";
   return `$${Math.round(n).toLocaleString()}`;
+}
+
+function fmtPreviewMoney(n: number | null | undefined, lockedWhenMissing: boolean): string {
+  if (n != null && Number.isFinite(n)) return fmtMoney(n);
+  if (lockedWhenMissing) return LOCKED_METRIC_VALUE;
+  return "—";
 }
 
 function bandColor(band?: string | null): string {
@@ -22,6 +31,7 @@ function bandColor(band?: string | null): string {
 }
 
 export default function ScopeOverviewCard({
+  accessLevel = "full",
   totalOpenings,
   pricePerOpening,
   pricePerOpeningBand,
@@ -29,6 +39,10 @@ export default function ScopeOverviewCard({
   marketHigh,
   totalContractPrice,
 }: Props) {
+  const isPreview = accessLevel === "preview";
+  const hasContractTotal =
+    totalContractPrice != null && Number.isFinite(totalContractPrice);
+
   if (totalOpenings == null && pricePerOpening == null && totalContractPrice == null) return null;
 
   return (
@@ -42,16 +56,29 @@ export default function ScopeOverviewCard({
           label="Total Openings"
         />
         <Tile
-          value={fmt(pricePerOpening)}
+          value={isPreview ? fmtPreviewMoney(pricePerOpening, true) : fmtMoney(pricePerOpening)}
           valueColor={bandColor(pricePerOpeningBand)}
           label="Price Per Opening"
           sub={
             marketLow != null && marketHigh != null
-              ? `Market avg: ${fmt(marketLow)}–${fmt(marketHigh)}`
+              ? `Market avg: ${fmtMoney(marketLow)}–${fmtMoney(marketHigh)}`
               : undefined
           }
         />
-        <Tile value={fmt(totalContractPrice)} label="Total Contract Price" />
+        <Tile
+          value={
+            isPreview
+              ? fmtPreviewMoney(totalContractPrice, !hasContractTotal)
+              : fmtMoney(totalContractPrice)
+          }
+          label={
+            isPreview
+              ? hasContractTotal
+                ? "Quote Total Detected"
+                : "Contract Total"
+              : "Total Contract Price"
+          }
+        />
       </div>
     </section>
   );

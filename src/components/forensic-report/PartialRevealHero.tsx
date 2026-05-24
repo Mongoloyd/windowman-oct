@@ -11,6 +11,8 @@
 import { Lock, AlertOctagon, DollarSign, FileWarning } from "lucide-react";
 import WindowManMark from "./WindowManMark";
 
+const LOCKED_METRIC_VALUE = "Locked";
+
 interface Props {
   grade: string;
   flagRedCount: number;
@@ -154,7 +156,7 @@ export default function PartialRevealHero({
             >
               {totalIssues}
             </span>{" "}
-            {totalIssues === 1 ? "issue" : "issues"} with your estimate.
+            {totalIssues === 1 ? "risk signal" : "risk signals"} in your estimate.
           </p>
         )}
 
@@ -239,12 +241,12 @@ export default function PartialRevealHero({
             variant="critical"
             icon={<AlertOctagon size={16} />}
             value={String(flagRedCount)}
-            label="Critical Issues Detected"
+            label="Critical Risk Signals Detected"
           />
           <MetricTile
             variant="warning"
             icon={<DollarSign size={16} />}
-            value={overpayMid != null ? fmtMoney(overpayMid) : "—"}
+            value={overpayMid != null ? fmtMoney(overpayMid) : LOCKED_METRIC_VALUE}
             label="Potential Overcharge"
           />
           <MetricTile
@@ -308,13 +310,10 @@ export default function PartialRevealHero({
                 style={{ color: `rgb(${band.rgb})` }}
               >
                 {missingRegulatory} missing regulatory line item
-                {missingRegulatory === 1 ? "" : "s"}
+                {missingRegulatory === 1 ? "" : "s"}.
               </span>{" "}
-              and a potential overcharge of{" "}
-              <span className="font-bold text-[hsl(var(--fr-caution))]">
-                {overpayMid != null ? fmtMoney(overpayMid) : "—"}
-              </span>
-              . Verify your phone to access your full Forensic Audit.
+              Your financial exposure estimate is locked until verification.
+              Verify your phone to access your full Forensic Audit.
             </p>
             {overpaymentBasis && (
               <p className="mt-3 text-[11px] leading-snug max-w-md mx-auto text-slate-400">

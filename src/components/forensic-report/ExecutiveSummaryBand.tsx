@@ -6,6 +6,7 @@
  * and updates automatically once live OCR-derived data flows through.
  */
 interface Props {
+  accessLevel?: "preview" | "full";
   flagRedCount: number;
   flagAmberCount: number;
   summary?: string | null;
@@ -14,11 +15,16 @@ interface Props {
 const DEFAULT_SUMMARY =
   "This quote shows multiple high-risk issues, including contract traps and missing technical proof that should be resolved before signing.";
 
+const PREVIEW_DEFAULT_SUMMARY =
+  "This quote shows multiple high-risk signals, including contract traps and missing technical proof that should be resolved before signing.";
+
 export default function ExecutiveSummaryBand({
+  accessLevel = "full",
   flagRedCount,
   flagAmberCount,
   summary,
 }: Props) {
+  const isPreview = accessLevel === "preview";
   const totalIssues = (flagRedCount ?? 0) + (flagAmberCount ?? 0);
 
   return (
@@ -38,11 +44,18 @@ export default function ExecutiveSummaryBand({
               <span className="font-bold text-[hsl(var(--fr-danger))]">
                 {totalIssues}
               </span>{" "}
-              {totalIssues === 1 ? "issue" : "issues"} with your estimate.
+              {totalIssues === 1
+                ? isPreview
+                  ? "risk signal"
+                  : "issue"
+                : isPreview
+                  ? "risk signals"
+                  : "issues"}{" "}
+              {isPreview ? "in your estimate." : "with your estimate."}
             </p>
           )}
           <p className="text-sm sm:text-[15px] text-[hsl(var(--fr-text-muted))] leading-snug mt-1">
-            {summary ?? DEFAULT_SUMMARY}
+            {summary ?? (isPreview ? PREVIEW_DEFAULT_SUMMARY : DEFAULT_SUMMARY)}
           </p>
         </div>
       </div>

@@ -145,12 +145,14 @@ export default function ForensicAuditReport(props: ForensicAuditReportProps) {
           </div>
 
           <ExecutiveSummaryBand
+            accessLevel={props.accessLevel}
             flagRedCount={props.flagRedCount}
             flagAmberCount={props.flagAmberCount}
             summary={props.executiveSummaryTeaser}
           />
 
           <ScopeOverviewCard
+            accessLevel={props.accessLevel}
             totalOpenings={props.totalOpenings}
             pricePerOpening={props.pricePerOpening}
             pricePerOpeningBand={props.pricePerOpeningBand}
