@@ -12,6 +12,8 @@ export interface ReportDiagnosisHandoff {
 }
 
 const STORAGE_KEY = "wm_report_diagnosis_handoff_v1";
+/** One-shot marker: homepage Dark V2 report was open before Diagnosis navigation (Back/remount recovery). */
+export const HOMEPAGE_DARK_V2_RETURN_SESSION_KEY = "wm_homepage_diagnosis_return_v1";
 const MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -80,4 +82,23 @@ export function readReportDiagnosisHandoff(): ReportDiagnosisHandoff | null {
 export function clearReportDiagnosisHandoff(): void {
   if (typeof window === "undefined") return;
   sessionStorage.removeItem(STORAGE_KEY);
+}
+
+/** Set before homepage → Diagnosis navigation when Dark V2 homepage flag is on. */
+export function markHomepageDarkV2ReportReturn(scanSessionId: string): void {
+  if (typeof window === "undefined" || !scanSessionId.trim()) return;
+  sessionStorage.setItem(HOMEPAGE_DARK_V2_RETURN_SESSION_KEY, scanSessionId.trim());
+}
+
+/** Read and clear the one-shot homepage return marker (mount-time recovery only). */
+export function consumeHomepageDarkV2ReportReturn(): string | null {
+  if (typeof window === "undefined") return null;
+  const id = sessionStorage.getItem(HOMEPAGE_DARK_V2_RETURN_SESSION_KEY);
+  if (id) sessionStorage.removeItem(HOMEPAGE_DARK_V2_RETURN_SESSION_KEY);
+  return id?.trim() || null;
+}
+
+export function clearHomepageDarkV2ReportReturn(): void {
+  if (typeof window === "undefined") return;
+  sessionStorage.removeItem(HOMEPAGE_DARK_V2_RETURN_SESSION_KEY);
 }

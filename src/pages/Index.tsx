@@ -28,6 +28,10 @@ import { useAnalysisData } from "@/hooks/useAnalysisData";
 import { useHomepageVariant } from "@/hooks/useHomepageVariant";
 import { useScanFunnel, readPersistedFunnelSnapshot, clearPersistedFunnelKeys } from "@/state/scanFunnel";
 import { getVerifiedAccess, clearVerifiedAccess } from "@/lib/verifiedAccess";
+import {
+  consumeHomepageDarkV2ReportReturn,
+  clearHomepageDarkV2ReportReturn,
+} from "@/lib/reportDiagnosisHandoff";
 import { trackEvent } from "@/lib/trackEvent";
 import { useClientSlug } from "@/lib/useClientSlug";
 
@@ -111,6 +115,7 @@ const Index = () => {
   const showReportFromDev = isDevPreview && devConfig?.analysisData != null && !devConfig?.specialState;
   const {
     data: analysisData,
+    v2ReportSource,
     isLoading: analysisLoading,
     error: analysisError,
     fullFetchError,
@@ -139,12 +144,19 @@ const Index = () => {
     hasVerified: boolean;
   } | null>(null);
 
-  const runRestore = useCallback((opts?: { explicit?: boolean }) => {
+  const runRestore = useCallback((opts?: { explicit?: boolean; scanSessionIdOverride?: string }) => {
+    // When scanSessionIdOverride is provided (e.g., from Dark V2 return marker),
+    // use it directly instead of relying on the persisted funnel snapshot.
+    // This ensures we restore the exact session the user was viewing, even if
+    // the snapshot is stale or from a different tab.
+    const targetScanSessionId = opts?.scanSessionIdOverride ?? null;
     const snapshot = readPersistedFunnelSnapshot();
-    const verified = getVerifiedAccess(snapshot?.scanSessionId ?? null);
+    const verified = targetScanSessionId
+      ? getVerifiedAccess(targetScanSessionId)
+      : getVerifiedAccess(snapshot?.scanSessionId ?? null);
 
     // Verified record present → restore as already-revealed
-    if (verified && (snapshot?.scanSessionId === verified.scan_session_id || opts?.explicit)) {
+    if (verified && (opts?.scanSessionIdOverride || snapshot?.scanSessionId === verified.scan_session_id || opts?.explicit)) {
       setScanSessionId(verified.scan_session_id);
       setFileUploaded(true);
       setGradeRevealed(true);
@@ -156,7 +168,8 @@ const Index = () => {
 
     // In-flight scan (preview / OTP) → restore preview only.
     // Full report stays gated behind backend OTP verification.
-    if (snapshot?.scanSessionId) {
+    // Only use snapshot if no explicit override was provided.
+    if (!opts?.scanSessionIdOverride && snapshot?.scanSessionId) {
       setScanSessionId(snapshot.scanSessionId);
       setFileUploaded(true);
       setGradeRevealed(true); // show report shell with locked-preview state
@@ -172,6 +185,7 @@ const Index = () => {
   const handleStartOver = useCallback(() => {
     clearVerifiedAccess();
     clearPersistedFunnelKeys();
+    clearHomepageDarkV2ReportReturn();
     setPendingResume(null);
     // Strip ?resume=1 from URL so a refresh stays on the hero.
     try {
@@ -189,6 +203,15 @@ const Index = () => {
 
     const params = new URLSearchParams(window.location.search);
     const explicitResume = params.get("resume") === "1";
+
+    const darkV2ReturnSessionId =
+      import.meta.env.VITE_ENABLE_DARK_V2_HOMEPAGE === "true"
+        ? consumeHomepageDarkV2ReportReturn()
+        : null;
+    if (darkV2ReturnSessionId && getVerifiedAccess(darkV2ReturnSessionId)) {
+      runRestore({ explicit: true, scanSessionIdOverride: darkV2ReturnSessionId });
+      return;
+    }
 
     if (explicitResume) {
       const restored = runRestore({ explicit: true });
@@ -579,6 +602,7 @@ const Index = () => {
                   onClick={() => {
                     clearVerifiedAccess();
                     clearPersistedFunnelKeys();
+                    clearHomepageDarkV2ReportReturn();
                     setScanSessionId(null);
                     setFileUploaded(false);
                     setGradeRevealed(false);
@@ -659,6 +683,9 @@ const Index = () => {
                   scopeGapDetected={activeData.scopeGapDetected}
                   summaryTeaser={activeData.summaryTeaser}
                   missingItemsCount={activeData.missingItemsCount}
+                  analysisData={activeData}
+                  v2ReportSource={v2ReportSource}
+                  isResuming={isResuming}
                   onVerified={(phoneE164: string) => {
                     fetchFull(phoneE164);
                   }}

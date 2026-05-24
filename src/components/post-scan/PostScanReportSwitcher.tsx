@@ -1,7 +1,8 @@
 /**
  * PostScanReportSwitcher — In-page post-scan report orchestrator.
  *
- * CANONICAL: Always renders TruthReportClassic (findings-first removed).
+ * CANONICAL: Renders TruthReportClassic by default; when VITE_ENABLE_DARK_V2_HOMEPAGE=true,
+ * renders ReportClassicDarkV2Partial/Full with Classic fallback.
  * Owns the real Twilio OTP pipeline for the in-page scan flow.
  * Owns CTA logic: generate-contractor-brief + voice-followup edge functions.
  *
@@ -26,13 +27,38 @@ import { toast } from "sonner";
 import { deriveRevealPhase, phaseToAccessLevel } from "@/lib/deriveRevealPhase";
 import { applyLeadPhoneHydration, resolveGatedFunnelPhone } from "@/lib/gatedFunnelPhone";
 import { isValidScanSessionId } from "@/lib/routeIdGuards";
+import {
+  markHomepageDarkV2ReportReturn,
+  saveReportDiagnosisHandoff,
+  type ReportDiagnosisHandoff,
+} from "@/lib/reportDiagnosisHandoff";
 import TruthReportClassic from "../TruthReportClassic";
+import ReportClassicDarkV2Partial from "@/components/forensic-report/ReportClassicDarkV2Partial";
+import ReportClassicDarkV2Full from "@/components/forensic-report/ReportClassicDarkV2Full";
+import type { V2ReportSource } from "@/components/forensic-report/adapters/reportAccessAdapter.types";
 import type { SuggestedMatch } from "../TruthReportClassic";
 import type { GateMode, LockedOverlayProps } from "@/components/LockedOverlay";
-import type { AnalysisFlag, PillarScore } from "@/hooks/useAnalysisData";
+import type { AnalysisData, AnalysisFlag, PillarScore } from "@/hooks/useAnalysisData";
 import { CTA_LABEL } from "./ctaConstants";
 
 export { CTA_LABEL };
+
+const enableDarkV2Homepage = import.meta.env.VITE_ENABLE_DARK_V2_HOMEPAGE === "true";
+
+function DarkV2ReportRecoveryPanel({
+  message = "Restoring your secured report…",
+}: {
+  message?: string;
+}) {
+  return (
+    <div className="report-dark min-h-screen flex items-center justify-center px-4 py-16">
+      <div className="max-w-md w-full text-center space-y-4">
+        <Loader2 className="h-10 w-10 animate-spin text-blue-400 mx-auto" aria-hidden />
+        <p className="text-sm text-slate-300">{message}</p>
+      </div>
+    </div>
+  );
+}
 
 const LOST_SCAN_SESSION_MESSAGE = "We lost the scan session. Please restart the scan.";
 function firstRpcRow<T>(data: T[] | T | null | undefined): T | null {
@@ -87,6 +113,12 @@ type Props = {
   scopeGapDetected?: boolean;
   summaryTeaser?: string | null;
   missingItemsCount?: number;
+  /** Live analysis payload from useAnalysisData — used by Dark V2 renderer when enabled. */
+  analysisData?: AnalysisData | null;
+  /** Curated V2 transport — set only after authorized full fetch; null in preview. */
+  v2ReportSource?: V2ReportSource | null;
+  /** True while tryResume() is re-fetching authorized full data after return/refresh. */
+  isResuming?: boolean;
 };
 
 function maskPhone(e164: string): string {
@@ -662,7 +694,9 @@ export function PostScanReportSwitcher(props: Props) {
       .map((f) => f.label)
       .filter(Boolean);
 
-    const returnTo = `/report/classic/${props.scanSessionId}`;
+    const returnTo = enableDarkV2Homepage
+      ? "/?resume=1"
+      : `/report/classic/${props.scanSessionId}`;
 
     // Preserve analytics: use the existing dataLayer event family but signal
     // the diagnosis intent. Keeps measurement continuity without re-using the
@@ -714,25 +748,29 @@ export function PostScanReportSwitcher(props: Props) {
         });
     }
 
-    navigate("/diagnosis", {
-      state: {
-        lead_id: leadId,
-        scan_session_id: props.scanSessionId,
-        // analysis_id is passed only when already available in current
-        // report context. It is NOT derived or fetched here — keeping
-        // scope narrow per the hardening sprint.
-        analysis_id: null,
-        report_grade: leadGrade ?? props.grade,
-        first_name: leadFirstName,
-        phone: postFullActionPhoneE164,
-        email: leadEmail,
-        top_insights: topInsights,
-        returnTo,
-      },
-    });
+    const handoff: ReportDiagnosisHandoff = {
+      lead_id: leadId ?? "",
+      scan_session_id: props.scanSessionId,
+      analysis_id: props.analysisId ?? null,
+      report_grade: leadGrade ?? props.grade,
+      first_name: leadFirstName,
+      phone: postFullActionPhoneE164,
+      email: leadEmail,
+      top_insights: topInsights,
+      returnTo,
+      saved_at: new Date().toISOString(),
+    };
+
+    saveReportDiagnosisHandoff(handoff);
+    if (enableDarkV2Homepage) {
+      markHomepageDarkV2ReportReturn(props.scanSessionId);
+    }
+
+    navigate("/diagnosis", { state: handoff });
   }, [
     navigate,
     props.scanSessionId,
+    props.analysisId,
     props.flags,
     props.grade,
     props.county,
@@ -810,21 +848,74 @@ export function PostScanReportSwitcher(props: Props) {
     onRetryFetchFull: handleRetryFetchFull,
   };
 
+  const previewSafeAnalysisData = useMemo((): AnalysisData | null => {
+    if (!props.analysisData) return null;
+    return { ...props.analysisData, flags: [] };
+  }, [props.analysisData]);
+
+  const showDarkV2Full =
+    enableDarkV2Homepage &&
+    accessLevel === "full" &&
+    !!props.isFullLoaded &&
+    props.v2ReportSource != null &&
+    props.analysisData != null;
+
+  const isVerifiedAwaitingFull =
+    gatedFunnelPhone.phoneStatus === "verified" &&
+    !props.isFullLoaded &&
+    revealPhase.phase !== "full_stalled";
+
+  // Dark V2 recovery: Show dark spinner during active resume/loading/full-authorization states.
+  // Must NOT require analysisData to be present — it may be temporarily null during rehydration.
+  // This prevents falling through to Classic during transient loading windows.
+  const showDarkV2Recovering =
+    enableDarkV2Homepage &&
+    !showDarkV2Full &&
+    (props.isResuming || props.isLoadingFull || isVerifiedAwaitingFull);
+
+  const showDarkV2Partial =
+    enableDarkV2Homepage &&
+    !showDarkV2Recovering &&
+    accessLevel === "preview" &&
+    previewSafeAnalysisData != null;
+
+  const classicReport = (
+    <TruthReportClassic
+      {...props}
+      accessLevel={accessLevel}
+      gateProps={accessLevel === "preview" ? gateProps : undefined}
+      onContractorMatchClick={handleContractorMatchClick}
+      onReportHelpCall={handleReportHelpCall}
+      introRequested={introRequested}
+      reportCallRequested={reportCallRequested}
+      isCtaLoading={isCtaLoading}
+      suggestedMatch={suggestedMatch}
+      ctaLabel={CTA_LABEL}
+    />
+  );
+
   return (
     <>
       <div ref={reportTopRef} id="report-top" className="scroll-mt-20" />
-      <TruthReportClassic
-        {...props}
-        accessLevel={accessLevel}
-        gateProps={accessLevel === "preview" ? gateProps : undefined}
-        onContractorMatchClick={handleContractorMatchClick}
-        onReportHelpCall={handleReportHelpCall}
-        introRequested={introRequested}
-        reportCallRequested={reportCallRequested}
-        isCtaLoading={isCtaLoading}
-        suggestedMatch={suggestedMatch}
-        ctaLabel={CTA_LABEL}
-      />
+      {showDarkV2Full ? (
+        <ReportClassicDarkV2Full
+          analysisData={props.analysisData}
+          v2ReportSource={props.v2ReportSource ?? null}
+          county={props.county}
+          scanSessionId={props.scanSessionId ?? undefined}
+          onDiagnosisCta={handleContractorMatchClick}
+        />
+      ) : showDarkV2Recovering ? (
+        <DarkV2ReportRecoveryPanel />
+      ) : showDarkV2Partial ? (
+        <ReportClassicDarkV2Partial
+          analysisData={previewSafeAnalysisData}
+          county={props.county}
+          gateProps={gateProps}
+        />
+      ) : (
+        classicReport
+      )}
       {availableComparisons.length >= 2 && !comparisonResult && (
         <div className="px-4 pb-6 pt-2">
           <button

@@ -26,6 +26,10 @@ type Props = {
   analysisData: AnalysisData | null;
   v2ReportSource: V2ReportSource | null;
   county: string;
+  /** Homepage in-page flow — preferred over route param when provided. */
+  scanSessionId?: string;
+  /** Homepage handoff — preferred over internal route-only handler when provided. */
+  onDiagnosisCta?: () => void;
 };
 
 const MAX_INSIGHT_LENGTH = 120;
@@ -118,9 +122,12 @@ export default function ReportClassicDarkV2Full({
   analysisData,
   v2ReportSource,
   county,
+  scanSessionId: scanSessionIdProp,
+  onDiagnosisCta: onDiagnosisCtaProp,
 }: Props) {
   const navigate = useNavigate();
-  const { sessionId } = useParams<{ sessionId: string }>();
+  const { sessionId: routeSessionId } = useParams<{ sessionId: string }>();
+  const sessionId = scanSessionIdProp ?? routeSessionId;
 
   const moduleSource =
     analysisData && v2ReportSource
@@ -131,7 +138,7 @@ export default function ReportClassicDarkV2Full({
     sourceMode: "live",
   });
 
-  const handleDiagnosisCta = useCallback(() => {
+  const handleRouteDiagnosisCta = useCallback(() => {
     if (!sessionId || !analysisData?.grade) return;
 
     const handoff: ReportDiagnosisHandoff = {
@@ -150,6 +157,8 @@ export default function ReportClassicDarkV2Full({
     saveReportDiagnosisHandoff(handoff);
     navigate("/diagnosis", { state: handoff });
   }, [analysisData, navigate, sessionId]);
+
+  const handleDiagnosisCta = onDiagnosisCtaProp ?? handleRouteDiagnosisCta;
 
   if (!analysisData) {
     return <AnalysisDataUnavailablePanel />;
