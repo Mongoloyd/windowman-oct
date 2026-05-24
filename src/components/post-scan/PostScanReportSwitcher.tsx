@@ -865,11 +865,13 @@ export function PostScanReportSwitcher(props: Props) {
     !props.isFullLoaded &&
     revealPhase.phase !== "full_stalled";
 
+  // Dark V2 recovery: Show dark spinner during active resume/loading/full-authorization states.
+  // Must NOT require analysisData to be present — it may be temporarily null during rehydration.
+  // This prevents falling through to Classic during transient loading windows.
   const showDarkV2Recovering =
     enableDarkV2Homepage &&
     !showDarkV2Full &&
-    (props.isResuming || props.isLoadingFull || isVerifiedAwaitingFull) &&
-    previewSafeAnalysisData != null;
+    (props.isResuming || props.isLoadingFull || isVerifiedAwaitingFull);
 
   const showDarkV2Partial =
     enableDarkV2Homepage &&

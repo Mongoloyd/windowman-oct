@@ -144,12 +144,19 @@ const Index = () => {
     hasVerified: boolean;
   } | null>(null);
 
-  const runRestore = useCallback((opts?: { explicit?: boolean }) => {
+  const runRestore = useCallback((opts?: { explicit?: boolean; scanSessionIdOverride?: string }) => {
+    // When scanSessionIdOverride is provided (e.g., from Dark V2 return marker),
+    // use it directly instead of relying on the persisted funnel snapshot.
+    // This ensures we restore the exact session the user was viewing, even if
+    // the snapshot is stale or from a different tab.
+    const targetScanSessionId = opts?.scanSessionIdOverride ?? null;
     const snapshot = readPersistedFunnelSnapshot();
-    const verified = getVerifiedAccess(snapshot?.scanSessionId ?? null);
+    const verified = targetScanSessionId
+      ? getVerifiedAccess(targetScanSessionId)
+      : getVerifiedAccess(snapshot?.scanSessionId ?? null);
 
     // Verified record present → restore as already-revealed
-    if (verified && (snapshot?.scanSessionId === verified.scan_session_id || opts?.explicit)) {
+    if (verified && (opts?.scanSessionIdOverride || snapshot?.scanSessionId === verified.scan_session_id || opts?.explicit)) {
       setScanSessionId(verified.scan_session_id);
       setFileUploaded(true);
       setGradeRevealed(true);
@@ -161,7 +168,8 @@ const Index = () => {
 
     // In-flight scan (preview / OTP) → restore preview only.
     // Full report stays gated behind backend OTP verification.
-    if (snapshot?.scanSessionId) {
+    // Only use snapshot if no explicit override was provided.
+    if (!opts?.scanSessionIdOverride && snapshot?.scanSessionId) {
       setScanSessionId(snapshot.scanSessionId);
       setFileUploaded(true);
       setGradeRevealed(true); // show report shell with locked-preview state
@@ -201,7 +209,7 @@ const Index = () => {
         ? consumeHomepageDarkV2ReportReturn()
         : null;
     if (darkV2ReturnSessionId && getVerifiedAccess(darkV2ReturnSessionId)) {
-      runRestore({ explicit: true });
+      runRestore({ explicit: true, scanSessionIdOverride: darkV2ReturnSessionId });
       return;
     }
 
