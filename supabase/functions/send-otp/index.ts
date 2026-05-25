@@ -1,5 +1,19 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { normalizePhone } from "../_shared/normalizePhone.ts";
+import {
+  evaluateOtpQaBypassForSend,
+  type OtpQaBypassEnv,
+} from "../_shared/otpQaBypass.ts";
+
+function loadOtpQaBypassEnv(): OtpQaBypassEnv {
+  return {
+    OTP_QA_BYPASS_ENABLED: Deno.env.get("OTP_QA_BYPASS_ENABLED"),
+    OTP_QA_PHONE_E164: Deno.env.get("OTP_QA_PHONE_E164"),
+    OTP_QA_CODE: Deno.env.get("OTP_QA_CODE"),
+    OTP_QA_PROJECT_REF: Deno.env.get("OTP_QA_PROJECT_REF"),
+    WM_SUPABASE_PROJECT_REF: Deno.env.get("WM_SUPABASE_PROJECT_REF"),
+  };
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -95,141 +109,159 @@ Deno.serve(async (req) => {
       );
     }
 
-    const lookupResult = await runPhoneLookup(phone_e164);
-    if (!lookupResult.ok) {
-      return new Response(
-        JSON.stringify({ error: lookupResult.reason, success: false }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
-    }
+    const qaBypass = evaluateOtpQaBypassForSend({
+      phoneE164: phone_e164,
+      scanSessionId: scan_session_id,
+      env: loadOtpQaBypassEnv(),
+    });
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // ── Rate-limit check ────────────────────────────────────────────────
-    const windowStart = new Date(Date.now() - WINDOW_MINUTES * 60 * 1000)
-      .toISOString();
-
-    const { data: recentRows, error: rlErr } = await supabase
-      .from("phone_verifications")
-      .select("created_at")
-      .eq("phone_e164", phone_e164)
-      .gte("created_at", windowStart)
-      .order("created_at", { ascending: false });
-
-    if (rlErr) {
-      console.error("[send-otp] rate-limit query failed:", rlErr);
-    }
-
-    if (recentRows && recentRows.length > 0) {
-      const lastSendAt = new Date(recentRows[0].created_at).getTime();
-      const secondsSinceLast = (Date.now() - lastSendAt) / 1000;
-      if (secondsSinceLast < COOLDOWN_SECONDS) {
-        const waitSec = Math.ceil(COOLDOWN_SECONDS - secondsSinceLast);
-        return new Response(
-          JSON.stringify({
-            error:
-              `Too many code requests. Please wait ${waitSec} seconds before trying again.`,
-            success: false,
-            retry_after: waitSec,
-          }),
-          {
-            status: 429,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          },
-        );
-      }
-
-      if (recentRows.length >= MAX_SENDS_PER_WINDOW) {
-        return new Response(
-          JSON.stringify({
-            error:
-              `Too many code requests. Please wait a few minutes before trying again.`,
-            success: false,
-            retry_after: WINDOW_MINUTES * 60,
-          }),
-          {
-            status: 429,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          },
-        );
-      }
-    }
-
-    // ── Secondary: IP-based rate limit (catches phone-cycling bots) ─────
-    if (clientIp !== "unknown") {
-      const { data: ipRows } = await supabase
-        .from("phone_verifications")
-        .select("id")
-        .eq("ip_address", clientIp)
-        .gte("created_at", windowStart);
-
-      if (ipRows && ipRows.length >= MAX_IP_SENDS_PER_WINDOW) {
-        console.warn("[send-otp] IP rate limit hit:", {
-          ip: clientIp,
-          count: ipRows.length,
-        });
-        return new Response(
-          JSON.stringify({
-            error:
-              "Too many requests from this network. Please wait a few minutes.",
-            success: false,
-            retry_after: WINDOW_MINUTES * 60,
-          }),
-          {
-            status: 429,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          },
-        );
-      }
-    }
-    // ── Twilio Verify: send code ────────────────────────────────────────
-    const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID")!;
-    const authToken = Deno.env.get("TWILIO_AUTH_TOKEN")!;
-    const verifySid = Deno.env.get("TWILIO_VERIFY_SERVICE_SID")!;
-
-    const twilioRes = await fetch(
-      `https://verify.twilio.com/v2/Services/${verifySid}/Verifications`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: "Basic " + btoa(`${accountSid}:${authToken}`),
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: new URLSearchParams({ To: phone_e164, Channel: "sms" }),
-      },
-    );
-
-    const twilioData = await twilioRes.json();
-
-    if (!twilioRes.ok) {
-      console.error("[send-otp] Twilio error:", twilioData);
-
-      let userMessage = "Failed to send verification code.";
-      if (twilioData.code === 60410) {
-        userMessage =
-          "This phone number prefix has been temporarily blocked by our carrier. Please try a different number.";
-      } else if (twilioData.code === 60203) {
-        userMessage =
-          "Too many verification attempts. Please wait before trying again.";
-      }
-
-      return new Response(
+    if (qaBypass.approved) {
+      console.log(
+        "[SEND_OTP_QA_BYPASS]",
         JSON.stringify({
-          error: userMessage,
-          success: false,
-          twilio_code: twilioData.code,
+          approved: true,
+          phone_masked: "xxx-xxx-" + phone_e164.slice(-4),
+          scan_session_id,
+          timestamp: new Date().toISOString(),
         }),
+      );
+    } else {
+      const lookupResult = await runPhoneLookup(phone_e164);
+      if (!lookupResult.ok) {
+        return new Response(
+          JSON.stringify({ error: lookupResult.reason, success: false }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      // ── Rate-limit check ────────────────────────────────────────────────
+      const windowStart = new Date(Date.now() - WINDOW_MINUTES * 60 * 1000)
+        .toISOString();
+
+      const { data: recentRows, error: rlErr } = await supabase
+        .from("phone_verifications")
+        .select("created_at")
+        .eq("phone_e164", phone_e164)
+        .gte("created_at", windowStart)
+        .order("created_at", { ascending: false });
+
+      if (rlErr) {
+        console.error("[send-otp] rate-limit query failed:", rlErr);
+      }
+
+      if (recentRows && recentRows.length > 0) {
+        const lastSendAt = new Date(recentRows[0].created_at).getTime();
+        const secondsSinceLast = (Date.now() - lastSendAt) / 1000;
+        if (secondsSinceLast < COOLDOWN_SECONDS) {
+          const waitSec = Math.ceil(COOLDOWN_SECONDS - secondsSinceLast);
+          return new Response(
+            JSON.stringify({
+              error:
+                `Too many code requests. Please wait ${waitSec} seconds before trying again.`,
+              success: false,
+              retry_after: waitSec,
+            }),
+            {
+              status: 429,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
+        }
+
+        if (recentRows.length >= MAX_SENDS_PER_WINDOW) {
+          return new Response(
+            JSON.stringify({
+              error:
+                `Too many code requests. Please wait a few minutes before trying again.`,
+              success: false,
+              retry_after: WINDOW_MINUTES * 60,
+            }),
+            {
+              status: 429,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
+        }
+      }
+
+      // ── Secondary: IP-based rate limit (catches phone-cycling bots) ─────
+      if (clientIp !== "unknown") {
+        const { data: ipRows } = await supabase
+          .from("phone_verifications")
+          .select("id")
+          .eq("ip_address", clientIp)
+          .gte("created_at", windowStart);
+
+        if (ipRows && ipRows.length >= MAX_IP_SENDS_PER_WINDOW) {
+          console.warn("[send-otp] IP rate limit hit:", {
+            ip: clientIp,
+            count: ipRows.length,
+          });
+          return new Response(
+            JSON.stringify({
+              error:
+                "Too many requests from this network. Please wait a few minutes.",
+              success: false,
+              retry_after: WINDOW_MINUTES * 60,
+            }),
+            {
+              status: 429,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
+        }
+      }
+      // ── Twilio Verify: send code ────────────────────────────────────────
+      const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID")!;
+      const authToken = Deno.env.get("TWILIO_AUTH_TOKEN")!;
+      const verifySid = Deno.env.get("TWILIO_VERIFY_SERVICE_SID")!;
+
+      const twilioRes = await fetch(
+        `https://verify.twilio.com/v2/Services/${verifySid}/Verifications`,
         {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          method: "POST",
+          headers: {
+            Authorization: "Basic " + btoa(`${accountSid}:${authToken}`),
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: new URLSearchParams({ To: phone_e164, Channel: "sms" }),
         },
       );
+
+      const twilioData = await twilioRes.json();
+
+      if (!twilioRes.ok) {
+        console.error("[send-otp] Twilio error:", twilioData);
+
+        let userMessage = "Failed to send verification code.";
+        if (twilioData.code === 60410) {
+          userMessage =
+            "This phone number prefix has been temporarily blocked by our carrier. Please try a different number.";
+        } else if (twilioData.code === 60203) {
+          userMessage =
+            "Too many verification attempts. Please wait before trying again.";
+        }
+
+        return new Response(
+          JSON.stringify({
+            error: userMessage,
+            success: false,
+            twilio_code: twilioData.code,
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
     }
 
     // ── DB: expire older pending rows, then insert fresh one ────────────

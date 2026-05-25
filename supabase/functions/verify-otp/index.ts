@@ -1,6 +1,20 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { normalizePhone } from "../_shared/normalizePhone.ts";
+import {
+  evaluateOtpQaBypassForVerify,
+  type OtpQaBypassEnv,
+} from "../_shared/otpQaBypass.ts";
 import { persistCanonicalEvent } from "../_shared/tracking/canonicalBridge.ts";
+
+function loadOtpQaBypassEnv(): OtpQaBypassEnv {
+  return {
+    OTP_QA_BYPASS_ENABLED: Deno.env.get("OTP_QA_BYPASS_ENABLED"),
+    OTP_QA_PHONE_E164: Deno.env.get("OTP_QA_PHONE_E164"),
+    OTP_QA_CODE: Deno.env.get("OTP_QA_CODE"),
+    OTP_QA_PROJECT_REF: Deno.env.get("OTP_QA_PROJECT_REF"),
+    WM_SUPABASE_PROJECT_REF: Deno.env.get("WM_SUPABASE_PROJECT_REF"),
+  };
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -149,41 +163,64 @@ Deno.serve(async (req) => {
     // The phone we send to Twilio: prefer DB value, fall back to normalized value
     const twilioPhone = pendingRow?.phone_e164 ?? phone_e164;
 
-    // ── 3. Twilio VerificationCheck ─────────────────────────────────────
-    const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID")!;
-    const authToken = Deno.env.get("TWILIO_AUTH_TOKEN")!;
-    const verifySid = Deno.env.get("TWILIO_VERIFY_SERVICE_SID")!;
+    const qaBypassEval = evaluateOtpQaBypassForVerify({
+      phoneE164: phone_e164,
+      code,
+      scanSessionId: scan_session_id,
+      env: loadOtpQaBypassEnv(),
+    });
+    const qaBypassApproved = qaBypassEval.approved && !!pendingRow;
 
-    const twilioBody = new URLSearchParams({ To: twilioPhone, Code: code });
+    if (qaBypassApproved) {
+      console.log(
+        "[VERIFY_OTP_QA_BYPASS]",
+        JSON.stringify({
+          approved: true,
+          phone_masked: "xxx-xxx-" + phone_e164.slice(-4),
+          scan_session_id,
+          pending_row_id: pendingRow!.id,
+          timestamp: new Date().toISOString(),
+        }),
+      );
+    } else {
+      // ── 3. Twilio VerificationCheck ─────────────────────────────────────
+      const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID")!;
+      const authToken = Deno.env.get("TWILIO_AUTH_TOKEN")!;
+      const verifySid = Deno.env.get("TWILIO_VERIFY_SERVICE_SID")!;
 
-    const twilioRes = await fetch(
-      `https://verify.twilio.com/v2/Services/${verifySid}/VerificationCheck`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: "Basic " + btoa(`${accountSid}:${authToken}`),
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: twilioBody,
-      },
-    );
+      const twilioBody = new URLSearchParams({ To: twilioPhone, Code: code });
 
-    const twilioData = await twilioRes.json();
-
-    if (!twilioRes.ok || twilioData.status !== "approved") {
-      let userMsg = "Invalid or expired code.";
-      if (twilioData.code === 20404) {
-        userMsg =
-          "Verification session expired or not found. Please request a new code.";
-      }
-      return new Response(
-        JSON.stringify({ error: userMsg, verified: false }),
+      const twilioRes = await fetch(
+        `https://verify.twilio.com/v2/Services/${verifySid}/VerificationCheck`,
         {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          method: "POST",
+          headers: {
+            Authorization: "Basic " + btoa(`${accountSid}:${authToken}`),
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: twilioBody,
         },
       );
+
+      const twilioData = await twilioRes.json();
+
+      if (!twilioRes.ok || twilioData.status !== "approved") {
+        let userMsg = "Invalid or expired code.";
+        if (twilioData.code === 20404) {
+          userMsg =
+            "Verification session expired or not found. Please request a new code.";
+        }
+        return new Response(
+          JSON.stringify({ error: userMsg, verified: false }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
     }
+
+    const verificationChannel = qaBypassApproved ? "qa_bypass" : "twilio_verify";
 
     // ── 4. Twilio approved — update DB ──────────────────────────────────
     const now = new Date().toISOString();
@@ -340,7 +377,7 @@ Deno.serve(async (req) => {
               sourceSystem: "edge_function",
             },
             metadata: {
-              verification_channel: "twilio_verify",
+              verification_channel: verificationChannel,
             },
           },
         });
