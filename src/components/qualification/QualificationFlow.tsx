@@ -9,7 +9,11 @@ import {
   getOutcomeContent,
 } from "../../lib/qualificationLogic";
 import { PAGE_CONFIG } from "../../config/page.config";
-import { createContractorLead } from "../../lib/contractors2/service";
+import {
+  createContractorLead,
+  updateBookingStatus,
+  updatePipelineStage,
+} from "../../lib/contractors2/service";
 import { supabase } from "@/integrations/supabase/client";
 import StepCard from "./StepCard";
 import OptionButton from "./OptionButton";
@@ -159,24 +163,25 @@ export default function QualificationFlow({ isOpen, onClose }: QualificationFlow
   const handleCalendlyScheduled = useCallback(async (eventData: Record<string, unknown>) => {
     if (!leadId) return;
 
+    const calendlyEventUri =
+      ((eventData.event as Record<string, unknown>)?.uri as string | undefined) ?? null;
+    const calendlyInviteeUri =
+      ((eventData.invitee as Record<string, unknown>)?.uri as string | undefined) ?? null;
+
     try {
-      const { data, error } = await supabase.functions.invoke("contractor-booking-confirmed", {
-        body: {
-          lead_id: leadId,
-          calendly_event_uri: (eventData.event as Record<string, unknown>)?.uri ?? null,
-          calendly_invitee_uri: (eventData.invitee as Record<string, unknown>)?.uri ?? null,
-        },
+      await updateBookingStatus({
+        leadId,
+        bookingStatus: "booked",
+        calendlyEventUri: calendlyEventUri ?? undefined,
+        calendlyInviteeUri: calendlyInviteeUri ?? undefined,
       });
-      if (error || !data?.success) {
-        throw new Error(error?.message ?? data?.message ?? "Booking confirmation failed");
-      }
+      await updatePipelineStage({ leadId, pipelineStage: "booked" });
       toast({ title: "Booking confirmed!", description: "We'll be in touch shortly." });
     } catch (err) {
-      console.error("[QualificationFlow] Booking confirmation failed:", err);
+      console.error("[QualificationFlow] Booking status persist failed:", err);
       toast({
-        title: "Booking confirmation failed",
-        description: "Please try again.",
-        variant: "destructive",
+        title: "Booking received",
+        description: "Confirmation is being processed.",
       });
     }
   }, [leadId, toast]);

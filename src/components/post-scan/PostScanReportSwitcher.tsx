@@ -4,7 +4,7 @@
  * CANONICAL: Renders TruthReportClassic by default; when VITE_ENABLE_DARK_V2_HOMEPAGE=true,
  * renders ReportClassicDarkV2Partial/Full with Classic fallback.
  * Owns the real Twilio OTP pipeline for the in-page scan flow.
- * Owns CTA logic: generate-contractor-brief + voice-followup edge functions.
+ * Owns CTA logic: generate-contractor-brief + request-callback for report help.
  *
  * STATE OWNERSHIP (Phase 3):
  *   - This component is the SINGLE place that decides which render state
@@ -790,10 +790,9 @@ export function PostScanReportSwitcher(props: Props) {
     }
     setIsCtaLoading(true);
     try {
-      await supabase.functions.invoke("voice-followup", {
+      await supabase.functions.invoke("request-callback", {
         body: {
           scan_session_id: requestScanSessionId,
-          phone_e164: postFullActionPhoneE164,
           call_intent: "report_explainer",
           cta_source: "report_help",
         },

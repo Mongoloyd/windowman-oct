@@ -993,14 +993,14 @@ describe("PostScanReportSwitcher — post-full helper phone (session-safe)", () 
         state: expect.objectContaining({ phone: null }),
       }),
     );
-    const voiceInvoke = invokeMock.mock.calls.find(([name]) => name === "voice-followup");
-    expect(voiceInvoke).toBeUndefined();
+    const callbackInvoke = invokeMock.mock.calls.find(([name]) => name === "request-callback");
+    expect(callbackInvoke).toBeUndefined();
     expect(toast.error).toHaveBeenCalledWith(
       "Unable to process request. Please verify your phone number first.",
     );
   });
 
-  it("passes session-safe phone to diagnosis and voice when funnel session matches", async () => {
+  it("passes session-safe phone to diagnosis and request-callback when funnel session matches", async () => {
     funnelState.phoneE164 = SESSION_SAFE_E164;
     funnelState.scanSessionId = VALID_SCAN_SESSION_ID;
     renderFullUnlocked();
@@ -1018,9 +1018,13 @@ describe("PostScanReportSwitcher — post-full helper phone (session-safe)", () 
 
     await waitFor(() =>
       expect(invokeMock).toHaveBeenCalledWith(
-        "voice-followup",
+        "request-callback",
         expect.objectContaining({
-          body: expect.objectContaining({ phone_e164: SESSION_SAFE_E164 }),
+          body: expect.objectContaining({
+            scan_session_id: VALID_SCAN_SESSION_ID,
+            call_intent: "report_explainer",
+            cta_source: "report_help",
+          }),
         }),
       ),
     );

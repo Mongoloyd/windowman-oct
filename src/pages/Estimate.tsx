@@ -119,20 +119,17 @@ export default function Estimate() {
         cta_source: "estimate_page",
       });
 
-      // If we have a lead with a phone number, route a callback intent
-      // through the existing voice-followup pipe. Otherwise we still mark the
-      // page as a conversion event in our operational log.
-      if (scanSessionId && snapshot?.phoneE164) {
-        const { error } = await supabase.functions.invoke("voice-followup", {
+      // Queue callback via public request-callback (phone_verified gate is server-side).
+      if (scanSessionId) {
+        const { error } = await supabase.functions.invoke("request-callback", {
           body: {
             scan_session_id: scanSessionId,
-            phone_e164: snapshot.phoneE164,
             call_intent: "contractor_intro",
             cta_source: "estimate_page",
           },
         });
         if (error) {
-          console.warn("[estimate] voice-followup invoke failed:", error);
+          console.warn("[estimate] request-callback invoke failed:", error);
         }
       }
 
