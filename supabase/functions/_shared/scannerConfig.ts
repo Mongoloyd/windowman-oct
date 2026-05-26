@@ -36,6 +36,9 @@ const DEFAULT_STALE_PROCESSING_MINUTES = 3;
 /** Hard cap on uploaded file size sent to Gemini (bytes). */
 const DEFAULT_MAX_FILE_BYTES = 15 * 1024 * 1024; // 15 MB
 
+/** Default Gemini extraction output token budget (scan-quote generationConfig). */
+const DEFAULT_GEMINI_MAX_OUTPUT_TOKENS = 8192;
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 function readPositiveInt(name: string, fallback: number): number {
@@ -58,6 +61,7 @@ function readNonEmptyString(name: string, fallback: string): string {
 export interface ScannerRuntimeConfig {
   geminiModel: string;
   geminiTimeoutMs: number;
+  geminiMaxOutputTokens: number;
   staleProcessingMinutes: number;
   maxFileBytes: number;
 }
@@ -74,6 +78,10 @@ export function getScannerRuntimeConfig(): ScannerRuntimeConfig {
     geminiTimeoutMs: readPositiveInt(
       "GEMINI_SCAN_TIMEOUT_MS",
       DEFAULT_GEMINI_TIMEOUT_MS,
+    ),
+    geminiMaxOutputTokens: readPositiveInt(
+      "GEMINI_SCAN_MAX_OUTPUT_TOKENS",
+      DEFAULT_GEMINI_MAX_OUTPUT_TOKENS,
     ),
     staleProcessingMinutes: readPositiveInt(
       "SCAN_STALE_PROCESSING_MINUTES",

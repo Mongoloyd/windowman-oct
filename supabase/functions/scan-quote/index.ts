@@ -16,6 +16,11 @@ import {
   getScannerRuntimeConfig,
 } from "../_shared/scannerConfig.ts";
 import {
+  extractParseErrorMeta,
+  isGeminiOutputTruncated,
+  normalizeGeminiJsonText,
+} from "../_shared/geminiJson.ts";
+import {
   logScanError,
   logScanInfo,
   logScanWarn,
@@ -826,7 +831,7 @@ Deno.serve(async (req: Request) => {
           ],
           generationConfig: {
             temperature: 0.1,
-            maxOutputTokens: 4096,
+            maxOutputTokens: scannerCfg.geminiMaxOutputTokens,
           },
         };
 
@@ -910,10 +915,32 @@ Deno.serve(async (req: Request) => {
 
         const rawText = (geminiJson as {
           candidates?: Array<
-            { content?: { parts?: Array<{ text?: string }> } }
+            {
+              finishReason?: string;
+              content?: { parts?: Array<{ text?: string }> };
+            }
           >;
+          usageMetadata?: {
+            promptTokenCount?: number;
+            candidatesTokenCount?: number;
+            totalTokenCount?: number;
+          };
         })
           ?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        const geminiCandidate = (geminiJson as {
+          candidates?: Array<{ finishReason?: string }>;
+        })?.candidates?.[0];
+        const finishReason = typeof geminiCandidate?.finishReason === "string"
+          ? geminiCandidate.finishReason
+          : null;
+        const usageMetadata = (geminiJson as {
+          usageMetadata?: {
+            promptTokenCount?: number;
+            candidatesTokenCount?: number;
+            totalTokenCount?: number;
+          };
+        }).usageMetadata;
 
         if (!rawText) {
           logScanError("gemini_parse", {
@@ -945,24 +972,38 @@ Deno.serve(async (req: Request) => {
           }, 502);
         }
 
-        // Strip markdown fences if present
-        let cleanJson = rawText.trim();
-        if (cleanJson.startsWith("```")) {
-          cleanJson = cleanJson.replace(/^```(?:json)?\s*/, "").replace(
-            /\s*```$/,
-            "",
-          );
-        }
+        const { normalizedText, flags: normFlags } = normalizeGeminiJsonText(
+          rawText,
+        );
 
         // parsed is declared above (hoisted for bypass support)
         try {
-          parsed = JSON.parse(cleanJson);
+          parsed = JSON.parse(normalizedText);
         } catch (parseErr) {
+          const parseMeta = extractParseErrorMeta(parseErr);
+          const truncated = isGeminiOutputTruncated(finishReason);
           logScanError("gemini_parse", {
             scan_session_id,
-            detail: "extraction_json_parse_failed",
+            detail: truncated
+              ? "extraction_output_truncated"
+              : "extraction_json_parse_failed",
             model: scannerCfg.geminiModel,
-            error: String(parseErr),
+            finishReason,
+            promptTokenCount: usageMetadata?.promptTokenCount ?? null,
+            candidatesTokenCount: usageMetadata?.candidatesTokenCount ?? null,
+            totalTokenCount: usageMetadata?.totalTokenCount ?? null,
+            rawTextLength: normFlags.rawLength,
+            normalizedTextLength: normFlags.normalizedLength,
+            startsWithMarkdownFence: normFlags.startsWithMarkdownFence,
+            containsMarkdownFence: normFlags.containsMarkdownFence,
+            strippedMarkdownFence: normFlags.strippedMarkdownFence,
+            startsWithBraceAfterNormalization:
+              normFlags.startsWithBraceAfterNormalization,
+            endsWithBraceAfterNormalization:
+              normFlags.endsWithBraceAfterNormalization,
+            parseErrorName: parseMeta.parseErrorName,
+            parseErrorMessage: parseMeta.parseErrorMessage,
+            parseErrorPosition: parseMeta.parseErrorPosition,
           });
           const parseFailureStatusUpdate = await updateScanSessionStatus(
             supabase,
