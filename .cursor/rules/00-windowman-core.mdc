@@ -7,6 +7,19 @@ alwaysApply: true
 
 These rules always apply in the WindowMan repo.
 
+## 1.5 Task Router
+
+Before editing, read [docs/START_HERE.md](../../docs/START_HERE.md) and follow its task-router table for the system area you are touching.
+
+Quick routes:
+
+- **OTP / reveal:** [docs/reveal/VERIFY_TO_REVEAL_CONTRACT.md](../../docs/reveal/VERIFY_TO_REVEAL_CONTRACT.md) and [.cursor/PROTECTED_FILES.md](../PROTECTED_FILES.md)
+- **Edge Functions:** [docs/ops/SUPABASE_FUNCTION_MANIFEST.md](../../docs/ops/SUPABASE_FUNCTION_MANIFEST.md)
+- **Supabase targeting / deployments:** [docs/ops/SUPABASE_TARGETING.md](../../docs/ops/SUPABASE_TARGETING.md)
+- **Stale or conflicting docs:** [docs/ops/DOC_STATUS_REGISTRY.md](../../docs/ops/DOC_STATUS_REGISTRY.md) — do not treat **STALE WITH BANNER** docs as implementation authority
+
+Intelligent-apply domain rules (`supabase.mdc`, `twilio.mdc`, `ui-ux.mdc`, `deployment-env.mdc`) still apply when matched.
+
 ## 1. Inspect Before Editing
 
 Before making changes, inspect the relevant existing files, nearby patterns, package scripts, and project rules.
