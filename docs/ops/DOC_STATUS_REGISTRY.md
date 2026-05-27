@@ -6,7 +6,7 @@ Tracks **high-risk** documentation only — not every markdown file in the repo.
 
 1. Before implementing from a doc, check its **status** here.
 2. **CANONICAL** docs override conflicting older docs on the same topic.
-3. **STALE WITH BANNER** docs may contain wrong transport/details in the body — follow the banner link to the canonical doc.
+3. **STALE WITH BANNER** docs may contain wrong transport/details in the body — follow the banner link to the canonical doc. **These docs must not be used to justify code changes**; the banner and linked canonical doc win.
 4. **HISTORICAL** docs are planning snapshots or evidence packs — context only, not implementation authority.
 5. **Do not delete or archive files based only on this registry.** Archival requires a dedicated sprint with explicit scope.
 6. **Update this registry** when promoting, demoting, or adding stale banners to docs.

@@ -16,7 +16,12 @@ Quick routes:
 - **OTP / reveal:** [docs/reveal/VERIFY_TO_REVEAL_CONTRACT.md](../../docs/reveal/VERIFY_TO_REVEAL_CONTRACT.md) and [.cursor/PROTECTED_FILES.md](../PROTECTED_FILES.md)
 - **Edge Functions:** [docs/ops/SUPABASE_FUNCTION_MANIFEST.md](../../docs/ops/SUPABASE_FUNCTION_MANIFEST.md)
 - **Supabase targeting / deployments:** [docs/ops/SUPABASE_TARGETING.md](../../docs/ops/SUPABASE_TARGETING.md)
-- **Stale or conflicting docs:** [docs/ops/DOC_STATUS_REGISTRY.md](../../docs/ops/DOC_STATUS_REGISTRY.md) — do not treat **STALE WITH BANNER** docs as implementation authority
+- **Measurement / CAPI:** [docs/measurement/CANONICAL_MEASUREMENT_ARCHITECTURE.md](../../docs/measurement/CANONICAL_MEASUREMENT_ARCHITECTURE.md) and [docs/tracking/EVENT_OWNERSHIP_MODEL.md](../../docs/tracking/EVENT_OWNERSHIP_MODEL.md)
+- **Stale or conflicting docs:** [docs/ops/DOC_STATUS_REGISTRY.md](../../docs/ops/DOC_STATUS_REGISTRY.md) — do not implement from **STALE WITH BANNER** docs
+
+If a task touches **Tier A–D** paths, invoke **developer-babysitter** before editing.
+
+Do not treat whole-file protected orchestrators (`ReportClassic.tsx`, `PostScanReportSwitcher.tsx`) as visual-only without scoped `SPRINT APPROVAL`.
 
 Intelligent-apply domain rules (`supabase.mdc`, `twilio.mdc`, `ui-ux.mdc`, `deployment-env.mdc`) still apply when matched.
 

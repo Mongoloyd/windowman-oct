@@ -69,6 +69,14 @@ The babysitter may **PROCEED** only for files explicitly named in that scope.
 | Storage bucket `quotes` | Must remain private; signed URLs only |
 | `public.profiles` auto-create trigger on `auth.users` | Do not remove without full replacement plan |
 | `supabase/config.toml` — blocks `[functions.send-otp]`, `[functions.verify-otp]`, `[functions.report-access]` | Sprint-only: `verify_jwt`, CORS, or function config changes require named sprint approval |
+| `supabase/functions/admin-data/**` | Admin operator API — do not loosen, bypass, or weaken auth for convenience |
+| `supabase/functions/_shared/adminAuth.ts` | Shared admin JWT / dev-secret gate — sprint-only |
+
+**Admin authority (sprint-only — any file):**
+
+- `admin-data` and `adminAuth` must not be loosened, bypassed, or weakened for convenience.
+- Any change to admin auth, dev bypass, role checks, or service-role admin behavior requires `SPRINT APPROVAL: <name> — <one-line scope>` and **developer-babysitter** review.
+- Temporary auth weakening is **forbidden**.
 
 ---
 
