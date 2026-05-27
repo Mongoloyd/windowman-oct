@@ -1,5 +1,14 @@
 # CANONICAL REPO EVIDENCE — forensic_report_v2
 
+> **⚠ STALE BROWSER TRANSPORT — read before implementing**
+>
+> This document may describe the client calling `get_analysis_preview` or `get_analysis_full` via `supabase.rpc()`.
+> **That is not the live production path** after the `report-access` migration.
+>
+> **Canonical browser transport:** `src/services/reportService.ts` → Edge Function `report-access` → service-role RPC.
+>
+> Do not "fix" code to match this doc. Read [`docs/reveal/VERIFY_TO_REVEAL_CONTRACT.md`](docs/reveal/VERIFY_TO_REVEAL_CONTRACT.md) first.
+
 **WindowMan.PRO (wm-mvp) — READ-ONLY EVIDENCE EXTRACTION**
 
 ---

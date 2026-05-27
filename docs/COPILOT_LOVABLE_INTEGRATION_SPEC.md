@@ -1,5 +1,14 @@
 # Canonical Integration Specification — WindowMan ↔ External Copilot
 
+> **⚠ STALE BROWSER TRANSPORT — read before implementing**
+>
+> This document may describe the client calling `get_analysis_preview` or `get_analysis_full` via `supabase.rpc()`.
+> **That is not the live production path** after the `report-access` migration.
+>
+> **Canonical browser transport:** `src/services/reportService.ts` → Edge Function `report-access` → service-role RPC.
+>
+> Do not "fix" code to match this doc. Read [`docs/reveal/VERIFY_TO_REVEAL_CONTRACT.md`](../reveal/VERIFY_TO_REVEAL_CONTRACT.md) first.
+
 > **Status:** Read-only forensic manifest. No application code, migrations, Edge Functions, RLS, schema, routes, OTP/Twilio, scan, report, tracking, or contractor-routing logic was modified to produce this document.
 >
 > **Verification rule applied throughout:** every fact carries an exact path (file, migration, table, Edge Function, generated type). Anything not directly verified from repo files, migrations, generated Supabase types, or visible schema context is marked **UNCLEAR — NEEDS MANUAL REVIEW** rather than asserted.

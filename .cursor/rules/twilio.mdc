@@ -25,11 +25,53 @@ Verification state must be enforced by a protected backend service, Edge Functio
 
 If Twilio verification affects database state, also inspect `.cursor/rules/supabase.mdc`.
 
+### WindowMan canonical surfaces
+
+Before any OTP/reveal edit, read [`docs/reveal/VERIFY_TO_REVEAL_CONTRACT.md`](../../docs/reveal/VERIFY_TO_REVEAL_CONTRACT.md) and [`.cursor/PROTECTED_FILES.md`](../PROTECTED_FILES.md).
+
+**Edge Functions:**
+
+- `supabase/functions/send-otp/**`
+- `supabase/functions/verify-otp/**`
+- `supabase/functions/report-access/**`
+
+**Shared QA bypass:**
+
+- `supabase/functions/_shared/otpQaBypass.ts`
+
+**Frontend transport:**
+
+- `src/services/phoneVerificationService.ts` — sole invoker of `send-otp` / `verify-otp`
+- `src/services/reportService.ts` — sole production transport to `report-access` for preview/full
+
+**Hook:**
+
+- `src/hooks/usePhonePipeline.ts` — two modes only: `validate_only`, `validate_and_send_otp`
+
+**Orchestrators:**
+
+- `src/components/post-scan/PostScanReportSwitcher.tsx`
+- `src/pages/ReportClassic.tsx`
+
+**Gate UI:**
+
+- `src/components/LockedOverlay.tsx`
+
+**Required docs:**
+
+- `docs/reveal/VERIFY_TO_REVEAL_CONTRACT.md`
+- `.cursor/PROTECTED_FILES.md`
+- `docs/ops/SUPABASE_FUNCTION_MANIFEST.md`
+
+**Transport rule:** Confirm browser full-report fetch goes through `reportService.ts` → `report-access`, **not** direct browser `supabase.rpc("get_analysis_full")` or `get_analysis_preview`.
+
 ---
 
 ## 2. Inspect Before Editing
 
 Before editing Twilio-related code, inspect the relevant existing implementation.
+
+Before any OTP/reveal edit, read the contract doc and confirm browser transport goes through `reportService.ts` → `report-access`, not direct RPC.
 
 Check only what is relevant, but prefer this order:
 
@@ -212,6 +254,8 @@ If Twilio calls touch Supabase state, check both Twilio and Supabase rules.
 
 ## 9. Webhook Rules
 
+**WindowMan repo note:** No Twilio webhook Edge Functions exist in this repo today. This section applies only if webhooks are introduced. Do not invent webhook endpoints.
+
 If touching Twilio webhooks, inspect:
 
 - webhook endpoint
@@ -380,6 +424,7 @@ Never:
 - fabricate database verification schema
 - store unnecessary PII
 - bypass backend authority for convenience
+- restore or add direct browser `supabase.rpc("get_analysis_full")` or `supabase.rpc("get_analysis_preview")` on production paths
 
 When uncertain, stop and inspect.
 

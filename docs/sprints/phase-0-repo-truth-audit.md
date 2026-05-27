@@ -1,5 +1,14 @@
 # Phase 0 Repo-Truth Audit
 
+> **⚠ STALE BROWSER TRANSPORT — read before implementing**
+>
+> This document may describe the client calling `get_analysis_preview` or `get_analysis_full` via `supabase.rpc()`.
+> **That is not the live production path** after the `report-access` migration.
+>
+> **Canonical browser transport:** `src/services/reportService.ts` → Edge Function `report-access` → service-role RPC.
+>
+> Do not "fix" code to match this doc. Read [`docs/reveal/VERIFY_TO_REVEAL_CONTRACT.md`](../reveal/VERIFY_TO_REVEAL_CONTRACT.md) first.
+
 > **Sprint type:** Audit-lock. No runtime code changed. This file is the canonical map of the live Verify-to-Reveal path as it exists in `Mongoloyd/wm-mvp` at audit time. Where the repo contradicts prior planning docs, **the repo wins**.
 
 ---

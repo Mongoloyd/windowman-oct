@@ -1,5 +1,14 @@
 # Funnel Supabase Call Map (V2 Target)
 
+> **⚠ STALE BROWSER TRANSPORT — read before implementing**
+>
+> This document may describe the client calling `get_analysis_preview` or `get_analysis_full` via `supabase.rpc()`.
+> **That is not the live production path** after the `report-access` migration.
+>
+> **Canonical browser transport:** `src/services/reportService.ts` → Edge Function `report-access` → service-role RPC.
+>
+> Do not "fix" code to match this doc. Read [`docs/reveal/VERIFY_TO_REVEAL_CONTRACT.md`](../reveal/VERIFY_TO_REVEAL_CONTRACT.md) first.
+
 Maps each UI step in the **target V2 funnel** to exact Supabase calls. Reuses the **existing production backend**; V2 adds routes and `ForensicAuditReport` shell only.
 
 **Production today:** [`src/pages/Index.tsx`](../../src/pages/Index.tsx) at `/`.  

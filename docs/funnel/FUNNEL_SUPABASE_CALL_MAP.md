@@ -1,5 +1,14 @@
 # Funnel → Supabase Call Map
 
+> **⚠ STALE BROWSER TRANSPORT — read before implementing**
+>
+> This document may describe the client calling `get_analysis_preview` or `get_analysis_full` via `supabase.rpc()`.
+> **That is not the live production path** after the `report-access` migration.
+>
+> **Canonical browser transport:** `src/services/reportService.ts` → Edge Function `report-access` → service-role RPC.
+>
+> Do not "fix" code to match this doc. Read [`docs/reveal/VERIFY_TO_REVEAL_CONTRACT.md`](../reveal/VERIFY_TO_REVEAL_CONTRACT.md) first.
+
 Authoritative reference of which Supabase surface (Edge Function / RPC / table / Storage bucket) every UI step in the homeowner funnel must invoke, in order. This is the contract that the local Cursor / Supabase staging branch wires `/scan` and `/report/forensic/:sessionId` against.
 
 > Status: docs-only. No runtime code is modified by this file.

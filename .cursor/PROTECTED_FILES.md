@@ -30,11 +30,17 @@ The babysitter may **PROCEED** only for files explicitly named in that scope.
 |------|----------------|
 | `supabase/functions/send-otp/**` | Twilio Verify send, rate limits, `phone_verifications` insert |
 | `supabase/functions/verify-otp/**` | Twilio check, lead unlock, canonical `phone_verified` / `report_revealed` events |
+| `supabase/functions/report-access/**` | Service-role proxy for preview/full; post-OTP full fetch gate |
+| `supabase/functions/_shared/otpQaBypass.ts` | QA bypass evaluation shared by send-otp / verify-otp |
 | `supabase/functions/scan-quote/**` | Scanner Brain: extraction → deterministic scoring → `analyses` upsert |
 | `supabase/functions/dev-report-unlock/**` | Dev-only full-report bypass; must not generalize to prod |
-| `src/components/post-scan/PostScanReportSwitcher.tsx` | Canonical post-scan orchestrator (OTP, reveal, CTA) |
-| `src/components/TruthReportFindings/PhoneVerifyModal.tsx` | OTP / verify UI on reveal path |
-| `src/components/TruthReportFindings/VerifyGate.tsx` | Gate UI on reveal path |
+| `src/components/post-scan/PostScanReportSwitcher.tsx` | In-page post-scan orchestrator (OTP, reveal, CTA) |
+| `src/pages/ReportClassic.tsx` | Classic-route OTP orchestrator (`/report/classic/:sessionId`) |
+| `src/components/LockedOverlay.tsx` | Live gate UI shell; do not move orchestration here |
+| `src/services/phoneVerificationService.ts` | Sole transport for `send-otp` / `verify-otp` |
+| `src/services/reportService.ts` | Sole production transport to `report-access`; unauthorized envelope translation |
+| `src/components/TruthReportFindings/PhoneVerifyModal.tsx` | **Possibly deprecated** — verify imports before editing; not on live reveal path; do not remove or downgrade without a dedicated deprecation sprint |
+| `src/components/TruthReportFindings/VerifyGate.tsx` | **Possibly deprecated** — verify imports before editing; not on live reveal path; do not remove or downgrade without a dedicated deprecation sprint |
 | `src/hooks/useAnalysisData.ts` | Three-phase contract: preview / full / resume |
 | `src/hooks/usePhonePipeline.ts` | Two modes only: `validate_only`, `validate_and_send_otp` |
 | `src/lib/deriveRevealPhase.ts` | Canonical `RevealPhase` mapping |
@@ -48,6 +54,8 @@ The babysitter may **PROCEED** only for files explicitly named in that scope.
 - CSS/DOM blur as substitute for backend authorization
 - Third mode on `usePhonePipeline`
 - New `RevealPhase` values without sprint
+- Direct browser `supabase.rpc("get_analysis_preview")` or `supabase.rpc("get_analysis_full")` on production paths
+- Production use of `OTP_QA_BYPASS_*` env vars
 
 ---
 
@@ -60,6 +68,7 @@ The babysitter may **PROCEED** only for files explicitly named in that scope.
 | RLS on `leads`, `analyses`, `phone_verifications`, `scan_sessions`, `quote_files` | Never weaken for convenience |
 | Storage bucket `quotes` | Must remain private; signed URLs only |
 | `public.profiles` auto-create trigger on `auth.users` | Do not remove without full replacement plan |
+| `supabase/config.toml` — blocks `[functions.send-otp]`, `[functions.verify-otp]`, `[functions.report-access]` | Sprint-only: `verify_jwt`, CORS, or function config changes require named sprint approval |
 
 ---
 
@@ -112,7 +121,8 @@ Treat a path as protected if:
 
 | Doc | Use when |
 |-----|----------|
-| [docs/sprints/phase-0-repo-truth-audit.md](../docs/sprints/phase-0-repo-truth-audit.md) | §7 — Phase 1 allowed / forbidden surfaces |
+| [docs/reveal/VERIFY_TO_REVEAL_CONTRACT.md](../docs/reveal/VERIFY_TO_REVEAL_CONTRACT.md) | **First read** — canonical Verify-to-Reveal transport and protection |
+| [docs/sprints/phase-0-repo-truth-audit.md](../docs/sprints/phase-0-repo-truth-audit.md) | §7 — Phase 1 allowed / forbidden surfaces (transport may be stale — see contract doc) |
 | [docs/measurement/MEASUREMENT_DISCREPANCY_DECISION_TREE.md](../docs/measurement/MEASUREMENT_DISCREPANCY_DECISION_TREE.md) | §H — Suspect a protected file |
 | [docs/measurement/CANONICAL_MEASUREMENT_ARCHITECTURE.md](../docs/measurement/CANONICAL_MEASUREMENT_ARCHITECTURE.md) | §5–8 — Measurement boundaries |
 | [docs/measurement/CAPI_OPERATOR_HANDOFF_PACKET.md](../docs/measurement/CAPI_OPERATOR_HANDOFF_PACKET.md) | §5 — CAPI protected boundaries |
