@@ -1,4 +1,4 @@
-project_id = "wkrcyxcnzhwjtdpmfpaf"
+project_id = "wm-mvp-forensic-v2-local"
 
 [functions.send-otp]
 verify_jwt = false

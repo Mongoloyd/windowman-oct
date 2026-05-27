@@ -3,26 +3,21 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL =
-  import.meta.env.VITE_SUPABASE_URL ||
-  "https://wkrcyxcnzhwjtdpmfpaf.supabase.co";
-
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY =
   import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
-  import.meta.env.VITE_SUPABASE_ANON_KEY ||
-  "sb_publishable_JTHC-098GYEItvrHERbbZw_SzhUbcT4";
+  import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Dev-only sanity check (no UI, no surface sprawl)
-if (import.meta.env.DEV) {
-  if (!import.meta.env.VITE_SUPABASE_URL) {
-    // eslint-disable-next-line no-console
-    console.warn('[supabase/client] VITE_SUPABASE_URL missing; using public fallback URL');
-  }
+if (!SUPABASE_URL) {
+  throw new Error('[supabase/client] Missing VITE_SUPABASE_URL');
+}
 
-  if (!import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY && !import.meta.env.VITE_SUPABASE_ANON_KEY) {
-    // eslint-disable-next-line no-console
-    console.warn('[supabase/client] VITE_SUPABASE_PUBLISHABLE_KEY/VITE_SUPABASE_ANON_KEY missing; using public fallback key');
-  }
+if (!SUPABASE_PUBLISHABLE_KEY) {
+  throw new Error('[supabase/client] Missing VITE_SUPABASE_PUBLISHABLE_KEY or VITE_SUPABASE_ANON_KEY');
+}
+
+if (import.meta.env.DEV && SUPABASE_URL.includes('wkrcyxcnzhwjtdpmfpaf')) {
+  throw new Error('[supabase/client] Refusing to use old Lovable/main Supabase project in forensic_report_v2 local dev');
 }
 
 // Import the supabase client like this:
@@ -33,5 +28,5 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
-  }
+  },
 });
