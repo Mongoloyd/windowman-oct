@@ -3,7 +3,62 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import exitIntentPhoneImg from "@/assets/exit-intent-phone.avif";
 
+const INTERACTIVE_SELECTOR =
+  'input, textarea, select, button[aria-expanded="true"], [contenteditable="true"]';
+
+const CONTAINER_SELECTOR =
+  "form, [role='dialog'], [aria-modal='true'], #otp-gate, #truth-gate";
+
+const OPEN_MODAL_SELECTOR = "[role='dialog'][data-state='open'], [aria-modal='true']";
+
+const WM_EXIT_SHOWN_KEY = "wm_exit_shown";
+
+function isSessionExitShown(): boolean {
+  try {
+    return sessionStorage.getItem(WM_EXIT_SHOWN_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function isInteractionBlocking(): boolean {
+  if (document.querySelector(OPEN_MODAL_SELECTOR)) {
+    return true;
+  }
+
+  const active = document.activeElement;
+
+  if (!active || active === document.body) {
+    return false;
+  }
+
+  if (!(active instanceof HTMLElement)) {
+    return false;
+  }
+
+  if (active.matches(INTERACTIVE_SELECTOR)) {
+    return true;
+  }
+
+  if (active.closest(CONTAINER_SELECTOR)) {
+    return true;
+  }
+
+  return false;
+}
+
+function canRegisterExitIntentListeners(
+  suppressExitIntent: boolean,
+  leadCaptured: boolean,
+): boolean {
+  if (suppressExitIntent) return false;
+  if (leadCaptured) return false;
+  if (isSessionExitShown()) return false;
+  return true;
+}
+
 interface ExitIntentPhoneModalProps {
+  suppressExitIntent?: boolean;
   stepsCompleted: number;
   flowMode: "A" | "B" | "C";
   leadCaptured: boolean;
@@ -24,37 +79,62 @@ interface ExitIntentPhoneModalProps {
   onReminderSet?: (data: { date: string; time: string }) => void;
 }
 
-const ExitIntentPhoneModal = ({ leadCaptured, onClose, onCTAClick }: ExitIntentPhoneModalProps) => {
+const ExitIntentPhoneModal = ({
+  suppressExitIntent = false,
+  leadCaptured,
+  onClose,
+  onCTAClick,
+}: ExitIntentPhoneModalProps) => {
   const [open, setOpen] = useState(false);
   const lastScrollY = useRef(window.scrollY);
   const lastScrollTime = useRef(Date.now());
   const hasScrolled = useRef(false);
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const show = useCallback(() => {
-    if (leadCaptured || sessionStorage.getItem("wm_exit_shown") === "true") return;
-    sessionStorage.setItem("wm_exit_shown", "true");
-    setOpen(true);
-  }, [leadCaptured]);
+  const clearIdleTimer = useCallback(() => {
+    if (idleTimer.current) {
+      clearTimeout(idleTimer.current);
+      idleTimer.current = null;
+    }
+  }, []);
 
-  // Desktop triggers: mouseleave + visibilitychange
+  const show = useCallback(() => {
+    if (suppressExitIntent) return;
+    if (leadCaptured || isSessionExitShown()) return;
+    if (isInteractionBlocking()) return;
+    try {
+      sessionStorage.setItem(WM_EXIT_SHOWN_KEY, "true");
+    } catch {
+      /* sessionStorage unavailable */
+    }
+    setOpen(true);
+  }, [suppressExitIntent, leadCaptured]);
+
+  const listenersEligible = canRegisterExitIntentListeners(suppressExitIntent, leadCaptured);
+
+  // Clear pending idle timer when exit intent becomes ineligible
   useEffect(() => {
+    if (listenersEligible) return;
+    clearIdleTimer();
+  }, [listenersEligible, clearIdleTimer]);
+
+  // Desktop trigger: mouseleave toward browser chrome
+  useEffect(() => {
+    if (!listenersEligible) return;
+
     const handleMouse = (e: MouseEvent) => {
       if (e.clientY < 20) show();
     };
-    const handleVisibility = () => {
-      if (document.hidden) show();
-    };
     document.addEventListener("mouseleave", handleMouse);
-    document.addEventListener("visibilitychange", handleVisibility);
     return () => {
       document.removeEventListener("mouseleave", handleMouse);
-      document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [show]);
+  }, [show, listenersEligible]);
 
   // Mobile trigger 1: Fast scroll up (URL bar reach)
   useEffect(() => {
+    if (!listenersEligible) return;
+
     const handleScroll = () => {
       const currentY = window.scrollY;
       const currentTime = Date.now();
@@ -74,12 +154,14 @@ const ExitIntentPhoneModal = ({ leadCaptured, onClose, onCTAClick }: ExitIntentP
     };
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [show]);
+  }, [show, listenersEligible]);
 
   // Mobile trigger 2: Idle timer (15s after first scroll)
   useEffect(() => {
+    if (!listenersEligible) return;
+
     const startIdleTimer = () => {
-      if (idleTimer.current) clearTimeout(idleTimer.current);
+      clearIdleTimer();
       if (!hasScrolled.current) return;
       idleTimer.current = setTimeout(() => show(), 15000);
     };
@@ -94,24 +176,28 @@ const ExitIntentPhoneModal = ({ leadCaptured, onClose, onCTAClick }: ExitIntentP
     window.addEventListener("click", resetIdle);
 
     return () => {
-      if (idleTimer.current) clearTimeout(idleTimer.current);
+      clearIdleTimer();
       window.removeEventListener("scroll", resetIdle);
       window.removeEventListener("touchstart", resetIdle);
       window.removeEventListener("click", resetIdle);
     };
-  }, [show]);
+  }, [show, listenersEligible, clearIdleTimer]);
 
   // Mobile trigger 3: Back button intercept
   useEffect(() => {
+    if (!listenersEligible) return;
+
     history.pushState(null, "", location.href);
     const handlePopState = () => {
+      const wasShown = isSessionExitShown();
       show();
-      // Re-push so we don't actually navigate away
-      history.pushState(null, "", location.href);
+      if (!wasShown && isSessionExitShown()) {
+        history.pushState(null, "", location.href);
+      }
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, [show]);
+  }, [show, listenersEligible]);
 
   const dismiss = () => {
     setOpen(false);

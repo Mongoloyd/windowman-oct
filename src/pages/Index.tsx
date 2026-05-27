@@ -305,6 +305,23 @@ const Index = () => {
     funnel.setClientSlug(queryClientSlug);
   }, [clientSlugReady, queryClientSlug, funnel]);
 
+  const otpActivePhoneStatuses = ["screened_valid", "sending_otp", "otp_sent"] as const;
+  const suppressExitIntent =
+    fileUploaded ||
+    gradeRevealed ||
+    analysisLoading ||
+    isLoadingFull ||
+    isResuming ||
+    shouldShowReport ||
+    showReportFromDev ||
+    isDevPreview ||
+    powerToolTriggered ||
+    truthGateHighlight ||
+    pendingResume != null ||
+    otpActivePhoneStatuses.includes(
+      funnel.phoneStatus as (typeof otpActivePhoneStatuses)[number],
+    );
+
   return (
       <div className="min-h-screen bg-background relative overflow-hidden">
         <HomepageBackdrop />
@@ -746,9 +763,10 @@ const Index = () => {
             </>
           )}
 
-          {(timeOnPage || scrolledPast70) && (
+          {(timeOnPage || scrolledPast70) && !suppressExitIntent && (
             <React.Suspense fallback={null}>
               <ExitIntentPhoneModal
+              suppressExitIntent={suppressExitIntent}
               stepsCompleted={stepsCompleted}
               flowMode="A"
               leadCaptured={leadCaptured}
