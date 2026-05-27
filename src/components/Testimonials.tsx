@@ -44,13 +44,13 @@ const Testimonials = ({ onScanClick }: TestimonialsProps) => {
 
   return (
     <section ref={sectionRef} className="py-16 md:py-24 bg-transparent">
-      <div className="max-w-7xl mx-auto px-4">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={inView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.4, ease: "easeOut" }}
-          className="text-center mb-12"
+          className="text-center mb-10 md:mb-12"
         >
           <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground mb-3">
             Real Homeowner Results
@@ -65,25 +65,28 @@ const Testimonials = ({ onScanClick }: TestimonialsProps) => {
           initial={{ opacity: 0, y: 16 }}
           animate={inView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.4, delay: 0.1, ease: "easeOut" }}
-          className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12"
+          className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 mb-10 md:mb-12"
         >
           {stories.map((story, i) => (
-            <div key={i} className="card-raised p-7">
-              <div className="flex justify-between items-start">
-                <div className="flex items-center gap-3">
+            <div
+              key={i}
+              className="card-raised flex flex-col gap-5 p-6 md:p-7 shadow-sm transition-shadow duration-200 hover:shadow-md"
+            >
+              <div className="flex justify-between items-start gap-4">
+                <div className="flex items-center gap-3 min-w-0">
                   <div
-                    className="flex items-center justify-center w-10 h-10 bg-primary/10"
+                    className="flex shrink-0 items-center justify-center w-10 h-10 bg-primary/10 ring-1 ring-primary/15"
                     style={{ borderRadius: "var(--radius-btn)" }}
                   >
                     <span className="font-body text-base font-bold text-primary">{story.initial}</span>
                   </div>
-                  <div>
-                    <p className="font-body text-base font-bold text-foreground">{story.name}</p>
+                  <div className="min-w-0">
+                    <p className="font-body text-base font-bold text-foreground truncate">{story.name}</p>
                     <p className="font-body text-[13px] text-muted-foreground">{story.location}</p>
                   </div>
                 </div>
                 <div
-                  className="flex items-center justify-center w-11 h-11"
+                  className="flex shrink-0 items-center justify-center w-11 h-11 shadow-sm"
                   style={{
                     border: `2px solid ${story.gradeColor}`,
                     background: `${story.gradeColor}15`,
@@ -95,26 +98,28 @@ const Testimonials = ({ onScanClick }: TestimonialsProps) => {
                   </span>
                 </div>
               </div>
-              <div className="mt-5">
+              <div className="space-y-3">
                 {story.narrative.map((p, j) => (
                   <p
                     key={j}
-                    className="text-sm leading-relaxed text-foreground/80"
-                    style={{ marginTop: j > 0 ? 12 : 0 }}
+                    className="text-sm md:text-[15px] leading-relaxed text-foreground/85"
                   >
                     {p}
                   </p>
                 ))}
               </div>
               <div
-                className="flex items-center gap-3 bg-primary/5 border border-primary/20 p-4 mt-5"
+                className="flex items-start gap-3 bg-primary/5 border border-primary/20 p-4 shadow-sm"
                 style={{ borderRadius: "var(--radius-btn)" }}
               >
-                <span className="text-primary text-xl">✓</span>
-                <p className="font-body text-sm text-primary font-semibold">{story.result}</p>
+                <span className="text-primary text-lg leading-none mt-0.5" aria-hidden="true">✓</span>
+                <p className="font-body text-sm md:text-[15px] text-primary font-semibold leading-snug">{story.result}</p>
               </div>
-              <div className="mt-3">
-                <span className="inline-flex bg-destructive/10 border border-destructive/20 px-3 py-1 font-body text-xs text-destructive font-semibold">
+              <div>
+                <span
+                  className="inline-flex bg-destructive/10 border border-destructive/20 px-3 py-1.5 font-body text-xs text-destructive font-semibold tracking-wide"
+                  style={{ borderRadius: "var(--radius-btn)" }}
+                >
                   {story.flag}
                 </span>
               </div>
@@ -127,25 +132,25 @@ const Testimonials = ({ onScanClick }: TestimonialsProps) => {
           initial={{ opacity: 0, y: 16 }}
           animate={inView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.4, delay: 0.2, ease: "easeOut" }}
-          className="grid md:grid-cols-3 gap-4 mb-12"
+          className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10 md:mb-12"
         >
-          <div className="card-raised p-6 text-center">
-            <p className="font-display font-extrabold text-3xl md:text-4xl text-[hsl(var(--color-emerald))] mb-1">
+          <div className="card-raised p-5 md:p-6 text-center shadow-sm">
+            <p className="font-display font-extrabold text-3xl md:text-4xl text-[hsl(var(--color-emerald))] mb-1.5 tabular-nums">
               ${((total * 3800) / 1000000).toFixed(1)}M+
             </p>
-            <p className="font-body text-sm text-muted-foreground">Total Saved This Year</p>
+            <p className="font-body text-sm text-muted-foreground leading-snug">Total Saved This Year</p>
           </div>
-          <div className="card-raised p-6 text-center">
-            <p className="font-display font-extrabold text-3xl md:text-4xl text-primary mb-1">
+          <div className="card-raised p-5 md:p-6 text-center shadow-sm">
+            <p className="font-display font-extrabold text-3xl md:text-4xl text-primary mb-1.5 tabular-nums">
               {total.toLocaleString()}
             </p>
-            <p className="font-body text-sm text-muted-foreground">Quotes Analyzed</p>
+            <p className="font-body text-sm text-muted-foreground leading-snug">Quotes Analyzed</p>
           </div>
-          <div className="card-raised p-6 text-center">
-            <p className="font-display font-extrabold text-3xl md:text-4xl text-[hsl(var(--color-vivid-orange))] mb-1">
+          <div className="card-raised p-5 md:p-6 text-center shadow-sm">
+            <p className="font-display font-extrabold text-3xl md:text-4xl text-[hsl(var(--color-vivid-orange))] mb-1.5 tabular-nums">
               94%
             </p>
-            <p className="font-body text-sm text-muted-foreground">Had Hidden Red Flags</p>
+            <p className="font-body text-sm text-muted-foreground leading-snug">Had Hidden Red Flags</p>
           </div>
         </motion.div>
 
