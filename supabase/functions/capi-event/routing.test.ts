@@ -42,12 +42,13 @@ type Row = Record<string, unknown>;
 interface MockTables {
   clients: Row[];
   meta_configurations: Row[];
+  client_configs?: Row[];
 }
 
 function buildMockSupabase(tables: MockTables) {
   return {
-    from(table: keyof MockTables) {
-      let rows = [...tables[table]];
+    from(table: string) {
+      let rows = [...(tables[table as keyof MockTables] ?? [])];
       const builder = {
         select(_cols: string) {
           return builder;
@@ -63,8 +64,15 @@ function buildMockSupabase(tables: MockTables) {
             error: rows[0] ? null : { code: "PGRST116" },
           };
         },
+        // deno-lint-ignore require-await
+        async maybeSingle() {
+          return { data: rows[0] ?? null, error: null };
+        },
       };
       return builder;
+    },
+    rpc(_fn: string, _args?: Record<string, unknown>) {
+      return Promise.resolve({ data: null, error: null });
     },
   };
 }

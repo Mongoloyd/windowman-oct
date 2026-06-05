@@ -1,61 +1,46 @@
 /**
  * verify-capi-fallback.ts
  *
- * E2E validation: proves capi-event reads from meta_configurations (DB)
- * before falling back to environment secrets.
+ * Wave C internal-auth verification for capi-event.
+ *
+ * Proves:
+ *   1. Anon/publishable callers are rejected (401)
+ *   2. Service-role internal calls fail closed without tenant route context
+ *   3. tenant_required does not fall back to default DB / env pixels
  *
  * Usage:
  *   npx tsx scripts/verify-capi-fallback.ts
  *
- * Requires: VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in .env
- *           (or SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY for service-role insert/delete)
+ * Requires: VITE_SUPABASE_URL (or SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY
+ *           plus VITE_SUPABASE_PUBLISHABLE_KEY for the anon rejection check.
  */
 
-import { createClient } from "@supabase/supabase-js";
 import * as dotenv from "dotenv";
 dotenv.config();
 
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL!;
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL ?? process.env.SUPABASE_URL!;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const ANON_KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY!;
 
 if (!SUPABASE_URL || !SERVICE_KEY || !ANON_KEY) {
-  console.error("❌ Missing env vars. Need VITE_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, VITE_SUPABASE_PUBLISHABLE_KEY");
+  console.error(
+    "Missing env vars. Need SUPABASE_URL/VITE_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, VITE_SUPABASE_PUBLISHABLE_KEY",
+  );
   process.exit(1);
 }
 
-const admin = createClient(SUPABASE_URL, SERVICE_KEY);
 const FUNC_URL = `${SUPABASE_URL}/functions/v1/capi-event`;
 
-let seedId: string | null = null;
+const basePayload = {
+  event_name: "PageView",
+  event_id: `wave-c-verify-${Date.now()}`,
+  event_source_url: "https://windowman.app/qa-internal-auth",
+  action_source: "website",
+  user_data: { em: "e2e@test.com" },
+};
 
-async function run() {
-  // ── Step 1: Seed ──
-  console.log("\n🌱 Step 1 — Seeding dummy meta_configuration row…");
-  const { data: row, error: seedErr } = await admin
-    .from("meta_configurations")
-    .insert({
-      is_default: true,
-      pixel_id: "dummy_pixel_qa",
-      access_token: "dummy_token_qa",
-      test_event_code: "TEST_QA_RUN",
-    })
-    .select("id")
-    .single();
-
-  if (seedErr || !row) {
-    console.error("❌ Seed failed:", seedErr?.message);
-    process.exit(1);
-  }
-  seedId = row.id;
-  console.log(`   ✅ Seeded row id=${seedId}`);
-
-  // ── Step 2: Delay ──
-  console.log("\n⏳ Step 2 — Waiting 2s for cache clearance…");
-  await new Promise((r) => setTimeout(r, 2000));
-
-  // ── Step 3: Fire test event ──
-  console.log("\n🚀 Step 3 — Firing test CAPI event…");
+async function assertAnonRejected() {
+  console.log("\nStep 1 — Anon caller must be rejected (401)…");
   const res = await fetch(FUNC_URL, {
     method: "POST",
     headers: {
@@ -63,100 +48,97 @@ async function run() {
       Authorization: `Bearer ${ANON_KEY}`,
     },
     body: JSON.stringify({
-      event_name: "PageView",
-      event_id: `qa-db-priority-${Date.now()}`,
-      event_source_url: "https://windowman.app/qa-e2e",
-      action_source: "website",
-      user_data: { em: "e2e@test.com" },
+      ...basePayload,
+      client_slug: "direct",
+      verified_client_slug: "direct",
+      route_class: "tenant_required",
     }),
   });
 
   const body = await res.json();
-  console.log(`   HTTP ${res.status}`, JSON.stringify(body, null, 2));
+  console.log(`   HTTP ${res.status}`, JSON.stringify(body));
 
-  // ── Step 4: Assert ──
-  // We expect 200 (Meta will reject dummy token, but our function returns 200 with error detail)
-  if (res.status !== 200) {
-    console.error(`❌ Expected HTTP 200, got ${res.status}`);
+  if (res.status !== 401 || body.reason !== "unauthorized") {
+    console.error("❌ Expected 401 unauthorized for anon caller");
     process.exit(1);
   }
-  console.log("   ✅ HTTP 200 confirmed — function used DB config (Meta rejected dummy token as expected)");
-
-  // ── Step 5: Verify signal log ──
-  console.log("\n🔍 Step 5 — Checking capi_signal_logs for proof…");
-  const { data: logs } = await admin
-    .from("capi_signal_logs")
-    .select("pixel_id, status_code, event_name")
-    .eq("pixel_id", "dummy_pixel_qa")
-    .order("fired_at", { ascending: false })
-    .limit(1);
-
-  if (logs && logs.length > 0) {
-    console.log(`   ✅ Signal log found: pixel_id=${logs[0].pixel_id}, status=${logs[0].status_code}`);
-  } else {
-    console.warn("   ⚠️  No signal log found — check edge function logs for [CAPI:RESOLVE] Loaded default meta_configuration id=…");
-  }
-
-  // ── Step 6: Verify fallback (after cleanup) ──
-  // This happens after finally block runs
+  console.log("   ✅ Anon caller rejected");
 }
 
-async function verifyFallback() {
-  console.log("\n🔄 Step 6 — Verifying fallback after cleanup…");
-  await new Promise((r) => setTimeout(r, 1500));
-
+async function assertServiceRoleFailClosedWithoutTenantConfig() {
+  console.log("\nStep 2 — Service-role without tenant config must fail closed…");
   const res = await fetch(FUNC_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${ANON_KEY}`,
+      Authorization: `Bearer ${SERVICE_KEY}`,
     },
     body: JSON.stringify({
-      event_name: "PageView",
-      event_id: `qa-fallback-${Date.now()}`,
-      event_source_url: "https://windowman.app/qa-fallback",
-      action_source: "website",
-      user_data: { em: "fallback@test.com" },
+      ...basePayload,
+      event_id: `wave-c-closed-${Date.now()}`,
+      route_class: "tenant_required",
+      verified_client_slug: "nonexistent-wave-c-slug",
+      client_slug: "nonexistent-wave-c-slug",
     }),
   });
 
   const body = await res.json();
-  console.log(`   HTTP ${res.status}`, JSON.stringify(body, null, 2));
+  console.log(`   HTTP ${res.status}`, JSON.stringify(body));
 
-  if (res.status === 202 && body.degraded === true) {
-    console.log("   ✅ Fallback confirmed — 202 degraded (no DB row, no env secrets)");
-  } else if (res.status === 200) {
-    console.log("   ℹ️  200 returned — env secrets (META_PIXEL_ID) are configured as fallback");
+  if (res.status !== 202 || body.degraded !== true) {
+    console.error("❌ Expected 202 degraded for missing tenant config");
+    process.exit(1);
   }
+
+  if (body.reason !== "tenant_config_missing") {
+    console.error(
+      `❌ Expected reason tenant_config_missing, got ${body.reason}`,
+    );
+    process.exit(1);
+  }
+
+  if (body.pixel_id || body.access_token || body.response) {
+    console.error("❌ Response leaked sensitive fields");
+    process.exit(1);
+  }
+
+  console.log("   ✅ Service-role fail-closed (no default/env fallback)");
+}
+
+async function assertNoDefaultFallbackOnMissingRouteContext() {
+  console.log("\nStep 3 — Service-role without slug must fail closed…");
+  const res = await fetch(FUNC_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${SERVICE_KEY}`,
+    },
+    body: JSON.stringify({
+      ...basePayload,
+      event_id: `wave-c-no-slug-${Date.now()}`,
+      route_class: "tenant_required",
+    }),
+  });
+
+  const body = await res.json();
+  console.log(`   HTTP ${res.status}`, JSON.stringify(body));
+
+  if (res.status !== 202 || body.reason !== "route_context_missing") {
+    console.error("❌ Expected route_context_missing for tenant_required without slug");
+    process.exit(1);
+  }
+
+  console.log("   ✅ Missing slug rejected before any default fallback");
 }
 
 (async () => {
   try {
-    await run();
-  } finally {
-    // ── GUARANTEED TEARDOWN ──
-    console.log("\n🧹 Cleanup — Removing dummy rows…");
-    if (seedId) {
-      const { error: delErr } = await admin
-        .from("meta_configurations")
-        .delete()
-        .eq("id", seedId);
-      console.log(delErr ? `   ❌ Config cleanup failed: ${delErr.message}` : `   ✅ meta_configurations row ${seedId} deleted`);
-    }
-
-    // Clean signal log traces
-    const { error: logErr } = await admin
-      .from("capi_signal_logs")
-      .delete()
-      .eq("pixel_id", "dummy_pixel_qa");
-    console.log(logErr ? `   ❌ Signal log cleanup failed: ${logErr.message}` : "   ✅ capi_signal_logs cleaned");
+    await assertAnonRejected();
+    await assertServiceRoleFailClosedWithoutTenantConfig();
+    await assertNoDefaultFallbackOnMissingRouteContext();
+    console.log("\n✅ Wave C capi-event internal auth verification complete.\n");
+  } catch (err) {
+    console.error("❌ Verification failed:", err);
+    process.exit(1);
   }
-
-  // After cleanup, verify the function falls back correctly
-  await verifyFallback();
-
-  console.log("\n✅ E2E validation complete. Check edge function logs for:");
-  console.log('   → "[CAPI:RESOLVE] Loaded default meta_configuration id=<uuid>"  (DB priority proven)');
-  console.log('   → "[CAPI:RESOLVE] No pixel configuration found…"               (fallback proven)');
-  console.log("");
 })();

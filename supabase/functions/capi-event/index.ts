@@ -1,19 +1,15 @@
 /**
  * capi-event — Facebook Conversions API Edge Function
  *
- * Production-grade, multi-pixel, white-label ready.
- *
- * Routing Priority:
- *   1. clientSlug → look up meta_configurations for that client
- *   2. is_default = true row in meta_configurations (platform default)
- *   3. META_PIXEL_ID + META_CAPI_TOKEN env vars (hardcoded fallback)
+ * Internal-only authenticated secure sender (Wave C).
+ * dispatch-platform-events resolves ownership; capi-event sends after auth.
  *
  * Features:
+ *   - Service-role / dispatch-secret auth before body parse
+ *   - Tenant-only pixel resolution (no public fallback)
  *   - SHA-256 hashing of PII (em, ph) before sending to Meta
- *   - Multi-pixel routing via clientSlug
  *   - Signal logging to capi_signal_logs table
- *   - test_event_code support via env var (no code changes to toggle)
- *   - IP extraction from Cloudflare/proxy headers
+ *   - Sanitized HTTP responses (no raw Meta / token / pixel leaks)
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -22,25 +18,36 @@ import {
   classifyMetaError,
   dispatchCapiEvent,
   extractClientIp,
+  type InternalCAPIEvent,
+  isInternalCapiAuthorized,
+  parseInternalRouteContext,
   resolvePixelConfig,
+  resolvePixelConfigForDispatch,
 } from "../_shared/capiRouting.ts";
 
 // Re-export for backward compatibility with any tests importing from this file
 export {
   buildHashedUserData,
   classifyMetaError,
+  constantTimeEqual,
   diagnoseRoute,
   dispatchCapiEvent,
   extractClientIp,
   hashPhone,
+  isInternalCapiAuthorized,
   isSha256Hex,
+  parseInternalRouteContext,
   resolvePixelConfig,
+  resolvePixelConfigForDispatch,
   sha256,
 } from "../_shared/capiRouting.ts";
 export type {
   CAPIEvent,
+  CapiRouteClass,
   DispatchOptions,
   DispatchResult,
+  DispatchRouteResolution,
+  InternalCAPIEvent,
   RouteDiagnostic,
   RouteDiagnosticTier,
 } from "../_shared/capiRouting.ts";
@@ -48,80 +55,88 @@ export type {
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "authorization, x-client-info, apikey, content-type, x-capi-dispatch-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+function jsonResponse(
+  status: number,
+  body: Record<string, unknown>,
+): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
 
-  // Initialize Supabase client for DB lookups and logging
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  );
+function routingDegradedResponse(reason: string): Response {
+  return jsonResponse(202, {
+    success: false,
+    degraded: true,
+    reason,
+    failure_class: "routing",
+  });
+}
 
+export async function processAuthorizedCapiRequest(
+  body: InternalCAPIEvent,
+  req: Request,
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+): Promise<Response> {
   let resolvedPixelId: string | undefined;
-  let body: CAPIEvent | undefined;
+  let metaEvent: CAPIEvent | undefined;
 
   try {
-    body = (await req.json()) as CAPIEvent;
+    const routeContext = parseInternalRouteContext(body);
+    metaEvent = routeContext.metaEvent;
 
-    // Resolve pixel config
-    // deno-lint-ignore no-explicit-any
-    const config = await resolvePixelConfig(supabase as any, body.client_slug);
-
-    if (!config) {
-      // Graceful degradation: accept the event but don't fire it
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "CAPI not configured",
-          degraded: true,
-        }),
-        {
-          status: 202,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
+    if (routeContext.routeClass === "unresolved") {
+      console.warn(
+        `[CAPI:ROUTE] unresolved route reason=${routeContext.routeReason ?? "none"}`,
       );
+      return routingDegradedResponse("unresolved_route");
     }
 
+    const resolution = await resolvePixelConfigForDispatch({
+      supabase,
+      routeClass: routeContext.routeClass,
+      verifiedClientSlug: routeContext.verifiedClientSlug,
+      eventName: routeContext.metaEvent.event_name,
+    });
+
+    if (!resolution.ok || !resolution.config) {
+      console.warn(
+        `[CAPI:ROUTE] dispatch routing failed reason=${resolution.reason ?? "unknown"}`,
+      );
+      return routingDegradedResponse(resolution.reason ?? "routing_failed");
+    }
+
+    const config = resolution.config;
     console.log(
-      `[CAPI:FIRE] event=${body.event_name} source=${config.source} pixel=…${
-        config.pixelId.slice(-4)
-      }`,
+      `[CAPI:FIRE] event=${metaEvent.event_name} source=${config.source}`,
     );
     resolvedPixelId = config.pixelId;
 
-    // Delegate to the shared dispatcher so the live controller and the
-    // admin smoke-send tool are guaranteed to use the same payload shape,
-    // hashing, headers, URL, and response handling.
-    const dispatch = await dispatchCapiEvent(body, config, {
+    const dispatch = await dispatchCapiEvent(metaEvent, config, {
       clientIp: extractClientIp(req.headers),
       userAgent: req.headers.get("user-agent"),
-      // No forceTestEventCode in production — only smoke-send injects one.
     });
 
-    // Log to capi_signal_logs — always, success or failure
-    // Payload logged with PII already hashed (lives inside dispatch.capiPayload).
+    const logClientSlug = routeContext.verifiedClientSlug ?? "unknown";
+
     await supabase.from("capi_signal_logs").insert({
-      client_slug: body.client_slug ?? "default",
+      client_slug: logClientSlug,
       pixel_id: config.pixelId,
-      event_name: body.event_name,
+      event_name: metaEvent.event_name,
       status_code: dispatch.status,
       payload: dispatch.capiPayload,
       response: dispatch.response,
       fired_at: new Date().toISOString(),
     });
 
-    // Mirror into event_logs so the existing operator/smoke-test surfaces
-    // can confirm end-to-end CAPI landing keyed by lead_id (passed via
-    // user_data.external_id by upstream callers). Best-effort — never
-    // blocks the response.
     try {
-      const externalId = typeof body.user_data?.external_id === "string"
-        ? body.user_data.external_id
+      const externalId = typeof metaEvent.user_data?.external_id === "string"
+        ? metaEvent.user_data.external_id
         : null;
       const looksLikeUuid = externalId !== null &&
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
@@ -129,13 +144,13 @@ Deno.serve(async (req) => {
         );
 
       await supabase.from("event_logs").insert({
-        event_name: `capi_${body.event_name.toLowerCase()}_dispatched`,
+        event_name: `capi_${metaEvent.event_name.toLowerCase()}_dispatched`,
         lead_id: looksLikeUuid ? externalId : null,
         flow_type: "capi",
         route: "capi-event",
         metadata: {
-          event_id: body.event_id,
-          client_slug: body.client_slug ?? "default",
+          event_id: metaEvent.event_id,
+          client_slug: logClientSlug,
           masked_pixel_id: dispatch.masked_pixel_id,
           status_code: dispatch.status,
           ok: dispatch.ok,
@@ -150,63 +165,69 @@ Deno.serve(async (req) => {
     if (!dispatch.ok) {
       const failure = classifyMetaError(dispatch.status, dispatch.response);
       console.error(
-        `[CAPI:FAIL] class=${failure.class} status=${dispatch.status} pixel=…${
-          config.pixelId.slice(-4)
-        }`,
+        `[CAPI:FAIL] class=${failure.class} status=${dispatch.status}`,
       );
-      // Token bytes never appear in the response — only the documented Meta
-      // error and a stable failure_class enum. Operators run smoke_send to
-      // re-confirm and diagnose_token_health to inspect rotation state.
-      return new Response(
-        JSON.stringify({
-          success: false,
-          failure_class: failure.class,
-          failure_subcode: failure.subcode,
-          error: dispatch.response,
-        }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
+      return jsonResponse(200, {
+        success: false,
+        degraded: true,
+        reason: failure.class,
+        failure_class: failure.class,
+        failure_subcode: failure.subcode,
+      });
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        events_received: (dispatch.response as { events_received?: number })
-          ?.events_received,
-      }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
-    );
+    return jsonResponse(200, {
+      success: true,
+      events_received: (dispatch.response as { events_received?: number })
+        ?.events_received,
+    });
   } catch (err) {
     console.error("CAPI function error:", err);
 
-    // Still attempt to log the failure if we have enough context
-    if (resolvedPixelId && body) {
+    if (resolvedPixelId && metaEvent) {
       await (supabase
         .from("capi_signal_logs")
         .insert({
-          client_slug: body.client_slug ?? "default",
+          client_slug: metaEvent.client_slug ?? "unknown",
           pixel_id: resolvedPixelId,
-          event_name: body.event_name ?? "unknown",
+          event_name: metaEvent.event_name ?? "unknown",
           status_code: 500,
           payload: {},
-          response: { error: String(err) },
+          response: { error: "internal_error" },
           fired_at: new Date().toISOString(),
         }) as unknown as Promise<unknown>)
-        .catch(() => {}); // Don't let logging failure crash the handler
+        .catch(() => {});
     }
 
-    return new Response(
-      JSON.stringify({ success: false, error: "Internal error" }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
-    );
+    return jsonResponse(500, {
+      success: false,
+      reason: "internal_error",
+    });
   }
-});
+}
+
+export async function handleCapiEventRequest(req: Request): Promise<Response> {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  if (!isInternalCapiAuthorized(req)) {
+    return jsonResponse(401, { success: false, reason: "unauthorized" });
+  }
+
+  let body: InternalCAPIEvent;
+  try {
+    body = (await req.json()) as InternalCAPIEvent;
+  } catch {
+    return jsonResponse(400, { success: false, reason: "invalid_json" });
+  }
+
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  );
+
+  return processAuthorizedCapiRequest(body, req, supabase);
+}
+
+Deno.serve(handleCapiEventRequest);

@@ -9,15 +9,14 @@
  *    then verifies a corresponding `event_logs` row landed for that lead.
  *
  * 2. SKIP mode: when env vars are absent, the test is reported as ignored.
- *    We deliberately do NOT silently green a non-existent path — operators
- *    must opt in by setting the env vars when they want a real e2e proof.
  *
- * No new endpoint. No parallel CAPI path. Reads `event_logs` directly via
- * the same supabase-js service-role client the existing functions use.
+ * Wave C: CAPI_SMOKE_AUTH_TOKEN MUST be the service-role key (or
+ * x-capi-dispatch-secret via CAPI_SMOKE_DISPATCH_SECRET). Anon keys are
+ * rejected with 401.
  *
  * Run:
  *   CAPI_SMOKE_BASE_URL=https://<project>.functions.supabase.co \
- *   CAPI_SMOKE_AUTH_TOKEN=<service-role-or-anon-jwt> \
+ *   CAPI_SMOKE_AUTH_TOKEN=<service-role-jwt> \
  *   SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... \
  *   deno test --allow-net --allow-env supabase/functions/capi-event/smoke_test.ts
  */
@@ -33,6 +32,7 @@ function uuid(): string {
 
 const BASE = Deno.env.get("CAPI_SMOKE_BASE_URL");
 const AUTH = Deno.env.get("CAPI_SMOKE_AUTH_TOKEN");
+const DISPATCH_SECRET = Deno.env.get("CAPI_SMOKE_DISPATCH_SECRET");
 const SUPA_URL = Deno.env.get("SUPABASE_URL");
 const SUPA_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
@@ -43,6 +43,17 @@ type EventLogSmokeRow = {
   lead_id: string | null;
   metadata: Record<string, unknown> | null;
 };
+
+function buildSmokeHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${AUTH}`,
+  };
+  if (DISPATCH_SECRET) {
+    headers["x-capi-dispatch-secret"] = DISPATCH_SECRET;
+  }
+  return headers;
+}
 
 Deno.test({
   name: "capi-event smoke: Lead event lands in event_logs (live mode)",
@@ -57,6 +68,9 @@ Deno.test({
       event_source_url: "https://windowman.app/__smoke__",
       action_source: "website",
       client_slug: "direct",
+      verified_client_slug: "direct",
+      route_class: "tenant_required",
+      route_reason: "smoke_test",
       user_data: {
         external_id: externalId,
         em: "smoke+test@windowman.app",
@@ -67,22 +81,15 @@ Deno.test({
 
     const res = await fetch(`${BASE}/functions/v1/capi-event`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${AUTH}`,
-      },
+      headers: buildSmokeHeaders(),
       body: JSON.stringify(payload),
     });
 
-    // capi-event returns 200 on both success and graceful failure paths;
-    // we only assert the request was accepted, then verify the side-effect.
     assert(
       res.status === 200 || res.status === 202,
       `unexpected status ${res.status}`,
     );
 
-    // Wait briefly for the event_logs insert (capi-event awaits it inline,
-    // but Postgres + edge function flush has small latency).
     const supabase = createClient(SUPA_URL!, SUPA_KEY!);
     let row: EventLogSmokeRow | null = null;
     for (let i = 0; i < 10; i++) {
@@ -110,8 +117,6 @@ Deno.test({
   name: "capi-event smoke: skipped (no CAPI_SMOKE_BASE_URL)",
   ignore: liveModeReady,
   fn() {
-    // Intentionally a no-op marker so CI logs make the skip visible.
-    // Set CAPI_SMOKE_BASE_URL + CAPI_SMOKE_AUTH_TOKEN to enable live mode.
     assert(true);
   },
 });

@@ -42,7 +42,7 @@ Legend — **Auth model:** `app-logic` (handler validation, no gateway JWT); `ad
 | `admin-simulate-dispatch-attempt` | admin | false | adminAuth | yes | `dispatchAttempts.ts` |
 | `admin-sync-revenue-signals` | admin | false | adminAuth | via RPC | `revenueSignalDryRunAudit.ts`, `revenueSignalIntegration.ts` |
 | `calculate-estimate-metrics` | internal | false | none | no | none (logic inlined via `_shared/metrics.ts` in `scan-quote`) |
-| `capi-event` | internal | false | app-logic | yes | none (server-side bridge; browser explicitly blocked) |
+| `capi-event` | internal | false | service-role or x-capi-dispatch-secret | yes | none (browser/anon blocked at handler) |
 | `capture-truth-gate-lead` | homeowner public | false | app-logic | yes | `TruthGateFlow.tsx` |
 | `compare-quotes` | homeowner public | false | phone-RPC | yes | `PostScanReportSwitcher.tsx` |
 | `contractor-actions` | admin | false | adminAuth | yes | none (no current `src/` invoke; docs reference only) |
@@ -463,12 +463,12 @@ Each entry: **Purpose · Category · verify_jwt · Auth · Env vars · Service r
 - **Env:** none · **Callers:** none (inlined in scan-quote) · **Deploy/Smoke:** UNKNOWN
 
 ### `capi-event`
-- **Purpose:** Meta Conversions API multi-pixel router + logging.
-- **Category:** internal · **Auth:** app-logic (no browser callers by design)
-- **Env:** `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `META_PIXEL_ID`, `META_CAPI_TOKEN`, `META_TEST_EVENT_CODE`
-- **Tables:** `capi_signal_logs`, `event_logs`, `meta_configurations`, `clients`
-- **Callers:** server-side (`dispatch-platform-events`, canonical bridge from OTP path)
-- **Smoke:** `smoke_test.ts` exists; last run UNKNOWN
+- **Purpose:** Meta Conversions API internal secure sender (tenant-only routing after auth).
+- **Category:** internal · **Auth:** `Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}` and/or `x-capi-dispatch-secret` (`CAPI_DISPATCH_SECRET`, optional)
+- **Env:** `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, optional `CAPI_DISPATCH_SECRET`; `META_*` used only for legacy admin preview / platform-owned allowlist (empty in Wave C)
+- **Tables:** `capi_signal_logs`, `event_logs`, `meta_configurations`, `clients`, `client_configs`
+- **Callers:** `dispatch-platform-events` (service-role bearer); admin smoke uses in-process helpers
+- **Smoke:** `smoke_test.ts` requires service-role token; `scripts/verify-capi-fallback.ts` verifies anon rejection + fail-closed routing
 
 ### `capture-truth-gate-lead`
 - **Purpose:** RLS-safe TruthGate lead capture.

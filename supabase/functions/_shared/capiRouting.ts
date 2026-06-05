@@ -16,6 +16,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // Types
 // ═══════════════════════════════════════════════════════════════════════════
 
+export type CapiRouteClass = "tenant_required" | "platform_owned" | "unresolved";
+
 export interface CAPIEvent {
   event_name: "CompleteRegistration" | "ViewContent" | "Lead" | "PageView";
   event_id: string;
@@ -36,6 +38,24 @@ export interface CAPIEvent {
     country?: string;
   };
   custom_data?: Record<string, unknown>;
+}
+
+/** Internal route context accepted only from authenticated capi-event callers. */
+export interface InternalCAPIEvent extends CAPIEvent {
+  route_class?: CapiRouteClass;
+  route_reason?: string;
+  verified_client_slug?: string;
+}
+
+export interface DispatchRouteResolution {
+  ok: boolean;
+  config?: {
+    pixelId: string;
+    accessToken: string;
+    testEventCode?: string;
+    source: string;
+  };
+  reason?: string;
 }
 
 export type RouteDiagnosticTier = "client" | "default" | "env" | "degraded";
@@ -299,8 +319,245 @@ export function summarizeTokenPresence(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Internal auth helpers (capi-event handler)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export function constantTimeEqual(a: string, b: string): boolean {
+  const encoder = new TextEncoder();
+  const left = encoder.encode(a);
+  const right = encoder.encode(b);
+
+  let diff = left.length ^ right.length;
+  const length = Math.max(left.length, right.length);
+
+  for (let i = 0; i < length; i += 1) {
+    diff |= (left[i] ?? 0) ^ (right[i] ?? 0);
+  }
+
+  return diff === 0;
+}
+
+export function isInternalCapiAuthorized(req: Request): boolean {
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const authHeader = req.headers.get("Authorization") ?? "";
+
+  if (serviceRoleKey && constantTimeEqual(authHeader, `Bearer ${serviceRoleKey}`)) {
+    return true;
+  }
+
+  const dispatchSecret = Deno.env.get("CAPI_DISPATCH_SECRET");
+  const providedSecret = req.headers.get("x-capi-dispatch-secret");
+  if (dispatchSecret && providedSecret) {
+    return constantTimeEqual(providedSecret, dispatchSecret);
+  }
+
+  return false;
+}
+
+export function parseInternalRouteContext(body: InternalCAPIEvent): {
+  routeClass: CapiRouteClass;
+  verifiedClientSlug: string | undefined;
+  routeReason: string | undefined;
+  metaEvent: CAPIEvent;
+} {
+  const {
+    route_class,
+    route_reason,
+    verified_client_slug,
+    client_slug,
+    ...metaFields
+  } = body;
+
+  const slug = verified_client_slug ?? client_slug;
+  let routeClass = route_class;
+
+  if (!routeClass) {
+    routeClass = slug ? "tenant_required" : "unresolved";
+  }
+
+  const metaEvent = {
+    ...metaFields,
+    ...(slug ? { client_slug: slug } : {}),
+  } as CAPIEvent;
+
+  return {
+    routeClass,
+    verifiedClientSlug: slug,
+    routeReason: route_reason,
+    metaEvent,
+  };
+}
+
+/** Platform-owned events may use default DB/env fallback when explicitly allowlisted. */
+const PLATFORM_OWNED_EVENT_ALLOWLIST = new Set<string>([]);
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Core Routing Logic
 // ═══════════════════════════════════════════════════════════════════════════
+
+async function resolveTenantPixelConfigOnly(
+  supabase: ReturnType<typeof createClient>,
+  clientSlug: string,
+): Promise<
+  {
+    pixelId: string;
+    accessToken: string;
+    testEventCode?: string;
+    source: string;
+  } | null
+> {
+  const { data: client } = (await supabase
+    .from("clients")
+    .select("id")
+    .eq("slug", clientSlug)
+    .eq("is_active", true)
+    .single()) as { data: { id: string } | null };
+
+  if (!client) {
+    return null;
+  }
+
+  const { data: secureConfig } = (await supabase
+    .from("client_configs")
+    .select("meta_pixel_id, capi_token_secret_id")
+    .eq("client_id", client.id)
+    .maybeSingle()) as {
+      data: {
+        meta_pixel_id: string | null;
+        capi_token_secret_id: string | null;
+      } | null;
+    };
+
+  if (secureConfig?.meta_pixel_id && secureConfig?.capi_token_secret_id) {
+    const { data: secureToken } =
+      // deno-lint-ignore no-explicit-any
+      (await (supabase as any).rpc("get_client_capi_token_by_secret_id", {
+        p_secret_id: secureConfig.capi_token_secret_id,
+      })) as { data: string | null };
+    if (secureToken) {
+      return {
+        pixelId: secureConfig.meta_pixel_id,
+        accessToken: secureToken,
+        source: `client:${clientSlug}`,
+      };
+    }
+  }
+
+  const { data: config } = (await supabase
+    .from("meta_configurations")
+    .select("pixel_id, access_token, test_event_code")
+    .eq("client_id", client.id)
+    .single()) as {
+      data: {
+        pixel_id: string;
+        access_token: string;
+        test_event_code: string | null;
+      } | null;
+    };
+
+  if (config?.pixel_id && config?.access_token) {
+    return {
+      pixelId: config.pixel_id,
+      accessToken: config.access_token,
+      testEventCode: config.test_event_code ?? undefined,
+      source: `client:${clientSlug}`,
+    };
+  }
+
+  return null;
+}
+
+async function resolvePlatformDefaultPixelConfig(
+  supabase: ReturnType<typeof createClient>,
+): Promise<
+  {
+    pixelId: string;
+    accessToken: string;
+    testEventCode?: string;
+    source: string;
+  } | null
+> {
+  const { data: defaultConfig } = (await supabase
+    .from("meta_configurations")
+    .select("id, pixel_id, access_token, test_event_code")
+    .eq("is_default", true)
+    .single()) as {
+      data: {
+        id: string;
+        pixel_id: string;
+        access_token: string;
+        test_event_code: string | null;
+      } | null;
+    };
+
+  if (defaultConfig?.pixel_id && defaultConfig?.access_token) {
+    return {
+      pixelId: defaultConfig.pixel_id,
+      accessToken: defaultConfig.access_token,
+      testEventCode: defaultConfig.test_event_code ?? undefined,
+      source: "db:default",
+    };
+  }
+
+  const pixelId = Deno.env.get("META_PIXEL_ID");
+  const accessToken = Deno.env.get("META_CAPI_TOKEN");
+  const testEventCode = Deno.env.get("META_TEST_EVENT_CODE");
+
+  if (pixelId && accessToken) {
+    return {
+      pixelId,
+      accessToken,
+      testEventCode: testEventCode ?? undefined,
+      source: "env:fallback",
+    };
+  }
+
+  return null;
+}
+
+export async function resolvePixelConfigForDispatch(args: {
+  supabase: ReturnType<typeof createClient>;
+  routeClass: CapiRouteClass;
+  verifiedClientSlug?: string;
+  eventName?: CAPIEvent["event_name"];
+}): Promise<DispatchRouteResolution> {
+  const { supabase, routeClass, verifiedClientSlug, eventName } = args;
+
+  if (routeClass === "unresolved") {
+    return { ok: false, reason: "unresolved_route" };
+  }
+
+  if (routeClass === "tenant_required") {
+    if (!verifiedClientSlug) {
+      return { ok: false, reason: "route_context_missing" };
+    }
+
+    const config = await resolveTenantPixelConfigOnly(
+      supabase,
+      verifiedClientSlug,
+    );
+    if (!config) {
+      return { ok: false, reason: "tenant_config_missing" };
+    }
+
+    return { ok: true, config };
+  }
+
+  if (routeClass === "platform_owned") {
+    if (!eventName || !PLATFORM_OWNED_EVENT_ALLOWLIST.has(eventName)) {
+      return { ok: false, reason: "platform_default_not_allowed" };
+    }
+
+    const config = await resolvePlatformDefaultPixelConfig(supabase);
+    if (!config) {
+      return { ok: false, reason: "tenant_config_missing" };
+    }
+
+    return { ok: true, config };
+  }
+
+  return { ok: false, reason: "unresolved_route" };
+}
 
 export async function resolvePixelConfig(
   supabase: ReturnType<typeof createClient>,

@@ -326,6 +326,9 @@ export async function runDispatchWorker(deps: WorkerDeps): Promise<{ processed: 
         const metaPayload = {
           ...(mapped.payload as Record<string, unknown>),
           client_slug: classification.verifiedClientSlug ?? undefined,
+          verified_client_slug: classification.verifiedClientSlug ?? undefined,
+          route_class: "tenant_required",
+          route_reason: classification.reason,
         };
         sendResult = await deps.sendToMeta(metaPayload);
       }
