@@ -1,3 +1,6 @@
+-- Correct wm_claim_dispatch_rows PL/pgSQL ambiguity after adding RETURNS TABLE columns.
+-- RETURNS TABLE columns are visible as PL/pgSQL variables, so table columns must be qualified.
+-- This migration intentionally drops/recreates the function with the same return shape.
 -- Wave A: additive return columns on wm_claim_dispatch_rows for tenant ownership
 -- propagation to the dispatch worker without breaking existing callers.
 --
@@ -38,15 +41,15 @@ AS $$
 BEGIN
   -- Dead-letter any stale processing rows that have exhausted all attempts to
   -- prevent them from being permanently stuck when a worker crashes mid-flight.
-  UPDATE public.wm_platform_dispatch_log
+  UPDATE public.wm_platform_dispatch_log AS d
   SET
     dispatch_status = 'dead_letter',
     error_message   = 'Worker crashed after final attempt; row auto-dead-lettered',
     updated_at      = now()
-  WHERE dispatch_status = 'processing'
-    AND last_attempt_at IS NOT NULL
-    AND last_attempt_at <= (now() - make_interval(mins => p_lock_stale_minutes))
-    AND COALESCE(attempt_count, 0) >= 5;
+  WHERE d.dispatch_status = 'processing'
+    AND d.last_attempt_at IS NOT NULL
+    AND d.last_attempt_at <= (now() - make_interval(mins => p_lock_stale_minutes))
+    AND COALESCE(d.attempt_count, 0) >= 5;
 
   RETURN QUERY
   WITH eligible AS (
