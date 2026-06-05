@@ -19,11 +19,31 @@ interface MockDispatchRow {
   event_identity_quality: "unknown" | "low" | "medium" | "high";
   should_send_meta: boolean;
   should_send_google: boolean;
+  event_client_slug?: string | null;
+  event_lead_id?: string | null;
+  event_scan_session_id?: string | null;
+  event_analysis_id?: string | null;
+  event_quote_file_id?: string | null;
+}
+
+interface EventLogRecord {
+  client_slug?: string | null;
+  lead_id?: string | null;
+  scan_session_id?: string | null;
+  analysis_id?: string | null;
+  quote_file_id?: string | null;
 }
 
 class MockDB {
   public eventStatuses = new Map<string, WMDispatchStatus[]>([]);
   public upserts: Record<string, Array<Record<string, unknown>>> = {};
+  public eventLogs = new Map<string, EventLogRecord>();
+  public slugLookups: Record<string, Record<string, string | null>> = {
+    leads: {},
+    scan_sessions: {},
+    analyses: {},
+  };
+  public quoteFileLeads: Record<string, string | null> = {};
 
   constructor(private rows: MockDispatchRow[]) {
     for (const row of rows) {
@@ -48,7 +68,30 @@ class MockDB {
               };
             },
           }),
-          maybeSingle: async () => ({ data: null, error: null }),
+          maybeSingle: async () => {
+            if (table === "wm_event_log") {
+              const record = this.eventLogs.get(value);
+              return { data: record ?? null, error: null };
+            }
+
+            const slug = this.slugLookups[table]?.[value] ?? null;
+            if (table === "leads" || table === "scan_sessions" || table === "analyses") {
+              return {
+                data: slug != null ? { client_slug: slug } : null,
+                error: null,
+              };
+            }
+
+            if (table === "quote_files") {
+              const leadId = this.quoteFileLeads[value] ?? null;
+              return {
+                data: leadId != null ? { lead_id: leadId } : null,
+                error: null,
+              };
+            }
+
+            return { data: null, error: null };
+          },
         }),
         in: (_column: string, _values: string[]) => ({
           order: async () => ({ data: [], error: null }),
@@ -101,6 +144,7 @@ function makeRow(overrides: Partial<MockDispatchRow> = {}): MockDispatchRow {
     event_identity_quality: "high",
     should_send_meta: true,
     should_send_google: true,
+    event_client_slug: "tenant-alpha",
     ...overrides,
   };
 }
@@ -223,5 +267,227 @@ describe("runDispatchWorker", () => {
     });
 
     expect(calls).toBe(0);
+  });
+
+  it("does not crash on old claim row shape without ownership fields", async () => {
+    const row = makeRow({
+      event_client_slug: "tenant-alpha",
+      event_lead_id: undefined,
+      event_scan_session_id: undefined,
+      event_analysis_id: undefined,
+      event_quote_file_id: undefined,
+    });
+    delete (row as Partial<MockDispatchRow>).event_client_slug;
+    delete (row as Partial<MockDispatchRow>).event_lead_id;
+
+    const mock = new MockDB([row]);
+    mock.eventLogs.set(row.event_log_id, { client_slug: "tenant-alpha" });
+    let calls = 0;
+
+    await runDispatchWorker({
+      db: mock as unknown as DBLike,
+      metaEventSourceUrl: "https://windowman.app",
+      sendToMeta: async () => {
+        calls += 1;
+        return { ok: true, statusCode: 200, responseBody: { success: true } };
+      },
+      sendToGoogle: async () => ({ ok: true }),
+    });
+
+    expect(calls).toBe(1);
+    expect(mock.upserts.wm_platform_dispatch_log?.[0]?.dispatch_status).toBe("sent");
+  });
+
+  it("sends to Meta and injects client_slug when event_client_slug is present", async () => {
+    const row = makeRow({ event_client_slug: "Tenant-Beta" });
+    const mock = new MockDB([row]);
+    let capturedPayload: Record<string, unknown> | null = null;
+
+    await runDispatchWorker({
+      db: mock as unknown as DBLike,
+      metaEventSourceUrl: "https://windowman.app",
+      sendToMeta: async (payload) => {
+        capturedPayload = payload;
+        return { ok: true, statusCode: 200, responseBody: { success: true } };
+      },
+      sendToGoogle: async () => ({ ok: true }),
+    });
+
+    expect(capturedPayload?.client_slug).toBe("tenant-beta");
+    expect(mock.upserts.wm_platform_dispatch_log?.[0]?.dispatch_status).toBe("sent");
+  });
+
+  it("does not call sendToMeta when slug is null and lead_id is present", async () => {
+    const leadId = crypto.randomUUID();
+    const row = makeRow({
+      event_client_slug: null,
+      event_lead_id: leadId,
+      attempt_count: 1,
+    });
+    const mock = new MockDB([row]);
+    let calls = 0;
+
+    await runDispatchWorker({
+      db: mock as unknown as DBLike,
+      metaEventSourceUrl: "https://windowman.app",
+      sendToMeta: async () => {
+        calls += 1;
+        return { ok: true };
+      },
+      sendToGoogle: async () => ({ ok: true }),
+    });
+
+    expect(calls).toBe(0);
+    const upsert = mock.upserts.wm_platform_dispatch_log?.[0];
+    expect(upsert?.dispatch_status).toBe("failed");
+    expect(upsert?.error_message).toBe("route_resolution_deferred");
+    expect(upsert?.provider_response_code).toBe("ownership_gate");
+  });
+
+  it("does not call sendToMeta when slug is null and scan_session_id is present", async () => {
+    const row = makeRow({
+      event_client_slug: null,
+      event_scan_session_id: crypto.randomUUID(),
+      attempt_count: 2,
+    });
+    const mock = new MockDB([row]);
+    let calls = 0;
+
+    await runDispatchWorker({
+      db: mock as unknown as DBLike,
+      metaEventSourceUrl: "https://windowman.app",
+      sendToMeta: async () => {
+        calls += 1;
+        return { ok: true };
+      },
+      sendToGoogle: async () => ({ ok: true }),
+    });
+
+    expect(calls).toBe(0);
+    expect(mock.upserts.wm_platform_dispatch_log?.[0]?.error_message).toBe("route_resolution_deferred");
+  });
+
+  it("does not call sendToMeta when slug is null and analysis_id is present", async () => {
+    const row = makeRow({
+      event_client_slug: null,
+      event_analysis_id: crypto.randomUUID(),
+      attempt_count: 3,
+    });
+    const mock = new MockDB([row]);
+    let calls = 0;
+
+    await runDispatchWorker({
+      db: mock as unknown as DBLike,
+      metaEventSourceUrl: "https://windowman.app",
+      sendToMeta: async () => {
+        calls += 1;
+        return { ok: true };
+      },
+      sendToGoogle: async () => ({ ok: true }),
+    });
+
+    expect(calls).toBe(0);
+    expect(mock.upserts.wm_platform_dispatch_log?.[0]?.error_message).toBe("route_resolution_deferred");
+  });
+
+  it("does not call sendToMeta when slug is null and quote_file_id is present", async () => {
+    const row = makeRow({
+      event_client_slug: null,
+      event_quote_file_id: crypto.randomUUID(),
+      attempt_count: 1,
+    });
+    const mock = new MockDB([row]);
+    let calls = 0;
+
+    await runDispatchWorker({
+      db: mock as unknown as DBLike,
+      metaEventSourceUrl: "https://windowman.app",
+      sendToMeta: async () => {
+        calls += 1;
+        return { ok: true };
+      },
+      sendToGoogle: async () => ({ ok: true }),
+    });
+
+    expect(calls).toBe(0);
+    expect(mock.upserts.wm_platform_dispatch_log?.[0]?.error_message).toBe("route_resolution_deferred");
+  });
+
+  it("defers unresolved tenant rows when attemptCount is less than 4", async () => {
+    const row = makeRow({
+      event_client_slug: null,
+      event_lead_id: crypto.randomUUID(),
+      attempt_count: 2,
+    });
+    const mock = new MockDB([row]);
+    const now = new Date("2026-04-14T12:00:00.000Z");
+
+    await runDispatchWorker({
+      db: mock as unknown as DBLike,
+      now: () => now,
+      metaEventSourceUrl: "https://windowman.app",
+      sendToMeta: async () => ({ ok: true }),
+      sendToGoogle: async () => ({ ok: true }),
+    });
+
+    const upsert = mock.upserts.wm_platform_dispatch_log?.[0];
+    expect(upsert?.dispatch_status).toBe("failed");
+    expect(upsert?.error_message).toBe("route_resolution_deferred");
+    expect(String(upsert?.next_attempt_at)).toBe("2026-04-14T12:30:00.000Z");
+    expect(upsert?.provider_response_body).toMatchObject({
+      reason: "route_resolution_deferred",
+      route_class: "unresolved",
+    });
+  });
+
+  it("blocks unresolved tenant rows when attemptCount is 4 or greater", async () => {
+    const row = makeRow({
+      event_client_slug: null,
+      event_lead_id: crypto.randomUUID(),
+      attempt_count: 4,
+    });
+    const mock = new MockDB([row]);
+
+    await runDispatchWorker({
+      db: mock as unknown as DBLike,
+      metaEventSourceUrl: "https://windowman.app",
+      sendToMeta: async () => ({ ok: true }),
+      sendToGoogle: async () => ({ ok: true }),
+    });
+
+    const upsert = mock.upserts.wm_platform_dispatch_log?.[0];
+    expect(upsert?.dispatch_status).toBe("blocked");
+    expect(upsert?.error_message).toBe("legacy_ambiguous_owner");
+    expect(upsert?.next_attempt_at).toBeNull();
+    expect(upsert?.provider_response_code).toBe("ownership_gate");
+  });
+
+  it("blocks no-entity non-allowlisted events immediately as platform_default_not_allowed", async () => {
+    const row = makeRow({
+      event_client_slug: null,
+      event_lead_id: null,
+      event_scan_session_id: null,
+      event_analysis_id: null,
+      event_quote_file_id: null,
+      attempt_count: 1,
+    });
+    const mock = new MockDB([row]);
+    let calls = 0;
+
+    await runDispatchWorker({
+      db: mock as unknown as DBLike,
+      metaEventSourceUrl: "https://windowman.app",
+      sendToMeta: async () => {
+        calls += 1;
+        return { ok: true };
+      },
+      sendToGoogle: async () => ({ ok: true }),
+    });
+
+    expect(calls).toBe(0);
+    const upsert = mock.upserts.wm_platform_dispatch_log?.[0];
+    expect(upsert?.dispatch_status).toBe("blocked");
+    expect(upsert?.error_message).toBe("platform_default_not_allowed");
+    expect(upsert?.next_attempt_at).toBeNull();
   });
 });

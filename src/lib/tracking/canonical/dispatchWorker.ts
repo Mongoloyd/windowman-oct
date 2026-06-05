@@ -1,5 +1,10 @@
 import { mapToGoogle } from "./mapToGoogle.ts";
 import { mapToMeta } from "./mapToMeta.ts";
+import {
+  classifyRouteOwnership,
+  resolveVerifiedClientSlug,
+  type RouteOwnershipResult,
+} from "./routeOwnership.ts";
 import type { WMCanonicalEvent, WMDispatchStatus, WMPlatformName } from "./types.ts";
 
 const RETRY_DELAYS_MINUTES = [5, 30, 120, 720] as const;
@@ -24,6 +29,11 @@ export interface DispatchRowWithEvent {
   event_identity_quality: WMCanonicalEvent["identityQuality"];
   should_send_meta: boolean;
   should_send_google: boolean;
+  event_client_slug?: string | null;
+  event_lead_id?: string | null;
+  event_scan_session_id?: string | null;
+  event_analysis_id?: string | null;
+  event_quote_file_id?: string | null;
 }
 
 export interface DBLike {
@@ -124,6 +134,91 @@ function classifyFailure(result: VendorSendResult, attemptCount: number, now: Da
   };
 }
 
+function classifyOwnershipFailure(
+  classification: RouteOwnershipResult,
+  attemptCount: number,
+  now: Date,
+): {
+  nextStatus: WMDispatchStatus;
+  nextRetryAt: string | null;
+  errorMessage: string;
+} {
+  if (classification.reason === "platform_default_not_allowed") {
+    return {
+      nextStatus: "blocked",
+      nextRetryAt: null,
+      errorMessage: "platform_default_not_allowed",
+    };
+  }
+
+  if (attemptCount < 4) {
+    const delayMs = getRetryDelayMs(attemptCount);
+    const nextRetryAt = delayMs
+      ? new Date(now.getTime() + delayMs).toISOString()
+      : new Date(now.getTime() + 15 * 60_000).toISOString();
+
+    return {
+      nextStatus: "failed",
+      nextRetryAt,
+      errorMessage: "route_resolution_deferred",
+    };
+  }
+
+  return {
+    nextStatus: "blocked",
+    nextRetryAt: null,
+    errorMessage: "legacy_ambiguous_owner",
+  };
+}
+
+function shouldBlockMetaDispatch(classification: RouteOwnershipResult): boolean {
+  if (classification.routeClass === "tenant_required" && classification.verifiedClientSlug) {
+    return false;
+  }
+
+  if (classification.routeClass === "platform_owned") {
+    return false;
+  }
+
+  return true;
+}
+
+async function upsertOwnershipGate(
+  db: DBLike,
+  row: DispatchRowWithEvent,
+  classification: RouteOwnershipResult,
+  currentNowIso: string,
+  now: Date,
+): Promise<void> {
+  const failure = classifyOwnershipFailure(classification, row.attempt_count, now);
+
+  const { error: upsertError } = await db.from("wm_platform_dispatch_log").upsert(
+    {
+      id: row.dispatch_id,
+      dispatch_status: failure.nextStatus,
+      last_attempt_at: currentNowIso,
+      next_attempt_at: failure.nextRetryAt,
+      provider_response_code: "ownership_gate",
+      provider_response_body: {
+        reason: failure.errorMessage,
+        route_class: classification.routeClass,
+        event_name: row.event_name,
+        event_log_id: row.event_log_id,
+        verified_client_slug: classification.verifiedClientSlug,
+      },
+      error_message: failure.errorMessage,
+      attempt_count: row.attempt_count,
+    },
+    { onConflict: "id" },
+  );
+
+  if (upsertError) {
+    throw new Error(
+      `Failed to upsert ownership-gated dispatch row: ${upsertError.message ?? "unknown"}`,
+    );
+  }
+}
+
 async function syncEventDispatchStatus(db: DBLike, eventLogId: string, nowIso: string): Promise<void> {
   const { data: rows, error } = await db
     .from("wm_platform_dispatch_log")
@@ -187,7 +282,8 @@ export async function runDispatchWorker(deps: WorkerDeps): Promise<{ processed: 
   const dirtyEventLogIds = new Set<string>();
 
   for (const row of rows) {
-    const currentNowIso = (deps.now?.() ?? new Date()).toISOString();
+    const currentNow = deps.now?.() ?? new Date();
+    const currentNowIso = currentNow.toISOString();
     const canonical = toCanonicalEvent(row);
 
     if (row.dispatch_status === "sent" || row.dispatch_status === "dispatched") {
@@ -198,11 +294,40 @@ export async function runDispatchWorker(deps: WorkerDeps): Promise<{ processed: 
     let suppressedReason: string | null = null;
 
     if (row.platform_name === "meta") {
+      const resolution = await resolveVerifiedClientSlug(deps.db, {
+        eventLogId: row.event_log_id,
+        eventClientSlug: row.event_client_slug,
+        eventLeadId: row.event_lead_id,
+        eventScanSessionId: row.event_scan_session_id,
+        eventAnalysisId: row.event_analysis_id,
+        eventQuoteFileId: row.event_quote_file_id,
+      });
+
+      const classification = classifyRouteOwnership({
+        eventName: row.event_name,
+        eventClientSlug: resolution.slug,
+        eventLeadId: resolution.leadId,
+        eventScanSessionId: resolution.scanSessionId,
+        eventAnalysisId: resolution.analysisId,
+        eventQuoteFileId: resolution.quoteFileId,
+        attemptCount: row.attempt_count,
+      });
+
+      if (shouldBlockMetaDispatch(classification)) {
+        await upsertOwnershipGate(deps.db, row, classification, currentNowIso, currentNow);
+        dirtyEventLogIds.add(row.event_log_id);
+        continue;
+      }
+
       const mapped = mapToMeta(canonical, deps.metaEventSourceUrl);
       if (mapped.suppressed || !mapped.payload) {
         suppressedReason = mapped.reason ?? "meta_suppressed";
       } else {
-        sendResult = await deps.sendToMeta(mapped.payload as Record<string, unknown>);
+        const metaPayload = {
+          ...(mapped.payload as Record<string, unknown>),
+          client_slug: classification.verifiedClientSlug ?? undefined,
+        };
+        sendResult = await deps.sendToMeta(metaPayload);
       }
     } else if (row.platform_name === "google_ads") {
       const mapped = mapToGoogle(canonical);
@@ -268,7 +393,7 @@ export async function runDispatchWorker(deps: WorkerDeps): Promise<{ processed: 
       continue;
     }
 
-    const failure = classifyFailure(sendResult, row.attempt_count, deps.now?.() ?? new Date());
+    const failure = classifyFailure(sendResult, row.attempt_count, currentNow);
 
     const { error: failureUpsertError } = await deps.db.from("wm_platform_dispatch_log").upsert(
       {
