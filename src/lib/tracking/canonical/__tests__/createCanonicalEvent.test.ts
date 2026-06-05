@@ -5,6 +5,11 @@ import type { CreateCanonicalEventInput } from "../types";
 class MockDB {
   public inserts: Record<string, unknown[]> = {};
   public upserts: Record<string, unknown[]> = {};
+  public slugLookups: Record<string, Record<string, string | null>> = {
+    leads: {},
+    scan_sessions: {},
+    analyses: {},
+  };
 
   from(table: string) {
     return {
@@ -19,8 +24,26 @@ class MockDB {
         return { data: rows, error: null };
       },
       select: (_columns: string) => ({
-        eq: (_column: string, _value: string) => ({
-          maybeSingle: async () => ({ data: { id: "event-log-1" }, error: null }),
+        eq: (_column: string, value: string) => ({
+          maybeSingle: async () => {
+            if (table === "wm_event_log") {
+              return { data: { id: "event-log-1" }, error: null };
+            }
+
+            const slug = this.slugLookups[table]?.[value] ?? null;
+            if (
+              table === "leads" ||
+              table === "scan_sessions" ||
+              table === "analyses"
+            ) {
+              return {
+                data: slug != null ? { client_slug: slug } : null,
+                error: null,
+              };
+            }
+
+            return { data: { id: "event-log-1" }, error: null };
+          },
         }),
       }),
     };
@@ -124,5 +147,184 @@ describe("createCanonicalEvent", () => {
     );
 
     expect(db.upserts.wm_platform_dispatch_log ?? []).toHaveLength(0);
+  });
+
+  it("writes client_slug from leads.client_slug when leadId resolves", async () => {
+    const db = new MockDB();
+    const leadId = crypto.randomUUID();
+    db.slugLookups.leads[leadId] = "Tenant-Alpha";
+
+    await createCanonicalEvent(
+      baseInput({
+        leadId,
+        clientSlug: undefined,
+        scanSessionId: undefined,
+        analysisId: undefined,
+        payload: {
+          ...baseInput().payload,
+          quote: undefined,
+          analytics: undefined,
+        },
+      }),
+      {
+        db,
+        createId: () => "wmc_lead_slug",
+      },
+    );
+
+    const row = db.inserts.wm_event_log?.[0] as Record<string, unknown>;
+    expect(row.client_slug).toBe("tenant-alpha");
+  });
+
+  it("falls back to scan_sessions.client_slug when lead slug is unavailable", async () => {
+    const db = new MockDB();
+    const scanSessionId = crypto.randomUUID();
+    db.slugLookups.scan_sessions[scanSessionId] = "Tenant-Beta";
+
+    await createCanonicalEvent(
+      baseInput({
+        leadId: undefined,
+        scanSessionId,
+        analysisId: undefined,
+        payload: {
+          ...baseInput().payload,
+          quote: undefined,
+          analytics: undefined,
+          journey: {
+            route: "/vault/upload",
+            flow: "vault",
+            scanSessionId,
+          },
+        },
+      }),
+      {
+        db,
+        createId: () => "wmc_scan_slug",
+      },
+    );
+
+    const row = db.inserts.wm_event_log?.[0] as Record<string, unknown>;
+    expect(row.client_slug).toBe("tenant-beta");
+  });
+
+  it("falls back to analyses.client_slug when lead and session slugs are unavailable", async () => {
+    const db = new MockDB();
+    const analysisId = crypto.randomUUID();
+    db.slugLookups.analyses[analysisId] = "Tenant-Gamma";
+
+    await createCanonicalEvent(
+      baseInput({
+        leadId: undefined,
+        scanSessionId: undefined,
+        analysisId,
+        payload: {
+          ...baseInput().payload,
+          quote: {
+            isQuoteDocument: true,
+            analysisId,
+          },
+          analytics: undefined,
+        },
+      }),
+      {
+        db,
+        createId: () => "wmc_analysis_slug",
+      },
+    );
+
+    const row = db.inserts.wm_event_log?.[0] as Record<string, unknown>;
+    expect(row.client_slug).toBe("tenant-gamma");
+  });
+
+  it("keeps client_slug null when no trusted ownership exists", async () => {
+    const db = new MockDB();
+
+    await createCanonicalEvent(
+      baseInput({
+        leadId: undefined,
+        scanSessionId: undefined,
+        analysisId: undefined,
+        payload: {
+          identity: { email: "user@example.com" },
+          journey: { route: "/", flow: "public" },
+        },
+      }),
+      {
+        db,
+        createId: () => "wmc_no_slug",
+      },
+    );
+
+    const row = db.inserts.wm_event_log?.[0] as Record<string, unknown>;
+    expect(row.client_slug).toBeNull();
+  });
+
+  it("prefers trusted input.clientSlug over database lookups", async () => {
+    const db = new MockDB();
+    const leadId = crypto.randomUUID();
+    db.slugLookups.leads[leadId] = "from-lead";
+
+    await createCanonicalEvent(
+      baseInput({
+        leadId,
+        clientSlug: "Trusted-Edge-Slug",
+        payload: {
+          identity: { email: "user@example.com" },
+          journey: { route: "/", flow: "public" },
+        },
+      }),
+      {
+        db,
+        createId: () => "wmc_trusted_slug",
+      },
+    );
+
+    const row = db.inserts.wm_event_log?.[0] as Record<string, unknown>;
+    expect(row.client_slug).toBe("trusted-edge-slug");
+  });
+
+  it("recovers duplicate event_id inserts without changing client_slug behavior", async () => {
+    const db = new MockDB();
+    const leadId = crypto.randomUUID();
+    db.slugLookups.leads[leadId] = "tenant-dup";
+
+    const duplicateDb = {
+      from(table: string) {
+        const base = db.from(table);
+        if (table !== "wm_event_log") {
+          return base;
+        }
+
+        let insertCount = 0;
+        return {
+          ...base,
+          insert: async (payload: Record<string, unknown> | Record<string, unknown>[]) => {
+            insertCount += 1;
+            if (insertCount === 1) {
+              return {
+                data: null,
+                error: { message: "duplicate key value violates unique constraint wm_event_log_event_id" },
+              };
+            }
+            return base.insert(payload);
+          },
+        };
+      },
+    };
+
+    const result = await createCanonicalEvent(
+      baseInput({
+        eventId: "wmc_duplicate_slug",
+        leadId,
+        payload: {
+          identity: { email: "user@example.com" },
+          journey: { route: "/", flow: "public" },
+        },
+      }),
+      { db: duplicateDb },
+    );
+
+    expect(result.eventLogId).toBe("event-log-1");
+    expect(db.inserts.wm_event_log?.[0]).toBeUndefined();
   });
 });

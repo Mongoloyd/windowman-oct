@@ -112,6 +112,11 @@ export interface CreateCanonicalEventInput {
   eventName: WMEventName;
   eventTimestamp?: string;
   payload: WMCanonicalEventPayload;
+  /**
+   * Trusted tenant slug from an edge function caller only.
+   * Never accept from browser or public CAPI payloads.
+   */
+  clientSlug?: string;
   leadId?: string;
   userId?: string;
   analysisId?: string;

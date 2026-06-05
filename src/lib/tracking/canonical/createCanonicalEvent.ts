@@ -104,6 +104,74 @@ function resolveDispatchStatus(shouldDispatch: boolean): WMDispatchStatus {
   return shouldDispatch ? "pending" : "not_applicable";
 }
 
+function normalizeClientSlug(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed.toLowerCase() : null;
+}
+
+async function resolveClientSlug(
+  input: CreateCanonicalEventInput,
+  deps: CreateCanonicalEventDeps,
+): Promise<string | null> {
+  const trustedSlug = normalizeClientSlug(input.clientSlug);
+  if (trustedSlug) {
+    return trustedSlug;
+  }
+
+  const leadId = input.leadId ?? null;
+  if (leadId) {
+    const leadResult = await deps.db
+      .from("leads")
+      .select("client_slug")
+      .eq("id", leadId)
+      .maybeSingle();
+    if (!leadResult.error) {
+      const slug = normalizeClientSlug(leadResult.data?.client_slug);
+      if (slug) {
+        return slug;
+      }
+    }
+  }
+
+  const scanSessionId = input.scanSessionId ??
+    input.payload.journey.scanSessionId ??
+    null;
+  if (scanSessionId) {
+    const sessionResult = await deps.db
+      .from("scan_sessions")
+      .select("client_slug")
+      .eq("id", scanSessionId)
+      .maybeSingle();
+    if (!sessionResult.error) {
+      const slug = normalizeClientSlug(sessionResult.data?.client_slug);
+      if (slug) {
+        return slug;
+      }
+    }
+  }
+
+  const analysisId = input.analysisId ?? input.payload.quote?.analysisId ?? null;
+  if (analysisId) {
+    const analysisResult = await deps.db
+      .from("analyses")
+      .select("client_slug")
+      .eq("id", analysisId)
+      .maybeSingle();
+    if (!analysisResult.error) {
+      const slug = normalizeClientSlug(analysisResult.data?.client_slug);
+      if (slug) {
+        return slug;
+      }
+    }
+  }
+
+  return null;
+}
+
 export async function createCanonicalEvent(
   input: CreateCanonicalEventInput,
   deps: CreateCanonicalEventDeps,
@@ -193,6 +261,7 @@ export async function createCanonicalEvent(
   };
 
   const analysisId = input.analysisId ?? input.payload.quote?.analysisId ?? null;
+  const resolvedClientSlug = await resolveClientSlug(input, deps);
   const wmEventInsert = {
     event_id: canonicalEvent.eventId,
     event_name: canonicalEvent.eventName,
@@ -202,6 +271,7 @@ export async function createCanonicalEvent(
     scan_session_id: input.scanSessionId ?? input.payload.journey.scanSessionId ?? null,
     analysis_id: analysisId,
     quote_file_id: input.quoteFileId ?? input.payload.quote?.quoteFileId ?? null,
+    client_slug: resolvedClientSlug,
     schema_version: canonicalEvent.schemaVersion,
     model_version: canonicalEvent.modelVersion ?? null,
     rubric_version: canonicalEvent.rubricVersion ?? null,
