@@ -297,6 +297,13 @@ const Index = () => {
   const reportFlags = activeData?.flags || [];
   const shouldShowReport = showReportFromDev || gradeRevealed;
 
+  // Discovery vs. Product boundary:
+  // The homepage sticky CTA is useful while the visitor is browsing or entering the funnel.
+  // Once a file is uploaded or the report shell is visible, the scanner/report experience
+  // owns the screen and should not compete with a persistent sales footer.
+  const isProductExperiencePhase = fileUploaded || shouldShowReport;
+  const showStickyCtaFooter = !showRecoveryBar && !isProductExperiencePhase;
+
   const funnel = useScanFunnel();
   const { slug: queryClientSlug, ready: clientSlugReady } = useClientSlug();
 
@@ -816,7 +823,7 @@ const Index = () => {
             onPostConversionClick={() => {
               window.location.href = "tel:+15614685571";
             }}
-            isVisible={!showRecoveryBar}
+            isVisible={showStickyCtaFooter}
             conversionType={conversionType}
           />
 
