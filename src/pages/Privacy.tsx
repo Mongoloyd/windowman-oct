@@ -1,3 +1,4 @@
+import { Helmet } from "react-helmet-async";
 import { Shield, Lock, EyeOff } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import StickyCTAFooter from "@/components/StickyCTAFooter";
@@ -5,7 +6,15 @@ import StickyCTAFooter from "@/components/StickyCTAFooter";
 export default function Privacy() {
   const navigate = useNavigate();
   return (
-    <main
+    <>
+      <Helmet>
+        <title>WindowMan Privacy Policy | Quote Uploads & Homeowner Data</title>
+        <meta
+          name="description"
+          content="Learn how WindowMan handles homeowner contact information, uploaded quote documents, review data, privacy choices, and consent-based contractor introductions."
+        />
+      </Helmet>
+      <main
       className="relative min-h-screen overflow-hidden pb-32"
       style={{
         background:
@@ -235,5 +244,6 @@ export default function Privacy() {
         onPostConversionClick={() => { window.location.href = "tel:+15614685571"; }}
       />
     </main>
+    </>
   );
 }

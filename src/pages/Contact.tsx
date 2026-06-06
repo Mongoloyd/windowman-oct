@@ -1,3 +1,4 @@
+import { Helmet } from "react-helmet-async";
 import { Mail, MapPin, Clock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import StickyCTAFooter from "@/components/StickyCTAFooter";
@@ -5,7 +6,15 @@ import StickyCTAFooter from "@/components/StickyCTAFooter";
 export default function Contact() {
   const navigate = useNavigate();
   return (
-    <main
+    <>
+      <Helmet>
+        <title>Contact WindowMan | Quote Review Support</title>
+        <meta
+          name="description"
+          content="Contact WindowMan for questions about impact-window quote reviews, uploaded estimates, privacy, and homeowner support."
+        />
+      </Helmet>
+      <main
       className="relative min-h-screen overflow-hidden pb-32"
       style={{
         background:
@@ -93,5 +102,6 @@ export default function Contact() {
         onPostConversionClick={() => { window.location.href = "tel:+15614685571"; }}
       />
     </main>
+    </>
   );
 }

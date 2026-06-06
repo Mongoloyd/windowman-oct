@@ -1,3 +1,4 @@
+import { Helmet } from "react-helmet-async";
 import { AlertTriangle, FileText, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import StickyCTAFooter from "@/components/StickyCTAFooter";
@@ -5,7 +6,15 @@ import StickyCTAFooter from "@/components/StickyCTAFooter";
 export default function Terms() {
   const navigate = useNavigate();
   return (
-    <main
+    <>
+      <Helmet>
+        <title>WindowMan Terms of Use | Quote Review Service</title>
+        <meta
+          name="description"
+          content="Terms governing use of WindowMan's informational impact-window quote-review service, contractor introductions, user responsibilities, and service limitations."
+        />
+      </Helmet>
+      <main
       className="relative min-h-screen overflow-hidden pb-32"
       style={{
         background:
@@ -236,5 +245,6 @@ export default function Terms() {
         onPostConversionClick={() => { window.location.href = "tel:+15614685571"; }}
       />
     </main>
+    </>
   );
 }
