@@ -44,6 +44,7 @@ const Contractors3 = lazy(() => import("./pages/contractors3/Contractors3.tsx"))
 const LandingPage = lazy(() => import("./pages/LandingPage.tsx"));
 const Estimate = lazy(() => import("./pages/Estimate.tsx"));
 const Diagnosis = lazy(() => import("./pages/Diagnosis.tsx"));
+const NextdoorHome = lazy(() => import("./pages/NextdoorHome.tsx"));
 
 // PartnerGuard removed — partner pages render publicly with preview fallback
 
@@ -178,6 +179,7 @@ const App = () => (
                   <Route path="/contractors2" element={<Contractors2 />} />
                 </Route>
                 <Route path="/partner/*" element={<PartnerRoutes />} />
+                <Route path="/nextdoor" element={<NextdoorHome />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
                 </Routes>
