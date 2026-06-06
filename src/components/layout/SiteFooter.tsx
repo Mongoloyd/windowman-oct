@@ -1,68 +1,54 @@
-import React from "react";
 import { Link } from "react-router-dom";
-import { Facebook, Instagram } from "lucide-react";
 
 type SiteFooterProps = {
   className?: string;
 };
 
-const footerLinks = {
-  company: [
-    { label: "Home", to: "/" },
-    { label: "About", to: "/about" },
-    { label: "Contact", to: "/contact" },
-    { label: "Contractors", to: "/contractors" },
-  ],
-  resources: [
-    { label: "FAQ", to: "/faq" },
-    { label: "How We Beat Window Estimates", to: "/how-we-beat-window-estimates" },
-  ],
-  legal: [
-    { label: "Terms", to: "/terms" },
-    { label: "Privacy", to: "/privacy" },
-  ],
-};
+const legalLinks = [
+  { label: "Privacy", to: "/privacy" },
+  { label: "Terms", to: "/terms" },
+  { label: "Disclaimer", to: "/disclaimer" },
+  { label: "Contact", to: "/contact" },
+  { label: "FAQ", to: "/faq" },
+] as const;
+
+const trustSpine = [
+  "WindowMan helps Florida homeowners review impact-window quotes before signing.",
+  "WindowMan is a quote-review tool, not a contractor marketplace or lead resale page.",
+  "WindowMan is not a contractor, licensed installer, law firm, building department, insurance advisor, or public adjuster.",
+  "We do not send your uploaded quote back to the original contractor as part of the review.",
+  "If you request contractor help, WindowMan may earn a referral fee from a contractor introduced through our network.",
+] as const;
 
 export default function SiteFooter({ className = "" }: SiteFooterProps) {
+  const currentYear = new Date().getFullYear();
+
   return (
     <footer
-      className={`mt-20 border-t border-slate-200 bg-slate-100/90 text-slate-700 ${className}`}
+      className={`mt-20 border-t border-border bg-card text-foreground ${className}`}
       aria-label="Site footer"
     >
-      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 gap-10 md:grid-cols-4">
-          {/* Brand */}
-          <div className="md:col-span-1">
-            <Link
-              to="/"
-              className="inline-flex items-center gap-2 text-lg font-extrabold tracking-tight text-slate-900"
-              aria-label="WindowMan home"
-            >
-              <span className="rounded-md px-2 py-1 font-bold uppercase tracking-[0.14em] text-white bg-white/0 text-xl">
-                🛡️
-              </span>
-              <span>
-                <span className="text-foreground">WINDOW</span>
-                <span style={{ color: "#448df7" }}>MAN</span>
-              </span>
-            </Link>
+      <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
+        <div className="space-y-6">
+          <p className="text-lg font-semibold tracking-tight">
+            <span className="text-foreground">WINDOW</span>
+            <span className="text-primary">MAN</span>
+          </p>
 
-            <p className="mt-4 max-w-xs text-sm leading-6 text-slate-600">
-              Quote Intelligence For Home Improvement Contracts.
-            </p>
-
-            <p className="mt-2 max-w-xs text-sm leading-6 text-slate-500">
-              Helping Homeowners Compare Scope, Pricing, and Risk Before They Sign.
-            </p>
+          <div className="space-y-3 text-sm leading-6 text-muted-foreground">
+            {trustSpine.map((line) => (
+              <p key={line}>{line}</p>
+            ))}
           </div>
 
-          {/* Company */}
-          <nav aria-label="Company links">
-            <h3 className="text-sm font-bold uppercase tracking-[0.12em] text-slate-900">Company</h3>
-            <ul className="mt-4 space-y-3">
-              {footerLinks.company.map((item) => (
+          <nav aria-label="Legal and support links">
+            <ul className="flex flex-wrap gap-x-5 gap-y-2 text-sm font-medium">
+              {legalLinks.map((item) => (
                 <li key={item.to}>
-                  <Link to={item.to} className="text-sm text-slate-600 transition-colors hover:text-slate-900">
+                  <Link
+                    to={item.to}
+                    className="text-foreground/75 transition-colors hover:text-foreground"
+                  >
                     {item.label}
                   </Link>
                 </li>
@@ -70,65 +56,18 @@ export default function SiteFooter({ className = "" }: SiteFooterProps) {
             </ul>
           </nav>
 
-          {/* Resources */}
-          <nav aria-label="Resource links">
-            <h3 className="text-sm font-bold uppercase tracking-[0.12em] text-slate-900">Resources</h3>
-            <ul className="mt-4 space-y-3">
-              {footerLinks.resources.map((item) => (
-                <li key={item.to}>
-                  <Link to={item.to} className="text-sm text-slate-600 transition-colors hover:text-slate-900">
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
-
-          {/* Legal + Social */}
           <div>
-            <nav aria-label="Legal links">
-              <h3 className="text-sm font-bold uppercase tracking-[0.12em] text-slate-900">Legal</h3>
-              <ul className="mt-4 space-y-3">
-                {footerLinks.legal.map((item) => (
-                  <li key={item.to}>
-                    <Link to={item.to} className="text-sm text-slate-600 transition-colors hover:text-slate-900">
-                      {item.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </nav>
-
-            <div className="mt-8">
-              <h3 className="text-sm font-bold uppercase tracking-[0.12em] text-slate-900">Follow</h3>
-
-              <div className="mt-4 flex items-center gap-3">
-                <a
-                  href="https://facebook.com"
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label="WindowMan on Facebook"
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:-translate-y-0.5 hover:text-slate-900"
-                >
-                  <Facebook size={18} />
-                </a>
-
-                <a
-                  href="https://instagram.com"
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label="WindowMan on Instagram"
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:-translate-y-0.5 hover:text-slate-900"
-                >
-                  <Instagram size={18} />
-                </a>
-              </div>
-            </div>
+            <Link
+              to="/#truth-gate"
+              className="inline-flex items-center justify-center rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+            >
+              Check My Quote Before I Sign
+            </Link>
           </div>
-        </div>
 
-        <div className="mt-10 border-t border-slate-200 pt-6">
-          <p className="text-xs text-slate-500"></p>
+          <p className="text-xs text-muted-foreground">
+            &copy; {currentYear} WindowMan. All rights reserved.
+          </p>
         </div>
       </div>
     </footer>

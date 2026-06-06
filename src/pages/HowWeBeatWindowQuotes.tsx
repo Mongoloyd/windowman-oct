@@ -7,7 +7,6 @@ import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { ShieldCheck, TrendingDown, Users, FileCheck, ArrowRight, Phone } from "lucide-react";
 import { trackEvent } from "@/lib/trackEvent";
-import Footer from "@/components/Footer";
 
 const steps = [
   {
@@ -122,8 +121,6 @@ export default function HowWeBeatWindowQuotes() {
           </a>
         </div>
       </section>
-
-      <Footer />
     </div>
   );
 }
