@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import React from "react";
 import { MemoryRouter } from "react-router-dom";
+import { FunctionsResponse } from "@supabase/supabase-js";
 import { PostScanReportSwitcher } from "./PostScanReportSwitcher";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
