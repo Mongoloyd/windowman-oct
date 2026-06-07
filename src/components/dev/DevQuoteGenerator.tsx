@@ -7,6 +7,7 @@ import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAnalysisPreview, fetchScanStatus } from "@/services/reportService";
 import type { RawPreviewRow } from "@/types/serviceResults";
+import { isServiceErr } from "@/types/serviceResults";
 import { toast } from "sonner";
 import { getDevSecret, peekDevSecret } from "@/lib/devSecret";
 
@@ -35,7 +36,7 @@ async function waitForAnalysisPreview(
     });
 
     const previewResult = await fetchAnalysisPreview(scanSessionId);
-    if (!previewResult.ok) {
+    if (isServiceErr(previewResult)) {
       if (attempt < PREVIEW_RETRY_MAX) continue;
       return { ok: false, message: previewResult.message };
     }
