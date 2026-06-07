@@ -1378,7 +1378,7 @@ describe("PostScanReportSwitcher — async cleanup (FIX-3.2)", () => {
     funnelState.scanSessionId = VALID_SCAN_SESSION_ID;
     mockUseReportAccess.mockReturnValue("full");
     const invokeMock = vi.mocked(supabase.functions.invoke);
-    let resolveCompare: (value: { data: unknown; error: unknown }) => void;
+    let resolveCompare: ((value: FunctionsResponse<unknown> | PromiseLike<FunctionsResponse<unknown>>) => void) | undefined;
     invokeMock.mockImplementation((name: string) => {
       if (name === "compare-quotes") {
         return new Promise((resolve) => {
@@ -1395,9 +1395,9 @@ describe("PostScanReportSwitcher — async cleanup (FIX-3.2)", () => {
             { scan_session_id: OTHER_VALID_SCAN_SESSION_ID },
           ],
           error: null,
-        }) as ReturnType<typeof supabase.rpc>;
+        }) as unknown as ReturnType<typeof supabase.rpc>;
       }
-      return Promise.resolve({ data: [], error: null }) as ReturnType<typeof supabase.rpc>;
+      return Promise.resolve({ data: [], error: null }) as unknown as ReturnType<typeof supabase.rpc>;
     });
 
     const { rerender } = renderFullUnlocked();
@@ -1405,7 +1405,7 @@ describe("PostScanReportSwitcher — async cleanup (FIX-3.2)", () => {
     await waitFor(() =>
       expect(screen.getByText("Compare My 2 Quotes Side-by-Side →")).toBeInTheDocument(),
     );
-    toast.error.mockClear();
+    (toast.error as unknown as ReturnType<typeof vi.fn>).mockClear();
     fireEvent.click(screen.getByText("Compare My 2 Quotes Side-by-Side →"));
 
     rerender(
