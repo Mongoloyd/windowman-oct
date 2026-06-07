@@ -13,4 +13,4 @@ Allow: /
 User-agent: *
 Allow: /
 
-Sitemap: https://wmmvp.lovable.app/sitemap.xml
+Sitemap: https://windowman.app/sitemap.xml

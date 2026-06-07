@@ -3,7 +3,7 @@
 import { writeFileSync } from "fs";
 import { resolve } from "path";
 
-const BASE_URL = "https://wmmvp.lovable.app";
+const BASE_URL = (process.env.SITE_URL ?? "https://windowman.app").replace(/\/+$/, "");
 
 interface SitemapEntry {
   path: string;
@@ -26,7 +26,6 @@ const entries: SitemapEntry[] = [
   { path: "/contractors", changefreq: "weekly", priority: "0.7" },
   { path: "/contractors2", changefreq: "weekly", priority: "0.7" },
   { path: "/contractors3", changefreq: "weekly", priority: "0.7" },
-  { path: "/nextdoor", changefreq: "weekly", priority: "0.7" },
 ];
 
 function generateSitemap(entries: SitemapEntry[]) {
