@@ -754,7 +754,7 @@ describe("PostScanReportSwitcher — gated phone in OTP/full-fetch callbacks", (
   let funnelState: any;
   let resendMock: ReturnType<typeof vi.fn>;
   let submitOtpMock: ReturnType<typeof vi.fn>;
-  let onVerifiedMock: ReturnType<typeof vi.fn>;
+  let onVerifiedMock: ReturnType<typeof vi.fn<(phone: string) => void>>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -955,9 +955,9 @@ describe("PostScanReportSwitcher — post-full helper phone (session-safe)", () 
             { scan_session_id: OTHER_VALID_SCAN_SESSION_ID },
           ],
           error: null,
-        }) as ReturnType<typeof supabase.rpc>;
+        }) as unknown as ReturnType<typeof supabase.rpc>;
       }
-      return Promise.resolve({ data: [], error: null }) as ReturnType<typeof supabase.rpc>;
+      return Promise.resolve({ data: [], error: null }) as unknown as ReturnType<typeof supabase.rpc>;
     });
 
     funnelState = {
@@ -1092,7 +1092,7 @@ describe("PostScanReportSwitcher — post-full helper phone (session-safe)", () 
 describe("PostScanReportSwitcher — async session guard", () => {
   let funnelState: Record<string, unknown>;
   let submitOtpMock: ReturnType<typeof vi.fn>;
-  let onVerifiedMock: ReturnType<typeof vi.fn>;
+  let onVerifiedMock: ReturnType<typeof vi.fn<(phone: string) => void>>;
   let resolveOtp: (value: {
     status: string;
     e164: string;
@@ -1188,7 +1188,7 @@ describe("PostScanReportSwitcher — async cleanup (FIX-3.2)", () => {
   let submitPhoneMock: ReturnType<typeof vi.fn>;
   let resendMock: ReturnType<typeof vi.fn>;
   let submitOtpMock: ReturnType<typeof vi.fn>;
-  let onVerifiedMock: ReturnType<typeof vi.fn>;
+  let onVerifiedMock: ReturnType<typeof vi.fn<(phone: string) => void>>;
   let resolvePhoneSubmit: (value: { status: string; e164: string }) => void;
   let resolveResend: (value: { status: string }) => void;
   let rejectPhoneSubmit: (reason?: unknown) => void;
