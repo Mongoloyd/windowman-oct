@@ -753,7 +753,7 @@ export default function DevReportPreview() {
 
     const data = mockFullReportAccessResponse.data;
     return {
-      proof_of_read: data.proof_of_read,
+      proof_of_read: data.proof_of_read as unknown as Record<string, unknown>,
       confidence_score: data.confidence_score,
       full_json: MOCK_AUTHORIZED_FULL_REPORT_SOURCE.full_json,
       lab_sections: MOCK_AUTHORIZED_FULL_REPORT_SOURCE.lab_sections,

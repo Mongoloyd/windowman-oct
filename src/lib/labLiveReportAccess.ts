@@ -16,6 +16,7 @@ import {
   fetchAnalysisFull,
   fetchAnalysisPreview,
 } from "@/services/reportService";
+import { isServiceErr } from "@/types/serviceResults";
 import type { RawFullRow, RawPreviewRow, ServiceResult } from "@/types/serviceResults";
 import type { V2ReportModuleSource } from "@/types/v2ReportTransport";
 
@@ -95,7 +96,7 @@ export function rawFullRowToV2ReportModuleSource(row: RawFullRow): V2ReportModul
 export function classifyPreviewFetchResult(
   result: ServiceResult<RawPreviewRow | null>,
 ): { state: LabLiveRequestState; meta: LabLiveFetchMeta; row: RawPreviewRow | null } {
-  if (!result.ok) {
+  if (isServiceErr(result)) {
     return {
       state: "error",
       meta: {
@@ -141,7 +142,7 @@ export function classifyFullFetchResult(
   row: RawFullRow | null;
   moduleSource: V2ReportModuleSource | null;
 } {
-  if (!result.ok) {
+  if (isServiceErr(result)) {
     const isUnauthorized = result.code === "unauthorized";
     return {
       state: isUnauthorized ? "locked" : "error",

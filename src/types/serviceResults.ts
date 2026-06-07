@@ -22,6 +22,14 @@ export interface ServiceErr {
 
 export type ServiceResult<T> = ServiceOk<T> | ServiceErr;
 
+export function isServiceOk<T>(result: ServiceResult<T>): result is ServiceOk<T> {
+  return result.ok;
+}
+
+export function isServiceErr<T>(result: ServiceResult<T>): result is ServiceErr {
+  return !result.ok;
+}
+
 // ── Report service ──────────────────────────────────────────────────────────
 
 export interface RawPreviewRow {
