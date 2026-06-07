@@ -150,8 +150,9 @@ export function DevQuoteGenerator({ sessionId, onScanStart }: DevQuoteGeneratorP
           return result;
         }
 
-        result.error = `preview-verify failed after scaffold succeeded: ${previewWait.message}`;
-        devLog("failed", { stage: "preview-verify", scenarioKey: fixture.key, message: previewWait.message });
+        const err = previewWait as unknown as { ok: false; message: string };
+        result.error = `preview-verify failed after scaffold succeeded: ${err.message}`;
+        devLog("failed", { stage: "preview-verify", scenarioKey: fixture.key, message: err.message });
         return result;
       }
 
