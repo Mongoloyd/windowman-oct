@@ -39,13 +39,38 @@ The babysitter may **PROCEED** only for files explicitly named in that scope.
 | `src/components/LockedOverlay.tsx` | Live gate UI shell; do not move orchestration here |
 | `src/services/phoneVerificationService.ts` | Sole transport for `send-otp` / `verify-otp` |
 | `src/services/reportService.ts` | Sole production transport to `report-access`; unauthorized envelope translation |
-| `src/components/TruthReportFindings/PhoneVerifyModal.tsx` | **Possibly deprecated** — verify imports before editing; not on live reveal path; do not remove or downgrade without a dedicated deprecation sprint |
-| `src/components/TruthReportFindings/VerifyGate.tsx` | **Possibly deprecated** — verify imports before editing; not on live reveal path; do not remove or downgrade without a dedicated deprecation sprint |
 | `src/hooks/useAnalysisData.ts` | Three-phase contract: preview / full / resume |
 | `src/hooks/usePhonePipeline.ts` | Two modes only: `validate_only`, `validate_and_send_otp` |
 | `src/lib/deriveRevealPhase.ts` | Canonical `RevealPhase` mapping |
 | `src/types/revealPhase.ts` | `RevealPhase` union — no new phases without sprint |
 | `src/components/TruthReportClassic.tsx` | Presentational only; do not move orchestration logic here |
+
+### Deprecated / Quarantined OTP-Reveal Components
+
+These files are not on the canonical live reveal path as of the latest read-only import graph audit.
+
+They are protected from accidental resurrection, not because they are active production owners.
+
+| Path | Status |
+|------|--------|
+| `src/components/TruthReportFindings/VerifyGate.tsx` | Deprecated / quarantined. Contains stale OTP/reveal behavior and stale `otp_verified` browser business-event fire. Do not import into production. Removal requires a dedicated deprecation sprint. |
+| `src/components/TruthReportFindings/PhoneVerifyModal.tsx` | Deprecated / quarantined. Contains stale OTP/reveal behavior and stale `otp_verified` browser business-event fire. Do not import into production. Removal requires a dedicated deprecation sprint. |
+| `src/components/TruthReportFindings/VerifyBanner.tsx` | Deprecated / quarantined presentational orphan. No OTP transport or tracking fire, but do not rewire into production. Removal requires a dedicated deprecation sprint. |
+
+**Canonical live owners:**
+
+- `src/components/post-scan/PostScanReportSwitcher.tsx`
+- `src/pages/ReportClassic.tsx`
+- `src/hooks/usePhonePipeline.ts`
+- `src/services/phoneVerificationService.ts`
+- `src/services/reportService.ts`
+
+**Canonical business events:**
+
+- `phone_verified`
+- `report_revealed`
+
+Do not use `otp_verified` for new browser business events.
 
 **Related locked behavior (any file):**
 

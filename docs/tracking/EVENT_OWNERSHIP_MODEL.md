@@ -45,15 +45,17 @@ These lanes must never be conflated. A single business moment may fire one event
 | `fetch_stall_retry` | `PostScanReportSwitcher.tsx` | Track stall retry attempts |
 | `lead_captured_with_phone` / `lead_captured_no_phone` | `TruthGateFlow.tsx` | Track lead creation with phone presence flag |
 
-## Dead Code Components (Not on Canonical Path)
+## Quarantined Components (Not on Canonical Path)
 
-The following components contain OTP/verification event fires but are **not imported anywhere** in the live codebase:
+The following components are **not imported anywhere** in the production route graph. They are not canonical and must not be reused:
 
-- `src/components/TruthReportFindings/VerifyGate.tsx` — Contains duplicate `trackGtmEvent("otp_verified")` and `trackGtmEvent("report_revealed")`
-- `src/components/TruthReportFindings/PhoneVerifyModal.tsx` — Contains duplicate `trackGtmEvent("otp_verified")` and `trackGtmEvent("report_revealed")`
-- `src/components/TruthReportFindings/VerifyBanner.tsx` — References PhoneVerifyModal
+- `src/components/TruthReportFindings/VerifyGate.tsx` — Fires non-canonical `trackGtmEvent("otp_verified")` and premature `trackGtmEvent("report_revealed")`; bypasses `usePhonePipeline` orchestration
+- `src/components/TruthReportFindings/PhoneVerifyModal.tsx` — Same stale browser business-event fires as VerifyGate; bypasses `usePhonePipeline` orchestration
+- `src/components/TruthReportFindings/VerifyBanner.tsx` — Presentational orphan CTA only; no OTP transport or tracking fire
 
-These components bypass the Phase 2 service layer (calling `supabase.functions.invoke` directly) and the Phase 3 state model. They should be removed or formally deprecated.
+VerifyGate and PhoneVerifyModal call `phoneVerificationService` for transport but are still not the canonical OTP/reveal path — they own their own inline OTP UI and stale GTM fires instead of routing through `PostScanReportSwitcher` / `ReportClassic` + `usePhonePipeline`. Removal requires a dedicated deprecation sprint.
+
+**Follow-up (separate measurement audit):** `/report/classic/:sessionId` (`ReportClassic.tsx`) uses canonical OTP transport via `usePhonePipeline` but does not yet emit browser GTM `phone_verified` / `report_revealed` — parity with `PostScanReportSwitcher` is out of scope for this docs pass.
 
 ## Intentionally Deferred
 
