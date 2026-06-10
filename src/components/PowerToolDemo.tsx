@@ -643,27 +643,8 @@ function CalibrationGateModal({ onSubmit }) {
 
           <button
             onClick={handleSubmit}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.filter = "brightness(1.1)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.filter = "none";
-            }}
-            style={{
-              width: "100%",
-              padding: "16px",
-              background: "#C8952A",
-              color: "#0a0a0a",
-              fontWeight: 800,
-              fontSize: "15px",
-              border: "none",
-              borderRadius: 0,
-              cursor: "pointer",
-              marginTop: "4px",
-              fontFamily: "'Inter', system-ui, sans-serif",
-              boxShadow: "0 6px 24px rgba(200,149,42,0.35)",
-              transition: "filter 0.15s",
-            }}
+            className="w-full py-4 mt-1 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-extrabold text-[15px] border-none cursor-pointer transition-colors"
+            style={{ fontFamily: "'Inter', system-ui, sans-serif" }}
           >
             Calibrate My Area
           </button>
@@ -1046,23 +1027,24 @@ function DemoReport({ lead, onUploadQuote, onClose }) {
       : assistHasInput
         ? "typing"
         : "idle";
-  const auraClassName = `absolute -inset-1 rounded-2xl blur-xl pointer-events-none transition-all ${
+  const auraClassName = `absolute -inset-1 rounded-2xl blur-xl pointer-events-none transition-all animate-pulse ${
     assistVisualState === "error"
-      ? "bg-red-500/45 opacity-90 animate-pulse"
+      ? "bg-red-500/45 opacity-95"
       : assistVisualState === "valid"
-        ? "bg-emerald-400/45 opacity-90 animate-pulse"
-        : assistVisualState === "typing"
-          ? "bg-cyan-400/40 opacity-90 animate-pulse"
-          : "bg-amber-400/40 opacity-90 animate-pulse"
+        ? "bg-amber-400/50 opacity-95"
+        : "bg-cyan-400/40 opacity-95"
   }`;
-  const capsuleClassName = `relative z-10 flex flex-col md:flex-row rounded-xl border-2 overflow-hidden bg-slate-950/95 transition-all shadow-2xl ${
+  const inputShellClassName = `relative z-10 w-full rounded-xl border-2 bg-slate-950/95 transition-all shadow-2xl ${
     assistVisualState === "error"
       ? "border-red-500 shadow-[0_0_40px_rgba(239,68,68,0.38)] focus-within:ring-4 focus-within:ring-red-500/40"
       : assistVisualState === "valid"
-        ? "border-emerald-400/80 shadow-[0_0_40px_rgba(52,211,153,0.42)] focus-within:ring-4 focus-within:ring-emerald-400/40"
-        : assistVisualState === "typing"
-          ? "border-cyan-400/80 shadow-[0_0_38px_rgba(34,211,238,0.38)] focus-within:ring-4 focus-within:ring-cyan-400/40"
-          : "border-amber-400/80 shadow-[0_0_38px_rgba(245,158,11,0.42)] focus-within:border-cyan-400 focus-within:ring-4 focus-within:ring-cyan-400/35"
+        ? "border-amber-400/80 shadow-[0_0_42px_rgba(245,158,11,0.45)] focus-within:ring-4 focus-within:ring-amber-400/40"
+        : "border-cyan-400/80 shadow-[0_0_38px_rgba(6,182,212,0.38)] focus-within:ring-4 focus-within:ring-cyan-400/40"
+  }`;
+  const assistPrimaryButtonClassName = `h-14 md:h-16 w-full text-sm sm:text-base leading-none flex items-center justify-center text-center whitespace-nowrap font-black px-6 transition-all text-slate-950 ${
+    assistVisualState === "valid"
+      ? "bg-amber-500 hover:bg-amber-400 active:bg-amber-500 shadow-[0_0_22px_rgba(245,158,11,0.3)] hover:shadow-[0_0_30px_rgba(245,158,11,0.45)]"
+      : "bg-cyan-500 hover:bg-cyan-400 active:bg-cyan-500 shadow-[0_0_22px_rgba(6,182,212,0.3)] hover:shadow-[0_0_30px_rgba(6,182,212,0.45)]"
   }`;
   const handleAssistPrimaryClick = () => {
     const digits = stripNonDigits(assistPhone);
@@ -1252,39 +1234,41 @@ function DemoReport({ lead, onUploadQuote, onClose }) {
                 <p className="text-xs text-slate-400">
                   Enter your number if you want help getting the first estimate right.
                 </p>
-                <div className="relative">
-                  <div aria-hidden="true" className={auraClassName} />
-                  <div className={capsuleClassName} onKeyDown={handleAssistEnterBlock}>
-                    <label htmlFor="assist-phone" className="sr-only">
-                      Mobile number
-                    </label>
-                    <input
-                      id="assist-phone"
-                      type="tel"
-                      inputMode="numeric"
-                      placeholder="(555) 555-5555"
-                      maxLength={14}
-                      value={assistPhone}
-                      onChange={(e) => {
-                        setAssistPhone(formatPhoneDisplay(stripNonDigits(e.target.value)));
-                        if (assistError) setAssistError("");
-                      }}
-                      className="h-16 flex-1 bg-transparent px-5 text-base md:text-lg text-slate-100 placeholder:text-slate-500 border-none outline-none focus:outline-none focus:ring-0 focus:border-transparent focus:shadow-none appearance-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleAssistPrimaryClick}
-                      className="h-16 bg-amber-500 hover:bg-amber-400 active:bg-amber-500 text-slate-950 font-black px-6 w-full md:w-auto shrink-0 transition-all shadow-[0_0_22px_rgba(245,158,11,0.3)] hover:shadow-[0_0_30px_rgba(245,158,11,0.45)]"
-                    >
-                      Get the Best First Estimate
-                    </button>
+                <div className="flex flex-col gap-3" onKeyDown={handleAssistEnterBlock}>
+                  <div className="relative overflow-visible">
+                    <div aria-hidden="true" className={auraClassName} />
+                    <div className={inputShellClassName}>
+                      <label htmlFor="assist-phone" className="sr-only">
+                        Mobile number
+                      </label>
+                      <input
+                        id="assist-phone"
+                        type="tel"
+                        inputMode="numeric"
+                        placeholder="(555) 555-5555"
+                        maxLength={14}
+                        value={assistPhone}
+                        onChange={(e) => {
+                          setAssistPhone(formatPhoneDisplay(stripNonDigits(e.target.value)));
+                          if (assistError) setAssistError("");
+                        }}
+                        className="h-14 md:h-16 w-full min-w-0 rounded-xl bg-transparent px-5 text-base md:text-lg text-slate-100 placeholder:text-slate-500 border-none outline-none focus:outline-none focus:ring-0 focus:border-transparent focus:shadow-none appearance-none"
+                      />
+                    </div>
                   </div>
-                  {assistError && (
-                    <p className="text-sm text-red-400 mt-3" aria-live="polite">
-                      {assistError}
-                    </p>
-                  )}
+                  <button
+                    type="button"
+                    onClick={handleAssistPrimaryClick}
+                    className={assistPrimaryButtonClassName}
+                  >
+                    Get My Prep Call
+                  </button>
                 </div>
+                {assistError && (
+                  <p className="text-sm text-red-400 mt-3" aria-live="polite">
+                    {assistError}
+                  </p>
+                )}
               </div>
             </div>
           ) : (
