@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useTickerStats } from "@/hooks/useTickerStats";
-import { formatPhoneDisplay, stripNonDigits, isValidUSPhone } from "@/utils/formatPhone";
+import { formatPhoneDisplay, stripNonDigits } from "@/utils/formatPhone";
 import PowerToolButton from "./PowerToolButton";
 
 const DS = {
@@ -336,11 +336,10 @@ function LeadModal({ onComplete, onClose }) {
         <div style={{ padding: "6px 28px 30px" }}>
           <Kicker>WINDOW MAN AI AUDIT</Kicker>
           <h2 style={{ fontSize: "24px", fontWeight: 800, color: T.text, margin: "0 0 10px", lineHeight: 1.2 }}>
-            See The AI Scanner in Real-Time
+            Where should I unlock the sample audit?
           </h2>
           <p style={{ fontSize: "14px", color: T.muted, margin: "0 0 24px", lineHeight: 1.6 }}>
-            Watch WindowMan Forensically Analyze a Quote to Spot Traps, Hidden Fees and Red Flags- Revealing Just the
-            Truth
+            No quote needed. Watch WindowMan expose the gaps contractors bury before the estimate is even written.
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
             <ModalField
@@ -359,9 +358,9 @@ function LeadModal({ onComplete, onClose }) {
               onChange={set("email")}
               error={errors.email}
             />
-            <ModalBtn onClick={handleSubmit}>View Live Scan→</ModalBtn>
+            <ModalBtn onClick={handleSubmit}>Unlock the Sample Audit</ModalBtn>
             <div style={{ fontSize: "11px", color: "#FFFFFF", textAlign: "center" }}>
-              No spam, No Sales Pitch. Just the Truth About Your Quote.
+              No contractor calls. No quote required.
             </div>
           </div>
         </div>
@@ -456,11 +455,10 @@ function ModalBtn({ children, onClick, loading = false }) {
 }
 
 /* ============================================================
-   CalibrationGateModal — Zip + Phone mid-scan capture
+   CalibrationGateModal — ZIP-only mid-scan calibration
    ============================================================ */
 function CalibrationGateModal({ onSubmit }) {
   const [zipCode, setZipCode] = useState("");
-  const [phoneRaw, setPhoneRaw] = useState("");
   const [errors, setErrors] = useState({});
   const modalRef = useRef(null);
   const firstInputRef = useRef(null);
@@ -515,21 +513,14 @@ function CalibrationGateModal({ onSubmit }) {
     if (errors.zipCode) setErrors((e) => ({ ...e, zipCode: "" }));
   };
 
-  const handlePhoneChange = (val) => {
-    const digits = stripNonDigits(val).slice(0, 10);
-    setPhoneRaw(digits);
-    if (errors.phone) setErrors((e) => ({ ...e, phone: "" }));
-  };
-
   const handleSubmit = () => {
     const e = {};
     if (zipCode.length !== 5) e.zipCode = "Enter a valid 5-digit zip code";
-    if (!isValidUSPhone(phoneRaw)) e.phone = "Enter a valid 10-digit mobile number";
     if (Object.keys(e).length) {
       setErrors(e);
       return;
     }
-    onSubmit({ zipCode, mobileNumber: phoneRaw });
+    onSubmit({ zipCode });
   };
 
   return (
@@ -551,7 +542,7 @@ function CalibrationGateModal({ onSubmit }) {
         ref={modalRef}
         role="dialog"
         aria-modal="true"
-        aria-label="Finalize Local Calibration"
+        aria-label="Calibrate for your area"
         style={{
           width: "100%",
           maxWidth: "440px",
@@ -592,7 +583,7 @@ function CalibrationGateModal({ onSubmit }) {
             lineHeight: 1.2,
           }}
         >
-          Finalize Local Calibration
+          Let's calibrate this for your area.
         </h2>
 
         {/* Subtitle */}
@@ -604,7 +595,8 @@ function CalibrationGateModal({ onSubmit }) {
             margin: "0 0 24px",
           }}
         >
-          Enter Your Zip To Pull Your Local County Data, and Your Mobile to Instantly and Privately Unlock Your Report.
+          Impact-window pricing changes by county, code zone, opening count, and contractor markup. Your ZIP tells
+          WindowMan what risks to watch for.
         </p>
 
         {/* Fields */}
@@ -619,7 +611,7 @@ function CalibrationGateModal({ onSubmit }) {
                 marginBottom: "6px",
               }}
             >
-              Project Zip Code
+              ZIP code
             </label>
             <input
               ref={firstInputRef}
@@ -648,45 +640,6 @@ function CalibrationGateModal({ onSubmit }) {
             )}
           </div>
 
-          <div>
-            <label
-              style={{
-                display: "block",
-                fontSize: "12px",
-                fontWeight: 600,
-                color: "rgb(148,163,184)",
-                marginBottom: "6px",
-              }}
-            >
-              Secure Mobile Number
-            </label>
-            <input
-              type="tel"
-              inputMode="numeric"
-              autoComplete="tel"
-              placeholder="(555) 555-5555"
-              value={formatPhoneDisplay(phoneRaw)}
-              onChange={(e) => handlePhoneChange(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "13px 14px",
-                borderRadius: 0,
-                background: "rgba(255,255,255,0.05)",
-                color: "#f1f5f9",
-                border: `1.5px solid ${errors.phone ? "rgba(239,68,68,0.65)" : "rgba(255,255,255,0.1)"}`,
-                fontSize: "15px",
-                outline: "none",
-                boxSizing: "border-box",
-                fontFamily: "'Inter', system-ui, sans-serif",
-              }}
-            />
-
-            {errors.phone && <div style={{ fontSize: "11px", color: "#ef4444", marginTop: "5px" }}>{errors.phone}</div>}
-            <div style={{ fontSize: "11px", color: "rgb(100,116,139)", marginTop: "8px", lineHeight: 1.5 }}>
-              🔒 256-Bit Encrypted. Look For a Secure Link So You Don't Lose This
-            </div>
-          </div>
-
           <button
             onClick={handleSubmit}
             onMouseEnter={(e) => {
@@ -711,7 +664,7 @@ function CalibrationGateModal({ onSubmit }) {
               transition: "filter 0.15s",
             }}
           >
-            Calculate Final Risk Score ➔
+            Calibrate My Area
           </button>
         </div>
       </div>
@@ -1048,11 +1001,40 @@ function ScoreReveal({ score }) {
 
 function DemoReport({ lead, onUploadQuote, onClose }) {
   const [visible, setVisible] = useState(false);
+  const [assistPhone, setAssistPhone] = useState("");
+  const [assistNote, setAssistNote] = useState("");
+  const [assistPhase, setAssistPhase] = useState("phone");
+  const [assistError, setAssistError] = useState("");
+  const assistNoteRef = useRef(null);
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), 80);
     return () => clearTimeout(t);
   }, []);
   const firstName = lead?.name?.split(" ")[0] || "there";
+  const handleAssistEnterBlock = (e) => {
+    if (e.key !== "Enter") return;
+
+    const target = e.target;
+    if (target instanceof HTMLTextAreaElement) return;
+
+    e.preventDefault();
+  };
+  const handlePrepSubmit = () => {
+    const digits = stripNonDigits(assistPhone);
+    if (digits.length !== 10) {
+      setAssistError("Enter a valid mobile number or tap Continue.");
+      return;
+    }
+    setAssistError("");
+    setAssistPhase("comment");
+  };
+  const handleContinueSkip = () => {
+    setAssistError("");
+    setAssistPhase("skipped");
+  };
+  const handleFinishPrep = () => {
+    setAssistPhase("done");
+  };
   const handleConversionClick = (e) => {
     e.preventDefault();
     onClose?.();
@@ -1201,7 +1183,123 @@ function DemoReport({ lead, onUploadQuote, onClose }) {
             </div>
           </Card>
         </FadeIn>
-        <FadeIn delay={220}>
+        <FadeIn delay={170}>
+          {assistPhase === "done" || assistPhase === "skipped" ? (
+            <div className="my-8 p-5 rounded-lg border border-amber-500/25 border-l-4 border-l-amber-500/60 bg-slate-900/60 text-slate-300 leading-relaxed font-sans text-sm sm:text-base">
+              {assistPhase === "done"
+                ? "You're not walking in cold. Use this sample audit as your filter, and scan the real quote before anyone asks you to sign."
+                : "You still saw what contractors can leave vague. Use the sample audit below as your warning label. When the real quote arrives, scan it before you sign."}
+            </div>
+          ) : assistPhase === "phone" ? (
+            <div className="my-8 p-5 sm:p-6 rounded-lg border border-amber-500/40 border-l-4 border-l-amber-500 bg-gradient-to-br from-slate-950 via-slate-900/95 to-amber-950/20 shadow-lg shadow-amber-500/10 flex flex-col gap-5 font-sans">
+              <span className="inline-flex self-start items-center px-2.5 py-1 rounded text-[10px] sm:text-xs font-bold tracking-widest uppercase bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                RECOMMENDED NEXT MOVE
+              </span>
+              <h3 className="text-slate-100 font-bold tracking-tight leading-snug text-lg sm:text-xl">
+                Before a contractor gives you a number, do not walk in blind.
+              </h3>
+              <p className="text-sm text-slate-400 leading-relaxed max-w-prose">
+                Use the sample audit as your prep filter before the first estimate conversation.
+              </p>
+              <div
+                className="flex flex-col gap-3 md:flex-row md:items-end w-full"
+                onKeyDown={handleAssistEnterBlock}
+              >
+                <div className="flex-1 w-full">
+                  <label htmlFor="assist-phone" className="block text-sm font-medium text-slate-400 mb-2">
+                    Mobile number
+                  </label>
+                  <input
+                    id="assist-phone"
+                    type="tel"
+                    inputMode="numeric"
+                    placeholder="(555) 555-5555"
+                    maxLength={14}
+                    value={assistPhone}
+                    onChange={(e) => {
+                      setAssistPhone(formatPhoneDisplay(stripNonDigits(e.target.value)));
+                      if (assistError) setAssistError("");
+                    }}
+                    className={`text-base rounded-md bg-slate-950 border text-slate-100 placeholder:text-slate-500 w-full px-3 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 ${
+                      assistError ? "border-red-500 focus:ring-red-500/50 focus:border-red-500" : "border-slate-700"
+                    }`}
+                  />
+                  {assistError && (
+                    <p className="text-sm text-red-400 mt-2" aria-live="polite">
+                      {assistError}
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={handlePrepSubmit}
+                  className="bg-amber-500 hover:bg-amber-400 active:bg-amber-500 text-slate-950 font-semibold rounded-md px-5 py-3 transition-colors w-full md:w-auto shrink-0"
+                >
+                  Prep My First Estimate
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={handleContinueSkip}
+                className="text-slate-400 hover:text-slate-200 transition-colors text-sm font-medium self-start underline-offset-2 hover:underline"
+              >
+                Continue
+              </button>
+            </div>
+          ) : (
+            <div className="my-8 p-5 sm:p-6 rounded-lg border border-amber-500/40 border-l-4 border-l-amber-500 bg-gradient-to-br from-slate-950 via-slate-900/95 to-amber-950/20 shadow-lg shadow-amber-500/10 flex flex-col gap-5 font-sans">
+              <span className="inline-flex self-start items-center px-2.5 py-1 rounded text-[10px] sm:text-xs font-bold tracking-widest uppercase bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                RECOMMENDED NEXT MOVE
+              </span>
+              <h3 className="text-slate-100 font-bold tracking-tight leading-snug text-lg sm:text-xl">
+                Anything you want to be ready to ask?
+              </h3>
+              <div className="flex flex-col gap-4" onKeyDown={handleAssistEnterBlock}>
+                <div className="relative">
+                  <textarea
+                    ref={assistNoteRef}
+                    value={assistNote}
+                    onChange={(e) => setAssistNote(e.target.value)}
+                    placeholder="Example: I'm just starting and don't know what a fair quote should include."
+                    maxLength={500}
+                    className="min-h-[100px] resize-none rounded-md bg-slate-950 border border-slate-700 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 p-4 pr-12 text-base w-full"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => assistNoteRef.current?.focus()}
+                    className="absolute bottom-2 right-2 p-2 rounded-full text-slate-400 hover:text-cyan-400 hover:bg-slate-800 transition-colors"
+                    aria-label="Focus note field for dictation"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                      <line x1="12" x2="12" y1="19" y2="22" />
+                    </svg>
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleFinishPrep}
+                  className="bg-amber-500 hover:bg-amber-400 active:bg-amber-500 text-slate-950 font-semibold rounded-md px-5 py-3 transition-colors w-full md:w-auto self-start shrink-0"
+                >
+                  Finish Prep Review
+                </button>
+              </div>
+            </div>
+          )}
+        </FadeIn>
+        <FadeIn delay={240}>
           <SectionHead kicker="CRITICAL FINDINGS" title="Do Not Sign Until These Are Fixed" />
           <div style={{ display: "grid", gap: "12px" }}>
             {FINDINGS.map((f, i) => (
@@ -1226,7 +1324,7 @@ function DemoReport({ lead, onUploadQuote, onClose }) {
             ))}
           </div>
         </FadeIn>
-        <FadeIn delay={300}>
+        <FadeIn delay={320}>
           <SectionHead kicker="NEXT STEPS" title="Protect yourself before you sign" />
           <Card>
             <div style={{ display: "grid", gap: "10px", marginBottom: "28px" }}>
@@ -1461,7 +1559,7 @@ function DemoScanPage({ lead, onUploadQuote, onClose, onCalibrationComplete }) {
 
   // Handle calibration submit — resume the scan
   const handleCalibrationSubmit = useCallback(
-    ({ zipCode, mobileNumber }) => {
+    ({ zipCode }) => {
       // Update refs
       hasCalibrationBeenSubmittedRef.current = true;
       isDemoPausedRef.current = false;
@@ -1470,7 +1568,7 @@ function DemoScanPage({ lead, onUploadQuote, onClose, onCalibrationComplete }) {
       setIsCalibrationGateOpen(false);
 
       // Lift data up to parent
-      onCalibrationComplete?.({ zipCode, mobileNumber });
+      onCalibrationComplete?.({ zipCode });
 
       // Get remaining lines after the trigger
       const resumeFromIndex = triggerLineIndexRef.current + 1;
@@ -1584,7 +1682,7 @@ const PowerToolFlow = React.forwardRef<
   };
   const handleCalibrationComplete = useCallback((data) => {
     setCalibrationData(data);
-    console.log({ event: "wm_calibration_submitted", zipCode: data.zipCode });
+    console.log({ event: "wm_calibration_submitted", hasZip: Boolean(data.zipCode) });
   }, []);
 
   return (
