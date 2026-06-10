@@ -334,12 +334,13 @@ function LeadModal({ onComplete, onClose }) {
           </button>
         </div>
         <div style={{ padding: "6px 28px 30px" }}>
-          <Kicker>WINDOW MAN AI AUDIT</Kicker>
+          <Kicker>NO QUOTE NEEDED</Kicker>
           <h2 style={{ fontSize: "24px", fontWeight: 800, color: T.text, margin: "0 0 10px", lineHeight: 1.2 }}>
-            Where should I unlock the sample audit?
+            No quote yet? See what a risky estimate looks like in 60 seconds.
           </h2>
           <p style={{ fontSize: "14px", color: T.muted, margin: "0 0 24px", lineHeight: 1.6 }}>
-            No quote needed. Watch WindowMan expose the gaps contractors bury before the estimate is even written.
+            WindowMan runs a live sample audit so you know what contractors often leave vague — before anyone asks you
+            to sign.
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
             <ModalField
@@ -360,7 +361,7 @@ function LeadModal({ onComplete, onClose }) {
             />
             <ModalBtn onClick={handleSubmit}>Unlock the Sample Audit</ModalBtn>
             <div style={{ fontSize: "11px", color: "#FFFFFF", textAlign: "center" }}>
-              No contractor calls. No quote required.
+              Free preview. No upload. No sales call.
             </div>
           </div>
         </div>
