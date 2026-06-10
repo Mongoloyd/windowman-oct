@@ -1036,6 +1036,49 @@ function DemoReport({ lead, onUploadQuote, onClose }) {
   const handleFinishPrep = () => {
     setAssistPhase("done");
   };
+  const assistDigits = stripNonDigits(assistPhone);
+  const assistHasInput = assistDigits.length > 0;
+  const assistIsValid = assistDigits.length === 10;
+  const assistVisualState = assistError
+    ? "error"
+    : assistIsValid
+      ? "valid"
+      : assistHasInput
+        ? "typing"
+        : "idle";
+  const auraClassName = `absolute -inset-1 rounded-2xl blur-xl pointer-events-none transition-all ${
+    assistVisualState === "error"
+      ? "bg-red-500/45 opacity-90 animate-pulse"
+      : assistVisualState === "valid"
+        ? "bg-emerald-400/45 opacity-90 animate-pulse"
+        : assistVisualState === "typing"
+          ? "bg-cyan-400/40 opacity-90 animate-pulse"
+          : "bg-amber-400/40 opacity-90 animate-pulse"
+  }`;
+  const capsuleClassName = `relative z-10 flex flex-col md:flex-row rounded-xl border-2 overflow-hidden bg-slate-950/95 transition-all shadow-2xl ${
+    assistVisualState === "error"
+      ? "border-red-500 shadow-[0_0_40px_rgba(239,68,68,0.38)] focus-within:ring-4 focus-within:ring-red-500/40"
+      : assistVisualState === "valid"
+        ? "border-emerald-400/80 shadow-[0_0_40px_rgba(52,211,153,0.42)] focus-within:ring-4 focus-within:ring-emerald-400/40"
+        : assistVisualState === "typing"
+          ? "border-cyan-400/80 shadow-[0_0_38px_rgba(34,211,238,0.38)] focus-within:ring-4 focus-within:ring-cyan-400/40"
+          : "border-amber-400/80 shadow-[0_0_38px_rgba(245,158,11,0.42)] focus-within:border-cyan-400 focus-within:ring-4 focus-within:ring-cyan-400/35"
+  }`;
+  const handleAssistPrimaryClick = () => {
+    const digits = stripNonDigits(assistPhone);
+
+    if (digits.length === 0) {
+      setAssistError("Enter your mobile number to continue.");
+      return;
+    }
+
+    if (digits.length !== 10) {
+      setAssistError("Finish the mobile number to continue.");
+      return;
+    }
+
+    handlePrepSubmit();
+  };
   const handleConversionClick = (e) => {
     e.preventDefault();
     onClose?.();
@@ -1200,52 +1243,49 @@ function DemoReport({ lead, onUploadQuote, onClose }) {
                 Before a contractor gives you a number, do not walk in blind.
               </h3>
               <p className="text-sm text-slate-400 leading-relaxed max-w-prose">
-                Use the sample audit as your prep filter before the first estimate conversation.
+                Get one prep call before the first contractor prices the job.
               </p>
-              <div
-                className="flex flex-col gap-3 md:flex-row md:items-end w-full"
-                onKeyDown={handleAssistEnterBlock}
-              >
-                <div className="flex-1 w-full">
-                  <label htmlFor="assist-phone" className="block text-sm font-medium text-slate-400 mb-2">
-                    Mobile number
-                  </label>
-                  <input
-                    id="assist-phone"
-                    type="tel"
-                    inputMode="numeric"
-                    placeholder="(555) 555-5555"
-                    maxLength={14}
-                    value={assistPhone}
-                    onChange={(e) => {
-                      setAssistPhone(formatPhoneDisplay(stripNonDigits(e.target.value)));
-                      if (assistError) setAssistError("");
-                    }}
-                    className={`text-base rounded-md bg-slate-950 border text-slate-100 placeholder:text-slate-500 w-full px-3 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 ${
-                      assistError ? "border-red-500 focus:ring-red-500/50 focus:border-red-500" : "border-slate-700"
-                    }`}
-                  />
+              <p className="text-xs font-bold tracking-widest uppercase text-amber-300 mb-3">
+                {DEMO.score}/100 critical — do this before anyone gives you a price
+              </p>
+              <div className="flex flex-col gap-3">
+                <p className="text-xs text-slate-400">
+                  Enter your number if you want help getting the first estimate right.
+                </p>
+                <div className="relative">
+                  <div aria-hidden="true" className={auraClassName} />
+                  <div className={capsuleClassName} onKeyDown={handleAssistEnterBlock}>
+                    <label htmlFor="assist-phone" className="sr-only">
+                      Mobile number
+                    </label>
+                    <input
+                      id="assist-phone"
+                      type="tel"
+                      inputMode="numeric"
+                      placeholder="(555) 555-5555"
+                      maxLength={14}
+                      value={assistPhone}
+                      onChange={(e) => {
+                        setAssistPhone(formatPhoneDisplay(stripNonDigits(e.target.value)));
+                        if (assistError) setAssistError("");
+                      }}
+                      className="h-16 flex-1 bg-transparent px-5 text-base md:text-lg text-slate-100 placeholder:text-slate-500 border-none outline-none focus:outline-none focus:ring-0 focus:border-transparent focus:shadow-none appearance-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAssistPrimaryClick}
+                      className="h-16 bg-amber-500 hover:bg-amber-400 active:bg-amber-500 text-slate-950 font-black px-6 w-full md:w-auto shrink-0 transition-all shadow-[0_0_22px_rgba(245,158,11,0.3)] hover:shadow-[0_0_30px_rgba(245,158,11,0.45)]"
+                    >
+                      Get the Best First Estimate
+                    </button>
+                  </div>
                   {assistError && (
-                    <p className="text-sm text-red-400 mt-2" aria-live="polite">
+                    <p className="text-sm text-red-400 mt-3" aria-live="polite">
                       {assistError}
                     </p>
                   )}
                 </div>
-                <button
-                  type="button"
-                  onClick={handlePrepSubmit}
-                  className="bg-amber-500 hover:bg-amber-400 active:bg-amber-500 text-slate-950 font-semibold rounded-md px-5 py-3 transition-colors w-full md:w-auto shrink-0"
-                >
-                  Prep My First Estimate
-                </button>
               </div>
-              <button
-                type="button"
-                onClick={handleContinueSkip}
-                className="text-slate-400 hover:text-slate-200 transition-colors text-sm font-medium self-start underline-offset-2 hover:underline"
-              >
-                Continue
-              </button>
             </div>
           ) : (
             <div className="my-8 p-5 sm:p-6 rounded-lg border border-amber-500/40 border-l-4 border-l-amber-500 bg-gradient-to-br from-slate-950 via-slate-900/95 to-amber-950/20 shadow-lg shadow-amber-500/10 flex flex-col gap-5 font-sans">
