@@ -5,7 +5,17 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useTickerStats } from "@/hooks/useTickerStats";
 import { formatPhoneDisplay, stripNonDigits } from "@/utils/formatPhone";
+import { capturePowerToolDemoLead } from "@/lib/capturePowerToolDemoLead";
 import PowerToolButton from "./PowerToolButton";
+
+const POWER_TOOL_SAVE_ERROR = "We could not save that yet. Please try again.";
+
+const createPowerToolSessionId = () => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `power-tool-demo-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+};
 
 const DS = {
   fontUI: "'Inter', system-ui, sans-serif",
@@ -256,9 +266,11 @@ function FadeIn({ children, delay = 0 }) {
 /* ============================================================
    LeadModal — Single step: Name + Email only
    ============================================================ */
-function LeadModal({ onComplete, onClose }) {
+function LeadModal({ onSubmit, onClose }) {
   const [form, setForm] = useState({ name: "", email: "" });
   const [errors, setErrors] = useState({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const { total: SCAN_COUNT } = useTickerStats();
   const set = (k) => (v) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -269,14 +281,23 @@ function LeadModal({ onComplete, onClose }) {
     return e;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const e = validate();
     if (Object.keys(e).length) {
       setErrors(e);
       return;
     }
     setErrors({});
-    onComplete({ name: form.name, email: form.email });
+    setSaveError("");
+    setIsSaving(true);
+    try {
+      const ok = await onSubmit({ name: form.name, email: form.email });
+      if (!ok) {
+        setSaveError(POWER_TOOL_SAVE_ERROR);
+      }
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -359,7 +380,14 @@ function LeadModal({ onComplete, onClose }) {
               onChange={set("email")}
               error={errors.email}
             />
-            <ModalBtn onClick={handleSubmit}>Unlock the Sample Audit</ModalBtn>
+            <ModalBtn onClick={handleSubmit} loading={isSaving}>
+              {isSaving ? "Saving..." : "Unlock the Sample Audit"}
+            </ModalBtn>
+            {saveError && (
+              <div style={{ fontSize: "12px", color: T.red, textAlign: "center" }} aria-live="polite">
+                {saveError}
+              </div>
+            )}
             <div style={{ fontSize: "11px", color: "#FFFFFF", textAlign: "center" }}>
               Free preview. No upload. No sales call.
             </div>
@@ -1031,11 +1059,13 @@ const INTAKE_STEPS = [
   },
 ];
 
-function DemoReport({ lead, onUploadQuote, onClose }) {
+function DemoReport({ lead, onUploadQuote, onClose, sessionId, leadId }) {
   const [visible, setVisible] = useState(false);
   const [assistPhone, setAssistPhone] = useState("");
   const [assistPhase, setAssistPhase] = useState("phone");
   const [assistError, setAssistError] = useState("");
+  const [phoneSaving, setPhoneSaving] = useState(false);
+  const [intakeSaving, setIntakeSaving] = useState(false);
   const [intakeStepIndex, setIntakeStepIndex] = useState(0);
   const [intakeData, setIntakeData] = useState({});
   const [intakeHistory, setIntakeHistory] = useState([]);
@@ -1052,17 +1082,37 @@ function DemoReport({ lead, onUploadQuote, onClose }) {
 
     e.preventDefault();
   };
-  const handlePrepSubmit = () => {
+  const handlePrepSubmit = async () => {
     const digits = stripNonDigits(assistPhone);
     if (digits.length !== 10) {
       setAssistError("Enter a valid mobile number or tap Continue.");
       return;
     }
+    if (!leadId || !sessionId) {
+      setAssistError(POWER_TOOL_SAVE_ERROR);
+      return;
+    }
     setAssistError("");
-    setIntakeStepIndex(0);
-    setIntakeData({});
-    setIntakeHistory([]);
-    setAssistPhase("intake");
+    setPhoneSaving(true);
+    try {
+      const result = await capturePowerToolDemoLead({
+        action: "update_phone",
+        session_id: sessionId,
+        source: "power-tool-demo",
+        lead_id: leadId,
+        phone: assistPhone,
+      });
+      if (!result.ok) {
+        setAssistError(POWER_TOOL_SAVE_ERROR);
+        return;
+      }
+      setIntakeStepIndex(0);
+      setIntakeData({});
+      setIntakeHistory([]);
+      setAssistPhase("intake");
+    } finally {
+      setPhoneSaving(false);
+    }
   };
   const handleContinueSkip = () => {
     setAssistError("");
@@ -1076,18 +1126,62 @@ function DemoReport({ lead, onUploadQuote, onClose }) {
       });
     });
   };
-  const handleIntakeSelect = (option) => {
+  const handleIntakeSelect = async (option) => {
+    if (intakeSaving) return;
+
     const step = INTAKE_STEPS[intakeStepIndex];
     const nextData = { ...intakeData, [step.key]: option };
     setIntakeData(nextData);
 
     if (step.key === "status" && option === UPLOAD_SHORTCUT_OPTION) {
+      if (leadId && sessionId) {
+        setIntakeSaving(true);
+        try {
+          await capturePowerToolDemoLead({
+            action: "update_intake",
+            session_id: sessionId,
+            source: "power-tool-demo",
+            lead_id: leadId,
+            intake_status: UPLOAD_SHORTCUT_OPTION,
+            quote_holder_shortcut: true,
+          });
+        } catch {
+          // Non-blocking: upload handoff proceeds regardless.
+        } finally {
+          setIntakeSaving(false);
+        }
+      }
       runUploadHandoff();
       return;
     }
 
     if (step.key === "timeline") {
-      setAssistPhase("done");
+      if (!leadId || !sessionId) {
+        setAssistError(POWER_TOOL_SAVE_ERROR);
+        return;
+      }
+      setAssistError("");
+      setIntakeSaving(true);
+      try {
+        const result = await capturePowerToolDemoLead({
+          action: "update_intake",
+          session_id: sessionId,
+          source: "power-tool-demo",
+          lead_id: leadId,
+          intake_status: nextData.status,
+          intake_property: nextData.property,
+          intake_scope: nextData.scope,
+          intake_logistics: nextData.logistics,
+          intake_timeline: option,
+        });
+        if (!result.ok) {
+          setAssistError(POWER_TOOL_SAVE_ERROR);
+          return;
+        }
+        setAssistPhase("done");
+      } finally {
+        setIntakeSaving(false);
+      }
       return;
     }
 
@@ -1141,6 +1235,8 @@ function DemoReport({ lead, onUploadQuote, onClose }) {
       : "bg-cyan-500 hover:bg-cyan-400 active:bg-cyan-500 shadow-[0_0_22px_rgba(6,182,212,0.3)] hover:shadow-[0_0_30px_rgba(6,182,212,0.45)]"
   }`;
   const handleAssistPrimaryClick = () => {
+    if (phoneSaving) return;
+
     const digits = stripNonDigits(assistPhone);
 
     if (digits.length === 0) {
@@ -1349,9 +1445,10 @@ function DemoReport({ lead, onUploadQuote, onClose }) {
                   <button
                     type="button"
                     onClick={handleAssistPrimaryClick}
-                    className={assistPrimaryButtonClassName}
+                    disabled={phoneSaving}
+                    className={`${assistPrimaryButtonClassName}${phoneSaving ? " opacity-70 cursor-not-allowed" : ""}`}
                   >
-                    Get My Prep Call
+                    {phoneSaving ? "Saving..." : "Get My Prep Call"}
                   </button>
                 </div>
                 {assistError && (
@@ -1401,18 +1498,28 @@ function DemoReport({ lead, onUploadQuote, onClose }) {
                       key={option}
                       type="button"
                       onClick={() => handleIntakeSelect(option)}
+                      disabled={intakeSaving}
                       aria-pressed={isSelected ? "true" : "false"}
                       className={`min-h-14 w-full rounded-xl border-2 px-4 py-4 text-left text-base transition-all active:scale-[0.98] ${
+                        intakeSaving
+                          ? "opacity-70 cursor-not-allowed"
+                          : ""
+                      } ${
                         isSelected
                           ? "border-amber-400/80 bg-amber-500/10 text-amber-100 shadow-[0_0_20px_rgba(245,158,11,0.2)]"
                           : "border-cyan-400/40 bg-slate-950/95 text-slate-100 hover:border-cyan-400 hover:bg-cyan-950/30"
                       }`}
                     >
-                      {option}
+                      {intakeSaving && currentIntakeStep.key === "timeline" ? "Saving..." : option}
                     </button>
                   );
                 })}
               </div>
+              {assistError && assistPhase === "intake" && (
+                <p className="text-sm text-red-400" aria-live="polite">
+                  {assistError}
+                </p>
+              )}
             </div>
           ) : null}
         </FadeIn>
@@ -1574,7 +1681,7 @@ function DemoReport({ lead, onUploadQuote, onClose }) {
 /* ============================================================
    DemoScanPage — orchestrates scanning, calibration gate, reveal
    ============================================================ */
-function DemoScanPage({ lead, onUploadQuote, onClose, onCalibrationComplete }) {
+function DemoScanPage({ lead, onUploadQuote, onClose, onCalibrationComplete, sessionId, leadId }) {
   const [phase, setPhase] = useState("scanning");
   const [lines, setLines] = useState([]);
   const [progress, setProgress] = useState(0);
@@ -1756,7 +1863,15 @@ function DemoScanPage({ lead, onUploadQuote, onClose, onCalibrationComplete }) {
     );
   }
   if (phase === "revealing") return <ScoreReveal score={scoreDisplay} />;
-  return <DemoReport lead={lead} onUploadQuote={onUploadQuote} onClose={onClose} />;
+  return (
+    <DemoReport
+      lead={lead}
+      onUploadQuote={onUploadQuote}
+      onClose={onClose}
+      sessionId={sessionId}
+      leadId={leadId}
+    />
+  );
 }
 
 /* ============================================================
@@ -1769,6 +1884,22 @@ const PowerToolFlow = React.forwardRef<
   const [state, setState] = useState("idle");
   const [lead, setLead] = useState(null);
   const [calibrationData, setCalibrationData] = useState(null);
+  const [powerToolLeadId, setPowerToolLeadId] = useState(null);
+  const [powerToolSaveStatus, setPowerToolSaveStatus] = useState("idle");
+  const powerToolSessionIdRef = useRef(null);
+
+  const getPowerToolSessionId = useCallback(() => {
+    if (!powerToolSessionIdRef.current) {
+      powerToolSessionIdRef.current = createPowerToolSessionId();
+    }
+    return powerToolSessionIdRef.current;
+  }, []);
+
+  const resetPowerToolCaptureState = useCallback(() => {
+    powerToolSessionIdRef.current = null;
+    setPowerToolLeadId(null);
+    setPowerToolSaveStatus("idle");
+  }, []);
 
   useEffect(() => {
     if (state !== "idle") {
@@ -1787,20 +1918,57 @@ const PowerToolFlow = React.forwardRef<
   };
   const closeAll = () => {
     setState("idle");
+    setLead(null);
+    setCalibrationData(null);
+    resetPowerToolCaptureState();
     onToolClose?.();
   };
   useEffect(() => {
     if (triggerOpen && state === "idle") openModal();
   }, [triggerOpen]);
 
-  const handleLeadComplete = (formData) => {
-    setLead(formData);
-    setState("demo");
-  };
-  const handleCalibrationComplete = useCallback((data) => {
-    setCalibrationData(data);
-    console.log({ event: "wm_calibration_submitted", hasZip: Boolean(data.zipCode) });
-  }, []);
+  const handleLeadSubmit = useCallback(
+    async (formData) => {
+      setPowerToolSaveStatus("saving");
+      const firstName = formData.name.trim();
+      const result = await capturePowerToolDemoLead({
+        action: "create",
+        session_id: getPowerToolSessionId(),
+        source: "power-tool-demo",
+        client_slug: "direct",
+        first_name: firstName,
+        email: formData.email.trim().toLowerCase(),
+      });
+      if (!result.ok) {
+        setPowerToolSaveStatus("error");
+        return false;
+      }
+      if (result.leadId) {
+        setPowerToolLeadId(result.leadId);
+      }
+      setPowerToolSaveStatus("saved");
+      setLead(formData);
+      setState("demo");
+      return true;
+    },
+    [getPowerToolSessionId],
+  );
+  const handleCalibrationComplete = useCallback(
+    (data) => {
+      setCalibrationData(data);
+      console.log({ event: "wm_calibration_submitted", hasZip: Boolean(data.zipCode) });
+      if (powerToolLeadId && data?.zipCode) {
+        void capturePowerToolDemoLead({
+          action: "update_zip",
+          session_id: getPowerToolSessionId(),
+          source: "power-tool-demo",
+          lead_id: powerToolLeadId,
+          zip_code: data.zipCode,
+        });
+      }
+    },
+    [getPowerToolSessionId, powerToolLeadId],
+  );
 
   return (
     <div
@@ -1817,7 +1985,7 @@ const PowerToolFlow = React.forwardRef<
         <PowerToolButton onClick={openModal} />
       </div>
       {state === "modal" &&
-        createPortal(<LeadModal onComplete={handleLeadComplete} onClose={closeAll} />, document.body)}
+        createPortal(<LeadModal onSubmit={handleLeadSubmit} onClose={closeAll} />, document.body)}
       {state === "demo" &&
         createPortal(
           <div
@@ -1835,6 +2003,8 @@ const PowerToolFlow = React.forwardRef<
               onUploadQuote={onUploadQuote}
               onClose={closeAll}
               onCalibrationComplete={handleCalibrationComplete}
+              sessionId={getPowerToolSessionId()}
+              leadId={powerToolLeadId}
             />
           </div>,
           document.body,
