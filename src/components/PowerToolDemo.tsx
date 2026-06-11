@@ -981,13 +981,64 @@ function ScoreReveal({ score }) {
   );
 }
 
+const UPLOAD_SHORTCUT_OPTION = "Already have a quote to check";
+
+const INTAKE_STEPS = [
+  {
+    key: "status",
+    kicker: "STEP 1 OF 5 — STATUS",
+    headline: "Where are you in the process?",
+    options: [
+      "Just researching options",
+      "Ready to get estimates soon",
+      UPLOAD_SHORTCUT_OPTION,
+      "Emergency replacement needed",
+    ],
+  },
+  {
+    key: "property",
+    kicker: "STEP 2 OF 5 — PROPERTY",
+    headline: "What type of property are we protecting?",
+    options: ["Single-Family Home", "Condo / Apartment", "Townhouse", "Commercial / Business"],
+  },
+  {
+    key: "scope",
+    kicker: "STEP 3 OF 5 — SCOPE",
+    headline: "Approximately how many openings are you considering?",
+    options: ["1 to 5 Openings", "6 to 10 Openings", "11 to 15 Openings", "16+ Openings"],
+  },
+  {
+    key: "logistics",
+    kicker: "STEP 4 OF 5 — LOGISTICS",
+    headline: "Are there multi-story or HOA constraints to consider?",
+    options: [
+      "1st Floor Only — No HOA",
+      "Multi-Story Installation",
+      "HOA Approval Required",
+      "Multi-Story + HOA Required",
+    ],
+  },
+  {
+    key: "timeline",
+    kicker: "STEP 5 OF 5 — TIMELINE",
+    headline: "What is driving this project and when do you need to start?",
+    options: [
+      "Hurricane Protection / Immediate",
+      "Lower Insurance / 1-3 Months",
+      "Replacing Old Windows / Planning Ahead",
+      "New Construction / Just Researching",
+    ],
+  },
+];
+
 function DemoReport({ lead, onUploadQuote, onClose }) {
   const [visible, setVisible] = useState(false);
   const [assistPhone, setAssistPhone] = useState("");
-  const [assistNote, setAssistNote] = useState("");
   const [assistPhase, setAssistPhase] = useState("phone");
   const [assistError, setAssistError] = useState("");
-  const assistNoteRef = useRef(null);
+  const [intakeStepIndex, setIntakeStepIndex] = useState(0);
+  const [intakeData, setIntakeData] = useState({});
+  const [intakeHistory, setIntakeHistory] = useState([]);
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), 80);
     return () => clearTimeout(t);
@@ -1008,14 +1059,57 @@ function DemoReport({ lead, onUploadQuote, onClose }) {
       return;
     }
     setAssistError("");
-    setAssistPhase("comment");
+    setIntakeStepIndex(0);
+    setIntakeData({});
+    setIntakeHistory([]);
+    setAssistPhase("intake");
   };
   const handleContinueSkip = () => {
     setAssistError("");
     setAssistPhase("skipped");
   };
-  const handleFinishPrep = () => {
-    setAssistPhase("done");
+  const runUploadHandoff = () => {
+    onClose?.();
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        onUploadQuote?.();
+      });
+    });
+  };
+  const handleIntakeSelect = (option) => {
+    const step = INTAKE_STEPS[intakeStepIndex];
+    const nextData = { ...intakeData, [step.key]: option };
+    setIntakeData(nextData);
+
+    if (step.key === "status" && option === UPLOAD_SHORTCUT_OPTION) {
+      runUploadHandoff();
+      return;
+    }
+
+    if (step.key === "timeline") {
+      setAssistPhase("done");
+      return;
+    }
+
+    setIntakeHistory((history) => [...history, intakeStepIndex]);
+    setIntakeStepIndex((index) => index + 1);
+  };
+  const handleIntakeBack = () => {
+    if (intakeStepIndex === 0) {
+      setAssistPhase("phone");
+      return;
+    }
+
+    setIntakeHistory((history) => {
+      const next = [...history];
+      const previous = next.pop();
+
+      if (previous !== undefined) {
+        setIntakeStepIndex(previous);
+      }
+
+      return next;
+    });
   };
   const assistDigits = stripNonDigits(assistPhone);
   const assistHasInput = assistDigits.length > 0;
@@ -1063,13 +1157,9 @@ function DemoReport({ lead, onUploadQuote, onClose }) {
   };
   const handleConversionClick = (e) => {
     e.preventDefault();
-    onClose?.();
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        onUploadQuote?.();
-      });
-    });
+    runUploadHandoff();
   };
+  const currentIntakeStep = INTAKE_STEPS[intakeStepIndex];
   return (
     <div
       style={{
@@ -1271,58 +1361,60 @@ function DemoReport({ lead, onUploadQuote, onClose }) {
                 )}
               </div>
             </div>
-          ) : (
-            <div className="my-8 p-5 sm:p-6 rounded-lg border border-amber-500/40 border-l-4 border-l-amber-500 bg-gradient-to-br from-slate-950 via-slate-900/95 to-amber-950/20 shadow-lg shadow-amber-500/10 flex flex-col gap-5 font-sans">
-              <span className="inline-flex self-start items-center px-2.5 py-1 rounded text-[10px] sm:text-xs font-bold tracking-widest uppercase bg-amber-500/15 text-amber-400 border border-amber-500/30">
-                RECOMMENDED NEXT MOVE
-              </span>
-              <h3 className="text-slate-100 font-bold tracking-tight leading-snug text-lg sm:text-xl">
-                Anything you want to be ready to ask?
-              </h3>
-              <div className="flex flex-col gap-4" onKeyDown={handleAssistEnterBlock}>
-                <div className="relative">
-                  <textarea
-                    ref={assistNoteRef}
-                    value={assistNote}
-                    onChange={(e) => setAssistNote(e.target.value)}
-                    placeholder="Example: I'm just starting and don't know what a fair quote should include."
-                    maxLength={500}
-                    className="min-h-[100px] resize-none rounded-md bg-slate-950 border border-slate-700 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 p-4 pr-12 text-base w-full"
+          ) : assistPhase === "intake" && currentIntakeStep ? (
+            <div className="my-8 p-5 sm:p-6 rounded-lg border border-cyan-400/40 bg-slate-950/95 shadow-lg shadow-cyan-500/10 flex flex-col gap-5 font-sans">
+              <button
+                type="button"
+                onClick={handleIntakeBack}
+                className="self-start text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
+              >
+                ← Back
+              </button>
+              <div className="flex items-center gap-2" aria-hidden="true">
+                {INTAKE_STEPS.map((_, i) => (
+                  <div
+                    key={i}
+                    className={`h-1.5 flex-1 rounded-full ${
+                      i < intakeStepIndex
+                        ? "bg-cyan-400/70"
+                        : i === intakeStepIndex
+                          ? "bg-amber-400/80"
+                          : "bg-slate-700/60"
+                    }`}
                   />
-                  <button
-                    type="button"
-                    onClick={() => assistNoteRef.current?.focus()}
-                    className="absolute bottom-2 right-2 p-2 rounded-full text-slate-400 hover:text-cyan-400 hover:bg-slate-800 transition-colors"
-                    aria-label="Focus note field for dictation"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden="true"
+                ))}
+              </div>
+              <span className="text-[10px] sm:text-xs font-bold tracking-widest uppercase text-cyan-400">
+                {currentIntakeStep.kicker}
+              </span>
+              <h3
+                className="text-slate-100 font-bold text-lg sm:text-xl leading-tight"
+                aria-live="polite"
+              >
+                {currentIntakeStep.headline}
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {currentIntakeStep.options.map((option) => {
+                  const isSelected = intakeData[currentIntakeStep.key] === option;
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => handleIntakeSelect(option)}
+                      aria-pressed={isSelected ? "true" : "false"}
+                      className={`min-h-14 w-full rounded-xl border-2 px-4 py-4 text-left text-base transition-all active:scale-[0.98] ${
+                        isSelected
+                          ? "border-amber-400/80 bg-amber-500/10 text-amber-100 shadow-[0_0_20px_rgba(245,158,11,0.2)]"
+                          : "border-cyan-400/40 bg-slate-950/95 text-slate-100 hover:border-cyan-400 hover:bg-cyan-950/30"
+                      }`}
                     >
-                      <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-                      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                      <line x1="12" x2="12" y1="19" y2="22" />
-                    </svg>
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleFinishPrep}
-                  className="bg-amber-500 hover:bg-amber-400 active:bg-amber-500 text-slate-950 font-semibold rounded-md px-5 py-3 transition-colors w-full md:w-auto self-start shrink-0"
-                >
-                  Finish Prep Review
-                </button>
+                      {option}
+                    </button>
+                  );
+                })}
               </div>
             </div>
-          )}
+          ) : null}
         </FadeIn>
         <FadeIn delay={240}>
           <SectionHead kicker="CRITICAL FINDINGS" title="Do Not Sign Until These Are Fixed" />
