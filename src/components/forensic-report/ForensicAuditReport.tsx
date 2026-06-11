@@ -140,7 +140,6 @@ export default function ForensicAuditReport(props: ForensicAuditReportProps) {
             grade={props.grade}
             redCount={props.flagRedCount ?? 0}
             amberCount={props.flagAmberCount ?? 0}
-            variant="forensic"
           />
 
           <div className="relative">

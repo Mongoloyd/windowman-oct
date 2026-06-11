@@ -18,7 +18,6 @@ const AdminLeadDossierPage = lazy(() => import("@/pages/AdminLeadDossierPage.tsx
 const AdminLeadReport = lazy(() => import("@/pages/AdminLeadReport.tsx"));
 const AdminLeadEvidence = lazy(() => import("@/pages/AdminLeadEvidence.tsx"));
 const AdminSettings = lazy(() => import("@/pages/AdminSettings.tsx"));
-const DemoClassic = lazy(() => import("@/pages/DemoClassic.tsx"));
 const DevReportPreview = lazy(() => import("@/pages/DevReportPreview.tsx"));
 const DevTesting = lazy(() => import("@/pages/DevTesting.tsx"));
 const NotFound = lazy(() => import("@/pages/NotFound.tsx"));
@@ -66,7 +65,6 @@ export function AdminRoutes() {
       <Route path="lead-evidence" element={<AdminAuthGate><AdminLeadEvidence /></AdminAuthGate>} />
       <Route path="settings" element={<AdminAuthGate><AdminSettings /></AdminAuthGate>} />
       <Route path="partners" element={<AdminAuthGate><AdminPartners /></AdminAuthGate>} />
-      <Route path="lab/demo-classic" element={<AdminAuthGate><DemoClassic /></AdminAuthGate>} />
       <Route path="lab/report-preview" element={<AdminAuthGate><DevReportPreview /></AdminAuthGate>} />
       <Route path="lab/devtesting" element={<AdminAuthGate><DevTesting /></AdminAuthGate>} />
       <Route path=":tab" element={<AdminDashboardTabRoute />} />

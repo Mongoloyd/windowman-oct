@@ -23,7 +23,6 @@ const PartnerRoutes = lazy(() =>
 );
 
 // Dev/internal only — not linked from any production CTA
-const DemoClassic = lazy(() => import("./pages/DemoClassic.tsx"));
 const DevReportPreview = lazy(() => import("./pages/DevReportPreview.tsx"));
 const DevTesting = lazy(() => import("./pages/DevTesting.tsx"));
 const PreUploadIntake = lazy(() => import("@/components/forensic-report/PreUploadIntake"));
@@ -147,7 +146,6 @@ const App = () => (
                 <Route path="/visual/pre-upload-intake" element={<VisualPreUploadIntake />} />
                 {isDevMode && (
                   <>
-                    <Route path="/demo-classic" element={<DemoClassic />} />
                     <Route path="/dev/report-preview" element={<DevReportPreview />} />
                     <Route path="/devtesting" element={<DevTesting />} />
                     <Route path="/dialer" element={<Navigate to="/admin/dialer" replace />} />

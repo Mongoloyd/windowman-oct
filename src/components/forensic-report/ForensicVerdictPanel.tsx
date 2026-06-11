@@ -1,10 +1,7 @@
-export type ForensicVerdictPanelVariant = "classic" | "forensic";
-
 export type ForensicVerdictPanelProps = {
   grade?: string | null;
   redCount?: number | null;
   amberCount?: number | null;
-  variant: ForensicVerdictPanelVariant;
 };
 
 type ForensicVerdictTone = "danger" | "caution" | "safe";
@@ -52,43 +49,16 @@ const forensicVerdictCopy: Record<
   },
 };
 
-const classicToneColors: Record<ForensicVerdictTone, string> = {
-  danger: "hsl(var(--color-danger))",
-  caution: "hsl(var(--color-caution))",
-  safe: "hsl(var(--color-emerald))",
-};
-
 const forensicToneColors: Record<ForensicVerdictTone, string> = {
   danger: "hsl(var(--fr-danger))",
   caution: "hsl(var(--fr-caution))",
   safe: "hsl(var(--fr-success))",
 };
 
-const variantStyles = {
-  classic: {
-    section: "px-4 md:px-8 py-4 md:py-5 border-b border-border",
-    shell: "max-w-4xl mx-auto rounded-[var(--radius-card)] bg-slate-900 px-4 py-4 md:px-5 md:py-5",
-    title: "font-mono text-xs font-bold uppercase tracking-[0.12em]",
-    body: "font-body text-slate-100 mt-2 text-sm md:text-[15px] leading-relaxed",
-    bullet: "font-body text-slate-300 text-sm leading-snug pl-4 relative before:content-['•'] before:absolute before:left-0 before:text-slate-500",
-    bulletList: "mt-3 space-y-2",
-  },
-  forensic: {
-    section: "",
-    shell: "fr-card px-5 py-4 sm:px-6 sm:py-5",
-    title: "fr-mono text-xs font-bold uppercase tracking-[0.12em]",
-    body: "mt-2 text-sm sm:text-[15px] leading-relaxed text-[hsl(var(--fr-text))]",
-    bullet:
-      "text-sm leading-snug pl-4 relative text-[hsl(var(--fr-text-muted))] before:content-['•'] before:absolute before:left-0 before:text-[hsl(var(--fr-text-dim))]",
-    bulletList: "mt-3 space-y-2",
-  },
-} as const;
-
 export function ForensicVerdictPanel({
   grade,
   redCount,
   amberCount,
-  variant,
 }: ForensicVerdictPanelProps) {
   const safeGrade =
     typeof grade === "string" && grade.trim()
@@ -107,27 +77,25 @@ export function ForensicVerdictPanel({
 
   const tone = resolveForensicVerdictTone(safeGrade, safeRedCount, safeAmberCount);
   const { lead, bullets } = forensicVerdictCopy[tone];
-  const toneColor =
-    variant === "classic" ? classicToneColors[tone] : forensicToneColors[tone];
-  const styles = variantStyles[variant];
+  const toneColor = forensicToneColors[tone];
 
   return (
-    <section
-      className={styles.section}
-      aria-labelledby="forensic-verdict-heading"
-    >
-      <div className={styles.shell} style={{ borderLeft: `4px solid ${toneColor}` }}>
+    <section aria-labelledby="forensic-verdict-heading">
+      <div className="fr-card px-5 py-4 sm:px-6 sm:py-5" style={{ borderLeft: `4px solid ${toneColor}` }}>
         <p
           id="forensic-verdict-heading"
-          className={styles.title}
+          className="fr-mono text-xs font-bold uppercase tracking-[0.12em]"
           style={{ color: toneColor }}
         >
           THE FORENSIC VERDICT
         </p>
-        <p className={styles.body}>{lead}</p>
-        <ul className={styles.bulletList}>
+        <p className="mt-2 text-sm sm:text-[15px] leading-relaxed text-[hsl(var(--fr-text))]">{lead}</p>
+        <ul className="mt-3 space-y-2">
           {bullets.map((bullet) => (
-            <li key={bullet} className={styles.bullet}>
+            <li
+              key={bullet}
+              className="text-sm leading-snug pl-4 relative text-[hsl(var(--fr-text-muted))] before:content-['•'] before:absolute before:left-0 before:text-[hsl(var(--fr-text-dim))]"
+            >
               {bullet}
             </li>
           ))}

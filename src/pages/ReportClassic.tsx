@@ -3,7 +3,7 @@
  * Route: /report/classic/:sessionId
  *
  * This is the ONLY layer that touches Twilio / usePhonePipeline for the Classic flow.
- * TruthReportClassic remains pure UI — zero Twilio/Supabase knowledge.
+ * Dark forensic V3 is the only report renderer on this route.
  *
  * Data source: useAnalysisData (existing hook, fetches via get_analysis_preview RPC)
  * County:      fetched from leads table via narrow RPC (get_county_by_scan_session)
@@ -20,10 +20,10 @@ import { useScanFunnelSafe } from "@/state/scanFunnel";
 import { isValidScanSessionId } from "@/lib/routeIdGuards";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import TruthReportClassic from "@/components/TruthReportClassic";
 import ReportClassicDarkV2Full from "@/components/forensic-report/ReportClassicDarkV2Full";
 import ReportClassicDarkV2Partial from "@/components/forensic-report/ReportClassicDarkV2Partial";
-import type { SuggestedMatch } from "@/components/TruthReportClassic";
+import DarkV2ReportRecoveryPanel from "@/components/forensic-report/DarkV2ReportRecoveryPanel";
+import type { SuggestedMatch } from "@/types/truthReportTypes";
 import type { GateMode, LockedOverlayProps } from "@/components/LockedOverlay";
 import type { OtpVerifyOutcome } from "@/types/report-v2";
 import { saveReportDiagnosisHandoff, type ReportDiagnosisHandoff } from "@/lib/reportDiagnosisHandoff";
@@ -571,11 +571,17 @@ export default function ReportClassic() {
 
   // ── Render ─────────────────────────────────────────────────────────────
 
-  // Classic report is deprecated and retained only as rollback/dev reference. Dark forensic V3 is canonical.
+  // Dark forensic V3 is the only report renderer on this route.
+  const isVerifiedAwaitingFull =
+    pipeline.phoneStatus === "verified" && !isFullLoaded;
+
+  if (isResuming || isLoadingFull || isVerifiedAwaitingFull) {
+    return <DarkV2ReportRecoveryPanel />;
+  }
+
   const showDarkV2Full =
     isFullLoaded &&
     accessLevel === "full" &&
-    v2ReportSource != null &&
     analysisData != null;
 
   const showDarkV2Partial =
@@ -603,45 +609,5 @@ export default function ReportClassic() {
     );
   }
 
-  return (
-    <TruthReportClassic
-      grade={analysisData.grade}
-      flags={analysisData.flags}
-      pillarScores={analysisData.pillarScores}
-      contractorName={analysisData.contractorName}
-      county={county}
-      confidenceScore={analysisData.confidenceScore}
-      documentType={analysisData.documentType}
-      accessLevel={accessLevel}
-      qualityBand={analysisData.qualityBand}
-      hasWarranty={analysisData.hasWarranty}
-      hasPermits={analysisData.hasPermits}
-      pageCount={analysisData.pageCount}
-      lineItemCount={analysisData.lineItemCount}
-      flagCount={analysisData.flagCount}
-      flagRedCount={analysisData.flagRedCount}
-      flagAmberCount={analysisData.flagAmberCount}
-      onContractorMatchClick={handleContractorMatchClick}
-      onStartDiagnosisFlow={handleStartDiagnosisFlow}
-      onReportHelpCall={handleReportHelpCall}
-      onSecondScan={handleSecondScan}
-      gateProps={accessLevel === "preview" ? gateProps : undefined}
-      introRequested={introRequested}
-      reportCallRequested={reportCallRequested}
-      isCtaLoading={isCtaLoading}
-      suggestedMatch={suggestedMatch}
-      derivedMetrics={analysisData.derivedMetrics as any}
-      warnings={analysisData.warnings}
-      missingItems={analysisData.missingItems}
-      summary={analysisData.summary}
-      topWarning={analysisData.topWarning}
-      topMissingItem={analysisData.topMissingItem}
-      pricePerOpening={analysisData.pricePerOpening}
-      pricePerOpeningBand={analysisData.pricePerOpeningBand}
-      paymentRiskDetected={analysisData.paymentRiskDetected}
-      scopeGapDetected={analysisData.scopeGapDetected}
-      summaryTeaser={analysisData.summaryTeaser}
-      missingItemsCount={analysisData.missingItemsCount}
-    />
-  );
+  return <DarkV2ReportRecoveryPanel message="Preparing your forensic report…" />;
 }

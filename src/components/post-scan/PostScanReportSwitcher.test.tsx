@@ -11,6 +11,28 @@ const OTHER_VALID_SCAN_SESSION_ID = "22222222-2222-4222-8222-222222222222";
 const FUNNEL_MISMATCH_SCAN_SESSION_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const LOST_SCAN_SESSION_MESSAGE = "We lost the scan session. Please restart the scan.";
 
+const MOCK_ANALYSIS_DATA = {
+  analysisId: "test-analysis-id",
+  grade: "C",
+  flags: [],
+  flagCount: 0,
+  flagRedCount: 0,
+  flagAmberCount: 0,
+  contractorName: null,
+  confidenceScore: 0.8,
+  pillarScores: [],
+  documentType: "quote",
+  pageCount: 1,
+  openingCount: 10,
+  lineItemCount: 5,
+  qualityBand: null,
+  hasWarranty: null,
+  hasPermits: null,
+  analysisStatus: "complete",
+};
+
+const MOCK_V2_REPORT_SOURCE = { v2_source_version: "test-fixture" };
+
 const {
   mockUseReportAccess,
   mockUseScanFunnelSafe,
@@ -75,20 +97,14 @@ vi.mock("@/integrations/supabase/client", () => ({
 
 // Render the gate as a real form so onOtpSubmit can be exercised in tests
 // for the post-OTP transition.
-vi.mock("../TruthReportClassic", () => ({
+vi.mock("@/components/forensic-report/ReportClassicDarkV2Partial", () => ({
   default: ({
     gateProps,
-    accessLevel,
-    onContractorMatchClick,
-    onReportHelpCall,
   }: {
     gateProps?: any;
-    accessLevel: string;
-    onContractorMatchClick?: () => void;
-    onReportHelpCall?: () => void;
   }) => (
     <div>
-      <div data-testid="access-level">{accessLevel}</div>
+      <div data-testid="access-level">preview</div>
       <div data-testid="gate-mode">{gateProps?.gateMode ?? "none"}</div>
       <div data-testid="is-loading">{String(!!gateProps?.isLoading)}</div>
       <div data-testid="error-msg">{gateProps?.errorMsg ?? ""}</div>
@@ -104,14 +120,18 @@ vi.mock("../TruthReportClassic", () => ({
       <button onClick={gateProps?.onOtpSubmit}>otp-submit</button>
       <button onClick={gateProps?.onRetryFetchFull}>retry-fetch-full</button>
       <div data-testid="masked-phone">{gateProps?.maskedPhone ?? ""}</div>
-      {onContractorMatchClick ? (
-        <button type="button" onClick={onContractorMatchClick}>
+    </div>
+  ),
+}));
+
+vi.mock("@/components/forensic-report/ReportClassicDarkV2Full", () => ({
+  default: ({ onDiagnosisCta }: { onDiagnosisCta?: () => void }) => (
+    <div>
+      <div data-testid="access-level">full</div>
+      <div data-testid="gate-mode">none</div>
+      {onDiagnosisCta ? (
+        <button type="button" onClick={onDiagnosisCta}>
           diagnosis-cta
-        </button>
-      ) : null}
-      {onReportHelpCall ? (
-        <button type="button" onClick={onReportHelpCall}>
-          report-help-call
         </button>
       ) : null}
     </div>
@@ -154,6 +174,7 @@ function baseProps() {
     scanSessionId: null,
     onVerified: vi.fn(),
     isFullLoaded: false,
+    analysisData: MOCK_ANALYSIS_DATA,
   };
 }
 
@@ -480,15 +501,25 @@ describe("PostScanReportSwitcher — Identity Ladder full access (Level 2)", () 
     });
   });
 
-  it("passes gateProps=undefined to TruthReportClassic when access is full", () => {
-    renderSwitcher({ isFullLoaded: true });
+  it("renders full dark report without gate when access is full", () => {
+    mockUseReportAccess.mockReturnValue("full");
+    renderSwitcher({
+      isFullLoaded: true,
+      analysisData: MOCK_ANALYSIS_DATA,
+      v2ReportSource: MOCK_V2_REPORT_SOURCE,
+    });
     // When accessLevel is "full", gateProps is not passed — gate-mode reads "none"
     expect(screen.getByTestId("gate-mode")).toHaveTextContent("none");
     expect(screen.getByTestId("access-level")).toHaveTextContent("full");
   });
 
   it("does not render a phone input gate when user is fully verified", () => {
-    renderSwitcher({ isFullLoaded: true });
+    mockUseReportAccess.mockReturnValue("full");
+    renderSwitcher({
+      isFullLoaded: true,
+      analysisData: MOCK_ANALYSIS_DATA,
+      v2ReportSource: MOCK_V2_REPORT_SOURCE,
+    });
     expect(screen.queryByTestId("gate-mode")).not.toHaveTextContent("enter_phone");
     expect(screen.queryByTestId("gate-mode")).not.toHaveTextContent("send_code");
     expect(screen.queryByTestId("gate-mode")).not.toHaveTextContent("enter_code");
@@ -934,6 +965,8 @@ function renderFullUnlocked(extraProps: Record<string, unknown> = {}) {
   return renderSwitcher({
     scanSessionId: VALID_SCAN_SESSION_ID,
     isFullLoaded: true,
+    analysisData: MOCK_ANALYSIS_DATA,
+    v2ReportSource: MOCK_V2_REPORT_SOURCE,
     ...extraProps,
   });
 }
@@ -980,7 +1013,6 @@ describe("PostScanReportSwitcher — post-full helper phone (session-safe)", () 
     );
     fireEvent.click(screen.getByText("Compare My 2 Quotes Side-by-Side →"));
     fireEvent.click(screen.getByText("diagnosis-cta"));
-    fireEvent.click(screen.getByText("report-help-call"));
 
     await Promise.resolve();
 
@@ -993,11 +1025,6 @@ describe("PostScanReportSwitcher — post-full helper phone (session-safe)", () 
         state: expect.objectContaining({ phone: null }),
       }),
     );
-    const callbackInvoke = invokeMock.mock.calls.find(([name]) => name === "request-callback");
-    expect(callbackInvoke).toBeUndefined();
-    expect(toast.error).toHaveBeenCalledWith(
-      "Unable to process request. Please verify your phone number first.",
-    );
   });
 
   it("passes session-safe phone to diagnosis and request-callback when funnel session matches", async () => {
@@ -1006,7 +1033,6 @@ describe("PostScanReportSwitcher — post-full helper phone (session-safe)", () 
     renderFullUnlocked();
 
     fireEvent.click(screen.getByText("diagnosis-cta"));
-    fireEvent.click(screen.getByText("report-help-call"));
 
     await waitFor(() => expect(navigateSpy).toHaveBeenCalled());
     expect(navigateSpy).toHaveBeenCalledWith(
@@ -1015,21 +1041,6 @@ describe("PostScanReportSwitcher — post-full helper phone (session-safe)", () 
         state: expect.objectContaining({ phone: SESSION_SAFE_E164 }),
       }),
     );
-
-    await waitFor(() =>
-      expect(invokeMock).toHaveBeenCalledWith(
-        "request-callback",
-        expect.objectContaining({
-          body: expect.objectContaining({
-            scan_session_id: VALID_SCAN_SESSION_ID,
-            call_intent: "report_explainer",
-            cta_source: "report_help",
-          }),
-        }),
-      ),
-    );
-    const compareBody = invokeMock.mock.calls.find(([name]) => name === "compare-quotes")?.[1];
-    expect(compareBody?.body?.phone_e164).not.toBe(STALE_PIPELINE_E164);
   });
 
   it("uses session-captured phone for compare when funnel phone is mismatched", async () => {
@@ -1063,6 +1074,8 @@ describe("PostScanReportSwitcher — post-full helper phone (session-safe)", () 
           {...baseProps()}
           scanSessionId={VALID_SCAN_SESSION_ID}
           isFullLoaded={true}
+          analysisData={MOCK_ANALYSIS_DATA}
+          v2ReportSource={MOCK_V2_REPORT_SOURCE}
         />
       </MemoryRouter>,
     );

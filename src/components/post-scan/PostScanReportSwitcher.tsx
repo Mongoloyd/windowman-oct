@@ -2,7 +2,7 @@
  * PostScanReportSwitcher — In-page post-scan report orchestrator.
  *
  * CANONICAL: Dark forensic V3 (ReportClassicDarkV2Partial/Full) is the user-facing report.
- * Classic white TruthReportClassic is deprecated and retained only as rollback/dev reference.
+ * Dark forensic V3 is the only user-facing report renderer on this path.
  * Owns the real Twilio OTP pipeline for the in-page scan flow.
  * Owns CTA logic: generate-contractor-brief + request-callback for report help.
  *
@@ -10,12 +10,12 @@
  *   - This component is the SINGLE place that decides which render state
  *     the reveal path displays (locked / full_loading / full_stalled / full_ready).
  *   - It derives a canonical RevealPhase from hook outputs once per render.
- *   - TruthReportClassic is presentational — it receives accessLevel and
- *     gateProps but does not independently reason about access.
+ *   - ReportClassicDarkV2Partial receives gateProps for preview unlock only.
  */
 
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { Loader2 } from "lucide-react";
+import DarkV2ReportRecoveryPanel from "@/components/forensic-report/DarkV2ReportRecoveryPanel";
 import { useNavigate } from "react-router-dom";
 import { trackEvent } from "@/lib/trackEvent";
 import { trackGtmEvent } from "@/lib/trackConversion";
@@ -32,34 +32,17 @@ import {
   saveReportDiagnosisHandoff,
   type ReportDiagnosisHandoff,
 } from "@/lib/reportDiagnosisHandoff";
-import TruthReportClassic from "../TruthReportClassic";
 import ReportClassicDarkV2Partial from "@/components/forensic-report/ReportClassicDarkV2Partial";
 import ReportClassicDarkV2Full from "@/components/forensic-report/ReportClassicDarkV2Full";
 import type { V2ReportSource } from "@/components/forensic-report/adapters/reportAccessAdapter.types";
-import type { SuggestedMatch } from "../TruthReportClassic";
+import type { SuggestedMatch } from "@/types/truthReportTypes";
 import type { GateMode, LockedOverlayProps } from "@/components/LockedOverlay";
 import type { AnalysisData, AnalysisFlag, PillarScore } from "@/hooks/useAnalysisData";
 import { CTA_LABEL } from "./ctaConstants";
 
 export { CTA_LABEL };
 
-// Classic report is deprecated and retained only as rollback/dev reference. Dark forensic V3 is canonical.
 const enableDarkV2Homepage = true;
-
-function DarkV2ReportRecoveryPanel({
-  message = "Restoring your secured report…",
-}: {
-  message?: string;
-}) {
-  return (
-    <div className="report-dark min-h-screen flex items-center justify-center px-4 py-16">
-      <div className="max-w-md w-full text-center space-y-4">
-        <Loader2 className="h-10 w-10 animate-spin text-blue-400 mx-auto" aria-hidden />
-        <p className="text-sm text-slate-300">{message}</p>
-      </div>
-    </div>
-  );
-}
 
 const LOST_SCAN_SESSION_MESSAGE = "We lost the scan session. Please restart the scan.";
 function firstRpcRow<T>(data: T[] | T | null | undefined): T | null {
@@ -101,7 +84,7 @@ type Props = {
   isLoadingFull?: boolean;
   /** Error message from fetchFull — surfaces immediately instead of waiting for stall timer */
   fullFetchError?: string | null;
-  /** Full-mode payload fields forwarded to TruthReportClassic (parity with /report/classic route). */
+  /** Full-mode payload fields forwarded to dark V2 full renderer (parity with /report/classic route). */
   derivedMetrics?: any;
   warnings?: any[];
   missingItems?: any[];
@@ -857,7 +840,6 @@ export function PostScanReportSwitcher(props: Props) {
     enableDarkV2Homepage &&
     accessLevel === "full" &&
     !!props.isFullLoaded &&
-    props.v2ReportSource != null &&
     props.analysisData != null;
 
   const isVerifiedAwaitingFull =
@@ -879,21 +861,6 @@ export function PostScanReportSwitcher(props: Props) {
     accessLevel === "preview" &&
     previewSafeAnalysisData != null;
 
-  const classicReport = (
-    <TruthReportClassic
-      {...props}
-      accessLevel={accessLevel}
-      gateProps={accessLevel === "preview" ? gateProps : undefined}
-      onContractorMatchClick={handleContractorMatchClick}
-      onReportHelpCall={handleReportHelpCall}
-      introRequested={introRequested}
-      reportCallRequested={reportCallRequested}
-      isCtaLoading={isCtaLoading}
-      suggestedMatch={suggestedMatch}
-      ctaLabel={CTA_LABEL}
-    />
-  );
-
   return (
     <>
       <div ref={reportTopRef} id="report-top" className="scroll-mt-20" />
@@ -914,7 +881,7 @@ export function PostScanReportSwitcher(props: Props) {
           gateProps={gateProps}
         />
       ) : (
-        classicReport
+        <DarkV2ReportRecoveryPanel message="Preparing your forensic report…" />
       )}
       {availableComparisons.length >= 2 && !comparisonResult && (
         <div className="px-4 pb-6 pt-2">

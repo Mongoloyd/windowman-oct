@@ -20,7 +20,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, useLocation, Navigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
-import type { SuggestedMatch } from "@/components/TruthReportClassic";
+import type { SuggestedMatch } from "@/types/truthReportTypes";
 import type { AnalysisFlag, PillarScore } from "@/hooks/useAnalysisData";
 import ForensicAuditReport from "@/components/forensic-report/ForensicAuditReport";
 import PreviewUnlockSlot from "@/components/forensic-report/PreviewUnlockSlot";

@@ -2,18 +2,10 @@
  * AdminLeadReport — Admin-gated Truth Report viewer.
  * Route: /admin/leads/:id/report
  *
- * Renders the SAME TruthReportClassic UI homeowners see, but uses the
- * admin-authorized `admin-data` RPC (fetch_lead_detail + fetch_lead_analysis)
+ * Renders the same dark forensic V3 report homeowners see after verify-to-reveal,
+ * using the admin-authorized `admin-data` RPC (fetch_lead_detail + fetch_lead_analysis)
  * to load the full analysis payload server-side. No homeowner OTP gate is
  * involved — admin RBAC inside admin-data is the gate.
- *
- * Why this exists:
- * The previous "Open Truth Report" link sent admins to /report/classic/:sid,
- * which is the public homeowner route guarded by the SMS OTP LockedOverlay.
- * Admins have no homeowner phone to verify, so the report appeared "broken".
- * This page is the read-only admin-side equivalent. The homeowner-facing
- * /report/classic/:sid route remains untouched and OTP-gated per the
- * Verify-to-Reveal contract.
  */
 
 import { useEffect, useMemo } from "react";
@@ -26,7 +18,8 @@ import {
   fetchLeadAnalysis,
   getErrorMessage,
 } from "@/services/adminDataService";
-import TruthReportClassic from "@/components/TruthReportClassic";
+import ReportClassicDarkV2Full from "@/components/forensic-report/ReportClassicDarkV2Full";
+import { rawFullRowToV2ReportSource } from "@/components/forensic-report/adapters/reportAccessAdapter.source";
 import { buildFullData } from "@/hooks/useAnalysisData";
 import { isValidLeadId, isValidScanSessionId } from "@/lib/routeIdGuards";
 import type { RawFullRow } from "@/types/serviceResults";
@@ -58,10 +51,8 @@ export default function AdminLeadReport() {
     enabled: !!analysisId,
   });
 
-  const reportData = useMemo(() => {
-    if (!analysis) return null;
-    // admin-data returns: grade, dollar_delta, confidence_score, flags, full_json
-    // Map into the shape buildFullData expects (RawFullRow).
+  const { reportData, v2ReportSource } = useMemo(() => {
+    if (!analysis) return { reportData: null, v2ReportSource: null };
     const row: RawFullRow = {
       analysis_id: analysisId,
       grade: analysis.grade ?? "C",
@@ -73,7 +64,10 @@ export default function AdminLeadReport() {
       document_type: analysis.full_json?.document_type ?? null,
       rubric_version: analysis.full_json?.rubric_version ?? null,
     } as RawFullRow;
-    return buildFullData(row);
+    return {
+      reportData: buildFullData(row),
+      v2ReportSource: rawFullRowToV2ReportSource(row),
+    };
   }, [analysis, analysisId]);
 
   const backTo = leadIdValid ? `/admin/leads/${leadId}` : "/admin/leads";
@@ -177,49 +171,11 @@ export default function AdminLeadReport() {
         ) : null}
       </div>
 
-      <div className="rounded-2xl border border-border bg-background overflow-hidden">
-        <TruthReportClassic
-          grade={reportData.grade}
-          flags={reportData.flags}
-          pillarScores={reportData.pillarScores}
-          contractorName={reportData.contractorName}
+      <div className="rounded-2xl border border-border overflow-hidden">
+        <ReportClassicDarkV2Full
+          analysisData={reportData}
+          v2ReportSource={v2ReportSource}
           county={county}
-          confidenceScore={reportData.confidenceScore}
-          documentType={reportData.documentType}
-          accessLevel="full"
-          qualityBand={reportData.qualityBand}
-          hasWarranty={reportData.hasWarranty}
-          hasPermits={reportData.hasPermits}
-          pageCount={reportData.pageCount}
-          lineItemCount={reportData.lineItemCount}
-          flagCount={reportData.flagCount}
-          flagRedCount={reportData.flagRedCount}
-          flagAmberCount={reportData.flagAmberCount}
-          onContractorMatchClick={() => {
-            /* admin viewer is read-only — CTA is no-op */
-          }}
-          onReportHelpCall={() => {
-            /* admin viewer is read-only — CTA is no-op */
-          }}
-          onSecondScan={() => {
-            window.location.href = backTo;
-          }}
-          derivedMetrics={reportData.derivedMetrics as any}
-          priceFairness={reportData.priceFairness}
-          markupEstimate={reportData.markupEstimate}
-          negotiationLeverage={reportData.negotiationLeverage}
-          warnings={reportData.warnings}
-          missingItems={reportData.missingItems}
-          summary={reportData.summary}
-          topWarning={reportData.topWarning}
-          topMissingItem={reportData.topMissingItem}
-          pricePerOpening={reportData.pricePerOpening}
-          pricePerOpeningBand={reportData.pricePerOpeningBand}
-          paymentRiskDetected={reportData.paymentRiskDetected}
-          scopeGapDetected={reportData.scopeGapDetected}
-          summaryTeaser={reportData.summaryTeaser}
-          missingItemsCount={reportData.missingItemsCount}
-          ctaLabel="Admin View"
         />
       </div>
     </AdminShell>
