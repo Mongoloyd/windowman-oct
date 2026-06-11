@@ -26,6 +26,7 @@ type ActionName =
   | "fetch_leads"
   | "update_lead_status"
   | "update_lead_deal_status"
+  | "update_lead_disposition"
   | "fetch_opportunities"
   | "fetch_contractors"
   | "fetch_routes"
@@ -85,6 +86,7 @@ const ACTION_ROLES: Record<ActionName, AppRole[]> = {
   fetch_leads: ["super_admin", "operator", "viewer"],
   update_lead_status: ["super_admin", "operator"],
   update_lead_deal_status: ["super_admin", "operator"],
+  update_lead_disposition: ["super_admin", "operator"],
   fetch_opportunities: ["super_admin", "operator", "viewer"],
   fetch_contractors: ["super_admin", "operator", "viewer"],
   fetch_routes: ["super_admin", "operator", "viewer"],
@@ -163,6 +165,22 @@ const ALLOWED_NOTE_CATEGORIES = new Set([
   "sms",
   "meeting",
   "internal",
+]);
+
+// Admin lead disposition workflow (kept in sync with frontend constants).
+const ALLOWED_LEAD_DISPOSITIONS = new Set([
+  "new",
+  "needs_contact",
+  "contacted",
+  "follow_up",
+  "not_qualified",
+  "closed",
+]);
+const ALLOWED_PRIORITY_OVERRIDES = new Set([
+  "hot",
+  "warm",
+  "cold",
+  "none",
 ]);
 
 // ── CAPI helpers ────────────────────────────────────────────────────────────
@@ -742,6 +760,114 @@ Deno.serve(async (req) => {
         metadata: { deal_status, changed_by: userId, timestamp: now },
       });
       return successResponse({ data: { success: true } });
+    }
+
+    if (action === "update_lead_disposition") {
+      const {
+        lead_id,
+        admin_disposition,
+        admin_priority_override,
+        admin_follow_up_at,
+        admin_last_contacted_at,
+      } = payload;
+
+      if (typeof lead_id !== "string" || !UUID_RE.test(lead_id)) {
+        return errorResponse(400, "invalid_lead_id", "lead_id must be a UUID");
+      }
+
+      if (
+        typeof admin_disposition !== "string" ||
+        !ALLOWED_LEAD_DISPOSITIONS.has(admin_disposition)
+      ) {
+        return errorResponse(
+          400,
+          "invalid_disposition",
+          "admin_disposition is not an allowed value",
+        );
+      }
+
+      // Build the update with only the allowed columns. Server owns the
+      // disposition timestamp; the client value is never trusted.
+      const updateFields: Record<string, unknown> = {
+        admin_disposition,
+        admin_disposition_updated_at: now,
+        updated_at: now,
+      };
+
+      if (admin_priority_override !== undefined) {
+        if (
+          typeof admin_priority_override !== "string" ||
+          !ALLOWED_PRIORITY_OVERRIDES.has(admin_priority_override)
+        ) {
+          return errorResponse(
+            400,
+            "invalid_priority_override",
+            "admin_priority_override is not an allowed value",
+          );
+        }
+        updateFields.admin_priority_override = admin_priority_override;
+      }
+
+      if (admin_follow_up_at !== undefined) {
+        if (admin_follow_up_at === null) {
+          updateFields.admin_follow_up_at = null;
+        } else if (
+          typeof admin_follow_up_at === "string" &&
+          !Number.isNaN(Date.parse(admin_follow_up_at))
+        ) {
+          updateFields.admin_follow_up_at = new Date(admin_follow_up_at)
+            .toISOString();
+        } else {
+          return errorResponse(
+            400,
+            "invalid_follow_up_at",
+            "admin_follow_up_at must be a nullable ISO datetime",
+          );
+        }
+      }
+
+      if (admin_last_contacted_at !== undefined) {
+        if (admin_last_contacted_at === null) {
+          updateFields.admin_last_contacted_at = null;
+        } else if (
+          typeof admin_last_contacted_at === "string" &&
+          !Number.isNaN(Date.parse(admin_last_contacted_at))
+        ) {
+          updateFields.admin_last_contacted_at = new Date(admin_last_contacted_at)
+            .toISOString();
+        } else {
+          return errorResponse(
+            400,
+            "invalid_last_contacted_at",
+            "admin_last_contacted_at must be a nullable ISO datetime",
+          );
+        }
+      }
+
+      const { error } = await supabaseAdmin
+        .from("leads")
+        .update(updateFields)
+        .eq("id", lead_id);
+      if (error) {
+        console.error("[admin-data] update_lead_disposition failed");
+        return errorResponse(
+          500,
+          "update_failed",
+          "Could not update lead disposition",
+        );
+      }
+
+      return successResponse({
+        data: {
+          success: true,
+          lead_id,
+          admin_disposition,
+          admin_priority_override: updateFields.admin_priority_override ?? null,
+          admin_follow_up_at: updateFields.admin_follow_up_at ?? null,
+          admin_last_contacted_at: updateFields.admin_last_contacted_at ?? null,
+          admin_disposition_updated_at: now,
+        },
+      });
     }
 
     if (action === "route_opportunity") {

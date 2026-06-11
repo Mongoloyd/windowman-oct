@@ -11,7 +11,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   Search, Filter, Loader2, AlertCircle, ChevronRight, Clock,
-  Phone, MapPin, Inbox, RefreshCcw, Copy, Check, Flame,
+  Phone, MapPin, Inbox, RefreshCcw, Copy, Check, Flame, Save,
 } from "lucide-react";
 import { format, formatDistanceToNow, subDays } from "date-fns";
 import { AdminShell } from "@/components/admin/shell/AdminShell";
@@ -45,7 +45,81 @@ type InboxLead = CRMLead & {
   client_slug: string | null;
   qualification_answers_json: Record<string, unknown> | null;
   powerToolDemoIntake: PowerToolDemoIntake | null;
+  admin_disposition: string | null;
+  admin_priority_override: string | null;
+  admin_follow_up_at: string | null;
+  admin_last_contacted_at: string | null;
+  admin_disposition_updated_at: string | null;
 };
+
+type LeadDisposition =
+  | "new"
+  | "needs_contact"
+  | "contacted"
+  | "follow_up"
+  | "not_qualified"
+  | "closed";
+
+type PriorityOverride = "hot" | "warm" | "cold" | "none";
+
+const DISPOSITION_OPTIONS: { value: LeadDisposition; label: string }[] = [
+  { value: "new", label: "New" },
+  { value: "needs_contact", label: "Needs contact" },
+  { value: "contacted", label: "Contacted" },
+  { value: "follow_up", label: "Follow up" },
+  { value: "not_qualified", label: "Not qualified" },
+  { value: "closed", label: "Closed" },
+];
+
+const PRIORITY_OVERRIDE_OPTIONS: { value: PriorityOverride; label: string }[] = [
+  { value: "none", label: "Auto priority" },
+  { value: "hot", label: "Hot" },
+  { value: "warm", label: "Warm" },
+  { value: "cold", label: "Cold" },
+];
+
+const DISPOSITION_LABEL: Record<LeadDisposition, string> = {
+  new: "New",
+  needs_contact: "Needs contact",
+  contacted: "Contacted",
+  follow_up: "Follow up",
+  not_qualified: "Not qualified",
+  closed: "Closed",
+};
+
+const DISPOSITION_BADGE_CLASS: Record<LeadDisposition, string> = {
+  new: "border-slate-300 bg-white text-slate-700",
+  needs_contact: "border-amber-300 bg-amber-100 text-amber-950",
+  contacted: "border-blue-300 bg-blue-100 text-blue-950",
+  follow_up: "border-violet-300 bg-violet-100 text-violet-950",
+  not_qualified: "border-slate-400 bg-slate-100 text-slate-700",
+  closed: "border-emerald-300 bg-emerald-100 text-emerald-950",
+};
+
+const OVERRIDE_BADGE_CLASS: Record<Exclude<PriorityOverride, "none">, string> = {
+  hot: "border-red-300 bg-red-100 text-red-950",
+  warm: "border-blue-300 bg-blue-100 text-blue-950",
+  cold: "border-slate-400 bg-slate-100 text-slate-700",
+};
+
+function normalizeDisposition(value: string | null | undefined): LeadDisposition {
+  if (value && value in DISPOSITION_LABEL) return value as LeadDisposition;
+  return "new";
+}
+
+function normalizeOverride(value: string | null | undefined): PriorityOverride {
+  if (value === "hot" || value === "warm" || value === "cold") return value;
+  return "none";
+}
+
+/** ISO timestamp → value for a <input type="datetime-local"> (local time, no seconds). */
+function isoToLocalInput(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 const DEMO_FUNNEL_STAGES = [
   { value: "demo_intake_complete", label: "Demo intake complete" },
@@ -245,6 +319,11 @@ function toLead(raw: Record<string, any>): InboxLead {
     client_slug: raw.client_slug ?? null,
     qualification_answers_json,
     powerToolDemoIntake: parsePowerToolDemoIntake(source, qualification_answers_json),
+    admin_disposition: raw.admin_disposition ?? null,
+    admin_priority_override: raw.admin_priority_override ?? null,
+    admin_follow_up_at: raw.admin_follow_up_at ?? null,
+    admin_last_contacted_at: raw.admin_last_contacted_at ?? null,
+    admin_disposition_updated_at: raw.admin_disposition_updated_at ?? null,
   };
 }
 
@@ -638,6 +717,122 @@ function PriorityBadge({ priority }: { priority: FollowUpPriority | null }) {
   );
 }
 
+function DispositionCell({ lead }: { lead: InboxLead }) {
+  const [disposition, setDisposition] = useState<LeadDisposition>(
+    () => normalizeDisposition(lead.admin_disposition),
+  );
+  const [override, setOverride] = useState<PriorityOverride>(
+    () => normalizeOverride(lead.admin_priority_override),
+  );
+  const [followUp, setFollowUp] = useState<string>(
+    () => isoToLocalInput(lead.admin_follow_up_at),
+  );
+  const [saved, setSaved] = useState(() => ({
+    disposition: normalizeDisposition(lead.admin_disposition),
+    override: normalizeOverride(lead.admin_priority_override),
+    followUp: isoToLocalInput(lead.admin_follow_up_at),
+  }));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [justSaved, setJustSaved] = useState(false);
+
+  const dirty =
+    disposition !== saved.disposition ||
+    override !== saved.override ||
+    followUp !== saved.followUp;
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError(null);
+    setJustSaved(false);
+    try {
+      const followUpIso = followUp ? new Date(followUp).toISOString() : null;
+      // update_lead_disposition is validated + role-gated server-side in
+      // admin-data. Cast through the generic invoker until the shared
+      // AdminAction union (separate protected file) is regenerated.
+      await (invokeAdminData as unknown as (
+        action: string,
+        payload: Record<string, unknown>,
+      ) => Promise<unknown>)("update_lead_disposition", {
+        lead_id: lead.id,
+        admin_disposition: disposition,
+        admin_priority_override: override,
+        admin_follow_up_at: followUpIso,
+      });
+      setSaved({ disposition, override, followUp });
+      setJustSaved(true);
+      window.setTimeout(() => setJustSaved(false), 1500);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      className="min-w-[190px] space-y-1.5"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <span
+        className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-extrabold uppercase tracking-wide ${DISPOSITION_BADGE_CLASS[saved.disposition]}`}
+      >
+        {DISPOSITION_LABEL[saved.disposition]}
+      </span>
+      <Select value={disposition} onValueChange={(v) => setDisposition(v as LeadDisposition)}>
+        <SelectTrigger className="h-8 w-full text-xs font-semibold" aria-label="Disposition">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {DISPOSITION_OPTIONS.map((o) => (
+            <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Select value={override} onValueChange={(v) => setOverride(v as PriorityOverride)}>
+        <SelectTrigger className="h-8 w-full text-xs font-semibold" aria-label="Priority override">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {PRIORITY_OVERRIDE_OPTIONS.map((o) => (
+            <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Input
+        type="datetime-local"
+        value={followUp}
+        onChange={(e) => setFollowUp(e.target.value)}
+        className="h-8 w-full text-xs font-semibold"
+        aria-label="Follow-up date and time"
+      />
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        onClick={handleSave}
+        disabled={saving || !dirty}
+        className="h-8 w-full text-xs font-bold"
+      >
+        {saving ? (
+          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+        ) : justSaved ? (
+          <Check className="h-3 w-3 mr-1 text-emerald-600" />
+        ) : (
+          <Save className="h-3 w-3 mr-1" />
+        )}
+        {saving ? "Saving…" : justSaved ? "Saved" : "Save"}
+      </Button>
+      {error ? (
+        <p className="flex items-start gap-1 text-[11px] font-semibold text-destructive">
+          <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
+          <span>{error}</span>
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function LeadTable({ leads, onView }: { leads: InboxLead[]; onView: (id: string) => void }) {
   return (
     <div className="rounded-2xl border border-slate-300 bg-card shadow-sm overflow-hidden">
@@ -647,6 +842,7 @@ function LeadTable({ leads, onView }: { leads: InboxLead[]; onView: (id: string)
             <tr className="text-left">
               <th className="px-4 py-3 text-xs font-extrabold uppercase tracking-wider text-slate-700">Lead</th>
               <th className="px-4 py-3 text-xs font-extrabold uppercase tracking-wider text-slate-700">Priority</th>
+              <th className="px-4 py-3 text-xs font-extrabold uppercase tracking-wider text-slate-700">Disposition</th>
               <th className="px-4 py-3 text-xs font-extrabold uppercase tracking-wider text-slate-700">Intake</th>
               <th className="px-4 py-3 text-xs font-extrabold uppercase tracking-wider text-slate-700">Source · UTM</th>
               <th className="px-4 py-3 text-xs font-extrabold uppercase tracking-wider text-slate-700">County</th>
@@ -663,6 +859,7 @@ function LeadTable({ leads, onView }: { leads: InboxLead[]; onView: (id: string)
               const stageLabel = formatStageLabel(l.funnel_stage);
               const isPowerToolDemo = l.source === POWER_TOOL_DEMO_SOURCE;
               const priority = computeFollowUpPriority(l);
+              const override = normalizeOverride(l.admin_priority_override);
 
               return (
                 <tr
@@ -695,7 +892,19 @@ function LeadTable({ leads, onView }: { leads: InboxLead[]; onView: (id: string)
                     </div>
                   </td>
                   <td className="px-4 py-3 align-top">
-                    <PriorityBadge priority={priority} />
+                    {override !== "none" ? (
+                      <span
+                        className={`inline-flex min-h-7 items-center rounded-full border px-2.5 py-0.5 text-xs font-extrabold uppercase tracking-wider ${OVERRIDE_BADGE_CLASS[override]}`}
+                        title="Manual priority override"
+                      >
+                        {override}
+                      </span>
+                    ) : (
+                      <PriorityBadge priority={priority} />
+                    )}
+                  </td>
+                  <td className="px-4 py-3 align-top">
+                    <DispositionCell lead={l} />
                   </td>
                   <td className="px-4 py-3 align-top text-sm">
                     {isPowerToolDemo && l.powerToolDemoIntake ? (
