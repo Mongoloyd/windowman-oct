@@ -302,7 +302,8 @@ const Index = () => {
   // Once a file is uploaded or the report shell is visible, the scanner/report experience
   // owns the screen and should not compete with a persistent sales footer.
   const isProductExperiencePhase = fileUploaded || shouldShowReport;
-  const showStickyCtaFooter = !showRecoveryBar && !isProductExperiencePhase;
+  const showStickyCtaFooter =
+    !showRecoveryBar && !isProductExperiencePhase && !powerToolTriggered;
 
   const funnel = useScanFunnel();
   const { slug: queryClientSlug, ready: clientSlugReady } = useClientSlug();
@@ -311,6 +312,17 @@ const Index = () => {
     if (!clientSlugReady || !queryClientSlug || funnel.clientSlug === queryClientSlug) return;
     funnel.setClientSlug(queryClientSlug);
   }, [clientSlugReady, queryClientSlug, funnel]);
+
+  useEffect(() => {
+    const handlePowerToolHeroOpen = (event: MouseEvent) => {
+      const button = (event.target as Element | null)?.closest("button");
+      if (!button?.textContent?.includes("No Quote Yet? Start Here")) return;
+      setPowerToolTriggered(true);
+    };
+
+    document.addEventListener("click", handlePowerToolHeroOpen, true);
+    return () => document.removeEventListener("click", handlePowerToolHeroOpen, true);
+  }, []);
 
   const otpActivePhoneStatuses = ["screened_valid", "sending_otp", "otp_sent"] as const;
   const suppressExitIntent =
