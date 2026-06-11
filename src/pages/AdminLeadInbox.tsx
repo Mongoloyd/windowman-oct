@@ -6,12 +6,12 @@
  * Lives at /admin/leads and is the default "front door" for operators.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   Search, Filter, Loader2, AlertCircle, ChevronRight, Clock,
-  Phone, MapPin, Inbox, RefreshCcw,
+  Phone, MapPin, Inbox, RefreshCcw, Copy, Check, Flame,
 } from "lucide-react";
 import { format, formatDistanceToNow, subDays } from "date-fns";
 import { AdminShell } from "@/components/admin/shell/AdminShell";
@@ -28,6 +28,8 @@ type DateRange = "all" | "24h" | "7d" | "30d";
 type VerifiedFilter = "all" | "verified" | "unverified";
 type SourceFilter = "all" | "power-tool-demo";
 type ShortcutFilter = "all" | "yes" | "no";
+type FollowUpPriority = "Quote Holder" | "Hot" | "Warm" | "Researching" | "Incomplete";
+type PriorityFilter = "all" | FollowUpPriority;
 
 type PowerToolDemoIntake = {
   intake_status: string | null;
@@ -52,8 +54,113 @@ const DEMO_FUNNEL_STAGES = [
 
 const POWER_TOOL_DEMO_SOURCE = "power-tool-demo";
 
+const LARGE_SCOPE_OPTIONS = new Set([
+  "6 to 10 Openings",
+  "11 to 15 Openings",
+  "16+ Openings",
+]);
+
+const PRIORITY_RANK: Record<FollowUpPriority, number> = {
+  "Quote Holder": 5,
+  Hot: 4,
+  Warm: 3,
+  Researching: 2,
+  Incomplete: 1,
+};
+
+const PRIORITY_BADGE_CLASS: Record<FollowUpPriority, string> = {
+  "Quote Holder": "border-amber-300 bg-amber-100 text-amber-950",
+  Hot: "border-red-300 bg-red-100 text-red-950",
+  Warm: "border-blue-300 bg-blue-100 text-blue-950",
+  Researching: "border-slate-400 bg-slate-100 text-slate-800",
+  Incomplete: "border-slate-300 bg-white text-slate-600",
+};
+
 function asString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value : null;
+}
+
+function isLargeScope(scope: string | null | undefined): boolean {
+  return !!scope && LARGE_SCOPE_OPTIONS.has(scope);
+}
+
+function isHotTimeline(timeline: string | null | undefined): boolean {
+  if (!timeline) return false;
+  return timeline.includes("Immediate") || timeline.includes("1-3 Months");
+}
+
+function isDemoIntakeComplete(lead: InboxLead): boolean {
+  return (
+    lead.funnel_stage === "demo_intake_complete"
+    || lead.funnel_stage === "demo_quote_holder_shortcut"
+  );
+}
+
+function isQuoteHolderLead(lead: InboxLead): boolean {
+  const intake = lead.powerToolDemoIntake;
+  return (
+    intake?.quote_holder_shortcut === true
+    || lead.funnel_stage === "demo_quote_holder_shortcut"
+    || intake?.intake_status === "Already have a quote to check"
+  );
+}
+
+function hasUsableContact(lead: InboxLead): boolean {
+  return !!(lead.phone_e164?.trim() || lead.email?.trim());
+}
+
+function hasMostIntakeFields(intake: PowerToolDemoIntake | null): boolean {
+  if (!intake) return false;
+  const filled = [
+    intake.intake_status,
+    intake.intake_property,
+    intake.intake_scope,
+    intake.intake_logistics,
+    intake.intake_timeline,
+  ].filter(Boolean).length;
+  return filled >= 3;
+}
+
+/**
+ * Exclusive priority — first match wins:
+ * Quote Holder → Hot → Warm → Researching → Incomplete
+ */
+function computeFollowUpPriority(lead: InboxLead): FollowUpPriority | null {
+  if (lead.source !== POWER_TOOL_DEMO_SOURCE) return null;
+
+  const intake = lead.powerToolDemoIntake;
+  const hasPhone = !!lead.phone_e164?.trim();
+  const intakeComplete = isDemoIntakeComplete(lead);
+
+  if (isQuoteHolderLead(lead)) return "Quote Holder";
+
+  if (
+    hasPhone
+    && isHotTimeline(intake?.intake_timeline)
+    && (intakeComplete || isLargeScope(intake?.intake_scope))
+  ) {
+    return "Hot";
+  }
+
+  if (hasPhone && intakeComplete) return "Warm";
+
+  if (
+    intake?.intake_status === "Just researching options"
+    || intake?.intake_timeline === "New Construction / Just Researching"
+  ) {
+    return "Researching";
+  }
+
+  if (!hasUsableContact(lead) || !hasMostIntakeFields(intake) || !intakeComplete) {
+    return "Incomplete";
+  }
+
+  return "Incomplete";
+}
+
+function priorityRank(priority: FollowUpPriority | null): number {
+  if (!priority) return 0;
+  return PRIORITY_RANK[priority];
 }
 
 function parsePowerToolDemoIntake(
@@ -160,8 +267,8 @@ export default function LeadInbox() {
   const [stage, setStage] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
   const [shortcutFilter, setShortcutFilter] = useState<ShortcutFilter>("all");
+  const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
 
-  // Document title (SEO + a11y)
   useEffect(() => {
     document.title = "Lead Inbox · WindowMan Admin";
   }, []);
@@ -183,6 +290,18 @@ export default function LeadInbox() {
     return Array.from(set).sort();
   }, [leads]);
 
+  const demoPriorityCounts = useMemo(() => {
+    let hot = 0;
+    let quoteHolder = 0;
+    for (const l of leads) {
+      if (l.source !== POWER_TOOL_DEMO_SOURCE) continue;
+      const p = computeFollowUpPriority(l);
+      if (p === "Hot") hot += 1;
+      if (p === "Quote Holder") quoteHolder += 1;
+    }
+    return { hot, quoteHolder };
+  }, [leads]);
+
   const filtered = useMemo(() => {
     const cutoff =
       dateRange === "24h" ? subDays(new Date(), 1)
@@ -191,7 +310,7 @@ export default function LeadInbox() {
       : null;
     const q = search.trim().toLowerCase();
 
-    return leads.filter((l) => {
+    const matched = leads.filter((l) => {
       if (cutoff && new Date(l.created_at) < cutoff) return false;
       if (county !== "all" && l.county !== county) return false;
       if (verified === "verified" && !l.phone_verified) return false;
@@ -203,6 +322,10 @@ export default function LeadInbox() {
         const shortcut = l.powerToolDemoIntake?.quote_holder_shortcut === true;
         if (shortcutFilter === "yes" && !shortcut) return false;
         if (shortcutFilter === "no" && shortcut) return false;
+      }
+
+      if (priorityFilter !== "all") {
+        if (computeFollowUpPriority(l) !== priorityFilter) return false;
       }
 
       if (q) {
@@ -218,7 +341,13 @@ export default function LeadInbox() {
       }
       return true;
     });
-  }, [leads, dateRange, county, verified, stage, sourceFilter, shortcutFilter, search]);
+
+    return [...matched].sort((a, b) => {
+      const rankDiff = priorityRank(computeFollowUpPriority(b)) - priorityRank(computeFollowUpPriority(a));
+      if (rankDiff !== 0) return rankDiff;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+  }, [leads, dateRange, county, verified, stage, sourceFilter, shortcutFilter, priorityFilter, search]);
 
   const resetFilters = () => {
     setSearch("");
@@ -228,6 +357,7 @@ export default function LeadInbox() {
     setStage("all");
     setSourceFilter("all");
     setShortcutFilter("all");
+    setPriorityFilter("all");
   };
 
   const powerToolDemoCount = useMemo(
@@ -235,11 +365,20 @@ export default function LeadInbox() {
     [leads],
   );
 
+  const subtitle = useMemo(() => {
+    const base = `${filtered.length} of ${leads.length} leads`;
+    if (sourceFilter !== "power-tool-demo") return base;
+    const parts: string[] = [];
+    if (demoPriorityCounts.hot > 0) parts.push(`${demoPriorityCounts.hot} hot`);
+    if (demoPriorityCounts.quoteHolder > 0) parts.push(`${demoPriorityCounts.quoteHolder} quote holders`);
+    return parts.length ? `${base} · ${parts.join(" · ")}` : base;
+  }, [filtered.length, leads.length, sourceFilter, demoPriorityCounts]);
+
   return (
     <AdminShell
       eyebrow="Operator · Triage"
       title="Lead Inbox"
-      subtitle={`${filtered.length} of ${leads.length} leads`}
+      subtitle={subtitle}
       backTo="/admin"
       backLabel="Back to dashboard"
       belowHeader={
@@ -251,6 +390,7 @@ export default function LeadInbox() {
           stage={stage} setStage={setStage}
           sourceFilter={sourceFilter} setSourceFilter={setSourceFilter}
           shortcutFilter={shortcutFilter} setShortcutFilter={setShortcutFilter}
+          priorityFilter={priorityFilter} setPriorityFilter={setPriorityFilter}
           onReset={resetFilters}
           onRefresh={() => refetch()}
           refreshing={isFetching && !isLoading}
@@ -302,6 +442,7 @@ interface FilterBarProps {
   stage: string; setStage: (v: string) => void;
   sourceFilter: SourceFilter; setSourceFilter: (v: SourceFilter) => void;
   shortcutFilter: ShortcutFilter; setShortcutFilter: (v: ShortcutFilter) => void;
+  priorityFilter: PriorityFilter; setPriorityFilter: (v: PriorityFilter) => void;
   onReset: () => void;
   onRefresh: () => void;
   refreshing: boolean;
@@ -312,6 +453,7 @@ function FilterBar({
   county, setCounty, counties, verified, setVerified,
   stage, setStage, sourceFilter, setSourceFilter,
   shortcutFilter, setShortcutFilter,
+  priorityFilter, setPriorityFilter,
   onReset, onRefresh, refreshing,
 }: FilterBarProps) {
   return (
@@ -340,6 +482,17 @@ function FilterBar({
         <SelectContent>
           <SelectItem value="all">All sources</SelectItem>
           <SelectItem value="power-tool-demo">power-tool-demo</SelectItem>
+        </SelectContent>
+      </Select>
+      <Select value={priorityFilter} onValueChange={(v) => setPriorityFilter(v as PriorityFilter)}>
+        <SelectTrigger className="h-10 w-[150px] text-sm font-semibold"><SelectValue placeholder="Priority" /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All priorities</SelectItem>
+          <SelectItem value="Quote Holder">Quote Holder</SelectItem>
+          <SelectItem value="Hot">Hot</SelectItem>
+          <SelectItem value="Warm">Warm</SelectItem>
+          <SelectItem value="Researching">Researching</SelectItem>
+          <SelectItem value="Incomplete">Incomplete</SelectItem>
         </SelectContent>
       </Select>
       <Select value={county} onValueChange={setCounty}>
@@ -371,11 +524,11 @@ function FilterBar({
       </Select>
       {sourceFilter === "power-tool-demo" ? (
         <Select value={shortcutFilter} onValueChange={(v) => setShortcutFilter(v as ShortcutFilter)}>
-          <SelectTrigger className="h-10 w-[150px] text-sm font-semibold"><SelectValue placeholder="Shortcut" /></SelectTrigger>
+          <SelectTrigger className="h-10 w-[150px] text-sm font-semibold"><SelectValue placeholder="Quote" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All shortcuts</SelectItem>
-            <SelectItem value="yes">Shortcut yes</SelectItem>
-            <SelectItem value="no">Shortcut no</SelectItem>
+            <SelectItem value="all">All quotes</SelectItem>
+            <SelectItem value="yes">Has quote</SelectItem>
+            <SelectItem value="no">No quote</SelectItem>
           </SelectContent>
         </Select>
       ) : null}
@@ -398,17 +551,46 @@ function FilterBar({
   );
 }
 
+function CopyButton({ value, label }: { value: string; label: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async (e: MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard unavailable — fail silently
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      aria-label={copied ? `${label} copied` : `Copy ${label}`}
+      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-slate-600 hover:bg-slate-200 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      {copied ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
+    </button>
+  );
+}
+
 function IntakeBadge({ label, value }: { label: string; value: string | null }) {
   if (!value) return null;
   return (
-    <span className="inline-flex max-w-full items-center rounded-md border border-violet-200 bg-violet-50 px-2 py-0.5 text-xs font-semibold text-violet-950">
+    <span
+      className="inline-flex max-w-full items-center rounded-md border border-violet-200 bg-violet-50 px-2 py-0.5 text-xs font-semibold text-violet-950"
+      title={value}
+    >
       <span className="mr-1 uppercase tracking-wide text-violet-700">{label}:</span>
       <span className="truncate">{value}</span>
     </span>
   );
 }
 
-function PowerToolDemoIntakeBlock({ intake }: { intake: PowerToolDemoIntake }) {
+function IntakeSummaryColumn({ intake }: { intake: PowerToolDemoIntake }) {
   const hasAny = intake.intake_status || intake.intake_property || intake.intake_scope
     || intake.intake_logistics || intake.intake_timeline || intake.quote_holder_shortcut;
 
@@ -417,21 +599,42 @@ function PowerToolDemoIntakeBlock({ intake }: { intake: PowerToolDemoIntake }) {
   }
 
   return (
-    <details className="group mt-1">
-      <summary className="cursor-pointer text-xs font-bold text-violet-800 hover:underline">
-        Demo intake
-      </summary>
-      <div className="mt-2 flex flex-wrap gap-1.5">
+    <div className="space-y-1.5 min-w-[200px] max-w-[280px]">
+      <div className="flex flex-wrap gap-1">
         <IntakeBadge label="Status" value={intake.intake_status} />
         <IntakeBadge label="Property" value={intake.intake_property} />
+        <IntakeBadge label="Timeline" value={intake.intake_timeline} />
+      </div>
+      <div className="flex flex-wrap gap-1">
         <IntakeBadge label="Scope" value={intake.intake_scope} />
         <IntakeBadge label="Logistics" value={intake.intake_logistics} />
-        <IntakeBadge label="Timeline" value={intake.intake_timeline} />
         <span className="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-950">
-          Shortcut: {intake.quote_holder_shortcut ? "yes" : "no"}
+          Quote: {intake.quote_holder_shortcut ? "yes" : "no"}
         </span>
       </div>
-    </details>
+    </div>
+  );
+}
+
+function PriorityBadge({ priority }: { priority: FollowUpPriority | null }) {
+  if (!priority) {
+    return <span className="text-xs font-medium text-slate-400">—</span>;
+  }
+
+  return (
+    <div className="flex flex-col items-start gap-1">
+      <span
+        className={`inline-flex min-h-7 items-center rounded-full border px-2.5 py-0.5 text-xs font-extrabold uppercase tracking-wider ${PRIORITY_BADGE_CLASS[priority]}`}
+      >
+        {priority}
+      </span>
+      {priority === "Hot" ? (
+        <span className="inline-flex items-center gap-0.5 rounded border border-red-400 bg-red-50 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-widest text-red-800">
+          <Flame className="h-2.5 w-2.5" />
+          Hot
+        </span>
+      ) : null}
+    </div>
   );
 }
 
@@ -443,6 +646,8 @@ function LeadTable({ leads, onView }: { leads: InboxLead[]; onView: (id: string)
           <thead className="bg-muted/50 border-b border-slate-300">
             <tr className="text-left">
               <th className="px-4 py-3 text-xs font-extrabold uppercase tracking-wider text-slate-700">Lead</th>
+              <th className="px-4 py-3 text-xs font-extrabold uppercase tracking-wider text-slate-700">Priority</th>
+              <th className="px-4 py-3 text-xs font-extrabold uppercase tracking-wider text-slate-700">Intake</th>
               <th className="px-4 py-3 text-xs font-extrabold uppercase tracking-wider text-slate-700">Source · UTM</th>
               <th className="px-4 py-3 text-xs font-extrabold uppercase tracking-wider text-slate-700">County</th>
               <th className="px-4 py-3 text-xs font-extrabold uppercase tracking-wider text-slate-700">Verified</th>
@@ -457,6 +662,8 @@ function LeadTable({ leads, onView }: { leads: InboxLead[]; onView: (id: string)
               const stageDef = getStageDef(l.funnel_stage ?? "new");
               const stageLabel = formatStageLabel(l.funnel_stage);
               const isPowerToolDemo = l.source === POWER_TOOL_DEMO_SOURCE;
+              const priority = computeFollowUpPriority(l);
+
               return (
                 <tr
                   key={l.id}
@@ -465,24 +672,37 @@ function LeadTable({ leads, onView }: { leads: InboxLead[]; onView: (id: string)
                 >
                   <td className="px-4 py-3">
                     <div className="text-base font-black text-slate-950">{name}</div>
-                    <div className="text-sm font-medium text-slate-700 flex flex-wrap items-center gap-2 mt-0.5">
-                      {l.email && <span className="truncate max-w-[180px]">{l.email}</span>}
-                      {l.phone_e164 && (
-                        <span className="inline-flex items-center gap-1 font-mono">
-                          <Phone className="h-3 w-3" />
-                          {l.phone_e164}
+                    <div className="text-sm font-medium text-slate-700 flex flex-wrap items-center gap-1 mt-0.5">
+                      {l.email ? (
+                        <span className="inline-flex items-center gap-0.5 max-w-[200px]">
+                          <span className="truncate">{l.email}</span>
+                          <CopyButton value={l.email} label="email" />
                         </span>
-                      )}
-                      {l.zip && (
+                      ) : null}
+                      {l.phone_e164 ? (
+                        <span className="inline-flex items-center gap-0.5 font-mono">
+                          <Phone className="h-3 w-3 shrink-0" />
+                          <span>{l.phone_e164}</span>
+                          <CopyButton value={l.phone_e164} label="phone" />
+                        </span>
+                      ) : null}
+                      {l.zip ? (
                         <span className="inline-flex items-center gap-1 font-mono">
                           <MapPin className="h-3 w-3" />
                           {l.zip}
                         </span>
-                      )}
+                      ) : null}
                     </div>
+                  </td>
+                  <td className="px-4 py-3 align-top">
+                    <PriorityBadge priority={priority} />
+                  </td>
+                  <td className="px-4 py-3 align-top text-sm">
                     {isPowerToolDemo && l.powerToolDemoIntake ? (
-                      <PowerToolDemoIntakeBlock intake={l.powerToolDemoIntake} />
-                    ) : null}
+                      <IntakeSummaryColumn intake={l.powerToolDemoIntake} />
+                    ) : (
+                      <span className="text-xs font-medium text-slate-400">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-sm font-medium text-slate-700">
                     <div className="flex flex-wrap items-center gap-1.5">
