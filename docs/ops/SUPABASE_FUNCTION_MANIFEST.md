@@ -19,7 +19,7 @@ That means the Supabase API gateway does **not** enforce JWT validation at the e
 | `wkrcyxcnzhwjtdpmfpaf` | Legacy Lovable/main production | Historical production project; do not target from `forensic_report_v2` without explicit approval |
 | `zgsofkgddpcntdvpckdq` | Forensic V2 target | Active V2 Supabase project for staging now and future Netlify production promotion |
 
-**Per-function deploy parity across projects:** Reconciled **2026-05-26** via `supabase functions list` (see [§ Live Deployment Matrix](#live-deployment-matrix)). Staging (`zgsofkgddpcntdvpckdq`): **32/52** local functions live + **1 ghost**. Production (`wkrcyxcnzhwjtdpmfpaf`): **52/52** local functions live. Structural parity between staging and production is **not** good — staging lacks 20 repo functions.
+**Per-function deploy parity across projects:** Reconciled **2026-05-26** via `supabase functions list` (see [§ Live Deployment Matrix](#live-deployment-matrix)); ghost `summarize-row` retired **2026-06-11**. Staging (`zgsofkgddpcntdvpckdq`): **32/52** local functions live, **0 ghosts**. Production (`wkrcyxcnzhwjtdpmfpaf`): **52/52** local functions live. Structural parity between staging and production is **not** good — staging lacks 20 repo functions.
 
 **Canonical funnel functions (Verify-to-Reveal):** `start-upload-scan-session` → `scan-quote` → `report-access` (preview/full) → `send-otp` / `verify-otp` → full reveal. OTP must remain server-side; preview must never expose `full_json`.
 
@@ -157,7 +157,7 @@ supabase functions list --project-ref wkrcyxcnzhwjtdpmfpaf
 | `start-upload-scan-session` | YES | YES | ACTIVE | 22 | 2026-05-17 04:52:13 | ACTIVE | 41 | 2026-05-26 13:58:17 | PARITY_OK; VERSION_DIVERGENCE; DATE_DIVERGENCE | Upload bootstrap — both envs live |
 | `stripe-webhook` | YES | YES | NOT_DEPLOYED | UNKNOWN | UNKNOWN | ACTIVE | 95 | 2026-05-26 13:58:17 | MISSING_ON_STAGING | Credit purchase fulfillment |
 | `submit-diagnosis-intake` | YES | YES | NOT_DEPLOYED | UNKNOWN | UNKNOWN | ACTIVE | 67 | 2026-05-26 13:58:17 | MISSING_ON_STAGING | Diagnosis persistence |
-| `summarize-row` | NO | NO | ACTIVE | 19 | 2026-05-19 07:12:20 | NOT_DEPLOYED | UNKNOWN | UNKNOWN | GHOST_ON_STAGING | Live on staging only — no local folder or config entry |
+| `summarize-row` | NO | NO | RETIRED_DELETED | 27 | 2026-05-19 07:12:20 | NOT_DEPLOYED | UNKNOWN | UNKNOWN | RETIRED_GHOST | Remote-only orphan on forensic V2 (`zgsofkgddpcntdvpckdq`); deleted 2026-06-11 — no local folder, config entry, src/migration/trigger/cron/webhook refs, or 24h edge-function logs |
 | `unlock-lead` | YES | YES | ACTIVE | 18 | 2026-05-19 06:32:48 | ACTIVE | 103 | 2026-05-26 13:58:17 | PARITY_OK; VERSION_DIVERGENCE; DATE_DIVERGENCE | |
 | `update-homeowner-context` | YES | YES | ACTIVE | 18 | 2026-05-19 06:31:09 | ACTIVE | 44 | 2026-05-26 13:58:17 | PARITY_OK; VERSION_DIVERGENCE; DATE_DIVERGENCE | |
 | `verify-otp` | YES | YES | ACTIVE | 23 | 2026-05-25 00:27:51 | ACTIVE | 371 | 2026-05-26 13:58:17 | PARITY_OK; VERSION_DIVERGENCE; DATE_DIVERGENCE | OTP hard gate — both envs live |
@@ -174,10 +174,10 @@ supabase functions list --project-ref wkrcyxcnzhwjtdpmfpaf
 |--------|------:|
 | Local function folders (`index.ts`, excl. `_shared`) | 52 |
 | `[functions.*]` config entries | 52 |
-| Staging live functions (`zgsofkgddpcntdvpckdq`) | 33 |
+| Staging live functions (`zgsofkgddpcntdvpckdq`) | 32 |
 | Production live functions (`wkrcyxcnzhwjtdpmfpaf`) | 52 |
 | Local functions live on **both** staging and production | 32 |
-| Ghost functions (live but not in repo) | 1 (`summarize-row` on staging) |
+| Ghost functions (live but not in repo) | 0 (none; `summarize-row` retired 2026-06-11) |
 
 ### Missing on staging (20)
 
@@ -189,9 +189,11 @@ All 52 local functions are deployed on production.
 
 ### Ghost functions
 
-| Function | Environment | Status | Version | Updated At (UTC) |
-|----------|-------------|--------|---------|------------------|
-| `summarize-row` | Staging only | ACTIVE | 19 | 2026-05-19 07:12:20 |
+None currently live. Previously:
+
+| Function | Environment | Status | Version | Updated At (UTC) | Retirement |
+|----------|-------------|--------|---------|------------------|------------|
+| `summarize-row` | Staging only (`zgsofkgddpcntdvpckdq`) | RETIRED_DELETED | 27 | 2026-05-19 07:12:20 | Deleted 2026-06-11 after orphan verification (no local source, config, callers, or 24h logs) |
 
 ### Inactive functions
 
@@ -220,7 +222,7 @@ Core Verify-to-Reveal chain is **live on both** environments. Staging lacks adja
 1. **Staging deploy gap (P0):** `qualify-homepage-lead`, `admin-data`, `capi-event`, `request-callback`, `send-report-email`
 2. **Funnel re-smoke both envs (P0):** `start-upload-scan-session` → `scan-quote` → `report-access` → `send-otp` / `verify-otp`
 3. **Staging missing partner/admin (P1):** `partner-update-disposition`, `admin-route-lead`, `admin-materialize-dispatch-outbox`, `accept-invite`, `save-routing-preferences`
-4. **Ghost cleanup (P1):** Investigate `summarize-row` on staging — remove or document
+4. ~~**Ghost cleanup (P1):** `summarize-row` on staging~~ — **DONE 2026-06-11** (retired/deleted from `zgsofkgddpcntdvpckdq`)
 5. **Production-only paths (P2):** `voice-followup`, `generate-negotiation-script`, cron family not on staging
 
 ### Unresolved unknowns
@@ -228,7 +230,7 @@ Core Verify-to-Reveal chain is **live on both** environments. Staging lacks adja
 - Last smoke test timestamps (still UNKNOWN — CLI does not provide)
 - Whether staging version lag vs production reflects intentional partial deploy or drift
 - Secrets parity between projects (not in scope of `functions list`)
-- `summarize-row` purpose and whether safe to delete from staging
+- ~~`summarize-row` purpose and whether safe to delete from staging~~ — resolved: remote-only ghost; retired/deleted from `zgsofkgddpcntdvpckdq` 2026-06-11
 
 ---
 
@@ -395,7 +397,7 @@ Priority order for pre-deploy / post-deploy verification (last run: **UNKNOWN** 
 
 ## 8. Open Questions
 
-1. ~~**Live deploy matrix:**~~ **Resolved 2026-05-26** — see [§ Live Deployment Matrix](#live-deployment-matrix). Staging: 32/52 + 1 ghost; Production: 52/52.
+1. ~~**Live deploy matrix:**~~ **Resolved 2026-05-26** — see [§ Live Deployment Matrix](#live-deployment-matrix). Staging: 32/52, 0 ghosts (`summarize-row` retired 2026-06-11); Production: 52/52.
 2. **Secrets parity:** Do staging and prod share the same secret *names* with different values? Full diff not in repo.
 3. **`generate-negotiation-script`:** Deployed on **production only** (staging NOT_DEPLOYED); no frontend wiring — intentional defer or dead code?
 4. **`contractor-actions` vs `partner-update-disposition`:** Overlap in outcome handling; which is canonical for new work?
