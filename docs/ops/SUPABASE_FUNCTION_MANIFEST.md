@@ -44,6 +44,7 @@ Legend — **Auth model:** `app-logic` (handler validation, no gateway JWT); `ad
 | `calculate-estimate-metrics` | internal | false | none | no | none (logic inlined via `_shared/metrics.ts` in `scan-quote`) |
 | `capi-event` | internal | false | service-role or x-capi-dispatch-secret | yes | none (browser/anon blocked at handler) |
 | `capture-truth-gate-lead` | homeowner public | false | app-logic | yes | `TruthGateFlow.tsx` |
+| `capture-power-tool-demo-lead` | homeowner public | false | app-logic | yes | none (Sprint B: `PowerToolDemo.tsx`) |
 | `compare-quotes` | homeowner public | false | phone-RPC | yes | `PostScanReportSwitcher.tsx` |
 | `contractor-actions` | admin | false | adminAuth | yes | none (no current `src/` invoke; docs reference only) |
 | `contractor-booking-confirmed` | cron | false | secret-header | yes | none |
@@ -86,7 +87,7 @@ Legend — **Auth model:** `app-logic` (handler validation, no gateway JWT); `ad
 | `verify-otp` | homeowner public | false | app-logic | yes | `phoneVerificationService.ts` → `usePhonePipeline` |
 | `voice-followup` | admin | false | adminAuth | yes | none direct; via `admin-data` action `trigger_voice_followup` |
 
-**Config reconciliation:** 52 function directories with `index.ts` ↔ 52 `[functions.*]` entries in `config.toml`. No orphan config entries. No function folders missing config.
+**Config reconciliation:** 53 function directories with `index.ts` ↔ 53 `[functions.*]` entries in `config.toml`. No orphan config entries. No function folders missing config.
 
 **Deployment projects column:** See [§ Live Deployment Matrix](#live-deployment-matrix) (audited 2026-05-26).
 
@@ -238,6 +239,7 @@ Functions reachable by unauthenticated browsers using only the publishable/anon 
 | Function | Purpose (short) | Handler gate | Primary tables / RPCs |
 |----------|-----------------|----------------|------------------------|
 | `capture-truth-gate-lead` | TruthGate lead INSERT (RLS-safe) | Payload validation; never sets `phone_verified` | `leads`, `event_logs` |
+| `capture-power-tool-demo-lead` | PowerToolDemo progressive lead capture (`source=power-tool-demo`) | `verify_jwt=false`; source-scoped session lookup; never sets `phone_verified` / report unlock; PII logging banned | `leads`, `event_logs` |
 | `start-upload-scan-session` | Bootstrap lead + quote_file + scan_session | UUID + storage_path contract | `leads`, `quote_files`, `scan_sessions`, `event_logs` |
 | `scan-quote` | Scanner Brain: Gemini extract + TS score | Session existence, rate limits; optional `DEV_BYPASS_SECRET` for dev override | `scan_sessions`, `analyses`, `quote_files`, `quotes`, `leads`, `lead_events` |
 | `report-access` | Service-role proxy for preview/full RPCs | Preview: `scan_session_id` only. Full: `phone_e164` + `get_analysis_full` | RPC `get_analysis_preview`, `get_analysis_full` |
@@ -475,6 +477,17 @@ Each entry: **Purpose · Category · verify_jwt · Auth · Env vars · Service r
 - **Category:** homeowner public · **Auth:** app-logic
 - **Env:** `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
 - **Tables:** `leads`, `event_logs` · **Callers:** `TruthGateFlow.tsx`
+
+### `capture-power-tool-demo-lead`
+- **Purpose:** Public homeowner/demo lead capture for PowerToolDemo (no-quote / pre-estimate path).
+- **Category:** homeowner public · **Auth:** `verify_jwt=false` · app-logic via `session_id` + `source=power-tool-demo`
+- **Actions:** `create`, `update_zip`, `update_phone`, `update_intake` (progressive capture)
+- **Env:** `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
+- **Tables:** `leads` only (best-effort `event_logs` audit)
+- **Source discriminator:** `power-tool-demo` (must not collide with TruthGate `truth-gate` leads)
+- **Forbidden writes:** OTP fields, `phone_verified*`, `report_unlocked_at`, scan/analysis/quote fields, tracking/CAPI
+- **PII logging:** banned (safe boolean flags only)
+- **Callers:** none yet — Sprint B wires `PowerToolDemo.tsx`
 
 ### `compare-quotes`
 - **Purpose:** Multi-quote Gemini comparison with cache.
