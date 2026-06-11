@@ -181,6 +181,104 @@ const stagger = (i: number) =>
     transition: { delay: i * 0.04, duration: 0.15, ease: "easeInOut" as const },
   }) as const;
 
+type ForensicVerdictTone = "danger" | "caution" | "safe";
+
+function resolveForensicVerdictTone(
+  grade: string,
+  redCount: number,
+  amberCount: number,
+): ForensicVerdictTone {
+  if (redCount > 0 || grade === "D" || grade === "F") return "danger";
+  if (amberCount > 0 || grade === "C") return "caution";
+  return "safe";
+}
+
+const forensicVerdictToneStyles: Record<
+  ForensicVerdictTone,
+  { borderColor: string; titleColor: string; lead: string; bullets: string[] }
+> = {
+  danger: {
+    borderColor: "hsl(var(--color-danger))",
+    titleColor: "hsl(var(--color-danger))",
+    lead:
+      "You may be asked to trust a hurricane protection system before the quote provides enough visible proof on system approvals, scope, and homeowner risk protections.",
+    bullets: [
+      "Brand or system claims may not be backed by enough visible approval detail.",
+      "Deposit, cancellation, or payment language may create leverage against the homeowner.",
+      "Warranty and workmanship terms may not match the lifespan of the installed asset.",
+    ],
+  },
+  caution: {
+    borderColor: "hsl(var(--color-caution))",
+    titleColor: "hsl(var(--color-caution))",
+    lead:
+      "This quote may look complete at first glance, but several contract details still appear to need confirmation before signing.",
+    bullets: [
+      "Scope and permit handling may not be documented with enough specificity.",
+      "Payment timing and change-order language may leave room for surprise costs.",
+      "Warranty coverage may require written confirmation beyond marketing claims.",
+    ],
+  },
+  safe: {
+    borderColor: "hsl(var(--color-emerald))",
+    titleColor: "hsl(var(--color-emerald))",
+    lead:
+      "This quote appears comparatively well documented, but you should still confirm approvals, scope, and warranty terms in writing before committing.",
+    bullets: [
+      "Product approval references should still be confirmed against the proposed system.",
+      "Deposit and cancellation terms should be reviewed before any payment.",
+      "Warranty and workmanship coverage should match the expected lifespan of the install.",
+    ],
+  },
+};
+
+function ForensicVerdictPanel({
+  grade,
+  redCount,
+  amberCount,
+}: {
+  grade: string;
+  redCount: number;
+  amberCount: number;
+}) {
+  const tone = resolveForensicVerdictTone(grade, redCount, amberCount);
+  const { borderColor, titleColor, lead, bullets } = forensicVerdictToneStyles[tone];
+
+  return (
+    <motion.section
+      {...stagger(0.15)}
+      className="px-4 md:px-8 py-4 md:py-5 border-b border-border"
+      aria-labelledby="forensic-verdict-heading"
+    >
+      <div
+        className="max-w-4xl mx-auto rounded-[var(--radius-card)] bg-slate-900 px-4 py-4 md:px-5 md:py-5"
+        style={{ borderLeft: `4px solid ${borderColor}` }}
+      >
+        <p
+          id="forensic-verdict-heading"
+          className="font-mono text-xs font-bold uppercase tracking-[0.12em]"
+          style={{ color: titleColor }}
+        >
+          THE FORENSIC VERDICT
+        </p>
+        <p className="font-body text-slate-100 mt-2 text-sm md:text-[15px] leading-relaxed">
+          {lead}
+        </p>
+        <ul className="mt-3 space-y-2">
+          {bullets.map((bullet) => (
+            <li
+              key={bullet}
+              className="font-body text-slate-300 text-sm leading-snug pl-4 relative before:content-['•'] before:absolute before:left-0 before:text-slate-500"
+            >
+              {bullet}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </motion.section>
+  );
+}
+
 const TruthReportClassic = ({
   grade,
   flags,
@@ -433,6 +531,8 @@ I'm ready to move forward if we can get these items addressed. What's the fastes
         flagAmberCount={flagAmberCountProp}
         accessLevel={accessLevel}
       />
+
+      <ForensicVerdictPanel grade={grade} redCount={redCount} amberCount={amberCount} />
 
       {/* ─── TOP RISKS (full mode only) ───
           Highest-priority interpretation, immediately under the verdict.
