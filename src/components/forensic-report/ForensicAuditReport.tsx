@@ -21,6 +21,7 @@ import PropertyProfileCard from "./PropertyProfileCard";
 import ScopeOverviewCard from "./ScopeOverviewCard";
 import MoneyAtRiskCard from "./MoneyAtRiskCard";
 import NextActionCard from "./NextActionCard";
+import { ForensicVerdictPanel } from "@/components/forensic-report/ForensicVerdictPanel";
 import { FR } from "./tokens";
 
 function normalizeConfidencePercent(value: number | null | undefined): number | null {
@@ -134,6 +135,13 @@ export default function ForensicAuditReport(props: ForensicAuditReportProps) {
               marketHigh={props.marketHigh}
             />
           )}
+
+          <ForensicVerdictPanel
+            grade={props.grade}
+            redCount={props.flagRedCount ?? 0}
+            amberCount={props.flagAmberCount ?? 0}
+            variant="forensic"
+          />
 
           <div className="relative">
             <TopFindingsList
