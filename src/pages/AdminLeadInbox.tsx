@@ -26,8 +26,58 @@ import { FUNNEL_STAGES, getStageDef } from "@/components/admin/leadWorkflow";
 
 type DateRange = "all" | "24h" | "7d" | "30d";
 type VerifiedFilter = "all" | "verified" | "unverified";
+type SourceFilter = "all" | "power-tool-demo";
+type ShortcutFilter = "all" | "yes" | "no";
 
-function toLead(raw: Record<string, any>): CRMLead {
+type PowerToolDemoIntake = {
+  intake_status: string | null;
+  intake_property: string | null;
+  intake_scope: string | null;
+  intake_logistics: string | null;
+  intake_timeline: string | null;
+  quote_holder_shortcut: boolean;
+};
+
+type InboxLead = CRMLead & {
+  source: string | null;
+  client_slug: string | null;
+  qualification_answers_json: Record<string, unknown> | null;
+  powerToolDemoIntake: PowerToolDemoIntake | null;
+};
+
+const DEMO_FUNNEL_STAGES = [
+  { value: "demo_intake_complete", label: "Demo intake complete" },
+  { value: "demo_quote_holder_shortcut", label: "Demo quote shortcut" },
+] as const;
+
+const POWER_TOOL_DEMO_SOURCE = "power-tool-demo";
+
+function asString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function parsePowerToolDemoIntake(
+  source: string | null,
+  qa: Record<string, unknown> | null,
+): PowerToolDemoIntake | null {
+  if (source !== POWER_TOOL_DEMO_SOURCE || !qa) return null;
+  return {
+    intake_status: asString(qa.intake_status),
+    intake_property: asString(qa.intake_property),
+    intake_scope: asString(qa.intake_scope),
+    intake_logistics: asString(qa.intake_logistics),
+    intake_timeline: asString(qa.intake_timeline),
+    quote_holder_shortcut: qa.quote_holder_shortcut === true,
+  };
+}
+
+function toLead(raw: Record<string, any>): InboxLead {
+  const source = raw.source ?? raw.lead_source ?? null;
+  const qualification_answers_json =
+    raw.qualification_answers_json && typeof raw.qualification_answers_json === "object"
+      ? (raw.qualification_answers_json as Record<string, unknown>)
+      : null;
+
   return {
     id: raw.id,
     session_id: raw.session_id,
@@ -84,7 +134,20 @@ function toLead(raw: Record<string, any>): CRMLead {
     last_call_summary: null,
     deal_value: raw.deal_value ?? null,
     revenue_amount: raw.revenue_amount ?? null,
+    source,
+    client_slug: raw.client_slug ?? null,
+    qualification_answers_json,
+    powerToolDemoIntake: parsePowerToolDemoIntake(source, qualification_answers_json),
   };
+}
+
+function formatStageLabel(funnelStage: string | null | undefined): string {
+  if (!funnelStage) return "New";
+  const known = getStageDef(funnelStage);
+  if (known) return known.label;
+  const demo = DEMO_FUNNEL_STAGES.find((s) => s.value === funnelStage);
+  if (demo) return demo.label;
+  return funnelStage.replace(/_/g, " ");
 }
 
 export default function LeadInbox() {
@@ -95,6 +158,8 @@ export default function LeadInbox() {
   const [county, setCounty] = useState<string>("all");
   const [verified, setVerified] = useState<VerifiedFilter>("all");
   const [stage, setStage] = useState<string>("all");
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
+  const [shortcutFilter, setShortcutFilter] = useState<ShortcutFilter>("all");
 
   // Document title (SEO + a11y)
   useEffect(() => {
@@ -131,18 +196,29 @@ export default function LeadInbox() {
       if (county !== "all" && l.county !== county) return false;
       if (verified === "verified" && !l.phone_verified) return false;
       if (verified === "unverified" && l.phone_verified) return false;
+      if (sourceFilter === "power-tool-demo" && l.source !== POWER_TOOL_DEMO_SOURCE) return false;
       if (stage !== "all" && (l.funnel_stage ?? "new") !== stage) return false;
 
+      if (shortcutFilter !== "all") {
+        const shortcut = l.powerToolDemoIntake?.quote_holder_shortcut === true;
+        if (shortcutFilter === "yes" && !shortcut) return false;
+        if (shortcutFilter === "no" && shortcut) return false;
+      }
+
       if (q) {
+        const intake = l.powerToolDemoIntake;
         const hay = [
           l.first_name, l.last_name, l.email, l.phone_e164,
           l.county, l.city, l.zip, l.id, l.session_id,
+          l.source, l.client_slug, l.funnel_stage,
+          intake?.intake_status, intake?.intake_property, intake?.intake_scope,
+          intake?.intake_logistics, intake?.intake_timeline,
         ].filter(Boolean).join(" ").toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [leads, dateRange, county, verified, stage, search]);
+  }, [leads, dateRange, county, verified, stage, sourceFilter, shortcutFilter, search]);
 
   const resetFilters = () => {
     setSearch("");
@@ -150,7 +226,14 @@ export default function LeadInbox() {
     setCounty("all");
     setVerified("all");
     setStage("all");
+    setSourceFilter("all");
+    setShortcutFilter("all");
   };
+
+  const powerToolDemoCount = useMemo(
+    () => leads.filter((l) => l.source === POWER_TOOL_DEMO_SOURCE).length,
+    [leads],
+  );
 
   return (
     <AdminShell
@@ -166,6 +249,8 @@ export default function LeadInbox() {
           county={county} setCounty={setCounty} counties={counties}
           verified={verified} setVerified={setVerified}
           stage={stage} setStage={setStage}
+          sourceFilter={sourceFilter} setSourceFilter={setSourceFilter}
+          shortcutFilter={shortcutFilter} setShortcutFilter={setShortcutFilter}
           onReset={resetFilters}
           onRefresh={() => refetch()}
           refreshing={isFetching && !isLoading}
@@ -189,10 +274,14 @@ export default function LeadInbox() {
         <div className="rounded-2xl border border-slate-300 bg-card p-10 text-center shadow-sm">
           <Inbox className="mx-auto h-8 w-8 text-slate-700 mb-3" />
           <h2 className="font-display text-lg font-extrabold tracking-tight text-foreground">
-            No leads match
+            {sourceFilter === "power-tool-demo" && powerToolDemoCount === 0
+              ? "No PowerToolDemo leads yet"
+              : "No leads match"}
           </h2>
           <p className="mt-1 text-sm font-semibold text-slate-700">
-            Try clearing filters or widening the date range.
+            {sourceFilter === "power-tool-demo" && powerToolDemoCount === 0
+              ? "PowerToolDemo captures will appear here once homeowners complete the demo intake."
+              : "Try clearing filters or widening the date range."}
           </p>
           <Button variant="outline" onClick={resetFilters} className="mt-4">
             Clear filters
@@ -211,6 +300,8 @@ interface FilterBarProps {
   county: string; setCounty: (v: string) => void; counties: string[];
   verified: VerifiedFilter; setVerified: (v: VerifiedFilter) => void;
   stage: string; setStage: (v: string) => void;
+  sourceFilter: SourceFilter; setSourceFilter: (v: SourceFilter) => void;
+  shortcutFilter: ShortcutFilter; setShortcutFilter: (v: ShortcutFilter) => void;
   onReset: () => void;
   onRefresh: () => void;
   refreshing: boolean;
@@ -219,7 +310,9 @@ interface FilterBarProps {
 function FilterBar({
   search, setSearch, dateRange, setDateRange,
   county, setCounty, counties, verified, setVerified,
-  stage, setStage, onReset, onRefresh, refreshing,
+  stage, setStage, sourceFilter, setSourceFilter,
+  shortcutFilter, setShortcutFilter,
+  onReset, onRefresh, refreshing,
 }: FilterBarProps) {
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -240,6 +333,13 @@ function FilterBar({
           <SelectItem value="24h">Last 24h</SelectItem>
           <SelectItem value="7d">Last 7 days</SelectItem>
           <SelectItem value="30d">Last 30 days</SelectItem>
+        </SelectContent>
+      </Select>
+      <Select value={sourceFilter} onValueChange={(v) => setSourceFilter(v as SourceFilter)}>
+        <SelectTrigger className="h-10 w-[160px] text-sm font-semibold"><SelectValue placeholder="Source" /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All sources</SelectItem>
+          <SelectItem value="power-tool-demo">power-tool-demo</SelectItem>
         </SelectContent>
       </Select>
       <Select value={county} onValueChange={setCounty}>
@@ -264,8 +364,21 @@ function FilterBar({
           {FUNNEL_STAGES.map((s) => (
             <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
           ))}
+          {DEMO_FUNNEL_STAGES.map((s) => (
+            <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+          ))}
         </SelectContent>
       </Select>
+      {sourceFilter === "power-tool-demo" ? (
+        <Select value={shortcutFilter} onValueChange={(v) => setShortcutFilter(v as ShortcutFilter)}>
+          <SelectTrigger className="h-10 w-[150px] text-sm font-semibold"><SelectValue placeholder="Shortcut" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All shortcuts</SelectItem>
+            <SelectItem value="yes">Shortcut yes</SelectItem>
+            <SelectItem value="no">Shortcut no</SelectItem>
+          </SelectContent>
+        </Select>
+      ) : null}
       <Button type="button" variant="ghost" size="sm" onClick={onReset} className="h-10 text-sm font-bold">
         <Filter className="h-3.5 w-3.5 mr-1.5" />
         Clear
@@ -285,7 +398,44 @@ function FilterBar({
   );
 }
 
-function LeadTable({ leads, onView }: { leads: CRMLead[]; onView: (id: string) => void }) {
+function IntakeBadge({ label, value }: { label: string; value: string | null }) {
+  if (!value) return null;
+  return (
+    <span className="inline-flex max-w-full items-center rounded-md border border-violet-200 bg-violet-50 px-2 py-0.5 text-xs font-semibold text-violet-950">
+      <span className="mr-1 uppercase tracking-wide text-violet-700">{label}:</span>
+      <span className="truncate">{value}</span>
+    </span>
+  );
+}
+
+function PowerToolDemoIntakeBlock({ intake }: { intake: PowerToolDemoIntake }) {
+  const hasAny = intake.intake_status || intake.intake_property || intake.intake_scope
+    || intake.intake_logistics || intake.intake_timeline || intake.quote_holder_shortcut;
+
+  if (!hasAny) {
+    return <span className="text-xs font-medium text-slate-500">No intake captured yet</span>;
+  }
+
+  return (
+    <details className="group mt-1">
+      <summary className="cursor-pointer text-xs font-bold text-violet-800 hover:underline">
+        Demo intake
+      </summary>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        <IntakeBadge label="Status" value={intake.intake_status} />
+        <IntakeBadge label="Property" value={intake.intake_property} />
+        <IntakeBadge label="Scope" value={intake.intake_scope} />
+        <IntakeBadge label="Logistics" value={intake.intake_logistics} />
+        <IntakeBadge label="Timeline" value={intake.intake_timeline} />
+        <span className="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-950">
+          Shortcut: {intake.quote_holder_shortcut ? "yes" : "no"}
+        </span>
+      </div>
+    </details>
+  );
+}
+
+function LeadTable({ leads, onView }: { leads: InboxLead[]; onView: (id: string) => void }) {
   return (
     <div className="rounded-2xl border border-slate-300 bg-card shadow-sm overflow-hidden">
       <div className="overflow-x-auto">
@@ -305,6 +455,8 @@ function LeadTable({ leads, onView }: { leads: CRMLead[]; onView: (id: string) =
             {leads.map((l) => {
               const name = [l.first_name, l.last_name].filter(Boolean).join(" ") || "Unknown";
               const stageDef = getStageDef(l.funnel_stage ?? "new");
+              const stageLabel = formatStageLabel(l.funnel_stage);
+              const isPowerToolDemo = l.source === POWER_TOOL_DEMO_SOURCE;
               return (
                 <tr
                   key={l.id}
@@ -313,7 +465,7 @@ function LeadTable({ leads, onView }: { leads: CRMLead[]; onView: (id: string) =
                 >
                   <td className="px-4 py-3">
                     <div className="text-base font-black text-slate-950">{name}</div>
-                    <div className="text-sm font-medium text-slate-700 flex items-center gap-2 mt-0.5">
+                    <div className="text-sm font-medium text-slate-700 flex flex-wrap items-center gap-2 mt-0.5">
                       {l.email && <span className="truncate max-w-[180px]">{l.email}</span>}
                       {l.phone_e164 && (
                         <span className="inline-flex items-center gap-1 font-mono">
@@ -321,10 +473,31 @@ function LeadTable({ leads, onView }: { leads: CRMLead[]; onView: (id: string) =
                           {l.phone_e164}
                         </span>
                       )}
+                      {l.zip && (
+                        <span className="inline-flex items-center gap-1 font-mono">
+                          <MapPin className="h-3 w-3" />
+                          {l.zip}
+                        </span>
+                      )}
                     </div>
+                    {isPowerToolDemo && l.powerToolDemoIntake ? (
+                      <PowerToolDemoIntakeBlock intake={l.powerToolDemoIntake} />
+                    ) : null}
                   </td>
                   <td className="px-4 py-3 text-sm font-medium text-slate-700">
-                    <div>{l.utm_source ?? "—"}</div>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {l.source ? (
+                        <span className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs font-extrabold uppercase tracking-wide text-indigo-950">
+                          {l.source}
+                        </span>
+                      ) : (
+                        <span>—</span>
+                      )}
+                      {l.client_slug && (
+                        <span className="text-xs font-semibold text-slate-600">{l.client_slug}</span>
+                      )}
+                    </div>
+                    <div className="mt-1">{l.utm_source ?? "—"}</div>
                     {l.utm_campaign && <div className="font-semibold text-slate-700 truncate max-w-[140px]">{l.utm_campaign}</div>}
                   </td>
                   <td className="px-4 py-3 text-sm font-semibold text-slate-700">
@@ -347,9 +520,12 @@ function LeadTable({ leads, onView }: { leads: CRMLead[]; onView: (id: string) =
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`inline-flex min-h-8 items-center rounded-full border px-2.5 py-1 text-sm font-extrabold uppercase tracking-wider ${stageDef?.badgeClass ?? "bg-white text-slate-950 border-slate-400"}`}>
-                      {stageDef?.label ?? "New"}
+                    <span className={`inline-flex min-h-8 items-center rounded-full border px-2.5 py-1 text-sm font-extrabold uppercase tracking-wider ${stageDef?.badgeClass ?? (isPowerToolDemo ? "bg-violet-100 text-violet-900 border-violet-200" : "bg-white text-slate-950 border-slate-400")}`}>
+                      {stageLabel}
                     </span>
+                    {l.report_unlocked_at ? (
+                      <div className="mt-1 text-xs font-semibold text-emerald-800">Report unlocked</div>
+                    ) : null}
                   </td>
                   <td className="px-4 py-3 text-sm font-medium text-slate-700">
                     <div className="flex items-center gap-1">
