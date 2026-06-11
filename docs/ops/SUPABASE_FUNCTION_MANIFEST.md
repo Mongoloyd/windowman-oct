@@ -1,6 +1,6 @@
 # Supabase Edge Function Manifest — WindowMan.PRO
 
-**Generated:** 2026-05-26  
+**Generated:** 2026-05-26 · **Forensic V2 refresh:** 2026-06-11
 **Source of truth inputs:** `supabase/functions/**/index.ts`, `supabase/config.toml`, `src/`, `.env.example`  
 **Scope:** Inventory and auth/deploy drift visibility only — no runtime mutations.
 
@@ -8,7 +8,7 @@
 
 ## 1. Executive Summary
 
-WindowMan ships **52 Edge Functions** under `supabase/functions/` (excluding `_shared/` helpers). Every deployed function has a matching `[functions.<name>]` block in `supabase/config.toml`, and **all 52 are configured with `verify_jwt = false`**.
+WindowMan ships **54 Edge Functions** under `supabase/functions/` (excluding `_shared/` helpers). Every function folder has a matching `[functions.<name>]` block in `supabase/config.toml`, and **all 54 are configured with `verify_jwt = false`**.
 
 That means the Supabase API gateway does **not** enforce JWT validation at the edge. Security relies entirely on **in-function auth** (adminAuth, contractor JWT checks, phone-verification RPC gates, cron/webhook secrets, or dev bypass flags). Any caller holding the public anon/publishable key can reach every function URL; only handler logic restricts abuse.
 
@@ -19,7 +19,7 @@ That means the Supabase API gateway does **not** enforce JWT validation at the e
 | `wkrcyxcnzhwjtdpmfpaf` | Legacy Lovable/main production | Historical production project; do not target from `forensic_report_v2` without explicit approval |
 | `zgsofkgddpcntdvpckdq` | Forensic V2 target | Active V2 Supabase project for staging now and future Netlify production promotion |
 
-**Per-function deploy parity across projects:** Reconciled **2026-05-26** via `supabase functions list` (see [§ Live Deployment Matrix](#live-deployment-matrix)); ghost `summarize-row` retired **2026-06-11**. Staging (`zgsofkgddpcntdvpckdq`): **32/52** local functions live, **0 ghosts**. Production (`wkrcyxcnzhwjtdpmfpaf`): **52/52** local functions live. Structural parity between staging and production is **not** good — staging lacks 20 repo functions.
+**Per-function deploy parity across projects:** Reconciled **2026-06-11** on forensic V2 via `supabase functions list` (see [§ Live Deployment Matrix](#live-deployment-matrix)); ghost `summarize-row` retired **2026-06-11**. Staging (`zgsofkgddpcntdvpckdq`): **36/54** local functions live, **0 ghosts**. Production (`wkrcyxcnzhwjtdpmfpaf`): **52/52** was last audited **2026-05-26** (may lag new repo folders `capture-power-tool-demo-lead`, `windowman-concierge`). Structural parity between staging and production is **not** good — staging lacks **18** repo functions.
 
 **Canonical funnel functions (Verify-to-Reveal):** `start-upload-scan-session` → `scan-quote` → `report-access` (preview/full) → `send-otp` / `verify-otp` → full reveal. OTP must remain server-side; preview must never expose `full_json`.
 
@@ -86,8 +86,9 @@ Legend — **Auth model:** `app-logic` (handler validation, no gateway JWT); `ad
 | `update-homeowner-context` | homeowner public | false | app-logic | yes | `PropertyAndConsentStep.tsx` |
 | `verify-otp` | homeowner public | false | app-logic | yes | `phoneVerificationService.ts` → `usePhonePipeline` |
 | `voice-followup` | admin | false | adminAuth | yes | none direct; via `admin-data` action `trigger_voice_followup` |
+| `windowman-concierge` | homeowner public | false | app-logic (Zod + Gemini JSON only) | no | none observed in `src/` (acquisition concierge endpoint) |
 
-**Config reconciliation:** 53 function directories with `index.ts` ↔ 53 `[functions.*]` entries in `config.toml`. No orphan config entries. No function folders missing config.
+**Config reconciliation:** 54 function directories with `index.ts` ↔ 54 `[functions.*]` entries in `config.toml`. No orphan config entries. No function folders missing config.
 
 **Deployment projects column:** See [§ Live Deployment Matrix](#live-deployment-matrix) (audited 2026-05-26).
 
@@ -97,7 +98,7 @@ Legend — **Auth model:** `app-logic` (handler validation, no gateway JWT); `ad
 
 ## Live Deployment Matrix
 
-**Audit date:** 2026-05-26  
+**Audit date:** 2026-06-11 (forensic V2); production column still **2026-05-26** unless re-listed
 **Collection commands (read-only):**
 
 ```powershell
@@ -112,13 +113,14 @@ supabase functions list --project-ref wkrcyxcnzhwjtdpmfpaf
 | `accept-invite` | YES | YES | NOT_DEPLOYED | UNKNOWN | UNKNOWN | ACTIVE | 100 | 2026-05-26 13:58:17 | MISSING_ON_STAGING | Contractor onboarding path |
 | `admin-client-platform-config` | YES | YES | NOT_DEPLOYED | UNKNOWN | UNKNOWN | ACTIVE | 32 | 2026-05-26 13:58:17 | MISSING_ON_STAGING | Admin platform config CRUD |
 | `admin-contractor-performance` | YES | YES | ACTIVE | 18 | 2026-05-19 05:03:16 | ACTIVE | 19 | 2026-05-26 13:58:17 | PARITY_OK; VERSION_DIVERGENCE; DATE_DIVERGENCE | |
-| `admin-data` | YES | YES | NOT_DEPLOYED | UNKNOWN | UNKNOWN | ACTIVE | 317 | 2026-05-26 13:58:17 | MISSING_ON_STAGING | Monolithic admin API — blocks admin UI on staging |
+| `admin-data` | YES | YES | ACTIVE | 1 | 2026-06-11 09:17:33 | ACTIVE | 317 | 2026-05-26 13:58:17 | PARITY_OK; VERSION_DIVERGENCE; DATE_DIVERGENCE | Monolithic admin API — deployed on V2 2026-06-11; `/admin/leads` verified live |
 | `admin-materialize-dispatch-outbox` | YES | YES | NOT_DEPLOYED | UNKNOWN | UNKNOWN | ACTIVE | 30 | 2026-05-26 13:58:17 | MISSING_ON_STAGING | Dispatch outbox materialization |
 | `admin-route-lead` | YES | YES | NOT_DEPLOYED | UNKNOWN | UNKNOWN | ACTIVE | 27 | 2026-05-26 13:58:17 | MISSING_ON_STAGING | Lead routing RPC bridge |
 | `admin-simulate-dispatch-attempt` | YES | YES | ACTIVE | 17 | 2026-05-19 07:28:32 | ACTIVE | 29 | 2026-05-26 13:58:17 | PARITY_OK; VERSION_DIVERGENCE; DATE_DIVERGENCE | |
 | `admin-sync-revenue-signals` | YES | YES | ACTIVE | 17 | 2026-05-19 07:38:51 | ACTIVE | 30 | 2026-05-26 13:58:17 | PARITY_OK; VERSION_DIVERGENCE; DATE_DIVERGENCE | |
 | `calculate-estimate-metrics` | YES | YES | NOT_DEPLOYED | UNKNOWN | UNKNOWN | ACTIVE | 280 | 2026-05-26 13:58:17 | MISSING_ON_STAGING | Standalone deploy; logic also inlined in scan-quote |
-| `capi-event` | YES | YES | NOT_DEPLOYED | UNKNOWN | UNKNOWN | ACTIVE | 338 | 2026-05-26 13:58:17 | MISSING_ON_STAGING | Meta CAPI server bridge absent on staging |
+| `capi-event` | YES | YES | ACTIVE | 1 | 2026-06-05 23:34:25 | ACTIVE | 338 | 2026-05-26 13:58:17 | PARITY_OK; VERSION_DIVERGENCE; DATE_DIVERGENCE | Meta CAPI server bridge — deployed on V2 2026-06-05 |
+| `capture-power-tool-demo-lead` | YES | YES | ACTIVE | 1 | 2026-06-11 02:14:31 | NOT_DEPLOYED | UNKNOWN | UNKNOWN | MISSING_ON_PRODUCTION | PowerToolDemo progressive lead capture; `source=power-tool-demo`; never sets `phone_verified` / report unlock |
 | `capture-truth-gate-lead` | YES | YES | ACTIVE | 22 | 2026-05-17 04:52:05 | ACTIVE | 44 | 2026-05-26 13:58:17 | PARITY_OK; VERSION_DIVERGENCE; DATE_DIVERGENCE | TruthGate lead capture |
 | `compare-quotes` | YES | YES | ACTIVE | 18 | 2026-05-19 04:53:20 | ACTIVE | 204 | 2026-05-26 13:58:17 | PARITY_OK; VERSION_DIVERGENCE; DATE_DIVERGENCE | |
 | `contractor-actions` | YES | YES | ACTIVE | 17 | 2026-05-19 07:46:27 | ACTIVE | 313 | 2026-05-26 13:58:17 | PARITY_OK; VERSION_DIVERGENCE; DATE_DIVERGENCE | |
@@ -162,30 +164,32 @@ supabase functions list --project-ref wkrcyxcnzhwjtdpmfpaf
 | `update-homeowner-context` | YES | YES | ACTIVE | 18 | 2026-05-19 06:31:09 | ACTIVE | 44 | 2026-05-26 13:58:17 | PARITY_OK; VERSION_DIVERGENCE; DATE_DIVERGENCE | |
 | `verify-otp` | YES | YES | ACTIVE | 23 | 2026-05-25 00:27:51 | ACTIVE | 371 | 2026-05-26 13:58:17 | PARITY_OK; VERSION_DIVERGENCE; DATE_DIVERGENCE | OTP hard gate — both envs live |
 | `voice-followup` | YES | YES | NOT_DEPLOYED | UNKNOWN | UNKNOWN | ACTIVE | 311 | 2026-05-26 13:58:17 | MISSING_ON_STAGING | Admin voice webhook — prod only |
+| `windowman-concierge` | YES | YES | ACTIVE | 6 | 2026-05-28 06:11:16 | NOT_DEPLOYED | UNKNOWN | UNKNOWN | MISSING_ON_PRODUCTION | Pre-login acquisition concierge (Gemini JSON); no DB/service-role; see audit § below |
 
 ---
 
 ## Deployment Drift Summary
 
-**Audit date:** 2026-05-26  
-**Branch at audit:** `forensic_report_v2` (manifest docs untracked; no uncommitted function source changes)
+**Audit date:** 2026-06-11 (forensic V2)
+**Branch at audit:** `forensic_report_v2` @ `745e0d33` or later
 
 | Metric | Count |
 |--------|------:|
-| Local function folders (`index.ts`, excl. `_shared`) | 52 |
-| `[functions.*]` config entries | 52 |
-| Staging live functions (`zgsofkgddpcntdvpckdq`) | 32 |
-| Production live functions (`wkrcyxcnzhwjtdpmfpaf`) | 52 |
-| Local functions live on **both** staging and production | 32 |
+| Local function folders (`index.ts`, excl. `_shared`) | 54 |
+| `[functions.*]` config entries | 54 |
+| Staging live functions (`zgsofkgddpcntdvpckdq`) | 36 |
+| Production live functions (`wkrcyxcnzhwjtdpmfpaf`) | 52 (2026-05-26 audit; may lag) |
+| Local functions live on **both** staging and production | ~34 (estimate; re-list prod to confirm) |
 | Ghost functions (live but not in repo) | 0 (none; `summarize-row` retired 2026-06-11) |
+| Local-only on forensic V2 (repo present, not deployed) | 18 |
 
-### Missing on staging (20)
+### Missing on staging (18)
 
-`accept-invite`, `admin-client-platform-config`, `admin-data`, `admin-materialize-dispatch-outbox`, `admin-route-lead`, `calculate-estimate-metrics`, `capi-event`, `contractor-send-followups`, `generate-negotiation-script`, `partner-update-disposition`, `persist-diagnosis-start`, `process-webhook`, `qualify-homepage-lead`, `refresh-benchmarks`, `request-callback`, `save-routing-preferences`, `send-report-email`, `stripe-webhook`, `submit-diagnosis-intake`, `voice-followup`
+`accept-invite`, `admin-client-platform-config`, `admin-materialize-dispatch-outbox`, `admin-route-lead`, `calculate-estimate-metrics`, `contractor-send-followups`, `generate-negotiation-script`, `partner-update-disposition`, `persist-diagnosis-start`, `process-webhook`, `qualify-homepage-lead`, `refresh-benchmarks`, `request-callback`, `save-routing-preferences`, `send-report-email`, `stripe-webhook`, `submit-diagnosis-intake`, `voice-followup`
 
-### Missing on production (0)
+### Missing on production (2+)
 
-All 52 local functions are deployed on production.
+At minimum: `capture-power-tool-demo-lead`, `windowman-concierge` (live on V2, not in 2026-05-26 prod audit). Re-list `wkrcyxcnzhwjtdpmfpaf` to confirm full delta.
 
 ### Ghost functions
 
@@ -201,9 +205,11 @@ None — all live rows reported `ACTIVE` on both projects.
 
 ### Version / date divergences
 
-All **32** functions present on both environments show `VERSION_DIVERGENCE` and `DATE_DIVERGENCE` (version counters are project-scoped; production bulk-updated **2026-05-26 13:58:17 UTC**). This is expected after independent deploy histories — not automatically a defect. Re-smoke after intentional deploys.
+All functions present on both environments show `VERSION_DIVERGENCE` and `DATE_DIVERGENCE` (version counters are project-scoped; production bulk-updated **2026-05-26 13:58:17 UTC**). This is expected after independent deploy histories — not automatically a defect. Re-smoke after intentional deploys.
 
-**Notable same-day funnel deploys (staging):** `scan-quote` v23 @ 2026-05-26 11:49:17; `send-otp` / `verify-otp` v23 @ 2026-05-25.
+**Notable forensic V2 deploys (2026-06):** `admin-data` v1 @ 2026-06-11; `capture-power-tool-demo-lead` v1 @ 2026-06-11; `capi-event` v1 @ 2026-06-05; `windowman-concierge` v6 @ 2026-05-28.
+
+**Notable funnel deploys (staging):** `scan-quote` v31 @ 2026-05-26 11:49:17; `send-otp` / `verify-otp` v31 @ 2026-05-25.
 
 ### Scanner / OTP / report-access deploy status
 
@@ -215,15 +221,62 @@ All **32** functions present on both environments show `VERSION_DIVERGENCE` and 
 | `send-otp` | ACTIVE v23 | ACTIVE v356 | OTP send |
 | `verify-otp` | ACTIVE v23 | ACTIVE v371 | OTP verify / unlock |
 
-Core Verify-to-Reveal chain is **live on both** environments. Staging lacks adjacent funnel functions: `qualify-homepage-lead`, `send-report-email`, `request-callback`, `persist-diagnosis-start`, `submit-diagnosis-intake`, `capi-event`.
+Core Verify-to-Reveal chain is **live on forensic V2**. Staging still lacks adjacent funnel functions: `qualify-homepage-lead`, `send-report-email`, `request-callback`, `persist-diagnosis-start`, `submit-diagnosis-intake`. `capi-event` and `admin-data` are now live on V2.
+
+### Forensic V2 local-only function triage (2026-06-11)
+
+Repo folders present on `forensic_report_v2` but **not** deployed to `zgsofkgddpcntdvpckdq`. No deploy/delete in this pass — classification only.
+
+| Function | Classification | Why | Blast radius | Protected deploy? | Next prompt title |
+|----------|----------------|-----|--------------|-------------------|-------------------|
+| `qualify-homepage-lead` | DEPLOY_LATER | Homepage acquisition funnel; `src/` caller `qualifyHomepageLead.ts` | Homepage lead capture 404 on V2 | YES | Deploy qualify-homepage-lead to forensic V2 |
+| `request-callback` | DEPLOY_LATER | Post-scan/homeowner CTAs in `Estimate.tsx`, report shells | Callback requests fail on V2 | YES | Deploy request-callback to forensic V2 |
+| `send-report-email` | DEPLOY_LATER | Post-unlock snapshot email; report funnel | Email receipt unavailable on V2 | YES | Deploy send-report-email to forensic V2 |
+| `persist-diagnosis-start` | DEPLOY_LATER | Post-scan diagnosis funnel stamp | Diagnosis start not persisted on V2 | YES | Deploy persist-diagnosis-start to forensic V2 |
+| `submit-diagnosis-intake` | DEPLOY_LATER | Diagnosis intake persistence; `useDiagnosticIntake.ts` | Intake writes fail on V2 | YES | Deploy submit-diagnosis-intake to forensic V2 |
+| `accept-invite` | DEPLOY_LATER | Contractor onboarding; JWT+role handler | Invite acceptance blocked on V2 | YES | Deploy accept-invite to forensic V2 |
+| `admin-client-platform-config` | DEPLOY_LATER | Admin platform config CRUD; adminAuth | Admin config UI blocked on V2 | YES | Deploy admin-client-platform-config to forensic V2 |
+| `admin-materialize-dispatch-outbox` | DEPLOY_LATER | Dispatch outbox materialization; adminAuth | Dispatch outbox tooling blocked | YES | Deploy admin-materialize-dispatch-outbox to forensic V2 |
+| `admin-route-lead` | DEPLOY_LATER | Lead routing RPC bridge; adminAuth | Routing desk actions blocked | YES | Deploy admin-route-lead to forensic V2 |
+| `partner-update-disposition` | DEPLOY_LATER | Partner CRM writes; JWT+role | Partner disposition updates blocked | YES | Deploy partner-update-disposition to forensic V2 |
+| `save-routing-preferences` | DEPLOY_LATER | Contractor onboarding preferences | Onboarding save blocked on V2 | YES | Deploy save-routing-preferences to forensic V2 |
+| `voice-followup` | DEPLOY_LATER | Admin voice webhook; reached via `admin-data` | Voice follow-up trigger blocked on V2 | YES | Deploy voice-followup to forensic V2 |
+| `contractor-send-followups` | DEPLOY_LATER | Cron follow-up sender; `x-contractor-secret` | Cron email follow-ups not running on V2 | YES | Deploy contractor-send-followups + cron secrets to V2 |
+| `refresh-benchmarks` | DEPLOY_LATER | Nightly benchmarks cron; secret-header | Benchmark refresh not running on V2 | YES | Deploy refresh-benchmarks + cron to forensic V2 |
+| `stripe-webhook` | DEFER | Credit purchase fulfillment; not current sprint | Billing webhook inactive on V2 | YES | Defer stripe-webhook until credit purchase on V2 |
+| `generate-negotiation-script` | DEFER | Phone-RPC + Gemini; no `src/` caller observed | Negotiation script unavailable on V2 | YES | Defer or wire generate-negotiation-script |
+| `calculate-estimate-metrics` | DEFER | Standalone metrics; logic inlined in `scan-quote` via `_shared/metrics.ts` | Redundant HTTP surface if deployed | NO | Retire or document calculate-estimate-metrics standalone |
+| `process-webhook` | RETIRE_LATER | Legacy webhook drain; `dispatch-lead` is canonical per migrations comments | Legacy duplicate drain path | YES | Audit process-webhook vs dispatch-lead retirement |
+
+### `windowman-concierge` handler audit (2026-06-11)
+
+Read-only review of `supabase/functions/windowman-concierge/index.ts` on forensic V2 (**ACTIVE v6**).
+
+| Attribute | Finding |
+|-----------|---------|
+| **Purpose** | Pre-login acquisition concierge: Gemini structured JSON routing chat. Does **not** touch scan-quote, OTP, report-access, scoring, analyses, or storage. |
+| **HTTP methods** | `POST` (handler), `OPTIONS` (CORS preflight), `405` for others |
+| **CORS** | `Access-Control-Allow-Origin: *`; methods `POST, OPTIONS` |
+| **`verify_jwt`** | `false` in `config.toml` |
+| **Handler auth** | No JWT, secret header, or session gate. Zod-validated JSON body only. |
+| **Payload validation** | Strict Zod schemas for message, history, `contextMeta`; Gemini output re-validated; fallback response on parse/validation failure |
+| **Service-role** | **No** Supabase client — no DB reads/writes |
+| **Tables/RPCs** | **None** |
+| **External APIs** | Google Gemini (`GEMINI_API_KEY`; optional `GEMINI_CONCIERGE_MODEL` / `GEMINI_MODEL`) |
+| **PII logging** | User message content sent to Gemini; server logs use truncated error snippets and model names — no explicit raw PII log of phone/email |
+| **Blast radius** | Gemini API cost/abuse; no data mutation risk. Code notes `TODO(rate-limit)` — no IP/session rate limit yet |
+| **Deployed expected?** | YES — public acquisition surface; OPTIONS returns 200 on V2 endpoint |
+| **Manifest gap** | Was missing entirely before this refresh |
+| **Recommended status** | **NEEDS_SECURITY_REVIEW** — `verify_jwt=false` acceptable only while handler stays DB-less; add rate limiting before high-traffic promotion |
 
 ### Functions requiring smoke tests next (priority)
 
-1. **Staging deploy gap (P0):** `qualify-homepage-lead`, `admin-data`, `capi-event`, `request-callback`, `send-report-email`
-2. **Funnel re-smoke both envs (P0):** `start-upload-scan-session` → `scan-quote` → `report-access` → `send-otp` / `verify-otp`
-3. **Staging missing partner/admin (P1):** `partner-update-disposition`, `admin-route-lead`, `admin-materialize-dispatch-outbox`, `accept-invite`, `save-routing-preferences`
+1. **Staging deploy gap (P0):** `qualify-homepage-lead`, `request-callback`, `send-report-email`
+2. **Funnel re-smoke forensic V2 (P0):** `start-upload-scan-session` → `scan-quote` → `report-access` → `send-otp` / `verify-otp`; re-smoke `admin-data`, `capi-event`, `capture-power-tool-demo-lead`
+3. **Staging missing partner/admin (P1):** `partner-update-disposition`, `admin-route-lead`, `admin-materialize-dispatch-outbox`, `accept-invite`, `save-routing-preferences`, `voice-followup`
 4. ~~**Ghost cleanup (P1):** `summarize-row` on staging~~ — **DONE 2026-06-11** (retired/deleted from `zgsofkgddpcntdvpckdq`)
-5. **Production-only paths (P2):** `voice-followup`, `generate-negotiation-script`, cron family not on staging
+5. **Concierge security (P1):** `windowman-concierge` rate-limit review before broad acquisition traffic
+6. **Production-only paths (P2):** `generate-negotiation-script`, cron family not on staging; prod deploy gap for `capture-power-tool-demo-lead`, `windowman-concierge`
 
 ### Unresolved unknowns
 
@@ -257,6 +310,7 @@ Functions reachable by unauthenticated browsers using only the publishable/anon 
 | `persist-diagnosis-start` | Stamp `diagnosis_started` | lead/session/analysis binding | `scan_sessions`, `analyses`, `leads`, `lead_events` |
 | `submit-diagnosis-intake` | Persist diagnosis intake | Relationship validation | `diagnosis_intakes`, `scan_sessions`, `analyses`, `leads`, `lead_events` |
 | `update-homeowner-context` | Phase 10 human context fields | Session↔lead binding; enum validation | `scan_sessions`, `leads`, `lead_events` |
+| `windowman-concierge` | Pre-login acquisition routing chat (Gemini JSON) | Zod request/output validation only; no DB; no service-role | **None** (Gemini API only) |
 | `request-partner-access` | Contractor self-serve registration | Zod body validation | `contractor_profiles`, `contractor_accounts`, `event_logs` |
 | `calculate-estimate-metrics` | Stateless metrics from extraction JSON | None (no DB) | none |
 | `capi-event` | Meta CAPI dispatch | Accepts POST JSON; graceful degrade if unconfigured | `capi_signal_logs`, `event_logs`, `meta_configurations`, `clients` |
@@ -387,8 +441,10 @@ Priority order for pre-deploy / post-deploy verification (last run: **UNKNOWN** 
 | P1 | `qualify-homepage-lead` | Homepage lead path (confirm deployed on staging) |
 | P1 | `dispatch-lead` | `x-dispatch-secret` drain with `{ limit: 1 }` |
 | P1 | `stripe-webhook` | Stripe CLI test event → credits fulfilled |
-| P1 | `capi-event` | Run `supabase/functions/capi-event/smoke_test.ts` |
-| P1 | `admin-data` | Authenticated `get_attribution_freshness` action |
+| P1 | `capi-event` | Run `supabase/functions/capi-event/smoke_test.ts` on V2 (deployed v1 2026-06-05) |
+| P1 | `admin-data` | Authenticated `get_attribution_freshness` action on V2 (deployed v1 2026-06-11) |
+| P1 | `windowman-concierge` | OPTIONS smoke + rate-limit review before acquisition traffic |
+| P1 | `capture-power-tool-demo-lead` | PowerToolDemo progressive capture smoke on V2 |
 | P2 | Cron family | `refresh-benchmarks`, `lead-reactivation`, `process-webhook`, `contractor-send-followups` with correct `x-cron-secret` |
 | P2 | Contractor JWT family | `list-contractor-opportunities`, `unlock-lead`, `partner-update-disposition` |
 | P2 | Dev-only | `dev-report-unlock`, `dev-create-quote-scenario` with bypass enabled on staging only |
@@ -397,7 +453,7 @@ Priority order for pre-deploy / post-deploy verification (last run: **UNKNOWN** 
 
 ## 8. Open Questions
 
-1. ~~**Live deploy matrix:**~~ **Resolved 2026-05-26** — see [§ Live Deployment Matrix](#live-deployment-matrix). Staging: 32/52, 0 ghosts (`summarize-row` retired 2026-06-11); Production: 52/52.
+1. ~~**Live deploy matrix:**~~ **Refreshed 2026-06-11** on forensic V2 — see [§ Live Deployment Matrix](#live-deployment-matrix). Staging: 36/54, 0 ghosts (`summarize-row` retired 2026-06-11); Production: 52/52 (2026-05-26; re-list recommended).
 2. **Secrets parity:** Do staging and prod share the same secret *names* with different values? Full diff not in repo.
 3. **`generate-negotiation-script`:** Deployed on **production only** (staging NOT_DEPLOYED); no frontend wiring — intentional defer or dead code?
 4. **`contractor-actions` vs `partner-update-disposition`:** Overlap in outcome handling; which is canonical for new work?
@@ -489,7 +545,16 @@ Each entry: **Purpose · Category · verify_jwt · Auth · Env vars · Service r
 - **Source discriminator:** `power-tool-demo` (must not collide with TruthGate `truth-gate` leads)
 - **Forbidden writes:** OTP fields, `phone_verified*`, `report_unlocked_at`, scan/analysis/quote fields, tracking/CAPI
 - **PII logging:** banned (safe boolean flags only)
-- **Callers:** none yet — Sprint B wires `PowerToolDemo.tsx`
+- **Callers:** `PowerToolDemo.tsx` (progressive capture via `create` / `update_zip` / `update_phone` / `update_intake`)
+- **Deploy (V2):** ACTIVE v1 @ 2026-06-11 on `zgsofkgddpcntdvpckdq`
+
+### `windowman-concierge`
+- **Purpose:** Pre-login acquisition concierge — Gemini structured JSON routing chat (no scanner/OTP/report paths).
+- **Category:** homeowner public · **Auth:** `verify_jwt=false` · app-logic (Zod only; no DB)
+- **Env:** `GEMINI_API_KEY`; optional `GEMINI_CONCIERGE_MODEL`, `GEMINI_MODEL`
+- **Service role:** no · **Tables/RPCs:** none · **External:** Gemini API
+- **PII:** user text sent to Gemini; server logs avoid raw PII; rate limit TODO in source
+- **Callers:** none observed in `src/` · **Deploy (V2):** ACTIVE v6 @ 2026-05-28 · **Status:** NEEDS_SECURITY_REVIEW (rate limiting)
 
 ### `compare-quotes`
 - **Purpose:** Multi-quote Gemini comparison with cache.
