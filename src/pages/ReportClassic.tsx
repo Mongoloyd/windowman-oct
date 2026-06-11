@@ -12,7 +12,7 @@
  */
 
 import { useState, useCallback, useEffect, useRef, type ReactNode } from "react";
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useAnalysisData } from "@/hooks/useAnalysisData";
 import { usePhonePipeline } from "@/hooks/usePhonePipeline";
 import { useReportAccess } from "@/hooks/useReportAccess";
@@ -108,16 +108,7 @@ function useCountyForSession(sessionId: string | undefined): string {
 export default function ReportClassic() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const sessionIdValid = isValidScanSessionId(sessionId);
-
-  const isV2HarnessEnabled =
-    import.meta.env.DEV ||
-    import.meta.env.VITE_ENABLE_DARK_V2_HARNESS === "true";
-
-  const labRendererV2 =
-    isV2HarnessEnabled &&
-    searchParams.get("renderer") === "v2";
 
   // ── Funnel context (safe — null when outside provider) ─────────────────
   const funnel = useScanFunnelSafe();
@@ -580,13 +571,14 @@ export default function ReportClassic() {
 
   // ── Render ─────────────────────────────────────────────────────────────
 
+  // Classic report is deprecated and retained only as rollback/dev reference. Dark forensic V3 is canonical.
   const showDarkV2Full =
-    labRendererV2 &&
     isFullLoaded &&
-    accessLevel === "full";
+    accessLevel === "full" &&
+    v2ReportSource != null &&
+    analysisData != null;
 
   const showDarkV2Partial =
-    labRendererV2 &&
     accessLevel === "preview" &&
     !isFullLoaded &&
     !!analysisData;

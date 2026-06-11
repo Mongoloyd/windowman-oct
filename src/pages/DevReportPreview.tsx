@@ -13,13 +13,13 @@
  *   ?scope=protected|gaps|excluded → ScopeGapChecklist fixture (full + v3 only; default gaps)
  *   ?source=adapter     → adapter-derived ledger, matrix, and ScopeGap props (full + v3 only)
  *   ?source=live        → staging report-access smoke test (requires scan_session_id)
- *   (no params)      → legacy TruthReportClassic (rollback target)
+ *   (no params)      → dark ForensicAuditReport v3 preview (canonical)
+ *   ?v=classic       → normalized to v3 (classic white report deprecated; retained in repo only)
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, useLocation, Navigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
-import TruthReportClassic from "@/components/TruthReportClassic";
 import type { SuggestedMatch } from "@/components/TruthReportClassic";
 import type { AnalysisFlag, PillarScore } from "@/hooks/useAnalysisData";
 import ForensicAuditReport from "@/components/forensic-report/ForensicAuditReport";
@@ -473,12 +473,15 @@ function getLabReportPreviewBase(pathname: string): string {
 function normalizeLabPreviewParams(
   pathname: string,
   params: URLSearchParams,
-): { redirectTo: string } | { accessMode: LabMode } | { classic: true } {
+): { redirectTo: string } | { accessMode: LabMode } {
   const base = getLabReportPreviewBase(pathname);
   const v = params.get("v");
-  if (v === "classic") return { classic: true };
-
   const validMode = parseLabMode(params.get("mode"));
+
+  // Classic report is deprecated and retained only as rollback/dev reference. Dark forensic V3 is canonical.
+  if (v === "classic") {
+    return { redirectTo: `${base}?v=v3&mode=${validMode ?? "preview"}` };
+  }
   if (v !== "v3") {
     return { redirectTo: `${base}?v=v3&mode=${validMode ?? "preview"}` };
   }
@@ -1048,44 +1051,6 @@ export default function DevReportPreview() {
       return <Navigate to={normalized.redirectTo} replace />;
     }
 
-    if ("classic" in normalized) {
-      return (
-        <>
-          <Helmet>
-            <title>Lab · Report Preview (Classic)</title>
-            <meta name="robots" content="noindex,nofollow" />
-          </Helmet>
-          <LabPreviewBanner label="LAB PREVIEW · CLASSIC ROLLBACK" />
-          <div className="pt-7">
-            <TruthReportClassic
-              grade="D"
-              flags={MOCK_CLASSIC_FLAGS}
-              pillarScores={MOCK_CLASSIC_PILLARS}
-              contractorName="Sample Contractor LLC"
-              county="Broward"
-              confidenceScore={82}
-              documentType="contractor_quote"
-              accessLevel="full"
-              qualityBand="poor"
-              hasWarranty={true}
-              hasPermits={false}
-              pageCount={3}
-              lineItemCount={8}
-              flagCount={5}
-              flagRedCount={3}
-              flagAmberCount={2}
-              onContractorMatchClick={() => setIntroRequested(true)}
-              onReportHelpCall={() => setReportCallRequested(true)}
-              onSecondScan={() => window.location.assign("/")}
-              introRequested={introRequested}
-              reportCallRequested={reportCallRequested}
-              suggestedMatch={introRequested ? MOCK_MATCH : null}
-            />
-          </div>
-        </>
-      );
-    }
-
     if (params.get("source") === "live") {
       const liveReport = renderLiveLabReport();
       const liveBanner = isVisualLabPreview
@@ -1144,33 +1109,10 @@ export default function DevReportPreview() {
     );
   }
 
+  // Classic report is deprecated and retained only as rollback/dev reference. Dark forensic V3 is canonical.
   if (params.get("v") === "classic") {
-    return (
-      <TruthReportClassic
-        grade="D"
-        flags={MOCK_CLASSIC_FLAGS}
-        pillarScores={MOCK_CLASSIC_PILLARS}
-        contractorName="Sample Contractor LLC"
-        county="Broward"
-        confidenceScore={82}
-        documentType="contractor_quote"
-        accessLevel="full"
-        qualityBand="poor"
-        hasWarranty={true}
-        hasPermits={false}
-        pageCount={3}
-        lineItemCount={8}
-        flagCount={5}
-        flagRedCount={3}
-        flagAmberCount={2}
-        onContractorMatchClick={() => setIntroRequested(true)}
-        onReportHelpCall={() => setReportCallRequested(true)}
-        onSecondScan={() => window.location.assign("/")}
-        introRequested={introRequested}
-        reportCallRequested={reportCallRequested}
-        suggestedMatch={introRequested ? MOCK_MATCH : null}
-      />
-    );
+    const mode = parseLabMode(params.get("mode")) ?? "preview";
+    return <Navigate to={`?v=v3&mode=${mode}`} replace />;
   }
 
   if (params.get("v") === "v3") {
@@ -1178,30 +1120,5 @@ export default function DevReportPreview() {
     return renderForensicReport(mode);
   }
 
-  return (
-    <TruthReportClassic
-      grade="D"
-      flags={MOCK_CLASSIC_FLAGS}
-      pillarScores={MOCK_CLASSIC_PILLARS}
-      contractorName="Sample Contractor LLC"
-      county="Broward"
-      confidenceScore={82}
-      documentType="contractor_quote"
-      accessLevel="full"
-      qualityBand="poor"
-      hasWarranty={true}
-      hasPermits={false}
-      pageCount={3}
-      lineItemCount={8}
-      flagCount={5}
-      flagRedCount={3}
-      flagAmberCount={2}
-      onContractorMatchClick={() => setIntroRequested(true)}
-      onReportHelpCall={() => setReportCallRequested(true)}
-      onSecondScan={() => window.location.assign("/")}
-      introRequested={introRequested}
-      reportCallRequested={reportCallRequested}
-      suggestedMatch={introRequested ? MOCK_MATCH : null}
-    />
-  );
+  return <Navigate to="?v=v3&mode=preview" replace />;
 }

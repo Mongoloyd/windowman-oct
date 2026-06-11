@@ -1,8 +1,8 @@
 /**
  * PostScanReportSwitcher — In-page post-scan report orchestrator.
  *
- * CANONICAL: Renders TruthReportClassic by default; when VITE_ENABLE_DARK_V2_HOMEPAGE=true,
- * renders ReportClassicDarkV2Partial/Full with Classic fallback.
+ * CANONICAL: Dark forensic V3 (ReportClassicDarkV2Partial/Full) is the user-facing report.
+ * Classic white TruthReportClassic is deprecated and retained only as rollback/dev reference.
  * Owns the real Twilio OTP pipeline for the in-page scan flow.
  * Owns CTA logic: generate-contractor-brief + request-callback for report help.
  *
@@ -43,7 +43,8 @@ import { CTA_LABEL } from "./ctaConstants";
 
 export { CTA_LABEL };
 
-const enableDarkV2Homepage = import.meta.env.VITE_ENABLE_DARK_V2_HOMEPAGE === "true";
+// Classic report is deprecated and retained only as rollback/dev reference. Dark forensic V3 is canonical.
+const enableDarkV2Homepage = true;
 
 function DarkV2ReportRecoveryPanel({
   message = "Restoring your secured report…",
