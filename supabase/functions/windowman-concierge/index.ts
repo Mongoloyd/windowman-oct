@@ -48,11 +48,13 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const MAX_MESSAGE_LENGTH = 2_000;
-const MAX_HISTORY_TURNS = 20;
+const MAX_MESSAGE_LENGTH = 1_200;
+const MAX_HISTORY_TURNS = 8;
 const GEMINI_TEMPERATURE = 0.4;
 const GEMINI_MAX_OUTPUT_TOKENS = 1_200;
-const GEMINI_TIMEOUT_MS = 20_000;
+const GEMINI_TIMEOUT_MS = 8_000;
+// Hard cap on raw request body size (bytes) to bound abuse / Gemini cost.
+const MAX_BODY_BYTES = 8 * 1024;
 
 // ── Zod schemas ──────────────────────────────────────────────────────────────
 
@@ -312,12 +314,38 @@ Deno.serve(async (req) => {
     return json(405, { error: "method_not_allowed" });
   }
 
+  const requestId = crypto.randomUUID();
+  const startedAt = Date.now();
+
   // TODO(rate-limit): Add IP/session rate limiting when concierge volume warrants it.
   // No shared utility exists in repo; mirror send-otp inline pattern if needed.
+  // Durable rate limiting requires a storage-backed limiter and must be implemented in a separate sprint.
+
+  // Enforce a hard request-body size cap before parsing to bound abuse and
+  // Gemini cost. Content-Length is only an early hint; the post-read byte
+  // count is authoritative so a missing/spoofed header cannot bypass the cap.
+  const declaredLength = Number(req.headers.get("content-length") ?? "");
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {
+    console.warn(`[${FUNCTION_NAME}] payload_too_large`, {
+      request_id: requestId,
+      payload_size: declaredLength,
+    });
+    return json(413, { error: "payload_too_large" });
+  }
+
+  const rawBody = await req.text();
+  const payloadSize = new TextEncoder().encode(rawBody).length;
+  if (payloadSize > MAX_BODY_BYTES) {
+    console.warn(`[${FUNCTION_NAME}] payload_too_large`, {
+      request_id: requestId,
+      payload_size: payloadSize,
+    });
+    return json(413, { error: "payload_too_large" });
+  }
 
   let raw: unknown;
   try {
-    raw = await req.json();
+    raw = JSON.parse(rawBody);
   } catch {
     return json(400, { error: "invalid_json" });
   }
@@ -325,6 +353,13 @@ Deno.serve(async (req) => {
   const parsed = RequestSchema.safeParse(raw);
   if (!parsed.success) {
     const first = parsed.error.issues[0];
+    // Log only the safe failure code + field name + size — never raw input.
+    console.warn(`[${FUNCTION_NAME}] validation_failed`, {
+      request_id: requestId,
+      code: first?.message ?? "invalid_request",
+      field: first?.path?.[0] ?? null,
+      payload_size: payloadSize,
+    });
     return json(400, {
       error: first?.message ?? "invalid_request",
       field: first?.path?.[0] ?? null,
@@ -349,9 +384,19 @@ Deno.serve(async (req) => {
 
   const rawGeminiText = await callGeminiConcierge(userPayload, geminiKey, model);
   if (!rawGeminiText) {
+    console.warn(`[${FUNCTION_NAME}] gemini_fallback`, {
+      request_id: requestId,
+      model,
+      duration_ms: Date.now() - startedAt,
+    });
     return json(200, buildFallbackResponse(sessionId));
   }
 
   const response = parseAndValidateGeminiOutput(rawGeminiText, sessionId);
+  console.log(`[${FUNCTION_NAME}] completed`, {
+    request_id: requestId,
+    model,
+    duration_ms: Date.now() - startedAt,
+  });
   return json(200, response);
 });
