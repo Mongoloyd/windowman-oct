@@ -2,7 +2,7 @@
  * AppTrackingProvider — App-level tracking wrapper.
  *
  * Responsibilities:
- *   1. Passive UTM capture on mount (via useUtmCapture).
+ *   1. Passive UTM capture on mount and SPA route-search changes (via useUtmCapture).
  *   2. Passive lead ID context (via useLeadId).
  *   3. Vendor-agnostic `virtual_page_view` push on every SPA route change,
  *      routed through the canonical `trackGtmEvent` dataLayer path so GTM
@@ -60,8 +60,9 @@ export function useAppTracking(): AppTrackingContextValue {
 // ── Provider ────────────────────────────────────────────────────────────────
 
 export function AppTrackingProvider({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
   const leadId = useLeadId();
-  const utmData = useUtmCapture();
+  const utmData = useUtmCapture(`${location.pathname}${location.search}`);
 
   // Initialize the WindowMan Meta browser pixel exactly once on mount.
   // No-op if VITE_META_PIXEL_ID is unset or set to the dev placeholder.

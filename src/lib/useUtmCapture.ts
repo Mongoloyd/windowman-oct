@@ -4,6 +4,8 @@
  * Captures on page load from URL:
  * - Standard UTMs
  * - Platform click IDs: ttclid, fbclid, gclid, wbraid, gbraid, msclkid
+ * - Nextdoor / paid intent: ndclid, wm_intent, nd_lead_id, nd_form_id,
+ *   nd_ad_id, nd_ad_group_id, nd_campaign_id
  * - Multi-tenant routing slug: client_slug/client/partner/syndicate
  * - Full raw query string and normalized query param JSON
  *
@@ -48,6 +50,30 @@ const CLIENT_SLUG_KEYS = [
   "syndicate",
 ] as const;
 
+const NEXTDOOR_KEYS = [
+  "ndclid",
+  "nd_lead_id",
+  "nd_form_id",
+  "nd_ad_id",
+  "nd_ad_group_id",
+  "nd_campaign_id",
+] as const;
+
+const INTENT_KEYS = ["wm_intent"] as const;
+
+export type WmIntent = "has_quote" | "no_quote" | "unknown";
+
+export function normalizeWmIntent(raw: string | null | undefined): WmIntent {
+  if (!raw?.trim()) return "unknown";
+
+  const normalized = raw.trim().toLowerCase().replace(/-/g, "_");
+
+  if (normalized === "has_quote") return "has_quote";
+  if (normalized === "no_quote") return "no_quote";
+
+  return "unknown";
+}
+
 type QueryParams = Record<string, string | string[]>;
 
 export interface UtmData {
@@ -63,6 +89,14 @@ export interface UtmData {
   wbraid: string | null;
   gbraid: string | null;
   msclkid: string | null;
+
+  ndclid: string | null;
+  wm_intent: WmIntent;
+  nd_lead_id: string | null;
+  nd_form_id: string | null;
+  nd_ad_id: string | null;
+  nd_ad_group_id: string | null;
+  nd_campaign_id: string | null;
 
   fbc: string | null;
   fbp: string | null;
@@ -90,6 +124,14 @@ const EMPTY_UTM: UtmData = {
   wbraid: null,
   gbraid: null,
   msclkid: null,
+
+  ndclid: null,
+  wm_intent: "unknown",
+  nd_lead_id: null,
+  nd_form_id: null,
+  nd_ad_id: null,
+  nd_ad_group_id: null,
+  nd_campaign_id: null,
 
   fbc: null,
   fbp: null,
@@ -141,9 +183,21 @@ function firstNonEmptyParam(
 }
 
 function hasAttributionParams(params: URLSearchParams): boolean {
-  return [...UTM_KEYS, ...CLICK_ID_KEYS, ...CLIENT_SLUG_KEYS].some((key) =>
-    params.has(key),
-  );
+  return [
+    ...UTM_KEYS,
+    ...CLICK_ID_KEYS,
+    ...CLIENT_SLUG_KEYS,
+    ...NEXTDOOR_KEYS,
+    ...INTENT_KEYS,
+  ].some((key) => params.has(key));
+}
+
+function trimmedParam(
+  params: URLSearchParams,
+  key: string,
+): string | null {
+  const value = params.get(key)?.trim();
+  return value || null;
 }
 
 /**
@@ -183,6 +237,7 @@ function withFreshCookies(data: Partial<UtmData>): UtmData {
     ...EMPTY_UTM,
     ...data,
     client_slug: data.client_slug || "direct",
+    wm_intent: data.wm_intent ?? "unknown",
     fbp: readCookie("_fbp") || data.fbp || null,
     fbc: readCookie("_fbc") || data.fbc || null,
     ttp: readCookie("_ttp") || data.ttp || null,
@@ -252,6 +307,8 @@ export function captureUtmFromUrl(): UtmData {
     return refreshed;
   }
 
+  const rawIntent = trimmedParam(params, "wm_intent");
+
   const next: UtmData = withFreshCookies({
     utm_source: params.get("utm_source") || existing.utm_source,
     utm_medium: params.get("utm_medium") || existing.utm_medium,
@@ -265,6 +322,18 @@ export function captureUtmFromUrl(): UtmData {
     wbraid: params.get("wbraid") || existing.wbraid,
     gbraid: params.get("gbraid") || existing.gbraid,
     msclkid: params.get("msclkid") || existing.msclkid,
+
+    ndclid: trimmedParam(params, "ndclid") || existing.ndclid,
+    wm_intent: rawIntent
+      ? normalizeWmIntent(rawIntent)
+      : existing.wm_intent ?? "unknown",
+    nd_lead_id: trimmedParam(params, "nd_lead_id") || existing.nd_lead_id,
+    nd_form_id: trimmedParam(params, "nd_form_id") || existing.nd_form_id,
+    nd_ad_id: trimmedParam(params, "nd_ad_id") || existing.nd_ad_id,
+    nd_ad_group_id:
+      trimmedParam(params, "nd_ad_group_id") || existing.nd_ad_group_id,
+    nd_campaign_id:
+      trimmedParam(params, "nd_campaign_id") || existing.nd_campaign_id,
 
     // Prefer the fresh fbc derived from the current fbclid, then cookie,
     // then storage.
@@ -287,14 +356,14 @@ export function captureUtmFromUrl(): UtmData {
   return next;
 }
 
-export function useUtmCapture(): UtmData {
+export function useUtmCapture(searchKey?: string): UtmData {
   const [utmData, setUtmData] = useState<UtmData>(() => {
     return typeof window !== "undefined" ? captureUtmFromUrl() : EMPTY_UTM;
   });
 
   useEffect(() => {
     setUtmData(captureUtmFromUrl());
-  }, []);
+  }, [searchKey]);
 
   return utmData;
 }
@@ -355,6 +424,14 @@ export function getAttributionPayload(): Record<string, unknown> {
     wbraid: data.wbraid,
     gbraid: data.gbraid,
     msclkid: data.msclkid,
+
+    ndclid: data.ndclid,
+    wm_intent: data.wm_intent,
+    nd_lead_id: data.nd_lead_id,
+    nd_form_id: data.nd_form_id,
+    nd_ad_id: data.nd_ad_id,
+    nd_ad_group_id: data.nd_ad_group_id,
+    nd_campaign_id: data.nd_campaign_id,
 
     fbc: data.fbc,
     fbp: data.fbp,

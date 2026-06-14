@@ -5,7 +5,7 @@ import { Check, Shield } from "lucide-react";
 import { useTickerStats } from "@/hooks/useTickerStats";
 import { supabase } from "@/integrations/supabase/client";
 import { useScanFunnelSafe } from "@/state/scanFunnel";
-import { captureUtmFromUrl } from "@/lib/useUtmCapture";
+import { captureUtmFromUrl, getUtmData, type WmIntent } from "@/lib/useUtmCapture";
 import { readLateFbCookies } from "@/lib/attribution/fbCookies";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -46,6 +46,65 @@ const eyebrowLabels = [
   "STEP 4 OF 4 · CONFIGURE YOUR SCAN",
   "STEP 4 OF 4 · SCAN CONFIGURED",
 ];
+
+const PAID_INTENT_FONT =
+  'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+
+type PaidAttributionSignals = {
+  utm_source: string | null;
+  ndclid: string | null;
+  nd_lead_id: string | null;
+  ttclid: string | null;
+  fbclid: string | null;
+};
+
+type PaidTrafficContext = {
+  wmIntent: WmIntent;
+  networkLabel: string;
+  hasNetworkContext: boolean;
+};
+
+function resolvePaidNetworkLabel(signals: PaidAttributionSignals): string {
+  const source = (signals.utm_source ?? "").toLowerCase();
+
+  if (source.includes("nextdoor") || signals.ndclid || signals.nd_lead_id) {
+    return "Nextdoor";
+  }
+
+  if (source.includes("tiktok") || signals.ttclid) {
+    return "TikTok";
+  }
+
+  if (
+    source.includes("facebook") ||
+    source.includes("meta") ||
+    signals.fbclid
+  ) {
+    return "Meta";
+  }
+
+  return "paid traffic";
+}
+
+function resolvePaidTrafficContext(): PaidTrafficContext {
+  const data = getUtmData();
+
+  const networkLabel = resolvePaidNetworkLabel({
+    utm_source: data.utm_source,
+    ndclid: data.ndclid,
+    nd_lead_id: data.nd_lead_id,
+    ttclid: data.ttclid,
+    fbclid: data.fbclid,
+  });
+
+  const hasNetworkContext = networkLabel !== "paid traffic";
+
+  return {
+    wmIntent: data.wm_intent,
+    networkLabel,
+    hasNetworkContext,
+  };
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -219,6 +278,53 @@ const ValidationIcon = ({ valid }: { valid: boolean }) => (
   </span>
 );
 
+const PaidHasQuoteContinuation = ({
+  networkLabel,
+  hasNetworkContext,
+  onContinue,
+}: {
+  networkLabel: string;
+  hasNetworkContext: boolean;
+  onContinue: () => void;
+}) => (
+  <motion.div
+    key="paid-has-quote"
+    variants={slideVariants}
+    initial="enter"
+    animate="center"
+    exit="exit"
+    transition={{ duration: 0.15 }}
+    className="flex flex-col gap-5"
+    style={{ fontFamily: PAID_INTENT_FONT }}
+  >
+    <div className="rounded-xl border border-border bg-card/90 p-6 shadow backdrop-blur-sm">
+      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary">
+        {hasNetworkContext ? `From ${networkLabel}` : "Paid traffic"}
+      </p>
+      <h2 className="mt-3 text-2xl font-semibold leading-tight text-foreground">
+        {hasNetworkContext
+          ? `We have your request from ${networkLabel}.`
+          : "We have your request."}
+      </h2>
+      <p className="mt-3 text-base leading-relaxed text-muted-foreground">
+        Upload your current quote for a secure price check.
+      </p>
+      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+        You do not need to re-answer the starter questions.
+      </p>
+    </div>
+
+    <button
+      type="button"
+      onClick={onContinue}
+      className="btn-depth-primary w-full rounded-lg border border-primary/20 bg-primary px-6 py-4 text-base font-semibold text-primary-foreground shadow"
+      style={{ fontFamily: PAID_INTENT_FONT }}
+    >
+      Upload My Quote
+    </button>
+  </motion.div>
+);
+
 // ═══════════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════
@@ -279,6 +385,15 @@ const TruthGateFlow = ({
   });
   const funnel = useScanFunnelSafe();
   const stepChangeNotifiedRef = useRef(false);
+  const [paidContext] = useState<PaidTrafficContext>(() => resolvePaidTrafficContext());
+  const isPaidHasQuote = paidContext.wmIntent === "has_quote";
+  const isPaidNoQuote = paidContext.wmIntent === "no_quote";
+
+  const handlePaidHasQuoteContinue = useCallback(() => {
+    const sessionId = crypto.randomUUID();
+    funnel?.setSessionId(sessionId);
+    onLeadCaptured?.(sessionId);
+  }, [funnel, onLeadCaptured]);
 
   const selectedCounty = answers.county || "your county";
   const selectedRange = answers.quoteRange || "your";
@@ -552,9 +667,30 @@ const TruthGateFlow = ({
   };
 
   // ── Render ──────────────────────────────────────────────────────────
-  const progressWidth = currentStep <= 4 ? `${currentStep * 25}%` : "100%";
+  const progressWidth = isPaidHasQuote
+    ? "100%"
+    : currentStep <= 4
+      ? `${currentStep * 25}%`
+      : "100%";
+  const eyebrowText = isPaidHasQuote
+    ? paidContext.hasNetworkContext
+      ? `FROM ${paidContext.networkLabel.toUpperCase()} · QUOTE READY`
+      : "PAID TRAFFIC · QUOTE READY"
+    : isPaidNoQuote && currentStep === 1
+      ? "STEP 1 OF 4 · PREP CHECKLIST"
+      : eyebrowLabels[Math.min(currentStep - 1, 4)];
 
   const renderStepContent = () => {
+    if (isPaidHasQuote) {
+      return (
+        <PaidHasQuoteContinuation
+          networkLabel={paidContext.networkLabel}
+          hasNetworkContext={paidContext.hasNetworkContext}
+          onContinue={handlePaidHasQuoteContinue}
+        />
+      );
+    }
+
     if (transitionState === "loading") {
       return (
         <motion.div
@@ -602,6 +738,17 @@ const TruthGateFlow = ({
 
     if (currentStep >= 1 && currentStep <= 4) {
       const cfg = stepConfig[currentStep - 1];
+      const question =
+        isPaidNoQuote && currentStep === 1
+          ? "Let's prep you before the window sales appointment."
+          : cfg.question;
+      const sub =
+        isPaidNoQuote && currentStep === 1
+          ? paidContext.hasNetworkContext
+            ? `We have your request from ${paidContext.networkLabel}. Answer a few details so the prep checklist matches your project.`
+            : "Answer a few details so the prep checklist matches your project."
+          : cfg.sub;
+
       return (
         <motion.div
           key={`step-${currentStep}`}
@@ -617,11 +764,23 @@ const TruthGateFlow = ({
               fontSize: "clamp(22px, 4vw, 30px)",
               letterSpacing: "0.02em",
               marginBottom: 8,
+              ...(isPaidNoQuote && currentStep === 1
+                ? { fontFamily: PAID_INTENT_FONT, textTransform: "none" as const }
+                : {}),
             }}
           >
-            {cfg.question}
+            {question}
           </h2>
-          <p className="font-body text-wm-body-soft text-muted-foreground mb-7 text-center">{cfg.sub}</p>
+          <p
+            className="font-body text-wm-body-soft text-muted-foreground mb-7 text-center"
+            style={
+              isPaidNoQuote && currentStep === 1
+                ? { fontFamily: PAID_INTENT_FONT }
+                : undefined
+            }
+          >
+            {sub}
+          </p>
           <div className="grid grid-cols-2 gap-3">
             {cfg.options.map((opt) => (
               <OptionButton
@@ -820,7 +979,7 @@ const TruthGateFlow = ({
       >
         <p className="text-center mb-2 wm-eyebrow text-muted-foreground">THE SCANNER</p>
         <p className="text-center mb-3 wm-eyebrow text-primary" style={{ fontSize: 11 }}>
-          {eyebrowLabels[Math.min(currentStep - 1, 4)]}
+          {eyebrowText}
         </p>
         <div className="w-full h-1.5 input-well mb-8">
           <motion.div
