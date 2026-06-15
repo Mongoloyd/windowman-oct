@@ -43,15 +43,9 @@ import {
   sanitizeAttributionInput,
   sanitizeQueryParamsInput,
 } from "../_shared/attributionMerge.ts";
+import { getCorsHeaders } from "../_shared/cors.ts";
 
 const FUNCTION_NAME = "capture-truth-gate-lead";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -225,7 +219,11 @@ function audit(
   }
 }
 
-function jsonResponse(body: unknown, status: number): Response {
+function jsonResponse(
+  body: unknown,
+  status: number,
+  corsHeaders: Record<string, string>,
+): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -342,8 +340,10 @@ function parseAndValidate(input: unknown):
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { status: 204, headers: getCorsHeaders(req) });
   }
+
+  const corsHeaders = getCorsHeaders(req);
 
   // request_received audit (no admin client yet — console-only)
   audit(null, { stage: "request_received", status: "started" });
@@ -352,6 +352,7 @@ Deno.serve(async (req) => {
     return jsonResponse(
       { success: false, code: "method_not_allowed", message: "Use POST." },
       405,
+      corsHeaders,
     );
   }
 
@@ -372,6 +373,7 @@ Deno.serve(async (req) => {
         message: "Body must be valid JSON.",
       },
       400,
+      corsHeaders,
     );
   }
 
@@ -391,6 +393,7 @@ Deno.serve(async (req) => {
         details: parsed.details ?? null,
       },
       400,
+      corsHeaders,
     );
   }
 
@@ -414,6 +417,7 @@ Deno.serve(async (req) => {
         message: "Server misconfigured.",
       },
       500,
+      corsHeaders,
     );
   }
 
@@ -478,6 +482,7 @@ Deno.serve(async (req) => {
           reused: true,
         },
         200,
+        corsHeaders,
       );
     }
   } catch (e) {
@@ -566,6 +571,7 @@ Deno.serve(async (req) => {
         hint: error.hint ?? null,
       },
       500,
+      corsHeaders,
     );
   }
 
@@ -630,5 +636,6 @@ Deno.serve(async (req) => {
       session_id: data?.session_id ?? payload.session_id,
     },
     200,
+    corsHeaders,
   );
 });

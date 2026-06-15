@@ -55,15 +55,9 @@ import {
   sanitizeAttributionInput,
   sanitizeQueryParamsInput,
 } from "../_shared/attributionMerge.ts";
+import { getCorsHeaders } from "../_shared/cors.ts";
 
 const FUNCTION_NAME = "start-upload-scan-session";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
 
 // NOTE: Request shape (incl. UUID + storage_path scope) is owned by
 // `./contracts/schemas.ts` (RequestSchema). The historical UUID_RE and
@@ -305,7 +299,11 @@ async function mergeScanSessionAttribution(
  * (e.g. forgot a field, returned a non-UUID id) — fail closed with a
  * generic 500 rather than shipping a malformed envelope to the client.
  */
-function jsonResponse(status: number, body: Record<string, unknown>): Response {
+function jsonResponse(
+  status: number,
+  body: Record<string, unknown>,
+  corsHeaders: Record<string, string>,
+): Response {
   let validatedBody: BootstrapResponse;
   try {
     validatedBody = ResponseSchema.parse(body);
@@ -334,24 +332,28 @@ function jsonResponse(status: number, body: Record<string, unknown>): Response {
 function badRequest(
   code: string,
   message: string,
+  corsHeaders: Record<string, string>,
   details?: unknown,
 ): Response {
-  return jsonResponse(400, { success: false, code, message, details });
+  return jsonResponse(400, { success: false, code, message, details }, corsHeaders);
 }
 
 function serverError(
   code: string,
   message: string,
+  corsHeaders: Record<string, string>,
   details?: unknown,
 ): Response {
-  return jsonResponse(500, { success: false, code, message, details });
+  return jsonResponse(500, { success: false, code, message, details }, corsHeaders);
 }
 
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response(null, { status: 204, headers: getCorsHeaders(req) });
   }
+
+  const corsHeaders = getCorsHeaders(req);
 
   audit(null, { stage: "request_received", status: "started" });
 
@@ -360,7 +362,7 @@ Deno.serve(async (req: Request) => {
       success: false,
       code: "method_not_allowed",
       message: "POST only",
-    });
+    }, corsHeaders);
   }
 
   let raw: unknown;
@@ -373,7 +375,7 @@ Deno.serve(async (req: Request) => {
       error_code: "invalid_json",
       error_message: "Request body must be valid JSON.",
     });
-    return badRequest("invalid_json", "Request body must be valid JSON.");
+    return badRequest("invalid_json", "Request body must be valid JSON.", corsHeaders);
   }
 
   // ── Request contract validation (zod) ─────────────────────────────────────
@@ -406,7 +408,7 @@ Deno.serve(async (req: Request) => {
         success: false,
         code: "storage_path_scope_mismatch",
         message: "storage_path must be scoped to the supplied session_id.",
-      });
+      }, corsHeaders);
     }
     const reason = issue
       ? `${issue.path.join(".") || "(root)"}: ${issue.message}`
@@ -417,7 +419,7 @@ Deno.serve(async (req: Request) => {
       error_code: "invalid_payload",
       error_message: `Payload validation failed: ${reason}`,
     });
-    return badRequest("invalid_payload", `Payload validation failed: ${reason}`);
+    return badRequest("invalid_payload", `Payload validation failed: ${reason}`, corsHeaders);
   }
   const {
     session_id,
@@ -455,7 +457,7 @@ Deno.serve(async (req: Request) => {
       error_code: "server_misconfigured",
       error_message: "Service credentials missing.",
     });
-    return serverError("server_misconfigured", "Service credentials missing.");
+    return serverError("server_misconfigured", "Service credentials missing.", corsHeaders);
   }
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
@@ -485,7 +487,7 @@ Deno.serve(async (req: Request) => {
         success: false,
         code: "storage_object_missing",
         message: "Uploaded file was not found.",
-      });
+      }, corsHeaders);
     }
   } catch (e) {
     audit(admin, {
@@ -499,7 +501,7 @@ Deno.serve(async (req: Request) => {
       success: false,
       code: "storage_object_missing",
       message: "Uploaded file was not found.",
-    });
+    }, corsHeaders);
   }
 
   // Wrap the entire pipeline so any throw is captured as `unexpected_error`.
@@ -590,6 +592,7 @@ Deno.serve(async (req: Request) => {
         return serverError(
           "lead_create_failed",
           "Failed to initialize session.",
+          corsHeaders,
           {
             code: leadErr?.code ?? null,
             message: leadErr?.message ?? null,
@@ -672,6 +675,7 @@ Deno.serve(async (req: Request) => {
         return serverError(
           "quote_file_create_failed",
           "Failed to register your file.",
+          corsHeaders,
           {
             code: qfInsertErr?.code ?? null,
             message: qfInsertErr?.message ?? null,
@@ -772,6 +776,7 @@ Deno.serve(async (req: Request) => {
         return serverError(
           "scan_session_create_failed",
           "Failed to start scan session.",
+          corsHeaders,
           {
             code: ssInsertErr?.code ?? null,
             message: ssInsertErr?.message ?? null,
@@ -807,7 +812,7 @@ Deno.serve(async (req: Request) => {
       scan_session_id,
       quote_file_id,
       lead_id,
-    });
+    }, corsHeaders);
   } catch (e) {
     audit(admin, {
       stage: "unexpected_error",
@@ -815,6 +820,6 @@ Deno.serve(async (req: Request) => {
       session_id,
       error_message: String(e),
     });
-    return serverError("unexpected_error", "An unexpected error occurred.");
+    return serverError("unexpected_error", "An unexpected error occurred.", corsHeaders);
   }
 });
