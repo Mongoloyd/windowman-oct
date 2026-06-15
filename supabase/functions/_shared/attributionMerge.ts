@@ -287,12 +287,7 @@ export function promoteLeadScalarFields(
     if (isNonEmptyValue(referrer)) out.initial_referrer = referrer;
   }
 
-  if (!isNonEmptyValue(existingRow.intent)) {
-    const wmIntent = attribution.wm_intent;
-    if (wmIntent === "has_quote" || wmIntent === "no_quote") {
-      out.intent = wmIntent;
-    }
-  }
+  // wm_intent stays in attribution JSONB only — public.leads has no `intent` column.
 
   return out;
 }

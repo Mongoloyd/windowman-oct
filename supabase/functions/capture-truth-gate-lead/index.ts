@@ -59,7 +59,7 @@ const UUID_RE =
 const EMAIL_RE = /^\S+@\S+\.\S+$/;
 
 const LEAD_SCALAR_SELECT =
-  "attribution, query_params, client_slug, utm_source, utm_medium, utm_campaign, utm_term, utm_content, fbclid, gclid, fbc, fbp, ttclid, msclkid, wbraid, gbraid, landing_page_url, first_page_path, initial_referrer, intent";
+  "attribution, query_params, client_slug, utm_source, utm_medium, utm_campaign, utm_term, utm_content, fbclid, gclid, fbc, fbp, ttclid, msclkid, wbraid, gbraid, landing_page_url, first_page_path, initial_referrer";
 
 async function mergeExistingLeadAttribution(
   admin: SupabaseClient,

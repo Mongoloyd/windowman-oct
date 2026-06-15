@@ -69,6 +69,14 @@ Deno.test("promoteLeadScalarFields keeps nd_lead_id in attribution only", () => 
   assertEquals("nd_lead_id" in promoted, false);
 });
 
+Deno.test("promoteLeadScalarFields does not emit leads.intent column", () => {
+  const promoted = promoteLeadScalarFields({
+    wm_intent: "has_quote",
+    utm_source: "nextdoor",
+  });
+  assertEquals("intent" in promoted, false);
+});
+
 Deno.test("sanitizeAttributionInput never throws on malformed input", () => {
   assertEquals(sanitizeAttributionInput(null), {});
   assertEquals(sanitizeAttributionInput("bad"), {});
