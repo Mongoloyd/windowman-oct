@@ -59,6 +59,13 @@ vi.mock("sonner", () => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }));
 
+vi.mock("@/lib/useUtmCapture", () => ({
+  getAttributionPayload: vi.fn(() => ({
+    client_slug: "direct",
+    query_params: {},
+  })),
+}));
+
 // Stub framer-motion to avoid AnimatePresence height transitions in jsdom.
 // Preserve the underlying tag (motion.button → button, motion.div → div).
 vi.mock("framer-motion", () => {

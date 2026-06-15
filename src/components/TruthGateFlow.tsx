@@ -5,7 +5,7 @@ import { Check, Shield } from "lucide-react";
 import { useTickerStats } from "@/hooks/useTickerStats";
 import { supabase } from "@/integrations/supabase/client";
 import { useScanFunnelSafe } from "@/state/scanFunnel";
-import { captureUtmFromUrl, getUtmData, type WmIntent } from "@/lib/useUtmCapture";
+import { captureUtmFromUrl, getAttributionPayload, getUtmData, type WmIntent } from "@/lib/useUtmCapture";
 import { readLateFbCookies } from "@/lib/attribution/fbCookies";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -548,6 +548,13 @@ const TruthGateFlow = ({
           ? `${window.location.pathname}${window.location.search}`
           : null);
 
+      const attributionPayload = getAttributionPayload();
+      const queryParams =
+        (attributionPayload.query_params as Record<string, string | string[]>) ??
+        {};
+      const { query_params: _queryParams, ...attributionBody } =
+        attributionPayload;
+
       // Build the full intake payload as a named object for clean diagnostics.
       const leadInsertPayload = {
         session_id: sessionId,
@@ -574,6 +581,9 @@ const TruthGateFlow = ({
         landing_page_url: landingPageUrl,
         first_page_path: utm.landing_page,
         initial_referrer: typeof document !== "undefined" ? document.referrer || null : null,
+
+        attribution: attributionBody,
+        query_params: queryParams,
       };
 
       // Route through the dedicated edge function. This avoids the

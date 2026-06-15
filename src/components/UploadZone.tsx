@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import {
   buildDeterministicStoragePath,
 } from "@/components/uploadZone/storagePath";
+import { getAttributionPayload } from "@/lib/useUtmCapture";
 
 // Map real backend scan_sessions.status → user-facing progress percentage.
 // Percentages are tied to real lifecycle states only — no fake animation.
@@ -462,6 +463,18 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId }: Upload
       // three writes (leads / quote_files / scan_sessions) with the service
       // role and is idempotent on `storage_path`, so retries don't duplicate.
       const bootstrapSessionId = sessionId || sessionScope;
+      const attributionPayload = getAttributionPayload();
+      const queryParams =
+        (attributionPayload.query_params as Record<string, string | string[]>) ??
+        {};
+      const { query_params: _queryParams, ...attributionBody } =
+        attributionPayload;
+      const bootstrapClientSlug =
+        typeof attributionBody.client_slug === "string" &&
+        attributionBody.client_slug !== "direct"
+          ? attributionBody.client_slug
+          : null;
+
       const { data: bootstrapData, error: bootstrapError } =
         await supabase.functions.invoke("start-upload-scan-session", {
           body: {
@@ -470,6 +483,9 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId }: Upload
             file_name: file.name,
             file_size: file.size,
             file_type: file.type || null,
+            client_slug: bootstrapClientSlug,
+            attribution: attributionBody,
+            query_params: queryParams,
           },
         });
 

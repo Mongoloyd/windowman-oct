@@ -35,6 +35,14 @@ import {
   createClient,
   SupabaseClient,
 } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import {
+  hasAttributionPayload,
+  mergeAttribution,
+  mergeQueryParams,
+  promoteLeadScalarFields,
+  sanitizeAttributionInput,
+  sanitizeQueryParamsInput,
+} from "../_shared/attributionMerge.ts";
 
 const FUNCTION_NAME = "capture-truth-gate-lead";
 
@@ -49,6 +57,65 @@ const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const EMAIL_RE = /^\S+@\S+\.\S+$/;
+
+const LEAD_SCALAR_SELECT =
+  "attribution, query_params, client_slug, utm_source, utm_medium, utm_campaign, utm_term, utm_content, fbclid, gclid, fbc, fbp, ttclid, msclkid, wbraid, gbraid, landing_page_url, first_page_path, initial_referrer, intent";
+
+async function mergeExistingLeadAttribution(
+  admin: SupabaseClient,
+  leadId: string,
+  sanitizedAttribution: Record<string, unknown>,
+  sanitizedQueryParams: Record<string, string | string[]>,
+): Promise<void> {
+  if (!hasAttributionPayload(sanitizedAttribution, sanitizedQueryParams)) {
+    return;
+  }
+
+  const { data: existing, error } = await admin
+    .from("leads")
+    .select(LEAD_SCALAR_SELECT)
+    .eq("id", leadId)
+    .maybeSingle();
+
+  if (error) {
+    console.warn(`[${FUNCTION_NAME}] lead attribution fetch failed`, {
+      code: error.code,
+      message: error.message,
+    });
+    return;
+  }
+
+  const mergedAttribution = mergeAttribution(
+    existing?.attribution,
+    sanitizedAttribution,
+  );
+  const mergedQueryParams = mergeQueryParams(
+    existing?.query_params,
+    sanitizedQueryParams,
+  );
+  const promoted = promoteLeadScalarFields(
+    mergedAttribution,
+    (existing ?? {}) as Record<string, unknown>,
+  );
+
+  const updateRow: Record<string, unknown> = {
+    attribution: mergedAttribution,
+    query_params: mergedQueryParams,
+    ...promoted,
+  };
+
+  const { error: updateErr } = await admin
+    .from("leads")
+    .update(updateRow)
+    .eq("id", leadId);
+
+  if (updateErr) {
+    console.warn(`[${FUNCTION_NAME}] lead attribution merge failed`, {
+      code: updateErr.code,
+      message: updateErr.message,
+    });
+  }
+}
 
 interface CapturePayload {
   session_id: string;
@@ -76,6 +143,9 @@ interface CapturePayload {
   landing_page_url: string | null;
   first_page_path: string | null;
   initial_referrer: string | null;
+
+  attribution: Record<string, unknown>;
+  query_params: Record<string, string | string[]>;
 }
 
 type AuditStatus = "started" | "succeeded" | "failed" | "reused" | "skipped";
@@ -234,6 +304,9 @@ function parseAndValidate(input: unknown):
 
   const source = asRequiredString(b.source, 64) ?? "truth-gate";
 
+  const sanitizedAttribution = sanitizeAttributionInput(b.attribution);
+  const sanitizedQueryParams = sanitizeQueryParamsInput(b.query_params);
+
   const payload: CapturePayload = {
     session_id,
     first_name,
@@ -259,6 +332,9 @@ function parseAndValidate(input: unknown):
     landing_page_url: asNullableString(b.landing_page_url, 1000),
     first_page_path: asNullableString(b.first_page_path, 500),
     initial_referrer: asNullableString(b.initial_referrer, 1000),
+
+    attribution: sanitizedAttribution,
+    query_params: sanitizedQueryParams,
   };
 
   return { ok: true, payload };
@@ -373,6 +449,12 @@ Deno.serve(async (req) => {
       Array.isArray(existing) && existing.length > 0 && existing[0]?.id
     ) {
       const reusedLeadId = existing[0].id as string;
+      await mergeExistingLeadAttribution(
+        admin,
+        reusedLeadId,
+        parsed.payload.attribution,
+        parsed.payload.query_params,
+      );
       audit(admin, {
         stage: "lead_reused",
         status: "reused",
@@ -404,8 +486,50 @@ Deno.serve(async (req) => {
   }
 
   // Force OTP-gate-safe defaults — this path must never elevate a lead.
+  const promotedFromAttribution = promoteLeadScalarFields(
+    payload.attribution,
+    {
+      utm_source: payload.utm_source,
+      utm_medium: payload.utm_medium,
+      utm_campaign: payload.utm_campaign,
+      utm_term: payload.utm_term,
+      utm_content: payload.utm_content,
+      fbclid: payload.fbclid,
+      gclid: payload.gclid,
+      fbc: payload.fbc,
+      fbp: payload.fbp,
+      landing_page_url: payload.landing_page_url,
+      first_page_path: payload.first_page_path,
+      initial_referrer: payload.initial_referrer,
+      client_slug: payload.client_slug,
+    },
+  );
+
   const insertRow = {
     ...payload,
+    ...promotedFromAttribution,
+    utm_source: payload.utm_source ?? promotedFromAttribution.utm_source ?? null,
+    utm_medium: payload.utm_medium ?? promotedFromAttribution.utm_medium ?? null,
+    utm_campaign:
+      payload.utm_campaign ?? promotedFromAttribution.utm_campaign ?? null,
+    utm_term: payload.utm_term ?? promotedFromAttribution.utm_term ?? null,
+    utm_content:
+      payload.utm_content ?? promotedFromAttribution.utm_content ?? null,
+    fbclid: payload.fbclid ?? promotedFromAttribution.fbclid ?? null,
+    gclid: payload.gclid ?? promotedFromAttribution.gclid ?? null,
+    fbc: payload.fbc ?? promotedFromAttribution.fbc ?? null,
+    fbp: payload.fbp ?? promotedFromAttribution.fbp ?? null,
+    landing_page_url:
+      payload.landing_page_url ?? promotedFromAttribution.landing_page_url ??
+      null,
+    first_page_path:
+      payload.first_page_path ?? promotedFromAttribution.first_page_path ??
+      null,
+    initial_referrer:
+      payload.initial_referrer ?? promotedFromAttribution.initial_referrer ??
+      null,
+    client_slug:
+      payload.client_slug ?? promotedFromAttribution.client_slug ?? null,
     status: "new",
     phone_verified: false,
     phone_verified_at: null,

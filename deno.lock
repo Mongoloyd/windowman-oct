@@ -85,6 +85,7 @@
     "npm:vaul@~0.9.9": "0.9.9_react@18.3.1_react-dom@18.3.1__react@18.3.1_@types+react@18.3.28_@types+react-dom@18.3.7__@types+react@18.3.28",
     "npm:vite@^7.3.2": "7.3.3_@types+node@22.19.19",
     "npm:vitest@^4.1.0": "4.1.6_@types+node@22.19.19_jsdom@20.0.3_vite@7.3.3__@types+node@22.19.19",
+    "npm:zod@3.23.8": "3.23.8",
     "npm:zod@^3.25.76": "3.25.76",
     "npm:zustand@^5.0.12": "5.0.13_@types+react@18.3.28_react@18.3.1"
   },
@@ -4255,6 +4256,9 @@
     },
     "yocto-queue@0.1.0": {
       "integrity": "sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q=="
+    },
+    "zod@3.23.8": {
+      "integrity": "sha512-XBx9AXhXktjUqnepgTiE5flcKIYWi/rme0Eaj+5Y0lftuGBq+jyRu/md4WnuxqgP1ubdpNCsYEYPxrzVHD8d6g=="
     },
     "zod@3.25.76": {
       "integrity": "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="

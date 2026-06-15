@@ -46,6 +46,15 @@ import {
   ResponseSchema,
   type BootstrapResponse,
 } from "./contracts/schemas.ts";
+import {
+  hasAttributionPayload,
+  mergeAttribution,
+  mergeQueryParams,
+  promoteLeadScalarFields,
+  resolveUploadLeadSource,
+  sanitizeAttributionInput,
+  sanitizeQueryParamsInput,
+} from "../_shared/attributionMerge.ts";
 
 const FUNCTION_NAME = "start-upload-scan-session";
 
@@ -145,6 +154,149 @@ function audit(
 }
 
 const STORAGE_BUCKET = "quotes";
+
+const LEAD_SCALAR_SELECT =
+  "attribution, query_params, client_slug, utm_source, utm_medium, utm_campaign, utm_term, utm_content, fbclid, gclid, fbc, fbp, ttclid, msclkid, wbraid, gbraid, landing_page_url, first_page_path, initial_referrer, intent, source";
+
+function resolveEffectiveClientSlug(
+  requestClientSlug: string | null | undefined,
+  attribution: Record<string, unknown>,
+): string | null {
+  const fromRequest = requestClientSlug?.trim() || null;
+  if (fromRequest) return fromRequest;
+
+  const fromAttribution =
+    typeof attribution.client_slug === "string"
+      ? attribution.client_slug.trim()
+      : "";
+  if (fromAttribution && fromAttribution !== "direct") return fromAttribution;
+
+  return null;
+}
+
+async function mergeLeadAttribution(
+  admin: SupabaseClient,
+  leadId: string,
+  sanitizedAttribution: Record<string, unknown>,
+  sanitizedQueryParams: Record<string, string | string[]>,
+  effectiveClientSlug: string | null,
+): Promise<void> {
+  if (
+    !hasAttributionPayload(sanitizedAttribution, sanitizedQueryParams) &&
+    !effectiveClientSlug
+  ) {
+    return;
+  }
+
+  const { data: existing, error } = await admin
+    .from("leads")
+    .select(LEAD_SCALAR_SELECT)
+    .eq("id", leadId)
+    .maybeSingle();
+
+  if (error) {
+    console.warn(`[${FUNCTION_NAME}] lead attribution fetch failed`, {
+      code: error.code,
+      message: error.message,
+    });
+    return;
+  }
+
+  const mergedAttribution = mergeAttribution(
+    existing?.attribution,
+    sanitizedAttribution,
+  );
+  const mergedQueryParams = mergeQueryParams(
+    existing?.query_params,
+    sanitizedQueryParams,
+  );
+  const promoted = promoteLeadScalarFields(
+    mergedAttribution,
+    (existing ?? {}) as Record<string, unknown>,
+  );
+
+  const updateRow: Record<string, unknown> = {
+    attribution: mergedAttribution,
+    query_params: mergedQueryParams,
+    ...promoted,
+  };
+
+  if (!existing?.client_slug && effectiveClientSlug) {
+    updateRow.client_slug = effectiveClientSlug;
+  }
+
+  if (
+    existing?.source === "direct_upload" &&
+    resolveUploadLeadSource(mergedAttribution) === "paid_upload"
+  ) {
+    updateRow.source = "paid_upload";
+  }
+
+  const { error: updateErr } = await admin
+    .from("leads")
+    .update(updateRow)
+    .eq("id", leadId);
+
+  if (updateErr) {
+    console.warn(`[${FUNCTION_NAME}] lead attribution merge failed`, {
+      code: updateErr.code,
+      message: updateErr.message,
+    });
+  }
+}
+
+async function mergeScanSessionAttribution(
+  admin: SupabaseClient,
+  scanSessionId: string,
+  sanitizedAttribution: Record<string, unknown>,
+  sanitizedQueryParams: Record<string, string | string[]>,
+  effectiveClientSlug: string | null,
+): Promise<void> {
+  if (
+    !hasAttributionPayload(sanitizedAttribution, sanitizedQueryParams) &&
+    !effectiveClientSlug
+  ) {
+    return;
+  }
+
+  const { data: existing, error } = await admin
+    .from("scan_sessions")
+    .select("attribution, query_params, client_slug")
+    .eq("id", scanSessionId)
+    .maybeSingle();
+
+  if (error) {
+    console.warn(`[${FUNCTION_NAME}] scan_session attribution fetch failed`, {
+      code: error.code,
+      message: error.message,
+    });
+    return;
+  }
+
+  const updateRow: Record<string, unknown> = {
+    attribution: mergeAttribution(existing?.attribution, sanitizedAttribution),
+    query_params: mergeQueryParams(
+      existing?.query_params,
+      sanitizedQueryParams,
+    ),
+  };
+
+  if (!existing?.client_slug && effectiveClientSlug) {
+    updateRow.client_slug = effectiveClientSlug;
+  }
+
+  const { error: updateErr } = await admin
+    .from("scan_sessions")
+    .update(updateRow)
+    .eq("id", scanSessionId);
+
+  if (updateErr) {
+    console.warn(`[${FUNCTION_NAME}] scan_session attribution merge failed`, {
+      code: updateErr.code,
+      message: updateErr.message,
+    });
+  }
+}
 
 
 /**
@@ -267,12 +419,31 @@ Deno.serve(async (req: Request) => {
     });
     return badRequest("invalid_payload", `Payload validation failed: ${reason}`);
   }
-  const { session_id, storage_path, file_name, file_size, file_type } = {
+  const {
+    session_id,
+    storage_path,
+    file_name,
+    file_size,
+    file_type,
+    client_slug,
+    attribution: rawAttribution,
+    query_params: rawQueryParams,
+  } = {
     file_name: null as string | null,
     file_size: null as number | null,
     file_type: null as string | null,
+    client_slug: null as string | null,
+    attribution: null as Record<string, unknown> | null,
+    query_params: undefined as Record<string, string | string[]> | undefined,
     ...parsed.data,
   };
+
+  const sanitizedAttribution = sanitizeAttributionInput(rawAttribution);
+  const sanitizedQueryParams = sanitizeQueryParamsInput(rawQueryParams);
+  const effectiveClientSlug = resolveEffectiveClientSlug(
+    client_slug,
+    sanitizedAttribution,
+  );
 
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
   const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -379,17 +550,32 @@ Deno.serve(async (req: Request) => {
         session_id,
         lead_id,
       });
+      await mergeLeadAttribution(
+        admin,
+        lead_id,
+        sanitizedAttribution,
+        sanitizedQueryParams,
+        effectiveClientSlug,
+      );
     } else {
-      // Mirror the previous browser-fallback insert: minimal lead, safe defaults.
+      const insertRow: Record<string, unknown> = {
+        session_id,
+        source: resolveUploadLeadSource(sanitizedAttribution),
+        status: "new",
+        phone_verified: false,
+        otp_failure_count: 0,
+        attribution: mergeAttribution({}, sanitizedAttribution),
+        query_params: mergeQueryParams({}, sanitizedQueryParams),
+        ...promoteLeadScalarFields(sanitizedAttribution),
+      };
+
+      if (effectiveClientSlug) {
+        insertRow.client_slug = effectiveClientSlug;
+      }
+
       const { data: newLead, error: leadErr } = await admin
         .from("leads")
-        .insert({
-          session_id,
-          source: "direct_upload",
-          status: "new",
-          phone_verified: false,
-          otp_failure_count: 0,
-        })
+        .insert(insertRow)
         .select("id")
         .single();
 
@@ -545,15 +731,30 @@ Deno.serve(async (req: Request) => {
         quote_file_id,
         scan_session_id,
       });
+      await mergeScanSessionAttribution(
+        admin,
+        scan_session_id,
+        sanitizedAttribution,
+        sanitizedQueryParams,
+        effectiveClientSlug,
+      );
     } else {
+      const scanInsertRow: Record<string, unknown> = {
+        status: "uploading",
+        lead_id,
+        quote_file_id,
+        user_id: null,
+        attribution: mergeAttribution({}, sanitizedAttribution),
+        query_params: mergeQueryParams({}, sanitizedQueryParams),
+      };
+
+      if (effectiveClientSlug) {
+        scanInsertRow.client_slug = effectiveClientSlug;
+      }
+
       const { data: newSession, error: ssInsertErr } = await admin
         .from("scan_sessions")
-        .insert({
-          status: "uploading",
-          lead_id,
-          quote_file_id,
-          user_id: null,
-        })
+        .insert(scanInsertRow)
         .select("id")
         .single();
 

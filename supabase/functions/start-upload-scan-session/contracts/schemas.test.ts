@@ -178,6 +178,41 @@ Deno.test("rejects unknown property via .strict()", () => {
   assert(!r.success);
 });
 
+Deno.test("accepts optional attribution and query_params", () => {
+  const r = RequestSchema.safeParse(
+    validBody({
+      client_slug: "nextdoor",
+      attribution: {
+        ndclid: "abc123",
+        wm_intent: "has_quote",
+        nd_lead_id: "lead_789",
+      },
+      query_params: {
+        ndclid: "abc123",
+        wm_intent: "has_quote",
+      },
+    }),
+  );
+  assert(r.success, JSON.stringify(r));
+});
+
+Deno.test("legacy minimal body still parses after attribution fields added", () => {
+  const r = RequestSchema.safeParse(validBody());
+  assert(r.success, JSON.stringify(r));
+});
+
+Deno.test("rejects unknown nested attribution keys via strict attribution schema", () => {
+  const r = RequestSchema.safeParse(
+    validBody({
+      attribution: {
+        ndclid: "abc123",
+        email: "secret@example.com",
+      },
+    }),
+  );
+  assert(!r.success);
+});
+
 Deno.test("rejects array body", () => {
   const r = RequestSchema.safeParse([] as unknown);
   assert(!r.success);

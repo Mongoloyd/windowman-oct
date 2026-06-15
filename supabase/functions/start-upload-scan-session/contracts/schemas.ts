@@ -28,6 +28,50 @@ const StoragePathString = z
 const FileName = z.string().min(1).max(512).nullish();
 const FileSize = z.number().int().nonnegative().nullish();
 const FileType = z.string().max(128).nullish();
+const ClientSlug = z.string().min(1).max(100).nullish();
+
+const WmIntent = z.enum(["has_quote", "no_quote", "unknown"]);
+
+export const AttributionPayloadSchema = z
+  .object({
+    utm_source: z.string().max(255).nullish(),
+    utm_medium: z.string().max(255).nullish(),
+    utm_campaign: z.string().max(255).nullish(),
+    utm_term: z.string().max(255).nullish(),
+    utm_content: z.string().max(255).nullish(),
+    ndclid: z.string().max(500).nullish(),
+    wm_intent: WmIntent.nullish(),
+    nd_lead_id: z.string().max(500).nullish(),
+    nd_form_id: z.string().max(500).nullish(),
+    nd_ad_id: z.string().max(500).nullish(),
+    nd_ad_group_id: z.string().max(500).nullish(),
+    nd_campaign_id: z.string().max(500).nullish(),
+    ttclid: z.string().max(500).nullish(),
+    fbclid: z.string().max(500).nullish(),
+    gclid: z.string().max(500).nullish(),
+    wbraid: z.string().max(500).nullish(),
+    gbraid: z.string().max(500).nullish(),
+    msclkid: z.string().max(500).nullish(),
+    fbc: z.string().max(500).nullish(),
+    fbp: z.string().max(500).nullish(),
+    ttp: z.string().max(500).nullish(),
+    client_slug: z.string().max(100).nullish(),
+    landing_page: z.string().max(500).nullish(),
+    landing_page_url: z.string().max(1000).nullish(),
+    raw_query_string: z.string().max(2000).nullish(),
+    referrer: z.string().max(1000).nullish(),
+    captured_at: z.number().int().nonnegative().nullish(),
+  })
+  .strict();
+
+export const QueryParamsSchema = z
+  .record(
+    z.union([
+      z.string().max(500),
+      z.array(z.string().max(500)).max(10),
+    ]),
+  )
+  .optional();
 
 // ── Request ────────────────────────────────────────────────────────────────
 export const RequestSchema = z
@@ -37,6 +81,9 @@ export const RequestSchema = z
     file_name: FileName,
     file_size: FileSize,
     file_type: FileType,
+    client_slug: ClientSlug,
+    attribution: AttributionPayloadSchema.nullish(),
+    query_params: QueryParamsSchema,
   })
   .strict()
   .superRefine((val, ctx) => {
