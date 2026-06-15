@@ -60,6 +60,8 @@ Do not run or recommend destructive commands without explicit approval:
 - destructive migration
 - production deploy
 
+Live Forensic V2 Edge Function deploys must be routed through the human-operated `scripts/deploy-functions-forensic-v2-live.ps1` wrapper only; agents must never run raw Supabase deploy or mutation commands. Defer to `.cursor/rules/deployment-env.mdc` for full deployment policy.
+
 Do not commit unless explicitly asked.
 
 ## 4. Dependency Safety

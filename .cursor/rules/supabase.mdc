@@ -318,7 +318,9 @@ Before editing, inspect:
 
 Rules:
 
-- Do not deploy unless explicitly instructed.
+- Do not deploy Edge Functions. Even when explicitly instructed to deploy, agents must not execute Supabase deploy commands. For live/Forensic V2 Edge Function deployment, instruct the human operator to run the secured deployment wrapper.
+- Do not run or suggest `supabase functions deploy` or `npx supabase functions deploy` for any function or ref.
+- Agents must not execute `scripts/deploy-functions-forensic-v2-live.ps1`; the human operator runs it manually.
 - Separate local code changes from deployment.
 - Validate input server-side.
 - Validate auth/session server-side.
@@ -330,9 +332,18 @@ Rules:
 - Handle CORS deliberately.
 - Distinguish user errors from internal errors.
 
-Deployment requires explicit user instruction.
+For live/Forensic V2 Edge Function deployment, defer to `.cursor/rules/deployment-env.mdc` → `## Deployment & DevOps Guardrails`.
 
-Do not run or suggest `supabase functions deploy` as part of a code-only task unless the user explicitly asked for deployment.
+Agents must not run raw Supabase deployment commands, even when deployment is explicitly requested.
+
+The only approved live/Forensic V2 deploy path is the human-operated wrapper:
+
+```powershell
+$env:SUPABASE_PROJECT_REF = "zgsofkgddpcntdvpckdq"
+powershell -ExecutionPolicy Bypass -File .\scripts\deploy-functions-forensic-v2-live.ps1
+```
+
+Agents must not execute this wrapper. The human operator runs it manually with confirmation phrase `DEPLOY_FORENSIC_V2_LIVE_FUNCTIONS`.
 
 ---
 
@@ -540,7 +551,7 @@ Never:
 - patch backend authority failures in UI only
 - hand-wave missing RLS policies
 - create destructive migrations without explicit warning
-- deploy Edge Functions without explicit instruction
+- run raw Supabase deployment or mutation commands; for live/Forensic V2 Edge Function deployment, only the human operator may run `scripts/deploy-functions-forensic-v2-live.ps1`
 - change RPC signatures without checking consumers
 - use `any` to hide stale generated types
 - treat unauthorized, missing, and empty states as the same
