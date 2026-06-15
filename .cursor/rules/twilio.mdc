@@ -427,5 +427,3 @@ Never:
 - restore or add direct browser `supabase.rpc("get_analysis_full")` or `supabase.rpc("get_analysis_preview")` on production paths
 
 When uncertain, stop and inspect.
-
-This one should stay Apply Intelligently, same as Supabase.
