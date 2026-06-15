@@ -252,6 +252,41 @@ function asNullableInt(v: unknown): number | null {
   return null;
 }
 
+function getNormalizedIntent(
+  attribution: Record<string, unknown> | null | undefined,
+  queryParams: Record<string, string | string[]> | null | undefined,
+): string | null {
+  const raw =
+    typeof attribution?.wm_intent === "string"
+      ? attribution.wm_intent
+      : typeof queryParams?.wm_intent === "string"
+        ? queryParams.wm_intent
+        : Array.isArray(queryParams?.wm_intent) &&
+            typeof queryParams.wm_intent[0] === "string"
+          ? queryParams.wm_intent[0]
+          : null;
+
+  return raw?.trim().toLowerCase().replace(/-/g, "_") || null;
+}
+
+/**
+ * Paid no_quote leads must complete organic quiz UI steps to reach the form.
+ * Nullify project-scope quiz scalars before insert so CPL/ROI reporting is not
+ * polluted by dummy answers. County is preserved (geo/routing). Attribution and
+ * query_params (including wm_intent) are untouched.
+ */
+function scrubNoQuoteOrganicFields(payload: CapturePayload): void {
+  const normalizedIntent = getNormalizedIntent(
+    payload.attribution,
+    payload.query_params,
+  );
+  if (normalizedIntent !== "no_quote") return;
+
+  payload.window_count = null;
+  payload.project_type = null;
+  payload.quote_range = null;
+}
+
 function parseAndValidate(input: unknown):
   | { ok: true; payload: CapturePayload }
   | { ok: false; code: string; message: string; details?: unknown } {
@@ -398,6 +433,7 @@ Deno.serve(async (req) => {
   }
 
   const { payload } = parsed;
+  scrubNoQuoteOrganicFields(payload);
 
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
   const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
