@@ -80,7 +80,9 @@ type ActionName =
   // Sprint 1D — Partner outcome rollup (read-only admin bridge)
   | "fetch_partner_outcome_rollup"
   // PREP-2B — dispatch attribution freshness (aggregate-only)
-  | "get_attribution_freshness";
+  | "get_attribution_freshness"
+  // Nextdoor CAPI lane — read-only dispatch log aggregates
+  | "get_nextdoor_dispatch_lane_status";
 
 const ACTION_ROLES: Record<ActionName, AppRole[]> = {
   fetch_leads: ["super_admin", "operator", "viewer"],
@@ -144,6 +146,8 @@ const ACTION_ROLES: Record<ActionName, AppRole[]> = {
   fetch_partner_outcome_rollup: ["super_admin", "operator", "viewer"],
   // PREP-2B — dispatch attribution freshness (read-only)
   get_attribution_freshness: ["super_admin", "operator", "viewer"],
+  // Nextdoor lane visibility (read-only)
+  get_nextdoor_dispatch_lane_status: ["super_admin", "operator", "viewer"],
 };
 
 // Allowed funnel stages (Sprint 5 — kept in sync with frontend constants)
@@ -460,6 +464,138 @@ Deno.serve(async (req) => {
           withFbc,
           withEither,
           mostRecentLeadAt: mostRecentLeadRow?.created_at ?? null,
+        },
+      });
+    }
+
+    if (action === "get_nextdoor_dispatch_lane_status") {
+      const zeroCounts = {
+        pending: 0,
+        processing: 0,
+        sent: 0,
+        failed: 0,
+        failedWithRetryScheduled: 0,
+        suppressed: 0,
+        deadLetter: 0,
+        blocked: 0,
+        dispatched: 0,
+        total: 0,
+      };
+
+      const degraded = (reason: string) =>
+        successResponse({
+          data: {
+            available: false,
+            reason,
+            counts: zeroCounts,
+            topSuppressionReasons: [] as Array<{ reason: string; count: number }>,
+            lastProviderStatus: null,
+            lastAttemptAt: null,
+          },
+        });
+
+      const { data, error } = await supabaseAdmin
+        .from("wm_platform_dispatch_log")
+        .select(
+          "dispatch_status, error_message, provider_response_code, provider_response_body, last_attempt_at, next_attempt_at",
+        )
+        .eq("platform_name", "nextdoor")
+        .order("last_attempt_at", { ascending: false, nullsFirst: false })
+        .limit(500);
+
+      if (error) {
+        const message = (error.message ?? "").toLowerCase();
+        const code = (error.code ?? "").toLowerCase();
+        if (
+          code === "22p02" ||
+          message.includes("invalid input value for enum") ||
+          message.includes("wm_platform_name")
+        ) {
+          return degraded("nextdoor_enum_not_applied");
+        }
+        console.error("[admin-data] get_nextdoor_dispatch_lane_status query failed", {
+          code: error.code,
+          message: error.message,
+        });
+        return degraded("dispatch_lane_query_failed");
+      }
+
+      const rows = data ?? [];
+      const counts = { ...zeroCounts };
+      const reasonCounts = new Map<string, number>();
+      let lastAttemptAt: string | null = null;
+      let lastProviderStatus: { providerStatus: string | null; reason: string | null } | null = null;
+
+      for (const row of rows) {
+        counts.total += 1;
+        const status = String(row.dispatch_status ?? "").trim();
+
+        if (status === "pending") counts.pending += 1;
+        else if (status === "processing") counts.processing += 1;
+        else if (status === "sent") counts.sent += 1;
+        else if (status === "failed") {
+          counts.failed += 1;
+          if (row.next_attempt_at) counts.failedWithRetryScheduled += 1;
+        } else if (status === "suppressed") counts.suppressed += 1;
+        else if (status === "dead_letter") counts.deadLetter += 1;
+        else if (status === "blocked") counts.blocked += 1;
+        else if (status === "dispatched") counts.dispatched += 1;
+
+        if (["suppressed", "failed", "dead_letter", "blocked"].includes(status)) {
+          const directReason = typeof row.error_message === "string"
+            ? row.error_message.trim().slice(0, 120)
+            : "";
+          let bodyReason = "";
+          const body = row.provider_response_body;
+          if (body && typeof body === "object" && !Array.isArray(body)) {
+            const reason = (body as Record<string, unknown>).reason;
+            if (typeof reason === "string" && reason.trim()) {
+              bodyReason = reason.trim().slice(0, 120);
+            }
+          }
+          const reason = directReason || bodyReason;
+          if (reason) {
+            reasonCounts.set(reason, (reasonCounts.get(reason) ?? 0) + 1);
+          }
+        }
+
+        const attemptAt = row.last_attempt_at ?? null;
+        if (
+          attemptAt &&
+          (!lastAttemptAt || new Date(attemptAt).getTime() > new Date(lastAttemptAt).getTime())
+        ) {
+          lastAttemptAt = attemptAt;
+          let bodyReason: string | null = null;
+          const body = row.provider_response_body;
+          if (body && typeof body === "object" && !Array.isArray(body)) {
+            const reason = (body as Record<string, unknown>).reason;
+            if (typeof reason === "string" && reason.trim()) {
+              bodyReason = reason.trim().slice(0, 120);
+            }
+          }
+          lastProviderStatus = {
+            providerStatus: typeof row.provider_response_code === "string"
+              ? row.provider_response_code.trim()
+              : null,
+            reason: typeof row.error_message === "string"
+              ? row.error_message.trim().slice(0, 120) || bodyReason
+              : bodyReason,
+          };
+        }
+      }
+
+      const topSuppressionReasons = [...reasonCounts.entries()]
+        .map(([reason, count]) => ({ reason, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 8);
+
+      return successResponse({
+        data: {
+          available: true,
+          counts,
+          topSuppressionReasons,
+          lastProviderStatus,
+          lastAttemptAt,
         },
       });
     }

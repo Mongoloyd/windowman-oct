@@ -103,6 +103,7 @@ export interface WMCanonicalEvent {
   identityQuality: WMIdentityQuality;
   shouldSendMeta: boolean;
   shouldSendGoogle: boolean;
+  shouldSendNextdoor: boolean;
   payload: WMCanonicalEventPayload;
   rawPayload?: Record<string, unknown>;
 }

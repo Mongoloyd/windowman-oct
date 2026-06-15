@@ -6,7 +6,8 @@ export type PlatformName =
   | "gtm_server"
   | "crm_webhook"
   | "internal"
-  | "other";
+  | "other"
+  | "nextdoor";
 
 type PlatformField =
   | "token_present"
@@ -37,6 +38,12 @@ export const PLATFORM_READINESS_MATRIX: Record<
 > = {
   meta: {
     platform: "meta",
+    tokenRequired: true,
+    destinationMode: "any",
+    destinationFields: ["pixel_id_present", "dataset_id_present"],
+  },
+  nextdoor: {
+    platform: "nextdoor",
     tokenRequired: true,
     destinationMode: "any",
     destinationFields: ["pixel_id_present", "dataset_id_present"],

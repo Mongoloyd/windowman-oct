@@ -104,6 +104,7 @@ export const wmCanonicalEventSchema = z.object({
   identityQuality: wmIdentityQualitySchema,
   shouldSendMeta: z.boolean(),
   shouldSendGoogle: z.boolean(),
+  shouldSendNextdoor: z.boolean(),
   payload: wmCanonicalEventPayloadSchema,
   rawPayload: z.record(z.unknown()).optional(),
 });

@@ -1,5 +1,9 @@
 import { WM_QUOTE_TRUST_MIN_FOR_DISPATCH } from "./constants.ts";
 import {
+  isDenoNextdoorCapiEnabled,
+  resolveShouldSendNextdoor,
+} from "./nextdoorDispatchEligibility.ts";
+import {
   computeIdentityQuality,
   normalizeAndHashIdentity,
 } from "./identity.ts";
@@ -276,6 +280,13 @@ export async function createCanonicalEvent(
   const shouldSendMeta = identityQuality !== "low" &&
     identityQuality !== "unknown" && quoteSafe;
   const shouldSendGoogle = quoteSafe;
+  const shouldSendNextdoor = resolveShouldSendNextdoor({
+    envEnabled: isDenoNextdoorCapiEnabled(),
+    eventName: input.eventName,
+    identityQuality,
+    quoteSafe,
+    payload: basePayload,
+  });
 
   const optimization = buildOptimizationPayload({
     eventName: input.eventName,
@@ -299,6 +310,7 @@ export async function createCanonicalEvent(
     identityQuality,
     shouldSendMeta,
     shouldSendGoogle,
+    shouldSendNextdoor,
     dispatchStatus,
     payload: {
       ...basePayload,
@@ -442,6 +454,7 @@ export async function createCanonicalEvent(
   if (eventLogId) {
     if (canonicalEvent.shouldSendMeta) dispatchPlatforms.push("meta");
     if (canonicalEvent.shouldSendGoogle) dispatchPlatforms.push("google_ads");
+    if (canonicalEvent.shouldSendNextdoor) dispatchPlatforms.push("nextdoor");
 
     if (dispatchPlatforms.length > 0) {
       const rows = dispatchPlatforms.map((platform) => ({

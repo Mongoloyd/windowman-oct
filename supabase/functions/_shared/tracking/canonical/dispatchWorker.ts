@@ -1,5 +1,6 @@
 import { mapToGoogle } from "./mapToGoogle.ts";
 import { mapToMeta } from "./mapToMeta.ts";
+import { mapToNextdoor } from "./mapToNextdoor.ts";
 import {
   classifyRouteOwnership,
   resolveVerifiedClientSlug,
@@ -76,8 +77,15 @@ interface WorkerDeps {
   db: DBLike;
   now?: () => Date;
   metaEventSourceUrl: string;
+  nextdoorEventSourceUrl?: string;
   sendToMeta: (payload: Record<string, unknown>) => Promise<VendorSendResult>;
   sendToGoogle: (payload: Record<string, unknown>) => Promise<VendorSendResult>;
+  sendToNextdoor?: (request: {
+    payload: Record<string, unknown>;
+    clientSlug: string;
+    verifiedClientSlug?: string;
+    eventId: string;
+  }) => Promise<VendorSendResult>;
   batchSize?: number;
 }
 
@@ -93,9 +101,50 @@ function toCanonicalEvent(row: DispatchRowWithEvent): WMCanonicalEvent {
     identityQuality: row.event_identity_quality,
     shouldSendMeta: row.should_send_meta,
     shouldSendGoogle: row.should_send_google,
+    shouldSendNextdoor: false,
     payload: row.event_payload,
     rawPayload: row.event_raw_payload,
   };
+}
+
+/**
+ * Resolve Nextdoor action_source_url from event context before env fallback.
+ * Future shouldSendNextdoor enablement must key off attribution signals
+ * (utm_source, ndclid, nd_lead_id), not landing path === "/nextdoor".
+ */
+export function resolveNextdoorActionSourceUrl(
+  canonical: WMCanonicalEvent,
+  fallbackUrl?: string,
+): string | null {
+  const metadata = canonical.payload.metadata ?? {};
+  const source = canonical.payload.source ?? {};
+  const journey = canonical.payload.journey;
+
+  const pick = (value: unknown): string | null => {
+    if (typeof value !== "string") return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  };
+
+  const current =
+    pick(metadata.current_page_url) ??
+    pick((source as Record<string, unknown>).current_page_url);
+  if (current) return current;
+
+  const landing =
+    pick(metadata.landing_page_url) ??
+    pick((source as Record<string, unknown>).landing_page_url);
+  if (landing) return landing;
+
+  const journeyRoute = pick(journey?.route);
+  if (
+    journeyRoute &&
+    (journeyRoute.startsWith("http://") || journeyRoute.startsWith("https://"))
+  ) {
+    return journeyRoute;
+  }
+
+  return pick(fallbackUrl);
 }
 
 function getRetryDelayMs(attemptCount: number): number | null {
@@ -338,6 +387,52 @@ export async function runDispatchWorker(deps: WorkerDeps): Promise<{ processed: 
         suppressedReason = mapped.reason ?? "google_suppressed";
       } else {
         sendResult = await deps.sendToGoogle(mapped.payload as Record<string, unknown>);
+      }
+    } else if (row.platform_name === "nextdoor") {
+      if (!deps.sendToNextdoor) {
+        suppressedReason = "nextdoor_sender_not_configured";
+      } else {
+        const actionSourceUrl = resolveNextdoorActionSourceUrl(
+          canonical,
+          deps.nextdoorEventSourceUrl,
+        );
+        if (!actionSourceUrl) {
+          suppressedReason = "nextdoor_missing_action_source_url";
+        } else {
+          const resolution = await resolveVerifiedClientSlug(deps.db, {
+            eventLogId: row.event_log_id,
+            eventClientSlug: row.event_client_slug,
+            eventLeadId: row.event_lead_id,
+            eventScanSessionId: row.event_scan_session_id,
+            eventAnalysisId: row.event_analysis_id,
+            eventQuoteFileId: row.event_quote_file_id,
+          });
+
+          if (!resolution.slug) {
+            suppressedReason = "nextdoor_missing_client_slug";
+          } else {
+            const nextdoorCanonical = {
+              ...canonical,
+              shouldSendNextdoor: true,
+            };
+            const mapped = mapToNextdoor(
+              nextdoorCanonical,
+              actionSourceUrl,
+              "server_resolved_by_nextdoor_capi_event",
+            );
+
+            if (mapped.suppressed || !mapped.payload) {
+              suppressedReason = mapped.reason ?? "nextdoor_suppressed";
+            } else {
+              sendResult = await deps.sendToNextdoor({
+                payload: mapped.payload as Record<string, unknown>,
+                clientSlug: resolution.slug,
+                verifiedClientSlug: resolution.slug,
+                eventId: canonical.eventId,
+              });
+            }
+          }
+        }
       }
     } else {
       suppressedReason = `unsupported_platform:${row.platform_name}`;

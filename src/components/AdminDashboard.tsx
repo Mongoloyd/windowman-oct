@@ -61,6 +61,7 @@ import { DispatchDryRunQueue } from "@/components/admin/DispatchDryRunQueue";
 import { DispatchOutboxControl } from "@/components/admin/DispatchOutboxControl";
 import { DispatchAttemptReconciliation } from "@/components/admin/DispatchAttemptReconciliation";
 import { DispatchGovernanceConsole } from "@/components/admin/DispatchGovernanceConsole";
+import { NextdoorReadinessPanel } from "@/components/admin/NextdoorReadinessPanel";
 import { LeadAssignmentBoard } from "@/components/admin/LeadAssignmentBoard";
 import { ContractorOutcomeInspector } from "@/components/admin/ContractorOutcomeInspector";
 import { SyndicateHealthDashboard } from "@/components/admin/SyndicateHealthDashboard";
@@ -496,7 +497,8 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
             <DispatchAttemptReconciliation />
           </TabsContent>
 
-          <TabsContent value="dispatch-governance" className="w-full px-2 sm:px-6 pt-4">
+          <TabsContent value="dispatch-governance" className="w-full px-2 sm:px-6 pt-4 space-y-6">
+            <NextdoorReadinessPanel />
             <DispatchGovernanceConsole />
           </TabsContent>
 

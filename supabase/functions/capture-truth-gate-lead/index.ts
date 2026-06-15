@@ -44,8 +44,12 @@ import {
   sanitizeQueryParamsInput,
 } from "../_shared/attributionMerge.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { persistCanonicalEvent } from "../_shared/tracking/canonicalBridge.ts";
 
 const FUNCTION_NAME = "capture-truth-gate-lead";
+
+const CANONICAL_LEAD_CAPTURED_ENABLED =
+  Deno.env.get("CANONICAL_LEAD_CAPTURED_ENABLED") === "true";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -108,6 +112,143 @@ async function mergeExistingLeadAttribution(
       code: updateErr.code,
       message: updateErr.message,
     });
+  }
+}
+
+interface LeadCapturedCanonicalParams {
+  leadId: string;
+  sessionId: string;
+  email: string;
+  phoneE164: string | null;
+  clientSlug: string | null;
+  landingPageUrl: string | null;
+  firstPagePath: string | null;
+  utmSource: string | null;
+  utmMedium: string | null;
+  utmCampaign: string | null;
+  utmContent: string | null;
+  utmTerm: string | null;
+  source: string;
+  attribution: Record<string, unknown>;
+}
+
+function pickAttributionString(
+  attribution: Record<string, unknown>,
+  key: string,
+  maxLen = 500,
+): string | undefined {
+  const val = attribution[key];
+  if (typeof val !== "string") return undefined;
+  const trimmed = val.trim();
+  return trimmed ? trimmed.slice(0, maxLen) : undefined;
+}
+
+function buildLeadCapturedAttributionMetadata(
+  params: LeadCapturedCanonicalParams,
+): Record<string, unknown> {
+  const attr = params.attribution;
+
+  return {
+    intake_source: params.source,
+    utm_source: params.utmSource ?? pickAttributionString(attr, "utm_source", 255),
+    utm_medium: params.utmMedium ?? pickAttributionString(attr, "utm_medium", 255),
+    utm_campaign: params.utmCampaign ?? pickAttributionString(attr, "utm_campaign", 255),
+    utm_content: params.utmContent ?? pickAttributionString(attr, "utm_content", 255),
+    utm_term: params.utmTerm ?? pickAttributionString(attr, "utm_term", 255),
+    wm_intent: pickAttributionString(attr, "wm_intent", 32),
+    ndclid: pickAttributionString(attr, "ndclid"),
+    nd_lead_id: pickAttributionString(attr, "nd_lead_id"),
+    nd_form_id: pickAttributionString(attr, "nd_form_id"),
+    nd_ad_id: pickAttributionString(attr, "nd_ad_id"),
+    nd_ad_group_id: pickAttributionString(attr, "nd_ad_group_id"),
+    nd_campaign_id: pickAttributionString(attr, "nd_campaign_id"),
+    landing_page_url:
+      params.landingPageUrl ?? pickAttributionString(attr, "landing_page_url", 1000),
+    current_page_url: pickAttributionString(attr, "current_page_url", 1000),
+    landing_path: params.firstPagePath ?? pickAttributionString(attr, "landing_page", 500),
+    referrer: pickAttributionString(attr, "referrer", 1000),
+    has_phone: !!params.phoneE164,
+  };
+}
+
+/**
+ * Preserve site-wide attribution fields not yet in attributionMerge allowlist.
+ */
+function preserveSiteWideAttributionFields(
+  sanitized: Record<string, unknown>,
+  raw: unknown,
+): Record<string, unknown> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return sanitized;
+  }
+
+  const src = raw as Record<string, unknown>;
+  const out = { ...sanitized };
+
+  const currentPageUrl = asNullableString(src.current_page_url, 1000);
+  if (currentPageUrl) out.current_page_url = currentPageUrl;
+
+  if (typeof src.first_touch_at === "number" && Number.isFinite(src.first_touch_at)) {
+    out.first_touch_at = Math.trunc(src.first_touch_at);
+  }
+  if (typeof src.latest_touch_at === "number" && Number.isFinite(src.latest_touch_at)) {
+    out.latest_touch_at = Math.trunc(src.latest_touch_at);
+  }
+
+  return out;
+}
+
+/**
+ * Fail-closed canonical lead_captured scaffold. No-op while
+ * CANONICAL_LEAD_CAPTURED_ENABLED is false. Non-fatal when enabled later.
+ */
+async function maybePersistLeadCapturedCanonical(
+  admin: SupabaseClient,
+  params: LeadCapturedCanonicalParams,
+): Promise<void> {
+  if (!CANONICAL_LEAD_CAPTURED_ENABLED) {
+    return;
+  }
+
+  const journeyRoute = params.firstPagePath ?? params.landingPageUrl ?? "/";
+
+  try {
+    await persistCanonicalEvent(admin, {
+      eventId:
+        `wmc_lead_captured_lead-${params.leadId}_session-${params.sessionId}`,
+      eventName: "lead_captured",
+      leadId: params.leadId,
+      clientSlug: params.clientSlug ?? undefined,
+      payload: {
+        identity: {
+          leadId: params.leadId,
+          email: params.email,
+          phone: params.phoneE164 ?? undefined,
+        },
+        journey: {
+          route: journeyRoute,
+          flow: "public",
+          sessionId: params.sessionId,
+        },
+        source: {
+          sourceSystem: "edge_function",
+          utmSource: params.utmSource ?? undefined,
+          utmMedium: params.utmMedium ?? undefined,
+          utmCampaign: params.utmCampaign ?? undefined,
+          referrer: pickAttributionString(params.attribution, "referrer", 1000),
+        },
+        metadata: buildLeadCapturedAttributionMetadata(params),
+      },
+    });
+  } catch (err) {
+    console.warn(
+      `[${FUNCTION_NAME}] lead_captured canonical scaffold failed (non-fatal)`,
+      {
+        lead_id: params.leadId,
+        session_id: params.sessionId,
+        message: err instanceof Error ? err.message : String(err),
+      },
+    );
   }
 }
 
@@ -344,7 +485,10 @@ function parseAndValidate(input: unknown):
 
   const source = asRequiredString(b.source, 64) ?? "truth-gate";
 
-  const sanitizedAttribution = sanitizeAttributionInput(b.attribution);
+  const sanitizedAttribution = preserveSiteWideAttributionFields(
+    sanitizeAttributionInput(b.attribution),
+    b.attribution,
+  );
   const sanitizedQueryParams = sanitizeQueryParamsInput(b.query_params);
 
   const payload: CapturePayload = {
@@ -502,6 +646,22 @@ Deno.serve(async (req) => {
         parsed.payload.attribution,
         parsed.payload.query_params,
       );
+      await maybePersistLeadCapturedCanonical(admin, {
+        leadId: reusedLeadId,
+        sessionId: payload.session_id,
+        email: payload.email,
+        phoneE164: payload.phone_e164,
+        clientSlug: payload.client_slug,
+        landingPageUrl: payload.landing_page_url,
+        firstPagePath: payload.first_page_path,
+        utmSource: payload.utm_source,
+        utmMedium: payload.utm_medium,
+        utmCampaign: payload.utm_campaign,
+        utmContent: payload.utm_content,
+        utmTerm: payload.utm_term,
+        source: payload.source,
+        attribution: payload.attribution,
+      });
       audit(admin, {
         stage: "lead_reused",
         status: "reused",
@@ -626,6 +786,25 @@ Deno.serve(async (req) => {
     has_phone: !!payload.phone_e164,
     has_client_slug: !!payload.client_slug,
   });
+
+  if (data?.id) {
+    await maybePersistLeadCapturedCanonical(admin, {
+      leadId: data.id,
+      sessionId: payload.session_id,
+      email: payload.email,
+      phoneE164: payload.phone_e164,
+      clientSlug: payload.client_slug,
+      landingPageUrl: payload.landing_page_url,
+      firstPagePath: payload.first_page_path,
+      utmSource: payload.utm_source,
+      utmMedium: payload.utm_medium,
+      utmCampaign: payload.utm_campaign,
+      utmContent: payload.utm_content,
+      utmTerm: payload.utm_term,
+      source: payload.source,
+      attribution: payload.attribution,
+    });
+  }
 
   // Best-effort business telemetry — never block success.
   try {

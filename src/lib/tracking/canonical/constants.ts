@@ -12,6 +12,7 @@ export const WM_EVENT_NAMES = [
   "sold",
   "lead_identified",
   "lead_qualified",
+  "lead_captured",
   "quote_upload_completed",
   "quote_validation_passed",
   "sale_confirmed",
@@ -31,7 +32,7 @@ export const WM_DISPATCH_STATUSES = [
   "failed",
 ] as const;
 
-export const WM_PLATFORM_NAMES = ["meta", "google_ads", "ga4", "internal"] as const;
+export const WM_PLATFORM_NAMES = ["meta", "google_ads", "ga4", "internal", "nextdoor"] as const;
 
 export const WM_IDENTITY_QUALITIES = ["unknown", "low", "medium", "high"] as const;
 

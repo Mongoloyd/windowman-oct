@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createCanonicalEvent } from "../createCanonicalEvent";
 import type { CreateCanonicalEventInput } from "../types";
 
@@ -92,7 +92,34 @@ function baseInput(overrides: Partial<CreateCanonicalEventInput> = {}): CreateCa
   };
 }
 
+function nextdoorEligibleInput(
+  overrides: Partial<CreateCanonicalEventInput> = {},
+): CreateCanonicalEventInput {
+  const leadId = crypto.randomUUID();
+  return baseInput({
+    eventName: "lead_identified",
+    leadId,
+    payload: {
+      identity: {
+        email: "user@example.com",
+        phone: "5614685571",
+        leadId,
+        clickId: "nd-click-1",
+      },
+      journey: { route: "/city/pompano-beach", flow: "public" },
+      metadata: {
+        utm_source: "nextdoor",
+        ndclid: "nd-click-1",
+      },
+    },
+    ...overrides,
+  });
+}
+
 describe("createCanonicalEvent", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
   it("generates event_id when omitted and reuses when provided", async () => {
     const db = new MockDB();
 
@@ -123,8 +150,10 @@ describe("createCanonicalEvent", () => {
     expect(db.inserts.wm_event_log?.length).toBe(1);
     expect(db.upserts.wm_quote_facts?.length).toBe(1);
     expect(db.upserts.wm_platform_dispatch_log?.length).toBeGreaterThan(0);
+    expect(result.canonicalEvent.shouldSendNextdoor).toBe(false);
     expect(result.dispatchPlatforms).toContain("meta");
     expect(result.dispatchPlatforms).toContain("google_ads");
+    expect(result.dispatchPlatforms).not.toContain("nextdoor");
   });
 
   it("suppresses dispatch enqueue for unsafe quote states", async () => {
@@ -326,5 +355,253 @@ describe("createCanonicalEvent", () => {
 
     expect(result.eventLogId).toBe("event-log-1");
     expect(db.inserts.wm_event_log?.[0]).toBeUndefined();
+  });
+
+  it("keeps shouldSendNextdoor false for Nextdoor-attributed metadata when env gate is off", async () => {
+    const db = new MockDB();
+
+    const result = await createCanonicalEvent(
+      nextdoorEligibleInput(),
+      { db, createId: () => "wmc_nextdoor_attr" },
+    );
+
+    expect(result.canonicalEvent.shouldSendNextdoor).toBe(false);
+    expect(result.dispatchPlatforms).not.toContain("nextdoor");
+  });
+
+  it("does not queue nextdoor for virtual_page_view events even when env gate is on", async () => {
+    vi.stubEnv("VITE_NEXTDOOR_CAPI_ENABLED", "true");
+    const db = new MockDB();
+
+    const result = await createCanonicalEvent(
+      nextdoorEligibleInput({
+        eventName: "virtual_page_view",
+        payload: {
+          identity: {
+            email: "user@example.com",
+            phone: "5614685571",
+            leadId: crypto.randomUUID(),
+            clickId: "pv-1",
+          },
+          journey: { route: "/about", flow: "public" },
+          metadata: { utm_source: "nextdoor", ndclid: "pv-1" },
+        },
+      }),
+      { db, createId: () => "wmc_nextdoor_pv", readNextdoorCapiEnabled: () => true },
+    );
+
+    expect(result.canonicalEvent.shouldSendNextdoor).toBe(false);
+    expect(result.dispatchPlatforms ?? []).not.toContain("nextdoor");
+  });
+});
+
+describe("createCanonicalEvent Nextdoor env-gated activation", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("env gate missing/false prevents queueing for Nextdoor-attributed events", async () => {
+    vi.stubEnv("VITE_NEXTDOOR_CAPI_ENABLED", "false");
+    const db = new MockDB();
+
+    const result = await createCanonicalEvent(nextdoorEligibleInput(), {
+      db,
+      createId: () => "wmc_gate_off",
+    });
+
+    expect(result.canonicalEvent.shouldSendNextdoor).toBe(false);
+    expect(result.dispatchPlatforms).not.toContain("nextdoor");
+  });
+
+  it("env gate true + attribution + medium/high identity + safe event queues nextdoor", async () => {
+    const db = new MockDB();
+
+    const result = await createCanonicalEvent(nextdoorEligibleInput(), {
+      db,
+      createId: () => "wmc_gate_on",
+      readNextdoorCapiEnabled: () => true,
+    });
+
+    expect(result.canonicalEvent.identityQuality).not.toBe("unknown");
+    expect(result.canonicalEvent.identityQuality).not.toBe("low");
+    expect(result.canonicalEvent.payload.metadata?.utm_source).toBe("nextdoor");
+    expect(result.canonicalEvent.shouldSendNextdoor).toBe(true);
+    expect(result.dispatchPlatforms).toContain("nextdoor");
+  });
+
+  it("env gate true but no Nextdoor attribution does not queue nextdoor", async () => {
+    vi.stubEnv("VITE_NEXTDOOR_CAPI_ENABLED", "true");
+    const db = new MockDB();
+
+    const result = await createCanonicalEvent(
+      nextdoorEligibleInput({
+        payload: {
+          identity: {
+            email: "user@example.com",
+            phone: "5614685571",
+            leadId: crypto.randomUUID(),
+          },
+          journey: { route: "/", flow: "public" },
+        },
+      }),
+      { db, createId: () => "wmc_no_attr", readNextdoorCapiEnabled: () => true },
+    );
+
+    expect(result.canonicalEvent.shouldSendNextdoor).toBe(false);
+    expect(result.dispatchPlatforms).not.toContain("nextdoor");
+  });
+
+  it("env gate true but low identity does not queue nextdoor", async () => {
+    vi.stubEnv("VITE_NEXTDOOR_CAPI_ENABLED", "true");
+    const db = new MockDB();
+
+    const result = await createCanonicalEvent(
+      nextdoorEligibleInput({
+        payload: {
+          identity: { gclid: "only-click-id" },
+          journey: { route: "/city/foo", flow: "public" },
+          metadata: { utm_source: "nextdoor", ndclid: "nd-1" },
+        },
+      }),
+      { db, createId: () => "wmc_low_identity", readNextdoorCapiEnabled: () => true },
+    );
+
+    expect(result.canonicalEvent.shouldSendNextdoor).toBe(false);
+    expect(result.dispatchPlatforms).not.toContain("nextdoor");
+  });
+
+  it("env gate true but unsafe quote state does not queue nextdoor", async () => {
+    vi.stubEnv("VITE_NEXTDOOR_CAPI_ENABLED", "true");
+    const db = new MockDB();
+
+    const result = await createCanonicalEvent(
+      nextdoorEligibleInput({
+        eventName: "quote_validation_passed",
+        payload: {
+          ...nextdoorEligibleInput().payload,
+          quote: {
+            isQuoteDocument: true,
+            analysisId: crypto.randomUUID(),
+            impossibleValuesDetected: true,
+          },
+          analytics: baseInput().payload.analytics,
+        },
+      }),
+      { db, createId: () => "wmc_unsafe_quote", readNextdoorCapiEnabled: () => true },
+    );
+
+    expect(result.canonicalEvent.shouldSendNextdoor).toBe(false);
+    expect(result.dispatchPlatforms).not.toContain("nextdoor");
+  });
+
+  it("attribution via metadata ndclid works without utm_source", async () => {
+    vi.stubEnv("VITE_NEXTDOOR_CAPI_ENABLED", "true");
+    const db = new MockDB();
+
+    const result = await createCanonicalEvent(
+      nextdoorEligibleInput({
+        payload: {
+          identity: {
+            email: "user@example.com",
+            phone: "5614685571",
+            leadId: crypto.randomUUID(),
+            clickId: "only-ndclid",
+          },
+          journey: { route: "/city/foo", flow: "public" },
+          metadata: { ndclid: "only-ndclid" },
+        },
+      }),
+      { db, createId: () => "wmc_ndclid_only", readNextdoorCapiEnabled: () => true },
+    );
+
+    expect(result.canonicalEvent.shouldSendNextdoor).toBe(true);
+    expect(result.dispatchPlatforms).toContain("nextdoor");
+  });
+
+  it("attribution via metadata nd_lead_id works without utm_source", async () => {
+    vi.stubEnv("VITE_NEXTDOOR_CAPI_ENABLED", "true");
+    const db = new MockDB();
+
+    const result = await createCanonicalEvent(
+      nextdoorEligibleInput({
+        payload: {
+          identity: {
+            email: "user@example.com",
+            phone: "5614685571",
+            leadId: crypto.randomUUID(),
+            clickId: "lead-only",
+          },
+          journey: { route: "/city/foo", flow: "public" },
+          metadata: { nd_lead_id: "lead-only" },
+        },
+      }),
+      { db, createId: () => "wmc_nd_lead_only", readNextdoorCapiEnabled: () => true },
+    );
+
+    expect(result.canonicalEvent.shouldSendNextdoor).toBe(true);
+    expect(result.dispatchPlatforms).toContain("nextdoor");
+  });
+
+  it("path /nextdoor alone without attribution does not enable Nextdoor", async () => {
+    vi.stubEnv("VITE_NEXTDOOR_CAPI_ENABLED", "true");
+    const db = new MockDB();
+
+    const result = await createCanonicalEvent(
+      nextdoorEligibleInput({
+        payload: {
+          identity: {
+            email: "user@example.com",
+            phone: "5614685571",
+            leadId: crypto.randomUUID(),
+            clickId: "nd-1",
+          },
+          journey: { route: "/nextdoor", flow: "public" },
+        },
+      }),
+      { db, createId: () => "wmc_path_only", readNextdoorCapiEnabled: () => true },
+    );
+
+    expect(result.canonicalEvent.shouldSendNextdoor).toBe(false);
+    expect(result.dispatchPlatforms).not.toContain("nextdoor");
+  });
+
+  it("attribution via source.utmSource queues nextdoor when env gate is on", async () => {
+    vi.stubEnv("VITE_NEXTDOOR_CAPI_ENABLED", "true");
+    const db = new MockDB();
+
+    const result = await createCanonicalEvent(
+      nextdoorEligibleInput({
+        payload: {
+          identity: {
+            email: "user@example.com",
+            phone: "5614685571",
+            leadId: crypto.randomUUID(),
+            clickId: "source-utm",
+          },
+          journey: { route: "/about", flow: "public" },
+          source: { utmSource: "nextdoor" },
+        },
+      }),
+      { db, createId: () => "wmc_source_utm", readNextdoorCapiEnabled: () => true },
+    );
+
+    expect(result.canonicalEvent.shouldSendNextdoor).toBe(true);
+    expect(result.dispatchPlatforms).toContain("nextdoor");
+  });
+
+  it("Meta/Google dispatch behavior remains unchanged when Nextdoor env gate is on", async () => {
+    vi.stubEnv("VITE_NEXTDOOR_CAPI_ENABLED", "true");
+    const db = new MockDB();
+
+    const result = await createCanonicalEvent(baseInput(), {
+      db,
+      createId: () => "wmc_meta_google",
+      readNextdoorCapiEnabled: () => true,
+    });
+
+    expect(result.dispatchPlatforms).toContain("meta");
+    expect(result.dispatchPlatforms).toContain("google_ads");
+    expect(result.canonicalEvent.shouldSendMeta).toBe(true);
+    expect(result.canonicalEvent.shouldSendGoogle).toBe(true);
   });
 });

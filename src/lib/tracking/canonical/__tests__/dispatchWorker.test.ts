@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { runDispatchWorker, type DBLike } from "../dispatchWorker";
+import {
+  resolveNextdoorActionSourceUrl,
+  runDispatchWorker,
+  type DBLike,
+} from "../dispatchWorker";
 import type { WMDispatchStatus, WMPlatformName } from "../types";
 
 interface MockDispatchRow {
@@ -489,5 +493,364 @@ describe("runDispatchWorker", () => {
     expect(upsert?.dispatch_status).toBe("blocked");
     expect(upsert?.error_message).toBe("platform_default_not_allowed");
     expect(upsert?.next_attempt_at).toBeNull();
+  });
+
+  function makeNextdoorRow(overrides: Partial<MockDispatchRow> = {}): MockDispatchRow {
+    return makeRow({
+      platform_name: "nextdoor",
+      event_name: "lead_identified",
+      event_identity_quality: "high",
+      event_client_slug: "tenant-alpha",
+      ...overrides,
+    });
+  }
+
+  it("nextdoor branch suppresses with nextdoor_sender_not_configured when sendToNextdoor is missing", async () => {
+    const row = makeNextdoorRow();
+    const mock = new MockDB([row]);
+
+    await runDispatchWorker({
+      db: mock as unknown as DBLike,
+      metaEventSourceUrl: "https://windowman.app",
+      nextdoorEventSourceUrl: "https://windowman.app/nextdoor",
+      sendToMeta: async () => ({ ok: true }),
+      sendToGoogle: async () => ({ ok: true }),
+    });
+
+    const upsert = mock.upserts.wm_platform_dispatch_log?.[0];
+    expect(upsert?.dispatch_status).toBe("suppressed");
+    expect(upsert?.error_message).toBe("nextdoor_sender_not_configured");
+  });
+
+  it("nextdoor branch suppresses with nextdoor_missing_action_source_url when URL is missing", async () => {
+    const row = makeNextdoorRow();
+    const mock = new MockDB([row]);
+
+    await runDispatchWorker({
+      db: mock as unknown as DBLike,
+      metaEventSourceUrl: "https://windowman.app",
+      sendToNextdoor: async () => ({ ok: true }),
+      sendToMeta: async () => ({ ok: true }),
+      sendToGoogle: async () => ({ ok: true }),
+    });
+
+    const upsert = mock.upserts.wm_platform_dispatch_log?.[0];
+    expect(upsert?.dispatch_status).toBe("suppressed");
+    expect(upsert?.error_message).toBe("nextdoor_missing_action_source_url");
+  });
+
+  it("nextdoor branch suppresses with nextdoor_missing_client_slug when slug cannot be resolved", async () => {
+    const row = makeNextdoorRow({
+      event_client_slug: null,
+      event_lead_id: null,
+      event_scan_session_id: null,
+      event_analysis_id: null,
+      event_quote_file_id: null,
+    });
+    const mock = new MockDB([row]);
+
+    await runDispatchWorker({
+      db: mock as unknown as DBLike,
+      metaEventSourceUrl: "https://windowman.app",
+      nextdoorEventSourceUrl: "https://windowman.app/nextdoor",
+      sendToNextdoor: async () => ({ ok: true }),
+      sendToMeta: async () => ({ ok: true }),
+      sendToGoogle: async () => ({ ok: true }),
+    });
+
+    const upsert = mock.upserts.wm_platform_dispatch_log?.[0];
+    expect(upsert?.dispatch_status).toBe("suppressed");
+    expect(upsert?.error_message).toBe("nextdoor_missing_client_slug");
+  });
+
+  it("nextdoor branch passes mapper suppression reason through when mapToNextdoor suppresses", async () => {
+    const row = makeNextdoorRow({
+      event_payload: {
+        identity: {},
+        journey: { route: "/", flow: "public" },
+      },
+    });
+    const mock = new MockDB([row]);
+
+    await runDispatchWorker({
+      db: mock as unknown as DBLike,
+      metaEventSourceUrl: "https://windowman.app",
+      nextdoorEventSourceUrl: "https://windowman.app/nextdoor",
+      sendToNextdoor: async () => ({ ok: true }),
+      sendToMeta: async () => ({ ok: true }),
+      sendToGoogle: async () => ({ ok: true }),
+    });
+
+    const upsert = mock.upserts.wm_platform_dispatch_log?.[0];
+    expect(upsert?.dispatch_status).toBe("suppressed");
+    expect(upsert?.error_message).toBe("missing_customer");
+  });
+
+  it("nextdoor branch calls sendToNextdoor when mapping succeeds", async () => {
+    const row = makeNextdoorRow();
+    const mock = new MockDB([row]);
+    let capturedRequest: Record<string, unknown> | null = null;
+
+    await runDispatchWorker({
+      db: mock as unknown as DBLike,
+      metaEventSourceUrl: "https://windowman.app",
+      nextdoorEventSourceUrl: "https://windowman.app/nextdoor",
+      sendToMeta: async () => ({ ok: true }),
+      sendToGoogle: async () => ({ ok: true }),
+      sendToNextdoor: async (request) => {
+        capturedRequest = request as unknown as Record<string, unknown>;
+        return { ok: true, statusCode: 200, responseBody: { success: true } };
+      },
+    });
+
+    expect(capturedRequest?.clientSlug).toBe("tenant-alpha");
+    expect(capturedRequest?.verifiedClientSlug).toBe("tenant-alpha");
+    expect(capturedRequest?.eventId).toBe("wmc_1");
+    expect((capturedRequest?.payload as Record<string, unknown>)?.data_source_id).toBe(
+      "server_resolved_by_nextdoor_capi_event",
+    );
+    expect(mock.upserts.wm_platform_dispatch_log?.[0]?.dispatch_status).toBe("sent");
+  });
+
+  it("nextdoor branch schedules retry for retryable sendToNextdoor errors", async () => {
+    const row = makeNextdoorRow({ attempt_count: 2 });
+    const mock = new MockDB([row]);
+    const now = new Date("2026-04-14T12:00:00.000Z");
+
+    await runDispatchWorker({
+      db: mock as unknown as DBLike,
+      now: () => now,
+      metaEventSourceUrl: "https://windowman.app",
+      nextdoorEventSourceUrl: "https://windowman.app/nextdoor",
+      sendToMeta: async () => ({ ok: true }),
+      sendToGoogle: async () => ({ ok: true }),
+      sendToNextdoor: async () => ({
+        ok: false,
+        retryable: true,
+        statusCode: 503,
+        errorMessage: "provider_5xx",
+      }),
+    });
+
+    const upsert = mock.upserts.wm_platform_dispatch_log?.[0];
+    expect(upsert?.dispatch_status).toBe("failed");
+    expect(String(upsert?.next_attempt_at)).toBe("2026-04-14T12:30:00.000Z");
+  });
+
+  it("nextdoor branch dead-letters immediately for non-retryable sendToNextdoor errors", async () => {
+    const row = makeNextdoorRow({ attempt_count: 1 });
+    const mock = new MockDB([row]);
+
+    await runDispatchWorker({
+      db: mock as unknown as DBLike,
+      metaEventSourceUrl: "https://windowman.app",
+      nextdoorEventSourceUrl: "https://windowman.app/nextdoor",
+      sendToMeta: async () => ({ ok: true }),
+      sendToGoogle: async () => ({ ok: true }),
+      sendToNextdoor: async () => ({
+        ok: false,
+        retryable: false,
+        statusCode: 400,
+        errorMessage: "provider_4xx",
+      }),
+    });
+
+    const upsert = mock.upserts.wm_platform_dispatch_log?.[0];
+    expect(upsert?.dispatch_status).toBe("dead_letter");
+    expect(upsert?.next_attempt_at).toBe(null);
+  });
+
+  it("google path still sends through sendToGoogle", async () => {
+    const row = makeRow({
+      platform_name: "google_ads",
+      event_name: "lead_identified",
+    });
+    const mock = new MockDB([row]);
+    let googleCalls = 0;
+
+    await runDispatchWorker({
+      db: mock as unknown as DBLike,
+      metaEventSourceUrl: "https://windowman.app",
+      sendToMeta: async () => ({ ok: true }),
+      sendToGoogle: async () => {
+        googleCalls += 1;
+        return { ok: true, statusCode: 200, responseBody: { success: true } };
+      },
+    });
+
+    expect(googleCalls).toBe(1);
+    expect(mock.upserts.wm_platform_dispatch_log?.[0]?.dispatch_status).toBe("sent");
+  });
+
+  it("nextdoor branch uses worker-local shouldSendNextdoor override for queued rows", async () => {
+    const row = makeNextdoorRow();
+    const mock = new MockDB([row]);
+    let sendCalls = 0;
+
+    await runDispatchWorker({
+      db: mock as unknown as DBLike,
+      metaEventSourceUrl: "https://windowman.app",
+      nextdoorEventSourceUrl: "https://windowman.app/nextdoor",
+      sendToMeta: async () => ({ ok: true }),
+      sendToGoogle: async () => ({ ok: true }),
+      sendToNextdoor: async () => {
+        sendCalls += 1;
+        return { ok: true, statusCode: 200, responseBody: { success: true } };
+      },
+    });
+
+    expect(sendCalls).toBe(1);
+    expect(mock.upserts.wm_platform_dispatch_log?.[0]?.dispatch_status).toBe("sent");
+  });
+
+  it("nextdoor branch prefers metadata current_page_url over NEXTDOOR_EVENT_SOURCE_URL", async () => {
+    const row = makeNextdoorRow({
+      event_payload: {
+        identity: {
+          leadId: crypto.randomUUID(),
+          emailHash: "a".repeat(64),
+          clickId: "ndclid-1",
+        },
+        journey: { route: "/", flow: "public" },
+        optimization: {
+          approvedForAds: true,
+          approvedForIndex: true,
+          manualReviewRequired: false,
+          valueUsd: 10,
+        },
+        metadata: {
+          current_page_url: "/truth-gate?utm_source=nextdoor",
+          landing_page_url: "/about?utm_source=nextdoor",
+        },
+      },
+    });
+    const mock = new MockDB([row]);
+    let actionSourceUrl: string | undefined;
+
+    await runDispatchWorker({
+      db: mock as unknown as DBLike,
+      metaEventSourceUrl: "https://windowman.app",
+      nextdoorEventSourceUrl: "https://windowman.app/static-fallback",
+      sendToMeta: async () => ({ ok: true }),
+      sendToGoogle: async () => ({ ok: true }),
+      sendToNextdoor: async (request) => {
+        actionSourceUrl = (request.payload as Record<string, unknown>)
+          .action_source_url as string;
+        return { ok: true, statusCode: 200, responseBody: { success: true } };
+      },
+    });
+
+    expect(actionSourceUrl).toBe("/truth-gate?utm_source=nextdoor");
+    expect(mock.upserts.wm_platform_dispatch_log?.[0]?.dispatch_status).toBe("sent");
+  });
+
+  it("nextdoor branch falls back to metadata landing_page_url when current_page_url is absent", async () => {
+    const row = makeNextdoorRow({
+      event_payload: {
+        identity: {
+          leadId: crypto.randomUUID(),
+          emailHash: "a".repeat(64),
+          clickId: "ndclid-1",
+        },
+        journey: { route: "/", flow: "public" },
+        optimization: {
+          approvedForAds: true,
+          approvedForIndex: true,
+          manualReviewRequired: false,
+          valueUsd: 10,
+        },
+        metadata: {
+          landing_page_url: "/city/pompano-beach?utm_source=nextdoor",
+        },
+      },
+    });
+    const mock = new MockDB([row]);
+    let actionSourceUrl: string | undefined;
+
+    await runDispatchWorker({
+      db: mock as unknown as DBLike,
+      metaEventSourceUrl: "https://windowman.app",
+      nextdoorEventSourceUrl: "https://windowman.app/static-fallback",
+      sendToMeta: async () => ({ ok: true }),
+      sendToGoogle: async () => ({ ok: true }),
+      sendToNextdoor: async (request) => {
+        actionSourceUrl = (request.payload as Record<string, unknown>)
+          .action_source_url as string;
+        return { ok: true, statusCode: 200, responseBody: { success: true } };
+      },
+    });
+
+    expect(actionSourceUrl).toBe("/city/pompano-beach?utm_source=nextdoor");
+  });
+
+  it("nextdoor branch falls back to NEXTDOOR_EVENT_SOURCE_URL when event URLs are absent", async () => {
+    const row = makeNextdoorRow();
+    const mock = new MockDB([row]);
+    let actionSourceUrl: string | undefined;
+
+    await runDispatchWorker({
+      db: mock as unknown as DBLike,
+      metaEventSourceUrl: "https://windowman.app",
+      nextdoorEventSourceUrl: "https://windowman.app/static-fallback",
+      sendToMeta: async () => ({ ok: true }),
+      sendToGoogle: async () => ({ ok: true }),
+      sendToNextdoor: async (request) => {
+        actionSourceUrl = (request.payload as Record<string, unknown>)
+          .action_source_url as string;
+        return { ok: true, statusCode: 200, responseBody: { success: true } };
+      },
+    });
+
+    expect(actionSourceUrl).toBe("https://windowman.app/static-fallback");
+  });
+
+  describe("resolveNextdoorActionSourceUrl", () => {
+    it("prefers current_page_url, then landing_page_url, then fallback", () => {
+      const canonical = {
+        eventId: "wmc_1",
+        eventName: "lead_identified" as const,
+        eventTimestamp: "2026-04-14T12:00:00.000Z",
+        schemaVersion: "1.0.0",
+        dispatchStatus: "processing" as const,
+        identityQuality: "high" as const,
+        shouldSendMeta: false,
+        shouldSendGoogle: false,
+        shouldSendNextdoor: true,
+        payload: {
+          identity: {},
+          journey: { route: "/", flow: "public" as const },
+          metadata: {
+            current_page_url: "/truth-gate",
+            landing_page_url: "/about?utm_source=nextdoor",
+          },
+        },
+      };
+
+      expect(resolveNextdoorActionSourceUrl(canonical, "https://fallback.example")).toBe(
+        "/truth-gate",
+      );
+
+      const landingOnly = {
+        ...canonical,
+        payload: {
+          ...canonical.payload,
+          metadata: { landing_page_url: "/about?utm_source=nextdoor" },
+        },
+      };
+      expect(resolveNextdoorActionSourceUrl(landingOnly, "https://fallback.example")).toBe(
+        "/about?utm_source=nextdoor",
+      );
+
+      const noEventUrls = {
+        ...canonical,
+        payload: {
+          identity: {},
+          journey: { route: "/", flow: "public" as const },
+        },
+      };
+      expect(resolveNextdoorActionSourceUrl(noEventUrls, "https://fallback.example")).toBe(
+        "https://fallback.example",
+      );
+    });
   });
 });

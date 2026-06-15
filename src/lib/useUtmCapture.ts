@@ -74,6 +74,19 @@ export function normalizeWmIntent(raw: string | null | undefined): WmIntent {
   return "unknown";
 }
 
+/** Infer wm_intent only from exact utm_content values — never arbitrary content. */
+export function inferWmIntentFromUtmContent(
+  utmContent: string | null | undefined,
+): WmIntent | null {
+  if (!utmContent?.trim()) return null;
+
+  const normalized = utmContent.trim().toLowerCase().replace(/-/g, "_");
+  if (normalized === "has_quote") return "has_quote";
+  if (normalized === "no_quote") return "no_quote";
+
+  return null;
+}
+
 type QueryParams = Record<string, string | string[]>;
 
 export interface UtmData {
@@ -108,6 +121,10 @@ export interface UtmData {
   raw_query_string: string | null;
   query_params: QueryParams;
   referrer: string | null;
+  /** First attributed landing timestamp (ms). */
+  first_touch_at: number;
+  /** Most recent attributed touch timestamp (ms). */
+  latest_touch_at: number;
   captured_at: number;
 }
 
@@ -143,6 +160,8 @@ const EMPTY_UTM: UtmData = {
   raw_query_string: null,
   query_params: {},
   referrer: null,
+  first_touch_at: 0,
+  latest_touch_at: 0,
   captured_at: 0,
 };
 
@@ -233,11 +252,14 @@ function persistUtmData(data: UtmData): void {
 }
 
 function withFreshCookies(data: Partial<UtmData>): UtmData {
+  const capturedAt = data.captured_at ?? 0;
   return {
     ...EMPTY_UTM,
     ...data,
     client_slug: data.client_slug || "direct",
     wm_intent: data.wm_intent ?? "unknown",
+    first_touch_at: data.first_touch_at ?? capturedAt,
+    latest_touch_at: data.latest_touch_at ?? capturedAt,
     fbp: readCookie("_fbp") || data.fbp || null,
     fbc: readCookie("_fbc") || data.fbc || null,
     ttp: readCookie("_ttp") || data.ttp || null,
@@ -257,7 +279,20 @@ export function getUtmData(): UtmData {
         typeof parsed.captured_at === "number" &&
         Date.now() - parsed.captured_at < UTM_EXPIRY_MS
       ) {
-        return withFreshCookies(parsed);
+        const firstTouchAt =
+          typeof parsed.first_touch_at === "number" && parsed.first_touch_at > 0
+            ? parsed.first_touch_at
+            : parsed.captured_at;
+        const latestTouchAt =
+          typeof parsed.latest_touch_at === "number" && parsed.latest_touch_at > 0
+            ? parsed.latest_touch_at
+            : parsed.captured_at;
+
+        return withFreshCookies({
+          ...parsed,
+          first_touch_at: firstTouchAt,
+          latest_touch_at: latestTouchAt,
+        });
       }
     }
   } catch {
@@ -308,6 +343,15 @@ export function captureUtmFromUrl(): UtmData {
   }
 
   const rawIntent = trimmedParam(params, "wm_intent");
+  const rawUtmContent = trimmedParam(params, "utm_content");
+  const isFirstTouch = existing.captured_at === 0;
+  const now = Date.now();
+
+  const resolvedIntent = rawIntent
+    ? normalizeWmIntent(rawIntent)
+    : inferWmIntentFromUtmContent(rawUtmContent) ??
+      existing.wm_intent ??
+      "unknown";
 
   const next: UtmData = withFreshCookies({
     utm_source: params.get("utm_source") || existing.utm_source,
@@ -324,9 +368,7 @@ export function captureUtmFromUrl(): UtmData {
     msclkid: params.get("msclkid") || existing.msclkid,
 
     ndclid: trimmedParam(params, "ndclid") || existing.ndclid,
-    wm_intent: rawIntent
-      ? normalizeWmIntent(rawIntent)
-      : existing.wm_intent ?? "unknown",
+    wm_intent: resolvedIntent,
     nd_lead_id: trimmedParam(params, "nd_lead_id") || existing.nd_lead_id,
     nd_form_id: trimmedParam(params, "nd_form_id") || existing.nd_form_id,
     nd_ad_id: trimmedParam(params, "nd_ad_id") || existing.nd_ad_id,
@@ -344,12 +386,19 @@ export function captureUtmFromUrl(): UtmData {
     // Required fallback order: URL param -> existing storage -> direct.
     client_slug: urlClientSlug || existing.client_slug || "direct",
 
-    landing_page: window.location.pathname,
-    landing_page_url: fullPathWithQuery,
+    // First-touch landing is preserved across later tagged or untagged navigations.
+    landing_page: isFirstTouch
+      ? window.location.pathname
+      : existing.landing_page,
+    landing_page_url: isFirstTouch
+      ? fullPathWithQuery
+      : existing.landing_page_url,
     raw_query_string: rawQueryString,
     query_params: queryParams,
     referrer: document.referrer || existing.referrer || null,
-    captured_at: Date.now(),
+    first_touch_at: isFirstTouch ? now : (existing.first_touch_at || existing.captured_at),
+    latest_touch_at: now,
+    captured_at: now,
   });
 
   persistUtmData(next);
@@ -410,6 +459,10 @@ export function getUtmPayload(): Record<string, string> {
  */
 export function getAttributionPayload(): Record<string, unknown> {
   const data = captureUtmFromUrl();
+  const currentPageUrl =
+    typeof window !== "undefined"
+      ? `${window.location.pathname}${window.location.search}`
+      : null;
 
   return {
     utm_source: data.utm_source,
@@ -440,9 +493,12 @@ export function getAttributionPayload(): Record<string, unknown> {
     client_slug: data.client_slug || "direct",
     landing_page: data.landing_page,
     landing_page_url: data.landing_page_url,
+    current_page_url: currentPageUrl,
     raw_query_string: data.raw_query_string,
     query_params: data.query_params,
     referrer: data.referrer,
+    first_touch_at: data.first_touch_at,
+    latest_touch_at: data.latest_touch_at,
     captured_at: data.captured_at,
   };
 }

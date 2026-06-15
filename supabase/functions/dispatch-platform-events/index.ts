@@ -72,6 +72,7 @@ Deno.serve(async (req) => {
     );
 
     const capiUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/capi-event`;
+    const nextdoorCapiUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/nextdoor-capi-event`;
     const googleDispatchUrl = Deno.env.get("GOOGLE_ADS_DISPATCH_URL") ?? "";
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const googleDispatchAuthToken = Deno.env.get(
@@ -79,6 +80,7 @@ Deno.serve(async (req) => {
     );
     const eventSourceUrl = Deno.env.get("WM_EVENT_SOURCE_URL") ??
       "https://windowman.app";
+    const nextdoorEventSourceUrl = Deno.env.get("NEXTDOOR_EVENT_SOURCE_URL") ?? "";
 
     const workerResult = await runDispatchWorker({
       // The real SupabaseClient runtime shape (`<any, "public", any>`) is
@@ -88,6 +90,7 @@ Deno.serve(async (req) => {
       // identical without weakening the worker's DBLike contract.
       db: supabase as unknown as Parameters<typeof runDispatchWorker>[0]["db"],
       metaEventSourceUrl: eventSourceUrl,
+      nextdoorEventSourceUrl,
       sendToMeta: async (payload) => {
         try {
           const response = await fetchWithTimeout(
@@ -164,6 +167,43 @@ Deno.serve(async (req) => {
           } satisfies VendorSendResult;
         } catch (error) {
           return buildErrorResult(error, payload);
+        }
+      },
+      sendToNextdoor: async ({ payload, clientSlug, verifiedClientSlug, eventId }) => {
+        const requestPayload = {
+          payload,
+          client_slug: clientSlug,
+          verified_client_slug: verifiedClientSlug,
+          event_id: eventId,
+        };
+
+        try {
+          const response = await fetchWithTimeout(
+            nextdoorCapiUrl,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${serviceRoleKey}`,
+              },
+              body: JSON.stringify(requestPayload),
+            },
+            DEFAULT_TIMEOUT_MS,
+          );
+
+          const body = await response.json().catch(() => ({}));
+          const ok = body?.success === true;
+
+          return {
+            ok,
+            retryable: body?.retryable === true,
+            statusCode: response.status,
+            responseBody: body,
+            errorMessage: ok ? undefined : (typeof body?.reason === "string" ? body.reason : JSON.stringify(body)),
+            requestPayload,
+          } satisfies VendorSendResult;
+        } catch (error) {
+          return buildErrorResult(error, requestPayload);
         }
       },
     });

@@ -2,10 +2,10 @@ import { Helmet } from "react-helmet-async";
 import { Shield, Lock, EyeOff, FileSearch, ClipboardList, Upload, ArrowRight } from "lucide-react";
 
 const HANDOFF_HAS_QUOTE =
-  "/?utm_source=nextdoor&utm_medium=paid_social&utm_campaign=nextdoor_clone&utm_content=has_quote#truth-gate";
+  "/?utm_source=nextdoor&utm_medium=paid_social&utm_campaign=nextdoor_clone&utm_content=has_quote&wm_intent=has_quote#truth-gate";
 
 const HANDOFF_NO_QUOTE =
-  "/?utm_source=nextdoor&utm_medium=paid_social&utm_campaign=nextdoor_clone&utm_content=no_quote#truth-gate";
+  "/?utm_source=nextdoor&utm_medium=paid_social&utm_campaign=nextdoor_clone&utm_content=no_quote&wm_intent=no_quote#truth-gate";
 
 const TRUST_CARDS = [
   {

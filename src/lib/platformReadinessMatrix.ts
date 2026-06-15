@@ -1,4 +1,4 @@
-export type PlatformName = "meta" | "tiktok" | "google_ads" | "ga4" | "gtm_server" | "crm_webhook" | "internal" | "other";
+export type PlatformName = "meta" | "tiktok" | "google_ads" | "ga4" | "gtm_server" | "crm_webhook" | "internal" | "other" | "nextdoor";
 
 export type PlatformField =
   | "token_present"
@@ -37,6 +37,7 @@ export interface PlatformReadinessEvaluation {
 
 export const PLATFORM_READINESS_MATRIX: Record<PlatformName, PlatformReadinessRule> = {
   meta: { platform: "meta", tokenRequired: true, destinationMode: "any", destinationFields: ["pixel_id_present", "dataset_id_present"] },
+  nextdoor: { platform: "nextdoor", tokenRequired: true, destinationMode: "any", destinationFields: ["pixel_id_present", "dataset_id_present"] },
   tiktok: { platform: "tiktok", tokenRequired: true, destinationMode: "all", destinationFields: ["pixel_id_present"] },
   google_ads: { platform: "google_ads", tokenRequired: true, destinationMode: "all", destinationFields: ["conversion_id_present", "conversion_label_present"] },
   ga4: { platform: "ga4", tokenRequired: true, destinationMode: "all", destinationFields: ["conversion_id_present"] },
