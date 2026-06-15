@@ -252,21 +252,32 @@ function asNullableInt(v: unknown): number | null {
   return null;
 }
 
-function getNormalizedIntent(
+function normalizeIntentValue(value: string): string {
+  return value.trim().toLowerCase().replace(/-/g, "_");
+}
+
+function hasNoQuoteIntent(
   attribution: Record<string, unknown> | null | undefined,
   queryParams: Record<string, string | string[]> | null | undefined,
-): string | null {
-  const raw =
-    typeof attribution?.wm_intent === "string"
-      ? attribution.wm_intent
-      : typeof queryParams?.wm_intent === "string"
-        ? queryParams.wm_intent
-        : Array.isArray(queryParams?.wm_intent) &&
-            typeof queryParams.wm_intent[0] === "string"
-          ? queryParams.wm_intent[0]
-          : null;
+): boolean {
+  const intents: string[] = [];
 
-  return raw?.trim().toLowerCase().replace(/-/g, "_") || null;
+  if (typeof attribution?.wm_intent === "string") {
+    intents.push(attribution.wm_intent);
+  }
+
+  const queryIntent = queryParams?.wm_intent;
+  if (typeof queryIntent === "string") {
+    intents.push(queryIntent);
+  } else if (Array.isArray(queryIntent)) {
+    for (const value of queryIntent) {
+      if (typeof value === "string") {
+        intents.push(value);
+      }
+    }
+  }
+
+  return intents.map(normalizeIntentValue).includes("no_quote");
 }
 
 /**
@@ -276,11 +287,7 @@ function getNormalizedIntent(
  * query_params (including wm_intent) are untouched.
  */
 function scrubNoQuoteOrganicFields(payload: CapturePayload): void {
-  const normalizedIntent = getNormalizedIntent(
-    payload.attribution,
-    payload.query_params,
-  );
-  if (normalizedIntent !== "no_quote") return;
+  if (!hasNoQuoteIntent(payload.attribution, payload.query_params)) return;
 
   payload.window_count = null;
   payload.project_type = null;
