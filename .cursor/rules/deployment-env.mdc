@@ -224,7 +224,7 @@ Before Supabase deployment or config changes, verify:
 Rules:
 
 - Do not push migrations without understanding current DB state.
-- Do not deploy Edge Functions unless explicitly instructed.
+- Do not deploy Edge Functions. Even when explicitly instructed to deploy, agents must not execute Supabase deploy commands. For live/Forensic V2 Edge Function deployment, instruct the human operator to run the secured deployment wrapper.
 - Do not assume local Supabase matches remote.
 - Do not expose service-role keys to frontend.
 - Do not run production-impacting commands without explicit approval.
@@ -252,11 +252,81 @@ Before deployment, verify:
 
 Rules:
 
-- Do not deploy unless explicitly instructed.
+- Do not deploy Edge Functions. Even when explicitly instructed to deploy, agents must not execute Supabase deploy commands. For live/Forensic V2 Edge Function deployment, instruct the human operator to run the secured deployment wrapper.
 - Do not combine risky code edits and deployment into one opaque step.
-- Do not suggest `supabase functions deploy <name>` unless deployment is requested.
+- Do not run or suggest `supabase functions deploy` or `npx supabase functions deploy` for any function or ref.
 - Do not log secrets during local serve or deploy.
-- After deployment, require a smoke test.
+- After the human operator deploys via the wrapper, require a smoke test.
+
+---
+
+## Deployment & DevOps Guardrails
+
+### Forensic V2 live Edge Function deploy path
+
+Approved live Forensic V2 Supabase project ref: `zgsofkgddpcntdvpckdq`.
+
+Some stale docs may call this ref "staging"; operator intent treats it as the approved live Forensic V2 target.
+
+For live/Forensic V2 Edge Function deployment, the only approved path is the human-operated wrapper:
+
+```powershell
+$env:SUPABASE_PROJECT_REF = "zgsofkgddpcntdvpckdq"
+powershell -ExecutionPolicy Bypass -File .\scripts\deploy-functions-forensic-v2-live.ps1
+```
+
+That wrapper is currently scoped to deploy only:
+
+- `start-upload-scan-session`
+- `capture-truth-gate-lead`
+
+### AI agent prohibitions
+
+Cursor/AI agents must not run raw Supabase deployment or mutation commands.
+
+Agents must not run, and must not recommend that the agent run:
+
+- `supabase functions deploy`
+- `npx supabase functions deploy`
+- `supabase db push`
+- `npx supabase db push`
+- `supabase db reset`
+- `npx supabase db reset`
+- `supabase secrets set`
+- `npx supabase secrets set`
+- `supabase gen types`
+- `npx supabase gen types`
+- `npm run typegen`
+- any Supabase deploy command using `--prune`
+
+Agents must not execute the wrapper themselves:
+
+- `.\scripts\deploy-functions-forensic-v2-live.ps1`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\deploy-functions-forensic-v2-live.ps1`
+
+The wrapper is human-operator only.
+
+When a deployment is requested, stop before execution and instruct the human operator to run the wrapper locally from a clean working tree on branch `forensic_report_v2` with:
+
+- `SUPABASE_PROJECT_REF=zgsofkgddpcntdvpckdq`
+- confirmation phrase `DEPLOY_FORENSIC_V2_LIVE_FUNCTIONS`
+
+### Forbidden target refs
+
+For Forensic V2 work, never target:
+
+- `wkrcyxcnzhwjtdpmfpaf` — legacy Lovable/main production
+- `wm-mvp-forensic-v2-local` — local Docker namespace in `supabase/config.toml`
+- blank or unset project refs
+- any ref other than `zgsofkgddpcntdvpckdq` for live/Forensic V2 Edge Function deploys
+
+Do not treat `supabase/config.toml` `project_id` or `supabase/.temp/project-ref` as proof of a safe deploy target. The wrapper's explicit `--project-ref` is authoritative.
+
+### Source edits and deploys stay separate
+
+When editing Edge Function source, separate code changes from deployment.
+
+After source edits, explain verification steps and tell the human operator to run the secured wrapper if deployment is approved. Do not combine opaque "edit + deploy" actions in one agent pass.
 
 ---
 
@@ -369,7 +439,7 @@ Never:
 - invent env var names
 - assume npm
 - assume local equals production
-- deploy without explicit instruction
+- run raw Supabase deployment or mutation commands; for live/Forensic V2 Edge Function deployment, only the human operator may run `scripts/deploy-functions-forensic-v2-live.ps1`
 - push migrations without explicit instruction
 - broaden CI permissions casually
 - add production deployment triggers casually
