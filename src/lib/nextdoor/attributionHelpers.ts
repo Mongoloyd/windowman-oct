@@ -203,7 +203,7 @@ export function buildLocalNextdoorPayload(input: BuildLocalPayloadInput): Nextdo
   captureUtmFromUrl();
   const stored = getUtmData();
   const attribution = buildAttributionSnapshot();
-  const medium = resolveNextdoorMedium(trafficMode, stored.utm_medium);
+  const medium = resolveNextdoorMedium(input.trafficMode, stored.utm_medium);
   const wmIntent = resolveWmIntentFromReadiness(input.quoteReadiness, stored.wm_intent);
 
   const payload: NextdoorLeadPayload = {

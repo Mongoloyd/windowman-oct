@@ -1,5 +1,7 @@
-import { ClipboardList, Lock, UploadCloud } from "lucide-react";
+import { ClipboardList, UploadCloud } from "lucide-react";
 import { nextStepPanelCopy } from "@/lib/nextdoor/pathRouter";
+import { isValidNextdoorSessionId } from "@/lib/nextdoor/nextdoorSession";
+import { NextdoorQuoteUpload } from "./NextdoorQuoteUpload";
 import type { QuoteReadiness } from "./types";
 import { nextdoorPrimaryCtaClass } from "./nextdoorUi";
 
@@ -49,18 +51,24 @@ type PrepPanelProps = {
   attributionSaveUrl?: string;
 };
 
-function UploadPlaceholder() {
+function UploadPlaceholder({ pendingSave = false }: { pendingSave?: boolean }) {
   return (
     <div
       className="mt-6 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50/80 px-5 py-8 text-center shadow-inner"
-      aria-hidden="true"
+      aria-hidden={pendingSave ? "true" : undefined}
     >
       <UploadCloud className="mx-auto h-8 w-8 text-slate-400" />
       <p className="mt-3 text-sm font-semibold text-slate-700">Drop your estimate here</p>
-      <p className="mt-1 text-xs text-slate-500">PDF · photo · screenshot — wiring arrives next release</p>
-      <span className="mt-4 inline-block rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-wide text-amber-900">
-        Local preview only
-      </span>
+      <p className="mt-1 text-xs text-slate-500">
+        {pendingSave
+          ? "PDF · photo · screenshot — unlocks after you save your details below"
+          : "PDF · photo · screenshot"}
+      </p>
+      {pendingSave ? (
+        <span className="mt-4 inline-block rounded-full border border-slate-300 bg-white px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+          Save first
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -82,15 +90,24 @@ function AttributionSaveLink({ url }: { url: string }) {
   );
 }
 
+const SESSION_FALLBACK_COPY =
+  "We could not find your saved quote-check session. Refresh and save your details again before uploading.";
+
 export function NextdoorQuoteReadyPanel({
   identitySubmitted,
+  sessionId,
   attributionSaveUrl,
   onScrollToIdentity,
+  onScanStart,
 }: {
   identitySubmitted: boolean;
+  sessionId: string;
   attributionSaveUrl?: string;
   onScrollToIdentity: () => void;
+  onScanStart: (fileName: string, scanSessionId: string) => void;
 }) {
+  const sessionValid = isValidNextdoorSessionId(sessionId);
+  const showUpload = identitySubmitted && sessionValid;
   const copy = nextStepPanelCopy("has_estimate");
 
   return (
@@ -118,32 +135,27 @@ export function NextdoorQuoteReadyPanel({
       </div>
 
       {!identitySubmitted ? (
-        <button
-          type="button"
-          onClick={onScrollToIdentity}
-          className={[nextdoorPrimaryCtaClass, "mt-6 w-full sm:w-auto"].join(" ")}
-          style={{ padding: "14px 28px", fontSize: 15 }}
-        >
-          {copy.saveCta}
-        </button>
-      ) : (
         <>
-          <UploadPlaceholder />
           <button
             type="button"
-            disabled
-            aria-disabled="true"
-            title="Upload wiring arrives in a later pass"
-            className="btn-depth-primary mt-6 w-full opacity-55 sm:w-auto"
-            style={{ padding: "14px 28px", fontSize: 15, cursor: "not-allowed" }}
+            onClick={onScrollToIdentity}
+            className={[nextdoorPrimaryCtaClass, "mt-6 w-full sm:w-auto"].join(" ")}
+            style={{ padding: "14px 28px", fontSize: 15 }}
           >
-            Continue to upload
+            {copy.saveCta}
           </button>
-          <p className="mt-3 flex items-start gap-2 text-xs text-slate-500">
-            <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-            Upload connects in the next release. No file is sent in this preview shell.
-          </p>
+          <UploadPlaceholder pendingSave />
         </>
+      ) : sessionValid ? (
+        <NextdoorQuoteUpload
+          sessionId={sessionId}
+          isVisible={showUpload}
+          onScanStart={onScanStart}
+        />
+      ) : (
+        <p className="mt-6 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-950">
+          {SESSION_FALLBACK_COPY}
+        </p>
       )}
 
       {attributionSaveUrl ? <AttributionSaveLink url={attributionSaveUrl} /> : null}

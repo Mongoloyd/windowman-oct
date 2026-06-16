@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Helmet } from "react-helmet-async";
+import { useNavigate } from "react-router-dom";
 import { MapPin, Shield, Smartphone } from "lucide-react";
 import WindowManMark from "@/components/forensic-report/WindowManMark";
 import { NextdoorBeforeAfterStrip } from "@/components/nextdoor/NextdoorBeforeAfterStrip";
@@ -63,6 +64,7 @@ import {
 } from "@/lib/nextdoor/pathRouter";
 import { submitNextdoorLead } from "@/services/nextdoorLeadCapture";
 import { getUtmData } from "@/lib/useUtmCapture";
+import { useScanFunnelSafe } from "@/state/scanFunnel";
 
 const PAGE_BG = NEXTDOOR_PAGE_BG;
 
@@ -141,6 +143,8 @@ function trafficModeLabel(mode: NextdoorTrafficMode): string | null {
 }
 
 export default function NextdoorHome() {
+  const navigate = useNavigate();
+  const funnel = useScanFunnelSafe();
   const initialUrlState = useMemo(() => readInitialUrlState(), []);
   const nextdoorSessionId = useMemo(() => getOrCreateNextdoorSessionId(), []);
   const leadSubmitInFlightRef = useRef(false);
@@ -208,6 +212,13 @@ export default function NextdoorHome() {
       firstInput?.focus({ preventScroll: true });
     }, 350);
   }, []);
+
+  const handleUploadScanStart = useCallback(
+    (_fileName: string, scanSessionId: string) => {
+      navigate(`/report/classic/${scanSessionId}`);
+    },
+    [navigate],
+  );
 
   const handleReadinessSelect = useCallback(
     (value: QuoteReadiness) => {
@@ -284,7 +295,20 @@ export default function NextdoorHome() {
     setLocalPayload(payload);
     logLocalPayloadDevSummary(payload);
     setIdentitySubmitted(true);
-  }, [identity, lastName, nextdoorSessionId, readiness, trafficMode]);
+
+    if (readiness === "has_estimate") {
+      funnel?.setSessionId(nextdoorSessionId);
+      scrollToNextStepPanel();
+    }
+  }, [
+    identity,
+    lastName,
+    nextdoorSessionId,
+    readiness,
+    trafficMode,
+    funnel,
+    scrollToNextStepPanel,
+  ]);
 
   const showIdentityModule = readiness !== null;
   const showNextStepPanel = readiness !== null;
@@ -472,8 +496,10 @@ export default function NextdoorHome() {
               {isQuoteReady(readiness) ? (
                 <NextdoorQuoteReadyPanel
                   identitySubmitted={identitySubmitted}
+                  sessionId={nextdoorSessionId}
                   attributionSaveUrl={attributionSaveUrl}
                   onScrollToIdentity={scrollToIdentity}
+                  onScanStart={handleUploadScanStart}
                 />
               ) : isPrepPath(readiness) ? (
                 <NextdoorPrepPanel

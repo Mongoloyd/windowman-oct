@@ -26,4 +26,8 @@ export function getOrCreateNextdoorSessionId(): string {
   }
 }
 
+export function isValidNextdoorSessionId(sessionId: string): boolean {
+  return UUID_RE.test(sessionId);
+}
+
 export { NEXTDOOR_SESSION_KEY };
