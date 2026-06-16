@@ -201,6 +201,21 @@ Deno.test("legacy minimal body still parses after attribution fields added", () 
   assert(r.success, JSON.stringify(r));
 });
 
+Deno.test("accepts site-wide attribution fields from getAttributionPayload", () => {
+  const r = RequestSchema.safeParse(
+    validBody({
+      attribution: {
+        client_slug: "direct",
+        current_page_url: "/scan",
+        first_touch_at: 1718000000000,
+        latest_touch_at: 1718000001000,
+        captured_at: 1718000001000,
+      },
+    }),
+  );
+  assert(r.success, JSON.stringify(r));
+});
+
 Deno.test("rejects unknown nested attribution keys via strict attribution schema", () => {
   const r = RequestSchema.safeParse(
     validBody({

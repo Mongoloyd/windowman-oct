@@ -32,9 +32,12 @@ const ALLOWED_ATTRIBUTION_KEYS = [
   "client_slug",
   "landing_page",
   "landing_page_url",
+  "current_page_url",
   "raw_query_string",
   "referrer",
   "captured_at",
+  "first_touch_at",
+  "latest_touch_at",
 ] as const;
 
 const STRING_LIMITS: Record<string, number> = {
@@ -61,6 +64,7 @@ const STRING_LIMITS: Record<string, number> = {
   client_slug: 100,
   landing_page: 500,
   landing_page_url: 1000,
+  current_page_url: 1000,
   raw_query_string: 2000,
   referrer: 1000,
 };
@@ -117,9 +121,13 @@ export function sanitizeAttributionInput(
       continue;
     }
 
-    if (key === "captured_at") {
+    if (
+      key === "captured_at" ||
+      key === "first_touch_at" ||
+      key === "latest_touch_at"
+    ) {
       if (typeof val === "number" && Number.isFinite(val)) {
-        out.captured_at = Math.trunc(val);
+        out[key] = Math.trunc(val);
       }
       continue;
     }

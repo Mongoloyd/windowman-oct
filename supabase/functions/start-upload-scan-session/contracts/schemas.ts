@@ -58,9 +58,12 @@ export const AttributionPayloadSchema = z
     client_slug: z.string().max(100).nullish(),
     landing_page: z.string().max(500).nullish(),
     landing_page_url: z.string().max(1000).nullish(),
+    current_page_url: z.string().max(1000).nullish(),
     raw_query_string: z.string().max(2000).nullish(),
     referrer: z.string().max(1000).nullish(),
     captured_at: z.number().int().nonnegative().nullish(),
+    first_touch_at: z.number().int().nonnegative().nullish(),
+    latest_touch_at: z.number().int().nonnegative().nullish(),
   })
   .strict();
 
