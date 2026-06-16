@@ -337,22 +337,12 @@ function formatStageLabel(funnelStage: string | null | undefined): string {
 }
 
 type LeadOpsCountLead = {
-  admin_follow_up_at?: string | null;
-  admin_priority_override?: string | null;
   latest_analysis_id?: string | null;
   phone_verified?: boolean | null;
-  report_unlocked_at?: string | null;
 };
 
-const isLeadStuck = (lead: LeadOpsCountLead): boolean => {
-  const hasLatestAnalysis = Boolean(lead.latest_analysis_id);
-  const primaryStuck = hasLatestAnalysis && lead.phone_verified !== true;
-  const secondaryDisplaySignal =
-    lead.phone_verified === true &&
-    hasLatestAnalysis &&
-    !lead.report_unlocked_at;
-  return primaryStuck || secondaryDisplaySignal;
-};
+const isLeadStuck = (lead: LeadOpsCountLead): boolean =>
+  Boolean(lead.latest_analysis_id) && lead.phone_verified !== true;
 
 export default function LeadInbox() {
   const navigate = useNavigate();
