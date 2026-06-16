@@ -15,12 +15,14 @@ import { NextdoorReveal } from "@/components/nextdoor/NextdoorReveal";
 import { NextdoorWhatGetsMissed } from "@/components/nextdoor/NextdoorWhatGetsMissed";
 import { NextdoorJourneyTimeline } from "@/components/nextdoor/NextdoorJourneyTimeline";
 import { NextdoorTrustStrip } from "@/components/nextdoor/NextdoorTrustStrip";
+import { NextdoorScanTransition } from "@/components/nextdoor/NextdoorScanTransition";
 import {
   NEXTDOOR_GRID_TEXTURE,
   NEXTDOOR_PAGE_BG,
   NEXTDOOR_VIGNETTE,
   nextdoorPrimaryCtaClass,
   nextdoorSecondaryCtaClass,
+  prefersReducedMotion,
   scrollToElementAfterDelay,
 } from "@/components/nextdoor/nextdoorUi";
 import { NextdoorProtectionLedger } from "@/components/nextdoor/NextdoorProtectionLedger";
@@ -56,7 +58,10 @@ import {
   PAGE_TITLE,
   TRUST_PILL_LABELS,
 } from "@/lib/nextdoor/areaContext";
-import { getOrCreateNextdoorSessionId } from "@/lib/nextdoor/nextdoorSession";
+import {
+  getOrCreateNextdoorSessionId,
+  isValidNextdoorSessionId,
+} from "@/lib/nextdoor/nextdoorSession";
 import {
   leadSuccessMessage,
   resolveNextRoute,
@@ -88,6 +93,14 @@ const EMPTY_PREFILLED: NextdoorPrefilledFields = {
   email: false,
   zip: false,
 };
+
+type PendingScanTransition = {
+  fileName: string;
+  scanSessionId: string;
+};
+
+const SCAN_TRANSITION_DELAY_MS = 3200;
+const SCAN_TRANSITION_REDUCED_DELAY_MS = 900;
 
 function readInitialUrlState() {
   if (typeof window === "undefined") {
@@ -148,6 +161,7 @@ export default function NextdoorHome() {
   const initialUrlState = useMemo(() => readInitialUrlState(), []);
   const nextdoorSessionId = useMemo(() => getOrCreateNextdoorSessionId(), []);
   const leadSubmitInFlightRef = useRef(false);
+  const scanNavigationStartedRef = useRef(false);
   const readinessRef = useRef<HTMLElement>(null);
   const nextStepPanelRef = useRef<HTMLElement>(null);
   const identityModuleRef = useRef<HTMLElement>(null);
@@ -166,6 +180,9 @@ export default function NextdoorHome() {
   const [showChecklist, setShowChecklist] = useState(
     initialUrlState.quoteReadiness === "researching",
   );
+  const [pendingScan, setPendingScan] = useState<PendingScanTransition | null>(null);
+  const [scanTransitionError, setScanTransitionError] = useState<string | null>(null);
+  const [scanReducedMotion, setScanReducedMotion] = useState(false);
 
   const isResearching = readiness === "researching";
 
@@ -213,12 +230,41 @@ export default function NextdoorHome() {
     }, 350);
   }, []);
 
-  const handleUploadScanStart = useCallback(
-    (_fileName: string, scanSessionId: string) => {
-      navigate(`/report/classic/${scanSessionId}`);
-    },
-    [navigate],
-  );
+  const handleUploadScanStart = useCallback((fileName: string, scanSessionId: string) => {
+    if (scanNavigationStartedRef.current || pendingScan) return;
+
+    if (!isValidNextdoorSessionId(scanSessionId)) {
+      setScanTransitionError("We couldn't open the report preview yet. Please try again.");
+      return;
+    }
+
+    setScanTransitionError(null);
+    setScanReducedMotion(prefersReducedMotion());
+    setPendingScan({ fileName, scanSessionId });
+  }, [pendingScan]);
+
+  useEffect(() => {
+    if (!pendingScan) return;
+
+    const delayMs = scanReducedMotion
+      ? SCAN_TRANSITION_REDUCED_DELAY_MS
+      : SCAN_TRANSITION_DELAY_MS;
+
+    const timer = window.setTimeout(() => {
+      if (scanNavigationStartedRef.current) return;
+
+      if (!isValidNextdoorSessionId(pendingScan.scanSessionId)) {
+        setScanTransitionError("We couldn't open the report preview yet. Please try again.");
+        setPendingScan(null);
+        return;
+      }
+
+      scanNavigationStartedRef.current = true;
+      navigate(`/report/classic/${pendingScan.scanSessionId}`);
+    }, delayMs);
+
+    return () => window.clearTimeout(timer);
+  }, [pendingScan, scanReducedMotion, navigate]);
 
   const handleReadinessSelect = useCallback(
     (value: QuoteReadiness) => {
@@ -494,13 +540,23 @@ export default function NextdoorHome() {
                 Your next step
               </h2>
               {isQuoteReady(readiness) ? (
-                <NextdoorQuoteReadyPanel
-                  identitySubmitted={identitySubmitted}
-                  sessionId={nextdoorSessionId}
-                  attributionSaveUrl={attributionSaveUrl}
-                  onScrollToIdentity={scrollToIdentity}
-                  onScanStart={handleUploadScanStart}
-                />
+                <>
+                  <NextdoorQuoteReadyPanel
+                    identitySubmitted={identitySubmitted}
+                    sessionId={nextdoorSessionId}
+                    attributionSaveUrl={attributionSaveUrl}
+                    onScrollToIdentity={scrollToIdentity}
+                    onScanStart={handleUploadScanStart}
+                  />
+                  {scanTransitionError ? (
+                    <p
+                      className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-950"
+                      role="alert"
+                    >
+                      {scanTransitionError}
+                    </p>
+                  ) : null}
+                </>
               ) : isPrepPath(readiness) ? (
                 <NextdoorPrepPanel
                   readiness={readiness}
@@ -640,6 +696,13 @@ export default function NextdoorHome() {
             </nav>
           </footer>
         </main>
+
+        {pendingScan ? (
+          <NextdoorScanTransition
+            fileName={pendingScan.fileName}
+            reducedMotion={scanReducedMotion}
+          />
+        ) : null}
       </div>
     </>
   );
