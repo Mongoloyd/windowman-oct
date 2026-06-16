@@ -2,9 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { MapPin, Shield, Smartphone } from "lucide-react";
 import WindowManMark from "@/components/forensic-report/WindowManMark";
+import { NextdoorBeforeAfterStrip } from "@/components/nextdoor/NextdoorBeforeAfterStrip";
 import { NextdoorChecksGrid } from "@/components/nextdoor/NextdoorChecksGrid";
+import { NextdoorContractorQuestionCard } from "@/components/nextdoor/NextdoorContractorQuestionCard";
+import { NextdoorFinancialRiskBlock } from "@/components/nextdoor/NextdoorFinancialRiskBlock";
 import { NextdoorHeroGradeCard } from "@/components/nextdoor/NextdoorHeroGradeCard";
 import { NextdoorIdentityForm } from "@/components/nextdoor/NextdoorIdentityForm";
+import { NextdoorNotMarketplacePanel } from "@/components/nextdoor/NextdoorNotMarketplacePanel";
+import { NextdoorQuoteLeverageLoop } from "@/components/nextdoor/NextdoorQuoteLeverageLoop";
 import { NextdoorReveal } from "@/components/nextdoor/NextdoorReveal";
 import { NextdoorWhatGetsMissed } from "@/components/nextdoor/NextdoorWhatGetsMissed";
 import { NextdoorJourneyTimeline } from "@/components/nextdoor/NextdoorJourneyTimeline";
@@ -401,6 +406,10 @@ export default function NextdoorHome() {
             </NextdoorReveal>
           </section>
 
+          <NextdoorReveal className="mb-10 md:mb-12">
+            <NextdoorQuoteLeverageLoop />
+          </NextdoorReveal>
+
           {isResearching && showNextStepPanel ? (
             <section
               id="next-step-panel"
@@ -491,6 +500,22 @@ export default function NextdoorHome() {
           </NextdoorReveal>
 
           <NextdoorReveal className="mb-12 md:mb-14">
+            <NextdoorBeforeAfterStrip />
+          </NextdoorReveal>
+
+          <NextdoorReveal className="mb-12 md:mb-14">
+            <NextdoorFinancialRiskBlock />
+          </NextdoorReveal>
+
+          <NextdoorReveal className="mb-12 md:mb-14">
+            <NextdoorContractorQuestionCard />
+          </NextdoorReveal>
+
+          <NextdoorReveal className="mb-12 md:mb-14">
+            <NextdoorNotMarketplacePanel />
+          </NextdoorReveal>
+
+          <NextdoorReveal className="mb-12 md:mb-14">
             <NextdoorChecksGrid areaContext={areaContext} />
           </NextdoorReveal>
 
@@ -510,10 +535,11 @@ export default function NextdoorHome() {
                 id="closing-cta-heading"
                 className="mx-auto mt-2 max-w-xl font-display text-2xl font-extrabold leading-tight text-white md:text-3xl"
               >
-                Check your quote before it becomes a signed contract.
+                Check your first quote before it becomes a signed contract.
               </h2>
               <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-slate-300/90">
-                Start with the free preview. Upload when you&apos;re ready — no contractor pressure.
+                Start with the free preview. Use every quote you get to make the next conversation
+                clearer.
               </p>
               <button
                 type="button"
@@ -523,6 +549,9 @@ export default function NextdoorHome() {
               >
                 {closingCtaLabel(readiness)}
               </button>
+              <p className="mx-auto mt-4 max-w-md text-xs leading-relaxed text-slate-400">
+                No contractor pressure. No marketplace handoff. Upload when ready.
+              </p>
             </section>
           </NextdoorReveal>
 

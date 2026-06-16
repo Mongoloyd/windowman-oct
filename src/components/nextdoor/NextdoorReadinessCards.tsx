@@ -11,6 +11,7 @@ import type { QuoteReadiness } from "./types";
 type ReadinessOption = {
   id: QuoteReadiness;
   title: string;
+  outcome: string;
   body: string;
   bestFor: string;
   nextStep: string;
@@ -22,6 +23,7 @@ const READINESS_OPTIONS: ReadinessOption[] = [
   {
     id: "has_estimate",
     title: "I already have an estimate",
+    outcome: "Find what to question before you reply.",
     body: "Upload your estimate and see what is clear, vague, or worth questioning.",
     bestFor: "Best for: ready-to-check paperwork",
     nextStep: "Next: save your place → upload when ready",
@@ -31,7 +33,8 @@ const READINESS_OPTIONS: ReadinessOption[] = [
   {
     id: "getting_quotes_now",
     title: "I'm getting quotes now",
-    body: "Get a quick comparison checklist before the next bid arrives.",
+    outcome: "Compare every bid on the same checklist.",
+    body: "Use the same pressure points on each contractor's paperwork.",
     bestFor: "Best for: comparing two or more bids",
     nextStep: "Next: know what to ask each contractor",
     icon: ListChecks,
@@ -40,7 +43,8 @@ const READINESS_OPTIONS: ReadinessOption[] = [
   {
     id: "need_quote_soon",
     title: "I need a quote soon",
-    body: "Prep the right questions before the sales visit.",
+    outcome: "Know what to ask before the sales visit.",
+    body: "Prep the questions that make quotes easier to compare later.",
     bestFor: "Best for: pre-appointment planning",
     nextStep: "Next: build your quote-question list",
     icon: CalendarClock,
@@ -49,7 +53,8 @@ const READINESS_OPTIONS: ReadinessOption[] = [
   {
     id: "researching",
     title: "I'm just researching",
-    body: "Learn what a clean impact-window quote should include.",
+    outcome: "Learn what a complete quote should include.",
+    body: "See the quote anatomy before you start collecting bids.",
     bestFor: "Best for: early-stage learning",
     nextStep: "Next: see the quote anatomy checklist",
     icon: Search,
@@ -73,7 +78,7 @@ type Props = {
 export function NextdoorReadinessCards({ selected, onSelect }: Props) {
   return (
     <div className="grid gap-4 sm:grid-cols-2">
-      {READINESS_OPTIONS.map(({ id, title, body, bestFor, nextStep, icon: Icon, accent }) => {
+      {READINESS_OPTIONS.map(({ id, title, outcome, body, bestFor, nextStep, icon: Icon, accent }) => {
         const isSelected = selected === id;
         return (
           <button
@@ -105,6 +110,9 @@ export function NextdoorReadinessCards({ selected, onSelect }: Props) {
               <div className="min-w-0 flex-1">
                 <p className="font-display text-base font-bold leading-snug text-slate-900 md:text-lg">
                   {title}
+                </p>
+                <p className="mt-1.5 text-sm font-semibold leading-snug text-[#0e7490]">
+                  {outcome}
                 </p>
                 <p className="mt-1.5 text-sm leading-relaxed text-slate-600">{body}</p>
                 <p className="mt-3 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-primary/90">

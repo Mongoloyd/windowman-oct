@@ -94,6 +94,31 @@ export const nextdoorDisabledCtaClass =
 export const nextdoorEyebrowClass =
   "font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-[#0e7490]";
 
+/** Dark navy proof module shell — leverage / workflow sections. */
+export const nextdoorProofSectionClass =
+  "overflow-hidden rounded-2xl border border-[#06b6d4]/25 bg-gradient-to-br from-slate-950 via-slate-900 to-[#0b2436] " +
+  "shadow-[0_28px_70px_-30px_rgba(8,47,73,0.55),0_0_40px_-12px_rgba(6,182,212,0.25)]";
+
+/** Eyebrow on dark proof sections. */
+export const nextdoorProofEyebrowClass =
+  "font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-[#5fd6ec]";
+
+/** Risk-pressure tile — orange/red forensic accent. */
+export const nextdoorRiskTileClass =
+  "rounded-xl border border-amber-500/25 bg-gradient-to-b from-amber-50/90 to-white p-5 " +
+  "shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_8px_24px_-12px_rgba(245,158,11,0.35)] " +
+  "transition-[transform,box-shadow,border-color] duration-300 ease-out " +
+  "hover:-translate-y-0.5 hover:border-red-400/50 hover:shadow-[0_16px_40px_-12px_rgba(239,68,68,0.22)] " +
+  "motion-reduce:transition-none motion-reduce:hover:translate-y-0";
+
+/** Leverage/clarity tile — navy-cyan accent on light surface. */
+export const nextdoorLeverageTileClass =
+  "rounded-xl border border-[#06b6d4]/30 bg-gradient-to-b from-slate-50 to-white p-5 " +
+  "shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_8px_24px_-12px_rgba(6,182,212,0.25)] " +
+  "transition-[transform,box-shadow,border-color] duration-300 ease-out " +
+  "hover:-translate-y-0.5 hover:border-[#06b6d4]/55 hover:shadow-[0_16px_40px_-12px_rgba(6,182,212,0.35)] " +
+  "motion-reduce:transition-none motion-reduce:hover:translate-y-0";
+
 export function prefersReducedMotion(): boolean {
   if (typeof window === "undefined") return false;
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;

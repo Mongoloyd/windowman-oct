@@ -87,7 +87,7 @@ export const PAGE_META_DESCRIPTION =
   "South Florida homeowners: check your impact-window quote before you sign. Private review — not a contractor.";
 
 export const HERO_HEADLINE =
-  "Before a window quote becomes a signed contract, make sure it says what you think it says.";
+  "Turn every quote into leverage before you sign.";
 
 export const HERO_SUBHEAD =
-  "Upload your impact-window estimate and WindowMan will check the scope, permit language, warranty terms, payment timing, and pricing structure before you commit.";
+  "Upload your impact-window estimate. See what is vague, missing, or worth questioning — then use every bid to make the next conversation clearer.";
