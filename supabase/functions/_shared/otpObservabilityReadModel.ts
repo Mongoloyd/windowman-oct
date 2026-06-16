@@ -56,14 +56,14 @@ type LeadRow = {
   zip: string | null;
   county: string | null;
   source: string | null;
-  scan_count: number;
-  latest_scan_session_id: string | null;
   phone_verified_at: string | null;
-  grade: string | null;
-  flag_count: number | null;
-  red_flag_count: number | null;
   report_unlocked_at: string | null;
+  latest_analysis_id: string | null;
 };
+
+/** Columns present on staging/production leads; avoids optional denormalized fields. */
+const LEAD_OBS_SELECT =
+  "id, client_slug, utm_source, utm_campaign, utm_medium, utm_content, zip, county, source, phone_verified_at, report_unlocked_at, latest_analysis_id";
 
 type PvRow = {
   id: string;
@@ -156,15 +156,13 @@ function classifyFailure(
 }
 
 function followUpPriority(
-  lead: LeadRow,
+  _lead: LeadRow,
   minutesStuck: number,
   verifyAttemptCount: number | null,
   hadSendAccepted: boolean,
   hadVerifySubmitted: boolean,
 ): "high" | "medium" | "low" {
-  const grade = lead.grade ?? "";
-  const redFlags = lead.red_flag_count ?? 0;
-  if (redFlags > 0 || grade === "D" || grade === "F" || minutesStuck >= 60) {
+  if (minutesStuck >= 60) {
     return "high";
   }
   if ((hadSendAccepted && !hadVerifySubmitted) || (verifyAttemptCount ?? 0) >= 1) {
@@ -219,33 +217,41 @@ export async function buildOtpObservabilityReadModel(
     if (e.phone_verification_id) pvIds.add(e.phone_verification_id);
   }
 
-  const { data: stuckLeadsRaw, error: stuckErr } = await supabaseAdmin
+  const { data: analysisStuckRaw, error: stuckErr } = await supabaseAdmin
     .from("leads")
-    .select(
-      "id, client_slug, utm_source, utm_campaign, utm_medium, utm_content, zip, county, source, scan_count, latest_scan_session_id, phone_verified_at, grade, flag_count, red_flag_count, report_unlocked_at",
-    )
+    .select(LEAD_OBS_SELECT)
     .is("phone_verified_at", null)
-    .or("scan_count.gt.0,latest_scan_session_id.not.is.null")
+    .not("latest_analysis_id", "is", null)
     .order("updated_at", { ascending: false })
     .limit(300);
 
   if (stuckErr) throw stuckErr;
-  const stuckCandidates = (stuckLeadsRaw ?? []) as LeadRow[];
-  for (const l of stuckCandidates) leadIds.add(l.id);
+  for (const l of analysisStuckRaw ?? []) {
+    leadIds.add((l as LeadRow).id);
+  }
 
   let leadsMap = new Map<string, LeadRow>();
   if (leadIds.size > 0) {
     const { data: leadsRaw, error: leadsErr } = await supabaseAdmin
       .from("leads")
-      .select(
-        "id, client_slug, utm_source, utm_campaign, utm_medium, utm_content, zip, county, source, scan_count, latest_scan_session_id, phone_verified_at, grade, flag_count, red_flag_count, report_unlocked_at",
-      )
+      .select(LEAD_OBS_SELECT)
       .in("id", [...leadIds]);
     if (leadsErr) throw leadsErr;
     leadsMap = new Map(
       ((leadsRaw ?? []) as LeadRow[]).map((l) => [l.id, l]),
     );
   }
+
+  const stuckCandidateIds = new Set<string>();
+  for (const l of analysisStuckRaw ?? []) {
+    stuckCandidateIds.add((l as LeadRow).id);
+  }
+  for (const e of events) {
+    if (e.lead_id) stuckCandidateIds.add(e.lead_id);
+  }
+  const stuckCandidates = [...stuckCandidateIds]
+    .map((id) => leadsMap.get(id))
+    .filter((l): l is LeadRow => !!l && !l.phone_verified_at);
 
   let pvMap = new Map<string, PvRow>();
   if (pvIds.size > 0) {
@@ -334,7 +340,9 @@ export async function buildOtpObservabilityReadModel(
   for (const lead of stuckCandidates) {
     if (!leadMatchesFilters(lead, filters)) continue;
 
-    const sessionId = lead.latest_scan_session_id;
+    const sessionId = leadEvents.length > 0
+      ? (leadEvents.find((e) => e.scan_session_id)?.scan_session_id ?? null)
+      : null;
     const key = `${lead.id}:${sessionId ?? ""}`;
     const leadEvents = eventsByLeadSession.get(key) ??
       filteredEvents.filter((e) => e.lead_id === lead.id);
@@ -399,9 +407,9 @@ export async function buildOtpObservabilityReadModel(
       verifyAttemptCount: pvForLead?.verify_attempt_count ?? null,
       lastLifecycleEventAt: lastEvent.created_at,
       lastLifecycleEventType: lastEvent.event_type,
-      grade: lead.grade,
-      flagCount: lead.flag_count,
-      redFlagCount: lead.red_flag_count,
+      grade: null,
+      flagCount: null,
+      redFlagCount: null,
       clientSlug: lead.client_slug,
       utmSource: lead.utm_source,
       utmCampaign: lead.utm_campaign,
@@ -546,7 +554,7 @@ export async function buildOtpObservabilityReadModel(
       verifyApproved: 0,
       reportUnlocked: 0,
     };
-    if ((lead.scan_count ?? 0) > 0) agg.scans++;
+    if (lead.latest_analysis_id) agg.scans++;
     if (lead.report_unlocked_at && lead.report_unlocked_at >= sinceIso) {
       agg.reportUnlocked++;
     }
