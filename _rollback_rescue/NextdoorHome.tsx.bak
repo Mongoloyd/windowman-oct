@@ -55,10 +55,10 @@ const PAGE_BG = NEXTDOOR_PAGE_BG;
 const GRID_TEXTURE = NEXTDOOR_GRID_TEXTURE;
 
 const HERO_PILLS = [
-  { label: TRUST_PILL_LABELS.freePreviewFirst, icon: Smartphone },
-  { label: TRUST_PILL_LABELS.privateQuoteCheck, icon: MapPin },
-  { label: TRUST_PILL_LABELS.noContractorPressure, icon: Shield },
+  { label: TRUST_PILL_LABELS.localQuoteCheck, icon: MapPin },
   { label: TRUST_PILL_LABELS.southFloridaReady, icon: Shield },
+  { label: TRUST_PILL_LABELS.noContractorPressure, icon: Shield },
+  { label: TRUST_PILL_LABELS.otpRequired, icon: Smartphone },
 ] as const;
 
 const EMPTY_IDENTITY: NextdoorIdentityFields = {
@@ -130,7 +130,7 @@ function trafficModeLabel(mode: NextdoorTrafficMode): string | null {
 function closingCtaLabel(readiness: QuoteReadiness | null): string {
   switch (readiness) {
     case "has_estimate":
-      return "Start my free preview";
+      return "Start my quote check";
     case "getting_quotes_now":
       return "Save my checklist";
     case "need_quote_soon":
@@ -138,7 +138,7 @@ function closingCtaLabel(readiness: QuoteReadiness | null): string {
     case "researching":
       return "Show me what to look for";
     default:
-      return "Start my free preview";
+      return "Start my quote check";
   }
 }
 
@@ -283,7 +283,7 @@ export default function NextdoorHome() {
             </a>
             <div className="hidden text-right sm:block">
               <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-primary">
-                {TRUST_PILL_LABELS.privateQuoteCheck}
+                {TRUST_PILL_LABELS.localQuoteCheck}
               </p>
               <p className="text-[11px] text-slate-500">
                 {trafficLabel ?? "Private review · Not a contractor"}
@@ -292,7 +292,7 @@ export default function NextdoorHome() {
           </div>
           <div className="border-t border-slate-100 px-4 py-2 text-center sm:hidden">
             <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-primary">
-              {TRUST_PILL_LABELS.privateQuoteCheck}
+              {TRUST_PILL_LABELS.localQuoteCheck}
             </p>
           </div>
         </header>
@@ -309,8 +309,8 @@ export default function NextdoorHome() {
                 from your Nextdoor request.
               </p>
               <p className="mt-2 text-sm leading-relaxed text-slate-600">
-                You can edit anything before continuing. Pick up where you left off — preview first,
-                upload when ready.
+                You can edit anything before continuing. Full report access still requires phone
+                verification later.
               </p>
             </section>
           ) : null}
@@ -437,11 +437,7 @@ export default function NextdoorHome() {
                   isResearching ? "text-slate-400" : "text-slate-500",
                 ].join(" ")}
               >
-                {isResearching
-                  ? "Optional · save this checklist"
-                  : readiness === "has_estimate"
-                    ? "Step 2 · Save your place before upload"
-                    : "Optional · Send yourself the checklist"}
+                {isResearching ? "Optional · Step 3" : "Step 2 · Save your place"}
               </p>
               <NextdoorIdentityForm
                 values={identity}
@@ -513,7 +509,8 @@ export default function NextdoorHome() {
                 Check your quote before it becomes a signed contract.
               </h2>
               <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-slate-300/90">
-                Start with the free preview. Upload when you&apos;re ready — no contractor pressure.
+                No upload happens until you choose to. The full report stays locked until phone
+                verification.
               </p>
               <button
                 type="button"
