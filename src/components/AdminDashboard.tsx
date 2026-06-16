@@ -70,13 +70,61 @@ import { LeadReleaseQueue } from "@/components/admin/LeadReleaseQueue";
 import { ContractorPerformanceDashboard } from "@/components/admin/ContractorPerformanceDashboard";
 
 import {
-  invokeAdminData,
-  fetchWebhookDeliveries,
+  invokeAdminDataSafe,
+  type AdminDataFailureInfo,
 } from "@/services/adminDataService";
+import {
+  AdminBackendStatusBanner,
+  type AdminBackendCallStatus,
+} from "@/components/admin/system/AdminBackendStatusBanner";
 
 import type { CRMLead, WebhookDelivery, CommandCenterKPIs, VoiceFollowupSummary } from "@/components/admin/types";
 
 const REFRESH_INTERVAL_MS = 120_000;
+
+const INITIAL_BACKEND_CALLS: AdminBackendCallStatus[] = [
+  { action: "fetch_leads", label: "Leads", status: "loading", severity: "critical" },
+  {
+    action: "fetch_webhook_deliveries",
+    label: "Webhook deliveries",
+    status: "loading",
+    severity: "warning",
+  },
+  {
+    action: "fetch_voice_followups",
+    label: "Voice follow-ups",
+    status: "loading",
+    severity: "warning",
+  },
+  {
+    action: "fetch_needs_review",
+    label: "Needs review queue",
+    status: "loading",
+    severity: "warning",
+  },
+];
+
+function patchBackendCall(
+  calls: AdminBackendCallStatus[],
+  action: string,
+  patch: Partial<AdminBackendCallStatus>,
+): AdminBackendCallStatus[] {
+  return calls.map((call) => (call.action === action ? { ...call, ...patch } : call));
+}
+
+function failureToCallPatch(
+  failure: AdminDataFailureInfo,
+  checkedAt: string,
+): Partial<AdminBackendCallStatus> {
+  return {
+    status: "failed",
+    message: failure.message,
+    statusCode: failure.statusCode,
+    errorCode: failure.errorCode,
+    failureKind: failure.kind,
+    lastCheckedAt: checkedAt,
+  };
+}
 
 /* ── Map raw DB row → CRMLead ────────────────────────────────────────── */
 
@@ -190,7 +238,8 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
   const [deliveries, setDeliveries] = useState<WebhookDelivery[]>([]);
   const [latestFollowups, setLatestFollowups] = useState<Record<string, VoiceFollowupSummary>>({});
   const [needsReview, setNeedsReview] = useState<NeedsReviewLead[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [backendCalls, setBackendCalls] = useState<AdminBackendCallStatus[]>(INITIAL_BACKEND_CALLS);
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
   const [activeTab, setActiveTab] = useState<string>(initialTab ?? "mission-control");
 
@@ -208,42 +257,136 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
 
   const fetchAll = useCallback(async () => {
     const isInitial = !initialLoadDone.current;
-    try {
-      // Tier 1: fetch leads first for fast initial render
-      const rawLeads = await invokeAdminData("fetch_leads");
-      setLeads((rawLeads ?? []).map(toLeadCRM));
+    const checkedAt = new Date().toISOString();
+    setIsLoading(true);
+    setBackendCalls((prev) =>
+      prev.map((call) => ({
+        ...call,
+        status: call.status === "idle" || call.status === "failed" || call.status === "success" ? "loading" : call.status,
+      })),
+    );
 
-      // Tier 2: fetch remaining data in background (don't block leads render)
-      const [rawDeliveries, rawFollowups, rawNeedsReview] = await Promise.all([
-        fetchWebhookDeliveries(),
-        invokeAdminData("fetch_voice_followups"),
-        invokeAdminData("fetch_needs_review"),
-      ]);
-      setDeliveries((rawDeliveries ?? []).map(toWebhookDelivery));
-      setNeedsReview((rawNeedsReview ?? []) as NeedsReviewLead[]);
+    let anySuccess = false;
 
-      // Build latestFollowups map
-      const followupsArr = (rawFollowups ?? []) as Array<Record<string, any>>;
+    const leadsResult = await invokeAdminDataSafe("fetch_leads");
+    if (leadsResult.ok) {
+      anySuccess = true;
+      setLeads((leadsResult.data ?? []).map(toLeadCRM));
+      setBackendCalls((prev) =>
+        patchBackendCall(prev, "fetch_leads", {
+          status: "success",
+          message: undefined,
+          statusCode: null,
+          errorCode: null,
+          failureKind: null,
+          lastCheckedAt: checkedAt,
+        }),
+      );
+    } else {
+      console.warn("[CRM] fetch_leads failed:", leadsResult.failure);
+      setBackendCalls((prev) =>
+        patchBackendCall(prev, "fetch_leads", failureToCallPatch(leadsResult.failure, checkedAt)),
+      );
+    }
+
+    const [deliveriesResult, followupsResult, needsReviewResult] = await Promise.all([
+      invokeAdminDataSafe("fetch_webhook_deliveries", { limit: 200 }),
+      invokeAdminDataSafe("fetch_voice_followups"),
+      invokeAdminDataSafe("fetch_needs_review"),
+    ]);
+
+    if (deliveriesResult.ok) {
+      anySuccess = true;
+      setDeliveries((deliveriesResult.data ?? []).map(toWebhookDelivery));
+      setBackendCalls((prev) =>
+        patchBackendCall(prev, "fetch_webhook_deliveries", {
+          status: "success",
+          message: undefined,
+          statusCode: null,
+          errorCode: null,
+          failureKind: null,
+          lastCheckedAt: checkedAt,
+        }),
+      );
+    } else {
+      console.warn("[CRM] fetch_webhook_deliveries failed:", deliveriesResult.failure);
+      setBackendCalls((prev) =>
+        patchBackendCall(
+          prev,
+          "fetch_webhook_deliveries",
+          failureToCallPatch(deliveriesResult.failure, checkedAt),
+        ),
+      );
+    }
+
+    if (needsReviewResult.ok) {
+      anySuccess = true;
+      setNeedsReview((needsReviewResult.data ?? []) as NeedsReviewLead[]);
+      setBackendCalls((prev) =>
+        patchBackendCall(prev, "fetch_needs_review", {
+          status: "success",
+          message: undefined,
+          statusCode: null,
+          errorCode: null,
+          failureKind: null,
+          lastCheckedAt: checkedAt,
+        }),
+      );
+    } else {
+      console.warn("[CRM] fetch_needs_review failed:", needsReviewResult.failure);
+      setBackendCalls((prev) =>
+        patchBackendCall(
+          prev,
+          "fetch_needs_review",
+          failureToCallPatch(needsReviewResult.failure, checkedAt),
+        ),
+      );
+    }
+
+    if (followupsResult.ok) {
+      anySuccess = true;
+      const followupsArr = (followupsResult.data ?? []) as Array<Record<string, unknown>>;
       const fMap: Record<string, VoiceFollowupSummary> = {};
       for (const f of followupsArr) {
         const lid = f.lead_id as string;
         if (!lid) continue;
-        if (!fMap[lid] || new Date(f.created_at) > new Date(fMap[lid].created_at)) {
+        if (!fMap[lid] || new Date(f.created_at as string) > new Date(fMap[lid].created_at)) {
           fMap[lid] = {
             lead_id: lid,
-            status: f.status ?? "unknown",
-            call_outcome: f.call_outcome ?? null,
-            created_at: f.created_at,
+            status: (f.status as string) ?? "unknown",
+            call_outcome: (f.call_outcome as string | null) ?? null,
+            created_at: f.created_at as string,
           };
         }
       }
       setLatestFollowups(fMap);
-      setLastSyncedAt(new Date());
-    } catch (err: unknown) {
-      console.warn("[CRM] fetch error (preview mode):", err);
-    } finally {
-      if (isInitial) initialLoadDone.current = true;
+      setBackendCalls((prev) =>
+        patchBackendCall(prev, "fetch_voice_followups", {
+          status: "success",
+          message: undefined,
+          statusCode: null,
+          errorCode: null,
+          failureKind: null,
+          lastCheckedAt: checkedAt,
+        }),
+      );
+    } else {
+      console.warn("[CRM] fetch_voice_followups failed:", followupsResult.failure);
+      setBackendCalls((prev) =>
+        patchBackendCall(
+          prev,
+          "fetch_voice_followups",
+          failureToCallPatch(followupsResult.failure, checkedAt),
+        ),
+      );
     }
+
+    if (anySuccess) {
+      setLastSyncedAt(new Date());
+    }
+
+    setIsLoading(false);
+    if (isInitial) initialLoadDone.current = true;
   }, []);
 
   useEffect(() => {
@@ -262,19 +405,30 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
 
   const kpis = computeKPIs(leads, deliveries);
   const ghosts = leads.filter((l) => l.latest_analysis_id && !l.phone_verified);
+  const leadsCall = backendCalls.find((c) => c.action === "fetch_leads");
+  const leadsLoadFailed = leadsCall?.status === "failed";
+  const leadsLoadSucceeded = leadsCall?.status === "success";
 
   const lastSyncLabel = lastSyncedAt
     ? `Updated ${formatDistanceToNow(lastSyncedAt, { addSuffix: true })}`
-    : "Loading…";
+    : isLoading
+      ? "Loading…"
+      : leadsLoadFailed
+        ? "Could not load data"
+        : "Not yet synced";
+
+  const leadCountLabel = leadsLoadFailed
+    ? "Lead count unavailable"
+    : `${leads.length} lead${leads.length === 1 ? "" : "s"}`;
 
   const previewBadge =
-    leads.length === 0 && initialLoadDone.current ? <PreviewModeBadge /> : null;
+    leadsLoadSucceeded && leads.length === 0 ? <PreviewModeBadge /> : null;
 
   return (
     <AdminShell
       eyebrow="Lead Sniper · Admin"
       title="Operator Command Center"
-      subtitle={`${leads.length} leads · ${lastSyncLabel}`}
+      subtitle={`${leadCountLabel} · ${lastSyncLabel}`}
       belowHeader={
         <div className="flex items-center gap-3">
           {previewBadge}
@@ -289,6 +443,13 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
         </div>
       }
     >
+      <div className="space-y-4">
+        <AdminBackendStatusBanner
+          calls={backendCalls}
+          isRefreshing={isLoading}
+          onRetry={fetchAll}
+        />
+
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-5">
         <AdminPrimaryTabs
           ghostCount={ghosts.length}
@@ -358,21 +519,27 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
           </TabsContent>
 
           <TabsContent value="pipeline">
-            <ActivePipeline leads={leads} isLoading={false} />
+            <ActivePipeline leads={leads} isLoading={isLoading && !leadsLoadFailed} />
           </TabsContent>
 
           <TabsContent value="ghosts">
-            <GhostRecovery ghosts={ghosts} isLoading={false} />
+            <GhostRecovery ghosts={ghosts} isLoading={isLoading && !leadsLoadFailed} />
           </TabsContent>
 
           <TabsContent value="needs-review">
-            <NeedsReviewTab needsReview={needsReview} isLoading={false} />
+            <NeedsReviewTab
+              needsReview={needsReview}
+              isLoading={
+                isLoading &&
+                backendCalls.find((c) => c.action === "fetch_needs_review")?.status !== "failed"
+              }
+            />
           </TabsContent>
 
           <TabsContent value="engine">
             <InternalCRMDesk
               leads={leads}
-              isLoading={false}
+              isLoading={isLoading && !leadsLoadFailed}
               onStatusChange={() => fetchAll()}
               latestFollowups={latestFollowups}
             />
@@ -467,7 +634,7 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
           </TabsContent>
 
           <TabsContent value="attribution">
-            <AttributionTab leads={leads} isLoading={false} />
+            <AttributionTab leads={leads} isLoading={isLoading && !leadsLoadFailed} />
           </TabsContent>
 
           <TabsContent value="signal-dispatch" className="w-full px-2 sm:px-6 pt-4">
@@ -523,6 +690,7 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
             <TwilioObservabilityPanel />
           </TabsContent>
       </Tabs>
+      </div>
     </AdminShell>
   );
 }

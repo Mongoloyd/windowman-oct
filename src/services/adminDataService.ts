@@ -347,6 +347,98 @@ export function getErrorMessage(error: unknown): string {
   return "An unexpected error occurred";
 }
 
+/** Operator-safe failure details for Admin dashboard status tracking. */
+export type AdminDataFailureInfo = {
+  message: string;
+  statusCode: number | null;
+  errorCode: string | null;
+  kind: "auth" | "network" | "server" | "client" | "unknown";
+};
+
+function isLikelyNetworkError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const msg = error.message.toLowerCase();
+  return (
+    msg.includes("failed to fetch") ||
+    msg.includes("network") ||
+    msg.includes("networkerror") ||
+    msg.includes("load failed")
+  );
+}
+
+/**
+ * Classify admin-data failures for operator-visible banners (no raw payloads).
+ */
+export function classifyAdminDataFailure(error: unknown): AdminDataFailureInfo {
+  if (isAdminDataError(error)) {
+    const status = error.status ?? null;
+    const code = error.code ?? null;
+    if (code === "auth_error" || status === 401 || status === 403) {
+      return {
+        message: "Admin session or role authorization failed.",
+        statusCode: status,
+        errorCode: code,
+        kind: "auth",
+      };
+    }
+    if (status === 500 || code === "invocation_error") {
+      return {
+        message: "Admin-data Edge Function returned a server error.",
+        statusCode: status,
+        errorCode: code,
+        kind: "server",
+      };
+    }
+    if (status === 404 || code === "unknown_action") {
+      return {
+        message: "Unknown admin action — backend deploy may be stale.",
+        statusCode: status,
+        errorCode: code,
+        kind: "client",
+      };
+    }
+    return {
+      message: error.message || "Admin-data request failed.",
+      statusCode: status,
+      errorCode: code,
+      kind: "client",
+    };
+  }
+
+  if (isLikelyNetworkError(error)) {
+    return {
+      message: "Network failure contacting admin-data.",
+      statusCode: null,
+      errorCode: "network_error",
+      kind: "network",
+    };
+  }
+
+  return {
+    message: getErrorMessage(error),
+    statusCode: null,
+    errorCode: "unknown_error",
+    kind: "unknown",
+  };
+}
+
+export type AdminDataInvokeResult<T = unknown> =
+  | { ok: true; data: T }
+  | { ok: false; failure: AdminDataFailureInfo };
+
+/** Non-throwing wrapper for AdminDashboard per-call status tracking. */
+export async function invokeAdminDataSafe<T extends AdminAction>(
+  action: T,
+  payload: AdminActionPayloads[T] = {} as AdminActionPayloads[T],
+): Promise<AdminDataInvokeResult> {
+  try {
+    const data = await invokeAdminData(action, payload);
+    return { ok: true, data };
+  } catch (error) {
+    return { ok: false, failure: classifyAdminDataFailure(error) };
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Core Invoker
 // ═══════════════════════════════════════════════════════════════════════════
