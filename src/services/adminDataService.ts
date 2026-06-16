@@ -83,7 +83,11 @@ export type AdminAction =
   // Phase 26 — Mission Control Truth Strip drilldown
   | "fetch_quote_evidence"
   | "fetch_lead_evidence"
-  | "fetch_stage_leads";
+  | "fetch_stage_leads"
+  // PREP-2B — dispatch attribution freshness (aggregate-only)
+  | "get_attribution_freshness"
+  // TWILIO-OBS-05 — OTP observability read model (read-only)
+  | "get_otp_observability";
 
 /**
  * Payload shapes for each admin action.
@@ -182,6 +186,17 @@ export interface AdminActionPayloads {
     stage: "captured" | "verified" | "scanned" | "routed" | "booked" | "closed";
     scope: "today" | "7d" | "all";
     limit?: number;
+  };
+  get_attribution_freshness: Record<string, never>;
+  get_otp_observability: {
+    windowMinutes?: number;
+    limit?: number;
+    filters?: {
+      client_slug?: string;
+      utm_source?: string;
+      utm_campaign?: string;
+      zip?: string;
+    };
   };
 }
 
@@ -799,4 +814,121 @@ export async function fetchStageLeads(
   limit?: number,
 ): Promise<{ leads: StageLeadRow[] }> {
   return invokeAdminData("fetch_stage_leads", { stage, scope, limit });
+}
+
+// ── TWILIO-OBS-05 — OTP observability (read-only) ───────────────────────
+
+export interface OtpObservabilityHealth {
+  windowMinutes: number;
+  sendRequested: number;
+  sendAccepted: number;
+  sendFailed: number;
+  rateLimited: number;
+  verifySubmitted: number;
+  verifyApproved: number;
+  verifyFailed: number;
+  sendAcceptanceRate: number;
+  verifyApprovalRate: number;
+  sendToVerifyRate: number;
+  qaBypassCount: number;
+  lastEventAt: string | null;
+  otpHealthScore: number;
+}
+
+export interface OtpObservabilityRecentEvent {
+  id: string;
+  createdAt: string;
+  eventType: string;
+  eventStatus: string;
+  actor: string;
+  source: string;
+  leadId: string | null;
+  scanSessionId: string | null;
+  phoneVerificationId: string | null;
+  twilioErrorCode: number | null;
+  twilioVerificationSidSuffix: string | null;
+  metadataSafe: Record<string, unknown>;
+  clientSlug: string | null;
+  utmSource: string | null;
+  utmCampaign: string | null;
+  zip: string | null;
+  county: string | null;
+}
+
+export interface OtpObservabilityStuckSession {
+  leadId: string;
+  scanSessionId: string | null;
+  phoneVerificationId: string | null;
+  stuckReason: string;
+  minutesStuck: number;
+  sendOutcome: string | null;
+  verifyAttemptCount: number | null;
+  lastLifecycleEventAt: string | null;
+  lastLifecycleEventType: string | null;
+  grade: string | null;
+  flagCount: number | null;
+  redFlagCount: number | null;
+  clientSlug: string | null;
+  utmSource: string | null;
+  utmCampaign: string | null;
+  zip: string | null;
+  county: string | null;
+  phoneMasked: string;
+  reportUnlockedAt: string | null;
+  followUpPriority: "high" | "medium" | "low";
+}
+
+export interface OtpObservabilityFailureBucket {
+  bucketKey: string;
+  category: "send" | "verify" | "delivery" | "lookup" | "user_behavior" | "technical";
+  label: string;
+  count: number;
+  pctOfFailures: number;
+  topTwilioCodes: number[];
+  sampleScanSessionIds: string[];
+}
+
+export interface OtpObservabilitySourceBreakdown {
+  dimension: "utm_source" | "lead_source" | "client_slug";
+  value: string;
+  sendAccepted: number;
+  verifyApproved: number;
+  sendToVerifyRate: number;
+  avgVerifyAttempts: number;
+  frictionScore: number;
+}
+
+export interface OtpObservabilityCampaignBreakdown {
+  utmCampaign: string;
+  utmSource: string | null;
+  utmMedium: string | null;
+  utmContent: string | null;
+  scans: number;
+  sendAccepted: number;
+  verifyApproved: number;
+  reportUnlocked: number;
+  curiosityScore: number;
+}
+
+export interface OtpObservabilityRecommendation {
+  severity: "info" | "warning" | "critical";
+  title: string;
+  reason: string;
+  suggestedAction: string;
+}
+
+export interface OtpObservabilityReadModel {
+  health: OtpObservabilityHealth;
+  recentEvents: OtpObservabilityRecentEvent[];
+  stuckSessions: OtpObservabilityStuckSession[];
+  failureBuckets: OtpObservabilityFailureBucket[];
+  sourceBreakdown: OtpObservabilitySourceBreakdown[];
+  campaignBreakdown: OtpObservabilityCampaignBreakdown[];
+  recommendations: OtpObservabilityRecommendation[];
+}
+
+export async function fetchOtpObservability(
+  payload: AdminActionPayloads["get_otp_observability"] = {},
+): Promise<OtpObservabilityReadModel> {
+  return invokeAdminData("get_otp_observability", payload);
 }

@@ -15,6 +15,7 @@ import {
   resolvePixelConfig,
   summarizeTokenPresence,
 } from "../_shared/capiRouting.ts";
+import { buildOtpObservabilityReadModel } from "../_shared/otpObservabilityReadModel.ts";
 
 /**
  * admin-data v2.4
@@ -82,7 +83,9 @@ type ActionName =
   // PREP-2B — dispatch attribution freshness (aggregate-only)
   | "get_attribution_freshness"
   // Nextdoor CAPI lane — read-only dispatch log aggregates
-  | "get_nextdoor_dispatch_lane_status";
+  | "get_nextdoor_dispatch_lane_status"
+  // TWILIO-OBS-05 — OTP observability read model (read-only)
+  | "get_otp_observability";
 
 const ACTION_ROLES: Record<ActionName, AppRole[]> = {
   fetch_leads: ["super_admin", "operator", "viewer"],
@@ -148,6 +151,8 @@ const ACTION_ROLES: Record<ActionName, AppRole[]> = {
   get_attribution_freshness: ["super_admin", "operator", "viewer"],
   // Nextdoor lane visibility (read-only)
   get_nextdoor_dispatch_lane_status: ["super_admin", "operator", "viewer"],
+  // TWILIO-OBS-05 — OTP observability (read-only)
+  get_otp_observability: ["super_admin", "operator", "viewer"],
 };
 
 // Allowed funnel stages (Sprint 5 — kept in sync with frontend constants)
@@ -3196,6 +3201,16 @@ Deno.serve(async (req) => {
       });
 
       return successResponse({ data: { leads: stamped } });
+    }
+
+    // ─── TWILIO-OBS-05: OTP observability read model (read-only) ─────
+
+    if (action === "get_otp_observability") {
+      const readModel = await buildOtpObservabilityReadModel(
+        supabaseAdmin,
+        payload,
+      );
+      return successResponse({ data: readModel });
     }
 
     return errorResponse(

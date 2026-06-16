@@ -59,6 +59,7 @@ export function AdminRoutes() {
       <Route path="dialer" element={<AdminAuthGate><AdminDashboard initialTab="engine" /></AdminAuthGate>} />
       <Route path="delivery-inspector" element={<AdminAuthGate><AdminDashboard initialTab="delivery-inspector" /></AdminAuthGate>} />
       <Route path="session-diag" element={<AdminAuthGate><AdminDashboard initialTab="session-diag" /></AdminAuthGate>} />
+      <Route path="otp-ops" element={<AdminAuthGate><AdminDashboard initialTab="otp-ops" /></AdminAuthGate>} />
       <Route path="leads" element={<AdminAuthGate><AdminLeadInbox /></AdminAuthGate>} />
       <Route path="leads/:id" element={<AdminAuthGate><AdminLeadDossierPage /></AdminAuthGate>} />
       <Route path="leads/:id/report" element={<AdminAuthGate><AdminLeadReport /></AdminAuthGate>} />

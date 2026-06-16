@@ -94,6 +94,7 @@ export function AdminPrimaryTabs({
     { kind: "panel", value: "dispatch-attempts", label: "Attempt Reconciliation" },
     { kind: "panel", value: "dispatch-governance", label: "Dispatch Governance" },
     { kind: "panel", value: "delivery-inspector", label: "Delivery" },
+    { kind: "route", to: "/admin/otp-ops", matchPrefixes: ["/admin/otp-ops"], label: "OTP Ops" },
     { kind: "route", to: "/admin/outcome-inspector", matchPrefixes: ["/admin/outcome-inspector"], label: "Outcome Inspector" },
     { kind: "panel", value: "session-diag", label: "Sessions" },
   ];

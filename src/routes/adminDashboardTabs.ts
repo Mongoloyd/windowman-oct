@@ -48,6 +48,7 @@ export const ADMIN_DASHBOARD_TABS = [
   "delivery-inspector",
   "outcome-inspector",
   "session-diag",
+  "otp-ops",
 ] as const;
 
 export type AdminDashboardTab = (typeof ADMIN_DASHBOARD_TABS)[number];

@@ -53,6 +53,7 @@ import { AdminInformationArchitectureNavigationSimplificationSurface } from "@/c
 import { StrategicPrioritizationNextBuildDecisionFrameworkSurface } from "@/components/admin/StrategicPrioritizationNextBuildDecisionFrameworkSurface";
 import { DeliveryInspectorPage } from "@/components/admin/deliveries/DeliveryInspectorPage";
 import { SessionDiagnosticPanel } from "@/components/admin/diagnostics/SessionDiagnosticPanel";
+import { TwilioObservabilityPanel } from "@/components/admin/otp/TwilioObservabilityPanel";
 import { SignalDispatchTab } from "@/components/admin/SignalDispatchTab";
 import { RevenueDispatchReadiness } from "@/components/admin/RevenueDispatchReadiness";
 import { RevenueSignalDryRunAudit } from "@/components/admin/RevenueSignalDryRunAudit";
@@ -516,6 +517,10 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
 
           <TabsContent value="session-diag" className="w-full px-0 pt-2 sm:px-2">
             <SessionDiagnosticPanel />
+          </TabsContent>
+
+          <TabsContent value="otp-ops" className="w-full px-0 pt-2 sm:px-2">
+            <TwilioObservabilityPanel />
           </TabsContent>
       </Tabs>
     </AdminShell>
