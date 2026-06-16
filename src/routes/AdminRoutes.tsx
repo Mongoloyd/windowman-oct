@@ -1,5 +1,5 @@
 import { lazy } from "react";
-import { Route, Routes, useParams } from "react-router-dom";
+import { Navigate, Route, Routes, useParams } from "react-router-dom";
 import { isAdminDashboardTab } from "@/routes/adminDashboardTabs";
 
 const AdminDashboard = lazy(() => import("@/components/AdminDashboard.tsx"));
@@ -35,7 +35,14 @@ function AdminDashboardTabRoute() {
 export function AdminRoutes() {
   return (
     <Routes>
-      <Route index element={<AdminAuthGate><AdminDashboard /></AdminAuthGate>} />
+      <Route
+        index
+        element={
+          <AdminAuthGate>
+            <Navigate to="/admin/leads" replace />
+          </AdminAuthGate>
+        }
+      />
       <Route path="login" element={<AdminLogin />} />
       <Route path="forgot-password" element={<AdminForgotPassword />} />
       <Route path="reset-password" element={<AdminResetPassword />} />

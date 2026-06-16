@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { invokeAdminData, getErrorMessage } from "@/services/adminDataService";
+import { invokeAdminData, getErrorMessage, updateLeadDisposition } from "@/services/adminDataService";
 import type { CRMLead } from "@/components/admin/types";
 import { FUNNEL_STAGES, getStageDef } from "@/components/admin/leadWorkflow";
 
@@ -336,6 +336,24 @@ function formatStageLabel(funnelStage: string | null | undefined): string {
   return funnelStage.replace(/_/g, " ");
 }
 
+type LeadOpsCountLead = {
+  admin_follow_up_at?: string | null;
+  admin_priority_override?: string | null;
+  latest_analysis_id?: string | null;
+  phone_verified?: boolean | null;
+  report_unlocked_at?: string | null;
+};
+
+const isLeadStuck = (lead: LeadOpsCountLead): boolean => {
+  const hasLatestAnalysis = Boolean(lead.latest_analysis_id);
+  const primaryStuck = hasLatestAnalysis && lead.phone_verified !== true;
+  const secondaryDisplaySignal =
+    lead.phone_verified === true &&
+    hasLatestAnalysis &&
+    !lead.report_unlocked_at;
+  return primaryStuck || secondaryDisplaySignal;
+};
+
 export default function LeadInbox() {
   const navigate = useNavigate();
 
@@ -362,6 +380,18 @@ export default function LeadInbox() {
   });
 
   const leads = useMemo(() => rawLeads.map(toLead), [rawLeads]);
+
+  const leadOpsCounts = useMemo(() => {
+    const now = new Date();
+    return {
+      due: leads.filter((lead) => {
+        if (!lead.admin_follow_up_at) return false;
+        return new Date(lead.admin_follow_up_at) <= now;
+      }).length,
+      hot: leads.filter((lead) => lead.admin_priority_override === "hot").length,
+      stuck: leads.filter(isLeadStuck).length,
+    };
+  }, [leads]);
 
   const counties = useMemo(() => {
     const set = new Set<string>();
@@ -458,10 +488,23 @@ export default function LeadInbox() {
       eyebrow="Operator · Triage"
       title="Lead Inbox"
       subtitle={subtitle}
-      backTo="/admin"
-      backLabel="Back to dashboard"
       belowHeader={
-        <FilterBar
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-800">
+            <span className="inline-flex items-center rounded-md border border-violet-300 bg-violet-50 px-2.5 py-1">
+              Due: {leadOpsCounts.due}
+            </span>
+            <span className="inline-flex items-center rounded-md border border-red-300 bg-red-50 px-2.5 py-1">
+              Hot: {leadOpsCounts.hot}
+            </span>
+            <span className="inline-flex items-center rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1">
+              Stuck: {leadOpsCounts.stuck}
+            </span>
+            <span className="text-xs font-medium text-slate-500">
+              Kanban v1 — next sprint
+            </span>
+          </div>
+          <FilterBar
           search={search} setSearch={setSearch}
           dateRange={dateRange} setDateRange={setDateRange}
           county={county} setCounty={setCounty} counties={counties}
@@ -474,6 +517,7 @@ export default function LeadInbox() {
           onRefresh={() => refetch()}
           refreshing={isFetching && !isLoading}
         />
+        </div>
       }
     >
       {isLoading ? (
@@ -747,13 +791,7 @@ function DispositionCell({ lead }: { lead: InboxLead }) {
     setJustSaved(false);
     try {
       const followUpIso = followUp ? new Date(followUp).toISOString() : null;
-      // update_lead_disposition is validated + role-gated server-side in
-      // admin-data. Cast through the generic invoker until the shared
-      // AdminAction union (separate protected file) is regenerated.
-      await (invokeAdminData as unknown as (
-        action: string,
-        payload: Record<string, unknown>,
-      ) => Promise<unknown>)("update_lead_disposition", {
+      await updateLeadDisposition({
         lead_id: lead.id,
         admin_disposition: disposition,
         admin_priority_override: override,

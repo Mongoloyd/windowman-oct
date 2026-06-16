@@ -71,6 +71,7 @@ export type AdminAction =
   // Lead workspace (Sprint 4 + 5)
   | "fetch_lead_detail"
   | "update_lead_funnel_stage"
+  | "update_lead_disposition"
   | "list_lead_notes"
   | "create_lead_note"
   | "delete_lead_note"
@@ -159,6 +160,13 @@ export interface AdminActionPayloads {
   // Lead workspace (Sprint 4 + 5)
   fetch_lead_detail: { lead_id: string };
   update_lead_funnel_stage: { lead_id: string; funnel_stage: string };
+  update_lead_disposition: {
+    lead_id: string;
+    admin_disposition?: string;
+    admin_priority_override?: string | null;
+    admin_follow_up_at?: string | null;
+    admin_last_contacted_at?: string | null;
+  };
   list_lead_notes: { lead_id: string };
   create_lead_note: { lead_id: string; body: string; category?: string };
   delete_lead_note: { note_id: string };
@@ -832,6 +840,12 @@ export async function updateLeadFunnelStage(
   funnelStage: string,
 ): Promise<{ id: string; funnel_stage: string; updated_at: string }> {
   return invokeAdminData("update_lead_funnel_stage", { lead_id: leadId, funnel_stage: funnelStage });
+}
+
+export async function updateLeadDisposition(
+  args: AdminActionPayloads["update_lead_disposition"],
+) {
+  return invokeAdminData("update_lead_disposition", args);
 }
 
 export async function listLeadNotes(leadId: string): Promise<LeadNote[]> {
