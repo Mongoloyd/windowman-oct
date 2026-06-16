@@ -27,6 +27,7 @@ import {
   NextdoorPrepPanel,
   NextdoorQuoteReadyPanel,
 } from "@/components/nextdoor/NextdoorPrepPanel";
+import { NextdoorPathSummary } from "@/components/nextdoor/NextdoorPathSummary";
 import { NextdoorReadinessCards } from "@/components/nextdoor/NextdoorReadinessCards";
 import type {
   NextdoorIdentityFields,
@@ -42,6 +43,7 @@ import {
   deriveNextdoorTrafficMode,
   logLocalPayloadDevSummary,
   parseNextdoorUrlPrefill,
+  resolveWmIntentFromReadiness,
 } from "@/lib/nextdoor/attributionHelpers";
 import {
   deriveAreaContext,
@@ -53,6 +55,13 @@ import {
   PAGE_TITLE,
   TRUST_PILL_LABELS,
 } from "@/lib/nextdoor/areaContext";
+import { getOrCreateNextdoorSessionId } from "@/lib/nextdoor/nextdoorSession";
+import {
+  leadSuccessMessage,
+  resolveNextRoute,
+  saveCtaLabel as resolveSaveCtaLabel,
+} from "@/lib/nextdoor/pathRouter";
+import { submitNextdoorLead } from "@/services/nextdoorLeadCapture";
 import { getUtmData } from "@/lib/useUtmCapture";
 
 const PAGE_BG = NEXTDOOR_PAGE_BG;
@@ -131,25 +140,12 @@ function trafficModeLabel(mode: NextdoorTrafficMode): string | null {
   }
 }
 
-/** Local-only adaptive label for the closing CTA — no navigation, no backend. */
-function closingCtaLabel(readiness: QuoteReadiness | null): string {
-  switch (readiness) {
-    case "has_estimate":
-      return "Start my free preview";
-    case "getting_quotes_now":
-      return "Save my checklist";
-    case "need_quote_soon":
-      return "Prep my quote questions";
-    case "researching":
-      return "Show me what to look for";
-    default:
-      return "Start my free preview";
-  }
-}
-
 export default function NextdoorHome() {
   const initialUrlState = useMemo(() => readInitialUrlState(), []);
+  const nextdoorSessionId = useMemo(() => getOrCreateNextdoorSessionId(), []);
+  const leadSubmitInFlightRef = useRef(false);
   const readinessRef = useRef<HTMLElement>(null);
+  const nextStepPanelRef = useRef<HTMLElement>(null);
   const identityModuleRef = useRef<HTMLElement>(null);
   const [readiness, setReadiness] = useState<QuoteReadiness | null>(
     initialUrlState.quoteReadiness,
@@ -160,6 +156,8 @@ export default function NextdoorHome() {
   const [hasKnownLead, setHasKnownLead] = useState(initialUrlState.hasKnownLead);
   const [trafficMode, setTrafficMode] = useState<NextdoorTrafficMode>(initialUrlState.trafficMode);
   const [identitySubmitted, setIdentitySubmitted] = useState(false);
+  const [leadSubmitting, setLeadSubmitting] = useState(false);
+  const [leadSubmitError, setLeadSubmitError] = useState<string | null>(null);
   const [localPayload, setLocalPayload] = useState<NextdoorLeadPayload | null>(null);
   const [showChecklist, setShowChecklist] = useState(
     initialUrlState.quoteReadiness === "researching",
@@ -197,36 +195,56 @@ export default function NextdoorHome() {
     readinessRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
-  const handleReadinessSelect = useCallback((value: QuoteReadiness) => {
-    setReadiness(value);
-    setShowChecklist(value === "researching");
-    setIdentitySubmitted(false);
-    setLocalPayload(null);
-
-    if (value === "has_estimate") {
-      scrollToElementAfterDelay(identityModuleRef.current, 300);
-    }
+  const scrollToNextStepPanel = useCallback(() => {
+    scrollToElementAfterDelay(nextStepPanelRef.current, 300);
   }, []);
+
+  const scrollToIdentity = useCallback(() => {
+    scrollToElementAfterDelay(identityModuleRef.current, 300);
+    window.setTimeout(() => {
+      const firstInput = identityModuleRef.current?.querySelector<HTMLElement>(
+        "input:not([type='hidden'])",
+      );
+      firstInput?.focus({ preventScroll: true });
+    }, 350);
+  }, []);
+
+  const handleReadinessSelect = useCallback(
+    (value: QuoteReadiness) => {
+      setReadiness(value);
+      setShowChecklist(value !== "has_estimate");
+      setIdentitySubmitted(false);
+      setLeadSubmitting(false);
+      setLeadSubmitError(null);
+      setLocalPayload(null);
+      scrollToNextStepPanel();
+    },
+    [scrollToNextStepPanel],
+  );
 
   const handleHeroSecondary = useCallback(() => {
     setReadiness("getting_quotes_now");
-    setShowChecklist(false);
+    setShowChecklist(true);
     setIdentitySubmitted(false);
+    setLeadSubmitting(false);
+    setLeadSubmitError(null);
     setLocalPayload(null);
     scrollToReadiness();
+    scrollToElementAfterDelay(nextStepPanelRef.current, 450);
   }, [scrollToReadiness]);
 
   const handleIdentityChange = useCallback(
     (field: keyof NextdoorIdentityFields, value: string) => {
       setIdentity((prev) => ({ ...prev, [field]: value }));
       setIdentitySubmitted(false);
+      setLeadSubmitError(null);
       setLocalPayload(null);
     },
     [],
   );
 
-  const handleIdentitySubmit = useCallback(() => {
-    if (!readiness) return;
+  const handleIdentitySubmit = useCallback(async () => {
+    if (!readiness || leadSubmitInFlightRef.current) return;
 
     const payload = buildLocalNextdoorPayload({
       firstName: identity.firstName,
@@ -237,16 +255,42 @@ export default function NextdoorHome() {
       trafficMode,
     });
 
+    const utm = getUtmData();
+    const wmIntent = resolveWmIntentFromReadiness(readiness, utm.wm_intent);
+
+    leadSubmitInFlightRef.current = true;
+    setLeadSubmitting(true);
+    setLeadSubmitError(null);
+
+    const result = await submitNextdoorLead({
+      sessionId: nextdoorSessionId,
+      firstName: identity.firstName,
+      email: identity.email,
+      zip: identity.zip,
+      lastName: lastName || undefined,
+      quoteReadiness: readiness,
+      nextRoute: resolveNextRoute(readiness),
+      wmIntent,
+    });
+
+    leadSubmitInFlightRef.current = false;
+    setLeadSubmitting(false);
+
+    if (!result.ok) {
+      setLeadSubmitError(result.message);
+      return;
+    }
+
     setLocalPayload(payload);
     logLocalPayloadDevSummary(payload);
     setIdentitySubmitted(true);
-  }, [identity, lastName, readiness, trafficMode]);
+  }, [identity, lastName, nextdoorSessionId, readiness, trafficMode]);
 
   const showIdentityModule = readiness !== null;
-  const showNextStepPanel =
-    readiness !== null &&
-    (isResearching || identitySubmitted) &&
-    (isQuoteReady(readiness) || isPrepPath(readiness));
+  const showNextStepPanel = readiness !== null;
+  const identitySaveLabel = resolveSaveCtaLabel(readiness);
+  const identitySuccessMessage =
+    readiness && identitySubmitted ? leadSuccessMessage(readiness) : null;
 
   const trafficLabel = trafficModeLabel(trafficMode);
 
@@ -397,41 +441,56 @@ export default function NextdoorHome() {
                 Where are you in the quote process?
               </h2>
               <p className="mt-2 max-w-2xl text-sm text-slate-600">
-                Pick the card that matches today. Your choices and attribution keys stay on this
-                device only until backend wiring ships.
+                Pick the card that matches today. Save your path when you are ready — upload comes
+                later.
               </p>
               <div className="mt-6">
                 <NextdoorReadinessCards selected={readiness} onSelect={handleReadinessSelect} />
               </div>
+              {readiness ? (
+                <div className="mt-5">
+                  <NextdoorPathSummary readiness={readiness} />
+                </div>
+              ) : null}
             </NextdoorReveal>
           </section>
+
+          {showNextStepPanel && readiness ? (
+            <section
+              ref={nextStepPanelRef}
+              id="next-step-panel"
+              className="mb-10 scroll-mt-28 md:mb-12"
+              aria-labelledby="next-step-heading"
+            >
+              <p className="mb-4 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                Step 2 · Your next step
+                {identitySubmitted ? " · Saved" : null}
+              </p>
+              <h2 id="next-step-heading" className="sr-only">
+                Your next step
+              </h2>
+              {isQuoteReady(readiness) ? (
+                <NextdoorQuoteReadyPanel
+                  identitySubmitted={identitySubmitted}
+                  attributionSaveUrl={attributionSaveUrl}
+                  onScrollToIdentity={scrollToIdentity}
+                />
+              ) : isPrepPath(readiness) ? (
+                <NextdoorPrepPanel
+                  readiness={readiness}
+                  showChecklist={showChecklist}
+                  onShowChecklist={() => setShowChecklist(true)}
+                  onScrollToIdentity={scrollToIdentity}
+                  primary={isResearching}
+                  attributionSaveUrl={attributionSaveUrl}
+                />
+              ) : null}
+            </section>
+          ) : null}
 
           <NextdoorReveal className="mb-10 md:mb-12">
             <NextdoorQuoteLeverageLoop />
           </NextdoorReveal>
-
-          {isResearching && showNextStepPanel ? (
-            <section
-              id="next-step-panel"
-              className="mb-10 scroll-mt-28 md:mb-12"
-              aria-labelledby="research-prep-heading"
-            >
-              <p className="mb-4 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-700">
-                Step 2 · Your checklist
-              </p>
-              <h2 id="research-prep-heading" className="sr-only">
-                Quote anatomy checklist
-              </h2>
-              <NextdoorPrepPanel
-                readiness="researching"
-                showChecklist={showChecklist}
-                onShowChecklist={() => setShowChecklist(true)}
-                primary
-                attributionSaveUrl={attributionSaveUrl}
-                areaContext={areaContext}
-              />
-            </section>
-          ) : null}
 
           {showIdentityModule ? (
             <section
@@ -447,10 +506,10 @@ export default function NextdoorHome() {
                 ].join(" ")}
               >
                 {isResearching
-                  ? "Optional · save this checklist"
+                  ? "Step 3 · Optional save"
                   : readiness === "has_estimate"
-                    ? "Step 2 · Save your place before upload"
-                    : "Optional · Send yourself the checklist"}
+                    ? "Step 3 · Save your place before upload"
+                    : "Step 3 · Save your checklist"}
               </p>
               <NextdoorIdentityForm
                 values={identity}
@@ -458,40 +517,14 @@ export default function NextdoorHome() {
                 onChange={handleIdentityChange}
                 onSubmit={handleIdentitySubmit}
                 submitted={identitySubmitted}
+                submitting={leadSubmitting}
+                submitError={leadSubmitError}
+                successMessage={identitySuccessMessage}
                 optional={isResearching}
                 readinessSelected={readiness !== null}
                 areaContext={areaContext}
+                saveCtaLabel={identitySaveLabel}
               />
-            </section>
-          ) : null}
-
-          {showNextStepPanel && readiness && !isResearching ? (
-            <section
-              id="next-step-panel"
-              className="mb-12 scroll-mt-28 md:mb-14"
-              aria-labelledby="next-step-heading"
-            >
-              <p className="mb-4 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-                Step 3 · Tailored next step
-                {localPayload ? " · Saved locally" : null}
-              </p>
-              <h2 id="next-step-heading" className="sr-only">
-                Your next step
-              </h2>
-              {isQuoteReady(readiness) ? (
-                <NextdoorQuoteReadyPanel
-                  identitySubmitted={identitySubmitted}
-                  attributionSaveUrl={attributionSaveUrl}
-                />
-              ) : isPrepPath(readiness) ? (
-                <NextdoorPrepPanel
-                  readiness={readiness}
-                  showChecklist={showChecklist}
-                  onShowChecklist={() => setShowChecklist(true)}
-                  attributionSaveUrl={attributionSaveUrl}
-                  areaContext={areaContext}
-                />
-              ) : null}
             </section>
           ) : null}
 
@@ -547,7 +580,7 @@ export default function NextdoorHome() {
                 className={[nextdoorPrimaryCtaClass, "mt-6 w-full sm:w-auto"].join(" ")}
                 style={{ padding: "16px 36px", fontSize: 16 }}
               >
-                {closingCtaLabel(readiness)}
+                {resolveSaveCtaLabel(readiness)}
               </button>
               <p className="mx-auto mt-4 max-w-md text-xs leading-relaxed text-slate-400">
                 No contractor pressure. No marketplace handoff. Upload when ready.

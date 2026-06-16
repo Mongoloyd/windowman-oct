@@ -1,7 +1,7 @@
 import { ClipboardList, Lock, UploadCloud } from "lucide-react";
-import type { AreaContext } from "@/lib/nextdoor/areaContext";
-import { prepPanelAreaPhrase } from "@/lib/nextdoor/areaContext";
+import { nextStepPanelCopy } from "@/lib/nextdoor/pathRouter";
 import type { QuoteReadiness } from "./types";
+import { nextdoorPrimaryCtaClass } from "./nextdoorUi";
 
 const CHECKLIST_ITEMS = [
   "Ask who pulls permits and who schedules inspections.",
@@ -12,6 +12,15 @@ const CHECKLIST_ITEMS = [
   "Request written scope for labor, materials, and cleanup.",
 ] as const;
 
+const SALES_VISIT_ITEMS = [
+  "What product line and approval numbers are you quoting?",
+  "Who pulls permits and schedules inspections?",
+  "What is included in labor vs. materials?",
+  "What triggers deposit, progress payments, and final balance?",
+  "What warranty covers product, labor, glass, and installation?",
+  "What exclusions or assumptions should be written into scope?",
+] as const;
+
 const ANATOMY_ITEMS = [
   "What labor vs. materials are actually included?",
   "Are permit fees listed or assumed?",
@@ -20,13 +29,24 @@ const ANATOMY_ITEMS = [
   "What warranty language is missing or vague?",
 ] as const;
 
+function checklistItems(readiness: QuoteReadiness): readonly string[] {
+  switch (readiness) {
+    case "need_quote_soon":
+      return SALES_VISIT_ITEMS;
+    case "researching":
+      return ANATOMY_ITEMS;
+    default:
+      return CHECKLIST_ITEMS;
+  }
+}
+
 type PrepPanelProps = {
   readiness: QuoteReadiness;
   showChecklist: boolean;
   onShowChecklist: () => void;
+  onScrollToIdentity: () => void;
   primary?: boolean;
   attributionSaveUrl?: string;
-  areaContext: AreaContext;
 };
 
 function UploadPlaceholder() {
@@ -65,19 +85,25 @@ function AttributionSaveLink({ url }: { url: string }) {
 export function NextdoorQuoteReadyPanel({
   identitySubmitted,
   attributionSaveUrl,
+  onScrollToIdentity,
 }: {
   identitySubmitted: boolean;
   attributionSaveUrl?: string;
+  onScrollToIdentity: () => void;
 }) {
+  const copy = nextStepPanelCopy("has_estimate");
+
   return (
     <div className="overflow-hidden rounded-xl border border-primary/20 bg-gradient-to-br from-white via-white to-primary/5 p-6 shadow-[0_12px_40px_-16px_rgba(37,99,235,0.35)] md:p-8">
       <div className="flex flex-wrap items-center gap-2">
         <span className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-wide text-primary">
-          Quote-ready path
+          {copy.badge}
         </span>
-        <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-wide text-amber-900">
-          Upload next
-        </span>
+        {identitySubmitted ? (
+          <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-wide text-amber-900">
+            Upload next
+          </span>
+        ) : null}
       </div>
       <div className="mt-4 flex items-start gap-3">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10">
@@ -85,85 +111,56 @@ export function NextdoorQuoteReadyPanel({
         </div>
         <div>
           <h2 className="font-display text-xl font-extrabold text-slate-900 md:text-2xl">
-            Next step: upload your estimate
+            {copy.headline}
           </h2>
-          <p className="mt-2 text-sm leading-relaxed text-slate-600 md:text-base">
-            We&apos;ll review your quote and show a useful preview first. You decide what to do next.
-          </p>
+          <p className="mt-2 text-sm leading-relaxed text-slate-600 md:text-base">{copy.body}</p>
         </div>
       </div>
 
-      <UploadPlaceholder />
+      {!identitySubmitted ? (
+        <button
+          type="button"
+          onClick={onScrollToIdentity}
+          className={[nextdoorPrimaryCtaClass, "mt-6 w-full sm:w-auto"].join(" ")}
+          style={{ padding: "14px 28px", fontSize: 15 }}
+        >
+          {copy.saveCta}
+        </button>
+      ) : (
+        <>
+          <UploadPlaceholder />
+          <button
+            type="button"
+            disabled
+            aria-disabled="true"
+            title="Upload wiring arrives in a later pass"
+            className="btn-depth-primary mt-6 w-full opacity-55 sm:w-auto"
+            style={{ padding: "14px 28px", fontSize: 15, cursor: "not-allowed" }}
+          >
+            Continue to upload
+          </button>
+          <p className="mt-3 flex items-start gap-2 text-xs text-slate-500">
+            <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            Upload connects in the next release. No file is sent in this preview shell.
+          </p>
+        </>
+      )}
 
-      <button
-        type="button"
-        disabled
-        aria-disabled="true"
-        title="Upload wiring arrives in a later pass"
-        className="btn-depth-primary mt-6 w-full opacity-55 sm:w-auto"
-        style={{ padding: "14px 28px", fontSize: 15, cursor: "not-allowed" }}
-      >
-        Continue to upload
-      </button>
-      <p className="mt-3 flex items-start gap-2 text-xs text-slate-500">
-        <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        {identitySubmitted
-          ? "Upload connects in the next release. No file is sent in this preview shell."
-          : "Save your details above first — upload connects in the next release."}
-      </p>
       {attributionSaveUrl ? <AttributionSaveLink url={attributionSaveUrl} /> : null}
     </div>
   );
-}
-
-function panelCopy(readiness: QuoteReadiness, areaContext: AreaContext) {
-  const areaPhrase = prepPanelAreaPhrase(areaContext);
-
-  switch (readiness) {
-    case "getting_quotes_now":
-      return {
-        badge: "Comparison mode",
-        headline: "Get a quick comparison checklist before the next bid arrives.",
-        body: "Use the same scope language across bids so you are comparing apples to apples.",
-        cta: "Show my checklist",
-        items: CHECKLIST_ITEMS,
-      };
-    case "need_quote_soon":
-      return {
-        badge: "Pre-visit prep",
-        headline: "Prep the questions that make quotes easier to compare.",
-        body: "Bring these to your next in-home visit — no upload required today.",
-        cta: "Show prep questions",
-        items: CHECKLIST_ITEMS,
-      };
-    case "researching":
-      return {
-        badge: "Quote anatomy",
-        headline: "Learn what a clean impact-window quote should include.",
-        body: `See what belongs on a quote in ${areaPhrase} before you sign anything — no upload required today.`,
-        cta: "Show quote anatomy",
-        items: ANATOMY_ITEMS,
-      };
-    default:
-      return {
-        badge: "Checklist",
-        headline: "Use the checklist before contractors come out.",
-        body: "Compare quotes with the same scope language before you choose a contractor.",
-        cta: "Show my checklist",
-        items: CHECKLIST_ITEMS,
-      };
-  }
 }
 
 export function NextdoorPrepPanel({
   readiness,
   showChecklist,
   onShowChecklist,
+  onScrollToIdentity,
   primary = false,
   attributionSaveUrl,
-  areaContext,
 }: PrepPanelProps) {
-  const copy = panelCopy(readiness, areaContext);
+  const copy = nextStepPanelCopy(readiness);
+  const items = checklistItems(readiness);
 
   return (
     <div
@@ -178,7 +175,7 @@ export function NextdoorPrepPanel({
         <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-wide text-emerald-800">
           {copy.badge}
         </span>
-        {primary ? (
+        {primary || readiness === "researching" ? (
           <span className="rounded-full border border-slate-300 bg-white px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-wide text-slate-600">
             No upload required
           </span>
@@ -197,18 +194,30 @@ export function NextdoorPrepPanel({
         </div>
       </div>
 
-      {!showChecklist ? (
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         <button
           type="button"
-          onClick={onShowChecklist}
-          className="mt-6 w-full rounded-lg border border-slate-300 bg-white px-6 py-3.5 text-sm font-semibold text-slate-900 shadow-[0_4px_12px_-6px_rgba(15,23,42,0.2)] transition-all hover:border-primary/40 hover:shadow-md sm:w-auto"
+          onClick={onScrollToIdentity}
+          className={[nextdoorPrimaryCtaClass, "w-full sm:w-auto"].join(" ")}
+          style={{ padding: "14px 28px", fontSize: 15 }}
         >
-          {copy.cta}
+          {copy.saveCta}
         </button>
-      ) : (
+        {!showChecklist ? (
+          <button
+            type="button"
+            onClick={onShowChecklist}
+            className="w-full rounded-lg border border-slate-300 bg-white px-6 py-3.5 text-sm font-semibold text-slate-900 shadow-[0_4px_12px_-6px_rgba(15,23,42,0.2)] transition-all hover:border-primary/40 hover:shadow-md sm:w-auto"
+          >
+            {readiness === "researching" ? "Show quote anatomy" : "Show checklist"}
+          </button>
+        ) : null}
+      </div>
+
+      {showChecklist ? (
         <>
           <ul className="mt-6 space-y-2.5">
-            {copy.items.map((item) => (
+            {items.map((item) => (
               <li
                 key={item}
                 className="flex items-start gap-2.5 rounded-lg border border-slate-200/80 bg-white/90 px-4 py-3 text-sm text-slate-800 shadow-sm"
@@ -225,7 +234,7 @@ export function NextdoorPrepPanel({
           </ul>
           {attributionSaveUrl ? <AttributionSaveLink url={attributionSaveUrl} /> : null}
         </>
-      )}
+      ) : null}
     </div>
   );
 }

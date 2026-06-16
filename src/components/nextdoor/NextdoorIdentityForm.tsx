@@ -15,9 +15,14 @@ type Props = {
   onChange: (field: keyof NextdoorIdentityFields, value: string) => void;
   onSubmit: () => void;
   submitted: boolean;
+  submitting?: boolean;
+  submitError?: string | null;
+  successMessage?: string | null;
   optional?: boolean;
   readinessSelected: boolean;
   areaContext: AreaContext;
+  /** Route-specific save label — stable for future backend wiring. */
+  saveCtaLabel?: string;
 };
 
 type FieldKey = keyof NextdoorIdentityFields;
@@ -57,9 +62,13 @@ export function NextdoorIdentityForm({
   onChange,
   onSubmit,
   submitted,
+  submitting = false,
+  submitError = null,
+  successMessage = null,
   optional = false,
   readinessSelected,
   areaContext,
+  saveCtaLabel = "Save and continue",
 }: Props) {
   const [editing, setEditing] = useState<Record<FieldKey, boolean>>({
     firstName: !prefilled.firstName,
@@ -85,7 +94,7 @@ export function NextdoorIdentityForm({
     const nextErrors: Partial<Record<FieldKey, string>> = {};
 
     if (!isValidFirstName(values.firstName)) {
-      nextErrors.firstName = "Enter a valid first name.";
+      nextErrors.firstName = "Enter at least 2 characters for your first name.";
     }
     if (!isValidEmail(values.email)) {
       nextErrors.email = "Enter a valid email address.";
@@ -204,6 +213,21 @@ export function NextdoorIdentityForm({
         )}
       </div>
 
+      {submitError ? (
+        <p className="mt-4 text-sm font-medium text-amber-800" role="alert">
+          {submitError}
+        </p>
+      ) : null}
+
+      {submitted && successMessage ? (
+        <p
+          className="mt-4 rounded-lg border border-emerald-500/25 bg-emerald-50/60 px-4 py-3 text-sm leading-relaxed text-emerald-900"
+          role="status"
+        >
+          {successMessage}
+        </p>
+      ) : null}
+
       {formError ? (
         <p className="mt-4 text-sm font-medium text-amber-800" role="alert">
           {formError}
@@ -212,6 +236,7 @@ export function NextdoorIdentityForm({
 
       <button
         type="submit"
+        disabled={submitting || submitted}
         className={[
           nextdoorPrimaryCtaClass,
           "mt-5 w-full sm:w-auto",
@@ -219,11 +244,13 @@ export function NextdoorIdentityForm({
         ].join(" ")}
         style={{ padding: "14px 28px", fontSize: 15 }}
       >
-        {submitted
-          ? "Saved locally on this device"
-          : optional
-            ? "Save my place (optional)"
-            : "Save and continue"}
+        {submitting
+          ? "Saving…"
+          : submitted
+            ? "Saved"
+            : optional
+              ? `${saveCtaLabel} (optional)`
+              : saveCtaLabel}
       </button>
     </form>
   );

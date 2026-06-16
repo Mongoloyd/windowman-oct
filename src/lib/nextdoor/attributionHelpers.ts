@@ -68,7 +68,7 @@ export function isValidZip(zip: string): boolean {
 
 export function isValidFirstName(name: string): boolean {
   const trimmed = name.trim();
-  return trimmed.length >= 1 && trimmed.length <= 60 && /^[\p{L}\p{M}'\-. ]+$/u.test(trimmed);
+  return trimmed.length >= 2 && trimmed.length <= 60 && /^[\p{L}\p{M}'\-. ]+$/u.test(trimmed);
 }
 
 export function isValidLastName(name: string): boolean {
