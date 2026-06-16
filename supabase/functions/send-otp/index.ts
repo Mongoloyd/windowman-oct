@@ -4,6 +4,13 @@ import {
   evaluateOtpQaBypassForSend,
   type OtpQaBypassEnv,
 } from "../_shared/otpQaBypass.ts";
+import {
+  logOtpLifecycleEvent,
+  resolveLeadIdForObservability,
+  safeRedactTwilioError,
+  updatePhoneVerificationObservability,
+  type OtpObsContext,
+} from "../_shared/otpObservability.ts";
 
 function loadOtpQaBypassEnv(): OtpQaBypassEnv {
   return {
@@ -74,6 +81,20 @@ async function runPhoneLookup(
   }
 }
 
+function obsContext(
+  scanSessionId: string | null,
+  leadId: string | null,
+  clientIp: string,
+  phoneVerificationId?: string | null,
+): OtpObsContext {
+  return {
+    scanSessionId,
+    leadId,
+    ipAddress: clientIp !== "unknown" ? clientIp : null,
+    phoneVerificationId: phoneVerificationId ?? null,
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -120,6 +141,21 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
+    const leadId = await resolveLeadIdForObservability(supabase, scan_session_id);
+    const baseObs = obsContext(scan_session_id, leadId, clientIp);
+
+    await logOtpLifecycleEvent(supabase, {
+      eventType: "send_requested",
+      eventStatus: "info",
+      actor: "edge_send_otp",
+      source: "send-otp",
+      context: baseObs,
+      metadata: { branch: "request_received", qa_bypass: qaBypass.approved },
+    });
+
+    let twilioVerificationSid: string | null = null;
+    let twilioAccepted = false;
+
     if (qaBypass.approved) {
       console.log(
         "[SEND_OTP_QA_BYPASS]",
@@ -133,6 +169,14 @@ Deno.serve(async (req) => {
     } else {
       const lookupResult = await runPhoneLookup(phone_e164);
       if (!lookupResult.ok) {
+        await logOtpLifecycleEvent(supabase, {
+          eventType: "send_failed",
+          eventStatus: "failed",
+          actor: "edge_send_otp",
+          source: "send-otp",
+          context: baseObs,
+          metadata: { reason: "lookup_rejected", branch: "phone_lookup" },
+        });
         return new Response(
           JSON.stringify({ error: lookupResult.reason, success: false }),
           {
@@ -162,6 +206,17 @@ Deno.serve(async (req) => {
         const secondsSinceLast = (Date.now() - lastSendAt) / 1000;
         if (secondsSinceLast < COOLDOWN_SECONDS) {
           const waitSec = Math.ceil(COOLDOWN_SECONDS - secondsSinceLast);
+          await logOtpLifecycleEvent(supabase, {
+            eventType: "rate_limited",
+            eventStatus: "blocked",
+            actor: "edge_send_otp",
+            source: "send-otp",
+            context: baseObs,
+            metadata: {
+              rate_limit_bucket: "cooldown",
+              retry_after_sec: waitSec,
+            },
+          });
           return new Response(
             JSON.stringify({
               error:
@@ -177,6 +232,17 @@ Deno.serve(async (req) => {
         }
 
         if (recentRows.length >= MAX_SENDS_PER_WINDOW) {
+          await logOtpLifecycleEvent(supabase, {
+            eventType: "rate_limited",
+            eventStatus: "blocked",
+            actor: "edge_send_otp",
+            source: "send-otp",
+            context: baseObs,
+            metadata: {
+              rate_limit_bucket: "phone_window",
+              retry_after_sec: WINDOW_MINUTES * 60,
+            },
+          });
           return new Response(
             JSON.stringify({
               error:
@@ -204,6 +270,17 @@ Deno.serve(async (req) => {
           console.warn("[send-otp] IP rate limit hit:", {
             ip: clientIp,
             count: ipRows.length,
+          });
+          await logOtpLifecycleEvent(supabase, {
+            eventType: "rate_limited",
+            eventStatus: "blocked",
+            actor: "edge_send_otp",
+            source: "send-otp",
+            context: baseObs,
+            metadata: {
+              rate_limit_bucket: "ip_window",
+              retry_after_sec: WINDOW_MINUTES * 60,
+            },
           });
           return new Response(
             JSON.stringify({
@@ -240,6 +317,20 @@ Deno.serve(async (req) => {
 
       if (!twilioRes.ok) {
         console.error("[send-otp] Twilio error:", twilioData);
+        const twilioErr = safeRedactTwilioError(twilioData);
+
+        await logOtpLifecycleEvent(supabase, {
+          eventType: "send_failed",
+          eventStatus: "failed",
+          actor: "edge_send_otp",
+          source: "send-otp",
+          context: baseObs,
+          twilioErrorCode: twilioErr.code,
+          metadata: {
+            branch: "twilio_send",
+            twilio_error_code: twilioErr.code ?? undefined,
+          },
+        });
 
         let userMessage = "Failed to send verification code.";
         if (twilioData.code === 60410) {
@@ -261,6 +352,11 @@ Deno.serve(async (req) => {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           },
         );
+      }
+
+      twilioAccepted = true;
+      if (typeof twilioData.sid === "string") {
+        twilioVerificationSid = twilioData.sid;
       }
     }
 
@@ -289,24 +385,39 @@ Deno.serve(async (req) => {
     // This is the foundation for strict session-bound unlock authorization
     // in get_analysis_full — without it, a verified phone for one scan
     // could authorize unlock of another scan owned by the same lead.
-    const { error: insertErr } = await supabase.from("phone_verifications")
+    const { data: insertedRow, error: insertErr } = await supabase
+      .from("phone_verifications")
       .insert({
         phone_e164,
         status: "pending",
         ip_address: clientIp,
         scan_session_id: scan_session_id || null,
-      });
-    if (insertErr) {
+      })
+      .select("id")
+      .single();
+
+    if (insertErr || !insertedRow?.id) {
       console.error(
         "[SEND_OTP_DB_ERROR]",
         JSON.stringify({
-          code: insertErr.code,
-          message: insertErr.message,
-          details: insertErr.details,
-          hint: insertErr.hint,
+          code: insertErr?.code,
+          message: insertErr?.message,
+          details: insertErr?.details,
+          hint: insertErr?.hint,
           phone_masked: "xxx-xxx-" + phone_e164.slice(-4),
         }),
       );
+      if (twilioAccepted) {
+        await logOtpLifecycleEvent(supabase, {
+          eventType: "send_failed",
+          eventStatus: "failed",
+          actor: "edge_send_otp",
+          source: "send-otp",
+          context: baseObs,
+          twilioVerificationSid,
+          metadata: { branch: "db_insert" },
+        });
+      }
       return new Response(
         JSON.stringify({
           error: "Failed to create verification record.",
@@ -317,6 +428,45 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         },
       );
+    }
+
+    const phoneVerificationId = insertedRow.id as string;
+    const boundObs = obsContext(
+      scan_session_id,
+      leadId,
+      clientIp,
+      phoneVerificationId,
+    );
+
+    await logOtpLifecycleEvent(supabase, {
+      eventType: "send_accepted",
+      eventStatus: "ok",
+      actor: "edge_send_otp",
+      source: "send-otp",
+      context: boundObs,
+      twilioVerificationSid,
+      metadata: {
+        branch: qaBypass.approved ? "qa_bypass" : "twilio_send",
+        qa_bypass: qaBypass.approved,
+        twilio_status: twilioAccepted ? "accepted" : undefined,
+      },
+    });
+
+    if (qaBypass.approved) {
+      await updatePhoneVerificationObservability(supabase, phoneVerificationId, {
+        send_outcome: "qa_bypass",
+        verification_channel: "qa_bypass",
+        initiated_by: "homeowner",
+        initiated_by_user_id: null,
+      });
+    } else {
+      await updatePhoneVerificationObservability(supabase, phoneVerificationId, {
+        send_outcome: "accepted",
+        twilio_verification_sid: twilioVerificationSid,
+        verification_channel: "twilio_verify",
+        initiated_by: "homeowner",
+        initiated_by_user_id: null,
+      });
     }
 
     return new Response(

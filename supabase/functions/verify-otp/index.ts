@@ -4,6 +4,15 @@ import {
   evaluateOtpQaBypassForVerify,
   type OtpQaBypassEnv,
 } from "../_shared/otpQaBypass.ts";
+import {
+  incrementVerifyAttemptObservability,
+  logOtpLifecycleEvent,
+  resolveLeadIdForObservability,
+  safeRedactTwilioError,
+  updatePhoneVerificationObservability,
+  type OtpObsContext,
+  type VerificationChannel,
+} from "../_shared/otpObservability.ts";
 import { persistCanonicalEvent } from "../_shared/tracking/canonicalBridge.ts";
 
 function loadOtpQaBypassEnv(): OtpQaBypassEnv {
@@ -21,6 +30,19 @@ const corsHeaders = {
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+function verifyObsContext(
+  pendingRow: { id: string; scan_session_id: string | null } | null,
+  scanSessionId: string | undefined,
+  leadId: string | null,
+): OtpObsContext | null {
+  if (!pendingRow) return null;
+  return {
+    phoneVerificationId: pendingRow.id,
+    scanSessionId: scanSessionId ?? pendingRow.scan_session_id,
+    leadId,
+  };
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -58,6 +80,11 @@ Deno.serve(async (req) => {
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+
+    const obsLeadId = await resolveLeadIdForObservability(
+      supabase,
+      scan_session_id,
     );
 
     // ── 2. Select the latest pending phone_verifications row ────────────
@@ -129,6 +156,8 @@ Deno.serve(async (req) => {
       }),
     );
 
+    const baseObs = verifyObsContext(pendingRow, scan_session_id, obsLeadId);
+
     // Defensive sanity check: if a scan_session_id was requested AND we matched
     // the legacy fallback, make sure we never have a mismatched non-null binding
     // (the .is("scan_session_id", null) filter above should already guarantee
@@ -147,6 +176,24 @@ Deno.serve(async (req) => {
           pending_scan_session_id: pendingRow.scan_session_id,
         }),
       );
+      if (baseObs) {
+        await logOtpLifecycleEvent(supabase, {
+          eventType: "verify_failed",
+          eventStatus: "blocked",
+          actor: "edge_verify_otp",
+          source: "verify-otp",
+          context: baseObs,
+          metadata: {
+            reason: "session_mismatch",
+            pending_row_source: pendingRowSource,
+            branch: "session_mismatch",
+          },
+        });
+        await incrementVerifyAttemptObservability(supabase, pendingRow.id, {
+          failed: true,
+          verificationChannel: null,
+        });
+      }
       return new Response(
         JSON.stringify({
           error:
@@ -170,6 +217,21 @@ Deno.serve(async (req) => {
       env: loadOtpQaBypassEnv(),
     });
     const qaBypassApproved = qaBypassEval.approved && !!pendingRow;
+
+    if (pendingRow && baseObs) {
+      await logOtpLifecycleEvent(supabase, {
+        eventType: "verify_submitted",
+        eventStatus: "info",
+        actor: "homeowner",
+        source: "verify-otp",
+        context: baseObs,
+        metadata: {
+          pending_row_source: pendingRowSource,
+          qa_bypass: qaBypassApproved,
+          branch: "verify_check",
+        },
+      });
+    }
 
     if (qaBypassApproved) {
       console.log(
@@ -206,10 +268,35 @@ Deno.serve(async (req) => {
 
       if (!twilioRes.ok || twilioData.status !== "approved") {
         let userMsg = "Invalid or expired code.";
+        let failureReason = "invalid_code";
         if (twilioData.code === 20404) {
           userMsg =
             "Verification session expired or not found. Please request a new code.";
+          failureReason = "expired_session";
         }
+
+        if (pendingRow && baseObs) {
+          const twilioErr = safeRedactTwilioError(twilioData);
+          await logOtpLifecycleEvent(supabase, {
+            eventType: "verify_failed",
+            eventStatus: "failed",
+            actor: "edge_verify_otp",
+            source: "verify-otp",
+            context: baseObs,
+            twilioErrorCode: twilioErr.code,
+            metadata: {
+              reason: failureReason,
+              branch: "twilio_verify",
+              twilio_error_code: twilioErr.code ?? undefined,
+            },
+          });
+          await incrementVerifyAttemptObservability(supabase, pendingRow.id, {
+            failed: true,
+            twilioErrorCode: twilioErr.code,
+            verificationChannel: "twilio_verify",
+          });
+        }
+
         return new Response(
           JSON.stringify({ error: userMsg, verified: false }),
           {
@@ -220,7 +307,9 @@ Deno.serve(async (req) => {
       }
     }
 
-    const verificationChannel = qaBypassApproved ? "qa_bypass" : "twilio_verify";
+    const verificationChannel: VerificationChannel = qaBypassApproved
+      ? "qa_bypass"
+      : "twilio_verify";
 
     // ── 4. Twilio approved — update DB ──────────────────────────────────
     const now = new Date().toISOString();
@@ -249,6 +338,26 @@ Deno.serve(async (req) => {
             timestamp: new Date().toISOString(),
           }),
         );
+        if (pendingRow && baseObs) {
+          await logOtpLifecycleEvent(supabase, {
+            eventType: "verify_failed",
+            eventStatus: "blocked",
+            actor: "edge_verify_otp",
+            source: "verify-otp",
+            context: {
+              ...baseObs,
+              leadId: null,
+            },
+            metadata: {
+              reason: "no_lead_on_session",
+              branch: "integrity_guard",
+            },
+          });
+          await incrementVerifyAttemptObservability(supabase, pendingRow.id, {
+            failed: true,
+            verificationChannel,
+          });
+        }
         return new Response(
           JSON.stringify({
             error:
@@ -304,6 +413,33 @@ Deno.serve(async (req) => {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           },
         );
+      }
+
+      const successObs = verifyObsContext(
+        pendingRow,
+        scan_session_id,
+        resolvedLeadId ?? obsLeadId,
+      );
+      if (successObs) {
+        await logOtpLifecycleEvent(supabase, {
+          eventType: "verify_approved",
+          eventStatus: "ok",
+          actor: "edge_verify_otp",
+          source: "verify-otp",
+          context: successObs,
+          metadata: {
+            verification_channel: verificationChannel,
+            branch: "verify_approved",
+            qa_bypass: qaBypassApproved,
+          },
+        });
+        await incrementVerifyAttemptObservability(supabase, pendingRow.id, {
+          failed: false,
+          verificationChannel,
+        });
+        await updatePhoneVerificationObservability(supabase, pendingRow.id, {
+          verification_channel: verificationChannel,
+        });
       }
     }
 
