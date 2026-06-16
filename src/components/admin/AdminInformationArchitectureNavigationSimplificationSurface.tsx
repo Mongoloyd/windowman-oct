@@ -18,6 +18,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import {
+  adminSurfaceLabelBadgeClass,
+  getAdminSurfaceLabel,
+} from "@/routes/adminDashboardTabs";
 
 /**
  * Phase 33 — Admin Information Architecture / Navigation Simplification
@@ -296,7 +300,12 @@ export function AdminInformationArchitectureNavigationSimplificationSurface({
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant="outline">Read-only</Badge>
+              <Badge
+                variant="outline"
+                className={`text-xs font-extrabold uppercase tracking-wide ${adminSurfaceLabelBadgeClass("Static")}`}
+              >
+                Static
+              </Badge>
               <Badge variant="outline">{SURFACES.length} surfaces</Badge>
             </div>
           </div>
@@ -526,10 +535,22 @@ function SurfaceCard({
         </div>
         <ExternalLink className="h-3.5 w-3.5 opacity-100 shrink-0 group-hover:opacity-90" />
       </div>
-      <div className="mt-2 flex items-center gap-1.5">
+      <div className="mt-2 flex items-center gap-1.5 flex-wrap">
         <Badge variant="outline" className="text-sm">
           {surface.primary ? "Core" : "Supporting"}
         </Badge>
+        {(() => {
+          const surfaceLabel = getAdminSurfaceLabel(surface.tab);
+          if (!surfaceLabel) return null;
+          return (
+            <Badge
+              variant="outline"
+              className={`text-[10px] font-extrabold uppercase tracking-wide ${adminSurfaceLabelBadgeClass(surfaceLabel)}`}
+            >
+              {surfaceLabel}
+            </Badge>
+          );
+        })()}
         <Badge variant="secondary" className="text-sm">
           {surface.tab}
         </Badge>

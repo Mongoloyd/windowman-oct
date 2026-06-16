@@ -38,6 +38,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import {
+  adminSurfaceLabelBadgeClass,
+  getAdminSurfaceLabel,
+} from "@/routes/adminDashboardTabs";
 
 type ChangeClass = "protected" | "sensitive" | "ui-only" | "read-only";
 
@@ -384,9 +388,23 @@ export function ChangeManagementSafeUpdateReadinessSurface({
               <ShieldCheck className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <h2 className="text-lg sm:text-xl font-semibold tracking-tight">
-                Change Management / Safe Update Readiness
-              </h2>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-lg sm:text-xl font-semibold tracking-tight">
+                  Change Management / Safe Update Readiness
+                </h2>
+                {(() => {
+                  const label = getAdminSurfaceLabel("change-mgmt");
+                  if (!label) return null;
+                  return (
+                    <Badge
+                      variant="outline"
+                      className={`text-xs font-extrabold uppercase tracking-wide ${adminSurfaceLabelBadgeClass(label)}`}
+                    >
+                      {label}
+                    </Badge>
+                  );
+                })()}
+              </div>
               <p className="text-sm text-slate-700 mt-1 max-w-2xl">
                 Internal guidance for safely evolving the system. Maps current repo-real areas into{" "}
                 <span className="font-medium">Protected</span>,{" "}

@@ -17,6 +17,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import {
+  adminSurfaceLabelBadgeClass,
+  getAdminSurfaceLabel,
+} from "@/routes/adminDashboardTabs";
 
 /**
  * Phase 34 — Strategic Prioritization / Next-Build Decision Framework
@@ -283,7 +287,18 @@ export function StrategicPrioritizationNextBuildDecisionFrameworkSurface({
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant="outline">Read-only</Badge>
+              {(() => {
+                const label = getAdminSurfaceLabel("prioritization");
+                if (!label) return null;
+                return (
+                  <Badge
+                    variant="outline"
+                    className={`text-xs font-extrabold uppercase tracking-wide ${adminSurfaceLabelBadgeClass(label)}`}
+                  >
+                    {label}
+                  </Badge>
+                );
+              })()}
               <Button
                 size="sm"
                 variant="outline"

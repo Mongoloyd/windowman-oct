@@ -36,6 +36,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import {
+  adminSurfaceLabelBadgeClass,
+  getAdminSurfaceLabel,
+} from "@/routes/adminDashboardTabs";
 
 interface SurfaceEntry {
   tab: string;
@@ -541,9 +545,23 @@ export function DocumentationHandoffReadinessSurface({
               <BookOpen className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <h2 className="text-lg sm:text-xl font-semibold tracking-tight">
-                Documentation / Handoff Readiness
-              </h2>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-lg sm:text-xl font-semibold tracking-tight">
+                  Documentation / Handoff Readiness
+                </h2>
+                {(() => {
+                  const label = getAdminSurfaceLabel("docs");
+                  if (!label) return null;
+                  return (
+                    <Badge
+                      variant="outline"
+                      className={`text-xs font-extrabold uppercase tracking-wide ${adminSurfaceLabelBadgeClass(label)}`}
+                    >
+                      {label}
+                    </Badge>
+                  );
+                })()}
+              </div>
               <p className="text-sm text-slate-700 mt-1 max-w-2xl">
                 Single internal orientation surface. Explains what each admin surface is for, which workflows
                 are live, what is operator-manual vs platformized, and how to hand off the system cleanly to a

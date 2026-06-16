@@ -39,6 +39,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import {
+  adminSurfaceLabelBadgeClass,
+  getAdminSurfaceLabel,
+} from "@/routes/adminDashboardTabs";
 
 import type { CRMLead } from "@/components/admin/types";
 
@@ -281,9 +285,18 @@ export function PilotOpsLaunchControl({ leads, onNavigateTab }: Props) {
             <CardTitle className="text-base font-bold tracking-tight">
               Pilot Ops — Launch Control
             </CardTitle>
-            <Badge variant="outline" className="text-sm">
-              Internal operator use
-            </Badge>
+            {(() => {
+              const label = getAdminSurfaceLabel("launch");
+              if (!label) return null;
+              return (
+                <Badge
+                  variant="outline"
+                  className={`text-sm font-extrabold uppercase tracking-wide ${adminSurfaceLabelBadgeClass(label)}`}
+                >
+                  {label}
+                </Badge>
+              );
+            })()}
           </div>
           <p className="text-xs text-slate-700 mt-1.5 leading-relaxed">
             One internal surface to run the first contractor pilot. Prioritized

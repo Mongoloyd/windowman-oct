@@ -32,6 +32,10 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  adminSurfaceLabelBadgeClass,
+  getAdminSurfaceLabel,
+} from "@/routes/adminDashboardTabs";
 
 import { OneContractorSummaryStrip } from "@/components/admin/OneContractorSummaryStrip";
 import { MarketOpsFeed } from "@/components/admin/MarketOpsFeed";
@@ -92,9 +96,18 @@ export function PilotReadiness({ leads }: Props) {
             <CardTitle className="text-base font-bold tracking-tight">
               Pilot Readiness — Contractor Demo Surface
             </CardTitle>
-            <Badge variant="outline" className="text-sm">
-              Read-only
-            </Badge>
+            {(() => {
+              const label = getAdminSurfaceLabel("pilot");
+              if (!label) return null;
+              return (
+                <Badge
+                  variant="outline"
+                  className={`text-sm font-extrabold uppercase tracking-wide ${adminSurfaceLabelBadgeClass(label)}`}
+                >
+                  {label}
+                </Badge>
+              );
+            })()}
           </div>
           <p className="text-sm font-semibold text-slate-700 mt-1.5 leading-relaxed">
             Internal operator view. Use this surface to walk a contractor

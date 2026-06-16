@@ -17,6 +17,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import {
+  adminSurfaceLabelBadgeClass,
+  getAdminSurfaceLabel,
+} from "@/routes/adminDashboardTabs";
 
 /**
  * Phase 31 — Technical Debt / Refactor Readiness Review
@@ -301,7 +305,18 @@ export function TechnicalDebtRefactorReadinessReviewSurface({ onNavigateTab }: P
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant="outline">Read-only</Badge>
+              {(() => {
+                const label = getAdminSurfaceLabel("tech-debt");
+                if (!label) return null;
+                return (
+                  <Badge
+                    variant="outline"
+                    className={`text-xs font-extrabold uppercase tracking-wide ${adminSurfaceLabelBadgeClass(label)}`}
+                  >
+                    {label}
+                  </Badge>
+                );
+              })()}
               <Badge variant="outline">Current-state</Badge>
               <Button
                 size="sm"

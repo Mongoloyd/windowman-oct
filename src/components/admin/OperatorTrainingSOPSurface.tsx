@@ -32,6 +32,10 @@ import {
   Workflow,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  adminSurfaceLabelBadgeClass,
+  getAdminSurfaceLabel,
+} from "@/routes/adminDashboardTabs";
 
 interface OperatorTrainingSOPSurfaceProps {
   onNavigateTab?: (tab: string) => void;
@@ -283,9 +287,18 @@ export function OperatorTrainingSOPSurface({
                 </p>
               </div>
             </div>
-            <Badge variant="outline" className="font-mono text-xs">
-              Internal · Read-only
-            </Badge>
+            {(() => {
+              const label = getAdminSurfaceLabel("training");
+              if (!label) return null;
+              return (
+                <Badge
+                  variant="outline"
+                  className={`font-mono text-xs font-extrabold uppercase tracking-wide ${adminSurfaceLabelBadgeClass(label)}`}
+                >
+                  {label}
+                </Badge>
+              );
+            })()}
           </div>
         </CardHeader>
         <CardContent>

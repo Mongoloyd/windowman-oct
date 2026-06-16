@@ -34,6 +34,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import {
+  adminSurfaceLabelBadgeClass,
+  getAdminSurfaceLabel,
+} from "@/routes/adminDashboardTabs";
 import type { CRMLead } from "@/components/admin/types";
 
 interface PostPilotLearningsDecisionSupportSurfaceProps {
@@ -473,9 +477,23 @@ export function PostPilotLearningsDecisionSupportSurface({
               <Lightbulb className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <h2 className="text-lg sm:text-xl font-semibold tracking-tight">
-                Post-Pilot Learnings / Decision Support
-              </h2>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-lg sm:text-xl font-semibold tracking-tight">
+                  Post-Pilot Learnings / Decision Support
+                </h2>
+                {(() => {
+                  const label = getAdminSurfaceLabel("learnings");
+                  if (!label) return null;
+                  return (
+                    <Badge
+                      variant="outline"
+                      className={`text-xs font-extrabold uppercase tracking-wide ${adminSurfaceLabelBadgeClass(label)}`}
+                    >
+                      {label}
+                    </Badge>
+                  );
+                })()}
+              </div>
               <p className="text-sm text-slate-700 mt-1 max-w-2xl">
                 Honest, current-state read of what the pilot is showing today. Separates what is{" "}
                 <span className="font-medium">Confirmed</span>, what is{" "}

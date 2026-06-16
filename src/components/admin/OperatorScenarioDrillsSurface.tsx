@@ -37,6 +37,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
+  adminSurfaceLabelBadgeClass,
+  getAdminSurfaceLabel,
+} from "@/routes/adminDashboardTabs";
+import {
   Accordion,
   AccordionContent,
   AccordionItem,
@@ -494,6 +498,19 @@ export function OperatorScenarioDrillsSurface({ onNavigateTab }: Props) {
                 </CardDescription>
               </div>
             </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {(() => {
+                const label = getAdminSurfaceLabel("drills");
+                if (!label) return null;
+                return (
+                  <Badge
+                    variant="outline"
+                    className={`text-xs font-extrabold uppercase tracking-wide ${adminSurfaceLabelBadgeClass(label)}`}
+                  >
+                    {label}
+                  </Badge>
+                );
+              })()}
             <Button
               variant="outline"
               size="sm"
@@ -512,6 +529,7 @@ export function OperatorScenarioDrillsSurface({ onNavigateTab }: Props) {
                 </>
               )}
             </Button>
+          </div>
           </div>
         </CardHeader>
         <CardContent>

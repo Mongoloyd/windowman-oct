@@ -16,6 +16,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import {
+  adminSurfaceLabelBadgeClass,
+  getAdminSurfaceLabel,
+} from "@/routes/adminDashboardTabs";
 
 /**
  * Phase 32 — Cross-Surface Consistency / Status Alignment Audit
@@ -456,7 +460,18 @@ export function CrossSurfaceConsistencyStatusAlignmentAuditSurface({ onNavigateT
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant="outline">Read-only</Badge>
+              {(() => {
+                const label = getAdminSurfaceLabel("consistency");
+                if (!label) return null;
+                return (
+                  <Badge
+                    variant="outline"
+                    className={`text-xs font-extrabold uppercase tracking-wide ${adminSurfaceLabelBadgeClass(label)}`}
+                  >
+                    {label}
+                  </Badge>
+                );
+              })()}
               <Badge variant="outline">Current-state</Badge>
               <Button size="sm" variant="outline" onClick={handleCopy} className="gap-1.5">
                 {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
