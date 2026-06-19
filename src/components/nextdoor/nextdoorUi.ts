@@ -11,16 +11,16 @@
  * with no pink cast and no image assets.
  */
 export const NEXTDOOR_PAGE_BG =
-  "radial-gradient(ellipse 110% 70% at 50% -12%, hsl(198 85% 90%) 0%, transparent 52%)," +
-  "radial-gradient(ellipse 85% 55% at 100% 4%, hsl(190 78% 88% / 0.65) 0%, transparent 46%)," +
-  "radial-gradient(ellipse 80% 55% at 0% 8%, hsl(217 70% 90% / 0.6) 0%, transparent 46%)," +
-  "linear-gradient(180deg, hsl(210 42% 97%) 0%, hsl(213 36% 95%) 45%, hsl(216 40% 96%) 100%)";
+  "radial-gradient(ellipse 110% 70% at 50% -12%, hsl(198 90% 94%) 0%, transparent 52%)," +
+  "radial-gradient(ellipse 85% 55% at 100% 4%, hsl(190 82% 93% / 0.55) 0%, transparent 46%)," +
+  "radial-gradient(ellipse 80% 55% at 0% 8%, hsl(217 76% 94% / 0.5) 0%, transparent 46%)," +
+  "linear-gradient(180deg, hsl(210 60% 99%) 0%, hsl(213 48% 98%) 45%, hsl(216 48% 98%) 100%)";
 
 /** Forensic document-grid texture (CSS-only). */
 export const NEXTDOOR_GRID_TEXTURE: { backgroundImage: string; backgroundSize: string } = {
   backgroundImage:
-    "linear-gradient(to right, hsl(214 28% 78% / 0.42) 1px, transparent 1px)," +
-    "linear-gradient(to bottom, hsl(214 28% 78% / 0.42) 1px, transparent 1px)",
+    "linear-gradient(to right, hsl(214 30% 86% / 0.28) 1px, transparent 1px)," +
+    "linear-gradient(to bottom, hsl(214 30% 86% / 0.28) 1px, transparent 1px)",
   backgroundSize: "34px 34px",
 };
 
