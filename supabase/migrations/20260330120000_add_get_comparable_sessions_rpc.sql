@@ -27,5 +27,6 @@ AS $$
     AND a.scan_session_id IS NOT NULL;
 $$;
 
--- Grant execute to anon and authenticated roles
-GRANT EXECUTE ON FUNCTION public.get_comparable_sessions(uuid) TO anon, authenticated;
+REVOKE ALL ON FUNCTION public.get_comparable_sessions(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_comparable_sessions(uuid) TO anon;
+GRANT EXECUTE ON FUNCTION public.get_comparable_sessions(uuid) TO authenticated;
