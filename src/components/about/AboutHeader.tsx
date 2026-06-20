@@ -9,7 +9,6 @@ export default function AboutHeader() {
           <span className="font-display text-2xl font-bold tracking-tight">
             <span className="text-foreground">WINDOW</span>
             <span style={{ color: "#448df7" }}>MAN</span>
-            <span className="text-primary">.PRO</span>
           </span>
         </Link>
 

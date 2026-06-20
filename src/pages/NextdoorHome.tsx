@@ -397,7 +397,6 @@ export default function NextdoorHome() {
               <span className="font-display text-lg font-extrabold tracking-wide">
                 <span className="text-slate-900">WINDOW</span>
                 <span className="text-primary">MAN</span>
-                <sup className="ml-0.5 text-[8px] font-normal text-slate-500">.PRO</sup>
               </span>
             </a>
             <div className="hidden text-right sm:block">

@@ -42,12 +42,6 @@ const LinearHeader = ({ ctaText = "Get Started Free", onCtaClick }: LinearHeader
           <span className="font-display text-sm sm:text-xl" style={{ fontWeight: 800, letterSpacing: "0.02em" }}>
             <span className="text-foreground">WINDOW</span>
             <span style={{ color: "#448df7" }}>MAN</span>
-            <sup
-              className="text-muted-foreground text-[7px] sm:text-[9px]"
-              style={{ fontWeight: 400, letterSpacing: "0.15em", marginLeft: 2, verticalAlign: "super" }}
-            >
-              .PRO
-            </sup>
           </span>
         </a>
 
