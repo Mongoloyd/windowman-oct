@@ -460,11 +460,24 @@ export default function ReportClassic() {
 
   // ── Terminal states (invalid document, failed, etc.) ─────────────────
 
+  const NON_PREVIEW_TERMINAL_STATUSES = new Set([
+    "invalid_document",
+    "needs_better_upload",
+    "failed",
+    "error",
+    "unreadable",
+  ]);
+
   const TERMINAL_MESSAGES: Record<string, { title: string; body: string; cta: string }> = {
     invalid_document: {
       title: "Not a Window or Door Quote",
-      body: "The document you uploaded doesn't appear to be an impact window or door contractor quote. Our scanner only analyzes quotes for impact-rated windows and doors.",
+      body: "This does not appear to be a valid window estimate or quote.",
       cta: "Upload a Different Quote",
+    },
+    needs_better_upload: {
+      title: "We Need a Clearer Quote",
+      body: "We could not read enough quote details from this file. Please upload a clearer window estimate, proposal, PDF, screenshot, or photo.",
+      cta: "Upload a Clearer Copy",
     },
     failed: {
       title: "Scan Failed",
@@ -584,10 +597,21 @@ export default function ReportClassic() {
     accessLevel === "full" &&
     analysisData != null;
 
+  const isTerminalNonPreview =
+    !!analysisData?.analysisStatus &&
+    NON_PREVIEW_TERMINAL_STATUSES.has(analysisData.analysisStatus);
+
+  const isTerminalShellGrade =
+    analysisData?.grade === "N/A" &&
+    !!analysisData?.analysisStatus &&
+    NON_PREVIEW_TERMINAL_STATUSES.has(analysisData.analysisStatus);
+
   const showDarkV2Partial =
     accessLevel === "preview" &&
     !isFullLoaded &&
-    !!analysisData;
+    !!analysisData &&
+    !isTerminalNonPreview &&
+    !isTerminalShellGrade;
 
   if (showDarkV2Full) {
     return (

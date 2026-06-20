@@ -78,6 +78,7 @@ vi.mock("framer-motion", () => {
 });
 
 import UploadZone from "./UploadZone";
+import { trackGtmEvent } from "@/lib/trackConversion";
 
 // ── Builders ────────────────────────────────────────────────────────────
 function buildSelectChain(returnValue: any) {
@@ -146,7 +147,14 @@ function setupHappyPath() {
         error: null,
       });
     }
-    return Promise.resolve({ data: { ok: true }, error: null });
+    return Promise.resolve({
+      data: {
+        analysis_status: "complete",
+        scan_session_status: "preview_ready",
+        grade: "C",
+      },
+      error: null,
+    });
   });
 
   fromMock.mockImplementation((table: string) => {
@@ -585,7 +593,14 @@ describe("UploadZone — UUID guard on RPC retry paths (PREP-2A-PATCH)", () => {
       return makeRpcResult({ data: null, error: null });
     });
     invokeMock.mockClear();
-    invokeMock.mockResolvedValue({ data: { ok: true }, error: null });
+    invokeMock.mockResolvedValue({
+      data: {
+        analysis_status: "complete",
+        scan_session_status: "preview_ready",
+        grade: "C",
+      },
+      error: null,
+    });
 
     await act(async () => { fireEvent.click(retryBtn); });
 
@@ -593,5 +608,60 @@ describe("UploadZone — UUID guard on RPC retry paths (PREP-2A-PATCH)", () => {
       const scanQuoteCalls = invokeMock.mock.calls.filter((args) => args[0] === "scan-quote");
       expect(scanQuoteCalls).toHaveLength(1);
     });
+  });
+});
+
+describe("UploadZone — scan-quote terminal response", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setupHappyPath();
+  });
+
+  it("does not fire quote_uploaded or onScanStart for invalid_document", async () => {
+    const onScanStart = vi.fn();
+    invokeMock.mockImplementation((name: string) => {
+      if (name === "start-upload-scan-session") {
+        return Promise.resolve({
+          data: {
+            success: true,
+            scan_session_id: DEFAULT_SCAN_SESSION_ID,
+            quote_file_id: DEFAULT_QUOTE_FILE_ID,
+            lead_id: null,
+          },
+          error: null,
+        });
+      }
+      return Promise.resolve({
+        data: {
+          analysis_status: "invalid_document",
+          scan_session_status: "invalid_document",
+        },
+        error: null,
+      });
+    });
+
+    render(
+      <UploadZone
+        isVisible
+        sessionId="00000000-0000-0000-0000-000000000001"
+        onScanStart={onScanStart}
+      />,
+    );
+
+    await selectFile(makeFile());
+    const startBtn = await findStartButton();
+    await act(async () => {
+      fireEvent.click(startBtn);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/does not appear to be a valid window estimate or quote/i)).toBeTruthy();
+    });
+
+    expect(onScanStart).not.toHaveBeenCalled();
+    expect(trackGtmEvent).not.toHaveBeenCalledWith(
+      "quote_uploaded",
+      expect.anything(),
+    );
   });
 });

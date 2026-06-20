@@ -47,6 +47,67 @@ interface UploadZoneProps {
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ALLOWED_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp", "image/heic"];
 
+const SCAN_QUOTE_TERMINAL_STATUSES = new Set([
+  "invalid_document",
+  "needs_better_upload",
+  "failed",
+  "error",
+  "unreadable",
+]);
+
+const SCAN_QUOTE_TERMINAL_USER_MESSAGES: Record<string, string> = {
+  invalid_document:
+    "This does not appear to be a valid window estimate or quote.",
+  needs_better_upload:
+    "We could not read enough quote details from this file. Please upload a clearer window estimate, proposal, PDF, screenshot, or photo.",
+  failed: "Scan encountered an issue. Tap retry to try again.",
+  error: "Scan encountered an issue. Tap retry to try again.",
+  unreadable:
+    "We could not read enough quote details from this file. Please upload a clearer window estimate, proposal, PDF, screenshot, or photo.",
+};
+
+type ScanQuoteResponseKind = "valid" | "terminal" | "incomplete";
+
+function resolveScanQuoteTerminalStatus(fnData: unknown): string | null {
+  if (!fnData || typeof fnData !== "object") return null;
+  const obj = fnData as Record<string, unknown>;
+  const analysisStatus =
+    typeof obj.analysis_status === "string" ? obj.analysis_status : null;
+  const sessionStatus =
+    typeof obj.scan_session_status === "string" ? obj.scan_session_status : null;
+  if (analysisStatus && SCAN_QUOTE_TERMINAL_STATUSES.has(analysisStatus)) {
+    return analysisStatus;
+  }
+  if (sessionStatus && SCAN_QUOTE_TERMINAL_STATUSES.has(sessionStatus)) {
+    return sessionStatus;
+  }
+  return null;
+}
+
+function classifyScanQuoteResponse(fnData: unknown): ScanQuoteResponseKind {
+  const terminalStatus = resolveScanQuoteTerminalStatus(fnData);
+  if (terminalStatus) return "terminal";
+
+  if (!fnData || typeof fnData !== "object") return "valid";
+
+  const obj = fnData as Record<string, unknown>;
+  const analysisStatus =
+    typeof obj.analysis_status === "string" ? obj.analysis_status : null;
+  const sessionStatus =
+    typeof obj.scan_session_status === "string" ? obj.scan_session_status : null;
+
+  if (
+    analysisStatus === "complete" ||
+    sessionStatus === "preview_ready" ||
+    sessionStatus === "complete"
+  ) {
+    return "valid";
+  }
+
+  if (analysisStatus || sessionStatus) return "incomplete";
+  return "valid";
+}
+
 const formatSize = (bytes: number) => {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -185,15 +246,6 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId }: Upload
     quoteFileId: string,
   ): Promise<boolean> => {
     const quoteUploadedEventId = makeTransportEventId();
-    trackGtmEvent("quote_uploaded", {
-      event_id: quoteUploadedEventId,
-      value: 250,
-      currency: "USD",
-      scan_session_id: scanSessionId,
-      lead_id: leadId || undefined,
-      file_size: file?.size,
-      file_type: file?.type,
-    });
     const { data: fnData, error: fnError } = await supabase.functions.invoke("scan-quote", {
       body: { scan_session_id: scanSessionId, event_id: quoteUploadedEventId },
     });
@@ -219,6 +271,30 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId }: Upload
       });
       return false;
     }
+
+    const responseKind = classifyScanQuoteResponse(fnData);
+    if (responseKind === "terminal") {
+      const terminalStatus = resolveScanQuoteTerminalStatus(fnData) ?? "error";
+      const msg =
+        SCAN_QUOTE_TERMINAL_USER_MESSAGES[terminalStatus] ??
+        "This does not appear to be a valid window estimate or quote.";
+      setUploadError(msg);
+      toast.error(msg);
+      return false;
+    }
+
+    if (responseKind === "valid") {
+      trackGtmEvent("quote_uploaded", {
+        event_id: quoteUploadedEventId,
+        value: 250,
+        currency: "USD",
+        scan_session_id: scanSessionId,
+        lead_id: leadId || undefined,
+        file_size: file?.size,
+        file_type: file?.type,
+      });
+    }
+
     return true;
   };
 

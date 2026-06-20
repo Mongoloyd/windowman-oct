@@ -70,6 +70,7 @@ import {
 import { submitNextdoorLead } from "@/services/nextdoorLeadCapture";
 import { getUtmData } from "@/lib/useUtmCapture";
 import { useScanFunnelSafe } from "@/state/scanFunnel";
+import { useScanPolling, type ScanStatus } from "@/hooks/useScanPolling";
 
 const PAGE_BG = NEXTDOOR_PAGE_BG;
 
@@ -99,8 +100,44 @@ type PendingScanTransition = {
   scanSessionId: string;
 };
 
+type NextdoorScanTerminalState = {
+  status: ScanStatus;
+  fileName?: string;
+};
+
 const SCAN_TRANSITION_DELAY_MS = 3200;
 const SCAN_TRANSITION_REDUCED_DELAY_MS = 900;
+
+const NEXTDOOR_NON_PREVIEW_TERMINAL_STATUSES = new Set<ScanStatus>([
+  "invalid_document",
+  "needs_better_upload",
+  "failed",
+  "error",
+  "unreadable",
+]);
+
+const NEXTDOOR_TERMINAL_COPY: Record<string, { title: string; body: string }> = {
+  invalid_document: {
+    title: "Not a valid window quote",
+    body: "This does not appear to be a valid window estimate or quote.",
+  },
+  needs_better_upload: {
+    title: "We need a clearer file",
+    body: "We could not read enough quote details from this file. Please upload a clearer window estimate, proposal, PDF, screenshot, or photo.",
+  },
+  failed: {
+    title: "Scan failed",
+    body: "Something went wrong while analyzing your file. Please try uploading again.",
+  },
+  error: {
+    title: "Scan error",
+    body: "Something went wrong while analyzing your file. Please try uploading again.",
+  },
+  unreadable: {
+    title: "File unreadable",
+    body: "We could not read enough quote details from this file. Please upload a clearer window estimate, proposal, PDF, screenshot, or photo.",
+  },
+};
 
 function readInitialUrlState() {
   if (typeof window === "undefined") {
@@ -181,8 +218,14 @@ export default function NextdoorHome() {
     initialUrlState.quoteReadiness === "researching",
   );
   const [pendingScan, setPendingScan] = useState<PendingScanTransition | null>(null);
+  const [scanTerminalState, setScanTerminalState] = useState<NextdoorScanTerminalState | null>(null);
   const [scanTransitionError, setScanTransitionError] = useState<string | null>(null);
   const [scanReducedMotion, setScanReducedMotion] = useState(false);
+  const [transitionMinElapsed, setTransitionMinElapsed] = useState(false);
+
+  const { status: polledScanStatus } = useScanPolling({
+    scanSessionId: pendingScan?.scanSessionId ?? null,
+  });
 
   const isResearching = readiness === "researching";
 
@@ -239,32 +282,66 @@ export default function NextdoorHome() {
     }
 
     setScanTransitionError(null);
+    setScanTerminalState(null);
+    setTransitionMinElapsed(false);
+    scanNavigationStartedRef.current = false;
     setScanReducedMotion(prefersReducedMotion());
     setPendingScan({ fileName, scanSessionId });
   }, [pendingScan]);
 
+  const handleDismissScanTerminal = useCallback(() => {
+    setScanTerminalState(null);
+    setPendingScan(null);
+    setTransitionMinElapsed(false);
+    scanNavigationStartedRef.current = false;
+  }, []);
+
   useEffect(() => {
-    if (!pendingScan) return;
+    if (!pendingScan) {
+      setTransitionMinElapsed(false);
+      return;
+    }
 
     const delayMs = scanReducedMotion
       ? SCAN_TRANSITION_REDUCED_DELAY_MS
       : SCAN_TRANSITION_DELAY_MS;
 
     const timer = window.setTimeout(() => {
-      if (scanNavigationStartedRef.current) return;
-
-      if (!isValidNextdoorSessionId(pendingScan.scanSessionId)) {
-        setScanTransitionError("We couldn't open the report preview yet. Please try again.");
-        setPendingScan(null);
-        return;
-      }
-
-      scanNavigationStartedRef.current = true;
-      navigate(`/report/classic/${pendingScan.scanSessionId}`);
+      setTransitionMinElapsed(true);
     }, delayMs);
 
     return () => window.clearTimeout(timer);
-  }, [pendingScan, scanReducedMotion, navigate]);
+  }, [pendingScan, scanReducedMotion]);
+
+  useEffect(() => {
+    if (!pendingScan || scanNavigationStartedRef.current) return;
+
+    if (NEXTDOOR_NON_PREVIEW_TERMINAL_STATUSES.has(polledScanStatus)) {
+      setPendingScan(null);
+      setTransitionMinElapsed(false);
+      setScanTerminalState({
+        status: polledScanStatus,
+        fileName: pendingScan.fileName,
+      });
+      return;
+    }
+
+    if (
+      !transitionMinElapsed ||
+      (polledScanStatus !== "preview_ready" && polledScanStatus !== "complete")
+    ) {
+      return;
+    }
+
+    if (!isValidNextdoorSessionId(pendingScan.scanSessionId)) {
+      setScanTransitionError("We couldn't open the report preview yet. Please try again.");
+      setPendingScan(null);
+      return;
+    }
+
+    scanNavigationStartedRef.current = true;
+    navigate(`/report/classic/${pendingScan.scanSessionId}`);
+  }, [pendingScan, polledScanStatus, transitionMinElapsed, navigate]);
 
   const handleReadinessSelect = useCallback(
     (value: QuoteReadiness) => {
@@ -701,6 +778,47 @@ export default function NextdoorHome() {
             fileName={pendingScan.fileName}
             reducedMotion={scanReducedMotion}
           />
+        ) : null}
+
+        {scanTerminalState ? (
+          <div
+            className="fixed inset-0 z-[60] flex items-center justify-center px-4 py-8"
+            role="alertdialog"
+            aria-labelledby="nextdoor-scan-terminal-title"
+            aria-describedby="nextdoor-scan-terminal-body"
+          >
+            <div className="absolute inset-0 bg-slate-950/72 backdrop-blur-sm" aria-hidden="true" />
+            <div className="relative w-full max-w-lg rounded-2xl border border-amber-500/35 bg-white p-6 shadow-xl md:p-8">
+              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-800">
+                Upload not accepted
+              </p>
+              <h2
+                id="nextdoor-scan-terminal-title"
+                className="mt-2 font-display text-xl font-extrabold text-slate-900"
+              >
+                {NEXTDOOR_TERMINAL_COPY[scanTerminalState.status]?.title ?? "Upload not accepted"}
+              </h2>
+              <p
+                id="nextdoor-scan-terminal-body"
+                className="mt-3 text-sm leading-relaxed text-slate-600"
+              >
+                {NEXTDOOR_TERMINAL_COPY[scanTerminalState.status]?.body ??
+                  "This does not appear to be a valid window estimate or quote."}
+              </p>
+              {scanTerminalState.fileName ? (
+                <p className="mt-4 truncate font-mono text-xs text-slate-500">
+                  File: {scanTerminalState.fileName}
+                </p>
+              ) : null}
+              <button
+                type="button"
+                onClick={handleDismissScanTerminal}
+                className={[nextdoorPrimaryCtaClass, "mt-6 w-full sm:w-auto"].join(" ")}
+              >
+                Upload another file
+              </button>
+            </div>
+          </div>
         ) : null}
       </div>
     </>

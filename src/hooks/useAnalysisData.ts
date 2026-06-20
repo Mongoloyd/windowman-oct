@@ -442,21 +442,28 @@ export function useAnalysisData(
     let retryTimer: number | undefined;
     let cancelled = false;
 
+    const resolveTerminalSessionStatus = async (): Promise<boolean> => {
+      const statusResult = await fetchScanStatus(scanSessionId);
+      if (!statusResult.ok || !statusResult.data) return false;
+
+      const sessionStatus = statusResult.data.status;
+      if (
+        sessionStatus &&
+        TERMINAL_STATUSES.has(sessionStatus) &&
+        NON_PREVIEW_TERMINAL_STATUSES.has(sessionStatus)
+      ) {
+        console.warn("[useAnalysisData] terminal session status:", sessionStatus);
+        setData(buildTerminalData(sessionStatus));
+        setIsLoading(false);
+        previewFetchedRef.current = scanSessionId;
+        return true;
+      }
+      return false;
+    };
+
     const doFetch = async (attempt: number) => {
       try {
-        if (attempt > 0) {
-          const statusResult = await fetchScanStatus(scanSessionId);
-          if (statusResult.ok && statusResult.data) {
-            const sessionStatus = statusResult.data.status;
-            if (sessionStatus && TERMINAL_STATUSES.has(sessionStatus) && NON_PREVIEW_TERMINAL_STATUSES.has(sessionStatus)) {
-              console.warn("[useAnalysisData] terminal session status:", sessionStatus);
-              setData(buildTerminalData(sessionStatus));
-              setIsLoading(false);
-              previewFetchedRef.current = scanSessionId;
-              return;
-            }
-          }
-        }
+        if (await resolveTerminalSessionStatus()) return;
 
         const result = await fetchAnalysisPreview(scanSessionId);
         if (cancelled) return;
