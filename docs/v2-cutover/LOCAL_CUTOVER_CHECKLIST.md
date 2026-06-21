@@ -21,11 +21,11 @@ These are **hard gates**. Do not run live funnel smoke on staging until all are 
 
 - [ ] **1. Create `.env.local`** from [`.env.example`](../../.env.example) (Vite loads `.env.local` over `.env`; keep secrets out of git).
 - [ ] **2. Fill staging values:** `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_PROJECT_ID` — all must point at the **staging** Supabase project.
-- [ ] **3. Confirm staging project ref is not production.** Production ref in repo config is `wkrcyxcnzhwjtdpmfpaf` ([`supabase/config.toml`](../../supabase/config.toml), [`package.json`](../../package.json) `typegen`). Staging `VITE_SUPABASE_PROJECT_ID` and URL hostname must **not** match that ref unless you intentionally accept prod risk.
+- [ ] **3. Confirm staging project ref is not production.** `supabase/config.toml` uses local namespace `wm-mvp-forensic-v2-local` ([`supabase/config.toml`](../../supabase/config.toml)); staging `VITE_SUPABASE_PROJECT_ID` and URL hostname must **not** match legacy production ref `wkrcyxcnzhwjtdpmfpaf` unless you intentionally accept prod risk. See [SUPABASE_TARGETING.md](../ops/SUPABASE_TARGETING.md).
 - [ ] **4. Confirm staging migrations match `main`.** Especially `get_analysis_full` strict scan binding (`20260428120000_restore_get_analysis_full_strict_scan_binding.sql`). Use [SUPABASE_STAGING_VERIFICATION.md](./SUPABASE_STAGING_VERIFICATION.md) and `scripts/validation/verify-schema-spec.ts` with staging `DATABASE_URL`.
 - [ ] **5. Confirm staging Edge Function secrets** exist for real OTP/scan smoke: Twilio Verify (`TWILIO_*`), Gemini/scanner keys for `scan-quote`, and any other secrets required by the funnel functions. CAPI secrets are server-only; browser must not call `capi-event`.
 
-**Do not run** `npm run typegen` or `npm run typegen:check` during V2 staging work until those scripts target the **staging** project id. They currently hardcode production ref `wkrcyxcnzhwjtdpmfpaf`.
+**Typegen:** [`package.json`](../../package.json) `typegen` targets staging ref `<SUPABASE_PROJECT_REF>` per [SUPABASE_TARGETING.md](../ops/SUPABASE_TARGETING.md). Do not run typegen against legacy production unless explicitly approved.
 
 ---
 
@@ -83,7 +83,7 @@ CI workflows (trigger on `main` PRs):
 
 ## Phase 4 — Type regeneration (staging only)
 
-- [ ] **Skip** `npm run typegen` / `npm run typegen:check` while scripts point at prod `wkrcyxcnzhwjtdpmfpaf`.
+- [ ] **Skip** `npm run typegen` / `npm run typegen:check` unless you have confirmed the script targets your intended staging ref (see [SUPABASE_TARGETING.md](../ops/SUPABASE_TARGETING.md)).
 - [ ] When staging ref is confirmed, run typegen **once** against staging:
 
 ```bash

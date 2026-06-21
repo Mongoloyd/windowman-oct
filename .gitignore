@@ -35,3 +35,6 @@ supabase/.temp/
 supabase/.branches/
 
 _rollback_rescue/
+
+# Local Codex/MCP config may contain environment identifiers.
+.codex/config.toml

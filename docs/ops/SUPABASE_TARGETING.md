@@ -21,7 +21,7 @@ Production commands require **explicit human approval** and must never be the de
 
 ### `supabase/config.toml` — not staging proof
 
-`supabase/config.toml` may list `project_id = "wkrcyxcnzhwjtdpmfpaf"` (production) on purpose so `main` merges do not commit a staging id. **Do not use `config.toml` as proof you are on staging.**
+`supabase/config.toml` lists `project_id = "wm-mvp-forensic-v2-local"` — the **local Docker CLI namespace**, not a remote Supabase project ref. **Do not use `config.toml` as proof you are on staging or production.**
 
 ### `supabase/.temp/project-ref` — local link state
 

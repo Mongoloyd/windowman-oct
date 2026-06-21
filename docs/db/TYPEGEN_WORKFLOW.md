@@ -11,8 +11,9 @@
 
 ```bash
 # From project root — requires Supabase CLI and project access
+# Use the staging ref from SUPABASE_TARGETING.md (npm run typegen uses package.json)
 npx supabase gen types typescript \
-  --project-id wkrcyxcnzhwjtdpmfpaf \
+  --project-id <SUPABASE_PROJECT_REF> \
   > src/integrations/supabase/types.ts
 ```
 

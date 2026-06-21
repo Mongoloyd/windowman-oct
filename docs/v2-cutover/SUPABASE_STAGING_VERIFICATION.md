@@ -20,9 +20,9 @@ Verify staging Supabase is safe and schema-complete **before** wiring React V2 r
 
 ## Staging target
 
-| Item | Production (repo default) | Staging (operator) |
-|------|---------------------------|------------------|
-| Project ref in `supabase/config.toml` | `wkrcyxcnzhwjtdpmfpaf` | **Different ref** (record in vault) |
+| Item | Local CLI config | Staging (operator) |
+|------|------------------|------------------|
+| Project ref in `supabase/config.toml` | `wm-mvp-forensic-v2-local` (local Docker namespace) | **Remote staging ref** (record in vault; see [SUPABASE_TARGETING.md](../ops/SUPABASE_TARGETING.md)) |
 | `package.json` typegen | Same prod ref | Override when regenerating types |
 | Frontend env | N/A | `.env.local` staging URL + anon key |
 

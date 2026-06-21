@@ -198,7 +198,7 @@ Gemini’s earlier statement that `report-access` logs access before retrieval i
 | Priority | Risk | Evidence | Resolution |
 |---|---|---|---|
 | **P0** | Browser QA **practically passed**; wrong verified phone binding **deferred**. Playwright suites still intercept the **old** direct-RPC path ([tests/session-isolation.spec.ts:70, 173](../../tests/session-isolation.spec.ts), [tests/otp-resend.spec.ts:79](../../tests/otp-resend.spec.ts)). | [REPORT_ACCESS_BROWSER_QA.md](../../docs/v2-cutover/REPORT_ACCESS_BROWSER_QA.md) §5, §9. | Phase 2A lab OK. Complete deferred wrong-phone trial before V2 **production** promotion; optional HAR under `docs/v2-cutover/evidence/`. |
-| **P0** | Config/env project mismatch risk. [supabase/config.toml:1](../../supabase/config.toml) hard-codes `project_id = "wkrcyxcnzhwjtdpmfpaf"`. | If `.env.local` points the browser at a different Supabase project, `supabase.functions.invoke("report-access", ...)` will fail because the Edge Function is not deployed to that project. | Confirm `.env.local` `VITE_SUPABASE_URL` matches the project where `report-access` is deployed before browser QA. |
+| **P0** | Config/env project mismatch risk. [supabase/config.toml:1](../../supabase/config.toml) uses local Docker namespace `project_id = "wm-mvp-forensic-v2-local"` (not a remote ref). | If `.env.local` points the browser at a different Supabase project than where `report-access` is deployed, `supabase.functions.invoke("report-access", ...)` will fail. | Confirm `.env.local` `VITE_SUPABASE_URL` matches the project where `report-access` is deployed before browser QA. See [SUPABASE_TARGETING.md](../../docs/ops/SUPABASE_TARGETING.md). |
 | **P0** | V2 component touching full-only data in preview — none confirmed in production flow (no V2 component is production-routed). | Verified via [src/App.tsx](../../src/App.tsx) route audit; only [src/pages/DevReportPreview.tsx](../../src/pages/DevReportPreview.tsx) and the component itself import `ForensicAuditReport`. | Continue to gate V2 promotion behind QA. |
 | **P1** | `[functions.report-access] verify_jwt = false` ([supabase/config.toml:93–94](../../supabase/config.toml)). Endpoint is open to abuse (rate-limit / enumeration); DB sentinel is the authorization gate for full mode. | [supabase/functions/report-access/index.ts:160–193](../../supabase/functions/report-access/index.ts) calls the RPC with the supplied `phone_e164` and only the DB-side check protects the full payload. | Acceptable — DB gate is canonical. Add rate-limit + structured logging before V2 promotion. |
 | **P1** | Production V2 wiring blocked until explicit approval + deferred wrong-phone binding QA. | §5, §11. | Phase 2A lab polish may proceed; prod V2 routes may not. |
@@ -245,8 +245,9 @@ Do not deploy.
 Do not modify migrations.
 
 Steps:
-1. Confirm .env.local VITE_SUPABASE_URL matches the project where report-access
-   is deployed (per supabase/config.toml project_id = "wkrcyxcnzhwjtdpmfpaf").
+1. Confirm `.env.local` `VITE_SUPABASE_URL` matches the remote project where `report-access`
+   is deployed (see [SUPABASE_TARGETING.md](../../docs/ops/SUPABASE_TARGETING.md); do not infer
+   remote target from `supabase/config.toml`, which uses local namespace `wm-mvp-forensic-v2-local`).
 2. npm run dev locally.
 3. Open a real browser (Chrome or Edge). Open DevTools → Network tab.
 4. Navigate to /report/classic/{REAL_SCAN_SESSION_ID}.

@@ -9,7 +9,7 @@
 
 | Source | Value |
 |--------|--------|
-| `supabase/config.toml` `project_id` | `wkrcyxcnzhwjtdpmfpaf` (production ref in repo — **not** proof of active CLI target) |
+| `supabase/config.toml` `project_id` | `wm-mvp-forensic-v2-local` (local Docker namespace — **not** proof of active CLI/remote target) |
 | `supabase/.temp/project-ref` (linked CLI) | `zgsofkgddpcntdvpckdq` (**staging**) |
 | `supabase status` | Local stack running at `http://127.0.0.1:54321` |
 
