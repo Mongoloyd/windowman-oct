@@ -299,8 +299,8 @@ export function NextdoorTrackCLeadCapture({
       <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
         Save your quote-check path
       </p>
-      <h3 className="mt-2 font-display text-lg font-extrabold text-slate-900 md:text-xl">
-        Get ready before the contractor quote shows up.
+      <h3 className="mt-2 whitespace-nowrap font-display text-lg font-extrabold text-slate-900 md:text-xl">
+        Be Ready For Your 1st Sales Pitch
       </h3>
       <p className="mt-2 text-sm leading-relaxed text-slate-600">
         Tell WindowMan where to send your quote prep. When you get an estimate, you&apos;ll know what

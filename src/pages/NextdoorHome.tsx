@@ -73,8 +73,18 @@ import { toE164 } from "@/utils/formatPhone";
 
 const INTAKE_HEADLINE = "Check your impact-window quote before you sign.";
 
-const INTAKE_SUBHEAD =
-  "Already have a quote? Scan it now. Still shopping? Get prepared. Private review — not a contractor.";
+const INTAKE_SUBHEAD_LEAD =
+  "Already have a quote? Scan it now. Still shopping? Get prepared.";
+const INTAKE_SUBHEAD_TAIL = "Private review — not a contractor.";
+
+function IntakeSubhead({ className }: { className?: string }) {
+  return (
+    <p className={className}>
+      <span className="lg:whitespace-nowrap">{INTAKE_SUBHEAD_LEAD}</span>{" "}
+      <span className="whitespace-nowrap">{INTAKE_SUBHEAD_TAIL}</span>
+    </p>
+  );
+}
 
 const EMPTY_IDENTITY: NextdoorIdentityFields = {
   firstName: "",
@@ -725,7 +735,7 @@ export default function NextdoorHome() {
               <p className="font-display text-xl font-extrabold leading-snug text-slate-900">
                 {INTAKE_HEADLINE}
               </p>
-              <p className="mt-2 text-sm leading-relaxed text-slate-600">{INTAKE_SUBHEAD}</p>
+              <IntakeSubhead className="mt-2 text-sm leading-relaxed text-pretty text-slate-600" />
               <div className="mt-6 flex justify-center">
                 <NextdoorHeroMascotStack subtitle={mockSubtitle} />
               </div>
@@ -735,9 +745,7 @@ export default function NextdoorHome() {
               <h1 className="font-display text-[2rem] font-extrabold leading-[1.12] tracking-tight text-slate-900 lg:text-[2.25rem]">
                 {INTAKE_HEADLINE}
               </h1>
-              <p className="mt-3 max-w-3xl text-base leading-relaxed text-slate-600 lg:text-lg">
-                {INTAKE_SUBHEAD}
-              </p>
+              <IntakeSubhead className="mt-3 text-base leading-relaxed text-pretty text-slate-600 lg:text-lg" />
             </div>
 
             <div className="mt-6 grid items-start gap-8 md:mt-0 md:grid-cols-[1.05fr_0.95fr] md:gap-10 lg:gap-12">
