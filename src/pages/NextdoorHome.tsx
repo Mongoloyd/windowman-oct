@@ -66,6 +66,7 @@ import {
   saveCtaLabel as resolveSaveCtaLabel,
 } from "@/lib/nextdoor/pathRouter";
 import { submitNextdoorLead } from "@/services/nextdoorLeadCapture";
+import { trackEngagement } from "@/lib/engagementScoring";
 import { getUtmData } from "@/lib/useUtmCapture";
 import { useScanFunnelSafe } from "@/state/scanFunnel";
 import { useScanPolling, type ScanStatus } from "@/hooks/useScanPolling";
@@ -416,6 +417,16 @@ export default function NextdoorHome() {
   const handleReadinessSelect = useCallback(
     (value: QuoteReadiness) => {
       setReadiness(value);
+
+      trackEngagement("readiness_select", {
+        dedupeKey: `nextdoor_readiness_select:${value}`,
+        metadata: {
+          quote_readiness: value,
+          surface: "nextdoor",
+        },
+        bonusActions: value === "has_estimate" ? ["readiness_select_has_estimate"] : undefined,
+      });
+
       setShowChecklist(value !== "has_estimate");
       setTrackBLeadSaved(false);
       setTrackBSubmitError(null);
