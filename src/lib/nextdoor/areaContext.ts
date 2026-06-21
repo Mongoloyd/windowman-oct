@@ -87,7 +87,7 @@ export const PAGE_META_DESCRIPTION =
   "South Florida homeowners: check your impact-window quote before you sign. Private review — not a contractor.";
 
 export const HERO_HEADLINE =
-  "Turn every quote into leverage before you sign.";
+  "Turn every quote into leverage before you\u00a0sign.";
 
 export const HERO_SUBHEAD =
   "Upload your impact-window estimate. See what is vague, missing, or worth questioning — then use every bid to make the next conversation clearer.";

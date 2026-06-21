@@ -1,4 +1,5 @@
 import { ArrowRight } from "lucide-react";
+import { HERO_HEADLINE } from "@/lib/nextdoor/areaContext";
 import { nextdoorProofEyebrowClass, nextdoorProofSectionClass } from "./nextdoorUi";
 
 const STAGES = [
@@ -43,9 +44,9 @@ export function NextdoorQuoteLeverageLoop() {
         <p className={nextdoorProofEyebrowClass}>Quote leverage workflow</p>
         <h2
           id="leverage-loop-heading"
-          className="mt-2 max-w-2xl font-display text-2xl font-extrabold leading-tight text-white md:text-3xl"
+          className="mt-2 text-balance font-display text-2xl font-extrabold leading-tight text-white md:text-3xl"
         >
-          Turn every quote into leverage before you sign.
+          {HERO_HEADLINE}
         </h2>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-300/90 md:text-base">
           Upload the first estimate. Use the preview to see what is vague, missing, or worth
