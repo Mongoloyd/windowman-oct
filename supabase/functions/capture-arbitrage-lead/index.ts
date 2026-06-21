@@ -172,10 +172,10 @@ async function sha256Hex(input: string): Promise<string> {
     .join("");
 }
 
-function audit(
+async function audit(
   admin: SupabaseClient | null,
   evt: Omit<AuditEvent, "ts" | "fn"> & { session_id?: string | null },
-): void {
+): Promise<void> {
   const { session_id: _sid, ...rest } = evt as Record<string, unknown> & {
     session_id?: string | null;
   };
@@ -195,22 +195,24 @@ function audit(
   }
 
   if (admin && PERSISTED_STAGES.has(evt.stage)) {
-    admin
-      .from("event_logs")
-      .insert({
-        event_name: evt.stage,
-        session_id: evt.session_id_prefix ? `${evt.session_id_prefix}…` : null,
-        route: "/about",
-        metadata: fullEvt as unknown as Record<string, unknown>,
-      })
-      .then(({ error }) => {
-        if (error) {
-          console.warn(`[${FUNCTION_NAME}:audit] event_logs insert failed`, {
-            stage: evt.stage,
-            code: error.code,
-          });
-        }
-      });
+    try {
+      const { error } = await admin
+        .from("event_logs")
+        .insert({
+          event_name: evt.stage,
+          session_id: evt.session_id_prefix ? evt.session_id_prefix + "…" : null,
+          route: "/about",
+          metadata: fullEvt as unknown as Record<string, unknown>,
+        });
+      if (error) {
+        console.warn("[" + FUNCTION_NAME + ":audit] event_logs insert failed", {
+          stage: evt.stage,
+          code: error.code,
+        });
+      }
+    } catch (err) {
+      console.error("[" + FUNCTION_NAME + ":audit] event_logs insert threw an error", err);
+    }
   }
 }
 
@@ -380,7 +382,7 @@ async function handleCreate(
   ctx: BaseContext,
   body: Record<string, unknown>,
 ): Promise<Response> {
-  audit(admin, {
+  await audit(admin, {
     stage: "arbitrage_create_started",
     status: "started",
     action: "create",
@@ -392,7 +394,7 @@ async function handleCreate(
   // ZIP
   const zip = asRequiredString(body.zip, 5);
   if (!zip || !ZIP_RE.test(zip)) {
-    audit(admin, {
+    await audit(admin, {
       stage: "arbitrage_validation_failed",
       status: "failed",
       action: "create",
@@ -407,7 +409,7 @@ async function handleCreate(
   const phoneRaw = asRequiredString(body.phone_e164, 40);
   const phone_e164 = phoneRaw ? normalizePhone(phoneRaw) : "";
   if (!/^\+1\d{10}$/.test(phone_e164)) {
-    audit(admin, {
+    await audit(admin, {
       stage: "arbitrage_validation_failed",
       status: "failed",
       action: "create",
@@ -420,7 +422,7 @@ async function handleCreate(
 
   // Consent required before phone is stored.
   if (body.hasConsent !== true) {
-    audit(admin, {
+    await audit(admin, {
       stage: "arbitrage_validation_failed",
       status: "failed",
       action: "create",
@@ -434,7 +436,7 @@ async function handleCreate(
   // Intake (scope required + valid)
   const intakeResult = buildArbitrageIntake(body);
   if (!intakeResult.ok) {
-    audit(admin, {
+    await audit(admin, {
       stage: "arbitrage_validation_failed",
       status: "failed",
       action: "create",
@@ -455,7 +457,7 @@ async function handleCreate(
   );
 
   if (lookupErr) {
-    audit(admin, {
+    await audit(admin, {
       stage: "arbitrage_create_failed",
       status: "failed",
       action: "create",
@@ -467,7 +469,7 @@ async function handleCreate(
   }
 
   if (existing?.id) {
-    audit(admin, {
+    await audit(admin, {
       stage: "arbitrage_create_reused",
       status: "reused",
       action: "create",
@@ -535,7 +537,7 @@ async function handleCreate(
     .single();
 
   if (error || !data?.id) {
-    audit(admin, {
+    await audit(admin, {
       stage: "arbitrage_create_failed",
       status: "failed",
       action: "create",
@@ -550,7 +552,7 @@ async function handleCreate(
     return fail("insert_failed", 500);
   }
 
-  audit(admin, {
+  await audit(admin, {
     stage: "arbitrage_create_succeeded",
     status: "succeeded",
     action: "create",
@@ -573,7 +575,7 @@ async function handleUpdateIdentity(
 ): Promise<Response> {
   const nameRaw = asRequiredString(body.name, 100);
   if (!nameRaw || nameRaw.length < 2) {
-    audit(admin, {
+    await audit(admin, {
       stage: "arbitrage_validation_failed",
       status: "failed",
       action: "update_identity",
@@ -588,7 +590,7 @@ async function handleUpdateIdentity(
   const rawEmail = asRequiredString(body.email, 255);
   const email = rawEmail ? rawEmail.toLowerCase() : null;
   if (!email || !EMAIL_RE.test(email)) {
-    audit(admin, {
+    await audit(admin, {
       stage: "arbitrage_validation_failed",
       status: "failed",
       action: "update_identity",
@@ -606,7 +608,7 @@ async function handleUpdateIdentity(
   );
 
   if (lookupErr || !lead?.id) {
-    audit(admin, {
+    await audit(admin, {
       stage: "arbitrage_update_identity_failed",
       status: "failed",
       action: "update_identity",
@@ -631,7 +633,7 @@ async function handleUpdateIdentity(
     .eq("source", SOURCE);
 
   if (updateErr) {
-    audit(admin, {
+    await audit(admin, {
       stage: "arbitrage_update_identity_failed",
       status: "failed",
       action: "update_identity",
@@ -643,7 +645,7 @@ async function handleUpdateIdentity(
     return fail("update_failed", 500);
   }
 
-  audit(admin, {
+  await audit(admin, {
     stage: "arbitrage_update_identity_succeeded",
     status: "succeeded",
     action: "update_identity",
@@ -672,7 +674,7 @@ async function mergeArbitrageAnswer(
   );
 
   if (lookupErr || !lead?.id) {
-    audit(admin, {
+    await audit(admin, {
       stage: failStage,
       status: "failed",
       action,
@@ -703,7 +705,7 @@ async function mergeArbitrageAnswer(
     .eq("source", SOURCE);
 
   if (updateErr) {
-    audit(admin, {
+    await audit(admin, {
       stage: failStage,
       status: "failed",
       action,
@@ -715,7 +717,7 @@ async function mergeArbitrageAnswer(
     return fail("update_failed", 500);
   }
 
-  audit(admin, {
+  await audit(admin, {
     stage: successStage,
     status: "succeeded",
     action,
@@ -734,7 +736,7 @@ async function handleUpdateCallIntent(
 ): Promise<Response> {
   const callIntent = asRequiredString(body.call_intent, 8);
   if (!callIntent || !CALL_INTENT_OPTIONS.has(callIntent)) {
-    audit(admin, {
+    await audit(admin, {
       stage: "arbitrage_validation_failed",
       status: "failed",
       action: "update_call_intent",
@@ -763,7 +765,7 @@ async function handleUpdateTimeframe(
 ): Promise<Response> {
   const timeframe = asRequiredString(body.timeframe, 32);
   if (!timeframe || !TIMEFRAME_OPTIONS.has(timeframe)) {
-    audit(admin, {
+    await audit(admin, {
       stage: "arbitrage_validation_failed",
       status: "failed",
       action: "update_timeframe",
@@ -813,7 +815,7 @@ Deno.serve(async (req) => {
 
   const rawText = await req.text();
   if (rawText.length > MAX_PAYLOAD_BYTES) {
-    audit(null, {
+    await audit(null, {
       stage: "arbitrage_validation_failed",
       status: "failed",
       error_code: "payload_too_large",
@@ -825,7 +827,7 @@ Deno.serve(async (req) => {
   try {
     bodyJson = rawText ? JSON.parse(rawText) : null;
   } catch {
-    audit(null, {
+    await audit(null, {
       stage: "arbitrage_validation_failed",
       status: "failed",
       error_code: "invalid_json",
@@ -834,7 +836,7 @@ Deno.serve(async (req) => {
   }
 
   if (!bodyJson || typeof bodyJson !== "object" || Array.isArray(bodyJson)) {
-    audit(null, {
+    await audit(null, {
       stage: "arbitrage_validation_failed",
       status: "failed",
       error_code: "invalid_body",
@@ -845,7 +847,7 @@ Deno.serve(async (req) => {
   const body = bodyJson as Record<string, unknown>;
   const base = parseBase(body);
   if (!base.ok) {
-    audit(null, {
+    await audit(null, {
       stage: "arbitrage_validation_failed",
       status: "failed",
       error_code: base.code,
@@ -857,7 +859,7 @@ Deno.serve(async (req) => {
   const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (!SUPABASE_URL || !SERVICE_ROLE) {
     console.error(`[${FUNCTION_NAME}] missing service-role env`);
-    audit(null, {
+    await audit(null, {
       stage: "arbitrage_unexpected_error",
       status: "failed",
       error_code: "server_misconfigured",
@@ -887,7 +889,7 @@ Deno.serve(async (req) => {
       action: base.ctx.action,
       error_code: "unexpected_error",
     });
-    audit(admin, {
+    await audit(admin, {
       stage: "arbitrage_unexpected_error",
       status: "failed",
       action: base.ctx.action,

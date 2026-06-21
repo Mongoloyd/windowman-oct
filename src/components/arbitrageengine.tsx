@@ -448,7 +448,7 @@ export default function ArbitrageEngine({
           ? localStorage.getItem("wm_client_slug")
           : null;
       const effectiveClientSlug =
-        queryClientSlug ?? utm.client_slug ?? lsClientSlug ?? null;
+        queryClientSlug ?? (utm.client_slug !== "direct" ? utm.client_slug : null) ?? lsClientSlug ?? null;
 
       if (effectiveClientSlug && typeof window !== "undefined") {
         try {
@@ -598,7 +598,8 @@ export default function ArbitrageEngine({
         return null;
       }
     })();
-    const effective = queryClientSlug ?? utm.client_slug ?? lsClientSlug ?? null;
+    const utmSlug = utm.client_slug !== "direct" ? utm.client_slug : null;
+    const effective = queryClientSlug ?? utmSlug ?? lsClientSlug ?? null;
     if (effective) {
       try {
         localStorage.setItem("wm_client_slug", effective);
