@@ -52,7 +52,7 @@ const INTENT_CARDS: IntentCard[] = [
   },
   {
     id: "quote_elsewhere",
-    title: "I have a quote, but not on this device",
+    title: "I have a quote, but not with me at the moment",
     copy: "Save your place and finish when your quote is handy.",
     cta: "Save & finish later",
     icon: Send,

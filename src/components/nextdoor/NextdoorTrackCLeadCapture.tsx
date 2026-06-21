@@ -403,14 +403,16 @@ export function NextdoorTrackCLeadCapture({
         </p>
       ) : null}
 
-      <button
-        type="submit"
-        disabled={isSubmittingContact}
-        className={[nextdoorPrimaryCtaClass, "mt-4 w-full sm:w-auto"].join(" ")}
-        style={{ padding: "13px 24px", fontSize: 14 }}
-      >
-        {isSubmittingContact ? "Saving your quote-check path…" : "Continue"}
-      </button>
+      <div className="mt-4 flex justify-center">
+        <button
+          type="submit"
+          disabled={isSubmittingContact}
+          className={nextdoorPrimaryCtaClass}
+          style={{ padding: "13px 24px", fontSize: 14 }}
+        >
+          {isSubmittingContact ? "Saving your quote-check path…" : "Get the inside trade secrets"}
+        </button>
+      </div>
 
       <p className="mt-3 text-xs leading-relaxed text-slate-500">{CONSENT_COPY}</p>
     </form>

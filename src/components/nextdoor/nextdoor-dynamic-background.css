@@ -1,0 +1,162 @@
+/* WindowMan /nextdoor — full-page frosted quote-scan surface */
+
+.nextdoor-bg-base {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    hsl(210 45% 99%) 0%,
+    hsl(214 38% 98%) 42%,
+    hsl(216 36% 98%) 100%
+  );
+}
+
+.nextdoor-glass-field {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  transform: translateZ(0);
+  background-image:
+    linear-gradient(
+      180deg,
+      rgba(248, 251, 255, 0.18) 0%,
+      rgba(255, 255, 255, 0.74) 48%,
+      rgba(239, 247, 255, 0.36) 100%
+    ),
+    url("/images/nextdoor-glass-field.avif");
+  background-size: cover;
+  background-position: center;
+  opacity: 0.72;
+}
+
+.nextdoor-blueprint-grid {
+  position: absolute;
+  inset: -2px;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0.22;
+  background-image:
+    linear-gradient(rgba(37, 99, 235, 0.09) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(37, 99, 235, 0.08) 1px, transparent 1px);
+  background-size: 56px 56px;
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    black 0%,
+    transparent 24%,
+    transparent 76%,
+    black 100%
+  );
+  mask-image: linear-gradient(
+    180deg,
+    black 0%,
+    transparent 24%,
+    transparent 76%,
+    black 100%
+  );
+}
+
+.nextdoor-scan-beam {
+  position: absolute;
+  left: -30%;
+  top: 0;
+  z-index: 3;
+  width: 42%;
+  height: 100%;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(125, 211, 252, 0.06) 32%,
+    rgba(255, 255, 255, 0.42) 50%,
+    rgba(96, 165, 250, 0.08) 68%,
+    transparent 100%
+  );
+  filter: blur(18px);
+  transform: translateX(0) skewX(-14deg);
+  animation: nextdoor-scan-drift 14s ease-in-out infinite;
+}
+
+.nextdoor-center-wash {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      ellipse at center,
+      rgba(255, 255, 255, 0.92) 0%,
+      rgba(255, 255, 255, 0.74) 34%,
+      rgba(255, 255, 255, 0.28) 62%,
+      transparent 82%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.22) 0%,
+      rgba(255, 255, 255, 0.56) 100%
+    );
+}
+
+.nextdoor-bg-medium .nextdoor-glass-field {
+  opacity: 0.86;
+}
+
+.nextdoor-bg-medium .nextdoor-blueprint-grid {
+  opacity: 0.3;
+}
+
+.nextdoor-bg-soft .nextdoor-scan-beam {
+  opacity: 0.72;
+}
+
+.nextdoor-bg-medium .nextdoor-scan-beam {
+  opacity: 1;
+}
+
+@keyframes nextdoor-scan-drift {
+  0% {
+    transform: translateX(0) skewX(-14deg);
+  }
+  45% {
+    transform: translateX(240%) skewX(-14deg);
+  }
+  100% {
+    transform: translateX(240%) skewX(-14deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nextdoor-scan-beam {
+    animation: none;
+    opacity: 0.28;
+  }
+}
+
+@media (max-width: 768px) {
+  .nextdoor-glass-field {
+    background-size: auto 100%;
+    background-position: center top;
+    opacity: 0.58;
+  }
+
+  .nextdoor-blueprint-grid {
+    background-size: 42px 42px;
+    opacity: 0.16;
+  }
+
+  .nextdoor-scan-beam {
+    display: none;
+  }
+
+  .nextdoor-center-wash {
+    background: radial-gradient(
+      ellipse at center,
+      rgba(255, 255, 255, 0.96) 0%,
+      rgba(255, 255, 255, 0.82) 42%,
+      rgba(255, 255, 255, 0.34) 72%,
+      transparent 100%
+    );
+  }
+}

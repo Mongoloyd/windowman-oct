@@ -16,8 +16,7 @@ import { NextdoorWhatGetsMissed } from "@/components/nextdoor/NextdoorWhatGetsMi
 import { NextdoorJourneyTimeline } from "@/components/nextdoor/NextdoorJourneyTimeline";
 import { NextdoorTrustStrip } from "@/components/nextdoor/NextdoorTrustStrip";
 import { NextdoorScanTransition } from "@/components/nextdoor/NextdoorScanTransition";
-import { QuoteScanFieldBackground } from "@/components/QuoteScanFieldBackground";
-import { NextdoorPageBackground } from "@/components/nextdoor/NextdoorPageBackground";
+import { NextdoorDynamicBackground } from "@/components/nextdoor/NextdoorDynamicBackground";
 import {
   nextdoorPrimaryCtaClass,
   prefersReducedMotion,
@@ -671,9 +670,7 @@ export default function NextdoorHome() {
         <meta name="robots" content="noindex, nofollow" />
       </Helmet>
 
-      <div className="relative min-h-screen overflow-x-hidden bg-[hsl(214_38%_97%)] text-slate-900">
-        <NextdoorPageBackground />
-
+      <NextdoorDynamicBackground intensity="soft" className="text-slate-900">
         <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/85 backdrop-blur-md">
           <div className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-4 px-4 md:px-8">
             <a
@@ -729,7 +726,6 @@ export default function NextdoorHome() {
             className="relative mb-10 scroll-mt-28 md:mb-12"
             aria-labelledby="readiness-heading"
           >
-            <QuoteScanFieldBackground variant="hero" />
             <div className="relative z-10">
             <div className="md:hidden">
               <p className="font-display text-xl font-extrabold leading-snug text-slate-900">
@@ -962,7 +958,7 @@ export default function NextdoorHome() {
           </NextdoorReveal>
 
           <footer className="border-t border-slate-200/80 pt-8">
-            <p className="text-sm leading-relaxed text-slate-600">
+            <p className="mx-auto max-w-3xl text-center text-sm leading-relaxed text-slate-600">
               WindowMan is not a law firm, contractor, building department, or insurance advisor. We
               help Florida homeowners understand questions worth asking before signing an
               impact-window quote.
@@ -1031,7 +1027,7 @@ export default function NextdoorHome() {
             </div>
           </div>
         ) : null}
-      </div>
+      </NextdoorDynamicBackground>
     </>
   );
 }
