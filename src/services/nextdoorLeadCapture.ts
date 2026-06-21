@@ -15,7 +15,17 @@ export type SubmitNextdoorLeadInput = {
   quoteReadiness: QuoteReadiness;
   nextRoute: NextdoorNextRoute;
   wmIntent: NextdoorWmIntent;
+  /**
+   * Optional extra query_params keys (e.g. Track C qualification). Folded into
+   * the lead's query_params bag. The Edge merge is per-key non-destructive, so
+   * these only ever ADD missing keys — they never overwrite prior values.
+   */
+  extraQueryParams?: Record<string, string>;
 };
+
+export type SubmitNextdoorLeadResult =
+  | { ok: true; reused?: boolean; leadId?: string }
+  | { ok: false; message: string };
 
 function mergeQueryParams(
   base: Record<string, string | string[]>,
@@ -45,12 +55,21 @@ function mergeQueryParams(
     merged.last_name = lastName;
   }
 
+  if (input.extraQueryParams) {
+    for (const [key, value] of Object.entries(input.extraQueryParams)) {
+      const trimmed = value?.trim();
+      if (key && trimmed) {
+        merged[key] = trimmed;
+      }
+    }
+  }
+
   return merged;
 }
 
 export async function submitNextdoorLead(
   input: SubmitNextdoorLeadInput,
-): Promise<{ ok: true } | { ok: false; message: string }> {
+): Promise<SubmitNextdoorLeadResult> {
   if (!input.sessionId) {
     return { ok: false, message: SAFE_ERROR };
   }
@@ -107,7 +126,12 @@ export async function submitNextdoorLead(
       return { ok: false, message: SAFE_ERROR };
     }
 
-    return { ok: true };
+    const result = data as { lead_id?: string | null; reused?: boolean };
+    return {
+      ok: true,
+      reused: result.reused === true,
+      leadId: result.lead_id ?? undefined,
+    };
   } catch {
     return { ok: false, message: SAFE_ERROR };
   }

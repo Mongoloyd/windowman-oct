@@ -25,6 +25,21 @@ export type NextdoorLeadMedium = "paid_social" | "native_followup" | "hosted_for
 
 export type NextdoorWmIntent = "has_quote" | "no_quote";
 
+/** Track C (need_quote) Step 1 contact fields — local UI capture only. */
+export type NextdoorTrackCContact = {
+  firstName: string;
+  email: string;
+  phone: string;
+  zip: string;
+};
+
+/** Track C (need_quote) Step 2 qualification — stored in lead query_params. */
+export type NextdoorTrackCQualification = {
+  windowType: "impact" | "standard" | "not_sure";
+  openingCountBucket: "1_5" | "6_10" | "11_plus";
+  timeline: "asap" | "1_3_months" | "researching";
+};
+
 export type NextdoorAttributionSnapshot = {
   utm_source?: string;
   utm_medium?: string;

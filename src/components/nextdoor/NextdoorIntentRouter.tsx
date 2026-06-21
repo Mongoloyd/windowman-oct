@@ -7,7 +7,11 @@ import {
   Send,
   type LucideIcon,
 } from "lucide-react";
-import type { QuoteReadiness } from "./types";
+import type {
+  NextdoorTrackCContact,
+  NextdoorTrackCQualification,
+  QuoteReadiness,
+} from "./types";
 import {
   isValidEmail,
   isValidFirstName,
@@ -17,6 +21,7 @@ import {
   nextdoorEyebrowClass,
   nextdoorPrimaryCtaClass,
 } from "./nextdoorUi";
+import { NextdoorTrackCLeadCapture } from "./NextdoorTrackCLeadCapture";
 
 const PREP_READINESS = new Set<QuoteReadiness>([
   "getting_quotes_now",
@@ -63,24 +68,6 @@ const INTENT_CARDS: IntentCard[] = [
   },
 ];
 
-const PREP_OPTIONS: Array<{ id: QuoteReadiness; label: string; hint: string }> = [
-  {
-    id: "getting_quotes_now",
-    label: "I'm getting quotes now",
-    hint: "Compare every bid on one checklist",
-  },
-  {
-    id: "need_quote_soon",
-    label: "I need a quote soon",
-    hint: "Know what to ask before the visit",
-  },
-  {
-    id: "researching",
-    label: "I'm just researching",
-    hint: "Learn what a complete quote includes",
-  },
-];
-
 export type NextdoorIntentRouterProps = {
   selected: QuoteReadiness | null;
   onReadinessSelect: (readiness: QuoteReadiness) => void;
@@ -101,6 +88,14 @@ export type NextdoorIntentRouterProps = {
     email: string;
     zip: string;
   };
+  /** Track C (need_quote) — parent-owned real lead ingestion handlers. */
+  onTrackCSaveContact: (contact: NextdoorTrackCContact) => Promise<void>;
+  onTrackCSaveQualification: (qualification: NextdoorTrackCQualification) => Promise<void>;
+  trackCContactSaved?: boolean;
+  trackCCompleted?: boolean;
+  trackCContactSubmitting?: boolean;
+  trackCQualifying?: boolean;
+  trackCError?: string | null;
 };
 
 const inputBaseClass =
@@ -114,6 +109,13 @@ export function NextdoorIntentRouter({
   leadCaptureError = null,
   trackBLeadSaved = false,
   prefillIdentity,
+  onTrackCSaveContact,
+  onTrackCSaveQualification,
+  trackCContactSaved = false,
+  trackCCompleted = false,
+  trackCContactSubmitting = false,
+  trackCQualifying = false,
+  trackCError = null,
 }: NextdoorIntentRouterProps) {
   const [expandTrackB, setExpandTrackB] = useState(false);
   const [expandPrep, setExpandPrep] = useState(false);
@@ -211,7 +213,7 @@ export function NextdoorIntentRouter({
             selected === "has_estimate" && (!expandTrackB || trackBLeadSaved);
           const isSelected =
             (card.id === "quote_ready" && isQuoteReadySelected) ||
-            (card.id === "need_quote" && selected !== null && PREP_READINESS.has(selected));
+            (card.id === "need_quote" && (expandPrep || trackCCompleted));
 
           return (
             <div key={card.id}>
@@ -376,48 +378,22 @@ export function NextdoorIntentRouter({
                   </button>
                 </form>
               ) : null}
+
+              {card.id === "need_quote" && expandPrep ? (
+                <NextdoorTrackCLeadCapture
+                  onSaveContact={onTrackCSaveContact}
+                  onSaveQualification={onTrackCSaveQualification}
+                  contactSaved={trackCContactSaved}
+                  completed={trackCCompleted}
+                  isSubmittingContact={trackCContactSubmitting}
+                  isSubmittingQualification={trackCQualifying}
+                  submitError={trackCError}
+                />
+              ) : null}
             </div>
           );
         })}
       </div>
-
-      {expandPrep ? (
-        <div className="mt-3.5 rounded-2xl border border-slate-200/80 bg-white/70 p-4 backdrop-blur-sm">
-          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-            Which is closest?
-          </p>
-          <div className="mt-3 grid gap-2.5 sm:grid-cols-3">
-            {PREP_OPTIONS.map((opt) => {
-              const active = selected === opt.id;
-              return (
-                <button
-                  key={opt.id}
-                  type="button"
-                  onClick={() => {
-                    setExpandTrackB(false);
-                    onReadinessSelect(opt.id);
-                  }}
-                  aria-pressed={active ? true : undefined}
-                  className={[
-                    "rounded-xl border p-3.5 text-left transition-[border-color,box-shadow,transform] duration-200",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
-                    active
-                      ? "border-2 border-primary/55 bg-primary/5 ring-2 ring-primary/20"
-                      : "border-slate-200/80 bg-white hover:-translate-y-0.5 hover:border-primary/35",
-                  ].join(" ")}
-                >
-                  <span className="block text-sm font-bold leading-snug text-slate-900">
-                    {opt.label}
-                  </span>
-                  <span className="mt-1 block text-xs leading-relaxed text-slate-500">
-                    {opt.hint}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }

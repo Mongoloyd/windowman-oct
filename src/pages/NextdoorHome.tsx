@@ -33,6 +33,8 @@ import type {
   NextdoorIdentityFields,
   NextdoorLeadPayload,
   NextdoorPrefilledFields,
+  NextdoorTrackCContact,
+  NextdoorTrackCQualification,
   NextdoorTrafficMode,
   QuoteReadiness,
 } from "@/components/nextdoor/types";
@@ -208,6 +210,12 @@ export default function NextdoorHome() {
   const [trackBLeadSaved, setTrackBLeadSaved] = useState(false);
   const [trackBSubmitting, setTrackBSubmitting] = useState(false);
   const [trackBSubmitError, setTrackBSubmitError] = useState<string | null>(null);
+  const trackCContactRef = useRef<NextdoorTrackCContact | null>(null);
+  const [trackCContactSaved, setTrackCContactSaved] = useState(false);
+  const [trackCCompleted, setTrackCCompleted] = useState(false);
+  const [trackCContactSubmitting, setTrackCContactSubmitting] = useState(false);
+  const [trackCQualifying, setTrackCQualifying] = useState(false);
+  const [trackCError, setTrackCError] = useState<string | null>(null);
   const [leadSubmitting, setLeadSubmitting] = useState(false);
   const [leadSubmitError, setLeadSubmitError] = useState<string | null>(null);
   const [localPayload, setLocalPayload] = useState<NextdoorLeadPayload | null>(null);
@@ -374,6 +382,7 @@ export default function NextdoorHome() {
       zip?: string | null;
       phoneE164?: string | null;
       quoteReadiness: QuoteReadiness;
+      extraQueryParams?: Record<string, string>;
     }) => {
       const utm = getUtmData();
       const wmIntent = resolveWmIntentFromReadiness(params.quoteReadiness, utm.wm_intent);
@@ -388,6 +397,7 @@ export default function NextdoorHome() {
         quoteReadiness: params.quoteReadiness,
         nextRoute: resolveNextRoute(params.quoteReadiness),
         wmIntent,
+        extraQueryParams: params.extraQueryParams,
       });
     },
     [lastName, nextdoorSessionId],
@@ -536,6 +546,102 @@ export default function NextdoorHome() {
     [lastName, trafficMode, funnel, nextdoorSessionId, persistLead, scrollToNextStepPanel],
   );
 
+  // Track C — Step 1: save real contact lead immediately (protects against
+  // Step 1 abandonment). No onReadinessSelect → no downstream prep/identity panels.
+  const handleTrackCContactSave = useCallback(
+    async (contact: NextdoorTrackCContact) => {
+      if (leadSubmitInFlightRef.current) return;
+      if (!isValidFirstName(contact.firstName) || !isValidEmail(contact.email)) return;
+
+      const phoneE164 = contact.phone.trim() ? toE164(contact.phone.trim()) : null;
+
+      leadSubmitInFlightRef.current = true;
+      setTrackCContactSubmitting(true);
+      setTrackCError(null);
+
+      const result = await persistLead({
+        firstName: contact.firstName,
+        email: contact.email,
+        zip: contact.zip,
+        phoneE164,
+        // Safe no-quote readiness for the contact-save pass. The durable final
+        // qualification lives in query_params.timeline, not in this value.
+        quoteReadiness: "researching",
+        extraQueryParams: { track_c_contact_saved: "true" },
+      });
+
+      leadSubmitInFlightRef.current = false;
+      setTrackCContactSubmitting(false);
+
+      if (!result.ok) {
+        setTrackCError(result.message);
+        return;
+      }
+
+      trackCContactRef.current = contact;
+      setTrackCContactSaved(true);
+    },
+    [persistLead],
+  );
+
+  // Track C — Step 2: enrich the same lead/session with qualification answers.
+  // These ride in query_params; the Edge merge is per-key non-destructive, so
+  // distinct keys (window_type/opening_count_bucket/timeline) are ADDED, never
+  // overwriting the Step 1 keys.
+  const handleTrackCQualificationSave = useCallback(
+    async (qualification: NextdoorTrackCQualification) => {
+      if (leadSubmitInFlightRef.current) return;
+      const contact = trackCContactRef.current;
+      if (!contact) {
+        setTrackCError("We couldn't save this yet. Check your details and try again.");
+        return;
+      }
+
+      const readinessForTimeline: Record<NextdoorTrackCQualification["timeline"], QuoteReadiness> = {
+        asap: "getting_quotes_now",
+        "1_3_months": "need_quote_soon",
+        researching: "researching",
+      };
+
+      const phoneE164 = contact.phone.trim() ? toE164(contact.phone.trim()) : null;
+
+      leadSubmitInFlightRef.current = true;
+      setTrackCQualifying(true);
+      setTrackCError(null);
+
+      const result = await persistLead({
+        firstName: contact.firstName,
+        email: contact.email,
+        zip: contact.zip,
+        phoneE164,
+        quoteReadiness: readinessForTimeline[qualification.timeline],
+        extraQueryParams: {
+          window_type: qualification.windowType,
+          opening_count_bucket: qualification.openingCountBucket,
+          timeline: qualification.timeline,
+          track_c_qualified: "true",
+        },
+      });
+
+      leadSubmitInFlightRef.current = false;
+      setTrackCQualifying(false);
+
+      if (!result.ok) {
+        setTrackCError(result.message);
+        return;
+      }
+
+      if (import.meta.env.DEV && result.reused === false) {
+        console.info("[nextdoor] Track C qualification stored on fresh lead", {
+          session_id: nextdoorSessionId,
+        });
+      }
+
+      setTrackCCompleted(true);
+    },
+    [persistLead, nextdoorSessionId],
+  );
+
   const showNextStepPanel = readiness !== null;
   const showIdentityModule =
     readiness !== null && !(trackBLeadSaved && readiness === "has_estimate");
@@ -645,6 +751,13 @@ export default function NextdoorHome() {
                     leadCaptureError={trackBSubmitError}
                     trackBLeadSaved={trackBLeadSaved}
                     prefillIdentity={identity}
+                    onTrackCSaveContact={handleTrackCContactSave}
+                    onTrackCSaveQualification={handleTrackCQualificationSave}
+                    trackCContactSaved={trackCContactSaved}
+                    trackCCompleted={trackCCompleted}
+                    trackCContactSubmitting={trackCContactSubmitting}
+                    trackCQualifying={trackCQualifying}
+                    trackCError={trackCError}
                   />
                 </div>
                 {readiness ? (
