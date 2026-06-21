@@ -514,6 +514,7 @@ export default function ArbitrageEngine({
   };
 
   const getProgress = () => {
+    // Phase 1 display-only progress honesty. Durable save-gated completion deferred to Phase 3.
     switch (funnelStep) {
       case "scope":
         return 12;
@@ -529,16 +530,58 @@ export default function ArbitrageEngine({
         return 75;
       case "identity":
         return 88;
+      case "intent":
+        return 92;
+      case "call":
+        return 96;
+      case "timeframe":
+        return 96;
       case "secret_capture":
         return 95;
-      case "intent":
-      case "call":
-      case "timeframe":
       case "done":
+        return 100;
       case "secret_success":
         return 100;
       default:
         return 0;
+    }
+  };
+
+  // Done-state copy matrix keyed on scope + installerPreference (display only, no new state).
+  const getDoneCopy = (): { heading: string; body: string } => {
+    const isPremium = formData.installerPreference === "premium";
+    switch (formData.scope) {
+      case "1-5":
+        return {
+          heading: "Quick-Response Project Matched!",
+          body: "Perfect for our Quick-Response Team. We've matched you with local specialists who can turn small projects around fast.",
+        };
+      case "15+":
+        return isPremium
+          ? {
+              heading: "Premium Project Detected!",
+              body: "We've prioritised your full-home audit for our Premium Installation Team — elite craftsmanship, white-glove service, and maximum pricing leverage.",
+            }
+          : {
+              heading: "Full-Home Pricing Leverage Detected!",
+              body: "Your full-home project has been routed to vetted local pros who will compete to give you their cleanest, fairest price.",
+            };
+      case "6-10":
+      case "11-15":
+        return isPremium
+          ? {
+              heading: "Premium Installer Path Matched!",
+              body: "Your scope is confirmed. We've matched you with top-rated premium installers known for reputation and white-glove service.",
+            }
+          : {
+              heading: "Fair-Price Local Pro Path Matched!",
+              body: "Project scope confirmed. We've connected you with honest local pros competing to offer their most transparent, fair quote.",
+            };
+      default:
+        return {
+          heading: "Audit Complete & Matched!",
+          body: "Your audit has been routed to our top-rated local installation partners for immediate review.",
+        };
     }
   };
 
@@ -1456,7 +1499,7 @@ export default function ArbitrageEngine({
                         disabled={!formData.hasConsent || formData.zip.length < 5 || formData.phone.length < 10}
                         className="w-full mt-4 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-base sm:text-lg py-4 rounded-xl shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all active:scale-95 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px]"
                       >
-                        Next: See My Report
+                        Continue to Save My Audit
                       </button>
                     </form>
                   </motion.div>
@@ -1525,7 +1568,7 @@ export default function ArbitrageEngine({
                         disabled={!formData.name || !isEmailValid || isSubmitting}
                         className="w-full mt-4 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-base sm:text-lg py-4 rounded-xl shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all active:scale-95 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px]"
                       >
-                        {isSubmitting ? "Saving…" : "Next Step"}
+                        {isSubmitting ? "Saving…" : "Save My Audit Access"}
                       </button>
                     </form>
                   </motion.div>
@@ -1575,10 +1618,6 @@ export default function ArbitrageEngine({
                     </h2>
                     <a
                       href="tel:18005550199"
-                      onClick={() => {
-                        setHasCompletedFunnel(true);
-                        setTimeout(handleClose, 500);
-                      }}
                       aria-label="Tap to call a specialist now"
                       className="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white font-bold text-xl sm:text-2xl py-5 rounded-2xl shadow-[0_0_30px_rgba(16,185,129,0.4)] flex items-center justify-center gap-3 transition-all hover:scale-105 active:scale-95 shrink-0 min-h-[48px]"
                     >
@@ -1630,14 +1669,10 @@ export default function ArbitrageEngine({
                       <CheckCircle className="w-8 h-8 sm:w-10 sm:h-10 text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
                     </div>
                     <h2 className="text-2xl sm:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 to-green-500 mb-4 shrink-0 drop-shadow-sm">
-                      {formData.scope === "15+" ? "Premium Project Detected!" : "Audit Complete & Matched!"}
+                      {getDoneCopy().heading}
                     </h2>
                     <p className="text-gray-300 text-sm sm:text-base leading-relaxed shrink-0 px-2">
-                      {formData.scope === "1-5"
-                        ? "Perfect for our Quick-Response Team. We've matched you with 2 local installers specializing in smaller projects for a fast turnaround."
-                        : formData.scope === "15+"
-                          ? "We've prioritized your full-home audit for our Premium Installation Team to ensure maximum pricing leverage and elite craftsmanship."
-                          : "Project scope confirmed. We've routed your audit to our top-rated local installation partners for immediate review."}
+                      {getDoneCopy().body}
                     </p>
                   </motion.div>
                 )}
