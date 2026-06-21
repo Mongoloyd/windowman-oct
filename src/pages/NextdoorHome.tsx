@@ -16,8 +16,8 @@ import { NextdoorWhatGetsMissed } from "@/components/nextdoor/NextdoorWhatGetsMi
 import { NextdoorJourneyTimeline } from "@/components/nextdoor/NextdoorJourneyTimeline";
 import { NextdoorTrustStrip } from "@/components/nextdoor/NextdoorTrustStrip";
 import { NextdoorScanTransition } from "@/components/nextdoor/NextdoorScanTransition";
+import { QuoteScanFieldBackground } from "@/components/QuoteScanFieldBackground";
 import {
-  NEXTDOOR_GRID_TEXTURE,
   NEXTDOOR_PAGE_BG,
   NEXTDOOR_VIGNETTE,
   nextdoorPrimaryCtaClass,
@@ -71,8 +71,6 @@ import { useScanPolling, type ScanStatus } from "@/hooks/useScanPolling";
 import { toE164 } from "@/utils/formatPhone";
 
 const PAGE_BG = NEXTDOOR_PAGE_BG;
-
-const GRID_TEXTURE = NEXTDOOR_GRID_TEXTURE;
 
 const INTAKE_HEADLINE = "Check your impact-window quote before you sign.";
 
@@ -562,11 +560,6 @@ export default function NextdoorHome() {
 
       <div className="relative min-h-screen overflow-x-hidden text-slate-900" style={{ background: PAGE_BG }}>
         <div
-          className="pointer-events-none absolute inset-0 opacity-[0.5]"
-          style={GRID_TEXTURE}
-          aria-hidden="true"
-        />
-        <div
           className="pointer-events-none absolute inset-0"
           style={{ background: NEXTDOOR_VIGNETTE }}
           aria-hidden="true"
@@ -624,9 +617,11 @@ export default function NextdoorHome() {
           <section
             ref={readinessRef}
             id="readiness-selector"
-            className="mb-10 scroll-mt-28 md:mb-12"
+            className="relative mb-10 scroll-mt-28 overflow-hidden md:mb-12"
             aria-labelledby="readiness-heading"
           >
+            <QuoteScanFieldBackground variant="hero" />
+            <div className="relative z-10">
             <div className="md:hidden">
               <p className="font-display text-xl font-extrabold leading-snug text-slate-900">
                 {INTAKE_HEADLINE}
@@ -669,6 +664,7 @@ export default function NextdoorHome() {
               <NextdoorReveal className="order-1 hidden md:order-2 md:block" delayMs={80}>
                 <NextdoorHeroMascotStack subtitle={mockSubtitle} priority />
               </NextdoorReveal>
+            </div>
             </div>
           </section>
 
