@@ -45,6 +45,7 @@ Legend — **Auth model:** `app-logic` (handler validation, no gateway JWT); `ad
 | `capi-event` | internal | false | service-role or x-capi-dispatch-secret | yes | none (browser/anon blocked at handler) |
 | `capture-truth-gate-lead` | homeowner public | false | app-logic | yes | `TruthGateFlow.tsx` |
 | `capture-power-tool-demo-lead` | homeowner public | false | app-logic | yes | none (Sprint B: `PowerToolDemo.tsx`) |
+| `capture-arbitrage-lead` | homeowner public | false | app-logic (+ backend flag) | yes | `arbitrageengine.tsx` (via `captureArbitrageLead.ts`) |
 | `compare-quotes` | homeowner public | false | phone-RPC | yes | `PostScanReportSwitcher.tsx` |
 | `contractor-actions` | admin | false | adminAuth | yes | none (no current `src/` invoke; docs reference only) |
 | `contractor-booking-confirmed` | cron | false | secret-header | yes | none |
@@ -295,6 +296,7 @@ Functions reachable by unauthenticated browsers using only the publishable/anon 
 |----------|-----------------|----------------|------------------------|
 | `capture-truth-gate-lead` | TruthGate lead INSERT (RLS-safe) | Payload validation; never sets `phone_verified` | `leads`, `event_logs` |
 | `capture-power-tool-demo-lead` | PowerToolDemo progressive lead capture (`source=power-tool-demo`) | `verify_jwt=false`; source-scoped session lookup; never sets `phone_verified` / report unlock; PII logging banned | `leads`, `event_logs` |
+| `capture-arbitrage-lead` | ArbitrageEngine progressive lead capture (`source=arbitrage-engine`) | `verify_jwt=false`; backend flag `ARBITRAGE_PROGRESSIVE_CAPTURE_ENABLED` (default off); source-scoped `session_id`+`source` lookup; never sets `phone_verified` / report unlock; PII logging banned | `leads`, `event_logs` |
 | `start-upload-scan-session` | Bootstrap lead + quote_file + scan_session | UUID + storage_path contract | `leads`, `quote_files`, `scan_sessions`, `event_logs` |
 | `scan-quote` | Scanner Brain: Gemini extract + TS score | Session existence, rate limits; optional `DEV_BYPASS_SECRET` for dev override | `scan_sessions`, `analyses`, `quote_files`, `quotes`, `leads`, `lead_events` |
 | `report-access` | Service-role proxy for preview/full RPCs | Preview: `scan_session_id` only. Full: `phone_e164` + `get_analysis_full` | RPC `get_analysis_preview`, `get_analysis_full` |
@@ -547,6 +549,20 @@ Each entry: **Purpose · Category · verify_jwt · Auth · Env vars · Service r
 - **PII logging:** banned (safe boolean flags only)
 - **Callers:** `PowerToolDemo.tsx` (progressive capture via `create` / `update_zip` / `update_phone` / `update_intake`)
 - **Deploy (V2):** ACTIVE v1 @ 2026-06-11 on `zgsofkgddpcntdvpckdq`
+
+### `capture-arbitrage-lead`
+- **Purpose:** Public homeowner ArbitrageEngine progressive lead capture (About-page arbitrage funnel).
+- **Category:** homeowner public · **Auth:** `verify_jwt=false` · app-logic via `session_id` + `source=arbitrage-engine`; backend flag `ARBITRAGE_PROGRESSIVE_CAPTURE_ENABLED` (default off → safe `feature_disabled` 200 with no DB writes)
+- **Actions:** `create`, `update_identity`, `update_call_intent`, `update_timeframe` (progressive capture)
+- **Env:** `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `ARBITRAGE_PROGRESSIVE_CAPTURE_ENABLED`
+- **Tables:** `leads` only (best-effort `event_logs` audit; non-PII)
+- **Source discriminator:** `arbitrage-engine` (must not collide with `truth-gate` / `power-tool-demo` leads)
+- **`event_id` / `external_id`:** stored only inside `qualification_answers_json.arbitrage`; never written to top-level `leads.event_id` / `leads.external_id`
+- **Consent:** server-stamped evidence in `qualification_answers_json.consent` (`consent_version=arb_contact_v1`, SHA-256 of UI copy)
+- **Forbidden writes:** OTP fields, `phone_verified_at`, `report_unlocked_at`, scan/analysis/quote fields, private storage, tracking/CAPI
+- **PII logging:** banned (safe boolean flags + 8-char session prefix only)
+- **Callers:** `src/components/arbitrageengine.tsx` via `src/lib/captureArbitrageLead.ts` (frontend flag `VITE_ARBITRAGE_PROGRESSIVE_CAPTURE`)
+- **Deploy:** NOT_DEPLOYED — local implementation only; human-approved Edge Function deploy pending · **Smoke:** UNKNOWN
 
 ### `windowman-concierge`
 - **Purpose:** Pre-login acquisition concierge — Gemini structured JSON routing chat (no scanner/OTP/report paths).

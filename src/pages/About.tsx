@@ -27,9 +27,29 @@ export default function About() {
   const isDirectEntry = searchParams.get("startArb") === "1";
   const source = searchParams.get("src") || "unknown";
   const rawStep = searchParams.get("step") || "scope";
-  const initialStep: FunnelStep = (FUNNEL_STEPS as string[]).includes(rawStep)
+
+  // Phase 3: when progressive capture is on, direct entry may only land on
+  // early funnel steps. Later steps depend on a backend lead row created at
+  // contact submit, so deep-linking past contact is clamped back to "scope".
+  const progressiveCaptureEnabled =
+    import.meta.env.VITE_ARBITRAGE_PROGRESSIVE_CAPTURE === "true";
+  const DIRECT_ENTRY_ALLOWED_STEPS: ReadonlySet<string> = new Set([
+    "scope",
+    "intent_filter",
+    "status",
+    "comp_a",
+    "comp_b",
+    "contact",
+    "secret_capture",
+  ]);
+
+  const parsedStep: FunnelStep = (FUNNEL_STEPS as string[]).includes(rawStep)
     ? (rawStep as FunnelStep)
     : "scope";
+  const initialStep: FunnelStep =
+    progressiveCaptureEnabled && !DIRECT_ENTRY_ALLOWED_STEPS.has(parsedStep)
+      ? "scope"
+      : parsedStep;
 
   useEffect(() => {
     trackEvent({
