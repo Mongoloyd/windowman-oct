@@ -91,10 +91,10 @@ export function NextdoorHeroGradeCard({ subtitle }: Props) {
         </div>
         <div className="min-w-0">
           <p className="font-display text-base font-extrabold leading-tight text-slate-900">
-            Grade pending
+            Your grade appears after upload
           </p>
           <p className="mt-1 text-xs leading-relaxed text-slate-500">
-            Your quote grade appears here after you upload an estimate.
+            WindowMan grades scope, permits, warranty, timing, and pricing.
           </p>
           <span className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wide text-slate-500">
             <ShieldCheck className="h-3 w-3 text-[#0891b2]" aria-hidden="true" />
@@ -128,7 +128,7 @@ export function NextdoorHeroGradeCard({ subtitle }: Props) {
         <li className="mt-1 flex items-center gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
           <Lock className="h-3.5 w-3.5 shrink-0 text-amber-700" aria-hidden="true" />
           <span className="text-[11px] font-semibold leading-snug text-amber-950">
-            Preview first · upload when ready
+            Safe preview first · full details after a quick phone check
           </span>
         </li>
       </ul>

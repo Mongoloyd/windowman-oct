@@ -11,10 +11,10 @@ export type NextdoorScanTransitionProps = {
 };
 
 const TRANSITION_STEPS = [
-  "Preparing your quote preview",
-  "Checking for missing details",
-  "Building your locked report preview",
-  "Opening your case file",
+  "Quote received",
+  "Reading scope and pricing",
+  "Building your safe preview",
+  "Opening your preview",
 ] as const;
 
 const STEP_INTERVAL_MS = 750;
@@ -68,7 +68,7 @@ export function NextdoorScanTransition({
       role="status"
       aria-live="polite"
       aria-busy="true"
-      aria-label="Preparing your quote preview"
+      aria-label="Preparing your safe preview"
     >
       <div className="absolute inset-0 bg-slate-950/72 backdrop-blur-sm" aria-hidden="true" />
 
@@ -88,11 +88,11 @@ export function NextdoorScanTransition({
         <div className="relative">
           <p className={nextdoorProofEyebrowClass}>Private quote review</p>
           <h2 className="mt-2 font-display text-xl font-extrabold leading-tight text-white md:text-2xl">
-            Reading your estimate
+            Quote received — reading your file
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-slate-300/90">
-            Your file is moving through the protected scan path. This preview stays locked until you
-            choose to continue later.
+            We&apos;re preparing your private preview. You&apos;ll review it next — full details
+            unlock after a quick phone check.
           </p>
 
           {displayName ? (
@@ -145,7 +145,7 @@ export function NextdoorScanTransition({
 
           <div className="mt-6">
             <div className="mb-2 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.14em] text-slate-400">
-              <span>Scan path active</span>
+              <span>Preparing your preview</span>
               <span className="text-[#5fd6ec]">{Math.round(progress)}%</span>
             </div>
             <div className="h-2 overflow-hidden rounded-full border border-slate-700/80 bg-slate-900/80">
@@ -160,7 +160,7 @@ export function NextdoorScanTransition({
           </div>
 
           <p className="mt-5 text-center text-xs leading-relaxed text-slate-400">
-            Full Truth Report details unlock only after SMS verification on the next screen.
+            Full Truth Report details unlock after SMS verification on the next screen.
           </p>
         </div>
       </div>

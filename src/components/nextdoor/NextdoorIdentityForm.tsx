@@ -23,6 +23,8 @@ type Props = {
   areaContext: AreaContext;
   /** Route-specific save label — stable for future backend wiring. */
   saveCtaLabel?: string;
+  /** Contextual copy. "quote_ready" frames the save as the upload unlock moment. */
+  variant?: "quote_ready" | "default";
 };
 
 type FieldKey = keyof NextdoorIdentityFields;
@@ -69,7 +71,9 @@ export function NextdoorIdentityForm({
   readinessSelected,
   areaContext,
   saveCtaLabel = "Save and continue",
+  variant = "default",
 }: Props) {
+  const isQuoteReady = variant === "quote_ready";
   const [editing, setEditing] = useState<Record<FieldKey, boolean>>({
     firstName: !prefilled.firstName,
     email: !prefilled.email,
@@ -147,15 +151,25 @@ export function NextdoorIdentityForm({
       <div className="mb-5 flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-            {optional ? "Optional · save this checklist" : "Save your quote-check path"}
+            {optional
+              ? "Optional · save this checklist"
+              : isQuoteReady
+                ? "Save details to unlock upload"
+                : "Save your quote-check path"}
           </p>
           <h2 className="mt-2 font-display text-xl font-extrabold text-slate-900 md:text-2xl">
-            {optional ? "Want a copy of the checklist?" : "Want to keep your place?"}
+            {optional
+              ? "Want a copy of the checklist?"
+              : isQuoteReady
+                ? "Secure your place to upload"
+                : "Want to keep your place?"}
           </h2>
           <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-600">
             {optional
               ? "Save your place with name, email, and ZIP if you want a copy. Skip this if you are browsing only."
-              : "Save your place with name, email, and ZIP. You can upload when ready."}
+              : isQuoteReady
+                ? "Your details are private. Save to unlock the upload zone."
+                : "Save your place with name, email, and ZIP. You can upload when ready."}
           </p>
         </div>
         {optional ? (

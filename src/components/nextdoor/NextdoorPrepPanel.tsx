@@ -3,7 +3,7 @@ import { nextStepPanelCopy } from "@/lib/nextdoor/pathRouter";
 import { isValidNextdoorSessionId } from "@/lib/nextdoor/nextdoorSession";
 import { NextdoorQuoteUpload } from "./NextdoorQuoteUpload";
 import type { QuoteReadiness } from "./types";
-import { nextdoorPrimaryCtaClass } from "./nextdoorUi";
+import { nextdoorPrimaryCtaClass, nextdoorSecondaryCtaClass } from "./nextdoorUi";
 
 const CHECKLIST_ITEMS = [
   "Ask who pulls permits and who schedules inspections.",
@@ -51,39 +51,50 @@ type PrepPanelProps = {
   attributionSaveUrl?: string;
 };
 
+const QUOTE_READY_SCROLL_CTA = "Save details to unlock upload";
+
 function UploadPlaceholder({ pendingSave = false }: { pendingSave?: boolean }) {
   return (
     <div
-      className="mt-6 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50/80 px-5 py-8 text-center shadow-inner"
+      className="mt-6 rounded-xl border border-dashed border-slate-200/90 bg-slate-50/60 px-5 py-7 text-center"
       aria-hidden={pendingSave ? "true" : undefined}
     >
-      <UploadCloud className="mx-auto h-8 w-8 text-slate-400" />
-      <p className="mt-3 text-sm font-semibold text-slate-700">Drop your estimate here</p>
-      <p className="mt-1 text-xs text-slate-500">
+      <UploadCloud className="mx-auto h-7 w-7 text-slate-300" aria-hidden="true" />
+      <p className="mt-3 text-sm font-semibold text-slate-500">
+        {pendingSave ? "Upload unlocks after you save your details" : "Upload area"}
+      </p>
+      <p className="mt-1 text-xs leading-relaxed text-slate-400">
         {pendingSave
-          ? "PDF · photo · screenshot — unlocks after you save your details below"
+          ? "Complete Step 3 below first — then return here to upload a PDF, photo, or screenshot."
           : "PDF · photo · screenshot"}
       </p>
       {pendingSave ? (
-        <span className="mt-4 inline-block rounded-full border border-slate-300 bg-white px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-wide text-slate-600">
-          Save first
+        <span className="mt-4 inline-block rounded-full border border-slate-200 bg-white/80 px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+          Locked until Step 3
         </span>
       ) : null}
     </div>
   );
 }
 
-function AttributionSaveLink({ url }: { url: string }) {
+function AttributionSaveLink({ url, subdued = false }: { url: string; subdued?: boolean }) {
   return (
-    <div className="mt-6 rounded-lg border border-slate-200/80 bg-slate-50/80 px-4 py-3">
-      <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-500">
-        Attribution-safe return link
+    <div
+      className={[
+        "rounded-lg border border-dashed px-4 py-3",
+        subdued
+          ? "mt-8 border-slate-200/70 bg-slate-50/50"
+          : "mt-6 border-slate-200/80 bg-slate-50/80",
+      ].join(" ")}
+    >
+      <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+        {subdued ? "Optional — need to come back later?" : "Attribution-safe return link"}
       </p>
-      <p className="mt-1.5 break-all font-mono text-[11px] leading-relaxed text-slate-700">
+      <p className="mt-1.5 break-all font-mono text-[10px] leading-relaxed text-slate-500">
         {url}
       </p>
-      <p className="mt-2 text-xs text-slate-500">
-        Bookmark or copy this link to return without losing Nextdoor attribution. No personal details
+      <p className="mt-2 text-xs leading-relaxed text-slate-400">
+        Bookmark or copy this page link to return later. Not required to upload — no personal details
         are included in the URL.
       </p>
     </div>
@@ -131,34 +142,46 @@ export function NextdoorQuoteReadyPanel({
             {copy.headline}
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-slate-600 md:text-base">{copy.body}</p>
+          {!identitySubmitted ? (
+            <p className="mt-3 text-xs leading-relaxed text-slate-500">
+              You&apos;ll see a safe preview first. Full details unlock after a quick phone check.
+            </p>
+          ) : null}
         </div>
       </div>
 
       {!identitySubmitted ? (
         <>
+          <UploadPlaceholder pendingSave />
           <button
             type="button"
             onClick={onScrollToIdentity}
-            className={[nextdoorPrimaryCtaClass, "mt-6 w-full sm:w-auto"].join(" ")}
-            style={{ padding: "14px 28px", fontSize: 15 }}
+            className={[nextdoorSecondaryCtaClass, "mt-4 w-full sm:w-auto"].join(" ")}
+            style={{ padding: "12px 24px", fontSize: 14 }}
           >
-            {copy.saveCta}
+            {QUOTE_READY_SCROLL_CTA}
           </button>
-          <UploadPlaceholder pendingSave />
+          <p className="mt-2 text-xs text-slate-500">
+            Takes you to the details step — nothing is saved yet.
+          </p>
         </>
       ) : sessionValid ? (
-        <NextdoorQuoteUpload
-          sessionId={sessionId}
-          isVisible={showUpload}
-          onScanStart={onScanStart}
-        />
+        <div id="quote-ready-upload" className="scroll-mt-28">
+          <NextdoorQuoteUpload
+            sessionId={sessionId}
+            isVisible={showUpload}
+            onScanStart={onScanStart}
+          />
+        </div>
       ) : (
         <p className="mt-6 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-950">
           {SESSION_FALLBACK_COPY}
         </p>
       )}
 
-      {attributionSaveUrl ? <AttributionSaveLink url={attributionSaveUrl} /> : null}
+      {attributionSaveUrl ? (
+        <AttributionSaveLink url={attributionSaveUrl} subdued={identitySubmitted} />
+      ) : null}
     </div>
   );
 }

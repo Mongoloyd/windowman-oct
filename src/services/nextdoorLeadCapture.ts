@@ -9,8 +9,9 @@ export type SubmitNextdoorLeadInput = {
   sessionId: string;
   firstName: string;
   email: string;
-  zip: string;
+  zip?: string | null;
   lastName?: string;
+  phoneE164?: string | null;
   quoteReadiness: QuoteReadiness;
   nextRoute: NextdoorNextRoute;
   wmIntent: NextdoorWmIntent;
@@ -32,8 +33,12 @@ function mergeQueryParams(
 
   merged.quote_readiness = input.quoteReadiness;
   merged.next_route = input.nextRoute;
-  merged.zip = input.zip;
   merged.wm_intent = input.wmIntent;
+
+  const zip = input.zip?.trim();
+  if (zip) {
+    merged.zip = zip;
+  }
 
   const lastName = input.lastName?.trim();
   if (lastName) {
@@ -67,7 +72,9 @@ export async function submitNextdoorLead(
       session_id: input.sessionId,
       first_name: input.firstName.trim(),
       email: input.email.trim().toLowerCase(),
-      phone_e164: null,
+      // Phone only persists on the first lead insert for a session.
+      // Subsequent submits on the same session do not update PII because the edge capture path is idempotent.
+      phone_e164: input.phoneE164 ?? null,
       source: "nextdoor",
       client_slug: null,
       utm_source: utm.utm_source,

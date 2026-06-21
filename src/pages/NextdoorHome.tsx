@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
-import { MapPin, Shield, Smartphone } from "lucide-react";
 import WindowManMark from "@/components/forensic-report/WindowManMark";
 import { NextdoorBeforeAfterStrip } from "@/components/nextdoor/NextdoorBeforeAfterStrip";
 import { NextdoorChecksGrid } from "@/components/nextdoor/NextdoorChecksGrid";
 import { NextdoorContractorQuestionCard } from "@/components/nextdoor/NextdoorContractorQuestionCard";
 import { NextdoorFinancialRiskBlock } from "@/components/nextdoor/NextdoorFinancialRiskBlock";
-import { NextdoorHeroGradeCard } from "@/components/nextdoor/NextdoorHeroGradeCard";
+import { NextdoorHeroMascotStack } from "@/components/nextdoor/NextdoorHeroMascotStack";
 import { NextdoorIdentityForm } from "@/components/nextdoor/NextdoorIdentityForm";
+import { NextdoorIntentRouter } from "@/components/nextdoor/NextdoorIntentRouter";
 import { NextdoorNotMarketplacePanel } from "@/components/nextdoor/NextdoorNotMarketplacePanel";
 import { NextdoorQuoteLeverageLoop } from "@/components/nextdoor/NextdoorQuoteLeverageLoop";
 import { NextdoorReveal } from "@/components/nextdoor/NextdoorReveal";
@@ -21,7 +21,6 @@ import {
   NEXTDOOR_PAGE_BG,
   NEXTDOOR_VIGNETTE,
   nextdoorPrimaryCtaClass,
-  nextdoorSecondaryCtaClass,
   prefersReducedMotion,
   scrollToElementAfterDelay,
 } from "@/components/nextdoor/nextdoorUi";
@@ -31,7 +30,6 @@ import {
   NextdoorQuoteReadyPanel,
 } from "@/components/nextdoor/NextdoorPrepPanel";
 import { NextdoorPathSummary } from "@/components/nextdoor/NextdoorPathSummary";
-import { NextdoorReadinessCards } from "@/components/nextdoor/NextdoorReadinessCards";
 import type {
   NextdoorIdentityFields,
   NextdoorLeadPayload,
@@ -44,15 +42,14 @@ import {
   buildLocalNextdoorPayload,
   captureNextdoorAttributionOnMount,
   deriveNextdoorTrafficMode,
+  isValidEmail,
+  isValidFirstName,
   logLocalPayloadDevSummary,
   parseNextdoorUrlPrefill,
   resolveWmIntentFromReadiness,
 } from "@/lib/nextdoor/attributionHelpers";
 import {
   deriveAreaContext,
-  heroEyebrowLabel,
-  HERO_HEADLINE,
-  HERO_SUBHEAD,
   mockCardAreaSubtitle,
   PAGE_META_DESCRIPTION,
   PAGE_TITLE,
@@ -71,17 +68,16 @@ import { submitNextdoorLead } from "@/services/nextdoorLeadCapture";
 import { getUtmData } from "@/lib/useUtmCapture";
 import { useScanFunnelSafe } from "@/state/scanFunnel";
 import { useScanPolling, type ScanStatus } from "@/hooks/useScanPolling";
+import { toE164 } from "@/utils/formatPhone";
 
 const PAGE_BG = NEXTDOOR_PAGE_BG;
 
 const GRID_TEXTURE = NEXTDOOR_GRID_TEXTURE;
 
-const HERO_PILLS = [
-  { label: TRUST_PILL_LABELS.freePreviewFirst, icon: Smartphone },
-  { label: TRUST_PILL_LABELS.privateQuoteCheck, icon: MapPin },
-  { label: TRUST_PILL_LABELS.noContractorPressure, icon: Shield },
-  { label: TRUST_PILL_LABELS.southFloridaReady, icon: Shield },
-] as const;
+const INTAKE_HEADLINE = "Check your impact-window quote before you sign.";
+
+const INTAKE_SUBHEAD =
+  "Already have a quote? Scan it now. Still shopping? Get prepared. Private review — not a contractor.";
 
 const EMPTY_IDENTITY: NextdoorIdentityFields = {
   firstName: "",
@@ -138,6 +134,9 @@ const NEXTDOOR_TERMINAL_COPY: Record<string, { title: string; body: string }> = 
     body: "We could not read enough quote details from this file. Please upload a clearer window estimate, proposal, PDF, screenshot, or photo.",
   },
 };
+
+const TRACK_B_SUCCESS_MESSAGE =
+  "Your place is saved. Copy the private return link below, then upload from the device that has your quote when you're ready.";
 
 function readInitialUrlState() {
   if (typeof window === "undefined") {
@@ -211,6 +210,9 @@ export default function NextdoorHome() {
   const [hasKnownLead, setHasKnownLead] = useState(initialUrlState.hasKnownLead);
   const [trafficMode, setTrafficMode] = useState<NextdoorTrafficMode>(initialUrlState.trafficMode);
   const [identitySubmitted, setIdentitySubmitted] = useState(false);
+  const [trackBLeadSaved, setTrackBLeadSaved] = useState(false);
+  const [trackBSubmitting, setTrackBSubmitting] = useState(false);
+  const [trackBSubmitError, setTrackBSubmitError] = useState<string | null>(null);
   const [leadSubmitting, setLeadSubmitting] = useState(false);
   const [leadSubmitError, setLeadSubmitError] = useState<string | null>(null);
   const [localPayload, setLocalPayload] = useState<NextdoorLeadPayload | null>(null);
@@ -239,9 +241,12 @@ export default function NextdoorHome() {
       overrides.quote_readiness = readiness;
       overrides.wm_intent = readiness === "has_estimate" ? "has_quote" : "no_quote";
     }
+    if (trackBLeadSaved && readiness === "has_estimate") {
+      overrides.utm_content = "quote_elsewhere";
+    }
 
     return buildAttributionHandoffUrl("/nextdoor", overrides);
-  }, [readiness]);
+  }, [readiness, trackBLeadSaved]);
 
   const areaContext = useMemo(() => {
     const utm = getUtmData();
@@ -252,7 +257,6 @@ export default function NextdoorHome() {
     });
   }, [identity.zip]);
 
-  const heroEyebrow = heroEyebrowLabel(areaContext);
   const mockSubtitle = mockCardAreaSubtitle(areaContext);
 
   const scrollToReadiness = useCallback(() => {
@@ -261,6 +265,23 @@ export default function NextdoorHome() {
 
   const scrollToNextStepPanel = useCallback(() => {
     scrollToElementAfterDelay(nextStepPanelRef.current, 300);
+  }, []);
+
+  // Scroll to a conditionally-rendered element by id. Waits two frames so React
+  // can commit the target section (Step 3 / upload zone) before we scroll.
+  const scrollToIdSmooth = useCallback((id: string, fallback?: () => void) => {
+    const run = () => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({
+          behavior: prefersReducedMotion() ? "auto" : "smooth",
+          block: "center",
+        });
+      } else {
+        fallback?.();
+      }
+    };
+    requestAnimationFrame(() => requestAnimationFrame(run));
   }, []);
 
   const scrollToIdentity = useCallback(() => {
@@ -272,6 +293,14 @@ export default function NextdoorHome() {
       firstInput?.focus({ preventScroll: true });
     }, 350);
   }, []);
+
+  const scrollToIdentityOrStep2 = useCallback(() => {
+    if (trackBLeadSaved && readiness === "has_estimate") {
+      scrollToNextStepPanel();
+      return;
+    }
+    scrollToIdentity();
+  }, [readiness, scrollToIdentity, scrollToNextStepPanel, trackBLeadSaved]);
 
   const handleUploadScanStart = useCallback((fileName: string, scanSessionId: string) => {
     if (scanNavigationStartedRef.current || pendingScan) return;
@@ -343,29 +372,52 @@ export default function NextdoorHome() {
     navigate(`/report/classic/${pendingScan.scanSessionId}`);
   }, [pendingScan, polledScanStatus, transitionMinElapsed, navigate]);
 
+  const persistLead = useCallback(
+    async (params: {
+      firstName: string;
+      email: string;
+      zip?: string | null;
+      phoneE164?: string | null;
+      quoteReadiness: QuoteReadiness;
+    }) => {
+      const utm = getUtmData();
+      const wmIntent = resolveWmIntentFromReadiness(params.quoteReadiness, utm.wm_intent);
+
+      return submitNextdoorLead({
+        sessionId: nextdoorSessionId,
+        firstName: params.firstName,
+        email: params.email,
+        zip: params.zip ?? null,
+        phoneE164: params.phoneE164 ?? null,
+        lastName: lastName || undefined,
+        quoteReadiness: params.quoteReadiness,
+        nextRoute: resolveNextRoute(params.quoteReadiness),
+        wmIntent,
+      });
+    },
+    [lastName, nextdoorSessionId],
+  );
+
   const handleReadinessSelect = useCallback(
     (value: QuoteReadiness) => {
       setReadiness(value);
       setShowChecklist(value !== "has_estimate");
+      setTrackBLeadSaved(false);
+      setTrackBSubmitError(null);
       setIdentitySubmitted(false);
       setLeadSubmitting(false);
       setLeadSubmitError(null);
       setLocalPayload(null);
-      scrollToNextStepPanel();
+      // Track A: one click should land the user on the identity form (Step 3),
+      // not a secondary scroll lobby. Other tracks keep the next-step panel.
+      if (value === "has_estimate") {
+        scrollToIdSmooth("identity-module", scrollToNextStepPanel);
+      } else {
+        scrollToNextStepPanel();
+      }
     },
-    [scrollToNextStepPanel],
+    [scrollToIdSmooth, scrollToNextStepPanel],
   );
-
-  const handleHeroSecondary = useCallback(() => {
-    setReadiness("getting_quotes_now");
-    setShowChecklist(true);
-    setIdentitySubmitted(false);
-    setLeadSubmitting(false);
-    setLeadSubmitError(null);
-    setLocalPayload(null);
-    scrollToReadiness();
-    scrollToElementAfterDelay(nextStepPanelRef.current, 450);
-  }, [scrollToReadiness]);
 
   const handleIdentityChange = useCallback(
     (field: keyof NextdoorIdentityFields, value: string) => {
@@ -389,22 +441,15 @@ export default function NextdoorHome() {
       trafficMode,
     });
 
-    const utm = getUtmData();
-    const wmIntent = resolveWmIntentFromReadiness(readiness, utm.wm_intent);
-
     leadSubmitInFlightRef.current = true;
     setLeadSubmitting(true);
     setLeadSubmitError(null);
 
-    const result = await submitNextdoorLead({
-      sessionId: nextdoorSessionId,
+    const result = await persistLead({
       firstName: identity.firstName,
       email: identity.email,
       zip: identity.zip,
-      lastName: lastName || undefined,
       quoteReadiness: readiness,
-      nextRoute: resolveNextRoute(readiness),
-      wmIntent,
     });
 
     leadSubmitInFlightRef.current = false;
@@ -421,23 +466,89 @@ export default function NextdoorHome() {
 
     if (readiness === "has_estimate") {
       funnel?.setSessionId(nextdoorSessionId);
-      scrollToNextStepPanel();
+      // Return to the now-unlocked upload zone (renders once identity is saved).
+      scrollToIdSmooth("quote-ready-upload", scrollToNextStepPanel);
     }
   }, [
     identity,
     lastName,
-    nextdoorSessionId,
     readiness,
     trafficMode,
     funnel,
+    nextdoorSessionId,
+    persistLead,
+    scrollToIdSmooth,
     scrollToNextStepPanel,
   ]);
 
-  const showIdentityModule = readiness !== null;
+  const handleTrackBLeadCapture = useCallback(
+    async (data: {
+      firstName: string;
+      email: string;
+      phone: string | null;
+      zip: string | null;
+    }) => {
+      // Track B intentionally avoids handleReadinessSelect here because that helper resets identity/lead state.
+      if (leadSubmitInFlightRef.current) return;
+      if (!isValidFirstName(data.firstName) || !isValidEmail(data.email)) return;
+
+      const phoneE164 = data.phone?.trim() ? toE164(data.phone.trim()) : null;
+
+      setIdentity({
+        firstName: data.firstName,
+        email: data.email,
+        zip: data.zip ?? "",
+      });
+      setTrackBSubmitError(null);
+
+      leadSubmitInFlightRef.current = true;
+      setTrackBSubmitting(true);
+
+      const result = await persistLead({
+        firstName: data.firstName,
+        email: data.email,
+        zip: data.zip,
+        phoneE164,
+        quoteReadiness: "has_estimate",
+      });
+
+      leadSubmitInFlightRef.current = false;
+      setTrackBSubmitting(false);
+
+      if (!result.ok) {
+        setTrackBSubmitError(result.message);
+        return;
+      }
+
+      const payload = buildLocalNextdoorPayload({
+        firstName: data.firstName,
+        lastName,
+        email: data.email,
+        zip: data.zip ?? "",
+        quoteReadiness: "has_estimate",
+        trafficMode,
+      });
+
+      setLocalPayload(payload);
+      logLocalPayloadDevSummary(payload);
+      setTrackBLeadSaved(true);
+      setReadiness("has_estimate");
+      setShowChecklist(false);
+      setIdentitySubmitted(true);
+      funnel?.setSessionId(nextdoorSessionId);
+      scrollToNextStepPanel();
+    },
+    [lastName, trafficMode, funnel, nextdoorSessionId, persistLead, scrollToNextStepPanel],
+  );
+
   const showNextStepPanel = readiness !== null;
+  const showIdentityModule =
+    readiness !== null && !(trackBLeadSaved && readiness === "has_estimate");
   const identitySaveLabel = resolveSaveCtaLabel(readiness);
   const identitySuccessMessage =
-    readiness && identitySubmitted ? leadSuccessMessage(readiness) : null;
+    readiness && identitySubmitted && !trackBLeadSaved
+      ? leadSuccessMessage(readiness)
+      : null;
 
   const trafficLabel = trafficModeLabel(trafficMode);
 
@@ -510,95 +621,55 @@ export default function NextdoorHome() {
             </section>
           ) : null}
 
-          <section className="mb-10 md:mb-14">
-            <div className="grid items-center gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-12">
-              <NextdoorReveal className="text-left">
-                <p className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-primary">
-                  <MapPin className="h-3 w-3" aria-hidden="true" />
-                  {heroEyebrow}
-                </p>
-                <h1 className="mt-5 font-display text-[1.65rem] font-extrabold leading-[1.15] tracking-tight text-slate-900 sm:text-3xl md:text-[2.35rem] md:leading-[1.12]">
-                  {HERO_HEADLINE}
-                </h1>
-                <p className="mt-5 max-w-xl text-base leading-relaxed text-slate-600 md:text-lg">
-                  {HERO_SUBHEAD}
-                </p>
-
-                <div className="mt-6 flex flex-wrap gap-2">
-                  {HERO_PILLS.map(({ label, icon: Icon }) => (
-                    <span
-                      key={label}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-slate-200/90 bg-white/90 px-2.5 py-1.5 text-[11px] font-medium text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_4px_12px_-8px_rgba(15,40,90,0.25)]"
-                    >
-                      <Icon className="h-3 w-3 shrink-0 text-primary" aria-hidden="true" />
-                      {label}
-                    </span>
-                  ))}
-                </div>
-
-                <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                  <button
-                    type="button"
-                    onClick={scrollToReadiness}
-                    className={[nextdoorPrimaryCtaClass, "w-full sm:w-auto"].join(" ")}
-                    style={{ padding: "16px 32px", fontSize: 16 }}
-                  >
-                    Start my quote check
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleHeroSecondary}
-                    className={[nextdoorSecondaryCtaClass, "w-full sm:w-auto"].join(" ")}
-                    style={{ padding: "15px 30px", fontSize: 14 }}
-                  >
-                    I&apos;m still getting quotes
-                  </button>
-                </div>
-              </NextdoorReveal>
-
-              <NextdoorReveal className="hidden sm:block lg:pt-2" delayMs={120}>
-                <NextdoorHeroGradeCard subtitle={mockSubtitle} />
-              </NextdoorReveal>
-            </div>
-
-            <div className="mt-8 sm:hidden">
-              <NextdoorHeroGradeCard subtitle={mockSubtitle} />
-            </div>
-
-            <NextdoorReveal className="mt-8" delayMs={80}>
-              <NextdoorTrustStrip />
-            </NextdoorReveal>
-          </section>
-
           <section
             ref={readinessRef}
             id="readiness-selector"
             className="mb-10 scroll-mt-28 md:mb-12"
             aria-labelledby="readiness-heading"
           >
-            <NextdoorReveal className="rounded-2xl border border-white/80 bg-gradient-to-b from-white/85 to-slate-50/70 p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_2px_8px_-3px_rgba(15,40,90,0.1),0_22px_56px_-28px_rgba(8,47,73,0.35)] backdrop-blur-sm md:p-8">
-              <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-                Step 1 · Choose your next move
+            <div className="md:hidden">
+              <p className="font-display text-xl font-extrabold leading-snug text-slate-900">
+                {INTAKE_HEADLINE}
               </p>
-              <h2
-                id="readiness-heading"
-                className="mt-2 font-display text-2xl font-extrabold text-slate-900 md:text-3xl"
-              >
-                Where are you in the quote process?
-              </h2>
-              <p className="mt-2 max-w-2xl text-sm text-slate-600">
-                Pick the card that matches today. Save your path when you are ready — upload comes
-                later.
-              </p>
-              <div className="mt-6">
-                <NextdoorReadinessCards selected={readiness} onSelect={handleReadinessSelect} />
+              <p className="mt-2 text-sm leading-relaxed text-slate-600">{INTAKE_SUBHEAD}</p>
+              <div className="mt-6 flex justify-center">
+                <NextdoorHeroMascotStack subtitle={mockSubtitle} />
               </div>
-              {readiness ? (
-                <div className="mt-5">
-                  <NextdoorPathSummary readiness={readiness} />
+            </div>
+
+            <div className="mb-8 hidden md:block">
+              <h1 className="font-display text-[2rem] font-extrabold leading-[1.12] tracking-tight text-slate-900 lg:text-[2.25rem]">
+                {INTAKE_HEADLINE}
+              </h1>
+              <p className="mt-3 max-w-3xl text-base leading-relaxed text-slate-600 lg:text-lg">
+                {INTAKE_SUBHEAD}
+              </p>
+            </div>
+
+            <div className="mt-6 grid items-start gap-8 md:mt-0 md:grid-cols-[1.05fr_0.95fr] md:gap-10 lg:gap-12">
+              <NextdoorReveal className="order-2 md:order-1">
+                <div className="mt-0">
+                  <NextdoorIntentRouter
+                    selected={readiness}
+                    onReadinessSelect={handleReadinessSelect}
+                    onLeadCaptureSubmit={handleTrackBLeadCapture}
+                    leadCaptureSubmitting={trackBSubmitting}
+                    leadCaptureError={trackBSubmitError}
+                    trackBLeadSaved={trackBLeadSaved}
+                    prefillIdentity={identity}
+                  />
                 </div>
-              ) : null}
-            </NextdoorReveal>
+                {readiness ? (
+                  <div className="mt-5">
+                    <NextdoorPathSummary readiness={readiness} />
+                  </div>
+                ) : null}
+              </NextdoorReveal>
+
+              <NextdoorReveal className="order-1 hidden md:order-2 md:block" delayMs={80}>
+                <NextdoorHeroMascotStack subtitle={mockSubtitle} priority />
+              </NextdoorReveal>
+            </div>
           </section>
 
           {showNextStepPanel && readiness ? (
@@ -609,19 +680,32 @@ export default function NextdoorHome() {
               aria-labelledby="next-step-heading"
             >
               <p className="mb-4 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-                Step 2 · Your next step
-                {identitySubmitted ? " · Saved" : null}
+                {readiness === "has_estimate"
+                  ? identitySubmitted
+                    ? "Step 2 · Upload your quote"
+                    : "Step 2 · Save details first"
+                  : "Step 2 · Your next step"}
+                {identitySubmitted && readiness !== "has_estimate" ? " · Saved" : null}
+                {identitySubmitted && readiness === "has_estimate" ? " · Details saved" : null}
               </p>
               <h2 id="next-step-heading" className="sr-only">
                 Your next step
               </h2>
+              {trackBLeadSaved && readiness === "has_estimate" ? (
+                <p
+                  className="mb-4 rounded-lg border border-emerald-500/25 bg-emerald-50/60 px-4 py-3 text-sm leading-relaxed text-emerald-900"
+                  role="status"
+                >
+                  {TRACK_B_SUCCESS_MESSAGE}
+                </p>
+              ) : null}
               {isQuoteReady(readiness) ? (
                 <>
                   <NextdoorQuoteReadyPanel
                     identitySubmitted={identitySubmitted}
                     sessionId={nextdoorSessionId}
                     attributionSaveUrl={attributionSaveUrl}
-                    onScrollToIdentity={scrollToIdentity}
+                    onScrollToIdentity={scrollToIdentityOrStep2}
                     onScanStart={handleUploadScanStart}
                   />
                   {scanTransitionError ? (
@@ -638,13 +722,17 @@ export default function NextdoorHome() {
                   readiness={readiness}
                   showChecklist={showChecklist}
                   onShowChecklist={() => setShowChecklist(true)}
-                  onScrollToIdentity={scrollToIdentity}
+                  onScrollToIdentity={scrollToIdentityOrStep2}
                   primary={isResearching}
                   attributionSaveUrl={attributionSaveUrl}
                 />
               ) : null}
             </section>
           ) : null}
+
+          <NextdoorReveal className="mb-10 md:mb-12">
+            <NextdoorTrustStrip />
+          </NextdoorReveal>
 
           <NextdoorReveal className="mb-10 md:mb-12">
             <NextdoorQuoteLeverageLoop />
@@ -666,7 +754,7 @@ export default function NextdoorHome() {
                 {isResearching
                   ? "Step 3 · Optional save"
                   : readiness === "has_estimate"
-                    ? "Step 3 · Save your place before upload"
+                    ? "Step 3 · Save your details"
                     : "Step 3 · Save your checklist"}
               </p>
               <NextdoorIdentityForm
@@ -682,6 +770,7 @@ export default function NextdoorHome() {
                 readinessSelected={readiness !== null}
                 areaContext={areaContext}
                 saveCtaLabel={identitySaveLabel}
+                variant={readiness === "has_estimate" ? "quote_ready" : "default"}
               />
             </section>
           ) : null}
@@ -738,7 +827,9 @@ export default function NextdoorHome() {
                 className={[nextdoorPrimaryCtaClass, "mt-6 w-full sm:w-auto"].join(" ")}
                 style={{ padding: "16px 36px", fontSize: 16 }}
               >
-                {resolveSaveCtaLabel(readiness)}
+                {readiness === "has_estimate"
+                  ? "Back to quote options"
+                  : resolveSaveCtaLabel(readiness)}
               </button>
               <p className="mx-auto mt-4 max-w-md text-xs leading-relaxed text-slate-400">
                 No contractor pressure. No marketplace handoff. Upload when ready.
