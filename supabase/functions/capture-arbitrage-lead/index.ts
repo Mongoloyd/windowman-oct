@@ -195,19 +195,23 @@ async function audit(
   }
 
   if (admin && PERSISTED_STAGES.has(evt.stage)) {
-    const { error } = await admin
-      .from("event_logs")
-      .insert({
-        event_name: evt.stage,
-        session_id: evt.session_id_prefix ? `${evt.session_id_prefix}…` : null,
-        route: "/about",
-        metadata: fullEvt as unknown as Record<string, unknown>,
-      });
-    if (error) {
-      console.warn(`[${FUNCTION_NAME}:audit] event_logs insert failed`, {
-        stage: evt.stage,
-        code: error.code,
-      });
+    try {
+      const { error } = await admin
+        .from("event_logs")
+        .insert({
+          event_name: evt.stage,
+          session_id: evt.session_id_prefix ? evt.session_id_prefix + "…" : null,
+          route: "/about",
+          metadata: fullEvt as unknown as Record<string, unknown>,
+        });
+      if (error) {
+        console.warn("[" + FUNCTION_NAME + ":audit] event_logs insert failed", {
+          stage: evt.stage,
+          code: error.code,
+        });
+      }
+    } catch (err) {
+      console.error("[" + FUNCTION_NAME + ":audit] event_logs insert threw an error", err);
     }
   }
 }
