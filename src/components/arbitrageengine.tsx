@@ -27,6 +27,23 @@ import { supabase } from "@/integrations/supabase/client";
 import { getUtmData } from "@/lib/useUtmCapture";
 import { readLateFbCookies } from "@/lib/attribution/fbCookies";
 import { toE164 } from "@/utils/formatPhone";
+import { captureArbitrageLead } from "@/lib/captureArbitrageLead";
+import { getLeadId } from "@/lib/useLeadId";
+
+const GENERIC_SUBMIT_ERROR = "Something went wrong. Please try again.";
+const USER_SAFE_ARB_ERRORS: Record<string, string> = {
+  invalid_zip: "Please enter your zip code.",
+  invalid_phone: "Please enter a valid phone number.",
+  consent_required: "Please agree to be contacted to continue.",
+  invalid_intake_option: GENERIC_SUBMIT_ERROR,
+  invalid_first_name: "Please enter your name.",
+  invalid_email: "Please enter a valid email address.",
+  lead_not_found: GENERIC_SUBMIT_ERROR,
+  feature_disabled: GENERIC_SUBMIT_ERROR,
+};
+function safeArbError(code: string): string {
+  return USER_SAFE_ARB_ERRORS[code] ?? GENERIC_SUBMIT_ERROR;
+}
 
 // ── Mock 5-Pillar Analysis Data ──────────────────────────────────────────────
 const MOCK_ANALYSIS = {
@@ -256,6 +273,26 @@ export default function ArbitrageEngine({
   const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email);
   const isRevealed = flowState === "revealed" || flowState === "modal_open";
 
+  // Phase 3 progressive capture (flag-gated; safe/off by default).
+  const progressiveEnabled =
+    import.meta.env.VITE_ARBITRAGE_PROGRESSIVE_CAPTURE === "true";
+
+  // Stable per-funnel identity. Generated once per funnel session and held in
+  // refs so they survive re-renders and retries. Reset only on a fresh funnel
+  // start/close — never on normal step transitions.
+  const sessionIdRef = useRef<string | null>(null);
+  const eventIdRef = useRef<string | null>(null);
+  const leadIdRef = useRef<string | null>(null);
+
+  const getArbitrageSessionId = () => {
+    if (!sessionIdRef.current) sessionIdRef.current = crypto.randomUUID();
+    return sessionIdRef.current;
+  };
+  const getArbitrageEventId = () => {
+    if (!eventIdRef.current) eventIdRef.current = crypto.randomUUID();
+    return eventIdRef.current;
+  };
+
   // Focus trap for modal
   const modalRef = useFocusTrap(flowState === "modal_open");
 
@@ -274,6 +311,9 @@ export default function ArbitrageEngine({
     setIsExitIntent(false);
     setFunnelStep(initialStep);
     setStepHistory([]);
+    sessionIdRef.current = null;
+    eventIdRef.current = null;
+    leadIdRef.current = null;
     console.info("arbitrage_direct_entry_opened", { source, step: initialStep });
   }, [autoOpen, initialStep, source]);
 
@@ -294,7 +334,12 @@ export default function ArbitrageEngine({
   }, [flowState]);
 
   const handleStartSequence = () => {
-    if (flowState === "idle") setFlowState("animating");
+    if (flowState === "idle") {
+      sessionIdRef.current = null;
+      eventIdRef.current = null;
+      leadIdRef.current = null;
+      setFlowState("animating");
+    }
   };
 
   const advance = (nextStep: FunnelStep, field: string | null = null, value: string | null = null) => {
@@ -356,6 +401,26 @@ export default function ArbitrageEngine({
       const phoneE164 = toE164(formData.phone);
       if (formData.phone.length < 10 || !phoneE164) {
         setSubmitError("Please enter a valid phone number.");
+        return;
+      }
+
+      // Phase 3 progressive path: update the existing arbitrage lead row.
+      // Does NOT mint a new session_id and does NOT call capture-truth-gate-lead.
+      if (progressiveEnabled) {
+        const result = await captureArbitrageLead({
+          action: "update_identity",
+          session_id: getArbitrageSessionId(),
+          source: "arbitrage-engine",
+          lead_id: leadIdRef.current,
+          name: trimmedName,
+          email: formData.email.trim().toLowerCase(),
+        });
+        if (!result.ok) {
+          setSubmitError(safeArbError(result.code));
+          return;
+        }
+        leadIdRef.current = result.leadId;
+        advance("intent");
         return;
       }
 
@@ -466,6 +531,9 @@ export default function ArbitrageEngine({
     setIsExitIntent(false);
     setFunnelStep("scope");
     setStepHistory([]);
+    sessionIdRef.current = null;
+    eventIdRef.current = null;
+    leadIdRef.current = null;
     onDirectEntryClose?.();
   }, [onDirectEntryClose]);
 
@@ -511,6 +579,217 @@ export default function ArbitrageEngine({
         closeToAboutContent();
       }
     }, 300);
+  };
+
+  // ── Phase 3 progressive capture helpers ────────────────────────────────────
+  const resolveClientSlug = (): string => {
+    if (typeof window === "undefined") return "direct";
+    const utm = getUtmData();
+    const queryClientSlug = new URLSearchParams(window.location.search).get("client");
+    const lsClientSlug = (() => {
+      try {
+        return localStorage.getItem("wm_client_slug");
+      } catch {
+        return null;
+      }
+    })();
+    const effective = queryClientSlug ?? utm.client_slug ?? lsClientSlug ?? null;
+    if (effective) {
+      try {
+        localStorage.setItem("wm_client_slug", effective);
+      } catch {
+        // ignore storage failures
+      }
+      return effective;
+    }
+    return "direct";
+  };
+
+  const buildAttribution = (sessionId: string): Record<string, unknown> => {
+    const utm = getUtmData();
+    const fb = readLateFbCookies(
+      { fbp: utm.fbp, fbc: utm.fbc },
+      { surface: "arbitrage_engine", sessionId },
+    );
+    const landingPageUrl =
+      utm.landing_page_url ??
+      (typeof window !== "undefined"
+        ? `${window.location.pathname}${window.location.search}`
+        : null);
+    return {
+      utm_source: utm.utm_source,
+      utm_medium: utm.utm_medium,
+      utm_campaign: utm.utm_campaign,
+      utm_term: utm.utm_term,
+      utm_content: utm.utm_content,
+      fbclid: utm.fbclid,
+      gclid: utm.gclid,
+      fbc: fb.fbc,
+      fbp: fb.fbp,
+      landing_page_url: landingPageUrl,
+      first_page_path: utm.landing_page,
+      initial_referrer:
+        typeof document !== "undefined" ? document.referrer || null : null,
+    };
+  };
+
+  // Write-only resume hint (Phase 3 does NOT consume it). Never includes
+  // Arbitrage session_id, OTP/verified state, scan/report/storage data.
+  const writeArbitrageHandoffHint = () => {
+    if (typeof window === "undefined" || !leadIdRef.current) return;
+    try {
+      const phoneE164 = toE164(formData.phone);
+      sessionStorage.setItem(
+        "wm_arbitrage_prefill",
+        JSON.stringify({
+          lead_id: leadIdRef.current,
+          event_id: getArbitrageEventId(),
+          source: "arbitrage-engine",
+          client_slug: resolveClientSlug(),
+          zip: formData.zip,
+          phone_e164: phoneE164,
+          qualification_summary: {
+            scope: formData.scope,
+            installer_preference: formData.installerPreference,
+            has_estimate: formData.hasEstimate,
+          },
+          handoff_stage: "ready_for_quote_upload",
+          issued_at: new Date().toISOString(),
+        }),
+      );
+    } catch {
+      // ignore storage failures
+    }
+  };
+
+  const handleContactSubmit = async () => {
+    setSubmitError(null);
+
+    if (!progressiveEnabled) {
+      advance("identity");
+      return;
+    }
+
+    if (isSubmitting) return;
+
+    if (formData.zip.length < 5) {
+      setSubmitError("Please enter your zip code.");
+      return;
+    }
+    const phoneE164 = toE164(formData.phone);
+    if (formData.phone.length < 10 || !phoneE164) {
+      setSubmitError("Please enter a valid phone number.");
+      return;
+    }
+    if (!formData.hasConsent) {
+      setSubmitError("Please agree to be contacted to continue.");
+      return;
+    }
+    if (!formData.scope) {
+      setSubmitError(GENERIC_SUBMIT_ERROR);
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const sessionId = getArbitrageSessionId();
+      let externalId: string | null = null;
+      try {
+        externalId = getLeadId();
+      } catch {
+        externalId = null;
+      }
+
+      const result = await captureArbitrageLead({
+        action: "create",
+        session_id: sessionId,
+        event_id: getArbitrageEventId(),
+        source: "arbitrage-engine",
+        client_slug: resolveClientSlug(),
+        external_id: externalId,
+        zip: formData.zip,
+        phone_e164: phoneE164,
+        hasConsent: true,
+        route: typeof window !== "undefined" ? window.location.pathname : "/about",
+        attribution: buildAttribution(sessionId),
+        intake: {
+          scope: formData.scope,
+          installerPreference: formData.installerPreference || undefined,
+          hasEstimate: formData.hasEstimate || undefined,
+          numEstimates: formData.numEstimates || undefined,
+          dealBreaker: formData.dealBreaker || undefined,
+        },
+      });
+
+      if (!result.ok) {
+        setSubmitError(safeArbError(result.code));
+        return;
+      }
+
+      leadIdRef.current = result.leadId;
+      advance("identity");
+    } catch {
+      setSubmitError(GENERIC_SUBMIT_ERROR);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Best-effort call-intent update. Never blocks the UI and never marks
+  // durable completion on its own.
+  const fireCallIntent = (value: "Yes" | "No") => {
+    if (!progressiveEnabled || !leadIdRef.current) return;
+    void captureArbitrageLead({
+      action: "update_call_intent",
+      session_id: getArbitrageSessionId(),
+      source: "arbitrage-engine",
+      lead_id: leadIdRef.current,
+      call_intent: value,
+    });
+  };
+
+  const handleTimeframeSelect = async (opt: string) => {
+    if (!progressiveEnabled) {
+      advance("done", "timeframe", opt);
+      setHasCompletedFunnel(true);
+      setTimeout(handleClose, 3500);
+      return;
+    }
+
+    if (isSubmitting) return;
+
+    // Completion requires a stored lead_id from a successful backend response.
+    if (!leadIdRef.current) {
+      setSubmitError(GENERIC_SUBMIT_ERROR);
+      return;
+    }
+
+    setSubmitError(null);
+    setIsSubmitting(true);
+    try {
+      const result = await captureArbitrageLead({
+        action: "update_timeframe",
+        session_id: getArbitrageSessionId(),
+        source: "arbitrage-engine",
+        lead_id: leadIdRef.current,
+        timeframe: opt as "1 Month" | "2-3 Months" | "Just Researching",
+      });
+
+      if (!result.ok) {
+        setSubmitError(safeArbError(result.code));
+        return;
+      }
+
+      setFormData((prev) => ({ ...prev, timeframe: opt }));
+      writeArbitrageHandoffHint();
+      advance("done", "timeframe", opt);
+      setHasCompletedFunnel(true);
+      setTimeout(handleClose, 3500);
+    } catch {
+      setSubmitError(GENERIC_SUBMIT_ERROR);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const getProgress = () => {
@@ -1445,7 +1724,7 @@ export default function ArbitrageEngine({
                     <form
                       onSubmit={(e) => {
                         e.preventDefault();
-                        advance("identity");
+                        void handleContactSubmit();
                       }}
                       className="flex flex-col gap-4 pb-4"
                     >
@@ -1494,12 +1773,22 @@ export default function ArbitrageEngine({
                         </label>
                       </div>
 
+                      <div aria-live="polite" aria-atomic="true">
+                        {submitError && (
+                          <p
+                            role="alert"
+                            className="text-red-400 text-sm text-center font-medium"
+                          >
+                            {submitError}
+                          </p>
+                        )}
+                      </div>
                       <button
                         type="submit"
-                        disabled={!formData.hasConsent || formData.zip.length < 5 || formData.phone.length < 10}
+                        disabled={!formData.hasConsent || formData.zip.length < 5 || formData.phone.length < 10 || isSubmitting}
                         className="w-full mt-4 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-base sm:text-lg py-4 rounded-xl shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all active:scale-95 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px]"
                       >
-                        Continue to Save My Audit
+                        {isSubmitting ? "Saving…" : "Continue to Save My Audit"}
                       </button>
                     </form>
                   </motion.div>
@@ -1590,11 +1879,17 @@ export default function ArbitrageEngine({
                     <div className="flex flex-col gap-3 mt-2 pb-4">
                       <OptionCard
                         text="Yes, I Want Expert Advice"
-                        onClick={() => advance("call", "callIntent", "Yes")}
+                        onClick={() => {
+                          fireCallIntent("Yes");
+                          advance("call", "callIntent", "Yes");
+                        }}
                       />
                       <OptionCard
                         text="No, just email me for now"
-                        onClick={() => advance("timeframe", "callIntent", "No")}
+                        onClick={() => {
+                          fireCallIntent("No");
+                          advance("timeframe", "callIntent", "No");
+                        }}
                       />
                     </div>
                   </motion.div>
@@ -1644,13 +1939,19 @@ export default function ArbitrageEngine({
                         <OptionCard
                           key={opt}
                           text={opt}
-                          onClick={() => {
-                            advance("done", "timeframe", opt);
-                            setHasCompletedFunnel(true);
-                            setTimeout(handleClose, 3500);
-                          }}
+                          onClick={() => void handleTimeframeSelect(opt)}
                         />
                       ))}
+                    </div>
+                    <div aria-live="polite" aria-atomic="true">
+                      {submitError && (
+                        <p
+                          role="alert"
+                          className="text-red-400 text-sm text-center font-medium"
+                        >
+                          {submitError}
+                        </p>
+                      )}
                     </div>
                   </motion.div>
                 )}
