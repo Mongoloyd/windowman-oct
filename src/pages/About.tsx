@@ -18,7 +18,19 @@ import TrustProofSection from "@/components/about/TrustProofSection";
 import AboutCTASection from "@/components/about/AboutCTASection";
 import StickyCTAFooter from "@/components/StickyCTAFooter";
 
-
+// Phase 3: when progressive capture is on, direct entry may only land on
+// early funnel steps. Later steps depend on a backend lead row created at
+// contact submit, so deep-linking past contact is clamped back to "scope".
+// Module-scoped so the static set is not reallocated on every render.
+const DIRECT_ENTRY_ALLOWED_STEPS: ReadonlySet<string> = new Set([
+  "scope",
+  "intent_filter",
+  "status",
+  "comp_a",
+  "comp_b",
+  "contact",
+  "secret_capture",
+]);
 
 export default function About() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -28,20 +40,8 @@ export default function About() {
   const source = searchParams.get("src") || "unknown";
   const rawStep = searchParams.get("step") || "scope";
 
-  // Phase 3: when progressive capture is on, direct entry may only land on
-  // early funnel steps. Later steps depend on a backend lead row created at
-  // contact submit, so deep-linking past contact is clamped back to "scope".
   const progressiveCaptureEnabled =
     import.meta.env.VITE_ARBITRAGE_PROGRESSIVE_CAPTURE === "true";
-  const DIRECT_ENTRY_ALLOWED_STEPS: ReadonlySet<string> = new Set([
-    "scope",
-    "intent_filter",
-    "status",
-    "comp_a",
-    "comp_b",
-    "contact",
-    "secret_capture",
-  ]);
 
   const parsedStep: FunnelStep = (FUNNEL_STEPS as string[]).includes(rawStep)
     ? (rawStep as FunnelStep)
