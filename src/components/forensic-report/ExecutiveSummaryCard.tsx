@@ -63,7 +63,7 @@ export default function ExecutiveSummaryCard({
       style={{ borderColor: "hsl(var(--fr-cyan) / 0.35)" }}
     >
       <h2 className="fr-mono text-[11px] font-bold text-[hsl(var(--fr-cyan))] mb-5">
-        ▦ EXECUTIVE SUMMARY
+        ▦ VERDICT AT A GLANCE
       </h2>
 
       <div className="grid grid-cols-1 md:grid-cols-[auto_1fr_auto_auto] gap-6 md:gap-8 items-center">

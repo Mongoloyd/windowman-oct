@@ -96,6 +96,15 @@ export default function ForensicAuditReport(props: ForensicAuditReportProps) {
           <UnlockedHeader analysisId={props.analysisId} />
         )}
 
+        {!isPreview && (
+          <ExecutiveSummaryBand
+            accessLevel={props.accessLevel}
+            flagRedCount={props.flagRedCount}
+            flagAmberCount={props.flagAmberCount}
+            summary={props.executiveSummaryTeaser}
+          />
+        )}
+
         <div className={`${FR.sectionGap} ${isPreview ? "" : "mt-6 sm:mt-8"}`}>
           {isPreview ? (
             <PartialRevealHero
@@ -151,12 +160,14 @@ export default function ForensicAuditReport(props: ForensicAuditReportProps) {
             {isPreview && <PartialUnlockOverlay />}
           </div>
 
-          <ExecutiveSummaryBand
-            accessLevel={props.accessLevel}
-            flagRedCount={props.flagRedCount}
-            flagAmberCount={props.flagAmberCount}
-            summary={props.executiveSummaryTeaser}
-          />
+          {isPreview && (
+            <ExecutiveSummaryBand
+              accessLevel={props.accessLevel}
+              flagRedCount={props.flagRedCount}
+              flagAmberCount={props.flagAmberCount}
+              summary={props.executiveSummaryTeaser}
+            />
+          )}
 
           <ScopeOverviewCard
             accessLevel={props.accessLevel}

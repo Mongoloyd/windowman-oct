@@ -34,7 +34,7 @@ export default function ExecutiveSummaryBand({
     >
       <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-5">
         <h2 className="fr-mono text-[11px] font-bold text-[hsl(var(--fr-cyan))] whitespace-nowrap">
-          ▦ EXECUTIVE SUMMARY
+          ▦ PLAIN-ENGLISH SUMMARY
         </h2>
 
         <div className="flex-1 min-w-0">
