@@ -30,6 +30,9 @@ dist-ssr
 .env.*.local
 *.local
 
+# Local Codex/MCP config may contain environment identifiers.
+.codex/config.toml
+
 # Supabase CLI artifacts
 supabase/.temp/
 supabase/.branches/
