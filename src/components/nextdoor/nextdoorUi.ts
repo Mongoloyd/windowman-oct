@@ -6,17 +6,27 @@
    ═══════════════════════════════════════════════════════════════════════ */
 
 /**
- * Page surface — layered ice-blue + cobalt/cyan radial washes over a
- * cool desk gradient. Deeper and more intentional than a flat pale page,
- * with no pink cast and no image assets.
+ * Page surface — continuous soft blue desk with desaturated orange warmth.
+ * Designed for a fixed full-viewport layer (no hero box clip).
  */
 export const NEXTDOOR_PAGE_BG =
-  "radial-gradient(ellipse 110% 70% at 50% -12%, hsl(198 90% 94%) 0%, transparent 52%)," +
-  "radial-gradient(ellipse 85% 55% at 100% 4%, hsl(190 82% 93% / 0.55) 0%, transparent 46%)," +
-  "radial-gradient(ellipse 80% 55% at 0% 8%, hsl(217 76% 94% / 0.5) 0%, transparent 46%)," +
-  "linear-gradient(180deg, hsl(210 60% 99%) 0%, hsl(213 48% 98%) 45%, hsl(216 48% 98%) 100%)";
+  "radial-gradient(ellipse 130% 85% at 50% -18%, hsl(204 58% 94% / 0.95) 0%, transparent 58%)," +
+  "radial-gradient(ellipse 95% 65% at 0% 12%, hsl(214 48% 93% / 0.55) 0%, transparent 52%)," +
+  "radial-gradient(ellipse 90% 60% at 100% 8%, hsl(28 42% 92% / 0.42) 0%, transparent 50%)," +
+  "radial-gradient(ellipse 110% 75% at 50% 48%, hsl(210 35% 97% / 0.75) 0%, transparent 62%)," +
+  "radial-gradient(ellipse 85% 55% at 78% 78%, hsl(32 38% 93% / 0.32) 0%, transparent 58%)," +
+  "linear-gradient(180deg, hsl(210 45% 99%) 0%, hsl(213 38% 98%) 40%, hsl(216 36% 98%) 72%, hsl(214 38% 97%) 100%)";
 
-/** Forensic document-grid texture (CSS-only). */
+/** Subtle dot pattern — page-wide, no hard section masks. */
+export const NEXTDOOR_PAGE_PATTERN: { backgroundImage: string; backgroundSize: string } = {
+  backgroundImage:
+    "radial-gradient(circle at 1px 1px, hsl(214 22% 68% / 0.35) 0.65px, transparent 0)," +
+    "linear-gradient(to right, hsl(214 28% 88% / 0.12) 1px, transparent 1px)," +
+    "linear-gradient(to bottom, hsl(214 28% 88% / 0.12) 1px, transparent 1px)",
+  backgroundSize: "32px 32px, 48px 48px, 48px 48px",
+};
+
+/** Forensic document-grid texture (CSS-only) — hero accent overlays only. */
 export const NEXTDOOR_GRID_TEXTURE: { backgroundImage: string; backgroundSize: string } = {
   backgroundImage:
     "linear-gradient(to right, hsl(214 30% 86% / 0.28) 1px, transparent 1px)," +
@@ -24,9 +34,9 @@ export const NEXTDOOR_GRID_TEXTURE: { backgroundImage: string; backgroundSize: s
   backgroundSize: "34px 34px",
 };
 
-/** Soft bottom vignette to add navy depth under the fold (decorative). */
+/** Soft bottom vignette — navy depth under the fold (decorative). */
 export const NEXTDOOR_VIGNETTE =
-  "radial-gradient(ellipse 120% 60% at 50% 120%, hsl(217 45% 60% / 0.16) 0%, transparent 60%)";
+  "radial-gradient(ellipse 140% 70% at 50% 115%, hsl(217 40% 62% / 0.12) 0%, transparent 65%)";
 
 /**
  * Base tactile card — raised report module. Layered shadow + inner top

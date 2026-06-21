@@ -17,9 +17,8 @@ import { NextdoorJourneyTimeline } from "@/components/nextdoor/NextdoorJourneyTi
 import { NextdoorTrustStrip } from "@/components/nextdoor/NextdoorTrustStrip";
 import { NextdoorScanTransition } from "@/components/nextdoor/NextdoorScanTransition";
 import { QuoteScanFieldBackground } from "@/components/QuoteScanFieldBackground";
+import { NextdoorPageBackground } from "@/components/nextdoor/NextdoorPageBackground";
 import {
-  NEXTDOOR_PAGE_BG,
-  NEXTDOOR_VIGNETTE,
   nextdoorPrimaryCtaClass,
   prefersReducedMotion,
   scrollToElementAfterDelay,
@@ -69,8 +68,6 @@ import { getUtmData } from "@/lib/useUtmCapture";
 import { useScanFunnelSafe } from "@/state/scanFunnel";
 import { useScanPolling, type ScanStatus } from "@/hooks/useScanPolling";
 import { toE164 } from "@/utils/formatPhone";
-
-const PAGE_BG = NEXTDOOR_PAGE_BG;
 
 const INTAKE_HEADLINE = "Check your impact-window quote before you sign.";
 
@@ -558,12 +555,8 @@ export default function NextdoorHome() {
         <meta name="robots" content="noindex, nofollow" />
       </Helmet>
 
-      <div className="relative min-h-screen overflow-x-hidden text-slate-900" style={{ background: PAGE_BG }}>
-        <div
-          className="pointer-events-none absolute inset-0"
-          style={{ background: NEXTDOOR_VIGNETTE }}
-          aria-hidden="true"
-        />
+      <div className="relative min-h-screen overflow-x-hidden bg-[hsl(214_38%_97%)] text-slate-900">
+        <NextdoorPageBackground />
 
         <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/85 backdrop-blur-md">
           <div className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-4 px-4 md:px-8">
@@ -617,7 +610,7 @@ export default function NextdoorHome() {
           <section
             ref={readinessRef}
             id="readiness-selector"
-            className="relative mb-10 scroll-mt-28 overflow-hidden md:mb-12"
+            className="relative mb-10 scroll-mt-28 md:mb-12"
             aria-labelledby="readiness-heading"
           >
             <QuoteScanFieldBackground variant="hero" />
