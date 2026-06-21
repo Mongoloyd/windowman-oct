@@ -293,6 +293,11 @@ export default function ArbitrageEngine({
     return eventIdRef.current;
   };
 
+  // Completion guardrail: in progressive mode, a durable completed/matched
+  // state requires a backend-issued lead_id. Flag-off keeps legacy behavior.
+  const canMarkProgressiveComplete = () =>
+    !progressiveEnabled || Boolean(leadIdRef.current);
+
   // Focus trap for modal
   const modalRef = useFocusTrap(flowState === "modal_open");
 
@@ -1440,7 +1445,11 @@ export default function ArbitrageEngine({
                             return;
                           }
                           setFlowState("revealed");
-                          setHasCompletedFunnel(true);
+                          // Progressive mode: "No thanks" is a dismissal, not a
+                          // completion, unless a backend lead already exists.
+                          if (canMarkProgressiveComplete()) {
+                            setHasCompletedFunnel(true);
+                          }
                           setTimeout(() => {
                             setFunnelStep("scope");
                             setStepHistory([]);
@@ -1539,7 +1548,11 @@ export default function ArbitrageEngine({
                     </p>
                     <button
                       onClick={() => {
-                        setHasCompletedFunnel(true);
+                        // Progressive mode: preview/dismiss-only unless a backend
+                        // lead already exists. Flag-off keeps legacy completion.
+                        if (canMarkProgressiveComplete()) {
+                          setHasCompletedFunnel(true);
+                        }
                         setFlowState("revealed");
                         setTimeout(() => {
                           document
