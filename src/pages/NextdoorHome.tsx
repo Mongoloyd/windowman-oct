@@ -17,6 +17,7 @@ import { NextdoorJourneyTimeline } from "@/components/nextdoor/NextdoorJourneyTi
 import { NextdoorTrustStrip } from "@/components/nextdoor/NextdoorTrustStrip";
 import { NextdoorScanTransition } from "@/components/nextdoor/NextdoorScanTransition";
 import { NextdoorDynamicBackground } from "@/components/nextdoor/NextdoorDynamicBackground";
+import { NextdoorClosingCtaSection } from "@/components/nextdoor/NextdoorClosingCtaSection";
 import {
   nextdoorPrimaryCtaClass,
   prefersReducedMotion,
@@ -920,37 +921,11 @@ export default function NextdoorHome() {
           </NextdoorReveal>
 
           <NextdoorReveal className="mb-12 md:mb-14">
-            <section
-              className="overflow-hidden rounded-2xl border border-[#06b6d4]/25 bg-gradient-to-br from-slate-950 via-slate-900 to-[#0b2436] p-6 text-center shadow-[0_28px_70px_-30px_rgba(8,47,73,0.6)] md:p-9"
-              aria-labelledby="closing-cta-heading"
-            >
-              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-[#5fd6ec]">
-                Ready when you are
-              </p>
-              <h2
-                id="closing-cta-heading"
-                className="mx-auto mt-2 max-w-xl font-display text-2xl font-extrabold leading-tight text-white md:text-3xl"
-              >
-                Check your first quote before it becomes a signed contract.
-              </h2>
-              <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-slate-300/90">
-                Start with the free preview. Use every quote you get to make the next conversation
-                clearer.
-              </p>
-              <button
-                type="button"
-                onClick={scrollToReadiness}
-                className={[nextdoorPrimaryCtaClass, "mt-6 w-full sm:w-auto"].join(" ")}
-                style={{ padding: "16px 36px", fontSize: 16 }}
-              >
-                {readiness === "has_estimate"
-                  ? "Back to quote options"
-                  : resolveSaveCtaLabel(readiness)}
-              </button>
-              <p className="mx-auto mt-4 max-w-md text-xs leading-relaxed text-slate-400">
-                No contractor pressure. No marketplace handoff. Upload when ready.
-              </p>
-            </section>
+            <NextdoorClosingCtaSection
+              readiness={readiness}
+              ctaLabel={resolveSaveCtaLabel(readiness)}
+              onCtaClick={scrollToReadiness}
+            />
           </NextdoorReveal>
 
           <NextdoorReveal>
