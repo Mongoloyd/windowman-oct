@@ -1,0 +1,10 @@
+# Copy this file to `.codex/config.toml` for local development.
+# Do not commit `.codex/config.toml`.
+#
+# Replace <SUPABASE_PROJECT_REF> with the intended Supabase project ref
+# for your local MCP session.
+#
+# Keep read_only=true unless you have explicit approval to use write-capable tooling.
+
+[mcp_servers.supabase]
+url = "https://mcp.supabase.com/mcp?project_ref=<SUPABASE_PROJECT_REF>&read_only=true"
