@@ -598,7 +598,8 @@ export default function ArbitrageEngine({
         return null;
       }
     })();
-    const effective = queryClientSlug ?? utm.client_slug ?? lsClientSlug ?? null;
+    const utmSlug = utm.client_slug !== "direct" ? utm.client_slug : null;
+    const effective = queryClientSlug ?? utmSlug ?? lsClientSlug ?? null;
     if (effective) {
       try {
         localStorage.setItem("wm_client_slug", effective);
