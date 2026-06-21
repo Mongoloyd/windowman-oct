@@ -221,8 +221,22 @@ export function mergeQueryParams(
   incoming: unknown,
 ): Record<string, string | string[]> {
   const base = sanitizeQueryParamsInput(existing);
-  if (Object.keys(base).length > 0) return base;
-  return sanitizeQueryParamsInput(incoming);
+  const inc = sanitizeQueryParamsInput(incoming);
+
+  // Per-key non-destructive merge (mirrors mergeAttribution): existing values
+  // always win, incoming keys are added only when missing. This prevents silent
+  // loss of new keys (e.g. Track C qualification) on session/lead reuse without
+  // ever overwriting or weakening prior attribution/session history.
+  const merged: Record<string, string | string[]> = { ...base };
+
+  for (const [key, val] of Object.entries(inc)) {
+    if (Object.keys(merged).length >= MAX_QUERY_PARAM_KEYS) break;
+    if (key in merged) continue;
+    if (!isNonEmptyValue(val)) continue;
+    merged[key] = val;
+  }
+
+  return merged;
 }
 
 export function isPaidAttribution(
