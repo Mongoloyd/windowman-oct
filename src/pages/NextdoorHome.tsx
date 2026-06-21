@@ -882,6 +882,16 @@ export default function NextdoorHome() {
           </NextdoorReveal>
 
           <NextdoorReveal className="mb-12 md:mb-14">
+            <img
+              src="/images/nextdoor-scan.avif"
+              alt="Before and after: a messy handwritten window quote transformed into a structured WindowMan quote check"
+              loading="lazy"
+              decoding="async"
+              className="mx-auto block h-auto max-w-full rounded-2xl shadow-[0_28px_90px_-45px_rgba(8,47,73,0.45)]"
+            />
+          </NextdoorReveal>
+
+          <NextdoorReveal className="mb-12 md:mb-14">
             <NextdoorBeforeAfterStrip />
           </NextdoorReveal>
 

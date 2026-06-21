@@ -82,7 +82,7 @@ export function NextdoorBeforeAfterStrip() {
         </div>
       </div>
 
-      <p className="mt-5 max-w-2xl text-sm leading-relaxed text-slate-600">
+      <p className="mx-auto mt-5 max-w-2xl text-center text-sm leading-relaxed text-slate-600">
         The preview does not argue with the contractor. It gives you better questions before you
         reply.
       </p>
