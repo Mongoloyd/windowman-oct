@@ -3,7 +3,7 @@ import { ChevronDown } from "lucide-react";
 import { PROTECTION_LEDGER_ITEMS } from "./nextdoorUi";
 
 export function NextdoorProtectionLedger() {
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(PROTECTION_LEDGER_ITEMS[0]?.id ?? null);
 
   const toggle = (id: string) => {
     setOpenId((current) => (current === id ? null : id));
