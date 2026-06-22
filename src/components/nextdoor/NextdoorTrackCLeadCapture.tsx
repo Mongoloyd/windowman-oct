@@ -5,6 +5,7 @@ import {
   isValidFirstName,
   isValidZip,
 } from "@/lib/nextdoor/attributionHelpers";
+import { formatPhoneDisplay, isValidUSPhone } from "@/utils/formatPhone";
 import type {
   NextdoorTrackCContact,
   NextdoorTrackCQualification,
@@ -54,7 +55,7 @@ const TIMELINE_OPTIONS: Array<{ id: NextdoorTrackCQualification["timeline"]; lab
 ];
 
 function isValidPhoneDigits(phone: string): boolean {
-  return phone.replace(/\D/g, "").length >= 10;
+  return isValidUSPhone(phone);
 }
 
 function tileButtonClass(active: boolean): string {
@@ -358,9 +359,10 @@ export function NextdoorTrackCLeadCapture({
             name="phone"
             autoComplete="tel"
             inputMode="tel"
+            maxLength={14}
             value={phone}
             onChange={(e) => {
-              setPhone(e.target.value);
+              setPhone(formatPhoneDisplay(e.target.value));
               setContactErrors((prev) => ({ ...prev, phone: undefined }));
             }}
             className={contactFieldClass("phone")}
