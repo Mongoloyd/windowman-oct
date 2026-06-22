@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { toast } from "sonner";
 import {
   FileText,
   ScanEye,
@@ -14,7 +13,6 @@ import {
   Crown,
   UserCheck,
   CheckCircle,
-  Key,
   Shield,
   Ruler,
   DollarSign,
@@ -293,11 +291,6 @@ export default function ArbitrageEngine({
     return eventIdRef.current;
   };
 
-  // Completion guardrail: in progressive mode, a durable completed/matched
-  // state requires a backend-issued lead_id. Flag-off keeps legacy behavior.
-  const canMarkProgressiveComplete = () =>
-    !progressiveEnabled || Boolean(leadIdRef.current);
-
   // Focus trap for modal
   const modalRef = useFocusTrap(flowState === "modal_open");
 
@@ -311,15 +304,24 @@ export default function ArbitrageEngine({
   // Direct-entry auto-open
   useEffect(() => {
     if (!autoOpen) return;
+    // UI-only direct-entry clamp: late/fragile states require prior answers, so
+    // landing in them with empty formData is incoherent. Clamp to "scope".
+    const ALLOWED_DIRECT_ENTRY: FunnelStep[] = ["scope", "intent_filter", "status", "contact"];
+    const safeStep: FunnelStep = ALLOWED_DIRECT_ENTRY.includes(initialStep) ? initialStep : "scope";
     setFlowState("modal_open");
     setHasCompletedFunnel(false);
     setIsExitIntent(false);
-    setFunnelStep(initialStep);
+    setFunnelStep(safeStep);
     setStepHistory([]);
     sessionIdRef.current = null;
     eventIdRef.current = null;
     leadIdRef.current = null;
-    console.info("arbitrage_direct_entry_opened", { source, step: initialStep });
+    console.info("arbitrage_direct_entry_opened", {
+      source,
+      requestedStep: initialStep,
+      step: safeStep,
+      clamped: safeStep !== initialStep,
+    });
   }, [autoOpen, initialStep, source]);
 
   // Lock body scroll when modal open (scrollbar-width-aware)
@@ -542,48 +544,55 @@ export default function ArbitrageEngine({
     onDirectEntryClose?.();
   }, [onDirectEntryClose]);
 
-  const handleClose = () => {
-    const preCompletionStep = funnelStep !== "done" && !["secret_capture", "secret_success"].includes(funnelStep);
+  const navigateToTruthGate = useCallback(() => {
+    const safeUrl = new URL("/#truth-gate", window.location.origin);
+    window.location.assign(safeUrl.toString());
+  }, []);
 
-    // Direct-entry bridge: close before completion reveals normal About page
-    if (autoOpen && !hasCompletedFunnel && preCompletionStep && !isExitIntent) {
-      setIsExitIntent(true);
+  // Close the modal and keep it closed. Never marks completion, never reveals
+  // the sample report, and never redirects. Embedded mode resets to "idle" so
+  // the revealed→modal_open reopen effect cannot refire. Direct-entry
+  // (autoOpen) returns to the normal About page content via closeToAboutContent.
+  const dismissModal = useCallback(() => {
+    if (autoOpen) {
+      closeToAboutContent();
       return;
     }
+    setFlowState("idle");
+    setFunnelStep("scope");
+    setStepHistory([]);
+    setIsExitIntent(false);
+  }, [autoOpen, closeToAboutContent]);
 
-    if (
-      !hasCompletedFunnel &&
-      !isExitIntent &&
-      funnelStep !== "done" &&
-      !["secret_capture", "secret_success"].includes(funnelStep) &&
-      !isEmailValid
-    ) {
-      setIsExitIntent(true);
-      return;
-    }
-
-    const wasCompleted = funnelStep === "done" || hasCompletedFunnel;
+  const handleScanMyQuoteNow = useCallback(() => {
     setHasCompletedFunnel(true);
     setFlowState("revealed");
+    navigateToTruthGate();
+  }, [navigateToTruthGate]);
 
-    setTimeout(() => {
-      setFunnelStep("scope");
-      setStepHistory([]);
-      setIsExitIntent(false);
+  const handleClose = () => {
+    // Case A — done is user-driven: dismiss only. No redirect, no toast, no
+    // hasCompletedFunnel mutation.
+    if (funnelStep === "done") {
+      dismissModal();
+      return;
+    }
 
-      if (wasCompleted) {
-        toast.success("You're matched! Let's scan your quote.");
-        setTimeout(() => {
-          const safeUrl = new URL("/#truth-gate", window.location.origin);
-          window.location.assign(safeUrl.toString());
-        }, 1200);
-        return;
-      }
+    // Pre-completion = any non-terminal step. secret_capture / secret_success
+    // are neutralized/unreachable but stay excluded for type-safety.
+    const preCompletionStep = !["secret_capture", "secret_success"].includes(funnelStep);
 
-      if (autoOpen) {
-        closeToAboutContent();
-      }
-    }, 300);
+    // Case B — first close on a pre-done step always surfaces honest exit
+    // intent. Applies to both embedded and autoOpen modes; no email bypass.
+    if (preCompletionStep && !isExitIntent) {
+      setIsExitIntent(true);
+      return;
+    }
+
+    // Case C — exit intent already showing (or an unreachable secret step):
+    // this is a dismissal, never a completion. Never set hasCompletedFunnel
+    // and never reveal the sample report.
+    dismissModal();
   };
 
   // ── Phase 3 progressive capture helpers ────────────────────────────────────
@@ -757,8 +766,6 @@ export default function ArbitrageEngine({
   const handleTimeframeSelect = async (opt: string) => {
     if (!progressiveEnabled) {
       advance("done", "timeframe", opt);
-      setHasCompletedFunnel(true);
-      setTimeout(handleClose, 3500);
       return;
     }
 
@@ -789,8 +796,6 @@ export default function ArbitrageEngine({
       setFormData((prev) => ({ ...prev, timeframe: opt }));
       writeArbitrageHandoffHint();
       advance("done", "timeframe", opt);
-      setHasCompletedFunnel(true);
-      setTimeout(handleClose, 3500);
     } catch {
       setSubmitError(GENERIC_SUBMIT_ERROR);
     } finally {
@@ -821,53 +826,81 @@ export default function ArbitrageEngine({
         return 96;
       case "timeframe":
         return 96;
-      case "secret_capture":
-        return 95;
       case "done":
         return 100;
-      case "secret_success":
-        return 100;
+      // secret_capture / secret_success are neutralized in Sprint A and must
+      // never imply real completion. They fall through to 0 (and their UI is
+      // unreachable), so 100 is reserved for the true terminal "done" state.
       default:
         return 0;
     }
   };
 
-  // Done-state copy matrix keyed on scope + installerPreference (display only, no new state).
-  const getDoneCopy = (): { heading: string; body: string } => {
+  // Universal honest footer: this funnel only produces a setup summary; the
+  // real Truth Report is backend-gated behind upload + phone verification.
+  const DONE_FOOTER =
+    "Your full Truth Report unlocks after you upload your quote and verify your phone.";
+
+  // Done-state copy matrix (display only, no new state). Reuses the answers the
+  // user actually gave: hasEstimate, dealBreaker, installerPreference,
+  // numEstimates. Frames everything as "setup", never as a finished report or a
+  // confirmed match/savings.
+  const getDoneCopy = (): { heading: string; body: string; footer: string } => {
     const isPremium = formData.installerPreference === "premium";
-    switch (formData.scope) {
-      case "1-5":
-        return {
-          heading: "Quick-Response Project Matched!",
-          body: "Perfect for our Quick-Response Team. We've matched you with local specialists who can turn small projects around fast.",
-        };
-      case "15+":
-        return isPremium
-          ? {
-              heading: "Premium Project Detected!",
-              body: "We've prioritised your full-home audit for our Premium Installation Team — elite craftsmanship, white-glove service, and maximum pricing leverage.",
-            }
-          : {
-              heading: "Full-Home Pricing Leverage Detected!",
-              body: "Your full-home project has been routed to vetted local pros who will compete to give you their cleanest, fairest price.",
-            };
-      case "6-10":
-      case "11-15":
-        return isPremium
-          ? {
-              heading: "Premium Installer Path Matched!",
-              body: "Your scope is confirmed. We've matched you with top-rated premium installers known for reputation and white-glove service.",
-            }
-          : {
-              heading: "Fair-Price Local Pro Path Matched!",
-              body: "Project scope confirmed. We've connected you with honest local pros competing to offer their most transparent, fair quote.",
-            };
-      default:
-        return {
-          heading: "Audit Complete & Matched!",
-          body: "Your audit has been routed to our top-rated local installation partners for immediate review.",
-        };
+    const isValue = formData.installerPreference === "value";
+
+    let heading: string;
+    let body: string;
+
+    if (formData.hasEstimate === "No") {
+      heading = "Quote-Ready Plan Built";
+      body =
+        "Since you're still gathering estimates, your setup is ready to benchmark the first quote you receive.";
+    } else if (formData.hasEstimate === "Yes") {
+      switch (formData.dealBreaker) {
+        case "Price":
+          heading = "Price-Leverage Path Identified";
+          body =
+            "You flagged price as the main concern. Your setup will focus on overpayment risk and fair local pricing.";
+          break;
+        case "Company Reputation":
+          heading = "Contractor-Confidence Check Ready";
+          body =
+            "You flagged contractor reputation. Your setup will prioritize licensing, permit handling, and warranty clarity.";
+          break;
+        case "Timing":
+          heading = "Timeline-Aware Audit Ready";
+          body =
+            "You flagged timing. Your setup will account for schedule pressure, permit lead time, and project urgency.";
+          break;
+        case "Financing":
+          heading = "Cost-Structure Review Ready";
+          body =
+            "You flagged financing. Your setup will focus on payment schedule risk and line-item transparency.";
+          break;
+        default:
+          heading = "Audit Setup Complete";
+          body = "Your setup is ready for a full 5-pillar quote review.";
+          break;
+      }
+    } else {
+      heading = "Audit Setup Complete";
+      body = "Your setup is ready for a full 5-pillar quote review.";
     }
+
+    // Buyer-priority modifier (only when easy / known).
+    if (isPremium) {
+      body += " Reviewers will weight reputation and white-glove service.";
+    } else if (isValue) {
+      body += " Reviewers will weight fair, transparent local pricing.";
+    }
+
+    // Comparison-depth modifier (no overpromising).
+    if (formData.hasEstimate === "Yes" && formData.numEstimates === "2+") {
+      body += " We'll compare across the estimates you've already gathered.";
+    }
+
+    return { heading, body, footer: DONE_FOOTER };
   };
 
   const formatPhoneDisplay = (val: string) => {
@@ -1232,7 +1265,7 @@ export default function ArbitrageEngine({
                     {/* Grade Badge */}
                     <div className="relative z-10 flex flex-col items-center mb-6 sm:mb-8">
                       <span className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-3">
-                        Simplified Sample Truth Report™
+                        Sample Truth Report Preview · Not Your Report
                       </span>
                       <div
                         className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border-2 flex items-center justify-center text-2xl sm:text-3xl font-black ${gradeColor(MOCK_ANALYSIS.grade)}`}
@@ -1323,15 +1356,12 @@ export default function ArbitrageEngine({
                     {/* CTA */}
                     <div className="relative z-10">
                       <button
-                        onClick={() => {
-                          const safeUrl = new URL("/#truth-gate", window.location.origin);
-                          window.location.assign(safeUrl.toString());
-                        }}
-                        aria-label="Upload your real quote for a full audit"
+                        onClick={handleScanMyQuoteNow}
+                        aria-label="Scan my quote now"
                         className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-base sm:text-lg py-4 rounded-xl shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all active:scale-95 flex items-center justify-center gap-2 min-h-[48px]"
                       >
                         <Upload className="w-5 h-5" />
-                        Upload Your Real Quote
+                        Scan My Quote Now
                       </button>
                     </div>
                   </div>
@@ -1412,163 +1442,50 @@ export default function ArbitrageEngine({
                     className="flex flex-col h-full w-full absolute inset-0 p-6 sm:p-8 overflow-y-auto custom-scrollbar justify-center"
                   >
                     <h2 className="text-2xl sm:text-3xl font-extrabold mb-4 text-center text-amber-400 drop-shadow-[0_0_12px_rgba(251,191,36,0.3)] shrink-0">
-                      Before You Go...
+                      Leave your audit setup?
                     </h2>
                     <p className="text-lg sm:text-xl text-white font-medium text-center mb-6 sm:mb-8 leading-relaxed shrink-0 px-2">
-                      Can I Let You In On a Little <span className="text-amber-300 italic">Secret</span> on How We Get
-                      You The Absolute Lowest Priced Install?
+                      You can keep going, or close without saving. Nothing is saved until you finish the setup.
                     </p>
                     <div className="flex flex-col gap-4 pb-4">
                       <button
                         onClick={() => {
+                          // "Keep going" returns to the funnel step the user left.
                           setIsExitIntent(false);
-                          if (isEmailValid) {
-                            advance("secret_success");
-                          } else {
-                            advance("secret_capture");
-                          }
                         }}
-                        aria-label="Yes, tell me the secret pricing strategy"
-                        className="w-full bg-slate-800/60 border border-amber-500/50 hover:border-amber-400/80 hover:bg-amber-900/20 backdrop-blur-md p-4 sm:p-5 rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.15)] transition-all text-left flex items-center gap-4 group active:scale-95 shrink-0 min-h-[48px]"
+                        aria-label="Keep going with my audit setup"
+                        className="w-full bg-slate-800/60 border border-cyan-500/50 hover:border-cyan-400/80 hover:bg-cyan-900/20 backdrop-blur-md p-4 sm:p-5 rounded-xl shadow-[0_0_15px_rgba(6,182,212,0.15)] transition-all text-left flex items-center gap-4 group active:scale-95 shrink-0 min-h-[48px]"
                       >
-                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center shrink-0 group-hover:bg-amber-500/30 transition-all">
-                          <Key className="w-5 h-5 sm:w-6 sm:h-6 text-amber-400" />
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center shrink-0 group-hover:bg-cyan-500/30 transition-all">
+                          <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6 text-cyan-300" />
                         </div>
-                        <span className="text-amber-100 group-hover:text-amber-50 font-bold text-base sm:text-lg flex-1">
-                          Yes, Tell Me The Secret.
+                        <span className="text-cyan-100 group-hover:text-cyan-50 font-bold text-base sm:text-lg flex-1">
+                          Keep going
                         </span>
-                        <ChevronRight className="w-5 h-5 text-amber-500/50 group-hover:text-amber-400 transition-colors shrink-0 ml-1" />
+                        <ChevronRight className="w-5 h-5 text-cyan-500/50 group-hover:text-cyan-400 transition-colors shrink-0 ml-1" />
                       </button>
                       <button
-                        onClick={() => {
-                          if (autoOpen) {
-                            closeToAboutContent();
-                            return;
-                          }
-                          setFlowState("revealed");
-                          // Progressive mode: "No thanks" is a dismissal, not a
-                          // completion, unless a backend lead already exists.
-                          if (canMarkProgressiveComplete()) {
-                            setHasCompletedFunnel(true);
-                          }
-                          setTimeout(() => {
-                            setFunnelStep("scope");
-                            setStepHistory([]);
-                            setIsExitIntent(false);
-                          }, 300);
-                        }}
-                        aria-label="No thanks, close modal"
+                        onClick={dismissModal}
+                        aria-label="Close without saving"
                         className="w-full bg-transparent border border-white/5 hover:bg-white/5 backdrop-blur-md p-4 rounded-xl transition-all text-center group active:scale-95 shrink-0 min-h-[48px]"
                       >
                         <span className="text-gray-500 group-hover:text-gray-400 font-medium text-sm">
-                          No thanks, I'll pay retail.
+                          Close without saving
                         </span>
                       </button>
                     </div>
                   </motion.div>
                 )}
 
-                {/* SECRET EMAIL CAPTURE */}
-                {!isExitIntent && funnelStep === "secret_capture" && (
-                  <motion.div
-                    key="secret_capture"
-                    variants={slideVariants}
-                    initial="initial"
-                    animate="animate"
-                    exit="exit"
-                    className="flex flex-col h-full w-full absolute inset-0 p-6 sm:p-8 overflow-y-auto custom-scrollbar justify-center"
-                  >
-                    <h2 className="text-2xl sm:text-[28px] font-extrabold mb-4 text-center bg-gradient-to-r from-amber-300 to-yellow-500 bg-clip-text text-transparent shrink-0 leading-tight">
-                      The 'Market For Lemons' Tactic
-                    </h2>
-                    <p className="text-gray-300 text-sm sm:text-[15px] leading-relaxed mb-6 text-center shrink-0">
-                      Enter Your Email Below and I'll Show You Our Tactic to Force Contractors To Start With Their Very
-                      Best Offers.
-                    </p>
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        advance("secret_success");
-                      }}
-                      className="flex flex-col gap-4 w-full"
-                    >
-                      <div className="flex flex-col gap-1">
-                        <input
-                          required
-                          type="email"
-                          inputMode="email"
-                          autoComplete="email"
-                          placeholder="Where should we send our secret strategy?"
-                          value={formData.email}
-                          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                          aria-label="Email address"
-                          aria-invalid={formData.email && !isEmailValid ? "true" : undefined}
-                          className={`${inputClass} ${formData.email && !isEmailValid ? "border-red-500/50 focus:border-red-500/50 focus:ring-red-500/50" : "focus:border-amber-500/50 focus:ring-amber-500/50"}`}
-                        />
-                        {formData.email && !isEmailValid && (
-                          <span className="text-red-400 text-xs ml-1 font-medium" role="alert">
-                            Please enter a valid email address.
-                          </span>
-                        )}
-                      </div>
-                      <button
-                        type="submit"
-                        disabled={!isEmailValid}
-                        className="w-full mt-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-bold text-base sm:text-lg py-4 rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.3)] transition-all active:scale-95 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px]"
-                      >
-                        Send Me Our Strategy
-                      </button>
-                    </form>
-                  </motion.div>
-                )}
-
-                {/* SECRET SUCCESS */}
-                {!isExitIntent && funnelStep === "secret_success" && (
-                  <motion.div
-                    key="secret_success"
-                    variants={slideVariants}
-                    initial="initial"
-                    animate="animate"
-                    exit="exit"
-                    className="flex flex-col items-center justify-center h-full w-full absolute inset-0 p-6 sm:p-8 text-center overflow-y-auto custom-scrollbar"
-                  >
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-cyan-500/20 border border-cyan-500/50 flex items-center justify-center mb-6 shrink-0 shadow-[0_0_30px_rgba(6,182,212,0.2)]">
-                      <CheckCircle className="w-8 h-8 sm:w-10 sm:h-10 text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.8)]" />
-                    </div>
-                    <h2 className="text-xl sm:text-[26px] font-extrabold mb-4 shrink-0 drop-shadow-sm leading-tight">
-                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-blue-500">
-                        The Law of{" "}
-                      </span>
-                      🍋
-                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-blue-500">
-                        s En Route!
-                      </span>
-                    </h2>
-                    <p className="text-gray-300 text-sm sm:text-[15px] leading-relaxed mb-6 sm:mb-8 shrink-0 px-2">
-                      Click Below For a Quick Peek at Your Audit Findings and Be Sure To Bookmark This Page For Later.
-                    </p>
-                    <button
-                      onClick={() => {
-                        // Progressive mode: preview/dismiss-only unless a backend
-                        // lead already exists. Flag-off keeps legacy completion.
-                        if (canMarkProgressiveComplete()) {
-                          setHasCompletedFunnel(true);
-                        }
-                        setFlowState("revealed");
-                        setTimeout(() => {
-                          document
-                            .getElementById("audit-results")
-                            ?.scrollIntoView({ behavior: "smooth", block: "center" });
-                          setFunnelStep("scope");
-                          setStepHistory([]);
-                        }, 300);
-                      }}
-                      className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-base sm:text-lg py-4 rounded-xl shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all active:scale-95 shrink-0 min-h-[48px]"
-                    >
-                      ✨ Click for a Quick Peek
-                    </button>
-                  </motion.div>
-                )}
+                {/*
+                  SECRET CAPTURE / SECRET SUCCESS — neutralized in Sprint A.
+                  The previous "Market for Lemons" email step collected an email
+                  that was never persisted or sent, and the success screen falsely
+                  implied an email was "en route". Both render branches were
+                  removed. The "secret_capture" / "secret_success" FunnelStep
+                  values are retained in the type/enum and guards for type safety,
+                  but are no longer reachable from any UI control or exit path.
+                */}
 
                 {/* Step 1: Scope */}
                 {!isExitIntent && funnelStep === "scope" && (
@@ -1730,10 +1647,10 @@ export default function ArbitrageEngine({
                     className="flex flex-col h-full w-full absolute inset-0 p-6 sm:p-8 overflow-y-auto custom-scrollbar"
                   >
                     <h2 className="text-xl sm:text-2xl font-bold mb-2 text-center text-white shrink-0">
-                      Almost There!
+                      Where is the project located?
                     </h2>
-                    <p className="text-cyan-400 text-sm font-semibold text-center mb-6 shrink-0">
-                      We Found 3 Potential Savings In Your Area.
+                    <p className="text-slate-400 text-sm font-medium text-center mb-6 shrink-0">
+                      ZIP sets your local price benchmark; phone is for audit follow-up only.
                     </p>
                     <form
                       onSubmit={(e) => {
@@ -1802,8 +1719,11 @@ export default function ArbitrageEngine({
                         disabled={!formData.hasConsent || formData.zip.length < 5 || formData.phone.length < 10 || isSubmitting}
                         className="w-full mt-4 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-base sm:text-lg py-4 rounded-xl shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all active:scale-95 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px]"
                       >
-                        {isSubmitting ? "Saving…" : "Continue to Save My Audit"}
+                        {isSubmitting ? "Please wait…" : "Continue"}
                       </button>
+                      <p className="text-slate-500 text-xs text-center leading-relaxed shrink-0 px-2">
+                        We use this only to prepare your audit. Consent is not required to buy.
+                      </p>
                     </form>
                   </motion.div>
                 )}
@@ -1818,9 +1738,12 @@ export default function ArbitrageEngine({
                     exit="exit"
                     className="flex flex-col h-full w-full absolute inset-0 p-6 sm:p-8 overflow-y-auto custom-scrollbar"
                   >
-                    <h2 className="text-2xl sm:text-3xl font-extrabold mb-6 sm:mb-8 text-center bg-gradient-to-r from-cyan-300 to-blue-400 bg-clip-text text-transparent drop-shadow-sm shrink-0">
-                      You Got it
+                    <h2 className="text-2xl sm:text-3xl font-extrabold mb-2 text-center bg-gradient-to-r from-cyan-300 to-blue-400 bg-clip-text text-transparent drop-shadow-sm shrink-0">
+                      Where should we save your audit setup?
                     </h2>
+                    <p className="text-slate-400 text-sm font-medium text-center mb-6 shrink-0">
+                      So you can return to this without starting over.
+                    </p>
                     <form
                       onSubmit={async (e) => {
                         e.preventDefault();
@@ -1831,10 +1754,10 @@ export default function ArbitrageEngine({
                       <input
                         required
                         type="text"
-                        placeholder="What's your name?"
+                        placeholder="First name"
                         value={formData.name}
                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        aria-label="Your name"
+                        aria-label="First name"
                         autoComplete="given-name"
                         className={inputClass}
                       />
@@ -1843,7 +1766,7 @@ export default function ArbitrageEngine({
                           required
                           type="email"
                           inputMode="email"
-                          placeholder="What's your best email?"
+                          placeholder="Email address"
                           value={formData.email}
                           onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                           aria-label="Email address"
@@ -1871,8 +1794,11 @@ export default function ArbitrageEngine({
                         disabled={!formData.name || !isEmailValid || isSubmitting}
                         className="w-full mt-4 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-base sm:text-lg py-4 rounded-xl shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all active:scale-95 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px]"
                       >
-                        {isSubmitting ? "Saving…" : "Save My Audit Access"}
+                        {isSubmitting ? "Please wait…" : "Continue"}
                       </button>
+                      <p className="text-slate-500 text-xs text-center leading-relaxed shrink-0 px-2">
+                        One audit-related email. No newsletters.
+                      </p>
                     </form>
                   </motion.div>
                 )}
@@ -1887,25 +1813,31 @@ export default function ArbitrageEngine({
                     exit="exit"
                     className="flex flex-col h-full w-full absolute inset-0 p-6 sm:p-8 overflow-y-auto custom-scrollbar"
                   >
-                    <h2 className="text-xl sm:text-2xl font-bold mb-6 text-center text-white leading-snug shrink-0">
-                      Would You Like a Quick Call to Review These Results?
+                    <h2 className="text-xl sm:text-2xl font-bold mb-2 text-center text-white leading-snug shrink-0">
+                      Want a quick call to walk through your audit setup?
                     </h2>
+                    <p className="text-slate-400 text-sm font-medium text-center mb-6 shrink-0">
+                      Optional — you can finish by email instead.
+                    </p>
                     <div className="flex flex-col gap-3 mt-2 pb-4">
                       <OptionCard
-                        text="Yes, I Want Expert Advice"
+                        text="Yes, walk me through it"
                         onClick={() => {
                           fireCallIntent("Yes");
                           advance("call", "callIntent", "Yes");
                         }}
                       />
                       <OptionCard
-                        text="No, just email me for now"
+                        text="No, finish by email"
                         onClick={() => {
                           fireCallIntent("No");
                           advance("timeframe", "callIntent", "No");
                         }}
                       />
                     </div>
+                    <p className="text-slate-500 text-xs text-center leading-relaxed shrink-0 px-2">
+                      Your choice — no obligation either way.
+                    </p>
                   </motion.div>
                 )}
 
@@ -1920,18 +1852,35 @@ export default function ArbitrageEngine({
                     className="flex flex-col items-center justify-center h-full w-full absolute inset-0 p-6 sm:p-8 overflow-y-auto custom-scrollbar"
                   >
                     <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-emerald-500/20 flex items-center justify-center mb-6 shrink-0">
-                      <PhoneCall className="w-8 h-8 sm:w-10 sm:h-10 text-emerald-400 animate-pulse" />
+                      <PhoneCall className="w-8 h-8 sm:w-10 sm:h-10 text-emerald-400" />
                     </div>
-                    <h2 className="text-xl sm:text-2xl font-bold mb-8 text-center text-white shrink-0">
-                      Your Specialist Is Ready!
+                    <h2 className="text-xl sm:text-2xl font-bold mb-2 text-center text-white shrink-0">
+                      Call your audit specialist
                     </h2>
+                    <p className="text-slate-400 text-sm font-medium text-center mb-8 shrink-0">
+                      Tapping opens your phone dialer.
+                    </p>
+                    {/*
+                      TODO(arbitrage): replace placeholder line 1-800-555-0199 with a
+                      real configured number before presenting this as a live line.
+                      Sprint A leaves the href unchanged and keeps the visible copy
+                      neutral (does not claim a verified specialist is waiting).
+                    */}
                     <a
                       href="tel:18005550199"
-                      aria-label="Tap to call a specialist now"
+                      aria-label="Tap to call now; opens your phone dialer"
                       className="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white font-bold text-xl sm:text-2xl py-5 rounded-2xl shadow-[0_0_30px_rgba(16,185,129,0.4)] flex items-center justify-center gap-3 transition-all hover:scale-105 active:scale-95 shrink-0 min-h-[48px]"
                     >
                       Tap to Call Now
                     </a>
+                    <button
+                      type="button"
+                      onClick={() => advance("timeframe")}
+                      aria-label="Continue without calling"
+                      className="w-full mt-4 bg-transparent border border-white/10 hover:bg-white/5 text-gray-300 hover:text-white font-medium text-sm sm:text-base py-3 rounded-xl transition-all active:scale-95 shrink-0 min-h-[48px]"
+                    >
+                      Continue without calling
+                    </button>
                   </motion.div>
                 )}
 
@@ -1945,9 +1894,12 @@ export default function ArbitrageEngine({
                     exit="exit"
                     className="flex flex-col h-full w-full absolute inset-0 p-6 sm:p-8 overflow-y-auto custom-scrollbar"
                   >
-                    <h2 className="text-xl sm:text-2xl font-bold mb-6 text-center text-white shrink-0">
-                      What's Your Timeframe For This Project?
+                    <h2 className="text-xl sm:text-2xl font-bold mb-2 text-center text-white shrink-0">
+                      What's your timeline for this project?
                     </h2>
+                    <p className="text-slate-400 text-sm font-medium text-center mb-6 shrink-0">
+                      Last step before your audit setup summary.
+                    </p>
                     <div className="flex flex-col gap-3 pb-4">
                       {["1 Month", "2-3 Months", "Just Researching"].map((opt) => (
                         <OptionCard
@@ -1957,6 +1909,9 @@ export default function ArbitrageEngine({
                         />
                       ))}
                     </div>
+                    <p className="text-slate-500 text-xs text-center leading-relaxed shrink-0 px-2">
+                      This is the final question.
+                    </p>
                     <div aria-live="polite" aria-atomic="true">
                       {submitError && (
                         <p
@@ -1989,6 +1944,28 @@ export default function ArbitrageEngine({
                     <p className="text-gray-300 text-sm sm:text-base leading-relaxed shrink-0 px-2">
                       {getDoneCopy().body}
                     </p>
+                    <p className="text-slate-400 text-xs sm:text-sm leading-relaxed shrink-0 px-2 mt-4 border-t border-white/10 pt-4">
+                      {getDoneCopy().footer}
+                    </p>
+                    <div className="flex flex-col gap-3 w-full mt-6 shrink-0 px-2">
+                      <button
+                        type="button"
+                        onClick={handleScanMyQuoteNow}
+                        aria-label="Scan my quote now"
+                        className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-base sm:text-lg py-4 rounded-xl shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all active:scale-95 shrink-0 min-h-[48px] flex items-center justify-center gap-2"
+                      >
+                        <Upload className="w-5 h-5" />
+                        Scan My Quote Now
+                      </button>
+                      <button
+                        type="button"
+                        onClick={dismissModal}
+                        aria-label="Close audit setup"
+                        className="w-full bg-transparent border border-white/10 hover:bg-white/5 text-gray-300 hover:text-white font-medium text-sm sm:text-base py-3 rounded-xl transition-all active:scale-95 shrink-0 min-h-[48px]"
+                      >
+                        Close
+                      </button>
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
