@@ -21,7 +21,6 @@ import {
   Upload,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { supabase } from "@/integrations/supabase/client";
 import { getUtmData } from "@/lib/useUtmCapture";
 import { readLateFbCookies } from "@/lib/attribution/fbCookies";
 import { toE164 } from "@/utils/formatPhone";
@@ -217,20 +216,6 @@ export const FUNNEL_STEPS: FunnelStep[] = [
   "secret_success",
 ];
 
-type LeadCaptureResponse = {
-  success?: boolean;
-  code?: string;
-  message?: string;
-  lead_id?: string;
-  session_id?: string;
-  reused?: boolean;
-};
-
-type LeadCaptureErrorPayload = {
-  code?: string;
-  message?: string;
-};
-
 export type ArbitrageEngineProps = {
   autoOpen?: boolean;
   initialStep?: FunnelStep;
@@ -270,10 +255,6 @@ export default function ArbitrageEngine({
 
   const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email);
   const isRevealed = flowState === "revealed" || flowState === "modal_open";
-
-  // Phase 3 progressive capture (flag-gated; safe/off by default).
-  const progressiveEnabled =
-    import.meta.env.VITE_ARBITRAGE_PROGRESSIVE_CAPTURE === "true";
 
   // Stable per-funnel identity. Generated once per funnel session and held in
   // refs so they survive re-renders and retries. Reset only on a fresh funnel
@@ -366,30 +347,6 @@ export default function ArbitrageEngine({
     setIsSubmitting(true);
     setSubmitError(null);
 
-    const GENERIC_ERROR = "Something went wrong. Please try again.";
-    const USER_SAFE_EDGE_ERRORS: Record<string, string> = {
-      invalid_first_name: "Please enter your name.",
-      invalid_email: "Please enter a valid email address.",
-      invalid_session_id: GENERIC_ERROR,
-      invalid_json: GENERIC_ERROR,
-      invalid_body: GENERIC_ERROR,
-      server_misconfigured: GENERIC_ERROR,
-    };
-
-    const looksInternalError = (message: string): boolean => {
-      const m = message.toLowerCase();
-      return (
-        m.includes("pgrst") ||
-        m.includes("42501") ||
-        m.includes("rls") ||
-        m.includes("policy") ||
-        m.includes("violates") ||
-        m.includes("postgres") ||
-        m.includes("stack") ||
-        (message.includes("{") && message.includes("}"))
-      );
-    };
-
     try {
       const trimmedName = formData.name.trim();
       if (trimmedName.length < 2) {
@@ -411,122 +368,27 @@ export default function ArbitrageEngine({
         return;
       }
 
-      // Phase 3 progressive path: update the existing arbitrage lead row.
-      // Does NOT mint a new session_id and does NOT call capture-truth-gate-lead.
-      if (progressiveEnabled) {
-        const result = await captureArbitrageLead({
-          action: "update_identity",
-          session_id: getArbitrageSessionId(),
-          source: "arbitrage-engine",
-          lead_id: leadIdRef.current,
-          name: trimmedName,
-          email: formData.email.trim().toLowerCase(),
-        });
-        if (!result.ok) {
-          setSubmitError(safeArbError(result.code));
-          return;
-        }
-        leadIdRef.current = result.leadId;
-        advance("intent");
-        return;
-      }
-
-      const utm = getUtmData();
-      const sessionId = crypto.randomUUID();
-      const scopeMap: Record<string, number> = { "1-5": 3, "6-10": 8, "11-15": 13, "15+": 20 };
-      const windowCount = scopeMap[formData.scope] ?? null;
-
-      const fb = readLateFbCookies(
-        { fbp: utm.fbp, fbc: utm.fbc },
-        { surface: "arbitrage_engine", sessionId },
-      );
-
-      const queryClientSlug =
-        typeof window !== "undefined"
-          ? new URLSearchParams(window.location.search).get("client")
-          : null;
-      const lsClientSlug =
-        typeof window !== "undefined"
-          ? localStorage.getItem("wm_client_slug")
-          : null;
-      const effectiveClientSlug =
-        queryClientSlug ?? (utm.client_slug !== "direct" ? utm.client_slug : null) ?? lsClientSlug ?? null;
-
-      if (effectiveClientSlug && typeof window !== "undefined") {
-        try {
-          localStorage.setItem("wm_client_slug", effectiveClientSlug);
-        } catch {
-          // ignore storage failures
-        }
-      }
-
-      const landingPageUrl =
-        utm.landing_page_url ??
-        (typeof window !== "undefined"
-          ? `${window.location.pathname}${window.location.search}`
-          : null);
-
-      const leadCapturePayload = {
-        session_id: sessionId,
-        first_name: trimmedName,
-        email: formData.email.trim().toLowerCase(),
-        phone_e164: phoneE164,
-        county: null,
-        project_type: null,
-        window_count: windowCount,
-        quote_range: null,
+      // Canonical progressive path: enrich the existing arbitrage lead row.
+      // Never mints a new session_id and never calls capture-truth-gate-lead.
+      const result = await captureArbitrageLead({
+        action: "update_identity",
+        session_id: getArbitrageSessionId(),
         source: "arbitrage-engine",
-        client_slug: effectiveClientSlug,
-        utm_source: utm.utm_source,
-        utm_medium: utm.utm_medium,
-        utm_campaign: utm.utm_campaign,
-        utm_term: utm.utm_term,
-        utm_content: utm.utm_content,
-        fbclid: utm.fbclid,
-        gclid: utm.gclid,
-        fbc: fb.fbc,
-        fbp: fb.fbp,
-        landing_page_url: landingPageUrl,
-        first_page_path: utm.landing_page,
-        initial_referrer:
-          typeof document !== "undefined" ? document.referrer || null : null,
-      };
-
-      const { data: captureData, error: captureError } =
-        await supabase.functions.invoke<LeadCaptureResponse>(
-          "capture-truth-gate-lead",
-          { body: leadCapturePayload },
-        );
-
-      if (captureError || !captureData?.success) {
-        const errBody: LeadCaptureErrorPayload = captureData ?? {};
-        const code = errBody.code ?? captureError?.name ?? "lead_capture_failed";
-        const message = errBody.message ?? captureError?.message ?? "";
-
-        const display =
-          USER_SAFE_EDGE_ERRORS[code] ??
-          (message && !looksInternalError(message) ? message : null) ??
-          GENERIC_ERROR;
-
-        console.error("[ArbitrageEngine] lead capture failed", {
-          code,
-          message,
-          session_id: sessionId,
-          has_phone: !!phoneE164,
-          has_client_slug: !!effectiveClientSlug,
-          payload_keys: Object.keys(leadCapturePayload),
-        });
-
-        setSubmitError(display);
+        lead_id: leadIdRef.current,
+        name: trimmedName,
+        email: formData.email.trim().toLowerCase(),
+      });
+      if (!result.ok) {
+        setSubmitError(safeArbError(result.code));
         return;
       }
-
+      leadIdRef.current = result.leadId;
       advance("intent");
     } catch (err: unknown) {
       console.error("[ArbitrageEngine] lead capture failed", {
         error: err instanceof Error ? err.name : "unknown",
       });
-      setSubmitError(GENERIC_ERROR);
+      setSubmitError(GENERIC_SUBMIT_ERROR);
     } finally {
       setIsSubmitting(false);
     }
@@ -680,11 +542,6 @@ export default function ArbitrageEngine({
   const handleContactSubmit = async () => {
     setSubmitError(null);
 
-    if (!progressiveEnabled) {
-      advance("identity");
-      return;
-    }
-
     if (isSubmitting) return;
 
     if (formData.zip.length < 5) {
@@ -753,7 +610,7 @@ export default function ArbitrageEngine({
   // Best-effort call-intent update. Never blocks the UI and never marks
   // durable completion on its own.
   const fireCallIntent = (value: "Yes" | "No") => {
-    if (!progressiveEnabled || !leadIdRef.current) return;
+    if (!leadIdRef.current) return;
     void captureArbitrageLead({
       action: "update_call_intent",
       session_id: getArbitrageSessionId(),
@@ -764,11 +621,6 @@ export default function ArbitrageEngine({
   };
 
   const handleTimeframeSelect = async (opt: string) => {
-    if (!progressiveEnabled) {
-      advance("done", "timeframe", opt);
-      return;
-    }
-
     if (isSubmitting) return;
 
     // Completion requires a stored lead_id from a successful backend response.
