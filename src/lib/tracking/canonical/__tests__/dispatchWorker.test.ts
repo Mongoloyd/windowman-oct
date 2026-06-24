@@ -44,6 +44,7 @@ interface EventLogRecord {
 
 class MockDB {
   public eventStatuses = new Map<string, WMDispatchStatus[]>([]);
+  public updates: Record<string, Array<Record<string, unknown>>> = {};
   public upserts: Record<string, Array<Record<string, unknown>>> = {};
   public eventLogs = new Map<string, EventLogRecord>();
   public attributionBatchFetchIds: string[] = [];
@@ -57,6 +58,15 @@ class MockDB {
   constructor(private rows: MockDispatchRow[]) {
     for (const row of rows) {
       this.eventStatuses.set(row.event_log_id, [row.dispatch_status]);
+    }
+  }
+
+  private applyPlatformDispatchPatch(dispatchId: string, patch: Record<string, unknown>): void {
+    const matched = this.rows.find((item) => item.dispatch_id === dispatchId);
+    if (matched && typeof patch.dispatch_status === "string") {
+      matched.dispatch_status = patch.dispatch_status as WMDispatchStatus;
+      const eventStatusList = this.eventStatuses.get(matched.event_log_id) ?? [];
+      this.eventStatuses.set(matched.event_log_id, [matched.dispatch_status, ...eventStatusList.slice(1)]);
     }
   }
 
@@ -124,6 +134,17 @@ class MockDB {
           },
         }),
       }),
+      update: (payload: Record<string, unknown>) => ({
+        eq: async (_column: string, value: string) => {
+          this.updates[table] = [...(this.updates[table] ?? []), { id: value, ...payload }];
+
+          if (table === "wm_platform_dispatch_log") {
+            this.applyPlatformDispatchPatch(value, payload);
+          }
+
+          return { data: null, error: null };
+        },
+      }),
       upsert: async (payload: Record<string, unknown> | Record<string, unknown>[]) => {
         const rows = Array.isArray(payload) ? payload : [payload];
         this.upserts[table] = [...(this.upserts[table] ?? []), ...rows];
@@ -131,11 +152,8 @@ class MockDB {
         if (table === "wm_platform_dispatch_log") {
           for (const row of rows) {
             const dispatchId = row.id as string;
-            const matched = this.rows.find((item) => item.dispatch_id === dispatchId);
-            if (matched && typeof row.dispatch_status === "string") {
-              matched.dispatch_status = row.dispatch_status as WMDispatchStatus;
-              const eventStatusList = this.eventStatuses.get(matched.event_log_id) ?? [];
-              this.eventStatuses.set(matched.event_log_id, [matched.dispatch_status, ...eventStatusList.slice(1)]);
+            if (dispatchId) {
+              this.applyPlatformDispatchPatch(dispatchId, row);
             }
           }
         }
@@ -194,7 +212,7 @@ describe("runDispatchWorker", () => {
       sendToGoogle: async () => ({ ok: true }),
     });
 
-    const platformUpsert = mock.upserts.wm_platform_dispatch_log?.[0];
+    const platformUpsert = mock.updates.wm_platform_dispatch_log?.[0];
     expect(platformUpsert?.dispatch_status).toBe("suppressed");
   });
 
@@ -209,7 +227,7 @@ describe("runDispatchWorker", () => {
       sendToGoogle: async () => ({ ok: true }),
     });
 
-    const platformUpsert = mock.upserts.wm_platform_dispatch_log?.[0];
+    const platformUpsert = mock.updates.wm_platform_dispatch_log?.[0];
     expect(platformUpsert?.dispatch_status).toBe("sent");
   });
 
@@ -231,7 +249,7 @@ describe("runDispatchWorker", () => {
       sendToGoogle: async () => ({ ok: true }),
     });
 
-    const failureUpsert = mock.upserts.wm_platform_dispatch_log?.[0];
+    const failureUpsert = mock.updates.wm_platform_dispatch_log?.[0];
     expect(failureUpsert?.dispatch_status).toBe("failed");
     expect(String(failureUpsert?.next_attempt_at)).toBe("2026-04-14T12:30:00.000Z");
   });
@@ -252,7 +270,7 @@ describe("runDispatchWorker", () => {
       sendToGoogle: async () => ({ ok: true }),
     });
 
-    const failureUpsert = mock.upserts.wm_platform_dispatch_log?.[0];
+    const failureUpsert = mock.updates.wm_platform_dispatch_log?.[0];
     expect(failureUpsert?.dispatch_status).toBe("dead_letter");
     expect(failureUpsert?.next_attempt_at).toBe(null);
   });
@@ -273,7 +291,7 @@ describe("runDispatchWorker", () => {
       sendToGoogle: async () => ({ ok: true }),
     });
 
-    const failureUpsert = mock.upserts.wm_platform_dispatch_log?.[0];
+    const failureUpsert = mock.updates.wm_platform_dispatch_log?.[0];
     expect(failureUpsert?.dispatch_status).toBe("dead_letter");
     expect(failureUpsert?.next_attempt_at).toBe(null);
   });
@@ -322,7 +340,7 @@ describe("runDispatchWorker", () => {
     });
 
     expect(calls).toBe(1);
-    expect(mock.upserts.wm_platform_dispatch_log?.[0]?.dispatch_status).toBe("sent");
+    expect(mock.updates.wm_platform_dispatch_log?.[0]?.dispatch_status).toBe("sent");
   });
 
   it("sends to Meta and injects client_slug when event_client_slug is present", async () => {
@@ -341,7 +359,7 @@ describe("runDispatchWorker", () => {
     });
 
     expect(capturedPayload?.client_slug).toBe("tenant-beta");
-    expect(mock.upserts.wm_platform_dispatch_log?.[0]?.dispatch_status).toBe("sent");
+    expect(mock.updates.wm_platform_dispatch_log?.[0]?.dispatch_status).toBe("sent");
   });
 
   it("does not call sendToMeta when slug is null and lead_id is present", async () => {
@@ -365,7 +383,7 @@ describe("runDispatchWorker", () => {
     });
 
     expect(calls).toBe(0);
-    const upsert = mock.upserts.wm_platform_dispatch_log?.[0];
+    const upsert = mock.updates.wm_platform_dispatch_log?.[0];
     expect(upsert?.dispatch_status).toBe("failed");
     expect(upsert?.error_message).toBe("route_resolution_deferred");
     expect(upsert?.provider_response_code).toBe("ownership_gate");
@@ -391,7 +409,7 @@ describe("runDispatchWorker", () => {
     });
 
     expect(calls).toBe(0);
-    expect(mock.upserts.wm_platform_dispatch_log?.[0]?.error_message).toBe("route_resolution_deferred");
+    expect(mock.updates.wm_platform_dispatch_log?.[0]?.error_message).toBe("route_resolution_deferred");
   });
 
   it("does not call sendToMeta when slug is null and analysis_id is present", async () => {
@@ -414,7 +432,7 @@ describe("runDispatchWorker", () => {
     });
 
     expect(calls).toBe(0);
-    expect(mock.upserts.wm_platform_dispatch_log?.[0]?.error_message).toBe("route_resolution_deferred");
+    expect(mock.updates.wm_platform_dispatch_log?.[0]?.error_message).toBe("route_resolution_deferred");
   });
 
   it("does not call sendToMeta when slug is null and quote_file_id is present", async () => {
@@ -437,7 +455,7 @@ describe("runDispatchWorker", () => {
     });
 
     expect(calls).toBe(0);
-    expect(mock.upserts.wm_platform_dispatch_log?.[0]?.error_message).toBe("route_resolution_deferred");
+    expect(mock.updates.wm_platform_dispatch_log?.[0]?.error_message).toBe("route_resolution_deferred");
   });
 
   it("defers unresolved tenant rows when attemptCount is less than 4", async () => {
@@ -457,7 +475,7 @@ describe("runDispatchWorker", () => {
       sendToGoogle: async () => ({ ok: true }),
     });
 
-    const upsert = mock.upserts.wm_platform_dispatch_log?.[0];
+    const upsert = mock.updates.wm_platform_dispatch_log?.[0];
     expect(upsert?.dispatch_status).toBe("failed");
     expect(upsert?.error_message).toBe("route_resolution_deferred");
     expect(String(upsert?.next_attempt_at)).toBe("2026-04-14T12:30:00.000Z");
@@ -482,7 +500,7 @@ describe("runDispatchWorker", () => {
       sendToGoogle: async () => ({ ok: true }),
     });
 
-    const upsert = mock.upserts.wm_platform_dispatch_log?.[0];
+    const upsert = mock.updates.wm_platform_dispatch_log?.[0];
     expect(upsert?.dispatch_status).toBe("blocked");
     expect(upsert?.error_message).toBe("legacy_ambiguous_owner");
     expect(upsert?.next_attempt_at).toBeNull();
@@ -512,7 +530,7 @@ describe("runDispatchWorker", () => {
     });
 
     expect(calls).toBe(0);
-    const upsert = mock.upserts.wm_platform_dispatch_log?.[0];
+    const upsert = mock.updates.wm_platform_dispatch_log?.[0];
     expect(upsert?.dispatch_status).toBe("blocked");
     expect(upsert?.error_message).toBe("platform_default_not_allowed");
     expect(upsert?.next_attempt_at).toBeNull();
@@ -578,7 +596,7 @@ describe("runDispatchWorker", () => {
       sendToGoogle: async () => ({ ok: true }),
     });
 
-    const upsert = mock.upserts.wm_platform_dispatch_log?.[0];
+    const upsert = mock.updates.wm_platform_dispatch_log?.[0];
     expect(upsert?.dispatch_status).toBe("suppressed");
     expect(upsert?.error_message).toBe("nextdoor_sender_not_configured");
   });
@@ -595,7 +613,7 @@ describe("runDispatchWorker", () => {
       sendToGoogle: async () => ({ ok: true }),
     });
 
-    const upsert = mock.upserts.wm_platform_dispatch_log?.[0];
+    const upsert = mock.updates.wm_platform_dispatch_log?.[0];
     expect(upsert?.dispatch_status).toBe("suppressed");
     expect(upsert?.error_message).toBe("nextdoor_missing_action_source_url");
   });
@@ -619,7 +637,7 @@ describe("runDispatchWorker", () => {
       sendToGoogle: async () => ({ ok: true }),
     });
 
-    const upsert = mock.upserts.wm_platform_dispatch_log?.[0];
+    const upsert = mock.updates.wm_platform_dispatch_log?.[0];
     expect(upsert?.dispatch_status).toBe("suppressed");
     expect(upsert?.error_message).toBe("nextdoor_missing_client_slug");
   });
@@ -642,7 +660,7 @@ describe("runDispatchWorker", () => {
       sendToGoogle: async () => ({ ok: true }),
     });
 
-    const upsert = mock.upserts.wm_platform_dispatch_log?.[0];
+    const upsert = mock.updates.wm_platform_dispatch_log?.[0];
     expect(upsert?.dispatch_status).toBe("suppressed");
     expect(upsert?.error_message).toBe("missing_customer");
   });
@@ -670,7 +688,7 @@ describe("runDispatchWorker", () => {
     expect((capturedRequest?.payload as Record<string, unknown>)?.data_source_id).toBe(
       "server_resolved_by_nextdoor_capi_event",
     );
-    expect(mock.upserts.wm_platform_dispatch_log?.[0]?.dispatch_status).toBe("sent");
+    expect(mock.updates.wm_platform_dispatch_log?.[0]?.dispatch_status).toBe("sent");
   });
 
   it("nextdoor branch schedules retry for retryable sendToNextdoor errors", async () => {
@@ -693,7 +711,7 @@ describe("runDispatchWorker", () => {
       }),
     });
 
-    const upsert = mock.upserts.wm_platform_dispatch_log?.[0];
+    const upsert = mock.updates.wm_platform_dispatch_log?.[0];
     expect(upsert?.dispatch_status).toBe("failed");
     expect(String(upsert?.next_attempt_at)).toBe("2026-04-14T12:30:00.000Z");
   });
@@ -716,7 +734,7 @@ describe("runDispatchWorker", () => {
       }),
     });
 
-    const upsert = mock.upserts.wm_platform_dispatch_log?.[0];
+    const upsert = mock.updates.wm_platform_dispatch_log?.[0];
     expect(upsert?.dispatch_status).toBe("dead_letter");
     expect(upsert?.next_attempt_at).toBe(null);
   });
@@ -740,7 +758,7 @@ describe("runDispatchWorker", () => {
     });
 
     expect(googleCalls).toBe(1);
-    expect(mock.upserts.wm_platform_dispatch_log?.[0]?.dispatch_status).toBe("sent");
+    expect(mock.updates.wm_platform_dispatch_log?.[0]?.dispatch_status).toBe("sent");
   });
 
   it("nextdoor branch uses worker-local shouldSendNextdoor override for queued rows", async () => {
@@ -761,7 +779,7 @@ describe("runDispatchWorker", () => {
     });
 
     expect(sendCalls).toBe(1);
-    expect(mock.upserts.wm_platform_dispatch_log?.[0]?.dispatch_status).toBe("sent");
+    expect(mock.updates.wm_platform_dispatch_log?.[0]?.dispatch_status).toBe("sent");
   });
 
   it("nextdoor branch prefers metadata current_page_url over NEXTDOOR_EVENT_SOURCE_URL", async () => {
@@ -802,7 +820,7 @@ describe("runDispatchWorker", () => {
     });
 
     expect(actionSourceUrl).toBe("/truth-gate?utm_source=nextdoor");
-    expect(mock.upserts.wm_platform_dispatch_log?.[0]?.dispatch_status).toBe("sent");
+    expect(mock.updates.wm_platform_dispatch_log?.[0]?.dispatch_status).toBe("sent");
   });
 
   it("nextdoor branch falls back to metadata landing_page_url when current_page_url is absent", async () => {
@@ -878,7 +896,7 @@ describe("runDispatchWorker", () => {
       })),
     );
 
-    const upsert = mock.upserts.wm_platform_dispatch_log?.[0];
+    const upsert = mock.updates.wm_platform_dispatch_log?.[0];
     expect(upsert?.dispatch_status).toBe("sent");
     expect(upsert?.provider_response_body).toMatchObject({ dry_run: true });
   });
@@ -956,7 +974,7 @@ describe("runDispatchWorker", () => {
     );
 
     expect(sendCalls).toBe(0);
-    const upsert = mock.upserts.wm_platform_dispatch_log?.[0];
+    const upsert = mock.updates.wm_platform_dispatch_log?.[0];
     expect(upsert?.dispatch_status).toBe("suppressed");
     expect(upsert?.error_message).toBe("no_tiktok_mapping");
   });
@@ -989,7 +1007,7 @@ describe("runDispatchWorker", () => {
     );
 
     expect(sendCalls).toBe(0);
-    const upsert = mock.upserts.wm_platform_dispatch_log?.[0];
+    const upsert = mock.updates.wm_platform_dispatch_log?.[0];
     expect(upsert?.dispatch_status).toBe("suppressed");
     expect(upsert?.error_message).toBe("missing_revenue_value");
   });
@@ -1030,9 +1048,122 @@ describe("runDispatchWorker", () => {
     });
 
     expect(tiktokCalls).toBe(0);
-    const upsert = mock.upserts.wm_platform_dispatch_log?.[0];
+    const upsert = mock.updates.wm_platform_dispatch_log?.[0];
     expect(upsert?.dispatch_status).toBe("suppressed");
     expect(upsert?.error_message).toBe("unsupported_platform:internal");
+  });
+
+  describe("dispatch row write-back", () => {
+    it("updates suppressed rows by dispatch_id without partial upsert columns", async () => {
+      const row = makeRow({
+        event_payload: {
+          identity: {},
+          journey: { route: "/", flow: "public" },
+        },
+      });
+      const mock = new MockDB([row]);
+
+      await runDispatchWorker({
+        db: mock as unknown as DBLike,
+        metaEventSourceUrl: "https://windowman.app",
+        sendToMeta: async () => ({ ok: true }),
+        sendToGoogle: async () => ({ ok: true }),
+      });
+
+      const update = mock.updates.wm_platform_dispatch_log?.[0];
+      expect(update?.id).toBe(row.dispatch_id);
+      expect(update?.dispatch_status).toBe("suppressed");
+      expect(update).not.toHaveProperty("event_log_id");
+      expect(mock.upserts.wm_platform_dispatch_log).toBeUndefined();
+      expect(mock.updates.wm_event_log?.length).toBeGreaterThan(0);
+    });
+
+    it("updates sent rows by dispatch_id without partial upsert", async () => {
+      const row = makeRow();
+      const mock = new MockDB([row]);
+
+      await runDispatchWorker({
+        db: mock as unknown as DBLike,
+        metaEventSourceUrl: "https://windowman.app",
+        sendToMeta: async () => ({ ok: true, statusCode: 200, responseBody: { success: true } }),
+        sendToGoogle: async () => ({ ok: true }),
+      });
+
+      const update = mock.updates.wm_platform_dispatch_log?.[0];
+      expect(update?.id).toBe(row.dispatch_id);
+      expect(update?.dispatch_status).toBe("sent");
+      expect(update).not.toHaveProperty("event_log_id");
+      expect(mock.upserts.wm_platform_dispatch_log).toBeUndefined();
+    });
+
+    it("updates failed/dead_letter rows by dispatch_id without partial upsert", async () => {
+      const row = makeRow({ attempt_count: 1 });
+      const mock = new MockDB([row]);
+
+      await runDispatchWorker({
+        db: mock as unknown as DBLike,
+        metaEventSourceUrl: "https://windowman.app",
+        sendToMeta: async () => ({
+          ok: false,
+          retryable: false,
+          statusCode: 400,
+          errorMessage: "provider_4xx",
+        }),
+        sendToGoogle: async () => ({ ok: true }),
+      });
+
+      const update = mock.updates.wm_platform_dispatch_log?.[0];
+      expect(update?.id).toBe(row.dispatch_id);
+      expect(update?.dispatch_status).toBe("dead_letter");
+      expect(update).not.toHaveProperty("event_log_id");
+      expect(mock.upserts.wm_platform_dispatch_log).toBeUndefined();
+    });
+
+    it("updates ownership-gated rows by dispatch_id without partial upsert", async () => {
+      const row = makeRow({
+        event_client_slug: null,
+        event_lead_id: null,
+        event_scan_session_id: null,
+        event_analysis_id: null,
+        event_quote_file_id: null,
+        attempt_count: 4,
+      });
+      const mock = new MockDB([row]);
+
+      await runDispatchWorker({
+        db: mock as unknown as DBLike,
+        metaEventSourceUrl: "https://windowman.app",
+        sendToMeta: async () => ({ ok: true, statusCode: 200, responseBody: { success: true } }),
+        sendToGoogle: async () => ({ ok: true }),
+      });
+
+      const update = mock.updates.wm_platform_dispatch_log?.[0];
+      expect(update?.id).toBe(row.dispatch_id);
+      expect(update?.dispatch_status).toBe("blocked");
+      expect(update?.provider_response_code).toBe("ownership_gate");
+      expect(update).not.toHaveProperty("event_log_id");
+      expect(mock.upserts.wm_platform_dispatch_log).toBeUndefined();
+    });
+
+    it("does not write private report or secret fields in dispatch write-back", async () => {
+      const row = makeTikTokRow();
+      const mock = new MockDB([row]);
+      mock.eventLogs.set(row.event_log_id, { attribution: { ttclid: "ttclid-1" } });
+
+      await runDispatchWorker(
+        tiktokWorkerDeps(mock, async () => ({
+          ok: true,
+          statusCode: 200,
+          responseBody: { success: true, dry_run: true },
+        })),
+      );
+
+      const serialized = JSON.stringify(mock.updates.wm_platform_dispatch_log ?? []);
+      expect(serialized).not.toMatch(/full_json|signedUrl|createSignedUrl|ACCESS_TOKEN|SECRET|ocr/i);
+      expect(mock.updates.wm_platform_dispatch_log?.[0]?.provider_response_body).toMatchObject({
+        dry_run: true,
+      });
+    });
   });
 
   describe("resolveNextdoorActionSourceUrl", () => {

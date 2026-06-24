@@ -67,6 +67,12 @@ export interface DBLike {
         }>;
       };
     };
+    update(payload: Record<string, unknown>): {
+      eq(column: string, value: string): Promise<{
+        data: unknown;
+        error: { message?: string } | null;
+      }>;
+    };
     upsert(payload: Record<string, unknown> | Record<string, unknown>[], options?: { onConflict?: string }): Promise<{
       data: unknown;
       error: { message?: string } | null;
@@ -298,29 +304,25 @@ async function upsertOwnershipGate(
 ): Promise<void> {
   const failure = classifyOwnershipFailure(classification, row.attempt_count, now);
 
-  const { error: upsertError } = await db.from("wm_platform_dispatch_log").upsert(
-    {
-      id: row.dispatch_id,
-      dispatch_status: failure.nextStatus,
-      last_attempt_at: currentNowIso,
-      next_attempt_at: failure.nextRetryAt,
-      provider_response_code: "ownership_gate",
-      provider_response_body: {
-        reason: failure.errorMessage,
-        route_class: classification.routeClass,
-        event_name: row.event_name,
-        event_log_id: row.event_log_id,
-        verified_client_slug: classification.verifiedClientSlug,
-      },
-      error_message: failure.errorMessage,
-      attempt_count: row.attempt_count,
+  const { error: updateError } = await db.from("wm_platform_dispatch_log").update({
+    dispatch_status: failure.nextStatus,
+    last_attempt_at: currentNowIso,
+    next_attempt_at: failure.nextRetryAt,
+    provider_response_code: "ownership_gate",
+    provider_response_body: {
+      reason: failure.errorMessage,
+      route_class: classification.routeClass,
+      event_name: row.event_name,
+      event_log_id: row.event_log_id,
+      verified_client_slug: classification.verifiedClientSlug,
     },
-    { onConflict: "id" },
-  );
+    error_message: failure.errorMessage,
+    attempt_count: row.attempt_count,
+  }).eq("id", row.dispatch_id);
 
-  if (upsertError) {
+  if (updateError) {
     throw new Error(
-      `Failed to upsert ownership-gated dispatch row: ${upsertError.message ?? "unknown"}`,
+      `Failed to update ownership-gated dispatch row: ${updateError.message ?? "unknown"}`,
     );
   }
 }
@@ -356,17 +358,13 @@ async function syncEventDispatchStatus(db: DBLike, eventLogId: string, nowIso: s
     nextStatus = "sent";
   }
 
-  const { error: upsertError } = await db.from("wm_event_log").upsert(
-    {
-      id: eventLogId,
-      dispatch_status: nextStatus,
-      dispatch_attempted_at: nowIso,
-    },
-    { onConflict: "id" },
-  );
+  const { error: updateError } = await db.from("wm_event_log").update({
+    dispatch_status: nextStatus,
+    dispatch_attempted_at: nowIso,
+  }).eq("id", eventLogId);
 
-  if (upsertError) {
-    throw new Error(`Failed to upsert wm_event_log dispatch status: ${upsertError.message ?? "unknown"}`);
+  if (updateError) {
+    throw new Error(`Failed to update wm_event_log dispatch status: ${updateError.message ?? "unknown"}`);
   }
 }
 
@@ -549,22 +547,18 @@ export async function runDispatchWorker(deps: WorkerDeps): Promise<{ processed: 
     }
 
     if (suppressedReason) {
-      const { error: upsertError } = await deps.db.from("wm_platform_dispatch_log").upsert(
-        {
-          id: row.dispatch_id,
-          dispatch_status: "suppressed",
-          last_attempt_at: currentNowIso,
-          next_attempt_at: null,
-          provider_response_code: "suppressed",
-          provider_response_body: { reason: suppressedReason },
-          error_message: suppressedReason,
-          attempt_count: row.attempt_count,
-        },
-        { onConflict: "id" },
-      );
+      const { error: updateError } = await deps.db.from("wm_platform_dispatch_log").update({
+        dispatch_status: "suppressed",
+        last_attempt_at: currentNowIso,
+        next_attempt_at: null,
+        provider_response_code: "suppressed",
+        provider_response_body: { reason: suppressedReason },
+        error_message: suppressedReason,
+        attempt_count: row.attempt_count,
+      }).eq("id", row.dispatch_id);
 
-      if (upsertError) {
-        throw new Error(`Failed to upsert suppressed dispatch row: ${upsertError.message ?? "unknown"}`);
+      if (updateError) {
+        throw new Error(`Failed to update suppressed dispatch row: ${updateError.message ?? "unknown"}`);
       }
 
       dirtyEventLogIds.add(row.event_log_id);
@@ -576,26 +570,22 @@ export async function runDispatchWorker(deps: WorkerDeps): Promise<{ processed: 
     }
 
     if (sendResult.ok) {
-      const { error: upsertError } = await deps.db.from("wm_platform_dispatch_log").upsert(
-        {
-          id: row.dispatch_id,
-          dispatch_status: "sent",
-          last_attempt_at: currentNowIso,
-          next_attempt_at: null,
-          provider_response_code: sendResult.statusCode ? String(sendResult.statusCode) : "200",
-          provider_response_body: {
-            ...(tiktokDryRunDispatch ? { dry_run: true } : {}),
-            response: sendResult.responseBody ?? {},
-            request_payload: sendResult.requestPayload ?? {},
-          },
-          error_message: null,
-          attempt_count: row.attempt_count,
+      const { error: updateError } = await deps.db.from("wm_platform_dispatch_log").update({
+        dispatch_status: "sent",
+        last_attempt_at: currentNowIso,
+        next_attempt_at: null,
+        provider_response_code: sendResult.statusCode ? String(sendResult.statusCode) : "200",
+        provider_response_body: {
+          ...(tiktokDryRunDispatch ? { dry_run: true } : {}),
+          response: sendResult.responseBody ?? {},
+          request_payload: sendResult.requestPayload ?? {},
         },
-        { onConflict: "id" },
-      );
+        error_message: null,
+        attempt_count: row.attempt_count,
+      }).eq("id", row.dispatch_id);
 
-      if (upsertError) {
-        throw new Error(`Failed to upsert sent dispatch row: ${upsertError.message ?? "unknown"}`);
+      if (updateError) {
+        throw new Error(`Failed to update sent dispatch row: ${updateError.message ?? "unknown"}`);
       }
 
       dirtyEventLogIds.add(row.event_log_id);
@@ -604,25 +594,21 @@ export async function runDispatchWorker(deps: WorkerDeps): Promise<{ processed: 
 
     const failure = classifyFailure(sendResult, row.attempt_count, currentNow);
 
-    const { error: failureUpsertError } = await deps.db.from("wm_platform_dispatch_log").upsert(
-      {
-        id: row.dispatch_id,
-        dispatch_status: failure.nextStatus,
-        last_attempt_at: currentNowIso,
-        next_attempt_at: failure.nextRetryAt,
-        provider_response_code: sendResult.statusCode ? String(sendResult.statusCode) : "error",
-        provider_response_body: {
-          response: sendResult.responseBody ?? {},
-          request_payload: sendResult.requestPayload ?? {},
-        },
-        error_message: failure.errorMessage,
-        attempt_count: row.attempt_count,
+    const { error: failureUpdateError } = await deps.db.from("wm_platform_dispatch_log").update({
+      dispatch_status: failure.nextStatus,
+      last_attempt_at: currentNowIso,
+      next_attempt_at: failure.nextRetryAt,
+      provider_response_code: sendResult.statusCode ? String(sendResult.statusCode) : "error",
+      provider_response_body: {
+        response: sendResult.responseBody ?? {},
+        request_payload: sendResult.requestPayload ?? {},
       },
-      { onConflict: "id" },
-    );
+      error_message: failure.errorMessage,
+      attempt_count: row.attempt_count,
+    }).eq("id", row.dispatch_id);
 
-    if (failureUpsertError) {
-      throw new Error(`Failed to upsert failed dispatch row: ${failureUpsertError.message ?? "unknown"}`);
+    if (failureUpdateError) {
+      throw new Error(`Failed to update failed dispatch row: ${failureUpdateError.message ?? "unknown"}`);
     }
 
     dirtyEventLogIds.add(row.event_log_id);
