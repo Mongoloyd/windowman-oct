@@ -13,6 +13,7 @@ import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, AlertCircle, ArrowLeft, ShieldCheck } from "lucide-react";
 import { AdminShell } from "@/components/admin/shell/AdminShell";
+import { AdminGlobalNav } from "@/components/admin/shell/AdminGlobalNav";
 import {
   fetchLeadDetail,
   fetchLeadAnalysis,
@@ -74,7 +75,7 @@ export default function AdminLeadReport() {
 
   if (!leadIdValid) {
     return (
-      <AdminShell title="Invalid lead ID" backTo="/admin/leads" backLabel="Back to inbox">
+      <AdminShell title="Invalid lead ID" backTo="/admin/leads" backLabel="Back to inbox" nav={<AdminGlobalNav />}>
         <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           <AlertCircle className="h-5 w-5 mt-0.5 shrink-0" />
           <div>
@@ -91,7 +92,7 @@ export default function AdminLeadReport() {
 
   if (leadLoading || analysisLoading) {
     return (
-      <AdminShell title="Loading Truth Report…" backTo={backTo} backLabel="Back to dossier">
+      <AdminShell title="Loading Truth Report…" backTo={backTo} backLabel="Back to dossier" nav={<AdminGlobalNav />}>
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-6 w-6 animate-spin text-slate-700" />
         </div>
@@ -101,7 +102,7 @@ export default function AdminLeadReport() {
 
   if (leadErr || !lead) {
     return (
-      <AdminShell title="Couldn't load report" backTo={backTo} backLabel="Back to dossier">
+      <AdminShell title="Couldn't load report" backTo={backTo} backLabel="Back to dossier" nav={<AdminGlobalNav />}>
         <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           <AlertCircle className="h-5 w-5 mt-0.5 shrink-0" />
           <div>
@@ -115,7 +116,7 @@ export default function AdminLeadReport() {
 
   if (!analysisId) {
     return (
-      <AdminShell title="Truth Report" backTo={backTo} backLabel="Back to dossier">
+      <AdminShell title="Truth Report" backTo={backTo} backLabel="Back to dossier" nav={<AdminGlobalNav />}>
         <div className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-800">
           <AlertCircle className="h-5 w-5 mt-0.5 shrink-0" />
           <div>
@@ -132,7 +133,7 @@ export default function AdminLeadReport() {
 
   if (analysisErr || !reportData) {
     return (
-      <AdminShell title="Truth Report" backTo={backTo} backLabel="Back to dossier">
+      <AdminShell title="Truth Report" backTo={backTo} backLabel="Back to dossier" nav={<AdminGlobalNav />}>
         <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           <AlertCircle className="h-5 w-5 mt-0.5 shrink-0" />
           <div>
@@ -152,6 +153,7 @@ export default function AdminLeadReport() {
       title={`Truth Report · ${homeownerName}`}
       backTo={backTo}
       backLabel="Back to dossier"
+      nav={<AdminGlobalNav />}
     >
       <div className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-800">
         <ShieldCheck className="h-3.5 w-3.5 shrink-0" />

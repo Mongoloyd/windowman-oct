@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { format, formatDistanceToNow, subDays } from "date-fns";
 import { AdminShell } from "@/components/admin/shell/AdminShell";
+import { AdminGlobalNav } from "@/components/admin/shell/AdminGlobalNav";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -483,6 +484,7 @@ export default function LeadInbox() {
       eyebrow="Operator · Triage"
       title="Lead Inbox"
       subtitle={subtitle}
+      nav={<AdminGlobalNav />}
       belowHeader={
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-800">

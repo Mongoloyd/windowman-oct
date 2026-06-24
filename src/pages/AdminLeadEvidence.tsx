@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { AlertCircle, ExternalLink, FileSearch, Loader2, RefreshCcw, Search, ShieldAlert } from "lucide-react";
 import { AdminShell } from "@/components/admin/shell/AdminShell";
+import { AdminGlobalNav } from "@/components/admin/shell/AdminGlobalNav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -106,6 +107,7 @@ export default function AdminLeadEvidence() {
       subtitle="Read-only chain view for quote files, scan sessions, analyses, and existing admin report links."
       backTo="/admin/leads"
       backLabel="Back to Lead Inbox"
+      nav={<AdminGlobalNav />}
       belowHeader={
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative min-w-[260px] flex-1 max-w-xl">

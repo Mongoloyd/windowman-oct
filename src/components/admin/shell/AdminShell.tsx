@@ -21,6 +21,12 @@ interface AdminShellProps {
   subtitle?: string;
   backTo?: string;
   backLabel?: string;
+  /**
+   * Optional persistent global navigation (e.g. <AdminGlobalNav />), rendered
+   * directly below the header/identity row and above `belowHeader`. When
+   * undefined, the header layout is unchanged.
+   */
+  nav?: ReactNode;
   /** Optional element rendered between header and content (tabs, filters, …). */
   belowHeader?: ReactNode;
   /** Whether the content area gets the standard max-width container.  */
@@ -34,6 +40,7 @@ export function AdminShell({
   subtitle,
   backTo,
   backLabel = "Back to dashboard",
+  nav,
   belowHeader,
   fullBleed = false,
   children,
@@ -65,6 +72,7 @@ export function AdminShell({
               <AdminIdentityBar />
             </div>
           </div>
+          {nav && <div className="mt-4">{nav}</div>}
           {belowHeader && <div className="mt-4">{belowHeader}</div>}
         </div>
       </header>
