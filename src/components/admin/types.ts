@@ -78,6 +78,10 @@ export interface CRMLead {
   // ─── Phase 25 — Revenue (repo-real on `leads`) ─────────────────────
   deal_value: number | null;
   revenue_amount: number | null;
+
+  /** Denormalized CRM activity snapshot (Sprint 1 lead spine) */
+  last_activity_at: string | null;
+  latest_activity_type: string | null;
 }
 
 /** Derive pipeline status from raw lead data */
