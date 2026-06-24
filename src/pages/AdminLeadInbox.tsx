@@ -25,6 +25,7 @@ import { invokeAdminData, getErrorMessage, updateLeadDisposition } from "@/servi
 import type { CRMLead } from "@/components/admin/types";
 import { FUNNEL_STAGES, getStageDef } from "@/components/admin/leadWorkflow";
 import { formatLatestActivityLabel } from "@/lib/formatLatestActivityLabel";
+import { QuoteViewerButton } from "@/components/admin/QuoteViewerButton";
 
 type DateRange = "all" | "24h" | "7d" | "30d";
 type VerifiedFilter = "all" | "verified" | "unverified";
@@ -1014,15 +1015,18 @@ function LeadTable({ leads, onView }: { leads: InboxLead[]; onView: (id: string)
                     </div>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <Link
-                      to={`/admin/leads/${l.id}`}
-                      onClick={(e) => e.stopPropagation()}
-                      className="inline-flex items-center gap-1 text-sm font-bold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
-                      aria-label={`View details for ${name}`}
-                    >
-                      View
-                      <ChevronRight className="h-3.5 w-3.5" />
-                    </Link>
+                    <div className="flex items-center justify-end gap-2">
+                      <QuoteViewerButton leadId={l.id} />
+                      <Link
+                        to={`/admin/leads/${l.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex items-center gap-1 text-sm font-bold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+                        aria-label={`View details for ${name}`}
+                      >
+                        View
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               );
