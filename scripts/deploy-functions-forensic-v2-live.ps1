@@ -1,5 +1,5 @@
-# Deploy exactly the four CRM activity emitter Edge Functions to the approved live Forensic V2 Supabase target.
-# Scope: start-upload-scan-session, capture-truth-gate-lead, capture-arbitrage-lead, capture-power-tool-demo-lead only.
+# Deploy approved Forensic V2 Edge Functions to the staging target (zgsofkgddpcntdvpckdq).
+# Scope: CRM emitters + TikTok dry-run dispatch lane (Sprint 3C-5A).
 # Never deploy-all, never --prune, never db push/reset/secrets/typegen.
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
@@ -12,7 +12,9 @@ $TargetFunctions = @(
     "start-upload-scan-session",
     "capture-truth-gate-lead",
     "capture-arbitrage-lead",
-    "capture-power-tool-demo-lead"
+    "capture-power-tool-demo-lead",
+    "dispatch-platform-events",
+    "tiktok-capi-event"
 )
 
 function Get-BannerText {
@@ -113,11 +115,13 @@ $DeployCommands = @(
     "npx supabase functions deploy start-upload-scan-session --project-ref $ApprovedRef",
     "npx supabase functions deploy capture-truth-gate-lead --project-ref $ApprovedRef",
     "npx supabase functions deploy capture-arbitrage-lead --project-ref $ApprovedRef",
-    "npx supabase functions deploy capture-power-tool-demo-lead --project-ref $ApprovedRef"
+    "npx supabase functions deploy capture-power-tool-demo-lead --project-ref $ApprovedRef",
+    "npx supabase functions deploy dispatch-platform-events --project-ref $ApprovedRef",
+    "npx supabase functions deploy tiktok-capi-event --project-ref $ApprovedRef"
 )
 
 Write-Host ""
-Write-Host "=== DEPLOY SUMMARY (four CRM emitter functions) ==="
+Write-Host "=== DEPLOY SUMMARY (CRM emitters + TikTok dry-run dispatch) ==="
 Write-Host "Branch:              $Branch"
 Write-Host "HEAD SHA:            $HeadSha"
 Write-Host "Approved target ref: $ApprovedRef"
@@ -152,7 +156,7 @@ finally {
 }
 
 Write-Host ""
-Write-Host "Deploy complete for all four CRM emitter functions."
-Write-Host "Next: run manual verification checklist (functions list, smoke, DB attribution inspection)."
+Write-Host "Deploy complete for all approved functions."
+Write-Host "Next: run TikTok 3C-5 staging dry-run smoke (see docs/ops/TIKTOK_3C5_STAGING_DRY_RUN_RUNBOOK.md)."
 Write-Host "This script did NOT run smoke tests, secrets set, db push, typegen, or --prune."
 exit 0
