@@ -21,14 +21,31 @@ import type {
   Timeline,
 } from "./intakeTypes";
 
+/** Full set of scope bands the backend Edge Function accepts on `create`. */
 export type BackendScope = "1-5" | "6-10" | "11-15" | "15+";
+/**
+ * The subset of `BackendScope` the current intake vocabulary can actually
+ * produce. The intake openings buckets jump from "6-10" straight to "11-20",
+ * so no input maps to the backend's "11-15" band — callers must never assume
+ * `mapProjectSizeToScope` can return it. Derived via `Exclude` so this stays a
+ * true subset if `BackendScope` ever changes.
+ */
+export type MappedBackendScope = Exclude<BackendScope, "11-15">;
 export type BackendHasEstimate = "Yes" | "No";
+/** Full set of deal-breaker values the backend Edge Function accepts. */
 export type BackendDealBreaker =
   | "Price"
   | "Company Reputation"
   | "Timing"
   | "Financing"
   | "Other";
+/**
+ * The subset of `BackendDealBreaker` the current intake vocabulary can actually
+ * produce. There is no `ThreatConcern` that maps to "Timing", so callers must
+ * never assume `mapThreatToDealBreaker` can return it. Derived via `Exclude` so
+ * this stays a true subset if `BackendDealBreaker` ever changes.
+ */
+export type MappedBackendDealBreaker = Exclude<BackendDealBreaker, "Timing">;
 export type BackendCallIntent = "Yes" | "No";
 export type BackendTimeframe = "1 Month" | "2-3 Months" | "Just Researching";
 
@@ -48,7 +65,7 @@ export function mapBucketToHasEstimate(
 
 export function mapThreatToDealBreaker(
   threat: ThreatConcern,
-): BackendDealBreaker {
+): MappedBackendDealBreaker {
   switch (threat) {
     case "overpaying":
       return "Price";
@@ -67,7 +84,7 @@ export function mapThreatToDealBreaker(
  * "whole house / not sure" buckets have no exact backend twin, so both resolve
  * to "15+" (the largest supported band) to avoid under-counting scope.
  */
-export function mapProjectSizeToScope(size: ProjectSize): BackendScope {
+export function mapProjectSizeToScope(size: ProjectSize): MappedBackendScope {
   switch (size) {
     case "1-5":
       return "1-5";
