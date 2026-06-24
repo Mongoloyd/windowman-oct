@@ -43,6 +43,7 @@ export const WM_PLATFORM_NAMES = [
   "ga4",
   "internal",
   "nextdoor",
+  "tiktok",
 ] as const;
 
 export const WM_IDENTITY_QUALITIES = [

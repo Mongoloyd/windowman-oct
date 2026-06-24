@@ -73,6 +73,7 @@ Deno.serve(async (req) => {
 
     const capiUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/capi-event`;
     const nextdoorCapiUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/nextdoor-capi-event`;
+    const tiktokCapiUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/tiktok-capi-event`;
     const googleDispatchUrl = Deno.env.get("GOOGLE_ADS_DISPATCH_URL") ?? "";
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const googleDispatchAuthToken = Deno.env.get(
@@ -180,6 +181,44 @@ Deno.serve(async (req) => {
         try {
           const response = await fetchWithTimeout(
             nextdoorCapiUrl,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${serviceRoleKey}`,
+              },
+              body: JSON.stringify(requestPayload),
+            },
+            DEFAULT_TIMEOUT_MS,
+          );
+
+          const body = await response.json().catch(() => ({}));
+          const ok = body?.success === true;
+
+          return {
+            ok,
+            retryable: body?.retryable === true,
+            statusCode: response.status,
+            responseBody: body,
+            errorMessage: ok ? undefined : (typeof body?.reason === "string" ? body.reason : JSON.stringify(body)),
+            requestPayload,
+          } satisfies VendorSendResult;
+        } catch (error) {
+          return buildErrorResult(error, requestPayload);
+        }
+      },
+      sendToTikTok: async ({ payload, clientSlug, verifiedClientSlug, eventId }) => {
+        const requestPayload = {
+          payload,
+          client_slug: clientSlug,
+          verified_client_slug: verifiedClientSlug,
+          event_id: eventId,
+          dry_run: true,
+        };
+
+        try {
+          const response = await fetchWithTimeout(
+            tiktokCapiUrl,
             {
               method: "POST",
               headers: {

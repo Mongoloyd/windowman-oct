@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   resolveNextdoorActionSourceUrl,
   runDispatchWorker,
+  TIKTOK_DISPATCH_DRY_RUN_ONLY,
+  TIKTOK_DRY_RUN_EVENT_SOURCE_ID,
   type DBLike,
 } from "../dispatchWorker";
 import type { WMDispatchStatus, WMPlatformName } from "../types";
@@ -36,12 +38,15 @@ interface EventLogRecord {
   scan_session_id?: string | null;
   analysis_id?: string | null;
   quote_file_id?: string | null;
+  attribution?: Record<string, unknown>;
+  query_params?: Record<string, unknown>;
 }
 
 class MockDB {
   public eventStatuses = new Map<string, WMDispatchStatus[]>([]);
   public upserts: Record<string, Array<Record<string, unknown>>> = {};
   public eventLogs = new Map<string, EventLogRecord>();
+  public attributionBatchFetchIds: string[] = [];
   public slugLookups: Record<string, Record<string, string | null>> = {
     leads: {},
     scan_sessions: {},
@@ -97,8 +102,26 @@ class MockDB {
             return { data: null, error: null };
           },
         }),
-        in: (_column: string, _values: string[]) => ({
-          order: async () => ({ data: [], error: null }),
+        in: (_column: string, values: string[]) => ({
+          order: async () => {
+            if (table === "wm_event_log") {
+              this.attributionBatchFetchIds = values;
+              const data = values
+                .map((id) => {
+                  const record = this.eventLogs.get(id);
+                  if (!record) return null;
+                  return {
+                    id,
+                    attribution: record.attribution ?? {},
+                    query_params: record.query_params ?? {},
+                  };
+                })
+                .filter((row): row is NonNullable<typeof row> => row !== null);
+              return { data, error: null };
+            }
+
+            return { data: [], error: null };
+          },
         }),
       }),
       upsert: async (payload: Record<string, unknown> | Record<string, unknown>[]) => {
@@ -505,6 +528,44 @@ describe("runDispatchWorker", () => {
     });
   }
 
+  function makeTikTokRow(overrides: Partial<MockDispatchRow> = {}): MockDispatchRow {
+    return makeRow({
+      platform_name: "tiktok",
+      event_name: "quote_uploaded",
+      event_identity_quality: "high",
+      event_client_slug: "tenant-alpha",
+      event_payload: {
+        identity: {
+          leadId: crypto.randomUUID(),
+          emailHash: "a".repeat(64),
+        },
+        journey: { route: "/", flow: "public" },
+        optimization: {
+          approvedForAds: true,
+          approvedForIndex: true,
+          manualReviewRequired: false,
+          valueUsd: 10,
+        },
+      },
+      ...overrides,
+    });
+  }
+
+  function tiktokWorkerDeps(
+    mock: MockDB,
+    sendToTikTok: NonNullable<Parameters<typeof runDispatchWorker>[0]["sendToTikTok"]>,
+    overrides: Partial<Parameters<typeof runDispatchWorker>[0]> = {},
+  ) {
+    return {
+      db: mock as unknown as DBLike,
+      metaEventSourceUrl: "https://windowman.app",
+      sendToMeta: async () => ({ ok: true }),
+      sendToGoogle: async () => ({ ok: true }),
+      sendToTikTok,
+      ...overrides,
+    };
+  }
+
   it("nextdoor branch suppresses with nextdoor_sender_not_configured when sendToNextdoor is missing", async () => {
     const row = makeNextdoorRow();
     const mock = new MockDB([row]);
@@ -802,6 +863,176 @@ describe("runDispatchWorker", () => {
     });
 
     expect(actionSourceUrl).toBe("https://windowman.app/static-fallback");
+  });
+
+  it("tiktok dry-run success marks dispatch row sent with dry_run in provider_response_body", async () => {
+    const row = makeTikTokRow();
+    const mock = new MockDB([row]);
+    mock.eventLogs.set(row.event_log_id, { attribution: { ttclid: "ttclid-1" } });
+
+    await runDispatchWorker(
+      tiktokWorkerDeps(mock, async () => ({
+        ok: true,
+        statusCode: 200,
+        responseBody: { success: true, dry_run: true },
+      })),
+    );
+
+    const upsert = mock.upserts.wm_platform_dispatch_log?.[0];
+    expect(upsert?.dispatch_status).toBe("sent");
+    expect(upsert?.provider_response_body).toMatchObject({ dry_run: true });
+  });
+
+  it("tiktok dry-run sends dry_run:true to sender bridge", async () => {
+    const row = makeTikTokRow();
+    const mock = new MockDB([row]);
+    mock.eventLogs.set(row.event_log_id, {});
+    let capturedRequest: Record<string, unknown> | null = null;
+
+    await runDispatchWorker(
+      tiktokWorkerDeps(mock, async (request) => {
+        capturedRequest = request as unknown as Record<string, unknown>;
+        return { ok: true, statusCode: 200, responseBody: { success: true, dry_run: true } };
+      }),
+    );
+
+    expect(capturedRequest?.dry_run).toBe(true);
+    expect(capturedRequest?.clientSlug).toBe("tenant-alpha");
+    expect(capturedRequest?.eventId).toBe("wmc_1");
+  });
+
+  it("tiktok branch uses buildTikTokPayload with dry-run event source id", async () => {
+    const row = makeTikTokRow();
+    const mock = new MockDB([row]);
+    mock.eventLogs.set(row.event_log_id, {});
+    let capturedPayload: Record<string, unknown> | null = null;
+
+    await runDispatchWorker(
+      tiktokWorkerDeps(mock, async (request) => {
+        capturedPayload = request.payload;
+        return { ok: true, statusCode: 200, responseBody: { success: true } };
+      }),
+    );
+
+    expect(capturedPayload?.event_source_id).toBe(TIKTOK_DRY_RUN_EVENT_SOURCE_ID);
+    expect(capturedPayload?.event_source).toBe("web");
+    expect(Array.isArray(capturedPayload?.data)).toBe(true);
+  });
+
+  it("tiktok branch batch-fetches attribution and query_params from wm_event_log", async () => {
+    const row = makeTikTokRow();
+    const mock = new MockDB([row]);
+    mock.eventLogs.set(row.event_log_id, {
+      attribution: { ttclid: "tt-attribution-clid" },
+      query_params: { ttp: "ttp-from-query" },
+    });
+    let capturedPayload: Record<string, unknown> | null = null;
+
+    await runDispatchWorker(
+      tiktokWorkerDeps(mock, async (request) => {
+        capturedPayload = request.payload;
+        return { ok: true, statusCode: 200, responseBody: { success: true } };
+      }),
+    );
+
+    expect(mock.attributionBatchFetchIds).toEqual([row.event_log_id]);
+    const user = ((capturedPayload?.data as Array<Record<string, unknown>>)?.[0]?.user ??
+      {}) as Record<string, string>;
+    expect(user.ttclid).toBe("tt-attribution-clid");
+    expect(user.ttp).toBe("ttp-from-query");
+  });
+
+  it("unmapped tiktok event marks dispatch row suppressed", async () => {
+    const row = makeTikTokRow({ event_name: "virtual_page_view" });
+    const mock = new MockDB([row]);
+    mock.eventLogs.set(row.event_log_id, {});
+    let sendCalls = 0;
+
+    await runDispatchWorker(
+      tiktokWorkerDeps(mock, async () => {
+        sendCalls += 1;
+        return { ok: true };
+      }),
+    );
+
+    expect(sendCalls).toBe(0);
+    const upsert = mock.upserts.wm_platform_dispatch_log?.[0];
+    expect(upsert?.dispatch_status).toBe("suppressed");
+    expect(upsert?.error_message).toBe("no_tiktok_mapping");
+  });
+
+  it("revenue tiktok event missing value marks dispatch row suppressed", async () => {
+    const row = makeTikTokRow({
+      event_name: "sold",
+      event_payload: {
+        identity: {
+          leadId: crypto.randomUUID(),
+          emailHash: "a".repeat(64),
+        },
+        journey: { route: "/", flow: "public" },
+        optimization: {
+          approvedForAds: true,
+          approvedForIndex: true,
+          manualReviewRequired: false,
+        },
+      },
+    });
+    const mock = new MockDB([row]);
+    mock.eventLogs.set(row.event_log_id, {});
+    let sendCalls = 0;
+
+    await runDispatchWorker(
+      tiktokWorkerDeps(mock, async () => {
+        sendCalls += 1;
+        return { ok: true };
+      }),
+    );
+
+    expect(sendCalls).toBe(0);
+    const upsert = mock.upserts.wm_platform_dispatch_log?.[0];
+    expect(upsert?.dispatch_status).toBe("suppressed");
+    expect(upsert?.error_message).toBe("missing_revenue_value");
+  });
+
+  it("tiktok branch never uses dry_run:false", async () => {
+    expect(TIKTOK_DISPATCH_DRY_RUN_ONLY).toBe(true);
+
+    const row = makeTikTokRow();
+    const mock = new MockDB([row]);
+    mock.eventLogs.set(row.event_log_id, {});
+    const dryRunFlags: boolean[] = [];
+
+    await runDispatchWorker(
+      tiktokWorkerDeps(mock, async (request) => {
+        dryRunFlags.push(request.dry_run);
+        return { ok: true, statusCode: 200, responseBody: { success: true } };
+      }),
+    );
+
+    expect(dryRunFlags).toEqual([true]);
+    expect(dryRunFlags.some((flag) => flag === false)).toBe(false);
+  });
+
+  it("unsupported non-tiktok platform behavior remains unchanged", async () => {
+    const row = makeRow({ platform_name: "internal" });
+    const mock = new MockDB([row]);
+    let tiktokCalls = 0;
+
+    await runDispatchWorker({
+      db: mock as unknown as DBLike,
+      metaEventSourceUrl: "https://windowman.app",
+      sendToMeta: async () => ({ ok: true }),
+      sendToGoogle: async () => ({ ok: true }),
+      sendToTikTok: async () => {
+        tiktokCalls += 1;
+        return { ok: true };
+      },
+    });
+
+    expect(tiktokCalls).toBe(0);
+    const upsert = mock.upserts.wm_platform_dispatch_log?.[0];
+    expect(upsert?.dispatch_status).toBe("suppressed");
+    expect(upsert?.error_message).toBe("unsupported_platform:internal");
   });
 
   describe("resolveNextdoorActionSourceUrl", () => {

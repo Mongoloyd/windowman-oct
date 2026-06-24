@@ -32,7 +32,7 @@ export const WM_DISPATCH_STATUSES = [
   "failed",
 ] as const;
 
-export const WM_PLATFORM_NAMES = ["meta", "google_ads", "ga4", "internal", "nextdoor"] as const;
+export const WM_PLATFORM_NAMES = ["meta", "google_ads", "ga4", "internal", "nextdoor", "tiktok"] as const;
 
 export const WM_IDENTITY_QUALITIES = ["unknown", "low", "medium", "high"] as const;
 

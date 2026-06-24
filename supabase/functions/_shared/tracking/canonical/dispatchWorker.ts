@@ -1,3 +1,4 @@
+import { buildTikTokPayload } from "./buildTikTokPayload.ts";
 import { mapToGoogle } from "./mapToGoogle.ts";
 import { mapToMeta } from "./mapToMeta.ts";
 import { mapToNextdoor } from "./mapToNextdoor.ts";
@@ -12,6 +13,15 @@ const RETRY_DELAYS_MINUTES = [5, 30, 120, 720] as const;
 const MAX_ATTEMPTS = RETRY_DELAYS_MINUTES.length + 1;
 const LOCK_STALE_MINUTES = 10;
 const DEFAULT_VENDOR_TIMEOUT_MS = 7000;
+
+/** Sprint 3C-3: TikTok worker lane is dry-run only until a later live-enable sprint. */
+export const TIKTOK_DISPATCH_DRY_RUN_ONLY = true;
+export const TIKTOK_DRY_RUN_EVENT_SOURCE_ID = "dry-run-placeholder";
+
+export interface EventLogAttributionSnapshot {
+  attribution: Record<string, unknown>;
+  queryParams: Record<string, unknown>;
+}
 
 export interface DispatchRowWithEvent {
   dispatch_id: string;
@@ -86,7 +96,54 @@ interface WorkerDeps {
     verifiedClientSlug?: string;
     eventId: string;
   }) => Promise<VendorSendResult>;
+  sendToTikTok?: (request: {
+    payload: Record<string, unknown>;
+    clientSlug: string;
+    verifiedClientSlug?: string;
+    eventId: string;
+    dry_run: true;
+  }) => Promise<VendorSendResult>;
+  tiktokEventSourceUrl?: string;
   batchSize?: number;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export async function fetchAttributionSnapshotsForEventLogs(
+  db: DBLike,
+  eventLogIds: string[],
+): Promise<Map<string, EventLogAttributionSnapshot>> {
+  const snapshots = new Map<string, EventLogAttributionSnapshot>();
+  const uniqueIds = [...new Set(eventLogIds)];
+  if (uniqueIds.length === 0) {
+    return snapshots;
+  }
+
+  const { data, error } = await db
+    .from("wm_event_log")
+    .select("id, attribution, query_params")
+    .in("id", uniqueIds)
+    .order("id", { ascending: true });
+
+  if (error) {
+    throw new Error(
+      `Failed to load wm_event_log attribution snapshots: ${error.message ?? "unknown"}`,
+    );
+  }
+
+  for (const row of data ?? []) {
+    const id = typeof row.id === "string" ? row.id : null;
+    if (!id) continue;
+
+    snapshots.set(id, {
+      attribution: isRecord(row.attribution) ? row.attribution : {},
+      queryParams: isRecord(row.query_params) ? row.query_params : {},
+    });
+  }
+
+  return snapshots;
 }
 
 function toCanonicalEvent(row: DispatchRowWithEvent): WMCanonicalEvent {
@@ -327,6 +384,14 @@ export async function runDispatchWorker(deps: WorkerDeps): Promise<{ processed: 
 
   const rows = claimedRows ?? [];
 
+  const tiktokEventLogIds = rows
+    .filter((row) => row.platform_name === "tiktok")
+    .map((row) => row.event_log_id);
+  const attributionByEventLogId = await fetchAttributionSnapshotsForEventLogs(
+    deps.db,
+    tiktokEventLogIds,
+  );
+
   // Collect unique event_log_ids that need status sync at the end of the batch.
   const dirtyEventLogIds = new Set<string>();
 
@@ -341,6 +406,7 @@ export async function runDispatchWorker(deps: WorkerDeps): Promise<{ processed: 
 
     let sendResult: VendorSendResult | null = null;
     let suppressedReason: string | null = null;
+    let tiktokDryRunDispatch = false;
 
     if (row.platform_name === "meta") {
       const resolution = await resolveVerifiedClientSlug(deps.db, {
@@ -434,6 +500,50 @@ export async function runDispatchWorker(deps: WorkerDeps): Promise<{ processed: 
           }
         }
       }
+    } else if (row.platform_name === "tiktok") {
+      if (!deps.sendToTikTok) {
+        suppressedReason = "tiktok_sender_not_configured";
+      } else if (!TIKTOK_DISPATCH_DRY_RUN_ONLY) {
+        suppressedReason = "tiktok_live_dispatch_disabled";
+      } else {
+        const resolution = await resolveVerifiedClientSlug(deps.db, {
+          eventLogId: row.event_log_id,
+          eventClientSlug: row.event_client_slug,
+          eventLeadId: row.event_lead_id,
+          eventScanSessionId: row.event_scan_session_id,
+          eventAnalysisId: row.event_analysis_id,
+          eventQuoteFileId: row.event_quote_file_id,
+        });
+
+        if (!resolution.slug) {
+          suppressedReason = "tiktok_missing_client_slug";
+        } else {
+          const snapshot = attributionByEventLogId.get(row.event_log_id) ?? {
+            attribution: {},
+            queryParams: {},
+          };
+          const mapped = buildTikTokPayload({
+            canonical,
+            attribution: snapshot.attribution,
+            queryParams: snapshot.queryParams,
+            eventSourceId: TIKTOK_DRY_RUN_EVENT_SOURCE_ID,
+            eventSourceUrl: deps.tiktokEventSourceUrl ?? deps.metaEventSourceUrl,
+          });
+
+          if (mapped.suppressed || !mapped.payload) {
+            suppressedReason = mapped.reason ?? "tiktok_suppressed";
+          } else {
+            tiktokDryRunDispatch = true;
+            sendResult = await deps.sendToTikTok({
+              payload: mapped.payload as Record<string, unknown>,
+              clientSlug: resolution.slug,
+              verifiedClientSlug: resolution.slug,
+              eventId: canonical.eventId,
+              dry_run: true,
+            });
+          }
+        }
+      }
     } else {
       suppressedReason = `unsupported_platform:${row.platform_name}`;
     }
@@ -474,6 +584,7 @@ export async function runDispatchWorker(deps: WorkerDeps): Promise<{ processed: 
           next_attempt_at: null,
           provider_response_code: sendResult.statusCode ? String(sendResult.statusCode) : "200",
           provider_response_body: {
+            ...(tiktokDryRunDispatch ? { dry_run: true } : {}),
             response: sendResult.responseBody ?? {},
             request_payload: sendResult.requestPayload ?? {},
           },
