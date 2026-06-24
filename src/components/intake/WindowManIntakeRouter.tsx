@@ -45,6 +45,7 @@ import {
   type IntakeProgressHint,
 } from "./intakeHelpers";
 import { getStepMood } from "./intakeStepMood";
+import { useIntakeCapture } from "./useIntakeCapture";
 import type {
   CallIntentChoice,
   IntakeBucket,
@@ -60,6 +61,11 @@ type WindowManIntakeRouterProps = {
   /** When false, the scaffold hides locally without routing. Default true. */
   defaultOpen?: boolean;
   className?: string;
+  /**
+   * "preview" (default) = pure local visual lab, no backend calls.
+   * "live" = submit each step to the hardened progressive capture service.
+   */
+  mode?: "preview" | "live";
 };
 
 const inputClass =
@@ -116,7 +122,10 @@ function hasErrors(errors: IntakeValidationErrors): boolean {
 export function WindowManIntakeRouter({
   defaultOpen = true,
   className,
+  mode = "preview",
 }: WindowManIntakeRouterProps) {
+  const live = mode === "live";
+  const capture = useIntakeCapture();
   const formId = useId();
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [step, setStep] = useState<IntakeStep>("intent");
@@ -125,6 +134,8 @@ export function WindowManIntakeRouter({
   const [identityErrors, setIdentityErrors] = useState<IntakeValidationErrors>({});
   const [contactTouched, setContactTouched] = useState(false);
   const [identityTouched, setIdentityTouched] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Concierge-local presentation state (no backend, no routing)
   const [helperOpen, setHelperOpen] = useState(false);
@@ -193,6 +204,7 @@ export function WindowManIntakeRouter({
   }, []);
 
   const handleBack = useCallback(() => {
+    setSubmitError(null);
     if (fastPassActive) {
       setFastPassActive(false);
       return;
@@ -204,6 +216,15 @@ export function WindowManIntakeRouter({
     }
     setStep(prev);
   }, [step, fastPassActive, handleClose]);
+
+  /** Live-mode capture session expired/invalid → send the user back to contact. */
+  const applyRestart = useCallback((message: string) => {
+    setSubmitError(message);
+    setContactTouched(false);
+    setIdentityTouched(false);
+    setStep("contact");
+    setFastPassActive(false);
+  }, []);
 
   const handleAdvance = useCallback(() => {
     // Quote-holder Fast-Pass: intercept the intent → threat transition with a
@@ -230,6 +251,7 @@ export function WindowManIntakeRouter({
   }, []);
 
   const handleResume = useCallback(() => {
+    setSubmitError(null);
     if (resumeHint) {
       setForm((f) => ({
         ...f,
@@ -240,36 +262,109 @@ export function WindowManIntakeRouter({
         wantsCall: resumeHint.wantsCall,
         timeline: resumeHint.timeline,
       }));
-      setStep(resumeHint.step);
+      // Live mode has no server session yet on resume; a non-PII local hint
+      // cannot recreate the HMAC token, so restart the capture flow at contact.
+      setStep(live && resumeHint.step !== "intent" ? "contact" : resumeHint.step);
     }
     setShowResume(false);
-  }, [resumeHint]);
+  }, [resumeHint, live]);
 
   const handleStartFresh = useCallback(() => {
     clearIntakeProgress();
+    capture.reset();
+    setSubmitError(null);
     setForm(initialForm);
     setStep("intent");
     setFastPassActive(false);
     setShowResume(false);
-  }, []);
+  }, [capture]);
 
-  const handleContactSubmit = useCallback(() => {
+  const handleContactSubmit = useCallback(async () => {
     setContactTouched(true);
     const errors = validateContact(form);
     setContactErrors(errors);
-    if (!hasErrors(errors)) {
-      handleAdvance();
-    }
-  }, [form, handleAdvance]);
+    if (hasErrors(errors)) return;
 
-  const handleIdentitySubmit = useCallback(() => {
+    if (!live) {
+      handleAdvance();
+      return;
+    }
+
+    setIsSubmitting(true);
+    setSubmitError(null);
+    const result = await capture.submitContact(form);
+    setIsSubmitting(false);
+    if (result.ok) {
+      handleAdvance();
+      return;
+    }
+    // Contact is already the current step; a restart just re-shows the message.
+    setSubmitError(result.message);
+  }, [form, live, capture, handleAdvance]);
+
+  const handleIdentitySubmit = useCallback(async () => {
     setIdentityTouched(true);
     const errors = validateIdentity(form);
     setIdentityErrors(errors);
-    if (!hasErrors(errors)) {
+    if (hasErrors(errors)) return;
+
+    if (!live) {
       handleAdvance();
+      return;
     }
-  }, [form, handleAdvance]);
+
+    setIsSubmitting(true);
+    setSubmitError(null);
+    const result = await capture.submitIdentity(form);
+    setIsSubmitting(false);
+    if (result.ok) {
+      handleAdvance();
+      return;
+    }
+    if (result.restart) {
+      applyRestart(result.message);
+      return;
+    }
+    setSubmitError(result.message);
+  }, [form, live, capture, handleAdvance, applyRestart]);
+
+  /**
+   * Primary "Continue" advance for option steps. In live mode, the callIntent
+   * and timeline steps trigger backend updates; all other steps advance
+   * locally. Preview mode always advances locally.
+   */
+  const handlePrimaryAdvance = useCallback(async () => {
+    if (!live) {
+      handleAdvance();
+      return;
+    }
+
+    if (step === "callIntent") {
+      if (form.callIntent) capture.submitCallIntent(form.callIntent);
+      handleAdvance();
+      return;
+    }
+
+    if (step === "timeline") {
+      if (!form.timeline) return;
+      setIsSubmitting(true);
+      setSubmitError(null);
+      const result = await capture.submitTimeline(form.timeline);
+      setIsSubmitting(false);
+      if (result.ok) {
+        setStep("handoff");
+        return;
+      }
+      if (result.restart) {
+        applyRestart(result.message);
+        return;
+      }
+      setSubmitError(result.message);
+      return;
+    }
+
+    handleAdvance();
+  }, [live, step, form.callIntent, form.timeline, capture, handleAdvance, applyRestart]);
 
   if (!isOpen) {
     return null;
@@ -596,6 +691,17 @@ export function WindowManIntakeRouter({
               </div>
             )}
 
+            {/* Recoverable submit error (live mode) */}
+            {submitError && step !== "interstitial" && (
+              <p
+                role="alert"
+                aria-live="assertive"
+                className="mt-4 rounded-xl border border-amber-400/40 bg-amber-500/10 px-3.5 py-2.5 text-sm font-medium text-amber-200"
+              >
+                {submitError}
+              </p>
+            )}
+
             {/* Footer actions */}
             {step !== "interstitial" && (
               <footer className="mt-5 flex items-center gap-3 border-t border-slate-600/35 pt-4 max-sm:mt-auto max-sm:pb-[env(safe-area-inset-bottom)]">
@@ -603,7 +709,8 @@ export function WindowManIntakeRouter({
                   <button
                     type="button"
                     onClick={handleBack}
-                    className="inline-flex min-h-[2.875rem] items-center gap-1.5 rounded-xl border border-slate-500/45 bg-slate-900/55 px-4 text-sm font-semibold text-slate-300 transition-colors hover:border-slate-400/60 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40"
+                    disabled={isSubmitting}
+                    className="inline-flex min-h-[2.875rem] items-center gap-1.5 rounded-xl border border-slate-500/45 bg-slate-900/55 px-4 text-sm font-semibold text-slate-300 transition-colors hover:border-slate-400/60 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <ArrowLeft className="h-4 w-4" aria-hidden />
                     Back
@@ -614,17 +721,17 @@ export function WindowManIntakeRouter({
                   <button
                     type="button"
                     onClick={handleContactSubmit}
-                    disabled={!contactValid}
+                    disabled={!contactValid || isSubmitting}
                     className={cn(
                       "inline-flex min-h-[2.875rem] flex-1 items-center justify-center rounded-xl px-5 text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50",
                       !showBack && "w-full",
                       showBack && "ml-auto",
-                      contactValid
+                      contactValid && !isSubmitting
                         ? "bg-cyan-500 text-slate-950 shadow-[0_4px_18px_-8px_rgba(34,211,238,0.65)] hover:bg-cyan-400"
                         : "cursor-not-allowed bg-slate-700/80 text-slate-500",
                     )}
                   >
-                    Continue
+                    {isSubmitting ? "Please wait…" : "Continue"}
                   </button>
                 )}
 
@@ -632,30 +739,31 @@ export function WindowManIntakeRouter({
                   <button
                     type="button"
                     onClick={handleIdentitySubmit}
-                    disabled={!identityValid}
+                    disabled={!identityValid || isSubmitting}
                     className={cn(
                       "inline-flex min-h-[2.875rem] flex-1 items-center justify-center rounded-xl px-5 text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50",
                       !showBack && "w-full",
                       showBack && "ml-auto",
-                      identityValid
+                      identityValid && !isSubmitting
                         ? "bg-cyan-500 text-slate-950 shadow-[0_4px_18px_-8px_rgba(34,211,238,0.65)] hover:bg-cyan-400"
                         : "cursor-not-allowed bg-slate-700/80 text-slate-500",
                     )}
                   >
-                    Continue
+                    {isSubmitting ? "Please wait…" : "Continue"}
                   </button>
                 )}
 
                 {showContinue && (
                   <button
                     type="button"
-                    onClick={handleAdvance}
+                    onClick={handlePrimaryAdvance}
+                    disabled={isSubmitting}
                     className={cn(
-                      "inline-flex min-h-[2.875rem] flex-1 items-center justify-center rounded-xl bg-cyan-500 px-5 text-sm font-bold text-slate-950 shadow-[0_4px_18px_-8px_rgba(34,211,238,0.65)] transition-colors hover:bg-cyan-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50",
+                      "inline-flex min-h-[2.875rem] flex-1 items-center justify-center rounded-xl bg-cyan-500 px-5 text-sm font-bold text-slate-950 shadow-[0_4px_18px_-8px_rgba(34,211,238,0.65)] transition-colors hover:bg-cyan-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50 disabled:cursor-not-allowed disabled:bg-slate-700/80 disabled:text-slate-500",
                       !showBack ? "w-full" : "ml-auto",
                     )}
                   >
-                    Continue
+                    {isSubmitting ? "Please wait…" : "Continue"}
                   </button>
                 )}
 

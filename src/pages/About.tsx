@@ -9,6 +9,7 @@ import NotAContractorSection from "@/components/about/NotAContractorSection";
 import HowWindowManWorksSection from "@/components/about/HowWindowManWorksSection";
 import ArbitrageEngineSection from "@/components/about/ArbitrageEngineSection";
 import ArbitrageEngine, { type FunnelStep, FUNNEL_STEPS } from "@/components/arbitrageengine";
+import { WindowManIntakeLive } from "@/components/intake";
 import HowWeMakeMoneySection from "@/components/about/HowWeMakeMoneySection";
 import BestPriceConditionsSection from "@/components/about/BestPriceConditionsSection";
 import TransparencyShiftSection from "@/components/about/TransparencyShiftSection";
@@ -42,6 +43,13 @@ export default function About() {
 
   const progressiveCaptureEnabled =
     import.meta.env.VITE_ARBITRAGE_PROGRESSIVE_CAPTURE === "true";
+
+  // Fallback-safe: the live intake router only replaces ArbitrageEngine in the
+  // direct-entry surface when BOTH flags are on. Otherwise the proven
+  // ArbitrageEngine path renders unchanged.
+  const intakeRouterEnabled =
+    import.meta.env.VITE_INTAKE_ROUTER_ENABLED === "true";
+  const useIntakeRouter = intakeRouterEnabled && progressiveCaptureEnabled;
 
   const parsedStep: FunnelStep = (FUNNEL_STEPS as string[]).includes(rawStep)
     ? (rawStep as FunnelStep)
@@ -87,13 +95,17 @@ export default function About() {
       {isDirectEntry ? (
         <section className="relative px-6 py-16 md:px-8 md:py-24">
           <div className="mx-auto max-w-7xl">
-            <ArbitrageEngine
-              autoOpen
-              hideBaseShell
-              source={source}
-              initialStep={initialStep}
-              onDirectEntryClose={clearDirectEntryParams}
-            />
+            {useIntakeRouter ? (
+              <WindowManIntakeLive />
+            ) : (
+              <ArbitrageEngine
+                autoOpen
+                hideBaseShell
+                source={source}
+                initialStep={initialStep}
+                onDirectEntryClose={clearDirectEntryParams}
+              />
+            )}
           </div>
         </section>
       ) : (

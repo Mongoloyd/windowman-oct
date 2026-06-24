@@ -1,5 +1,8 @@
 export { WindowManIntakeRouter } from "./WindowManIntakeRouter";
 export { WindowManIntakePreview } from "./WindowManIntakePreview";
+export { WindowManIntakeLive } from "./WindowManIntakeLive";
+export { useIntakeCapture } from "./useIntakeCapture";
+export * from "./intakeCaptureMap";
 export { IntakeOptionCard } from "./IntakeOptionCard";
 export { DiagnosticInterstitial } from "./DiagnosticInterstitial";
 export { ConciergeAvatar } from "./ConciergeAvatar";
