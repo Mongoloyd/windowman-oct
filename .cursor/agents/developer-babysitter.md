@@ -56,6 +56,8 @@ Rules:
 
 ## AGENTS.md non-negotiables (always enforce)
 
+These mirror the canonical list in [`AGENTS.md`](../../AGENTS.md) §3. `AGENTS.md` §3 is the source of truth — if this copy ever diverges, **`AGENTS.md` wins** and this list must be re-synced.
+
 1. Do not send `full_json` to the client before SMS verification
 2. Do not use AI/LLM output as final scoring authority (TypeScript scores in backend)
 3. Do not store quote files in public buckets

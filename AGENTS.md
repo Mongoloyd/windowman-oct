@@ -41,13 +41,19 @@ If a task does not help the current sprint, **defer it**.
 ---
 
 ## 3) Non-Negotiable Rules
-1. **Do not send `full_json` to the client before SMS verification.**
-2. **Do not use AI/LLM output as the final scoring authority.**
-3. **Do not store quote files in public buckets.**
+
+This list is the **canonical** WindowMan non-negotiable set. Other agent instruction files (e.g. `.cursor/agents/developer-babysitter.md`, `claude.md`) must mirror or reference these and must not weaken them.
+
+1. **Do not send `full_json` to the client before SMS verification.** It must not be fetched, cached, logged, stored, or exposed to the browser before backend authorization.
+2. **Do not use AI/LLM output as the final scoring authority.** Grades, pillar scores, financial math, and hard caps are owned by deterministic backend TypeScript.
+3. **Do not store quote files in public buckets.** Private assets stay private and require signed access.
 4. **Do not weaken RLS for convenience.**
 5. **Do not force verified return users back to the marketing hero.**
 6. **Do not build fake UI that implies real functionality.**
 7. **Do not replace the SMS hard gate with magic link access to the full report.**
+8. **Do not call Gemini or any AI provider directly from the browser.** Gemini extracts visible evidence only; it never performs scoring, authorization, or final judgment.
+9. **Do not treat CSS hiding, disabled buttons, `localStorage`/`sessionStorage`, or client-side route guards as authorization.** Backend authorization decides report reveal and protected access, and preview/full separation must be preserved. One verified session/phone must not unlock another scan session.
+10. **Do not allow `client_slug` to be NULL on lead creation, and do not weaken tenant/identity integrity checks.** Service-role/server-only logic must stay in controlled backend paths and must never be exposed to frontend code.
 
 If a proposed change violates any rule above, **reject it**.
 
