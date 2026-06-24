@@ -36,6 +36,7 @@ export interface ArbitrageUpdateIdentityPayload {
   source: "arbitrage-engine";
   lead_id?: string | null;
   client_slug?: string | null;
+  capture_token: string;
   name: string;
   email: string;
 }
@@ -46,6 +47,7 @@ export interface ArbitrageUpdateCallIntentPayload {
   source: "arbitrage-engine";
   lead_id?: string | null;
   client_slug?: string | null;
+  capture_token: string;
   call_intent: "Yes" | "No";
 }
 
@@ -55,6 +57,7 @@ export interface ArbitrageUpdateTimeframePayload {
   source: "arbitrage-engine";
   lead_id?: string | null;
   client_slug?: string | null;
+  capture_token: string;
   timeframe: "1 Month" | "2-3 Months" | "Just Researching";
 }
 
@@ -71,6 +74,7 @@ export type CaptureArbitrageLeadResult =
       sessionId: string;
       stage: string;
       reused: boolean;
+      captureToken: string;
     }
   | {
       ok: false;
@@ -85,6 +89,7 @@ type EdgeResponse = {
   source?: string;
   stage?: string;
   reused?: boolean;
+  capture_token?: string;
   code?: string;
   message?: string;
 };
@@ -121,11 +126,16 @@ export async function captureArbitrageLead(
     return { ok: false, code: "invalid_response", message: GENERIC_ERROR };
   }
 
+  if (!body.capture_token) {
+    return { ok: false, code: "invalid_response", message: GENERIC_ERROR };
+  }
+
   return {
     ok: true,
     leadId: body.lead_id,
     sessionId: body.session_id,
     stage: body.stage ?? "",
     reused: body.reused ?? false,
+    captureToken: body.capture_token,
   };
 }

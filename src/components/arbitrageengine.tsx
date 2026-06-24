@@ -28,6 +28,12 @@ import { captureArbitrageLead } from "@/lib/captureArbitrageLead";
 import { getLeadId } from "@/lib/useLeadId";
 
 const GENERIC_SUBMIT_ERROR = "Something went wrong. Please try again.";
+const CAPTURE_SESSION_ERROR_CODES = new Set([
+  "capture_token_required",
+  "invalid_capture_token",
+  "capture_token_expired",
+  "invalid_funnel_stage",
+]);
 const USER_SAFE_ARB_ERRORS: Record<string, string> = {
   invalid_zip: "Please enter your zip code.",
   invalid_phone: "Please enter a valid phone number.",
@@ -262,6 +268,26 @@ export default function ArbitrageEngine({
   const sessionIdRef = useRef<string | null>(null);
   const eventIdRef = useRef<string | null>(null);
   const leadIdRef = useRef<string | null>(null);
+  const captureTokenRef = useRef<string | null>(null);
+
+  const clearCaptureSession = useCallback(() => {
+    sessionIdRef.current = null;
+    eventIdRef.current = null;
+    leadIdRef.current = null;
+    captureTokenRef.current = null;
+  }, []);
+
+  const handleCaptureSessionFailure = useCallback(
+    (code: string): boolean => {
+      if (!CAPTURE_SESSION_ERROR_CODES.has(code)) return false;
+      clearCaptureSession();
+      setFunnelStep("contact");
+      setStepHistory([]);
+      setSubmitError(GENERIC_SUBMIT_ERROR);
+      return true;
+    },
+    [clearCaptureSession],
+  );
 
   const getArbitrageSessionId = () => {
     if (!sessionIdRef.current) sessionIdRef.current = crypto.randomUUID();
@@ -294,16 +320,14 @@ export default function ArbitrageEngine({
     setIsExitIntent(false);
     setFunnelStep(safeStep);
     setStepHistory([]);
-    sessionIdRef.current = null;
-    eventIdRef.current = null;
-    leadIdRef.current = null;
+    clearCaptureSession();
     console.info("arbitrage_direct_entry_opened", {
       source,
       requestedStep: initialStep,
       step: safeStep,
       clamped: safeStep !== initialStep,
     });
-  }, [autoOpen, initialStep, source]);
+  }, [autoOpen, initialStep, source, clearCaptureSession]);
 
   // Lock body scroll when modal open (scrollbar-width-aware)
   useEffect(() => {
@@ -323,9 +347,7 @@ export default function ArbitrageEngine({
 
   const handleStartSequence = () => {
     if (flowState === "idle") {
-      sessionIdRef.current = null;
-      eventIdRef.current = null;
-      leadIdRef.current = null;
+      clearCaptureSession();
       setFlowState("animating");
     }
   };
@@ -370,19 +392,28 @@ export default function ArbitrageEngine({
 
       // Canonical progressive path: enrich the existing arbitrage lead row.
       // Never mints a new session_id and never calls capture-truth-gate-lead.
+      const captureToken = captureTokenRef.current;
+      if (!captureToken) {
+        handleCaptureSessionFailure("capture_token_required");
+        return;
+      }
+
       const result = await captureArbitrageLead({
         action: "update_identity",
         session_id: getArbitrageSessionId(),
         source: "arbitrage-engine",
         lead_id: leadIdRef.current,
+        capture_token: captureToken,
         name: trimmedName,
         email: formData.email.trim().toLowerCase(),
       });
       if (!result.ok) {
+        if (handleCaptureSessionFailure(result.code)) return;
         setSubmitError(safeArbError(result.code));
         return;
       }
       leadIdRef.current = result.leadId;
+      captureTokenRef.current = result.captureToken;
       advance("intent");
     } catch (err: unknown) {
       console.error("[ArbitrageEngine] lead capture failed", {
@@ -400,11 +431,9 @@ export default function ArbitrageEngine({
     setIsExitIntent(false);
     setFunnelStep("scope");
     setStepHistory([]);
-    sessionIdRef.current = null;
-    eventIdRef.current = null;
-    leadIdRef.current = null;
+    clearCaptureSession();
     onDirectEntryClose?.();
-  }, [onDirectEntryClose]);
+  }, [onDirectEntryClose, clearCaptureSession]);
 
   const navigateToTruthGate = useCallback(() => {
     const safeUrl = new URL("/#truth-gate", window.location.origin);
@@ -594,11 +623,13 @@ export default function ArbitrageEngine({
       });
 
       if (!result.ok) {
+        if (handleCaptureSessionFailure(result.code)) return;
         setSubmitError(safeArbError(result.code));
         return;
       }
 
       leadIdRef.current = result.leadId;
+      captureTokenRef.current = result.captureToken;
       advance("identity");
     } catch {
       setSubmitError(GENERIC_SUBMIT_ERROR);
@@ -610,13 +641,19 @@ export default function ArbitrageEngine({
   // Best-effort call-intent update. Never blocks the UI and never marks
   // durable completion on its own.
   const fireCallIntent = (value: "Yes" | "No") => {
-    if (!leadIdRef.current) return;
+    const captureToken = captureTokenRef.current;
+    if (!leadIdRef.current || !captureToken) return;
     void captureArbitrageLead({
       action: "update_call_intent",
       session_id: getArbitrageSessionId(),
       source: "arbitrage-engine",
       lead_id: leadIdRef.current,
+      capture_token: captureToken,
       call_intent: value,
+    }).then((result) => {
+      if (result.ok) {
+        captureTokenRef.current = result.captureToken;
+      }
     });
   };
 
@@ -628,6 +665,11 @@ export default function ArbitrageEngine({
       setSubmitError(GENERIC_SUBMIT_ERROR);
       return;
     }
+    const captureToken = captureTokenRef.current;
+    if (!captureToken) {
+      handleCaptureSessionFailure("capture_token_required");
+      return;
+    }
 
     setSubmitError(null);
     setIsSubmitting(true);
@@ -637,16 +679,20 @@ export default function ArbitrageEngine({
         session_id: getArbitrageSessionId(),
         source: "arbitrage-engine",
         lead_id: leadIdRef.current,
+        capture_token: captureToken,
         timeframe: opt as "1 Month" | "2-3 Months" | "Just Researching",
       });
 
       if (!result.ok) {
+        if (handleCaptureSessionFailure(result.code)) return;
         setSubmitError(safeArbError(result.code));
         return;
       }
 
+      captureTokenRef.current = result.captureToken;
       setFormData((prev) => ({ ...prev, timeframe: opt }));
       writeArbitrageHandoffHint();
+      captureTokenRef.current = null;
       advance("done", "timeframe", opt);
     } catch {
       setSubmitError(GENERIC_SUBMIT_ERROR);
