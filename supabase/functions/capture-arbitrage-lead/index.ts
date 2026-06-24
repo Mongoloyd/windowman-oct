@@ -21,6 +21,14 @@ import {
   SupabaseClient,
 } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { normalizePhone } from "../_shared/normalizePhone.ts";
+import {
+  signArbitrageCaptureToken,
+  verifyArbitrageCaptureToken,
+  computeMonotonicStage,
+  isStageAllowedForAction,
+  type ArbFunnelStage,
+} from "../_shared/arbitrageCaptureToken.ts";
+import { emitLeadActivity } from "../_shared/emitLeadActivity.ts";
 
 const FUNCTION_NAME = "capture-arbitrage-lead";
 const SOURCE = "arbitrage-engine";
@@ -65,6 +73,8 @@ const DEAL_BREAKER_OPTIONS = new Set([
 ]);
 const CALL_INTENT_OPTIONS = new Set(["Yes", "No"]);
 const TIMEFRAME_OPTIONS = new Set(["1 Month", "2-3 Months", "Just Researching"]);
+
+const TOKEN_TTL_SECONDS = 4 * 60 * 60;
 
 // Attribution scalar columns that exist on public.leads and may be promoted
 // from the attribution object when present. Strictly additive / null-safe.
@@ -146,6 +156,64 @@ function fail(code: string, status = 400): Response {
   return jsonResponse({ success: false, code, message: GENERIC_ERROR }, status);
 }
 
+function failInvalidFunnelStage(): Response {
+  return jsonResponse(
+    {
+      success: false,
+      code: "invalid_funnel_stage",
+      message: "Something went wrong. Please restart this step.",
+    },
+    400,
+  );
+}
+
+function getCaptureTokenSecret(): string | null {
+  return Deno.env.get("ARBITRAGE_CAPTURE_TOKEN_SECRET") ?? null;
+}
+
+async function issueCaptureToken(
+  sessionId: string,
+  leadId: string,
+  secret: string,
+): Promise<string> {
+  return signArbitrageCaptureToken(
+    {
+      v: 1,
+      sid: sessionId,
+      lid: leadId,
+      src: "arbitrage-engine",
+      exp: Math.floor(Date.now() / 1000) + TOKEN_TTL_SECONDS,
+    },
+    secret,
+  );
+}
+
+async function verifyUpdateCaptureToken(
+  body: Record<string, unknown>,
+  ctx: BaseContext,
+  leadId: string,
+  secret: string,
+): Promise<
+  | { ok: true }
+  | {
+      ok: false;
+      code:
+        | "capture_token_required"
+        | "invalid_capture_token"
+        | "capture_token_expired";
+    }
+> {
+  const token = asNullableString(body.capture_token, 4096);
+  if (!token) {
+    return { ok: false, code: "capture_token_required" };
+  }
+  return verifyArbitrageCaptureToken(token, secret, {
+    session_id: ctx.session_id,
+    lead_id: leadId,
+    source: "arbitrage-engine",
+  });
+}
+
 function asNullableString(v: unknown, max = 500): string | null {
   if (v === null || v === undefined) return null;
   if (typeof v !== "string") return null;
@@ -195,19 +263,23 @@ async function audit(
   }
 
   if (admin && PERSISTED_STAGES.has(evt.stage)) {
-    const { error } = await admin
-      .from("event_logs")
-      .insert({
-        event_name: evt.stage,
-        session_id: evt.session_id_prefix ? `${evt.session_id_prefix}…` : null,
-        route: "/about",
-        metadata: fullEvt as unknown as Record<string, unknown>,
-      });
-    if (error) {
-      console.warn(`[${FUNCTION_NAME}:audit] event_logs insert failed`, {
-        stage: evt.stage,
-        code: error.code,
-      });
+    try {
+      const { error } = await admin
+        .from("event_logs")
+        .insert({
+          event_name: evt.stage,
+          session_id: evt.session_id_prefix ? evt.session_id_prefix + "…" : null,
+          route: "/about",
+          metadata: fullEvt as unknown as Record<string, unknown>,
+        });
+      if (error) {
+        console.warn("[" + FUNCTION_NAME + ":audit] event_logs insert failed", {
+          stage: evt.stage,
+          code: error.code,
+        });
+      }
+    } catch (err) {
+      console.error("[" + FUNCTION_NAME + ":audit] event_logs insert threw an error", err);
     }
   }
 }
@@ -271,7 +343,9 @@ async function findArbitrageLead(
 ) {
   let query = admin
     .from("leads")
-    .select("id, session_id, source, client_slug, qualification_answers_json")
+    .select(
+      "id, session_id, source, client_slug, qualification_answers_json, funnel_stage, email, phone_e164",
+    )
     .eq("session_id", sessionId)
     .eq("source", SOURCE);
 
@@ -282,12 +356,14 @@ async function findArbitrageLead(
   return query.maybeSingle();
 }
 
-function successResponse(
+async function successResponse(
   leadId: string,
   sessionId: string,
   stage: string,
+  tokenSecret: string,
   reused = false,
-): Response {
+): Promise<Response> {
+  const capture_token = await issueCaptureToken(sessionId, leadId, tokenSecret);
   return jsonResponse(
     {
       success: true,
@@ -296,6 +372,7 @@ function successResponse(
       source: SOURCE,
       stage,
       reused,
+      capture_token,
     },
     200,
   );
@@ -377,6 +454,7 @@ async function handleCreate(
   admin: SupabaseClient,
   ctx: BaseContext,
   body: Record<string, unknown>,
+  tokenSecret: string,
 ): Promise<Response> {
   await audit(admin, {
     stage: "arbitrage_create_started",
@@ -479,6 +557,7 @@ async function handleCreate(
       existing.id,
       existing.session_id ?? ctx.session_id,
       "arb_contact",
+      tokenSecret,
       true,
     );
   }
@@ -561,13 +640,19 @@ async function handleCreate(
     client_slug: ctx.client_slug,
   });
 
-  return successResponse(data.id, data.session_id ?? ctx.session_id, "arb_contact");
+  return successResponse(
+    data.id,
+    data.session_id ?? ctx.session_id,
+    "arb_contact",
+    tokenSecret,
+  );
 }
 
 async function handleUpdateIdentity(
   admin: SupabaseClient,
   ctx: BaseContext,
   body: Record<string, unknown>,
+  tokenSecret: string,
 ): Promise<Response> {
   const nameRaw = asRequiredString(body.name, 100);
   if (!nameRaw || nameRaw.length < 2) {
@@ -616,12 +701,41 @@ async function handleUpdateIdentity(
     return fail("lead_not_found", lookupErr ? 500 : 404);
   }
 
+  if (!isStageAllowedForAction("update_identity", lead.funnel_stage)) {
+    await audit(admin, {
+      stage: "arbitrage_validation_failed",
+      status: "failed",
+      action: "update_identity",
+      session_id: ctx.session_id,
+      session_id_prefix: sessionIdPrefix(ctx.session_id),
+      lead_id: lead.id,
+      error_code: "invalid_funnel_stage",
+    });
+    return failInvalidFunnelStage();
+  }
+
+  const tokenCheck = await verifyUpdateCaptureToken(body, ctx, lead.id, tokenSecret);
+  if (!tokenCheck.ok) {
+    await audit(admin, {
+      stage: "arbitrage_validation_failed",
+      status: "failed",
+      action: "update_identity",
+      session_id: ctx.session_id,
+      session_id_prefix: sessionIdPrefix(ctx.session_id),
+      lead_id: lead.id,
+      error_code: tokenCheck.code,
+    });
+    return fail(tokenCheck.code);
+  }
+
+  const nextStage = computeMonotonicStage(lead.funnel_stage, "arb_identity");
+
   const { error: updateErr } = await admin
     .from("leads")
     .update({
       first_name,
       email,
-      funnel_stage: "arb_identity",
+      funnel_stage: nextStage,
       updated_at: new Date().toISOString(),
     })
     .eq("id", lead.id)
@@ -651,17 +765,19 @@ async function handleUpdateIdentity(
     has_email: true,
   });
 
-  return successResponse(lead.id, ctx.session_id, "arb_identity");
+  return successResponse(lead.id, ctx.session_id, nextStage, tokenSecret);
 }
 
 async function mergeArbitrageAnswer(
   admin: SupabaseClient,
   ctx: BaseContext,
+  body: Record<string, unknown>,
   patch: Record<string, unknown>,
-  funnelStage: string,
+  targetStage: ArbFunnelStage,
   failStage: string,
   successStage: string,
-  action: ArbAction,
+  action: "update_call_intent" | "update_timeframe",
+  tokenSecret: string,
 ): Promise<Response> {
   const { data: lead, error: lookupErr } = await findArbitrageLead(
     admin,
@@ -682,6 +798,35 @@ async function mergeArbitrageAnswer(
     return fail("lead_not_found", lookupErr ? 500 : 404);
   }
 
+  if (!isStageAllowedForAction(action, lead.funnel_stage)) {
+    await audit(admin, {
+      stage: "arbitrage_validation_failed",
+      status: "failed",
+      action,
+      session_id: ctx.session_id,
+      session_id_prefix: sessionIdPrefix(ctx.session_id),
+      lead_id: lead.id,
+      error_code: "invalid_funnel_stage",
+    });
+    return failInvalidFunnelStage();
+  }
+
+  const tokenCheck = await verifyUpdateCaptureToken(body, ctx, lead.id, tokenSecret);
+  if (!tokenCheck.ok) {
+    await audit(admin, {
+      stage: "arbitrage_validation_failed",
+      status: "failed",
+      action,
+      session_id: ctx.session_id,
+      session_id_prefix: sessionIdPrefix(ctx.session_id),
+      lead_id: lead.id,
+      error_code: tokenCheck.code,
+    });
+    return fail(tokenCheck.code);
+  }
+
+  const nextStage = computeMonotonicStage(lead.funnel_stage, targetStage);
+
   const existingQa = asSafeJsonObject(lead.qualification_answers_json) ?? {};
   const existingArbitrage = asSafeJsonObject(existingQa.arbitrage) ?? {};
   const qualification_answers_json: Record<string, unknown> = {
@@ -693,7 +838,7 @@ async function mergeArbitrageAnswer(
     .from("leads")
     .update({
       qualification_answers_json,
-      funnel_stage: funnelStage,
+      funnel_stage: nextStage,
       updated_at: new Date().toISOString(),
     })
     .eq("id", lead.id)
@@ -722,13 +867,27 @@ async function mergeArbitrageAnswer(
     lead_id: lead.id,
   });
 
-  return successResponse(lead.id, ctx.session_id, funnelStage);
+  if (action === "update_timeframe") {
+    await emitLeadActivity({
+      supabaseAdmin: admin,
+      leadId: lead.id,
+      eventName: "arbitrage_completed",
+      metadata: { funnel_stage: nextStage },
+      contact: {
+        email: (lead as { email?: string | null }).email ?? null,
+        phone_e164: (lead as { phone_e164?: string | null }).phone_e164 ?? null,
+      },
+    });
+  }
+
+  return successResponse(lead.id, ctx.session_id, nextStage, tokenSecret);
 }
 
 async function handleUpdateCallIntent(
   admin: SupabaseClient,
   ctx: BaseContext,
   body: Record<string, unknown>,
+  tokenSecret: string,
 ): Promise<Response> {
   const callIntent = asRequiredString(body.call_intent, 8);
   if (!callIntent || !CALL_INTENT_OPTIONS.has(callIntent)) {
@@ -746,11 +905,13 @@ async function handleUpdateCallIntent(
   return mergeArbitrageAnswer(
     admin,
     ctx,
+    body,
     { call_intent: callIntent },
     "arb_call_intent",
     "arbitrage_update_call_intent_failed",
     "arbitrage_update_call_intent_succeeded",
     "update_call_intent",
+    tokenSecret,
   );
 }
 
@@ -758,6 +919,7 @@ async function handleUpdateTimeframe(
   admin: SupabaseClient,
   ctx: BaseContext,
   body: Record<string, unknown>,
+  tokenSecret: string,
 ): Promise<Response> {
   const timeframe = asRequiredString(body.timeframe, 32);
   if (!timeframe || !TIMEFRAME_OPTIONS.has(timeframe)) {
@@ -775,11 +937,13 @@ async function handleUpdateTimeframe(
   return mergeArbitrageAnswer(
     admin,
     ctx,
+    body,
     { timeframe },
     "arb_complete",
     "arbitrage_update_timeframe_failed",
     "arbitrage_update_timeframe_succeeded",
     "update_timeframe",
+    tokenSecret,
   );
 }
 
@@ -867,16 +1031,27 @@ Deno.serve(async (req) => {
     auth: { persistSession: false },
   });
 
+  const tokenSecret = getCaptureTokenSecret();
+  if (!tokenSecret) {
+    console.error(`[${FUNCTION_NAME}] missing ARBITRAGE_CAPTURE_TOKEN_SECRET`);
+    await audit(admin, {
+      stage: "arbitrage_unexpected_error",
+      status: "failed",
+      error_code: "server_misconfigured",
+    });
+    return fail("server_misconfigured", 500);
+  }
+
   try {
     switch (base.ctx.action) {
       case "create":
-        return await handleCreate(admin, base.ctx, body);
+        return await handleCreate(admin, base.ctx, body, tokenSecret);
       case "update_identity":
-        return await handleUpdateIdentity(admin, base.ctx, body);
+        return await handleUpdateIdentity(admin, base.ctx, body, tokenSecret);
       case "update_call_intent":
-        return await handleUpdateCallIntent(admin, base.ctx, body);
+        return await handleUpdateCallIntent(admin, base.ctx, body, tokenSecret);
       case "update_timeframe":
-        return await handleUpdateTimeframe(admin, base.ctx, body);
+        return await handleUpdateTimeframe(admin, base.ctx, body, tokenSecret);
       default:
         return fail("invalid_action");
     }

@@ -15,7 +15,12 @@ import type {
 import {
   isValidEmail,
   isValidFirstName,
+  isValidZip,
 } from "@/lib/nextdoor/attributionHelpers";
+import {
+  formatPhoneDisplay,
+  isValidUSPhone,
+} from "@/utils/formatPhone";
 import {
   nextdoorCardInteractiveClass,
   nextdoorEyebrowClass,
@@ -123,7 +128,12 @@ export function NextdoorIntentRouter({
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [zip, setZip] = useState("");
-  const [softHighlight, setSoftHighlight] = useState<{ firstName?: boolean; email?: boolean }>({});
+  const [softHighlight, setSoftHighlight] = useState<{
+    firstName?: boolean;
+    email?: boolean;
+    phone?: boolean;
+    zip?: boolean;
+  }>({});
 
   useEffect(() => {
     if (selected && PREP_READINESS.has(selected)) {
@@ -174,17 +184,24 @@ export function NextdoorIntentRouter({
   const handleTrackBSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
-      const nextHighlight: { firstName?: boolean; email?: boolean } = {};
+      const nextHighlight: {
+        firstName?: boolean;
+        email?: boolean;
+        phone?: boolean;
+        zip?: boolean;
+      } = {};
       if (!isValidFirstName(firstName)) nextHighlight.firstName = true;
       if (!isValidEmail(email)) nextHighlight.email = true;
+      if (!isValidUSPhone(phone)) nextHighlight.phone = true;
+      if (!isValidZip(zip.trim())) nextHighlight.zip = true;
       setSoftHighlight(nextHighlight);
       if (Object.keys(nextHighlight).length > 0) return;
 
       await onLeadCaptureSubmit?.({
         firstName: firstName.trim(),
         email: email.trim(),
-        phone: phone.trim() ? phone.trim() : null,
-        zip: zip.trim() ? zip.trim() : null,
+        phone: phone.trim(),
+        zip: zip.trim(),
         sourceIntent: "quote_elsewhere",
       });
     },
@@ -303,7 +320,7 @@ export function NextdoorIntentRouter({
                             ? "border-amber-300/80 bg-amber-50/40 ring-2 ring-amber-200/50"
                             : "border-slate-200/80",
                         ].join(" ")}
-                        placeholder="Jane"
+                        placeholder="First name"
                       />
                     </label>
                     <label className="block sm:col-span-2">
@@ -326,7 +343,7 @@ export function NextdoorIntentRouter({
                             ? "border-amber-300/80 bg-amber-50/40 ring-2 ring-amber-200/50"
                             : "border-slate-200/80",
                         ].join(" ")}
-                        placeholder="you@example.com"
+                        placeholder="Email"
                       />
                     </label>
                     <label className="block">
@@ -338,10 +355,19 @@ export function NextdoorIntentRouter({
                         name="phone"
                         autoComplete="tel"
                         inputMode="tel"
+                        maxLength={14}
                         value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        className={[inputBaseClass, "border-slate-200/80"].join(" ")}
-                        placeholder="Optional"
+                        onChange={(e) => {
+                          setPhone(formatPhoneDisplay(e.target.value));
+                          setSoftHighlight((prev) => ({ ...prev, phone: false }));
+                        }}
+                        className={[
+                          inputBaseClass,
+                          softHighlight.phone
+                            ? "border-amber-300/80 bg-amber-50/40 ring-2 ring-amber-200/50"
+                            : "border-slate-200/80",
+                        ].join(" ")}
+                        placeholder="Phone"
                       />
                     </label>
                     <label className="block">
@@ -355,11 +381,17 @@ export function NextdoorIntentRouter({
                         inputMode="numeric"
                         maxLength={5}
                         value={zip}
-                        onChange={(e) =>
-                          setZip(e.target.value.replace(/\D/g, "").slice(0, 5))
-                        }
-                        className={[inputBaseClass, "border-slate-200/80"].join(" ")}
-                        placeholder="Optional"
+                        onChange={(e) => {
+                          setZip(e.target.value.replace(/\D/g, "").slice(0, 5));
+                          setSoftHighlight((prev) => ({ ...prev, zip: false }));
+                        }}
+                        className={[
+                          inputBaseClass,
+                          softHighlight.zip
+                            ? "border-amber-300/80 bg-amber-50/40 ring-2 ring-amber-200/50"
+                            : "border-slate-200/80",
+                        ].join(" ")}
+                        placeholder="ZIP code"
                       />
                     </label>
                   </div>

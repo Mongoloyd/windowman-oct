@@ -1,5 +1,5 @@
-# Deploy exactly two Edge Functions to the approved live Forensic V2 Supabase target.
-# Scope: start-upload-scan-session, capture-truth-gate-lead only.
+# Deploy exactly the four CRM activity emitter Edge Functions to the approved live Forensic V2 Supabase target.
+# Scope: start-upload-scan-session, capture-truth-gate-lead, capture-arbitrage-lead, capture-power-tool-demo-lead only.
 # Never deploy-all, never --prune, never db push/reset/secrets/typegen.
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
@@ -10,7 +10,9 @@ $RequiredBranch = "forensic_report_v2"
 $ConfirmPhrase = "DEPLOY_FORENSIC_V2_LIVE_FUNCTIONS"
 $TargetFunctions = @(
     "start-upload-scan-session",
-    "capture-truth-gate-lead"
+    "capture-truth-gate-lead",
+    "capture-arbitrage-lead",
+    "capture-power-tool-demo-lead"
 )
 
 function Get-BannerText {
@@ -109,11 +111,13 @@ Write-Host "config.toml project_id is local Docker namespace only - never used a
 
 $DeployCommands = @(
     "npx supabase functions deploy start-upload-scan-session --project-ref $ApprovedRef",
-    "npx supabase functions deploy capture-truth-gate-lead --project-ref $ApprovedRef"
+    "npx supabase functions deploy capture-truth-gate-lead --project-ref $ApprovedRef",
+    "npx supabase functions deploy capture-arbitrage-lead --project-ref $ApprovedRef",
+    "npx supabase functions deploy capture-power-tool-demo-lead --project-ref $ApprovedRef"
 )
 
 Write-Host ""
-Write-Host "=== DEPLOY SUMMARY ==="
+Write-Host "=== DEPLOY SUMMARY (four CRM emitter functions) ==="
 Write-Host "Branch:              $Branch"
 Write-Host "HEAD SHA:            $HeadSha"
 Write-Host "Approved target ref: $ApprovedRef"
@@ -148,7 +152,7 @@ finally {
 }
 
 Write-Host ""
-Write-Host "Deploy complete for both functions."
+Write-Host "Deploy complete for all four CRM emitter functions."
 Write-Host "Next: run manual verification checklist (functions list, smoke, DB attribution inspection)."
 Write-Host "This script did NOT run smoke tests, secrets set, db push, typegen, or --prune."
 exit 0

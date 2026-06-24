@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { AdminShell } from "@/components/admin/shell/AdminShell";
+import { AdminGlobalNav } from "@/components/admin/shell/AdminGlobalNav";
 import {
   fetchLeadDetail, fetchLeadAnalysis, getErrorMessage,
 } from "@/services/adminDataService";
@@ -24,6 +25,7 @@ import { LeadNotesPanel } from "@/components/admin/lead-workspace/LeadNotesPanel
 import { LeadTasksPanel } from "@/components/admin/lead-workspace/LeadTasksPanel";
 import { LeadTimelinePanel } from "@/components/admin/lead-workspace/LeadTimelinePanel";
 import { LeadHumanContextPanel } from "@/components/admin/lead-workspace/LeadHumanContextPanel";
+import { QuoteViewerButton } from "@/components/admin/QuoteViewerButton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -74,7 +76,7 @@ export default function AdminLeadDossierPage() {
 
   if (!leadIdValid) {
     return (
-      <AdminShell title="Invalid lead ID" backTo="/admin/leads" backLabel="Back to inbox">
+      <AdminShell title="Invalid lead ID" backTo="/admin/leads" backLabel="Back to inbox" nav={<AdminGlobalNav />}>
         <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           <AlertCircle className="h-5 w-5 mt-0.5 shrink-0" />
           <div>
@@ -91,7 +93,7 @@ export default function AdminLeadDossierPage() {
 
   if (isLoading) {
     return (
-      <AdminShell title="Loading lead…" backTo="/admin/leads" backLabel="Back to inbox">
+      <AdminShell title="Loading lead…" backTo="/admin/leads" backLabel="Back to inbox" nav={<AdminGlobalNav />}>
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-6 w-6 animate-spin text-slate-700" />
         </div>
@@ -101,7 +103,7 @@ export default function AdminLeadDossierPage() {
 
   if (isError || !lead) {
     return (
-      <AdminShell title="Couldn't load lead" backTo="/admin/leads" backLabel="Back to inbox">
+      <AdminShell title="Couldn't load lead" backTo="/admin/leads" backLabel="Back to inbox" nav={<AdminGlobalNav />}>
         <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           <AlertCircle className="h-5 w-5 mt-0.5 shrink-0" />
           <div>
@@ -124,6 +126,7 @@ export default function AdminLeadDossierPage() {
       subtitle={`Lead ID: ${lead.id.slice(0, 8)}… · Created ${format(new Date(lead.created_at), "MMM d, yyyy h:mm a")}`}
       backTo="/admin/leads"
       backLabel="Back to inbox"
+      nav={<AdminGlobalNav />}
     >
       {/* Prominent "Back to Inbox" affordance — the AdminShell breadcrumb is small;
           this is the canonical exit so operators can't miss it on the dossier page. */}
@@ -183,11 +186,14 @@ export default function AdminLeadDossierPage() {
                   Truth Engine
                 </h3>
               </div>
-              {lead.grade && (
-                <span className={`inline-flex h-10 w-10 items-center justify-center rounded-full border-2 text-base font-extrabold shadow-sm ${gradeColor(lead.grade)}`}>
-                  {lead.grade}
-                </span>
-              )}
+              <div className="flex items-center gap-3">
+                <QuoteViewerButton leadId={lead.id} />
+                {lead.grade && (
+                  <span className={`inline-flex h-10 w-10 items-center justify-center rounded-full border-2 text-base font-extrabold shadow-sm ${gradeColor(lead.grade)}`}>
+                    {lead.grade}
+                  </span>
+                )}
+              </div>
             </header>
             {!lead.latest_analysis_id ? (
               <p className="text-sm text-slate-700 italic">No analysis yet for this lead.</p>

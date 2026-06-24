@@ -29,6 +29,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { AdminShell } from "@/components/admin/shell/AdminShell";
+import { AdminGlobalNav } from "@/components/admin/shell/AdminGlobalNav";
 import { useCurrentUserRole } from "@/hooks/useCurrentUserRole";
 import {
   listUserRoles,
@@ -547,6 +548,7 @@ function AdminSettingsContent() {
       title="Role Management"
       subtitle={`${users.length} user${users.length !== 1 ? "s" : ""} with assigned roles`}
       backTo="/admin"
+      nav={<AdminGlobalNav />}
       belowHeader={
         <Button
           onClick={() => {

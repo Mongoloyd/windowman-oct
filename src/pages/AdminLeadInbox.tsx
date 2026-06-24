@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { format, formatDistanceToNow, subDays } from "date-fns";
 import { AdminShell } from "@/components/admin/shell/AdminShell";
+import { AdminGlobalNav } from "@/components/admin/shell/AdminGlobalNav";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,6 +24,8 @@ import {
 import { invokeAdminData, getErrorMessage, updateLeadDisposition } from "@/services/adminDataService";
 import type { CRMLead } from "@/components/admin/types";
 import { FUNNEL_STAGES, getStageDef } from "@/components/admin/leadWorkflow";
+import { formatLatestActivityLabel } from "@/lib/formatLatestActivityLabel";
+import { QuoteViewerButton } from "@/components/admin/QuoteViewerButton";
 
 type DateRange = "all" | "24h" | "7d" | "30d";
 type VerifiedFilter = "all" | "verified" | "unverified";
@@ -50,6 +53,8 @@ type InboxLead = CRMLead & {
   admin_follow_up_at: string | null;
   admin_last_contacted_at: string | null;
   admin_disposition_updated_at: string | null;
+  last_activity_at: string | null;
+  latest_activity_type: string | null;
 };
 
 type LeadDisposition =
@@ -324,6 +329,8 @@ function toLead(raw: Record<string, any>): InboxLead {
     admin_follow_up_at: raw.admin_follow_up_at ?? null,
     admin_last_contacted_at: raw.admin_last_contacted_at ?? null,
     admin_disposition_updated_at: raw.admin_disposition_updated_at ?? null,
+    last_activity_at: raw.last_activity_at ?? null,
+    latest_activity_type: raw.latest_activity_type ?? null,
   };
 }
 
@@ -478,6 +485,7 @@ export default function LeadInbox() {
       eyebrow="Operator · Triage"
       title="Lead Inbox"
       subtitle={subtitle}
+      nav={<AdminGlobalNav />}
       belowHeader={
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-800">
@@ -876,6 +884,7 @@ function LeadTable({ leads, onView }: { leads: InboxLead[]; onView: (id: string)
               <th className="px-4 py-3 text-xs font-extrabold uppercase tracking-wider text-slate-700">County</th>
               <th className="px-4 py-3 text-xs font-extrabold uppercase tracking-wider text-slate-700">Verified</th>
               <th className="px-4 py-3 text-xs font-extrabold uppercase tracking-wider text-slate-700">Stage</th>
+              <th className="px-4 py-3 text-xs font-extrabold uppercase tracking-wider text-slate-700">Latest Activity</th>
               <th className="px-4 py-3 text-xs font-extrabold uppercase tracking-wider text-slate-700">Created</th>
               <th className="px-4 py-3" />
             </tr>
@@ -985,6 +994,19 @@ function LeadTable({ leads, onView }: { leads: InboxLead[]; onView: (id: string)
                     ) : null}
                   </td>
                   <td className="px-4 py-3 text-sm font-medium text-slate-700">
+                    <div className="font-semibold text-slate-900">
+                      {formatLatestActivityLabel(l.latest_activity_type)}
+                    </div>
+                    {l.last_activity_at ? (
+                      <div className="flex items-center gap-1 mt-0.5 text-xs text-slate-600">
+                        <Clock className="h-3 w-3 shrink-0" />
+                        <span title={format(new Date(l.last_activity_at), "MMM d, yyyy h:mm a")}>
+                          {formatDistanceToNow(new Date(l.last_activity_at), { addSuffix: true })}
+                        </span>
+                      </div>
+                    ) : null}
+                  </td>
+                  <td className="px-4 py-3 text-sm font-medium text-slate-700">
                     <div className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
                       <span title={format(new Date(l.created_at), "MMM d, yyyy h:mm a")}>
@@ -993,15 +1015,18 @@ function LeadTable({ leads, onView }: { leads: InboxLead[]; onView: (id: string)
                     </div>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <Link
-                      to={`/admin/leads/${l.id}`}
-                      onClick={(e) => e.stopPropagation()}
-                      className="inline-flex items-center gap-1 text-sm font-bold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
-                      aria-label={`View details for ${name}`}
-                    >
-                      View
-                      <ChevronRight className="h-3.5 w-3.5" />
-                    </Link>
+                    <div className="flex items-center justify-end gap-2">
+                      <QuoteViewerButton leadId={l.id} />
+                      <Link
+                        to={`/admin/leads/${l.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex items-center gap-1 text-sm font-bold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+                        aria-label={`View details for ${name}`}
+                      >
+                        View
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               );

@@ -45,6 +45,7 @@ import {
   deriveNextdoorTrafficMode,
   isValidEmail,
   isValidFirstName,
+  isValidZip,
   logLocalPayloadDevSummary,
   parseNextdoorUrlPrefill,
   resolveWmIntentFromReadiness,
@@ -518,12 +519,22 @@ export default function NextdoorHome() {
       if (leadSubmitInFlightRef.current) return;
       if (!isValidFirstName(data.firstName) || !isValidEmail(data.email)) return;
 
-      const phoneE164 = data.phone?.trim() ? toE164(data.phone.trim()) : null;
+      const zipTrimmed = data.zip?.trim() ?? "";
+      if (!isValidZip(zipTrimmed)) {
+        setTrackBSubmitError("Enter a valid 5-digit ZIP code.");
+        return;
+      }
+
+      const phoneE164 = toE164((data.phone ?? "").trim());
+      if (!phoneE164) {
+        setTrackBSubmitError("Enter a valid 10-digit phone number.");
+        return;
+      }
 
       setIdentity({
         firstName: data.firstName,
         email: data.email,
-        zip: data.zip ?? "",
+        zip: zipTrimmed,
       });
       setTrackBSubmitError(null);
 
@@ -533,7 +544,7 @@ export default function NextdoorHome() {
       const result = await persistLead({
         firstName: data.firstName,
         email: data.email,
-        zip: data.zip,
+        zip: zipTrimmed,
         phoneE164,
         quoteReadiness: "has_estimate",
       });
@@ -550,7 +561,7 @@ export default function NextdoorHome() {
         firstName: data.firstName,
         lastName,
         email: data.email,
-        zip: data.zip ?? "",
+        zip: zipTrimmed,
         quoteReadiness: "has_estimate",
         trafficMode,
       });
@@ -574,7 +585,11 @@ export default function NextdoorHome() {
       if (leadSubmitInFlightRef.current) return;
       if (!isValidFirstName(contact.firstName) || !isValidEmail(contact.email)) return;
 
-      const phoneE164 = contact.phone.trim() ? toE164(contact.phone.trim()) : null;
+      const phoneE164 = toE164(contact.phone.trim());
+      if (!phoneE164) {
+        setTrackCError("Enter a valid 10-digit phone number.");
+        return;
+      }
 
       leadSubmitInFlightRef.current = true;
       setTrackCContactSubmitting(true);
@@ -624,7 +639,11 @@ export default function NextdoorHome() {
         researching: "researching",
       };
 
-      const phoneE164 = contact.phone.trim() ? toE164(contact.phone.trim()) : null;
+      const phoneE164 = toE164(contact.phone.trim());
+      if (!phoneE164) {
+        setTrackCError("Enter a valid 10-digit phone number.");
+        return;
+      }
 
       leadSubmitInFlightRef.current = true;
       setTrackCQualifying(true);

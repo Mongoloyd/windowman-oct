@@ -23,6 +23,7 @@ const PartnerRoutes = lazy(() =>
 );
 
 // Dev/internal only — not linked from any production CTA
+import { WindowManIntakePreview } from "@/components/intake";
 const DevReportPreview = lazy(() => import("./pages/DevReportPreview.tsx"));
 const DevTesting = lazy(() => import("./pages/DevTesting.tsx"));
 const PreUploadIntake = lazy(() => import("@/components/forensic-report/PreUploadIntake"));
@@ -144,6 +145,10 @@ const App = () => (
                 {/* Visual lab — unlisted mock QA; not production funnel */}
                 <Route path="/visual/report-preview" element={<DevReportPreview />} />
                 <Route path="/visual/pre-upload-intake" element={<VisualPreUploadIntake />} />
+                {/* Temporary Visual Lab Route — Sprint C.1.
+                    Visual-only intake scaffold preview.
+                    Remove or gate before production use. */}
+                <Route path="/visual/intake-preview" element={<WindowManIntakePreview />} />
                 {isDevMode && (
                   <>
                     <Route path="/dev/report-preview" element={<DevReportPreview />} />
