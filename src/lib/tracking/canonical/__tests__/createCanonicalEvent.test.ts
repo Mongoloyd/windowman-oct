@@ -807,4 +807,94 @@ describe("createCanonicalEvent Nextdoor env-gated activation", () => {
       ),
     ).toBe(false);
   });
+
+  it("does not enqueue TikTok dispatch when TIKTOK_CAPI_ENABLED is false", async () => {
+    const db = new MockDB();
+
+    const result = await createCanonicalEvent(
+      baseInput({
+        eventName: "quote_uploaded",
+        payload: {
+          ...baseInput().payload,
+          quote: undefined,
+          analytics: undefined,
+        },
+      }),
+      {
+        db,
+        createId: () => "wmc_tiktok_gate_false",
+        readTikTokCapiEnabled: () => false,
+      },
+    );
+
+    expect(result.dispatchPlatforms).not.toContain("tiktok");
+    expect(
+      (db.upserts.wm_platform_dispatch_log ?? []).some(
+        (row) => (row as Record<string, unknown>).platform_name === "tiktok",
+      ),
+    ).toBe(false);
+  });
+
+  it("enqueues one TikTok dispatch row when gate is true and event is mapped", async () => {
+    const db = new MockDB();
+    const eventId = "wmc_tiktok_enabled";
+
+    const result = await createCanonicalEvent(
+      baseInput({
+        eventName: "quote_uploaded",
+        payload: {
+          ...baseInput().payload,
+          quote: undefined,
+          analytics: undefined,
+        },
+      }),
+      {
+        db,
+        createId: () => eventId,
+        readTikTokCapiEnabled: () => true,
+      },
+    );
+
+    expect(result.dispatchPlatforms).toContain("tiktok");
+    const tiktokRows = (db.upserts.wm_platform_dispatch_log ?? []).filter(
+      (row) => (row as Record<string, unknown>).platform_name === "tiktok",
+    );
+
+    expect(tiktokRows).toHaveLength(1);
+    expect(tiktokRows[0]).toMatchObject({
+      event_log_id: "event-log-1",
+      platform_name: "tiktok",
+      dispatch_status: "pending",
+    });
+
+    const eventLogRow = db.inserts.wm_event_log?.[0] as Record<string, unknown>;
+    expect(eventLogRow.event_id).toBe(eventId);
+  });
+
+  it("does not enqueue TikTok dispatch for unknown events when gate is true", async () => {
+    const db = new MockDB();
+
+    const result = await createCanonicalEvent(
+      baseInput({
+        eventName: "lead_identified",
+        payload: {
+          ...baseInput().payload,
+          quote: undefined,
+          analytics: undefined,
+        },
+      }),
+      {
+        db,
+        createId: () => "wmc_tiktok_unknown_event",
+        readTikTokCapiEnabled: () => true,
+      },
+    );
+
+    expect(result.dispatchPlatforms).not.toContain("tiktok");
+    expect(
+      (db.upserts.wm_platform_dispatch_log ?? []).some(
+        (row) => (row as Record<string, unknown>).platform_name === "tiktok",
+      ),
+    ).toBe(false);
+  });
 });

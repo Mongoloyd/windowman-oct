@@ -8,6 +8,9 @@ import {
   resolveShouldSendNextdoor,
 } from "./nextdoorDispatchEligibility.ts";
 import {
+  evaluateTikTokDispatchEligibility,
+} from "./tiktokDispatchEligibility.ts";
+import {
   computeIdentityQuality,
   normalizeAndHashIdentity,
 } from "./identity.ts";
@@ -514,6 +517,16 @@ export async function createCanonicalEvent(
     if (canonicalEvent.shouldSendMeta) dispatchPlatforms.push("meta");
     if (canonicalEvent.shouldSendGoogle) dispatchPlatforms.push("google_ads");
     if (canonicalEvent.shouldSendNextdoor) dispatchPlatforms.push("nextdoor");
+
+    const tiktokEligibility = evaluateTikTokDispatchEligibility({
+      eventName: canonicalEvent.eventName,
+      env: {
+        TIKTOK_CAPI_ENABLED: Deno.env.get("TIKTOK_CAPI_ENABLED") ?? undefined,
+      },
+    });
+    if (tiktokEligibility.shouldEnqueue) {
+      dispatchPlatforms.push("tiktok");
+    }
 
     if (dispatchPlatforms.length > 0) {
       const rows = dispatchPlatforms.map((platform) => ({

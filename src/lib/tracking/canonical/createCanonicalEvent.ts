@@ -3,6 +3,10 @@ import {
   isViteNextdoorCapiEnabled,
   resolveShouldSendNextdoor,
 } from "./nextdoorDispatchEligibility.ts";
+import {
+  evaluateTikTokDispatchEligibility,
+  isViteTikTokCapiEnabled,
+} from "./tiktokDispatchEligibility.ts";
 import { normalizeAndHashIdentity, computeIdentityQuality } from "./identity.ts";
 import { evaluateQuoteTrust } from "./trustScore.ts";
 import { buildOptimizationPayload } from "./valueModel.ts";
@@ -39,6 +43,8 @@ interface CreateCanonicalEventDeps {
   createId?: () => string;
   /** Test seam — defaults to VITE_NEXTDOOR_CAPI_ENABLED when omitted. */
   readNextdoorCapiEnabled?: () => boolean;
+  /** Test seam — defaults to VITE_TIKTOK_CAPI_ENABLED when omitted. */
+  readTikTokCapiEnabled?: () => boolean;
 }
 
 interface CreateCanonicalEventResult {
@@ -477,6 +483,18 @@ export async function createCanonicalEvent(
     if (canonicalEvent.shouldSendMeta) dispatchPlatforms.push("meta");
     if (canonicalEvent.shouldSendGoogle) dispatchPlatforms.push("google_ads");
     if (canonicalEvent.shouldSendNextdoor) dispatchPlatforms.push("nextdoor");
+
+    const tiktokEligibility = evaluateTikTokDispatchEligibility({
+      eventName: canonicalEvent.eventName,
+      env: {
+        TIKTOK_CAPI_ENABLED: (deps.readTikTokCapiEnabled?.() ?? isViteTikTokCapiEnabled())
+          ? "true"
+          : undefined,
+      },
+    });
+    if (tiktokEligibility.shouldEnqueue) {
+      dispatchPlatforms.push("tiktok");
+    }
 
     if (dispatchPlatforms.length > 0) {
       const rows = dispatchPlatforms.map((platform) => ({
