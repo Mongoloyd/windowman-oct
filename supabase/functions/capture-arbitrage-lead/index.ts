@@ -28,6 +28,7 @@ import {
   isStageAllowedForAction,
   type ArbFunnelStage,
 } from "../_shared/arbitrageCaptureToken.ts";
+import { emitLeadActivity } from "../_shared/emitLeadActivity.ts";
 
 const FUNCTION_NAME = "capture-arbitrage-lead";
 const SOURCE = "arbitrage-engine";
@@ -343,7 +344,7 @@ async function findArbitrageLead(
   let query = admin
     .from("leads")
     .select(
-      "id, session_id, source, client_slug, qualification_answers_json, funnel_stage",
+      "id, session_id, source, client_slug, qualification_answers_json, funnel_stage, email, phone_e164",
     )
     .eq("session_id", sessionId)
     .eq("source", SOURCE);
@@ -865,6 +866,19 @@ async function mergeArbitrageAnswer(
     session_id_prefix: sessionIdPrefix(ctx.session_id),
     lead_id: lead.id,
   });
+
+  if (action === "update_timeframe") {
+    await emitLeadActivity({
+      supabaseAdmin: admin,
+      leadId: lead.id,
+      eventName: "arbitrage_completed",
+      metadata: { funnel_stage: nextStage },
+      contact: {
+        email: (lead as { email?: string | null }).email ?? null,
+        phone_e164: (lead as { phone_e164?: string | null }).phone_e164 ?? null,
+      },
+    });
+  }
 
   return successResponse(lead.id, ctx.session_id, nextStage, tokenSecret);
 }

@@ -15,6 +15,7 @@ import {
   SupabaseClient,
 } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { normalizePhone } from "../_shared/normalizePhone.ts";
+import { emitLeadActivity } from "../_shared/emitLeadActivity.ts";
 
 const FUNCTION_NAME = "capture-power-tool-demo-lead";
 const SOURCE = "power-tool-demo";
@@ -272,7 +273,9 @@ async function findDemoLead(
 ) {
   let query = admin
     .from("leads")
-    .select("id, session_id, source, client_slug, qualification_answers_json")
+    .select(
+      "id, session_id, source, client_slug, qualification_answers_json, email, phone_e164",
+    )
     .eq("session_id", sessionId)
     .eq("source", SOURCE);
 
@@ -803,6 +806,20 @@ async function handleUpdateIntake(
     lead_id: lead.id,
     has_intake: true,
     quote_holder_shortcut,
+  });
+
+  await emitLeadActivity({
+    supabaseAdmin: admin,
+    leadId: lead.id,
+    eventName: "power_demo_submitted",
+    metadata: {
+      funnel_stage,
+      quote_holder_shortcut,
+    },
+    contact: {
+      email: (lead as { email?: string | null }).email ?? null,
+      phone_e164: (lead as { phone_e164?: string | null }).phone_e164 ?? null,
+    },
   });
 
   return successResponse(lead.id, ctx.session_id, funnel_stage);

@@ -56,8 +56,40 @@ import {
   sanitizeQueryParamsInput,
 } from "../_shared/attributionMerge.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { emitLeadActivity } from "../_shared/emitLeadActivity.ts";
 
 const FUNCTION_NAME = "start-upload-scan-session";
+
+async function emitQuoteUploadedActivity(
+  admin: SupabaseClient,
+  args: {
+    lead_id: string;
+    scan_session_id: string;
+    quote_file_id: string;
+  },
+): Promise<void> {
+  const { data: leadRow } = await admin
+    .from("leads")
+    .select("email, phone_e164")
+    .eq("id", args.lead_id)
+    .maybeSingle();
+
+  await emitLeadActivity({
+    supabaseAdmin: admin,
+    leadId: args.lead_id,
+    eventName: "quote_uploaded",
+    scanSessionId: args.scan_session_id,
+    metadata: {
+      lead_id: args.lead_id,
+      scan_session_id: args.scan_session_id,
+      quote_file_id: args.quote_file_id,
+    },
+    contact: {
+      email: leadRow?.email ?? null,
+      phone_e164: leadRow?.phone_e164 ?? null,
+    },
+  });
+}
 
 // NOTE: Request shape (incl. UUID + storage_path scope) is owned by
 // `./contracts/schemas.ts` (RequestSchema). The historical UUID_RE and
@@ -806,6 +838,14 @@ Deno.serve(async (req: Request) => {
       has_file_name: Boolean(file_name),
       http_status: 200,
     });
+
+    if (lead_id && scan_session_id && quote_file_id) {
+      await emitQuoteUploadedActivity(admin, {
+        lead_id,
+        scan_session_id,
+        quote_file_id,
+      });
+    }
 
     return jsonResponse(200, {
       success: true,

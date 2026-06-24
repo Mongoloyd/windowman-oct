@@ -44,6 +44,8 @@ import {
   sanitizeQueryParamsInput,
 } from "../_shared/attributionMerge.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { deriveLeadSourceFromSource } from "../_shared/deriveLeadSourceFromSource.ts";
+import { emitLeadActivity } from "../_shared/emitLeadActivity.ts";
 import { persistCanonicalEvent } from "../_shared/tracking/canonicalBridge.ts";
 
 const FUNCTION_NAME = "capture-truth-gate-lead";
@@ -55,6 +57,33 @@ const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const EMAIL_RE = /^\S+@\S+\.\S+$/;
+
+function captureActivityEventName(source: string): string {
+  return source === "nextdoor"
+    ? "nextdoor_lead_captured"
+    : "truth_gate_captured";
+}
+
+async function emitTruthGateCaptureActivity(
+  admin: SupabaseClient,
+  args: {
+    leadId: string;
+    source: string;
+    email: string;
+    phone_e164: string | null;
+  },
+): Promise<void> {
+  await emitLeadActivity({
+    supabaseAdmin: admin,
+    leadId: args.leadId,
+    eventName: captureActivityEventName(args.source),
+    metadata: { source: args.source },
+    contact: {
+      email: args.email,
+      phone_e164: args.phone_e164,
+    },
+  });
+}
 
 const LEAD_SCALAR_SELECT =
   "attribution, query_params, client_slug, utm_source, utm_medium, utm_campaign, utm_term, utm_content, fbclid, gclid, fbc, fbp, ttclid, msclkid, wbraid, gbraid, landing_page_url, first_page_path, initial_referrer";
@@ -662,6 +691,17 @@ Deno.serve(async (req) => {
         source: payload.source,
         attribution: payload.attribution,
       });
+      const derivedLeadSource = deriveLeadSourceFromSource(payload.source);
+      await admin
+        .from("leads")
+        .update({ lead_source: derivedLeadSource })
+        .eq("id", reusedLeadId);
+      await emitTruthGateCaptureActivity(admin, {
+        leadId: reusedLeadId,
+        source: payload.source,
+        email: payload.email,
+        phone_e164: payload.phone_e164,
+      });
       audit(admin, {
         stage: "lead_reused",
         status: "reused",
@@ -746,6 +786,7 @@ Deno.serve(async (req) => {
     otp_locked_until: null,
     last_otp_verified_at: null,
     report_unlocked_at: null,
+    lead_source: deriveLeadSourceFromSource(payload.source),
   };
 
   const { data, error } = await admin
@@ -803,6 +844,15 @@ Deno.serve(async (req) => {
       utmTerm: payload.utm_term,
       source: payload.source,
       attribution: payload.attribution,
+    });
+  }
+
+  if (data?.id) {
+    await emitTruthGateCaptureActivity(admin, {
+      leadId: data.id,
+      source: payload.source,
+      email: payload.email,
+      phone_e164: payload.phone_e164,
     });
   }
 
