@@ -144,8 +144,10 @@ Direct POST to staging `tiktok-capi-event`. **Human executes only** after Dashbo
 
 - `dry_run: false` (live sender call)
 - **`test_event_code` required** (body and/or `TIKTOK_TEST_EVENT_CODE` env)
-- No raw PII — use fake QA SHA-256-like hex strings only
+- No raw PII — hash fake QA identity locally; TikTok expects **SHA-256 lowercase hex** (64 chars) for `email` and `phone`
+- **Invalid:** placeholder strings like `qa3c6email...` / `qa3c6phone...` — they are not valid SHA-256 digests and may cause provider rejection
 - Payload shaped like 3C-5 proof (`lead_captured` → TikTok `SubmitForm`)
+- **Do not** invoke `dispatch-platform-events` (Meta/Google FIFO backlog must not move)
 
 Replace placeholders; do not commit real tokens, pixel IDs, or service role keys.
 
@@ -155,6 +157,22 @@ Replace placeholders; do not commit real tokens, pixel IDs, or service role keys
 # Preflight: confirm staging project only
 $StagingProjectRef = "zgsofkgddpcntdvpckdq"
 if ($StagingProjectRef -eq "wkrcyxcnzhwjtdpmfpaf") { throw "SAFETY STOP: production ref forbidden" }
+
+# Fake QA identity only — never use real homeowner PII
+$FakeEmail = "qa3c6@example.com"
+$FakePhone = "+15555550123"
+
+$EmailHash = [System.BitConverter]::ToString(
+  [System.Security.Cryptography.SHA256]::Create().ComputeHash(
+    [System.Text.Encoding]::UTF8.GetBytes($FakeEmail.ToLower().Trim())
+  )
+).Replace("-", "").ToLower()
+
+$PhoneHash = [System.BitConverter]::ToString(
+  [System.Security.Cryptography.SHA256]::Create().ComputeHash(
+    [System.Text.Encoding]::UTF8.GetBytes($FakePhone.Trim())
+  )
+).Replace("-", "").ToLower()
 
 $Timestamp = [int][double]::Parse((Get-Date -UFormat %s))
 $EventId = "wmc_lead_captured_qa_3c6_$Timestamp"
@@ -175,8 +193,8 @@ $Body = @{
         event_time = $Timestamp
         event_id = $EventId
         user = @{
-          email = "qa3c6email00000000000000000000000000000000000000000000000000000001"
-          phone = "qa3c6phone00000000000000000000000000000000000000000000000000000002"
+          email = $EmailHash
+          phone = $PhoneHash
           external_id = "qa-lead-3c6-00000001"
           ttclid = "qa-ttclid-3c6"
         }
@@ -213,6 +231,15 @@ Do **not** use `DISPATCH_WORKER_SECRET` or invoke `dispatch-platform-events`.
 
 ### 6.2 curl-style template
 
+Generate hashes first (fake QA identity only — same normalization as PowerShell: email lowercased + trimmed, phone trimmed):
+
+```bash
+FAKE_EMAIL="qa3c6@example.com"
+FAKE_PHONE="+15555550123"
+EMAIL_HASH=$(printf '%s' "$(echo "$FAKE_EMAIL" | tr '[:upper:]' '[:lower:]' | xargs)" | sha256sum | awk '{print $1}')
+PHONE_HASH=$(printf '%s' "$(echo "$FAKE_PHONE" | xargs)" | sha256sum | awk '{print $1}')
+```
+
 ```bash
 TIMESTAMP=$(date +%s)
 EVENT_ID="wmc_lead_captured_qa_3c6_${TIMESTAMP}"
@@ -236,8 +263,8 @@ curl -sS -X POST \
         \"event_time\": ${TIMESTAMP},
         \"event_id\": \"${EVENT_ID}\",
         \"user\": {
-          \"email\": \"qa3c6email00000000000000000000000000000000000000000000000000000001\",
-          \"phone\": \"qa3c6phone00000000000000000000000000000000000000000000000000000002\",
+          \"email\": \"${EMAIL_HASH}\",
+          \"phone\": \"${PHONE_HASH}\",
           \"external_id\": \"qa-lead-3c6-00000001\",
           \"ttclid\": \"qa-ttclid-3c6\"
         },
