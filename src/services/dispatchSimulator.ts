@@ -1,5 +1,6 @@
 import { fetchClientPlatformConfigs, maskConfigId, type PlatformConfigRow } from "@/services/clientPlatformConfigs";
 import { buildHashedIdentity, getHashedIdentityDiagnostics } from "@/lib/privacy/identityHashing";
+import { mapToTikTok } from "@/lib/tracking/canonical/mapToTikTok";
 import {
   fetchRevenueDispatchReadiness,
   maskId,
@@ -48,6 +49,7 @@ export type DryRunReasonCode =
   | "tiktok_event_time_missing"
   | "tiktok_using_gross_value_proxy"
   | "tiktok_payload_draft_only"
+  | "tiktok_unmapped_event"
   | "google_missing_conversion_destination"
   | "google_missing_token"
   | "google_missing_event_id"
@@ -78,7 +80,7 @@ export type MetaMatchInputQuality = "strong" | "medium" | "weak" | "missing";
 export type GoogleAttributionQuality = "strong" | "medium" | "weak" | "missing";
 export type EndpointReadiness = "ready" | "warning" | "blocked";
 
-export const TIKTOK_DRY_RUN_MAPPER_VERSION = "tiktok-dry-run-v1";
+export const TIKTOK_DRY_RUN_MAPPER_VERSION = "tiktok-dry-run-v2";
 export const META_CAPI_DRY_RUN_MAPPER_VERSION = "meta-capi-dry-run-v1";
 export const GOOGLE_DRY_RUN_MAPPER_VERSION = "google-ads-ga4-dry-run-v1";
 export const GTM_SERVER_DRY_RUN_MAPPER_VERSION = "gtm-server-dry-run-v1";
@@ -168,6 +170,7 @@ const HARD_ROW_REASONS: DryRunReasonCode[] = [
   "tiktok_value_missing",
   "tiktok_event_id_missing",
   "tiktok_event_time_missing",
+  "tiktok_unmapped_event",
   "google_missing_conversion_destination",
   "google_missing_event_id",
   "google_missing_value",
@@ -319,8 +322,14 @@ function tiktokEventSourceId(config: PlatformConfigRow): string | null {
   return hasText(config.pixel_id) ? config.pixel_id : hasText(config.dataset_id) ? config.dataset_id : null;
 }
 
-function tiktokEventName(row: RevenueReadinessRow): "Purchase" {
-  return "Purchase";
+export function resolveTikTokEventName(eventName: string | null): string | null {
+  if (!eventName) return null;
+  return mapToTikTok(eventName)?.tiktokEventName ?? null;
+}
+
+function tiktokRequiresValue(eventName: string | null): boolean {
+  const mapped = eventName ? mapToTikTok(eventName) : null;
+  return mapped?.recommendedOptimizationTier === "revenue";
 }
 
 function tiktokMatchQuality(row: RevenueReadinessRow): TikTokMatchQuality {
@@ -337,10 +346,15 @@ function tiktokMatchQuality(row: RevenueReadinessRow): TikTokMatchQuality {
 }
 
 function addTikTokReasons(row: RevenueReadinessRow, config: PlatformConfigRow, reasons: Set<DryRunReasonCode>) {
+  const mappedEventName = resolveTikTokEventName(row.eventName);
+
   if (!hasText(config.pixel_id)) addReason(reasons, "tiktok_missing_pixel_id");
   if (!tiktokEventSourceId(config)) addReason(reasons, "tiktok_missing_event_source_id");
+  if (!mappedEventName) addReason(reasons, "tiktok_unmapped_event");
   if (!row.eventId) addReason(reasons, "tiktok_event_id_missing");
-  if (!row.valueUsd || row.valueUsd <= 0) addReason(reasons, "tiktok_value_missing");
+  if (tiktokRequiresValue(row.eventName) && (!row.valueUsd || row.valueUsd <= 0)) {
+    addReason(reasons, "tiktok_value_missing");
+  }
   if (!unixSeconds(row.timestamp ?? row.createdAt)) addReason(reasons, "tiktok_event_time_missing");
   if (!presence(row, "ttclid")) addReason(reasons, "tiktok_missing_ttclid");
   if (!presence(row, "ttp")) addReason(reasons, "tiktok_missing_ttp");
@@ -537,6 +551,8 @@ async function buildMetaPayload(row: RevenueReadinessRow, config: PlatformConfig
 async function buildTikTokPayload(row: RevenueReadinessRow, config: PlatformConfigRow) {
   const eventSourceId = tiktokEventSourceId(config);
   const eventTime = unixSeconds(row.timestamp ?? row.createdAt);
+  const mappedEventName = resolveTikTokEventName(row.eventName);
+  const mapped = row.eventName ? mapToTikTok(row.eventName) : null;
   const warningSet = new Set<DryRunReasonCode>();
   addTikTokReasons(row, config, warningSet);
   const identityDiagnostics = await userIdentityPresenceSnapshot(row);
@@ -546,7 +562,7 @@ async function buildTikTokPayload(row: RevenueReadinessRow, config: PlatformConf
     event_source_id: eventSourceId ? maskId(eventSourceId) : null,
     data: [
       {
-        event: tiktokEventName(row),
+        event: mappedEventName,
         event_time: eventTime,
         event_id: row.eventId,
         user: {
@@ -564,7 +580,9 @@ async function buildTikTokPayload(row: RevenueReadinessRow, config: PlatformConf
           currency: "USD",
           value: row.valueUsd,
           content_type: "product",
-          description: "WindowMan sold lead",
+          description: mapped?.kind === "custom"
+            ? `WindowMan ${mapped.sourceEvent}`
+            : "WindowMan sold lead",
           order_id: row.eventId ? maskId(row.eventId) : row.leadId ? maskId(row.leadId) : null,
           status: row.payloadIntegrity.dispositionState ?? "sold_closed",
         },
@@ -580,6 +598,9 @@ async function buildTikTokPayload(row: RevenueReadinessRow, config: PlatformConf
       client_slug: row.clientSlug,
       platform_config_id: maskConfigId(config.id),
       mapper_version: TIKTOK_DRY_RUN_MAPPER_VERSION,
+      source_event: row.eventName,
+      tiktok_event_kind: mapped?.kind ?? null,
+      optimization_tier: mapped?.recommendedOptimizationTier ?? null,
       value_basis: "gross_sale_value",
       true_margin_available: row.payloadIntegrity.trueMarginAvailable === true,
       match_quality: tiktokMatchQuality(row),
@@ -735,6 +756,27 @@ async function buildPayload(row: RevenueReadinessRow, config: PlatformConfigRow)
     default:
       return buildGenericPayload(row);
   }
+}
+
+export async function previewTikTokLadderDryRun(
+  row: RevenueReadinessRow,
+  config: PlatformConfigRow,
+): Promise<{
+  tiktokEventName: string | null;
+  reasons: DryRunReasonCode[];
+  simulatedStatus: DryRunStatus;
+  payload: Record<string, unknown>;
+}> {
+  const reasons = new Set<DryRunReasonCode>();
+  addTikTokReasons(row, config, reasons);
+  addReason(reasons, "payload_draft_ready");
+  const reasonList = Array.from(reasons);
+  return {
+    tiktokEventName: resolveTikTokEventName(row.eventName),
+    reasons: reasonList,
+    simulatedStatus: computeStatus(reasonList),
+    payload: await buildTikTokPayload(row, config),
+  };
 }
 
 function suggestedFix(reasons: DryRunReasonCode[]) {

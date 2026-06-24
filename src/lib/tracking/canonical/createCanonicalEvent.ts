@@ -178,6 +178,109 @@ async function resolveClientSlug(
   return null;
 }
 
+function isNonEmptyAttributionValue(val: unknown): boolean {
+  if (val === null || val === undefined) return false;
+  if (typeof val === "string" && val.trim() === "") return false;
+  if (Array.isArray(val) && val.length === 0) return false;
+  if (
+    typeof val === "object" &&
+    !Array.isArray(val) &&
+    Object.keys(val as object).length === 0
+  ) {
+    return false;
+  }
+  return true;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+  return value as Record<string, unknown>;
+}
+
+function mergeAttributionSnapshot(
+  existing: unknown,
+  incoming: unknown,
+): Record<string, unknown> {
+  const merged = { ...asRecord(existing) };
+  for (const [key, val] of Object.entries(asRecord(incoming))) {
+    if (!isNonEmptyAttributionValue(val)) continue;
+    if (!isNonEmptyAttributionValue(merged[key])) {
+      merged[key] = val;
+    }
+  }
+  return merged;
+}
+
+function mergeQueryParamsSnapshot(
+  existing: unknown,
+  incoming: unknown,
+): Record<string, string | string[]> {
+  const merged = { ...asRecord(existing) } as Record<string, string | string[]>;
+  for (const [key, val] of Object.entries(asRecord(incoming))) {
+    if (key in merged) continue;
+    if (!isNonEmptyAttributionValue(val)) continue;
+    merged[key] = val as string | string[];
+  }
+  return merged;
+}
+
+interface ResolvedAttributionSnapshot {
+  attribution: Record<string, unknown>;
+  queryParams: Record<string, string | string[]>;
+}
+
+async function resolveAttributionSnapshot(
+  input: CreateCanonicalEventInput,
+  deps: CreateCanonicalEventDeps,
+): Promise<ResolvedAttributionSnapshot> {
+  let attribution: Record<string, unknown> = {};
+  let queryParams: Record<string, string | string[]> = {};
+
+  const leadId = input.leadId ?? null;
+  if (leadId) {
+    const leadResult = await deps.db
+      .from("leads")
+      .select("attribution, query_params")
+      .eq("id", leadId)
+      .maybeSingle();
+    if (!leadResult.error && leadResult.data) {
+      attribution = mergeAttributionSnapshot(
+        attribution,
+        leadResult.data.attribution,
+      );
+      queryParams = mergeQueryParamsSnapshot(
+        queryParams,
+        leadResult.data.query_params,
+      );
+    }
+  }
+
+  const scanSessionId = input.scanSessionId ??
+    input.payload.journey.scanSessionId ??
+    null;
+  if (scanSessionId) {
+    const sessionResult = await deps.db
+      .from("scan_sessions")
+      .select("attribution, query_params")
+      .eq("id", scanSessionId)
+      .maybeSingle();
+    if (!sessionResult.error && sessionResult.data) {
+      attribution = mergeAttributionSnapshot(
+        attribution,
+        sessionResult.data.attribution,
+      );
+      queryParams = mergeQueryParamsSnapshot(
+        queryParams,
+        sessionResult.data.query_params,
+      );
+    }
+  }
+
+  return { attribution, queryParams };
+}
+
 export async function createCanonicalEvent(
   input: CreateCanonicalEventInput,
   deps: CreateCanonicalEventDeps,
@@ -276,6 +379,7 @@ export async function createCanonicalEvent(
 
   const analysisId = input.analysisId ?? input.payload.quote?.analysisId ?? null;
   const resolvedClientSlug = await resolveClientSlug(input, deps);
+  const resolvedAttribution = await resolveAttributionSnapshot(input, deps);
   const wmEventInsert = {
     event_id: canonicalEvent.eventId,
     event_name: canonicalEvent.eventName,
@@ -286,6 +390,8 @@ export async function createCanonicalEvent(
     analysis_id: analysisId,
     quote_file_id: input.quoteFileId ?? input.payload.quote?.quoteFileId ?? null,
     client_slug: resolvedClientSlug,
+    attribution: resolvedAttribution.attribution,
+    query_params: resolvedAttribution.queryParams,
     schema_version: canonicalEvent.schemaVersion,
     model_version: canonicalEvent.modelVersion ?? null,
     rubric_version: canonicalEvent.rubricVersion ?? null,

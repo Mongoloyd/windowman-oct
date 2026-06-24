@@ -1,3 +1,7 @@
+import {
+  mergeAttribution,
+  mergeQueryParams,
+} from "../../attributionMerge.ts";
 import { WM_QUOTE_TRUST_MIN_FOR_DISPATCH } from "./constants.ts";
 import {
   isDenoNextdoorCapiEnabled,
@@ -214,6 +218,58 @@ async function resolveClientSlug(
   return null;
 }
 
+interface ResolvedAttributionSnapshot {
+  attribution: Record<string, unknown>;
+  queryParams: Record<string, string | string[]>;
+}
+
+async function resolveAttributionSnapshot(
+  input: CreateCanonicalEventInput,
+  deps: CreateCanonicalEventDeps,
+): Promise<ResolvedAttributionSnapshot> {
+  let attribution: Record<string, unknown> = {};
+  let queryParams: Record<string, string | string[]> = {};
+
+  const leadId = input.leadId ?? null;
+  if (leadId) {
+    const leadResult = await deps.db
+      .from("leads")
+      .select("attribution, query_params")
+      .eq("id", leadId)
+      .maybeSingle();
+    if (!leadResult.error && leadResult.data) {
+      attribution = mergeAttribution(attribution, leadResult.data.attribution);
+      queryParams = mergeQueryParams(
+        queryParams,
+        leadResult.data.query_params,
+      );
+    }
+  }
+
+  const scanSessionId = input.scanSessionId ??
+    input.payload.journey.scanSessionId ??
+    null;
+  if (scanSessionId) {
+    const sessionResult = await deps.db
+      .from("scan_sessions")
+      .select("attribution, query_params")
+      .eq("id", scanSessionId)
+      .maybeSingle();
+    if (!sessionResult.error && sessionResult.data) {
+      attribution = mergeAttribution(
+        attribution,
+        sessionResult.data.attribution,
+      );
+      queryParams = mergeQueryParams(
+        queryParams,
+        sessionResult.data.query_params,
+      );
+    }
+  }
+
+  return { attribution, queryParams };
+}
+
 export async function createCanonicalEvent(
   input: CreateCanonicalEventInput,
   deps: CreateCanonicalEventDeps,
@@ -323,6 +379,7 @@ export async function createCanonicalEvent(
   const analysisId = input.analysisId ?? input.payload.quote?.analysisId ??
     null;
   const resolvedClientSlug = await resolveClientSlug(input, deps);
+  const resolvedAttribution = await resolveAttributionSnapshot(input, deps);
   const wmEventInsert = {
     event_id: canonicalEvent.eventId,
     event_name: canonicalEvent.eventName,
@@ -335,6 +392,8 @@ export async function createCanonicalEvent(
     quote_file_id: input.quoteFileId ?? input.payload.quote?.quoteFileId ??
       null,
     client_slug: resolvedClientSlug,
+    attribution: resolvedAttribution.attribution,
+    query_params: resolvedAttribution.queryParams,
     schema_version: canonicalEvent.schemaVersion,
     model_version: canonicalEvent.modelVersion ?? null,
     rubric_version: canonicalEvent.rubricVersion ?? null,

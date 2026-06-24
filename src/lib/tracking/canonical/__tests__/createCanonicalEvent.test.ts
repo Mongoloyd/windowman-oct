@@ -10,6 +10,14 @@ class MockDB {
     scan_sessions: {},
     analyses: {},
   };
+  public attributionLookups: Record<string, Record<string, Record<string, unknown>>> = {
+    leads: {},
+    scan_sessions: {},
+  };
+  public queryParamsLookups: Record<string, Record<string, Record<string, string | string[]>>> = {
+    leads: {},
+    scan_sessions: {},
+  };
 
   from(table: string) {
     return {
@@ -30,14 +38,22 @@ class MockDB {
               return { data: { id: "event-log-1" }, error: null };
             }
 
-            const slug = this.slugLookups[table]?.[value] ?? null;
-            if (
-              table === "leads" ||
-              table === "scan_sessions" ||
-              table === "analyses"
-            ) {
+            if (table === "leads" || table === "scan_sessions" || table === "analyses") {
+              const data: Record<string, unknown> = {};
+              const slug = this.slugLookups[table]?.[value];
+              if (slug != null) {
+                data.client_slug = slug;
+              }
+              const attribution = this.attributionLookups[table]?.[value];
+              if (attribution != null) {
+                data.attribution = attribution;
+              }
+              const queryParams = this.queryParamsLookups[table]?.[value];
+              if (queryParams != null) {
+                data.query_params = queryParams;
+              }
               return {
-                data: slug != null ? { client_slug: slug } : null,
+                data: Object.keys(data).length > 0 ? data : null,
                 error: null,
               };
             }
@@ -603,5 +619,192 @@ describe("createCanonicalEvent Nextdoor env-gated activation", () => {
     expect(result.dispatchPlatforms).toContain("google_ads");
     expect(result.canonicalEvent.shouldSendMeta).toBe(true);
     expect(result.canonicalEvent.shouldSendGoogle).toBe(true);
+  });
+
+  it("copies attribution and query_params from lead row into wm_event_log", async () => {
+    const db = new MockDB();
+    const leadId = crypto.randomUUID();
+    db.attributionLookups.leads[leadId] = {
+      ttclid: "ttclid-lead",
+      ttp: "ttp-cookie",
+      utm_source: "tiktok",
+    };
+    db.queryParamsLookups.leads[leadId] = {
+      ttclid: "ttclid-lead",
+    };
+
+    const inputPayload = baseInput({
+      leadId,
+      scanSessionId: undefined,
+      analysisId: undefined,
+      payload: {
+        ...baseInput().payload,
+        quote: undefined,
+        analytics: undefined,
+      },
+    });
+
+    await createCanonicalEvent(inputPayload, {
+      db,
+      createId: () => "wmc_lead_attribution",
+    });
+
+    const row = db.inserts.wm_event_log?.[0] as Record<string, unknown>;
+    expect(row.attribution).toEqual({
+      ttclid: "ttclid-lead",
+      ttp: "ttp-cookie",
+      utm_source: "tiktok",
+    });
+    expect(row.query_params).toEqual({ ttclid: "ttclid-lead" });
+    expect(inputPayload.payload).toEqual({
+      ...baseInput().payload,
+      quote: undefined,
+      analytics: undefined,
+    });
+  });
+
+  it("falls back to scan_session attribution and query_params when lead has none", async () => {
+    const db = new MockDB();
+    const leadId = crypto.randomUUID();
+    const scanSessionId = crypto.randomUUID();
+    db.attributionLookups.scan_sessions[scanSessionId] = {
+      ttclid: "ttclid-session",
+      utm_campaign: "spring",
+    };
+    db.queryParamsLookups.scan_sessions[scanSessionId] = {
+      utm_campaign: "spring",
+    };
+
+    await createCanonicalEvent(
+      baseInput({
+        leadId,
+        scanSessionId,
+        analysisId: undefined,
+        payload: {
+          ...baseInput().payload,
+          quote: undefined,
+          analytics: undefined,
+          journey: {
+            route: "/vault/upload",
+            flow: "vault",
+            scanSessionId,
+          },
+        },
+      }),
+      {
+        db,
+        createId: () => "wmc_session_attribution",
+      },
+    );
+
+    const row = db.inserts.wm_event_log?.[0] as Record<string, unknown>;
+    expect(row.attribution).toEqual({
+      ttclid: "ttclid-session",
+      utm_campaign: "spring",
+    });
+    expect(row.query_params).toEqual({ utm_campaign: "spring" });
+  });
+
+  it("merges lead attribution over scan_session gaps without overwriting lead keys", async () => {
+    const db = new MockDB();
+    const leadId = crypto.randomUUID();
+    const scanSessionId = crypto.randomUUID();
+    db.attributionLookups.leads[leadId] = {
+      ttclid: "ttclid-lead",
+      utm_source: "tiktok",
+    };
+    db.attributionLookups.scan_sessions[scanSessionId] = {
+      ttclid: "ttclid-session",
+      ttp: "ttp-session",
+    };
+
+    await createCanonicalEvent(
+      baseInput({
+        leadId,
+        scanSessionId,
+        analysisId: undefined,
+        payload: {
+          ...baseInput().payload,
+          quote: undefined,
+          analytics: undefined,
+          journey: {
+            route: "/vault/upload",
+            flow: "vault",
+            scanSessionId,
+          },
+        },
+      }),
+      {
+        db,
+        createId: () => "wmc_merged_attribution",
+      },
+    );
+
+    const row = db.inserts.wm_event_log?.[0] as Record<string, unknown>;
+    expect(row.attribution).toEqual({
+      ttclid: "ttclid-lead",
+      utm_source: "tiktok",
+      ttp: "ttp-session",
+    });
+  });
+
+  it("writes empty attribution and query_params when parent rows are missing", async () => {
+    const db = new MockDB();
+    const leadId = crypto.randomUUID();
+    const scanSessionId = crypto.randomUUID();
+
+    await createCanonicalEvent(
+      baseInput({
+        leadId,
+        scanSessionId,
+        analysisId: undefined,
+        payload: {
+          ...baseInput().payload,
+          quote: undefined,
+          analytics: undefined,
+          journey: {
+            route: "/vault/upload",
+            flow: "vault",
+            scanSessionId,
+          },
+        },
+      }),
+      {
+        db,
+        createId: () => "wmc_empty_attribution",
+      },
+    );
+
+    const row = db.inserts.wm_event_log?.[0] as Record<string, unknown>;
+    expect(row.attribution).toEqual({});
+    expect(row.query_params).toEqual({});
+  });
+
+  it("does not enqueue TikTok dispatch when attribution snapshot is written", async () => {
+    const db = new MockDB();
+    const leadId = crypto.randomUUID();
+    db.attributionLookups.leads[leadId] = { ttclid: "ttclid-lead" };
+
+    const result = await createCanonicalEvent(
+      baseInput({
+        leadId,
+        payload: {
+          ...baseInput().payload,
+          quote: undefined,
+          analytics: undefined,
+        },
+      }),
+      {
+        db,
+        createId: () => "wmc_no_tiktok_dispatch",
+      },
+    );
+
+    expect(result.dispatchPlatforms).not.toContain("tiktok");
+    expect(
+      (db.upserts.wm_platform_dispatch_log ?? []).some(
+        (row) => (row as Record<string, unknown>).platform_name === "tiktok",
+      ),
+    ).toBe(false);
   });
 });
