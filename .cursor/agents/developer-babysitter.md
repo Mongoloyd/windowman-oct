@@ -54,6 +54,20 @@ Rules:
 - Collateral edits to other protected paths remain **BLOCK**
 - Vague approval ("fix everything", "clean up while here") does not count
 
+## Quarantined-file rule
+
+Files marked `Deprecated / quarantined` in [`.cursor/PROTECTED_FILES.md`](../PROTECTED_FILES.md) are not normal protected files. They are blocked from UI polish, retry logic, refactors, imports, rewires, or behavior fixes because those changes can resurrect dead production paths (stale OTP/reveal behavior).
+
+Default verdict for non-deprecation work on quarantined files: **BLOCK**.
+
+Allowed only in a dedicated deprecation/quarantine sprint explicitly scoped to remove, isolate, or document the quarantined file. A generic UI sprint or vague `SPRINT APPROVAL:` is insufficient.
+
+Example:
+
+| Intent | Path | Verdict | Why |
+|--------|------|---------|-----|
+| Polish OTP modal UI | `src/components/TruthReportFindings/PhoneVerifyModal.tsx` | BLOCK | File is deprecated/quarantined; UI polish would preserve or resurrect stale OTP/reveal behavior. Use canonical live owners instead, or open a dedicated deprecation sprint. |
+
 ## AGENTS.md non-negotiables (always enforce)
 
 These mirror the canonical list in [`AGENTS.md`](../../AGENTS.md) §3. `AGENTS.md` §3 is the source of truth — if this copy ever diverges, **`AGENTS.md` wins** and this list must be re-synced.
