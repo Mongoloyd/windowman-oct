@@ -1,9 +1,13 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import {
+  buildGoogleDryRunDispatchEnvelope,
+  buildGoogleDispatchAuthHeaders,
+  buildMissingGoogleDispatchUrlResult,
+  evaluateGoogleDispatchHttpResponse,
   fetchWithTimeout,
   runDispatchWorker,
   type VendorSendResult,
-} from "../_shared/tracking/dispatchWorkerBridge.ts";
+} from "../_shared/tracking/canonical/dispatchWorker.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -76,9 +80,6 @@ Deno.serve(async (req) => {
     const tiktokCapiUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/tiktok-capi-event`;
     const googleDispatchUrl = Deno.env.get("GOOGLE_ADS_DISPATCH_URL") ?? "";
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const googleDispatchAuthToken = Deno.env.get(
-      "GOOGLE_ADS_DISPATCH_AUTH_TOKEN",
-    );
     const eventSourceUrl = Deno.env.get("WM_EVENT_SOURCE_URL") ??
       "https://windowman.app";
     const nextdoorEventSourceUrl = Deno.env.get("NEXTDOOR_EVENT_SOURCE_URL") ?? "";
@@ -125,49 +126,31 @@ Deno.serve(async (req) => {
       },
       sendToGoogle: async (payload) => {
         if (!googleDispatchUrl) {
-          return {
-            ok: false,
-            retryable: false,
-            statusCode: 400,
-            errorMessage: "GOOGLE_ADS_DISPATCH_URL is not configured",
-            responseBody: {
-              error: "GOOGLE_ADS_DISPATCH_URL is not configured",
-            },
-            requestPayload: payload,
-          } satisfies VendorSendResult;
+          return buildMissingGoogleDispatchUrlResult(payload);
         }
 
+        const requestPayload = buildGoogleDryRunDispatchEnvelope(payload);
+
         try {
-          const googleHeaders: Record<string, string> = {
-            "Content-Type": "application/json",
-          };
-
-          if (googleDispatchAuthToken) {
-            googleHeaders.Authorization = `Bearer ${googleDispatchAuthToken}`;
-          }
-
           const response = await fetchWithTimeout(
             googleDispatchUrl,
             {
               method: "POST",
-              headers: googleHeaders,
-              body: JSON.stringify(payload),
+              headers: buildGoogleDispatchAuthHeaders(serviceRoleKey),
+              body: JSON.stringify(requestPayload),
             },
             DEFAULT_TIMEOUT_MS,
           );
 
           const body = await response.json().catch(() => ({}));
 
-          return {
-            ok: response.ok,
-            retryable: response.status === 429 || response.status >= 500,
-            statusCode: response.status,
-            responseBody: body,
-            errorMessage: response.ok ? undefined : JSON.stringify(body),
-            requestPayload: payload,
-          } satisfies VendorSendResult;
+          return evaluateGoogleDispatchHttpResponse(
+            response,
+            body as Record<string, unknown>,
+            requestPayload,
+          );
         } catch (error) {
-          return buildErrorResult(error, payload);
+          return buildErrorResult(error, requestPayload);
         }
       },
       sendToNextdoor: async ({ payload, clientSlug, verifiedClientSlug, eventId }) => {

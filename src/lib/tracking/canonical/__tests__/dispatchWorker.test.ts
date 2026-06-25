@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildGoogleDryRunDispatchEnvelope,
+  buildGoogleDispatchAuthHeaders,
+  buildMissingGoogleDispatchUrlResult,
+  evaluateGoogleDispatchHttpResponse,
+  GOOGLE_ADS_DISPATCH_DRY_RUN_ONLY,
   resolveNextdoorActionSourceUrl,
   runDispatchWorker,
   TIKTOK_DISPATCH_DRY_RUN_ONLY,
@@ -759,6 +764,148 @@ describe("runDispatchWorker", () => {
 
     expect(googleCalls).toBe(1);
     expect(mock.updates.wm_platform_dispatch_log?.[0]?.dispatch_status).toBe("sent");
+  });
+
+  describe("Google Ads dry-run dispatch bridge", () => {
+    const mapPayload = {
+      conversion_action: "wm_lead_identified",
+      transaction_id: "wmc_google_bridge_test",
+      conversion_date_time: "2026-06-24T12:00:00.000Z",
+      conversion_value: 10,
+      currency_code: "USD",
+      gclid: "CjwKCAiAQa4a_FAKE_GCLID_TEST_ONLY",
+      user_identifiers: {
+        hashed_email: "a".repeat(64),
+      },
+    };
+
+    it("buildGoogleDryRunDispatchEnvelope wraps mapToGoogle output as dry_run envelope", () => {
+      const envelope = buildGoogleDryRunDispatchEnvelope(mapPayload);
+
+      expect(envelope.dry_run).toBe(true);
+      expect(envelope.payload).toEqual(mapPayload);
+      expect(JSON.stringify(envelope)).not.toMatch(/@|\+1\d{10}|Bearer\s+[A-Za-z0-9._-]{20,}/);
+    });
+
+    it("never emits dry_run:false from envelope builder", () => {
+      expect(GOOGLE_ADS_DISPATCH_DRY_RUN_ONLY).toBe(true);
+
+      const envelope = buildGoogleDryRunDispatchEnvelope(mapPayload);
+      expect(envelope.dry_run).toBe(true);
+      expect(envelope.dry_run).not.toBe(false);
+    });
+
+    it("buildGoogleDispatchAuthHeaders uses Authorization Bearer service role", () => {
+      const headers = buildGoogleDispatchAuthHeaders("staging-service-role-placeholder");
+
+      expect(headers.Authorization).toBe("Bearer staging-service-role-placeholder");
+      expect(headers["Content-Type"]).toBe("application/json");
+      expect(JSON.stringify(headers)).not.toMatch(/@|\+1\d{10}/);
+    });
+
+    it("buildMissingGoogleDispatchUrlResult fails safely without fetch", () => {
+      const result = buildMissingGoogleDispatchUrlResult(mapPayload);
+
+      expect(result.ok).toBe(false);
+      expect(result.retryable).toBe(false);
+      expect(result.statusCode).toBe(400);
+      expect(result.errorMessage).toBe("GOOGLE_ADS_DISPATCH_URL is not configured");
+      expect(result.requestPayload).toEqual(mapPayload);
+    });
+
+    it("evaluateGoogleDispatchHttpResponse requires success:true in body", () => {
+      const requestPayload = buildGoogleDryRunDispatchEnvelope(mapPayload);
+
+      const success = evaluateGoogleDispatchHttpResponse(
+        { ok: true, status: 200 },
+        { success: true, dry_run: true },
+        requestPayload,
+      );
+      expect(success.ok).toBe(true);
+
+      const httpOkOnly = evaluateGoogleDispatchHttpResponse(
+        { ok: true, status: 200 },
+        { success: false, dry_run: true },
+        requestPayload,
+      );
+      expect(httpOkOnly.ok).toBe(false);
+      expect(httpOkOnly.retryable).toBe(false);
+    });
+
+    it("google dry-run success marks dispatch row sent with dry_run in provider_response_body", async () => {
+      const row = makeRow({
+        platform_name: "google_ads",
+        event_name: "lead_identified",
+        event_payload: {
+          identity: {
+            leadId: crypto.randomUUID(),
+            emailHash: "a".repeat(64),
+            gclid: "CjwKCAiAQa4a_FAKE_GCLID_TEST_ONLY",
+          },
+          journey: { route: "/", flow: "public" },
+          optimization: {
+            approvedForAds: true,
+            approvedForIndex: true,
+            manualReviewRequired: false,
+            valueUsd: 10,
+          },
+        },
+      });
+      const mock = new MockDB([row]);
+
+      await runDispatchWorker({
+        db: mock as unknown as DBLike,
+        metaEventSourceUrl: "https://windowman.app",
+        sendToMeta: async () => ({ ok: true }),
+        sendToGoogle: async () => ({
+          ok: true,
+          statusCode: 200,
+          responseBody: { success: true, dry_run: true },
+        }),
+      });
+
+      const upsert = mock.updates.wm_platform_dispatch_log?.[0];
+      expect(upsert?.dispatch_status).toBe("sent");
+      expect(upsert?.provider_response_body).toMatchObject({ dry_run: true });
+    });
+
+    it("google branch never uses dry_run:false at worker send boundary", async () => {
+      const row = makeRow({
+        platform_name: "google_ads",
+        event_name: "lead_identified",
+        event_payload: {
+          identity: {
+            leadId: crypto.randomUUID(),
+            emailHash: "a".repeat(64),
+            gclid: "CjwKCAiAQa4a_FAKE_GCLID_TEST_ONLY",
+          },
+          journey: { route: "/", flow: "public" },
+          optimization: {
+            approvedForAds: true,
+            approvedForIndex: true,
+            manualReviewRequired: false,
+            valueUsd: 10,
+          },
+        },
+      });
+      const mock = new MockDB([row]);
+      const envelopes: Array<{ dry_run?: boolean }> = [];
+
+      await runDispatchWorker({
+        db: mock as unknown as DBLike,
+        metaEventSourceUrl: "https://windowman.app",
+        sendToMeta: async () => ({ ok: true }),
+        sendToGoogle: async (payload) => {
+          envelopes.push(buildGoogleDryRunDispatchEnvelope(payload));
+          return { ok: true, statusCode: 200, responseBody: { success: true } };
+        },
+      });
+
+      expect(envelopes).toEqual([{ dry_run: true, payload: expect.objectContaining({
+        conversion_action: "wm_lead_identified",
+      }) }]);
+      expect(envelopes.some((item) => item.dry_run === false)).toBe(false);
+    });
   });
 
   it("nextdoor branch uses worker-local shouldSendNextdoor override for queued rows", async () => {

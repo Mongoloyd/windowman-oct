@@ -18,6 +18,60 @@ const DEFAULT_VENDOR_TIMEOUT_MS = 7000;
 export const TIKTOK_DISPATCH_DRY_RUN_ONLY = true;
 export const TIKTOK_DRY_RUN_EVENT_SOURCE_ID = "dry-run-placeholder";
 
+/** Sprint 4E: Google Ads worker lane is dry-run only until a later live-enable sprint. */
+export const GOOGLE_ADS_DISPATCH_DRY_RUN_ONLY = true;
+
+export function buildGoogleDryRunDispatchEnvelope(
+  payload: Record<string, unknown>,
+): { dry_run: true; payload: Record<string, unknown> } {
+  if (!GOOGLE_ADS_DISPATCH_DRY_RUN_ONLY) {
+    throw new Error("google_live_dispatch_disabled");
+  }
+
+  return { dry_run: true, payload };
+}
+
+export function buildGoogleDispatchAuthHeaders(
+  serviceRoleKey: string,
+): Record<string, string> {
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${serviceRoleKey}`,
+  };
+}
+
+export function buildMissingGoogleDispatchUrlResult(
+  payload: Record<string, unknown>,
+): VendorSendResult {
+  return {
+    ok: false,
+    retryable: false,
+    statusCode: 400,
+    errorMessage: "GOOGLE_ADS_DISPATCH_URL is not configured",
+    responseBody: {
+      error: "GOOGLE_ADS_DISPATCH_URL is not configured",
+    },
+    requestPayload: payload,
+  };
+}
+
+export function evaluateGoogleDispatchHttpResponse(
+  response: { ok: boolean; status: number },
+  body: Record<string, unknown>,
+  requestPayload: Record<string, unknown>,
+): VendorSendResult {
+  const ok = response.ok && body?.success === true;
+
+  return {
+    ok,
+    retryable: !ok && (response.status === 429 || response.status >= 500),
+    statusCode: response.status,
+    responseBody: body,
+    errorMessage: ok ? undefined : JSON.stringify(body),
+    requestPayload,
+  };
+}
+
 export interface EventLogAttributionSnapshot {
   attribution: Record<string, unknown>;
   queryParams: Record<string, unknown>;
@@ -405,6 +459,7 @@ export async function runDispatchWorker(deps: WorkerDeps): Promise<{ processed: 
     let sendResult: VendorSendResult | null = null;
     let suppressedReason: string | null = null;
     let tiktokDryRunDispatch = false;
+    let googleDryRunDispatch = false;
 
     if (row.platform_name === "meta") {
       const resolution = await resolveVerifiedClientSlug(deps.db, {
@@ -443,11 +498,16 @@ export async function runDispatchWorker(deps: WorkerDeps): Promise<{ processed: 
         sendResult = await deps.sendToMeta(metaPayload);
       }
     } else if (row.platform_name === "google_ads") {
-      const mapped = mapToGoogle(canonical);
-      if (mapped.suppressed || !mapped.payload) {
-        suppressedReason = mapped.reason ?? "google_suppressed";
+      if (!GOOGLE_ADS_DISPATCH_DRY_RUN_ONLY) {
+        suppressedReason = "google_live_dispatch_disabled";
       } else {
-        sendResult = await deps.sendToGoogle(mapped.payload as Record<string, unknown>);
+        const mapped = mapToGoogle(canonical);
+        if (mapped.suppressed || !mapped.payload) {
+          suppressedReason = mapped.reason ?? "google_suppressed";
+        } else {
+          googleDryRunDispatch = true;
+          sendResult = await deps.sendToGoogle(mapped.payload as Record<string, unknown>);
+        }
       }
     } else if (row.platform_name === "nextdoor") {
       if (!deps.sendToNextdoor) {
@@ -573,7 +633,7 @@ export async function runDispatchWorker(deps: WorkerDeps): Promise<{ processed: 
         next_attempt_at: null,
         provider_response_code: sendResult.statusCode ? String(sendResult.statusCode) : "200",
         provider_response_body: {
-          ...(tiktokDryRunDispatch ? { dry_run: true } : {}),
+          ...(tiktokDryRunDispatch || googleDryRunDispatch ? { dry_run: true } : {}),
           response: sendResult.responseBody ?? {},
           request_payload: sendResult.requestPayload ?? {},
         },
