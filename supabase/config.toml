@@ -168,5 +168,8 @@ verify_jwt = false
 [functions.dev-create-quote-scenario]
 verify_jwt = false
 
+[functions.qa-google-attribution-event]
+verify_jwt = false
+
 [functions.windowman-concierge]
 verify_jwt = false
