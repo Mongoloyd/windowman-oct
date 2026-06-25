@@ -5,6 +5,7 @@ import {
   buildMissingGoogleDispatchUrlResult,
   evaluateGoogleDispatchHttpResponse,
   GOOGLE_ADS_DISPATCH_DRY_RUN_ONLY,
+  parseDispatchWorkerRequest,
   resolveNextdoorActionSourceUrl,
   runDispatchWorker,
   TIKTOK_DISPATCH_DRY_RUN_ONLY,
@@ -59,6 +60,7 @@ class MockDB {
     analyses: {},
   };
   public quoteFileLeads: Record<string, string | null> = {};
+  public rpcCalls: Array<{ fn: string; args?: Record<string, unknown> }> = [];
 
   constructor(private rows: MockDispatchRow[]) {
     for (const row of rows) {
@@ -75,7 +77,8 @@ class MockDB {
     }
   }
 
-  async rpc<T>(_fn: string): Promise<{ data: T | null; error: { message?: string } | null }> {
+  async rpc<T>(fn: string, args?: Record<string, unknown>): Promise<{ data: T | null; error: { message?: string } | null }> {
+    this.rpcCalls.push({ fn, args });
     return { data: this.rows as T, error: null };
   }
 
@@ -200,6 +203,138 @@ function makeRow(overrides: Partial<MockDispatchRow> = {}): MockDispatchRow {
 }
 
 describe("runDispatchWorker", () => {
+  describe("scoped claim RPC selection", () => {
+    it("calls wm_claim_dispatch_rows when no scope is provided", async () => {
+      const row = makeRow();
+      const mock = new MockDB([row]);
+
+      await runDispatchWorker({
+        db: mock as unknown as DBLike,
+        metaEventSourceUrl: "https://windowman.app",
+        sendToMeta: async () => ({ ok: true, statusCode: 200, responseBody: { success: true } }),
+        sendToGoogle: async () => ({ ok: true }),
+      });
+
+      expect(mock.rpcCalls).toHaveLength(1);
+      expect(mock.rpcCalls[0]?.fn).toBe("wm_claim_dispatch_rows");
+      expect(mock.rpcCalls[0]?.args).toEqual({
+        p_limit: 25,
+        p_lock_stale_minutes: 10,
+      });
+    });
+
+    it("calls wm_claim_dispatch_rows_scoped with p_platform_name when target_platform is google_ads", async () => {
+      const row = makeRow({ platform_name: "google_ads" });
+      const mock = new MockDB([row]);
+
+      await runDispatchWorker({
+        db: mock as unknown as DBLike,
+        claimScope: { targetPlatform: "google_ads" },
+        metaEventSourceUrl: "https://windowman.app",
+        sendToMeta: async () => ({ ok: true }),
+        sendToGoogle: async () => ({ ok: true, statusCode: 200, responseBody: { success: true } }),
+      });
+
+      expect(mock.rpcCalls[0]?.fn).toBe("wm_claim_dispatch_rows_scoped");
+      expect(mock.rpcCalls[0]?.args).toEqual({
+        p_limit: 25,
+        p_lock_stale_minutes: 10,
+        p_platform_name: "google_ads",
+        p_dispatch_id: null,
+      });
+    });
+
+    it("calls wm_claim_dispatch_rows_scoped with p_dispatch_id and effective limit 1", async () => {
+      const dispatchId = "00000000-0000-4000-8000-000000000001";
+      const row = makeRow({ dispatch_id: dispatchId, platform_name: "google_ads" });
+      const mock = new MockDB([row]);
+
+      await runDispatchWorker({
+        db: mock as unknown as DBLike,
+        batchSize: 5,
+        claimScope: { dispatchId },
+        metaEventSourceUrl: "https://windowman.app",
+        sendToMeta: async () => ({ ok: true }),
+        sendToGoogle: async () => ({ ok: true, statusCode: 200, responseBody: { success: true } }),
+      });
+
+      expect(mock.rpcCalls[0]?.fn).toBe("wm_claim_dispatch_rows_scoped");
+      expect(mock.rpcCalls[0]?.args).toEqual({
+        p_limit: 1,
+        p_lock_stale_minutes: 10,
+        p_platform_name: null,
+        p_dispatch_id: dispatchId,
+      });
+    });
+
+    it("calls wm_claim_dispatch_rows_scoped with both platform and dispatch_id when provided", async () => {
+      const dispatchId = "00000000-0000-4000-8000-000000000002";
+      const row = makeRow({ dispatch_id: dispatchId, platform_name: "google_ads" });
+      const mock = new MockDB([row]);
+
+      await runDispatchWorker({
+        db: mock as unknown as DBLike,
+        claimScope: { targetPlatform: "google_ads", dispatchId },
+        metaEventSourceUrl: "https://windowman.app",
+        sendToMeta: async () => ({ ok: true }),
+        sendToGoogle: async () => ({ ok: true, statusCode: 200, responseBody: { success: true } }),
+      });
+
+      expect(mock.rpcCalls[0]?.fn).toBe("wm_claim_dispatch_rows_scoped");
+      expect(mock.rpcCalls[0]?.args).toEqual({
+        p_limit: 1,
+        p_lock_stale_minutes: 10,
+        p_platform_name: "google_ads",
+        p_dispatch_id: dispatchId,
+      });
+    });
+  });
+
+  describe("parseDispatchWorkerRequest", () => {
+    it("rejects invalid target_platform safely", () => {
+      const result = parseDispatchWorkerRequest({ target_platform: "meta" });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).toBe("target_platform must be google_ads when provided");
+      }
+    });
+
+    it("rejects invalid dispatch_id safely", () => {
+      const result = parseDispatchWorkerRequest({ dispatch_id: "not-a-uuid" });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).toBe("dispatch_id must be a valid UUID when provided");
+      }
+    });
+
+    it("accepts scoped google_ads smoke body and forces limit 1 when dispatch_id is present", () => {
+      const dispatchId = "00000000-0000-4000-8000-000000000003";
+      const result = parseDispatchWorkerRequest({
+        target_platform: "google_ads",
+        dispatch_id: dispatchId,
+        limit: 1,
+      });
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.batchSize).toBe(1);
+        expect(result.claimScope).toEqual({
+          targetPlatform: "google_ads",
+          dispatchId,
+        });
+      }
+    });
+
+    it("preserves unscoped default when body is empty", () => {
+      const result = parseDispatchWorkerRequest(null);
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.batchSize).toBe(25);
+        expect(result.claimScope).toBeUndefined();
+      }
+    });
+  });
+
   it("marks mapper-suppressed rows as suppressed", async () => {
     const row = makeRow({
       event_payload: {

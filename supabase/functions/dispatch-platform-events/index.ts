@@ -5,6 +5,7 @@ import {
   buildMissingGoogleDispatchUrlResult,
   evaluateGoogleDispatchHttpResponse,
   fetchWithTimeout,
+  parseDispatchWorkerRequest,
   runDispatchWorker,
   type VendorSendResult,
 } from "../_shared/tracking/canonical/dispatchWorker.ts";
@@ -70,6 +71,27 @@ Deno.serve(async (req) => {
   }
 
   try {
+    let requestBody: unknown = null;
+    try {
+      const text = await req.text();
+      if (text.trim().length > 0) {
+        requestBody = JSON.parse(text);
+      }
+    } catch {
+      return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const parsedRequest = parseDispatchWorkerRequest(requestBody);
+    if (!parsedRequest.ok) {
+      return new Response(JSON.stringify({ error: parsedRequest.error }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -91,6 +113,8 @@ Deno.serve(async (req) => {
       // variance on rpc(). Cast through unknown to keep runtime behavior
       // identical without weakening the worker's DBLike contract.
       db: supabase as unknown as Parameters<typeof runDispatchWorker>[0]["db"],
+      batchSize: parsedRequest.batchSize,
+      claimScope: parsedRequest.claimScope,
       metaEventSourceUrl: eventSourceUrl,
       nextdoorEventSourceUrl,
       sendToMeta: async (payload) => {

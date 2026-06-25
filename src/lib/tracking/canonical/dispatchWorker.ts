@@ -21,6 +21,97 @@ export const TIKTOK_DRY_RUN_EVENT_SOURCE_ID = "dry-run-placeholder";
 /** Sprint 4E: Google Ads worker lane is dry-run only until a later live-enable sprint. */
 export const GOOGLE_ADS_DISPATCH_DRY_RUN_ONLY = true;
 
+export const DEFAULT_DISPATCH_BATCH_SIZE = 25;
+export const MAX_DISPATCH_BATCH_SIZE = 25;
+
+export type DispatchClaimScope = {
+  targetPlatform?: "google_ads";
+  dispatchId?: string;
+};
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export type ParsedDispatchWorkerRequest =
+  | {
+      ok: true;
+      batchSize: number;
+      claimScope?: DispatchClaimScope;
+    }
+  | {
+      ok: false;
+      error: string;
+    };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Parse optional scoped-claim fields from a dispatch-platform-events POST body.
+ * Empty or non-object body preserves legacy unscoped FIFO behavior.
+ */
+export function parseDispatchWorkerRequest(body: unknown): ParsedDispatchWorkerRequest {
+  if (body === undefined || body === null) {
+    return { ok: true, batchSize: DEFAULT_DISPATCH_BATCH_SIZE };
+  }
+
+  if (!isRecord(body)) {
+    return { ok: false, error: "Request body must be a JSON object" };
+  }
+
+  const rawTargetPlatform = body.target_platform;
+  const rawDispatchId = body.dispatch_id;
+  const rawLimit = body.limit;
+
+  const hasTargetPlatform = rawTargetPlatform !== undefined && rawTargetPlatform !== null;
+  const hasDispatchId = rawDispatchId !== undefined && rawDispatchId !== null;
+
+  let targetPlatform: "google_ads" | undefined;
+  if (hasTargetPlatform) {
+    if (typeof rawTargetPlatform !== "string" || rawTargetPlatform !== "google_ads") {
+      return { ok: false, error: "target_platform must be google_ads when provided" };
+    }
+    targetPlatform = "google_ads";
+  }
+
+  let dispatchId: string | undefined;
+  if (hasDispatchId) {
+    if (typeof rawDispatchId !== "string" || !UUID_RE.test(rawDispatchId.trim())) {
+      return { ok: false, error: "dispatch_id must be a valid UUID when provided" };
+    }
+    dispatchId = rawDispatchId.trim();
+  }
+
+  let batchSize = DEFAULT_DISPATCH_BATCH_SIZE;
+  if (rawLimit !== undefined && rawLimit !== null) {
+    if (typeof rawLimit !== "number" || !Number.isInteger(rawLimit)) {
+      return { ok: false, error: "limit must be an integer when provided" };
+    }
+    if (rawLimit < 1 || rawLimit > MAX_DISPATCH_BATCH_SIZE) {
+      return {
+        ok: false,
+        error: `limit must be between 1 and ${MAX_DISPATCH_BATCH_SIZE}`,
+      };
+    }
+    batchSize = rawLimit;
+  }
+
+  if (dispatchId) {
+    batchSize = 1;
+  }
+
+  const claimScope: DispatchClaimScope | undefined =
+    targetPlatform || dispatchId
+      ? {
+          ...(targetPlatform ? { targetPlatform } : {}),
+          ...(dispatchId ? { dispatchId } : {}),
+        }
+      : undefined;
+
+  return { ok: true, batchSize, claimScope };
+}
+
 export function buildGoogleDryRunDispatchEnvelope(
   payload: Record<string, unknown>,
 ): { dry_run: true; payload: Record<string, unknown> } {
@@ -165,10 +256,7 @@ interface WorkerDeps {
   }) => Promise<VendorSendResult>;
   tiktokEventSourceUrl?: string;
   batchSize?: number;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  claimScope?: DispatchClaimScope;
 }
 
 export async function fetchAttributionSnapshotsForEventLogs(
@@ -422,13 +510,31 @@ async function syncEventDispatchStatus(db: DBLike, eventLogId: string, nowIso: s
   }
 }
 
-export async function runDispatchWorker(deps: WorkerDeps): Promise<{ processed: number }> {
-  const batchSize = deps.batchSize ?? 25;
+function hasScopedClaim(scope: DispatchClaimScope | undefined): scope is DispatchClaimScope {
+  return Boolean(scope?.targetPlatform || scope?.dispatchId);
+}
 
-  const { data: claimedRows, error: claimError } = await deps.db.rpc<DispatchRowWithEvent[]>("wm_claim_dispatch_rows", {
-    p_limit: batchSize,
-    p_lock_stale_minutes: LOCK_STALE_MINUTES,
-  });
+export async function runDispatchWorker(deps: WorkerDeps): Promise<{ processed: number }> {
+  const batchSize = deps.batchSize ?? DEFAULT_DISPATCH_BATCH_SIZE;
+  const claimScope = deps.claimScope;
+  const effectiveLimit = claimScope?.dispatchId ? 1 : batchSize;
+
+  const useScopedClaim = hasScopedClaim(claimScope);
+
+  const { data: claimedRows, error: claimError } = await deps.db.rpc<DispatchRowWithEvent[]>(
+    useScopedClaim ? "wm_claim_dispatch_rows_scoped" : "wm_claim_dispatch_rows",
+    useScopedClaim
+      ? {
+          p_limit: effectiveLimit,
+          p_lock_stale_minutes: LOCK_STALE_MINUTES,
+          p_platform_name: claimScope.targetPlatform ?? null,
+          p_dispatch_id: claimScope.dispatchId ?? null,
+        }
+      : {
+          p_limit: effectiveLimit,
+          p_lock_stale_minutes: LOCK_STALE_MINUTES,
+        },
+  );
 
   if (claimError) {
     throw new Error(`Failed to claim dispatch rows: ${claimError.message ?? "unknown"}`);
