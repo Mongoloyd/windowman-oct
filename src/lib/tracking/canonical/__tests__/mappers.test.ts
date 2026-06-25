@@ -119,6 +119,139 @@ describe("canonical mappers", () => {
   });
 });
 
+describe("mapToGoogle attribution merge", () => {
+  const phoneHash = "b".repeat(64);
+  const rawEmail = "homeowner@example.com";
+  const rawPhone = "+15614685571";
+
+  function googleFixture(overrides: Partial<WMCanonicalEvent> = {}): WMCanonicalEvent {
+    return canonicalFixture({
+      eventName: "phone_verified",
+      payload: {
+        identity: {
+          leadId: "lead-1",
+          phoneHash,
+        },
+        journey: { route: "/verify", flow: "public" },
+        optimization: {
+          approvedForAds: true,
+          approvedForIndex: true,
+          manualReviewRequired: false,
+          valueUsd: 10,
+        },
+      },
+      ...overrides,
+    });
+  }
+
+  it("uses identity.gclid when present", () => {
+    const canonical = googleFixture({
+      payload: {
+        identity: { leadId: "lead-1", gclid: "identity-gclid" },
+        journey: { route: "/verify", flow: "public" },
+        optimization: {
+          approvedForAds: true,
+          approvedForIndex: true,
+          manualReviewRequired: false,
+        },
+      },
+    });
+
+    const google = mapToGoogle(canonical, {
+      attribution: { gclid: "attr-gclid" },
+      queryParams: { gclid: "query-gclid" },
+    });
+
+    expect(google.suppressed).toBe(false);
+    expect(google.payload?.gclid).toBe("identity-gclid");
+  });
+
+  it("falls back to attribution.gclid when identity.gclid is missing", () => {
+    const google = mapToGoogle(googleFixture(), {
+      attribution: { gclid: "attr-gclid" },
+    });
+
+    expect(google.suppressed).toBe(false);
+    expect(google.payload?.gclid).toBe("attr-gclid");
+  });
+
+  it("falls back to query_params.gclid when identity and attribution are missing", () => {
+    const google = mapToGoogle(googleFixture(), {
+      queryParams: { gclid: "query-gclid" },
+    });
+
+    expect(google.suppressed).toBe(false);
+    expect(google.payload?.gclid).toBe("query-gclid");
+  });
+
+  it("falls back to attribution.gbraid and query_params.wbraid", () => {
+    const google = mapToGoogle(googleFixture(), {
+      attribution: { gbraid: "attr-gbraid" },
+      queryParams: { wbraid: "query-wbraid" },
+    });
+
+    expect(google.suppressed).toBe(false);
+    expect(google.payload?.gbraid).toBe("attr-gbraid");
+    expect(google.payload?.wbraid).toBe("query-wbraid");
+  });
+
+  it("still uses hashed_phone fallback when no click IDs exist", () => {
+    const google = mapToGoogle(googleFixture());
+
+    expect(google.suppressed).toBe(false);
+    expect(google.payload?.user_identifiers?.hashed_phone_number).toBe(phoneHash);
+    expect(google.payload?.gclid).toBeUndefined();
+  });
+
+  it("suppresses with missing_attribution_identifiers when all match keys are absent", () => {
+    const google = mapToGoogle(
+      googleFixture({
+        payload: {
+          identity: { leadId: "lead-1" },
+          journey: { route: "/verify", flow: "public" },
+          optimization: {
+            approvedForAds: true,
+            approvedForIndex: true,
+            manualReviewRequired: false,
+          },
+        },
+      }),
+    );
+
+    expect(google).toEqual({
+      suppressed: true,
+      reason: "missing_attribution_identifiers",
+    });
+  });
+
+  it("never emits raw email or phone in Google payload", () => {
+    const google = mapToGoogle(
+      googleFixture({
+        payload: {
+          identity: {
+            leadId: "lead-1",
+            email: rawEmail,
+            phone: rawPhone,
+            phoneHash,
+            gclid: "identity-gclid",
+          },
+          journey: { route: "/verify", flow: "public" },
+          optimization: {
+            approvedForAds: true,
+            approvedForIndex: true,
+            manualReviewRequired: false,
+          },
+        },
+      }),
+    );
+
+    const serialized = JSON.stringify(google.payload);
+    expect(serialized).not.toContain(rawEmail);
+    expect(serialized).not.toContain(rawPhone);
+    expect(google.payload?.user_identifiers?.hashed_phone_number).toBe(phoneHash);
+  });
+});
+
 describe("mapToNextdoor", () => {
   it("suppresses when shouldSendNextdoor is false", () => {
     const result = mapToNextdoor(

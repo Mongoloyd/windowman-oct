@@ -901,6 +901,48 @@ describe("runDispatchWorker", () => {
     expect(mock.updates.wm_platform_dispatch_log?.[0]?.dispatch_status).toBe("sent");
   });
 
+  it("google branch batch-fetches attribution and query_params from wm_event_log", async () => {
+    const row = makeRow({
+      platform_name: "google_ads",
+      event_name: "phone_verified",
+      event_payload: {
+        identity: {
+          leadId: crypto.randomUUID(),
+          phoneHash: "b".repeat(64),
+        },
+        journey: { route: "/verify", flow: "public" },
+        optimization: {
+          approvedForAds: true,
+          approvedForIndex: true,
+          manualReviewRequired: false,
+          valueUsd: 10,
+        },
+      },
+    });
+    const mock = new MockDB([row]);
+    mock.eventLogs.set(row.event_log_id, {
+      attribution: { gclid: "attr-gclid-from-log", gbraid: "attr-gbraid-from-log" },
+      query_params: { wbraid: "query-wbraid-from-log" },
+    });
+
+    let sentPayload: Record<string, unknown> | null = null;
+
+    await runDispatchWorker({
+      db: mock as unknown as DBLike,
+      metaEventSourceUrl: "https://windowman.app",
+      sendToMeta: async () => ({ ok: true }),
+      sendToGoogle: async (payload) => {
+        sentPayload = payload;
+        return { ok: true, statusCode: 200, responseBody: { success: true, dry_run: true } };
+      },
+    });
+
+    expect(mock.attributionBatchFetchIds).toEqual([row.event_log_id]);
+    expect(sentPayload?.gclid).toBe("attr-gclid-from-log");
+    expect(sentPayload?.gbraid).toBe("attr-gbraid-from-log");
+    expect(sentPayload?.wbraid).toBe("query-wbraid-from-log");
+  });
+
   describe("Google Ads dry-run dispatch bridge", () => {
     const mapPayload = {
       conversion_action: "wm_lead_identified",

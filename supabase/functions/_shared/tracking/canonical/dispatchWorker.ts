@@ -542,12 +542,14 @@ export async function runDispatchWorker(deps: WorkerDeps): Promise<{ processed: 
 
   const rows = claimedRows ?? [];
 
-  const tiktokEventLogIds = rows
-    .filter((row) => row.platform_name === "tiktok")
+  const attributionEventLogIds = rows
+    .filter((row) =>
+      row.platform_name === "tiktok" || row.platform_name === "google_ads"
+    )
     .map((row) => row.event_log_id);
   const attributionByEventLogId = await fetchAttributionSnapshotsForEventLogs(
     deps.db,
-    tiktokEventLogIds,
+    attributionEventLogIds,
   );
 
   // Collect unique event_log_ids that need status sync at the end of the batch.
@@ -610,7 +612,14 @@ export async function runDispatchWorker(deps: WorkerDeps): Promise<{ processed: 
       if (!GOOGLE_ADS_DISPATCH_DRY_RUN_ONLY) {
         suppressedReason = "google_live_dispatch_disabled";
       } else {
-        const mapped = mapToGoogle(canonical);
+        const snapshot = attributionByEventLogId.get(row.event_log_id) ?? {
+          attribution: {},
+          queryParams: {},
+        };
+        const mapped = mapToGoogle(canonical, {
+          attribution: snapshot.attribution,
+          queryParams: snapshot.queryParams,
+        });
         if (mapped.suppressed || !mapped.payload) {
           suppressedReason = mapped.reason ?? "google_suppressed";
         } else {

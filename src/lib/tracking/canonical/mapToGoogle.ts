@@ -1,4 +1,5 @@
 import { WM_QUOTE_TRUST_MIN_FOR_DISPATCH } from "./constants.ts";
+import { resolveGoogleClickIdentifiers } from "./resolveGoogleClickIdentifiers.ts";
 import type { WMCanonicalEvent } from "./types.ts";
 
 const GOOGLE_ACTION_MAP: Record<string, string> = {
@@ -37,7 +38,15 @@ export interface GoogleMapperResult {
   };
 }
 
-export function mapToGoogle(canonical: WMCanonicalEvent): GoogleMapperResult {
+export interface MapToGoogleContext {
+  attribution?: Record<string, unknown> | null;
+  queryParams?: Record<string, unknown> | null;
+}
+
+export function mapToGoogle(
+  canonical: WMCanonicalEvent,
+  context?: MapToGoogleContext,
+): GoogleMapperResult {
   if (!canonical.shouldSendGoogle) {
     return { suppressed: true, reason: "shouldSendGoogle_false" };
   }
@@ -58,7 +67,12 @@ export function mapToGoogle(canonical: WMCanonicalEvent): GoogleMapperResult {
   }
 
   const identity = canonical.payload.identity;
-  const hasClickId = Boolean(identity.gclid || identity.gbraid || identity.wbraid);
+  const clickIds = resolveGoogleClickIdentifiers({
+    identity,
+    attribution: context?.attribution,
+    queryParams: context?.queryParams,
+  });
+  const hasClickId = Boolean(clickIds.gclid || clickIds.gbraid || clickIds.wbraid);
   const hasHashedPii = Boolean(identity.emailHash || identity.phoneHash);
 
   if (!hasClickId && !hasHashedPii) {
@@ -73,9 +87,9 @@ export function mapToGoogle(canonical: WMCanonicalEvent): GoogleMapperResult {
     currency_code: "USD",
   };
 
-  if (identity.gclid) payload.gclid = identity.gclid;
-  if (identity.gbraid) payload.gbraid = identity.gbraid;
-  if (identity.wbraid) payload.wbraid = identity.wbraid;
+  if (clickIds.gclid) payload.gclid = clickIds.gclid;
+  if (clickIds.gbraid) payload.gbraid = clickIds.gbraid;
+  if (clickIds.wbraid) payload.wbraid = clickIds.wbraid;
 
   if (hasHashedPii) {
     const userIdentifiers: { hashed_email?: string; hashed_phone_number?: string } = {};
