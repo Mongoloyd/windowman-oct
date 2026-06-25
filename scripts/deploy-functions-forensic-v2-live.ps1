@@ -1,6 +1,11 @@
 # Deploy approved Forensic V2 Edge Functions to the staging target (zgsofkgddpcntdvpckdq).
 # Scope: CRM emitters + TikTok dry-run dispatch lane (Sprint 3C-5A).
+# Google-only mode (-GoogleAdsOnly): google-ads-conversion-event only (Sprint 4C).
 # Never deploy-all, never --prune, never db push/reset/secrets/typegen.
+param(
+    [switch]$GoogleAdsOnly
+)
+
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
@@ -8,13 +13,16 @@ $ApprovedRef = "zgsofkgddpcntdvpckdq"
 $ForbiddenRefs = @("wkrcyxcnzhwjtdpmfpaf", "wm-mvp-forensic-v2-local")
 $RequiredBranch = "forensic_report_v2"
 $ConfirmPhrase = "DEPLOY_FORENSIC_V2_LIVE_FUNCTIONS"
-$TargetFunctions = @(
+$DefaultTargetFunctions = @(
     "start-upload-scan-session",
     "capture-truth-gate-lead",
     "capture-arbitrage-lead",
     "capture-power-tool-demo-lead",
     "dispatch-platform-events",
     "tiktok-capi-event"
+)
+$GoogleAdsOnlyTargetFunctions = @(
+    "google-ads-conversion-event"
 )
 
 function Get-BannerText {
@@ -111,22 +119,35 @@ $CliVersion = (& npx supabase --version 2>&1 | Out-String).Trim()
 Write-Host "Supabase CLI (via npx): $CliVersion"
 Write-Host "config.toml project_id is local Docker namespace only - never used as remote target."
 
-$DeployCommands = @(
-    "npx supabase functions deploy start-upload-scan-session --project-ref $ApprovedRef",
-    "npx supabase functions deploy capture-truth-gate-lead --project-ref $ApprovedRef",
-    "npx supabase functions deploy capture-arbitrage-lead --project-ref $ApprovedRef",
-    "npx supabase functions deploy capture-power-tool-demo-lead --project-ref $ApprovedRef",
-    "npx supabase functions deploy dispatch-platform-events --project-ref $ApprovedRef",
-    "npx supabase functions deploy tiktok-capi-event --project-ref $ApprovedRef"
-)
+if ($GoogleAdsOnly) {
+    $TargetFunctions = $GoogleAdsOnlyTargetFunctions
+    $DeployCommands = @(
+        "npx supabase functions deploy google-ads-conversion-event --project-ref $ApprovedRef"
+    )
+    $DeploySummaryTitle = "Google Ads 4C dry-run sender only"
+    $DeployNextStep = "Next: run Google Ads 4C direct dry-run smoke (see docs/ops/GOOGLE_ADS_4C_DRY_RUN_SCAFFOLD_RUNBOOK.md)."
+} else {
+    $TargetFunctions = $DefaultTargetFunctions
+    $DeployCommands = @(
+        "npx supabase functions deploy start-upload-scan-session --project-ref $ApprovedRef",
+        "npx supabase functions deploy capture-truth-gate-lead --project-ref $ApprovedRef",
+        "npx supabase functions deploy capture-arbitrage-lead --project-ref $ApprovedRef",
+        "npx supabase functions deploy capture-power-tool-demo-lead --project-ref $ApprovedRef",
+        "npx supabase functions deploy dispatch-platform-events --project-ref $ApprovedRef",
+        "npx supabase functions deploy tiktok-capi-event --project-ref $ApprovedRef"
+    )
+    $DeploySummaryTitle = "CRM emitters + TikTok dry-run dispatch"
+    $DeployNextStep = "Next: run TikTok 3C-5 staging dry-run smoke (see docs/ops/TIKTOK_3C5_STAGING_DRY_RUN_RUNBOOK.md)."
+}
 
 Write-Host ""
-Write-Host "=== DEPLOY SUMMARY (CRM emitters + TikTok dry-run dispatch) ==="
+Write-Host "=== DEPLOY SUMMARY ($DeploySummaryTitle) ==="
 Write-Host "Branch:              $Branch"
 Write-Host "HEAD SHA:            $HeadSha"
 Write-Host "Approved target ref: $ApprovedRef"
 Write-Host "SUPABASE_PROJECT_REF: $ProjectRef"
 Write-Host "Linked ref (if any): $(if ($LinkedRef) { $LinkedRef } else { '(none)' })"
+Write-Host "GoogleAdsOnly mode:  $(if ($GoogleAdsOnly) { 'true' } else { 'false' })"
 Write-Host "Functions to deploy:"
 foreach ($Fn in $TargetFunctions) { Write-Host "  - $Fn" }
 Write-Host "Commands that will run:"
@@ -157,6 +178,6 @@ finally {
 
 Write-Host ""
 Write-Host "Deploy complete for all approved functions."
-Write-Host "Next: run TikTok 3C-5 staging dry-run smoke (see docs/ops/TIKTOK_3C5_STAGING_DRY_RUN_RUNBOOK.md)."
+Write-Host $DeployNextStep
 Write-Host "This script did NOT run smoke tests, secrets set, db push, typegen, or --prune."
 exit 0

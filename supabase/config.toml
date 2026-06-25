@@ -72,6 +72,9 @@ verify_jwt = false
 [functions.tiktok-capi-event]
 verify_jwt = false
 
+[functions.google-ads-conversion-event]
+verify_jwt = false
+
 [functions.capture-truth-gate-lead]
 verify_jwt = false
 
