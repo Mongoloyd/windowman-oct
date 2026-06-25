@@ -1,9 +1,11 @@
 # Deploy approved Forensic V2 Edge Functions to the staging target (zgsofkgddpcntdvpckdq).
 # Scope: CRM emitters + TikTok dry-run dispatch lane (Sprint 3C-5A).
 # Google-only mode (-GoogleAdsOnly): google-ads-conversion-event only (Sprint 4C).
+# Dispatch-only mode (-DispatchOnly): dispatch-platform-events only (Sprint 4F-C).
 # Never deploy-all, never --prune, never db push/reset/secrets/typegen.
 param(
-    [switch]$GoogleAdsOnly
+    [switch]$GoogleAdsOnly,
+    [switch]$DispatchOnly
 )
 
 Set-StrictMode -Version Latest
@@ -23,6 +25,9 @@ $DefaultTargetFunctions = @(
 )
 $GoogleAdsOnlyTargetFunctions = @(
     "google-ads-conversion-event"
+)
+$DispatchOnlyTargetFunctions = @(
+    "dispatch-platform-events"
 )
 
 function Get-BannerText {
@@ -119,6 +124,10 @@ $CliVersion = (& npx supabase --version 2>&1 | Out-String).Trim()
 Write-Host "Supabase CLI (via npx): $CliVersion"
 Write-Host "config.toml project_id is local Docker namespace only - never used as remote target."
 
+if ($GoogleAdsOnly -and $DispatchOnly) {
+    Fail 15 "SAFETY STOP: -GoogleAdsOnly and -DispatchOnly are mutually exclusive."
+}
+
 if ($GoogleAdsOnly) {
     $TargetFunctions = $GoogleAdsOnlyTargetFunctions
     $DeployCommands = @(
@@ -126,6 +135,13 @@ if ($GoogleAdsOnly) {
     )
     $DeploySummaryTitle = "Google Ads 4C dry-run sender only"
     $DeployNextStep = "Next: run Google Ads 4C direct dry-run smoke (see docs/ops/GOOGLE_ADS_4C_DRY_RUN_SCAFFOLD_RUNBOOK.md)."
+} elseif ($DispatchOnly) {
+    $TargetFunctions = $DispatchOnlyTargetFunctions
+    $DeployCommands = @(
+        "npx supabase functions deploy dispatch-platform-events --project-ref $ApprovedRef"
+    )
+    $DeploySummaryTitle = "Dispatch platform events worker only"
+    $DeployNextStep = "Next: run Google Ads 4F-C scoped dispatch dry-run smoke."
 } else {
     $TargetFunctions = $DefaultTargetFunctions
     $DeployCommands = @(
@@ -148,6 +164,7 @@ Write-Host "Approved target ref: $ApprovedRef"
 Write-Host "SUPABASE_PROJECT_REF: $ProjectRef"
 Write-Host "Linked ref (if any): $(if ($LinkedRef) { $LinkedRef } else { '(none)' })"
 Write-Host "GoogleAdsOnly mode:  $(if ($GoogleAdsOnly) { 'true' } else { 'false' })"
+Write-Host "DispatchOnly mode:   $(if ($DispatchOnly) { 'true' } else { 'false' })"
 Write-Host "Functions to deploy:"
 foreach ($Fn in $TargetFunctions) { Write-Host "  - $Fn" }
 Write-Host "Commands that will run:"
