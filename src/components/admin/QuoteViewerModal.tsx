@@ -19,12 +19,13 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ExternalLink, FileText, ImageOff, RefreshCcw, AlertTriangle } from "lucide-react";
+import { ExternalLink, FileSearch, FileText, ImageOff, RefreshCcw, AlertTriangle } from "lucide-react";
 import { fetchQuoteEvidence } from "@/services/adminDataService";
 import type { QuoteEvidence } from "@/components/admin/types";
 
@@ -84,16 +85,41 @@ export function QuoteViewerModal({ leadId, open, onOpenChange }: QuoteViewerModa
               </div>
             </div>
           ) : !query.data?.signed_url ? (
-            <div className="flex items-start gap-2 rounded-md border border-border/60 bg-muted/20 p-4 text-sm text-slate-700">
-              <ImageOff className="mt-0.5 h-4 w-4 shrink-0" />
-              <p className="font-semibold text-foreground">No quote on file.</p>
-            </div>
+            <QuoteMissingState leadId={leadId} evidence={query.data} />
           ) : (
             <QuotePreview evidence={query.data} />
           )}
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function QuoteMissingState({ leadId, evidence }: { leadId: string; evidence: QuoteEvidence | undefined }) {
+  const hasScanSession = Boolean(evidence?.scan_session_id);
+  const headline = hasScanSession
+    ? "Quote preview unavailable for this lead."
+    : "No quote uploaded for this lead yet.";
+  const detail = hasScanSession
+    ? "A scan session is linked to this lead, but no quote file is attached here or the secure preview could not be opened. Use Evidence Inspector to review linked quote and scan records."
+    : "This usually means the contact was captured before a quote upload, or the upload belongs to another lead/session. Use Evidence Inspector to review linked scan and quote records.";
+
+  return (
+    <div className="flex items-start gap-2 rounded-md border border-border/60 bg-muted/20 p-4 text-sm text-slate-700">
+      <ImageOff className="mt-0.5 h-4 w-4 shrink-0" />
+      <div className="space-y-3">
+        <div className="space-y-1">
+          <p className="font-semibold text-foreground">{headline}</p>
+          <p className="text-muted-foreground">{detail}</p>
+        </div>
+        <Button asChild variant="outline" size="sm">
+          <Link to={`/admin/lead-evidence?lead_id=${encodeURIComponent(leadId)}`}>
+            <FileSearch className="mr-1.5 h-3.5 w-3.5" />
+            Open Evidence Inspector
+          </Link>
+        </Button>
+      </div>
+    </div>
   );
 }
 
