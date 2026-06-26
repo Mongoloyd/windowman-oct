@@ -42,6 +42,14 @@ interface UploadZoneProps {
   onScanStart?: (fileName: string, scanSessionId: string) => void;
   onUploadReset?: () => void;
   sessionId?: string;
+  /**
+   * Contact-owned lead id (Sprint 2A). When a valid UUID is supplied it is
+   * forwarded to start-upload-scan-session as `lead_id` so the Sprint 1
+   * contact-owned upload enforcer can authorize the upload. Optional: when
+   * absent/invalid the key is omitted entirely, preserving legacy flag-off
+   * behavior. Never sent as null/"".
+   */
+  leadId?: string | null;
 }
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -128,7 +136,7 @@ function firstRpcRow<T>(data: T[] | T | null | undefined): T | null {
 // Storage-path helpers extracted to ./uploadZone/storagePath for testability.
 // Imported above. Determinism is locked by storagePath.test.ts.
 
-const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId }: UploadZoneProps) => {
+const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId, leadId: leadIdProp }: UploadZoneProps) => {
   const [file, setFile] = useState<File | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -562,6 +570,10 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId }: Upload
             client_slug: bootstrapClientSlug,
             attribution: attributionBody,
             query_params: queryParams,
+            // Sprint 2A: forward the contact-owned lead id only when it is a
+            // valid UUID. Omit the key entirely otherwise — never send
+            // null/""/undefined — so legacy flag-off callers are unaffected.
+            ...(isValidUuid(leadIdProp) ? { lead_id: leadIdProp } : {}),
           },
         });
 

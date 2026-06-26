@@ -107,12 +107,15 @@ const SESSION_FALLBACK_COPY =
 export function NextdoorQuoteReadyPanel({
   identitySubmitted,
   sessionId,
+  leadId,
   attributionSaveUrl,
   onScrollToIdentity,
   onScanStart,
 }: {
   identitySubmitted: boolean;
   sessionId: string;
+  /** Contact-owned lead id (Sprint 2A) forwarded to NextdoorQuoteUpload. */
+  leadId?: string | null;
   attributionSaveUrl?: string;
   onScrollToIdentity: () => void;
   onScanStart: (fileName: string, scanSessionId: string) => void;
@@ -170,6 +173,7 @@ export function NextdoorQuoteReadyPanel({
           <NextdoorQuoteUpload
             sessionId={sessionId}
             isVisible={showUpload}
+            leadId={leadId}
             onScanStart={onScanStart}
           />
         </div>

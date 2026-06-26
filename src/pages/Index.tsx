@@ -580,6 +580,7 @@ const Index = () => {
                 <UploadZone
                   isVisible={leadCaptured}
                   sessionId={sessionId || undefined}
+                  leadId={funnel.leadId}
                   onUploadReset={() => {
                     setScanSessionId(null);
                     setFileUploaded(false);

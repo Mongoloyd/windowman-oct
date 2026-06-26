@@ -379,8 +379,163 @@ function serverError(
   return jsonResponse(500, { success: false, code, message, details }, corsHeaders);
 }
 
+// ── Contact-owned upload enforcer (Sprint 1 V2) ────────────────────────────
+// These helpers are pure / dependency-injected so they can be unit-tested in
+// `index_test.ts` without a live Supabase client or network. The handler wires
+// them to the real admin client. See docs/sprints/sprint-1-enforcer.md.
 
-Deno.serve(async (req: Request) => {
+export const CONTACT_REQUIRED_MESSAGE = "Contact is required before upload.";
+export const SESSION_MISMATCH_MESSAGE = "Upload session does not match the lead.";
+
+/**
+ * Server-side-only transport bypass. ONLY an exact `Bearer ${SERVICE_ROLE}`
+ * Authorization header may bypass contact-owned upload enforcement. No request
+ * body flag, cookie, query param, or attribution flag may bypass.
+ */
+export function isServiceRoleBypass(
+  authorization: string | null,
+  serviceRole: string | null | undefined,
+): boolean {
+  return Boolean(serviceRole) && authorization === `Bearer ${serviceRole}`;
+}
+
+/**
+ * A contact-owned lead (Sprint 1 definition) requires a non-empty trimmed
+ * `first_name` AND `email`. Whitespace-only values are invalid. Phone and ZIP
+ * are intentionally NOT required in Sprint 1, and `lead.status` is NOT checked.
+ */
+export function hasContactOwnedFields(
+  lead: { first_name?: string | null; email?: string | null },
+): boolean {
+  return (
+    String(lead.first_name ?? "").trim().length > 0 &&
+    String(lead.email ?? "").trim().length > 0
+  );
+}
+
+/**
+ * Build the structured, non-PII log payload for a rejected enforced public
+ * upload. Never includes first_name, email, phone, zip, storage_path, the
+ * service role key, full attribution, or full query params.
+ */
+export function buildRejectedUploadLogPayload(args: {
+  error_code: string;
+  session_id?: string | null;
+  lead_id?: string | null;
+  attribution?: { utm_source?: string | null } | null;
+}): {
+  timestamp: string;
+  error_code: string;
+  session_id: string | null;
+  lead_id: string | null;
+  client_source: string | null;
+} {
+  return {
+    timestamp: new Date().toISOString(),
+    error_code: args.error_code,
+    session_id: args.session_id ?? null,
+    lead_id: args.lead_id ?? null,
+    client_source: args.attribution?.utm_source ?? null,
+  };
+}
+
+export interface ContactOwnedLeadRow {
+  id: string;
+  session_id: string | null;
+  first_name: string | null;
+  email: string | null;
+}
+
+/**
+ * Tiny dependency surface so the enforcement helper can be tested with a stub
+ * instead of a live Supabase client.
+ */
+export interface ContactOwnedLeadFetcher {
+  fetchLeadById(leadId: string): Promise<{
+    data: ContactOwnedLeadRow | null;
+    error: { code?: string | null; message?: string | null } | null;
+  }>;
+}
+
+export type ContactOwnedValidationResult =
+  | { ok: true; lead_id: string }
+  | {
+    ok: false;
+    httpStatus: 400;
+    code: "contact_required_before_upload" | "session_mismatch_with_lead";
+    message: string;
+  }
+  | { ok: false; httpStatus: 500; code: "unexpected_error"; message: string };
+
+/**
+ * Enforced public validation (ENFORCE_CONTACT_OWNED_UPLOAD === "1" and not a
+ * service-role bypass). Runs BEFORE any storage probe, DB insert, quote_file
+ * reuse, or fallback lead insert.
+ *
+ *   Step 1 — require lead_id (present + non-empty)
+ *   Step 2 — fetch lead by id
+ *   Step 3 — verify lead exists (db error → 500 unexpected_error)
+ *   Step 4 — verify trimmed first_name + email (no status / phone / zip)
+ *   Step 5 — verify lead.session_id === body.session_id
+ *   Step 6 — return validated lead id as the sole authority
+ */
+export async function validateContactOwnedUploadLead(
+  args: { leadId: string | null | undefined; sessionId: string },
+  deps: ContactOwnedLeadFetcher,
+): Promise<ContactOwnedValidationResult> {
+  const leadId = typeof args.leadId === "string" ? args.leadId.trim() : "";
+  if (!leadId) {
+    return {
+      ok: false,
+      httpStatus: 400,
+      code: "contact_required_before_upload",
+      message: CONTACT_REQUIRED_MESSAGE,
+    };
+  }
+
+  const { data: lead, error } = await deps.fetchLeadById(leadId);
+
+  if (error) {
+    return {
+      ok: false,
+      httpStatus: 500,
+      code: "unexpected_error",
+      message: "An unexpected error occurred.",
+    };
+  }
+
+  if (!lead) {
+    return {
+      ok: false,
+      httpStatus: 400,
+      code: "contact_required_before_upload",
+      message: CONTACT_REQUIRED_MESSAGE,
+    };
+  }
+
+  if (!hasContactOwnedFields(lead)) {
+    return {
+      ok: false,
+      httpStatus: 400,
+      code: "contact_required_before_upload",
+      message: CONTACT_REQUIRED_MESSAGE,
+    };
+  }
+
+  if (lead.session_id !== args.sessionId) {
+    return {
+      ok: false,
+      httpStatus: 400,
+      code: "session_mismatch_with_lead",
+      message: SESSION_MISMATCH_MESSAGE,
+    };
+  }
+
+  return { ok: true, lead_id: lead.id };
+}
+
+
+export const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: getCorsHeaders(req) });
   }
@@ -472,6 +627,10 @@ Deno.serve(async (req: Request) => {
     ...parsed.data,
   };
 
+  // Parsed, schema-validated request body. Used by the contact-owned enforcer
+  // and its structured (non-PII) logging so field names match the contract.
+  const body = parsed.data;
+
   const sanitizedAttribution = sanitizeAttributionInput(rawAttribution);
   const sanitizedQueryParams = sanitizeQueryParamsInput(rawQueryParams);
   const effectiveClientSlug = resolveEffectiveClientSlug(
@@ -496,6 +655,81 @@ Deno.serve(async (req: Request) => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
+  // ── Contact-owned upload enforcement decision ──────────────────────────────
+  // Feature flag + service-role transport bypass are resolved here, before any
+  // lead resolution, so the control flow is unambiguous. Flag OFF or bypass →
+  // legacy behavior. Flag ON (public) → strict contact-owned validation.
+  const enforceContactOwnedUpload =
+    Deno.env.get("ENFORCE_CONTACT_OWNED_UPLOAD") === "1";
+
+  const authorization = req.headers.get("Authorization");
+  const isBypass = isServiceRoleBypass(authorization, SERVICE_ROLE);
+
+  if (isBypass) {
+    // Non-PII admin/dev bypass marker. Never logs the service role key.
+    console.log(JSON.stringify({
+      admin_bypass: true,
+      timestamp: new Date().toISOString(),
+      lead_id: body.lead_id ?? null,
+      session_id: body.session_id ?? null,
+    }));
+  }
+
+  const enforcedPublicMode = enforceContactOwnedUpload && !isBypass;
+
+  // In enforced public mode, contact-owned lead validation MUST run before the
+  // storage probe, any DB insert, or any quote_file reuse. The validated lead
+  // becomes the sole authority; no fallback shell lead may be created.
+  let enforcedLeadId: string | null = null;
+  if (enforcedPublicMode) {
+    const result = await validateContactOwnedUploadLead(
+      { leadId: body.lead_id, sessionId: session_id },
+      {
+        fetchLeadById: async (leadId: string) => {
+          const { data, error } = await admin
+            .from("leads")
+            .select("id, session_id, first_name, email")
+            .eq("id", leadId)
+            .maybeSingle();
+          return {
+            data: (data as ContactOwnedLeadRow | null) ?? null,
+            error,
+          };
+        },
+      },
+    );
+
+    if (!result.ok) {
+      if (result.httpStatus === 400) {
+        console.log(JSON.stringify(buildRejectedUploadLogPayload({
+          error_code: result.code,
+          session_id: body.session_id,
+          lead_id: body.lead_id ?? null,
+          attribution: body.attribution,
+        })));
+        audit(admin, {
+          stage: "validation_failed",
+          status: "failed",
+          session_id,
+          lead_id: body.lead_id ?? null,
+          error_code: result.code,
+          error_message: result.message,
+        });
+        return badRequest(result.code, result.message, corsHeaders);
+      }
+      audit(admin, {
+        stage: "lead_resolve_failed",
+        status: "failed",
+        session_id,
+        lead_id: body.lead_id ?? null,
+        error_code: result.code,
+        error_message: result.message,
+      });
+      return serverError(result.code, result.message, corsHeaders);
+    }
+
+    enforcedLeadId = result.lead_id;
+  }
 
   // ── Storage object existence check ─────────────────────────────────────────
   // Verify the uploaded object actually exists in the private quotes bucket
@@ -539,42 +773,47 @@ Deno.serve(async (req: Request) => {
   // Wrap the entire pipeline so any throw is captured as `unexpected_error`.
   try {
     // ── 1. Resolve or create the parent lead bound to this session_id ───────
-    let lead_id: string | null = null;
+    // Enforced public mode: the contact-owned lead validated above the storage
+    // probe is the sole authority. Legacy/bypass mode: resolve by session_id
+    // via RPC and fall back to shell-lead creation as before.
+    let lead_id: string | null = enforcedPublicMode ? enforcedLeadId : null;
 
-    audit(admin, {
-      stage: "lead_resolve_started",
-      status: "started",
-      session_id,
-      file_size,
-      file_type,
-      has_file_name: Boolean(file_name),
-    });
+    if (!enforcedPublicMode) {
+      audit(admin, {
+        stage: "lead_resolve_started",
+        status: "started",
+        session_id,
+        file_size,
+        file_type,
+        has_file_name: Boolean(file_name),
+      });
 
-    try {
-      const { data: existingLeads, error: rpcErr } = await admin.rpc(
-        "get_lead_by_session",
-        {
-          p_session_id: session_id,
-        },
-      );
-      if (rpcErr) {
+      try {
+        const { data: existingLeads, error: rpcErr } = await admin.rpc(
+          "get_lead_by_session",
+          {
+            p_session_id: session_id,
+          },
+        );
+        if (rpcErr) {
+          audit(admin, {
+            stage: "lead_resolve_failed",
+            status: "failed",
+            session_id,
+            error_code: rpcErr.code,
+            error_message: rpcErr.message,
+          });
+        } else if (Array.isArray(existingLeads) && existingLeads.length > 0) {
+          lead_id = (existingLeads[0]?.id as string) ?? null;
+        }
+      } catch (e) {
         audit(admin, {
           stage: "lead_resolve_failed",
           status: "failed",
           session_id,
-          error_code: rpcErr.code,
-          error_message: rpcErr.message,
+          error_message: String(e),
         });
-      } else if (Array.isArray(existingLeads) && existingLeads.length > 0) {
-        lead_id = (existingLeads[0]?.id as string) ?? null;
       }
-    } catch (e) {
-      audit(admin, {
-        stage: "lead_resolve_failed",
-        status: "failed",
-        session_id,
-        error_message: String(e),
-      });
     }
 
     if (lead_id) {
@@ -592,6 +831,23 @@ Deno.serve(async (req: Request) => {
         effectiveClientSlug,
       );
     } else {
+      // Safety net: enforced public mode guarantees lead_id is set above, so
+      // fallback shell-lead creation is unreachable there. Guard anyway so a
+      // future refactor can never silently re-open the shell-lead hole.
+      if (enforcedPublicMode) {
+        audit(admin, {
+          stage: "lead_resolve_failed",
+          status: "failed",
+          session_id,
+          error_code: "contact_required_before_upload",
+          error_message: "Enforced upload reached fallback without a lead.",
+        });
+        return serverError(
+          "unexpected_error",
+          "An unexpected error occurred.",
+          corsHeaders,
+        );
+      }
       const insertRow: Record<string, unknown> = {
         session_id,
         source: resolveUploadLeadSource(sanitizedAttribution),
@@ -671,7 +927,35 @@ Deno.serve(async (req: Request) => {
         quote_file_id = (existingFiles[0].id as string) ?? null;
         const existingLeadId = (existingFiles[0].lead_id as string | null) ??
           null;
-        if (existingLeadId) lead_id = existingLeadId;
+        if (enforcedPublicMode) {
+          // The validated contact-owned lead stays authoritative. If a prior
+          // quote_files row is owned by a different lead, reject rather than
+          // overwrite the validated lead_id.
+          if (existingLeadId && existingLeadId !== lead_id) {
+            console.log(JSON.stringify(buildRejectedUploadLogPayload({
+              error_code: "session_mismatch_with_lead",
+              session_id: body.session_id,
+              lead_id: body.lead_id ?? null,
+              attribution: body.attribution,
+            })));
+            audit(admin, {
+              stage: "validation_failed",
+              status: "failed",
+              session_id,
+              lead_id,
+              quote_file_id,
+              error_code: "session_mismatch_with_lead",
+              error_message: "Existing quote_file is owned by another lead.",
+            });
+            return badRequest(
+              "session_mismatch_with_lead",
+              SESSION_MISMATCH_MESSAGE,
+              corsHeaders,
+            );
+          }
+        } else if (existingLeadId) {
+          lead_id = existingLeadId;
+        }
       }
     }
 
@@ -862,4 +1146,8 @@ Deno.serve(async (req: Request) => {
     });
     return serverError("unexpected_error", "An unexpected error occurred.", corsHeaders);
   }
-});
+};
+
+if (import.meta.main) {
+  Deno.serve(handler);
+}

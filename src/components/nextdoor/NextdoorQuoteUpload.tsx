@@ -4,12 +4,15 @@ export type NextdoorQuoteUploadProps = {
   sessionId: string;
   isVisible: boolean;
   onScanStart: (fileName: string, scanSessionId: string) => void;
+  /** Contact-owned lead id (Sprint 2A) forwarded to UploadZone. */
+  leadId?: string | null;
 };
 
 export function NextdoorQuoteUpload({
   sessionId,
   isVisible,
   onScanStart,
+  leadId,
 }: NextdoorQuoteUploadProps) {
   if (!isVisible) {
     return null;
@@ -27,6 +30,7 @@ export function NextdoorQuoteUpload({
       <UploadZone
         isVisible
         sessionId={sessionId}
+        leadId={leadId}
         onScanStart={onScanStart}
       />
     </div>

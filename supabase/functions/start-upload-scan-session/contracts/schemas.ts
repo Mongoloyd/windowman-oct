@@ -80,6 +80,11 @@ export const QueryParamsSchema = z
 export const RequestSchema = z
   .object({
     session_id: UUID,
+    // Optional at parse time. The contact-owned upload contract only *requires*
+    // lead_id at runtime when ENFORCE_CONTACT_OWNED_UPLOAD === "1" and the
+    // request is not a service-role transport bypass. Keeping it optional here
+    // preserves legacy flag-off callers while still rejecting malformed UUIDs.
+    lead_id: UUID.optional(),
     storage_path: StoragePathString,
     file_name: FileName,
     file_size: FileSize,
@@ -158,6 +163,8 @@ export const ErrorCode = z.enum([
   "lead_create_failed",
   "quote_file_create_failed",
   "scan_session_create_failed",
+  "contact_required_before_upload",
+  "session_mismatch_with_lead",
   "unexpected_error",
 ]);
 export type BootstrapErrorCode = z.infer<typeof ErrorCode>;

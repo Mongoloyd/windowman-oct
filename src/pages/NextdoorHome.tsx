@@ -493,6 +493,10 @@ export default function NextdoorHome() {
 
     if (readiness === "has_estimate") {
       funnel?.setSessionId(nextdoorSessionId);
+      // Sprint 2A: persist the captured lead id so UploadZone can forward it
+      // as lead_id to start-upload-scan-session. Resume hint only — never
+      // treated as upload authorization (backend re-validates lead↔session).
+      if (result.leadId) funnel?.setLeadId(result.leadId);
       // Return to the now-unlocked upload zone (renders once identity is saved).
       scrollToIdSmooth("quote-ready-upload", scrollToNextStepPanel);
     }
@@ -573,6 +577,8 @@ export default function NextdoorHome() {
       setShowChecklist(false);
       setIdentitySubmitted(true);
       funnel?.setSessionId(nextdoorSessionId);
+      // Sprint 2A: persist the captured lead id for UploadZone → lead_id.
+      if (result.leadId) funnel?.setLeadId(result.leadId);
       scrollToNextStepPanel();
     },
     [lastName, trafficMode, funnel, nextdoorSessionId, persistLead, scrollToNextStepPanel],
@@ -841,6 +847,7 @@ export default function NextdoorHome() {
                   <NextdoorQuoteReadyPanel
                     identitySubmitted={identitySubmitted}
                     sessionId={nextdoorSessionId}
+                    leadId={funnel?.leadId ?? null}
                     attributionSaveUrl={attributionSaveUrl}
                     onScrollToIdentity={scrollToIdentityOrStep2}
                     onScanStart={handleUploadScanStart}
