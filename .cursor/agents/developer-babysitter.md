@@ -72,16 +72,16 @@ Example:
 
 These mirror the canonical list in [`AGENTS.md`](../../AGENTS.md) §3. `AGENTS.md` §3 is the source of truth — if this copy ever diverges, **`AGENTS.md` wins** and this list must be re-synced.
 
-1. Do not send `full_json` to the client before SMS verification
-2. Do not use AI/LLM output as final scoring authority (TypeScript scores in backend)
-3. Do not store quote files in public buckets
-4. Do not weaken RLS for convenience
-5. Do not force verified return users back to the marketing hero
-6. Do not build fake UI that implies real functionality
-7. Do not replace SMS hard gate with magic-link full report access
-8. Do not call Gemini or AI providers from the browser
-9. Preserve preview/full separation — CSS hiding is not authorization
-10. `client_slug` must not be NULL on lead creation
+1. **Do not send `full_json` to the client before SMS verification.** It must not be fetched, cached, logged, stored, or exposed to the browser before backend authorization.
+2. **Do not use AI/LLM output as the final scoring authority.** Grades, pillar scores, financial math, and hard caps are owned by deterministic backend TypeScript.
+3. **Do not store quote files in public buckets.** Private assets stay private and require signed access.
+4. **Do not weaken RLS for convenience.**
+5. **Do not force verified return users back to the marketing hero.**
+6. **Do not build fake UI that implies real functionality.**
+7. **Do not replace the SMS hard gate with magic link access to the full report.**
+8. **Do not call Gemini or any AI provider directly from the browser.** Gemini extracts visible evidence only; it never performs scoring, authorization, or final judgment.
+9. **Do not treat CSS hiding, disabled buttons, `localStorage`/`sessionStorage`, or client-side route guards as authorization.** Backend authorization decides report reveal and protected access, and preview/full separation must be preserved. One verified session/phone must not unlock another scan session.
+10. **Do not allow `client_slug` to be NULL on lead creation, and do not weaken tenant/identity integrity checks.** Service-role/server-only logic must stay in controlled backend paths and must never be exposed to frontend code.
 
 ## Habit guards (reject or PAUSE)
 
