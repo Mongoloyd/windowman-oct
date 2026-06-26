@@ -1,11 +1,19 @@
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
-import TruthGateFlow from "./TruthGateFlow";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { UtmData } from "@/lib/useUtmCapture";
 
 const UTM_STORAGE_KEY = "wm_utm_data";
-const mockSetSessionId = vi.fn();
+const SESSION_ID = "11111111-1111-4111-8111-111111111111";
+const LEAD_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const { mockSetSessionId, mockSetLeadId, mockSetPhone, invokeMock, getUtmDataMock } =
+  vi.hoisted(() => ({
+    mockSetSessionId: vi.fn(),
+    mockSetLeadId: vi.fn(),
+    mockSetPhone: vi.fn(),
+    invokeMock: vi.fn(),
+    getUtmDataMock: vi.fn(),
+  }));
 
 vi.mock("@/hooks/useTickerStats", () => ({
   useTickerStats: () => ({ total: 1000, today: 12 }),
@@ -13,14 +21,50 @@ vi.mock("@/hooks/useTickerStats", () => ({
 
 vi.mock("@/state/scanFunnel", () => ({
   useScanFunnelSafe: () => ({
+    leadId: null,
+    sessionId: null,
     setSessionId: mockSetSessionId,
+    setLeadId: mockSetLeadId,
+    setPhone: mockSetPhone,
   }),
 }));
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
-    functions: { invoke: vi.fn() },
+    functions: { invoke: invokeMock },
   },
+}));
+
+vi.mock("@/lib/useUtmCapture", () => ({
+  captureUtmFromUrl: vi.fn(() => ({
+    utm_source: "nextdoor",
+    utm_medium: null,
+    utm_campaign: null,
+    utm_term: null,
+    utm_content: null,
+    tclid: null,
+    fbclid: null,
+    gclid: null,
+    fbc: null,
+    fbp: null,
+    wm_intent: "has_quote",
+    client_slug: "direct",
+    landing_page: "/",
+    landing_page_url: "/",
+  })),
+  getAttributionPayload: vi.fn(() => ({
+    client_slug: "direct",
+    wm_intent: "has_quote",
+    query_params: { wm_intent: "has_quote" },
+  })),
+  getUtmData: () => getUtmDataMock(),
+}));
+
+vi.mock("@/lib/attribution/fbCookies", () => ({
+  readLateFbCookies: vi.fn((seed: { fbp?: string | null; fbc?: string | null }) => ({
+    fbp: seed.fbp ?? null,
+    fbc: seed.fbc ?? null,
+  })),
 }));
 
 vi.mock("framer-motion", () => {
@@ -34,6 +78,8 @@ vi.mock("framer-motion", () => {
       React.createElement(React.Fragment, null, children),
   };
 });
+
+import TruthGateFlow from "./TruthGateFlow";
 
 function installLocalStorageMock() {
   const store = new Map<string, string>();
@@ -98,21 +144,32 @@ describe("TruthGateFlow paid intent", () => {
   beforeEach(() => {
     installLocalStorageMock();
     mockSetSessionId.mockReset();
-    vi.stubGlobal("crypto", {
-      randomUUID: () => "11111111-1111-4111-8111-111111111111",
+    mockSetLeadId.mockReset();
+    invokeMock.mockReset();
+    getUtmDataMock.mockReset();
+    invokeMock.mockResolvedValue({
+      data: {
+        success: true,
+        lead_id: LEAD_ID,
+        session_id: SESSION_ID,
+      },
+      error: null,
     });
+    vi.spyOn(crypto, "randomUUID").mockReturnValue(SESSION_ID);
   });
 
   afterEach(() => {
-    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
-  it("shows paid-continuation card for wm_intent=has_quote and unlocks upload on CTA", () => {
-    seedAttribution({
+  it("shows paid contact form for wm_intent=has_quote and unlocks upload after capture", async () => {
+    getUtmDataMock.mockReturnValue({
       utm_source: "nextdoor",
       wm_intent: "has_quote",
       ndclid: "abc123",
       nd_lead_id: "lead_789",
+      tclid: null,
+      fbclid: null,
     });
 
     const onLeadCaptured = vi.fn();
@@ -120,30 +177,51 @@ describe("TruthGateFlow paid intent", () => {
     render(<TruthGateFlow onLeadCaptured={onLeadCaptured} />);
 
     expect(
-      screen.getByText("We have your request from Nextdoor."),
+      screen.getByText("Where should we send your free quote scan?"),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Upload your current quote for a secure price check."),
+      screen.getByText(
+        "We have your request from Nextdoor. Enter your details to unlock upload.",
+      ),
     ).toBeInTheDocument();
     expect(
       screen.getByText("You do not need to re-answer the starter questions."),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Upload My Quote" }));
+    await act(async () => {
+      fireEvent.change(screen.getByPlaceholderText("Your first name"), {
+        target: { value: "Jane" },
+      });
+      fireEvent.change(screen.getByPlaceholderText("your@email.com"), {
+        target: { value: "jane@example.com" },
+      });
+    });
 
-    expect(onLeadCaptured).toHaveBeenCalledWith(
-      "11111111-1111-4111-8111-111111111111",
-    );
-    expect(mockSetSessionId).toHaveBeenCalledWith(
-      "11111111-1111-4111-8111-111111111111",
+    await act(async () => {
+      fireEvent.submit(
+        screen.getByPlaceholderText("Your first name").closest("form") as HTMLFormElement,
+      );
+    });
+
+    await waitFor(() => {
+      expect(onLeadCaptured).toHaveBeenCalledWith(SESSION_ID);
+    });
+
+    expect(mockSetSessionId).toHaveBeenCalledWith(SESSION_ID);
+    expect(mockSetLeadId).toHaveBeenCalledWith(LEAD_ID);
+    expect(invokeMock).toHaveBeenCalledWith(
+      "capture-truth-gate-lead",
+      expect.anything(),
     );
   });
 
   it("shows prep-mode copy for wm_intent=no_quote without upload bypass card", () => {
-    seedAttribution({
+    getUtmDataMock.mockReturnValue({
       utm_source: "nextdoor",
       wm_intent: "no_quote",
       ndclid: "abc123",
+      tclid: null,
+      fbclid: null,
     });
 
     render(<TruthGateFlow />);
@@ -165,7 +243,13 @@ describe("TruthGateFlow paid intent", () => {
   });
 
   it("keeps organic first question when no paid intent is stored", () => {
-    localStorage.removeItem(UTM_STORAGE_KEY);
+    getUtmDataMock.mockReturnValue({
+      utm_source: null,
+      wm_intent: "unknown",
+      ndclid: null,
+      tclid: null,
+      fbclid: null,
+    });
 
     render(<TruthGateFlow />);
 
@@ -173,7 +257,7 @@ describe("TruthGateFlow paid intent", () => {
       screen.getByText("How many windows are in your project?"),
     ).toBeInTheDocument();
     expect(
-      screen.queryByText("We have your request from Nextdoor."),
+      screen.queryByText("Where should we send your free quote scan?"),
     ).not.toBeInTheDocument();
   });
 });

@@ -124,6 +124,20 @@ type TransitionState = "idle" | "loading" | "estimate" | "done";
 type SubmitState = "idle" | "submitting" | "success" | "error";
 type FieldStatus = "untouched" | "valid" | "invalid";
 
+const UUID_V4_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function isValidLeadSessionUuid(value: unknown): value is string {
+  return typeof value === "string" && UUID_V4_RE.test(value);
+}
+
+export function hasTrustedContactIdentity(
+  leadId: string | null | undefined,
+  sessionId: string | null | undefined,
+): boolean {
+  return isValidLeadSessionUuid(leadId) && isValidLeadSessionUuid(sessionId);
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -281,11 +295,31 @@ const ValidationIcon = ({ valid }: { valid: boolean }) => (
 const PaidHasQuoteContinuation = ({
   networkLabel,
   hasNetworkContext,
-  onContinue,
+  firstName,
+  email,
+  phone,
+  fieldStatus,
+  submitState,
+  submitError,
+  onFirstNameChange,
+  onEmailChange,
+  onPhoneChange,
+  onFieldBlur,
+  onSubmit,
 }: {
   networkLabel: string;
   hasNetworkContext: boolean;
-  onContinue: () => void;
+  firstName: string;
+  email: string;
+  phone: string;
+  fieldStatus: Record<string, FieldStatus>;
+  submitState: SubmitState;
+  submitError: { code?: string; message?: string } | null;
+  onFirstNameChange: (value: string) => void;
+  onEmailChange: (value: string) => void;
+  onPhoneChange: (value: string) => void;
+  onFieldBlur: (field: string, value: string) => void;
+  onSubmit: (e: React.FormEvent) => void;
 }) => (
   <motion.div
     key="paid-has-quote"
@@ -302,26 +336,149 @@ const PaidHasQuoteContinuation = ({
         {hasNetworkContext ? `From ${networkLabel}` : "Paid traffic"}
       </p>
       <h2 className="mt-3 text-2xl font-semibold leading-tight text-foreground">
-        {hasNetworkContext
-          ? `We have your request from ${networkLabel}.`
-          : "We have your request."}
+        Where should we send your free quote scan?
       </h2>
       <p className="mt-3 text-base leading-relaxed text-muted-foreground">
-        Upload your current quote for a secure price check.
+        {hasNetworkContext
+          ? `We have your request from ${networkLabel}. Enter your details to unlock upload.`
+          : "Enter your details to unlock upload for a secure price check."}
       </p>
       <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
         You do not need to re-answer the starter questions.
       </p>
     </div>
 
-    <button
-      type="button"
-      onClick={onContinue}
-      className="btn-depth-primary w-full rounded-lg border border-primary/20 bg-primary px-6 py-4 text-base font-semibold text-primary-foreground shadow"
-      style={{ fontFamily: PAID_INTENT_FONT }}
-    >
-      Upload My Quote
-    </button>
+    <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+      <div>
+        <label className="wm-eyebrow mb-1.5 text-muted-foreground block">
+          FIRST NAME <span className="text-orange-500">*</span>
+        </label>
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Your first name"
+            autoComplete="given-name"
+            maxLength={100}
+            required
+            aria-invalid={fieldStatus.firstName === "invalid"}
+            value={firstName}
+            onChange={(e) => onFirstNameChange(e.target.value)}
+            onBlur={() => onFieldBlur("firstName", firstName)}
+            className={`wm-input-well w-full h-12 px-4 font-body text-[15px] text-foreground outline-none ${
+              fieldStatus.firstName !== "untouched" ? "pr-10" : ""
+            } ${
+              fieldStatus.firstName === "invalid"
+                ? "border-orange-500"
+                : fieldStatus.firstName === "valid"
+                  ? "border-primary"
+                  : ""
+            }`}
+            style={{ fontFamily: PAID_INTENT_FONT }}
+          />
+          {fieldStatus.firstName === "valid" && <ValidationIcon valid />}
+          {fieldStatus.firstName === "invalid" && <ValidationIcon valid={false} />}
+        </div>
+        {fieldStatus.firstName === "invalid" && (
+          <p className="font-body text-xs text-orange-500 mt-1">
+            Please enter your first name (2+ characters)
+          </p>
+        )}
+      </div>
+
+      <div>
+        <label className="wm-eyebrow mb-1.5 text-muted-foreground block">
+          EMAIL ADDRESS <span className="text-orange-500">*</span>
+        </label>
+        <div className="relative">
+          <input
+            type="email"
+            placeholder="your@email.com"
+            autoComplete="email"
+            maxLength={255}
+            required
+            aria-invalid={fieldStatus.email === "invalid"}
+            value={email}
+            onChange={(e) => onEmailChange(e.target.value)}
+            onBlur={() => onFieldBlur("email", email)}
+            className={`wm-input-well w-full h-12 px-4 font-body text-[15px] text-foreground outline-none ${
+              fieldStatus.email !== "untouched" ? "pr-10" : ""
+            } ${
+              fieldStatus.email === "invalid"
+                ? "border-orange-500"
+                : fieldStatus.email === "valid"
+                  ? "border-primary"
+                  : ""
+            }`}
+            style={{ fontFamily: PAID_INTENT_FONT }}
+          />
+          {fieldStatus.email === "valid" && <ValidationIcon valid />}
+          {fieldStatus.email === "invalid" && <ValidationIcon valid={false} />}
+        </div>
+        {fieldStatus.email === "invalid" && (
+          <p className="font-body text-xs text-orange-500 mt-1">
+            Please enter a valid email address
+          </p>
+        )}
+      </div>
+
+      <div>
+        <label className="wm-eyebrow mb-1.5 text-muted-foreground block">MOBILE NUMBER</label>
+        <div className="relative">
+          <input
+            type="tel"
+            placeholder="(555) 555-5555"
+            autoComplete="tel"
+            inputMode="tel"
+            maxLength={20}
+            aria-invalid={fieldStatus.phone === "invalid"}
+            value={phone}
+            onChange={(e) => onPhoneChange(e.target.value)}
+            onBlur={() => onFieldBlur("phone", phone)}
+            className={`wm-input-well w-full h-12 px-4 font-body text-[15px] text-foreground outline-none ${
+              fieldStatus.phone !== "untouched" ? "pr-10" : ""
+            } ${
+              fieldStatus.phone === "invalid"
+                ? "border-orange-500"
+                : fieldStatus.phone === "valid"
+                  ? "border-primary"
+                  : ""
+            }`}
+            style={{ fontFamily: PAID_INTENT_FONT }}
+          />
+          {fieldStatus.phone === "valid" && <ValidationIcon valid />}
+          {fieldStatus.phone === "invalid" && <ValidationIcon valid={false} />}
+        </div>
+        {fieldStatus.phone === "invalid" && (
+          <p className="font-body text-xs text-orange-500 mt-1">
+            Please enter a valid 10-digit US phone number
+          </p>
+        )}
+      </div>
+
+      <button
+        type="submit"
+        disabled={submitState === "submitting" || submitState === "success"}
+        className="btn-depth-primary w-full rounded-lg border border-primary/20 bg-primary px-6 py-4 text-base font-semibold text-primary-foreground shadow"
+        style={{ fontFamily: PAID_INTENT_FONT }}
+      >
+        {submitState === "idle" && "Upload My Quote"}
+        {submitState === "submitting" && (
+          <span className="inline-flex items-center justify-center gap-2">
+            <Spinner /> Saving...
+          </span>
+        )}
+        {submitState === "success" && (
+          <span className="inline-flex items-center justify-center gap-2">
+            <Check size={18} /> Ready — Upload Below
+          </span>
+        )}
+        {submitState === "error" && "Something went wrong — Try Again"}
+      </button>
+
+      {submitState === "error" && submitError?.message && (
+        <p className="font-body text-xs text-orange-500 text-center">{submitError.message}</p>
+      )}
+    </form>
   </motion.div>
 );
 
@@ -383,17 +540,180 @@ const TruthGateFlow = ({
     email: "untouched",
     phone: "untouched",
   });
+  const [paidSubmitState, setPaidSubmitState] = useState<SubmitState>("idle");
+  const [paidSubmitError, setPaidSubmitError] = useState<{ code?: string; message?: string } | null>(null);
   const funnel = useScanFunnelSafe();
   const stepChangeNotifiedRef = useRef(false);
   const [paidContext] = useState<PaidTrafficContext>(() => resolvePaidTrafficContext());
   const isPaidHasQuote = paidContext.wmIntent === "has_quote";
   const isPaidNoQuote = paidContext.wmIntent === "no_quote";
 
-  const handlePaidHasQuoteContinue = useCallback(() => {
-    const sessionId = crypto.randomUUID();
-    funnel?.setSessionId(sessionId);
-    onLeadCaptured?.(sessionId);
-  }, [funnel, onLeadCaptured]);
+  const unlockAfterContactCapture = useCallback(
+    (sessionId: string) => {
+      setPaidSubmitState("success");
+      onLeadCaptured?.(sessionId);
+    },
+    [onLeadCaptured],
+  );
+
+  const handlePaidHasQuoteSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const nameValid = isValidName(answers.firstName);
+    const emailValid = isValidEmail(answers.email);
+    const phoneValid = isValidPhone(answers.phone);
+
+    setFieldStatus({
+      firstName: nameValid ? "valid" : "invalid",
+      email: emailValid ? "valid" : "invalid",
+      phone: answers.phone.trim() === "" ? "untouched" : phoneValid ? "valid" : "invalid",
+    });
+
+    if (!nameValid || !emailValid || !phoneValid) return;
+
+    if (
+      hasTrustedContactIdentity(funnel?.leadId, funnel?.sessionId) &&
+      funnel?.sessionId
+    ) {
+      unlockAfterContactCapture(funnel.sessionId);
+      return;
+    }
+
+    setPaidSubmitState("submitting");
+    setPaidSubmitError(null);
+
+    try {
+      const sessionId = isValidLeadSessionUuid(funnel?.sessionId)
+        ? funnel!.sessionId!
+        : crypto.randomUUID();
+
+      if (funnel && !isValidLeadSessionUuid(funnel.sessionId)) {
+        funnel.setSessionId(sessionId);
+      }
+
+      const phoneE164 = normalizePhoneToE164(answers.phone);
+      const utm = captureUtmFromUrl();
+      const fb = readLateFbCookies(
+        { fbp: utm.fbp, fbc: utm.fbc },
+        { surface: "truth_gate_flow", sessionId },
+      );
+
+      const queryClientSlug =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search).get("client")
+          : null;
+
+      const lsClientSlug =
+        typeof window !== "undefined"
+          ? localStorage.getItem("wm_client_slug")
+          : null;
+
+      const effectiveClientSlug =
+        funnel?.clientSlug ??
+        queryClientSlug ??
+        utm.client_slug ??
+        lsClientSlug ??
+        null;
+
+      if (effectiveClientSlug && typeof window !== "undefined") {
+        try { localStorage.setItem("wm_client_slug", effectiveClientSlug); } catch {}
+      }
+
+      const landingPageUrl =
+        utm.landing_page_url ??
+        (typeof window !== "undefined"
+          ? `${window.location.pathname}${window.location.search}`
+          : null);
+
+      const attributionPayload = getAttributionPayload();
+      const queryParams =
+        (attributionPayload.query_params as Record<string, string | string[]>) ??
+        {};
+      const { query_params: _queryParams, ...attributionBody } =
+        attributionPayload;
+
+      const leadInsertPayload = {
+        session_id: sessionId,
+        first_name: answers.firstName,
+        email: answers.email,
+        phone_e164: phoneE164,
+        county: null,
+        project_type: null,
+        window_count: null,
+        quote_range: null,
+        source: "truth-gate",
+        client_slug: effectiveClientSlug,
+        utm_source: utm.utm_source,
+        utm_medium: utm.utm_medium,
+        utm_campaign: utm.utm_campaign,
+        utm_term: utm.utm_term,
+        utm_content: utm.utm_content,
+        fbclid: utm.fbclid,
+        gclid: utm.gclid,
+        fbc: fb.fbc,
+        fbp: fb.fbp,
+        landing_page_url: landingPageUrl,
+        first_page_path: utm.landing_page,
+        initial_referrer: typeof document !== "undefined" ? document.referrer || null : null,
+        attribution: attributionBody,
+        query_params: queryParams,
+      };
+
+      const { data: captureData, error: captureError } = await supabase.functions.invoke(
+        "capture-truth-gate-lead",
+        { body: leadInsertPayload },
+      );
+
+      if (captureError || !captureData?.success) {
+        const errBody = (captureData ?? {}) as {
+          code?: string;
+          message?: string;
+        };
+        const code = errBody.code || captureError?.name || "lead_capture_failed";
+        const message =
+          errBody.message ||
+          captureError?.message ||
+          "We couldn't save your details yet. Check them and try again.";
+
+        console.error("[TruthGateFlow] paid has_quote capture failed", {
+          code,
+          message,
+          session_id: sessionId,
+        });
+
+        setPaidSubmitError({ code, message });
+        throw new Error(message);
+      }
+
+      const resolvedSessionId =
+        (typeof captureData.session_id === "string" && captureData.session_id) ||
+        sessionId;
+
+      if (funnel) {
+        funnel.setSessionId(resolvedSessionId);
+        if (captureData.lead_id) {
+          funnel.setLeadId(captureData.lead_id as string);
+        }
+        if (phoneE164) {
+          funnel.setPhone(phoneE164, "screened_valid");
+        } else {
+          funnel.setPhone("", "none");
+        }
+      }
+
+      if (!captureData.lead_id) {
+        setPaidSubmitError({
+          code: "lead_capture_failed",
+          message: "We couldn't save your details yet. Check them and try again.",
+        });
+        throw new Error("Lead capture failed.");
+      }
+
+      unlockAfterContactCapture(resolvedSessionId);
+    } catch {
+      setPaidSubmitState("error");
+    }
+  };
 
   const selectedCounty = answers.county || "your county";
   const selectedRange = answers.quoteRange || "your";
@@ -696,7 +1016,21 @@ const TruthGateFlow = ({
         <PaidHasQuoteContinuation
           networkLabel={paidContext.networkLabel}
           hasNetworkContext={paidContext.hasNetworkContext}
-          onContinue={handlePaidHasQuoteContinue}
+          firstName={answers.firstName}
+          email={answers.email}
+          phone={answers.phone}
+          fieldStatus={fieldStatus}
+          submitState={paidSubmitState}
+          submitError={paidSubmitError}
+          onFirstNameChange={(value) =>
+            setAnswers((prev) => ({ ...prev, firstName: value }))
+          }
+          onEmailChange={(value) =>
+            setAnswers((prev) => ({ ...prev, email: value }))
+          }
+          onPhoneChange={handlePhoneChange}
+          onFieldBlur={handleFieldBlur}
+          onSubmit={handlePaidHasQuoteSubmit}
         />
       );
     }
