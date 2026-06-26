@@ -6,6 +6,7 @@ import StickyCTAFooter from "@/components/StickyCTAFooter";
 import HomepageBackdrop from "@/components/HomepageBackdrop";
 import { LazySection } from "@/components/LazySection";
 import TruthGateFlow, { hasTrustedContactIdentity } from "@/components/TruthGateFlow";
+import PostCaptureRouter, { type PostCapturePath } from "@/components/PostCaptureRouter";
 import UploadZone from "@/components/UploadZone";
 import ScanTheatrics from "@/components/ScanTheatrics";
 import { PostScanReportSwitcher } from "@/components/post-scan/PostScanReportSwitcher";
@@ -97,6 +98,11 @@ const Index = () => {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [scanSessionId, setScanSessionId] = useState<string | null>(null);
   const [leadCaptured, setLeadCaptured] = useState(false);
+  // Sprint 2F-C: after a trusted contact-owned capture, the homepage shows a
+  // post-capture intent router first. Only the "upload" path mounts a usable
+  // UploadZone; "upload_later"/"no_quote" are frontend-only placeholders that
+  // never touch the scan/upload backend. Default "router" = show the chooser.
+  const [postCapturePath, setPostCapturePath] = useState<PostCapturePath>("router");
   const [contactResumedFromFunnel, setContactResumedFromFunnel] = useState(false);
   const contactRehydrateCheckedRef = useRef(false);
   const [truthGateHighlight, setTruthGateHighlight] = useState(false);
@@ -342,7 +348,13 @@ const Index = () => {
     !gradeRevealed &&
     !shouldShowReport &&
     pendingResume == null;
-  const canMountUsableUpload = inUploadIntentPhase && trustedContactIdentity;
+  // Sprint 2F-C: with a trusted pair, the intent router owns the next screen.
+  // UploadZone is usable ONLY on the explicit "upload" path; the router shell
+  // (chooser + upload_later/no_quote placeholders) owns every other path.
+  const canMountUsableUpload =
+    inUploadIntentPhase && trustedContactIdentity && postCapturePath === "upload";
+  const showPostCaptureRouter =
+    inUploadIntentPhase && trustedContactIdentity && postCapturePath !== "upload";
   const showContactUploadLock = inUploadIntentPhase && !trustedContactIdentity;
 
   // Contact-only resume: funnel localStorage may hint upload-ready UI after refresh.
@@ -368,6 +380,9 @@ const Index = () => {
     setLeadCaptured(true);
     setSessionId(funnel.sessionId);
     setContactResumedFromFunnel(true);
+    // Refresh returns the user to the intent router (not a re-capture and not a
+    // forced UploadZone). Backend remains the upload authority.
+    setPostCapturePath("router");
   }, [funnel.leadId, funnel.sessionId, fileUploaded, gradeRevealed, scanSessionId]);
 
   useEffect(() => {
@@ -630,11 +645,20 @@ const Index = () => {
                     onLeadCaptured={(sid) => {
                       setLeadCaptured(true);
                       setSessionId(sid);
+                      // Fresh capture lands on the intent router, not UploadZone.
+                      setPostCapturePath("router");
                     }}
                     highlight={truthGateHighlight}
                     onHighlightDone={() => setTruthGateHighlight(false)}
                   />
                 </div>
+                {showPostCaptureRouter ? (
+                  <PostCaptureRouter
+                    selectedPath={postCapturePath}
+                    onSelectPath={setPostCapturePath}
+                    onUploadNow={() => setPostCapturePath("upload")}
+                  />
+                ) : null}
                 {canMountUsableUpload && contactResumedFromFunnel ? (
                   <div
                     className="mx-auto mt-6 max-w-2xl rounded-lg border border-border/60 bg-card/80 px-4 py-3 text-center shadow-sm"

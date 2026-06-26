@@ -301,13 +301,24 @@ describe("Index contact resume rehydration", () => {
     vi.unstubAllGlobals();
   });
 
-  it("rehydrates upload-ready state when funnel has trusted contact ids", async () => {
+  it("rehydrates to the intent router (not UploadZone) when funnel has trusted contact ids", async () => {
     renderIndex();
+
+    // Sprint 2F-C: refresh with a trusted pair returns the user to the router,
+    // not straight into UploadZone and not a re-capture.
+    await waitFor(() => {
+      expect(screen.getByTestId("post-capture-router")).toBeInTheDocument();
+    });
+
+    expect(screen.queryByTestId("upload-zone")).not.toBeInTheDocument();
+    expect(invokeMock).not.toHaveBeenCalled();
+
+    // Choosing the quote-ready path then mounts a usable UploadZone.
+    fireEvent.click(screen.getByRole("button", { name: "Upload my quote" }));
 
     await waitFor(() => {
       expect(screen.getByTestId("upload-zone")).toBeInTheDocument();
     });
-
     expect(uploadZonePropsRef.current).toMatchObject({
       isVisible: true,
       sessionId: SESSION_ID,
@@ -382,9 +393,16 @@ describe("Index homepage upload mount guard (Sprint 2B-3B)", () => {
     vi.unstubAllGlobals();
   });
 
-  it("mounts a usable UploadZone when a trusted contact identity pair exists", async () => {
-    // Default seed has a valid leadId + sessionId → rehydration unlocks upload.
+  it("mounts a usable UploadZone after selecting the quote-ready router path", async () => {
+    // Default seed has a valid leadId + sessionId → rehydration shows the router.
     renderIndex();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("post-capture-router")).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("upload-zone")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Upload my quote" }));
 
     await waitFor(() => {
       expect(screen.getByTestId("upload-zone")).toBeInTheDocument();
@@ -474,5 +492,137 @@ describe("Index homepage upload mount guard (Sprint 2B-3B)", () => {
 
     expect(invokeMock).not.toHaveBeenCalled();
     expect(trackEventMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("Index post-capture intent router (Sprint 2F-C)", () => {
+  beforeEach(() => {
+    uploadZonePropsRef.current = null;
+    invokeMock.mockReset();
+    trackEventMock.mockReset();
+    truthGateEmit.sessionId = "";
+    readPersistedFunnelSnapshotMock.mockReturnValue(null);
+    seedFunnelStorage();
+    stubDomObservers();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("shows the router before any UploadZone once a trusted pair exists", async () => {
+    renderIndex();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("post-capture-router")).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("upload-zone")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Upload my quote" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save my spot" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Show me what to check" }),
+    ).toBeInTheDocument();
+  });
+
+  it("does not render the router without a trusted contact identity", async () => {
+    seedFunnelStorage({ leadId: null });
+    truthGateEmit.sessionId = SESSION_ID;
+
+    renderIndex();
+
+    fireEvent.click(screen.getByTestId("truth-gate-flow"));
+
+    await waitFor(() => {
+      expect(screen.getByText(LOCK_HEADLINE)).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("post-capture-router")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("upload-zone")).not.toBeInTheDocument();
+  });
+
+  it("'I have a quote, but not here' does not mount UploadZone or hit the backend", async () => {
+    renderIndex();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("post-capture-router")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Save my spot" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("post-capture-upload-later")).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("upload-zone")).not.toBeInTheDocument();
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("'I don't have a quote yet' does not mount UploadZone or hit the backend", async () => {
+    renderIndex();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("post-capture-router")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Show me what to check" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("post-capture-no-quote")).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("upload-zone")).not.toBeInTheDocument();
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("pivots from the no-quote placeholder to a usable UploadZone with the same pair", async () => {
+    renderIndex();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("post-capture-router")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Show me what to check" }));
+    await waitFor(() => {
+      expect(screen.getByTestId("post-capture-no-quote")).toBeInTheDocument();
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "I got a quote — scan it now" }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("upload-zone")).toBeInTheDocument();
+    });
+    expect(uploadZonePropsRef.current).toMatchObject({
+      isVisible: true,
+      sessionId: SESSION_ID,
+      leadId: LEAD_ID,
+    });
+    // No second capture call from the no-quote → upload pivot.
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("pivots from the upload-later placeholder back to UploadZone with the same pair", async () => {
+    renderIndex();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("post-capture-router")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Save my spot" }));
+    await waitFor(() => {
+      expect(screen.getByTestId("post-capture-upload-later")).toBeInTheDocument();
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "I found my quote — scan it now" }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("upload-zone")).toBeInTheDocument();
+    });
+    expect(uploadZonePropsRef.current).toMatchObject({
+      isVisible: true,
+      sessionId: SESSION_ID,
+      leadId: LEAD_ID,
+    });
+    expect(invokeMock).not.toHaveBeenCalled();
   });
 });
