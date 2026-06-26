@@ -51,7 +51,7 @@ type PrepPanelProps = {
   attributionSaveUrl?: string;
 };
 
-const QUOTE_READY_SCROLL_CTA = "Save details to unlock upload";
+const QUOTE_READY_SCROLL_CTA = "Save my details to continue";
 
 function UploadPlaceholder({ pendingSave = false }: { pendingSave?: boolean }) {
   return (
@@ -61,7 +61,7 @@ function UploadPlaceholder({ pendingSave = false }: { pendingSave?: boolean }) {
     >
       <UploadCloud className="mx-auto h-7 w-7 text-slate-300" aria-hidden="true" />
       <p className="mt-3 text-sm font-semibold text-slate-500">
-        {pendingSave ? "Upload unlocks after you save your details" : "Upload area"}
+        {pendingSave ? "Upload opens once your details are saved" : "Upload area"}
       </p>
       <p className="mt-1 text-xs leading-relaxed text-slate-400">
         {pendingSave
@@ -70,7 +70,7 @@ function UploadPlaceholder({ pendingSave = false }: { pendingSave?: boolean }) {
       </p>
       {pendingSave ? (
         <span className="mt-4 inline-block rounded-full border border-slate-200 bg-white/80 px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-          Locked until Step 3
+          Details first
         </span>
       ) : null}
     </div>
@@ -134,7 +134,7 @@ export function NextdoorQuoteReadyPanel({
         </span>
         {trustedIdentity ? (
           <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-wide text-amber-900">
-            Upload next
+            Upload when ready
           </span>
         ) : null}
       </div>
@@ -149,7 +149,7 @@ export function NextdoorQuoteReadyPanel({
           <p className="mt-2 text-sm leading-relaxed text-slate-600 md:text-base">{copy.body}</p>
           {!trustedIdentity ? (
             <p className="mt-3 text-xs leading-relaxed text-slate-500">
-              You&apos;ll see a safe preview first. Full details unlock after a quick phone check.
+              Your quote stays private.
             </p>
           ) : null}
         </div>

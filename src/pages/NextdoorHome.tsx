@@ -323,7 +323,7 @@ export default function NextdoorHome() {
   }, []);
 
   // Scroll to a conditionally-rendered element by id. Waits two frames so React
-  // can commit the target section (Step 3 / upload zone) before we scroll.
+  // can commit the target section (Step 3 / upload section) before we scroll.
   const scrollToIdSmooth = useCallback((id: string, fallback?: () => void) => {
     const run = () => {
       const el = document.getElementById(id);
@@ -542,7 +542,7 @@ export default function NextdoorHome() {
     setIdentitySubmitted(true);
 
     if (readiness === "has_estimate") {
-      // Return to the upload zone (renders once the trusted pair exists).
+      // Return to the upload section (renders once the trusted pair exists).
       scrollToIdSmooth("quote-ready-upload", scrollToNextStepPanel);
     }
   }, [
@@ -871,7 +871,7 @@ export default function NextdoorHome() {
                 {readiness === "has_estimate"
                   ? identitySubmitted
                     ? "Step 2 · Upload your quote"
-                    : "Step 2 · Save details first"
+                    : "Step 2 · Save your details"
                   : "Step 2 · Your next step"}
                 {identitySubmitted && readiness !== "has_estimate" ? " · Saved" : null}
                 {identitySubmitted && readiness === "has_estimate" ? " · Details saved" : null}

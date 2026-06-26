@@ -13,7 +13,7 @@ export type NextdoorScanTransitionProps = {
 const TRANSITION_STEPS = [
   "Quote received",
   "Reading scope and pricing",
-  "Building your safe preview",
+  "Building your private preview",
   "Opening your preview",
 ] as const;
 
@@ -68,7 +68,7 @@ export function NextdoorScanTransition({
       role="status"
       aria-live="polite"
       aria-busy="true"
-      aria-label="Preparing your safe preview"
+      aria-label="Preparing your private preview"
     >
       <div className="absolute inset-0 bg-slate-950/72 backdrop-blur-sm" aria-hidden="true" />
 
@@ -91,8 +91,7 @@ export function NextdoorScanTransition({
             Quote received — reading your file
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-slate-300/90">
-            We&apos;re preparing your private preview. You&apos;ll review it next — full details
-            unlock after a quick phone check.
+            We&apos;re preparing your private preview. You&apos;ll review it next.
           </p>
 
           {displayName ? (

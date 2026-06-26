@@ -154,7 +154,7 @@ export function NextdoorIdentityForm({
             {optional
               ? "Optional · save this checklist"
               : isQuoteReady
-                ? "Save details to unlock upload"
+                ? "Save details to continue"
                 : "Save your quote-check path"}
           </p>
           <h2 className="mt-2 font-display text-xl font-extrabold text-slate-900 md:text-2xl">
@@ -168,7 +168,7 @@ export function NextdoorIdentityForm({
             {optional
               ? "Save your place with name, email, and ZIP if you want a copy. Skip this if you are browsing only."
               : isQuoteReady
-                ? "Your details are private. Save to unlock the upload zone."
+                ? "Your details are private. Save them to upload your quote."
                 : "Save your place with name, email, and ZIP. You can upload when ready."}
           </p>
         </div>

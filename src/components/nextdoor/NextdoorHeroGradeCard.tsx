@@ -326,7 +326,7 @@ export function NextdoorHeroGradeCard({ subtitle }: Props) {
               </div>
             </div>
             <p className="mt-2 text-center text-[10px] leading-snug text-slate-500">
-              Safe preview first · full details after a quick phone check
+              Reviewed privately after you upload your quote
             </p>
           </div>
 

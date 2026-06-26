@@ -9,7 +9,7 @@ const STEPS = [
   { n: 1, label: "Choose where you are", note: "Pick your stage in the quote process." },
   { n: 2, label: "Save your place", note: "Optional details stay on this device for now." },
   { n: 3, label: "Upload when ready", note: "A real estimate starts the private review path." },
-  { n: 4, label: "See a safe preview", note: "Get useful quote insight before you sign anything." },
+  { n: 4, label: "See what stands out", note: "Get useful quote insight before you sign anything." },
 ] as const;
 
 export function NextdoorJourneyTimeline() {

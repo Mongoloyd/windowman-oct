@@ -43,10 +43,12 @@ function renderPanel(props: Partial<Parameters<typeof NextdoorQuoteReadyPanel>[0
 }
 
 describe("NextdoorQuoteReadyPanel upload gate", () => {
-  it("shows the locked upload state when no trusted identity exists", () => {
+  it("shows the gated upload state when no trusted identity exists", () => {
     renderPanel({ identitySubmitted: false, leadId: null });
     expect(screen.queryByTestId("upload-zone")).toBeNull();
-    expect(screen.getByText(/unlocks after you save your details/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/upload opens once your details are saved/i),
+    ).toBeInTheDocument();
   });
 
   it("does not mount usable upload with identitySubmitted alone (no leadId)", () => {
