@@ -1,0 +1,353 @@
+import React from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ScanFunnelProvider } from "@/state/scanFunnel";
+
+const SESSION_ID = "11111111-1111-4111-8111-111111111111";
+const LEAD_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const SCAN_SESSION_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+
+const uploadZonePropsRef = vi.hoisted(() => ({ current: null as Record<string, unknown> | null }));
+const invokeMock = vi.hoisted(() => vi.fn());
+
+vi.mock("@/integrations/supabase/client", () => ({
+  supabase: {
+    functions: { invoke: invokeMock },
+    rpc: vi.fn(),
+    from: vi.fn(() => ({
+      insert: vi.fn().mockResolvedValue({ error: null }),
+    })),
+    storage: { from: vi.fn() },
+  },
+}));
+
+vi.mock("@/hooks/useAnalysisData", () => ({
+  useAnalysisData: () => ({
+    data: null,
+    v2ReportSource: null,
+    isLoading: false,
+    error: null,
+    fullFetchError: null,
+    fetchFull: vi.fn(),
+    isFullLoaded: false,
+    isLoadingFull: false,
+    tryResume: vi.fn(),
+    isResuming: false,
+  }),
+}));
+
+vi.mock("@/hooks/useHomepageVariant", () => ({
+  useHomepageVariant: () => ({
+    headline: "Test headline",
+    subheadline: "Test sub",
+    badgeText: "Test badge",
+  }),
+}));
+
+vi.mock("@/lib/useClientSlug", () => ({
+  useClientSlug: () => ({ slug: null, ready: true }),
+}));
+
+vi.mock("@/lib/verifiedAccess", () => ({
+  getVerifiedAccess: vi.fn(() => null),
+  clearVerifiedAccess: vi.fn(),
+}));
+
+vi.mock("@/lib/reportDiagnosisHandoff", () => ({
+  consumeHomepageDarkV2ReportReturn: vi.fn(() => null),
+  clearHomepageDarkV2ReportReturn: vi.fn(),
+}));
+
+vi.mock("@/lib/trackEvent", () => ({
+  trackEvent: vi.fn(),
+}));
+
+vi.mock("@/components/LinearHeader", () => ({
+  default: () => <div data-testid="linear-header" />,
+}));
+
+vi.mock("@/components/AuditHero", () => ({
+  default: () => <div data-testid="audit-hero" />,
+}));
+
+vi.mock("@/components/StickyRecoveryBar", () => ({
+  default: () => null,
+}));
+
+vi.mock("@/components/StickyCTAFooter", () => ({
+  default: () => null,
+}));
+
+vi.mock("@/components/HomepageBackdrop", () => ({
+  default: () => null,
+}));
+
+vi.mock("@/components/LazySection", () => ({
+  LazySection: ({ children }: React.PropsWithChildren) => <>{children}</>,
+}));
+
+vi.mock("@/components/TruthGateFlow", () => ({
+  default: () => <div data-testid="truth-gate-flow" />,
+  hasTrustedContactIdentity: (
+    leadId: string | null | undefined,
+    sessionId: string | null | undefined,
+  ) => {
+    const uuid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    return typeof leadId === "string" && uuid.test(leadId) &&
+      typeof sessionId === "string" && uuid.test(sessionId);
+  },
+}));
+
+vi.mock("@/components/UploadZone", () => ({
+  default: (props: Record<string, unknown>) => {
+    uploadZonePropsRef.current = props;
+    return props.isVisible ? <div data-testid="upload-zone">Upload zone</div> : null;
+  },
+}));
+
+vi.mock("@/components/ScanTheatrics", () => ({
+  default: () => null,
+}));
+
+vi.mock("@/components/post-scan/PostScanReportSwitcher", () => ({
+  PostScanReportSwitcher: () => null,
+}));
+
+const nullComponent = { default: () => null };
+
+vi.mock("@/components/SocialProofStrip", () => nullComponent);
+vi.mock("@/components/IndustryTruth", () => nullComponent);
+vi.mock("@/components/ProcessSteps", () => nullComponent);
+vi.mock("@/components/NarrativeProof", () => nullComponent);
+vi.mock("@/components/ClosingManifesto", () => nullComponent);
+vi.mock("@/components/Testimonials", () => nullComponent);
+vi.mock("@/components/MarketMakerManifesto", () => nullComponent);
+vi.mock("@/components/OrangeScanner", () => nullComponent);
+vi.mock("@/components/ScamConcernImage", () => nullComponent);
+vi.mock("@/components/QuoteSpreadShowcase", () => nullComponent);
+vi.mock("@/components/Footer", () => nullComponent);
+vi.mock("@/components/ExitIntentPhoneModal", () => nullComponent);
+
+import Index, { shouldRehydrateContactUpload } from "@/pages/Index";
+import { readPersistedFunnelSnapshot } from "@/state/scanFunnel";
+
+vi.mock("@/state/scanFunnel", async () => {
+  const actual = await vi.importActual<typeof import("@/state/scanFunnel")>(
+    "@/state/scanFunnel",
+  );
+  return {
+    ...actual,
+    readPersistedFunnelSnapshot: vi.fn(() => null),
+  };
+});
+
+const readPersistedFunnelSnapshotMock = vi.mocked(readPersistedFunnelSnapshot);
+
+function seedFunnelStorage(overrides?: {
+  leadId?: string | null;
+  sessionId?: string | null;
+  scanSessionId?: string | null;
+}) {
+  const store = new Map<string, string>();
+  const leadId = overrides && "leadId" in overrides ? overrides.leadId : LEAD_ID;
+  const sessionId =
+    overrides && "sessionId" in overrides ? overrides.sessionId : SESSION_ID;
+  const scanSessionId =
+    overrides && "scanSessionId" in overrides ? overrides.scanSessionId : null;
+
+  if (leadId) store.set("wm_funnel_leadId", leadId);
+  if (sessionId) store.set("wm_funnel_sessionId", sessionId);
+  if (scanSessionId) store.set("wm_funnel_scanSessionId", scanSessionId);
+  store.set("wm_funnel_ts", String(Date.now()));
+
+  vi.stubGlobal("localStorage", {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      store.set(key, value);
+    },
+    removeItem: (key: string) => {
+      store.delete(key);
+    },
+    clear: () => store.clear(),
+    get length() {
+      return store.size;
+    },
+    key: (index: number) => Array.from(store.keys())[index] ?? null,
+  });
+}
+
+function renderIndex() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>
+        <ScanFunnelProvider>
+          <Index />
+        </ScanFunnelProvider>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
+function stubDomObservers() {
+  class MockIntersectionObserver {
+    observe = vi.fn();
+    unobserve = vi.fn();
+    disconnect = vi.fn();
+  }
+  class MockResizeObserver {
+    observe = vi.fn();
+    unobserve = vi.fn();
+    disconnect = vi.fn();
+  }
+  vi.stubGlobal("IntersectionObserver", MockIntersectionObserver);
+  vi.stubGlobal("ResizeObserver", MockResizeObserver);
+}
+
+describe("shouldRehydrateContactUpload", () => {
+  it("returns true for trusted contact ids without scan session", () => {
+    expect(
+      shouldRehydrateContactUpload({
+        leadId: LEAD_ID,
+        sessionId: SESSION_ID,
+        persistedScanSessionId: null,
+        inProductPhase: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("returns false when leadId is missing or invalid", () => {
+    expect(
+      shouldRehydrateContactUpload({
+        leadId: null,
+        sessionId: SESSION_ID,
+        persistedScanSessionId: null,
+        inProductPhase: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldRehydrateContactUpload({
+        leadId: "not-a-uuid",
+        sessionId: SESSION_ID,
+        persistedScanSessionId: null,
+        inProductPhase: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false when sessionId is missing or invalid", () => {
+    expect(
+      shouldRehydrateContactUpload({
+        leadId: LEAD_ID,
+        sessionId: null,
+        persistedScanSessionId: null,
+        inProductPhase: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false when a persisted scan session should take precedence", () => {
+    expect(
+      shouldRehydrateContactUpload({
+        leadId: LEAD_ID,
+        sessionId: SESSION_ID,
+        persistedScanSessionId: SCAN_SESSION_ID,
+        inProductPhase: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false during active product phase", () => {
+    expect(
+      shouldRehydrateContactUpload({
+        leadId: LEAD_ID,
+        sessionId: SESSION_ID,
+        persistedScanSessionId: null,
+        inProductPhase: true,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("Index contact resume rehydration", () => {
+  beforeEach(() => {
+    uploadZonePropsRef.current = null;
+    invokeMock.mockReset();
+    readPersistedFunnelSnapshotMock.mockReturnValue(null);
+    seedFunnelStorage();
+    stubDomObservers();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("rehydrates upload-ready state when funnel has trusted contact ids", async () => {
+    renderIndex();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("upload-zone")).toBeInTheDocument();
+    });
+
+    expect(uploadZonePropsRef.current).toMatchObject({
+      isVisible: true,
+      sessionId: SESSION_ID,
+      leadId: LEAD_ID,
+    });
+    expect(screen.getByText("You're ready to upload your quote.")).toBeInTheDocument();
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("does not rehydrate when leadId is missing", async () => {
+    seedFunnelStorage({ leadId: null });
+
+    renderIndex();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("truth-gate-flow")).toBeInTheDocument();
+    });
+
+    expect(screen.queryByTestId("upload-zone")).not.toBeInTheDocument();
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("does not rehydrate when sessionId is missing", async () => {
+    seedFunnelStorage({ sessionId: null });
+
+    renderIndex();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("truth-gate-flow")).toBeInTheDocument();
+    });
+
+    expect(screen.queryByTestId("upload-zone")).not.toBeInTheDocument();
+  });
+
+  it("does not rehydrate when a persisted scan session takes precedence", async () => {
+    readPersistedFunnelSnapshotMock.mockReturnValue({
+      scanSessionId: SCAN_SESSION_ID,
+      sessionId: SESSION_ID,
+      leadId: LEAD_ID,
+      quoteFileId: null,
+      phoneE164: null,
+      phoneStatus: "none",
+    });
+
+    renderIndex();
+
+    await waitFor(() => {
+      expect(screen.getByText("You have an unfinished scan.")).toBeInTheDocument();
+    });
+
+    expect(screen.queryByTestId("upload-zone")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("You're ready to upload your quote."),
+    ).not.toBeInTheDocument();
+  });
+});

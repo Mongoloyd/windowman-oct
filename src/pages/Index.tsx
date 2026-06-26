@@ -5,7 +5,7 @@ import StickyRecoveryBar from "@/components/StickyRecoveryBar";
 import StickyCTAFooter from "@/components/StickyCTAFooter";
 import HomepageBackdrop from "@/components/HomepageBackdrop";
 import { LazySection } from "@/components/LazySection";
-import TruthGateFlow from "@/components/TruthGateFlow";
+import TruthGateFlow, { hasTrustedContactIdentity } from "@/components/TruthGateFlow";
 import UploadZone from "@/components/UploadZone";
 import ScanTheatrics from "@/components/ScanTheatrics";
 import { PostScanReportSwitcher } from "@/components/post-scan/PostScanReportSwitcher";
@@ -68,6 +68,22 @@ const SectionReserve = ({ className = "min-h-[420px]" }: { className?: string })
   <div className={`w-full bg-background ${className}`} aria-hidden="true" />
 );
 
+/**
+ * UI-only resume hint: restore upload-ready homepage state after refresh when
+ * ScanFunnelProvider already hydrated a trusted contact identity pair.
+ * Never treats localStorage as backend authorization.
+ */
+export function shouldRehydrateContactUpload(input: {
+  leadId: string | null | undefined;
+  sessionId: string | null | undefined;
+  persistedScanSessionId: string | null | undefined;
+  inProductPhase: boolean;
+}): boolean {
+  if (input.inProductPhase) return false;
+  if (input.persistedScanSessionId) return false;
+  return hasTrustedContactIdentity(input.leadId, input.sessionId);
+}
+
 const Index = () => {
   // ═══ DEV MODE: Uses Vite's built-in dev/prod flag ═══
   const IS_DEV_MODE = import.meta.env.DEV;
@@ -81,6 +97,8 @@ const Index = () => {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [scanSessionId, setScanSessionId] = useState<string | null>(null);
   const [leadCaptured, setLeadCaptured] = useState(false);
+  const [contactResumedFromFunnel, setContactResumedFromFunnel] = useState(false);
+  const contactRehydrateCheckedRef = useRef(false);
   const [truthGateHighlight, setTruthGateHighlight] = useState(false);
   const [fileUploaded, setFileUploaded] = useState(false);
   const [gradeRevealed, setGradeRevealed] = useState(false);
@@ -307,6 +325,31 @@ const Index = () => {
 
   const funnel = useScanFunnel();
   const { slug: queryClientSlug, ready: clientSlugReady } = useClientSlug();
+
+  // Contact-only resume: funnel localStorage may hint upload-ready UI after refresh.
+  // Scan/report restore (pendingResume / ?resume=1) takes precedence over this path.
+  useEffect(() => {
+    if (contactRehydrateCheckedRef.current) return;
+    contactRehydrateCheckedRef.current = true;
+
+    const snapshot = readPersistedFunnelSnapshot();
+    const inProductPhase = fileUploaded || gradeRevealed || scanSessionId != null;
+
+    if (
+      !shouldRehydrateContactUpload({
+        leadId: funnel.leadId,
+        sessionId: funnel.sessionId,
+        persistedScanSessionId: snapshot?.scanSessionId ?? null,
+        inProductPhase,
+      })
+    ) {
+      return;
+    }
+
+    setLeadCaptured(true);
+    setSessionId(funnel.sessionId);
+    setContactResumedFromFunnel(true);
+  }, [funnel.leadId, funnel.sessionId, fileUploaded, gradeRevealed, scanSessionId]);
 
   useEffect(() => {
     if (!clientSlugReady || !queryClientSlug || funnel.clientSlug === queryClientSlug) return;
@@ -577,6 +620,19 @@ const Index = () => {
                     onHighlightDone={() => setTruthGateHighlight(false)}
                   />
                 </div>
+                {contactResumedFromFunnel && leadCaptured && !fileUploaded && !gradeRevealed ? (
+                  <div
+                    className="mx-auto mt-6 max-w-2xl rounded-lg border border-border/60 bg-card/80 px-4 py-3 text-center shadow-sm"
+                    role="status"
+                  >
+                    <p className="font-body text-sm font-medium text-foreground">
+                      You&apos;re ready to upload your quote.
+                    </p>
+                    <p className="mt-1 font-body text-xs text-muted-foreground">
+                      We saved your place from your last step.
+                    </p>
+                  </div>
+                ) : null}
                 <UploadZone
                   isVisible={leadCaptured}
                   sessionId={sessionId || undefined}
