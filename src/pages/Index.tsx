@@ -718,7 +718,7 @@ const Index = () => {
                 ) : null}
                 <UploadZone
                   isVisible={canMountUsableUpload}
-                  sessionId={sessionId || undefined}
+                  sessionId={sessionId ?? funnel.sessionId ?? undefined}
                   leadId={funnel.leadId}
                   onUploadReset={() => {
                     setScanSessionId(null);

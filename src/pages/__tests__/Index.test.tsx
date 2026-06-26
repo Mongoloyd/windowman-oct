@@ -12,7 +12,11 @@ const SCAN_SESSION_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const uploadZonePropsRef = vi.hoisted(() => ({ current: null as Record<string, unknown> | null }));
 const invokeMock = vi.hoisted(() => vi.fn());
 // Session id that the mocked TruthGateFlow emits via onLeadCaptured when clicked.
-const truthGateEmit = vi.hoisted(() => ({ sessionId: "" }));
+const truthGateEmit = vi.hoisted(() => ({
+  sessionId: "",
+  /** When true, onLeadCaptured receives null to simulate Index sessionId desync. */
+  useNullSession: false,
+}));
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
@@ -95,7 +99,13 @@ vi.mock("@/components/TruthGateFlow", () => ({
     <button
       type="button"
       data-testid="truth-gate-flow"
-      onClick={() => props.onLeadCaptured?.(truthGateEmit.sessionId)}
+      onClick={() =>
+        props.onLeadCaptured?.(
+          truthGateEmit.useNullSession
+            ? (null as unknown as string)
+            : truthGateEmit.sessionId,
+        )
+      }
     >
       truth gate
     </button>
@@ -628,6 +638,52 @@ describe("Index post-capture intent router (Sprint 2F-C)", () => {
     await waitFor(() => {
       expect(screen.getByTestId("upload-zone")).toBeInTheDocument();
     });
+    expect(uploadZonePropsRef.current).toMatchObject({
+      isVisible: true,
+      sessionId: SESSION_ID,
+      leadId: LEAD_ID,
+    });
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("Index UploadZone sessionId fallback (Sprint 2G-F)", () => {
+  beforeEach(() => {
+    uploadZonePropsRef.current = null;
+    invokeMock.mockReset();
+    truthGateEmit.sessionId = SESSION_ID;
+    truthGateEmit.useNullSession = false;
+    readPersistedFunnelSnapshotMock.mockReturnValue(null);
+    seedFunnelStorage();
+    stubDomObservers();
+  });
+
+  afterEach(() => {
+    truthGateEmit.useNullSession = false;
+    vi.unstubAllGlobals();
+  });
+
+  it("passes funnel.sessionId to UploadZone when Index sessionId is absent", async () => {
+    renderIndex();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("post-capture-router")).toBeInTheDocument();
+    });
+
+    // Simulate desync: trusted guard uses funnel.sessionId, Index state cleared.
+    truthGateEmit.useNullSession = true;
+    fireEvent.click(screen.getByTestId("truth-gate-flow"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("post-capture-router")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Upload my quote" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("upload-zone")).toBeInTheDocument();
+    });
+
     expect(uploadZonePropsRef.current).toMatchObject({
       isVisible: true,
       sessionId: SESSION_ID,
