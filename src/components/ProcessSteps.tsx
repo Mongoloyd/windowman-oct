@@ -4,35 +4,35 @@ import { ScanSearch, Target, Flag, Diamond, CheckCircle2, FileCheck } from "luci
 const steps = [
   {
     num: "01",
-    title: "Answer 4 Quick Questions",
-    desc: "County, Scope, Project Type, and Quote Stage. No Account Required.",
+    title: "Start your free quote check",
+    desc: "Enter your contact details so WindowMan can save your quote check and results in one place.",
   },
   {
     num: "02",
-    title: "Upload Your Quote",
-    desc: "PDF or Image. Any Format From Any Contractor.",
+    title: "Upload your quote",
+    desc: "Drop in the estimate you received from a window contractor. PDF or image works.",
   },
   {
     num: "03",
-    title: "AI Scans Every Line",
-    desc: "Pricing, Brands, Warranties, Permits, Payment Terms, and Installation Specs.",
+    title: "AI scans every line",
+    desc: "WindowMan checks the quote for missing scope, unclear terms, pricing signals, and risk flags.",
   },
   {
     num: "04",
-    title: "Your Grade is Calculated",
-    desc: "Compared Against Real Contracts In Your County and Scope.",
+    title: "Your grade is calculated",
+    desc: "You get a clear read on how the quote stacks up and what deserves a closer look.",
   },
   {
     num: "05",
-    title: "You Decide What To Do",
-    desc: "Use Your Negotiation Script, Request a Better Quote, or Simply Know You Signed Fairly.",
+    title: "Decide your next move",
+    desc: "Use the results to ask better questions, compare options, or move forward with more confidence.",
   },
 ];
 
 const takeaways = [
   {
     icon: Target,
-    text: "Whether Your Price is Above, Below, Or At Fair Market For Your Specific County",
+    text: "Whether your price looks fair relative to comparable impact-window quotes",
   },
   {
     icon: Flag,
