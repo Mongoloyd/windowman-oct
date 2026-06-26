@@ -70,8 +70,29 @@ import { submitNextdoorLead } from "@/services/nextdoorLeadCapture";
 import { trackEngagement } from "@/lib/engagementScoring";
 import { getUtmData } from "@/lib/useUtmCapture";
 import { useScanFunnelSafe } from "@/state/scanFunnel";
+import { hasTrustedContactIdentity } from "@/components/TruthGateFlow";
 import { useScanPolling, type ScanStatus } from "@/hooks/useScanPolling";
 import { toE164 } from "@/utils/formatPhone";
+
+/**
+ * Sprint 2E-B contact-owned upload rehydration gate.
+ *
+ * On /nextdoor mount, upload-ready UI may be restored ONLY when the persisted
+ * funnel identity pair is trusted AND its sessionId matches this tab's nextdoor
+ * session. localStorage/sessionStorage are UI resume hints only — never
+ * authorization. The backend re-validates lead↔session at upload bootstrap.
+ */
+export function shouldRehydrateNextdoorUpload(input: {
+  leadId: string | null;
+  sessionId: string | null;
+  nextdoorSessionId: string;
+}): boolean {
+  return (
+    isValidNextdoorSessionId(input.nextdoorSessionId) &&
+    input.sessionId === input.nextdoorSessionId &&
+    hasTrustedContactIdentity(input.leadId, input.sessionId)
+  );
+}
 
 const INTAKE_HEADLINE = "Check your impact-window quote before you sign.";
 
@@ -249,6 +270,25 @@ export default function NextdoorHome() {
   useEffect(() => {
     captureNextdoorAttributionOnMount();
   }, []);
+
+  // Sprint 2E-B: restore upload-ready UI on refresh only when the persisted
+  // funnel pair is trusted and matches this tab's nextdoor session. Never
+  // re-calls capture-truth-gate-lead; never force-matches stale state.
+  const nextdoorRehydrateCheckedRef = useRef(false);
+  useEffect(() => {
+    if (nextdoorRehydrateCheckedRef.current) return;
+    nextdoorRehydrateCheckedRef.current = true;
+    if (
+      shouldRehydrateNextdoorUpload({
+        leadId: funnel?.leadId ?? null,
+        sessionId: funnel?.sessionId ?? null,
+        nextdoorSessionId,
+      })
+    ) {
+      setReadiness("has_estimate");
+      setIdentitySubmitted(true);
+    }
+  }, [funnel, nextdoorSessionId]);
 
   const attributionSaveUrl = useMemo(() => {
     const overrides: Record<string, string> = {};
@@ -489,15 +529,20 @@ export default function NextdoorHome() {
 
     setLocalPayload(payload);
     logLocalPayloadDevSummary(payload);
+
+    if (readiness === "has_estimate") {
+      // Sprint 2E-B: establish the trusted contact-owned pair BEFORE the upload
+      // can become usable. funnel.sessionId is set to this tab's nextdoor
+      // session so hasTrustedContactIdentity(leadId, nextdoorSessionId) gates
+      // the zone. Resume hint only — backend re-validates lead↔session.
+      funnel?.setSessionId(nextdoorSessionId);
+      if (result.leadId) funnel?.setLeadId(result.leadId);
+    }
+
     setIdentitySubmitted(true);
 
     if (readiness === "has_estimate") {
-      funnel?.setSessionId(nextdoorSessionId);
-      // Sprint 2A: persist the captured lead id so UploadZone can forward it
-      // as lead_id to start-upload-scan-session. Resume hint only — never
-      // treated as upload authorization (backend re-validates lead↔session).
-      if (result.leadId) funnel?.setLeadId(result.leadId);
-      // Return to the now-unlocked upload zone (renders once identity is saved).
+      // Return to the upload zone (renders once the trusted pair exists).
       scrollToIdSmooth("quote-ready-upload", scrollToNextStepPanel);
     }
   }, [

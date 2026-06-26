@@ -1,4 +1,5 @@
 import UploadZone from "@/components/UploadZone";
+import { hasTrustedContactIdentity } from "@/components/TruthGateFlow";
 
 export type NextdoorQuoteUploadProps = {
   sessionId: string;
@@ -14,7 +15,10 @@ export function NextdoorQuoteUpload({
   onScanStart,
   leadId,
 }: NextdoorQuoteUploadProps) {
-  if (!isVisible) {
+  // Sprint 2E-B contact-owned upload contract: never mount a usable UploadZone
+  // without a trusted leadId + sessionId pair. UI guard only — the backend
+  // start-upload-scan-session remains the sole authority at bootstrap.
+  if (!isVisible || !hasTrustedContactIdentity(leadId, sessionId)) {
     return null;
   }
 
