@@ -29,8 +29,14 @@ export const POST_CAPTURE_ROUTER_COPY = {
     },
   },
   uploadLater: {
-    confirmation:
-      "Saved. When your quote is ready, come back and upload it here — no need to start over.",
+    headline: "Your quote check is started.",
+    supporting:
+      "When the estimate is on this device, come back and scan it here before you sign.",
+    secondarySupporting:
+      "WindowMan keeps the next step simple: upload the quote, scan the details, then see what deserves a closer look.",
+    // Only true because the homepage rehydrates the same contact-owned
+    // lead/session from local funnel state on return (no cross-device promise).
+    helpText: "No need to start over in this browser.",
     pivotCta: "I found my quote — scan it now",
   },
   backToOptions: "Back to options",

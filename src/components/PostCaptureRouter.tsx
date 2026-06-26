@@ -1,6 +1,7 @@
-import { ArrowRight, Clock3, FileCheck2, ListChecks, Upload } from "lucide-react";
+import { ArrowRight, Clock3, FileCheck2, ListChecks } from "lucide-react";
 import { POST_CAPTURE_ROUTER_COPY } from "@/components/postcapture/postCaptureCopy";
 import NoQuoteDiagnostic from "@/components/postcapture/NoQuoteDiagnostic";
+import UploadLaterPanel from "@/components/postcapture/UploadLaterPanel";
 
 /**
  * Sprint 2F-C: the post-contact intent router is a frontend UI shell only.
@@ -26,54 +27,6 @@ const cardClass =
   "group flex w-full items-start gap-3.5 rounded-2xl border border-border/60 bg-card/80 p-5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md";
 const iconWrapClass =
   "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-muted/40 text-muted-foreground transition-colors group-hover:border-primary/30 group-hover:bg-primary/10 group-hover:text-primary";
-const primaryCtaClass =
-  "inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 font-body text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90";
-const linkBtnClass =
-  "font-body text-xs font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline";
-
-function PlaceholderPanel({
-  eyebrow,
-  body,
-  pivotCta,
-  onUploadNow,
-  onSelectPath,
-  testId,
-}: {
-  eyebrow: string;
-  body: string;
-  pivotCta: string;
-  onUploadNow: () => void;
-  onSelectPath: (path: PostCapturePath) => void;
-  testId: string;
-}) {
-  return (
-    <div
-      data-testid={testId}
-      className="mx-auto mt-6 max-w-2xl rounded-2xl border border-border/60 bg-card/80 px-6 py-8 text-center shadow-sm"
-      role="status"
-    >
-      <p className="font-display text-xl font-extrabold tracking-[0.01em] text-foreground sm:text-2xl">
-        {eyebrow}
-      </p>
-      <p className="mx-auto mt-3 max-w-xl font-body text-sm leading-relaxed text-muted-foreground">
-        {body}
-      </p>
-      <div className="mt-6 flex flex-col items-center gap-3">
-        <button type="button" onClick={onUploadNow} className={primaryCtaClass}>
-          <Upload className="h-4 w-4" aria-hidden="true" />
-          {pivotCta}
-        </button>
-        <button
-          type="button"
-          onClick={() => onSelectPath("router")}
-          className={linkBtnClass}
-        >
-          {C.backToOptions}
-        </button>
-      </div>
-    </div>
-  );
-}
 
 export default function PostCaptureRouter({
   selectedPath,
@@ -86,14 +39,7 @@ export default function PostCaptureRouter({
 
   if (selectedPath === "upload_later") {
     return (
-      <PlaceholderPanel
-        testId="post-capture-upload-later"
-        eyebrow={C.cards.upload_later.title}
-        body={C.uploadLater.confirmation}
-        pivotCta={C.uploadLater.pivotCta}
-        onUploadNow={onUploadNow}
-        onSelectPath={onSelectPath}
-      />
+      <UploadLaterPanel onUploadNow={onUploadNow} onSelectPath={onSelectPath} />
     );
   }
 

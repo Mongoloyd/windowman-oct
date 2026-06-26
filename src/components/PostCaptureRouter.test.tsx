@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import PostCaptureRouter, { type PostCapturePath } from "@/components/PostCaptureRouter";
-import { NO_QUOTE_DIAGNOSTIC } from "@/components/postcapture/postCaptureCopy";
+import {
+  NO_QUOTE_DIAGNOSTIC,
+  POST_CAPTURE_ROUTER_COPY,
+} from "@/components/postcapture/postCaptureCopy";
 
 /** Answer every diagnostic question (pick the first option each time). */
 function completeNoQuoteDiagnostic() {
@@ -53,14 +56,31 @@ describe("PostCaptureRouter", () => {
     expect(onSelectPath).toHaveBeenCalledWith("no_quote");
   });
 
-  it("renders the upload-later placeholder with a pivot to upload", () => {
+  it("renders the upload-later save-my-spot panel with a pivot to upload", () => {
     const { onUploadNow } = setup("upload_later");
     expect(screen.getByTestId("post-capture-upload-later")).toBeInTheDocument();
     expect(screen.queryByTestId("post-capture-router")).not.toBeInTheDocument();
+    expect(
+      screen.getByText(POST_CAPTURE_ROUTER_COPY.uploadLater.headline),
+    ).toBeInTheDocument();
     fireEvent.click(
       screen.getByRole("button", { name: "I found my quote — scan it now" }),
     );
     expect(onUploadNow).toHaveBeenCalledTimes(1);
+  });
+
+  it("upload-later panel never mounts UploadZone (no file input)", () => {
+    const { container } = setup("upload_later");
+    expect(screen.queryByTestId("upload-zone")).toBeNull();
+    expect(container.querySelector('input[type="file"]')).toBeNull();
+  });
+
+  it("upload-later panel has no ArbitrageEngine or scary/stale copy", () => {
+    const { container } = setup("upload_later");
+    expect(container.innerHTML).not.toMatch(/arbitrage/i);
+    expect(container.innerHTML).not.toMatch(
+      /unlock|locked|upload zone|access denied|unauthorized|forbidden|security error|lead form/i,
+    );
   });
 
   it("renders the no-quote diagnostic, then pivots to upload from the quote-ready screen", () => {
