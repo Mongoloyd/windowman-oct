@@ -144,6 +144,7 @@ vi.mock("@/components/ExitIntentPhoneModal", () => nullComponent);
 import Index, { shouldRehydrateContactUpload } from "@/pages/Index";
 import { readPersistedFunnelSnapshot } from "@/state/scanFunnel";
 import { trackEvent } from "@/lib/trackEvent";
+import { NO_QUOTE_DIAGNOSTIC } from "@/components/postcapture/postCaptureCopy";
 
 const trackEventMock = vi.mocked(trackEvent);
 
@@ -571,7 +572,7 @@ describe("Index post-capture intent router (Sprint 2F-C)", () => {
     expect(invokeMock).not.toHaveBeenCalled();
   });
 
-  it("pivots from the no-quote placeholder to a usable UploadZone with the same pair", async () => {
+  it("runs the no-quote diagnostic then pivots to a usable UploadZone with the same pair", async () => {
     renderIndex();
 
     await waitFor(() => {
@@ -583,8 +584,19 @@ describe("Index post-capture intent router (Sprint 2F-C)", () => {
       expect(screen.getByTestId("post-capture-no-quote")).toBeInTheDocument();
     });
 
+    // Answer each diagnostic question (no UploadZone / no backend during it).
+    for (const question of NO_QUOTE_DIAGNOSTIC.questions) {
+      fireEvent.click(screen.getByRole("button", { name: question.options[0] }));
+    }
+    expect(screen.queryByTestId("upload-zone")).not.toBeInTheDocument();
+    expect(invokeMock).not.toHaveBeenCalled();
+
+    await waitFor(() => {
+      expect(screen.getByText("You're quote-ready.")).toBeInTheDocument();
+    });
+
     fireEvent.click(
-      screen.getByRole("button", { name: "I got a quote — scan it now" }),
+      screen.getByRole("button", { name: "I got my quote — scan it now" }),
     );
 
     await waitFor(() => {

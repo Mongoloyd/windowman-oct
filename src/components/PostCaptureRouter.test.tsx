@@ -1,6 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import PostCaptureRouter, { type PostCapturePath } from "@/components/PostCaptureRouter";
+import { NO_QUOTE_DIAGNOSTIC } from "@/components/postcapture/postCaptureCopy";
+
+/** Answer every diagnostic question (pick the first option each time). */
+function completeNoQuoteDiagnostic() {
+  for (const question of NO_QUOTE_DIAGNOSTIC.questions) {
+    fireEvent.click(screen.getByRole("button", { name: question.options[0] }));
+  }
+}
 
 function setup(selectedPath: PostCapturePath) {
   const onSelectPath = vi.fn();
@@ -55,11 +63,21 @@ describe("PostCaptureRouter", () => {
     expect(onUploadNow).toHaveBeenCalledTimes(1);
   });
 
-  it("renders the no-quote placeholder with a pivot to upload", () => {
+  it("renders the no-quote diagnostic, then pivots to upload from the quote-ready screen", () => {
     const { onUploadNow } = setup("no_quote");
     expect(screen.getByTestId("post-capture-no-quote")).toBeInTheDocument();
+    // First diagnostic question is shown (not the final screen yet).
+    expect(
+      screen.getByText(NO_QUOTE_DIAGNOSTIC.questions[0].prompt),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("no-quote-quote-ready")).not.toBeInTheDocument();
+
+    completeNoQuoteDiagnostic();
+
+    expect(screen.getByTestId("no-quote-quote-ready")).toBeInTheDocument();
+    expect(screen.getByText("You're quote-ready.")).toBeInTheDocument();
     fireEvent.click(
-      screen.getByRole("button", { name: "I got a quote — scan it now" }),
+      screen.getByRole("button", { name: "I got my quote — scan it now" }),
     );
     expect(onUploadNow).toHaveBeenCalledTimes(1);
   });

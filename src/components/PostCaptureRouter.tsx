@@ -1,5 +1,6 @@
 import { ArrowRight, Clock3, FileCheck2, ListChecks, Upload } from "lucide-react";
 import { POST_CAPTURE_ROUTER_COPY } from "@/components/postcapture/postCaptureCopy";
+import NoQuoteDiagnostic from "@/components/postcapture/NoQuoteDiagnostic";
 
 /**
  * Sprint 2F-C: the post-contact intent router is a frontend UI shell only.
@@ -98,14 +99,7 @@ export default function PostCaptureRouter({
 
   if (selectedPath === "no_quote") {
     return (
-      <PlaceholderPanel
-        testId="post-capture-no-quote"
-        eyebrow={C.cards.no_quote.title}
-        body={C.noQuote.placeholder}
-        pivotCta={C.noQuote.pivotCta}
-        onUploadNow={onUploadNow}
-        onSelectPath={onSelectPath}
-      />
+      <NoQuoteDiagnostic onUploadNow={onUploadNow} onSelectPath={onSelectPath} />
     );
   }
 

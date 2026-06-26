@@ -3,7 +3,7 @@
  *
  * Calm, national, consumer-advocate tone. This is acquisition guidance after a
  * trusted contact-owned lead/session already exists — never a permission wall.
- * No "locked" / "access denied" / "security" language by design.
+ * Intentionally free of mechanical funnel or gate-style wording.
  */
 export const POST_CAPTURE_ROUTER_COPY = {
   headline: "You're in. What are you working with?",
@@ -33,10 +33,62 @@ export const POST_CAPTURE_ROUTER_COPY = {
       "Saved. When your quote is ready, come back and upload it here — no need to start over.",
     pivotCta: "I found my quote — scan it now",
   },
-  noQuote: {
-    placeholder:
-      "No quote yet? You're still in the right place. We'll help you understand what a clean window quote should include before you sign anything.",
-    pivotCta: "I got a quote — scan it now",
-  },
   backToOptions: "Back to options",
+} as const;
+
+/**
+ * Sprint 2F-D no-quote quote-prep diagnostic copy.
+ *
+ * A short (3 question) helper that gets a homeowner quote-ready before a
+ * contractor prices the job. Answers are held in local component state only —
+ * never written to Supabase, never tracked, never used as authorization.
+ */
+export const NO_QUOTE_DIAGNOSTIC = {
+  intro: {
+    eyebrow: "Quote prep",
+    headline: "Let's get you quote-ready.",
+    supporting:
+      "A few quick questions so you know what to look for before a contractor prices the job.",
+  },
+  questions: [
+    {
+      id: "scope",
+      prompt: "How many windows or doors are you thinking about?",
+      options: ["1–3", "4–7", "8–12", "Whole home / not sure"],
+    },
+    {
+      id: "timeline",
+      prompt: "How soon are you trying to get this done?",
+      options: ["ASAP", "This month", "1–3 months", "Just researching"],
+    },
+    {
+      id: "priority",
+      prompt: "What matters most right now?",
+      options: [
+        "Avoiding a bad deal",
+        "Hurricane protection",
+        "Price / financing",
+        "Insurance / permits",
+        "Energy / noise",
+        "Not sure yet",
+      ],
+    },
+  ],
+  final: {
+    headline: "You're quote-ready.",
+    supporting:
+      "When a contractor sends the estimate, come back and scan it here before you sign.",
+    secondarySupporting:
+      "WindowMan will help you check what's included, what's missing, and what deserves a closer look.",
+    primaryCta: "I got my quote — scan it now",
+    secondaryCta: "Review what to ask before I sign",
+    checklistTitle: "Ask every contractor:",
+    checklist: [
+      "Is the product approval (NOA) and DP rating listed for each opening?",
+      "Who pulls the permit, and is inspection included?",
+      "What exactly is the warranty — and what voids it?",
+      "Is the price broken down by labor vs. materials?",
+      "What triggers each payment?",
+    ],
+  },
 } as const;
