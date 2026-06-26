@@ -1,6 +1,6 @@
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ScanFunnelProvider } from "@/state/scanFunnel";
@@ -11,6 +11,8 @@ const SCAN_SESSION_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 
 const uploadZonePropsRef = vi.hoisted(() => ({ current: null as Record<string, unknown> | null }));
 const invokeMock = vi.hoisted(() => vi.fn());
+// Session id that the mocked TruthGateFlow emits via onLeadCaptured when clicked.
+const truthGateEmit = vi.hoisted(() => ({ sessionId: "" }));
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
@@ -89,7 +91,15 @@ vi.mock("@/components/LazySection", () => ({
 }));
 
 vi.mock("@/components/TruthGateFlow", () => ({
-  default: () => <div data-testid="truth-gate-flow" />,
+  default: (props: { onLeadCaptured?: (sessionId: string) => void }) => (
+    <button
+      type="button"
+      data-testid="truth-gate-flow"
+      onClick={() => props.onLeadCaptured?.(truthGateEmit.sessionId)}
+    >
+      truth gate
+    </button>
+  ),
   hasTrustedContactIdentity: (
     leadId: string | null | undefined,
     sessionId: string | null | undefined,
@@ -133,6 +143,9 @@ vi.mock("@/components/ExitIntentPhoneModal", () => nullComponent);
 
 import Index, { shouldRehydrateContactUpload } from "@/pages/Index";
 import { readPersistedFunnelSnapshot } from "@/state/scanFunnel";
+import { trackEvent } from "@/lib/trackEvent";
+
+const trackEventMock = vi.mocked(trackEvent);
 
 vi.mock("@/state/scanFunnel", async () => {
   const actual = await vi.importActual<typeof import("@/state/scanFunnel")>(
@@ -349,5 +362,117 @@ describe("Index contact resume rehydration", () => {
     expect(
       screen.queryByText("You're ready to upload your quote."),
     ).not.toBeInTheDocument();
+  });
+});
+
+const LOCK_HEADLINE = /Don.t let a window quote sit unchecked/;
+
+describe("Index homepage upload mount guard (Sprint 2B-3B)", () => {
+  beforeEach(() => {
+    uploadZonePropsRef.current = null;
+    invokeMock.mockReset();
+    trackEventMock.mockReset();
+    truthGateEmit.sessionId = "";
+    readPersistedFunnelSnapshotMock.mockReturnValue(null);
+    seedFunnelStorage();
+    stubDomObservers();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("mounts a usable UploadZone when a trusted contact identity pair exists", async () => {
+    // Default seed has a valid leadId + sessionId → rehydration unlocks upload.
+    renderIndex();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("upload-zone")).toBeInTheDocument();
+    });
+
+    expect(uploadZonePropsRef.current).toMatchObject({
+      isVisible: true,
+      sessionId: SESSION_ID,
+      leadId: LEAD_ID,
+    });
+    expect(screen.queryByText(LOCK_HEADLINE)).not.toBeInTheDocument();
+  });
+
+  it("shows the locked placeholder when upload is unlocked but leadId is missing", async () => {
+    seedFunnelStorage({ leadId: null });
+    truthGateEmit.sessionId = SESSION_ID;
+
+    renderIndex();
+
+    // No rehydration without a leadId; unlock via the TruthGateFlow callback.
+    fireEvent.click(screen.getByTestId("truth-gate-flow"));
+
+    await waitFor(() => {
+      expect(screen.getByText(LOCK_HEADLINE)).toBeInTheDocument();
+    });
+
+    expect(
+      screen.getByText(/Start a free quote check in under a minute/),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start Free" })).toBeInTheDocument();
+    expect(screen.queryByTestId("upload-zone")).not.toBeInTheDocument();
+  });
+
+  it("shows the locked placeholder when upload is unlocked but sessionId is invalid", async () => {
+    seedFunnelStorage({ sessionId: null });
+    truthGateEmit.sessionId = "not-a-uuid";
+
+    renderIndex();
+
+    fireEvent.click(screen.getByTestId("truth-gate-flow"));
+
+    await waitFor(() => {
+      expect(screen.getByText(LOCK_HEADLINE)).toBeInTheDocument();
+    });
+
+    expect(screen.queryByTestId("upload-zone")).not.toBeInTheDocument();
+  });
+
+  it("lets pending scan/report resume take precedence over the locked placeholder", async () => {
+    seedFunnelStorage({ leadId: null });
+    readPersistedFunnelSnapshotMock.mockReturnValue({
+      scanSessionId: SCAN_SESSION_ID,
+      sessionId: SESSION_ID,
+      leadId: LEAD_ID,
+      quoteFileId: null,
+      phoneE164: null,
+      phoneStatus: "none",
+    });
+    truthGateEmit.sessionId = SESSION_ID;
+
+    renderIndex();
+
+    await waitFor(() => {
+      expect(screen.getByText("You have an unfinished scan.")).toBeInTheDocument();
+    });
+
+    // Even if upload intent is unlocked, the resume state suppresses the guard UI.
+    fireEvent.click(screen.getByTestId("truth-gate-flow"));
+
+    expect(screen.queryByText(LOCK_HEADLINE)).not.toBeInTheDocument();
+    expect(screen.queryByTestId("upload-zone")).not.toBeInTheDocument();
+  });
+
+  it("does not call capture/tracking when rendering or clicking the placeholder CTA", async () => {
+    seedFunnelStorage({ leadId: null });
+    truthGateEmit.sessionId = SESSION_ID;
+
+    renderIndex();
+
+    fireEvent.click(screen.getByTestId("truth-gate-flow"));
+
+    await waitFor(() => {
+      expect(screen.getByText(LOCK_HEADLINE)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Start Free" }));
+
+    expect(invokeMock).not.toHaveBeenCalled();
+    expect(trackEventMock).not.toHaveBeenCalled();
   });
 });

@@ -37,7 +37,7 @@ vi.mock("@/integrations/supabase/client", () => ({
 
 vi.mock("@/lib/useUtmCapture", () => ({
   captureUtmFromUrl: vi.fn(() => ({
-    utm_source: "nextdoor",
+    utm_source: null,
     utm_medium: null,
     utm_campaign: null,
     utm_term: null,
@@ -47,15 +47,15 @@ vi.mock("@/lib/useUtmCapture", () => ({
     gclid: null,
     fbc: null,
     fbp: null,
-    wm_intent: "has_quote",
+    wm_intent: "unknown",
     client_slug: "direct",
     landing_page: "/",
     landing_page_url: "/",
   })),
   getAttributionPayload: vi.fn(() => ({
     client_slug: "direct",
-    wm_intent: "has_quote",
-    query_params: { wm_intent: "has_quote" },
+    wm_intent: "unknown",
+    query_params: {},
   })),
   getUtmData: () => getUtmDataMock(),
 }));
@@ -140,11 +140,46 @@ function seedAttribution(overrides: Partial<UtmData>) {
   localStorage.setItem(UTM_STORAGE_KEY, JSON.stringify(payload));
 }
 
-describe("TruthGateFlow paid intent", () => {
+async function submitContactForm() {
+  await act(async () => {
+    fireEvent.change(screen.getByPlaceholderText("Your first name"), {
+      target: { value: "Jane" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("your@email.com"), {
+      target: { value: "jane@example.com" },
+    });
+  });
+  await act(async () => {
+    fireEvent.submit(
+      screen.getByPlaceholderText("Your first name").closest("form") as HTMLFormElement,
+    );
+  });
+}
+
+function expectContactFirstCopy() {
+  expect(
+    screen.getByText(/Don.t let a window quote sit unchecked/),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText("Start a free quote check in under a minute."),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText(/WindowMan is where you start/),
+  ).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Start Free" })).toBeInTheDocument();
+  expect(
+    screen.queryByText("How many windows are in your project?"),
+  ).not.toBeInTheDocument();
+  expect(screen.queryByText(/STEP 1 OF 4/i)).not.toBeInTheDocument();
+  expect(screen.queryByText(/CONFIGURE YOUR SCAN/i)).not.toBeInTheDocument();
+}
+
+describe("TruthGateFlow contact-first intake", () => {
   beforeEach(() => {
     installLocalStorageMock();
     mockSetSessionId.mockReset();
     mockSetLeadId.mockReset();
+    mockSetPhone.mockReset();
     invokeMock.mockReset();
     getUtmDataMock.mockReset();
     invokeMock.mockResolvedValue({
@@ -162,13 +197,80 @@ describe("TruthGateFlow paid intent", () => {
     vi.restoreAllMocks();
   });
 
+  it("renders contact form immediately for organic/default traffic", () => {
+    getUtmDataMock.mockReturnValue({
+      utm_source: null,
+      wm_intent: "unknown",
+      ndclid: null,
+      ttclid: null,
+      fbclid: null,
+    });
+
+    render(<TruthGateFlow />);
+
+    expectContactFirstCopy();
+  });
+
+  it("submits null quiz scalars for organic/default traffic", async () => {
+    getUtmDataMock.mockReturnValue({
+      utm_source: null,
+      wm_intent: "unknown",
+      ndclid: null,
+      ttclid: null,
+      fbclid: null,
+    });
+
+    render(<TruthGateFlow />);
+
+    await submitContactForm();
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith(
+        "capture-truth-gate-lead",
+        expect.objectContaining({
+          body: expect.objectContaining({
+            session_id: SESSION_ID,
+            first_name: "Jane",
+            email: "jane@example.com",
+            county: null,
+            project_type: null,
+            window_count: null,
+            quote_range: null,
+            source: "truth-gate",
+          }),
+        }),
+      );
+    });
+  });
+
+  it("succeeds with first name and email only (phone optional)", async () => {
+    getUtmDataMock.mockReturnValue({
+      utm_source: null,
+      wm_intent: "unknown",
+      ndclid: null,
+      ttclid: null,
+      fbclid: null,
+    });
+
+    const onLeadCaptured = vi.fn();
+    render(<TruthGateFlow onLeadCaptured={onLeadCaptured} />);
+
+    await submitContactForm();
+
+    await waitFor(() => {
+      expect(onLeadCaptured).toHaveBeenCalledWith(SESSION_ID);
+    });
+
+    expect(mockSetPhone).toHaveBeenCalledWith("", "none");
+  });
+
   it("shows paid contact form for wm_intent=has_quote and unlocks upload after capture", async () => {
     getUtmDataMock.mockReturnValue({
       utm_source: "nextdoor",
       wm_intent: "has_quote",
       ndclid: "abc123",
       nd_lead_id: "lead_789",
-      tclid: null,
+      ttclid: null,
       fbclid: null,
     });
 
@@ -176,32 +278,10 @@ describe("TruthGateFlow paid intent", () => {
 
     render(<TruthGateFlow onLeadCaptured={onLeadCaptured} />);
 
-    expect(
-      screen.getByText("Where should we send your free quote scan?"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "We have your request from Nextdoor. Enter your details to unlock upload.",
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("You do not need to re-answer the starter questions."),
-    ).toBeInTheDocument();
+    expectContactFirstCopy();
+    expect(screen.getByText(/FROM NEXTDOOR/i)).toBeInTheDocument();
 
-    await act(async () => {
-      fireEvent.change(screen.getByPlaceholderText("Your first name"), {
-        target: { value: "Jane" },
-      });
-      fireEvent.change(screen.getByPlaceholderText("your@email.com"), {
-        target: { value: "jane@example.com" },
-      });
-    });
-
-    await act(async () => {
-      fireEvent.submit(
-        screen.getByPlaceholderText("Your first name").closest("form") as HTMLFormElement,
-      );
-    });
+    await submitContactForm();
 
     await waitFor(() => {
       expect(onLeadCaptured).toHaveBeenCalledWith(SESSION_ID);
@@ -211,53 +291,39 @@ describe("TruthGateFlow paid intent", () => {
     expect(mockSetLeadId).toHaveBeenCalledWith(LEAD_ID);
     expect(invokeMock).toHaveBeenCalledWith(
       "capture-truth-gate-lead",
-      expect.anything(),
+      expect.objectContaining({
+        body: expect.objectContaining({
+          county: null,
+          project_type: null,
+          window_count: null,
+          quote_range: null,
+        }),
+      }),
     );
   });
 
-  it("shows prep-mode copy for wm_intent=no_quote without upload bypass card", () => {
+  it("shows contact-first card for wm_intent=no_quote without four-question blocker", () => {
     getUtmDataMock.mockReturnValue({
       utm_source: "nextdoor",
       wm_intent: "no_quote",
       ndclid: "abc123",
-      tclid: null,
+      ttclid: null,
       fbclid: null,
     });
 
     render(<TruthGateFlow />);
 
-    expect(
-      screen.getByText("Let's prep you before the window sales appointment."),
-    ).toBeInTheDocument();
+    expectContactFirstCopy();
     expect(
       screen.getByText(
-        "We have your request from Nextdoor. Answer a few details so the prep checklist matches your project.",
+        /Have a quote\? You.ll upload it next\. Still waiting on one\? You can start here\./,
       ),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Upload My Quote" }),
+      screen.queryByText("Let's prep you before the window sales appointment."),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByText("You do not need to re-answer the starter questions."),
-    ).not.toBeInTheDocument();
-  });
-
-  it("keeps organic first question when no paid intent is stored", () => {
-    getUtmDataMock.mockReturnValue({
-      utm_source: null,
-      wm_intent: "unknown",
-      ndclid: null,
-      tclid: null,
-      fbclid: null,
-    });
-
-    render(<TruthGateFlow />);
-
-    expect(
-      screen.getByText("How many windows are in your project?"),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByText("Where should we send your free quote scan?"),
+      screen.queryByText("How many windows are in your project?"),
     ).not.toBeInTheDocument();
   });
 });

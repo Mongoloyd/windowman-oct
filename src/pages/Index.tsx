@@ -104,8 +104,7 @@ const Index = () => {
   const [gradeRevealed, setGradeRevealed] = useState(false);
   // contractorMatchVisible removed — CTAs now native in TruthReportClassic
   const [powerToolTriggered, setPowerToolTriggered] = useState(false);
-  const [stepsCompleted, setStepsCompleted] = useState(0);
-  const [selectedCounty, setSelectedCounty] = useState("your county");
+  const [selectedCounty] = useState("your county");
   const [recoveryBarDismissed, setRecoveryBarDismissed] = useState(
     () => localStorage.getItem("wm_recovery_bar_dismissed") === "true",
   );
@@ -325,6 +324,26 @@ const Index = () => {
 
   const funnel = useScanFunnel();
   const { slug: queryClientSlug, ready: clientSlugReady } = useClientSlug();
+
+  // ── Homepage public upload mount guard (Sprint 2B-3B) ─────────────────
+  // The public upload area may become usable ONLY when the homepage holds a
+  // trusted contact-owned identity pair (valid leadId + sessionId). This is a
+  // UI guard only — backend `start-upload-scan-session` remains the authority.
+  // localStorage/funnel state is a UI resume hint, never authorization.
+  const trustedContactIdentity = hasTrustedContactIdentity(
+    funnel.leadId,
+    sessionId ?? funnel.sessionId,
+  );
+  // Scan/report resume (pendingResume / ?resume=1) takes precedence over the
+  // contact-upload paths below, so it is excluded from both branches.
+  const inUploadIntentPhase =
+    leadCaptured &&
+    !fileUploaded &&
+    !gradeRevealed &&
+    !shouldShowReport &&
+    pendingResume == null;
+  const canMountUsableUpload = inUploadIntentPhase && trustedContactIdentity;
+  const showContactUploadLock = inUploadIntentPhase && !trustedContactIdentity;
 
   // Contact-only resume: funnel localStorage may hint upload-ready UI after refresh.
   // Scan/report restore (pendingResume / ?resume=1) takes precedence over this path.
@@ -612,15 +631,11 @@ const Index = () => {
                       setLeadCaptured(true);
                       setSessionId(sid);
                     }}
-                    onStepChange={(step, county) => {
-                      setStepsCompleted(step);
-                      setSelectedCounty(county);
-                    }}
                     highlight={truthGateHighlight}
                     onHighlightDone={() => setTruthGateHighlight(false)}
                   />
                 </div>
-                {contactResumedFromFunnel && leadCaptured && !fileUploaded && !gradeRevealed ? (
+                {canMountUsableUpload && contactResumedFromFunnel ? (
                   <div
                     className="mx-auto mt-6 max-w-2xl rounded-lg border border-border/60 bg-card/80 px-4 py-3 text-center shadow-sm"
                     role="status"
@@ -633,8 +648,32 @@ const Index = () => {
                     </p>
                   </div>
                 ) : null}
+                {showContactUploadLock ? (
+                  <div
+                    className="mx-auto mt-6 max-w-2xl rounded-2xl border border-border/60 bg-card/80 px-6 py-8 text-center shadow-sm"
+                    role="status"
+                  >
+                    <h3 className="font-display text-xl font-extrabold tracking-[0.01em] text-foreground sm:text-2xl">
+                      Don&rsquo;t let a window quote sit unchecked
+                    </h3>
+                    <p className="mx-auto mt-3 max-w-xl font-body text-sm leading-relaxed text-muted-foreground">
+                      Start a free quote check in under a minute. We&rsquo;ll save your place,
+                      then you can upload your estimate when it&rsquo;s ready.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        scrollToTruthGate();
+                        setTruthGateHighlight(true);
+                      }}
+                      className="mt-5 inline-flex items-center justify-center rounded-lg bg-primary px-6 py-3 font-body text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+                    >
+                      Start Free
+                    </button>
+                  </div>
+                ) : null}
                 <UploadZone
-                  isVisible={leadCaptured}
+                  isVisible={canMountUsableUpload}
                   sessionId={sessionId || undefined}
                   leadId={funnel.leadId}
                   onUploadReset={() => {
@@ -843,7 +882,7 @@ const Index = () => {
             <React.Suspense fallback={null}>
               <ExitIntentPhoneModal
               suppressExitIntent={suppressExitIntent}
-              stepsCompleted={stepsCompleted}
+              stepsCompleted={0}
               flowMode="A"
               leadCaptured={leadCaptured}
               flowBLeadCaptured={false}
@@ -867,7 +906,7 @@ const Index = () => {
           )}
 
           <StickyRecoveryBar
-            stepsCompleted={stepsCompleted}
+            stepsCompleted={0}
             county={selectedCounty}
             isVisible={showRecoveryBar}
             onDismiss={() => setRecoveryBarDismissed(true)}

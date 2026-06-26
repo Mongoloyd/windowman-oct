@@ -222,7 +222,7 @@ describe("TruthGateFlow paid has_quote identity gate (Sprint 2B-1)", () => {
     render(<TruthGateFlow onLeadCaptured={onLeadCaptured} />);
 
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Upload My Quote" }));
+      fireEvent.click(screen.getByRole("button", { name: "Start Free" }));
     });
 
     expect(onLeadCaptured).not.toHaveBeenCalled();
@@ -243,6 +243,10 @@ describe("TruthGateFlow paid has_quote identity gate (Sprint 2B-1)", () => {
             session_id: SESSION_ID,
             first_name: "Jane",
             email: "jane@example.com",
+            county: null,
+            project_type: null,
+            window_count: null,
+            quote_range: null,
             source: "truth-gate",
           }),
         }),
