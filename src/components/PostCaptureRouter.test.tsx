@@ -37,6 +37,13 @@ describe("PostCaptureRouter", () => {
     ).toBeInTheDocument();
   });
 
+  it("exposes a stable scroll anchor with offset for homepage post-capture scroll", () => {
+    setup("router");
+    const router = screen.getByTestId("post-capture-router");
+    expect(router).toHaveAttribute("id", "post-capture-router-anchor");
+    expect(router.className).toMatch(/scroll-mt-24/);
+  });
+
   it("quote-ready card triggers onUploadNow", () => {
     const { onUploadNow, onSelectPath } = setup("router");
     fireEvent.click(screen.getByRole("button", { name: "Upload my quote" }));

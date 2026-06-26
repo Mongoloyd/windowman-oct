@@ -210,6 +210,7 @@ const Index = () => {
     clearPersistedFunnelKeys();
     clearHomepageDarkV2ReportReturn();
     setPendingResume(null);
+    setPostCapturePath("router");
     // Strip ?resume=1 from URL so a refresh stays on the hero.
     try {
       const url = new URL(window.location.href);
@@ -296,6 +297,23 @@ const Index = () => {
       if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   }, []);
+
+  const scrollToPostCaptureRouter = () => {
+    const prefersReducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const anchor = document.getElementById("post-capture-router-anchor");
+        if (anchor && typeof anchor.scrollIntoView === "function") {
+          anchor.scrollIntoView({
+            behavior: prefersReducedMotion ? "auto" : "smooth",
+            block: "start",
+          });
+        }
+      });
+    });
+  };
 
   const triggerTruthGate = (source: string) => {
     trackEvent({ event_name: "cta_scan_funnel", session_id: sessionId, metadata: { source } });
@@ -647,6 +665,8 @@ const Index = () => {
                       setSessionId(sid);
                       // Fresh capture lands on the intent router, not UploadZone.
                       setPostCapturePath("router");
+                      setPendingResume(null);
+                      scrollToPostCaptureRouter();
                     }}
                     highlight={truthGateHighlight}
                     onHighlightDone={() => setTruthGateHighlight(false)}
@@ -764,6 +784,7 @@ const Index = () => {
                     setGradeRevealed(false);
                     setLeadCaptured(false);
                     setPendingResume(null);
+                    setPostCapturePath("router");
                   }}
                   className="group flex items-center gap-2 px-5 py-2.5 rounded-lg border border-border/60 bg-card/80 backdrop-blur-sm text-muted-foreground text-sm font-medium transition-all duration-200 hover:border-primary/40 hover:text-primary hover:shadow-[0_0_12px_hsl(var(--primary)/0.15)]"
                 >

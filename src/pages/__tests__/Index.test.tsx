@@ -452,7 +452,7 @@ describe("Index homepage upload mount guard (Sprint 2B-3B)", () => {
     expect(screen.queryByTestId("upload-zone")).not.toBeInTheDocument();
   });
 
-  it("lets pending scan/report resume take precedence over the locked placeholder", async () => {
+  it("lets pending scan/report resume take precedence over the locked placeholder on mount", async () => {
     seedFunnelStorage({ leadId: null });
     readPersistedFunnelSnapshotMock.mockReturnValue({
       scanSessionId: SCAN_SESSION_ID,
@@ -470,9 +470,7 @@ describe("Index homepage upload mount guard (Sprint 2B-3B)", () => {
       expect(screen.getByText("You have an unfinished scan.")).toBeInTheDocument();
     });
 
-    // Even if upload intent is unlocked, the resume state suppresses the guard UI.
-    fireEvent.click(screen.getByTestId("truth-gate-flow"));
-
+    // Resume banner suppresses the locked placeholder until the user acts.
     expect(screen.queryByText(LOCK_HEADLINE)).not.toBeInTheDocument();
     expect(screen.queryByTestId("upload-zone")).not.toBeInTheDocument();
   });
@@ -636,5 +634,117 @@ describe("Index post-capture intent router (Sprint 2F-C)", () => {
       leadId: LEAD_ID,
     });
     expect(invokeMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("Index post-capture smoothness", () => {
+  let scrollIntoViewMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    uploadZonePropsRef.current = null;
+    invokeMock.mockReset();
+    trackEventMock.mockReset();
+    truthGateEmit.sessionId = "";
+    readPersistedFunnelSnapshotMock.mockReturnValue(null);
+    seedFunnelStorage();
+    stubDomObservers();
+    scrollIntoViewMock = vi.fn();
+    HTMLElement.prototype.scrollIntoView = scrollIntoViewMock;
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("scrolls to PostCaptureRouter after fresh contact capture", async () => {
+    seedFunnelStorage({ sessionId: null });
+    truthGateEmit.sessionId = SESSION_ID;
+
+    renderIndex();
+
+    expect(screen.queryByTestId("post-capture-router")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("truth-gate-flow"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("post-capture-router")).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(scrollIntoViewMock).toHaveBeenCalled();
+    });
+  });
+
+  it("fresh contact capture clears pendingResume and shows post-capture router", async () => {
+    seedFunnelStorage({ sessionId: null });
+    truthGateEmit.sessionId = SESSION_ID;
+    readPersistedFunnelSnapshotMock.mockReturnValue({
+      scanSessionId: SCAN_SESSION_ID,
+      sessionId: SESSION_ID,
+      leadId: LEAD_ID,
+      quoteFileId: null,
+      phoneE164: null,
+      phoneStatus: "none",
+    });
+
+    renderIndex();
+
+    await waitFor(() => {
+      expect(screen.getByText("You have an unfinished scan.")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId("truth-gate-flow"));
+
+    await waitFor(() => {
+      expect(screen.queryByText("You have an unfinished scan.")).not.toBeInTheDocument();
+      expect(screen.getByTestId("post-capture-router")).toBeInTheDocument();
+    });
+  });
+
+  it("fresh contact capture resets postCapturePath to router from a non-router branch", async () => {
+    truthGateEmit.sessionId = SESSION_ID;
+
+    renderIndex();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("post-capture-router")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Save my spot" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("post-capture-upload-later")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId("truth-gate-flow"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("post-capture-router")).toBeInTheDocument();
+      expect(screen.queryByTestId("post-capture-upload-later")).not.toBeInTheDocument();
+    });
+  });
+
+  it("Start Over from pending resume clears banner and resets to a fresh intake state", async () => {
+    readPersistedFunnelSnapshotMock.mockReturnValue({
+      scanSessionId: SCAN_SESSION_ID,
+      sessionId: SESSION_ID,
+      leadId: LEAD_ID,
+      quoteFileId: null,
+      phoneE164: null,
+      phoneStatus: "none",
+    });
+
+    renderIndex();
+
+    await waitFor(() => {
+      expect(screen.getByText("You have an unfinished scan.")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Start over" }));
+
+    await waitFor(() => {
+      expect(screen.queryByText("You have an unfinished scan.")).not.toBeInTheDocument();
+      expect(screen.getByTestId("truth-gate-flow")).toBeInTheDocument();
+    });
   });
 });

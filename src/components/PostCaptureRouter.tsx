@@ -51,8 +51,9 @@ export default function PostCaptureRouter({
 
   return (
     <div
+      id="post-capture-router-anchor"
       data-testid="post-capture-router"
-      className="mx-auto mt-6 max-w-2xl px-1"
+      className="scroll-mt-24 mx-auto mt-6 max-w-2xl px-1"
       aria-label="Choose your next step"
     >
       <div className="text-center">
