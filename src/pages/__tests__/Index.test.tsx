@@ -1,15 +1,18 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ScanFunnelProvider } from "@/state/scanFunnel";
+import { ScanFunnelProvider, useScanFunnel } from "@/state/scanFunnel";
 
 const SESSION_ID = "11111111-1111-4111-8111-111111111111";
 const LEAD_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const SCAN_SESSION_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 
 const uploadZonePropsRef = vi.hoisted(() => ({ current: null as Record<string, unknown> | null }));
+const funnelMemoryRef = vi.hoisted(() => ({
+  current: { leadId: null as string | null, sessionId: null as string | null },
+}));
 const invokeMock = vi.hoisted(() => vi.fn());
 // Session id that the mocked TruthGateFlow emits via onLeadCaptured when clicked.
 const truthGateEmit = vi.hoisted(() => ({
@@ -203,7 +206,18 @@ function seedFunnelStorage(overrides?: {
   });
 }
 
-function renderIndex() {
+function FunnelMemoryProbe() {
+  const funnel = useScanFunnel();
+  useEffect(() => {
+    funnelMemoryRef.current = {
+      leadId: funnel.leadId,
+      sessionId: funnel.sessionId,
+    };
+  }, [funnel.leadId, funnel.sessionId]);
+  return null;
+}
+
+function renderIndex(options?: { observeFunnelMemory?: boolean }) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -212,6 +226,7 @@ function renderIndex() {
     <QueryClientProvider client={queryClient}>
       <MemoryRouter>
         <ScanFunnelProvider>
+          {options?.observeFunnelMemory ? <FunnelMemoryProbe /> : null}
           <Index />
         </ScanFunnelProvider>
       </MemoryRouter>
@@ -801,6 +816,136 @@ describe("Index post-capture smoothness", () => {
     await waitFor(() => {
       expect(screen.queryByText("You have an unfinished scan.")).not.toBeInTheDocument();
       expect(screen.getByTestId("truth-gate-flow")).toBeInTheDocument();
+    });
+  });
+});
+
+describe("Index homepage fresh-intake reset (Sprint 3A)", () => {
+  beforeEach(() => {
+    uploadZonePropsRef.current = null;
+    funnelMemoryRef.current = { leadId: null, sessionId: null };
+    invokeMock.mockReset();
+    truthGateEmit.sessionId = SESSION_ID;
+    truthGateEmit.useNullSession = false;
+    readPersistedFunnelSnapshotMock.mockReturnValue(null);
+    seedFunnelStorage();
+    stubDomObservers();
+  });
+
+  afterEach(() => {
+    truthGateEmit.useNullSession = false;
+    vi.unstubAllGlobals();
+  });
+
+  it("Start Over clears live funnel memory and localStorage", async () => {
+    readPersistedFunnelSnapshotMock.mockReturnValue({
+      scanSessionId: SCAN_SESSION_ID,
+      sessionId: SESSION_ID,
+      leadId: LEAD_ID,
+      quoteFileId: null,
+      phoneE164: null,
+      phoneStatus: "none",
+    });
+
+    renderIndex({ observeFunnelMemory: true });
+
+    await waitFor(() => {
+      expect(screen.getByText("You have an unfinished scan.")).toBeInTheDocument();
+      expect(funnelMemoryRef.current.leadId).toBe(LEAD_ID);
+      expect(funnelMemoryRef.current.sessionId).toBe(SESSION_ID);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Start over" }));
+
+    await waitFor(() => {
+      expect(funnelMemoryRef.current.leadId).toBeNull();
+      expect(funnelMemoryRef.current.sessionId).toBeNull();
+      expect(localStorage.getItem("wm_funnel_leadId")).toBeNull();
+      expect(localStorage.getItem("wm_funnel_sessionId")).toBeNull();
+      expect(screen.queryByTestId("upload-zone")).not.toBeInTheDocument();
+    });
+  });
+
+  it("After Start Over UploadZone is not mounted with stale identity props", async () => {
+    readPersistedFunnelSnapshotMock.mockReturnValue({
+      scanSessionId: SCAN_SESSION_ID,
+      sessionId: SESSION_ID,
+      leadId: LEAD_ID,
+      quoteFileId: null,
+      phoneE164: null,
+      phoneStatus: "none",
+    });
+
+    renderIndex({ observeFunnelMemory: true });
+
+    await waitFor(() => {
+      expect(screen.getByText("You have an unfinished scan.")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Start over" }));
+
+    await waitFor(() => {
+      expect(funnelMemoryRef.current.leadId).toBeNull();
+      expect(funnelMemoryRef.current.sessionId).toBeNull();
+      expect(screen.queryByTestId("upload-zone")).not.toBeInTheDocument();
+      expect(uploadZonePropsRef.current?.isVisible).not.toBe(true);
+    });
+  });
+
+  it("Start New Scan clears live funnel memory after Continue scan restore", async () => {
+    readPersistedFunnelSnapshotMock.mockReturnValue({
+      scanSessionId: SCAN_SESSION_ID,
+      sessionId: SESSION_ID,
+      leadId: LEAD_ID,
+      quoteFileId: null,
+      phoneE164: null,
+      phoneStatus: "none",
+    });
+
+    renderIndex({ observeFunnelMemory: true });
+
+    await waitFor(() => {
+      expect(screen.getByText("You have an unfinished scan.")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue scan" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Start New Scan" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Start New Scan" }));
+
+    await waitFor(() => {
+      expect(funnelMemoryRef.current.leadId).toBeNull();
+      expect(funnelMemoryRef.current.sessionId).toBeNull();
+      expect(localStorage.getItem("wm_funnel_leadId")).toBeNull();
+      expect(screen.queryByTestId("upload-zone")).not.toBeInTheDocument();
+      expect(screen.getByTestId("truth-gate-flow")).toBeInTheDocument();
+    });
+  });
+
+  it("Continue scan still restores in-flight scan when user does not Start Over", async () => {
+    readPersistedFunnelSnapshotMock.mockReturnValue({
+      scanSessionId: SCAN_SESSION_ID,
+      sessionId: SESSION_ID,
+      leadId: LEAD_ID,
+      quoteFileId: null,
+      phoneE164: null,
+      phoneStatus: "none",
+    });
+
+    renderIndex();
+
+    await waitFor(() => {
+      expect(screen.getByText("You have an unfinished scan.")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue scan" }));
+
+    await waitFor(() => {
+      expect(screen.queryByText("You have an unfinished scan.")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Start New Scan" })).toBeInTheDocument();
     });
   });
 });

@@ -27,7 +27,7 @@ const QuoteSpreadShowcase = React.lazy(() => import("@/components/QuoteSpreadSho
 const Footer = React.lazy(() => import("@/components/Footer"));
 import { useAnalysisData } from "@/hooks/useAnalysisData";
 import { useHomepageVariant } from "@/hooks/useHomepageVariant";
-import { useScanFunnel, readPersistedFunnelSnapshot, clearPersistedFunnelKeys } from "@/state/scanFunnel";
+import { useScanFunnel, readPersistedFunnelSnapshot } from "@/state/scanFunnel";
 import { getVerifiedAccess, clearVerifiedAccess } from "@/lib/verifiedAccess";
 import {
   consumeHomepageDarkV2ReportReturn,
@@ -116,6 +116,9 @@ const Index = () => {
   );
   const [scrolledPast70, setScrolledPast70] = useState(false);
   const [timeOnPage, setTimeOnPage] = useState(false);
+  const [intakeResetKey, setIntakeResetKey] = useState(0);
+
+  const funnel = useScanFunnel();
 
   useEffect(() => {
     if (!IS_DEV_MODE) return;
@@ -205,12 +208,23 @@ const Index = () => {
     return false;
   }, []);
 
-  const handleStartOver = useCallback(() => {
+  const resetHomepageToFreshIntake = useCallback(() => {
     clearVerifiedAccess();
-    clearPersistedFunnelKeys();
     clearHomepageDarkV2ReportReturn();
+    funnel.clearFunnel();
+    shouldAutoResumeFullRef.current = false;
+
+    setLeadCaptured(false);
+    setSessionId(null);
+    setFileUploaded(false);
+    setGradeRevealed(false);
+    setScanSessionId(null);
     setPendingResume(null);
     setPostCapturePath("router");
+    setContactResumedFromFunnel(false);
+    setTruthGateHighlight(false);
+    setIntakeResetKey((k) => k + 1);
+
     // Strip ?resume=1 from URL so a refresh stays on the hero.
     try {
       const url = new URL(window.location.href);
@@ -219,7 +233,11 @@ const Index = () => {
         window.history.replaceState({}, "", url.toString());
       }
     } catch { /* noop */ }
-  }, []);
+  }, [funnel]);
+
+  const handleStartOver = useCallback(() => {
+    resetHomepageToFreshIntake();
+  }, [resetHomepageToFreshIntake]);
 
   useEffect(() => {
     if (resumeCheckedRef.current) return;
@@ -346,7 +364,6 @@ const Index = () => {
   const showStickyCtaFooter =
     !showRecoveryBar && !isProductExperiencePhase && !powerToolTriggered;
 
-  const funnel = useScanFunnel();
   const { slug: queryClientSlug, ready: clientSlugReady } = useClientSlug();
 
   // ── Homepage public upload mount guard (Sprint 2B-3B) ─────────────────
@@ -660,6 +677,7 @@ const Index = () => {
                 </React.Suspense>
                 <div className="scroll-mt-24">
                   <TruthGateFlow
+                    key={intakeResetKey}
                     onLeadCaptured={(sid) => {
                       setLeadCaptured(true);
                       setSessionId(sid);
@@ -775,17 +793,7 @@ const Index = () => {
             <>
               <div id="truth-report-top" className="max-w-4xl mx-auto px-4 pt-4 flex justify-end">
                 <button
-                  onClick={() => {
-                    clearVerifiedAccess();
-                    clearPersistedFunnelKeys();
-                    clearHomepageDarkV2ReportReturn();
-                    setScanSessionId(null);
-                    setFileUploaded(false);
-                    setGradeRevealed(false);
-                    setLeadCaptured(false);
-                    setPendingResume(null);
-                    setPostCapturePath("router");
-                  }}
+                  onClick={resetHomepageToFreshIntake}
                   className="group flex items-center gap-2 px-5 py-2.5 rounded-lg border border-border/60 bg-card/80 backdrop-blur-sm text-muted-foreground text-sm font-medium transition-all duration-200 hover:border-primary/40 hover:text-primary hover:shadow-[0_0_12px_hsl(var(--primary)/0.15)]"
                 >
                   <RotateCcw size={14} className="transition-transform duration-300 group-hover:-rotate-180" />
