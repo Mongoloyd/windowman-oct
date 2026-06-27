@@ -11,8 +11,8 @@ const ALLOWED_EXACT_ORIGINS = new Set<string>([
   "http://127.0.0.1:8081",
 ]);
 
-const NETLIFY_PREVIEW_ORIGIN =
-  /^https:\/\/[a-z0-9-]+--windowman\.netlify\.app$/;
+const NETLIFY_APP_ORIGIN =
+  /^https:\/\/[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.netlify\.app$/;
 
 const ALLOWED_HEADERS = [
   "authorization",
@@ -35,7 +35,7 @@ export function getOriginFromRequest(req: Request): string | null {
 export function isAllowedOrigin(origin: string | null): boolean {
   if (!origin || origin === "null") return false;
   if (ALLOWED_EXACT_ORIGINS.has(origin)) return true;
-  return NETLIFY_PREVIEW_ORIGIN.test(origin);
+  return NETLIFY_APP_ORIGIN.test(origin);
 }
 
 export function getCorsHeaders(req: Request): Record<string, string> {
