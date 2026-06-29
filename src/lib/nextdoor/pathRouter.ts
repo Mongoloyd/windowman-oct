@@ -28,7 +28,7 @@ export type NextStepPanelCopy = {
 const PATH_SUMMARY: Record<QuoteReadiness, PathSummaryCopy> = {
   has_estimate: {
     pathLabel: "Quote-ready",
-    nextHint: "save your details, upload your quote, then preview before phone unlock",
+    nextHint: "upload your quote when ready",
   },
   getting_quotes_now: {
     pathLabel: "Comparing quotes",
@@ -46,10 +46,10 @@ const PATH_SUMMARY: Record<QuoteReadiness, PathSummaryCopy> = {
 
 const NEXT_STEP_COPY: Record<QuoteReadiness, NextStepPanelCopy> = {
   has_estimate: {
-    badge: "Quote-ready path",
+    badge: "Quote ready",
     headline: "You have the paperwork. Now make it work for you.",
-    body: "Save your details to unlock the upload zone, then upload your quote for a private review — safe preview first, full details after a quick phone check.",
-    saveCta: "Save & Unlock Upload",
+    body: "Save your details, then upload your quote for a private WindowMan check.",
+    saveCta: "Save my details",
   },
   getting_quotes_now: {
     badge: "Comparison mode",
@@ -90,7 +90,7 @@ export function saveCtaLabel(readiness: QuoteReadiness | null): string {
 
 const LEAD_SUCCESS_MESSAGE: Record<QuoteReadiness, string> = {
   has_estimate:
-    "Your details are saved. Upload your quote below — you'll see a safe preview first.",
+    "Your details are saved. Upload your quote below — it stays private.",
   getting_quotes_now:
     "Your comparison checklist is saved. Use it on every bid you collect.",
   need_quote_soon:

@@ -6,14 +6,20 @@ import type { UtmData } from "@/lib/useUtmCapture";
 const UTM_STORAGE_KEY = "wm_utm_data";
 const SESSION_ID = "11111111-1111-4111-8111-111111111111";
 const LEAD_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
-const { mockSetSessionId, mockSetLeadId, mockSetPhone, invokeMock, getUtmDataMock } =
-  vi.hoisted(() => ({
+
+const { mockSetSessionId, mockSetLeadId, mockSetPhone, invokeMock } = vi.hoisted(
+  () => ({
     mockSetSessionId: vi.fn(),
     mockSetLeadId: vi.fn(),
     mockSetPhone: vi.fn(),
     invokeMock: vi.fn(),
-    getUtmDataMock: vi.fn(),
-  }));
+  }),
+);
+
+const funnelMockState = vi.hoisted(() => ({
+  leadId: null as string | null,
+  sessionId: null as string | null,
+}));
 
 vi.mock("@/hooks/useTickerStats", () => ({
   useTickerStats: () => ({ total: 1000, today: 12 }),
@@ -21,8 +27,8 @@ vi.mock("@/hooks/useTickerStats", () => ({
 
 vi.mock("@/state/scanFunnel", () => ({
   useScanFunnelSafe: () => ({
-    leadId: null,
-    sessionId: null,
+    leadId: funnelMockState.leadId,
+    sessionId: funnelMockState.sessionId,
     setSessionId: mockSetSessionId,
     setLeadId: mockSetLeadId,
     setPhone: mockSetPhone,
@@ -37,7 +43,7 @@ vi.mock("@/integrations/supabase/client", () => ({
 
 vi.mock("@/lib/useUtmCapture", () => ({
   captureUtmFromUrl: vi.fn(() => ({
-    utm_source: null,
+    utm_source: "nextdoor",
     utm_medium: null,
     utm_campaign: null,
     utm_term: null,
@@ -47,17 +53,24 @@ vi.mock("@/lib/useUtmCapture", () => ({
     gclid: null,
     fbc: null,
     fbp: null,
-    wm_intent: "unknown",
+    wm_intent: "has_quote",
     client_slug: "direct",
     landing_page: "/",
     landing_page_url: "/",
   })),
   getAttributionPayload: vi.fn(() => ({
     client_slug: "direct",
-    wm_intent: "unknown",
-    query_params: {},
+    wm_intent: "has_quote",
+    query_params: { wm_intent: "has_quote" },
   })),
-  getUtmData: () => getUtmDataMock(),
+  getUtmData: vi.fn(() => ({
+    utm_source: "nextdoor",
+    wm_intent: "has_quote",
+    ndclid: "abc123",
+    nd_lead_id: null,
+    tclid: null,
+    fbclid: null,
+  })),
 }));
 
 vi.mock("@/lib/attribution/fbCookies", () => ({
@@ -79,7 +92,10 @@ vi.mock("framer-motion", () => {
   };
 });
 
-import TruthGateFlow from "./TruthGateFlow";
+import TruthGateFlow, {
+  hasTrustedContactIdentity,
+  isValidLeadSessionUuid,
+} from "./TruthGateFlow";
 
 function installLocalStorageMock() {
   const store = new Map<string, string>();
@@ -140,7 +156,7 @@ function seedAttribution(overrides: Partial<UtmData>) {
   localStorage.setItem(UTM_STORAGE_KEY, JSON.stringify(payload));
 }
 
-async function submitContactForm() {
+async function submitPaidHasQuoteForm() {
   await act(async () => {
     fireEvent.change(screen.getByPlaceholderText("Your first name"), {
       target: { value: "Jane" },
@@ -154,34 +170,39 @@ async function submitContactForm() {
       screen.getByPlaceholderText("Your first name").closest("form") as HTMLFormElement,
     );
   });
+  await waitFor(() => expect(invokeMock.mock.calls.length).toBeGreaterThan(0), {
+    timeout: 3000,
+  }).catch(() => undefined);
 }
 
-function expectContactFirstCopy() {
-  expect(
-    screen.getByText(/Don.t let a window quote sit unchecked/),
-  ).toBeInTheDocument();
-  expect(
-    screen.getByText("Start a free quote check in under a minute."),
-  ).toBeInTheDocument();
-  expect(
-    screen.getByText(/WindowMan is where you start/),
-  ).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Start Free" })).toBeInTheDocument();
-  expect(
-    screen.queryByText("How many windows are in your project?"),
-  ).not.toBeInTheDocument();
-  expect(screen.queryByText(/STEP 1 OF 4/i)).not.toBeInTheDocument();
-  expect(screen.queryByText(/CONFIGURE YOUR SCAN/i)).not.toBeInTheDocument();
-}
+describe("TruthGateFlow helpers", () => {
+  it("isValidLeadSessionUuid accepts UUID v4", () => {
+    expect(isValidLeadSessionUuid(LEAD_ID)).toBe(true);
+    expect(isValidLeadSessionUuid("not-a-uuid")).toBe(false);
+  });
 
-describe("TruthGateFlow contact-first intake", () => {
+  it("hasTrustedContactIdentity requires both ids", () => {
+    expect(hasTrustedContactIdentity(LEAD_ID, SESSION_ID)).toBe(true);
+    expect(hasTrustedContactIdentity(null, SESSION_ID)).toBe(false);
+    expect(hasTrustedContactIdentity(LEAD_ID, null)).toBe(false);
+  });
+});
+
+describe("TruthGateFlow paid has_quote identity gate (Sprint 2B-1)", () => {
   beforeEach(() => {
+    funnelMockState.leadId = null;
+    funnelMockState.sessionId = null;
     installLocalStorageMock();
     mockSetSessionId.mockReset();
     mockSetLeadId.mockReset();
     mockSetPhone.mockReset();
     invokeMock.mockReset();
-    getUtmDataMock.mockReset();
+    vi.spyOn(crypto, "randomUUID").mockReturnValue(SESSION_ID);
+    seedAttribution({
+      utm_source: "nextdoor",
+      wm_intent: "has_quote",
+      query_params: { wm_intent: "has_quote" },
+    });
     invokeMock.mockResolvedValue({
       data: {
         success: true,
@@ -190,39 +211,29 @@ describe("TruthGateFlow contact-first intake", () => {
       },
       error: null,
     });
-    vi.spyOn(crypto, "randomUUID").mockReturnValue(SESSION_ID);
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it("renders contact form immediately for organic/default traffic", () => {
-    getUtmDataMock.mockReturnValue({
-      utm_source: null,
-      wm_intent: "unknown",
-      ndclid: null,
-      ttclid: null,
-      fbclid: null,
+  it("does not call onLeadCaptured before contact fields are valid", async () => {
+    const onLeadCaptured = vi.fn();
+    render(<TruthGateFlow onLeadCaptured={onLeadCaptured} />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Start Free" }));
     });
 
-    render(<TruthGateFlow />);
-
-    expectContactFirstCopy();
+    expect(onLeadCaptured).not.toHaveBeenCalled();
+    expect(invokeMock).not.toHaveBeenCalled();
   });
 
-  it("submits null quiz scalars for organic/default traffic", async () => {
-    getUtmDataMock.mockReturnValue({
-      utm_source: null,
-      wm_intent: "unknown",
-      ndclid: null,
-      ttclid: null,
-      fbclid: null,
-    });
+  it("calls capture-truth-gate-lead then onLeadCaptured on success", async () => {
+    const onLeadCaptured = vi.fn();
+    render(<TruthGateFlow onLeadCaptured={onLeadCaptured} />);
 
-    render(<TruthGateFlow />);
-
-    await submitContactForm();
+    await submitPaidHasQuoteForm();
 
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith(
@@ -241,89 +252,57 @@ describe("TruthGateFlow contact-first intake", () => {
         }),
       );
     });
-  });
-
-  it("succeeds with first name and email only (phone optional)", async () => {
-    getUtmDataMock.mockReturnValue({
-      utm_source: null,
-      wm_intent: "unknown",
-      ndclid: null,
-      ttclid: null,
-      fbclid: null,
-    });
-
-    const onLeadCaptured = vi.fn();
-    render(<TruthGateFlow onLeadCaptured={onLeadCaptured} />);
-
-    await submitContactForm();
-
-    await waitFor(() => {
-      expect(onLeadCaptured).toHaveBeenCalledWith(SESSION_ID);
-    });
-
-    expect(mockSetPhone).toHaveBeenCalledWith("", "none");
-  });
-
-  it("shows paid contact form for wm_intent=has_quote and unlocks upload after capture", async () => {
-    getUtmDataMock.mockReturnValue({
-      utm_source: "nextdoor",
-      wm_intent: "has_quote",
-      ndclid: "abc123",
-      nd_lead_id: "lead_789",
-      ttclid: null,
-      fbclid: null,
-    });
-
-    const onLeadCaptured = vi.fn();
-
-    render(<TruthGateFlow onLeadCaptured={onLeadCaptured} />);
-
-    expectContactFirstCopy();
-    expect(screen.getByText(/FROM NEXTDOOR/i)).toBeInTheDocument();
-
-    await submitContactForm();
-
-    await waitFor(() => {
-      expect(onLeadCaptured).toHaveBeenCalledWith(SESSION_ID);
-    });
 
     expect(mockSetSessionId).toHaveBeenCalledWith(SESSION_ID);
     expect(mockSetLeadId).toHaveBeenCalledWith(LEAD_ID);
-    expect(invokeMock).toHaveBeenCalledWith(
-      "capture-truth-gate-lead",
-      expect.objectContaining({
-        body: expect.objectContaining({
-          county: null,
-          project_type: null,
-          window_count: null,
-          quote_range: null,
-        }),
-      }),
-    );
+    expect(onLeadCaptured).toHaveBeenCalledWith(SESSION_ID);
   });
 
-  it("shows contact-first card for wm_intent=no_quote without four-question blocker", () => {
-    getUtmDataMock.mockReturnValue({
-      utm_source: "nextdoor",
-      wm_intent: "no_quote",
-      ndclid: "abc123",
-      ttclid: null,
-      fbclid: null,
+  it("does not call onLeadCaptured when capture fails", async () => {
+    invokeMock.mockResolvedValueOnce({
+      data: { success: false, message: "Lead capture failed." },
+      error: null,
     });
 
-    render(<TruthGateFlow />);
+    const onLeadCaptured = vi.fn();
+    render(<TruthGateFlow onLeadCaptured={onLeadCaptured} />);
 
-    expectContactFirstCopy();
-    expect(
-      screen.getByText(
-        /Have a quote\? You.ll upload it next\. Still waiting on one\? You can start here\./,
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByText("Let's prep you before the window sales appointment."),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByText("How many windows are in your project?"),
-    ).not.toBeInTheDocument();
+    await submitPaidHasQuoteForm();
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalled();
+    });
+
+    expect(onLeadCaptured).not.toHaveBeenCalled();
+    expect(screen.getByText("Lead capture failed.")).toBeInTheDocument();
+  });
+});
+
+describe("TruthGateFlow paid has_quote reuse path", () => {
+  beforeEach(() => {
+    funnelMockState.leadId = LEAD_ID;
+    funnelMockState.sessionId = SESSION_ID;
+    installLocalStorageMock();
+    mockSetSessionId.mockReset();
+    mockSetLeadId.mockReset();
+    invokeMock.mockReset();
+    seedAttribution({ wm_intent: "has_quote" });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("skips capture-truth-gate-lead when trusted leadId+sessionId already exist", async () => {
+    const onLeadCaptured = vi.fn();
+    render(<TruthGateFlow onLeadCaptured={onLeadCaptured} />);
+
+    await submitPaidHasQuoteForm();
+
+    await waitFor(() => {
+      expect(onLeadCaptured).toHaveBeenCalledWith(SESSION_ID);
+    });
+
+    expect(invokeMock).not.toHaveBeenCalled();
   });
 });

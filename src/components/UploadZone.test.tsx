@@ -176,7 +176,7 @@ async function selectFile(file: File) {
 async function findStartButton(): Promise<HTMLElement> {
   return await waitFor(() => {
     const buttons = Array.from(document.querySelectorAll("button"));
-    const btn = buttons.find((b) => /Start My AI Scan/i.test(b.textContent || ""));
+    const btn = buttons.find((b) => /Scan my quote/i.test(b.textContent || ""));
     if (!btn) throw new Error("Start button not found");
     return btn as HTMLElement;
   });
@@ -189,6 +189,14 @@ async function findRetryButton(): Promise<HTMLElement> {
     if (!btn) throw new Error("Retry button not found");
     return btn as HTMLElement;
   });
+}
+
+// Returns the body object passed to the start-upload-scan-session invoke.
+function getBootstrapBody(): Record<string, unknown> | undefined {
+  const call = invokeMock.mock.calls.find(
+    (args) => args[0] === "start-upload-scan-session",
+  );
+  return call?.[1]?.body as Record<string, unknown> | undefined;
 }
 
 // ── Tests ───────────────────────────────────────────────────────────────
@@ -481,7 +489,7 @@ describe("UploadZone — UUID guard on RPC retry paths (PREP-2A-PATCH)", () => {
     await waitFor(() => {
       const buttons = Array.from(document.querySelectorAll("button"));
       const hasAction = buttons.some((b) =>
-        /Retry Scan|Start My AI Scan/i.test(b.textContent || "")
+        /Retry Scan|Scan my quote/i.test(b.textContent || "")
       );
       expect(hasAction).toBe(true);
     });
@@ -608,6 +616,74 @@ describe("UploadZone — UUID guard on RPC retry paths (PREP-2A-PATCH)", () => {
       const scanQuoteCalls = invokeMock.mock.calls.filter((args) => args[0] === "scan-quote");
       expect(scanQuoteCalls).toHaveLength(1);
     });
+  });
+});
+
+// ── leadId contract suite (Sprint 2A) ──────────────────────────────────
+/**
+ * Sprint 2A: UploadZone forwards a contact-owned `lead_id` to
+ * start-upload-scan-session ONLY when a valid UUID leadId prop is supplied.
+ * Otherwise the key is omitted entirely (never null/""/undefined), preserving
+ * legacy flag-off behavior.
+ */
+describe("UploadZone — leadId contract (Sprint 2A)", () => {
+  const VALID_LEAD_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setupHappyPath();
+  });
+
+  async function uploadWith(props: { leadId?: string | null }) {
+    render(
+      <UploadZone
+        isVisible
+        sessionId="00000000-0000-0000-0000-000000000201"
+        {...props}
+      />,
+    );
+    await selectFile(makeFile());
+    const btn = await findStartButton();
+    await act(async () => {
+      fireEvent.click(btn);
+    });
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith(
+        "start-upload-scan-session",
+        expect.anything(),
+      );
+    });
+  }
+
+  it("includes body.lead_id when a valid leadId is provided", async () => {
+    await uploadWith({ leadId: VALID_LEAD_ID });
+    const body = getBootstrapBody();
+    expect(body).toBeDefined();
+    expect(body).toHaveProperty("lead_id", VALID_LEAD_ID);
+  });
+
+  it("omits lead_id entirely when leadId is absent", async () => {
+    await uploadWith({});
+    const body = getBootstrapBody();
+    expect(body).toBeDefined();
+    expect(body).not.toHaveProperty("lead_id");
+  });
+
+  it("omits lead_id entirely when leadId is invalid", async () => {
+    await uploadWith({ leadId: "not-a-uuid" });
+    const body = getBootstrapBody();
+    expect(body).toBeDefined();
+    expect(body).not.toHaveProperty("lead_id");
+  });
+
+  it("omits lead_id when leadId is null and preserves attribution/query_params", async () => {
+    await uploadWith({ leadId: null });
+    const body = getBootstrapBody();
+    expect(body).toBeDefined();
+    expect(body).not.toHaveProperty("lead_id");
+    expect(body).toHaveProperty("session_id");
+    expect(body).toHaveProperty("attribution");
+    expect(body).toHaveProperty("query_params");
   });
 });
 

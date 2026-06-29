@@ -111,7 +111,7 @@ describe("UploadZone paid attribution bootstrap", () => {
 
     const startButton = await waitFor(() => {
       const btn = Array.from(document.querySelectorAll("button")).find((b) =>
-        /Start My AI Scan/i.test(b.textContent || ""),
+        /Scan my quote|Retry Scan/i.test(b.textContent || ""),
       );
       if (!btn) throw new Error("Start button not found");
       return btn;

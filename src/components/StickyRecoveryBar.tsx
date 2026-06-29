@@ -4,9 +4,9 @@ interface StickyRecoveryBarProps { stepsCompleted: number; county: string; isVis
 
 const getStatusCopy = (steps: number, flowMode: string, flowBLeadCaptured: boolean) => {
   if (flowMode === 'B') { if (!flowBLeadCaptured) return { line1: "Your baseline is being configured.", line2: "Takes less than a minute." }; return { line1: "Set your quote reminder to complete Flow B.", line2: "Your analysis is waiting." }; }
-  switch (steps) { case 0: return { line1: "Your scan is ready to configure.", line2: "Learn how to spot a bad deal." }; case 1: return { line1: "You answered 1 of 4 questions.", line2: "Takes less than a minute to finish." }; case 2: return { line1: "You're halfway through your scan.", line2: "Takes less than a minute to finish." }; case 3: return { line1: "One question left before your grade.", line2: "Your analysis is waiting." }; default: return { line1: "Your scan is configured — enter your details.", line2: "Your analysis is waiting." }; }
+  switch (steps) { case 0: return { line1: "Start your free quote check.", line2: "Takes less than a minute." }; default: return { line1: "Finish your quote check.", line2: "Your analysis is waiting." }; }
 };
-const getCtaText = (steps: number, flowMode: string, flowBLeadCaptured: boolean) => { if (flowMode === 'B') { if (!flowBLeadCaptured) return "Continue to Baseline →"; return "Set My Reminder →"; } if (steps === 0) return "Start My Scan →"; if (steps >= 4) return "Unlock My Grade →"; return "Continue My Scan →"; };
+const getCtaText = (steps: number, flowMode: string, flowBLeadCaptured: boolean) => { if (flowMode === 'B') { if (!flowBLeadCaptured) return "Continue to Baseline →"; return "Set My Reminder →"; } if (steps === 0) return "Start Free →"; return "Continue →"; };
 const getCtaTarget = (flowMode: string, flowBLeadCaptured: boolean) => { if (flowMode === 'B') return flowBLeadCaptured ? "quote-watcher" : "market-baseline"; return "truth-gate"; };
 
 const StickyRecoveryBar = ({ stepsCompleted, county, isVisible, onDismiss, flowMode = 'A', flowBLeadCaptured = false, quoteWatcherSet = false, onDemoCTAClick, leadCaptured = false, isDevMode = false, gradeRevealed = false, onContractorMatchClick }: StickyRecoveryBarProps) => {

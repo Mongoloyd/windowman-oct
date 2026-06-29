@@ -1,6 +1,6 @@
 import { ClipboardList, UploadCloud } from "lucide-react";
 import { nextStepPanelCopy } from "@/lib/nextdoor/pathRouter";
-import { isValidNextdoorSessionId } from "@/lib/nextdoor/nextdoorSession";
+import { hasTrustedContactIdentity } from "@/components/TruthGateFlow";
 import { NextdoorQuoteUpload } from "./NextdoorQuoteUpload";
 import type { QuoteReadiness } from "./types";
 import { nextdoorPrimaryCtaClass, nextdoorSecondaryCtaClass } from "./nextdoorUi";
@@ -51,7 +51,7 @@ type PrepPanelProps = {
   attributionSaveUrl?: string;
 };
 
-const QUOTE_READY_SCROLL_CTA = "Save details to unlock upload";
+const QUOTE_READY_SCROLL_CTA = "Save my details to continue";
 
 function UploadPlaceholder({ pendingSave = false }: { pendingSave?: boolean }) {
   return (
@@ -61,7 +61,7 @@ function UploadPlaceholder({ pendingSave = false }: { pendingSave?: boolean }) {
     >
       <UploadCloud className="mx-auto h-7 w-7 text-slate-300" aria-hidden="true" />
       <p className="mt-3 text-sm font-semibold text-slate-500">
-        {pendingSave ? "Upload unlocks after you save your details" : "Upload area"}
+        {pendingSave ? "Upload opens once your details are saved" : "Upload area"}
       </p>
       <p className="mt-1 text-xs leading-relaxed text-slate-400">
         {pendingSave
@@ -70,7 +70,7 @@ function UploadPlaceholder({ pendingSave = false }: { pendingSave?: boolean }) {
       </p>
       {pendingSave ? (
         <span className="mt-4 inline-block rounded-full border border-slate-200 bg-white/80 px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-          Locked until Step 3
+          Details first
         </span>
       ) : null}
     </div>
@@ -107,18 +107,23 @@ const SESSION_FALLBACK_COPY =
 export function NextdoorQuoteReadyPanel({
   identitySubmitted,
   sessionId,
+  leadId,
   attributionSaveUrl,
   onScrollToIdentity,
   onScanStart,
 }: {
   identitySubmitted: boolean;
   sessionId: string;
+  /** Contact-owned lead id (Sprint 2A) forwarded to NextdoorQuoteUpload. */
+  leadId?: string | null;
   attributionSaveUrl?: string;
   onScrollToIdentity: () => void;
   onScanStart: (fileName: string, scanSessionId: string) => void;
 }) {
-  const sessionValid = isValidNextdoorSessionId(sessionId);
-  const showUpload = identitySubmitted && sessionValid;
+  // Sprint 2E-B contact-owned upload contract: the usable upload mounts only
+  // when a trusted leadId + sessionId pair exists. `identitySubmitted` is a UI
+  // hint only and must never be the upload authorization condition.
+  const trustedIdentity = hasTrustedContactIdentity(leadId, sessionId);
   const copy = nextStepPanelCopy("has_estimate");
 
   return (
@@ -127,9 +132,9 @@ export function NextdoorQuoteReadyPanel({
         <span className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-wide text-primary">
           {copy.badge}
         </span>
-        {identitySubmitted ? (
+        {trustedIdentity ? (
           <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-wide text-amber-900">
-            Upload next
+            Upload when ready
           </span>
         ) : null}
       </div>
@@ -142,15 +147,24 @@ export function NextdoorQuoteReadyPanel({
             {copy.headline}
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-slate-600 md:text-base">{copy.body}</p>
-          {!identitySubmitted ? (
+          {!trustedIdentity ? (
             <p className="mt-3 text-xs leading-relaxed text-slate-500">
-              You&apos;ll see a safe preview first. Full details unlock after a quick phone check.
+              Your quote stays private.
             </p>
           ) : null}
         </div>
       </div>
 
-      {!identitySubmitted ? (
+      {trustedIdentity ? (
+        <div id="quote-ready-upload" className="scroll-mt-28">
+          <NextdoorQuoteUpload
+            sessionId={sessionId}
+            isVisible
+            leadId={leadId}
+            onScanStart={onScanStart}
+          />
+        </div>
+      ) : (
         <>
           <UploadPlaceholder pendingSave />
           <button
@@ -162,25 +176,15 @@ export function NextdoorQuoteReadyPanel({
             {QUOTE_READY_SCROLL_CTA}
           </button>
           <p className="mt-2 text-xs text-slate-500">
-            Takes you to the details step — nothing is saved yet.
+            {identitySubmitted
+              ? SESSION_FALLBACK_COPY
+              : "Takes you to the details step — nothing is saved yet."}
           </p>
         </>
-      ) : sessionValid ? (
-        <div id="quote-ready-upload" className="scroll-mt-28">
-          <NextdoorQuoteUpload
-            sessionId={sessionId}
-            isVisible={showUpload}
-            onScanStart={onScanStart}
-          />
-        </div>
-      ) : (
-        <p className="mt-6 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-950">
-          {SESSION_FALLBACK_COPY}
-        </p>
       )}
 
       {attributionSaveUrl ? (
-        <AttributionSaveLink url={attributionSaveUrl} subdued={identitySubmitted} />
+        <AttributionSaveLink url={attributionSaveUrl} subdued={trustedIdentity} />
       ) : null}
     </div>
   );

@@ -5,7 +5,8 @@ import StickyRecoveryBar from "@/components/StickyRecoveryBar";
 import StickyCTAFooter from "@/components/StickyCTAFooter";
 import HomepageBackdrop from "@/components/HomepageBackdrop";
 import { LazySection } from "@/components/LazySection";
-import TruthGateFlow from "@/components/TruthGateFlow";
+import TruthGateFlow, { hasTrustedContactIdentity } from "@/components/TruthGateFlow";
+import PostCaptureRouter, { type PostCapturePath } from "@/components/PostCaptureRouter";
 import UploadZone from "@/components/UploadZone";
 import ScanTheatrics from "@/components/ScanTheatrics";
 import { PostScanReportSwitcher } from "@/components/post-scan/PostScanReportSwitcher";
@@ -26,7 +27,7 @@ const QuoteSpreadShowcase = React.lazy(() => import("@/components/QuoteSpreadSho
 const Footer = React.lazy(() => import("@/components/Footer"));
 import { useAnalysisData } from "@/hooks/useAnalysisData";
 import { useHomepageVariant } from "@/hooks/useHomepageVariant";
-import { useScanFunnel, readPersistedFunnelSnapshot, clearPersistedFunnelKeys } from "@/state/scanFunnel";
+import { useScanFunnel, readPersistedFunnelSnapshot } from "@/state/scanFunnel";
 import { getVerifiedAccess, clearVerifiedAccess } from "@/lib/verifiedAccess";
 import {
   consumeHomepageDarkV2ReportReturn,
@@ -68,6 +69,22 @@ const SectionReserve = ({ className = "min-h-[420px]" }: { className?: string })
   <div className={`w-full bg-background ${className}`} aria-hidden="true" />
 );
 
+/**
+ * UI-only resume hint: restore upload-ready homepage state after refresh when
+ * ScanFunnelProvider already hydrated a trusted contact identity pair.
+ * Never treats localStorage as backend authorization.
+ */
+export function shouldRehydrateContactUpload(input: {
+  leadId: string | null | undefined;
+  sessionId: string | null | undefined;
+  persistedScanSessionId: string | null | undefined;
+  inProductPhase: boolean;
+}): boolean {
+  if (input.inProductPhase) return false;
+  if (input.persistedScanSessionId) return false;
+  return hasTrustedContactIdentity(input.leadId, input.sessionId);
+}
+
 const Index = () => {
   // ═══ DEV MODE: Uses Vite's built-in dev/prod flag ═══
   const IS_DEV_MODE = import.meta.env.DEV;
@@ -81,18 +98,27 @@ const Index = () => {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [scanSessionId, setScanSessionId] = useState<string | null>(null);
   const [leadCaptured, setLeadCaptured] = useState(false);
+  // Sprint 2F-C: after a trusted contact-owned capture, the homepage shows a
+  // post-capture intent router first. Only the "upload" path mounts a usable
+  // UploadZone; "upload_later"/"no_quote" are frontend-only placeholders that
+  // never touch the scan/upload backend. Default "router" = show the chooser.
+  const [postCapturePath, setPostCapturePath] = useState<PostCapturePath>("router");
+  const [contactResumedFromFunnel, setContactResumedFromFunnel] = useState(false);
+  const contactRehydrateCheckedRef = useRef(false);
   const [truthGateHighlight, setTruthGateHighlight] = useState(false);
   const [fileUploaded, setFileUploaded] = useState(false);
   const [gradeRevealed, setGradeRevealed] = useState(false);
   // contractorMatchVisible removed — CTAs now native in TruthReportClassic
   const [powerToolTriggered, setPowerToolTriggered] = useState(false);
-  const [stepsCompleted, setStepsCompleted] = useState(0);
-  const [selectedCounty, setSelectedCounty] = useState("your county");
+  const [selectedCounty] = useState("your county");
   const [recoveryBarDismissed, setRecoveryBarDismissed] = useState(
     () => localStorage.getItem("wm_recovery_bar_dismissed") === "true",
   );
   const [scrolledPast70, setScrolledPast70] = useState(false);
   const [timeOnPage, setTimeOnPage] = useState(false);
+  const [intakeResetKey, setIntakeResetKey] = useState(0);
+
+  const funnel = useScanFunnel();
 
   useEffect(() => {
     if (!IS_DEV_MODE) return;
@@ -182,11 +208,23 @@ const Index = () => {
     return false;
   }, []);
 
-  const handleStartOver = useCallback(() => {
+  const resetHomepageToFreshIntake = useCallback(() => {
     clearVerifiedAccess();
-    clearPersistedFunnelKeys();
     clearHomepageDarkV2ReportReturn();
+    funnel.clearFunnel();
+    shouldAutoResumeFullRef.current = false;
+
+    setLeadCaptured(false);
+    setSessionId(null);
+    setFileUploaded(false);
+    setGradeRevealed(false);
+    setScanSessionId(null);
     setPendingResume(null);
+    setPostCapturePath("router");
+    setContactResumedFromFunnel(false);
+    setTruthGateHighlight(false);
+    setIntakeResetKey((k) => k + 1);
+
     // Strip ?resume=1 from URL so a refresh stays on the hero.
     try {
       const url = new URL(window.location.href);
@@ -195,7 +233,11 @@ const Index = () => {
         window.history.replaceState({}, "", url.toString());
       }
     } catch { /* noop */ }
-  }, []);
+  }, [funnel]);
+
+  const handleStartOver = useCallback(() => {
+    resetHomepageToFreshIntake();
+  }, [resetHomepageToFreshIntake]);
 
   useEffect(() => {
     if (resumeCheckedRef.current) return;
@@ -274,6 +316,23 @@ const Index = () => {
     });
   }, []);
 
+  const scrollToPostCaptureRouter = () => {
+    const prefersReducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const anchor = document.getElementById("post-capture-router-anchor");
+        if (anchor && typeof anchor.scrollIntoView === "function") {
+          anchor.scrollIntoView({
+            behavior: prefersReducedMotion ? "auto" : "smooth",
+            block: "start",
+          });
+        }
+      });
+    });
+  };
+
   const triggerTruthGate = (source: string) => {
     trackEvent({ event_name: "cta_scan_funnel", session_id: sessionId, metadata: { source } });
     // Destructive reset: clear previous scan state so a fresh scan starts clean
@@ -305,8 +364,61 @@ const Index = () => {
   const showStickyCtaFooter =
     !showRecoveryBar && !isProductExperiencePhase && !powerToolTriggered;
 
-  const funnel = useScanFunnel();
   const { slug: queryClientSlug, ready: clientSlugReady } = useClientSlug();
+
+  // ── Homepage public upload mount guard (Sprint 2B-3B) ─────────────────
+  // The public upload area may become usable ONLY when the homepage holds a
+  // trusted contact-owned identity pair (valid leadId + sessionId). This is a
+  // UI guard only — backend `start-upload-scan-session` remains the authority.
+  // localStorage/funnel state is a UI resume hint, never authorization.
+  const trustedContactIdentity = hasTrustedContactIdentity(
+    funnel.leadId,
+    sessionId ?? funnel.sessionId,
+  );
+  // Scan/report resume (pendingResume / ?resume=1) takes precedence over the
+  // contact-upload paths below, so it is excluded from both branches.
+  const inUploadIntentPhase =
+    leadCaptured &&
+    !fileUploaded &&
+    !gradeRevealed &&
+    !shouldShowReport &&
+    pendingResume == null;
+  // Sprint 2F-C: with a trusted pair, the intent router owns the next screen.
+  // UploadZone is usable ONLY on the explicit "upload" path; the router shell
+  // (chooser + upload_later/no_quote placeholders) owns every other path.
+  const canMountUsableUpload =
+    inUploadIntentPhase && trustedContactIdentity && postCapturePath === "upload";
+  const showPostCaptureRouter =
+    inUploadIntentPhase && trustedContactIdentity && postCapturePath !== "upload";
+  const showContactUploadLock = inUploadIntentPhase && !trustedContactIdentity;
+
+  // Contact-only resume: funnel localStorage may hint upload-ready UI after refresh.
+  // Scan/report restore (pendingResume / ?resume=1) takes precedence over this path.
+  useEffect(() => {
+    if (contactRehydrateCheckedRef.current) return;
+    contactRehydrateCheckedRef.current = true;
+
+    const snapshot = readPersistedFunnelSnapshot();
+    const inProductPhase = fileUploaded || gradeRevealed || scanSessionId != null;
+
+    if (
+      !shouldRehydrateContactUpload({
+        leadId: funnel.leadId,
+        sessionId: funnel.sessionId,
+        persistedScanSessionId: snapshot?.scanSessionId ?? null,
+        inProductPhase,
+      })
+    ) {
+      return;
+    }
+
+    setLeadCaptured(true);
+    setSessionId(funnel.sessionId);
+    setContactResumedFromFunnel(true);
+    // Refresh returns the user to the intent router (not a re-capture and not a
+    // forced UploadZone). Backend remains the upload authority.
+    setPostCapturePath("router");
+  }, [funnel.leadId, funnel.sessionId, fileUploaded, gradeRevealed, scanSessionId]);
 
   useEffect(() => {
     if (!clientSlugReady || !queryClientSlug || funnel.clientSlug === queryClientSlug) return;
@@ -565,21 +677,67 @@ const Index = () => {
                 </React.Suspense>
                 <div className="scroll-mt-24">
                   <TruthGateFlow
+                    key={intakeResetKey}
                     onLeadCaptured={(sid) => {
                       setLeadCaptured(true);
                       setSessionId(sid);
-                    }}
-                    onStepChange={(step, county) => {
-                      setStepsCompleted(step);
-                      setSelectedCounty(county);
+                      // Fresh capture lands on the intent router, not UploadZone.
+                      setPostCapturePath("router");
+                      setPendingResume(null);
+                      scrollToPostCaptureRouter();
                     }}
                     highlight={truthGateHighlight}
                     onHighlightDone={() => setTruthGateHighlight(false)}
                   />
                 </div>
+                {showPostCaptureRouter ? (
+                  <PostCaptureRouter
+                    selectedPath={postCapturePath}
+                    onSelectPath={setPostCapturePath}
+                    onUploadNow={() => setPostCapturePath("upload")}
+                  />
+                ) : null}
+                {canMountUsableUpload && contactResumedFromFunnel ? (
+                  <div
+                    className="mx-auto mt-6 max-w-2xl rounded-lg border border-border/60 bg-card/80 px-4 py-3 text-center shadow-sm"
+                    role="status"
+                  >
+                    <p className="font-body text-sm font-medium text-foreground">
+                      You&apos;re ready to upload your quote.
+                    </p>
+                    <p className="mt-1 font-body text-xs text-muted-foreground">
+                      We saved your place from your last step.
+                    </p>
+                  </div>
+                ) : null}
+                {showContactUploadLock ? (
+                  <div
+                    className="mx-auto mt-6 max-w-2xl rounded-2xl border border-border/60 bg-card/80 px-6 py-8 text-center shadow-sm"
+                    role="status"
+                  >
+                    <h3 className="font-display text-xl font-extrabold tracking-[0.01em] text-foreground sm:text-2xl">
+                      Don&rsquo;t let a window quote sit unchecked
+                    </h3>
+                    <p className="mx-auto mt-3 max-w-xl font-body text-sm leading-relaxed text-muted-foreground">
+                      Start a free quote check in under a minute. We&rsquo;ll save your place,
+                      then you can upload your estimate when it&rsquo;s ready.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        scrollToTruthGate();
+                        setTruthGateHighlight(true);
+                      }}
+                      className="mt-5 inline-flex items-center justify-center rounded-lg bg-primary px-6 py-3 font-body text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+                    >
+                      Start Free
+                    </button>
+                  </div>
+                ) : null}
                 <UploadZone
-                  isVisible={leadCaptured}
-                  sessionId={sessionId || undefined}
+                  isVisible={canMountUsableUpload}
+                  sessionId={sessionId ?? funnel.sessionId ?? undefined}
+                  leadId={funnel.leadId}
                   onUploadReset={() => {
                     setScanSessionId(null);
                     setFileUploaded(false);
@@ -635,16 +793,7 @@ const Index = () => {
             <>
               <div id="truth-report-top" className="max-w-4xl mx-auto px-4 pt-4 flex justify-end">
                 <button
-                  onClick={() => {
-                    clearVerifiedAccess();
-                    clearPersistedFunnelKeys();
-                    clearHomepageDarkV2ReportReturn();
-                    setScanSessionId(null);
-                    setFileUploaded(false);
-                    setGradeRevealed(false);
-                    setLeadCaptured(false);
-                    setPendingResume(null);
-                  }}
+                  onClick={resetHomepageToFreshIntake}
                   className="group flex items-center gap-2 px-5 py-2.5 rounded-lg border border-border/60 bg-card/80 backdrop-blur-sm text-muted-foreground text-sm font-medium transition-all duration-200 hover:border-primary/40 hover:text-primary hover:shadow-[0_0_12px_hsl(var(--primary)/0.15)]"
                 >
                   <RotateCcw size={14} className="transition-transform duration-300 group-hover:-rotate-180" />
@@ -786,7 +935,7 @@ const Index = () => {
             <React.Suspense fallback={null}>
               <ExitIntentPhoneModal
               suppressExitIntent={suppressExitIntent}
-              stepsCompleted={stepsCompleted}
+              stepsCompleted={0}
               flowMode="A"
               leadCaptured={leadCaptured}
               flowBLeadCaptured={false}
@@ -810,7 +959,7 @@ const Index = () => {
           )}
 
           <StickyRecoveryBar
-            stepsCompleted={stepsCompleted}
+            stepsCompleted={0}
             county={selectedCounty}
             isVisible={showRecoveryBar}
             onDismiss={() => setRecoveryBarDismissed(true)}

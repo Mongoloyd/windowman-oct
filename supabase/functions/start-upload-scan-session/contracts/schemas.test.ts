@@ -174,8 +174,22 @@ Deno.test("rejects file_name over 512 chars", () => {
 });
 
 Deno.test("rejects unknown property via .strict()", () => {
-  const r = RequestSchema.safeParse(validBody({ lead_id: "injected" }));
+  // `lead_id` is now a known optional field, so use a truly unknown key to
+  // prove the schema still rejects unexpected properties.
+  const r = RequestSchema.safeParse(validBody({ bogus_field: "nope" }));
   assert(!r.success);
+});
+
+Deno.test("RequestSchema accepts optional valid lead_id UUID", () => {
+  const r = RequestSchema.safeParse(validBody({ lead_id: SECOND_UUID }));
+  assert(r.success, JSON.stringify(r));
+});
+
+Deno.test("RequestSchema rejects invalid lead_id", () => {
+  expectIssuePath(
+    RequestSchema.safeParse(validBody({ lead_id: "not-a-uuid" })),
+    "lead_id",
+  );
 });
 
 Deno.test("accepts optional attribution and query_params", () => {
@@ -266,6 +280,8 @@ Deno.test("ResponseSchema accepts each known error code", () => {
     "lead_create_failed",
     "quote_file_create_failed",
     "scan_session_create_failed",
+    "contact_required_before_upload",
+    "session_mismatch_with_lead",
     "unexpected_error",
   ] as const;
   for (const code of codes) {
