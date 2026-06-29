@@ -30,7 +30,7 @@ describe("PostCaptureRouter", () => {
   it("renders three intent options on the router path", () => {
     setup("router");
     expect(screen.getByTestId("post-capture-router")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Upload my quote" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Scan my quote" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save my spot" })).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Show me what to check" }),
@@ -46,7 +46,7 @@ describe("PostCaptureRouter", () => {
 
   it("quote-ready card triggers onUploadNow", () => {
     const { onUploadNow, onSelectPath } = setup("router");
-    fireEvent.click(screen.getByRole("button", { name: "Upload my quote" }));
+    fireEvent.click(screen.getByRole("button", { name: "Scan my quote" }));
     expect(onUploadNow).toHaveBeenCalledTimes(1);
     expect(onSelectPath).not.toHaveBeenCalled();
   });

@@ -176,7 +176,7 @@ async function selectFile(file: File) {
 async function findStartButton(): Promise<HTMLElement> {
   return await waitFor(() => {
     const buttons = Array.from(document.querySelectorAll("button"));
-    const btn = buttons.find((b) => /Start My AI Scan/i.test(b.textContent || ""));
+    const btn = buttons.find((b) => /Scan my quote/i.test(b.textContent || ""));
     if (!btn) throw new Error("Start button not found");
     return btn as HTMLElement;
   });
@@ -489,7 +489,7 @@ describe("UploadZone — UUID guard on RPC retry paths (PREP-2A-PATCH)", () => {
     await waitFor(() => {
       const buttons = Array.from(document.querySelectorAll("button"));
       const hasAction = buttons.some((b) =>
-        /Retry Scan|Start My AI Scan/i.test(b.textContent || "")
+        /Retry Scan|Scan my quote/i.test(b.textContent || "")
       );
       expect(hasAction).toBe(true);
     });

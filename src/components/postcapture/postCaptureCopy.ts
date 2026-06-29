@@ -6,26 +6,29 @@
  * Intentionally free of mechanical funnel or gate-style wording.
  */
 export const POST_CAPTURE_ROUTER_COPY = {
-  headline: "You're in. What are you working with?",
+  headline: "You're in. Choose your quote path.",
   supporting:
-    "Pick the option that fits today. We'll keep your quote check and results together.",
+    "Pick the route that fits today. We'll keep your quote check and results together.",
+  trustLine:
+    "Private check \u00b7 no contractor sees your quote unless you choose",
   cards: {
     upload: {
       title: "I have my quote",
       subcopy: "Upload it now for a private WindowMan scan.",
-      cta: "Upload my quote",
+      cta: "Scan my quote",
+      badge: "Fastest path",
     },
     upload_later: {
       title: "I have a quote, but not here",
-      subcopy:
-        "Save your spot and come back when the estimate is on this device.",
+      subcopy: "Come back when the estimate is on this device.",
       cta: "Save my spot",
+      badge: "Save your place",
     },
     no_quote: {
       title: "I don't have a quote yet",
-      subcopy:
-        "Get quote-ready before a contractor puts numbers in front of you.",
+      subcopy: "Know what to ask before a contractor prices the job.",
       cta: "Show me what to check",
+      badge: "Get quote-ready",
     },
   },
   uploadLater: {

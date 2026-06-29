@@ -1,6 +1,12 @@
-import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo, type DragEvent, type RefObject } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Upload } from "lucide-react";
+import {
+  Camera,
+  FileCheck2,
+  RefreshCcw,
+  ShieldCheck,
+  Upload,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { trackEvent } from "@/lib/trackEvent";
 import { trackGtmEvent } from "@/lib/trackConversion";
@@ -131,6 +137,189 @@ const isValidUuid = (value: unknown): value is string =>
 function firstRpcRow<T>(data: T[] | T | null | undefined): T | null {
   if (Array.isArray(data)) return data[0] ?? null;
   return data ?? null;
+}
+
+type ProgressState = { pct: number; label: string };
+
+function UploadDropSurface({
+  file,
+  isDragOver,
+  inputRef,
+  onDropzoneClick,
+  onDrop,
+  onDragOver,
+  onDragLeave,
+  onFileChange,
+  onReset,
+  formatSize,
+}: {
+  file: File | null;
+  isDragOver: boolean;
+  inputRef: RefObject<HTMLInputElement | null>;
+  onDropzoneClick: () => void;
+  onDrop: (e: DragEvent) => void;
+  onDragOver: (e: DragEvent) => void;
+  onDragLeave: () => void;
+  onFileChange: (f: File) => void;
+  onReset: () => void;
+  formatSize: (bytes: number) => string;
+}) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      aria-label={file ? `Selected file ${file.name}` : "Upload your quote file"}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onDropzoneClick();
+        }
+      }}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+      onClick={onDropzoneClick}
+      className={`group relative mt-6 cursor-pointer overflow-hidden rounded-2xl border-2 border-dashed px-6 py-10 text-center transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
+        isDragOver
+          ? "border-primary bg-primary/10 shadow-[0_0_0_4px_rgba(37,99,235,0.12),0_22px_60px_-38px_rgba(37,99,235,0.75)] scale-[1.01]"
+          : "border-primary/30 bg-gradient-to-b from-white to-primary/[0.04] shadow-[var(--shadow-sunken)] hover:border-primary/55 hover:shadow-[0_22px_60px_-42px_rgba(37,99,235,0.55)]"
+      }`}
+    >
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".pdf,image/*"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) onFileChange(f);
+        }}
+        style={{ display: "none" }}
+      />
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 bg-gradient-to-r from-transparent via-primary/10 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100 motion-reduce:opacity-0"
+      />
+      {!file ? (
+        <>
+          <div
+            className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-primary/25 bg-gradient-to-b from-primary/15 to-blue-50 text-primary shadow-[0_14px_38px_-24px_rgba(37,99,235,0.7)] transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:scale-[1.02] motion-reduce:transform-none"
+          >
+            <Upload size={34} aria-hidden="true" />
+          </div>
+          <p className="font-body text-[16px] font-bold text-foreground">
+            Drag your quote here
+          </p>
+          <p className="mt-1.5 font-body text-[13px] text-muted-foreground">
+            or click to browse — PDF, photo, or screenshot
+          </p>
+        </>
+      ) : (
+        <div onClick={(e) => e.stopPropagation()}>
+          <div
+            className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-primary/25 bg-gradient-to-b from-primary/15 to-blue-50 text-primary shadow-[0_14px_38px_-24px_rgba(37,99,235,0.7)]"
+          >
+            <FileCheck2 size={34} aria-hidden="true" />
+          </div>
+          <p className="font-body text-[13px] font-bold uppercase tracking-[0.16em] text-primary">
+            Quote received
+          </p>
+          <p className="mt-1 font-body text-[13px] text-muted-foreground">
+            Ready to scan.
+          </p>
+          <p className="mx-auto mt-2 max-w-md truncate font-body text-[15px] font-semibold text-foreground">
+            {file.name}
+          </p>
+          <p className="mt-0.5 font-body text-xs text-muted-foreground">
+            {formatSize(file.size)}
+          </p>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onReset();
+            }}
+            className="mt-3 inline-flex items-center justify-center gap-1.5 rounded-full border border-primary/20 bg-white px-3 py-1.5 font-body text-xs font-semibold text-primary shadow-sm transition-colors hover:bg-primary/5"
+          >
+            <RefreshCcw className="h-3.5 w-3.5" aria-hidden="true" />
+            Change file
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function UploadProgressPanel({ progress }: { progress: ProgressState }) {
+  return (
+    <div className="mt-5 rounded-2xl border border-primary/20 bg-gradient-to-b from-primary/8 to-white p-4 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <span className="inline-flex items-center gap-2 font-body text-[13px] font-semibold text-foreground">
+          <span className="relative flex h-2.5 w-2.5 motion-reduce:hidden">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-30" />
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-primary" />
+          </span>
+          {progress.label}
+        </span>
+        <span className="font-mono text-[12px] tabular-nums text-primary">
+          {progress.pct}%
+        </span>
+      </div>
+      <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white shadow-inner">
+        <motion.div
+          className="h-full rounded-full"
+          style={{ background: "linear-gradient(90deg, #4DA3FF, #2563EB)" }}
+          animate={{ width: `${progress.pct}%` }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+        />
+      </div>
+      <div className="mt-3 grid gap-1.5 text-[12px] text-muted-foreground sm:grid-cols-3">
+        <span>Securing document</span>
+        <span>Reading line items</span>
+        <span>Checking quote structure</span>
+      </div>
+    </div>
+  );
+}
+
+function UploadErrorPanel({
+  uploadError,
+  uploadErrorDiag,
+  busy,
+  uploading,
+  onRetry,
+}: {
+  uploadError: string;
+  uploadErrorDiag: string | null;
+  busy: boolean;
+  uploading: boolean;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="mt-4 rounded-2xl border border-destructive/30 bg-destructive/5 p-4">
+      <p className="mb-3 text-center font-body text-[13px] font-medium text-destructive">
+        {uploadError}
+      </p>
+      <button
+        type="button"
+        onClick={onRetry}
+        disabled={busy}
+        className="btn-depth-primary w-full"
+        style={{
+          height: 44,
+          fontSize: 14,
+          opacity: busy ? 0.7 : 1,
+          cursor: busy ? "not-allowed" : "pointer",
+        }}
+      >
+        {uploading ? "Retrying..." : "Retry Scan →"}
+      </button>
+      {uploadErrorDiag && import.meta.env.DEV && (
+        <p className="mt-2 break-all text-center font-mono text-[11px] text-muted-foreground">
+          {uploadErrorDiag}
+        </p>
+      )}
+    </div>
+  );
 }
 
 // Storage-path helpers extracted to ./uploadZone/storagePath for testability.
@@ -669,116 +858,77 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId, leadId: 
           animate={{ opacity: 1, height: "auto", y: 0 }}
           exit={{ opacity: 0, height: 0 }}
           transition={{ duration: 0.15 }}
-          className="overflow-hidden max-w-2xl mx-auto mt-6"
+          className="mx-auto mt-6 max-w-2xl overflow-hidden"
+          data-testid="upload-zone"
         >
-          <div className="card-raised p-7 md:p-8">
-            <span className="inline-block wm-eyebrow text-primary bg-primary/10 px-3 py-1 mb-5">UPLOAD YOUR QUOTE</span>
-            <h2 className="font-display text-[26px] text-foreground font-extrabold tracking-[0.02em] uppercase mb-2">
+          <div className="card-raised-hero border-t-2 border-t-primary p-7 md:p-8">
+            <div className="mb-5 flex flex-wrap items-center gap-2">
+              <span
+                className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-primary"
+              >
+                <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                Private quote scan
+              </span>
+              <span
+                className="rounded-full border border-slate-200/80 bg-white/90 px-3 py-1 text-[11px] font-semibold text-muted-foreground shadow-sm"
+              >
+                60-second first pass
+              </span>
+            </div>
+            <h2 className="font-display text-[26px] font-extrabold leading-tight tracking-[0.01em] text-foreground md:text-[32px]">
               Drop your quote to start the scan.
             </h2>
-            <p className="wm-body mb-7">
-              Upload Your Quote Or Estimate and I'll Forensically Analyze it in 60 Seconds.
+            <p className="mt-3 max-w-xl font-body text-[15px] leading-relaxed text-muted-foreground md:text-base">
+              WindowMan checks scope gaps, price traps, missing proof, and warranty
+              loopholes before you sign.
             </p>
 
-            {/* ── Dropzone ── */}
-            <div
+            <UploadDropSurface
+              file={file}
+              isDragOver={isDragOver}
+              inputRef={inputRef}
+              onDropzoneClick={handleDropzoneClick}
+              onDrop={handleDrop}
               onDragOver={(e) => {
                 e.preventDefault();
                 setIsDragOver(true);
               }}
               onDragLeave={() => setIsDragOver(false)}
-              onDrop={handleDrop}
-              onClick={handleDropzoneClick}
-              className={`border-2 border-dashed text-center cursor-pointer transition-all py-12 px-8 input-well ${
-                isDragOver ? "border-primary" : "border-border/60"
-              }`}
-            >
-              <input
-                ref={inputRef}
-                type="file"
-                accept=".pdf,image/*"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) handleFile(f);
-                }}
-                style={{ display: "none" }}
-              />
+              onFileChange={handleFile}
+              onReset={resetUploadSelection}
+              formatSize={formatSize}
+            />
 
-              {!file ? (
-                <>
-                  <Upload size={48} className="text-muted-foreground mx-auto mb-3" />
-                  <p className="font-body text-[15px] text-foreground font-semibold">Drag your quote here</p>
-                  <p className="font-body text-[13px] text-muted-foreground mt-1">or click to browse files</p>
-                </>
-              ) : (
-                <div onClick={(e) => e.stopPropagation()}>
-                  <div
-                    className="flex items-center justify-center mx-auto w-12 h-12 bg-primary/10 mb-3"
-                    style={{ borderRadius: "var(--radius-btn)" }}
-                  >
-                    <span className="text-primary text-2xl font-bold">✓</span>
-                  </div>
-                  <p className="font-body text-[15px] text-foreground font-semibold">{file.name}</p>
-                  <p className="font-body text-xs text-muted-foreground mt-0.5">{formatSize(file.size)}</p>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      resetUploadSelection();
-                    }}
-                    className="font-body text-xs text-primary bg-transparent border-none underline cursor-pointer mt-2"
-                  >
-                    Change file
-                  </button>
-                </div>
-              )}
+            <div
+              className="mt-4 flex items-start justify-center gap-2 rounded-2xl border border-primary/15 bg-gradient-to-b from-white to-primary/[0.04] px-4 py-3 text-center shadow-sm"
+            >
+              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+              <p className="font-body text-[13px] leading-relaxed text-muted-foreground">
+                No contractor receives your quote unless you choose to share it.
+              </p>
             </div>
 
             {fileError && (
-              <p className="font-body text-[13px] text-destructive text-center mt-3 font-medium">{fileError}</p>
-            )}
-
-            {/* ── Live progress (tied to real scan_sessions.status) ── */}
-            {showProgress && (
-              <div className="mt-5">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="font-body text-[12px] text-muted-foreground font-medium">{progress.label}</span>
-                  <span className="font-mono text-[12px] text-primary tabular-nums">{progress.pct}%</span>
-                </div>
-                <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
-                  <motion.div
-                    className="h-full rounded-full"
-                    style={{ background: "linear-gradient(90deg, #4DA3FF, #2563EB)" }}
-                    animate={{ width: `${progress.pct}%` }}
-                    transition={{ duration: 0.4, ease: "easeOut" }}
-                  />
-                </div>
+              <div
+                className="mt-3 rounded-xl border border-orange-400/40 bg-orange-50/80 px-4 py-3 text-center"
+                role="alert"
+              >
+                <p className="font-body text-[13px] font-medium text-orange-700">
+                  {fileError}
+                </p>
               </div>
             )}
 
-            {/* ── Error + retry (only after a scan was attempted) ── */}
+            {showProgress && <UploadProgressPanel progress={progress} />}
+
             {uploadError && !uploading && (
-              <div className="mt-4 p-3 rounded-md border border-destructive/30 bg-destructive/5">
-                <p className="font-body text-[13px] text-destructive text-center font-medium mb-2">{uploadError}</p>
-                <button
-                  onClick={handleScan}
-                  disabled={busy}
-                  className="btn-depth-primary w-full"
-                  style={{
-                    height: 44,
-                    fontSize: 14,
-                    opacity: busy ? 0.7 : 1,
-                    cursor: busy ? "not-allowed" : "pointer",
-                  }}
-                >
-                  {uploading ? "Retrying..." : "Retry Scan →"}
-                </button>
-                {/* Dev/preview-only diagnostic. Never rendered in prod. */}
-                {uploadErrorDiag && import.meta.env.DEV && (
-                  <p className="font-mono text-[11px] text-muted-foreground text-center mt-2 break-all">
-                    {uploadErrorDiag}
-                  </p>
-                )}
-              </div>
+              <UploadErrorPanel
+                uploadError={uploadError}
+                uploadErrorDiag={uploadErrorDiag}
+                busy={busy}
+                uploading={uploading}
+                onRetry={handleScan}
+              />
             )}
 
             {file && !uploadError && (
@@ -788,41 +938,47 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId, leadId: 
                 transition={{ duration: 0.15 }}
                 onClick={handleScan}
                 disabled={busy}
-                className="btn-depth-primary w-full mt-5"
+                className="btn-depth-primary mt-5 w-full rounded-xl"
                 style={{
-                  height: 54,
+                  minHeight: 54,
+                  padding: "14px 20px",
                   fontSize: 17,
+                  lineHeight: 1.35,
                   opacity: busy ? 0.7 : 1,
                   cursor: busy ? "not-allowed" : "pointer",
                 }}
               >
                 {uploading
-                  ? "Uploading..."
+                  ? "Securing your quote..."
                   : activeScanSessionId !== null
-                    ? "Scanning..."
-                    : "Start My AI Scan →"}
+                    ? "Preparing scan..."
+                    : "Scan my quote →"}
               </motion.button>
             )}
 
-            <p className="font-body text-[13px] text-muted-foreground text-center mt-4">
-              Don't Have a Digital Copy?{" "}
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  trackEvent({ event_name: "photo_option_clicked" });
-                  if (inputRef.current) {
-                    inputRef.current.value = "";
-                    inputRef.current.click();
-                  }
-                }}
-                className="font-body text-[13px] text-primary bg-transparent border-none underline cursor-pointer"
-              >
-                Take a Photo With Your Phone →
-              </button>
-            </p>
-            <p className="font-body text-[11px] text-muted-foreground text-center mt-4">
-              Accepted: PDF, JPG, PNG, HEIC · Max file size: 10MB
+            <div className="mt-5 rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3 text-center shadow-sm">
+              <p className="font-body text-[13px] text-muted-foreground">
+                No digital copy?{" "}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    trackEvent({ event_name: "photo_option_clicked" });
+                    if (inputRef.current) {
+                      inputRef.current.value = "";
+                      inputRef.current.click();
+                    }
+                  }}
+                  className="inline-flex items-center gap-1 font-body text-[13px] font-semibold text-primary underline-offset-4 hover:underline"
+                >
+                  <Camera className="h-3.5 w-3.5" aria-hidden="true" />
+                  Take a photo with your phone →
+                </button>
+              </p>
+            </div>
+            <p className="mt-4 text-center font-body text-[11px] text-muted-foreground">
+              Drag it here or click to browse · PDF, JPG, PNG, WEBP, HEIC · Max 10MB
             </p>
           </div>
         </motion.div>

@@ -136,7 +136,6 @@ const ValidationIcon = ({ valid }: { valid: boolean }) => (
 );
 
 const ContactCaptureStep = ({
-  showNoQuoteHelper,
   firstName,
   email,
   phone,
@@ -149,7 +148,6 @@ const ContactCaptureStep = ({
   onFieldBlur,
   onSubmit,
 }: {
-  showNoQuoteHelper: boolean;
   firstName: string;
   email: string;
   phone: string;
@@ -172,21 +170,35 @@ const ContactCaptureStep = ({
     className="flex flex-col gap-5"
     style={{ fontFamily: CONTACT_FONT }}
   >
-    <div className="rounded-xl border border-border bg-card/90 p-6 shadow backdrop-blur-sm">
-      <h2 className="text-2xl font-semibold leading-tight text-foreground">
-        Don&rsquo;t let a window quote sit unchecked
+    <div
+      className="rounded-xl border border-primary/20 bg-gradient-to-b from-white to-primary/[0.06] p-6 shadow-[var(--shadow-elevated)]"
+    >
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <span
+          className="inline-flex items-center rounded-full border border-slate-200/80 bg-white/90 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground shadow-sm"
+        >
+          Quote
+        </span>
+        <span
+          className="inline-flex items-center rounded-full border border-primary/25 bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary shadow-sm"
+        >
+          Scan
+        </span>
+      </div>
+      <h2 className="font-display text-2xl font-extrabold leading-tight tracking-[0.01em] text-foreground sm:text-[28px]">
+        Get the right window quote — then scan it before you sign.
       </h2>
       <p className="mt-3 text-base leading-relaxed text-muted-foreground">
-        Start a free quote check in under a minute.
+        Have a quote already? Scan it in 60 seconds. Still waiting on one? Start
+        here and we&apos;ll keep everything together.
       </p>
-      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-        WindowMan is where you start &mdash; and stop guessing about windows.
+      <p className="mt-3 flex items-start gap-2 text-sm leading-relaxed text-muted-foreground">
+        <Shield className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+        <span>
+          Free check. Private by default. No contractor sees your quote unless you
+          choose.
+        </span>
       </p>
-      {showNoQuoteHelper ? (
-        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-          Have a quote? You&rsquo;ll upload it next. Still waiting on one? You can start here.
-        </p>
-      ) : null}
     </div>
 
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
@@ -363,7 +375,6 @@ const TruthGateFlow = ({
   });
   const funnel = useScanFunnelSafe();
   const [eyebrowText] = useState(() => resolveContactEyebrow());
-  const [isNoQuote] = useState(() => getUtmData().wm_intent === "no_quote");
 
   const unlockAfterContactCapture = useCallback(
     (sessionId: string) => {
@@ -605,7 +616,6 @@ const TruthGateFlow = ({
         >
           <AnimatePresence mode="wait">
             <ContactCaptureStep
-              showNoQuoteHelper={isNoQuote}
               firstName={fields.firstName}
               email={fields.email}
               phone={fields.phone}

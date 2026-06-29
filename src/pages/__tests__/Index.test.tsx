@@ -340,7 +340,7 @@ describe("Index contact resume rehydration", () => {
     expect(invokeMock).not.toHaveBeenCalled();
 
     // Choosing the quote-ready path then mounts a usable UploadZone.
-    fireEvent.click(screen.getByRole("button", { name: "Upload my quote" }));
+    fireEvent.click(screen.getByRole("button", { name: "Scan my quote" }));
 
     await waitFor(() => {
       expect(screen.getByTestId("upload-zone")).toBeInTheDocument();
@@ -428,7 +428,7 @@ describe("Index homepage upload mount guard (Sprint 2B-3B)", () => {
     });
     expect(screen.queryByTestId("upload-zone")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Upload my quote" }));
+    fireEvent.click(screen.getByRole("button", { name: "Scan my quote" }));
 
     await waitFor(() => {
       expect(screen.getByTestId("upload-zone")).toBeInTheDocument();
@@ -541,7 +541,7 @@ describe("Index post-capture intent router (Sprint 2F-C)", () => {
       expect(screen.getByTestId("post-capture-router")).toBeInTheDocument();
     });
     expect(screen.queryByTestId("upload-zone")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Upload my quote" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Scan my quote" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save my spot" })).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Show me what to check" }),
@@ -693,7 +693,7 @@ describe("Index UploadZone sessionId fallback (Sprint 2G-F)", () => {
       expect(screen.getByTestId("post-capture-router")).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Upload my quote" }));
+    fireEvent.click(screen.getByRole("button", { name: "Scan my quote" }));
 
     await waitFor(() => {
       expect(screen.getByTestId("upload-zone")).toBeInTheDocument();
