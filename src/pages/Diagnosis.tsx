@@ -9,7 +9,9 @@ import { StepPrescription } from "./diagnosis/components/StepPrescription";
 import { SuccessScreen } from "./diagnosis/components/SuccessScreen";
 import { MarketingSections } from "./diagnosis/components/MarketingSections";
 
-const PAGE_BG = "linear-gradient(170deg, #dce8f4 0%, #e4edf6 30%, #eaeff8 60%, #dde6f2 100%)";
+import { PAGE_GRADIENT_CLASS } from "./diagnosis/components/prescription/prescriptionTokens";
+
+const PAGE_BG = PAGE_GRADIENT_CLASS;
 
 const Diagnosis = () => {
   const navigate = useNavigate();
@@ -19,8 +21,7 @@ const Diagnosis = () => {
   if (intake.hydrationStatus === "pending") {
     return (
       <div
-        className="min-h-screen flex items-center justify-center font-sans text-foreground"
-        style={{ background: PAGE_BG }}
+        className={`min-h-screen flex items-center justify-center font-sans text-foreground ${PAGE_BG}`}
       >
         <div className="flex flex-col items-center gap-3">
           <div className="h-8 w-8 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
@@ -34,8 +35,7 @@ const Diagnosis = () => {
   if (intake.hydrationStatus === "failed") {
     return (
       <div
-        className="min-h-screen flex items-center justify-center px-6 font-sans text-foreground"
-        style={{ background: PAGE_BG }}
+        className={`min-h-screen flex items-center justify-center px-6 font-sans text-foreground ${PAGE_BG}`}
       >
         <div className="max-w-md text-center bg-white/70 backdrop-blur-md rounded-2xl border border-border/60 p-8 shadow-sm">
           <h1 className="font-display text-2xl font-bold mb-3">Start from your report</h1>
@@ -57,7 +57,7 @@ const Diagnosis = () => {
   // ── Success state ─────────────────────────────────────────────────────────
   if (intake.step === "success") {
     return (
-      <div style={{ background: PAGE_BG }} className="min-h-screen">
+      <div className={`min-h-screen ${PAGE_BG}`}>
         <PostUploadProgressRail activeStep={5} compact />
         <SuccessScreen
           context={intake.context}
@@ -72,8 +72,7 @@ const Diagnosis = () => {
   return (
     <div
       ref={intake.pageTopRef}
-      className="min-h-screen font-sans text-foreground selection:bg-cobalt/20 relative overflow-hidden"
-      style={{ background: PAGE_BG }}
+      className={`min-h-screen font-sans text-foreground selection:bg-cobalt/20 relative overflow-hidden ${PAGE_BG}`}
     >
       {/* Nav */}
       <nav className="border-b border-border/60 px-6 py-4 flex items-center justify-between sticky top-0 bg-white/70 backdrop-blur-md z-50">
