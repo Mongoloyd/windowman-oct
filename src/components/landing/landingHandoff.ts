@@ -1,13 +1,64 @@
 /**
  * Safe navigation helpers for the landing page.
  * Phase 1: anchors and canonical homepage handoff only — no scanner/backend calls.
+ *
+ * Attribution allowlist mirrors keys captured in `src/lib/useUtmCapture.ts`.
+ * Do not import from tracking/UTM modules — keep this file dependency-free.
  */
 
-const TRUTH_GATE_PATH = "/#truth-gate";
+/** Safe query params to forward to the canonical homepage Truth Gate handoff. */
+const HANDOFF_PARAM_ALLOWLIST = [
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_content",
+  "utm_term",
+  "gclid",
+  "gbraid",
+  "wbraid",
+  "fbclid",
+  "ttclid",
+  "msclkid",
+  "ndclid",
+  "nd_lead_id",
+  "nd_form_id",
+  "nd_ad_id",
+  "nd_ad_group_id",
+  "nd_campaign_id",
+  "client_slug",
+  "client",
+  "partner",
+  "syndicate",
+] as const;
+
+export type CanonicalWmIntent = "has_quote" | "no_quote";
+
+const TRUTH_GATE_HASH = "#truth-gate";
 
 function prefersReducedMotion(): boolean {
   if (typeof window === "undefined") return false;
   return window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
+}
+
+/**
+ * Build a canonical homepage Truth Gate URL from the current page query string.
+ * Copies only allowlisted attribution params, sets wm_intent, and appends #truth-gate.
+ */
+export function buildCanonicalTruthGateHandoffUrl(intent: CanonicalWmIntent): string {
+  const outbound = new URLSearchParams();
+
+  if (typeof window !== "undefined") {
+    const inbound = new URLSearchParams(window.location.search);
+    for (const key of HANDOFF_PARAM_ALLOWLIST) {
+      const value = inbound.get(key)?.trim();
+      if (value) outbound.set(key, value);
+    }
+  }
+
+  outbound.set("wm_intent", intent);
+
+  const query = outbound.toString();
+  return query ? `/?${query}${TRUTH_GATE_HASH}` : `/?wm_intent=${intent}${TRUTH_GATE_HASH}`;
 }
 
 export function scrollToLandingSection(sectionId: string): void {
@@ -23,7 +74,7 @@ export function scrollToLandingSection(sectionId: string): void {
 /** Hand off quote-ready users to the canonical homepage contact gate. */
 export function handoffToCanonicalUpload(): void {
   if (typeof window === "undefined") return;
-  window.location.assign(TRUTH_GATE_PATH);
+  window.location.assign(buildCanonicalTruthGateHandoffUrl("has_quote"));
 }
 
 export function handoffToFirstQuotePath(): void {
