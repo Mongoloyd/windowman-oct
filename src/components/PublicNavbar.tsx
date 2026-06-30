@@ -1,7 +1,8 @@
 import "@fontsource/dm-sans/800.css";
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import BrandLogo from "@/components/BrandLogo";
 
 interface PublicNavbarProps {
   ctaText?: string;
@@ -11,7 +12,7 @@ interface PublicNavbarProps {
 /**
  * PublicNavbar — reusable public marketing header.
  *
- * Extracted from LinearHeader (homepage). Visual design is identical.
+ * Uses the canonical homepage BrandLogo.
  *
  * Homepage-specific behaviour note:
  * - On `/`, Index.tsx continues to use `LinearHeader` directly, passing
@@ -51,26 +52,7 @@ const PublicNavbar = ({ ctaText = "Get Started Free", onCtaClick }: PublicNavbar
       }}
     >
       <div className="flex items-center justify-between px-4 md:px-8">
-        {/* Logo */}
-        <Link
-          to="/"
-          className="select-none group relative inline-flex items-center gap-2"
-          aria-label="WindowMan.app home"
-        >
-          <span className="relative overflow-hidden inline-flex">
-            <span
-              role="img"
-              aria-label="shield"
-              className="text-[20px] transition-all duration-300 group-hover:drop-shadow-[0_0_6px_rgba(37,99,235,0.7)]"
-            >
-              🛡️
-            </span>
-          </span>
-          <span className="font-display" style={{ fontWeight: 800, fontSize: 20, letterSpacing: "0.02em" }}>
-            <span className="text-foreground">WINDOW</span>
-            <span style={{ color: "#3e8fda" }}>MAN</span>
-          </span>
-        </Link>
+        <BrandLogo to="/" useRouterLink size="md" ariaLabel="WindowMan.app home" />
 
         {/* Desktop nav — compact CTA */}
         <div className="hidden md:flex items-center gap-3">
