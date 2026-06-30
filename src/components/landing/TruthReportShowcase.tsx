@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import {
   handoffToCanonicalUpload,
-  handoffToFirstQuoteEducation,
+  openFirstQuoteIntake,
   handoffToProductEducation,
 } from "./landingHandoff";
 import { sampleReportCards, type SampleReportStatus } from "./sampleReportData";
@@ -87,7 +87,7 @@ export default function TruthReportShowcase() {
           </button>
           <button
             type="button"
-            onClick={() => handoffToFirstQuoteEducation()}
+            onClick={() => openFirstQuoteIntake()}
             className={cn(
               "btn-secondary-tactile w-full px-7 py-3.5 text-[15px] sm:w-auto",
               landingCtaMinH,

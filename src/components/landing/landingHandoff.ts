@@ -77,13 +77,21 @@ export function handoffToCanonicalUpload(): void {
   window.location.assign(buildCanonicalTruthGateHandoffUrl("has_quote"));
 }
 
-export function handoffToFirstQuotePath(): void {
-  scrollToLandingSection("visitor-router");
+export const FIRST_QUOTE_INTAKE_EVENT = "wm-landing-open-first-quote-intake";
+
+/** Open the guided first-quote intelligence intake modal on /windowman. */
+export function openFirstQuoteIntake(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(FIRST_QUOTE_INTAKE_EVENT));
 }
 
-/** Scroll to product education for first-quote / no-quote guidance. */
+export function handoffToFirstQuotePath(): void {
+  openFirstQuoteIntake();
+}
+
+/** @deprecated Use openFirstQuoteIntake — opens intake modal instead of scrolling. */
 export function handoffToFirstQuoteEducation(): void {
-  scrollToLandingSection("product-education");
+  openFirstQuoteIntake();
 }
 
 const REVEAL_EDUCATION_EVENT = "wm-landing-reveal-education";

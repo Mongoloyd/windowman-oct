@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { handoffToCanonicalUpload, handoffToFirstQuoteEducation } from "./landingHandoff";
+import { handoffToCanonicalUpload, openFirstQuoteIntake } from "./landingHandoff";
 import {
   landingContainerMid,
   landingCtaMinH,
@@ -45,7 +45,7 @@ export default function FinalCTASection() {
             </p>
             <button
               type="button"
-              onClick={() => handoffToFirstQuoteEducation()}
+              onClick={() => openFirstQuoteIntake()}
               className={cn(
                 "btn-secondary-tactile w-full px-7 py-3.5 text-[15px]",
                 landingCtaMinH,

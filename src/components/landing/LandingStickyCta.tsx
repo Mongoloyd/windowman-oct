@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { handoffToCanonicalUpload, handoffToFirstQuoteEducation } from "./landingHandoff";
+import { handoffToCanonicalUpload, openFirstQuoteIntake } from "./landingHandoff";
 import { landingCtaMinH, landingFocusRing } from "./landingTypes";
 
 type LandingStickyCtaProps = {
@@ -29,7 +29,7 @@ export default function LandingStickyCta({ visible }: LandingStickyCtaProps) {
         </button>
         <button
           type="button"
-          onClick={() => handoffToFirstQuoteEducation()}
+          onClick={() => openFirstQuoteIntake()}
           className={cn(
             "btn-secondary-tactile shrink-0 px-3 py-3 text-sm",
             landingCtaMinH,

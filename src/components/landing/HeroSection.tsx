@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import {
   handoffToCanonicalUpload,
-  handoffToFirstQuotePath,
+  openFirstQuoteIntake,
   handoffToSystemExplainer,
 } from "./landingHandoff";
 import {
@@ -139,7 +139,7 @@ export default function HeroSection() {
               </button>
               <button
                 type="button"
-                onClick={() => handoffToFirstQuotePath()}
+                onClick={() => openFirstQuoteIntake()}
                 className={cn(
                   "btn-secondary-tactile w-full px-7 py-3.5 text-[15px] sm:w-auto",
                   landingCtaMinH,

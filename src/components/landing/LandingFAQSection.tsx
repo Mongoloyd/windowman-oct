@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import type { LandingFaqItem } from "./landingTypes";
 import {
   handoffToCanonicalUpload,
-  handoffToFirstQuoteEducation,
+  openFirstQuoteIntake,
 } from "./landingHandoff";
 import {
   landingContainerNarrow,
@@ -226,7 +226,7 @@ export default function LandingFAQSection({ expandedItems, onToggleItem }: Landi
           </button>
           <button
             type="button"
-            onClick={() => handoffToFirstQuoteEducation()}
+            onClick={() => openFirstQuoteIntake()}
             className={cn(
               "btn-secondary-tactile w-full px-7 py-3.5 text-[15px] sm:w-auto",
               landingCtaMinH,

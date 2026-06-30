@@ -14,12 +14,15 @@ import LandingFAQSection from "./LandingFAQSection";
 import FinalCTASection from "./FinalCTASection";
 import LandingFooter from "./LandingFooter";
 import LandingStickyCta from "./LandingStickyCta";
+import FirstQuoteIntakeModal from "./FirstQuoteIntakeModal";
+import { FIRST_QUOTE_INTAKE_EVENT } from "./landingHandoff";
 
 export default function WindowManLandingPage() {
   const [selectedIntent, setSelectedIntent] = useState<LandingIntent>(null);
   const [expandedEducationModules, setExpandedEducationModules] = useState<string[]>([]);
   const [expandedFaqItems, setExpandedFaqItems] = useState<string[]>([]);
   const [stickyCtaVisible, setStickyCtaVisible] = useState(false);
+  const [firstQuoteIntakeOpen, setFirstQuoteIntakeOpen] = useState(false);
 
   const toggleEducationModule = useCallback((moduleId: string) => {
     setExpandedEducationModules((prev) =>
@@ -31,6 +34,12 @@ export default function WindowManLandingPage() {
     setExpandedFaqItems((prev) =>
       prev.includes(itemId) ? prev.filter((id) => id !== itemId) : [...prev, itemId],
     );
+  }, []);
+
+  useEffect(() => {
+    const openIntake = () => setFirstQuoteIntakeOpen(true);
+    window.addEventListener(FIRST_QUOTE_INTAKE_EVENT, openIntake);
+    return () => window.removeEventListener(FIRST_QUOTE_INTAKE_EVENT, openIntake);
   }, []);
 
   useEffect(() => {
@@ -98,6 +107,10 @@ export default function WindowManLandingPage() {
       </main>
       <LandingFooter />
       <LandingStickyCta visible={stickyCtaVisible} />
+      <FirstQuoteIntakeModal
+        open={firstQuoteIntakeOpen}
+        onOpenChange={setFirstQuoteIntakeOpen}
+      />
     </div>
   );
 }

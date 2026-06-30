@@ -3,7 +3,7 @@ import type { LandingIntent } from "./landingTypes";
 import {
   handoffToCanonicalUpload,
   handoffToCompareGuidance,
-  handoffToFirstQuoteEducation,
+  openFirstQuoteIntake,
   handoffToSystemExplainer,
 } from "./landingHandoff";
 import {
@@ -39,7 +39,7 @@ const cards: RouterCard[] = [
     description:
       "Start with guidance on what a strong estimate should include before you talk to contractors.",
     ctaLabel: "Help Me Get My First Quote",
-    onCta: handoffToFirstQuoteEducation,
+    onCta: openFirstQuoteIntake,
   },
   {
     id: "compare_quotes",
