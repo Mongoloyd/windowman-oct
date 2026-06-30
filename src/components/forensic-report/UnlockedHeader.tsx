@@ -4,6 +4,7 @@
  */
 import { ShieldCheck, Lock } from "lucide-react";
 import { useMemo } from "react";
+import BrandLogo from "@/components/BrandLogo";
 import { formatReportId } from "./tokens";
 
 interface Props {
@@ -38,6 +39,15 @@ export default function UnlockedHeader({ analysisId, generatedAt, verifiedPhone 
       />
       <div className="relative flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div className="min-w-0">
+          <div className="mb-4">
+            <BrandLogo
+              href="/"
+              size="sm"
+              ariaLabel="WindowMan.app home"
+              wordmarkClassName="text-[hsl(var(--fr-text))]"
+            />
+          </div>
+
           <div className="flex items-center gap-2 mb-3">
             <span
               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide uppercase"
