@@ -156,22 +156,40 @@ async function submitContactForm() {
   });
 }
 
-function expectContactFirstCopy() {
-  expect(
-    screen.getByText(/Don.t let a window quote sit unchecked/),
-  ).toBeInTheDocument();
-  expect(
-    screen.getByText("Start a free quote check in under a minute."),
-  ).toBeInTheDocument();
-  expect(
-    screen.getByText(/WindowMan is where you start/),
-  ).toBeInTheDocument();
+/** Asserts durable contact-first intake surface — not fragile marketing copy. */
+function expectContactFirstSurface(options?: { paidNetworkLabel?: string }) {
+  expect(document.getElementById("truth-gate")).toBeInTheDocument();
+
+  // Contact capture controls (stable placeholders + submit CTA)
+  expect(screen.getByPlaceholderText("Your first name")).toBeInTheDocument();
+  expect(screen.getByPlaceholderText("your@email.com")).toBeInTheDocument();
+  expect(screen.getByPlaceholderText("(555) 555-5555")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Start Free" })).toBeInTheDocument();
+
+  // Structural quote/scan framing badges (not headline copy)
+  expect(screen.getByText("Quote", { exact: true })).toBeInTheDocument();
+  expect(screen.getByText("Scan", { exact: true })).toBeInTheDocument();
+
+  // Legacy four-question quiz blocker must not appear on contact-first path
   expect(
     screen.queryByText("How many windows are in your project?"),
   ).not.toBeInTheDocument();
   expect(screen.queryByText(/STEP 1 OF 4/i)).not.toBeInTheDocument();
   expect(screen.queryByText(/CONFIGURE YOUR SCAN/i)).not.toBeInTheDocument();
+  expect(
+    screen.queryByText("Let's prep you before the window sales appointment."),
+  ).not.toBeInTheDocument();
+
+  if (options?.paidNetworkLabel) {
+    expect(
+      screen.getByText(new RegExp(`FROM ${options.paidNetworkLabel}`, "i")),
+    ).toBeInTheDocument();
+  } else {
+    expect(screen.getByText(/FREE QUOTE CHECK/i)).toBeInTheDocument();
+    expect(screen.queryByText(/FROM NEXTDOOR/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/FROM TIKTOK/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/FROM META/i)).not.toBeInTheDocument();
+  }
 }
 
 describe("TruthGateFlow contact-first intake", () => {
@@ -208,7 +226,7 @@ describe("TruthGateFlow contact-first intake", () => {
 
     render(<TruthGateFlow />);
 
-    expectContactFirstCopy();
+    expectContactFirstSurface();
   });
 
   it("submits null quiz scalars for organic/default traffic", async () => {
@@ -278,8 +296,7 @@ describe("TruthGateFlow contact-first intake", () => {
 
     render(<TruthGateFlow onLeadCaptured={onLeadCaptured} />);
 
-    expectContactFirstCopy();
-    expect(screen.getByText(/FROM NEXTDOOR/i)).toBeInTheDocument();
+    expectContactFirstSurface({ paidNetworkLabel: "NEXTDOOR" });
 
     await submitContactForm();
 
@@ -313,17 +330,6 @@ describe("TruthGateFlow contact-first intake", () => {
 
     render(<TruthGateFlow />);
 
-    expectContactFirstCopy();
-    expect(
-      screen.getByText(
-        /Have a quote\? You.ll upload it next\. Still waiting on one\? You can start here\./,
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByText("Let's prep you before the window sales appointment."),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByText("How many windows are in your project?"),
-    ).not.toBeInTheDocument();
+    expectContactFirstSurface({ paidNetworkLabel: "NEXTDOOR" });
   });
 });
