@@ -6,6 +6,12 @@ import {
   handoffToFirstQuoteEducation,
   handoffToSystemExplainer,
 } from "./landingHandoff";
+import {
+  landingContainerWide,
+  landingCtaMinH,
+  landingFocusRing,
+  landingSectionPad,
+} from "./landingTypes";
 
 type RouterCard = {
   id: Exclude<LandingIntent, null>;
@@ -83,7 +89,7 @@ export default function VisitorIdentityRouter({
         <button
           type="button"
           onClick={() => onSelectIntent(card.id)}
-          className="mb-3 text-left"
+          className={cn("mb-3 w-full text-left", landingFocusRing)}
           aria-pressed={isSelected}
         >
           <h3
@@ -117,8 +123,10 @@ export default function VisitorIdentityRouter({
           className={cn(
             card.dominant ? "btn-depth-primary" : "btn-secondary-tactile",
             "w-full",
+            landingCtaMinH,
+            landingFocusRing,
+            isCompact ? "px-4 py-2.5 text-sm" : "px-5 py-3 text-sm",
           )}
-          style={{ padding: isCompact ? "10px 14px" : "12px 20px", fontSize: isCompact ? 13 : 14 }}
         >
           {card.ctaLabel}
         </button>
@@ -127,8 +135,11 @@ export default function VisitorIdentityRouter({
   };
 
   return (
-    <section id="visitor-router" className="border-t border-border px-4 py-14 md:px-8 md:py-20">
-      <div className="mx-auto max-w-7xl">
+    <section
+      id="visitor-router"
+      className={cn("border-t border-border bg-background", landingSectionPad)}
+    >
+      <div className={landingContainerWide}>
         <p className="wm-eyebrow mb-3 text-primary">CHOOSE YOUR WINDOWMAN PATH</p>
         <h2 className="wm-title-section mb-4 text-foreground">Where are you in the quote process?</h2>
         <p className="mb-10 max-w-3xl wm-body leading-relaxed text-muted-foreground">

@@ -1,3 +1,6 @@
+import { cn } from "@/lib/utils";
+import { landingContainerWide, landingSectionPad } from "./landingTypes";
+
 const signals = [
   {
     title: "Scope patterns",
@@ -19,13 +22,15 @@ const signals = [
 
 export default function IntelligenceDatabaseSection() {
   return (
-    <section id="intelligence-database" className="px-4 py-16 md:px-8 md:py-20">
-      <div className="mx-auto max-w-7xl">
+    <section id="intelligence-database" className={cn("bg-background", landingSectionPad)}>
+      <div className={landingContainerWide}>
         <p className="wm-eyebrow mb-3 text-primary">Quote-intelligence database</p>
-        <h2 className="wm-title-section mb-4 text-foreground">Market signals built from real quote patterns</h2>
-        <p className="mb-10 max-w-2xl wm-body text-muted-foreground">
+        <h2 className="wm-title-section mb-4 text-foreground">
+          Market signals built from real quote patterns
+        </h2>
+        <p className="mb-10 max-w-3xl text-base leading-relaxed text-muted-foreground">
           WindowMan maintains a quote-intelligence database of scope patterns and market signals to
-          help homeowners compare quotes with more context — forensic tone, not surveillance.
+          help homeowners compare quotes with more context — educational tone, not surveillance.
         </p>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {signals.map((signal) => (

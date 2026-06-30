@@ -56,3 +56,7 @@ export function handoffToSystemExplainer(): void {
 export function handoffToFaq(): void {
   scrollToLandingSection("faq");
 }
+
+export function handoffToProductEducation(): void {
+  scrollToLandingSection("product-education");
+}

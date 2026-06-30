@@ -19,7 +19,6 @@ export default function WindowManLandingPage() {
   const [selectedIntent, setSelectedIntent] = useState<LandingIntent>(null);
   const [expandedEducationModules, setExpandedEducationModules] = useState<string[]>([]);
   const [expandedFaqItems, setExpandedFaqItems] = useState<string[]>([]);
-  const [sampleReportExpanded, setSampleReportExpanded] = useState(false);
   const [stickyCtaVisible, setStickyCtaVisible] = useState(false);
 
   const toggleEducationModule = useCallback((moduleId: string) => {
@@ -37,51 +36,48 @@ export default function WindowManLandingPage() {
   useEffect(() => {
     const hero = document.getElementById("hero");
     const finalCta = document.getElementById("final-cta");
+    const footer = document.getElementById("landing-footer");
     if (!hero) return;
+
+    let heroInView = true;
+    let finalInView = false;
+    let footerInView = false;
+
+    const syncSticky = () => {
+      setStickyCtaVisible(!heroInView && !finalInView && !footerInView);
+    };
 
     const heroObserver = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) {
-          setStickyCtaVisible(false);
-        }
+        heroInView = entry.isIntersecting;
+        syncSticky();
       },
-      { threshold: 0.1 },
+      { threshold: 0, rootMargin: "-72px 0px 0px 0px" },
     );
 
-    const scrollObserver = new IntersectionObserver(
+    const bottomObserver = new IntersectionObserver(
       ([entry]) => {
-        if (!entry.isIntersecting && entry.boundingClientRect.top < 0) {
-          setStickyCtaVisible(true);
-        }
+        if (entry.target.id === "final-cta") finalInView = entry.isIntersecting;
+        if (entry.target.id === "landing-footer") footerInView = entry.isIntersecting;
+        syncSticky();
       },
-      { threshold: 0 },
+      { threshold: 0.08 },
     );
 
     heroObserver.observe(hero);
-    scrollObserver.observe(hero);
-
-    let finalCtaObserver: IntersectionObserver | null = null;
-    if (finalCta) {
-      finalCtaObserver = new IntersectionObserver(
-        ([entry]) => {
-          if (entry.isIntersecting) setStickyCtaVisible(false);
-        },
-        { threshold: 0.2 },
-      );
-      finalCtaObserver.observe(finalCta);
-    }
+    if (finalCta) bottomObserver.observe(finalCta);
+    if (footer) bottomObserver.observe(footer);
 
     return () => {
       heroObserver.disconnect();
-      scrollObserver.disconnect();
-      finalCtaObserver?.disconnect();
+      bottomObserver.disconnect();
     };
   }, []);
 
   return (
-    <div className="min-h-screen bg-background pb-20 md:pb-0 [&_section]:scroll-mt-20">
+    <div className="min-h-screen bg-background pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] md:pb-0 [&_section]:scroll-mt-20">
       <LandingHeader />
-      <main>
+      <main id="landing-main">
         <HeroSection />
         <FounderIntro />
         <MarketAsymmetrySection />
@@ -95,10 +91,7 @@ export default function WindowManLandingPage() {
           onToggleModule={toggleEducationModule}
         />
         <IntelligenceDatabaseSection />
-        <TruthReportShowcase
-          expanded={sampleReportExpanded}
-          onToggle={() => setSampleReportExpanded((prev) => !prev)}
-        />
+        <TruthReportShowcase />
         <TrustCredibilitySection />
         <LandingFAQSection expandedItems={expandedFaqItems} onToggleItem={toggleFaqItem} />
         <FinalCTASection />

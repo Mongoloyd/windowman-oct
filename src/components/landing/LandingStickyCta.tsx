@@ -1,33 +1,40 @@
-import { handoffToCanonicalUpload, handoffToFirstQuotePath } from "./landingHandoff";
+import { cn } from "@/lib/utils";
+import { handoffToCanonicalUpload, handoffToFirstQuoteEducation } from "./landingHandoff";
+import { landingCtaMinH, landingFocusRing } from "./landingTypes";
 
 type LandingStickyCtaProps = {
   visible: boolean;
 };
 
 export default function LandingStickyCta({ visible }: LandingStickyCtaProps) {
-  if (!visible) return null;
-
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card p-3 md:hidden"
-      style={{ boxShadow: "var(--shadow-shelf-up)" }}
+      className={cn(
+        "fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 p-3 backdrop-blur-sm md:hidden",
+        "pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] shadow-[var(--shadow-shelf-up)]",
+        "transition-transform duration-300 motion-reduce:transition-none",
+        visible ? "translate-y-0" : "pointer-events-none translate-y-full",
+      )}
       role="region"
       aria-label="Quick actions"
+      aria-hidden={!visible}
     >
-      <div className="mx-auto flex max-w-lg items-center gap-3">
+      <div className="mx-auto flex max-w-lg items-center gap-2">
         <button
           type="button"
           onClick={() => handoffToCanonicalUpload()}
-          className="btn-depth-primary min-h-[48px] flex-1"
-          style={{ padding: "12px 16px", fontSize: 14 }}
+          className={cn("btn-depth-primary flex-1 px-4 py-3 text-sm", landingCtaMinH, landingFocusRing)}
         >
           Analyze My Quote
         </button>
         <button
           type="button"
-          onClick={() => handoffToFirstQuotePath()}
-          className="shrink-0 text-sm font-medium text-primary underline-offset-4 hover:underline"
-          style={{ minHeight: 48, padding: "0 8px" }}
+          onClick={() => handoffToFirstQuoteEducation()}
+          className={cn(
+            "btn-secondary-tactile shrink-0 px-3 py-3 text-sm",
+            landingCtaMinH,
+            landingFocusRing,
+          )}
         >
           Need a quote?
         </button>

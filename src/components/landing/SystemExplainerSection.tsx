@@ -1,3 +1,6 @@
+import { cn } from "@/lib/utils";
+import { landingContainerWide, landingSectionPad } from "./landingTypes";
+
 const steps = [
   {
     title: "Quote Document",
@@ -27,11 +30,14 @@ const steps = [
 
 export default function SystemExplainerSection() {
   return (
-    <section id="system-explainer" className="border-t border-border bg-card px-4 py-14 md:px-8 md:py-20">
-      <div className="mx-auto max-w-7xl">
+    <section
+      id="system-explainer"
+      className={cn("border-t border-border bg-card", landingSectionPad)}
+    >
+      <div className={landingContainerWide}>
         <p className="wm-eyebrow mb-3 text-primary">How WindowMan works</p>
         <h2 className="wm-title-section mb-4 text-foreground">From quote document to Truth Report</h2>
-        <p className="mb-10 max-w-3xl wm-body leading-relaxed text-muted-foreground">
+        <p className="mb-10 max-w-3xl text-base leading-relaxed text-muted-foreground">
           A quote by itself is hard to judge. WindowMan breaks it into the parts that actually matter:
           product details, labor scope, permit language, payment terms, warranty, exclusions, and pricing
           structure. Then those details become plain-English quote intelligence.
@@ -46,7 +52,7 @@ export default function SystemExplainerSection() {
               <h3 className="mb-2 font-display text-sm font-bold leading-snug text-foreground">
                 {step.title}
               </h3>
-              <p className="text-xs leading-relaxed text-muted-foreground">{step.body}</p>
+              <p className="text-sm leading-relaxed text-muted-foreground">{step.body}</p>
               {index < steps.length - 1 ? (
                 <span
                   className="absolute -right-2 top-1/2 hidden -translate-y-1/2 text-primary/40 xl:block"

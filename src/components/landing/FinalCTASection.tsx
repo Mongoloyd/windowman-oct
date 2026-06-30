@@ -1,9 +1,19 @@
-import { handoffToCanonicalUpload, handoffToFirstQuotePath } from "./landingHandoff";
+import { cn } from "@/lib/utils";
+import { handoffToCanonicalUpload, handoffToFirstQuoteEducation } from "./landingHandoff";
+import {
+  landingContainerMid,
+  landingCtaMinH,
+  landingFocusRing,
+  landingSectionPad,
+} from "./landingTypes";
 
 export default function FinalCTASection() {
   return (
-    <section id="final-cta" className="border-t border-border px-4 py-14 md:px-8 md:py-24">
-      <div className="mx-auto max-w-5xl">
+    <section
+      id="final-cta"
+      className={cn("border-t border-border bg-background", landingSectionPad)}
+    >
+      <div className={landingContainerMid}>
         <p className="wm-eyebrow mb-3 text-center text-primary">READY TO TAKE CONTROL?</p>
         <h2 className="wm-title-section mb-4 text-center text-foreground">
           Choose your path to a smarter window project.
@@ -22,8 +32,7 @@ export default function FinalCTASection() {
             <button
               type="button"
               onClick={() => handoffToCanonicalUpload()}
-              className="btn-depth-primary w-full"
-              style={{ padding: "14px 28px", fontSize: 15 }}
+              className={cn("btn-depth-primary w-full px-7 py-3.5 text-[15px]", landingCtaMinH, landingFocusRing)}
             >
               Analyze My Quote
             </button>
@@ -36,9 +45,12 @@ export default function FinalCTASection() {
             </p>
             <button
               type="button"
-              onClick={() => handoffToFirstQuotePath()}
-              className="btn-secondary-tactile w-full"
-              style={{ padding: "14px 28px", fontSize: 15 }}
+              onClick={() => handoffToFirstQuoteEducation()}
+              className={cn(
+                "btn-secondary-tactile w-full px-7 py-3.5 text-[15px]",
+                landingCtaMinH,
+                landingFocusRing,
+              )}
             >
               Help Me Get My First Quote
             </button>

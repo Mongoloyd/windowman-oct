@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import type { EducationModuleId, QuoteAnatomyZoneId } from "./landingTypes";
+import { landingFocusRing } from "./landingTypes";
 
 type AnatomyZone = {
   id: QuoteAnatomyZoneId;
@@ -69,8 +70,8 @@ export default function QuoteAnatomyDiagram({
                   key={zone.id}
                   type="button"
                   className={cn(
-                    "rounded border px-2.5 py-2.5 text-left text-[11px] font-semibold leading-tight transition-colors",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+                    "rounded border px-2.5 py-3 text-left text-xs font-semibold leading-tight transition-colors sm:text-[11px]",
+                    landingFocusRing,
                     isWide && "col-span-2 sm:col-span-3",
                     isActive
                       ? "border-primary/50 bg-primary/10 text-primary"
@@ -82,6 +83,7 @@ export default function QuoteAnatomyDiagram({
                   onBlur={() => setHoveredZone(null)}
                   onClick={() => onZoneFocus?.(zone.moduleId)}
                   aria-pressed={isActive}
+                  aria-label={`Sample quote zone: ${zone.label}`}
                 >
                   {zone.label}
                 </button>
@@ -94,7 +96,7 @@ export default function QuoteAnatomyDiagram({
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-2 lg:flex-col lg:justify-center" aria-hidden="true">
+        <div className="flex flex-wrap gap-2 lg:hidden" aria-hidden="true">
           {zones.map((zone) => (
             <div
               key={zone.id}

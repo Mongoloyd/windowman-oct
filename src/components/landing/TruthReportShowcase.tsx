@@ -1,66 +1,111 @@
-const sampleFindings = [
-  { label: "Permit handling language", status: "Needs Clarification" as const },
-  { label: "Product approval details", status: "Needs Review" as const },
-  { label: "Warranty scope", status: "High Risk" as const },
-  { label: "Line-item scope completeness", status: "Strong" as const },
-];
+import { cn } from "@/lib/utils";
+import {
+  handoffToCanonicalUpload,
+  handoffToFirstQuoteEducation,
+  handoffToProductEducation,
+} from "./landingHandoff";
+import { sampleReportCards, type SampleReportStatus } from "./sampleReportData";
+import {
+  landingContainerWide,
+  landingCtaMinH,
+  landingFocusRing,
+  landingSectionPad,
+} from "./landingTypes";
 
-type TruthReportShowcaseProps = {
-  expanded: boolean;
-  onToggle: () => void;
-};
+function statusTone(status: SampleReportStatus): string {
+  switch (status) {
+    case "Strong Next Step":
+      return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400";
+    case "Needs Review":
+      return "bg-amber-500/10 text-amber-700 dark:text-amber-400";
+    case "Review Before Signing":
+      return "bg-primary/10 text-primary";
+    default:
+      return "bg-muted text-muted-foreground";
+  }
+}
 
-export default function TruthReportShowcase({ expanded, onToggle }: TruthReportShowcaseProps) {
+export default function TruthReportShowcase() {
   return (
-    <section id="sample-report" className="border-t border-border bg-card px-4 py-16 md:px-8 md:py-20">
-      <div className="mx-auto max-w-7xl">
-        <p className="wm-eyebrow mb-3 text-primary">Sample report preview</p>
-        <h2 className="wm-title-section mb-2 text-foreground">See what a Truth Report surfaces</h2>
-        <p className="mb-2 text-sm font-medium text-muted-foreground">
-          Representative example — not your personal results.
+    <section
+      id="sample-report"
+      className={cn("border-t border-border bg-card", landingSectionPad)}
+    >
+      <div className={landingContainerWide}>
+        <p className="wm-eyebrow mb-3 text-primary">SAMPLE TRUTH REPORT PREVIEW</p>
+        <h2 className="wm-title-section mb-4 text-foreground">
+          See what a Truth Report surfaces before you sign.
+        </h2>
+        <p className="mb-3 max-w-3xl text-base leading-relaxed text-muted-foreground">
+          A Truth Report turns a confusing estimate into clear questions, scope signals, payment
+          concerns, warranty clarity, and next steps. This is a sample preview — not a personalized
+          finding from your quote.
         </p>
-        <p className="mb-10 max-w-2xl text-sm text-muted-foreground">
-          Your actual report depends on your uploaded quote. Full Truth Report access requires mobile
-          verification on the canonical WindowMan flow.
+        <p className="mb-10 max-w-3xl text-xs leading-relaxed text-muted-foreground">
+          Sample report preview only. Your actual Truth Report is generated from your uploaded quote.
         </p>
 
-        <div className="card-raised-hero max-w-2xl p-6">
-          <div className="mb-4 flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary">
-              Sample report preview
-            </span>
-            <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-              Representative example
-            </span>
-          </div>
-
-          <ul className="space-y-3" aria-label="Sample report findings">
-            {sampleFindings.map((finding) => (
-              <li
-                key={finding.label}
-                className="flex flex-col gap-1 border-b border-border pb-3 last:border-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
-              >
-                <span className="text-sm font-medium text-foreground">{finding.label}</span>
-                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  {finding.status}
+        <div
+          className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+          role="list"
+          aria-label="Sample Truth Report sections"
+        >
+          {sampleReportCards.map((card) => (
+            <article
+              key={card.id}
+              role="listitem"
+              className="card-raised flex flex-col p-5 md:p-6"
+            >
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <h3 className="font-display text-base font-bold text-foreground">{card.title}</h3>
+                <span
+                  className={cn(
+                    "inline-flex shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                    statusTone(card.status),
+                  )}
+                >
+                  <span className="sr-only">Status: </span>
+                  {card.status}
                 </span>
-              </li>
-            ))}
-          </ul>
+              </div>
+              <p className="flex-1 text-sm leading-relaxed text-muted-foreground">{card.copy}</p>
+            </article>
+          ))}
+        </div>
 
-          {expanded ? (
-            <p className="mt-4 text-sm text-muted-foreground">
-              Additional sample sections — pricing context, scope notes, and homeowner protection
-              reminders — would appear here in a later phase. Still representative only.
-            </p>
-          ) : null}
-
+        <div className="mt-10 flex flex-col gap-3 border-t border-border pt-8 sm:flex-row sm:flex-wrap">
           <button
             type="button"
-            onClick={onToggle}
-            className="mt-6 text-sm font-medium text-primary underline-offset-4 hover:underline"
+            onClick={() => handoffToCanonicalUpload()}
+            className={cn(
+              "btn-depth-primary w-full px-7 py-3.5 text-[15px] sm:w-auto",
+              landingCtaMinH,
+              landingFocusRing,
+            )}
           >
-            {expanded ? "Collapse sample preview" : "View Sample Truth Report"}
+            Analyze My Quote
+          </button>
+          <button
+            type="button"
+            onClick={() => handoffToFirstQuoteEducation()}
+            className={cn(
+              "btn-secondary-tactile w-full px-7 py-3.5 text-[15px] sm:w-auto",
+              landingCtaMinH,
+              landingFocusRing,
+            )}
+          >
+            Help Me Get My First Quote
+          </button>
+          <button
+            type="button"
+            onClick={() => handoffToProductEducation()}
+            className={cn(
+              "btn-secondary-tactile w-full px-5 py-3 text-sm sm:w-auto",
+              landingCtaMinH,
+              landingFocusRing,
+            )}
+          >
+            Show Me What WindowMan Checks
           </button>
         </div>
       </div>

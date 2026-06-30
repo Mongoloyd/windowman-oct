@@ -1,6 +1,8 @@
 import { Link } from "react-router-dom";
 import BrandLogo from "@/components/BrandLogo";
+import { cn } from "@/lib/utils";
 import { handoffToCanonicalUpload } from "./landingHandoff";
+import { landingContainerMid, landingCtaMinH, landingFocusRing } from "./landingTypes";
 
 const legalLinks = [
   { label: "Privacy", to: "/privacy" },
@@ -14,11 +16,15 @@ export default function LandingFooter() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="mt-8 border-t border-border bg-card" aria-label="Landing page footer">
-      <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
+    <footer
+      id="landing-footer"
+      className="border-t border-border bg-card"
+      aria-label="Landing page footer"
+    >
+      <div className={cn(landingContainerMid, "px-4 py-12 sm:px-6 lg:px-8")}>
         <BrandLogo to="/windowman" useRouterLink size="sm" ariaLabel="WindowMan landing home" />
 
-        <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+        <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground">
           WindowMan helps Florida homeowners review impact-window quotes before signing. Not a
           contractor marketplace.
         </p>
@@ -29,7 +35,10 @@ export default function LandingFooter() {
               <li key={item.to}>
                 <Link
                   to={item.to}
-                  className="text-foreground/75 transition-colors hover:text-foreground"
+                  className={cn(
+                    "text-foreground/75 transition-colors hover:text-foreground",
+                    landingFocusRing,
+                  )}
                 >
                   {item.label}
                 </Link>
@@ -41,7 +50,11 @@ export default function LandingFooter() {
         <button
           type="button"
           onClick={() => handoffToCanonicalUpload()}
-          className="mt-6 inline-flex items-center justify-center rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+          className={cn(
+            "btn-depth-primary mt-6 px-5 py-2.5 text-sm",
+            landingCtaMinH,
+            landingFocusRing,
+          )}
         >
           Analyze My Quote
         </button>

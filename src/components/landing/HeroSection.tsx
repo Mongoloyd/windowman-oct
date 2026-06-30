@@ -1,8 +1,15 @@
+import { cn } from "@/lib/utils";
 import {
   handoffToCanonicalUpload,
   handoffToFirstQuotePath,
   handoffToSystemExplainer,
 } from "./landingHandoff";
+import {
+  landingContainerWide,
+  landingCtaMinH,
+  landingFocusRing,
+  landingSectionPad,
+} from "./landingTypes";
 
 const sampleFindings = [
   { label: "Permit handling language", status: "Needs Clarification" as const },
@@ -82,6 +89,7 @@ function HeroSampleVisual() {
             <span
               className={`inline-flex w-fit shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${statusTone(finding.status)}`}
             >
+              <span className="sr-only">Status: </span>
               {finding.status}
             </span>
           </li>
@@ -93,9 +101,9 @@ function HeroSampleVisual() {
 
 export default function HeroSection() {
   return (
-    <section id="hero" className="relative px-4 py-12 md:px-8 md:py-20 lg:py-24">
-      <div className="mx-auto max-w-7xl">
-        <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
+    <section id="hero" className={cn("relative bg-background", landingSectionPad)}>
+      <div className={landingContainerWide}>
+        <div className="grid items-center gap-8 lg:grid-cols-2 lg:gap-14">
           <div className="order-1">
             <p className="wm-eyebrow mb-4 text-primary">FREE WINDOW QUOTE INTELLIGENCE</p>
             <h1 className="mb-5 font-display text-4xl font-extrabold leading-[1.1] tracking-tight text-foreground md:text-5xl lg:text-[3.25rem]">
@@ -121,16 +129,22 @@ export default function HeroSection() {
               <button
                 type="button"
                 onClick={() => handoffToCanonicalUpload()}
-                className="btn-depth-primary w-full sm:w-auto"
-                style={{ padding: "14px 28px", fontSize: 15 }}
+                className={cn(
+                  "btn-depth-primary w-full px-7 py-3.5 text-[15px] sm:w-auto",
+                  landingCtaMinH,
+                  landingFocusRing,
+                )}
               >
                 Analyze My Quote
               </button>
               <button
                 type="button"
                 onClick={() => handoffToFirstQuotePath()}
-                className="btn-secondary-tactile w-full sm:w-auto"
-                style={{ padding: "14px 28px", fontSize: 15 }}
+                className={cn(
+                  "btn-secondary-tactile w-full px-7 py-3.5 text-[15px] sm:w-auto",
+                  landingCtaMinH,
+                  landingFocusRing,
+                )}
               >
                 Help Me Get My First Quote
               </button>
@@ -140,19 +154,22 @@ export default function HeroSection() {
               <button
                 type="button"
                 onClick={() => handoffToSystemExplainer()}
-                className="font-medium text-primary underline-offset-4 hover:underline"
+                className={cn(
+                  "font-medium text-primary underline-offset-4 hover:underline",
+                  landingFocusRing,
+                )}
               >
                 See how it works
               </button>
             </p>
 
             <p className="mt-5 max-w-xl text-xs leading-relaxed text-muted-foreground">
-              No contractor pressure. Sample report content only. Your actual report depends on your
-              uploaded quote.
+              No contractor pressure. Sample report content only. A personalized report is generated
+              only after you upload your quote.
             </p>
           </div>
 
-          <div className="order-2 flex justify-center lg:justify-end">
+          <div className="order-2 flex justify-center lg:order-none lg:justify-end">
             <HeroSampleVisual />
           </div>
         </div>

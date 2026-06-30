@@ -1,11 +1,23 @@
+import { cn } from "@/lib/utils";
+import {
+  landingContainerNarrow,
+  landingFocusRing,
+  landingSectionPad,
+} from "./landingTypes";
+
 const trustChips = ["Not a contractor", "Consumer quote advocate"];
 
 export default function FounderIntro() {
   return (
-    <section id="founder-intro" className="border-t border-border bg-card px-4 py-14 md:px-8 md:py-20">
-      <div className="mx-auto max-w-3xl">
-        <h2 className="wm-title-section mb-5 text-foreground">Sam Glass built WindowMan for homeowners.</h2>
-        <p className="mb-8 wm-body leading-relaxed text-muted-foreground">
+    <section
+      id="founder-intro"
+      className={cn("border-t border-border bg-card", landingSectionPad)}
+    >
+      <div className={landingContainerNarrow}>
+        <h2 className="mb-4 font-display text-2xl font-bold text-foreground md:text-3xl">
+          Sam Glass built WindowMan for homeowners.
+        </h2>
+        <p className="mb-8 text-base leading-relaxed text-muted-foreground">
           Most window companies want you focused on their proposal. WindowMan helps you understand any
           proposal. If the quote is strong, the report should say that. If something is vague, missing,
           or worth questioning, the report should show you where to look.

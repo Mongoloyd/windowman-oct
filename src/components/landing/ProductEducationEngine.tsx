@@ -6,6 +6,12 @@ import {
   handoffToCanonicalUpload,
   handoffToSampleReport,
 } from "./landingHandoff";
+import {
+  landingContainerWide,
+  landingCtaMinH,
+  landingFocusRing,
+  landingSectionPad,
+} from "./landingTypes";
 
 const REVEAL_EDUCATION_EVENT = "wm-landing-reveal-education";
 
@@ -131,7 +137,10 @@ export default function ProductEducationEngine({
               setFocusedModuleId(module.id);
               onToggleModule(module.id);
             }}
-            className="flex w-full items-start justify-between gap-3 p-4 text-left"
+            className={cn(
+              "flex w-full min-h-[56px] items-start justify-between gap-3 p-4 text-left",
+              landingFocusRing,
+            )}
             aria-expanded={expanded}
           >
             <div>
@@ -167,8 +176,11 @@ export default function ProductEducationEngine({
   };
 
   return (
-    <section id="product-education" className="border-t border-border bg-card px-4 py-14 md:px-8 md:py-20">
-      <div className="mx-auto max-w-7xl">
+    <section
+      id="product-education"
+      className={cn("border-t border-border bg-card", landingSectionPad)}
+    >
+      <div className={landingContainerWide}>
         <p className="wm-eyebrow mb-3 text-primary">WHAT MOST HOMEOWNERS MISS</p>
         <h2 className="wm-title-section mb-4 text-foreground">
           A window quote is not just a price. It is a stack of assumptions.
@@ -196,25 +208,36 @@ export default function ProductEducationEngine({
             <button
               type="button"
               onClick={() => setShowMoreChecks((prev) => !prev)}
-              className="w-full rounded-lg border border-dashed border-border py-3 text-sm font-medium text-primary transition-colors hover:border-primary/40 hover:bg-primary/5"
+              className={cn(
+                "w-full rounded-lg border border-dashed border-border py-3.5 text-sm font-medium text-primary transition-colors hover:border-primary/40 hover:bg-primary/5",
+                landingCtaMinH,
+                landingFocusRing,
+              )}
               aria-expanded={showMoreChecks}
             >
               {showMoreChecks ? "Show fewer checks" : "View more checks"}
             </button>
 
-            <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:items-center">
+            <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:flex-wrap sm:items-center">
               <button
                 type="button"
                 onClick={() => handoffToSampleReport()}
-                className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+                className={cn(
+                  "btn-secondary-tactile w-full px-5 py-3 text-sm sm:w-auto",
+                  landingCtaMinH,
+                  landingFocusRing,
+                )}
               >
-                View a Sample Truth Report →
+                View a Sample Truth Report
               </button>
               <button
                 type="button"
                 onClick={() => handoffToCanonicalUpload()}
-                className="btn-depth-primary w-full sm:w-auto"
-                style={{ padding: "12px 24px", fontSize: 14 }}
+                className={cn(
+                  "btn-depth-primary w-full px-6 py-3 text-sm sm:w-auto",
+                  landingCtaMinH,
+                  landingFocusRing,
+                )}
               >
                 Analyze My Quote
               </button>
