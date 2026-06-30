@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
-import exitIntentPhoneImg from "@/assets/exit-intent-phone.avif";
+import exitIntentImg from "@/assets/exit-intent-superhero.png";
 
 const INTERACTIVE_SELECTOR =
   'input, textarea, select, button[aria-expanded="true"], [contenteditable="true"]';
@@ -233,13 +233,13 @@ const ExitIntentPhoneModal = ({
             </button>
 
             <motion.img
-              src={exitIntentPhoneImg}
-              alt="Scan your quote — free instant analysis"
+              src={exitIntentImg}
+              alt="Before you go — learn how WindowMan gets you the best window quotes"
               initial={{ scale: 0.92, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.92, opacity: 0 }}
               transition={{ duration: 0.25 }}
-              className="max-w-[90vw] max-h-[80vh] object-contain cursor-pointer rounded-lg"
+              className="max-w-[min(90vw,420px)] max-h-[85vh] object-contain cursor-pointer rounded-lg"
               onClick={handleCTA}
             />
           </div>
