@@ -35,7 +35,7 @@ export default function RevealDiagnosisStickyCta({
           className="btn-depth-primary flex w-full items-center justify-center gap-2 px-5 py-3.5 text-sm font-semibold"
         >
           <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-          Build My Quote Defense Plan
+          Get a Better Quote Plan
           <ArrowRight className="h-4 w-4" aria-hidden="true" />
         </button>
       </div>

@@ -522,7 +522,9 @@ function ConfirmationChecklist({ allCoreDetected }: { allCoreDetected: boolean }
   );
 }
 
-export default function QuoteMathLedger(props: QuoteMathLedgerProps) {
+export default function QuoteMathLedger(
+  props: QuoteMathLedgerProps & { suppressFooterChecklist?: boolean },
+) {
   const resolved = resolveProps(props);
   const { lineItems, locale, currency, maxRows } = resolved;
   const isEmpty = lineItems.length === 0;
@@ -574,7 +576,9 @@ export default function QuoteMathLedger(props: QuoteMathLedgerProps) {
         </>
       )}
 
-      <ConfirmationChecklist allCoreDetected={allCoreDetected && !isEmpty} />
+      {props.suppressFooterChecklist ? null : (
+        <ConfirmationChecklist allCoreDetected={allCoreDetected && !isEmpty} />
+      )}
     </section>
   );
 }

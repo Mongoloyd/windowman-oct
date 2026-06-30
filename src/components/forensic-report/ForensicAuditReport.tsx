@@ -21,6 +21,8 @@ import PropertyProfileCard from "./PropertyProfileCard";
 import ScopeOverviewCard from "./ScopeOverviewCard";
 import MoneyAtRiskCard from "./MoneyAtRiskCard";
 import NextActionCard from "./NextActionCard";
+import SigningRiskSummary from "./SigningRiskSummary";
+import PriceRiskClarificationCard from "./PriceRiskClarificationCard";
 import { ForensicVerdictPanel } from "@/components/forensic-report/ForensicVerdictPanel";
 import { FR } from "./tokens";
 
@@ -90,6 +92,14 @@ export default function ForensicAuditReport(props: ForensicAuditReportProps) {
   const hasOverpayment =
     (props.overpaymentLow ?? 0) > 0 || (props.overpaymentHigh ?? 0) > 0;
 
+  // A weak grade or any red flag means a low price is not a "good deal".
+  const gradeUpper = (props.grade ?? "").trim().toUpperCase();
+  const riskContext =
+    gradeUpper === "C" ||
+    gradeUpper === "D" ||
+    gradeUpper === "F" ||
+    (props.flagRedCount ?? 0) > 0;
+
   return (
     <div className={`report-dark min-h-screen ${FR.pagePad} py-6 sm:py-10`}>
       <div className={FR.maxWidth}>
@@ -109,97 +119,143 @@ export default function ForensicAuditReport(props: ForensicAuditReportProps) {
 
         <div className={`${FR.sectionGap} ${isPreview ? "" : "mt-6 sm:mt-8"}`}>
           {isPreview ? (
-            <PartialRevealHero
-              grade={props.grade}
-              flagRedCount={props.flagRedCount}
-              flagAmberCount={props.flagAmberCount}
-              overpaymentLow={props.overpaymentLow}
-              overpaymentHigh={props.overpaymentHigh}
-              overpaymentBasis={props.overpaymentBasis}
-              signalsExtracted={props.signalsExtracted}
-              signalsTotal={props.signalsTotal}
-            />
+            <>
+              <PartialRevealHero
+                grade={props.grade}
+                flagRedCount={props.flagRedCount}
+                flagAmberCount={props.flagAmberCount}
+                overpaymentLow={props.overpaymentLow}
+                overpaymentHigh={props.overpaymentHigh}
+                overpaymentBasis={props.overpaymentBasis}
+                signalsExtracted={props.signalsExtracted}
+                signalsTotal={props.signalsTotal}
+              />
+
+              <ForensicVerdictPanel
+                grade={props.grade}
+                redCount={props.flagRedCount ?? 0}
+                amberCount={props.flagAmberCount ?? 0}
+              />
+
+              <div className="relative">
+                <TopFindingsList
+                  flags={safeFlags}
+                  blurred
+                  totalRedCount={props.flagRedCount}
+                />
+                <PartialUnlockOverlay />
+              </div>
+
+              <ExecutiveSummaryBand
+                accessLevel={props.accessLevel}
+                flagRedCount={props.flagRedCount}
+                flagAmberCount={props.flagAmberCount}
+                summary={props.executiveSummaryTeaser}
+              />
+
+              <ScopeOverviewCard
+                accessLevel={props.accessLevel}
+                totalOpenings={props.totalOpenings}
+                pricePerOpening={props.pricePerOpening}
+                pricePerOpeningBand={props.pricePerOpeningBand}
+                marketLow={props.marketLow}
+                marketHigh={props.marketHigh}
+                totalContractPrice={props.totalContractPrice}
+              />
+            </>
           ) : (
-            <ExecutiveSummaryCard
-              grade={props.grade}
-              confidenceScore={displayConfidenceScore}
-              signalsExtracted={props.signalsExtracted}
-              signalsTotal={props.signalsTotal}
-              flagRedCount={props.flagRedCount}
-              flagAmberCount={props.flagAmberCount}
-              flagClearCount={props.flagClearCount}
-              overpaymentLow={props.overpaymentLow}
-              overpaymentHigh={props.overpaymentHigh}
-              overpaymentBasis={props.overpaymentBasis}
-              marketLow={props.marketLow}
-              marketHigh={props.marketHigh}
-            />
+            <>
+              <ExecutiveSummaryCard
+                grade={props.grade}
+                confidenceScore={displayConfidenceScore}
+                signalsExtracted={props.signalsExtracted}
+                signalsTotal={props.signalsTotal}
+                flagRedCount={props.flagRedCount}
+                flagAmberCount={props.flagAmberCount}
+                flagClearCount={props.flagClearCount}
+                overpaymentLow={props.overpaymentLow}
+                overpaymentHigh={props.overpaymentHigh}
+                overpaymentBasis={props.overpaymentBasis}
+                marketLow={props.marketLow}
+                marketHigh={props.marketHigh}
+                pricePerOpeningBand={props.pricePerOpeningBand}
+              />
+
+              <SigningRiskSummary flags={safeFlags} />
+
+              <PriceRiskClarificationCard
+                grade={props.grade}
+                pricePerOpeningBand={props.pricePerOpeningBand}
+                flagRedCount={props.flagRedCount}
+                flagAmberCount={props.flagAmberCount}
+                marketLow={props.marketLow}
+                marketHigh={props.marketHigh}
+              />
+
+              {props.revealBridgeSlot ? (
+                <div className="mt-6 sm:mt-8">{props.revealBridgeSlot}</div>
+              ) : null}
+
+              <div className="mt-8 border-t border-white/10 pt-6">
+                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-sky-200/80">
+                  Evidence Behind the Grade
+                </p>
+                <p className="mt-2 text-sm text-slate-400">
+                  The sections below show exactly how WindowMan analyzed this quote.
+                </p>
+              </div>
+
+              <ForensicVerdictPanel
+                grade={props.grade}
+                redCount={props.flagRedCount ?? 0}
+                amberCount={props.flagAmberCount ?? 0}
+              />
+
+              {hasOverpayment && (
+                <MoneyAtRiskCard
+                  overpaymentLow={props.overpaymentLow}
+                  overpaymentHigh={props.overpaymentHigh}
+                  overpaymentBasis={props.overpaymentBasis}
+                  totalContractPrice={props.totalContractPrice}
+                  marketLow={props.marketLow}
+                  marketHigh={props.marketHigh}
+                />
+              )}
+
+              <div className="relative">
+                <TopFindingsList
+                  flags={safeFlags}
+                  totalRedCount={props.flagRedCount}
+                  variant="detail"
+                />
+              </div>
+
+              <ScopeOverviewCard
+                accessLevel={props.accessLevel}
+                totalOpenings={props.totalOpenings}
+                pricePerOpening={props.pricePerOpening}
+                pricePerOpeningBand={props.pricePerOpeningBand}
+                marketLow={props.marketLow}
+                marketHigh={props.marketHigh}
+                totalContractPrice={props.totalContractPrice}
+                riskContext={riskContext}
+              />
+
+              <PropertyProfileCard
+                homeownerName={props.homeownerName}
+                propertyAddress={props.propertyAddress}
+                propertyType={props.propertyType}
+                windZone={props.windZone}
+                codeJurisdiction={props.codeJurisdiction}
+              />
+
+              {props.fullEvidenceStack ? (
+                <div className="space-y-0">{props.fullEvidenceStack}</div>
+              ) : null}
+
+              {!props.suppressBuiltInNextAction && <NextActionCard />}
+            </>
           )}
-
-          {!isPreview && props.revealBridgeSlot ? (
-            <div className="mt-6 sm:mt-8">{props.revealBridgeSlot}</div>
-          ) : null}
-
-          {!isPreview && hasOverpayment && (
-            <MoneyAtRiskCard
-              overpaymentLow={props.overpaymentLow}
-              overpaymentHigh={props.overpaymentHigh}
-              overpaymentBasis={props.overpaymentBasis}
-              totalContractPrice={props.totalContractPrice}
-              marketLow={props.marketLow}
-              marketHigh={props.marketHigh}
-            />
-          )}
-
-          <ForensicVerdictPanel
-            grade={props.grade}
-            redCount={props.flagRedCount ?? 0}
-            amberCount={props.flagAmberCount ?? 0}
-          />
-
-          <div className="relative">
-            <TopFindingsList
-              flags={safeFlags}
-              blurred={isPreview}
-              totalRedCount={props.flagRedCount}
-            />
-            {isPreview && <PartialUnlockOverlay />}
-          </div>
-
-          {isPreview && (
-            <ExecutiveSummaryBand
-              accessLevel={props.accessLevel}
-              flagRedCount={props.flagRedCount}
-              flagAmberCount={props.flagAmberCount}
-              summary={props.executiveSummaryTeaser}
-            />
-          )}
-
-          <ScopeOverviewCard
-            accessLevel={props.accessLevel}
-            totalOpenings={props.totalOpenings}
-            pricePerOpening={props.pricePerOpening}
-            pricePerOpeningBand={props.pricePerOpeningBand}
-            marketLow={props.marketLow}
-            marketHigh={props.marketHigh}
-            totalContractPrice={props.totalContractPrice}
-          />
-
-          {!isPreview && (
-            <PropertyProfileCard
-              homeownerName={props.homeownerName}
-              propertyAddress={props.propertyAddress}
-              propertyType={props.propertyType}
-              windZone={props.windZone}
-              codeJurisdiction={props.codeJurisdiction}
-            />
-          )}
-
-          {!isPreview && props.fullEvidenceStack ? (
-            <div className="space-y-0">{props.fullEvidenceStack}</div>
-          ) : null}
-
-          {!isPreview && !props.suppressBuiltInNextAction && <NextActionCard />}
 
           {props.unlockSlot && <div className="pt-2">{props.unlockSlot}</div>}
         </div>

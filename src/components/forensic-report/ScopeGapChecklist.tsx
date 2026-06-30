@@ -323,7 +323,9 @@ function ConfirmationPacket({
   );
 }
 
-export default function ScopeGapChecklist(props: ScopeGapChecklistProps) {
+export default function ScopeGapChecklist(
+  props: ScopeGapChecklistProps & { suppressFooterChecklist?: boolean },
+) {
   const phases = resolvePhases(props.phases);
   const summary = computeSummaryFromPhases(phases);
   const title = isNonEmptyString(props.title) ? props.title : DEFAULT_TITLE;
@@ -345,7 +347,7 @@ export default function ScopeGapChecklist(props: ScopeGapChecklistProps) {
         </div>
         <div className="order-2 lg:order-1 min-w-0 space-y-8">
           <TimelineJourney phases={phases} />
-          <ConfirmationPacket phases={phases} />
+          {props.suppressFooterChecklist ? null : <ConfirmationPacket phases={phases} />}
         </div>
       </div>
     </section>

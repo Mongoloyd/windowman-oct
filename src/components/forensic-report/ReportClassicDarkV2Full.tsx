@@ -6,6 +6,7 @@ import type { V2ReportSource } from "@/components/forensic-report/adapters/repor
 import ChangeOrderDefenseMatrix from "@/components/forensic-report/ChangeOrderDefenseMatrix";
 import CodeComplianceProofSection from "@/components/forensic-report/CodeComplianceProofSection";
 import ContractorQuoteIdentityCard from "@/components/forensic-report/ContractorQuoteIdentityCard";
+import ContractorQuestionPacket from "@/components/forensic-report/ContractorQuestionPacket";
 import FinancialIntegritySection from "@/components/forensic-report/FinancialIntegritySection";
 import ForensicAuditReport from "@/components/forensic-report/ForensicAuditReport";
 import { ForensicDiagnosisCtaContext } from "@/components/forensic-report/ExecutiveSummaryCard";
@@ -93,16 +94,16 @@ function buildFullEvidenceStack(
         <ContractorQuoteIdentityCard {...modules.contractorIdentityProps} />
       ) : null}
       {modules.quoteMathLedgerProps ? (
-        <QuoteMathLedger {...modules.quoteMathLedgerProps} />
+        <QuoteMathLedger {...modules.quoteMathLedgerProps} suppressFooterChecklist />
       ) : null}
       {modules.codeComplianceProps ? (
         <CodeComplianceProofSection {...modules.codeComplianceProps} />
       ) : null}
       {modules.changeOrderDefenseProps ? (
-        <ChangeOrderDefenseMatrix {...modules.changeOrderDefenseProps} />
+        <ChangeOrderDefenseMatrix {...modules.changeOrderDefenseProps} suppressFooterChecklist />
       ) : null}
       {modules.scopeGapChecklistProps ? (
-        <ScopeGapChecklist {...modules.scopeGapChecklistProps} />
+        <ScopeGapChecklist {...modules.scopeGapChecklistProps} suppressFooterChecklist />
       ) : null}
       {modules.financialIntegrityProps ? (
         <FinancialIntegritySection {...modules.financialIntegrityProps} />
@@ -110,11 +111,16 @@ function buildFullEvidenceStack(
       {modules.warrantyFinePrintProps ? (
         <WarrantyFinePrintSection {...modules.warrantyFinePrintProps} />
       ) : null}
+      <ContractorQuestionPacket
+        changeOrderRisks={modules.changeOrderDefenseProps?.risks}
+        scopeGapPhases={modules.scopeGapChecklistProps?.phases}
+        quoteMathLineItems={modules.quoteMathLedgerProps?.lineItems}
+      />
       <NextActionCard
         onPrimary={onDiagnosisCta}
         onSecondary={onDiagnosisCta}
-        primaryLabel="Show My Best Next Move"
-        secondaryLabel="Build My Quote Defense Plan"
+        primaryLabel="Answer 5 Questions to Get a Better Quote"
+        secondaryLabel="See How to Fix This Quote"
       />
     </>
   );
@@ -198,7 +204,6 @@ export default function ReportClassicDarkV2Full({
           <RevealDiagnosisBridgeCard
             ctaEnabled={ctaEnabled}
             onPrimaryClick={ctaEnabled ? handleDiagnosisCta : undefined}
-            onSecondaryClick={ctaEnabled ? handleDiagnosisCta : undefined}
           />
         }
         fullEvidenceStack={buildFullEvidenceStack(v2Modules, ctaEnabled ? handleDiagnosisCta : undefined)}

@@ -10,6 +10,11 @@ interface Props {
   flags: AnalysisFlag[];
   blurred?: boolean;
   totalRedCount?: number;
+  /**
+   * "summary" (default) preserves the legacy "Top Forensic Findings" framing.
+   * "detail" reframes the full/unlocked heading as evidence detail behind the grade.
+   */
+  variant?: "summary" | "detail";
 }
 
 const PILLAR_LABELS: Record<string, string> = {
@@ -35,18 +40,21 @@ function severityToken(sev: Severity): { var: string; label: string } {
   }
 }
 
-export default function TopFindingsList({ flags, blurred, totalRedCount }: Props) {
+export default function TopFindingsList({ flags, blurred, totalRedCount, variant = "summary" }: Props) {
   // In preview/blurred mode, render skeleton placeholders (NOT real flags).
   const itemsToRender: (AnalysisFlag | null)[] = blurred
     ? [null, null, null]
     : flags.slice(0, 5);
+
+  // Detail framing only applies to the full/unlocked report (never the blurred preview).
+  const isDetail = variant === "detail" && !blurred;
 
   return (
     <section>
       <div className="flex items-center gap-2 mb-1">
         <AlertTriangle size={14} className="text-[hsl(var(--fr-danger))]" />
         <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
-          Top Forensic Findings
+          {isDetail ? "Detailed Findings" : "Top Forensic Findings"}
         </h2>
       </div>
       <p className="text-xs mb-4 text-slate-300 sm:text-base font-semibold">
@@ -54,7 +62,9 @@ export default function TopFindingsList({ flags, blurred, totalRedCount }: Props
           ? totalRedCount != null
             ? `${Math.min(3, totalRedCount)} Critical Red Flags Identified in Your Quote`
             : "The 3 most critical red flags in your quote"
-          : "Plain-English breakdown of what we found in your contract"}
+          : isDetail
+            ? "The specific quote issues behind your grade."
+            : "Plain-English breakdown of what we found in your contract"}
       </p>
 
       <div className={blurred ? "space-y-3 select-none pointer-events-none" : "space-y-3"}>

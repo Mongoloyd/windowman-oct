@@ -15,8 +15,8 @@ interface Props {
 export default function NextActionCard({
   onPrimary,
   onSecondary,
-  primaryLabel = "Show My Best Next Move",
-  secondaryLabel = "Build My Quote Defense Plan",
+  primaryLabel = "Get a Better Quote Plan",
+  secondaryLabel = "See How to Fix This Quote",
 }: Props) {
   const primaryDisabled = !onPrimary;
   const secondaryDisabled = !onSecondary;
@@ -57,8 +57,8 @@ export default function NextActionCard({
               WindowMan&apos;s Recommended Next Move
             </div>
             <p className="text-sm sm:text-base text-[hsl(var(--fr-text))] max-w-2xl leading-relaxed">
-              Your scan is complete. The next step turns this report into a plan — urgency, timeline,
-              and what you want WindowMan to do before you sign.
+              Your report is done. The next step turns these findings into a better quote — answer a
+              few quick questions about your budget, timeline, and goals before you sign.
             </p>
           </div>
         </div>

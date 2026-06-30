@@ -11,6 +11,8 @@ interface Props {
   marketLow?: number | null;
   marketHigh?: number | null;
   totalContractPrice?: number | null;
+  /** When true, a low price band is treated as caution (not "good deal" green). */
+  riskContext?: boolean;
 }
 
 function fmtMoney(n: number | null | undefined): string {
@@ -24,9 +26,10 @@ function fmtPreviewMoney(n: number | null | undefined, lockedWhenMissing: boolea
   return "—";
 }
 
-function bandColor(band?: string | null): string {
+function bandColor(band?: string | null, riskContext?: boolean): string {
   if (band === "high" || band === "extreme") return "hsl(var(--fr-caution))";
-  if (band === "low") return "hsl(var(--fr-success))";
+  // A low price on a high-risk report is not a "good deal" — never paint it green.
+  if (band === "low") return riskContext ? "hsl(var(--fr-caution))" : "hsl(var(--fr-success))";
   return "hsl(var(--fr-text))";
 }
 
@@ -38,6 +41,7 @@ export default function ScopeOverviewCard({
   marketLow,
   marketHigh,
   totalContractPrice,
+  riskContext = false,
 }: Props) {
   const isPreview = accessLevel === "preview";
   const hasContractTotal =
@@ -57,7 +61,7 @@ export default function ScopeOverviewCard({
         />
         <Tile
           value={isPreview ? fmtPreviewMoney(pricePerOpening, true) : fmtMoney(pricePerOpening)}
-          valueColor={bandColor(pricePerOpeningBand)}
+          valueColor={bandColor(pricePerOpeningBand, riskContext)}
           label="Installed Price Per Opening"
           sub={
             marketLow != null && marketHigh != null

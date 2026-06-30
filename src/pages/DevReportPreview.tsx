@@ -45,6 +45,7 @@ import {
 } from "@/components/forensic-report/ScopeGapChecklist.fixtures";
 import ForensicLabSectionDivider from "@/components/forensic-report/ForensicLabSectionDivider";
 import ContractorQuoteIdentityCard from "@/components/forensic-report/ContractorQuoteIdentityCard";
+import ContractorQuestionPacket from "@/components/forensic-report/ContractorQuestionPacket";
 import NextActionCard from "@/components/forensic-report/NextActionCard";
 import CodeComplianceProofSection from "@/components/forensic-report/CodeComplianceProofSection";
 import FinancialIntegritySection from "@/components/forensic-report/FinancialIntegritySection";
@@ -601,7 +602,7 @@ function buildFullV3EvidenceStack(
       ) : null}
       <ForensicLabSectionDivider index={1} eyebrow="Evidence" label="Quote Math Ledger" />
       {v2Modules.quoteMathLedgerProps ? (
-        <QuoteMathLedger {...v2Modules.quoteMathLedgerProps} />
+        <QuoteMathLedger {...v2Modules.quoteMathLedgerProps} suppressFooterChecklist />
       ) : null}
       <ForensicLabSectionDivider index={2} eyebrow="Evidence" label="Code & Compliance Proof" />
       {v2Modules.codeComplianceProps ? (
@@ -609,7 +610,7 @@ function buildFullV3EvidenceStack(
       ) : null}
       <ForensicLabSectionDivider index={3} eyebrow="Evidence" label="Change-Order Defense" />
       {v2Modules.changeOrderDefenseProps ? (
-        <ChangeOrderDefenseMatrix {...v2Modules.changeOrderDefenseProps} />
+        <ChangeOrderDefenseMatrix {...v2Modules.changeOrderDefenseProps} suppressFooterChecklist />
       ) : null}
       <ForensicLabSectionDivider index={4} eyebrow="Evidence" label="Scope Gap Checklist" />
       {scopeAdapterNull ? (
@@ -621,7 +622,7 @@ function buildFullV3EvidenceStack(
           slices — fixture ScopeGap props were not substituted.
         </section>
       ) : v2Modules.scopeGapChecklistProps ? (
-        <ScopeGapChecklist {...v2Modules.scopeGapChecklistProps} />
+        <ScopeGapChecklist {...v2Modules.scopeGapChecklistProps} suppressFooterChecklist />
       ) : null}
       <ForensicLabSectionDivider index={5} eyebrow="Evidence" label="Financial Integrity" />
       {v2Modules.financialIntegrityProps ? (
@@ -631,6 +632,12 @@ function buildFullV3EvidenceStack(
       {v2Modules.warrantyFinePrintProps ? (
         <WarrantyFinePrintSection {...v2Modules.warrantyFinePrintProps} />
       ) : null}
+      <ForensicLabSectionDivider eyebrow="Better Quote" label="Questions to Get a Better Quote" />
+      <ContractorQuestionPacket
+        changeOrderRisks={v2Modules.changeOrderDefenseProps?.risks}
+        scopeGapPhases={v2Modules.scopeGapChecklistProps?.phases}
+        quoteMathLineItems={v2Modules.quoteMathLedgerProps?.lineItems}
+      />
       <ForensicLabSectionDivider eyebrow="Next Step" label="Recommended Action" />
       <NextActionCard />
     </>

@@ -20,6 +20,7 @@ interface Props {
   overpaymentBasis?: string | null;
   marketLow?: number | null;
   marketHigh?: number | null;
+  pricePerOpeningBand?: "low" | "market" | "high" | "extreme" | null;
 }
 
 function fmtMoney(n: number | null | undefined): string {
@@ -40,6 +41,7 @@ export default function ExecutiveSummaryCard({
   overpaymentBasis,
   marketLow,
   marketHigh,
+  pricePerOpeningBand,
 }: Props) {
   const onDiagnosisCta = useContext(ForensicDiagnosisCtaContext);
   const conf = Math.max(0, Math.min(100, Math.round(confidenceScore ?? 0)));
@@ -47,6 +49,22 @@ export default function ExecutiveSummaryCard({
   const hasPositiveOverpayment =
     (overpaymentLow ?? 0) > 0 || (overpaymentHigh ?? 0) > 0;
   const hasMarketBenchmark = marketLow != null || marketHigh != null;
+
+  const gradeUpper = (grade ?? "").trim().toUpperCase();
+  const weakGrade = gradeUpper === "C" || gradeUpper === "D" || gradeUpper === "F";
+  const hasRiskContext = weakGrade || (flagRedCount ?? 0) > 0;
+  const isLowBand = pricePerOpeningBand === "low";
+
+  let benchmarkStatusText: string;
+  if (isLowBand) {
+    benchmarkStatusText = hasRiskContext
+      ? "Below market range — verify what is missing"
+      : "Below market range — verify scope in writing";
+  } else if (hasMarketBenchmark) {
+    benchmarkStatusText = "Within local range — contract terms still matter";
+  } else {
+    benchmarkStatusText = "Needs market benchmark";
+  }
 
   let heroMetricLabel: string;
   if (hasPositiveOverpayment) {
@@ -135,9 +153,14 @@ export default function ExecutiveSummaryCard({
               )}
             </>
           ) : (
-            <div className="mt-1 text-base font-semibold text-[hsl(var(--fr-text-muted))] leading-snug max-w-[200px]">
-              {hasMarketBenchmark ? "No confirmed overpayment" : "Needs market benchmark"}
-            </div>
+            <>
+              <div className="mt-1 text-base font-semibold text-[hsl(var(--fr-text-muted))] leading-snug max-w-[200px]">
+                {benchmarkStatusText}
+              </div>
+              <div className="mt-1.5 text-[10px] text-[hsl(var(--fr-text-dim))] leading-snug max-w-[200px]">
+                The grade reflects quote safety — not price alone.
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -147,18 +170,10 @@ export default function ExecutiveSummaryCard({
           className="mt-5 pt-4 border-t"
           style={{ borderColor: "hsl(var(--fr-border) / 0.6)" }}
         >
-          <button
-            type="button"
-            onClick={onDiagnosisCta}
-            className="group w-full text-left rounded-xl border-2 border-[hsl(25_95%_53%)] bg-gradient-to-br from-[hsl(var(--fr-cyan))] to-[hsl(217_91%_43%)] px-4 py-3.5 shadow-[0_2px_8px_hsl(var(--fr-cyan)/0.22),inset_0_1px_0_hsl(0_0%_100%/0.14)] transition-[transform,filter,box-shadow] duration-150 hover:brightness-[1.03] hover:shadow-[0_4px_12px_hsl(var(--fr-cyan)/0.28),inset_0_1px_0_hsl(0_0%_100%/0.18)] active:scale-[0.98]"
-          >
-            <span className="block text-sm font-semibold text-white">
-              Prepare My WindowMan Prescription →
-            </span>
-            <span className="mt-1 block text-xs text-white/90 leading-snug">
-              Your report is done. Next: a 2-minute strategy intake before you sign.
-            </span>
-          </button>
+          {/* Low-emphasis microcopy only — the Better Quote bridge below is the single dominant early CTA. */}
+          <p className="text-sm text-slate-400">
+            Next step: answer 5 quick questions so WindowMan can help you get a better quote.
+          </p>
         </div>
       ) : null}
     </section>

@@ -237,7 +237,9 @@ function EmptyMatrixState() {
   );
 }
 
-export default function ChangeOrderDefenseMatrix(props: ChangeOrderDefenseMatrixProps) {
+export default function ChangeOrderDefenseMatrix(
+  props: ChangeOrderDefenseMatrixProps & { suppressFooterChecklist?: boolean },
+) {
   const risks = resolveRisks(props.risks);
   const isEmpty = risks.length === 0;
   const { protectedCount, exposureCount, needsReviewCount } = computeSummaryCounts(risks);
@@ -261,7 +263,7 @@ export default function ChangeOrderDefenseMatrix(props: ChangeOrderDefenseMatrix
       ) : (
         <>
           <RiskMatrix risks={risks} />
-          <ContractorChecklist risks={risks} />
+          {props.suppressFooterChecklist ? null : <ContractorChecklist risks={risks} />}
         </>
       )}
 
