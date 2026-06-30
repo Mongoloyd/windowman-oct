@@ -9,10 +9,13 @@ import {
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import {
-  WINDOW_STYLES,
-  WINDOW_CONCERNS,
-  FRAME_MATERIALS,
-} from '../constants/windowOptions';
+  URGENCY_MOTIVATION_OPTIONS,
+  TIMELINE_OPTIONS,
+  DECISION_AUTHORITY_OPTIONS,
+  CONTRACTOR_CONTEXT_OPTIONS,
+  DESIRED_NEXT_MOVE_OPTIONS,
+  PRESALES_QUESTION_COPY,
+} from '../constants/preSalesQuestions';
 import type { DiagnosisCode, DiagnosticConfig } from '../types';
 
 interface StepDiagnosisProps {
@@ -23,6 +26,8 @@ interface StepDiagnosisProps {
   windowStyles: string[];
   windowConcerns: string[];
   frameMaterial: string;
+  contractorContext: string[];
+  desiredNextMove: string[];
   canAdvanceFromDiagnosis: boolean;
   onBack: () => void;
   onAdvance: () => void;
@@ -36,9 +41,11 @@ interface StepDiagnosisProps {
   setSecondaryClarifiers: Dispatch<SetStateAction<string[]>>;
   setWindowStyles: Dispatch<SetStateAction<string[]>>;
   setWindowConcerns: Dispatch<SetStateAction<string[]>>;
+  setContractorContext: Dispatch<SetStateAction<string[]>>;
+  setDesiredNextMove: Dispatch<SetStateAction<string[]>>;
 }
 
-type ConsultationStep = 1 | 2 | 3 | 4;
+type ConsultationStep = 1 | 2 | 3 | 4 | 5 | 6;
 
 export const FINAL_CTA_DELAY_MS = 360;
 
@@ -80,8 +87,6 @@ const silhouetteStyle: CSSProperties = {
 const chipBase =
   'relative rounded-2xl px-4 py-3 text-sm font-medium text-left transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-cobalt/30 border text-slate-700 hover:bg-white/70 border-surface-border';
 
-const chipUnselected = '';
-
 const chipSelectedText = 'text-white';
 
 const blueSelectedStyle: CSSProperties = {
@@ -97,14 +102,6 @@ const greenSelectedStyle: CSSProperties = {
     'linear-gradient(180deg, #7be0c4 0%, #34d399 42%, #059669 100%)',
   boxShadow:
     'inset 0 1px 0 rgba(255,255,255,0.34), inset 0 2px 10px rgba(5,150,105,0.26), 0 10px 24px rgba(5,150,105,0.18)',
-  transform: 'translateY(1px)',
-};
-
-const frameSelectedStyle: CSSProperties = {
-  background:
-    'linear-gradient(180deg, #9cc9ff 0%, #60a5fa 40%, #2563eb 100%)',
-  boxShadow:
-    'inset 0 1px 0 rgba(255,255,255,0.34), inset 0 2px 10px rgba(29,78,216,0.24), 0 10px 24px rgba(37,99,235,0.18)',
   transform: 'translateY(1px)',
 };
 
@@ -145,7 +142,7 @@ function OptionGrid({
             type="button"
             aria-pressed={isSelected}
             onClick={() => onToggle(option.value)}
-            className={`${chipBase} ${isSelected ? chipSelectedText : chipUnselected}`}
+            className={`${chipBase} ${isSelected ? chipSelectedText : ''}`}
             style={isSelected ? selectedStyle : undefined}
           >
             {option.label}
@@ -212,6 +209,8 @@ export function StepDiagnosis({
   windowStyles,
   windowConcerns,
   frameMaterial,
+  contractorContext,
+  desiredNextMove,
   canAdvanceFromDiagnosis,
   onBack,
   onAdvance,
@@ -221,16 +220,18 @@ export function StepDiagnosis({
   setSecondaryClarifiers,
   setWindowStyles,
   setWindowConcerns,
+  setContractorContext,
+  setDesiredNextMove,
 }: StepDiagnosisProps) {
   const [activeStep, setActiveStep] = useState<ConsultationStep>(1);
   const [finalActionVisible, setFinalActionVisible] = useState(false);
 
   useEffect(() => {
-    if (activeStep !== 4) {
+    if (activeStep !== 6) {
       setFinalActionVisible(false);
       return;
     }
-    if (!frameMaterial) {
+    if (desiredNextMove.length === 0) {
       setFinalActionVisible(false);
       return;
     }
@@ -238,32 +239,38 @@ export function StepDiagnosis({
       setFinalActionVisible(true);
     }, FINAL_CTA_DELAY_MS);
     return () => window.clearTimeout(timer);
-  }, [activeStep, frameMaterial]);
+  }, [activeStep, desiredNextMove.length]);
 
   const canContinueCurrentStep = useMemo(() => {
     switch (activeStep) {
       case 1:
         return canAdvanceFromDiagnosis;
       case 2:
-        return windowStyles.length > 0;
-      case 3:
         return windowConcerns.length > 0;
+      case 3:
+        return windowStyles.length > 0;
       case 4:
         return Boolean(frameMaterial);
+      case 5:
+        return contractorContext.length > 0;
+      case 6:
+        return desiredNextMove.length > 0;
       default:
         return false;
     }
   }, [
     activeStep,
     canAdvanceFromDiagnosis,
-    windowStyles.length,
     windowConcerns.length,
+    windowStyles.length,
     frameMaterial,
+    contractorContext.length,
+    desiredNextMove.length,
   ]);
 
-  const currentLabel = activeStep === 4 ? "Show Me What's Next" : "Continue";
+  const currentLabel = activeStep === 6 ? 'Continue to My Prescription' : 'Continue';
   const showCurrentAction =
-    activeStep === 4 ? finalActionVisible : canContinueCurrentStep;
+    activeStep === 6 ? finalActionVisible : canContinueCurrentStep;
 
   const handleBack = () => {
     if (activeStep === 1) {
@@ -275,11 +282,15 @@ export function StepDiagnosis({
 
   const handleAdvance = () => {
     if (!canContinueCurrentStep) return;
-    if (activeStep === 4) {
+    if (activeStep === 6) {
       onAdvance();
       return;
     }
     setActiveStep((prev) => ((prev + 1) as ConsultationStep));
+  };
+
+  const handleTimelineSelect = (value: string) => {
+    setWindowStyles([value]);
   };
 
   const activeStepMeta = useMemo(() => {
@@ -290,28 +301,20 @@ export function StepDiagnosis({
           title: activeConfig.secondaryQuestion,
           subtitle:
             primaryDiagnosis === 'other'
-              ? "Tell us what felt off in your own words."
-              : "Tap everything that applies.",
+              ? 'Tell us what felt off in your own words.'
+              : 'Tap everything that applies.',
         };
       case 2:
-        return {
-          eyebrow: 'Window Types',
-          title: 'Which Window Styles Are Part of This Project?',
-          subtitle: 'Tap any that apply.',
-        };
+        return PRESALES_QUESTION_COPY.urgency;
       case 3:
-        return {
-          eyebrow: 'Priorities',
-          title: 'What Matters Most To You?',
-          subtitle: "Choose everything that's important.",
-        };
+        return PRESALES_QUESTION_COPY.timeline;
       case 4:
+        return PRESALES_QUESTION_COPY.authority;
+      case 5:
+        return PRESALES_QUESTION_COPY.contractor;
+      case 6:
       default:
-        return {
-          eyebrow: 'Frame Material',
-          title: 'Frame Material Preference?',
-          subtitle: 'Pick one. “Not Sure” is fine.',
-        };
+        return PRESALES_QUESTION_COPY.nextMove;
     }
   }, [activeStep, activeConfig.secondaryQuestion, primaryDiagnosis]);
 
@@ -424,50 +427,84 @@ export function StepDiagnosis({
 
               {activeStep === 2 && (
                 <OptionGrid
-                  options={WINDOW_STYLES.map((style) => ({
-                    value: style,
-                    label: style,
+                  options={URGENCY_MOTIVATION_OPTIONS.map((option) => ({
+                    value: option,
+                    label: option,
                   }))}
-                  selectedValues={windowStyles}
+                  selectedValues={windowConcerns}
                   onToggle={(value) =>
-                    toggleInArray(windowStyles, setWindowStyles, value)
+                    toggleInArray(windowConcerns, setWindowConcerns, value)
                   }
                   selectedStyle={blueSelectedStyle}
                 />
               )}
 
               {activeStep === 3 && (
+                <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(170px,1fr))]">
+                  {TIMELINE_OPTIONS.map((option) => {
+                    const isSelected = windowStyles.includes(option);
+                    return (
+                      <button
+                        key={option}
+                        type="button"
+                        aria-pressed={isSelected}
+                        onClick={() => handleTimelineSelect(option)}
+                        className={`${chipBase} ${isSelected ? chipSelectedText : ''}`}
+                        style={isSelected ? blueSelectedStyle : undefined}
+                      >
+                        {option}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {activeStep === 4 && (
+                <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(170px,1fr))]">
+                  {DECISION_AUTHORITY_OPTIONS.map((option) => {
+                    const isSelected = frameMaterial === option;
+                    return (
+                      <button
+                        key={option}
+                        type="button"
+                        aria-pressed={isSelected}
+                        onClick={() => setFrameMaterial(isSelected ? '' : option)}
+                        className={`${chipBase} ${isSelected ? chipSelectedText : ''}`}
+                        style={isSelected ? blueSelectedStyle : undefined}
+                      >
+                        {option}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {activeStep === 5 && (
                 <OptionGrid
-                  options={WINDOW_CONCERNS.map((concern) => ({
-                    value: concern,
-                    label: concern,
+                  options={CONTRACTOR_CONTEXT_OPTIONS.map((option) => ({
+                    value: option,
+                    label: option,
                   }))}
-                  selectedValues={windowConcerns}
+                  selectedValues={contractorContext}
                   onToggle={(value) =>
-                    toggleInArray(windowConcerns, setWindowConcerns, value)
+                    toggleInArray(contractorContext, setContractorContext, value)
                   }
                   selectedStyle={greenSelectedStyle}
                 />
               )}
 
-              {activeStep === 4 && (
-                <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(170px,1fr))]">
-                  {FRAME_MATERIALS.map(({ value, label }) => {
-                    const isSelected = frameMaterial === value;
-                    return (
-                      <button
-                        key={value}
-                        type="button"
-                        aria-pressed={isSelected}
-                        onClick={() => setFrameMaterial(isSelected ? '' : value)}
-                        className={`${chipBase} ${isSelected ? chipSelectedText : chipUnselected}`}
-                        style={isSelected ? frameSelectedStyle : undefined}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })}
-                </div>
+              {activeStep === 6 && (
+                <OptionGrid
+                  options={DESIRED_NEXT_MOVE_OPTIONS.map((option) => ({
+                    value: option,
+                    label: option,
+                  }))}
+                  selectedValues={desiredNextMove}
+                  onToggle={(value) =>
+                    toggleInArray(desiredNextMove, setDesiredNextMove, value)
+                  }
+                  selectedStyle={greenSelectedStyle}
+                />
               )}
 
               <ReservedFooter
@@ -475,7 +512,7 @@ export function StepDiagnosis({
                 label={currentLabel}
                 onClick={handleAdvance}
                 helperText={
-                  activeStep === 4 && showCurrentAction
+                  activeStep === 6 && showCurrentAction
                     ? activeConfig.prescriptionSetup
                     : undefined
                 }
@@ -483,7 +520,7 @@ export function StepDiagnosis({
             </motion.div>
           </AnimatePresence>
 
-          {activeStep < 4 && (
+          {activeStep < 6 && (
             <div
               aria-hidden="true"
               className="mx-auto mt-4 h-14 w-[92%] rounded-[28px] opacity-60 blur-[1px]"

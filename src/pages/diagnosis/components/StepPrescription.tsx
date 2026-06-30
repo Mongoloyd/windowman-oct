@@ -25,6 +25,8 @@ interface StepPrescriptionProps {
   windowStyles: string[];
   windowConcerns: string[];
   frameMaterial: string;
+  contractorContext: string[];
+  desiredNextMove: string[];
   counterOfferTerms: string[];
   counterOfferFreeText: string;
   hasCounterOffer: boolean;
@@ -46,6 +48,8 @@ export function StepPrescription({
   windowStyles,
   windowConcerns,
   frameMaterial,
+  contractorContext,
+  desiredNextMove,
   counterOfferTerms,
   counterOfferFreeText,
   hasCounterOffer,
@@ -85,7 +89,7 @@ export function StepPrescription({
             Prescribed For You
           </div>
           <h2 className="font-display text-3xl md:text-4xl font-extrabold tracking-tight text-foreground mb-4 leading-tight">
-            {activeConfig.prescriptionHeadline}
+            Your WindowMan Prescription
           </h2>
           <p className="text-base md:text-lg text-foreground/75 max-w-2xl mx-auto">
             {activeConfig.prescriptionSubhead}
@@ -130,7 +134,7 @@ export function StepPrescription({
                 <CheckCircle className="w-5 h-5 text-white" />
               </div>
               <h3 className="font-display font-extrabold tracking-tight text-foreground text-2xl">
-                Here's What We Heard
+                What We Heard From You
               </h3>
             </div>
             <button
@@ -173,25 +177,9 @@ export function StepPrescription({
               </div>
             )}
 
-            {windowStyles.length > 0 && (
-              <div>
-                <p className="wm-eyebrow uppercase text-muted-foreground mb-2 text-sm">Window Styles</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {windowStyles.map((s) => (
-                    <span
-                      key={s}
-                      className="inline-block px-3 py-1 bg-white border border-cobalt/20 rounded-full font-medium text-foreground/80 text-sm"
-                    >
-                      {s}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {windowConcerns.length > 0 && (
               <div>
-                <p className="wm-eyebrow uppercase text-muted-foreground mb-2 text-sm">What Matters</p>
+                <p className="wm-eyebrow uppercase text-muted-foreground mb-2 text-sm">Urgency & Motivation</p>
                 <div className="flex flex-wrap gap-1.5">
                   {windowConcerns.map((c) => (
                     <span
@@ -205,12 +193,60 @@ export function StepPrescription({
               </div>
             )}
 
+            {windowStyles.length > 0 && (
+              <div>
+                <p className="wm-eyebrow uppercase text-muted-foreground mb-2 text-sm">Timeline</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {windowStyles.map((s) => (
+                    <span
+                      key={s}
+                      className="inline-block px-3 py-1 bg-white border border-cobalt/20 rounded-full font-medium text-foreground/80 text-sm"
+                    >
+                      {s}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {frameMaterial && (
               <div>
-                <p className="wm-eyebrow uppercase text-muted-foreground mb-1 text-sm">Frame Material</p>
+                <p className="wm-eyebrow uppercase text-muted-foreground mb-1 text-sm">Decision Authority</p>
                 <span className="inline-block px-3 py-1 bg-white border border-cobalt/20 rounded-full font-medium text-foreground/80 text-sm">
                   {frameMaterial}
                 </span>
+              </div>
+            )}
+
+            {contractorContext.length > 0 && (
+              <div>
+                <p className="wm-eyebrow uppercase text-muted-foreground mb-2 text-sm">Contractor Context</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {contractorContext.map((c) => (
+                    <span
+                      key={c}
+                      className="inline-block px-3 py-1 bg-white border border-cobalt/20 rounded-full font-medium text-foreground/80 text-sm"
+                    >
+                      {c}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {desiredNextMove.length > 0 && (
+              <div>
+                <p className="wm-eyebrow uppercase text-muted-foreground mb-2 text-sm">Desired Next Move</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {desiredNextMove.map((g) => (
+                    <span
+                      key={g}
+                      className="inline-block px-3 py-1 bg-white border border-emerald/30 rounded-full font-medium text-foreground/80 text-sm"
+                    >
+                      {g}
+                    </span>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -363,7 +399,7 @@ export function StepPrescription({
             <div className="flex-1">
               <p className="font-semibold text-foreground text-base">{getSLAPromise().text}</p>
               <p className="text-foreground/70 mt-1 leading-relaxed text-sm font-bold">
-                Your advisor sees everything: your diagnosis, window preferences, and counter-offer terms. No repeating
+                Your advisor sees everything: your diagnosis, urgency, timeline, and counter-offer terms. No repeating
                 yourself.
               </p>
             </div>
@@ -385,13 +421,15 @@ export function StepPrescription({
                 </>
               ) : (
                 <>
-                  Yes, have someone call me
+                  Get My Contractor-Matched Next Step
                   <ArrowRight className="w-5 h-5" />
                 </>
               )}
             </button>
             {!hasCounterOffer && !isSubmitting && (
-              <p className="text-xs text-muted-foreground text-center mt-3 italic">Tap What Would Get You To Yes.</p>
+              <p className="text-xs text-muted-foreground text-center mt-3 italic">
+                Select what would get you to yes.
+              </p>
             )}
             {hasCounterOffer && !isSubmitting && (
               <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground text-center mt-3">

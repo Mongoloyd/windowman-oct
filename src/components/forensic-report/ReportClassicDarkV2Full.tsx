@@ -10,6 +10,8 @@ import FinancialIntegritySection from "@/components/forensic-report/FinancialInt
 import ForensicAuditReport from "@/components/forensic-report/ForensicAuditReport";
 import { ForensicDiagnosisCtaContext } from "@/components/forensic-report/ExecutiveSummaryCard";
 import NextActionCard from "@/components/forensic-report/NextActionCard";
+import RevealDiagnosisBridgeCard from "@/components/forensic-report/RevealDiagnosisBridgeCard";
+import RevealDiagnosisStickyCta from "@/components/forensic-report/RevealDiagnosisStickyCta";
 import QuoteMathLedger from "@/components/forensic-report/QuoteMathLedger";
 import ScopeGapChecklist from "@/components/forensic-report/ScopeGapChecklist";
 import WarrantyFinePrintSection from "@/components/forensic-report/WarrantyFinePrintSection";
@@ -83,7 +85,7 @@ function V2SourceUnavailablePanel() {
 
 function buildFullEvidenceStack(
   modules: ReturnType<typeof useV2ReportModules>,
-  onDiagnosisCta: () => void,
+  onDiagnosisCta?: () => void,
 ): ReactNode {
   return (
     <>
@@ -111,8 +113,8 @@ function buildFullEvidenceStack(
       <NextActionCard
         onPrimary={onDiagnosisCta}
         onSecondary={onDiagnosisCta}
-        primaryLabel="Get a Same-Scope Second Opinion"
-        secondaryLabel="Show Me My Safest Next Move"
+        primaryLabel="Show My Best Next Move"
+        secondaryLabel="Build My Quote Defense Plan"
       />
     </>
   );
@@ -159,6 +161,7 @@ export default function ReportClassicDarkV2Full({
   }, [analysisData, navigate, sessionId]);
 
   const handleDiagnosisCta = onDiagnosisCtaProp ?? handleRouteDiagnosisCta;
+  const ctaEnabled = Boolean(onDiagnosisCtaProp);
 
   if (!analysisData) {
     return <AnalysisDataUnavailablePanel />;
@@ -171,7 +174,7 @@ export default function ReportClassicDarkV2Full({
   const shellProps = mapAnalysisDataToForensicShellProps(analysisData, county);
 
   return (
-    <ForensicDiagnosisCtaContext.Provider value={handleDiagnosisCta}>
+    <ForensicDiagnosisCtaContext.Provider value={ctaEnabled ? handleDiagnosisCta : null}>
       <ForensicAuditReport
         accessLevel="full"
         analysisId={shellProps.analysisId}
@@ -191,8 +194,19 @@ export default function ReportClassicDarkV2Full({
         flags={shellProps.flags}
         codeJurisdiction={shellProps.codeJurisdiction}
         executiveSummaryTeaser={shellProps.executiveSummaryTeaser}
-        fullEvidenceStack={buildFullEvidenceStack(v2Modules, handleDiagnosisCta)}
+        revealBridgeSlot={
+          <RevealDiagnosisBridgeCard
+            ctaEnabled={ctaEnabled}
+            onPrimaryClick={ctaEnabled ? handleDiagnosisCta : undefined}
+            onSecondaryClick={ctaEnabled ? handleDiagnosisCta : undefined}
+          />
+        }
+        fullEvidenceStack={buildFullEvidenceStack(v2Modules, ctaEnabled ? handleDiagnosisCta : undefined)}
         suppressBuiltInNextAction={true}
+      />
+      <RevealDiagnosisStickyCta
+        enabled={ctaEnabled}
+        onClick={ctaEnabled ? handleDiagnosisCta : undefined}
       />
     </ForensicDiagnosisCtaContext.Provider>
   );

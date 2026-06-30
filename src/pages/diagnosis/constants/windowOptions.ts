@@ -1,28 +1,10 @@
-export const WINDOW_STYLES = [
-  'Single Hung',
-  'Horizontal Roller',
-  'Casement',
-  'Picture / Fixed',
-  'Sliding Glass Doors',
-  'French Doors',
-  'Entry / Cabana',
-];
-
-export const WINDOW_CONCERNS = [
-  'Energy Efficiency',
-  'Noise / Sound',
-  'Condensation',
-  'Drafts',
-  'Aesthetics',
-  'Maintenance',
-  'Durability',
-];
-
-export const FRAME_MATERIALS: { value: string; label: string }[] = [
-  { value: 'Vinyl', label: 'Vinyl' },
-  { value: 'Fiberglass', label: 'Fiberglass' },
-  { value: 'Aluminum', label: 'Aluminum' },
-  { value: 'Wood', label: 'Wood' },
-  { value: 'Composite', label: 'Composite' },
-  { value: 'Unsure', label: 'Not sure yet' },
-];
+/**
+ * @deprecated Phase 1 — product/spec options removed from diagnosis UI.
+ * Pre-sales options live in preSalesQuestions.ts.
+ * State keys windowStyles / windowConcerns / frameMaterial are remapped at submit.
+ */
+export {
+  URGENCY_MOTIVATION_OPTIONS,
+  TIMELINE_OPTIONS,
+  DECISION_AUTHORITY_OPTIONS,
+} from './preSalesQuestions';

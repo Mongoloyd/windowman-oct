@@ -93,9 +93,9 @@ export function SuccessScreen({ context, activeConfig, onReturn }: SuccessScreen
 
         <button
           onClick={onReturn}
-          className="text-cobalt font-medium hover:text-cobalt-dim transition-colors"
+          className="text-cobalt font-semibold hover:text-cobalt-dim transition-colors"
         >
-          Return to your audit report
+          Use This Report Before I Sign →
         </button>
       </div>
 

@@ -153,10 +153,10 @@ export default function ExecutiveSummaryCard({
             className="group w-full text-left rounded-xl border-2 border-[hsl(25_95%_53%)] bg-gradient-to-br from-[hsl(var(--fr-cyan))] to-[hsl(217_91%_43%)] px-4 py-3.5 shadow-[0_2px_8px_hsl(var(--fr-cyan)/0.22),inset_0_1px_0_hsl(0_0%_100%/0.14)] transition-[transform,filter,box-shadow] duration-150 hover:brightness-[1.03] hover:shadow-[0_4px_12px_hsl(var(--fr-cyan)/0.28),inset_0_1px_0_hsl(0_0%_100%/0.18)] active:scale-[0.98]"
           >
             <span className="block text-sm font-semibold text-white">
-              WindowMan&apos;s next move is ready →
+              Prepare My WindowMan Prescription →
             </span>
             <span className="mt-1 block text-xs text-white/90 leading-snug">
-              Use this report to compare your quote against a cleaner same-scope option.
+              Your report is done. Next: a 2-minute strategy intake before you sign.
             </span>
           </button>
         </div>

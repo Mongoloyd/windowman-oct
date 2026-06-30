@@ -11,6 +11,7 @@ import {
 } from '@/lib/reportDiagnosisHandoff';
 
 import { DIAGNOSTIC_MAP } from '../constants/diagnosticMap';
+import { CLARIFIER_PREFIX } from '../constants/preSalesQuestions';
 import { generateConditionalStatement } from '../constants/branchChips';
 import type { DiagnosisCode, DiagnosticContext, StepId } from '../types';
 
@@ -119,6 +120,8 @@ export function useDiagnosticIntake() {
   const [windowStyles, setWindowStyles] = useState<string[]>([]);
   const [windowConcerns, setWindowConcerns] = useState<string[]>([]);
   const [frameMaterial, setFrameMaterial] = useState('');
+  const [contractorContext, setContractorContext] = useState<string[]>([]);
+  const [desiredNextMove, setDesiredNextMove] = useState<string[]>([]);
 
   // Counter-offer state (Step 3)
   const [counterOfferTerms, setCounterOfferTerms] = useState<string[]>([]);
@@ -193,13 +196,22 @@ export function useDiagnosticIntake() {
     0.95,
     0.6 +
       secondaryClarifiers.length * 0.05 +
-      windowStyles.length * 0.02 +
       windowConcerns.length * 0.02 +
+      (windowStyles.length > 0 ? 0.05 : 0) +
       (frameMaterial ? 0.05 : 0) +
+      contractorContext.length * 0.02 +
+      desiredNextMove.length * 0.02 +
       (otherFreeText.length > 20 ? 0.15 : 0)
   );
 
-  const stepNumber = step === 'intake' ? 1 : step === 'diagnosis' ? 2 : 3;
+  const progressRailStep =
+    step === 'intake' || step === 'diagnosis'
+      ? 3
+      : step === 'prescription'
+        ? 4
+        : step === 'success'
+          ? 5
+          : 3;
 
   const toggleInArray = (
     arr: string[],
@@ -213,6 +225,11 @@ export function useDiagnosticIntake() {
     setPrimaryDiagnosis(code);
     setSecondaryClarifiers([]);
     setOtherFreeText('');
+    setWindowStyles([]);
+    setWindowConcerns([]);
+    setFrameMaterial('');
+    setContractorContext([]);
+    setDesiredNextMove([]);
 
     // Internal step-level event (browser only — not an ad-platform conversion).
     trackGtmEvent('diagnosis_primary_selected', {
@@ -256,6 +273,11 @@ export function useDiagnosticIntake() {
       setPrimaryDiagnosis(null);
       setSecondaryClarifiers([]);
       setOtherFreeText('');
+      setWindowStyles([]);
+      setWindowConcerns([]);
+      setFrameMaterial('');
+      setContractorContext([]);
+      setDesiredNextMove([]);
     } else if (step === 'prescription') {
       setStep('diagnosis');
     }
@@ -329,8 +351,17 @@ export function useDiagnosticIntake() {
       counterOfferTerms
     );
 
-    // Submission keeps the SAME lead_id + scan_session_id from the report
-    // handoff. Do NOT mint a new synthetic lead thread here.
+    // Phase 1 semantic remap — payload keys unchanged; admin JSON labels may drift until Phase 2.
+    // window_intelligence.concerns      → urgency / motivation (not product concerns)
+    // window_intelligence.styles        → timeline (not window types)
+    // window_intelligence.frame_material → decision authority (not frame material)
+    // secondary_clarifiers.codes        → branch chips + Contractor: / Goal: prefixed items
+    const remappedSecondaryCodes = [
+      ...secondaryClarifiers,
+      ...contractorContext.map((c) => `${CLARIFIER_PREFIX.contractor}${c}`),
+      ...desiredNextMove.map((g) => `${CLARIFIER_PREFIX.goal}${g}`),
+    ];
+
     const payload = {
       lead_id: context.lead_id,
       scan_session_id: context.scan_session_id,
@@ -338,7 +369,7 @@ export function useDiagnosticIntake() {
       report_grade: context.report_grade || 'unknown',
       primary_diagnosis: primaryDiagnosis,
       secondary_clarifiers: {
-        codes: secondaryClarifiers,
+        codes: remappedSecondaryCodes,
       },
       other_text: otherFreeText.trim() || null,
       window_intelligence: {
@@ -426,6 +457,8 @@ export function useDiagnosticIntake() {
     windowStyles,
     windowConcerns,
     frameMaterial,
+    contractorContext,
+    desiredNextMove,
     counterOfferTerms,
     counterOfferFreeText,
     context,
@@ -439,7 +472,7 @@ export function useDiagnosticIntake() {
     confidence,
     hasCounterOffer,
     canAdvanceFromDiagnosis,
-    stepNumber,
+    progressRailStep,
 
     // Refs
     pageTopRef,
@@ -450,6 +483,8 @@ export function useDiagnosticIntake() {
     setWindowStyles,
     setWindowConcerns,
     setFrameMaterial,
+    setContractorContext,
+    setDesiredNextMove,
     setCounterOfferTerms,
     setCounterOfferFreeText,
 

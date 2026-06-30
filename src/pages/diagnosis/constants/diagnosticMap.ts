@@ -24,10 +24,8 @@ export const DIAGNOSTIC_MAP: Record<DiagnosisCode, DiagnosticConfig> = {
     secondaryQuestion: 'What about the price felt off?',
     secondaryOptions: [
       'Way higher than expected',
-      "Didn't understand what I was paying for",
       'Felt padded',
       "Rep couldn't explain the breakdown",
-      "Fees that didn't make sense",
     ],
     prescriptionSetup:
       "Got it. We'll rebuild your estimate with a clear, line-by-line breakdown so you can finally see what's real and what's fluff.",
@@ -92,9 +90,7 @@ export const DIAGNOSTIC_MAP: Record<DiagnosisCode, DiagnosticConfig> = {
       "Wanting to improve your home but feeling boxed in by the price structure is stressful. You deserve options that fit your life, not the contractor's agenda.",
     secondaryQuestion: "What part of the cost structure didn't work?",
     secondaryOptions: [
-      'Monthly payments too high',
       'Down payment too big',
-      'Financing terms felt bad',
       'Need more flexible options',
       'Want to compare payment plans',
     ],
@@ -160,9 +156,6 @@ export const DIAGNOSTIC_MAP: Record<DiagnosisCode, DiagnosticConfig> = {
       "When a quote doesn't match your vision, it's frustrating. You deserve an estimate built around your home, not a template.",
     secondaryQuestion: "What didn't match what you wanted?",
     secondaryOptions: [
-      'Wrong window types',
-      'Wrong materials',
-      'Wrong installation approach',
       "Didn't include what I asked for",
       'Too many upsells',
       "Didn't feel tailored to my home",

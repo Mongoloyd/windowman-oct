@@ -15,8 +15,8 @@ interface Props {
 export default function NextActionCard({
   onPrimary,
   onSecondary,
-  primaryLabel = "Get a Same-Scope Second Opinion",
-  secondaryLabel = "Show Me My Safest Next Move",
+  primaryLabel = "Show My Best Next Move",
+  secondaryLabel = "Build My Quote Defense Plan",
 }: Props) {
   const primaryDisabled = !onPrimary;
   const secondaryDisabled = !onSecondary;
@@ -57,8 +57,8 @@ export default function NextActionCard({
               WindowMan&apos;s Recommended Next Move
             </div>
             <p className="text-sm sm:text-base text-[hsl(var(--fr-text))] max-w-2xl leading-relaxed">
-              Do not compare this quote by price alone. Use the same scope, same openings, same install
-              expectations, and clearer terms.
+              Your scan is complete. The next step turns this report into a plan — urgency, timeline,
+              and what you want WindowMan to do before you sign.
             </p>
           </div>
         </div>

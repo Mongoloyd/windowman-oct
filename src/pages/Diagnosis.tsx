@@ -2,6 +2,7 @@ import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useDiagnosticIntake } from "./diagnosis/hooks/useDiagnosticIntake";
 import { ProgressIndicator } from "./diagnosis/components/ProgressIndicator";
+import { PostUploadProgressRail } from "./diagnosis/components/PostUploadProgressRail";
 import { StepIntake } from "./diagnosis/components/StepIntake";
 import { StepDiagnosis } from "./diagnosis/components/StepDiagnosis";
 import { StepPrescription } from "./diagnosis/components/StepPrescription";
@@ -56,11 +57,14 @@ const Diagnosis = () => {
   // ── Success state ─────────────────────────────────────────────────────────
   if (intake.step === "success") {
     return (
-      <SuccessScreen
-        context={intake.context}
-        activeConfig={intake.activeConfig}
-        onReturn={intake.handleReturnToReport}
-      />
+      <div style={{ background: PAGE_BG }} className="min-h-screen">
+        <PostUploadProgressRail activeStep={5} compact />
+        <SuccessScreen
+          context={intake.context}
+          activeConfig={intake.activeConfig}
+          onReturn={intake.handleReturnToReport}
+        />
+      </div>
     );
   }
 
@@ -89,11 +93,11 @@ const Diagnosis = () => {
           onClick={intake.handleReturnToReport}
           className="text-sm font-medium text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
         >
-          <ArrowLeft className="w-4 h-4" /> Back to Report
+          <ArrowLeft className="w-4 h-4" /> Review My Report
         </button>
       </nav>
 
-      <ProgressIndicator stepNumber={intake.stepNumber} />
+      <ProgressIndicator activeStep={intake.progressRailStep as 3 | 4 | 5} />
 
       {intake.step === "intake" && (
         <StepIntake context={intake.context} onSelectPrimary={intake.selectPrimaryDiagnosis} />
@@ -108,6 +112,8 @@ const Diagnosis = () => {
           windowStyles={intake.windowStyles}
           windowConcerns={intake.windowConcerns}
           frameMaterial={intake.frameMaterial}
+          contractorContext={intake.contractorContext}
+          desiredNextMove={intake.desiredNextMove}
           canAdvanceFromDiagnosis={intake.canAdvanceFromDiagnosis}
           onBack={intake.handleBack}
           onAdvance={intake.advanceToPrescription}
@@ -117,6 +123,8 @@ const Diagnosis = () => {
           setSecondaryClarifiers={intake.setSecondaryClarifiers}
           setWindowStyles={intake.setWindowStyles}
           setWindowConcerns={intake.setWindowConcerns}
+          setContractorContext={intake.setContractorContext}
+          setDesiredNextMove={intake.setDesiredNextMove}
         />
       )}
 
@@ -130,6 +138,8 @@ const Diagnosis = () => {
           windowStyles={intake.windowStyles}
           windowConcerns={intake.windowConcerns}
           frameMaterial={intake.frameMaterial}
+          contractorContext={intake.contractorContext}
+          desiredNextMove={intake.desiredNextMove}
           counterOfferTerms={intake.counterOfferTerms}
           counterOfferFreeText={intake.counterOfferFreeText}
           hasCounterOffer={intake.hasCounterOffer}

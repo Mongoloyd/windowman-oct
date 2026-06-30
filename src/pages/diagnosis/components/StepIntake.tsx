@@ -20,7 +20,7 @@ function getPersonalizedDiagnosisCopy(context: DiagnosticContext) {
   const firstName = context.first_name?.trim();
 
   const headline = firstName ? `${firstName}, I’ve Got You.` : "I’ve Got You.";
-  const subhead = "Your report is loaded. Choose the biggest problem — or let WindowMan guide the safest move.";
+  const subhead = "Your report is loaded. Tell us what you need help with before you sign — or let WindowMan guide the safest move.";
 
   let gradeLine = "Your quote has findings worth resolving before you commit.";
   let contextLine = "Your quote has findings worth resolving before you commit.";
@@ -203,7 +203,7 @@ export function StepIntake({ context, onSelectPrimary }: StepIntakeProps) {
           <div className="mx-auto mb-6 max-w-3xl text-center">
             <p className="mb-3 text-xs font-black uppercase tracking-[0.2em] text-blue-700">Root Question</p>
             <h2 className="font-display text-2xl font-black tracking-tight text-slate-950 md:text-4xl">
-              What Was The Biggest Problem With This Quote?
+              What do you need help with before you sign?
             </h2>
             <p className="mt-3 text-base font-bold leading-relaxed text-slate-700 md:text-lg">
               Tap The Closest Answer. We’ll Turn It Into Your Next Move.

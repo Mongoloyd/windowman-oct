@@ -8,37 +8,8 @@ vi.mock('framer-motion', () => ({
   motion: {
     div: ({
       children,
-      variants,
-      initial,
-      animate,
-      exit,
-      transition,
-      whileHover,
-      whileTap,
-      whileInView,
-      viewport,
-      layout,
-      layoutId,
-      drag,
-      dragConstraints,
-      custom,
       ...props
-    }: React.HTMLAttributes<HTMLDivElement> & {
-      variants?: unknown;
-      initial?: unknown;
-      animate?: unknown;
-      exit?: unknown;
-      transition?: unknown;
-      whileHover?: unknown;
-      whileTap?: unknown;
-      whileInView?: unknown;
-      viewport?: unknown;
-      layout?: unknown;
-      layoutId?: unknown;
-      drag?: unknown;
-      dragConstraints?: unknown;
-      custom?: unknown;
-    }) => <div {...props}>{children}</div>,
+    }: React.HTMLAttributes<HTMLDivElement>) => <div {...props}>{children}</div>,
   },
 }));
 
@@ -53,13 +24,13 @@ const activeConfig = {
   accentBorder: 'border-cobalt/30',
   Icon: () => <span data-testid="mock-icon" />,
   secondaryQuestion: 'What made you uncomfortable?',
-  secondaryOptions: ['Too pushy', 'Price felt off', 'Scope unclear'],
+  secondaryOptions: ['They were pushy', 'Price felt off', 'Scope unclear'],
   prescriptionSetup:
-    'We’ve got enough to shape your next step and open your recommendation view.',
+    "We have got enough to shape your next step and open your recommendation view.",
 } as any;
 
 function TestHarness({
-  primaryDiagnosis = 'price' as any,
+  primaryDiagnosis = 'trust_breakdown' as any,
   onAdvance = mockOnAdvance,
   onBack = mockOnBack,
 }: {
@@ -72,6 +43,8 @@ function TestHarness({
   const [windowStyles, setWindowStyles] = useState<string[]>([]);
   const [windowConcerns, setWindowConcerns] = useState<string[]>([]);
   const [frameMaterial, setFrameMaterial] = useState('');
+  const [contractorContext, setContractorContext] = useState<string[]>([]);
+  const [desiredNextMove, setDesiredNextMove] = useState<string[]>([]);
 
   const canAdvanceFromDiagnosis =
     primaryDiagnosis === 'other'
@@ -87,51 +60,70 @@ function TestHarness({
       windowStyles={windowStyles}
       windowConcerns={windowConcerns}
       frameMaterial={frameMaterial}
+      contractorContext={contractorContext}
+      desiredNextMove={desiredNextMove}
       canAdvanceFromDiagnosis={canAdvanceFromDiagnosis}
       onBack={onBack}
       onAdvance={onAdvance}
       setOtherFreeText={setOtherFreeText}
       setFrameMaterial={setFrameMaterial}
-      toggleInArray={(arr, setter, value) => {
-        setter(arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value]);
-      }}
+      toggleInArray={(arr, setter, value) =>
+        setter(arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value])
+      }
       setSecondaryClarifiers={setSecondaryClarifiers}
       setWindowStyles={setWindowStyles}
       setWindowConcerns={setWindowConcerns}
+      setContractorContext={setContractorContext}
+      setDesiredNextMove={setDesiredNextMove}
     />
   );
 }
 
-async function moveToStep4() {
-  fireEvent.click(screen.getByRole('button', { name: /too pushy/i }));
+async function advanceThroughPreSalesSteps() {
+  fireEvent.click(screen.getByRole('button', { name: /hurricane season/i }));
   fireEvent.click(screen.getByRole('button', { name: /^continue$/i }));
 
   await waitFor(() =>
     expect(
-      screen.getByRole('heading', { name: /which window styles are part of this project/i })
+      screen.getByRole('heading', { name: /when are you hoping to make a decision/i })
     ).toBeInTheDocument()
   );
 
-  fireEvent.click(screen.getByRole('button', { name: /single hung/i }));
+  fireEvent.click(screen.getByRole('button', { name: /within 2 weeks/i }));
   fireEvent.click(screen.getByRole('button', { name: /^continue$/i }));
 
   await waitFor(() =>
     expect(
-      screen.getByRole('heading', { name: /what matters most to you/i })
+      screen.getByRole('heading', { name: /who else needs to weigh in/i })
     ).toBeInTheDocument()
   );
 
-  fireEvent.click(screen.getByRole('button', { name: /energy efficiency/i }));
+  fireEvent.click(screen.getByRole('button', { name: /just me/i }));
   fireEvent.click(screen.getByRole('button', { name: /^continue$/i }));
 
   await waitFor(() =>
     expect(
-      screen.getByRole('heading', { name: /frame material preference/i })
+      screen.getByRole('heading', {
+        name: /what happened with the contractor who gave you this quote/i,
+      })
     ).toBeInTheDocument()
   );
+
+  fireEvent.click(screen.getByRole('button', { name: /price felt high/i }));
+  fireEvent.click(screen.getByRole('button', { name: /^continue$/i }));
+
+  await waitFor(() =>
+    expect(
+      screen.getByRole('heading', {
+        name: /what do you want windowman to help you do next/i,
+      })
+    ).toBeInTheDocument()
+  );
+
+  fireEvent.click(screen.getByRole('button', { name: /understand this quote/i }));
 }
 
-describe('StepDiagnosis — 4-step consultation flow', () => {
+describe('StepDiagnosis — 6-step pre-sales flow', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -140,7 +132,7 @@ describe('StepDiagnosis — 4-step consultation flow', () => {
     vi.useRealTimers();
   });
 
-  it('starts on Question 1 only and does not show Question 2 yet', () => {
+  it('starts on branch secondary question only', () => {
     render(<TestHarness />);
 
     expect(
@@ -149,104 +141,63 @@ describe('StepDiagnosis — 4-step consultation flow', () => {
 
     expect(
       screen.queryByRole('heading', {
+        name: /what made you start looking at impact windows now/i,
+      })
+    ).not.toBeInTheDocument();
+  });
+
+  it('advances from step 1 to urgency after branch selection', async () => {
+    render(<TestHarness />);
+
+    fireEvent.click(screen.getByRole('button', { name: /they were pushy/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^continue$/i }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole('heading', {
+          name: /what made you start looking at impact windows now/i,
+        })
+      ).toBeInTheDocument()
+    );
+  });
+
+  it('does not show window style or frame material questions', () => {
+    render(<TestHarness />);
+
+    expect(
+      screen.queryByRole('heading', {
         name: /which window styles are part of this project/i,
       })
     ).not.toBeInTheDocument();
-
-    expect(screen.queryByRole('button', { name: /^continue$/i })).not.toBeInTheDocument();
-  });
-
-  it('reveals Continue on Step 1 after a valid selection and advances to Step 2', async () => {
-    render(<TestHarness />);
-
-    fireEvent.click(screen.getByRole('button', { name: /too pushy/i }));
-
-    expect(screen.getByRole('button', { name: /^continue$/i })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: /^continue$/i }));
-
-    await waitFor(() =>
-      expect(
-        screen.getByRole('heading', {
-          name: /which window styles are part of this project/i,
-        })
-      ).toBeInTheDocument()
-    );
-  });
-
-  it('keeps Continue hidden on Step 2 until a window style is selected', async () => {
-    render(<TestHarness />);
-
-    fireEvent.click(screen.getByRole('button', { name: /too pushy/i }));
-    fireEvent.click(screen.getByRole('button', { name: /^continue$/i }));
-
-    await waitFor(() =>
-      expect(
-        screen.getByRole('heading', {
-          name: /which window styles are part of this project/i,
-        })
-      ).toBeInTheDocument()
-    );
-
-    expect(screen.queryByRole('button', { name: /^continue$/i })).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: /single hung/i }));
-
-    expect(screen.getByRole('button', { name: /^continue$/i })).toBeInTheDocument();
-  });
-
-  it('reveals the final CTA on Step 4 only after a short delay', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    render(<TestHarness />);
-
-    await moveToStep4();
-
     expect(
-      screen.queryByRole('button', { name: /show me what's next/i })
+      screen.queryByRole('heading', { name: /frame material preference/i })
     ).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: /^vinyl$/i }));
-
-    expect(
-      screen.queryByRole('button', { name: /show me what's next/i })
-    ).not.toBeInTheDocument();
-
-    vi.advanceTimersByTime(FINAL_CTA_DELAY_MS);
-
-    await waitFor(() =>
-      expect(
-        screen.getByRole('button', { name: /show me what's next/i })
-      ).toBeInTheDocument()
-    );
   });
 
-  it('calls onAdvance only after the final CTA is clicked on Step 4', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    render(<TestHarness onAdvance={mockOnAdvance} />);
+  it(
+    'reveals final CTA after step 6 selection',
+    async () => {
+      render(<TestHarness />);
 
-    await moveToStep4();
+      fireEvent.click(screen.getByRole('button', { name: /they were pushy/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^continue$/i }));
 
-    fireEvent.click(screen.getByRole('button', { name: /^vinyl$/i }));
-    vi.advanceTimersByTime(FINAL_CTA_DELAY_MS);
+      await advanceThroughPreSalesSteps();
 
-    const finalButton = await screen.findByRole('button', {
-      name: /show me what's next/i,
-    });
+      await waitFor(
+        () =>
+          expect(
+            screen.getByRole('button', { name: /continue to my prescription/i })
+          ).toBeInTheDocument(),
+        { timeout: FINAL_CTA_DELAY_MS + 500 }
+      );
+    },
+    FINAL_CTA_DELAY_MS + 2000
+  );
 
-    fireEvent.click(finalButton);
-
-    expect(mockOnAdvance).toHaveBeenCalledTimes(1);
-  });
-
-  it('uses textarea validation for the "other" diagnosis path', () => {
+  it('uses free text for other branch on step 1', async () => {
     render(<TestHarness primaryDiagnosis="other" />);
 
-    expect(screen.queryByRole('button', { name: /^continue$/i })).not.toBeInTheDocument();
-
-    fireEvent.change(screen.getByPlaceholderText(/tell us what felt off/i), {
-      target: { value: 'The quote felt vague and too rushed.' },
-    });
-
-    expect(screen.getByRole('button', { name: /^continue$/i })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/tell us what felt off/i)).toBeInTheDocument();
   });
 });

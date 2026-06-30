@@ -69,6 +69,8 @@ export interface ForensicAuditReportProps {
   fullEvidenceStack?: React.ReactNode;
   /** When true, built-in NextActionCard is omitted (lab renders CTA after evidence stack) */
   suppressBuiltInNextAction?: boolean;
+  /** Optional Paper Advisor bridge slot after executive summary (full mode only) */
+  revealBridgeSlot?: React.ReactNode;
   /** Optional teaser copy for ExecutiveSummaryBand (e.g. preview_json.summary_teaser) */
   executiveSummaryTeaser?: string | null;
 }
@@ -133,6 +135,10 @@ export default function ForensicAuditReport(props: ForensicAuditReportProps) {
               marketHigh={props.marketHigh}
             />
           )}
+
+          {!isPreview && props.revealBridgeSlot ? (
+            <div className="mt-6 sm:mt-8">{props.revealBridgeSlot}</div>
+          ) : null}
 
           {!isPreview && hasOverpayment && (
             <MoneyAtRiskCard
