@@ -1,5 +1,6 @@
 import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import BrandLogo from "@/components/BrandLogo";
 import { useDiagnosticIntake } from "./diagnosis/hooks/useDiagnosticIntake";
 import { ProgressIndicator } from "./diagnosis/components/ProgressIndicator";
 import { PostUploadProgressRail } from "./diagnosis/components/PostUploadProgressRail";
@@ -12,6 +13,20 @@ import { MarketingSections } from "./diagnosis/components/MarketingSections";
 import { PAGE_GRADIENT_CLASS } from "./diagnosis/components/prescription/prescriptionTokens";
 
 const PAGE_BG = PAGE_GRADIENT_CLASS;
+
+function DiagnosisNav({ onReturn }: { onReturn: () => void }) {
+  return (
+    <nav className="border-b border-border/60 px-6 py-4 flex items-center justify-between sticky top-0 bg-white/70 backdrop-blur-md z-50">
+      <BrandLogo href="/" size="md" ariaLabel="WindowMan.app home" />
+      <button
+        onClick={onReturn}
+        className="text-sm font-medium text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+      >
+        <ArrowLeft className="w-4 h-4" /> Review My Report
+      </button>
+    </nav>
+  );
+}
 
 const Diagnosis = () => {
   const navigate = useNavigate();
@@ -58,6 +73,7 @@ const Diagnosis = () => {
   if (intake.step === "success") {
     return (
       <div className={`min-h-screen ${PAGE_BG}`}>
+        <DiagnosisNav onReturn={intake.handleReturnToReport} />
         <PostUploadProgressRail activeStep={5} compact />
         <SuccessScreen
           context={intake.context}
@@ -74,27 +90,7 @@ const Diagnosis = () => {
       ref={intake.pageTopRef}
       className={`min-h-screen font-sans text-foreground selection:bg-cobalt/20 relative overflow-hidden ${PAGE_BG}`}
     >
-      {/* Nav */}
-      <nav className="border-b border-border/60 px-6 py-4 flex items-center justify-between sticky top-0 bg-white/70 backdrop-blur-md z-50">
-        <div className="flex items-center gap-2">
-          <div
-            className="w-8 h-8 rounded-md flex items-center justify-center text-white font-bold text-xl"
-            style={{
-              background: "linear-gradient(180deg, #6bb8ff 0%, #3b82f6 40%, #1d4ed8 100%)",
-              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.3), 0 2px 6px rgba(37,99,235,0.25)",
-            }}
-          >
-            W
-          </div>
-          <span className="font-display font-extrabold text-xl tracking-tight text-foreground">WindowMan</span>
-        </div>
-        <button
-          onClick={intake.handleReturnToReport}
-          className="text-sm font-medium text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" /> Review My Report
-        </button>
-      </nav>
+      <DiagnosisNav onReturn={intake.handleReturnToReport} />
 
       <ProgressIndicator activeStep={intake.progressRailStep as 3 | 4 | 5} />
 

@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import BrandLogo from "@/components/BrandLogo";
 
 type SiteFooterProps = {
   className?: string;
@@ -30,10 +31,7 @@ export default function SiteFooter({ className = "" }: SiteFooterProps) {
     >
       <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="space-y-6">
-          <p className="text-lg font-semibold tracking-tight">
-            <span className="text-foreground">WINDOW</span>
-            <span className="text-primary">MAN</span>
-          </p>
+          <BrandLogo to="/" useRouterLink size="sm" ariaLabel="WindowMan.app home" />
 
           <div className="space-y-3 text-sm leading-6 text-muted-foreground">
             {trustSpine.map((line) => (

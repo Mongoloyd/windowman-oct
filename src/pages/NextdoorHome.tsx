@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
-import WindowManMark from "@/components/forensic-report/WindowManMark";
+import BrandLogo from "@/components/BrandLogo";
 import { NextdoorBeforeAfterStrip } from "@/components/nextdoor/NextdoorBeforeAfterStrip";
 import { NextdoorChecksGrid } from "@/components/nextdoor/NextdoorChecksGrid";
 import { NextdoorContractorQuestionCard } from "@/components/nextdoor/NextdoorContractorQuestionCard";
@@ -755,19 +755,7 @@ export default function NextdoorHome() {
       <NextdoorDynamicBackground intensity="soft" className="text-slate-900">
         <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/85 backdrop-blur-md">
           <div className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-4 px-4 md:px-8">
-            <a
-              href="/"
-              className="inline-flex items-center gap-2.5 select-none"
-              aria-label="WindowMan home"
-            >
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
-                <WindowManMark size={20} opacity={1} />
-              </span>
-              <span className="font-display text-lg font-extrabold tracking-wide">
-                <span className="text-slate-900">WINDOW</span>
-                <span className="text-primary">MAN</span>
-              </span>
-            </a>
+            <BrandLogo href="/" size="md" ariaLabel="WindowMan home" className="shrink-0" />
             <div className="hidden text-right sm:block">
               <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-primary">
                 {TRUST_PILL_LABELS.privateQuoteCheck}
