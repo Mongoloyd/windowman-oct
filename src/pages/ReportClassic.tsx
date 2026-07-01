@@ -365,7 +365,7 @@ export default function ReportClassic() {
 
   // Route-safe Diagnosis continuation for the full-reveal report surface.
   // Passing this into ReportClassicDarkV2Full sets ctaEnabled=true so the
-  // "Answer 5 Questions to Get a Better Quote" CTA renders on the direct
+  // "A Better Quote is Moments Away" CTA renders on the direct
   // /report/classic/:scanSessionId route (parity with the homepage in-page
   // PostScanReportSwitcher path). No full_json fetch, no auth change.
   const handleRevealDiagnosisCta = useCallback(() => {

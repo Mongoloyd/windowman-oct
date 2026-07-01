@@ -1,6 +1,8 @@
 import { ArrowRight, FileCheck2 } from 'lucide-react';
 import { PostUploadProgressRail } from '@/pages/diagnosis/components/PostUploadProgressRail';
 
+const PRESCRIBED_HERO_SRC = '/images/wm-prescribed-for-you.avif';
+
 interface RevealDiagnosisBridgeCardProps {
   onPrimaryClick?: () => void;
   ctaEnabled?: boolean;
@@ -24,13 +26,34 @@ export default function RevealDiagnosisBridgeCard({
         Truth Report Complete · Next: Better Quote Plan
       </div>
 
-      <h2 className="font-display text-2xl font-black leading-tight tracking-tight text-slate-950 md:text-3xl">
-        Your quote has problems. Now let&apos;s help you get a better one.
-      </h2>
-      <p className="mt-4 max-w-2xl text-sm font-medium leading-relaxed text-slate-700 md:text-base">
-        WindowMan found the risks in your current estimate. Answer a few quick questions so we can
-        shape the next quote around your budget, timeline, and what needs to be fixed before you sign.
-      </p>
+      <div className="mt-4 grid grid-cols-1 gap-6 md:grid-cols-2 md:items-center md:gap-8">
+        <div className="order-1 md:order-none md:col-start-1 md:row-start-1">
+          <h2 className="font-display text-2xl font-black leading-tight tracking-tight text-slate-950 md:text-3xl">
+            Your quote has problems.
+          </h2>
+          <p className="mt-2 font-display text-xl font-black leading-tight tracking-tight text-slate-800 md:text-2xl">
+            Now let&apos;s help you get a better one.
+          </p>
+        </div>
+
+        <div className="order-2 flex justify-center md:order-none md:col-start-2 md:row-start-1 md:row-span-2 md:items-center md:justify-end">
+          <img
+            src={PRESCRIBED_HERO_SRC}
+            alt="WindowMan prescription: we handle the contractor conversation so you don't waste time on estimates"
+            loading="lazy"
+            decoding="async"
+            className="aspect-[4/3] w-full object-cover"
+          />
+        </div>
+
+        <div className="order-3 md:order-none md:col-start-1 md:row-start-2">
+          <p className="max-w-2xl text-sm font-medium leading-relaxed text-slate-700 md:text-base">
+            WindowMan found the risks in your current estimate. Answer a few quick questions so we
+            can shape the next quote around your budget, timeline, and what needs to be fixed before
+            you sign.
+          </p>
+        </div>
+      </div>
 
       {ctaEnabled && onPrimaryClick ? (
         <div className="mt-6">
@@ -39,7 +62,7 @@ export default function RevealDiagnosisBridgeCard({
             onClick={onPrimaryClick}
             className="btn-depth-primary inline-flex w-full items-center justify-center gap-2 px-6 py-4 text-base sm:w-auto"
           >
-            Answer 5 Questions to Get a Better Quote
+            A Better Quote is Moments Away
             <ArrowRight className="h-5 w-5" aria-hidden="true" />
           </button>
           <p className="mt-3 text-xs font-medium text-slate-500">
