@@ -65,4 +65,47 @@ describe("buildDeterministicStoragePath", () => {
     const f = makeFile("My Quote.pdf", 512);
     expect(buildDeterministicStoragePath("sess", f)).toBe("sess/512_my_quote.pdf");
   });
+
+  it("preserves the exact legacy path when options are omitted", () => {
+    const f = makeFile("quote.pdf", 1024);
+    expect(buildDeterministicStoragePath("session_abc", f)).toBe(
+      "session_abc/1024_quote.pdf",
+    );
+  });
+
+  it("preserves the exact legacy path when retryNonce is 0", () => {
+    const f = makeFile("quote.pdf", 1024);
+    expect(buildDeterministicStoragePath("session_abc", f, { retryNonce: 0 })).toBe(
+      "session_abc/1024_quote.pdf",
+    );
+  });
+
+  it("appends _r1_ when retryNonce is 1", () => {
+    const f = makeFile("quote.pdf", 1024);
+    const path = buildDeterministicStoragePath("session_abc", f, { retryNonce: 1 });
+    expect(path).toBe("session_abc/1024_r1_quote.pdf");
+    expect(path).toContain("_r1_");
+    expect(buildDeterministicStoragePath("session_abc", f)).not.toBe(path);
+  });
+
+  it("changes path between retryNonce 1 and 2", () => {
+    const f = makeFile("quote.pdf", 1024);
+    const r1 = buildDeterministicStoragePath("session_abc", f, { retryNonce: 1 });
+    const r2 = buildDeterministicStoragePath("session_abc", f, { retryNonce: 2 });
+    expect(r1).toBe("session_abc/1024_r1_quote.pdf");
+    expect(r2).toBe("session_abc/1024_r2_quote.pdf");
+    expect(r1).not.toBe(r2);
+  });
+
+  it("rotated path begins with sessionId prefix and has no unsafe segments", () => {
+    const f = makeFile("My Quote.pdf", 512);
+    const path = buildDeterministicStoragePath("sess-id", f, { retryNonce: 1 });
+    expect(path.startsWith("sess-id/")).toBe(true);
+    expect(path).not.toMatch(/\s/);
+    expect(path).not.toContain("..");
+    expect(path).not.toContain("//");
+    const remainder = path.slice("sess-id/".length);
+    expect(remainder.length).toBeGreaterThan(0);
+    expect(remainder).toMatch(/^[a-z0-9._-]+$/);
+  });
 });

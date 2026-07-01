@@ -22,10 +22,24 @@ export function normalizeFileSegment(name: string): string {
   return safe.length > 80 ? safe.slice(0, 80) : safe;
 }
 
+export type StoragePathOptions = {
+  /** When > 0, append a Start-Fresh retry suffix to break orphan 409 loops. */
+  retryNonce?: number;
+};
+
 /**
  * Build a deterministic Storage key for a (sessionId, file) pair.
- * Layout: `${sessionId}/${size}_${normalizedName}`.
+ * Layout: `${sessionId}/${size}_${normalizedName}` (nonce 0/undefined).
+ * Start-Fresh rotation: `${sessionId}/${size}_r{n}_${normalizedName}`.
  */
-export function buildDeterministicStoragePath(sessionId: string, file: File): string {
-  return `${sessionId}/${file.size}_${normalizeFileSegment(file.name)}`;
+export function buildDeterministicStoragePath(
+  sessionId: string,
+  file: File,
+  options?: StoragePathOptions,
+): string {
+  const normalizedName = normalizeFileSegment(file.name);
+  const nonce = options?.retryNonce ?? 0;
+  const fileSegment =
+    nonce > 0 ? `${file.size}_r${nonce}_${normalizedName}` : `${file.size}_${normalizedName}`;
+  return `${sessionId}/${fileSegment}`;
 }

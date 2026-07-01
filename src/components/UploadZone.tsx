@@ -374,6 +374,8 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId, leadId: 
   // beneath the orange retry panel. Production UI stays generic.
   const [uploadErrorDiag, setUploadErrorDiag] = useState<string | null>(null);
   const [uploadErrorKind, setUploadErrorKind] = useState<UploadRecoveryKind>(null);
+  // Start-Fresh path rotation: breaks orphan 409 loops without changing sessionId.
+  const [retryNonce, setRetryNonce] = useState(0);
   // Persist scanSessionId so a retry can re-invoke the edge function without
   // re-uploading the file or duplicating scan_sessions / quote_files rows.
   const [activeScanSessionId, setActiveScanSessionId] = useState<string | null>(null);
@@ -461,6 +463,19 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId, leadId: 
     onUploadReset?.();
   }, [funnel, onUploadReset]);
 
+  const handleChangeFile = useCallback(() => {
+    setRetryNonce(0);
+    resetUploadSelection();
+  }, [resetUploadSelection]);
+
+  const notifyScanStart = useCallback(
+    (fileName: string, scanSessionId: string) => {
+      setRetryNonce(0);
+      onScanStart?.(fileName, scanSessionId);
+    },
+    [onScanStart],
+  );
+
   const handleStartFreshUpload = useCallback(() => {
     resetUploadSelection();
     uploadedOnceRef.current = false;
@@ -474,6 +489,7 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId, leadId: 
     if (inputRef.current) {
       inputRef.current.value = "";
     }
+    setRetryNonce((n) => Math.min(n + 1, 999));
   }, [resetUploadSelection, funnel]);
 
   const handleDrop = useCallback(
@@ -630,7 +646,7 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId, leadId: 
           retryQuoteFileId,
         );
         if (ok) {
-          onScanStart?.(file.name, boundScanSessionId);
+          notifyScanStart(file.name, boundScanSessionId);
         }
         return;
       }
@@ -641,7 +657,9 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId, leadId: 
       // resolve back to the original Storage object + quote_files row
       // instead of duplicating either.
       const sessionScope = sessionId || crypto.randomUUID();
-      const filePath = buildDeterministicStoragePath(sessionScope, file);
+      const filePath = buildDeterministicStoragePath(sessionScope, file, {
+        retryNonce: retryNonce > 0 ? retryNonce : undefined,
+      });
 
       // ── Cross-component retry guard (DB-side) ─────────────────────────
       // Before doing any inserts, look for an existing scan_session bound
@@ -711,7 +729,7 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId, leadId: 
         }
         const ok = await invokeScan(existingScanSessionId, existingLeadId, existingQuoteFileId);
         if (ok) {
-          onScanStart?.(file.name, existingScanSessionId);
+          notifyScanStart(file.name, existingScanSessionId);
         }
         return;
       }
@@ -824,7 +842,7 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId, leadId: 
               if (crCtx!.lead_id) funnel.setLeadId(crCtx!.lead_id);
             }
             const ok = await invokeScan(crCtx!.scan_session_id!, crCtx!.lead_id ?? null, crCtx!.quote_file_id);
-            if (ok) onScanStart?.(file.name, crCtx!.scan_session_id!);
+            if (ok) notifyScanStart(file.name, crCtx!.scan_session_id!);
             return;
           }
 
@@ -964,7 +982,7 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId, leadId: 
       // re-binds to this scan_session_id (uploadedOnceRef is true).
       const ok = await invokeScan(newScanSessionId, leadId, quoteFileId);
       if (ok) {
-        onScanStart?.(file.name, newScanSessionId);
+        notifyScanStart(file.name, newScanSessionId);
       }
     } catch (err) {
       failWith("unexpected", "Something went wrong. Please try again.", err);
@@ -1020,7 +1038,7 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId, leadId: 
               }}
               onDragLeave={() => setIsDragOver(false)}
               onFileChange={handleFile}
-              onReset={resetUploadSelection}
+              onReset={handleChangeFile}
               formatSize={formatSize}
               canChangeFile={!busy}
             />

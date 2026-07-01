@@ -1047,6 +1047,222 @@ describe("UploadZone — same-file retry recovery and 409 conflict handling", ()
     await findStartButton();
   });
 
+  // ── Test A: Start Fresh rotates same-file storage path ─────────────────
+  it("Start Fresh Upload rotates storage path when the same file is selected again", async () => {
+    const SESSION = "00000000-0000-0000-0000-000000000511";
+    const file = makeFile("stale.pdf", 512);
+
+    storageUpload
+      .mockResolvedValueOnce({
+        error: { message: "The resource already exists", name: "StorageApiError", statusCode: "409" },
+        data: null,
+      })
+      .mockResolvedValueOnce({ error: null, data: { path: "x" } });
+
+    rpcMock.mockImplementation((fnName: string) => {
+      if (fnName === "get_upload_retry_context") {
+        return Promise.resolve({ data: null, error: null });
+      }
+      if (fnName === "get_scan_session_context") {
+        return makeRpcResult({
+          data: { quote_file_id: DEFAULT_QUOTE_FILE_ID, lead_id: null },
+          error: null,
+        });
+      }
+      return Promise.resolve({ data: [], error: null });
+    });
+
+    invokeMock.mockImplementation((name: string) => {
+      if (name === "start-upload-scan-session") {
+        return Promise.resolve({
+          data: {
+            success: true,
+            scan_session_id: DEFAULT_SCAN_SESSION_ID,
+            quote_file_id: DEFAULT_QUOTE_FILE_ID,
+            lead_id: null,
+          },
+          error: null,
+        });
+      }
+      return Promise.resolve({ data: { ok: true }, error: null });
+    });
+
+    render(<UploadZone isVisible sessionId={SESSION} />);
+    await selectFile(file);
+    await act(async () => { fireEvent.click(await findStartButton()); });
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Start Fresh Upload/i })).toBeInTheDocument();
+    });
+
+    const firstPath = storageUpload.mock.calls[0][0] as string;
+    expect(firstPath).not.toContain("_r1_");
+    expect(firstPath).toBe(`${SESSION}/512_stale.pdf`);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /Start Fresh Upload/i }));
+    });
+
+    await selectFile(file);
+    await act(async () => { fireEvent.click(await findStartButton()); });
+
+    await waitFor(() => {
+      expect(storageUpload).toHaveBeenCalledTimes(2);
+    });
+
+    const secondPath = storageUpload.mock.calls[1][0] as string;
+    expect(secondPath).toContain("_r1_");
+    expect(secondPath).toBe(`${SESSION}/512_r1_stale.pdf`);
+    const [, , secondOpts] = storageUpload.mock.calls[1];
+    expect(secondOpts.upsert).toBe(false);
+  });
+
+  // ── Test B: bootstrap receives rotated storage_path ────────────────────
+  it("Start Fresh then bootstrap receives rotated storage_path with same session_id", async () => {
+    const SESSION = "00000000-0000-0000-0000-000000000512";
+    const file = makeFile("stale.pdf", 512);
+
+    storageUpload
+      .mockResolvedValueOnce({
+        error: { message: "The resource already exists", name: "StorageApiError", statusCode: "409" },
+        data: null,
+      })
+      .mockResolvedValueOnce({ error: null, data: { path: "x" } });
+
+    rpcMock.mockImplementation((fnName: string) => {
+      if (fnName === "get_upload_retry_context") {
+        return Promise.resolve({ data: null, error: null });
+      }
+      return Promise.resolve({ data: [], error: null });
+    });
+
+    invokeMock.mockImplementation((name: string) => {
+      if (name === "start-upload-scan-session") {
+        return Promise.resolve({
+          data: {
+            success: true,
+            scan_session_id: DEFAULT_SCAN_SESSION_ID,
+            quote_file_id: DEFAULT_QUOTE_FILE_ID,
+            lead_id: null,
+          },
+          error: null,
+        });
+      }
+      return Promise.resolve({ data: { ok: true }, error: null });
+    });
+
+    render(<UploadZone isVisible sessionId={SESSION} />);
+    await selectFile(file);
+    await act(async () => { fireEvent.click(await findStartButton()); });
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Start Fresh Upload/i })).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /Start Fresh Upload/i }));
+    });
+
+    await selectFile(file);
+    await act(async () => { fireEvent.click(await findStartButton()); });
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("start-upload-scan-session", expect.anything());
+    });
+
+    const body = getBootstrapBody();
+    expect(body?.session_id).toBe(SESSION);
+    expect(body?.storage_path).toBe(`${SESSION}/512_r1_stale.pdf`);
+    expect(String(body?.storage_path)).toContain("_r1_");
+  });
+
+  // ── Test C: Start Fresh preserves parent session / lead identity ───────
+  it("Start Fresh path rotation preserves sessionId and leadId", async () => {
+    const SESSION = "00000000-0000-0000-0000-000000000513";
+    const LEAD = "00000000-0000-4000-8000-000000000513";
+
+    storageUpload.mockResolvedValue({
+      error: { message: "The resource already exists", name: "StorageApiError", statusCode: "409" },
+      data: null,
+    });
+    rpcMock.mockImplementation(() => Promise.resolve({ data: null, error: null }));
+
+    render(<UploadZone isVisible sessionId={SESSION} leadId={LEAD} />);
+    await selectFile(makeFile("stale.pdf", 512));
+    await act(async () => { fireEvent.click(await findStartButton()); });
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Start Fresh Upload/i })).toBeInTheDocument();
+    });
+
+    mockSetSessionId.mockClear();
+    mockSetLeadId.mockClear();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /Start Fresh Upload/i }));
+    });
+
+    expect(mockSetSessionId).not.toHaveBeenCalled();
+    expect(mockSetLeadId).not.toHaveBeenCalled();
+  });
+
+  // ── Test D: generic Retry Scan does not rotate path ────────────────────
+  it("generic Retry Scan does not introduce rotated storage paths", async () => {
+    const SESSION = "00000000-0000-0000-0000-000000000514";
+    const SCAN_ID = "00000000-0000-4000-8000-000000000514";
+    const QF_ID = "00000000-0000-4000-8000-000000000514";
+
+    let scanQuoteCallCount = 0;
+    invokeMock.mockImplementation((name: string) => {
+      if (name === "start-upload-scan-session") {
+        return Promise.resolve({
+          data: {
+            success: true,
+            scan_session_id: SCAN_ID,
+            quote_file_id: QF_ID,
+            lead_id: null,
+          },
+          error: null,
+        });
+      }
+      scanQuoteCallCount++;
+      if (scanQuoteCallCount === 1) {
+        return Promise.resolve({
+          data: { error: "transient" },
+          error: { message: "scan-quote failed" },
+        });
+      }
+      return Promise.resolve({ data: { ok: true }, error: null });
+    });
+
+    rpcMock.mockImplementation((fnName: string) => {
+      if (fnName === "get_upload_retry_context") {
+        return makeRpcResult({ data: null, error: null });
+      }
+      if (fnName === "get_scan_session_context") {
+        return makeRpcResult({ data: { quote_file_id: QF_ID, lead_id: null }, error: null });
+      }
+      return Promise.resolve({ data: [], error: null });
+    });
+
+    render(<UploadZone isVisible sessionId={SESSION} />);
+    await selectFile(makeFile("quote.pdf", 1024));
+    await act(async () => { fireEvent.click(await findStartButton()); });
+
+    const firstPath = storageUpload.mock.calls[0][0] as string;
+    expect(firstPath).not.toContain("_r1_");
+    expect(firstPath).toBe(`${SESSION}/1024_quote.pdf`);
+
+    const retryBtn = await findRetryButton();
+    storageUpload.mockClear();
+    await act(async () => { fireEvent.click(retryBtn); });
+
+    await waitFor(() => {
+      expect(invokeMock.mock.calls.filter((args) => args[0] === "scan-quote").length).toBe(2);
+    });
+    expect(storageUpload).not.toHaveBeenCalled();
+  });
+
   // ── Test 9: busy guard blocks dropzone file picker ─────────────────────
   it("dropzone click does not open file picker while busy", async () => {
     const clickSpy = vi.spyOn(HTMLInputElement.prototype, "click");
