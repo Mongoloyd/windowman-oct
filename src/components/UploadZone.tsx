@@ -192,6 +192,10 @@ function UploadDropSurface({
         onChange={(e) => {
           const f = e.target.files?.[0];
           if (f) onFileChange(f);
+          // Reset the input value so the browser fires onChange again if the
+          // same file is selected in a subsequent pick (native browser dedup
+          // suppresses the event when value is unchanged between opens).
+          e.target.value = "";
         }}
         style={{ display: "none" }}
       />
@@ -724,8 +728,70 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId, leadId: 
           },
         });
 
-        failWith("storage_upload", "Upload failed. Please try again.", storageErr);
-        return;
+        // ── Narrow 409 / object-exists conflict detection ──────────────
+        // Only applies to a plain INSERT attempt (!useUpsert). If the SDK
+        // returns statusCode "409" or an "already exists" message it means
+        // a storage object is present at this deterministic path but our
+        // earlier get_upload_retry_context lookup found no DB row (orphaned
+        // object). Do NOT blindly upsert over an existing private quote file.
+        // Instead, re-run the retry-context lookup once: a race may have
+        // written the quote_files row between our first check and now.
+        const isStorageObjectConflict =
+          anyErr?.statusCode === "409" ||
+          (typeof storageErr?.message === "string" &&
+            storageErr.message.toLowerCase().includes("already exists"));
+
+        if (isStorageObjectConflict && !useUpsert) {
+          type UploadRetryContextRow = {
+            quote_file_id: string;
+            scan_session_id: string | null;
+            lead_id: string | null;
+          };
+          const { data: crData, error: crError } = await rpc("get_upload_retry_context", {
+            p_session_scope: sessionScope,
+            p_storage_path: filePath,
+          });
+          const crCtx = firstRpcRow<UploadRetryContextRow>(
+            crData as UploadRetryContextRow[] | UploadRetryContextRow | null | undefined,
+          );
+
+          if (!crError && isValidUuid(crCtx?.quote_file_id) && isValidUuid(crCtx?.scan_session_id)) {
+            // Full context found — rebind to existing session without any re-upload.
+            uploadedOnceRef.current = true;
+            setActiveScanSessionId(crCtx!.scan_session_id!);
+            if (funnel) {
+              funnel.setScanSessionId(crCtx!.scan_session_id!);
+              funnel.setQuoteFileId(crCtx!.quote_file_id);
+              if (crCtx!.lead_id) funnel.setLeadId(crCtx!.lead_id);
+            }
+            const ok = await invokeScan(crCtx!.scan_session_id!, crCtx!.lead_id ?? null, crCtx!.quote_file_id);
+            if (ok) onScanStart?.(file.name, crCtx!.scan_session_id!);
+            return;
+          }
+
+          if (!crError && isValidUuid(crCtx?.quote_file_id)) {
+            // Partial context: storage object + quote_files row exist, no scan
+            // session yet. Fall through to bootstrap — start-upload-scan-session
+            // will idempotently reuse the existing quote_files row via
+            // storage_path. The object is already in storage; no re-upload needed.
+          } else {
+            // No DB row found despite the 409 — truly orphaned storage object.
+            // Cannot safely overwrite a private quote asset without proof of
+            // session ownership. Instruct the user to choose the file again
+            // (the e.target.value="" fix ensures onChange re-fires) or reset.
+            failWith(
+              "storage_conflict_no_context",
+              "That file already exists for this scan session, but we could not safely reconnect it. Please choose the file again or start a fresh upload.",
+              storageErr,
+            );
+            return;
+          }
+        } else {
+          // Non-409 storage errors (network, permissions, size, etc.) use the
+          // original generic failure message unchanged.
+          failWith("storage_upload", "Upload failed. Please try again.", storageErr);
+          return;
+        }
       }
 
       // ── Server-authoritative scan session bootstrap ─────────────────

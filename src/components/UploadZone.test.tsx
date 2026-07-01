@@ -741,3 +741,183 @@ describe("UploadZone — scan-quote terminal response", () => {
     );
   });
 });
+
+// ── Same-file retry recovery + 409 conflict suite ───────────────────────
+/**
+ * Tests added for the same-image retry hardening pass:
+ *  1. File input value is cleared after every onChange so same-file re-selection
+ *     always fires the event (browser-native dedup guard).
+ *  2. Storage 409 / object-exists is detected narrowly; no blind upsert.
+ *  3. On 409 with no retry context, the user sees a clear recovery message.
+ *  4. Non-409 storage errors preserve the existing generic failure message.
+ *  5. (Optional) On 409 when retry context is available, rebind succeeds.
+ */
+describe("UploadZone — same-file retry recovery and 409 conflict handling", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setupHappyPath();
+  });
+
+  // ── Test 1: input value clears after onChange ────────────────────────
+  it("clears input element value after onChange so the same file can be reselected", async () => {
+    render(<UploadZone isVisible sessionId="00000000-0000-0000-0000-000000000501" />);
+    const input = document.querySelector("input[type='file']") as HTMLInputElement;
+
+    // First selection
+    await act(async () => {
+      fireEvent.change(input, { target: { files: [makeFile("img.jpg", 256)] } });
+    });
+    // After onChange the input value must be "" so the browser won't suppress a
+    // second identical change event. The handler sets e.target.value = "".
+    expect(input.value).toBe("");
+
+    // Second selection of the same file must also be accepted (onChange fires again)
+    await act(async () => {
+      fireEvent.change(input, { target: { files: [makeFile("img.jpg", 256)] } });
+    });
+    expect(input.value).toBe("");
+    // handleFile called twice — both selections produced the "Scan my quote" button
+    await findStartButton();
+  });
+
+  // ── Test 2: 409 with no retry context shows recovery message, no upsert ─
+  it("storage 409 with no retry context shows recovery message and never upserts", async () => {
+    // First and only storage.upload returns a 409
+    storageUpload.mockResolvedValue({
+      error: { message: "The resource already exists", name: "StorageApiError", statusCode: "409" },
+      data: null,
+    });
+    // get_upload_retry_context returns null on both calls (initial + conflict re-check)
+    rpcMock.mockImplementation((fnName: string) => {
+      if (fnName === "get_upload_retry_context") {
+        return Promise.resolve({ data: null, error: null });
+      }
+      return Promise.resolve({ data: [], error: null });
+    });
+
+    render(<UploadZone isVisible sessionId="00000000-0000-0000-0000-000000000502" />);
+    await selectFile(makeFile());
+    await act(async () => { fireEvent.click(await findStartButton()); });
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/could not safely reconnect/i),
+      ).toBeInTheDocument();
+    });
+    // storageUpload called once (the plain INSERT); never retried with upsert:true
+    expect(storageUpload).toHaveBeenCalledTimes(1);
+    const [, , opts] = storageUpload.mock.calls[0];
+    expect(opts.upsert).toBe(false);
+    // Bootstrap edge function must NOT have been reached
+    expect(invokeMock).not.toHaveBeenCalledWith("start-upload-scan-session", expect.anything());
+  });
+
+  // ── Test 3: 409 recovery message appears, retry button present ─────────
+  it("storage 409 conflict surfaces a Retry Scan button so the user can act", async () => {
+    storageUpload.mockResolvedValue({
+      error: { message: "The resource already exists", name: "StorageApiError", statusCode: "409" },
+      data: null,
+    });
+    rpcMock.mockImplementation(() => Promise.resolve({ data: null, error: null }));
+
+    render(<UploadZone isVisible sessionId="00000000-0000-0000-0000-000000000503" />);
+    await selectFile(makeFile());
+    await act(async () => { fireEvent.click(await findStartButton()); });
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Retry Scan/i })).toBeInTheDocument();
+    });
+  });
+
+  // ── Test 4: non-409 storage error preserves existing generic message ────
+  it("non-409 storage error shows the original generic failure message", async () => {
+    storageUpload.mockResolvedValue({
+      error: { message: "network timeout", name: "FetchError", statusCode: "503" },
+      data: null,
+    });
+    rpcMock.mockImplementation(() => Promise.resolve({ data: null, error: null }));
+
+    render(<UploadZone isVisible sessionId="00000000-0000-0000-0000-000000000504" />);
+    await selectFile(makeFile());
+    await act(async () => { fireEvent.click(await findStartButton()); });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Upload failed\. Please try again\./i)).toBeInTheDocument();
+    });
+    // Generic error must never show the conflict-specific recovery message
+    expect(
+      screen.queryByText(/could not safely reconnect/i),
+    ).not.toBeInTheDocument();
+  });
+
+  // ── Test 5 (optional): 409 with valid full retry context rebinds ────────
+  // Setup: first get_upload_retry_context call (before storage) returns null
+  // so the code falls through to the storage upload, which returns 409.
+  // Second get_upload_retry_context call (inside the conflict handler) returns
+  // a full valid context → code rebinds and calls scan-quote without bootstrap.
+  it("storage 409 conflict-handler rebinds when second retry-context lookup succeeds", async () => {
+    const REBIND_SCAN_ID = "00000000-0000-4000-8000-000000000501";
+    const REBIND_QF_ID   = "00000000-0000-4000-8000-000000000502";
+
+    storageUpload.mockResolvedValue({
+      error: { message: "The resource already exists", name: "StorageApiError", statusCode: "409" },
+      data: null,
+    });
+
+    // First get_upload_retry_context → null (fall through to storage upload).
+    // Second get_upload_retry_context (conflict handler) → full valid context.
+    let retryContextCallCount = 0;
+    rpcMock.mockImplementation((fnName: string) => {
+      if (fnName === "get_upload_retry_context") {
+        retryContextCallCount++;
+        if (retryContextCallCount === 1) {
+          return Promise.resolve({ data: null, error: null });
+        }
+        return Promise.resolve({
+          data: {
+            quote_file_id: REBIND_QF_ID,
+            scan_session_id: REBIND_SCAN_ID,
+            lead_id: null,
+          },
+          error: null,
+        });
+      }
+      return Promise.resolve({ data: [], error: null });
+    });
+
+    invokeMock.mockImplementation((name: string) => {
+      if (name === "start-upload-scan-session") {
+        throw new Error("start-upload-scan-session must not be called on conflict rebind path");
+      }
+      return Promise.resolve({
+        data: { analysis_status: "complete", scan_session_status: "preview_ready" },
+        error: null,
+      });
+    });
+
+    const onScanStart = vi.fn();
+    render(
+      <UploadZone
+        isVisible
+        sessionId="00000000-0000-0000-0000-000000000505"
+        onScanStart={onScanStart}
+      />,
+    );
+    await selectFile(makeFile());
+    await act(async () => { fireEvent.click(await findStartButton()); });
+
+    // onScanStart must fire (conflict-handler rebind succeeded)
+    await waitFor(() => {
+      expect(onScanStart).toHaveBeenCalledWith(expect.any(String), REBIND_SCAN_ID);
+    });
+    // storageUpload called exactly once (the failed plain INSERT)
+    expect(storageUpload).toHaveBeenCalledTimes(1);
+    const [, , opts] = storageUpload.mock.calls[0];
+    expect(opts.upsert).toBe(false);
+    // scan-quote fired; bootstrap must NOT have been reached
+    expect(invokeMock).toHaveBeenCalledWith("scan-quote", expect.anything());
+    expect(invokeMock).not.toHaveBeenCalledWith("start-upload-scan-session", expect.anything());
+    // Retry-context was queried twice (initial + conflict re-check)
+    expect(retryContextCallCount).toBe(2);
+  });
+});
