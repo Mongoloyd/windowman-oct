@@ -152,6 +152,7 @@ function UploadDropSurface({
   onFileChange,
   onReset,
   formatSize,
+  canChangeFile,
 }: {
   file: File | null;
   isDragOver: boolean;
@@ -163,6 +164,7 @@ function UploadDropSurface({
   onFileChange: (f: File) => void;
   onReset: () => void;
   formatSize: (bytes: number) => string;
+  canChangeFile: boolean;
 }) {
   return (
     <div
@@ -238,11 +240,13 @@ function UploadDropSurface({
           </p>
           <button
             type="button"
+            disabled={!canChangeFile}
             onClick={(e) => {
               e.stopPropagation();
+              if (!canChangeFile) return;
               onReset();
             }}
-            className="mt-3 inline-flex items-center justify-center gap-1.5 rounded-full border border-primary/20 bg-white px-3 py-1.5 font-body text-xs font-semibold text-primary shadow-sm transition-colors hover:bg-primary/5"
+            className="mt-3 inline-flex items-center justify-center gap-1.5 rounded-full border border-primary/20 bg-white px-3 py-1.5 font-body text-xs font-semibold text-primary shadow-sm transition-colors hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <RefreshCcw className="h-3.5 w-3.5" aria-hidden="true" />
             Change file
@@ -291,29 +295,58 @@ function UploadErrorPanel({
   busy,
   uploading,
   onRetry,
+  showStartFreshUpload,
+  onStartFreshUpload,
 }: {
   uploadError: string;
   uploadErrorDiag: string | null;
   busy: boolean;
   uploading: boolean;
   onRetry: () => void;
+  showStartFreshUpload: boolean;
+  onStartFreshUpload: () => void;
 }) {
   return (
     <div className="mt-4 rounded-2xl border border-destructive/30 bg-destructive/5 p-4">
       <p className="mb-3 text-center font-body text-[13px] font-medium text-destructive">
         {uploadError}
       </p>
+      {showStartFreshUpload && (
+        <>
+          <button
+            type="button"
+            onClick={onStartFreshUpload}
+            disabled={busy}
+            className="btn-depth-primary w-full"
+            style={{
+              height: 44,
+              fontSize: 14,
+              opacity: busy ? 0.7 : 1,
+              cursor: busy ? "not-allowed" : "pointer",
+            }}
+          >
+            Start Fresh Upload
+          </button>
+          <p className="mt-2 text-center font-body text-[12px] leading-relaxed text-muted-foreground">
+            Your contact details stay saved. You&apos;ll just choose the file again.
+          </p>
+        </>
+      )}
       <button
         type="button"
         onClick={onRetry}
         disabled={busy}
-        className="btn-depth-primary w-full"
-        style={{
-          height: 44,
-          fontSize: 14,
-          opacity: busy ? 0.7 : 1,
-          cursor: busy ? "not-allowed" : "pointer",
-        }}
+        className={showStartFreshUpload ? "mt-3 w-full rounded-xl border border-primary/25 bg-white px-4 py-2.5 font-body text-[14px] font-semibold text-primary shadow-sm transition-colors hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-70" : "btn-depth-primary w-full"}
+        style={
+          showStartFreshUpload
+            ? undefined
+            : {
+                height: 44,
+                fontSize: 14,
+                opacity: busy ? 0.7 : 1,
+                cursor: busy ? "not-allowed" : "pointer",
+              }
+        }
       >
         {uploading ? "Retrying..." : "Retry Scan →"}
       </button>
@@ -329,6 +362,8 @@ function UploadErrorPanel({
 // Storage-path helpers extracted to ./uploadZone/storagePath for testability.
 // Imported above. Determinism is locked by storagePath.test.ts.
 
+type UploadRecoveryKind = "storage_conflict_no_context" | null;
+
 const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId, leadId: leadIdProp }: UploadZoneProps) => {
   const [file, setFile] = useState<File | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -338,6 +373,7 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId, leadId: 
   // Dev/preview-only diagnostic: short non-PII "[code] message" rendered
   // beneath the orange retry panel. Production UI stays generic.
   const [uploadErrorDiag, setUploadErrorDiag] = useState<string | null>(null);
+  const [uploadErrorKind, setUploadErrorKind] = useState<UploadRecoveryKind>(null);
   // Persist scanSessionId so a retry can re-invoke the edge function without
   // re-uploading the file or duplicating scan_sessions / quote_files rows.
   const [activeScanSessionId, setActiveScanSessionId] = useState<string | null>(null);
@@ -388,6 +424,7 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId, leadId: 
   const handleFile = useCallback((f: File) => {
     setFileError(null);
     setUploadError(null);
+    setUploadErrorKind(null);
     if (f.size > MAX_FILE_SIZE) {
       setFileError("File too large. Maximum size is 10MB.");
       return;
@@ -401,11 +438,11 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId, leadId: 
   }, []);
 
   const handleDropzoneClick = useCallback(() => {
-    if (!uploading && inputRef.current) {
+    if (!busy && inputRef.current) {
       inputRef.current.value = "";
       inputRef.current.click();
     }
-  }, [uploading]);
+  }, [busy]);
 
   const resetUploadSelection = useCallback(() => {
     setFile(null);
@@ -413,6 +450,7 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId, leadId: 
     setActiveScanSessionId(null);
     setUploadError(null);
     setUploadErrorDiag(null);
+    setUploadErrorKind(null);
     setFileError(null);
     setUploading(false);
     setIsDragOver(false);
@@ -422,6 +460,21 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId, leadId: 
     funnel?.setQuoteFileId(null);
     onUploadReset?.();
   }, [funnel, onUploadReset]);
+
+  const handleStartFreshUpload = useCallback(() => {
+    resetUploadSelection();
+    uploadedOnceRef.current = false;
+    inFlightRef.current = false;
+    setActiveScanSessionId(null);
+    setUploadError(null);
+    setUploadErrorDiag(null);
+    setUploadErrorKind(null);
+    funnel?.setScanSessionId(null);
+    funnel?.setQuoteFileId(null);
+    if (inputRef.current) {
+      inputRef.current.value = "";
+    }
+  }, [resetUploadSelection, funnel]);
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -515,6 +568,7 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId, leadId: 
     setUploading(true);
     setUploadError(null);
     setUploadErrorDiag(null);
+    setUploadErrorKind(null);
 
     // ── Unified failure surface ─────────────────────────────────────────
     // Every failure stage funnels through this one helper so the user sees
@@ -522,6 +576,9 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId, leadId: 
     // from cascading partial failures (storage / quote_files / scan_sessions).
     const failWith = (stage: string, message: string, err?: unknown) => {
       console.error(`[UploadZone] ${stage} failed:`, err);
+      setUploadErrorKind(
+        stage === "storage_conflict_no_context" ? "storage_conflict_no_context" : null,
+      );
       setUploadError(message);
       toast.error(message);
     };
@@ -736,8 +793,10 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId, leadId: 
         // object). Do NOT blindly upsert over an existing private quote file.
         // Instead, re-run the retry-context lookup once: a race may have
         // written the quote_files row between our first check and now.
+        const statusCode = anyErr?.statusCode ?? anyErr?.status;
         const isStorageObjectConflict =
-          anyErr?.statusCode === "409" ||
+          statusCode === "409" ||
+          statusCode === 409 ||
           (typeof storageErr?.message === "string" &&
             storageErr.message.toLowerCase().includes("already exists"));
 
@@ -781,7 +840,7 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId, leadId: 
             // (the e.target.value="" fix ensures onChange re-fires) or reset.
             failWith(
               "storage_conflict_no_context",
-              "That file already exists for this scan session, but we could not safely reconnect it. Please choose the file again or start a fresh upload.",
+              "We found an old upload attempt for this file, but couldn't safely reconnect it.",
               storageErr,
             );
             return;
@@ -963,6 +1022,7 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId, leadId: 
               onFileChange={handleFile}
               onReset={resetUploadSelection}
               formatSize={formatSize}
+              canChangeFile={!busy}
             />
 
             <div
@@ -994,6 +1054,8 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId, leadId: 
                 busy={busy}
                 uploading={uploading}
                 onRetry={handleScan}
+                showStartFreshUpload={uploadErrorKind === "storage_conflict_no_context"}
+                onStartFreshUpload={handleStartFreshUpload}
               />
             )}
 

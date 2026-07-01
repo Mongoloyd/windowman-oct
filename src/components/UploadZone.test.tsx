@@ -17,7 +17,24 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 
 // ── Hoisted mocks ───────────────────────────────────────────────────────
-const { storageUpload, fromMock, invokeMock, rpcMock, insertMock, selectMock, eqMock, orderMock, limitMock, maybeSingleMock } = vi.hoisted(() => {
+const {
+  storageUpload,
+  fromMock,
+  invokeMock,
+  rpcMock,
+  insertMock,
+  selectMock,
+  eqMock,
+  orderMock,
+  limitMock,
+  maybeSingleMock,
+  mockSetScanSessionId,
+  mockSetQuoteFileId,
+  mockSetSessionId,
+  mockSetLeadId,
+  mockSetClientSlug,
+  mockSetPhone,
+} = vi.hoisted(() => {
   return {
     storageUpload: vi.fn(),
     fromMock: vi.fn(),
@@ -29,6 +46,12 @@ const { storageUpload, fromMock, invokeMock, rpcMock, insertMock, selectMock, eq
     orderMock: vi.fn(),
     limitMock: vi.fn(),
     maybeSingleMock: vi.fn(),
+    mockSetScanSessionId: vi.fn(),
+    mockSetQuoteFileId: vi.fn(),
+    mockSetSessionId: vi.fn(),
+    mockSetLeadId: vi.fn(),
+    mockSetClientSlug: vi.fn(),
+    mockSetPhone: vi.fn(),
   };
 });
 
@@ -45,6 +68,19 @@ vi.mock("@/integrations/supabase/client", () => {
 
 vi.mock("@/hooks/useScanPolling", () => ({
   useScanPolling: () => ({ status: "idle" }),
+}));
+
+vi.mock("@/state/scanFunnel", () => ({
+  useScanFunnelSafe: () => ({
+    setScanSessionId: mockSetScanSessionId,
+    setQuoteFileId: mockSetQuoteFileId,
+    setSessionId: mockSetSessionId,
+    setLeadId: mockSetLeadId,
+    setClientSlug: mockSetClientSlug,
+    setPhone: mockSetPhone,
+    phoneStatus: "none",
+    clientSlug: "direct",
+  }),
 }));
 
 vi.mock("@/lib/trackEvent", () => ({
@@ -801,7 +837,7 @@ describe("UploadZone — same-file retry recovery and 409 conflict handling", ()
 
     await waitFor(() => {
       expect(
-        screen.getByText(/could not safely reconnect/i),
+        screen.getByText(/safely reconnect/i),
       ).toBeInTheDocument();
     });
     // storageUpload called once (the plain INSERT); never retried with upsert:true
@@ -846,7 +882,7 @@ describe("UploadZone — same-file retry recovery and 409 conflict handling", ()
     });
     // Generic error must never show the conflict-specific recovery message
     expect(
-      screen.queryByText(/could not safely reconnect/i),
+      screen.queryByText(/safely reconnect/i),
     ).not.toBeInTheDocument();
   });
 
@@ -919,5 +955,155 @@ describe("UploadZone — same-file retry recovery and 409 conflict handling", ()
     expect(invokeMock).not.toHaveBeenCalledWith("start-upload-scan-session", expect.anything());
     // Retry-context was queried twice (initial + conflict re-check)
     expect(retryContextCallCount).toBe(2);
+  });
+
+  // ── Test 6: numeric 409 status triggers object-conflict branch ─────────
+  it("numeric 409 status triggers the object-conflict branch without upsert", async () => {
+    storageUpload.mockResolvedValue({
+      error: { message: "The resource already exists", name: "StorageApiError", status: 409 },
+      data: null,
+    });
+    rpcMock.mockImplementation((fnName: string) => {
+      if (fnName === "get_upload_retry_context") {
+        return Promise.resolve({ data: null, error: null });
+      }
+      return Promise.resolve({ data: [], error: null });
+    });
+
+    render(<UploadZone isVisible sessionId="00000000-0000-0000-0000-000000000506" />);
+    await selectFile(makeFile());
+    await act(async () => { fireEvent.click(await findStartButton()); });
+
+    await waitFor(() => {
+      expect(screen.getByText(/safely reconnect/i)).toBeInTheDocument();
+    });
+    expect(storageUpload).toHaveBeenCalledTimes(1);
+    const [, , opts] = storageUpload.mock.calls[0];
+    expect(opts.upsert).toBe(false);
+  });
+
+  // ── Test 7: Start Fresh Upload CTA appears for unrecoverable 409 ───────
+  it("unrecoverable 409 reconnect failure shows Start Fresh Upload CTA", async () => {
+    storageUpload.mockResolvedValue({
+      error: { message: "The resource already exists", name: "StorageApiError", statusCode: "409" },
+      data: null,
+    });
+    rpcMock.mockImplementation(() => Promise.resolve({ data: null, error: null }));
+
+    render(<UploadZone isVisible sessionId="00000000-0000-0000-0000-000000000507" />);
+    await selectFile(makeFile());
+    await act(async () => { fireEvent.click(await findStartButton()); });
+
+    await waitFor(() => {
+      expect(screen.getByText(/safely reconnect/i)).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /Start Fresh Upload/i }),
+      ).toBeInTheDocument();
+    });
+  });
+
+  // ── Test 8: Start Fresh clears scan/upload state, preserves identity ───
+  it("Start Fresh Upload clears stale upload state but preserves session identity", async () => {
+    storageUpload.mockResolvedValue({
+      error: { message: "The resource already exists", name: "StorageApiError", statusCode: "409" },
+      data: null,
+    });
+    rpcMock.mockImplementation(() => Promise.resolve({ data: null, error: null }));
+
+    const onUploadReset = vi.fn();
+    render(
+      <UploadZone
+        isVisible
+        sessionId="00000000-0000-0000-0000-000000000508"
+        leadId="00000000-0000-4000-8000-000000000508"
+        onUploadReset={onUploadReset}
+      />,
+    );
+    const input = document.querySelector("input[type='file']") as HTMLInputElement;
+    await selectFile(makeFile("stale.pdf", 512));
+    await act(async () => { fireEvent.click(await findStartButton()); });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /Start Fresh Upload/i }),
+      ).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /Start Fresh Upload/i }));
+    });
+
+    expect(mockSetScanSessionId).toHaveBeenCalledWith(null);
+    expect(mockSetQuoteFileId).toHaveBeenCalledWith(null);
+    expect(mockSetSessionId).not.toHaveBeenCalled();
+    expect(mockSetLeadId).not.toHaveBeenCalled();
+    expect(trackGtmEvent).not.toHaveBeenCalledWith("quote_uploaded", expect.anything());
+    expect(input.value).toBe("");
+    expect(screen.queryByText(/safely reconnect/i)).not.toBeInTheDocument();
+    expect(onUploadReset).toHaveBeenCalled();
+
+    // Same file can be selected again after reset
+    await selectFile(makeFile("stale.pdf", 512));
+    await findStartButton();
+  });
+
+  // ── Test 9: busy guard blocks dropzone file picker ─────────────────────
+  it("dropzone click does not open file picker while busy", async () => {
+    const clickSpy = vi.spyOn(HTMLInputElement.prototype, "click");
+
+    render(<UploadZone isVisible sessionId="00000000-0000-0000-0000-000000000509" />);
+    await selectFile(makeFile());
+
+    let resolveUpload: ((v: unknown) => void) | null = null;
+    storageUpload.mockImplementationOnce(
+      () => new Promise((r) => { resolveUpload = r; }),
+    );
+
+    const btn = await findStartButton();
+    await act(async () => { fireEvent.click(btn); });
+
+    const dropzone = screen.getByRole("button", { name: /Selected file/i });
+    clickSpy.mockClear();
+    await act(async () => { fireEvent.click(dropzone); });
+    expect(clickSpy).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveUpload!({ error: null, data: { path: "x" } });
+    });
+
+    clickSpy.mockRestore();
+  });
+
+  // ── Test 10: busy guard blocks Change file ─────────────────────────────
+  it("Change file is disabled while busy and does not reset selection", async () => {
+    const onUploadReset = vi.fn();
+    render(
+      <UploadZone
+        isVisible
+        sessionId="00000000-0000-0000-0000-000000000510"
+        onUploadReset={onUploadReset}
+      />,
+    );
+    await selectFile(makeFile("busy-test.pdf", 768));
+
+    let resolveUpload: ((v: unknown) => void) | null = null;
+    storageUpload.mockImplementationOnce(
+      () => new Promise((r) => { resolveUpload = r; }),
+    );
+
+    const btn = await findStartButton();
+    await act(async () => { fireEvent.click(btn); });
+
+    const changeFileBtn = screen.getByRole("button", { name: /Change file/i });
+    expect(changeFileBtn).toBeDisabled();
+
+    onUploadReset.mockClear();
+    await act(async () => { fireEvent.click(changeFileBtn); });
+    expect(onUploadReset).not.toHaveBeenCalled();
+    expect(screen.getByText(/busy-test\.pdf/i)).toBeInTheDocument();
+
+    await act(async () => {
+      resolveUpload!({ error: null, data: { path: "x" } });
+    });
   });
 });
