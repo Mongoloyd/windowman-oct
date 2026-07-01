@@ -70,7 +70,7 @@ import { submitNextdoorLead } from "@/services/nextdoorLeadCapture";
 import { trackEngagement } from "@/lib/engagementScoring";
 import { getUtmData } from "@/lib/useUtmCapture";
 import { useScanFunnelSafe } from "@/state/scanFunnel";
-import { hasTrustedContactIdentity } from "@/components/TruthGateFlow";
+import { hasTrustedContactIdentity } from "@/lib/leadSession";
 import { useScanPolling, type ScanStatus } from "@/hooks/useScanPolling";
 import { toE164 } from "@/utils/formatPhone";
 

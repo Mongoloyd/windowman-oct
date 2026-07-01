@@ -1,6 +1,6 @@
 import { ClipboardList, UploadCloud } from "lucide-react";
 import { nextStepPanelCopy } from "@/lib/nextdoor/pathRouter";
-import { hasTrustedContactIdentity } from "@/components/TruthGateFlow";
+import { hasTrustedContactIdentity } from "@/lib/leadSession";
 import { NextdoorQuoteUpload } from "./NextdoorQuoteUpload";
 import type { QuoteReadiness } from "./types";
 import { nextdoorPrimaryCtaClass, nextdoorSecondaryCtaClass } from "./nextdoorUi";

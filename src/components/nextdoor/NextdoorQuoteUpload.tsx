@@ -1,5 +1,5 @@
 import UploadZone from "@/components/UploadZone";
-import { hasTrustedContactIdentity } from "@/components/TruthGateFlow";
+import { hasTrustedContactIdentity } from "@/lib/leadSession";
 
 export type NextdoorQuoteUploadProps = {
   sessionId: string;

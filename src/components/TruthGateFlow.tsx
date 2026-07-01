@@ -1,12 +1,20 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { isValidEmail, isValidName } from "@/utils/formatPhone";
 import { Check, Shield } from "lucide-react";
 import { useTickerStats } from "@/hooks/useTickerStats";
-import { supabase } from "@/integrations/supabase/client";
 import { useScanFunnelSafe } from "@/state/scanFunnel";
-import { captureUtmFromUrl, getAttributionPayload, getUtmData } from "@/lib/useUtmCapture";
-import { readLateFbCookies } from "@/lib/attribution/fbCookies";
+import { getUtmData } from "@/lib/useUtmCapture";
+import {
+  hasTrustedContactIdentity,
+  isValidLeadSessionUuid,
+} from "@/lib/leadSession";
+import {
+  formatTruthGatePhoneDisplay,
+  validateTruthGateContact,
+  validateTruthGateContactField,
+  type TruthGateFieldStatus,
+} from "@/lib/validation/truthGateContact";
+import { submitTruthGateLead } from "@/services/truthGateLeadCapture";
 
 const CONTACT_FONT =
   'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
@@ -65,59 +73,12 @@ type ContactFields = {
 };
 
 type SubmitState = "idle" | "submitting" | "success" | "error";
-type FieldStatus = "untouched" | "valid" | "invalid";
-
-const UUID_V4_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-export function isValidLeadSessionUuid(value: unknown): value is string {
-  return typeof value === "string" && UUID_V4_RE.test(value);
-}
-
-export function hasTrustedContactIdentity(
-  leadId: string | null | undefined,
-  sessionId: string | null | undefined,
-): boolean {
-  return isValidLeadSessionUuid(leadId) && isValidLeadSessionUuid(sessionId);
-}
+type FieldStatus = TruthGateFieldStatus;
 
 const slideVariants = {
   enter: { x: 40, opacity: 0 },
   center: { x: 0, opacity: 1 },
   exit: { x: -40, opacity: 0 },
-};
-
-const isValidPhone = (val: string): boolean => {
-  if (!val || val.trim() === "") return true;
-  const digits = val.replace(/\D/g, "");
-  const normalized = digits.length === 11 && digits[0] === "1" ? digits.slice(1) : digits;
-
-  if (normalized.length !== 10) return false;
-  if (normalized[0] === "0" || normalized[0] === "1") return false;
-  if (/^(\d)\1{9}$/.test(normalized)) return false;
-  if (normalized === "1234567890" || normalized === "0987654321") return false;
-
-  return true;
-};
-
-const normalizePhoneToE164 = (val: string): string | null => {
-  if (!val || val.trim() === "") return null;
-  const digits = val.replace(/\D/g, "");
-
-  if (/^\d{10}$/.test(digits)) return `+1${digits}`;
-  if (/^1\d{10}$/.test(digits)) return `+${digits}`;
-
-  return null;
-};
-
-const formatPhoneDisplay = (val: string): string => {
-  const digits = val.replace(/\D/g, "");
-  const local = digits.length === 11 && digits[0] === "1" ? digits.slice(1) : digits;
-
-  if (local.length === 0) return "";
-  if (local.length <= 3) return `(${local}`;
-  if (local.length <= 6) return `(${local.slice(0, 3)}) ${local.slice(3)}`;
-  return `(${local.slice(0, 3)}) ${local.slice(3, 6)}-${local.slice(6, 10)}`;
 };
 
 const Spinner = () => (
@@ -384,32 +345,18 @@ const TruthGateFlow = ({
     [onLeadCaptured],
   );
 
-  const validateField = useCallback((field: string, value: string): FieldStatus => {
-    switch (field) {
-      case "firstName":
-        return isValidName(value) ? "valid" : "invalid";
-      case "email":
-        return isValidEmail(value) ? "valid" : "invalid";
-      case "phone":
-        if (!value || value.trim() === "") return "untouched";
-        return isValidPhone(value) ? "valid" : "invalid";
-      default:
-        return "untouched";
+  const handleFieldBlur = useCallback((field: string, value: string) => {
+    if (value.trim().length > 0) {
+      setFieldStatus((prev) => ({
+        ...prev,
+        [field]: validateTruthGateContactField(field, value),
+      }));
     }
   }, []);
 
-  const handleFieldBlur = useCallback(
-    (field: string, value: string) => {
-      if (value.trim().length > 0) {
-        setFieldStatus((prev) => ({ ...prev, [field]: validateField(field, value) }));
-      }
-    },
-    [validateField],
-  );
-
   const handlePhoneChange = useCallback((rawValue: string) => {
     const cleaned = rawValue.replace(/[^\d\s()\-+]/g, "");
-    const formatted = formatPhoneDisplay(cleaned);
+    const formatted = formatTruthGatePhoneDisplay(cleaned);
     setFields((prev) => ({ ...prev, phone: formatted }));
 
     setFieldStatus((prev) => {
@@ -421,17 +368,10 @@ const TruthGateFlow = ({
   const handleContactSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const nameValid = isValidName(fields.firstName);
-    const emailValid = isValidEmail(fields.email);
-    const phoneValid = isValidPhone(fields.phone);
+    const validation = validateTruthGateContact(fields);
+    setFieldStatus(validation.fieldStatus);
 
-    setFieldStatus({
-      firstName: nameValid ? "valid" : "invalid",
-      email: emailValid ? "valid" : "invalid",
-      phone: fields.phone.trim() === "" ? "untouched" : phoneValid ? "valid" : "invalid",
-    });
-
-    if (!nameValid || !emailValid || !phoneValid) return;
+    if (!validation.valid) return;
 
     if (
       hasTrustedContactIdentity(funnel?.leadId, funnel?.sessionId) &&
@@ -444,146 +384,39 @@ const TruthGateFlow = ({
     setSubmitState("submitting");
     setSubmitError(null);
 
-    try {
-      const sessionId = isValidLeadSessionUuid(funnel?.sessionId)
-        ? funnel!.sessionId!
-        : crypto.randomUUID();
+    const sessionId = isValidLeadSessionUuid(funnel?.sessionId)
+      ? funnel!.sessionId!
+      : crypto.randomUUID();
 
-      if (funnel && !isValidLeadSessionUuid(funnel.sessionId)) {
-        funnel.setSessionId(sessionId);
-      }
-
-      const phoneE164 = normalizePhoneToE164(fields.phone);
-      const utm = captureUtmFromUrl();
-      const fb = readLateFbCookies(
-        { fbp: utm.fbp, fbc: utm.fbc },
-        { surface: "truth_gate_flow", sessionId },
-      );
-
-      const queryClientSlug =
-        typeof window !== "undefined"
-          ? new URLSearchParams(window.location.search).get("client")
-          : null;
-
-      const lsClientSlug =
-        typeof window !== "undefined"
-          ? localStorage.getItem("wm_client_slug")
-          : null;
-
-      const effectiveClientSlug =
-        funnel?.clientSlug ??
-        queryClientSlug ??
-        utm.client_slug ??
-        lsClientSlug ??
-        null;
-
-      if (effectiveClientSlug && typeof window !== "undefined") {
-        try { localStorage.setItem("wm_client_slug", effectiveClientSlug); } catch {}
-      }
-
-      const landingPageUrl =
-        utm.landing_page_url ??
-        (typeof window !== "undefined"
-          ? `${window.location.pathname}${window.location.search}`
-          : null);
-
-      const attributionPayload = getAttributionPayload();
-      const queryParams =
-        (attributionPayload.query_params as Record<string, string | string[]>) ??
-        {};
-      const { query_params: _queryParams, ...attributionBody } =
-        attributionPayload;
-
-      const leadInsertPayload = {
-        session_id: sessionId,
-        first_name: fields.firstName,
-        email: fields.email,
-        phone_e164: phoneE164,
-        county: null,
-        project_type: null,
-        window_count: null,
-        quote_range: null,
-        source: "truth-gate",
-        client_slug: effectiveClientSlug,
-        utm_source: utm.utm_source,
-        utm_medium: utm.utm_medium,
-        utm_campaign: utm.utm_campaign,
-        utm_term: utm.utm_term,
-        utm_content: utm.utm_content,
-        fbclid: utm.fbclid,
-        gclid: utm.gclid,
-        fbc: fb.fbc,
-        fbp: fb.fbp,
-        landing_page_url: landingPageUrl,
-        first_page_path: utm.landing_page,
-        initial_referrer: typeof document !== "undefined" ? document.referrer || null : null,
-        attribution: attributionBody,
-        query_params: queryParams,
-      };
-
-      const { data: captureData, error: captureError } = await supabase.functions.invoke(
-        "capture-truth-gate-lead",
-        { body: leadInsertPayload },
-      );
-
-      if (captureError || !captureData?.success) {
-        const errBody = (captureData ?? {}) as {
-          code?: string;
-          message?: string;
-        };
-        const code = errBody.code || captureError?.name || "lead_capture_failed";
-        const message =
-          errBody.message ||
-          captureError?.message ||
-          "We couldn't save your details yet. Check them and try again.";
-
-        console.error("[TruthGateFlow] contact capture failed", {
-          code,
-          message,
-          session_id: sessionId,
-        });
-
-        setSubmitError({ code, message });
-        throw new Error(message);
-      }
-
-      const resolvedSessionId =
-        (typeof captureData.session_id === "string" && captureData.session_id) ||
-        sessionId;
-
-      if (funnel) {
-        funnel.setSessionId(resolvedSessionId);
-        if (captureData.lead_id) {
-          funnel.setLeadId(captureData.lead_id as string);
-        }
-        if (phoneE164) {
-          funnel.setPhone(phoneE164, "screened_valid");
-        } else {
-          funnel.setPhone("", "none");
-        }
-      }
-
-      if (!captureData.lead_id) {
-        setSubmitError({
-          code: "lead_capture_failed",
-          message: "We couldn't save your details yet. Check them and try again.",
-        });
-        throw new Error("Lead capture failed.");
-      }
-
-      if (import.meta.env.DEV) {
-        console.info("[TruthGateFlow] capture-truth-gate-lead success", {
-          sessionId: resolvedSessionId,
-          leadId: (captureData.lead_id as string | null) ?? null,
-          phoneStatus: phoneE164 ? "screened_valid" : "none",
-          clientSlug: effectiveClientSlug,
-        });
-      }
-
-      unlockAfterContactCapture(resolvedSessionId);
-    } catch {
-      setSubmitState("error");
+    if (funnel && !isValidLeadSessionUuid(funnel.sessionId)) {
+      funnel.setSessionId(sessionId);
     }
+
+    const result = await submitTruthGateLead({
+      sessionId,
+      firstName: fields.firstName,
+      email: fields.email,
+      phone: fields.phone,
+      funnelClientSlug: funnel?.clientSlug,
+    });
+
+    if (result.ok === false) {
+      setSubmitError({ code: result.code, message: result.message });
+      setSubmitState("error");
+      return;
+    }
+
+    if (funnel) {
+      funnel.setSessionId(result.sessionId);
+      funnel.setLeadId(result.leadId);
+      if (result.phoneE164) {
+        funnel.setPhone(result.phoneE164, "screened_valid");
+      } else {
+        funnel.setPhone("", "none");
+      }
+    }
+
+    unlockAfterContactCapture(result.sessionId);
   };
 
   return (

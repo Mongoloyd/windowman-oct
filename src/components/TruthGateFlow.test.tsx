@@ -92,10 +92,11 @@ vi.mock("framer-motion", () => {
   };
 });
 
-import TruthGateFlow, {
+import TruthGateFlow from "./TruthGateFlow";
+import {
   hasTrustedContactIdentity,
   isValidLeadSessionUuid,
-} from "./TruthGateFlow";
+} from "@/lib/leadSession";
 
 function installLocalStorageMock() {
   const store = new Map<string, string>();
@@ -304,5 +305,78 @@ describe("TruthGateFlow paid has_quote reuse path", () => {
     });
 
     expect(invokeMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("TruthGateFlow contact validation and UI", () => {
+  beforeEach(() => {
+    funnelMockState.leadId = null;
+    funnelMockState.sessionId = null;
+    installLocalStorageMock();
+    mockSetSessionId.mockReset();
+    mockSetLeadId.mockReset();
+    mockSetPhone.mockReset();
+    invokeMock.mockReset();
+    vi.spyOn(crypto, "randomUUID").mockReturnValue(SESSION_ID);
+    seedAttribution({ wm_intent: "has_quote" });
+    invokeMock.mockResolvedValue({
+      data: {
+        success: true,
+        lead_id: LEAD_ID,
+        session_id: SESSION_ID,
+      },
+      error: null,
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("rejects junk phone 1111111111 and does not invoke capture", async () => {
+    render(<TruthGateFlow />);
+
+    await act(async () => {
+      fireEvent.change(screen.getByPlaceholderText("Your first name"), {
+        target: { value: "Jane" },
+      });
+      fireEvent.change(screen.getByPlaceholderText("your@email.com"), {
+        target: { value: "jane@example.com" },
+      });
+      fireEvent.change(screen.getByPlaceholderText("(555) 555-5555"), {
+        target: { value: "1111111111" },
+      });
+    });
+
+    await act(async () => {
+      fireEvent.submit(
+        screen.getByPlaceholderText("Your first name").closest("form") as HTMLFormElement,
+      );
+    });
+
+    expect(
+      screen.getByText("Please enter a valid 10-digit US phone number"),
+    ).toBeInTheDocument();
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("formats phone input visually as user types", async () => {
+    render(<TruthGateFlow />);
+
+    await act(async () => {
+      fireEvent.change(screen.getByPlaceholderText("(555) 555-5555"), {
+        target: { value: "5551234567" },
+      });
+    });
+
+    expect(screen.getByPlaceholderText("(555) 555-5555")).toHaveValue(
+      "(555) 123-4567",
+    );
+  });
+
+  it("preserves submit state button copy", () => {
+    render(<TruthGateFlow />);
+
+    expect(screen.getByRole("button", { name: "Start Free" })).toBeInTheDocument();
   });
 });
