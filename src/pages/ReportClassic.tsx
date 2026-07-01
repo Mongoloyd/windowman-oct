@@ -336,29 +336,41 @@ export default function ReportClassic() {
     };
   }, [analysisData, phoneE164, sessionId]);
 
-  const handleStartDiagnosisFlow = useCallback((source: "local_heroes" | "second_quote") => {
-    const handoff = buildDiagnosisHandoff();
-    if (!handoff) {
-      toast.error("Unable to start diagnosis from this report. Please reload and try again.");
-      return;
-    }
+  const handleStartDiagnosisFlow = useCallback(
+    (source: "local_heroes" | "second_quote" | "report_reveal_bridge") => {
+      const handoff = buildDiagnosisHandoff();
+      if (!handoff) {
+        toast.error("Unable to start diagnosis from this report. Please reload and try again.");
+        return;
+      }
 
-    saveReportDiagnosisHandoff(handoff);
-    trackGtmEvent("wm_report_to_diagnosis_click", {
-      event_id: crypto.randomUUID(),
-      source: "full_report_decision_fork",
-      cta_source: source,
-      value: 200,
-      currency: "USD",
-      meta: {
-        category: "opt",
-        scan_session_id: handoff.scan_session_id,
-        grade: handoff.report_grade,
-        top_insight_count: handoff.top_insights.length,
-      },
-    });
-    navigate("/diagnosis", { state: handoff });
-  }, [buildDiagnosisHandoff, navigate]);
+      saveReportDiagnosisHandoff(handoff);
+      trackGtmEvent("wm_report_to_diagnosis_click", {
+        event_id: crypto.randomUUID(),
+        source: "full_report_decision_fork",
+        cta_source: source,
+        value: 200,
+        currency: "USD",
+        meta: {
+          category: "opt",
+          scan_session_id: handoff.scan_session_id,
+          grade: handoff.report_grade,
+          top_insight_count: handoff.top_insights.length,
+        },
+      });
+      navigate("/diagnosis", { state: handoff });
+    },
+    [buildDiagnosisHandoff, navigate],
+  );
+
+  // Route-safe Diagnosis continuation for the full-reveal report surface.
+  // Passing this into ReportClassicDarkV2Full sets ctaEnabled=true so the
+  // "Answer 5 Questions to Get a Better Quote" CTA renders on the direct
+  // /report/classic/:scanSessionId route (parity with the homepage in-page
+  // PostScanReportSwitcher path). No full_json fetch, no auth change.
+  const handleRevealDiagnosisCta = useCallback(() => {
+    handleStartDiagnosisFlow("report_reveal_bridge");
+  }, [handleStartDiagnosisFlow]);
 
   // ── CTA B: Call WindowMan About My Report (voice-followup only) ────────
   const handleReportHelpCall = useCallback(async () => {
@@ -619,6 +631,8 @@ export default function ReportClassic() {
         analysisData={analysisData}
         v2ReportSource={v2ReportSource}
         county={county}
+        scanSessionId={sessionId}
+        onDiagnosisCta={handleRevealDiagnosisCta}
       />
     );
   }
