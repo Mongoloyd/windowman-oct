@@ -47,7 +47,7 @@ describe("NextdoorQuoteReadyPanel upload gate", () => {
     renderPanel({ identitySubmitted: false, leadId: null });
     expect(screen.queryByTestId("upload-zone")).toBeNull();
     expect(
-      screen.getByText(/upload opens once your details are saved/i),
+      screen.getByText(/save your details first, then upload opens here/i),
     ).toBeInTheDocument();
   });
 

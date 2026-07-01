@@ -318,8 +318,20 @@ export default function NextdoorHome() {
     readinessRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
-  const scrollToNextStepPanel = useCallback(() => {
-    scrollToElementAfterDelay(nextStepPanelRef.current, 300);
+  const scrollToNextStepPanel = useCallback((focusPanel = false) => {
+    window.setTimeout(() => {
+      const panel = nextStepPanelRef.current;
+      if (!panel) return;
+
+      panel.scrollIntoView({
+        behavior: prefersReducedMotion() ? "auto" : "smooth",
+        block: "start",
+      });
+
+      if (focusPanel) {
+        panel.focus({ preventScroll: true });
+      }
+    }, 300);
   }, []);
 
   // Scroll to a conditionally-rendered element by id. Waits two frames so React
@@ -475,10 +487,10 @@ export default function NextdoorHome() {
       setLeadSubmitting(false);
       setLeadSubmitError(null);
       setLocalPayload(null);
-      // Track A: one click should land the user on the identity form (Step 3),
-      // not a secondary scroll lobby. Other tracks keep the next-step panel.
+      // Track A should first show the quote-ready Step 2 panel so the upload
+      // lock and save-details handoff are visible on cold direct visits.
       if (value === "has_estimate") {
-        scrollToIdSmooth("identity-module", scrollToNextStepPanel);
+        scrollToNextStepPanel(true);
       } else {
         scrollToNextStepPanel();
       }
@@ -815,7 +827,7 @@ export default function NextdoorHome() {
             </div>
 
             <div className="mt-6 grid items-start gap-8 md:mt-0 md:grid-cols-[1.05fr_0.95fr] md:gap-10 lg:gap-12">
-              <NextdoorReveal className="order-2 md:order-1">
+                <NextdoorReveal className="order-2 md:order-1" initiallyVisible>
                 <div className="mt-0">
                   <NextdoorIntentRouter
                     selected={readiness}
@@ -841,7 +853,11 @@ export default function NextdoorHome() {
                 ) : null}
               </NextdoorReveal>
 
-              <NextdoorReveal className="order-1 hidden md:order-2 md:block" delayMs={80}>
+              <NextdoorReveal
+                className="order-1 hidden md:order-2 md:block"
+                delayMs={80}
+                initiallyVisible
+              >
                 <NextdoorHeroMascotStack subtitle={mockSubtitle} priority />
               </NextdoorReveal>
             </div>
@@ -852,6 +868,7 @@ export default function NextdoorHome() {
             <section
               ref={nextStepPanelRef}
               id="next-step-panel"
+              tabIndex={-1}
               className="mb-10 scroll-mt-28 md:mb-12"
               aria-labelledby="next-step-heading"
             >

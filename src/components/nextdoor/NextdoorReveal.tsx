@@ -6,6 +6,8 @@ type Props = {
   className?: string;
   /** Stagger delay in ms (kept small; ignored for reduced motion). */
   delayMs?: number;
+  /** Use for above-the-fold content that must be interactive on first paint. */
+  initiallyVisible?: boolean;
   /** Optional id passthrough for anchor targets. */
   id?: string;
   ariaLabelledby?: string;
@@ -20,10 +22,12 @@ export function NextdoorReveal({
   children,
   className,
   delayMs = 0,
+  initiallyVisible = false,
   id,
   ariaLabelledby,
 }: Props) {
-  const { ref, revealed } = useScrollReveal<HTMLDivElement>();
+  const { ref, revealed: observed } = useScrollReveal<HTMLDivElement>();
+  const revealed = initiallyVisible || observed;
 
   return (
     <div

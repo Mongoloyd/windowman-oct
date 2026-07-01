@@ -55,17 +55,14 @@ const QUOTE_READY_SCROLL_CTA = "Save my details to continue";
 
 function UploadPlaceholder({ pendingSave = false }: { pendingSave?: boolean }) {
   return (
-    <div
-      className="mt-6 rounded-xl border border-dashed border-slate-200/90 bg-slate-50/60 px-5 py-7 text-center"
-      aria-hidden={pendingSave ? "true" : undefined}
-    >
+    <div className="mt-6 rounded-xl border border-dashed border-slate-200/90 bg-slate-50/60 px-5 py-7 text-center">
       <UploadCloud className="mx-auto h-7 w-7 text-slate-300" aria-hidden="true" />
       <p className="mt-3 text-sm font-semibold text-slate-500">
-        {pendingSave ? "Upload opens once your details are saved" : "Upload area"}
+        {pendingSave ? "Save your details first, then upload opens here" : "Upload area"}
       </p>
       <p className="mt-1 text-xs leading-relaxed text-slate-400">
         {pendingSave
-          ? "Complete Step 3 below first — then return here to upload a PDF, photo, or screenshot."
+          ? "Step 1: save your details below. Step 2: your private upload opens here as soon as those details are tied to this scan session."
           : "PDF · photo · screenshot"}
       </p>
       {pendingSave ? (
@@ -178,7 +175,7 @@ export function NextdoorQuoteReadyPanel({
           <p className="mt-2 text-xs text-slate-500">
             {identitySubmitted
               ? SESSION_FALLBACK_COPY
-              : "Takes you to the details step — nothing is saved yet."}
+              : "Go to the save-details step. Upload stays locked until the save succeeds."}
           </p>
         </>
       )}
