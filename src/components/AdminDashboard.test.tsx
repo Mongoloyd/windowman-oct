@@ -1,13 +1,14 @@
 /**
- * Tests for AdminDashboard.tsx — Lead Sniper CRM v3.0
+ * Tests for AdminDashboard.tsx — operator admin shell
  *   - AuthGuard wraps content
- *   - 4 tab triggers render
- *   - Header shows "Lead Sniper CRM"
+ *   - Primary navigation links render
+ *   - Header shows current operator title
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 // ── Hoist mock refs ───────────────────────────────────────────────────────────
 const { mockGetSession, mockOnAuthStateChange, mockFunctionsInvoke } = vi.hoisted(() => ({
@@ -32,10 +33,16 @@ vi.mock("@/lib/trackConversion", () => ({ trackGtmEvent: vi.fn() }));
 import AdminDashboard from "./AdminDashboard";
 
 function renderDashboard() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: 0 } },
+  });
+
   return render(
-    <MemoryRouter>
-      <AdminDashboard />
-    </MemoryRouter>,
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>
+        <AdminDashboard />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
@@ -54,21 +61,22 @@ beforeEach(() => {
   mockFunctionsInvoke.mockResolvedValue({ data: { data: [] }, error: null });
 });
 
-describe("AdminDashboard – Lead Sniper CRM", () => {
-  it("renders the 'Lead Sniper CRM' heading", async () => {
+describe("AdminDashboard – operator shell", () => {
+  it("renders the Operator Command Center heading and eyebrow", async () => {
     renderDashboard();
     await waitFor(() => {
-      expect(screen.getByText("Lead Sniper CRM")).toBeInTheDocument();
+      expect(screen.getByText("Operator Command Center")).toBeInTheDocument();
+      expect(screen.getByText("Lead Sniper · Admin")).toBeInTheDocument();
     });
   });
 
-  it("renders all 4 tab triggers", async () => {
+  it("renders primary route navigation links", async () => {
     renderDashboard();
     await waitFor(() => {
-      expect(screen.getByRole("tab", { name: /Command Center/i })).toBeInTheDocument();
-      expect(screen.getByRole("tab", { name: /Active Pipeline/i })).toBeInTheDocument();
-      expect(screen.getByRole("tab", { name: /Ghost Recovery/i })).toBeInTheDocument();
-      expect(screen.getByRole("tab", { name: /Engine Room/i })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: /^Command\b/i })).toHaveAttribute("href", "/admin/command");
+      expect(screen.getByRole("link", { name: /^Pipeline\b/i })).toHaveAttribute("href", "/admin/pipeline");
+      expect(screen.getByRole("link", { name: /^Ghosts\b/i })).toHaveAttribute("href", "/admin/ghosts");
+      expect(screen.getByRole("link", { name: /^Dialer\b/i })).toHaveAttribute("href", "/admin/dialer");
     });
   });
 

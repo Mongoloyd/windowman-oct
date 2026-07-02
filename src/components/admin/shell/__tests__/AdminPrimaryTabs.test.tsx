@@ -70,18 +70,37 @@ describe("AdminPrimaryTabs — Lead Inbox route tab", () => {
 
   it("renders panel tabs as Radix TabsTrigger (role=tab) — not links", () => {
     renderTabs("/admin/leads");
-    // Panel tabs from the curated set
+
+    const panelTabNames = [
+      "Revenue Dispatch",
+      "Dry-Run Audit",
+      "Platform Configs",
+      "Dry-Run Queue",
+      "Dispatch Outbox",
+      "Attempt Reconciliation",
+      "Dispatch Governance",
+      "Delivery",
+      "Sessions",
+    ] as const;
+
+    for (const name of panelTabNames) {
+      expect(screen.getByRole("tab", { name })).toBeInTheDocument();
+    }
+
     const panelTabs = screen.getAllByRole("tab");
-    const panelLabels = panelTabs.map((t) => t.textContent ?? "");
-    expect(panelLabels).toEqual(
-      expect.arrayContaining([
-        "Launch Control",
-        "Command Center",
-        "Active Pipeline",
-        "Routing",
-      ]),
-    );
-    // Lead Inbox must NOT appear in role=tab — it's a link, not a TabsTrigger
+    const panelLabels = panelTabs.map((t) => t.getAttribute("aria-label") ?? "");
     expect(panelLabels).not.toContain("Lead Inbox");
+
+    const routeLinks = [
+      { name: "Launch", href: "/admin/launch" },
+      { name: "Command", href: "/admin/command" },
+      { name: "Pipeline", href: "/admin/pipeline" },
+      { name: "Routing", href: "/admin/routing" },
+    ] as const;
+
+    for (const { name, href } of routeLinks) {
+      const link = screen.getByRole("link", { name: new RegExp(`^${name}\\b`, "i") });
+      expect(link).toHaveAttribute("href", href);
+    }
   });
 });
