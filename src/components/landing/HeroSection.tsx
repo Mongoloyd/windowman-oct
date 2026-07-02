@@ -1,9 +1,9 @@
 import { cn } from "@/lib/utils";
 import {
-  handoffToCanonicalUpload,
-  openFirstQuoteIntake,
-  handoffToSystemExplainer,
-} from "./landingHandoff";
+  trackAndHandoffToCanonicalUpload,
+  trackAndOpenFirstQuoteIntake,
+} from "./landingTracking";
+import { handoffToSystemExplainer } from "./landingHandoff";
 import {
   landingContainerWide,
   landingCtaMinH,
@@ -128,7 +128,7 @@ export default function HeroSection() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <button
                 type="button"
-                onClick={() => handoffToCanonicalUpload()}
+                onClick={() => trackAndHandoffToCanonicalUpload("hero_analyze_quote")}
                 className={cn(
                   "btn-depth-primary w-full px-7 py-3.5 text-[15px] sm:w-auto",
                   landingCtaMinH,
@@ -139,7 +139,7 @@ export default function HeroSection() {
               </button>
               <button
                 type="button"
-                onClick={() => openFirstQuoteIntake()}
+                onClick={() => trackAndOpenFirstQuoteIntake("hero_first_quote")}
                 className={cn(
                   "btn-secondary-tactile w-full px-7 py-3.5 text-[15px] sm:w-auto",
                   landingCtaMinH,

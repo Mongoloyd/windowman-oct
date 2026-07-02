@@ -1,5 +1,8 @@
 import { cn } from "@/lib/utils";
-import { handoffToCanonicalUpload, openFirstQuoteIntake } from "./landingHandoff";
+import {
+  trackAndHandoffToCanonicalUpload,
+  trackAndOpenFirstQuoteIntake,
+} from "./landingTracking";
 import {
   landingContainerMid,
   landingCtaMinH,
@@ -31,7 +34,7 @@ export default function FinalCTASection() {
             </p>
             <button
               type="button"
-              onClick={() => handoffToCanonicalUpload()}
+              onClick={() => trackAndHandoffToCanonicalUpload("final_cta_analyze_quote")}
               className={cn("btn-depth-primary w-full px-7 py-3.5 text-[15px]", landingCtaMinH, landingFocusRing)}
             >
               Analyze My Quote
@@ -45,7 +48,7 @@ export default function FinalCTASection() {
             </p>
             <button
               type="button"
-              onClick={() => openFirstQuoteIntake()}
+              onClick={() => trackAndOpenFirstQuoteIntake("final_cta_first_quote")}
               className={cn(
                 "btn-secondary-tactile w-full px-7 py-3.5 text-[15px]",
                 landingCtaMinH,

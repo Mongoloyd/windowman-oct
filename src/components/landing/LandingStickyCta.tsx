@@ -1,5 +1,8 @@
 import { cn } from "@/lib/utils";
-import { handoffToCanonicalUpload, openFirstQuoteIntake } from "./landingHandoff";
+import {
+  trackAndHandoffToCanonicalUpload,
+  trackAndOpenFirstQuoteIntake,
+} from "./landingTracking";
 import { landingCtaMinH, landingFocusRing } from "./landingTypes";
 
 type LandingStickyCtaProps = {
@@ -22,14 +25,14 @@ export default function LandingStickyCta({ visible }: LandingStickyCtaProps) {
       <div className="mx-auto flex max-w-lg items-center gap-2">
         <button
           type="button"
-          onClick={() => handoffToCanonicalUpload()}
+          onClick={() => trackAndHandoffToCanonicalUpload("sticky_analyze_quote")}
           className={cn("btn-depth-primary flex-1 px-4 py-3 text-sm", landingCtaMinH, landingFocusRing)}
         >
           Analyze My Quote
         </button>
         <button
           type="button"
-          onClick={() => openFirstQuoteIntake()}
+          onClick={() => trackAndOpenFirstQuoteIntake("sticky_first_quote")}
           className={cn(
             "btn-secondary-tactile shrink-0 px-3 py-3 text-sm",
             landingCtaMinH,

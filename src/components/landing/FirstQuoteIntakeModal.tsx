@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { formatPhoneDisplay, isValidEmail, toE164, isValidUSPhone } from "@/utils/formatPhone";
-import { handoffToCanonicalUpload } from "./landingHandoff";
+import { trackAndHandoffToCanonicalUpload } from "./landingTracking";
 import {
   EMPTY_FIRST_QUOTE_INTAKE,
   HELP_NEEDED_OPTIONS,
@@ -297,7 +297,7 @@ export default function FirstQuoteIntakeModal({ open, onOpenChange }: FirstQuote
               <button
                 type="button"
                 className={cn("btn-depth-primary w-full px-6 py-3 text-sm", landingCtaMinH, landingFocusRing)}
-                onClick={() => handoffToCanonicalUpload()}
+                onClick={() => trackAndHandoffToCanonicalUpload("first_quote_modal_has_quote")}
               >
                 Analyze a Quote Instead
               </button>

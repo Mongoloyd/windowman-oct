@@ -21,11 +21,11 @@ vi.mock("@/services/windowmanFirstQuoteLeadCapture", async (importOriginal) => {
   };
 });
 
-vi.mock("./landingHandoff", () => ({
-  handoffToCanonicalUpload: vi.fn(),
+vi.mock("./landingTracking", () => ({
+  trackAndHandoffToCanonicalUpload: vi.fn(),
 }));
 
-import { handoffToCanonicalUpload } from "./landingHandoff";
+import { trackAndHandoffToCanonicalUpload } from "./landingTracking";
 
 function setup(open = true) {
   const onOpenChange = vi.fn();
@@ -69,7 +69,7 @@ function fillContact() {
 describe("FirstQuoteIntakeModal", () => {
   beforeEach(() => {
     submitMock.mockReset();
-    vi.mocked(handoffToCanonicalUpload).mockReset();
+    vi.mocked(trackAndHandoffToCanonicalUpload).mockReset();
   });
 
   afterEach(() => {
@@ -254,7 +254,7 @@ describe("FirstQuoteIntakeModal", () => {
     });
   });
 
-  it("Analyze a Quote Instead calls handoffToCanonicalUpload", async () => {
+  it("Analyze a Quote Instead calls trackAndHandoffToCanonicalUpload", async () => {
     setup();
     goToStep3();
     fillContact();
@@ -267,6 +267,8 @@ describe("FirstQuoteIntakeModal", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Analyze a Quote Instead" }));
-    expect(handoffToCanonicalUpload).toHaveBeenCalledTimes(1);
+    expect(trackAndHandoffToCanonicalUpload).toHaveBeenCalledWith(
+      "first_quote_modal_has_quote",
+    );
   });
 });

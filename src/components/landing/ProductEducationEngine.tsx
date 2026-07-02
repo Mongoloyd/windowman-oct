@@ -3,9 +3,9 @@ import { cn } from "@/lib/utils";
 import type { EducationModule, EducationModuleId } from "./landingTypes";
 import QuoteAnatomyDiagram from "./QuoteAnatomyDiagram";
 import {
-  handoffToCanonicalUpload,
   handoffToSampleReport,
 } from "./landingHandoff";
+import { trackAndHandoffToCanonicalUpload } from "./landingTracking";
 import {
   landingContainerWide,
   landingCtaMinH,
@@ -232,7 +232,7 @@ export default function ProductEducationEngine({
               </button>
               <button
                 type="button"
-                onClick={() => handoffToCanonicalUpload()}
+                onClick={() => trackAndHandoffToCanonicalUpload("product_education_analyze_quote")}
                 className={cn(
                   "btn-depth-primary w-full px-6 py-3 text-sm sm:w-auto",
                   landingCtaMinH,

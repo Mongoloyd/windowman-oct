@@ -24,14 +24,17 @@
 
 import { createContext, useContext, useEffect, useMemo, useRef } from "react";
 import { useLocation } from "react-router-dom";
-import { useLeadId, getLeadId } from "@/lib/useLeadId";
+import { useLeadId } from "@/lib/useLeadId";
 import {
   useUtmCapture,
   getUtmData,
   getUtmPayload,
   type UtmData,
 } from "@/lib/useUtmCapture";
-import { trackGtmEvent } from "@/lib/trackConversion";
+import {
+  pushTruthGateViewedOnce,
+  pushVirtualPageView,
+} from "@/lib/tracking/dataLayer";
 import { initMetaBrowserPixel, trackMetaPageView } from "@/lib/metaBrowserPixel";
 
 // ── Context ─────────────────────────────────────────────────────────────────
@@ -99,10 +102,15 @@ function RouteTracker() {
   useEffect(() => {
     // Canonical, vendor-agnostic SPA page-view signal — fires on every
     // route change AND initial mount. GTM owns downstream routing.
-    trackGtmEvent("virtual_page_view", {
+    pushVirtualPageView({
       page_path: location.pathname,
       page_search: location.search,
-      lead_id: getLeadId(),
+    });
+
+    pushTruthGateViewedOnce({
+      page_path: location.pathname,
+      page_search: location.search,
+      page_hash: location.hash,
     });
 
     // Browser Meta PageView: skip the first effect run because
@@ -113,7 +121,7 @@ function RouteTracker() {
       return;
     }
     trackMetaPageView();
-  }, [location.pathname, location.search]);
+  }, [location.pathname, location.search, location.hash]);
 
   return null;
 }

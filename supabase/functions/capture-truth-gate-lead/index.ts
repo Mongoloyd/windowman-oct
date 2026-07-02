@@ -191,13 +191,38 @@ function buildLeadCapturedAttributionMetadata(
     nd_ad_id: pickAttributionString(attr, "nd_ad_id"),
     nd_ad_group_id: pickAttributionString(attr, "nd_ad_group_id"),
     nd_campaign_id: pickAttributionString(attr, "nd_campaign_id"),
+    gclid: pickAttributionString(attr, "gclid"),
+    gbraid: pickAttributionString(attr, "gbraid"),
+    wbraid: pickAttributionString(attr, "wbraid"),
+    fbclid: pickAttributionString(attr, "fbclid"),
+    ttclid: pickAttributionString(attr, "ttclid"),
+    msclkid: pickAttributionString(attr, "msclkid"),
     landing_page_url:
       params.landingPageUrl ?? pickAttributionString(attr, "landing_page_url", 1000),
+    event_source_url:
+      params.landingPageUrl ??
+      pickAttributionString(attr, "current_page_url", 1000),
     current_page_url: pickAttributionString(attr, "current_page_url", 1000),
     landing_path: params.firstPagePath ?? pickAttributionString(attr, "landing_page", 500),
     referrer: pickAttributionString(attr, "referrer", 1000),
     has_phone: !!params.phoneE164,
+    paid_attribution_signal: hasPaidAttributionSignal(params),
   };
+}
+
+function hasPaidAttributionSignal(params: LeadCapturedCanonicalParams): boolean {
+  const attr = params.attribution;
+  return Boolean(
+    params.utmSource?.trim() ||
+      params.utmMedium?.trim() ||
+      pickAttributionString(attr, "ndclid") ||
+      pickAttributionString(attr, "gclid") ||
+      pickAttributionString(attr, "gbraid") ||
+      pickAttributionString(attr, "wbraid") ||
+      pickAttributionString(attr, "fbclid") ||
+      pickAttributionString(attr, "ttclid") ||
+      pickAttributionString(attr, "msclkid"),
+  );
 }
 
 /**

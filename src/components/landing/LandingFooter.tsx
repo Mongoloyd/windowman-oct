@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import BrandLogo from "@/components/BrandLogo";
 import { cn } from "@/lib/utils";
-import { handoffToCanonicalUpload } from "./landingHandoff";
+import { trackAndHandoffToCanonicalUpload } from "./landingTracking";
 import { landingContainerMid, landingCtaMinH, landingFocusRing } from "./landingTypes";
 
 const legalLinks = [
@@ -49,7 +49,7 @@ export default function LandingFooter() {
 
         <button
           type="button"
-          onClick={() => handoffToCanonicalUpload()}
+          onClick={() => trackAndHandoffToCanonicalUpload("footer_analyze_quote")}
           className={cn(
             "btn-depth-primary mt-6 px-5 py-2.5 text-sm",
             landingCtaMinH,

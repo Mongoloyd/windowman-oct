@@ -1,11 +1,13 @@
 import { cn } from "@/lib/utils";
 import type { LandingIntent } from "./landingTypes";
 import {
-  handoffToCanonicalUpload,
   handoffToCompareGuidance,
-  openFirstQuoteIntake,
   handoffToSystemExplainer,
 } from "./landingHandoff";
+import {
+  trackAndHandoffToCanonicalUpload,
+  trackAndOpenFirstQuoteIntake,
+} from "./landingTracking";
 import {
   landingContainerWide,
   landingCtaMinH,
@@ -30,7 +32,7 @@ const cards: RouterCard[] = [
     description:
       "Upload your estimate and start with quote intelligence built for scope, pricing, warranty, and risk clarity.",
     ctaLabel: "Analyze My Quote",
-    onCta: handoffToCanonicalUpload,
+    onCta: () => trackAndHandoffToCanonicalUpload("visitor_router_analyze_quote"),
     dominant: true,
   },
   {
@@ -39,7 +41,7 @@ const cards: RouterCard[] = [
     description:
       "Start with guidance on what a strong estimate should include before you talk to contractors.",
     ctaLabel: "Help Me Get My First Quote",
-    onCta: openFirstQuoteIntake,
+    onCta: () => trackAndOpenFirstQuoteIntake("visitor_router_first_quote"),
   },
   {
     id: "compare_quotes",

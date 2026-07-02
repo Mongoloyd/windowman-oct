@@ -1,6 +1,7 @@
 import BrandLogo from "@/components/BrandLogo";
 import { cn } from "@/lib/utils";
-import { handoffToCanonicalUpload, handoffToSystemExplainer } from "./landingHandoff";
+import { handoffToSystemExplainer } from "./landingHandoff";
+import { trackAndHandoffToCanonicalUpload } from "./landingTracking";
 import { landingContainerWide, landingCtaMinH, landingFocusRing } from "./landingTypes";
 
 export default function LandingHeader() {
@@ -27,7 +28,7 @@ export default function LandingHeader() {
           </button>
           <button
             type="button"
-            onClick={() => handoffToCanonicalUpload()}
+            onClick={() => trackAndHandoffToCanonicalUpload("header_desktop_analyze_quote")}
             className={cn("btn-depth-primary px-5 py-2.5 text-sm", landingCtaMinH, landingFocusRing)}
           >
             Analyze My Quote
@@ -36,7 +37,7 @@ export default function LandingHeader() {
 
         <button
           type="button"
-          onClick={() => handoffToCanonicalUpload()}
+          onClick={() => trackAndHandoffToCanonicalUpload("header_mobile_analyze_quote")}
           className={cn(
             "btn-depth-primary shrink-0 px-4 py-2 text-sm md:hidden",
             landingCtaMinH,

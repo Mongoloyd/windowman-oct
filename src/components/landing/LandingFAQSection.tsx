@@ -2,9 +2,9 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import type { LandingFaqItem } from "./landingTypes";
 import {
-  handoffToCanonicalUpload,
-  openFirstQuoteIntake,
-} from "./landingHandoff";
+  trackAndHandoffToCanonicalUpload,
+  trackAndOpenFirstQuoteIntake,
+} from "./landingTracking";
 import {
   landingContainerNarrow,
   landingCtaMinH,
@@ -215,7 +215,7 @@ export default function LandingFAQSection({ expandedItems, onToggleItem }: Landi
         <div className="mt-10 flex flex-col gap-3 border-t border-border pt-8 sm:flex-row">
           <button
             type="button"
-            onClick={() => handoffToCanonicalUpload()}
+            onClick={() => trackAndHandoffToCanonicalUpload("faq_analyze_quote")}
             className={cn(
               "btn-depth-primary w-full px-7 py-3.5 text-[15px] sm:w-auto",
               landingCtaMinH,
@@ -226,7 +226,7 @@ export default function LandingFAQSection({ expandedItems, onToggleItem }: Landi
           </button>
           <button
             type="button"
-            onClick={() => openFirstQuoteIntake()}
+            onClick={() => trackAndOpenFirstQuoteIntake("faq_first_quote")}
             className={cn(
               "btn-secondary-tactile w-full px-7 py-3.5 text-[15px] sm:w-auto",
               landingCtaMinH,

@@ -11,6 +11,15 @@ export const BUSINESS_EVENTS = {
   /** SPA route change (fired by AppTrackingProvider) */
   virtual_page_view: "virtual_page_view",
 
+  /** Truth Gate section visible after quote-ready handoff (#truth-gate) */
+  truth_gate_viewed: "truth_gate_viewed",
+
+  /** /windowman quote-ready CTA before homepage handoff */
+  windowman_handoff_has_quote: "windowman_handoff_has_quote",
+
+  /** /windowman first-quote intake modal opened */
+  first_quote_modal_opened: "first_quote_modal_opened",
+
   /** User selects a file in UploadZone (before upload begins) */
   scan_initiated: "scan_initiated",
 

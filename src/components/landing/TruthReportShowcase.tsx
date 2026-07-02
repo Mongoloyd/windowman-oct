@@ -1,9 +1,11 @@
 import { cn } from "@/lib/utils";
 import {
-  handoffToCanonicalUpload,
-  openFirstQuoteIntake,
   handoffToProductEducation,
 } from "./landingHandoff";
+import {
+  trackAndHandoffToCanonicalUpload,
+  trackAndOpenFirstQuoteIntake,
+} from "./landingTracking";
 import { sampleReportCards, type SampleReportStatus } from "./sampleReportData";
 import {
   landingContainerWide,
@@ -76,7 +78,7 @@ export default function TruthReportShowcase() {
         <div className="mt-10 flex flex-col gap-3 border-t border-border pt-8 sm:flex-row sm:flex-wrap">
           <button
             type="button"
-            onClick={() => handoffToCanonicalUpload()}
+            onClick={() => trackAndHandoffToCanonicalUpload("sample_report_analyze_quote")}
             className={cn(
               "btn-depth-primary w-full px-7 py-3.5 text-[15px] sm:w-auto",
               landingCtaMinH,
@@ -87,7 +89,7 @@ export default function TruthReportShowcase() {
           </button>
           <button
             type="button"
-            onClick={() => openFirstQuoteIntake()}
+            onClick={() => trackAndOpenFirstQuoteIntake("sample_report_first_quote")}
             className={cn(
               "btn-secondary-tactile w-full px-7 py-3.5 text-[15px] sm:w-auto",
               landingCtaMinH,
