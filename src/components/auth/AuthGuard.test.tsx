@@ -4,8 +4,10 @@
  *         auth state change subscription lifecycle.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { type ReactNode } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { AuthGuard } from "./AuthGuard";
 
 // ── Mock the supabase client ──────────────────────────────────────────────────
@@ -30,21 +32,28 @@ function fakeSession(userId = "user-123") {
   return { user: { id: userId, email: "test@example.com" } };
 }
 
+function renderGuard(children: ReactNode) {
+  return render(<MemoryRouter>{children}</MemoryRouter>);
+}
+
 beforeEach(() => {
+  vi.stubEnv("VITE_AUTH_GUARD_DEV_BYPASS", "");
   vi.clearAllMocks();
-  // Default: onAuthStateChange returns a subscription that can be unsubscribed
   mockOnAuthStateChange.mockReturnValue({
     data: { subscription: { unsubscribe: mockUnsubscribe } },
   });
 });
 
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
 // ── Loading state ─────────────────────────────────────────────────────────────
 describe("AuthGuard – loading state", () => {
   it("renders the loading spinner while session check is in progress", () => {
-    // getSession never resolves during this test
     mockGetSession.mockReturnValue(new Promise(() => {}));
 
-    render(
+    renderGuard(
       <AuthGuard>
         <div>Protected content</div>
       </AuthGuard>
@@ -57,7 +66,7 @@ describe("AuthGuard – loading state", () => {
   it("does not show sign-in message while still checking", () => {
     mockGetSession.mockReturnValue(new Promise(() => {}));
 
-    render(
+    renderGuard(
       <AuthGuard>
         <div>Protected content</div>
       </AuthGuard>
@@ -74,7 +83,7 @@ describe("AuthGuard – unauthenticated", () => {
   });
 
   it("shows 'Sign in required' when session is null", async () => {
-    render(
+    renderGuard(
       <AuthGuard>
         <div>Protected content</div>
       </AuthGuard>
@@ -86,7 +95,7 @@ describe("AuthGuard – unauthenticated", () => {
   });
 
   it("shows the descriptive message to the user", async () => {
-    render(
+    renderGuard(
       <AuthGuard>
         <div>Protected content</div>
       </AuthGuard>
@@ -100,7 +109,7 @@ describe("AuthGuard – unauthenticated", () => {
   });
 
   it("renders a 'Go to Home' link pointing to '/'", async () => {
-    render(
+    renderGuard(
       <AuthGuard>
         <div>Protected content</div>
       </AuthGuard>
@@ -114,7 +123,7 @@ describe("AuthGuard – unauthenticated", () => {
   });
 
   it("does NOT render children when unauthenticated", async () => {
-    render(
+    renderGuard(
       <AuthGuard>
         <div>Protected content</div>
       </AuthGuard>
@@ -128,7 +137,7 @@ describe("AuthGuard – unauthenticated", () => {
   it("treats session with no user as unauthenticated", async () => {
     mockGetSession.mockResolvedValue({ data: { session: { user: null } } });
 
-    render(
+    renderGuard(
       <AuthGuard>
         <div>Protected content</div>
       </AuthGuard>
@@ -147,7 +156,7 @@ describe("AuthGuard – authenticated", () => {
   });
 
   it("renders children when user is authenticated", async () => {
-    render(
+    renderGuard(
       <AuthGuard>
         <div>Protected content</div>
       </AuthGuard>
@@ -159,7 +168,7 @@ describe("AuthGuard – authenticated", () => {
   });
 
   it("does NOT render the loading spinner after session resolves", async () => {
-    render(
+    renderGuard(
       <AuthGuard>
         <div>Protected content</div>
       </AuthGuard>
@@ -171,7 +180,7 @@ describe("AuthGuard – authenticated", () => {
   });
 
   it("does NOT render 'Sign in required' for authenticated users", async () => {
-    render(
+    renderGuard(
       <AuthGuard>
         <div>Protected content</div>
       </AuthGuard>
@@ -183,7 +192,7 @@ describe("AuthGuard – authenticated", () => {
   });
 
   it("renders multiple children correctly", async () => {
-    render(
+    renderGuard(
       <AuthGuard>
         <p>Child one</p>
         <p>Child two</p>
@@ -202,7 +211,7 @@ describe("AuthGuard – auth state change subscription", () => {
   it("subscribes to onAuthStateChange on mount", async () => {
     mockGetSession.mockResolvedValue({ data: { session: fakeSession() } });
 
-    render(
+    renderGuard(
       <AuthGuard>
         <div>Protected content</div>
       </AuthGuard>
@@ -216,7 +225,7 @@ describe("AuthGuard – auth state change subscription", () => {
   it("unsubscribes from auth state changes on unmount", async () => {
     mockGetSession.mockResolvedValue({ data: { session: fakeSession() } });
 
-    const { unmount } = render(
+    const { unmount } = renderGuard(
       <AuthGuard>
         <div>Protected content</div>
       </AuthGuard>
@@ -232,7 +241,6 @@ describe("AuthGuard – auth state change subscription", () => {
   });
 
   it("updates to unauthenticated when auth state changes to signed-out", async () => {
-    // Start authenticated
     mockGetSession.mockResolvedValue({ data: { session: fakeSession() } });
 
     let capturedCallback: ((event: string, session: unknown) => void) | null = null;
@@ -241,7 +249,7 @@ describe("AuthGuard – auth state change subscription", () => {
       return { data: { subscription: { unsubscribe: mockUnsubscribe } } };
     });
 
-    render(
+    renderGuard(
       <AuthGuard>
         <div>Protected content</div>
       </AuthGuard>
@@ -251,7 +259,6 @@ describe("AuthGuard – auth state change subscription", () => {
       expect(screen.getByText("Protected content")).toBeInTheDocument();
     });
 
-    // Simulate sign-out event
     capturedCallback!("SIGNED_OUT", null);
 
     await waitFor(() => {
@@ -260,7 +267,6 @@ describe("AuthGuard – auth state change subscription", () => {
   });
 
   it("updates to authenticated when auth state changes to signed-in", async () => {
-    // Start unauthenticated
     mockGetSession.mockResolvedValue({ data: { session: null } });
 
     let capturedCallback: ((event: string, session: unknown) => void) | null = null;
@@ -269,7 +275,7 @@ describe("AuthGuard – auth state change subscription", () => {
       return { data: { subscription: { unsubscribe: mockUnsubscribe } } };
     });
 
-    render(
+    renderGuard(
       <AuthGuard>
         <div>Protected content</div>
       </AuthGuard>
@@ -279,7 +285,6 @@ describe("AuthGuard – auth state change subscription", () => {
       expect(screen.getByText("Sign in required")).toBeInTheDocument();
     });
 
-    // Simulate sign-in event
     capturedCallback!("SIGNED_IN", fakeSession());
 
     await waitFor(() => {
