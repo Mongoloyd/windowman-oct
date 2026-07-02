@@ -1,6 +1,17 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, Shield } from "lucide-react";
+import {
+  Check,
+  Shield,
+  ShieldCheck,
+  CheckCircle,
+  AlertTriangle,
+  Search,
+  FileText,
+  User,
+  Mail,
+  Phone,
+} from "lucide-react";
 import { useTickerStats } from "@/hooks/useTickerStats";
 import { useScanFunnelSafe } from "@/state/scanFunnel";
 import { getUtmData } from "@/lib/useUtmCapture";
@@ -18,6 +29,51 @@ import { submitTruthGateLead } from "@/services/truthGateLeadCapture";
 
 const CONTACT_FONT =
   'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+
+/** Material-layer tokens — visual only, L0–L4 hierarchy */
+const TG = {
+  pillBase:
+    "inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-widest",
+  pillQuote: "border border-slate-400/25 bg-[#0D1F38] text-slate-200",
+  pillScan: "border border-cyan-400/30 bg-[#0A2430] text-cyan-100",
+  pillRiskCheck: "border border-amber-400/25 bg-[#121A2E] text-amber-100/90",
+  privacyStrip:
+    "mt-3 flex items-center gap-3 rounded-xl border border-blue-400/25 bg-[#0B1A32] px-4 py-3 shadow-inner",
+  privacyChip:
+    "inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-blue-400/30 bg-blue-500/10 shadow-[0_0_10px_rgba(96,165,250,0.18)]",
+  inputBase:
+    "h-12 w-full rounded-xl border border-slate-500/45 bg-[#162A42] pl-10 pr-4 font-body text-[15px] text-slate-100 outline-none placeholder:text-slate-500 shadow-[inset_0_2px_4px_rgba(0,0,0,0.28)] transition-colors focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/25 [&:-webkit-autofill]:shadow-[inset_0_0_0_1000px_#162A42] [&:-webkit-autofill]:[-webkit-text-fill-color:#f1f5f9] [&:-webkit-autofill:hover]:shadow-[inset_0_0_0_1000px_#162A42] [&:-webkit-autofill:focus]:shadow-[inset_0_0_0_1000px_#162A42]",
+  inputIconIdle: "text-slate-500 group-focus-within:text-cyan-300 transition-colors",
+  inputIconActive: "text-cyan-300",
+  trustRail:
+    "mt-5 flex flex-wrap items-center justify-center gap-1.5 rounded-lg border border-slate-400/25 bg-[#152A40] px-3 py-2 sm:gap-2",
+  miniQuoteVisual:
+    "relative hidden h-16 w-14 shrink-0 rounded-lg border border-slate-400/20 bg-[#0D1F38] p-2 shadow-[0_0_18px_rgba(34,211,238,0.22)] sm:block",
+} as const;
+
+const RISK_CHIPS = [
+  {
+    icon: AlertTriangle,
+    label: "Price Risk",
+    panel: "border border-amber-500/20 bg-[#1A1408]",
+    iconClass: "text-amber-400",
+    labelClass: "text-amber-100/90",
+  },
+  {
+    icon: Search,
+    label: "Scope Gaps",
+    panel: "border border-sky-400/20 bg-[#0C1828]",
+    iconClass: "text-sky-300",
+    labelClass: "text-sky-100/90",
+  },
+  {
+    icon: ShieldCheck,
+    label: "Warranty Traps",
+    panel: "border border-violet-400/20 bg-[#141028]",
+    iconClass: "text-violet-300",
+    labelClass: "text-violet-100/90",
+  },
+] as const;
 
 type PaidAttributionSignals = {
   utm_source: string | null;
@@ -82,18 +138,37 @@ const slideVariants = {
 };
 
 const Spinner = () => (
-  <svg width="20" height="20" viewBox="0 0 20 20" className="animate-spin" style={{ color: "#2563EB" }}>
+  <svg width="20" height="20" viewBox="0 0 20 20" className="animate-spin" style={{ color: "#F8FBFF" }}>
     <circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth="2" fill="none" opacity="0.25" />
     <path d="M10 2a8 8 0 0 1 8 8" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" />
   </svg>
 );
 
 const ValidationIcon = ({ valid }: { valid: boolean }) => (
-  <span
-    className={`absolute right-3 top-1/2 -translate-y-1/2 text-base leading-none ${valid ? "text-primary" : "text-orange-500"}`}
-  >
-    {valid ? "✓" : "✗"}
+  <span className="absolute right-3 top-1/2 -translate-y-1/2">
+    {valid ? (
+      <CheckCircle className="h-4 w-4 text-cyan-300" aria-hidden="true" />
+    ) : (
+      <AlertTriangle className="h-4 w-4 text-amber-400" aria-hidden="true" />
+    )}
   </span>
+);
+
+const MiniQuoteScanVisual = () => (
+  <div
+    aria-hidden="true"
+    className={TG.miniQuoteVisual}
+  >
+    <FileText className="absolute right-1 top-1 h-3 w-3 text-cyan-400/70" />
+    <div className="mt-1 space-y-1.5">
+      <div className="relative h-1 rounded-full bg-slate-600/60">
+        <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-amber-400/90" />
+      </div>
+      <div className="h-1 rounded-full bg-slate-600/50" />
+      <div className="h-1 w-3/4 rounded-full bg-slate-600/40" />
+    </div>
+    <div className="absolute inset-x-1 top-1/2 h-px bg-cyan-400/70 shadow-[0_0_6px_rgba(34,211,238,0.5)]" />
+  </div>
 );
 
 const ContactCaptureStep = ({
@@ -103,6 +178,8 @@ const ContactCaptureStep = ({
   fieldStatus,
   submitState,
   submitError,
+  total,
+  tickerToday,
   onFirstNameChange,
   onEmailChange,
   onPhoneChange,
@@ -115,6 +192,8 @@ const ContactCaptureStep = ({
   fieldStatus: Record<string, FieldStatus>;
   submitState: SubmitState;
   submitError: { code?: string; message?: string } | null;
+  total: number;
+  tickerToday: number;
   onFirstNameChange: (value: string) => void;
   onEmailChange: (value: string) => void;
   onPhoneChange: (value: string) => void;
@@ -131,41 +210,69 @@ const ContactCaptureStep = ({
     className="flex flex-col gap-5"
     style={{ fontFamily: CONTACT_FONT }}
   >
-    <div
-      className="rounded-xl border border-primary/20 bg-gradient-to-b from-white to-primary/[0.06] p-6 shadow-[var(--shadow-elevated)]"
-    >
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <span
-          className="inline-flex items-center rounded-full border border-slate-200/80 bg-white/90 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground shadow-sm"
-        >
-          Quote
+    <div className="relative">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+          <span className={`${TG.pillBase} ${TG.pillQuote}`}>
+            Quote
+          </span>
+          <span className={`${TG.pillBase} ${TG.pillScan}`}>
+            Scan
+          </span>
+          <span className={`${TG.pillBase} ${TG.pillRiskCheck}`}>
+            QUOTE RISK CHECK
+          </span>
+        </div>
+        <MiniQuoteScanVisual />
+      </div>
+
+      <h2 className="text-3xl font-extrabold leading-tight tracking-tight text-[#F8FBFF] sm:text-[32px]">
+        Get The Best Window Quote Possible
+      </h2>
+      <p className="mt-3 max-w-md text-base leading-relaxed text-[#CBD5E1]">
+        Have A Quote Already? Scan It In 60 Seconds. Still Waiting On One?
+        Start Here And We&apos;ll Keep Everything Together.
+      </p>
+
+      <div
+        aria-hidden="true"
+        className="mt-3 grid grid-cols-3 gap-1.5 sm:gap-2"
+      >
+        {RISK_CHIPS.map(({ icon: Icon, label, panel, iconClass, labelClass }) => (
+          <div
+            key={label}
+            className={`flex items-center justify-center gap-1 rounded-lg px-1.5 py-1.5 sm:gap-1.5 sm:px-2 ${panel}`}
+          >
+            <Icon className={`h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5 ${iconClass}`} />
+            <span
+              className={`text-[9px] font-semibold uppercase leading-tight tracking-wide sm:text-[10px] ${labelClass}`}
+            >
+              {label}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      <div className={TG.privacyStrip}>
+        <span className={TG.privacyChip}>
+          <ShieldCheck className="h-4 w-4 text-cyan-300" aria-hidden="true" />
         </span>
-        <span
-          className="inline-flex items-center rounded-full border border-primary/25 bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary shadow-sm"
-        >
-          Scan
+        <span className="text-sm font-semibold leading-snug text-blue-50">
+          Private Quote Upload. No Contractor Sees It Unless You Choose.
         </span>
       </div>
-      <h2 className="font-display text-2xl font-extrabold leading-tight tracking-[0.01em] text-foreground sm:text-[28px]">
-        Get the right window quote — then scan it before you sign.
-      </h2>
-      <p className="mt-3 text-base leading-relaxed text-muted-foreground">
-        Have a quote already? Scan it in 60 seconds. Still waiting on one? Start
-        here and we&apos;ll keep everything together.
-      </p>
-      <p className="mt-3 flex items-start gap-2 text-sm leading-relaxed text-muted-foreground">
-        <Shield className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-        <span>
-          Free check. Private by default. No contractor sees your quote unless you
-          choose.
-        </span>
-      </p>
     </div>
 
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
       <div>
-        <label className="wm-eyebrow mb-1.5 text-muted-foreground block">FIRST NAME</label>
-        <div className="relative">
+        <label className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-300">FIRST NAME</label>
+        <div className="relative group">
+          <User
+            className={`pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 ${
+              fieldStatus.firstName === "valid" ? TG.inputIconActive : TG.inputIconIdle
+            }`}
+            aria-hidden="true"
+          />
           <input
             type="text"
             placeholder="Your first name"
@@ -175,13 +282,13 @@ const ContactCaptureStep = ({
             value={firstName}
             onChange={(e) => onFirstNameChange(e.target.value)}
             onBlur={() => onFieldBlur("firstName", firstName)}
-            className={`wm-input-well w-full h-12 px-4 font-body text-[15px] text-foreground outline-none ${
+            className={`${TG.inputBase} ${
               fieldStatus.firstName !== "untouched" ? "pr-10" : ""
             } ${
               fieldStatus.firstName === "invalid"
-                ? "border-orange-500"
+                ? "border-orange-500/80"
                 : fieldStatus.firstName === "valid"
-                  ? "border-primary"
+                  ? "border-cyan-400/70"
                   : ""
             }`}
             style={{ fontFamily: CONTACT_FONT }}
@@ -190,15 +297,21 @@ const ContactCaptureStep = ({
           {fieldStatus.firstName === "invalid" && <ValidationIcon valid={false} />}
         </div>
         {fieldStatus.firstName === "invalid" && (
-          <p className="font-body text-xs text-orange-500 mt-1">
+          <p className="mt-1.5 font-body text-xs text-amber-300">
             Please enter your first name (2+ characters)
           </p>
         )}
       </div>
 
       <div>
-        <label className="wm-eyebrow mb-1.5 text-muted-foreground block">EMAIL ADDRESS</label>
-        <div className="relative">
+        <label className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-300">EMAIL ADDRESS</label>
+        <div className="relative group">
+          <Mail
+            className={`pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 ${
+              fieldStatus.email === "valid" ? TG.inputIconActive : TG.inputIconIdle
+            }`}
+            aria-hidden="true"
+          />
           <input
             type="email"
             placeholder="your@email.com"
@@ -208,13 +321,13 @@ const ContactCaptureStep = ({
             value={email}
             onChange={(e) => onEmailChange(e.target.value)}
             onBlur={() => onFieldBlur("email", email)}
-            className={`wm-input-well w-full h-12 px-4 font-body text-[15px] text-foreground outline-none ${
+            className={`${TG.inputBase} ${
               fieldStatus.email !== "untouched" ? "pr-10" : ""
             } ${
               fieldStatus.email === "invalid"
-                ? "border-orange-500"
+                ? "border-orange-500/80"
                 : fieldStatus.email === "valid"
-                  ? "border-primary"
+                  ? "border-cyan-400/70"
                   : ""
             }`}
             style={{ fontFamily: CONTACT_FONT }}
@@ -223,15 +336,21 @@ const ContactCaptureStep = ({
           {fieldStatus.email === "invalid" && <ValidationIcon valid={false} />}
         </div>
         {fieldStatus.email === "invalid" && (
-          <p className="font-body text-xs text-orange-500 mt-1">
+          <p className="mt-1.5 font-body text-xs text-amber-300">
             Please enter a valid email address
           </p>
         )}
       </div>
 
       <div>
-        <label className="wm-eyebrow mb-1.5 text-muted-foreground block">MOBILE NUMBER</label>
-        <div className="relative">
+        <label className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-300">MOBILE NUMBER</label>
+        <div className="relative group">
+          <Phone
+            className={`pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 ${
+              fieldStatus.phone === "valid" ? TG.inputIconActive : TG.inputIconIdle
+            }`}
+            aria-hidden="true"
+          />
           <input
             type="tel"
             placeholder="(555) 555-5555"
@@ -242,13 +361,13 @@ const ContactCaptureStep = ({
             value={phone}
             onChange={(e) => onPhoneChange(e.target.value)}
             onBlur={() => onFieldBlur("phone", phone)}
-            className={`wm-input-well w-full h-12 px-4 font-body text-[15px] text-foreground outline-none ${
+            className={`${TG.inputBase} ${
               fieldStatus.phone !== "untouched" ? "pr-10" : ""
             } ${
               fieldStatus.phone === "invalid"
-                ? "border-orange-500"
+                ? "border-orange-500/80"
                 : fieldStatus.phone === "valid"
-                  ? "border-primary"
+                  ? "border-cyan-400/70"
                   : ""
             }`}
             style={{ fontFamily: CONTACT_FONT }}
@@ -257,7 +376,7 @@ const ContactCaptureStep = ({
           {fieldStatus.phone === "invalid" && <ValidationIcon valid={false} />}
         </div>
         {fieldStatus.phone === "invalid" && (
-          <p className="font-body text-xs text-orange-500 mt-1">
+          <p className="mt-1.5 font-body text-xs text-amber-300">
             Please enter a valid 10-digit US phone number
           </p>
         )}
@@ -266,7 +385,7 @@ const ContactCaptureStep = ({
       <button
         type="submit"
         disabled={submitState === "submitting" || submitState === "success"}
-        className="btn-depth-primary w-full rounded-lg border border-primary/20 bg-primary px-6 py-4 text-base font-semibold text-primary-foreground shadow"
+        className="h-14 w-full rounded-xl bg-gradient-to-r from-blue-600 to-cyan-400 text-base font-bold text-white shadow-[0_10px_30px_-8px_rgba(34,211,238,0.55)] transition-all hover:-translate-y-0.5 hover:shadow-[0_16px_42px_-10px_rgba(34,211,238,0.72)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:shadow-[0_10px_30px_-8px_rgba(34,211,238,0.55)]"
         style={{ fontFamily: CONTACT_FONT }}
       >
         {submitState === "idle" && "Start Free"}
@@ -284,8 +403,26 @@ const ContactCaptureStep = ({
       </button>
 
       {submitState === "error" && submitError?.message && (
-        <p className="font-body text-xs text-orange-500 text-center">{submitError.message}</p>
+        <p className="text-center font-body text-xs text-amber-300">{submitError.message}</p>
       )}
+
+      <p className="text-center text-xs text-[#CBD5E1]/80">
+        Your quote stays private until you decide what to do next.
+      </p>
+
+      <div className={TG.trustRail} aria-label="Quote scan statistics">
+        <Shield className="h-3 w-3 shrink-0 text-slate-400" aria-hidden="true" />
+        <span className="text-[10px] font-semibold tabular-nums font-mono text-slate-100 sm:text-xs">
+          {total.toLocaleString()}
+        </span>
+        <span className="text-[10px] text-slate-400 whitespace-nowrap">
+          Quotes Scanned
+        </span>
+        <div className="hidden h-3 w-px bg-slate-600/40 sm:block" aria-hidden="true" />
+        <span className="text-[10px] font-bold tabular-nums font-mono text-cyan-300 whitespace-nowrap sm:text-xs">
+          +{tickerToday} Today
+        </span>
+      </div>
     </form>
   </motion.div>
 );
@@ -422,65 +559,52 @@ const TruthGateFlow = ({
   return (
     <section
       id="truth-gate"
-      className="bg-background h-full min-h-screen md:min-h-[85vh] flex-col py-12 flex items-center justify-center"
+      className="relative bg-background pt-10 pb-12 md:pt-24 md:pb-20 lg:pt-28 lg:pb-28"
     >
       <div
-        className={`mx-auto w-full max-w-2xl px-4 md:px-8 py-10 md:py-16 transition-all duration-500 ${glowing ? "ring-2 ring-cobalt shadow-lg shadow-cobalt/20" : ""}`}
+        className={`mx-auto w-full max-w-lg px-4 md:px-8 transition-all duration-500 ${glowing ? "ring-2 ring-cyan-400 shadow-lg shadow-cyan-400/20 rounded-2xl" : ""}`}
       >
-        <p className="text-center mb-2 wm-eyebrow text-muted-foreground">WINDOWMAN QUOTE CHECK</p>
-        <p className="text-center mb-3 wm-eyebrow text-primary" style={{ fontSize: 11 }}>
+        <p className="mb-6 text-center wm-eyebrow text-cyan-300/90" style={{ fontSize: 11 }}>
           {eyebrowText}
         </p>
-        <div className="w-full h-1.5 input-well mb-8">
-          <motion.div
-            className="h-1.5 rounded-full"
-            style={{ background: "linear-gradient(90deg, #4DA3FF, #2563EB)", boxShadow: "0 0 8px rgba(37,99,235,0.3)" }}
-            animate={{ width: "100%" }}
-            transition={{ duration: 0.15 }}
-          />
-        </div>
 
-        <div
-          className="card-dominant p-7 md:p-8 shadow-2xl"
-          style={{
-            minHeight: 280,
-            overflow: "hidden",
-          }}
-        >
-          <AnimatePresence mode="wait">
-            <ContactCaptureStep
-              firstName={fields.firstName}
-              email={fields.email}
-              phone={fields.phone}
-              fieldStatus={fieldStatus}
-              submitState={submitState}
-              submitError={submitError}
-              onFirstNameChange={(value) =>
-                setFields((prev) => ({ ...prev, firstName: value }))
-              }
-              onEmailChange={(value) =>
-                setFields((prev) => ({ ...prev, email: value }))
-              }
-              onPhoneChange={handlePhoneChange}
-              onFieldBlur={handleFieldBlur}
-              onSubmit={handleContactSubmit}
-            />
-          </AnimatePresence>
-        </div>
+        <div className="rounded-2xl bg-gradient-to-br from-cyan-400 via-blue-500 to-purple-600 p-[2px] shadow-[0_25px_70px_-20px_rgba(37,99,235,0.5)]">
+          <div className="relative rounded-[calc(1rem-1px)] border border-white/[0.06] bg-[#050B16] p-7 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] md:p-8">
+            <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[calc(1rem-1px)]" aria-hidden="true">
+              <div className="absolute -right-16 -top-24 h-64 w-64 rounded-full bg-[radial-gradient(circle,rgba(34,211,238,0.12),transparent_70%)]" />
+              <div
+                className="absolute inset-0 opacity-[0.04]"
+                style={{
+                  backgroundImage:
+                    "linear-gradient(to right, rgba(148,163,184,0.6) 1px, transparent 1px), linear-gradient(to bottom, rgba(148,163,184,0.6) 1px, transparent 1px)",
+                  backgroundSize: "28px 28px",
+                }}
+              />
+            </div>
 
-        <div className="flex justify-center -mt-3 md:-mt-4 relative z-10 pointer-events-none select-none">
-          <div className="inline-flex items-center gap-3 rounded-full border border-slate-200/60 bg-white/80 backdrop-blur-sm px-4 py-1.5 shadow-sm">
-            <Shield className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-            <span className="text-xs font-semibold tabular-nums font-mono text-foreground">
-              {total.toLocaleString()}
-            </span>
-            <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-              Quotes Scanned
-            </span>
-            <div className="w-px h-3.5 bg-border" />
-            <span className="text-xs font-bold tabular-nums font-mono text-primary whitespace-nowrap">
-              +{tickerToday} Today
-            </span>
+            <div className="relative z-10">
+              <AnimatePresence mode="wait">
+                <ContactCaptureStep
+                  firstName={fields.firstName}
+                  email={fields.email}
+                  phone={fields.phone}
+                  fieldStatus={fieldStatus}
+                  submitState={submitState}
+                  submitError={submitError}
+                  total={total}
+                  tickerToday={tickerToday}
+                  onFirstNameChange={(value) =>
+                    setFields((prev) => ({ ...prev, firstName: value }))
+                  }
+                  onEmailChange={(value) =>
+                    setFields((prev) => ({ ...prev, email: value }))
+                  }
+                  onPhoneChange={handlePhoneChange}
+                  onFieldBlur={handleFieldBlur}
+                  onSubmit={handleContactSubmit}
+                />
+              </AnimatePresence>
+            </div>
           </div>
         </div>
       </div>
