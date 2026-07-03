@@ -1,6 +1,7 @@
 /**
  * ScopeGapChecklist — Install-Day Coverage Map (lab-only, fixture-driven).
  */
+import { AlertCircle, CheckCircle2, ClipboardList, HelpCircle } from "lucide-react";
 import type {
   ScopeGapChecklistProps,
   ScopeGapItem,
@@ -18,6 +19,9 @@ const DEFAULT_OCR_DISCLAIMER =
 
 const CONFIRMATION_STATES: ScopeGapState[] = ["excluded", "unclear", "not_detected"];
 const MAX_VISIBLE_QUESTIONS = 8;
+
+const PILL_BASE =
+  "inline-flex shrink-0 items-center px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider";
 
 const STATE_PRIORITY: Record<ScopeGapState, number> = {
   excluded: 0,
@@ -52,20 +56,49 @@ function computeSummaryFromPhases(phases: ScopeGapPhase[]): ScopeGapSummaryCount
   };
 }
 
-function stateBadgeClass(state: ScopeGapState): string {
-  const base = "inline-flex shrink-0 rounded-md px-2 py-0.5 text-xs font-medium border";
+function stateVisual(state: ScopeGapState) {
   switch (state) {
     case "included":
-      return `${base} border-emerald-500/40 text-emerald-300 bg-emerald-950/30`;
-    case "not_detected":
-      return `${base} border-neutral-700 text-neutral-400 bg-neutral-900/40`;
+      return {
+        cardClass: "fr-card fr-card--verified fr-accent-l--verified",
+        pillClass: "fr-pill--verified",
+        titleClass: "fr-text-t2",
+        icon: CheckCircle2,
+        iconClass: "text-[hsl(var(--fr-success))]",
+      };
     case "excluded":
-      return `${base} border-amber-600/40 text-amber-300 bg-amber-950/20`;
+      return {
+        cardClass: "fr-card fr-card--warning fr-accent-l--warning",
+        pillClass: "fr-pill--warning",
+        titleClass: "fr-text-t2 text-[hsl(var(--fr-caution))]",
+        icon: AlertCircle,
+        iconClass: "text-[hsl(var(--fr-caution))]",
+      };
     case "unclear":
-      return `${base} border-cyan-500/40 text-cyan-300 bg-cyan-950/20`;
+      return {
+        cardClass: "fr-card fr-card--warning fr-accent-l--warning",
+        pillClass: "fr-pill--info",
+        titleClass: "fr-text-t2",
+        icon: HelpCircle,
+        iconClass: "text-[hsl(var(--fr-cyan))]",
+      };
+    case "not_detected":
+      return {
+        cardClass: "fr-card fr-card--quiet",
+        pillClass: "fr-pill--unknown",
+        titleClass: "fr-text-t2",
+        icon: HelpCircle,
+        iconClass: "text-[hsl(var(--fr-text-muted))]",
+      };
     case "not_applicable":
     default:
-      return `${base} border-neutral-800 text-neutral-600 bg-transparent`;
+      return {
+        cardClass: "fr-card fr-card--quiet",
+        pillClass: "fr-pill--unknown",
+        titleClass: "fr-text-t3",
+        icon: HelpCircle,
+        iconClass: "text-[hsl(var(--fr-text-dim))]",
+      };
   }
 }
 
@@ -114,118 +147,157 @@ function ChecklistHeader({
   ocrDisclaimer: string;
 }) {
   return (
-    <header className="space-y-2 min-w-0">
-      <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-[hsl(var(--fr-cyan))]">
+    <header className="min-w-0 space-y-2">
+      <p className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.2em] text-[hsl(var(--fr-cyan))]">
+        <ClipboardList size={12} className="text-[hsl(var(--fr-cyan))]" aria-hidden />
         SCOPE GAP CHECKLIST
       </p>
-      <h2 id="sgc-title" className="text-xl sm:text-2xl font-bold text-[hsl(var(--fr-text))]">
+      <h2 id="sgc-title" className="fr-text-t1 text-xl font-bold sm:text-2xl">
         {title}
       </h2>
-      <p className="text-sm text-[hsl(var(--fr-text-muted))] leading-relaxed max-w-3xl">
-        {subtitle}
-      </p>
-      <p className="text-xs text-neutral-400 leading-relaxed border-l-2 border-[hsl(var(--fr-border))] pl-3">
+      <p className="fr-text-t3 max-w-3xl text-sm leading-relaxed">{subtitle}</p>
+      <p className="fr-text-t3 border-l-2 border-[hsl(var(--fr-border))] pl-3 text-xs leading-relaxed">
         {ocrDisclaimer}
       </p>
-      <p className="text-xs text-neutral-400 leading-relaxed">
-        <span className="font-semibold text-[hsl(var(--fr-text-muted))]">Install-Day Coverage Map:</span>{" "}
-        WindowMan checked which install-day responsibilities were clearly written into the parsed quote
-        — and which ones still need written confirmation before signing.
+      <p className="fr-text-t3 text-xs leading-relaxed">
+        <span className="font-semibold text-[hsl(var(--fr-text-muted))]">
+          Install-Day Coverage Map:
+        </span>{" "}
+        WindowMan checked which install-day responsibilities were clearly written into the parsed
+        quote — and which ones still need written confirmation before signing.
       </p>
     </header>
   );
 }
 
 function SummaryRail({ summary }: { summary: ScopeGapSummaryCounts }) {
-  const chips = [
-    { label: "Written coverage", value: summary.included },
-    { label: "Needs clarity", value: summary.unclear },
-    { label: "Not detected", value: summary.notDetected },
-    { label: "Explicitly excluded", value: summary.excluded },
-    { label: "Not applicable", value: summary.notApplicable },
+  const tiles: {
+    label: string;
+    value: number;
+    tileClass: string;
+    valueClass: string;
+  }[] = [
+    {
+      label: "Written coverage",
+      value: summary.included,
+      tileClass: "fr-tile fr-tile--success",
+      valueClass: "text-[hsl(var(--fr-success))]",
+    },
+    {
+      label: "Needs clarity",
+      value: summary.unclear,
+      tileClass: "fr-tile fr-tile--info",
+      valueClass: "text-[hsl(var(--fr-cyan))]",
+    },
+    {
+      label: "Not detected",
+      value: summary.notDetected,
+      tileClass: "fr-tile",
+      valueClass: "text-[hsl(var(--fr-text))]",
+    },
+    {
+      label: "Explicitly excluded",
+      value: summary.excluded,
+      tileClass: "fr-tile fr-tile--warning",
+      valueClass: "text-[hsl(var(--fr-caution))]",
+    },
+    {
+      label: "Not applicable",
+      value: summary.notApplicable,
+      tileClass: "fr-tile",
+      valueClass: "text-[hsl(var(--fr-text-dim))]",
+    },
   ];
 
   return (
     <aside
-      className="min-w-0 space-y-3 lg:sticky lg:top-6 lg:h-fit lg:self-start rounded-xl border border-[hsl(var(--fr-border))] bg-slate-900/60 p-4 sm:p-5"
+      className="fr-card fr-card-elevated min-w-0 space-y-3 p-4 sm:p-5 lg:sticky lg:top-6 lg:h-fit lg:self-start"
       aria-label="Install-day coverage summary"
     >
-      <h3 className="text-[10px] font-mono uppercase tracking-[0.15em] text-[hsl(var(--fr-text-dim))]">
+      <h3 className="fr-text-t3 text-[10px] font-mono uppercase tracking-[0.15em]">
         Coverage summary
       </h3>
       <div className="grid grid-cols-2 gap-2">
-        {chips.map((chip) => (
-          <div
-            key={chip.label}
-            className="min-w-0 rounded-lg border border-[hsl(var(--fr-border))] bg-slate-950/50 px-3 py-2"
-          >
-            <span className="block text-[10px] uppercase tracking-wide text-neutral-500">
-              {chip.label}
+        {tiles.map((tile) => (
+          <div key={tile.label} className={`${tile.tileClass} min-w-0 px-3 py-2.5`}>
+            <span className="fr-text-t3 block text-[10px] uppercase tracking-wide">
+              {tile.label}
             </span>
-            <span className="mt-0.5 block text-lg font-semibold tabular-nums text-[hsl(var(--fr-text))]">
-              {chip.value}
+            <span className={`fr-num mt-0.5 block text-xl font-black ${tile.valueClass}`}>
+              {tile.value}
             </span>
           </div>
         ))}
       </div>
       {summary.needsConfirmation > 0 ? (
-        <div className="rounded-lg border border-cyan-500/30 bg-cyan-950/20 px-3 py-2">
-          <span className="text-[10px] uppercase tracking-wide text-cyan-300/90">
+        <div className="fr-card fr-card--warning fr-accent-l--warning px-3 py-2.5">
+          <span className="fr-text-t3 block text-[10px] uppercase tracking-wide text-[hsl(var(--fr-caution))]">
             Needs written confirmation
           </span>
-          <span className="mt-0.5 block text-sm font-semibold tabular-nums text-cyan-100">
+          <span className="fr-num mt-0.5 block text-2xl font-black text-[hsl(var(--fr-caution))]">
             {summary.needsConfirmation}
           </span>
         </div>
       ) : null}
-      <p className="text-xs text-neutral-500 leading-relaxed">
+      <p className="fr-text-t3 text-xs leading-relaxed">
         Responsibility exposure from parsed quote language — not a cost estimate.
       </p>
     </aside>
   );
 }
 
+function ContractorQuestionCallout({ question }: { question: string }) {
+  return (
+    <div className="fr-card fr-card--quiet border border-[hsl(var(--fr-cyan)/0.25)] bg-[hsl(var(--fr-cyan)/0.06)] px-3 py-2.5">
+      <p className="fr-text-t3 mb-1 text-[10px] uppercase tracking-wide">
+        Ask contractor to confirm in writing
+      </p>
+      <p className="fr-text-t2 text-sm font-medium leading-relaxed break-words">{question}</p>
+    </div>
+  );
+}
+
 function ScopeGapMicroCard({ item }: { item: ScopeGapItem }) {
+  const visual = stateVisual(item.state);
+  const Icon = visual.icon;
   const riskClass =
     item.state === "not_detected"
-      ? "text-neutral-300"
+      ? "fr-text-t3"
       : item.state === "not_applicable"
-        ? "text-neutral-500"
-        : "text-[hsl(var(--fr-text-muted))]";
+        ? "fr-text-t4"
+        : "fr-text-t2";
 
   return (
-    <article className="min-w-0 break-words rounded-lg border border-[hsl(var(--fr-border))] bg-slate-900/50 p-4 space-y-3">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between min-w-0">
-        <h4 className="text-sm font-semibold text-[hsl(var(--fr-text))]">{item.label}</h4>
-        <span className={stateBadgeClass(item.state)}>{item.statusLabel}</span>
+    <article className={`${visual.cardClass} min-w-0 space-y-3 break-words p-4`}>
+      <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 items-start gap-2">
+          <Icon size={15} className={`mt-0.5 shrink-0 ${visual.iconClass}`} aria-hidden />
+          <h4 className={`min-w-0 text-sm font-bold sm:text-base ${visual.titleClass}`}>
+            {item.label}
+          </h4>
+        </div>
+        <span className={`${PILL_BASE} ${visual.pillClass} ml-auto`} role="status">
+          {item.statusLabel}
+        </span>
       </div>
       {isNonEmptyString(item.evidenceText) ? (
         <div>
-          <p className="text-[10px] uppercase tracking-wide text-neutral-500 mb-1">
+          <p className="fr-text-t3 mb-1 text-[10px] uppercase tracking-wide">
             Parsed quote evidence
           </p>
-          <p className="text-xs text-neutral-400 leading-relaxed whitespace-pre-wrap break-words">
+          <p className="fr-text-t3 text-xs leading-relaxed whitespace-pre-wrap break-words">
             {item.evidenceText}
           </p>
         </div>
       ) : null}
       <div>
-        <p className="text-[10px] uppercase tracking-wide text-neutral-500 mb-1">
-          Homeowner read
-        </p>
+        <p className="fr-text-t3 mb-1 text-[10px] uppercase tracking-wide">Homeowner read</p>
         <p className={`text-sm leading-relaxed break-words ${riskClass}`}>
           {item.homeownerRiskCopy}
         </p>
       </div>
       {showContractorQuestion(item.state) ? (
-        <div className="border-l-2 border-[hsl(var(--fr-border))] pl-3">
-          <p className="text-[10px] uppercase tracking-wide text-neutral-500 mb-1">
-            Ask contractor to confirm in writing
-          </p>
-          <p className="text-sm text-[hsl(var(--fr-text))] leading-relaxed break-words">
-            {item.contractorQuestion}
-          </p>
-        </div>
+        <ContractorQuestionCallout question={item.contractorQuestion} />
       ) : null}
     </article>
   );
@@ -234,11 +306,8 @@ function ScopeGapMicroCard({ item }: { item: ScopeGapItem }) {
 function TimelineJourney({ phases }: { phases: ScopeGapPhase[] }) {
   if (phases.length === 0) {
     return (
-      <div
-        role="status"
-        className="rounded-lg border border-[hsl(var(--fr-border))] bg-slate-900/40 p-8 text-center"
-      >
-        <p className="text-sm text-[hsl(var(--fr-text-muted))] leading-relaxed">
+      <div role="status" className="fr-card fr-card--quiet p-8 text-center">
+        <p className="fr-text-t3 text-sm leading-relaxed">
           No install-day coverage phases are available for this fixture.
         </p>
       </div>
@@ -246,32 +315,36 @@ function TimelineJourney({ phases }: { phases: ScopeGapPhase[] }) {
   }
 
   return (
-    <ol role="list" className="relative min-w-0 space-y-8 border-l border-[hsl(var(--fr-border))] ml-3 pl-6 sm:ml-4 sm:pl-8">
+    <ol
+      role="list"
+      className="relative ml-3 min-w-0 space-y-10 border-l-2 border-[hsl(var(--fr-cyan)/0.35)] pl-6 sm:ml-4 sm:pl-8"
+    >
       {phases.map((phase, index) => (
         <li key={phase.id} role="listitem" className="relative min-w-0">
           <span
-            className="absolute -left-[1.6rem] sm:-left-[2.1rem] flex h-8 w-8 items-center justify-center rounded-full border border-[hsl(var(--fr-cyan))]/50 bg-slate-950 text-xs font-bold text-[hsl(var(--fr-cyan))]"
+            className="absolute -left-[1.85rem] flex h-9 w-9 items-center justify-center rounded-full border-2 border-[hsl(var(--fr-cyan)/0.55)] bg-slate-950 text-sm font-black text-[hsl(var(--fr-cyan))] shadow-[0_0_12px_hsl(var(--fr-cyan)/0.2)] sm:-left-[2.35rem]"
             aria-hidden
           >
             {index + 1}
           </span>
-          <div className="space-y-3 min-w-0">
+          <div className="min-w-0 space-y-3">
             <div>
-              <h3 className="text-base sm:text-lg font-bold text-[hsl(var(--fr-text))]">
-                {phase.title}
-              </h3>
+              <h3 className="fr-text-t1 text-base font-bold sm:text-lg">{phase.title}</h3>
               {isNonEmptyString(phase.subtitle) ? (
-                <p className="mt-1 text-sm text-neutral-400 leading-relaxed">{phase.subtitle}</p>
+                <p className="fr-text-t3 mt-1 text-sm leading-relaxed">{phase.subtitle}</p>
               ) : null}
             </div>
             {phase.items.length === 0 ? (
-              <p className="text-sm text-neutral-400 leading-relaxed">
+              <p className="fr-text-t3 text-sm leading-relaxed">
                 No install-day checks in this phase for this fixture.
               </p>
             ) : (
-              <div className="grid gap-3 sm:grid-cols-1 lg:grid-cols-1">
+              <div className="grid gap-3">
                 {phase.items.map((item) => (
-                  <ScopeGapMicroCard key={`${phase.id}-${item.fieldKey}-${item.state}`} item={item} />
+                  <ScopeGapMicroCard
+                    key={`${phase.id}-${item.fieldKey}-${item.state}`}
+                    item={item}
+                  />
                 ))}
               </div>
             )}
@@ -282,11 +355,7 @@ function TimelineJourney({ phases }: { phases: ScopeGapPhase[] }) {
   );
 }
 
-function ConfirmationPacket({
-  phases,
-}: {
-  phases: ScopeGapPhase[];
-}) {
+function ConfirmationPacket({ phases }: { phases: ScopeGapPhase[] }) {
   const { visible, hasMore } = buildConfirmationQuestions(phases);
 
   if (visible.length === 0) {
@@ -294,28 +363,20 @@ function ConfirmationPacket({
   }
 
   return (
-    <div className="min-w-0 rounded-lg border border-[hsl(var(--fr-border))] bg-slate-950/50 p-5 sm:p-6">
-      <p className="text-sm text-neutral-400 leading-relaxed mb-3">
+    <div className="fr-card fr-card--quiet min-w-0 p-5 sm:p-6">
+      <p className="fr-text-t3 mb-3 text-sm leading-relaxed">
         Before signing, ask the contractor to confirm these items in writing.
       </p>
-      <h3 className="text-base font-bold text-[hsl(var(--fr-text))]">
-        Contractor Confirmation Packet
-      </h3>
-      <ul
-        role="list"
-        className="mt-3 space-y-3 list-none text-sm text-[hsl(var(--fr-text-muted))]"
-      >
+      <h3 className="fr-text-t1 text-base font-bold">Contractor Confirmation Packet</h3>
+      <ul role="list" className="mt-3 space-y-2">
         {visible.map((question) => (
-          <li
-            key={question}
-            className="leading-relaxed break-words border-l-2 border-cyan-500/30 pl-3 text-neutral-300"
-          >
-            {question}
+          <li key={question}>
+            <ContractorQuestionCallout question={question} />
           </li>
         ))}
       </ul>
       {hasMore ? (
-        <p className="mt-3 text-xs text-neutral-500 leading-relaxed">
+        <p className="fr-text-t3 mt-3 text-xs leading-relaxed">
           Additional confirmation questions may apply based on the full scope.
         </p>
       ) : null}
@@ -336,16 +397,17 @@ export default function ScopeGapChecklist(
 
   return (
     <section
-      className={`report-dark ${FR.cardPad} rounded-xl border border-[hsl(var(--fr-border))] bg-slate-950/70 ${FR.sectionGap} min-w-0`}
+      className={`report-dark fr-card fr-card-elevated ${FR.cardPad} ${FR.sectionGap} min-w-0`}
+      style={{ borderColor: "hsl(var(--fr-cyan) / 0.28)" }}
       aria-labelledby="sgc-title"
     >
       <ChecklistHeader title={title} subtitle={subtitle} ocrDisclaimer={ocrDisclaimer} />
 
-      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-6 lg:items-start min-w-0">
-        <div className="order-1 lg:order-2 min-w-0">
+      <div className="flex min-w-0 flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start lg:gap-6">
+        <div className="order-1 min-w-0 lg:order-2">
           <SummaryRail summary={summary} />
         </div>
-        <div className="order-2 lg:order-1 min-w-0 space-y-8">
+        <div className="order-2 min-w-0 space-y-8 lg:order-1">
           <TimelineJourney phases={phases} />
           {props.suppressFooterChecklist ? null : <ConfirmationPacket phases={phases} />}
         </div>

@@ -2,6 +2,7 @@
  * ChangeOrderDefenseMatrix — lab-only change-order risk translation (full reveal companion).
  * Presentation-only; receives pre-mapped rows. No fetch, no backend imports.
  */
+import { AlertCircle, AlertTriangle, CheckCircle2, Shield } from "lucide-react";
 import type {
   ChangeOrderDefenseMatrixProps,
   ChangeOrderRiskRow,
@@ -14,22 +15,48 @@ const DEFAULT_SUBTITLE =
   "This is where surprise invoices can hide. WindowMan checks whether the quote defines the rules before demolition starts.";
 const EVIDENCE_FALLBACK = "No specific clause text detected in parsed quote.";
 
+const PILL_BASE =
+  "inline-flex shrink-0 items-center px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider";
+
 function isNonEmptyString(value: string | null | undefined): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-function severityBadgeClass(severity: ChangeOrderRiskSeverity): string {
-  const base = "inline-flex rounded-md px-2 py-0.5 text-xs font-medium border";
+function severityVisual(severity: ChangeOrderRiskSeverity) {
   switch (severity) {
     case "clear":
-      return `${base} border-emerald-500/40 text-emerald-300 bg-emerald-950/30`;
+      return {
+        cardClass: "fr-card fr-card--verified fr-accent-l--verified",
+        pillClass: "fr-pill--verified",
+        titleClass: "fr-text-t2",
+        icon: CheckCircle2,
+        iconClass: "text-[hsl(var(--fr-success))]",
+      };
     case "warn":
-      return `${base} border-amber-500/40 text-amber-300 bg-amber-950/30`;
+      return {
+        cardClass: "fr-card fr-card--warning fr-accent-l--warning",
+        pillClass: "fr-pill--warning",
+        titleClass: "fr-text-t2 text-[hsl(var(--fr-caution))]",
+        icon: AlertCircle,
+        iconClass: "text-[hsl(var(--fr-caution))]",
+      };
     case "fail":
-      return `${base} border-red-500/40 text-red-300 bg-red-950/40`;
+      return {
+        cardClass: "fr-card fr-card--critical fr-accent-l--critical",
+        pillClass: "fr-pill--critical",
+        titleClass: "fr-text-t1",
+        icon: AlertTriangle,
+        iconClass: "text-[hsl(var(--fr-danger))]",
+      };
     case "unknown":
     default:
-      return `${base} border-neutral-500/40 text-neutral-300 bg-neutral-950/30`;
+      return {
+        cardClass: "fr-card fr-card--warning fr-accent-l--warning",
+        pillClass: "fr-pill--info",
+        titleClass: "fr-text-t2",
+        icon: AlertCircle,
+        iconClass: "text-[hsl(var(--fr-cyan))]",
+      };
   }
 }
 
@@ -55,16 +82,15 @@ function MatrixHeader({
 }) {
   return (
     <header className="space-y-2">
-      <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-[hsl(var(--fr-cyan))]">
+      <p className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.2em] text-[hsl(var(--fr-cyan))]">
+        <Shield size={12} className="text-[hsl(var(--fr-cyan))]" aria-hidden />
         CHANGE-ORDER DEFENSE
       </p>
-      <h2 id="codm-title" className="text-xl sm:text-2xl font-bold text-[hsl(var(--fr-text))]">
+      <h2 id="codm-title" className="fr-text-t1 text-xl font-bold sm:text-2xl">
         {title}
       </h2>
-      <p className="text-sm text-[hsl(var(--fr-text-muted))] leading-relaxed max-w-3xl">
-        {subtitle}
-      </p>
-      <p className="text-xs text-[hsl(var(--fr-text-dim))] leading-relaxed border-l-2 border-[hsl(var(--fr-border))] pl-3">
+      <p className="fr-text-t3 max-w-3xl text-sm leading-relaxed">{subtitle}</p>
+      <p className="fr-text-t3 border-l-2 border-[hsl(var(--fr-border))] pl-3 text-xs leading-relaxed">
         <span className="font-semibold text-[hsl(var(--fr-text-muted))]">WindowMan Filter:</span>{" "}
         We look for written approval rules, substrate pricing, and remeasure limits so the final
         bill cannot quietly drift after signing.
@@ -82,33 +108,49 @@ function SummaryChips({
   exposureCount: number;
   needsReviewCount: number;
 }) {
-  const chips = [
-    { label: "Protected", value: String(protectedCount) },
-    { label: "Exposure", value: String(exposureCount) },
-    { label: "Needs Review", value: String(needsReviewCount) },
+  const tiles = [
+    {
+      label: "Protected",
+      value: protectedCount,
+      tileClass: "fr-tile fr-tile--success",
+      valueClass: "text-[hsl(var(--fr-success))]",
+    },
+    {
+      label: "Exposure",
+      value: exposureCount,
+      tileClass: "fr-tile fr-tile--critical",
+      valueClass: "text-[hsl(var(--fr-danger))]",
+    },
+    {
+      label: "Needs Review",
+      value: needsReviewCount,
+      tileClass: "fr-tile fr-tile--warning",
+      valueClass: "text-[hsl(var(--fr-caution))]",
+    },
   ];
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-2">
-        {chips.map((chip) => (
-          <div
-            key={chip.label}
-            className="inline-flex flex-col rounded-lg border border-[hsl(var(--fr-border))] bg-slate-900/60 px-3 py-2 min-w-[120px]"
-          >
-            <span className="text-[10px] uppercase tracking-wide text-[hsl(var(--fr-text-dim))]">
-              {chip.label}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {tiles.map((tile) => (
+          <div key={tile.label} className={`${tile.tileClass} min-w-0 px-3 py-3`}>
+            <span className="fr-text-t3 block text-[10px] uppercase tracking-wide">
+              {tile.label}
             </span>
-            <span className="mt-0.5 text-sm font-semibold tabular-nums text-[hsl(var(--fr-text))] text-right">
-              {chip.value}
+            <span className={`fr-num mt-1 block text-2xl font-black ${tile.valueClass}`}>
+              {tile.value}
             </span>
           </div>
         ))}
-        <div className="inline-flex items-center rounded-lg border border-amber-500/30 bg-amber-950/20 px-3 py-2 text-xs text-amber-200/90">
-          Parsed quote · Not independently verified
-        </div>
       </div>
-      <p className="text-xs text-[hsl(var(--fr-text-dim))] leading-relaxed">
+      <div className="fr-card fr-card--warning fr-accent-l--warning px-3 py-2.5">
+        <p className="fr-text-t3 text-xs leading-relaxed">
+          <span className="font-semibold text-[hsl(var(--fr-caution))]">
+            Parsed quote · Not independently verified
+          </span>
+        </p>
+      </div>
+      <p className="fr-text-t3 text-xs leading-relaxed">
         This matrix reflects change-order language detected in the parsed quote. Attachments,
         revisions, or verbal promises may contain additional terms not shown here.
       </p>
@@ -116,37 +158,46 @@ function SummaryChips({
   );
 }
 
+function ContractorQuestionCallout({ question }: { question: string }) {
+  return (
+    <div className="fr-card fr-card--quiet border border-[hsl(var(--fr-cyan)/0.25)] bg-[hsl(var(--fr-cyan)/0.06)] px-3 py-2.5">
+      <p className="fr-text-t3 mb-1 text-[10px] uppercase tracking-wide">
+        Ask contractor to confirm in writing
+      </p>
+      <p className="fr-text-t2 text-sm font-medium leading-relaxed">{question}</p>
+    </div>
+  );
+}
+
 function RiskRowCard({ row }: { row: ChangeOrderRiskRow }) {
   const evidence = isNonEmptyString(row.evidenceText) ? row.evidenceText : EVIDENCE_FALLBACK;
+  const visual = severityVisual(row.severity);
+  const Icon = visual.icon;
 
   return (
-    <article className="rounded-lg border border-[hsl(var(--fr-border))] bg-slate-900/50 p-4 sm:p-5 space-y-3 break-words">
+    <article className={`${visual.cardClass} min-w-0 space-y-3 break-words p-4 sm:p-5`}>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <h3 className="text-sm font-semibold text-[hsl(var(--fr-text))]">{row.displayLabel}</h3>
-        <span className={severityBadgeClass(row.severity)}>{row.statusText}</span>
+        <div className="flex min-w-0 items-start gap-2">
+          <Icon size={16} className={`mt-0.5 shrink-0 ${visual.iconClass}`} aria-hidden />
+          <h3 className={`min-w-0 text-sm font-bold sm:text-base ${visual.titleClass}`}>
+            {row.displayLabel}
+          </h3>
+        </div>
+        <span className={`${PILL_BASE} ${visual.pillClass} ml-auto`} role="status">
+          {row.statusText}
+        </span>
       </div>
       <div>
-        <p className="text-[10px] uppercase tracking-wide text-[hsl(var(--fr-text-dim))] mb-1">
-          Parsed clause evidence
-        </p>
-        <p className="text-xs text-[hsl(var(--fr-text-muted))] leading-relaxed whitespace-pre-wrap">
-          {evidence}
-        </p>
+        <p className="fr-text-t3 mb-1 text-[10px] uppercase tracking-wide">Parsed clause evidence</p>
+        <p className="fr-text-t3 text-xs leading-relaxed whitespace-pre-wrap">{evidence}</p>
       </div>
       <div>
-        <p className="text-[10px] uppercase tracking-wide text-[hsl(var(--fr-text-dim))] mb-1">
+        <p className="fr-text-t3 mb-1 text-[10px] uppercase tracking-wide">
           Potential change-order exposure
         </p>
-        <p className="text-sm text-[hsl(var(--fr-text-muted))] leading-relaxed">
-          {row.homeownerRiskCopy}
-        </p>
+        <p className="fr-text-t2 text-sm leading-relaxed">{row.homeownerRiskCopy}</p>
       </div>
-      <div>
-        <p className="text-[10px] uppercase tracking-wide text-[hsl(var(--fr-text-dim))] mb-1">
-          Ask contractor to confirm in writing
-        </p>
-        <p className="text-sm text-[hsl(var(--fr-text))] leading-relaxed">{row.contractorQuestion}</p>
-      </div>
+      <ContractorQuestionCallout question={row.contractorQuestion} />
     </article>
   );
 }
@@ -168,26 +219,21 @@ function ContractorChecklist({ risks }: { risks: ChangeOrderRiskRow[] }) {
   const allClear = risks.length > 0 && checklistRows.length === 0;
 
   return (
-    <div className="rounded-lg border border-[hsl(var(--fr-border))] bg-slate-950/50 p-5 sm:p-6">
-      <p className="text-sm text-[hsl(var(--fr-text-muted))] mb-3">
+    <div className="fr-card fr-card--quiet p-5 sm:p-6">
+      <p className="fr-text-t3 mb-3 text-sm leading-relaxed">
         Before signing, ask the contractor to confirm these items in writing.
       </p>
-      <h3 className="text-base font-bold text-[hsl(var(--fr-text))]">
-        Contractor Confirmation Checklist
-      </h3>
+      <h3 className="fr-text-t1 text-base font-bold">Contractor Confirmation Checklist</h3>
       {allClear ? (
-        <p className="mt-3 text-sm text-[hsl(var(--fr-text-muted))] leading-relaxed">
+        <p className="fr-text-t3 mt-3 text-sm leading-relaxed">
           The parsed quote shows stronger change-order guardrails, but homeowners should still
           request signed confirmation before contract execution.
         </p>
       ) : (
-        <ul
-          role="list"
-          className="mt-3 space-y-2 list-disc list-inside text-sm text-[hsl(var(--fr-text-muted))]"
-        >
+        <ul role="list" className="mt-3 space-y-2">
           {checklistRows.map((row) => (
             <li key={row.fieldKey} aria-label={row.contractorQuestion}>
-              {row.contractorQuestion}
+              <ContractorQuestionCallout question={row.contractorQuestion} />
             </li>
           ))}
         </ul>
@@ -199,22 +245,22 @@ function ContractorChecklist({ risks }: { risks: ChangeOrderRiskRow[] }) {
 function ParsedPolicySection({ policyBlobText }: { policyBlobText?: string | null }) {
   if (isNonEmptyString(policyBlobText)) {
     return (
-      <div className="rounded-lg border border-[hsl(var(--fr-border))] bg-slate-900/40 p-5 sm:p-6 space-y-2">
-        <h3 className="text-base font-bold text-[hsl(var(--fr-text))]">Parsed policy language</h3>
-        <p className="text-xs text-amber-200/80">
-          This is OCR-extracted language, not independent legal review.
+      <div className="fr-card fr-card--quiet space-y-2 p-5 sm:p-6">
+        <h3 className="fr-text-t1 text-base font-bold">Parsed policy language</h3>
+        <p className="fr-pill--warning inline-block px-2 py-0.5 text-[10px] font-bold uppercase">
+          OCR-extracted · Not legal review
         </p>
-        <p className="text-sm text-[hsl(var(--fr-text-muted))] leading-relaxed whitespace-pre-wrap">
-          {policyBlobText}
-        </p>
+        <p className="fr-text-t3 text-sm leading-relaxed whitespace-pre-wrap">{policyBlobText}</p>
       </div>
     );
   }
 
   return (
-    <p className="text-sm text-[hsl(var(--fr-text-muted))] leading-relaxed rounded-lg border border-[hsl(var(--fr-border))] bg-slate-900/40 px-4 py-3">
-      No clear change-order policy language was detected in the parsed quote.
-    </p>
+    <div className="fr-card fr-card--warning fr-accent-l--warning px-4 py-3">
+      <p className="fr-text-t3 text-sm leading-relaxed">
+        No clear change-order policy language was detected in the parsed quote.
+      </p>
+    </div>
   );
 }
 
@@ -223,15 +269,15 @@ function EmptyMatrixState() {
     <div
       role="status"
       aria-live="polite"
-      className="rounded-lg border border-[hsl(var(--fr-border))] bg-slate-900/40 p-8 text-center"
+      className="fr-card fr-card--quiet p-8 text-center"
     >
-      <h3 className="text-lg font-semibold text-[hsl(var(--fr-text))]">
+      <h3 className="fr-text-t1 text-lg font-semibold">
         No change-order defense matrix could be built from this quote.
       </h3>
-      <p className="mt-3 text-sm text-[hsl(var(--fr-text-muted))] leading-relaxed max-w-xl mx-auto">
+      <p className="fr-text-t3 mx-auto mt-3 max-w-xl text-sm leading-relaxed">
         WindowMan could not detect enough structured change-order language in the parsed document.
-        Ask the contractor for written rules covering change orders, substrate repair, rotten
-        wood, buck replacement, and remeasure price changes.
+        Ask the contractor for written rules covering change orders, substrate repair, rotten wood,
+        buck replacement, and remeasure price changes.
       </p>
     </div>
   );
@@ -248,7 +294,8 @@ export default function ChangeOrderDefenseMatrix(
 
   return (
     <section
-      className={`report-dark ${FR.cardPad} rounded-xl border border-[hsl(var(--fr-border))] bg-slate-950/70 ${FR.sectionGap}`}
+      className={`report-dark fr-card fr-card-elevated ${FR.cardPad} ${FR.sectionGap} min-w-0`}
+      style={{ borderColor: "hsl(var(--fr-cyan) / 0.28)" }}
       aria-labelledby="codm-title"
     >
       <MatrixHeader title={title} subtitle={subtitle} />

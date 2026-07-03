@@ -40,7 +40,7 @@ export default function MoneyAtRiskCard({
 
   return (
     <section
-      className="fr-card relative overflow-hidden p-6 sm:p-8"
+      className="fr-card fr-glow--critical relative overflow-hidden p-6 sm:p-8"
       style={{ borderColor: "hsl(var(--fr-danger) / 0.4)" }}
     >
       <div
@@ -64,7 +64,7 @@ export default function MoneyAtRiskCard({
 
         <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-6 items-end">
           <div>
-            <div className="font-mono text-4xl sm:text-5xl font-black leading-none text-[hsl(var(--fr-danger))] tracking-tight">
+            <div className="fr-num text-4xl sm:text-5xl font-black leading-none text-[hsl(var(--fr-danger))] tracking-tight">
               {range}
             </div>
             {overpaymentBasis && (
@@ -79,7 +79,7 @@ export default function MoneyAtRiskCard({
                 <div className="text-[10px] fr-mono uppercase tracking-wider text-[hsl(var(--fr-text-dim))]">
                   Contract Total
                 </div>
-                <div className="mt-1 font-mono text-lg font-bold text-[hsl(var(--fr-text))]">
+                <div className="mt-1 fr-num text-lg font-bold text-[hsl(var(--fr-text))]">
                   {fmt(totalContractPrice)}
                 </div>
               </div>
@@ -89,7 +89,7 @@ export default function MoneyAtRiskCard({
                 <div className="text-[10px] fr-mono uppercase tracking-wider text-[hsl(var(--fr-text-dim))]">
                   Of Quote
                 </div>
-                <div className="mt-1 font-mono text-lg font-bold text-[hsl(var(--fr-danger))]">
+                <div className="mt-1 fr-num text-lg font-bold text-[hsl(var(--fr-danger))]">
                   ~{pct}%
                 </div>
               </div>
@@ -99,7 +99,7 @@ export default function MoneyAtRiskCard({
                 <div className="text-[10px] fr-mono uppercase tracking-wider text-[hsl(var(--fr-text-dim))]">
                   Market Range
                 </div>
-                <div className="mt-1 font-mono text-sm font-bold text-[hsl(var(--fr-text))]">
+                <div className="mt-1 fr-num text-sm font-bold text-[hsl(var(--fr-text))]">
                   {fmt(marketLow)}–{fmt(marketHigh)}
                 </div>
               </div>

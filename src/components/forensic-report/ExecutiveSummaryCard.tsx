@@ -4,6 +4,7 @@
  */
 import { createContext, useContext } from "react";
 import GradeDial from "./GradeDial";
+import { deriveExecutiveSummaryVisual } from "./visualState";
 
 export const ForensicDiagnosisCtaContext = createContext<(() => void) | null>(null);
 
@@ -75,10 +76,21 @@ export default function ExecutiveSummaryCard({
     heroMetricLabel = "Benchmark Status";
   }
 
+  const sectionVisual = deriveExecutiveSummaryVisual({
+    grade,
+    flagRedCount,
+    overpaymentLow,
+    overpaymentHigh,
+  });
+
   return (
     <section
-      className="fr-card p-5 sm:p-6"
-      style={{ borderColor: "hsl(var(--fr-cyan) / 0.35)" }}
+      className={`${sectionVisual.cardClass} p-5 sm:p-6`}
+      style={
+        sectionVisual.tone === "info"
+          ? { borderColor: "hsl(var(--fr-cyan) / 0.35)" }
+          : undefined
+      }
     >
       <h2 className="fr-mono text-[11px] font-bold text-[hsl(var(--fr-cyan))] mb-5">
         ▦ VERDICT AT A GLANCE
@@ -131,7 +143,7 @@ export default function ExecutiveSummaryCard({
           <div className="text-xs text-[hsl(var(--fr-text-muted))]">{heroMetricLabel}</div>
           {hasPositiveOverpayment ? (
             <>
-              <div className="mt-1 font-mono text-2xl font-extrabold text-[hsl(var(--fr-danger))] leading-tight">
+              <div className={`mt-1 ${sectionVisual.valueClass} text-2xl font-extrabold text-[hsl(var(--fr-danger))] leading-tight`}>
                 {overpaymentLow != null && overpaymentHigh != null ? (
                   <>
                     {fmtMoney(overpaymentLow)}{" "}
@@ -142,7 +154,7 @@ export default function ExecutiveSummaryCard({
                 )}
               </div>
               {overpaymentLow != null && overpaymentHigh != null && (
-                <div className="font-mono text-2xl font-extrabold text-[hsl(var(--fr-danger))] leading-tight">
+                <div className={`${sectionVisual.valueClass} text-2xl font-extrabold text-[hsl(var(--fr-danger))] leading-tight`}>
                   {fmtMoney(overpaymentHigh)}
                 </div>
               )}

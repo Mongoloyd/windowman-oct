@@ -959,16 +959,28 @@
    Scoped to `.report-dark` so it does not affect global theme.
    ═══════════════════════════════════════════════════════════ */
 .report-dark {
-  /* Premium near-black canvas (4L.1 foundation) */
+  /* Base and surfaces — deep navy base, brighter lifted surfaces (Controlled Forensic Neon) */
   --fr-bg: 218 40% 5%;
-  --fr-surface: 220 34% 10%;
-  --fr-surface-2: 220 28% 14%;
-  --fr-border: 220 20% 25%;
-  --fr-border-strong: 220 18% 36%;
+  --fr-surface: 220 34% 12%;
+  --fr-surface-2: 220 28% 17%;
+  --fr-surface-3: 220 30% 20%;
 
+  /* Borders — brighter blue-gray base, cyan strong rim */
+  --fr-border: 220 20% 32%;
+  --fr-border-strong: 213 94% 55%;
+
+  /* Luminance ladder (Tier 1 hero → Tier 4 dim unknown) */
+  --fr-t1: 0 0% 100%;      /* #FFFFFF — hero data / money */
+  --fr-t2: 210 40% 96%;    /* #F1F5F9 — primary known facts */
+  --fr-t3: 214 32% 84%;    /* #CBD5E1 — supporting labels */
+  --fr-t4: 215 20% 55%;    /* accessible dim unknown state */
+
+  /* Text aliases (preserve existing names; remap to luminance ladder) */
   --fr-text: 0 0% 100%;
-  --fr-text-muted: 214 34% 88%;
-  --fr-text-dim: 215 22% 70%;
+  --fr-text-primary: var(--fr-t2);
+  --fr-text-muted: var(--fr-t3);
+  --fr-text-dim: var(--fr-t3);
+  --fr-text-unknown: var(--fr-t4);
 
   /* Accents — aligned to spec (red-400, amber-400, blue-400/500, emerald-400) */
   --fr-cyan: 213 94% 60%;         /* primary CTA / info — blue-500 */
@@ -977,6 +989,39 @@
   --fr-danger: 0 84% 64%;         /* red-400 */
   --fr-caution: 38 92% 60%;       /* amber-400 */
   --fr-success: 152 64% 52%;      /* emerald-400 */
+
+  /* Controlled glow tokens — opt-in only via .fr-glow--* / .fr-card--* */
+  --fr-glow-critical:
+    0 0 20px rgba(255, 69, 75, 0.38),
+    inset 0 0 20px rgba(255, 69, 75, 0.05);
+
+  --fr-glow-critical-strong:
+    0 0 28px rgba(255, 69, 75, 0.48),
+    0 0 4px rgba(255, 69, 75, 0.45),
+    inset 0 0 22px rgba(255, 69, 75, 0.06);
+
+  --fr-glow-warning:
+    0 0 16px rgba(245, 158, 11, 0.32),
+    inset 0 0 16px rgba(245, 158, 11, 0.04);
+
+  --fr-glow-verified:
+    0 0 14px rgba(34, 232, 121, 0.24),
+    inset 0 0 14px rgba(34, 232, 121, 0.04);
+
+  --fr-glow-info:
+    0 0 22px rgba(59, 130, 246, 0.32),
+    inset 0 0 18px rgba(59, 130, 246, 0.04);
+
+  /* Elevation */
+  --fr-elev-1:
+    0 1px 0 hsl(0 0% 100% / 0.03) inset,
+    0 24px 60px -28px hsl(220 60% 2% / 0.92),
+    0 10px 28px -14px hsl(220 60% 2% / 0.68);
+
+  --fr-elev-2:
+    0 1px 0 hsl(0 0% 100% / 0.05) inset,
+    0 30px 80px -30px hsl(220 70% 2% / 0.95),
+    0 0 0 1px hsl(var(--fr-cyan) / 0.22);
 
   background-color: hsl(var(--fr-bg));
   color: hsl(var(--fr-text));
@@ -989,13 +1034,12 @@
   background: hsl(var(--fr-surface) / 0.98);
   border: 1px solid hsl(var(--fr-border) / 1);
   border-radius: 1rem;            /* rounded-2xl */
-  box-shadow:
-    0 1px 0 hsl(0 0% 100% / 0.02) inset,
-    0 24px 60px -28px hsl(220 60% 2% / 0.9),
-    0 8px 24px -12px hsl(220 60% 2% / 0.6);
+  box-shadow: var(--fr-elev-1);
 }
 .report-dark .fr-card-elevated {
-  background: hsl(var(--fr-surface-2) / 0.96);
+  background: hsl(var(--fr-surface-2) / 0.98);
+  border-color: hsl(var(--fr-border-strong) / 0.42);
+  box-shadow: var(--fr-elev-2);
 }
 
 /* Shared section header eyebrow (mono uppercase) */
@@ -1016,9 +1060,9 @@
 /* Shared severity tile (used later by partial-reveal stat row + full-reveal pillars) */
 .report-dark .fr-tile {
   border-radius: 0.875rem;
-  border: 1px solid;
+  border: 1px solid hsl(var(--fr-border) / 0.9);
   padding: 0.75rem 1rem;
-  background: hsl(var(--fr-surface-2) / 0.78);
+  background: hsl(var(--fr-surface-2) / 0.9);
 }
 .report-dark .fr-tile--critical { border-color: hsl(var(--fr-danger) / 0.35); background: hsl(var(--fr-danger) / 0.08); }
 .report-dark .fr-tile--warning  { border-color: hsl(var(--fr-caution) / 0.35); background: hsl(var(--fr-caution) / 0.08); }
@@ -1058,4 +1102,158 @@
   opacity: 0.55;
   cursor: not-allowed;
   box-shadow: none;
+}
+
+/* ───────────────────────────────────────────────────────────
+   Shared scoped utility primitives (Phase 2)
+   Consumed later by the forensic-report component sweep.
+   Scoped strictly under .report-dark — never global.
+   ─────────────────────────────────────────────────────────── */
+
+/* Luminance ladder text utilities */
+.report-dark .fr-text-t1 {
+  color: hsl(var(--fr-t1));
+}
+.report-dark .fr-text-t2 {
+  color: hsl(var(--fr-t2));
+}
+.report-dark .fr-text-t3 {
+  color: hsl(var(--fr-t3));
+}
+.report-dark .fr-text-t4,
+.report-dark .fr-text-unknown {
+  color: hsl(var(--fr-text-unknown));
+}
+
+/* Tabular monospace numerals for financial figures */
+.report-dark .fr-num {
+  font-family: var(--wm-font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+/* Status pill primitives */
+.report-dark .fr-pill--critical {
+  color: hsl(var(--fr-danger));
+  background: hsl(var(--fr-danger) / 0.13);
+  border: 1px solid hsl(var(--fr-danger) / 0.42);
+  border-radius: 9999px;
+}
+.report-dark .fr-pill--warning {
+  color: hsl(var(--fr-caution));
+  background: hsl(var(--fr-caution) / 0.13);
+  border: 1px solid hsl(var(--fr-caution) / 0.42);
+  border-radius: 9999px;
+}
+.report-dark .fr-pill--verified {
+  color: hsl(var(--fr-success));
+  background: hsl(var(--fr-success) / 0.13);
+  border: 1px solid hsl(var(--fr-success) / 0.42);
+  border-radius: 9999px;
+}
+.report-dark .fr-pill--info {
+  color: hsl(var(--fr-cyan-soft));
+  background: hsl(var(--fr-cyan) / 0.13);
+  border: 1px solid hsl(var(--fr-cyan) / 0.42);
+  border-radius: 9999px;
+}
+.report-dark .fr-pill--unknown {
+  color: hsl(var(--fr-text-unknown));
+  background: hsl(var(--fr-surface-2) / 0.55);
+  border: 1px solid hsl(var(--fr-border) / 0.6);
+  border-radius: 9999px;
+}
+
+/* Left-accent rail primitives */
+.report-dark .fr-accent-l--critical {
+  border-left: 3px solid hsl(var(--fr-danger));
+}
+.report-dark .fr-accent-l--warning {
+  border-left: 3px solid hsl(var(--fr-caution));
+}
+.report-dark .fr-accent-l--verified {
+  border-left: 3px solid hsl(var(--fr-success));
+}
+.report-dark .fr-accent-l--info {
+  border-left: 3px solid hsl(var(--fr-cyan));
+}
+
+/* Opt-in glow primitives */
+.report-dark .fr-glow--critical {
+  box-shadow: var(--fr-glow-critical);
+}
+.report-dark .fr-glow--critical-strong {
+  box-shadow: var(--fr-glow-critical-strong);
+}
+.report-dark .fr-glow--warning {
+  box-shadow: var(--fr-glow-warning);
+}
+.report-dark .fr-glow--verified {
+  box-shadow: var(--fr-glow-verified);
+}
+.report-dark .fr-glow--info {
+  box-shadow: var(--fr-glow-info);
+}
+
+/* Card state primitives (glow + elevation composed) */
+.report-dark .fr-card--hero {
+  background: hsl(var(--fr-surface-2) / 0.98);
+  border-color: hsl(var(--fr-cyan) / 0.45);
+  box-shadow: var(--fr-glow-info), var(--fr-elev-2);
+}
+.report-dark .fr-card--critical {
+  border-color: hsl(var(--fr-danger) / 0.45);
+  border-left: 3px solid hsl(var(--fr-danger));
+  box-shadow: var(--fr-glow-critical), var(--fr-elev-1);
+}
+.report-dark .fr-card--warning {
+  border-color: hsl(var(--fr-caution) / 0.42);
+  border-left: 3px solid hsl(var(--fr-caution));
+  box-shadow: var(--fr-glow-warning), var(--fr-elev-1);
+}
+.report-dark .fr-card--verified {
+  border-color: hsl(var(--fr-success) / 0.38);
+  border-left: 3px solid hsl(var(--fr-success));
+  box-shadow: var(--fr-glow-verified), var(--fr-elev-1);
+}
+.report-dark .fr-card--quiet {
+  background: hsl(var(--fr-surface) / 0.72);
+  border-color: hsl(var(--fr-border) / 0.7);
+  box-shadow: none;
+}
+
+/* ───────────────────────────────────────────────────────────
+   Print fallback — scoped to .report-dark only.
+   White background, dark text, no neon/glow/shadow.
+   ─────────────────────────────────────────────────────────── */
+@media print {
+  .report-dark {
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  .report-dark .fr-card,
+  .report-dark .fr-card-elevated,
+  .report-dark .fr-tile {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border-color: #cbd5e1 !important;
+    box-shadow: none !important;
+  }
+
+  .report-dark * {
+    text-shadow: none !important;
+  }
+
+  .report-dark .fr-glow--critical,
+  .report-dark .fr-glow--critical-strong,
+  .report-dark .fr-glow--warning,
+  .report-dark .fr-glow--verified,
+  .report-dark .fr-glow--info,
+  .report-dark .fr-card--hero,
+  .report-dark .fr-card--critical,
+  .report-dark .fr-card--warning,
+  .report-dark .fr-card--verified {
+    box-shadow: none !important;
+  }
 }
