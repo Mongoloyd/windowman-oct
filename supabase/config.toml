@@ -173,3 +173,6 @@ verify_jwt = false
 
 [functions.windowman-concierge]
 verify_jwt = false
+
+[functions.ingest-native-lead]
+verify_jwt = false
