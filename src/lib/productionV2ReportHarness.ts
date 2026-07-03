@@ -22,7 +22,13 @@ export type ProductionForensicShellProps = Pick<
   | "flags"
   | "codeJurisdiction"
   | "executiveSummaryTeaser"
+  | "openingCountSource"
+  | "quoteMathConfidence"
+  | "benchmarkSourceLabel"
+  | "benchmarkUpdatedAt"
 >;
+
+const OPENING_COUNT_SOURCES = new Set(["extracted_header", "inferred_from_lines"]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -32,6 +38,26 @@ function normalizeConfidencePercent(value: number | null | undefined): number | 
   if (value == null || !Number.isFinite(value)) return null;
   const pct = value >= 0 && value <= 1 ? value * 100 : value;
   return Math.max(0, Math.min(100, Math.round(pct)));
+}
+
+/** Trim non-empty string or null. */
+export function readOptionalString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+/** Allowed opening-count provenance values only. */
+export function readOpeningCountSource(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  return OPENING_COUNT_SOURCES.has(normalized) ? normalized : null;
+}
+
+/** Clamp confidence to 0–100 integer (supports 0–1 fractional input). */
+export function readConfidencePercent(value: unknown): number | null {
+  const num = readFiniteNumber(value);
+  return normalizeConfidencePercent(num);
 }
 
 /** Strict finite numeric read — rejects NaN, Infinity, and non-numeric strings. */
@@ -154,6 +180,9 @@ export function mapAnalysisDataToForensicShellProps(
     ? analysisData.derivedMetrics
     : null;
   const totals = derivedMetrics && isRecord(derivedMetrics.totals) ? derivedMetrics.totals : null;
+  const counts = derivedMetrics && isRecord(derivedMetrics.counts) ? derivedMetrics.counts : null;
+  const diagnostics =
+    derivedMetrics && isRecord(derivedMetrics.diagnostics) ? derivedMetrics.diagnostics : null;
   const countyBenchmark =
     derivedMetrics && isRecord(derivedMetrics.county_benchmark)
       ? derivedMetrics.county_benchmark
@@ -198,5 +227,9 @@ export function mapAnalysisDataToForensicShellProps(
     flags: analysisData.flags,
     codeJurisdiction,
     executiveSummaryTeaser: analysisData.summaryTeaser ?? null,
+    openingCountSource: readOpeningCountSource(counts?.opening_count_source),
+    quoteMathConfidence: readConfidencePercent(diagnostics?.quote_math_confidence),
+    benchmarkSourceLabel: readOptionalString(countyBenchmark?.source_label),
+    benchmarkUpdatedAt: readOptionalString(countyBenchmark?.updated_at),
   };
 }

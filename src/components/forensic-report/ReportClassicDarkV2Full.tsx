@@ -200,6 +200,10 @@ export default function ReportClassicDarkV2Full({
         flags={shellProps.flags}
         codeJurisdiction={shellProps.codeJurisdiction}
         executiveSummaryTeaser={shellProps.executiveSummaryTeaser}
+        openingCountSource={shellProps.openingCountSource}
+        quoteMathConfidence={shellProps.quoteMathConfidence}
+        benchmarkSourceLabel={shellProps.benchmarkSourceLabel}
+        benchmarkUpdatedAt={shellProps.benchmarkUpdatedAt}
         revealBridgeSlot={
           <RevealDiagnosisBridgeCard
             ctaEnabled={ctaEnabled}

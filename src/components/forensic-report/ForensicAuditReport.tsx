@@ -63,6 +63,10 @@ export interface ForensicAuditReportProps {
   propertyType?: string | null;
   windZone?: string | null;
   codeJurisdiction?: string | null;
+  openingCountSource?: string | null;
+  quoteMathConfidence?: number | null;
+  benchmarkSourceLabel?: string | null;
+  benchmarkUpdatedAt?: string | null;
 
   // Slot for the OTP gate / verify CTA — keeps gating ownership outside this shell
   unlockSlot?: React.ReactNode;
@@ -240,6 +244,10 @@ export default function ForensicAuditReport(props: ForensicAuditReportProps) {
                 marketHigh={props.marketHigh}
                 totalContractPrice={props.totalContractPrice}
                 riskContext={riskContext}
+                openingCountSource={props.openingCountSource}
+                quoteMathConfidence={props.quoteMathConfidence}
+                benchmarkSourceLabel={props.benchmarkSourceLabel}
+                benchmarkUpdatedAt={props.benchmarkUpdatedAt}
               />
 
               <PropertyProfileCard

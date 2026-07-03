@@ -72,7 +72,10 @@ import {
 } from "@/lib/labLiveReportAccess";
 import {
   computeOverpaymentRange,
+  readConfidencePercent,
   readFiniteNumber,
+  readOpeningCountSource,
+  readOptionalString,
   readPositiveFiniteNumber,
   resolveCodeJurisdiction,
   resolveMarketBenchmark,
@@ -405,6 +408,15 @@ const mockFullReportAccessResponse: LabFullReportAccessResponse = {
           market_position: "below_documented_market_range_due_to_missing_scope",
           benchmark_price_per_opening_low: 1700,
           benchmark_price_per_opening_high: 2400,
+          source_label: "Broward benchmark index",
+          updated_at: "2026-01-08",
+        },
+        counts: {
+          total_openings: 14,
+          opening_count_source: "extracted_header",
+        },
+        diagnostics: {
+          quote_math_confidence: 86,
         },
       },
       extraction: {
@@ -1019,6 +1031,9 @@ export default function DevReportPreview() {
       ? buildFullV3EvidenceStack(v2Modules, scopeAdapterNull)
       : undefined;
 
+    const counts = derivedMetrics?.counts as Record<string, unknown> | undefined;
+    const diagnostics = derivedMetrics?.diagnostics as Record<string, unknown> | undefined;
+
     return (
       <ForensicAuditReport
         accessLevel="full"
@@ -1046,6 +1061,10 @@ export default function DevReportPreview() {
         windZone={null}
         codeJurisdiction={resolveCodeJurisdiction(countyBenchmark ?? null, "your county")}
         executiveSummaryTeaser={previewData.summary_teaser}
+        openingCountSource={readOpeningCountSource(counts?.opening_count_source)}
+        quoteMathConfidence={readConfidencePercent(diagnostics?.quote_math_confidence)}
+        benchmarkSourceLabel={readOptionalString(countyBenchmark?.source_label)}
+        benchmarkUpdatedAt={readOptionalString(countyBenchmark?.updated_at)}
         fullEvidenceStack={fullEvidenceStack}
         suppressBuiltInNextAction={isFullV3}
       />

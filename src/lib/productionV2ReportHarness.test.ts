@@ -6,7 +6,10 @@ import {
   computeOverpaymentRange,
   isPlaceholderCounty,
   mapAnalysisDataToForensicShellProps,
+  readConfidencePercent,
   readFiniteNumber,
+  readOpeningCountSource,
+  readOptionalString,
   resolveCodeJurisdiction,
   resolveMarketBenchmark,
   resolveOpeningCount,
@@ -173,6 +176,75 @@ describe("mapAnalysisDataToForensicShellProps", () => {
     expect(props.marketLow).toBeNull();
     expect(props.overpaymentLow).toBeNull();
     expect(props.overpaymentHigh).toBeNull();
+  });
+
+  it("maps derived metadata fields when present", () => {
+    const props = mapAnalysisDataToForensicShellProps(
+      baseAnalysisData({
+        derivedMetrics: {
+          counts: { opening_count_source: "extracted_header" },
+          diagnostics: { quote_math_confidence: 86.4 },
+          county_benchmark: {
+            source_label: "  Broward benchmark index  ",
+            updated_at: " 2026-01-08 ",
+          },
+        },
+      }),
+      "your county",
+    );
+
+    expect(props.openingCountSource).toBe("extracted_header");
+    expect(props.quoteMathConfidence).toBe(86);
+    expect(props.benchmarkSourceLabel).toBe("Broward benchmark index");
+    expect(props.benchmarkUpdatedAt).toBe("2026-01-08");
+  });
+
+  it("returns null metadata when derivedMetrics is missing", () => {
+    const props = mapAnalysisDataToForensicShellProps(baseAnalysisData(), "your county");
+
+    expect(props.openingCountSource).toBeNull();
+    expect(props.quoteMathConfidence).toBeNull();
+    expect(props.benchmarkSourceLabel).toBeNull();
+    expect(props.benchmarkUpdatedAt).toBeNull();
+  });
+});
+
+describe("readOpeningCountSource", () => {
+  it('maps "extracted_header" correctly', () => {
+    expect(readOpeningCountSource("extracted_header")).toBe("extracted_header");
+  });
+
+  it('maps "inferred_from_lines" correctly', () => {
+    expect(readOpeningCountSource("inferred_from_lines")).toBe("inferred_from_lines");
+  });
+
+  it('maps "unknown" or invalid values to null', () => {
+    expect(readOpeningCountSource("unknown")).toBeNull();
+    expect(readOpeningCountSource("")).toBeNull();
+    expect(readOpeningCountSource(null)).toBeNull();
+    expect(readOpeningCountSource(42)).toBeNull();
+  });
+});
+
+describe("readConfidencePercent", () => {
+  it("clamps and rounds to 0–100", () => {
+    expect(readConfidencePercent(86.4)).toBe(86);
+    expect(readConfidencePercent(150)).toBe(100);
+    expect(readConfidencePercent(-5)).toBe(0);
+    expect(readConfidencePercent(0.86)).toBe(86);
+  });
+
+  it("returns null for missing or invalid values", () => {
+    expect(readConfidencePercent(null)).toBeNull();
+    expect(readConfidencePercent(Number.NaN)).toBeNull();
+  });
+});
+
+describe("readOptionalString", () => {
+  it("trims empty strings to null", () => {
+    expect(readOptionalString("  hello  ")).toBe("hello");
+    expect(readOptionalString("   ")).toBeNull();
+    expect(readOptionalString("")).toBeNull();
   });
 });
 
