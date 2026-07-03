@@ -80,7 +80,12 @@ import {
   resolveCodeJurisdiction,
   resolveMarketBenchmark,
 } from "@/lib/productionV2ReportHarness";
-import type { RawPreviewRow } from "@/types/serviceResults";
+import OpeningMixSummary from "@/components/forensic-report/OpeningMixSummary";
+import {
+  mapOpeningMixFromDerivedMetrics,
+  mapWindZoneFromHvhz,
+} from "@/lib/mapPropertyContext";
+import type { RawFullRow, RawPreviewRow } from "@/types/serviceResults";
 import type { V2ReportModuleSource, V2ReportSourceMode } from "@/types/v2ReportTransport";
 
 type LabMode = "preview" | "full" | "unauthorized";
@@ -183,6 +188,17 @@ interface LabDerivedMetrics {
     benchmark_price_per_opening_low: number;
     benchmark_price_per_opening_high: number;
     market_position?: string;
+    source_label?: string;
+    updated_at?: string;
+  };
+  counts?: {
+    total_openings?: number;
+    opening_count_source?: string;
+    window_openings?: number;
+    door_openings?: number;
+  };
+  diagnostics?: {
+    quote_math_confidence?: number;
   };
 }
 
@@ -190,6 +206,7 @@ interface LabFullJson {
   derived_metrics: LabDerivedMetrics;
   extraction: {
     line_items: LabLineItem[];
+    hvhz_zone?: boolean | null;
   };
 }
 
@@ -413,6 +430,8 @@ const mockFullReportAccessResponse: LabFullReportAccessResponse = {
         },
         counts: {
           total_openings: 14,
+          window_openings: 10,
+          door_openings: 4,
           opening_count_source: "extracted_header",
         },
         diagnostics: {
@@ -420,6 +439,7 @@ const mockFullReportAccessResponse: LabFullReportAccessResponse = {
         },
       },
       extraction: {
+        hvhz_zone: true,
         line_items: [
           {
             description: "Impact Window 32x54",
@@ -656,6 +676,48 @@ function buildFullV3EvidenceStack(
   );
 }
 
+function composeFullEvidenceStack(
+  v2Modules: V2ReportModulesResult,
+  scopeAdapterNull: boolean,
+  openingMix: { windows: number; doors: number; sourceLabel: "derived" } | null,
+) {
+  return (
+    <>
+      {openingMix ? (
+        <OpeningMixSummary
+          windows={openingMix.windows}
+          doors={openingMix.doors}
+          sourceLabel={openingMix.sourceLabel}
+        />
+      ) : null}
+      {buildFullV3EvidenceStack(v2Modules, scopeAdapterNull)}
+    </>
+  );
+}
+
+function readHvhzZoneFromFullJson(
+  fullJson: Record<string, unknown> | null | undefined,
+): boolean | null | undefined {
+  if (!fullJson || typeof fullJson !== "object") return undefined;
+  const extraction = fullJson.extraction;
+  if (!extraction || typeof extraction !== "object" || Array.isArray(extraction)) {
+    return undefined;
+  }
+  const hvhz = (extraction as Record<string, unknown>).hvhz_zone;
+  return typeof hvhz === "boolean" ? hvhz : undefined;
+}
+
+function readDerivedMetricsFromFullJson(
+  fullJson: Record<string, unknown> | null | undefined,
+): unknown {
+  if (!fullJson || typeof fullJson !== "object") return null;
+  const derivedMetrics = fullJson.derived_metrics;
+  if (!derivedMetrics || typeof derivedMetrics !== "object" || Array.isArray(derivedMetrics)) {
+    return null;
+  }
+  return derivedMetrics;
+}
+
 function LabUnauthorizedPanel() {
   const fixture = getLabReportFixture("unauthorized");
   if (!isUnauthorizedFixture(fixture)) {
@@ -690,6 +752,7 @@ export default function DevReportPreview() {
   const [liveFetchMeta, setLiveFetchMeta] = useState<LabLiveFetchMeta>(INITIAL_LIVE_FETCH_META);
   const [livePreviewRow, setLivePreviewRow] = useState<RawPreviewRow | null>(null);
   const [liveFullShell, setLiveFullShell] = useState<LabLiveFullShellProps | null>(null);
+  const [liveFullRow, setLiveFullRow] = useState<RawFullRow | null>(null);
   const [liveModuleSource, setLiveModuleSource] = useState<V2ReportModuleSource | null>(null);
   const liveRequestIdRef = useRef(0);
 
@@ -717,6 +780,7 @@ export default function DevReportPreview() {
     setLiveFetchMeta(INITIAL_LIVE_FETCH_META);
     setLivePreviewRow(null);
     setLiveFullShell(null);
+    setLiveFullRow(null);
     setLiveModuleSource(null);
     setPhoneE164("");
   }, [isLiveSource, scanSessionId, parsedModeForModules]);
@@ -753,6 +817,7 @@ export default function DevReportPreview() {
     setLiveRequestState("loading");
     setLiveModuleSource(null);
     setLiveFullShell(null);
+    setLiveFullRow(null);
 
     const result = await fetchLabLiveFull(scanSessionId, phone);
     if (requestId !== liveRequestIdRef.current) return;
@@ -761,6 +826,7 @@ export default function DevReportPreview() {
     setLiveFetchMeta(classified.meta);
     setLiveRequestState(classified.state);
     setLiveModuleSource(classified.moduleSource);
+    setLiveFullRow(classified.row);
     setLiveFullShell(classified.row ? mapLiveFullRowToShellProps(classified.row) : null);
   }, [scanSessionId, phoneE164]);
 
@@ -902,6 +968,12 @@ export default function DevReportPreview() {
     ) {
       const scopeAdapterNull =
         moduleSourceMode === "live" && v2Modules.scopeGapChecklistProps === null;
+      const liveFullJson = liveFullRow?.full_json ?? null;
+      const windZoneMapped = mapWindZoneFromHvhz(readHvhzZoneFromFullJson(liveFullJson));
+      const openingMix = mapOpeningMixFromDerivedMetrics(
+        readDerivedMetricsFromFullJson(liveFullJson),
+      );
+      const codeJurisdiction = liveFullShell.codeJurisdiction;
 
       return (
         <>
@@ -929,10 +1001,12 @@ export default function DevReportPreview() {
             homeownerName={null}
             propertyAddress={null}
             propertyType={null}
-            windZone={null}
-            codeJurisdiction={liveFullShell.codeJurisdiction}
+            windZone={windZoneMapped?.value ?? null}
+            windZoneSourceLabel={windZoneMapped ? "quote_visible" : null}
+            codeJurisdiction={codeJurisdiction}
+            codeJurisdictionSourceLabel={codeJurisdiction ? "benchmark_reference" : null}
             executiveSummaryTeaser={liveFullShell.executiveSummaryTeaser}
-            fullEvidenceStack={buildFullV3EvidenceStack(v2Modules, scopeAdapterNull)}
+            fullEvidenceStack={composeFullEvidenceStack(v2Modules, scopeAdapterNull, openingMix)}
             suppressBuiltInNextAction
           />
         </>
@@ -1027,8 +1101,12 @@ export default function DevReportPreview() {
     const isFullV3 = params.get("v") === "v3";
     const scopeAdapterNull = useAdapterSource && v2Modules.scopeGapChecklistProps === null;
 
+    const windZoneMapped = mapWindZoneFromHvhz(fullData?.extraction?.hvhz_zone);
+    const openingMix = mapOpeningMixFromDerivedMetrics(derivedMetrics);
+    const codeJurisdiction = resolveCodeJurisdiction(countyBenchmark ?? null, "your county");
+
     const fullEvidenceStack = isFullV3
-      ? buildFullV3EvidenceStack(v2Modules, scopeAdapterNull)
+      ? composeFullEvidenceStack(v2Modules, scopeAdapterNull, openingMix)
       : undefined;
 
     const counts = derivedMetrics?.counts as Record<string, unknown> | undefined;
@@ -1058,8 +1136,10 @@ export default function DevReportPreview() {
         homeownerName={null}
         propertyAddress={null}
         propertyType={null}
-        windZone={null}
-        codeJurisdiction={resolveCodeJurisdiction(countyBenchmark ?? null, "your county")}
+        windZone={windZoneMapped?.value ?? null}
+        windZoneSourceLabel={windZoneMapped ? "quote_visible" : null}
+        codeJurisdiction={codeJurisdiction}
+        codeJurisdictionSourceLabel={codeJurisdiction ? "benchmark_reference" : null}
         executiveSummaryTeaser={previewData.summary_teaser}
         openingCountSource={readOpeningCountSource(counts?.opening_count_source)}
         quoteMathConfidence={readConfidencePercent(diagnostics?.quote_math_confidence)}

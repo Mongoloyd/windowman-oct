@@ -63,6 +63,8 @@ export interface ForensicAuditReportProps {
   propertyType?: string | null;
   windZone?: string | null;
   codeJurisdiction?: string | null;
+  windZoneSourceLabel?: "quote_visible" | null;
+  codeJurisdictionSourceLabel?: "benchmark_reference" | "derived" | null;
   openingCountSource?: string | null;
   quoteMathConfidence?: number | null;
   benchmarkSourceLabel?: string | null;
@@ -255,7 +257,9 @@ export default function ForensicAuditReport(props: ForensicAuditReportProps) {
                 propertyAddress={props.propertyAddress}
                 propertyType={props.propertyType}
                 windZone={props.windZone}
+                windZoneSourceLabel={props.windZoneSourceLabel}
                 codeJurisdiction={props.codeJurisdiction}
+                codeJurisdictionSourceLabel={props.codeJurisdictionSourceLabel}
               />
 
               {props.fullEvidenceStack ? (
