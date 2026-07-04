@@ -21,6 +21,7 @@ import {
   PaidSearchSection,
 } from "@/components/paid-search/PaidSearchContent";
 import { submitWindowPricesLead } from "@/services/windowPricesLeadCapture";
+import { LeadMagnetSuccessPanel } from "@/components/paid-search/LeadMagnetSuccessPanel";
 
 const EMAIL_RE = /^\S+@\S+\.\S+$/;
 
@@ -52,6 +53,10 @@ export default function TruthReportLanding() {
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitState, setSubmitState] = useState<SubmitState>("idle");
   const [serverMessage, setServerMessage] = useState<string | null>(null);
+  const [captureResult, setCaptureResult] = useState<{
+    leadId: string;
+    sessionId: string;
+  } | null>(null);
 
   const sessionIdRef = useRef<string>(
     typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -84,8 +89,13 @@ export default function TruthReportLanding() {
         email: email.trim(),
         source: "truth_report_demo",
       });
-      if (result.ok) setSubmitState("success");
-      else {
+      if (result.ok) {
+        setCaptureResult({
+          leadId: result.leadId,
+          sessionId: result.sessionId,
+        });
+        setSubmitState("success");
+      } else {
         setSubmitState("error");
         setServerMessage(result.message);
       }
@@ -221,20 +231,13 @@ export default function TruthReportLanding() {
       <PaidSearchSection id="save" eyebrow="No quote yet?" title="Save your Truth Report guide.">
         <div className="mx-auto max-w-md rounded-2xl border border-white/10 bg-white/[0.06] p-6 shadow-[0_8px_40px_rgba(0,0,0,0.45)] backdrop-blur-md sm:p-7">
           {succeeded ? (
-            <div className="text-center" role="status">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-[#49A5FF]/40 bg-[#49A5FF]/10">
-                <span aria-hidden="true" className="text-2xl text-[#49A5FF]">✓</span>
-              </div>
-              <h3 className="mt-4 text-2xl font-extrabold text-white">Saved, {firstName.trim() || "neighbor"}.</h3>
-              <p className="mt-2 text-sm leading-relaxed text-white/80">
-                Your Truth Report guide is on its way to{" "}
-                <span className="font-semibold text-[#49A5FF]">{email.trim()}</span>.
-                When you get a quote, upload it for a full graded report.
-              </p>
-              <a href="/quote-check" className={`mt-6 inline-block ${paidSearchPrimaryButtonClass}`}>
-                Upload my quote free →
-              </a>
-            </div>
+            <LeadMagnetSuccessPanel
+              variant="truth_report_demo"
+              firstName={firstName}
+              email={email}
+              leadId={captureResult?.leadId ?? null}
+              sessionId={captureResult?.sessionId ?? null}
+            />
           ) : (
             <div className="space-y-4">
               <div>

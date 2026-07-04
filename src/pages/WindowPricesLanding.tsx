@@ -27,6 +27,8 @@ import {
   submitWindowPricesLead,
   type WindowPricesSource,
 } from "@/services/windowPricesLeadCapture";
+import { TcpaPhoneConsentCheckbox } from "@/components/paid-search/TcpaPhoneConsentCheckbox";
+import { LeadMagnetSuccessPanel } from "@/components/paid-search/LeadMagnetSuccessPanel";
 
 const EMAIL_RE = /^\S+@\S+\.\S+$/;
 const ZIP_RE = /^\d{5}$/;
@@ -39,6 +41,7 @@ interface FormErrors {
   email?: string;
   phone?: string;
   zip?: string;
+  smsConsent?: string;
 }
 
 function resolveSource(): WindowPricesSource {
@@ -56,9 +59,14 @@ export default function WindowPricesLanding() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [zip, setZip] = useState("");
+  const [smsConsent, setSmsConsent] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitState, setSubmitState] = useState<SubmitState>("idle");
   const [serverMessage, setServerMessage] = useState<string | null>(null);
+  const [captureResult, setCaptureResult] = useState<{
+    leadId: string;
+    sessionId: string;
+  } | null>(null);
 
   // Stable per-visit session id: retries dedupe via the edge reuse path.
   const sessionIdRef = useRef<string>(
@@ -78,14 +86,17 @@ export default function WindowPricesLanding() {
       next.email = "Enter a valid email address.";
     }
     const digits = phone.replace(/\D/g, "");
-    if (digits.length < PHONE_MIN_DIGITS) {
+    // Phone is optional. If entered, it must be valid AND carry TCPA consent.
+    if (digits.length > 0 && digits.length < PHONE_MIN_DIGITS) {
       next.phone = "Enter a valid 10-digit phone number.";
+    } else if (digits.length >= PHONE_MIN_DIGITS && !smsConsent) {
+      next.smsConsent = "Please check the box to receive texts, or clear the phone field.";
     }
     if (!ZIP_RE.test(zip.trim())) {
       next.zip = "Enter a valid 5-digit ZIP.";
     }
     return next;
-  }, [firstName, email, phone, zip]);
+  }, [firstName, email, phone, zip, smsConsent]);
 
   const handleSubmit = useCallback(async () => {
     if (inFlightRef.current || submitState === "success") return;
@@ -105,10 +116,15 @@ export default function WindowPricesLanding() {
         email: email.trim(),
         phone: phone.trim(),
         zip: zip.trim(),
+        smsConsent,
         source: sourceRef.current,
       });
 
       if (result.ok) {
+        setCaptureResult({
+          leadId: result.leadId,
+          sessionId: result.sessionId,
+        });
         setSubmitState("success");
       } else {
         setSubmitState("error");
@@ -165,30 +181,13 @@ export default function WindowPricesLanding() {
           {/* Form card */}
           <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.06] p-6 shadow-[0_8px_40px_rgba(0,0,0,0.45)] backdrop-blur-md sm:p-7">
             {succeeded ? (
-              <div className="text-center" role="status">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-[#49A5FF]/40 bg-[#49A5FF]/10">
-                  <span aria-hidden="true" className="text-2xl text-[#49A5FF]">
-                    ✓
-                  </span>
-                </div>
-                <h2 className="mt-4 text-2xl font-bold text-white">
-                  You're in, {firstName.trim() || "neighbor"}.
-                </h2>
-                <p className="mt-2 text-sm leading-relaxed text-white/80">
-                  Your pricing report is on its way to{" "}
-                  <span className="font-semibold text-[#49A5FF]">
-                    {email.trim()}
-                  </span>
-                  . Got a quote already? Upload it any time for a free graded
-                  Truth Report.
-                </p>
-                <a
-                  href="/quote-check"
-                  className={`mt-6 inline-block px-8 py-3 ${paidSearchPrimaryButtonClass}`}
-                >
-                  Grade my quote free →
-                </a>
-              </div>
+              <LeadMagnetSuccessPanel
+                variant="window_prices"
+                firstName={firstName}
+                email={email}
+                leadId={captureResult?.leadId ?? null}
+                sessionId={captureResult?.sessionId ?? null}
+              />
             ) : (
               <>
                 <h2 className="text-2xl font-bold text-white">
@@ -249,7 +248,7 @@ export default function WindowPricesLanding() {
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_140px]">
                     <div>
                       <label htmlFor="wp-phone" className={paidSearchLabelClass}>
-                        Phone
+                        Phone <span className="text-white/40">(optional)</span>
                       </label>
                       <input
                         id="wp-phone"
@@ -257,7 +256,10 @@ export default function WindowPricesLanding() {
                         autoComplete="tel"
                         inputMode="tel"
                         value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
+                        onChange={(e) => {
+                          setPhone(e.target.value);
+                          if (e.target.value.replace(/\D/g, "").length === 0) setSmsConsent(false);
+                        }}
                         onKeyDown={onKeyDown}
                         aria-invalid={Boolean(errors.phone)}
                         aria-describedby={errors.phone ? "wp-phone-err" : undefined}
@@ -295,6 +297,14 @@ export default function WindowPricesLanding() {
                       )}
                     </div>
                   </div>
+
+                  {phone.replace(/\D/g, "").length > 0 && (
+                    <TcpaPhoneConsentCheckbox
+                      checked={smsConsent}
+                      onChange={setSmsConsent}
+                      error={errors.smsConsent}
+                    />
+                  )}
 
                   {submitState === "error" && serverMessage && (
                     <div

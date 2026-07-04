@@ -33,6 +33,8 @@ export type SubmitWindowPricesLeadInput = {
   /** Optional: name+email-only lead magnets (truth_report_demo, ai_demo) omit these. */
   phone?: string;
   zip?: string;
+  /** TCPA express consent for marketing/follow-up SMS. Only meaningful when phone is present. */
+  smsConsent?: boolean;
   source: WindowPricesSource;
 };
 
@@ -68,6 +70,18 @@ export async function submitWindowPricesLead(
       (base.query_params as Record<string, string | string[]>) ?? {};
 
     const zip = (input.zip ?? "").trim();
+    const phoneProvided = Boolean((input.phone ?? "").trim());
+
+    // TCPA audit trail: only record consent when a phone was actually provided
+    // and the user affirmatively consented. Stored in query_params (jsonb the
+    // backend already persists) — no schema change. Promote to a real column later.
+    const smsConsentFields =
+      phoneProvided && input.smsConsent === true
+        ? {
+            sms_consent_at: new Date().toISOString(),
+            sms_consent_source: input.source,
+          }
+        : {};
 
     const body: Record<string, unknown> = {
       ...base,
@@ -75,6 +89,7 @@ export async function submitWindowPricesLead(
       query_params: {
         ...baseQueryParams,
         ...(zip ? { zip } : {}),
+        ...smsConsentFields,
       },
     };
 
