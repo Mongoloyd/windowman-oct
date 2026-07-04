@@ -21,14 +21,18 @@ const SAFE_CAPTURE_MESSAGE =
 
 export type WindowPricesSource =
   | "google_window_prices"
-  | "nextdoor_truth_report";
+  | "nextdoor_truth_report"
+  | "window_price_audit"
+  | "truth_report_demo"
+  | "ai_demo";
 
 export type SubmitWindowPricesLeadInput = {
   sessionId: string;
   firstName: string;
   email: string;
-  phone: string;
-  zip: string;
+  /** Optional: name+email-only lead magnets (truth_report_demo, ai_demo) omit these. */
+  phone?: string;
+  zip?: string;
   source: WindowPricesSource;
 };
 
@@ -50,7 +54,7 @@ export type WindowPricesLeadResult =
 export async function submitWindowPricesLead(
   input: SubmitWindowPricesLeadInput,
 ): Promise<WindowPricesLeadResult> {
-  const phoneE164 = normalizeTruthGatePhoneToE164(input.phone);
+  const phoneE164 = normalizeTruthGatePhoneToE164(input.phone ?? "");
 
   try {
     const base = buildTruthGateLeadPayload({
@@ -63,7 +67,7 @@ export async function submitWindowPricesLead(
     const baseQueryParams =
       (base.query_params as Record<string, string | string[]>) ?? {};
 
-    const zip = input.zip.trim();
+    const zip = (input.zip ?? "").trim();
 
     const body: Record<string, unknown> = {
       ...base,

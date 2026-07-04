@@ -48,6 +48,9 @@ const NextdoorHome = lazy(() => import("./pages/NextdoorHome.tsx"));
 const WindowManLanding = lazy(() => import("./pages/WindowManLanding.tsx"));
 const PricingSearchLanding = lazy(() => import("./pages/PricingSearchLanding.tsx"));
 const WindowPricesLanding = lazy(() => import("./pages/WindowPricesLanding.tsx"));
+const WindowPriceAuditLanding = lazy(() => import("./pages/WindowPriceAuditLanding.tsx"));
+const TruthReportLanding = lazy(() => import("./pages/TruthReportLanding.tsx"));
+const AiDemoLanding = lazy(() => import("./pages/AiDemoLanding.tsx"));
 
 // PartnerGuard removed — partner pages render publicly with preview fallback
 
@@ -140,6 +143,9 @@ const App = () => (
                 <Route path="/" element={<Index />} />
                 <Route path="/quote-check" element={<PricingSearchLanding />} />
                 <Route path="/window-prices" element={<WindowPricesLanding />} />
+                <Route path="/window-price-audit" element={<WindowPriceAuditLanding />} />
+                <Route path="/truth-report" element={<TruthReportLanding />} />
+                <Route path="/ai-demo" element={<AiDemoLanding />} />
                 <Route path="/lp/:slug" element={<LandingPage />} />
                 <Route path="/estimate" element={<Estimate />} />
                 <Route path="/diagnosis" element={<Diagnosis />} />
