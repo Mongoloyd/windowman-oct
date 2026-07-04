@@ -24,7 +24,14 @@ import {
 import { useScanFunnelSafe } from "@/state/scanFunnel";
 
 const PDF_URL = "/lead-magnets/window-price-audit.pdf";
-const UPLOAD_HANDOFF_URL = "/?post_capture=upload&source=quote-check";
+
+function buildUploadHandoffUrl(variant: LeadMagnetSuccessVariant): string {
+  const params = new URLSearchParams({
+    post_capture: "upload",
+    source: variant,
+  });
+  return `/?${params.toString()}`;
+}
 
 export type LeadMagnetSuccessVariant =
   | "window_price_audit"
@@ -126,8 +133,8 @@ export function LeadMagnetSuccessPanel({
       );
     }
 
-    navigate(UPLOAD_HANDOFF_URL);
-  }, [funnel, leadId, navigate, sessionId]);
+    navigate(buildUploadHandoffUrl(variant));
+  }, [funnel, leadId, navigate, sessionId, variant]);
 
   return (
     <div className="text-center" role="status" aria-live="polite">
