@@ -429,13 +429,18 @@ const Index = () => {
     }
 
     const snapshot = readPersistedFunnelSnapshot();
-    const inProductPhase = fileUploaded || gradeRevealed || scanSessionId != null;
+    const inProductPhase = handoffToUpload
+      ? fileUploaded || gradeRevealed
+      : fileUploaded || gradeRevealed || scanSessionId != null;
+    const persistedScanSessionIdForContactResume = handoffToUpload
+      ? null
+      : snapshot?.scanSessionId ?? null;
 
     if (
       !shouldRehydrateContactUpload({
         leadId: funnel.leadId,
         sessionId: funnel.sessionId,
-        persistedScanSessionId: snapshot?.scanSessionId ?? null,
+        persistedScanSessionId: persistedScanSessionIdForContactResume,
         inProductPhase,
       })
     ) {
@@ -446,6 +451,7 @@ const Index = () => {
     setSessionId(funnel.sessionId);
 
     if (handoffToUpload) {
+      setPendingResume(null);
       setPostCapturePath("upload");
       paidLpHandoffScrollPendingRef.current = true;
     } else {

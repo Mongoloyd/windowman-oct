@@ -314,6 +314,80 @@ describe("shouldRehydrateContactUpload", () => {
   });
 });
 
+function stubPaidHandoffLocation(search = "?post_capture=upload&source=quote-check") {
+  const replaceStateMock = vi.fn();
+  vi.stubGlobal("history", {
+    ...window.history,
+    replaceState: replaceStateMock,
+    state: null,
+  });
+  vi.stubGlobal("location", {
+    ...window.location,
+    pathname: "/",
+    search,
+    hash: "",
+    href: `http://localhost:8080/${search ? search.replace(/^\?/, "") : ""}`.replace(/\/$/, search ? "/" : "/"),
+  });
+  return { replaceStateMock };
+}
+
+describe("Index paid-LP upload handoff", () => {
+  beforeEach(() => {
+    uploadZonePropsRef.current = null;
+    invokeMock.mockReset();
+    readPersistedFunnelSnapshotMock.mockReturnValue({
+      scanSessionId: SCAN_SESSION_ID,
+      sessionId: SESSION_ID,
+      leadId: LEAD_ID,
+      quoteFileId: null,
+      phoneE164: null,
+      phoneStatus: "none",
+    });
+    seedFunnelStorage({ scanSessionId: SCAN_SESSION_ID });
+    stubDomObservers();
+    stubPaidHandoffLocation();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("mounts UploadZone on fresh paid handoff despite stale scan session", async () => {
+    renderIndex();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("upload-zone")).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText("You have an unfinished scan.")).not.toBeInTheDocument();
+    expect(uploadZonePropsRef.current).toMatchObject({
+      isVisible: true,
+      sessionId: SESSION_ID,
+      leadId: LEAD_ID,
+    });
+  });
+
+  it("does not re-force upload on refresh after handoff params are stripped", async () => {
+    const { replaceStateMock } = stubPaidHandoffLocation();
+    const { unmount } = renderIndex();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("upload-zone")).toBeInTheDocument();
+    });
+
+    expect(replaceStateMock).toHaveBeenCalled();
+    unmount();
+
+    stubPaidHandoffLocation("");
+    renderIndex();
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("upload-zone")).not.toBeInTheDocument();
+    });
+    expect(screen.getByText("You have an unfinished scan.")).toBeInTheDocument();
+  });
+});
+
 describe("Index contact resume rehydration", () => {
   beforeEach(() => {
     uploadZonePropsRef.current = null;
