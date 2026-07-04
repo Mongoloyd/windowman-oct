@@ -18,6 +18,17 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  PaidSearchLandingFooter,
+  PaidSearchLandingHeader,
+  PaidSearchLandingShell,
+  paidSearchEyebrowClass,
+  paidSearchInputClass,
+  paidSearchLabelClass,
+  paidSearchPrimaryButtonClass,
+  paidSearchSectionTitleClass,
+  paidSearchTrustPillClass,
+} from "@/components/paid-search/PaidSearchLandingShell";
 import { submitTruthGateLead } from "@/services/truthGateLeadCapture";
 import { useScanFunnelSafe } from "@/state/scanFunnel";
 
@@ -160,21 +171,11 @@ export default function PricingSearchLanding() {
   const submitting = submitState === "submitting";
 
   return (
-    <main className="min-h-screen bg-[#0F1F35] text-slate-100 antialiased">
-      {/* ── Top bar ─────────────────────────────────────────── */}
-      <header className="border-b border-white/10">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4 sm:px-6">
-          <span className="font-['Barlow_Condensed'] text-xl font-bold tracking-wide text-white">
-            WINDOW<span className="text-[#49A5FF]">MAN</span>
-          </span>
-          <span className="rounded-full border border-[#C8952A]/40 bg-[#C8952A]/10 px-3 py-1 font-['DM_Mono'] text-[11px] uppercase tracking-widest text-[#C8952A]">
-            Independent · Not a contractor
-          </span>
-        </div>
-      </header>
+    <PaidSearchLandingShell>
+      <PaidSearchLandingHeader />
 
       {/* ── Hero: answers the search query ──────────────────── */}
-      <section className="relative overflow-hidden">
+      <section id="top" className="relative overflow-hidden">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(73,165,255,0.12),transparent_60%)]"
@@ -182,18 +183,18 @@ export default function PricingSearchLanding() {
         <div className="relative mx-auto grid max-w-5xl gap-10 px-4 pb-16 pt-12 sm:px-6 lg:grid-cols-[1.1fr_0.9fr] lg:pt-20">
           {/* Copy column */}
           <div>
-            <p className="mb-4 font-['DM_Mono'] text-xs uppercase tracking-[0.25em] text-[#49A5FF]">
+            <p className={`mb-4 ${paidSearchEyebrowClass}`}>
               South Florida impact windows &amp; doors
             </p>
-            <h1 className="font-['Barlow_Condensed'] text-4xl font-bold leading-[1.05] text-white sm:text-5xl lg:text-6xl">
+            <h1 className="text-4xl font-extrabold leading-[1.1] tracking-tight text-white sm:text-5xl">
               Is your window quote fair?
               <span className="block text-[#49A5FF]">
                 Find out free — in 60 seconds.
               </span>
             </h1>
-            <p className="mt-5 max-w-xl text-base leading-relaxed text-slate-300 sm:text-lg">
+            <p className="mt-5 max-w-xl text-base leading-relaxed text-white/80 sm:text-lg">
               Upload any impact window or door estimate and get a free{" "}
-              <strong className="text-white">Truth Report</strong>: a graded,
+              <strong className="font-semibold text-white">Truth Report</strong>: a graded,
               line-by-line review that flags possible pricing issues, missing
               specifications, fine-print traps worth checking, and the exact
               questions to ask before you sign.
@@ -207,10 +208,7 @@ export default function PricingSearchLanding() {
                 "Built on public permit records",
                 "No spam. Ever.",
               ].map((t) => (
-                <li
-                  key={t}
-                  className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 font-['DM_Mono'] text-[11px] text-slate-300"
-                >
+                <li key={t} className={paidSearchTrustPillClass}>
                   {t}
                 </li>
               ))}
@@ -220,19 +218,16 @@ export default function PricingSearchLanding() {
           {/* Capture card */}
           <div className="lg:pt-2">
             <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-6 shadow-[0_8px_40px_rgba(0,0,0,0.45)] backdrop-blur-md sm:p-7">
-              <h2 className="font-['Barlow_Condensed'] text-2xl font-bold text-white">
+              <h2 className="text-2xl font-bold text-white">
                 Get your free Truth Report
               </h2>
-              <p className="mt-1 text-sm text-slate-400">
+              <p className="mt-1 text-sm text-white/70">
                 Name and email — then upload your quote on the next screen.
               </p>
 
               <div className="mt-5 space-y-4">
                 <div>
-                  <label
-                    htmlFor="wm-first-name"
-                    className="mb-1.5 block font-['DM_Mono'] text-[11px] uppercase tracking-widest text-slate-400"
-                  >
+                  <label htmlFor="wm-first-name" className={paidSearchLabelClass}>
                     First name
                   </label>
                   <input
@@ -244,7 +239,7 @@ export default function PricingSearchLanding() {
                     onKeyDown={onKeyDown}
                     aria-invalid={Boolean(errors.firstName)}
                     aria-describedby={errors.firstName ? "wm-first-name-err" : undefined}
-                    className="w-full rounded-lg border border-white/15 bg-[#0B1728] px-4 py-3 text-white placeholder-slate-500 outline-none transition focus:border-[#49A5FF] focus:ring-2 focus:ring-[#49A5FF]/30"
+                    className={paidSearchInputClass}
                     placeholder="Maria"
                   />
                   {errors.firstName && (
@@ -255,10 +250,7 @@ export default function PricingSearchLanding() {
                 </div>
 
                 <div>
-                  <label
-                    htmlFor="wm-email"
-                    className="mb-1.5 block font-['DM_Mono'] text-[11px] uppercase tracking-widest text-slate-400"
-                  >
+                  <label htmlFor="wm-email" className={paidSearchLabelClass}>
                     Email
                   </label>
                   <input
@@ -271,7 +263,7 @@ export default function PricingSearchLanding() {
                     onKeyDown={onKeyDown}
                     aria-invalid={Boolean(errors.email)}
                     aria-describedby={errors.email ? "wm-email-err" : undefined}
-                    className="w-full rounded-lg border border-white/15 bg-[#0B1728] px-4 py-3 text-white placeholder-slate-500 outline-none transition focus:border-[#49A5FF] focus:ring-2 focus:ring-[#49A5FF]/30"
+                    className={paidSearchInputClass}
                     placeholder="maria@example.com"
                   />
                   {errors.email && (
@@ -294,12 +286,12 @@ export default function PricingSearchLanding() {
                   type="button"
                   onClick={handleSubmit}
                   disabled={submitting}
-                  className="w-full rounded-lg bg-[#49A5FF] px-6 py-3.5 font-['Barlow_Condensed'] text-lg font-bold tracking-wide text-[#0F1F35] transition hover:bg-[#6BB6FF] focus:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:cursor-not-allowed disabled:opacity-60"
+                  className={`w-full ${paidSearchPrimaryButtonClass}`}
                 >
                   {submitting ? "Saving…" : "Analyze my quote free →"}
                 </button>
 
-                <p className="text-center text-[11px] leading-relaxed text-slate-500">
+                <p className="text-center text-[11px] leading-relaxed text-white/55">
                   Free for homeowners. No obligation. Your info is never sold.
                 </p>
               </div>
@@ -311,10 +303,10 @@ export default function PricingSearchLanding() {
       {/* ── Authority strip: verifiable permit data ─────────── */}
       <section className="border-y border-white/10 bg-[#0B1728]">
         <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
-          <p className="text-center font-['DM_Mono'] text-sm leading-relaxed text-slate-400">
+          <p className="text-center text-sm leading-relaxed text-white/70">
             Hundreds of impact window jobs are permitted across South Florida
             every month —{" "}
-            <span className="text-[#C8952A]">public permit filings</span> we
+            <span className="font-semibold text-[#C8952A]">public permit filings</span> we
             study so you don't overpay on yours.
           </p>
         </div>
@@ -322,10 +314,10 @@ export default function PricingSearchLanding() {
 
       {/* ── PAS: the problem with window quotes ─────────────── */}
       <section className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
-        <h2 className="font-['Barlow_Condensed'] text-3xl font-bold text-white sm:text-4xl">
+        <h2 className={paidSearchSectionTitleClass}>
           Window quotes are built to be hard to compare.
         </h2>
-        <div className="mt-6 grid gap-6 text-slate-300 md:grid-cols-3">
+        <div className="mt-6 grid gap-6 text-white/80 md:grid-cols-3">
           <p className="leading-relaxed">
             One contractor quotes per opening. Another quotes a lump sum. A
             third leaves out permits, disposal, or stucco repair entirely —
@@ -347,10 +339,8 @@ export default function PricingSearchLanding() {
       {/* ── 5 pillars ───────────────────────────────────────── */}
       <section className="border-t border-white/10 bg-[#0B1728]">
         <div className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
-          <p className="font-['DM_Mono'] text-xs uppercase tracking-[0.25em] text-[#49A5FF]">
-            The Truth Report
-          </p>
-          <h2 className="mt-2 font-['Barlow_Condensed'] text-3xl font-bold text-white sm:text-4xl">
+          <p className={paidSearchEyebrowClass}>The Truth Report</p>
+          <h2 className={`mt-2 ${paidSearchSectionTitleClass}`}>
             Five checks. One grade. Zero pressure.
           </h2>
           <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -360,21 +350,19 @@ export default function PricingSearchLanding() {
                 className="rounded-xl border border-white/10 bg-white/[0.04] p-5 transition hover:border-[#49A5FF]/40"
               >
                 <div className="flex items-center gap-3">
-                  <span className="rounded-md border border-[#49A5FF]/40 bg-[#49A5FF]/10 px-2 py-0.5 font-['DM_Mono'] text-xs text-[#49A5FF]">
+                  <span className="rounded-md border border-[#49A5FF]/40 bg-[#49A5FF]/10 px-2 py-0.5 text-xs font-bold text-[#49A5FF]">
                     {p.code}
                   </span>
-                  <h3 className="font-['Barlow_Condensed'] text-xl font-bold text-white">
-                    {p.label}
-                  </h3>
+                  <h3 className="text-xl font-bold text-white">{p.label}</h3>
                 </div>
-                <p className="mt-3 text-sm leading-relaxed text-slate-400">
+                <p className="mt-3 text-sm leading-relaxed text-white/70">
                   {p.desc}
                 </p>
               </div>
             ))}
             {/* CTA card completes the grid */}
             <div className="flex flex-col justify-between rounded-xl border border-[#C8952A]/40 bg-[#C8952A]/10 p-5">
-              <p className="text-sm leading-relaxed text-slate-200">
+              <p className="text-sm leading-relaxed text-white/90">
                 Every flag is phrased as a question to ask — not an accusation.
                 You stay in control of the conversation.
               </p>
@@ -384,7 +372,7 @@ export default function PricingSearchLanding() {
                   e.preventDefault();
                   window.scrollTo({ top: 0, behavior: "smooth" });
                 }}
-                className="mt-4 inline-block font-['Barlow_Condensed'] text-lg font-bold text-[#C8952A] underline-offset-4 hover:underline"
+                className="mt-4 inline-block text-base font-bold text-[#C8952A] underline-offset-4 hover:underline"
               >
                 Grade my quote →
               </a>
@@ -395,28 +383,24 @@ export default function PricingSearchLanding() {
 
       {/* ── How it works ────────────────────────────────────── */}
       <section className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
-        <h2 className="font-['Barlow_Condensed'] text-3xl font-bold text-white sm:text-4xl">
-          How it works
-        </h2>
+        <h2 className={paidSearchSectionTitleClass}>How it works</h2>
         <ol className="mt-8 grid gap-6 md:grid-cols-3">
           {STEPS.map((s) => (
             <li
               key={s.n}
               className="rounded-xl border border-white/10 bg-white/[0.04] p-5"
             >
-              <span className="font-['DM_Mono'] text-sm text-[#49A5FF]">
+              <span className="text-sm font-bold text-[#49A5FF]">
                 STEP {s.n}
               </span>
-              <h3 className="mt-2 font-['Barlow_Condensed'] text-xl font-bold text-white">
-                {s.title}
-              </h3>
-              <p className="mt-2 text-sm leading-relaxed text-slate-400">
+              <h3 className="mt-2 text-xl font-bold text-white">{s.title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-white/70">
                 {s.desc}
               </p>
             </li>
           ))}
         </ol>
-        <p className="mt-6 text-sm text-slate-400">
+        <p className="mt-6 text-sm text-white/70">
           Already signed? Upload anyway — the report may still surface warranty
           and installation details worth confirming before work begins.
         </p>
@@ -425,9 +409,7 @@ export default function PricingSearchLanding() {
       {/* ── FAQ ─────────────────────────────────────────────── */}
       <section className="border-t border-white/10 bg-[#0B1728]">
         <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-          <h2 className="font-['Barlow_Condensed'] text-3xl font-bold text-white sm:text-4xl">
-            Straight answers
-          </h2>
+          <h2 className={paidSearchSectionTitleClass}>Straight answers</h2>
           <div className="mt-8 divide-y divide-white/10">
             {FAQS.map((f, i) => {
               const open = openFaq === i;
@@ -439,18 +421,16 @@ export default function PricingSearchLanding() {
                     aria-expanded={open}
                     className="flex w-full items-center justify-between gap-4 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#49A5FF]/50"
                   >
-                    <span className="font-['Barlow_Condensed'] text-lg font-semibold text-white">
-                      {f.q}
-                    </span>
+                    <span className="text-lg font-semibold text-white">{f.q}</span>
                     <span
                       aria-hidden="true"
-                      className={`font-['DM_Mono'] text-[#49A5FF] transition-transform ${open ? "rotate-45" : ""}`}
+                      className={`text-lg font-bold text-[#49A5FF] transition-transform ${open ? "rotate-45" : ""}`}
                     >
                       +
                     </span>
                   </button>
                   {open && (
-                    <p className="mt-3 text-sm leading-relaxed text-slate-400">
+                    <p className="mt-3 text-sm leading-relaxed text-white/70">
                       {f.a}
                     </p>
                   )}
@@ -463,50 +443,43 @@ export default function PricingSearchLanding() {
 
       {/* ── Final CTA ───────────────────────────────────────── */}
       <section className="mx-auto max-w-5xl px-4 py-16 text-center sm:px-6">
-        <h2 className="font-['Barlow_Condensed'] text-3xl font-bold text-white sm:text-4xl">
+        <h2 className={paidSearchSectionTitleClass}>
           You're about to spend five figures.
-          <span className="block text-[#49A5FF]">
-            Spend 60 seconds first.
-          </span>
+          <span className="block text-[#49A5FF]">Spend 60 seconds first.</span>
         </h2>
         <button
           type="button"
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-          className="mt-8 rounded-lg bg-[#49A5FF] px-10 py-4 font-['Barlow_Condensed'] text-xl font-bold tracking-wide text-[#0F1F35] transition hover:bg-[#6BB6FF] focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          className={`mt-8 px-10 py-4 ${paidSearchPrimaryButtonClass}`}
         >
           Get my free Truth Report →
         </button>
       </section>
 
-      {/* ── Footer / compliance ─────────────────────────────── */}
-      <footer className="border-t border-white/10">
-        <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
-          <p className="text-xs leading-relaxed text-slate-500">
-            WindowMan is an independent quote-intelligence and consumer-advisory
-            service. WindowMan is not a contractor, installer, law firm,
-            insurance company, building department, or government agency. Truth
-            Report findings identify possible issues and details worth checking;
-            they are informational and not legal, financial, or engineering
-            advice. Savings are not guaranteed. If you request additional
-            quotes, WindowMan may refer you to licensed local contractors and
-            may receive compensation from those contractors.
-          </p>
-          <p className="mt-4 font-['DM_Mono'] text-xs text-slate-600">
-            © {year} WindowMan ·{" "}
-            <a href="/privacy" className="underline-offset-2 hover:text-slate-400 hover:underline">
-              Privacy
-            </a>{" "}
+      <PaidSearchLandingFooter
+        year={year}
+        extraLinks={
+          <>
+            {" "}
             ·{" "}
-            <a href="/terms" className="underline-offset-2 hover:text-slate-400 hover:underline">
-              Terms
-            </a>{" "}
-            ·{" "}
-            <a href="/disclaimer" className="underline-offset-2 hover:text-slate-400 hover:underline">
+            <a
+              href="/disclaimer"
+              className="underline-offset-2 hover:text-white/70 hover:underline"
+            >
               Disclaimer
             </a>
-          </p>
-        </div>
-      </footer>
-    </main>
+          </>
+        }
+      >
+        WindowMan is an independent quote-intelligence and consumer-advisory
+        service. WindowMan is not a contractor, installer, law firm, insurance
+        company, building department, or government agency. Truth Report
+        findings identify possible issues and details worth checking; they are
+        informational and not legal, financial, or engineering advice. Savings
+        are not guaranteed. If you request additional quotes, WindowMan may
+        refer you to licensed local contractors and may receive compensation
+        from those contractors.
+      </PaidSearchLandingFooter>
+    </PaidSearchLandingShell>
   );
 }

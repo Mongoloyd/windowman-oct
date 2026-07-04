@@ -14,6 +14,16 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import {
+  PaidSearchLandingFooter,
+  PaidSearchLandingHeader,
+  PaidSearchLandingShell,
+  paidSearchEyebrowClass,
+  paidSearchInputClass,
+  paidSearchLabelClass,
+  paidSearchPrimaryButtonClass,
+  paidSearchTrustPillClass,
+} from "@/components/paid-search/PaidSearchLandingShell";
+import {
   submitWindowPricesLead,
   type WindowPricesSource,
 } from "@/services/windowPricesLeadCapture";
@@ -126,24 +136,9 @@ export default function WindowPricesLanding() {
   const submitting = submitState === "submitting";
   const succeeded = submitState === "success";
 
-  const inputClass =
-    "w-full rounded-lg border border-white/15 bg-[#0B1728] px-4 py-3 text-white placeholder-slate-500 outline-none transition focus:border-[#49A5FF] focus:ring-2 focus:ring-[#49A5FF]/30";
-  const labelClass =
-    "mb-1.5 block font-['DM_Mono'] text-[11px] uppercase tracking-widest text-slate-400";
-
   return (
-    <main className="flex min-h-screen flex-col bg-[#0F1F35] text-slate-100 antialiased">
-      {/* ── Top bar ─────────────────────────────────────────── */}
-      <header className="border-b border-white/10">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4 sm:px-6">
-          <span className="font-['Barlow_Condensed'] text-xl font-bold tracking-wide text-white">
-            WINDOW<span className="text-[#49A5FF]">MAN</span>
-          </span>
-          <span className="rounded-full border border-[#C8952A]/40 bg-[#C8952A]/10 px-3 py-1 font-['DM_Mono'] text-[11px] uppercase tracking-widest text-[#C8952A]">
-            Independent · Not a contractor
-          </span>
-        </div>
-      </header>
+    <PaidSearchLandingShell>
+      <PaidSearchLandingHeader />
 
       {/* ── Hero + form, centered above the fold ────────────── */}
       <section className="relative flex flex-1 items-start justify-center overflow-hidden">
@@ -153,14 +148,14 @@ export default function WindowPricesLanding() {
         />
         <div className="relative mx-auto w-full max-w-xl px-4 pb-16 pt-10 sm:px-6 sm:pt-14">
           <div className="text-center">
-            <p className="mb-3 font-['DM_Mono'] text-xs uppercase tracking-[0.25em] text-[#49A5FF]">
+            <p className={`mb-3 ${paidSearchEyebrowClass}`}>
               Free impact window pricing report
             </p>
-            <h1 className="font-['Barlow_Condensed'] text-4xl font-bold leading-[1.05] text-white sm:text-5xl">
+            <h1 className="text-4xl font-extrabold leading-[1.1] tracking-tight text-white sm:text-5xl">
               What are impact windows really costing
               <span className="text-[#49A5FF]"> in your ZIP?</span>
             </h1>
-            <p className="mx-auto mt-4 max-w-md text-base leading-relaxed text-slate-300">
+            <p className="mx-auto mt-4 max-w-md text-base leading-relaxed text-white/80">
               Get the free WindowMan pricing report — what drives quote prices
               in your area, the questions to ask, and how to check any estimate
               before you sign.
@@ -176,12 +171,12 @@ export default function WindowPricesLanding() {
                     ✓
                   </span>
                 </div>
-                <h2 className="mt-4 font-['Barlow_Condensed'] text-2xl font-bold text-white">
+                <h2 className="mt-4 text-2xl font-bold text-white">
                   You're in, {firstName.trim() || "neighbor"}.
                 </h2>
-                <p className="mt-2 text-sm leading-relaxed text-slate-300">
+                <p className="mt-2 text-sm leading-relaxed text-white/80">
                   Your pricing report is on its way to{" "}
-                  <span className="font-['DM_Mono'] text-[#49A5FF]">
+                  <span className="font-semibold text-[#49A5FF]">
                     {email.trim()}
                   </span>
                   . Got a quote already? Upload it any time for a free graded
@@ -189,23 +184,23 @@ export default function WindowPricesLanding() {
                 </p>
                 <a
                   href="/quote-check"
-                  className="mt-6 inline-block rounded-lg bg-[#49A5FF] px-8 py-3 font-['Barlow_Condensed'] text-lg font-bold tracking-wide text-[#0F1F35] transition hover:bg-[#6BB6FF]"
+                  className={`mt-6 inline-block px-8 py-3 ${paidSearchPrimaryButtonClass}`}
                 >
                   Grade my quote free →
                 </a>
               </div>
             ) : (
               <>
-                <h2 className="font-['Barlow_Condensed'] text-2xl font-bold text-white">
+                <h2 className="text-2xl font-bold text-white">
                   Send me the pricing report
                 </h2>
-                <p className="mt-1 text-sm text-slate-400">
+                <p className="mt-1 text-sm text-white/70">
                   Free. Takes 20 seconds. No sales calls unless you ask.
                 </p>
 
                 <div className="mt-5 space-y-4">
                   <div>
-                    <label htmlFor="wp-first-name" className={labelClass}>
+                    <label htmlFor="wp-first-name" className={paidSearchLabelClass}>
                       First name
                     </label>
                     <input
@@ -217,7 +212,7 @@ export default function WindowPricesLanding() {
                       onKeyDown={onKeyDown}
                       aria-invalid={Boolean(errors.firstName)}
                       aria-describedby={errors.firstName ? "wp-first-name-err" : undefined}
-                      className={inputClass}
+                      className={paidSearchInputClass}
                       placeholder="Maria"
                     />
                     {errors.firstName && (
@@ -228,7 +223,7 @@ export default function WindowPricesLanding() {
                   </div>
 
                   <div>
-                    <label htmlFor="wp-email" className={labelClass}>
+                    <label htmlFor="wp-email" className={paidSearchLabelClass}>
                       Email
                     </label>
                     <input
@@ -241,7 +236,7 @@ export default function WindowPricesLanding() {
                       onKeyDown={onKeyDown}
                       aria-invalid={Boolean(errors.email)}
                       aria-describedby={errors.email ? "wp-email-err" : undefined}
-                      className={inputClass}
+                      className={paidSearchInputClass}
                       placeholder="maria@example.com"
                     />
                     {errors.email && (
@@ -253,7 +248,7 @@ export default function WindowPricesLanding() {
 
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_140px]">
                     <div>
-                      <label htmlFor="wp-phone" className={labelClass}>
+                      <label htmlFor="wp-phone" className={paidSearchLabelClass}>
                         Phone
                       </label>
                       <input
@@ -266,7 +261,7 @@ export default function WindowPricesLanding() {
                         onKeyDown={onKeyDown}
                         aria-invalid={Boolean(errors.phone)}
                         aria-describedby={errors.phone ? "wp-phone-err" : undefined}
-                        className={inputClass}
+                        className={paidSearchInputClass}
                         placeholder="(954) 555-0123"
                       />
                       {errors.phone && (
@@ -276,7 +271,7 @@ export default function WindowPricesLanding() {
                       )}
                     </div>
                     <div>
-                      <label htmlFor="wp-zip" className={labelClass}>
+                      <label htmlFor="wp-zip" className={paidSearchLabelClass}>
                         ZIP
                       </label>
                       <input
@@ -290,7 +285,7 @@ export default function WindowPricesLanding() {
                         onKeyDown={onKeyDown}
                         aria-invalid={Boolean(errors.zip)}
                         aria-describedby={errors.zip ? "wp-zip-err" : undefined}
-                        className={inputClass}
+                        className={paidSearchInputClass}
                         placeholder="33062"
                       />
                       {errors.zip && (
@@ -314,12 +309,12 @@ export default function WindowPricesLanding() {
                     type="button"
                     onClick={handleSubmit}
                     disabled={submitting}
-                    className="w-full rounded-lg bg-[#49A5FF] px-6 py-3.5 font-['Barlow_Condensed'] text-lg font-bold tracking-wide text-[#0F1F35] transition hover:bg-[#6BB6FF] focus:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:cursor-not-allowed disabled:opacity-60"
+                    className={`w-full ${paidSearchPrimaryButtonClass}`}
                   >
                     {submitting ? "Saving…" : "Get my free pricing report →"}
                   </button>
 
-                  <p className="text-center text-[11px] leading-relaxed text-slate-500">
+                  <p className="text-center text-[11px] leading-relaxed text-white/55">
                     Free for homeowners. Your info is never sold. We contact
                     you only about your report and quotes you ask about.
                   </p>
@@ -338,10 +333,7 @@ export default function WindowPricesLanding() {
               "We work for you, not the contractor",
               "No spam. Ever.",
             ].map((t) => (
-              <li
-                key={t}
-                className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 font-['DM_Mono'] text-[11px] text-slate-300"
-              >
+              <li key={t} className={paidSearchTrustPillClass}>
                 {t}
               </li>
             ))}
@@ -349,29 +341,14 @@ export default function WindowPricesLanding() {
         </div>
       </section>
 
-      {/* ── Footer / compliance ─────────────────────────────── */}
-      <footer className="border-t border-white/10">
-        <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
-          <p className="text-[11px] leading-relaxed text-slate-500">
-            WindowMan is an independent quote-intelligence and consumer-advisory
-            service — not a contractor, installer, law firm, insurance company,
-            building department, or government agency. Report findings are
-            informational; savings are not guaranteed. If you request quotes,
-            WindowMan may refer you to licensed local contractors and may
-            receive compensation from those contractors.
-          </p>
-          <p className="mt-3 font-['DM_Mono'] text-[11px] text-slate-600">
-            © {year} WindowMan ·{" "}
-            <a href="/privacy" className="underline-offset-2 hover:text-slate-400 hover:underline">
-              Privacy
-            </a>{" "}
-            ·{" "}
-            <a href="/terms" className="underline-offset-2 hover:text-slate-400 hover:underline">
-              Terms
-            </a>
-          </p>
-        </div>
-      </footer>
-    </main>
+      <PaidSearchLandingFooter year={year}>
+        WindowMan is an independent quote-intelligence and consumer-advisory
+        service — not a contractor, installer, law firm, insurance company,
+        building department, or government agency. Report findings are
+        informational; savings are not guaranteed. If you request quotes,
+        WindowMan may refer you to licensed local contractors and may receive
+        compensation from those contractors.
+      </PaidSearchLandingFooter>
+    </PaidSearchLandingShell>
   );
 }
