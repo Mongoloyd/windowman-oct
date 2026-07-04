@@ -106,6 +106,7 @@ const Index = () => {
   const [postCapturePath, setPostCapturePath] = useState<PostCapturePath>("router");
   const [contactResumedFromFunnel, setContactResumedFromFunnel] = useState(false);
   const contactRehydrateCheckedRef = useRef(false);
+  const paidLpHandoffScrollPendingRef = useRef(false);
   const [truthGateHighlight, setTruthGateHighlight] = useState(false);
   const [fileUploaded, setFileUploaded] = useState(false);
   const [gradeRevealed, setGradeRevealed] = useState(false);
@@ -393,11 +394,39 @@ const Index = () => {
     inUploadIntentPhase && trustedContactIdentity && postCapturePath !== "upload";
   const showContactUploadLock = inUploadIntentPhase && !trustedContactIdentity;
 
-  // Contact-only resume: funnel localStorage may hint upload-ready UI after refresh.
-  // Scan/report restore (pendingResume / ?resume=1) takes precedence over this path.
+  // Contact-only resume + paid-LP upload handoff.
+  // The paid search landing page may redirect to /?post_capture=upload&source=quote-check
+  // after saving a trusted contact identity. Strip the one-time params before any
+  // early return so failed/untrusted handoffs cannot loop on refresh.
+  // This is a UI path hint only; UploadZone still requires trusted identity and
+  // backend upload/session APIs remain authoritative.
   useEffect(() => {
     if (contactRehydrateCheckedRef.current) return;
     contactRehydrateCheckedRef.current = true;
+
+    let handoffToUpload = false;
+
+    try {
+      const params = new URLSearchParams(window.location.search);
+      handoffToUpload = params.get("post_capture") === "upload";
+
+      if (params.has("post_capture") || params.get("source") === "quote-check") {
+        params.delete("post_capture");
+
+        if (params.get("source") === "quote-check") {
+          params.delete("source");
+        }
+
+        const qs = params.toString();
+        window.history.replaceState(
+          window.history.state,
+          "",
+          `${window.location.pathname}${qs ? `?${qs}` : ""}${window.location.hash}`,
+        );
+      }
+    } catch {
+      // URL/history unavailable — fall through to normal resume behavior.
+    }
 
     const snapshot = readPersistedFunnelSnapshot();
     const inProductPhase = fileUploaded || gradeRevealed || scanSessionId != null;
@@ -415,11 +444,33 @@ const Index = () => {
 
     setLeadCaptured(true);
     setSessionId(funnel.sessionId);
-    setContactResumedFromFunnel(true);
-    // Refresh returns the user to the intent router (not a re-capture and not a
-    // forced UploadZone). Backend remains the upload authority.
-    setPostCapturePath("router");
+
+    if (handoffToUpload) {
+      setPostCapturePath("upload");
+      paidLpHandoffScrollPendingRef.current = true;
+    } else {
+      setContactResumedFromFunnel(true);
+      setPostCapturePath("router");
+    }
   }, [funnel.leadId, funnel.sessionId, fileUploaded, gradeRevealed, scanSessionId]);
+
+  // Paid-LP handoff lands on the homepage hero; scroll upload into view once guards pass.
+  useEffect(() => {
+    if (!paidLpHandoffScrollPendingRef.current || !canMountUsableUpload) return;
+    paidLpHandoffScrollPendingRef.current = false;
+    const prefersReducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const uploadEl = document.querySelector('[data-testid="upload-zone"]');
+        uploadEl?.scrollIntoView?.({
+          behavior: prefersReducedMotion ? "auto" : "smooth",
+          block: "start",
+        });
+      });
+    });
+  }, [canMountUsableUpload]);
 
   useEffect(() => {
     if (!clientSlugReady || !queryClientSlug || funnel.clientSlug === queryClientSlug) return;

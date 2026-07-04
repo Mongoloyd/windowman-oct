@@ -46,6 +46,8 @@ const Estimate = lazy(() => import("./pages/Estimate.tsx"));
 const Diagnosis = lazy(() => import("./pages/Diagnosis.tsx"));
 const NextdoorHome = lazy(() => import("./pages/NextdoorHome.tsx"));
 const WindowManLanding = lazy(() => import("./pages/WindowManLanding.tsx"));
+const PricingSearchLanding = lazy(() => import("./pages/PricingSearchLanding.tsx"));
+const WindowPricesLanding = lazy(() => import("./pages/WindowPricesLanding.tsx"));
 
 // PartnerGuard removed — partner pages render publicly with preview fallback
 
@@ -136,6 +138,8 @@ const App = () => (
               <Suspense fallback={<PageLoader />}>
                 <Routes>
                 <Route path="/" element={<Index />} />
+                <Route path="/quote-check" element={<PricingSearchLanding />} />
+                <Route path="/window-prices" element={<WindowPricesLanding />} />
                 <Route path="/lp/:slug" element={<LandingPage />} />
                 <Route path="/estimate" element={<Estimate />} />
                 <Route path="/diagnosis" element={<Diagnosis />} />
