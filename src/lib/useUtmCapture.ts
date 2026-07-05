@@ -125,6 +125,10 @@ export interface UtmData {
   first_touch_at: number;
   /** Most recent attributed touch timestamp (ms). */
   latest_touch_at: number;
+  /** Path of the most recent attributed URL hit (updates every attributed visit). */
+  latest_touch_page: string | null;
+  /** Path+query of the most recent attributed URL hit (updates every attributed visit). */
+  latest_touch_page_url: string | null;
   captured_at: number;
 }
 
@@ -162,6 +166,8 @@ const EMPTY_UTM: UtmData = {
   referrer: null,
   first_touch_at: 0,
   latest_touch_at: 0,
+  latest_touch_page: null,
+  latest_touch_page_url: null,
   captured_at: 0,
 };
 
@@ -302,6 +308,37 @@ export function getUtmData(): UtmData {
   return withFreshCookies({});
 }
 
+/** Click-ID keys checked for a first-touch attribution boundary reset. */
+const FIRST_TOUCH_RESET_KEYS = [
+  "gclid",
+  "fbclid",
+  "ttclid",
+  "wbraid",
+  "gbraid",
+  "msclkid",
+  "ndclid",
+] as const;
+
+/**
+ * A new click ID arriving on top of a different (or absent) stored value
+ * marks a fresh attributed session boundary, even when localStorage already
+ * holds a valid but stale first-touch record from an earlier, unrelated
+ * visit (e.g. a browser that first landed via one paid channel weeks ago,
+ * now arriving via a different paid click on a different landing page).
+ * Same-session navigation without a new click ID does not trigger a reset.
+ */
+function hasConflictingNewClickId(
+  params: URLSearchParams,
+  existing: UtmData,
+): boolean {
+  for (const key of FIRST_TOUCH_RESET_KEYS) {
+    const incoming = params.get(key)?.trim();
+    if (!incoming) continue;
+    if (existing[key] !== incoming) return true;
+  }
+  return false;
+}
+
 export function captureUtmFromUrl(): UtmData {
   if (typeof window === "undefined") return EMPTY_UTM;
 
@@ -344,7 +381,8 @@ export function captureUtmFromUrl(): UtmData {
 
   const rawIntent = trimmedParam(params, "wm_intent");
   const rawUtmContent = trimmedParam(params, "utm_content");
-  const isFirstTouch = existing.captured_at === 0;
+  const isFirstTouch =
+    existing.captured_at === 0 || hasConflictingNewClickId(params, existing);
   const now = Date.now();
 
   const resolvedIntent = rawIntent
@@ -398,6 +436,8 @@ export function captureUtmFromUrl(): UtmData {
     referrer: document.referrer || existing.referrer || null,
     first_touch_at: isFirstTouch ? now : (existing.first_touch_at || existing.captured_at),
     latest_touch_at: now,
+    latest_touch_page: window.location.pathname,
+    latest_touch_page_url: fullPathWithQuery,
     captured_at: now,
   });
 
@@ -499,6 +539,8 @@ export function getAttributionPayload(): Record<string, unknown> {
     referrer: data.referrer,
     first_touch_at: data.first_touch_at,
     latest_touch_at: data.latest_touch_at,
+    latest_touch_page: data.latest_touch_page,
+    latest_touch_page_url: data.latest_touch_page_url,
     captured_at: data.captured_at,
   };
 }

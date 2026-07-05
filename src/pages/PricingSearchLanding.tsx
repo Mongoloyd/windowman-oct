@@ -29,10 +29,12 @@ import {
   paidSearchSectionTitleClass,
   paidSearchTrustPillClass,
 } from "@/components/paid-search/PaidSearchLandingShell";
-import { submitTruthGateLead } from "@/services/truthGateLeadCapture";
+import { pushLeadMagnetUploadCtaClicked } from "@/lib/tracking/dataLayer";
+import { submitTruthGateLead, TRUTH_GATE_SOURCE } from "@/services/truthGateLeadCapture";
 import { useScanFunnelSafe } from "@/state/scanFunnel";
 
-const POST_CAPTURE_URL = "/?post_capture=upload&source=quote-check";
+const HANDOFF_SOURCE = "quote-check";
+const POST_CAPTURE_URL = `/?post_capture=upload&source=${HANDOFF_SOURCE}`;
 
 const EMAIL_RE = /^\S+@\S+\.\S+$/;
 
@@ -144,6 +146,16 @@ export default function PricingSearchLanding() {
             "[PricingSearchLanding] ScanFunnelProvider missing; handoff will rely on Index recovery UI",
           );
         }
+        // This page's single form submit doubles as both capture and the
+        // upload handoff (no separate success-panel CTA click), so the
+        // handoff event fires here, right before the auto-navigate.
+        pushLeadMagnetUploadCtaClicked({
+          leadId: result.leadId,
+          sessionId: result.sessionId,
+          handoffSource: HANDOFF_SOURCE,
+          captureSource: TRUTH_GATE_SOURCE,
+          destinationUrl: POST_CAPTURE_URL,
+        });
         navigate(POST_CAPTURE_URL);
       } else {
         setSubmitState("error");

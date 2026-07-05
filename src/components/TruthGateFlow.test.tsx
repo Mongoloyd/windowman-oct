@@ -80,6 +80,10 @@ vi.mock("@/lib/attribution/fbCookies", () => ({
   })),
 }));
 
+vi.mock("@/lib/tracking/dataLayer", () => ({
+  pushLeadMagnetCaptured: vi.fn(),
+}));
+
 vi.mock("framer-motion", () => {
   const make = (tag: string) =>
     ({ children, ...rest }: React.PropsWithChildren<Record<string, unknown>>) =>

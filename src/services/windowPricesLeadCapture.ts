@@ -13,6 +13,7 @@
 //   arbitrary source strings and persists query_params.
 
 import { supabase } from "@/integrations/supabase/client";
+import { pushLeadMagnetCaptured } from "@/lib/tracking/dataLayer";
 import { normalizeTruthGatePhoneToE164 } from "@/lib/validation/truthGateContact";
 import { buildTruthGateLeadPayload } from "@/services/truthGateLeadCapture";
 
@@ -140,6 +141,16 @@ export async function submitWindowPricesLead(
         phoneStatus: phoneE164 ? "screened_valid" : "none",
       });
     }
+
+    const attribution = base.attribution as Record<string, unknown> | undefined;
+    pushLeadMagnetCaptured({
+      leadId: captureData.lead_id as string,
+      sessionId: resolvedSessionId,
+      captureSource: input.source,
+      capturePagePath: (attribution?.capture_page_path as string | null) ?? null,
+      capturePageUrl: (attribution?.capture_page_url as string | null) ?? null,
+      clientSlug: (base.client_slug as string | null | undefined) ?? null,
+    });
 
     return {
       ok: true,

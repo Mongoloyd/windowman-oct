@@ -21,6 +21,7 @@ import { useNavigate } from "react-router-dom";
 import {
   paidSearchPrimaryButtonClass,
 } from "@/components/paid-search/PaidSearchLandingShell";
+import { pushLeadMagnetUploadCtaClicked } from "@/lib/tracking/dataLayer";
 import { useScanFunnelSafe } from "@/state/scanFunnel";
 
 const PDF_URL = "/lead-magnets/window-price-audit.pdf";
@@ -119,9 +120,18 @@ export function LeadMagnetSuccessPanel({
   }, []);
 
   const handleUploadClick = useCallback(() => {
+    const destinationUrl = buildUploadHandoffUrl(variant);
+
     if (funnel && leadId && sessionId) {
       funnel.setLeadId(leadId);
       funnel.setSessionId(sessionId);
+      pushLeadMagnetUploadCtaClicked({
+        leadId,
+        sessionId,
+        handoffSource: variant,
+        captureSource: variant,
+        destinationUrl,
+      });
     } else if (import.meta.env.DEV) {
       console.warn(
         "[LeadMagnetSuccessPanel] Missing ScanFunnel or identity pair; falling back to quote-check path.",
@@ -133,7 +143,7 @@ export function LeadMagnetSuccessPanel({
       );
     }
 
-    navigate(buildUploadHandoffUrl(variant));
+    navigate(destinationUrl);
   }, [funnel, leadId, navigate, sessionId, variant]);
 
   return (

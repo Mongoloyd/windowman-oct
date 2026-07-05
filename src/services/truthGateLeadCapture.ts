@@ -1,4 +1,5 @@
 import { readLateFbCookies } from "@/lib/attribution/fbCookies";
+import { pushLeadMagnetCaptured } from "@/lib/tracking/dataLayer";
 import { captureUtmFromUrl, getAttributionPayload } from "@/lib/useUtmCapture";
 import { normalizeTruthGatePhoneToE164 } from "@/lib/validation/truthGateContact";
 import { supabase } from "@/integrations/supabase/client";
@@ -89,11 +90,29 @@ export function buildTruthGateLeadPayload(
       ? `${window.location.pathname}${window.location.search}`
       : null);
 
+  // Capture-page fields record where THIS submit happened, independent of
+  // the (possibly stale) first-touch landing_page_url. See B1 in the live
+  // CTA audit: first-touch scalars can point to an old route when
+  // localStorage attribution predates the current paid click. These live
+  // in query_params/attribution only — no schema change, no scalar override.
+  const capturePagePath =
+    typeof window !== "undefined" ? window.location.pathname : null;
+  const capturePageUrl =
+    typeof window !== "undefined"
+      ? `${window.location.pathname}${window.location.search}`
+      : null;
+
   const attributionPayload = getAttributionPayload();
-  const queryParams =
+  const baseQueryParams =
     (attributionPayload.query_params as Record<string, string | string[]>) ??
     {};
   const { query_params: _queryParams, ...attributionBody } = attributionPayload;
+
+  const queryParams = {
+    ...baseQueryParams,
+    ...(capturePagePath ? { capture_page_path: capturePagePath } : {}),
+    ...(capturePageUrl ? { capture_page_url: capturePageUrl } : {}),
+  };
 
   return {
     session_id: input.sessionId,
@@ -119,7 +138,11 @@ export function buildTruthGateLeadPayload(
     first_page_path: utm.landing_page,
     initial_referrer:
       typeof document !== "undefined" ? document.referrer || null : null,
-    attribution: attributionBody,
+    attribution: {
+      ...attributionBody,
+      capture_page_path: capturePagePath,
+      capture_page_url: capturePageUrl,
+    },
     query_params: queryParams,
   };
 }
@@ -186,6 +209,16 @@ export async function submitTruthGateLead(
         clientSlug,
       });
     }
+
+    const attribution = body.attribution as Record<string, unknown> | undefined;
+    pushLeadMagnetCaptured({
+      leadId: captureData.lead_id as string,
+      sessionId: resolvedSessionId,
+      captureSource: (body.source as string) || TRUTH_GATE_SOURCE,
+      capturePagePath: (attribution?.capture_page_path as string | null) ?? null,
+      capturePageUrl: (attribution?.capture_page_url as string | null) ?? null,
+      clientSlug,
+    });
 
     return {
       ok: true,

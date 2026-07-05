@@ -13,6 +13,7 @@ const captureUtmFromUrlMock = vi.fn();
 const getAttributionPayloadMock = vi.fn();
 const readLateFbCookiesMock = vi.fn();
 const invokeMock = vi.fn();
+const pushLeadMagnetCapturedMock = vi.fn();
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
@@ -29,6 +30,10 @@ vi.mock("@/lib/useUtmCapture", () => ({
 
 vi.mock("@/lib/attribution/fbCookies", () => ({
   readLateFbCookies: (...args: unknown[]) => readLateFbCookiesMock(...args),
+}));
+
+vi.mock("@/lib/tracking/dataLayer", () => ({
+  pushLeadMagnetCaptured: (...args: unknown[]) => pushLeadMagnetCapturedMock(...args),
 }));
 
 function installLocalStorageMock(initial?: Record<string, string>) {
@@ -67,6 +72,7 @@ describe("truthGateLeadCapture", () => {
     captureUtmFromUrlMock.mockReset();
     getAttributionPayloadMock.mockReset();
     readLateFbCookiesMock.mockReset();
+    pushLeadMagnetCapturedMock.mockReset();
 
     installLocalStorageMock();
     stubWindowLocation("");
@@ -170,9 +176,68 @@ describe("truthGateLeadCapture", () => {
       expect(payload.attribution).toEqual({
         utm_source: "google",
         wm_intent: "has_quote",
+        capture_page_path: "/",
+        capture_page_url: "/",
       });
-      expect(payload.query_params).toEqual({ wm_intent: "has_quote", extra: "1" });
+      expect(payload.query_params).toEqual({
+        wm_intent: "has_quote",
+        extra: "1",
+        capture_page_path: "/",
+        capture_page_url: "/",
+      });
       expect(payload).not.toHaveProperty("wm_intent");
+    });
+
+    it("records capture_page_path/url from the current route independent of stale landing_page_url (B1)", () => {
+      // Simulate a browser with a stale first-touch landing_page_url from an
+      // earlier, unrelated visit while the current submit happens on a
+      // paid magnet route.
+      captureUtmFromUrlMock.mockReturnValue({
+        utm_source: "nextdoor",
+        utm_medium: "paid_social",
+        utm_campaign: "old_pilot",
+        utm_term: null,
+        utm_content: null,
+        fbclid: null,
+        gclid: "test-gclid-wpa",
+        fbc: null,
+        fbp: null,
+        client_slug: "direct",
+        landing_page: "/",
+        landing_page_url: "/?utm_source=nextdoor&utm_campaign=old_pilot",
+      });
+      getAttributionPayloadMock.mockReturnValue({
+        utm_source: "nextdoor",
+        current_page_url:
+          "/window-price-audit?utm_source=qa&gclid=test-gclid-wpa",
+        query_params: { gclid: "test-gclid-wpa" },
+      });
+      stubWindowLocation(
+        "?utm_source=qa&gclid=test-gclid-wpa",
+        "/window-price-audit",
+      );
+
+      const payload = buildTruthGateLeadPayload({
+        sessionId: SESSION_ID,
+        firstName: "Jane",
+        email: "jane@example.com",
+        phoneE164: null,
+        funnelClientSlug: null,
+      });
+
+      // Stale first-touch scalar is preserved (v1 keeps first-touch semantics).
+      expect(payload.landing_page_url).toBe(
+        "/?utm_source=nextdoor&utm_campaign=old_pilot",
+      );
+      // But the capture-time page is recorded separately, unaffected by staleness.
+      expect(payload.query_params).toMatchObject({
+        capture_page_path: "/window-price-audit",
+        capture_page_url: "/window-price-audit?utm_source=qa&gclid=test-gclid-wpa",
+      });
+      expect(payload.attribution).toMatchObject({
+        capture_page_path: "/window-price-audit",
+        capture_page_url: "/window-price-audit?utm_source=qa&gclid=test-gclid-wpa",
+      });
     });
 
     it("calls captureUtmFromUrl at build time", () => {
@@ -263,6 +328,48 @@ describe("truthGateLeadCapture", () => {
       expect(invokeMock).toHaveBeenCalledWith("capture-truth-gate-lead", {
         body: expect.objectContaining({ source: TRUTH_GATE_SOURCE }),
       });
+    });
+
+    it("fires pushLeadMagnetCaptured once with the DB lead_id after success (not before)", async () => {
+      invokeMock.mockResolvedValue({
+        data: { success: true, lead_id: LEAD_ID, session_id: SESSION_ID },
+        error: null,
+      });
+
+      const result = await submitTruthGateLead({
+        sessionId: SESSION_ID,
+        firstName: "Jane",
+        email: "jane@example.com",
+        phone: "",
+        funnelClientSlug: null,
+      });
+
+      expect(result.ok).toBe(true);
+      expect(pushLeadMagnetCapturedMock).toHaveBeenCalledTimes(1);
+      expect(pushLeadMagnetCapturedMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          leadId: LEAD_ID,
+          sessionId: SESSION_ID,
+          captureSource: TRUTH_GATE_SOURCE,
+        }),
+      );
+    });
+
+    it("does not fire pushLeadMagnetCaptured when capture fails", async () => {
+      invokeMock.mockResolvedValue({
+        data: { success: false, message: "Lead capture failed." },
+        error: null,
+      });
+
+      await submitTruthGateLead({
+        sessionId: SESSION_ID,
+        firstName: "Jane",
+        email: "jane@example.com",
+        phone: "",
+        funnelClientSlug: null,
+      });
+
+      expect(pushLeadMagnetCapturedMock).not.toHaveBeenCalled();
     });
 
     it("normalizes empty phone to null in payload", async () => {

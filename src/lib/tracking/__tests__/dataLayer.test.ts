@@ -36,7 +36,10 @@ vi.mock("@/lib/useUtmCapture", () => ({
 import { captureUtmFromUrl } from "@/lib/useUtmCapture";
 import {
   buildAttributionDataLayerPayload,
+  HANDOFF_SOURCE_ROUTE_KEY,
   pushDataLayerEvent,
+  pushLeadMagnetCaptured,
+  pushLeadMagnetUploadCtaClicked,
   pushLowIntentEvent,
   pushTruthGateViewedOnce,
   pushVirtualPageView,
@@ -286,5 +289,141 @@ describe("dataLayer helper", () => {
 
     const payload = trackGtmEventMock.mock.calls[0][1] as Record<string, unknown>;
     expect(payload.wm_intent).toBe("has_quote");
+  });
+
+  describe("pushLeadMagnetCaptured", () => {
+    it("fires once with capture_source, capture_page fields, and the real lead_id", () => {
+      pushLeadMagnetCaptured({
+        leadId: "lead-abc-123",
+        sessionId: "session-xyz-456",
+        captureSource: "window_price_audit",
+        capturePagePath: "/window-price-audit",
+        capturePageUrl: "/window-price-audit?utm_source=qa",
+      });
+
+      const calls = trackGtmEventMock.mock.calls.filter(
+        ([name]) => name === "lead_magnet_captured",
+      );
+      expect(calls).toHaveLength(1);
+      expect(calls[0][1]).toMatchObject({
+        lead_id: "lead-abc-123",
+        session_id: "session-xyz-456",
+        capture_source: "window_price_audit",
+        capture_page_path: "/window-price-audit",
+        capture_page_url: "/window-price-audit?utm_source=qa",
+        utm_source: "nextdoor",
+      });
+      expect(calls[0][1].event_id).toEqual(expect.stringContaining("lead_magnet_captured"));
+    });
+
+    it("does not fire before this helper is called (no submit-start fire)", () => {
+      // Sanity check: nothing pushes lead_magnet_captured as a side effect
+      // of unrelated dataLayer helpers.
+      pushVirtualPageView({ page_path: "/window-price-audit", page_search: "" });
+
+      const calls = trackGtmEventMock.mock.calls.filter(
+        ([name]) => name === "lead_magnet_captured",
+      );
+      expect(calls).toHaveLength(0);
+    });
+
+    it("dedupes repeated fires for the same lead/session", () => {
+      pushLeadMagnetCaptured({
+        leadId: "lead-dedupe-1",
+        sessionId: "session-dedupe-1",
+        captureSource: "ai_demo",
+      });
+      pushLeadMagnetCaptured({
+        leadId: "lead-dedupe-1",
+        sessionId: "session-dedupe-1",
+        captureSource: "ai_demo",
+      });
+
+      const calls = trackGtmEventMock.mock.calls.filter(
+        ([name]) => name === "lead_magnet_captured",
+      );
+      expect(calls).toHaveLength(1);
+    });
+
+    it("allows a fresh fire for a different lead/session (retry after failure is not blocked)", () => {
+      pushLeadMagnetCaptured({
+        leadId: "lead-retry-1",
+        sessionId: "session-retry-1",
+        captureSource: "truth_report_demo",
+      });
+      pushLeadMagnetCaptured({
+        leadId: "lead-retry-2",
+        sessionId: "session-retry-1",
+        captureSource: "truth_report_demo",
+      });
+
+      const calls = trackGtmEventMock.mock.calls.filter(
+        ([name]) => name === "lead_magnet_captured",
+      );
+      expect(calls).toHaveLength(2);
+    });
+
+    it("never includes email, phone, or full_json", () => {
+      pushLeadMagnetCaptured({
+        leadId: "lead-pii-check",
+        sessionId: "session-pii-check",
+        captureSource: "window_prices",
+      });
+
+      const payload = trackGtmEventMock.mock.calls.find(
+        ([name]) => name === "lead_magnet_captured",
+      )?.[1] as Record<string, unknown>;
+
+      expect(payload.email).toBeUndefined();
+      expect(payload.phone).toBeUndefined();
+      expect(payload.phone_e164).toBeUndefined();
+      expect(payload.full_json).toBeUndefined();
+      expect(payload.preview_json).toBeUndefined();
+    });
+  });
+
+  describe("pushLeadMagnetUploadCtaClicked", () => {
+    it("fires with handoff_source and destination_url, and persists the handoff hint", () => {
+      pushLeadMagnetUploadCtaClicked({
+        leadId: "lead-upload-1",
+        sessionId: "session-upload-1",
+        handoffSource: "window_price_audit",
+        captureSource: "window_price_audit",
+        destinationUrl: "/?post_capture=upload&source=window_price_audit",
+      });
+
+      const calls = trackGtmEventMock.mock.calls.filter(
+        ([name]) => name === "lead_magnet_upload_cta_clicked",
+      );
+      expect(calls).toHaveLength(1);
+      expect(calls[0][1]).toMatchObject({
+        lead_id: "lead-upload-1",
+        session_id: "session-upload-1",
+        handoff_source: "window_price_audit",
+        capture_source: "window_price_audit",
+        destination_url: "/?post_capture=upload&source=window_price_audit",
+      });
+      expect(sessionStorage.getItem(HANDOFF_SOURCE_ROUTE_KEY)).toBe("window_price_audit");
+    });
+
+    it("dedupes repeated fires for the same lead/session", () => {
+      pushLeadMagnetUploadCtaClicked({
+        leadId: "lead-upload-dedupe",
+        sessionId: "session-upload-dedupe",
+        handoffSource: "quote-check",
+        destinationUrl: "/?post_capture=upload&source=quote-check",
+      });
+      pushLeadMagnetUploadCtaClicked({
+        leadId: "lead-upload-dedupe",
+        sessionId: "session-upload-dedupe",
+        handoffSource: "quote-check",
+        destinationUrl: "/?post_capture=upload&source=quote-check",
+      });
+
+      const calls = trackGtmEventMock.mock.calls.filter(
+        ([name]) => name === "lead_magnet_upload_cta_clicked",
+      );
+      expect(calls).toHaveLength(1);
+    });
   });
 });

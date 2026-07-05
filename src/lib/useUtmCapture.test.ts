@@ -179,6 +179,76 @@ describe("captureUtmFromUrl", () => {
     expect(second.landing_page_url).toBe("/about?utm_source=nextdoor&utm_campaign=first");
   });
 
+  it("updates latest_touch_page/url on every attributed hit", () => {
+    mockLocation("/about", "?utm_source=nextdoor&utm_campaign=first");
+    captureUtmFromUrl();
+
+    mockLocation("/blog/example", "?utm_source=nextdoor&utm_campaign=second");
+    const second = captureUtmFromUrl();
+
+    expect(second.latest_touch_page).toBe("/blog/example");
+    expect(second.latest_touch_page_url).toBe(
+      "/blog/example?utm_source=nextdoor&utm_campaign=second",
+    );
+    // First-touch landing fields remain untouched by latest-touch updates.
+    expect(second.landing_page).toBe("/about");
+  });
+
+  it("resets first-touch attribution when stale storage meets a new click ID on a different route (B1)", () => {
+    // Simulate a browser with stale first-touch attribution from an
+    // unrelated earlier visit (e.g. old Nextdoor QA session).
+    mockLocation("/", "?utm_source=nextdoor&utm_campaign=old_pilot&ndclid=old_click");
+    captureUtmFromUrl();
+
+    // A new paid click lands on a magnet route with a *different* gclid.
+    mockLocation(
+      "/window-price-audit",
+      "?utm_source=qa&utm_medium=audit&utm_campaign=cta_audit&gclid=test-gclid-wpa",
+    );
+    const data = captureUtmFromUrl();
+
+    expect(data.gclid).toBe("test-gclid-wpa");
+    expect(data.landing_page).toBe("/window-price-audit");
+    expect(data.landing_page_url).toBe(
+      "/window-price-audit?utm_source=qa&utm_medium=audit&utm_campaign=cta_audit&gclid=test-gclid-wpa",
+    );
+    expect(data.utm_campaign).toBe("cta_audit");
+  });
+
+  it("does not reset first-touch when the same click ID is revisited", () => {
+    mockLocation(
+      "/window-price-audit",
+      "?utm_source=qa&utm_campaign=cta_audit&gclid=test-gclid-wpa",
+    );
+    captureUtmFromUrl();
+
+    // Same gclid, different route (e.g. SPA nav or repeat click on same ad).
+    mockLocation(
+      "/window-price-audit",
+      "?utm_source=qa&utm_campaign=cta_audit_2&gclid=test-gclid-wpa",
+    );
+    const data = captureUtmFromUrl();
+
+    expect(data.landing_page).toBe("/window-price-audit");
+    expect(data.utm_campaign).toBe("cta_audit_2");
+  });
+
+  it("does not reset first-touch on a same-session navigation without a new click ID", () => {
+    mockLocation(
+      "/window-price-audit",
+      "?utm_source=qa&utm_medium=audit&utm_campaign=cta_audit&gclid=test-gclid-wpa",
+    );
+    captureUtmFromUrl();
+
+    // Later navigation carries UTMs but no click ID at all.
+    mockLocation("/ai-demo", "?utm_source=qa&utm_medium=audit&utm_campaign=cta_audit_ai");
+    const data = captureUtmFromUrl();
+
+    expect(data.landing_page).toBe("/window-price-audit");
+    expect(data.gclid).toBe("test-gclid-wpa");
+    expect(data.latest_touch_page).toBe("/ai-demo");
+  });
+
   it("captures the Nextdoor acceptance URL and exposes fields via getAttributionPayload", () => {
     mockLocation(
       "/",

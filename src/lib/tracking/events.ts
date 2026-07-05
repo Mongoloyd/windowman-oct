@@ -20,6 +20,15 @@ export const BUSINESS_EVENTS = {
   /** /windowman first-quote intake modal opened */
   first_quote_modal_opened: "first_quote_modal_opened",
 
+  /** Paid lead-magnet capture (window-price-audit, ai-demo, truth-report,
+   * window-prices) returns success from capture-truth-gate-lead. Fired
+   * only after API success — never on submit start. */
+  lead_magnet_captured: "lead_magnet_captured",
+
+  /** User clicks the primary upload CTA on a lead-magnet success panel,
+   * immediately before the /?post_capture=upload handoff navigation. */
+  lead_magnet_upload_cta_clicked: "lead_magnet_upload_cta_clicked",
+
   /** User selects a file in UploadZone (before upload begins) */
   scan_initiated: "scan_initiated",
 
