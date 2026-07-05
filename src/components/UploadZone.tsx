@@ -883,8 +883,20 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId, leadId: 
       const queryParams =
         (attributionPayload.query_params as Record<string, string | string[]>) ??
         {};
-      const { query_params: _queryParams, ...attributionBody } =
-        attributionPayload;
+      // start-upload-scan-session validates `attribution` with a `.strict()`
+      // zod schema (see contracts/schemas.ts:AttributionPayloadSchema). Since
+      // c129b939, getAttributionPayload() also emits latest_touch_page /
+      // latest_touch_page_url for dataLayer capture-page tracking — keys that
+      // are NOT in that wire contract. Forwarding them makes the strict schema
+      // reject the whole body with invalid_payload (400), surfaced to the user
+      // as "Failed to start scan session." Drop them (and query_params) so only
+      // contract-allowed keys reach the strict validator.
+      const {
+        query_params: _queryParams,
+        latest_touch_page: _latestTouchPage,
+        latest_touch_page_url: _latestTouchPageUrl,
+        ...attributionBody
+      } = attributionPayload;
       const bootstrapClientSlug =
         typeof attributionBody.client_slug === "string" &&
         attributionBody.client_slug !== "direct"
