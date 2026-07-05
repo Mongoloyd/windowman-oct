@@ -5,8 +5,9 @@
 // "hurricane window prices [county]".
 //
 // Capture path (Sprint: dual-landing-page infra)
-//   submitTruthGateLead() -> capture-truth-gate-lead (attribution merged
-//   server-side, gclid/utm captured by the existing service).
+//   submitWindowPricesLead() -> capture-truth-gate-lead with source
+//   google_quote_check (attribution merged server-side, gclid/utm captured by
+//   the existing service).
 //
 // Handoff path
 //   On success we write { sessionId, leadId } into ScanFunnel state (which
@@ -30,10 +31,11 @@ import {
   paidSearchTrustPillClass,
 } from "@/components/paid-search/PaidSearchLandingShell";
 import { pushLeadMagnetUploadCtaClicked } from "@/lib/tracking/dataLayer";
-import { submitTruthGateLead, TRUTH_GATE_SOURCE } from "@/services/truthGateLeadCapture";
+import { submitWindowPricesLead } from "@/services/windowPricesLeadCapture";
 import { useScanFunnelSafe } from "@/state/scanFunnel";
 
 const HANDOFF_SOURCE = "quote-check";
+const QUOTE_CHECK_CAPTURE_SOURCE = "google_quote_check";
 const POST_CAPTURE_URL = `/?post_capture=upload&source=${HANDOFF_SOURCE}`;
 
 const EMAIL_RE = /^\S+@\S+\.\S+$/;
@@ -126,11 +128,11 @@ export default function PricingSearchLanding() {
     setServerMessage(null);
 
     try {
-      const result = await submitTruthGateLead({
+      const result = await submitWindowPricesLead({
         sessionId: sessionIdRef.current,
         firstName: firstName.trim(),
         email: email.trim(),
-        phone: "", // optional at this stage; OTP gate collects it later
+        source: QUOTE_CHECK_CAPTURE_SOURCE,
       });
 
       if (result.ok) {
@@ -153,7 +155,7 @@ export default function PricingSearchLanding() {
           leadId: result.leadId,
           sessionId: result.sessionId,
           handoffSource: HANDOFF_SOURCE,
-          captureSource: TRUTH_GATE_SOURCE,
+          captureSource: QUOTE_CHECK_CAPTURE_SOURCE,
           destinationUrl: POST_CAPTURE_URL,
         });
         navigate(POST_CAPTURE_URL);

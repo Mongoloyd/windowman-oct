@@ -121,6 +121,70 @@ describe("windowPricesLeadCapture", () => {
     );
   });
 
+  it("preserves google_quote_check as the /quote-check capture source", async () => {
+    const quoteCheckSessionId = "33333333-3333-4333-8333-333333333333";
+    const quoteCheckLeadId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+
+    stubWindowLocation(
+      "?utm_source=google&gclid=test-gclid-quote-check",
+      "/quote-check",
+    );
+    captureUtmFromUrlMock.mockReturnValue({
+      utm_source: "google",
+      utm_medium: "cpc",
+      utm_campaign: "qa_quote_check",
+      utm_term: null,
+      utm_content: null,
+      fbclid: null,
+      gclid: "test-gclid-quote-check",
+      fbc: null,
+      fbp: null,
+      client_slug: "direct",
+      landing_page: "/quote-check",
+      landing_page_url:
+        "/quote-check?utm_source=google&gclid=test-gclid-quote-check",
+    });
+    getAttributionPayloadMock.mockReturnValue({
+      utm_source: "google",
+      query_params: { utm_source: "google", gclid: "test-gclid-quote-check" },
+    });
+    invokeMock.mockResolvedValue({
+      data: {
+        success: true,
+        lead_id: quoteCheckLeadId,
+        session_id: quoteCheckSessionId,
+      },
+      error: null,
+    });
+
+    const result = await submitWindowPricesLead({
+      sessionId: quoteCheckSessionId,
+      firstName: "Jane",
+      email: "jane@example.com",
+      source: "google_quote_check",
+    });
+
+    expect(result.ok).toBe(true);
+    const body = invokeMock.mock.calls[0][1].body as Record<string, unknown>;
+    expect(body.source).toBe("google_quote_check");
+    expect(body.query_params).toMatchObject({
+      capture_page_path: "/quote-check",
+      capture_page_url:
+        "/quote-check?utm_source=google&gclid=test-gclid-quote-check",
+    });
+    expect(pushLeadMagnetCapturedMock).toHaveBeenCalledTimes(1);
+    expect(pushLeadMagnetCapturedMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        leadId: quoteCheckLeadId,
+        sessionId: quoteCheckSessionId,
+        captureSource: "google_quote_check",
+        capturePagePath: "/quote-check",
+        capturePageUrl:
+          "/quote-check?utm_source=google&gclid=test-gclid-quote-check",
+      }),
+    );
+  });
+
   it("does not fire pushLeadMagnetCaptured when capture fails", async () => {
     invokeMock.mockResolvedValue({
       data: { success: false, message: "Lead capture failed." },

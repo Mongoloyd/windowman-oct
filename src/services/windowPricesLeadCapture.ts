@@ -1,16 +1,17 @@
 // src/services/windowPricesLeadCapture.ts
 //
-// Lead capture for the lightweight /window-prices landing page.
+// Lead capture for lightweight paid-search / lead-magnet landing pages.
 //
 // Why this exists
-//   submitTruthGateLead() hardcodes source = "truth-gate". This page needs
-//   source = "google_window_prices" | "nextdoor_truth_report" and a ZIP
-//   field. We reuse buildTruthGateLeadPayload() for the full attribution
-//   contract (utm/gclid/fbclid/landing_page_url/attribution bag), then
-//   override `source` and fold ZIP into query_params — the same per-key
-//   non-destructive merge path nextdoorLeadCapture uses. No Edge Function
-//   or schema changes required: capture-truth-gate-lead already accepts
-//   arbitrary source strings and persists query_params.
+//   submitTruthGateLead() hardcodes source = "truth-gate". Paid landing pages need
+//   page-specific sources like "google_window_prices", "nextdoor_truth_report",
+//   "window_price_audit", and "google_quote_check". We reuse
+//   buildTruthGateLeadPayload() for the full attribution contract
+//   (utm/gclid/fbclid/landing_page_url/attribution bag), then override `source`
+//   and fold ZIP into query_params — the same per-key non-destructive merge path
+//   nextdoorLeadCapture uses. No Edge Function or schema changes required:
+//   capture-truth-gate-lead already accepts arbitrary source strings and persists
+//   query_params.
 
 import { supabase } from "@/integrations/supabase/client";
 import { pushLeadMagnetCaptured } from "@/lib/tracking/dataLayer";
@@ -25,7 +26,8 @@ export type WindowPricesSource =
   | "nextdoor_truth_report"
   | "window_price_audit"
   | "truth_report_demo"
-  | "ai_demo";
+  | "ai_demo"
+  | "google_quote_check";
 
 export type SubmitWindowPricesLeadInput = {
   sessionId: string;
