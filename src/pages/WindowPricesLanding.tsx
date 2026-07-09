@@ -12,7 +12,8 @@
 // Capture path: submitWindowPricesLead() -> capture-truth-gate-lead with
 // source override + zip folded into query_params. No schema/Edge changes.
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState, type FormEvent } from "react";
+import { usePhoneInput } from "@/hooks/usePhoneInput";
 import {
   PaidSearchLandingFooter,
   PaidSearchLandingHeader,
@@ -57,7 +58,8 @@ function resolveSource(): WindowPricesSource {
 export default function WindowPricesLanding() {
   const [firstName, setFirstName] = useState("");
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
+  const { displayValue, rawDigits, e164, handleChange: handlePhoneChange } =
+    usePhoneInput();
   const [zip, setZip] = useState("");
   const [smsConsent, setSmsConsent] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
@@ -85,67 +87,66 @@ export default function WindowPricesLanding() {
     if (!EMAIL_RE.test(email.trim())) {
       next.email = "Enter a valid email address.";
     }
-    const digits = phone.replace(/\D/g, "");
-    // Phone is optional. If entered, it must be valid AND carry TCPA consent.
-    if (digits.length > 0 && digits.length < PHONE_MIN_DIGITS) {
+    if (rawDigits.length === 0) {
+      next.phone = "Enter your phone number.";
+    } else if (rawDigits.length !== PHONE_MIN_DIGITS || !e164) {
       next.phone = "Enter a valid 10-digit phone number.";
-    } else if (digits.length >= PHONE_MIN_DIGITS && !smsConsent) {
-      next.smsConsent = "Please check the box to receive texts, or clear the phone field.";
+    } else if (!smsConsent) {
+      next.smsConsent = "Please check the box to receive texts.";
     }
     if (!ZIP_RE.test(zip.trim())) {
       next.zip = "Enter a valid 5-digit ZIP.";
     }
     return next;
-  }, [firstName, email, phone, zip, smsConsent]);
+  }, [firstName, email, rawDigits, e164, zip, smsConsent]);
 
-  const handleSubmit = useCallback(async () => {
-    if (inFlightRef.current || submitState === "success") return;
+  const handleSubmit = useCallback(
+    async (event?: FormEvent<HTMLFormElement>) => {
+      event?.preventDefault();
+      if (inFlightRef.current || submitState === "success") return;
 
-    const nextErrors = validate();
-    setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) return;
+      const nextErrors = validate();
+      setErrors(nextErrors);
+      if (Object.keys(nextErrors).length > 0) return;
+      if (!e164) return;
 
-    inFlightRef.current = true;
-    setSubmitState("submitting");
-    setServerMessage(null);
+      inFlightRef.current = true;
+      setSubmitState("submitting");
+      setServerMessage(null);
 
-    try {
-      const result = await submitWindowPricesLead({
-        sessionId: sessionIdRef.current,
-        firstName: firstName.trim(),
-        email: email.trim(),
-        phone: phone.trim(),
-        zip: zip.trim(),
-        smsConsent,
-        source: sourceRef.current,
-      });
-
-      if (result.ok) {
-        setCaptureResult({
-          leadId: result.leadId,
-          sessionId: result.sessionId,
+      try {
+        // Phone layers: display (XXX) XXX-XXXX → raw 10 digits → submit E.164 +1XXXXXXXXXX
+        const result = await submitWindowPricesLead({
+          sessionId: sessionIdRef.current,
+          firstName: firstName.trim(),
+          email: email.trim(),
+          phone: e164,
+          zip: zip.trim(),
+          smsConsent,
+          source: sourceRef.current,
         });
-        setSubmitState("success");
-      } else {
-        setSubmitState("error");
-        setServerMessage(result.message);
-      }
-    } catch {
-      setSubmitState("error");
-      setServerMessage(
-        "Something went wrong on our end. Check your connection and try again.",
-      );
-    } finally {
-      inFlightRef.current = false;
-      setSubmitState((s) => (s === "submitting" ? "idle" : s));
-    }
-  }, [firstName, email, phone, zip, submitState, validate]);
 
-  const onKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Enter") handleSubmit();
+        if (result.ok) {
+          setCaptureResult({
+            leadId: result.leadId,
+            sessionId: result.sessionId,
+          });
+          setSubmitState("success");
+        } else {
+          setSubmitState("error");
+          setServerMessage(result.message);
+        }
+      } catch {
+        setSubmitState("error");
+        setServerMessage(
+          "Something went wrong on our end. Check your connection and try again.",
+        );
+      } finally {
+        inFlightRef.current = false;
+        setSubmitState((s) => (s === "submitting" ? "idle" : s));
+      }
     },
-    [handleSubmit],
+    [firstName, email, e164, zip, smsConsent, submitState, validate],
   );
 
   const year = useMemo(() => new Date().getFullYear(), []);
@@ -197,7 +198,7 @@ export default function WindowPricesLanding() {
                   Free. Takes 20 seconds. No sales calls unless you ask.
                 </p>
 
-                <div className="mt-5 space-y-4">
+                <form className="mt-5 space-y-4" onSubmit={handleSubmit} noValidate={false}>
                   <div>
                     <label htmlFor="wp-first-name" className={paidSearchLabelClass}>
                       First name
@@ -206,9 +207,9 @@ export default function WindowPricesLanding() {
                       id="wp-first-name"
                       type="text"
                       autoComplete="given-name"
+                      required
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
-                      onKeyDown={onKeyDown}
                       aria-invalid={Boolean(errors.firstName)}
                       aria-describedby={errors.firstName ? "wp-first-name-err" : undefined}
                       className={paidSearchInputClass}
@@ -230,9 +231,9 @@ export default function WindowPricesLanding() {
                       type="email"
                       autoComplete="email"
                       inputMode="email"
+                      required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      onKeyDown={onKeyDown}
                       aria-invalid={Boolean(errors.email)}
                       aria-describedby={errors.email ? "wp-email-err" : undefined}
                       className={paidSearchInputClass}
@@ -248,19 +249,17 @@ export default function WindowPricesLanding() {
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_140px]">
                     <div>
                       <label htmlFor="wp-phone" className={paidSearchLabelClass}>
-                        Phone <span className="text-white/40">(optional)</span>
+                        Phone
                       </label>
                       <input
                         id="wp-phone"
                         type="tel"
                         autoComplete="tel"
-                        inputMode="tel"
-                        value={phone}
-                        onChange={(e) => {
-                          setPhone(e.target.value);
-                          if (e.target.value.replace(/\D/g, "").length === 0) setSmsConsent(false);
-                        }}
-                        onKeyDown={onKeyDown}
+                        inputMode="numeric"
+                        required
+                        aria-required="true"
+                        value={displayValue}
+                        onChange={handlePhoneChange}
                         aria-invalid={Boolean(errors.phone)}
                         aria-describedby={errors.phone ? "wp-phone-err" : undefined}
                         className={paidSearchInputClass}
@@ -281,10 +280,10 @@ export default function WindowPricesLanding() {
                         type="text"
                         autoComplete="postal-code"
                         inputMode="numeric"
+                        required
                         maxLength={5}
                         value={zip}
                         onChange={(e) => setZip(e.target.value.replace(/\D/g, ""))}
-                        onKeyDown={onKeyDown}
                         aria-invalid={Boolean(errors.zip)}
                         aria-describedby={errors.zip ? "wp-zip-err" : undefined}
                         className={paidSearchInputClass}
@@ -298,13 +297,12 @@ export default function WindowPricesLanding() {
                     </div>
                   </div>
 
-                  {phone.replace(/\D/g, "").length > 0 && (
-                    <TcpaPhoneConsentCheckbox
-                      checked={smsConsent}
-                      onChange={setSmsConsent}
-                      error={errors.smsConsent}
-                    />
-                  )}
+                  <TcpaPhoneConsentCheckbox
+                    id="wp-tcpa-sms-consent"
+                    checked={smsConsent}
+                    onChange={setSmsConsent}
+                    error={errors.smsConsent}
+                  />
 
                   {submitState === "error" && serverMessage && (
                     <div
@@ -316,8 +314,7 @@ export default function WindowPricesLanding() {
                   )}
 
                   <button
-                    type="button"
-                    onClick={handleSubmit}
+                    type="submit"
                     disabled={submitting}
                     className={`w-full ${paidSearchPrimaryButtonClass}`}
                   >
@@ -328,7 +325,7 @@ export default function WindowPricesLanding() {
                     Free for homeowners. Your info is never sold. We contact
                     you only about your report and quotes you ask about.
                   </p>
-                </div>
+                </form>
               </>
             )}
           </div>

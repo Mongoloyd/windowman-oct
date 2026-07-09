@@ -6,16 +6,14 @@
 // express consent), separate affirmative action, complete consent language,
 // consent-is-not-a-condition-of-purchase clause, and STOP opt-out disclosure.
 //
-// CRO: low visual weight, sits under the (optional) phone field. It only
-// becomes consequential when a phone number is entered — the core email
-// capture is never gated by it. See callers: consent is required only if a
-// phone is present.
+// CRO: low visual weight, sits under the phone field. On pages where phone is
+// required, consent must be checked before submit.
 
 interface TcpaPhoneConsentCheckboxProps {
   id?: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
-  /** Validation message shown when a phone is entered but consent is unchecked. */
+  /** Validation message shown when consent is required but unchecked. */
   error?: string;
 }
 
