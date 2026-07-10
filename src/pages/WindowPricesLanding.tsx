@@ -30,6 +30,7 @@ import {
 } from "@/services/windowPricesLeadCapture";
 import { TcpaPhoneConsentCheckbox } from "@/components/paid-search/TcpaPhoneConsentCheckbox";
 import { LeadMagnetSuccessPanel } from "@/components/paid-search/LeadMagnetSuccessPanel";
+import MarketSignals from "@/components/marketing/MarketSignals";
 
 const EMAIL_RE = /^\S+@\S+\.\S+$/;
 const ZIP_RE = /^\d{5}$/;
@@ -158,7 +159,7 @@ export default function WindowPricesLanding() {
       <PaidSearchLandingHeader />
 
       {/* ── Hero + form, centered above the fold ────────────── */}
-      <section className="relative flex flex-1 items-start justify-center overflow-hidden">
+      <section className="relative flex items-start justify-center overflow-hidden">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(73,165,255,0.12),transparent_60%)]"
@@ -180,7 +181,10 @@ export default function WindowPricesLanding() {
           </div>
 
           {/* Form card */}
-          <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.06] p-6 shadow-[0_8px_40px_rgba(0,0,0,0.45)] backdrop-blur-md sm:p-7">
+          <div
+            id="window-prices-lead-form"
+            className="scroll-mt-24 mt-8 rounded-2xl border border-white/10 bg-white/[0.06] p-6 shadow-[0_8px_40px_rgba(0,0,0,0.45)] backdrop-blur-md sm:p-7"
+          >
             {succeeded ? (
               <LeadMagnetSuccessPanel
                 variant="window_prices"
@@ -347,6 +351,12 @@ export default function WindowPricesLanding() {
           </ul>
         </div>
       </section>
+
+      <MarketSignals
+        targetFormId="window-prices-lead-form"
+        ctaText="Get my baseline report ↑"
+        ctaMicrocopy="Want your ZIP-level baseline? Use the form above and WindowMan will show you what to question before you compare bids."
+      />
 
       <PaidSearchLandingFooter year={year}>
         WindowMan is an independent quote-intelligence and consumer-advisory
