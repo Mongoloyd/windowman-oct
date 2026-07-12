@@ -211,6 +211,9 @@ const AuditHero = ({
                 onClick={() => onUploadQuote?.()}
                 className="btn-depth-primary w-full sm:w-auto whitespace-nowrap"
                 style={{ fontSize: 18, padding: "20px 40px" }}
+                data-wm-primary-cta="true"
+                data-wm-cta-id="hero_scan_quote"
+                data-wm-cta-location="hero"
               >
                 Scan My Quote<span className="inline sm:hidden lg:inline"> — It's Free</span>
               </button>

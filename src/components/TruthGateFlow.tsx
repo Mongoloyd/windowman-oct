@@ -278,6 +278,9 @@ const ContactCaptureStep = ({
             placeholder="Your first name"
             autoComplete="given-name"
             maxLength={100}
+            data-wm-form-start="truth_gate_contact"
+            data-wm-form-step="1"
+            data-wm-field-name="first_name"
             aria-invalid={fieldStatus.firstName === "invalid"}
             value={firstName}
             onChange={(e) => onFirstNameChange(e.target.value)}

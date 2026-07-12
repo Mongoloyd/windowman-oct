@@ -2,6 +2,13 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import exitIntentImg from "@/assets/exit-intent-superhero.png";
+import { pushLowIntentEvent } from "@/lib/tracking/dataLayer";
+
+type ExitIntentMethod =
+  | "desktop_chrome"
+  | "fast_scroll_up"
+  | "idle_after_interaction"
+  | "history_back";
 
 const INTERACTIVE_SELECTOR =
   'input, textarea, select, button[aria-expanded="true"], [contenteditable="true"]';
@@ -91,6 +98,15 @@ const ExitIntentPhoneModal = ({
   const hasScrolled = useRef(false);
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Keep the latest prop values in refs so `show` can read current state
+  // without changing identity. A stable `show` prevents exit-intent effects
+  // (notably the history effect) from tearing down and re-registering, which
+  // would otherwise call history.pushState again on unrelated re-renders.
+  const suppressExitIntentRef = useRef(suppressExitIntent);
+  const leadCapturedRef = useRef(leadCaptured);
+  suppressExitIntentRef.current = suppressExitIntent;
+  leadCapturedRef.current = leadCaptured;
+
   const clearIdleTimer = useCallback(() => {
     if (idleTimer.current) {
       clearTimeout(idleTimer.current);
@@ -98,17 +114,21 @@ const ExitIntentPhoneModal = ({
     }
   }, []);
 
-  const show = useCallback(() => {
-    if (suppressExitIntent) return;
-    if (leadCaptured || isSessionExitShown()) return;
+  const show = useCallback((method: ExitIntentMethod) => {
+    if (suppressExitIntentRef.current) return;
+    if (leadCapturedRef.current || isSessionExitShown()) return;
     if (isInteractionBlocking()) return;
     try {
       sessionStorage.setItem(WM_EXIT_SHOWN_KEY, "true");
     } catch {
       /* sessionStorage unavailable */
     }
+    pushLowIntentEvent("exit_intent", {
+      exit_method: method,
+      page_path: window.location.pathname,
+    });
     setOpen(true);
-  }, [suppressExitIntent, leadCaptured]);
+  }, []);
 
   const listenersEligible = canRegisterExitIntentListeners(suppressExitIntent, leadCaptured);
 
@@ -123,7 +143,7 @@ const ExitIntentPhoneModal = ({
     if (!listenersEligible) return;
 
     const handleMouse = (e: MouseEvent) => {
-      if (e.clientY < 20) show();
+      if (e.clientY < 20) show("desktop_chrome");
     };
     document.addEventListener("mouseleave", handleMouse);
     return () => {
@@ -146,7 +166,7 @@ const ExitIntentPhoneModal = ({
       }
 
       if (deltaY > 50 && deltaT < 300) {
-        show();
+        show("fast_scroll_up");
       }
 
       lastScrollY.current = currentY;
@@ -163,7 +183,7 @@ const ExitIntentPhoneModal = ({
     const startIdleTimer = () => {
       clearIdleTimer();
       if (!hasScrolled.current) return;
-      idleTimer.current = setTimeout(() => show(), 15000);
+      idleTimer.current = setTimeout(() => show("idle_after_interaction"), 15000);
     };
 
     const resetIdle = () => {
@@ -190,7 +210,7 @@ const ExitIntentPhoneModal = ({
     history.pushState(null, "", location.href);
     const handlePopState = () => {
       const wasShown = isSessionExitShown();
-      show();
+      show("history_back");
       if (!wasShown && isSessionExitShown()) {
         history.pushState(null, "", location.href);
       }

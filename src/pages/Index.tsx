@@ -36,6 +36,7 @@ import {
 } from "@/lib/reportDiagnosisHandoff";
 import { trackEvent } from "@/lib/trackEvent";
 import { useClientSlug } from "@/lib/useClientSlug";
+import HomepageMicroConversionTracker from "@/components/tracking/HomepageMicroConversionTracker";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertTriangle, RotateCcw, FileX } from "lucide-react";
@@ -366,6 +367,13 @@ const Index = () => {
   const showStickyCtaFooter =
     !showRecoveryBar && !isProductExperiencePhase && !powerToolTriggered;
 
+  // Homepage acquisition telemetry must only measure the discovery phase.
+  // Once the scanner/report product experience (or a dev-preview state) owns
+  // the screen, stop emitting engaged_session / scroll_depth / quality_page_view
+  // so post-upload time is not counted as acquisition-page engagement.
+  const shouldTrackHomepageAcquisition =
+    !isProductExperiencePhase && !isDevPreview;
+
   const { slug: queryClientSlug, ready: clientSlugReady } = useClientSlug();
 
   // ── Homepage public upload mount guard (Sprint 2B-3B) ─────────────────
@@ -513,6 +521,9 @@ const Index = () => {
 
   return (
       <div className="min-h-screen bg-background relative overflow-hidden">
+        {shouldTrackHomepageAcquisition ? (
+          <HomepageMicroConversionTracker />
+        ) : null}
         <HomepageBackdrop />
         <div className="relative z-10">
           <LinearHeader onCtaClick={() => triggerTruthGate("header_cta")} />

@@ -73,6 +73,9 @@ export const StickyCTAFooter = ({
                 onClick={onScanClick}
                 className="flex-1 md:flex-none w-full max-w-[200px] btn-depth-primary"
                 style={{ padding: "12px 20px", fontSize: 14 }}
+                data-wm-primary-cta="true"
+                data-wm-cta-id="sticky_scan_quote"
+                data-wm-cta-location="sticky_footer"
               >
                 Scan My Quote
               </button>

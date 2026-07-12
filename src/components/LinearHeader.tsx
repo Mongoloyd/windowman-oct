@@ -28,7 +28,14 @@ const LinearHeader = ({ ctaText = "Get Started Free", onCtaClick }: LinearHeader
         <BrandLogo href="/" size="responsive" ariaLabel="WindowMan.app home" />
 
         <div className="hidden md:flex items-center gap-3">
-          <button className="btn-depth-primary" style={{ padding: "10px 20px", fontSize: 14 }} onClick={onCtaClick}>
+          <button
+            className="btn-depth-primary"
+            style={{ padding: "10px 20px", fontSize: 14 }}
+            onClick={onCtaClick}
+            data-wm-primary-cta="true"
+            data-wm-cta-id="header_primary_desktop"
+            data-wm-cta-location="header"
+          >
             {ctaText}
           </button>
         </div>
@@ -37,6 +44,9 @@ const LinearHeader = ({ ctaText = "Get Started Free", onCtaClick }: LinearHeader
           className="btn-depth-primary md:hidden"
           style={{ padding: "6px 14px", fontSize: 13 }}
           onClick={onCtaClick}
+          data-wm-primary-cta="true"
+          data-wm-cta-id="header_primary_mobile"
+          data-wm-cta-location="header"
         >
           {ctaText}
         </button>
