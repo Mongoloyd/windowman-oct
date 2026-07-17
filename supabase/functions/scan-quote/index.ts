@@ -32,7 +32,6 @@ import {
   // deno-lint-ignore no-unused-vars
   clamp,
   computeGrade,
-  CONFIDENCE_THRESHOLD,
   type ExtractionResult,
   // deno-lint-ignore no-unused-vars
   GRADE_RANK,
@@ -68,38 +67,125 @@ import {
 import { compileReportOutput } from "./reportCompiler.ts";
 // deno-lint-ignore no-unused-vars
 import { detectFlags, type Flag } from "./flagging.ts";
+import {
+  classifyScanGate,
+  type NormalizedClassification,
+  normalizeClassification,
+  type RejectReason,
+} from "./classificationGate.ts";
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// SECTION 1: SCHEMA (Zod-like runtime validation — manual for Deno compat)
+// SECTION 1: CLASSIFICATION-GATE HANDLER GLUE
+//
+// Pure normalization + fail-closed decision logic lives in ./classificationGate.ts
+// (unit-tested under ../tests/scan-quote/). This section only contains the
+// DB/side-effecting glue that runs the decision.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/**
- * Light pre-validation: only checks document-level fields exist.
- * Used before full schema validation to catch invalid documents early.
- */
-function validateDocumentClassification(
-  raw: unknown,
-): { success: true; data: Record<string, unknown> } | {
-  success: false;
-  error: string;
-} {
-  if (!raw || typeof raw !== "object") {
-    return { success: false, error: "Not an object" };
-  }
-  const obj = raw as Record<string, unknown>;
+function coerceParsedForExtraction(
+  parsed: unknown,
+  norm: NormalizedClassification,
+): unknown {
+  if (!parsed || typeof parsed !== "object") return parsed;
+  return {
+    ...(parsed as Record<string, unknown>),
+    is_window_door_related: norm.related,
+    confidence: norm.confidence,
+    document_type: norm.documentType ??
+      (typeof (parsed as Record<string, unknown>).document_type === "string"
+        ? (parsed as Record<string, unknown>).document_type
+        : "unknown"),
+  };
+}
 
-  if (typeof obj.document_type !== "string") {
-    return { success: false, error: "Missing document_type" };
-  }
-  if (typeof obj.is_window_door_related !== "boolean") {
-    return { success: false, error: "Missing is_window_door_related" };
-  }
-  if (
-    typeof obj.confidence !== "number" || obj.confidence < 0 ||
-    obj.confidence > 1
-  ) return { success: false, error: "Invalid confidence" };
+type TerminateScanArgs = {
+  supabase: SupabaseClient;
+  scanSessionId: string;
+  leadId: string | null;
+  analysisStatus: "invalid_document" | "needs_better_upload";
+  sessionStatus: "invalid_document" | "needs_better_upload";
+  rejectReason: RejectReason;
+  reason: string;
+  norm: NormalizedClassification;
+};
 
-  return { success: true, data: obj };
+async function terminateScan(
+  args: TerminateScanArgs,
+): Promise<Response> {
+  const {
+    supabase,
+    scanSessionId,
+    leadId,
+    analysisStatus,
+    sessionStatus,
+    rejectReason,
+    reason,
+    norm,
+  } = args;
+
+  logScanInfo("classification", {
+    scan_session_id: scanSessionId,
+    reject_reason: rejectReason,
+    analysis_status: analysisStatus,
+    session_status: sessionStatus,
+    related: norm.related,
+    confidence: norm.confidence,
+    line_item_count: norm.lineItemCount,
+  });
+
+  const analysisPayload: Record<string, unknown> = {
+    scan_session_id: scanSessionId,
+    lead_id: leadId,
+    analysis_status: analysisStatus,
+    document_is_window_door_related: norm.related,
+    document_type: norm.documentType ?? "unknown",
+    confidence_score: norm.confidence,
+    rubric_version: RUBRIC_VERSION,
+  };
+
+  const analysisUpsert = await upsertAnalysisRecord(
+    supabase,
+    analysisPayload,
+    "analyses upsert failed on classification gate",
+    {
+      error: "Failed to persist analysis state",
+      scan_session_id: scanSessionId,
+      analysis_status: "processing",
+      scan_session_status: "processing",
+    },
+  );
+  if (!analysisUpsert.success) {
+    return analysisUpsert.response;
+  }
+
+  const statusUpdate = await updateScanSessionStatus(
+    supabase,
+    scanSessionId,
+    sessionStatus,
+    `scan_sessions ${sessionStatus} update failed on classification gate`,
+    {
+      error: "Failed to persist scan session state",
+      scan_session_id: scanSessionId,
+      analysis_status: analysisStatus,
+      scan_session_status: "processing",
+    },
+  );
+  if (!statusUpdate.success) {
+    return statusUpdate.response;
+  }
+
+  const body: Record<string, unknown> = {
+    scan_session_id: scanSessionId,
+    analysis_status: analysisStatus,
+    scan_session_status: sessionStatus,
+    reject_reason: rejectReason,
+    reason,
+  };
+  if (norm.confidence !== null) {
+    body.confidence = norm.confidence;
+  }
+
+  return jsonResponse(body, 200);
 }
 
 /**
@@ -660,44 +746,6 @@ Deno.serve(async (req: Request) => {
     }
 
     try {
-      try {
-        await persistCanonicalEvent(supabase, {
-          // Arc 1.5 measurement parity: when the browser fired its dataLayer
-          // `quote_uploaded` it generated a deterministic id and forwarded it
-          // here. Reusing that id keeps browser+server in lockstep so GTM/CAPI
-          // dedup works without rewriting the event format.
-          eventId:
-            typeof client_event_id === "string" && client_event_id.length > 0
-              ? client_event_id
-              : undefined,
-          eventName: "quote_uploaded",
-          leadId: session.lead_id ?? undefined,
-          scanSessionId: scan_session_id,
-          quoteFileId: session.quote_file_id ?? undefined,
-          payload: {
-            identity: {
-              leadId: session.lead_id ?? undefined,
-            },
-            journey: {
-              route: "/vault/upload",
-              flow: "vault",
-              scanSessionId: scan_session_id,
-            },
-            quote: {
-              quoteFileId: session.quote_file_id ?? undefined,
-              isQuoteDocument: true,
-            },
-            source: {
-              sourceSystem: "edge_function",
-            },
-          },
-        });
-      } catch (canonicalErr) {
-        console.error(
-          "quote_uploaded canonical event failed (non-fatal):",
-          canonicalErr,
-        );
-      }
       // ── DEV BYPASS: skip file download + Gemini when override provided ──
       const _devBypassSecret = Deno.env.get("DEV_BYPASS_SECRET");
       const _useBypass = dev_extraction_override && dev_secret &&
@@ -1030,178 +1078,75 @@ Deno.serve(async (req: Request) => {
         }
       } // end else (non-bypass OCR path)
 
-      // 8. CLASSIFICATION GATE — check document type BEFORE full extraction validation
-      //    This catches invalid documents even when Gemini returns partial/malformed data.
-      const classCheck = validateDocumentClassification(parsed);
+      // 8. CLASSIFICATION GATE — fail-closed; malformed fields never skip the gate
+      const norm = normalizeClassification(parsed);
+      const gateDecision = classifyScanGate(norm);
 
-      if (classCheck.success) {
-        const classData = classCheck.data;
-
-        // 8a. Invalid document gate (not window/door related)
-        if (classData.is_window_door_related === false) {
-          const invalidDocumentUpsertPayload = {
-            scan_session_id,
-            lead_id: session.lead_id,
-            analysis_status: "invalid_document",
-            document_is_window_door_related: false,
-            document_type: classData.document_type as string,
-            confidence_score: classData.confidence as number,
-            rubric_version: RUBRIC_VERSION,
-          };
-          const invalidDocumentAnalysisUpsert = await upsertAnalysisRecord(
-            supabase,
-            invalidDocumentUpsertPayload,
-            "analyses upsert failed",
-            {
-              error: "Failed to persist analysis state",
-              scan_session_id,
-              analysis_status: "processing",
-              scan_session_status: "processing",
-            },
-          );
-          if (!invalidDocumentAnalysisUpsert.success) {
-            return invalidDocumentAnalysisUpsert.response;
-          }
-
-          const invalidDocumentStatusUpdate = await updateScanSessionStatus(
-            supabase,
-            scan_session_id,
-            "invalid_document",
-            "scan_sessions invalid_document update failed",
-            {
-              error: "Failed to persist scan session state",
-              scan_session_id,
-              analysis_status: "invalid_document",
-              scan_session_status: "processing",
-            },
-          );
-          if (!invalidDocumentStatusUpdate.success) {
-            return invalidDocumentStatusUpdate.response;
-          }
-
-          return jsonResponse({
-            scan_session_id,
-            analysis_status: "invalid_document",
-            scan_session_status: "invalid_document",
-            reason:
-              "This file does not appear to be an impact window or door quote.",
-          }, 200);
-        }
-
-        // 8b. Low confidence gate — document is related but unreadable
-        if ((classData.confidence as number) < CONFIDENCE_THRESHOLD) {
-          console.log(
-            `Low confidence ${classData.confidence} for session ${scan_session_id}`,
-          );
-          const lowConfidencePayload = {
-            scan_session_id,
-            lead_id: session.lead_id,
-            analysis_status: "invalid_document",
-            document_is_window_door_related: true,
-            document_type: classData.document_type as string,
-            confidence_score: classData.confidence as number,
-            rubric_version: RUBRIC_VERSION,
-          };
-          const lowConfidenceAnalysisUpsert = await upsertAnalysisRecord(
-            supabase,
-            lowConfidencePayload,
-            "analyses upsert failed",
-            {
-              error: "Failed to persist analysis state",
-              scan_session_id,
-              analysis_status: "processing",
-              scan_session_status: "processing",
-            },
-          );
-          if (!lowConfidenceAnalysisUpsert.success) {
-            return lowConfidenceAnalysisUpsert.response;
-          }
-
-          const lowConfidenceStatusUpdate = await updateScanSessionStatus(
-            supabase,
-            scan_session_id,
-            "needs_better_upload",
-            "scan_sessions needs_better_upload update failed",
-            {
-              error: "Failed to persist scan session state",
-              scan_session_id,
-              analysis_status: "needs_better_upload",
-              scan_session_status: "processing",
-            },
-          );
-          if (!lowConfidenceStatusUpdate.success) {
-            return lowConfidenceStatusUpdate.response;
-          }
-
-          return jsonResponse({
-            scan_session_id,
-            analysis_status: "needs_better_upload",
-            scan_session_status: "needs_better_upload",
-            confidence: classData.confidence,
-            reason:
-              "We couldn't read this file clearly enough. Please upload a higher quality scan or photo.",
-          }, 200);
-        }
+      if (gateDecision.action === "terminate") {
+        return await terminateScan({
+          supabase,
+          scanSessionId: scan_session_id,
+          leadId: session.lead_id,
+          analysisStatus: gateDecision.analysisStatus,
+          sessionStatus: gateDecision.sessionStatus,
+          rejectReason: gateDecision.rejectReason,
+          reason: gateDecision.reason,
+          norm,
+        });
       }
 
-      // 9. FULL EXTRACTION VALIDATION — only reached for window/door docs with sufficient confidence
-      const validation = validateExtraction(parsed);
+      // quote_uploaded fires only after the content gate passes (related + readable).
+      try {
+        await persistCanonicalEvent(supabase, {
+          eventId:
+            typeof client_event_id === "string" && client_event_id.length > 0
+              ? client_event_id
+              : undefined,
+          eventName: "quote_uploaded",
+          leadId: session.lead_id ?? undefined,
+          scanSessionId: scan_session_id,
+          quoteFileId: session.quote_file_id ?? undefined,
+          payload: {
+            identity: {
+              leadId: session.lead_id ?? undefined,
+            },
+            journey: {
+              route: "/vault/upload",
+              flow: "vault",
+              scanSessionId: scan_session_id,
+            },
+            quote: {
+              quoteFileId: session.quote_file_id ?? undefined,
+              isQuoteDocument: norm.related,
+            },
+            source: {
+              sourceSystem: "edge_function",
+            },
+          },
+        });
+      } catch (canonicalErr) {
+        console.error(
+          "quote_uploaded canonical event failed (non-fatal):",
+          canonicalErr,
+        );
+      }
+
+      // 9. FULL EXTRACTION VALIDATION — only reached for gated window/door docs
+      const coercedParsed = coerceParsedForExtraction(parsed, norm);
+      const validation = validateExtraction(coercedParsed);
       if (!validation.success) {
         console.error("Extraction validation failed:", validation.error);
-        // Document passed classification but extraction is incomplete — treat as needs_better_upload
-        const extractionFailurePayload = {
-          scan_session_id,
-          lead_id: session.lead_id,
-          analysis_status: "invalid_document",
-          document_is_window_door_related: classCheck.success
-            ? (classCheck.data.is_window_door_related as boolean)
-            : null,
-          document_type: classCheck.success
-            ? (classCheck.data.document_type as string)
-            : null,
-          confidence_score: classCheck.success
-            ? (classCheck.data.confidence as number)
-            : null,
-          rubric_version: RUBRIC_VERSION,
-        };
-        const extractionFailureAnalysisUpsert = await upsertAnalysisRecord(
+        return await terminateScan({
           supabase,
-          extractionFailurePayload,
-          "analyses upsert failed",
-          {
-            error: "Failed to persist analysis state",
-            scan_session_id,
-            analysis_status: "processing",
-            scan_session_status: "processing",
-          },
-        );
-        if (!extractionFailureAnalysisUpsert.success) {
-          return extractionFailureAnalysisUpsert.response;
-        }
-
-        const extractionFailureStatusUpdate = await updateScanSessionStatus(
-          supabase,
-          scan_session_id,
-          "needs_better_upload",
-          "scan_sessions needs_better_upload update failed",
-          {
-            error: "Failed to persist scan session state",
-            scan_session_id,
-            analysis_status: "needs_better_upload",
-            scan_session_status: "processing",
-          },
-        );
-        if (!extractionFailureStatusUpdate.success) {
-          return extractionFailureStatusUpdate.response;
-        }
-
-        return jsonResponse({
-          scan_session_id,
-          analysis_status: "needs_better_upload",
-          scan_session_status: "needs_better_upload",
+          scanSessionId: scan_session_id,
+          leadId: session.lead_id,
+          analysisStatus: "needs_better_upload",
+          sessionStatus: "needs_better_upload",
+          rejectReason: "unreadable",
           reason:
             "We found a window quote but couldn't extract all details. Please try a clearer upload.",
-        }, 200);
+          norm,
+        });
       }
 
       const extraction = validation.data;
