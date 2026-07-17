@@ -1,5 +1,4 @@
-import { ArrowRight, BadgeCheck, Edit3, Lock, PhoneCall } from "lucide-react";
-import { getSLAPromise } from "../../lib/sla";
+import { AlertCircle, ArrowRight, BadgeCheck, Lock, PhoneCall } from "lucide-react";
 import { maskEmail, maskPhone } from "../../lib/formatters";
 import {
   bodyMuted,
@@ -16,7 +15,7 @@ interface PrescriptionFinalCtaProps {
   context: DiagnosticContext;
   hasCounterOffer: boolean;
   isSubmitting: boolean;
-  onContactEdit: () => void;
+  submitError: string | null;
   onSubmit: (e: React.FormEvent) => void;
 }
 
@@ -24,7 +23,7 @@ export function PrescriptionFinalCta({
   context,
   hasCounterOffer,
   isSubmitting,
-  onContactEdit,
+  submitError,
   onSubmit,
 }: PrescriptionFinalCtaProps) {
   const ctaEnabled = hasCounterOffer && !isSubmitting;
@@ -54,14 +53,6 @@ export function PrescriptionFinalCta({
             </p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onContactEdit}
-          className="shrink-0 inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 hover:text-emerald-900 px-3 py-2 rounded-xl border border-emerald-200/80 bg-white/90 hover:bg-white transition-all shadow-sm"
-        >
-          <Edit3 className="w-3.5 h-3.5" />
-          Edit
-        </button>
       </div>
 
       <p className={`${sectionLabel} mb-2`}>Final Step</p>
@@ -69,8 +60,8 @@ export function PrescriptionFinalCta({
         Ready for a Better Quote Conversation?
       </h3>
       <p className={`${bodyMuted} mb-7 max-w-2xl`}>
-        Your advisor will use your quote report, risk findings, and preferences to help you understand
-        what to ask for next.
+        Your request includes your quote report, risk findings, and preferences, so WindowMan has the
+        context needed to follow up.
       </p>
 
       <div className={`${innerPanelElevated} flex items-start gap-4 p-5 md:p-6 mb-8`}>
@@ -78,7 +69,9 @@ export function PrescriptionFinalCta({
           <PhoneCall className="w-5 h-5 text-white" />
         </div>
         <div>
-          <p className="font-bold text-slate-900 text-sm md:text-base">{getSLAPromise().text}</p>
+          <p className="font-bold text-slate-900 text-sm md:text-base">
+            Your request includes your report and answers
+          </p>
           <p className={`${bodyMuted} mt-1.5`}>
             No repeating yourself · your report and answers stay attached
           </p>
@@ -94,15 +87,25 @@ export function PrescriptionFinalCta({
           {isSubmitting ? (
             <>
               <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              Notifying your advisor...
+              Sending your request...
             </>
           ) : (
             <>
-              Have a WindowMan Advisor Call Me
+              Request a Call From WindowMan
               <ArrowRight className="w-5 h-5" strokeWidth={2.5} />
             </>
           )}
         </button>
+        {submitError && (
+          <p
+            role="alert"
+            aria-live="assertive"
+            className="flex items-start justify-center gap-2 text-sm text-red-600 text-center mt-4 font-medium"
+          >
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            <span>{submitError}</span>
+          </p>
+        )}
         {!hasCounterOffer && !isSubmitting && (
           <p className="text-sm text-slate-500 text-center mt-4 font-medium">
             Pick at least one term your advisor should fight for.

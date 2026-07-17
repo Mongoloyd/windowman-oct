@@ -40,8 +40,7 @@ export function SuccessScreen({ context, activeConfig, onReturn }: SuccessScreen
           Your Better Quote Brief Is Saved
         </h2>
         <p className="text-slate-600 mb-8 leading-relaxed text-sm md:text-base max-w-sm mx-auto">
-          WindowMan captured what was off in your quote and what you need in the next one. Your advisor
-          brief is attached to your report.
+          Your request is saved. WindowMan will review your report and follow up.
         </p>
 
         {activeConfig && (

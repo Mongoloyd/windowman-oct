@@ -23,8 +23,8 @@ interface StepPrescriptionProps {
   counterOfferFreeText: string;
   hasCounterOffer: boolean;
   isSubmitting: boolean;
+  submitError: string | null;
   onBack: () => void;
-  onContactEdit: () => void;
   onSubmit: (e: React.FormEvent) => void;
   setCounterOfferFreeText: (v: string) => void;
   setCounterOfferTerms: React.Dispatch<React.SetStateAction<string[]>>;
@@ -46,8 +46,8 @@ export function StepPrescription({
   counterOfferFreeText,
   hasCounterOffer,
   isSubmitting,
+  submitError,
   onBack,
-  onContactEdit,
   onSubmit,
   setCounterOfferFreeText,
   setCounterOfferTerms,
@@ -110,7 +110,7 @@ export function StepPrescription({
           context={context}
           hasCounterOffer={hasCounterOffer}
           isSubmitting={isSubmitting}
-          onContactEdit={onContactEdit}
+          submitError={submitError}
           onSubmit={onSubmit}
         />
       </div>

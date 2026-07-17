@@ -41,6 +41,8 @@ interface DiagnosisIntakeShape {
   primary_diagnosis: string | null;
   secondary_clarifiers: { codes?: string[] } | Record<string, unknown> | null;
   other_text: string | null;
+  // JSON column — treated as untrusted; only terms_free_text is read, safely.
+  counter_offer?: { terms_free_text?: unknown } | Record<string, unknown> | null;
   created_at: string | null;
 }
 
@@ -120,6 +122,15 @@ export function LeadHumanContextPanel({
   const secondaryClarifierCount = useMemo(() => {
     const codes = (diagnosisIntake?.secondary_clarifiers as { codes?: string[] } | null)?.codes;
     return Array.isArray(codes) ? codes.length : 0;
+  }, [diagnosisIntake]);
+
+  // Homeowner's free-text note from the diagnosis counter-offer. The JSON is
+  // untrusted, so read defensively and only render a non-empty trimmed string.
+  const advisorNote = useMemo(() => {
+    const co = diagnosisIntake?.counter_offer;
+    if (!co || typeof co !== "object") return "";
+    const raw = (co as { terms_free_text?: unknown }).terms_free_text;
+    return typeof raw === "string" ? raw.trim() : "";
   }, [diagnosisIntake]);
 
   const warnings = useMemo(
@@ -250,6 +261,19 @@ export function LeadHumanContextPanel({
           }
         />
       </div>
+
+      {/* Advisor Note — homeowner's own words from the counter-offer free text.
+          Rendered only when present; plain interpolation (never raw HTML). */}
+      {advisorNote && (
+        <div className="mt-4 rounded-lg border border-amber-300/60 bg-amber-50/70 p-3.5">
+          <p className="text-sm font-bold uppercase tracking-[0.18em] text-amber-900">
+            Advisor Note
+          </p>
+          <p className="mt-1.5 whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground/90">
+            {advisorNote}
+          </p>
+        </div>
+      )}
 
       {/* Lead Fit Warnings */}
       <div className="mt-4 space-y-2">
