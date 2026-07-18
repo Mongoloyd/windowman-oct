@@ -5,7 +5,6 @@ import { trackGtmEvent } from '@/lib/trackConversion';
 import { trackEvent } from '@/lib/trackEvent';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  clearReportDiagnosisHandoff,
   readReportDiagnosisHandoff,
   saveReportDiagnosisHandoff,
   type ReportDiagnosisHandoff,
@@ -18,39 +17,19 @@ import type { DiagnosisCode, DiagnosticContext, StepId } from '../types';
 
 /**
  * Hydration status for the diagnosis intake.
- *  - pending: initial check / server RPC lookup in flight
- *  - ready: canonical lead context confirmed by the server RPC for the active
- *           scan_session_id (router state + session storage are seeds only)
+ *  - pending: initial synchronous seed check (transient)
+ *  - ready: a usable Truth Report handoff seed (scan_session_id + report_grade)
+ *           was found. Router state + session storage are display/navigation
+ *           seeds ONLY — never authorization. The canonical lead_id is resolved
+ *           privately server-side by submit-diagnosis-intake, so the browser
+ *           renders the questionnaire even when the cached lead_id is empty.
  *  - failed: no usable seed at all — render the "start from your report" state
- *  - error:  transient/operational RPC failure — questionnaire stays hidden,
- *            seed handoff preserved, user can retry or return to the report
- *  - invalid: RPC resolved but no lead is bound to the session — stale handoff
- *             cleared, durable invalid-context state, no questionnaire/submit
+ *  - error:  reserved safe operational-failure UI (retained for the render
+ *            path; not emitted by the current synchronous seed hydration)
+ *  - invalid: reserved safe invalid-context UI for genuinely malformed handoffs
+ *             (retained for the render path)
  */
 export type HydrationStatus = 'pending' | 'ready' | 'failed' | 'error' | 'invalid';
-
-/** Row shape returned by the get_lead_context_for_session security-definer RPC. */
-interface LeadContextForSessionRow {
-  lead_id: string | null;
-  first_name: string | null;
-  county: string | null;
-  phone_e164: string | null;
-}
-
-/** Normalize an RPC return that may be an array (SETOF) or a single row. */
-function firstRpcRow<T>(data: T[] | T | null | undefined): T | null {
-  if (Array.isArray(data)) return data[0] ?? null;
-  return data ?? null;
-}
-
-/**
- * Server-authoritative value wins when it is a non-empty string; otherwise the
- * existing seed value is preserved (never overwrite good seed data with null).
- */
-function preferServer(serverValue: string | null | undefined, seedValue: string): string {
-  const s = typeof serverValue === 'string' ? serverValue.trim() : '';
-  return s || seedValue;
-}
 
 interface DiagnosisRouterState {
   lead_id?: string | null;
@@ -171,22 +150,15 @@ export function useDiagnosticIntake() {
   // Hard synchronous double-submit lock (React state is async and does not
   // block two fast clicks before the first re-render).
   const submitLockRef = useRef(false);
-  // Async safety: the scan_session_id whose recovery is currently authoritative.
-  // A stale/superseded/unmounted RPC response must not mutate active state.
-  const activeRecoverySessionRef = useRef<string | null>(null);
-
-  // Direct-await RPC accessor (mirrors the pattern used by PostScanReportSwitcher).
-  const rpc = supabase.rpc as unknown as (
-    fnName: string,
-    args: Record<string, unknown>,
-  ) => Promise<{ data: unknown; error: unknown }>;
 
   // ── Hydration ────────────────────────────────────────────────────────────
-  // Router state + session storage are SEEDS ONLY. hydrationStatus becomes
-  // 'ready' only after the server RPC resolves a non-empty canonical lead_id
-  // bound to the active scan_session_id. This repairs the empty-lead_id case
-  // (ReportClassic emits lead_id="") that previously reached the final CTA and
-  // failed with "Missing report context".
+  // Router state + session storage are display/navigation SEEDS ONLY — never
+  // authorization. The browser must NOT fetch the canonical lead_id: that value
+  // lives behind a service-role-only RPC (get_lead_context_for_session) and is
+  // resolved privately inside submit-diagnosis-intake from the scan_session_id.
+  // A valid Truth Report handoff (scan_session_id + report_grade) therefore
+  // renders the questionnaire immediately, even when the cached lead_id is empty
+  // (ReportClassic emits lead_id="").
   useEffect(() => {
     // 1. Choose a seed: router state (preferred) → durable session handoff.
     let seed: DiagnosisRouterState | ReportDiagnosisHandoff | null = null;
@@ -203,8 +175,10 @@ export function useDiagnosticIntake() {
       }
     }
 
-    // 2. No usable seed at all → safe empty state (no session to recover from).
-    if (!seed || !seed.scan_session_id) {
+    // 2. No usable seed at all → safe "start from your report" state.
+    //    (report_grade is required by isUsableDiagnosisState / the handoff
+    //    validator, so malformed handoffs also land here rather than rendering.)
+    if (!seed || !seed.scan_session_id || !seed.report_grade) {
       setHydrationStatus('failed');
       return;
     }
@@ -215,95 +189,38 @@ export function useDiagnosticIntake() {
       'analysis_id' in seed ? seed.analysis_id ?? null : null;
     const resolvedReturnTo = seed.returnTo || `/report/classic/${scanSessionId}`;
 
-    // Seed context + returnTo immediately so error/invalid states can offer a
-    // safe "Return to Report" path — but stay 'pending' (questionnaire hidden)
-    // until the server confirms the canonical lead_id.
     setContext(seedCtx);
     setAnalysisId(seedAnalysisId);
     setReturnTo(resolvedReturnTo);
-    setHydrationStatus('pending');
 
-    activeRecoverySessionRef.current = scanSessionId;
-    let cancelled = false;
+    // Re-persist the seed so a refresh recovers display/navigation context.
+    // lead_id is intentionally left as the (possibly empty) seed value — the
+    // browser never resolves the canonical lead_id; the Edge Function does.
+    saveReportDiagnosisHandoff({
+      lead_id: seedCtx.lead_id || null,
+      scan_session_id: seedCtx.scan_session_id,
+      analysis_id: seedAnalysisId,
+      report_grade: seedCtx.report_grade,
+      first_name: seedCtx.first_name || null,
+      phone: seedCtx.phone || null,
+      email: seedCtx.email || null,
+      top_insights: seedCtx.top_insights,
+      returnTo: resolvedReturnTo,
+      saved_at: new Date().toISOString(),
+    });
 
-    (async () => {
-      try {
-        const { data, error } = await rpc('get_lead_context_for_session', {
-          p_scan_session_id: scanSessionId,
-        });
+    trackGtmEvent(
+      seedFrom === 'router'
+        ? 'diagnosis_hydrated_from_router_state'
+        : 'diagnosis_hydrated_from_session',
+      {
+        scan_session_id: seedCtx.scan_session_id,
+        grade: seedCtx.report_grade,
+        top_insight_count: seedCtx.top_insights.length,
+      },
+    );
 
-        // Ignore stale/superseded/unmounted responses.
-        if (cancelled || activeRecoverySessionRef.current !== scanSessionId) return;
-
-        if (error) {
-          // Transient/operational failure — keep the seed handoff, offer retry.
-          console.warn('[Diagnosis] lead context RPC error (retryable):', error);
-          setHydrationStatus('error');
-          return;
-        }
-
-        const row = firstRpcRow<LeadContextForSessionRow>(
-          data as LeadContextForSessionRow[] | LeadContextForSessionRow | null | undefined,
-        );
-        const serverLeadId =
-          typeof row?.lead_id === 'string' ? row.lead_id.trim() : '';
-
-        if (!row || !serverLeadId) {
-          // No lead bound to this session → durable invalid-context state.
-          clearReportDiagnosisHandoff();
-          setHydrationStatus('invalid');
-          return;
-        }
-
-        // Server lead_id is authoritative (repairs empty/mismatched seeds).
-        // Merge display fields without overwriting good seed data with null.
-        const canonicalCtx: DiagnosticContext = {
-          ...seedCtx,
-          lead_id: serverLeadId,
-          first_name: preferServer(row.first_name, seedCtx.first_name),
-          phone: preferServer(row.phone_e164, seedCtx.phone),
-        };
-
-        setContext(canonicalCtx);
-
-        // Rewrite the corrected handoff back to session storage so a refresh
-        // recovers the canonical lead_id (report grade/insights/analysis/email/
-        // return path are all preserved from the seed).
-        saveReportDiagnosisHandoff({
-          lead_id: canonicalCtx.lead_id,
-          scan_session_id: canonicalCtx.scan_session_id,
-          analysis_id: seedAnalysisId,
-          report_grade: canonicalCtx.report_grade,
-          first_name: canonicalCtx.first_name || null,
-          phone: canonicalCtx.phone || null,
-          email: canonicalCtx.email || null,
-          top_insights: canonicalCtx.top_insights,
-          returnTo: resolvedReturnTo,
-          saved_at: new Date().toISOString(),
-        });
-
-        trackGtmEvent(
-          seedFrom === 'router'
-            ? 'diagnosis_hydrated_from_router_state'
-            : 'diagnosis_hydrated_from_session',
-          {
-            scan_session_id: canonicalCtx.scan_session_id,
-            grade: canonicalCtx.report_grade,
-            top_insight_count: canonicalCtx.top_insights.length,
-          },
-        );
-
-        setHydrationStatus('ready');
-      } catch (err) {
-        if (cancelled || activeRecoverySessionRef.current !== scanSessionId) return;
-        console.error('[Diagnosis] lead context recovery threw:', err);
-        setHydrationStatus('error');
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
+    setHydrationStatus('ready');
     // eslint-disable-next-line react-hooks/exhaustive-deps -- hydrate on mount + explicit retry
   }, [retryToken]);
 
@@ -450,9 +367,12 @@ export function useDiagnosticIntake() {
     // A new deliberate submit begins — clear any prior inline error.
     setSubmitError(null);
 
-    if (!context.scan_session_id || !context.lead_id) {
+    // Final client guard: a valid scan_session_id is required. The canonical
+    // lead_id is NOT required in the browser — submit-diagnosis-intake derives
+    // it authoritatively from scan_session_id using its service-role client.
+    if (!context.scan_session_id) {
       const msg = 'Missing report context — please return to your report and try again.';
-      console.warn('[Diagnosis] Submit blocked: missing lead_id or scan_session_id.');
+      console.warn('[Diagnosis] Submit blocked: missing scan_session_id.');
       setSubmitError(msg);
       toast.error(msg);
       return;
@@ -490,8 +410,10 @@ export function useDiagnosticIntake() {
       ...desiredNextMove.map((g) => `${CLARIFIER_PREFIX.goal}${g}`),
     ];
 
+    // NOTE: lead_id is intentionally omitted from the browser request. The
+    // Edge Function derives the canonical lead_id server-side from
+    // scan_session_id; the browser must never send or rely on it.
     const payload = {
-      lead_id: context.lead_id,
       scan_session_id: context.scan_session_id,
       analysis_id: analysisId,
       report_grade: context.report_grade || 'unknown',

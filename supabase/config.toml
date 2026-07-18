@@ -129,6 +129,9 @@ verify_jwt = false
 [functions.persist-diagnosis-start]
 verify_jwt = false
 
+[functions.submit-diagnosis-intake]
+verify_jwt = false
+
 [functions.process-webhook]
 verify_jwt = false
 

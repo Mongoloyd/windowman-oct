@@ -46,6 +46,63 @@ const Diagnosis = () => {
     );
   }
 
+  // ── Hydration: transient RPC error → persistent retry state ────────────────
+  // Questionnaire stays hidden; the seed handoff is preserved so a retry can
+  // re-resolve the canonical lead_id for the same session. No auto-redirect.
+  if (intake.hydrationStatus === "error") {
+    return (
+      <div
+        className={`min-h-screen flex items-center justify-center px-6 font-sans text-foreground ${PAGE_BG}`}
+      >
+        <div className="max-w-md text-center bg-white/70 backdrop-blur-md rounded-2xl border border-border/60 p-8 shadow-sm">
+          <h1 className="font-display text-2xl font-bold mb-3">We couldn't load your diagnosis</h1>
+          <p className="text-sm text-muted-foreground mb-6">
+            We hit a snag confirming your report context. Your answers aren't lost — please try again.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <button
+              onClick={intake.retryHydration}
+              className="inline-flex items-center justify-center px-5 py-2.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+            >
+              Try Again
+            </button>
+            <button
+              onClick={intake.handleReturnToReport}
+              className="inline-flex items-center justify-center px-5 py-2.5 rounded-md border border-border/70 bg-white/80 text-sm font-medium text-foreground hover:bg-white transition-colors"
+            >
+              Return to Report
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Hydration: invalid context → durable safe state ────────────────────────
+  // No lead is bound to this session (stale handoff already cleared). Offer a
+  // safe path back to the report if one is known, else home.
+  if (intake.hydrationStatus === "invalid") {
+    return (
+      <div
+        className={`min-h-screen flex items-center justify-center px-6 font-sans text-foreground ${PAGE_BG}`}
+      >
+        <div className="max-w-md text-center bg-white/70 backdrop-blur-md rounded-2xl border border-border/60 p-8 shadow-sm">
+          <h1 className="font-display text-2xl font-bold mb-3">Start from your report</h1>
+          <p className="text-sm text-muted-foreground mb-6">
+            We couldn't match this diagnosis to a verified report. Head back to your Truth Report and tap
+            the primary CTA to continue from there.
+          </p>
+          <button
+            onClick={intake.handleReturnToReport}
+            className="inline-flex items-center justify-center px-5 py-2.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+          >
+            Return to Report
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // ── Hydration: failed → safe empty state, route user back to start ─────────
   if (intake.hydrationStatus === "failed") {
     return (
@@ -139,8 +196,8 @@ const Diagnosis = () => {
           counterOfferFreeText={intake.counterOfferFreeText}
           hasCounterOffer={intake.hasCounterOffer}
           isSubmitting={intake.isSubmitting}
+          submitError={intake.submitError}
           onBack={intake.handleBack}
-          onContactEdit={intake.handleContactEdit}
           onSubmit={intake.handleSubmit}
           setCounterOfferFreeText={intake.setCounterOfferFreeText}
           setCounterOfferTerms={intake.setCounterOfferTerms}

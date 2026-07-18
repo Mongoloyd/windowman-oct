@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 
 import { useDiagnosticIntake } from "./useDiagnosticIntake";
 import { supabase } from "@/integrations/supabase/client";
+import { trackGtmEvent } from "@/lib/trackConversion";
 import {
   readReportDiagnosisHandoff,
   saveReportDiagnosisHandoff,
@@ -12,13 +13,11 @@ import {
 
 // ── Identity constants ──────────────────────────────────────────────────────
 const SCAN_SESSION_ID = "11111111-1111-4111-8111-111111111111";
-const CANONICAL_LEAD_ID = "22222222-2222-4222-8222-222222222222";
-const CACHED_LEAD_ID = "33333333-3333-4333-8333-333333333333";
-const FRESH_LEAD_ID = "44444444-4444-4444-8444-444444444444";
-const STALE_LEAD_ID = "55555555-5555-4555-8555-555555555555";
 const ANALYSIS_ID = "66666666-6666-4666-8666-666666666666";
 
 // ── Mocks ───────────────────────────────────────────────────────────────────
+// `rpc` is still exposed on the mock so we can assert it is NEVER called for
+// the forbidden service-role-only lead-context lookup during hydration.
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
     rpc: vi.fn(),
@@ -53,9 +52,10 @@ function makeWrapper(routerState: RouterSeed) {
   };
 }
 
+/** A valid Truth Report handoff whose cached lead_id is empty (ReportClassic). */
 function routerSeedEmptyLead(): Record<string, unknown> {
   return {
-    lead_id: "", // ReportClassic emits "" — the consumer must repair it
+    lead_id: "", // ReportClassic emits "" — must NOT block rendering/submit
     scan_session_id: SCAN_SESSION_ID,
     report_grade: "C",
     first_name: "Jane",
@@ -82,10 +82,13 @@ function seedSessionHandoff(leadId: string) {
   });
 }
 
-const rpcMock = vi.mocked(supabase.rpc as unknown as (...args: unknown[]) => unknown);
+const rpcMock = vi.mocked(
+  supabase.rpc as unknown as (...args: unknown[]) => unknown,
+);
 const invokeMock = vi.mocked(
   supabase.functions.invoke as unknown as (...args: unknown[]) => unknown,
 );
+const trackGtmMock = vi.mocked(trackGtmEvent);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -93,202 +96,127 @@ beforeEach(() => {
   invokeMock.mockResolvedValue({ data: { success: true }, error: null });
 });
 
-describe("useDiagnosticIntake — canonical lead_id hydration (FIX 1)", () => {
-  it("empty seed lead_id + RPC success → canonical applied, ready, corrected handoff saved", async () => {
-    rpcMock.mockResolvedValue({
-      data: [
-        {
-          lead_id: CANONICAL_LEAD_ID,
-          first_name: "Jane",
-          county: "Miami-Dade",
-          phone_e164: "+13055551234",
-        },
-      ],
-      error: null,
-    });
-
+describe("useDiagnosticIntake — server-derived identity hydration", () => {
+  it("valid handoff with empty lead_id reaches the questionnaire (ready)", async () => {
     const { result } = renderHook(() => useDiagnosticIntake(), {
       wrapper: makeWrapper(routerSeedEmptyLead()),
     });
 
     await waitFor(() => expect(result.current.hydrationStatus).toBe("ready"));
 
-    expect(result.current.context.lead_id).toBe(CANONICAL_LEAD_ID);
+    // The browser renders even though the cached lead_id is empty.
     expect(result.current.context.scan_session_id).toBe(SCAN_SESSION_ID);
-    // Display fields merged (server phone applied, seed name preserved).
-    expect(result.current.context.phone).toBe("+13055551234");
-    expect(result.current.context.first_name).toBe("Jane");
-
-    // Corrected handoff persisted back to session storage.
-    const saved = readReportDiagnosisHandoff();
-    expect(saved?.lead_id).toBe(CANONICAL_LEAD_ID);
-    expect(saved?.scan_session_id).toBe(SCAN_SESSION_ID);
-    expect(saved?.report_grade).toBe("C");
+    expect(result.current.context.lead_id).toBe("");
+    expect(result.current.context.report_grade).toBe("C");
   });
 
-  it("cached lead ≠ RPC lead → server wins", async () => {
-    seedSessionHandoff(CACHED_LEAD_ID);
-    rpcMock.mockResolvedValue({
-      data: [
-        {
-          lead_id: CANONICAL_LEAD_ID,
-          first_name: null,
-          county: null,
-          phone_e164: null,
-        },
-      ],
-      error: null,
-    });
-
-    const { result } = renderHook(() => useDiagnosticIntake(), {
-      wrapper: makeWrapper(undefined),
-    });
-
-    await waitFor(() => expect(result.current.hydrationStatus).toBe("ready"));
-
-    expect(result.current.context.lead_id).toBe(CANONICAL_LEAD_ID);
-    expect(result.current.context.lead_id).not.toBe(CACHED_LEAD_ID);
-    // Seed display data preserved when server returns null.
-    expect(result.current.context.first_name).toBe("Bob");
-    const saved = readReportDiagnosisHandoff();
-    expect(saved?.lead_id).toBe(CANONICAL_LEAD_ID);
-  });
-
-  it("RPC operational error → questionnaire hidden; handoff kept; error state", async () => {
-    seedSessionHandoff(CACHED_LEAD_ID);
-    rpcMock.mockResolvedValue({ data: null, error: { message: "RLS blocked" } });
-
-    const { result } = renderHook(() => useDiagnosticIntake(), {
-      wrapper: makeWrapper(undefined),
-    });
-
-    await waitFor(() => expect(result.current.hydrationStatus).toBe("error"));
-
-    // Not ready — the questionnaire must stay hidden.
-    expect(result.current.hydrationStatus).not.toBe("ready");
-    // Seed handoff preserved for the retry.
-    expect(readReportDiagnosisHandoff()).not.toBeNull();
-    // Safe return path is available.
-    expect(result.current.returnTo).toBe(`/report/classic/${SCAN_SESSION_ID}`);
-  });
-
-  it("RPC no row → questionnaire hidden; stale handoff cleared; invalid state", async () => {
-    seedSessionHandoff(CACHED_LEAD_ID);
-    rpcMock.mockResolvedValue({ data: [], error: null });
-
-    const { result } = renderHook(() => useDiagnosticIntake(), {
-      wrapper: makeWrapper(undefined),
-    });
-
-    await waitFor(() => expect(result.current.hydrationStatus).toBe("invalid"));
-
-    expect(result.current.hydrationStatus).not.toBe("ready");
-    // Stale handoff cleared.
-    expect(readReportDiagnosisHandoff()).toBeNull();
-  });
-
-  it("stale/superseded async response cannot update active context", async () => {
-    let resolveFirst!: (v: unknown) => void;
-    rpcMock
-      .mockImplementationOnce(
-        () =>
-          new Promise((res) => {
-            resolveFirst = res as (v: unknown) => void;
-          }),
-      )
-      .mockImplementationOnce(() =>
-        Promise.resolve({
-          data: [
-            {
-              lead_id: FRESH_LEAD_ID,
-              first_name: "Fresh",
-              county: null,
-              phone_e164: null,
-            },
-          ],
-          error: null,
-        }),
-      );
-
+  it("hydration NEVER invokes the forbidden get_lead_context_for_session RPC", async () => {
     const { result } = renderHook(() => useDiagnosticIntake(), {
       wrapper: makeWrapper(routerSeedEmptyLead()),
     });
 
-    // First recovery is still in-flight; supersede it with a retry.
-    act(() => {
-      result.current.retryHydration();
+    await waitFor(() => expect(result.current.hydrationStatus).toBe("ready"));
+
+    expect(rpcMock).not.toHaveBeenCalled();
+  });
+
+  it("recovers from durable session handoff and re-persists it (empty lead ok)", async () => {
+    seedSessionHandoff(""); // durable handoff with no canonical lead_id
+    const { result } = renderHook(() => useDiagnosticIntake(), {
+      wrapper: makeWrapper(undefined),
     });
 
     await waitFor(() => expect(result.current.hydrationStatus).toBe("ready"));
-    expect(result.current.context.lead_id).toBe(FRESH_LEAD_ID);
 
-    // The stale first response now resolves — it must NOT overwrite state.
-    await act(async () => {
-      resolveFirst({
-        data: [
-          {
-            lead_id: STALE_LEAD_ID,
-            first_name: "Stale",
-            county: null,
-            phone_e164: null,
-          },
-        ],
-        error: null,
-      });
+    expect(rpcMock).not.toHaveBeenCalled();
+    const saved = readReportDiagnosisHandoff();
+    expect(saved?.scan_session_id).toBe(SCAN_SESSION_ID);
+    expect(saved?.report_grade).toBe("B");
+  });
+
+  it("emits the existing hydration tracking event with unchanged name", async () => {
+    const { result } = renderHook(() => useDiagnosticIntake(), {
+      wrapper: makeWrapper(routerSeedEmptyLead()),
     });
 
-    expect(result.current.context.lead_id).toBe(FRESH_LEAD_ID);
-    expect(result.current.context.lead_id).not.toBe(STALE_LEAD_ID);
+    await waitFor(() => expect(result.current.hydrationStatus).toBe("ready"));
+
+    expect(trackGtmMock).toHaveBeenCalledWith(
+      "diagnosis_hydrated_from_router_state",
+      expect.objectContaining({ scan_session_id: SCAN_SESSION_ID, grade: "C" }),
+    );
+  });
+
+  it("missing scan_session_id → safe start-from-report state (not ready)", async () => {
+    const { result } = renderHook(() => useDiagnosticIntake(), {
+      wrapper: makeWrapper({ report_grade: "C" }),
+    });
+
+    await waitFor(() => expect(result.current.hydrationStatus).toBe("failed"));
+    expect(result.current.hydrationStatus).not.toBe("ready");
+    expect(rpcMock).not.toHaveBeenCalled();
+  });
+
+  it("malformed handoff (no report_grade) → safe start-from-report state", async () => {
+    const { result } = renderHook(() => useDiagnosticIntake(), {
+      wrapper: makeWrapper({ scan_session_id: SCAN_SESSION_ID }),
+    });
+
+    await waitFor(() => expect(result.current.hydrationStatus).toBe("failed"));
+    expect(result.current.hydrationStatus).not.toBe("ready");
   });
 });
 
-describe("useDiagnosticIntake — submit lock + canonical payload (FIX 3)", () => {
-  async function renderReady() {
-    rpcMock.mockResolvedValue({
-      data: [
-        {
-          lead_id: CANONICAL_LEAD_ID,
-          first_name: "Jane",
-          county: null,
-          phone_e164: "+13055551234",
-        },
-      ],
-      error: null,
-    });
+describe("useDiagnosticIntake — submission (no browser lead_id required)", () => {
+  async function renderReady(seed = routerSeedEmptyLead()) {
     const hook = renderHook(() => useDiagnosticIntake(), {
-      wrapper: makeWrapper(routerSeedEmptyLead()),
+      wrapper: makeWrapper(seed),
     });
-    await waitFor(() => expect(hook.result.current.hydrationStatus).toBe("ready"));
-    // Complete the minimum required answers for a valid submit.
+    await waitFor(() =>
+      expect(hook.result.current.hydrationStatus).toBe("ready"),
+    );
+    // Minimum required answers for a valid submit.
     act(() => hook.result.current.selectPrimaryDiagnosis("price_shock"));
     act(() => hook.result.current.setCounterOfferTerms(["lower_price"]));
     return hook;
   }
 
-  it("rapid double-submit → exactly one edge function invocation", async () => {
+  it("submits successfully with an empty cached lead_id", async () => {
     const { result } = await renderReady();
-
     const fakeEvent = { preventDefault: vi.fn() } as unknown as React.FormEvent;
+
     await act(async () => {
-      // Two synchronous clicks before the first submit resolves.
-      result.current.handleSubmit(fakeEvent);
-      result.current.handleSubmit(fakeEvent);
+      await result.current.handleSubmit(fakeEvent);
     });
 
+    expect(result.current.submitError).toBeNull();
+    expect(result.current.step).toBe("success");
     expect(invokeMock).toHaveBeenCalledTimes(1);
-    expect(invokeMock).toHaveBeenCalledWith(
-      "submit-diagnosis-intake",
-      expect.objectContaining({
-        body: expect.objectContaining({
-          lead_id: CANONICAL_LEAD_ID,
-          scan_session_id: SCAN_SESSION_ID,
-        }),
-      }),
-    );
   });
 
-  it("backend failure keeps answers, surfaces inline error, releases the lock", async () => {
+  it("request carries scan_session_id + answers and OMITS lead_id", async () => {
     const { result } = await renderReady();
+    const fakeEvent = { preventDefault: vi.fn() } as unknown as React.FormEvent;
+
+    await act(async () => {
+      await result.current.handleSubmit(fakeEvent);
+    });
+
+    const [fnName, opts] = invokeMock.mock.calls[0] as [
+      string,
+      { body: Record<string, unknown> },
+    ];
+    expect(fnName).toBe("submit-diagnosis-intake");
+    expect(opts.body.scan_session_id).toBe(SCAN_SESSION_ID);
+    expect(opts.body.primary_diagnosis).toBe("price_shock");
+    // The canonical lead_id must be resolved server-side, never sent by the browser.
+    expect(opts.body).not.toHaveProperty("lead_id");
+  });
+
+  it("answers + note text survive a recoverable submission failure", async () => {
+    const { result } = await renderReady();
+    act(() => result.current.setCounterOfferFreeText("Please match the cash bid."));
+
     invokeMock.mockResolvedValueOnce({
       data: { success: false, error: "We could not save your diagnosis." },
       error: null,
@@ -301,9 +229,11 @@ describe("useDiagnosticIntake — submit lock + canonical payload (FIX 3)", () =
 
     expect(result.current.submitError).toBe("We could not save your diagnosis.");
     expect(result.current.isSubmitting).toBe(false);
-    // Answers preserved (still on prescription step, not success).
     expect(result.current.step).not.toBe("success");
     expect(result.current.primaryDiagnosis).toBe("price_shock");
+    expect(result.current.counterOfferFreeText).toBe(
+      "Please match the cash bid.",
+    );
 
     // Lock released — a subsequent deliberate submit reaches the network again.
     invokeMock.mockResolvedValueOnce({ data: { success: true }, error: null });
@@ -311,5 +241,52 @@ describe("useDiagnosticIntake — submit lock + canonical payload (FIX 3)", () =
       await result.current.handleSubmit(fakeEvent);
     });
     expect(invokeMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("rapid double-submit → exactly one edge function invocation", async () => {
+    const { result } = await renderReady();
+    const fakeEvent = { preventDefault: vi.fn() } as unknown as React.FormEvent;
+
+    await act(async () => {
+      result.current.handleSubmit(fakeEvent);
+      result.current.handleSubmit(fakeEvent);
+    });
+
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("fires the diagnosis_completed tracking event on success (unchanged name)", async () => {
+    const { result } = await renderReady();
+    invokeMock.mockResolvedValueOnce({
+      data: { success: true, event_id: "evt_123", diagnosis_intake_id: "di_1" },
+      error: null,
+    });
+
+    const fakeEvent = { preventDefault: vi.fn() } as unknown as React.FormEvent;
+    await act(async () => {
+      await result.current.handleSubmit(fakeEvent);
+    });
+
+    expect(trackGtmMock).toHaveBeenCalledWith(
+      "diagnosis_completed",
+      expect.objectContaining({
+        scan_session_id: SCAN_SESSION_ID,
+        diagnosis: "price_shock",
+      }),
+    );
+  });
+
+  it("blocks submit when scan_session_id is absent (safe state, no network)", async () => {
+    // Seed present but unusable → 'failed'; handleSubmit must be a no-op guard.
+    const { result } = renderHook(() => useDiagnosticIntake(), {
+      wrapper: makeWrapper({ report_grade: "C" }),
+    });
+    await waitFor(() => expect(result.current.hydrationStatus).toBe("failed"));
+
+    const fakeEvent = { preventDefault: vi.fn() } as unknown as React.FormEvent;
+    await act(async () => {
+      await result.current.handleSubmit(fakeEvent);
+    });
+    expect(invokeMock).not.toHaveBeenCalled();
   });
 });
