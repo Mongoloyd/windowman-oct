@@ -251,241 +251,35 @@ where supported by the actual architecture.
 
 ## 6. Oracle Evolution Protocol — Continuous Intelligence, Human-Gated Evolution
 
-WindowMan should become more intelligent as it accumulates legitimate:
+WindowMan may continuously improve **knowledge** from legitimate accumulated evidence (quotes,
+analyses, normalized observations, market observations, contractor outcomes, verified sold
+outcomes, operator usage patterns, and data-quality history).
 
-```text
-quotes
-analyses
-normalized observations
-market observations
-contractor outcomes
-verified sold outcomes
-operator usage patterns
-data-quality history
-```
+**Continual learning does not mean autonomous software mutation.**
 
-But **continual learning does not mean autonomous software mutation**.
+### Mandatory root invariants
 
-### Core evolution loop
+- **Knowledge may improve; production architecture may not autonomously mutate.**
+- **AI interprets evidence; deterministic TypeScript calculates; humans gate structural evolution.**
+- **Observation, recommendation, and confidence do not authorize mutations.**
+- **Structural evolution requires human review and an approved sprint** before protected systems change.
+- AI may draft Evolution Queue recommendations; AI may **never** approve its own recommendation or treat it as permission to mutate protected systems.
 
-```text
-new evidence
-→ structured observation
-→ normalization
-→ deterministic analysis
-→ pattern detection
-→ intelligence
-→ recommendation
-→ human approval
-→ bounded implementation
-→ verification
-→ measurement
-→ further learning
-```
+AI may not autonomously create/alter schema, RLS, RPCs, Edge Functions, generated types,
+scanner/scoring logic, OTP/reveal paths, tracking/CAPI, Stripe, contractor routing, production
+routes, deployments, commits, or pushes.
 
-### What WindowMan may learn
+### Detailed canonical policy
 
-The system may identify:
-
-- new brands
-- new series
-- new contractors
-- new product/configuration values
-- new ZIP/county/geographic patterns
-- changing quoted-price distributions
-- changing verified-sold distributions
-- extraction completeness changes
-- recurring missing fields
-- likely aliases / normalization inconsistencies
-- anomalous observations
-- underused extracted information
-- common Oracle queries
-- zero-result / low-confidence query patterns
-- candidate new intelligence dimensions
-- candidate new filters
-- candidate new operator views
-- candidate business opportunities
-
-### What learning does NOT authorize
-
-Observation is not authorization.
-
-Recommendation is not authorization.
-
-Confidence is not authorization.
-
-AI may not autonomously:
-
-- create/alter/drop tables or columns
-- run migrations
-- change RLS, grants, RPCs, triggers, storage policies, or Supabase configuration
-- change project linkage or secrets
-- modify/deploy Edge Functions
-- edit generated database types
-- alter scanner extraction/scoring
-- alter OTP/Twilio or Verify-to-Reveal
-- alter report-access authorization
-- alter tracking / GTM / CAPI / dedup
-- alter Stripe
-- alter contractor routing
-- mount production routes
-- rewrite production React flows
-- deploy
-- commit or push without explicit approval
-
-### Human-gated evolution
-
-All structural evolution follows:
-
-```text
-DETECT
-→ QUANTIFY
-→ RECOMMEND
-→ HUMAN REVIEW
-→ APPROVED SPRINT
-→ IMPLEMENT
-→ VERIFY
-→ MEASURE
-```
-
-### Evolution recommendation contract
-
-When meaningful evidence suggests WindowMan should evolve, structure the recommendation as:
-
-```text
-TYPE:
-TITLE:
-OBSERVED EVIDENCE:
-SAMPLE / COVERAGE:
-CONFIDENCE:
-WHY IT MATTERS:
-RECOMMENDATION:
-AFFECTED SYSTEMS:
-PROTECTED SYSTEM TRIGGER:
-SMALLEST SAFE SPRINT:
-VERIFICATION:
-```
-
-Allowed recommendation types:
-
-```text
-DATA_QUALITY
-NORMALIZATION
-NEW_DIMENSION
-MARKET_INSIGHT
-NEW_FILTER
-NEW_SCREEN
-EXTRACTION_OPPORTUNITY
-OPERATOR_WORKFLOW
-BUSINESS_OPPORTUNITY
-TECHNICAL_DEBT
-UNKNOWN / NEEDS INVESTIGATION
-```
-
-Do not invent evidence to complete the structure.
-
-### Evolution Queue
-
-`Evolution Queue` is the architectural concept for human-reviewed improvement recommendations.
-
-Do not assume a real table, RPC, route, or queue exists unless repo evidence proves it.
-
-Until persistence is deliberately implemented, recommendations may live in:
-
-- Oracle lab output
-- read-only analyses
-- audit documents
-- sprint proposals
-- explicitly requested planning artifacts
-
-AI may draft recommendations.
-
-AI may never approve its own recommendation or treat it as permission to mutate protected systems.
-
-### Normalization / alias learning
-
-AI may flag likely aliases such as:
-
-```text
-Win Guard
-Winguard
-WinGuard
-```
-
-or:
-
-```text
-ABC Windows Inc.
-ABC Windows
-ABC Window & Door
-```
-
-Do not destructively merge identities solely from semantic similarity.
-
-Prefer:
-
-```text
-provenance
-affected-observation count
-confidence
-reversible alias mapping
-human review where ambiguity exists
-```
-
-### New field / dimension discovery
-
-AI may recommend a new dimension only when evidence shows the concept is:
-
-- recurring
-- extractable with useful reliability
-- analytically/commercially useful
-- not already adequately represented
-
-A recommendation for a field does not imply a database column.
-
-First determine whether it belongs in:
-
-```text
-existing extraction JSON
-normalized facts
-derived read model
-Oracle observation
-existing table
-or nowhere
-```
-
-Schema comes only after architecture review and explicit approval.
-
-### Self-observation metrics
-
-Where supported, WindowMan should measure its own intelligence quality:
-
-```text
-ZIP coverage
-county coverage
-contractor-name coverage
-brand coverage
-series coverage
-dimension coverage
-opening-type coverage
-usable PPO coverage
-trusted/index-approved rate
-verified-sold outcome coverage
-query success rate
-zero-result rate
-fallback frequency
-confidence distribution
-```
-
-Surface meaningful changes.
-
-### Full protocol
-
-For Oracle / continual-learning / Evolution Engine work, also read:
+Full Oracle evolution doctrine (evolution loop, recommendation contract, normalization rules,
+Evolution Queue semantics, self-observation metrics):
 
 ```text
 docs/oracle/ORACLE_EVOLUTION_PROTOCOL.md
 ```
+
+Do not implement Oracle or continual-learning changes from supporting or historical docs when they
+conflict with that protocol.
 
 ---
 

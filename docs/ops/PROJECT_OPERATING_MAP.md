@@ -25,12 +25,16 @@ Admin / partner surfaces (separate auth lanes)
 
 ## Supabase project boundaries
 
-| Ref | Role | Rule |
-|---|---|---|
-| `zgsofkgddpcntdvpckdq` | Forensic V2 / **staging-current target** | Default for `forensic_report_v2` work |
-| `wkrcyxcnzhwjtdpmfpaf` | Legacy Lovable/main **production** | **Do not target** from this branch without explicit approval |
+Operational roles: [SUPABASE_ENVIRONMENT_REGISTRY.md](./SUPABASE_ENVIRONMENT_REGISTRY.md). CLI guardrails: [SUPABASE_TARGETING.md](./SUPABASE_TARGETING.md).
 
-Proof of CLI target: [SUPABASE_TARGETING.md](./SUPABASE_TARGETING.md) — not `supabase/config.toml` alone.
+| Ref | Operational role | Rule |
+|---|---|---|
+| `zgsofkgddpcntdvpckdq` | **LIVE_ACTIVE** — current live WindowMan DB | Default approved remote target for `forensic_report_v2` work |
+| `wkrcyxcnzhwjtdpmfpaf` | **LEGACY_PARENT** — legacy WMProd parent | **Do not target** without explicit approval |
+| `aqyptdxsbxqpbgoecykx` | **EMPTY_PREVIEW_V2** — empty preview DB | Separate explicit authorization only |
+| `wm-mvp-forensic-v2-local` | **LOCAL** — Docker CLI namespace | Local disposable stack; not a remote ref |
+
+Proof of CLI link state: [SUPABASE_TARGETING.md](./SUPABASE_TARGETING.md) + `scripts/supabase/assert-staging.ps1` — not `supabase/config.toml` alone.
 
 ---
 
@@ -71,7 +75,7 @@ Browser transport (production): `reportService.ts` → `report-access` → servi
 | **Partner / contractor** | B2B portal (partial) | [phase-4a](../phase-4/phase-4a-contractor-portal-access-model.md) | `contractorAccess.ts`, `/partner/*` | `accept-invite`, `contractor-actions` | B RLS | `supabase.mdc` | Granting contractors raw/direct access to private quote files |
 | **Lead / homepage** | Acquisition intake | Contract (flow) + manifest | `Index.tsx`, TruthGate, `qualify-homepage-lead` | `capture-truth-gate-lead`, `qualify-homepage-lead` | varies | `ui-ux.mdc` | “UI-only” edits that touch upload/OTP/report/tracking/scanner/Supabase/orchestration on `Index.tsx` |
 | **Database / RLS** | Data access model | [TABLE_ACCESS_MODEL](../db/TABLE_ACCESS_MODEL.md) | `supabase/migrations/**`, `types.ts` | RPCs in migrations | B | `supabase.mdc` | Drive-by migration edits; anon SELECT on analyses |
-| **UI visual lab** | Mock QA layouts | [AGENTS.md](../../AGENTS.md) §8 | `/visual/*`, `/sandbox/*`, `DevReportPreview.tsx` | none on mock paths | D `App.tsx` | `ui-ux.mdc` | Wiring mock routes to live OTP/reveal |
+| **UI visual lab** | Mock QA layouts | [AGENTS.md](../../AGENTS.md) — "Routes / Dev / Visual / Sandbox Rules" | `/visual/*`, `/sandbox/*`, `DevReportPreview.tsx` | none on mock paths | D `App.tsx` | `ui-ux.mdc` | Wiring mock routes to live OTP/reveal |
 | **Dev / QA bypass** | Deterministic dev paths | Contract §6 + `.lovable/memory/features/dev-bypass.md` | `dev-report-unlock`, `DevQuoteGenerator.tsx` | `dev-report-unlock`, `otpQaBypass.ts` | A | `twilio.mdc` | Generalizing dev bypass to production |
 | **Stale / historical** | Old or planning docs | [DOC_STATUS_REGISTRY](./DOC_STATUS_REGISTRY.md) | — | — | — | — | Implementing from bannered or syndicate plans |
 

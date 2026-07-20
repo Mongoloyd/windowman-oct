@@ -162,4 +162,4 @@ When implementing (future PR):
 
 - Canonical live path audit: [docs/sprints/phase-0-repo-truth-audit.md](../sprints/phase-0-repo-truth-audit.md) (note: UploadZone section may predate `start-upload-scan-session` — prefer [FUNNEL_SUPABASE_CALL_MAP.md](./FUNNEL_SUPABASE_CALL_MAP.md)).
 - Table access: [docs/db/TABLE_ACCESS_MODEL.md](../db/TABLE_ACCESS_MODEL.md)
-- AGENTS.md / CLAUDE.md guardrails at repo root.
+- AGENTS.md / claude.md guardrails at repo root (`AGENTS.md` is canonical; `claude.md` is supporting).

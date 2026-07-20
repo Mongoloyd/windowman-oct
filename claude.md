@@ -1,3 +1,8 @@
+> **Canonical authority:** [`AGENTS.md`](./AGENTS.md). If this file conflicts with `AGENTS.md`, **`AGENTS.md` wins**.
+>
+> This file is a **compact hard-systems guardrail index**, not a parallel root policy.
+> For Oracle / continual-learning / Evolution Engine work, read [`docs/oracle/ORACLE_EVOLUTION_PROTOCOL.md`](./docs/oracle/ORACLE_EVOLUTION_PROTOCOL.md).
+
 WINDOWMAN / wm-mvp — HARD SYSTEMS GUARDRAILS
 
 Prefer stricter, safer enforcement over cheaper shortcuts.
@@ -39,7 +44,7 @@ Prefer stricter, safer enforcement over cheaper shortcuts.
 - `scan_session_id` = per-scan identity.
 - `event_id` = dedup key; generate once and never regenerate downstream.
 - `session_id` is optional context only.
-- `client_slug` MUST NOT be NULL on lead creation.
+- New lead writers should resolve `client_slug` via the runtime fallback chain (URL/query → `localStorage.getItem('wm_client_slug')` → `'direct'`). See intake capture code paths — DB column may allow NULL for legacy rows, but new writes should not omit attribution when the chain applies.
 - Fallback chain: 1) URL route/query param -> 2) `localStorage.getItem('wm_client_slug')` -> 3) `'direct'`.
 
 8. TRACKING / META CAPI

@@ -120,7 +120,8 @@ Applies to **any file**, including unlisted paths:
 Also read before OTP/reveal edits:
 
 - `.cursor/rules/twilio.mdc`
-- `AGENTS.md` §3–4, §14
+- [AGENTS.md](../../AGENTS.md) — "Non-Negotiable Product and Security Rules" and "Repo Truth Before Advice"
+- [docs/START_HERE.md](../START_HERE.md) — invoke `developer-babysitter` before Tier A–D edits
 
 ---
 
@@ -132,7 +133,7 @@ Tier A paths require explicit user approval:
 SPRINT APPROVAL: <sprint-name> — <one-line scope>
 ```
 
-Only files **explicitly named** in the one-line scope may be edited. Invoke the **`developer-babysitter`** subagent before editing protected surfaces (see `AGENTS.md` §14).
+Only files **explicitly named** in the one-line scope may be edited. Invoke the **`developer-babysitter`** subagent before editing protected surfaces (see [AGENTS.md](../../AGENTS.md) "Protected Systems and Mutation Safety" and [docs/START_HERE.md](../START_HERE.md)).
 
 ---
 

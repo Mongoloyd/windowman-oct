@@ -5,7 +5,7 @@ Tracks **high-risk** documentation only — not every markdown file in the repo.
 ## How to use this registry
 
 1. Before implementing from a doc, check its **status** here.
-2. **CANONICAL** docs override conflicting older docs on the same topic.
+2. **CANONICAL ROOT LAW** and **CANONICAL** docs override conflicting older docs on the same topic.
 3. **STALE WITH BANNER** docs may contain wrong transport/details in the body — follow the banner link to the canonical doc. **These docs must not be used to justify code changes**; the banner and linked canonical doc win.
 4. **HISTORICAL** docs are planning snapshots or evidence packs — context only, not implementation authority.
 5. **Do not delete or archive files based only on this registry.** Archival requires a dedicated sprint with explicit scope.
@@ -13,18 +13,35 @@ Tracks **high-risk** documentation only — not every markdown file in the repo.
 
 ---
 
+## CANONICAL ROOT LAW
+
+| Document | Topic |
+|---|---|
+| [AGENTS.md](../../AGENTS.md) | Canonical product law, agent operating contract, non-negotiables, Definition of Done |
+
+---
+
+## CANONICAL ENTRY / TASK ROUTER
+
+| Document | Topic |
+|---|---|
+| [docs/START_HERE.md](../START_HERE.md) | Repo entry point and task router |
+
+---
+
 ## CANONICAL
 
 | Document | Topic |
 |---|---|
-| [docs/reveal/VERIFY_TO_REVEAL_CONTRACT.md](../reveal/VERIFY_TO_REVEAL_CONTRACT.md) | Verify-to-Reveal transport and OTP/reveal protection |
 | [.cursor/PROTECTED_FILES.md](../../.cursor/PROTECTED_FILES.md) | Tier A–D protected path manifest |
+| [docs/reveal/VERIFY_TO_REVEAL_CONTRACT.md](../reveal/VERIFY_TO_REVEAL_CONTRACT.md) | Verify-to-Reveal transport and OTP/reveal protection |
+| [docs/oracle/ORACLE_EVOLUTION_PROTOCOL.md](../oracle/ORACLE_EVOLUTION_PROTOCOL.md) | Oracle continual learning / Evolution Engine policy |
+| [docs/ops/SUPABASE_ENVIRONMENT_REGISTRY.md](./SUPABASE_ENVIRONMENT_REGISTRY.md) | Operational Supabase project roles (LIVE_ACTIVE, LEGACY_PARENT, PREVIEW, LOCAL) |
 | [docs/ops/SUPABASE_FUNCTION_MANIFEST.md](./SUPABASE_FUNCTION_MANIFEST.md) | Edge Function inventory, auth models, deploy matrix |
-| [docs/ops/SUPABASE_TARGETING.md](./SUPABASE_TARGETING.md) | Staging vs production Supabase project refs |
+| [docs/ops/SUPABASE_TARGETING.md](./SUPABASE_TARGETING.md) | CLI guardrails for Forensic V2 remote Supabase work (see ENVIRONMENT_REGISTRY for roles) |
 | [docs/measurement/CANONICAL_MEASUREMENT_ARCHITECTURE.md](../measurement/CANONICAL_MEASUREMENT_ARCHITECTURE.md) | Browser vs server measurement policy |
 | [docs/report/SCANNER_BRAIN_CURRENT_VS_TARGET.md](../report/SCANNER_BRAIN_CURRENT_VS_TARGET.md) | Scanner Brain architecture (extract vs score) |
 | [docs/db/TABLE_ACCESS_MODEL.md](../db/TABLE_ACCESS_MODEL.md) | Table access classes and RLS patterns |
-| [docs/START_HERE.md](../START_HERE.md) | Repo entry point and task router |
 | [docs/ops/PROJECT_OPERATING_MAP.md](./PROJECT_OPERATING_MAP.md) | Subsystem map and safe-edit boundaries |
 
 ---
@@ -42,8 +59,8 @@ Tracks **high-risk** documentation only — not every markdown file in the repo.
 | [docs/report/SIGNAL_CONTAINER_MAP.md](../report/SIGNAL_CONTAINER_MAP.md) | Signal-to-field mapping for V2 UI |
 | [docs/ops/SCANNER_MODEL_GOVERNANCE.md](./SCANNER_MODEL_GOVERNANCE.md) | Gemini model change operator process |
 | [docs/deployment/netlify-deploy-checklist.md](../deployment/netlify-deploy-checklist.md) | Netlify public env vs Edge secrets |
-| [AGENTS.md](../../AGENTS.md) | Product law, sprint priority, routes |
-| [CLAUDE.md](../../CLAUDE.md) | Hard systems guardrails |
+| [README.md](../../README.md) | Supporting human/developer onboarding (subordinate to AGENTS + START_HERE) |
+| [claude.md](../../claude.md) | Compact hard-systems guardrail index (subordinate to AGENTS.md) |
 | [.cursor/rules/twilio.mdc](../../.cursor/rules/twilio.mdc) | Twilio/OTP security rules |
 
 ---
@@ -67,7 +84,7 @@ Body content may be wrong; **banner + canonical doc win.**
 | Document group | Notes |
 |---|---|
 | [docs/phase-4/](../phase-4/) | Contractor portal planning slices — partial implementation |
-| [docs/syndicate/](../syndicate/) | Future syndicate/routing plans — defer per AGENTS.md §2 |
+| [docs/syndicate/](../syndicate/) | Future syndicate/routing plans — defer per AGENTS.md "Active Sprint Rule" |
 | [docs/dispatch-control-plane/](../dispatch-control-plane/) | Dispatch control-plane design memos |
 | [docs/sprints/phase-0-repo-truth-audit.md](../sprints/phase-0-repo-truth-audit.md) | Audit-lock snapshot (also bannered) |
 | [CANONICAL_REPO_EVIDENCE.md](../../CANONICAL_REPO_EVIDENCE.md) | Point-in-time evidence extraction |

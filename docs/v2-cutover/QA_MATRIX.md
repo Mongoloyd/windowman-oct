@@ -24,7 +24,7 @@ Run on **staging** Supabase with `.env.local` pointing at staging (not productio
 
 ## Definition of done (every row)
 
-From AGENTS.md / CLAUDE.md:
+From AGENTS.md / claude.md (AGENTS.md is canonical):
 
 - [ ] Full report not sent to client before SMS verification
 - [ ] Scores from deterministic TypeScript (`scan-quote`), not client-side AI
