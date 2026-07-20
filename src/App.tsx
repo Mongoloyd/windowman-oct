@@ -28,6 +28,7 @@ const DevReportPreview = lazy(() => import("./pages/DevReportPreview.tsx"));
 const DevTesting = lazy(() => import("./pages/DevTesting.tsx"));
 const PreUploadIntake = lazy(() => import("@/components/forensic-report/PreUploadIntake"));
 const VisualPreUploadIntake = lazy(() => import("./pages/VisualPreUploadIntake.tsx"));
+const VisualOracleLab = lazy(() => import("./pages/VisualOracleLab.tsx"));
 
 // ── Static content pages ─────────────────────────────────────────────────────
 const PublicLayout = lazy(() => import("@/components/PublicLayout"));
@@ -160,6 +161,8 @@ const App = () => (
                     Visual-only intake scaffold preview.
                     Remove or gate before production use. */}
                 <Route path="/visual/intake-preview" element={<WindowManIntakePreview />} />
+                {/* Fixture-only Window Oracle — synthetic data; unlisted; no Supabase. */}
+                <Route path="/visual/oracle-lab" element={<VisualOracleLab />} />
                 {isDevMode && (
                   <>
                     <Route path="/dev/report-preview" element={<DevReportPreview />} />
