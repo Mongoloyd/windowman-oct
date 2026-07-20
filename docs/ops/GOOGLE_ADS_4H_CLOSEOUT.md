@@ -5,6 +5,8 @@
 **Forbidden production:** `wkrcyxcnzhwjtdpmfpaf` — not touched in this sprint  
 **Closeout date:** 2026-06-25
 
+> **Operational role note:** Runbook labels **staging** / **production** are legacy naming. Per [SUPABASE_ENVIRONMENT_REGISTRY.md](./SUPABASE_ENVIRONMENT_REGISTRY.md): **`zgsofkgddpcntdvpckdq` = LIVE_ACTIVE** (default Forensic V2 target). **`wkrcyxcnzhwjtdpmfpaf` = LEGACY_PARENT** (forbidden unless explicitly authorized).
+
 ---
 
 ## What was proven

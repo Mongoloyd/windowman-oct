@@ -1,5 +1,7 @@
 # Google Ads 4H — Attribution Merge Runbook
 
+> **Operational role note:** References to **staging** mean LIVE_ACTIVE (`zgsofkgddpcntdvpckdq`). See [SUPABASE_ENVIRONMENT_REGISTRY.md](./SUPABASE_ENVIRONMENT_REGISTRY.md).
+
 Sprint **4H** merges persisted Google click identifiers into the Google dispatch mapping path.
 
 ## Problem (pre-4H)

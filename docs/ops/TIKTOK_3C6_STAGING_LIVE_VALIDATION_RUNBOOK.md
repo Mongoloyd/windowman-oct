@@ -16,6 +16,8 @@ Human-operated only. **Documentation sprint — no code, deploy, migration, secr
 
 **Forbidden:** Production `wkrcyxcnzhwjtdpmfpaf` — do not set secrets, deploy functions, or send events there.
 
+> **Operational role note:** Runbook **staging** = LIVE_ACTIVE (`zgsofkgddpcntdvpckdq`). **Production** = LEGACY_PARENT (forbidden). See [SUPABASE_ENVIRONMENT_REGISTRY.md](./SUPABASE_ENVIRONMENT_REGISTRY.md).
+
 ---
 
 ## 1. Purpose

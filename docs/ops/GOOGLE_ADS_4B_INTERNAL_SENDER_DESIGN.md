@@ -6,6 +6,8 @@ Human-operated design sprint only. **No code, deploy, migration, secret writes, 
 
 **Target staging:** `zgsofkgddpcntdvpckdq` | **Forbidden production:** `wkrcyxcnzhwjtdpmfpaf`
 
+> **Operational role note:** **Target staging** = LIVE_ACTIVE. **Forbidden production** = LEGACY_PARENT. See [SUPABASE_ENVIRONMENT_REGISTRY.md](./SUPABASE_ENVIRONMENT_REGISTRY.md).
+
 **Related docs:**
 
 - [GOOGLE_ADS_4A_DIRECT_BRIDGE_SMOKE_RUNBOOK.md](./GOOGLE_ADS_4A_DIRECT_BRIDGE_SMOKE_RUNBOOK.md) — direct POST smoke pattern (superseded for staging by internal sender once built)

@@ -1,6 +1,8 @@
-# Supabase Staging Verification
+# Supabase LIVE_ACTIVE Verification
 
-Verify staging Supabase is safe and schema-complete **before** wiring React V2 routes or running live funnel smoke.
+Verify **LIVE_ACTIVE** Supabase (`zgsofkgddpcntdvpckdq`) is safe and schema-complete **before** wiring React V2 routes or running live funnel smoke.
+
+> **Operational role note:** Filename and headings retain legacy **staging** wording. Per [SUPABASE_ENVIRONMENT_REGISTRY.md](../ops/SUPABASE_ENVIRONMENT_REGISTRY.md): **`zgsofkgddpcntdvpckdq` = LIVE_ACTIVE** (default Forensic V2 remote target). **`wkrcyxcnzhwjtdpmfpaf` = LEGACY_PARENT** (forbidden unless explicitly authorized).
 
 **Do not modify** migrations, RLS, storage policies, or Edge Function source during verification-only work.
 
@@ -9,24 +11,24 @@ Verify staging Supabase is safe and schema-complete **before** wiring React V2 r
 ## Operator blockers (before runtime QA)
 
 - [ ] Create `.env.local` from [`.env.example`](../../.env.example).
-- [ ] Fill with **staging** `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_PROJECT_ID`.
-- [ ] Confirm staging project ref is **not** production `wkrcyxcnzhwjtdpmfpaf`.
-- [ ] Confirm staging migrations match `main` (see checklist below).
-- [ ] Confirm Twilio, Gemini/scanner, and other staging Edge Function secrets exist before real OTP/`scan-quote` smoke tests.
+- [ ] Fill with **LIVE_ACTIVE** `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_PROJECT_ID` (`zgsofkgddpcntdvpckdq`).
+- [ ] Confirm project ref is **not** LEGACY_PARENT `wkrcyxcnzhwjtdpmfpaf`.
+- [ ] Confirm LIVE_ACTIVE migrations match `main` (see checklist below).
+- [ ] Confirm Twilio, Gemini/scanner, and other Edge Function secrets exist on LIVE_ACTIVE before real OTP/`scan-quote` smoke tests.
 
-**Do not run** `npm run typegen` / `npm run typegen:check` until they target staging — current scripts use production project id.
+**Do not run** `npm run typegen` / `npm run typegen:check` against LEGACY_PARENT — current scripts target LIVE_ACTIVE (`zgsofkgddpcntdvpckdq`) per [`package.json`](../../package.json).
 
 ---
 
-## Staging target
+## LIVE_ACTIVE target
 
-| Item | Local CLI config | Staging (operator) |
-|------|------------------|------------------|
-| Project ref in `supabase/config.toml` | `wm-mvp-forensic-v2-local` (local Docker namespace) | **Remote staging ref** (record in vault; see [SUPABASE_TARGETING.md](../ops/SUPABASE_TARGETING.md)) |
-| `package.json` typegen | Same prod ref | Override when regenerating types |
-| Frontend env | N/A | `.env.local` staging URL + anon key |
+| Item | Local CLI config | LIVE_ACTIVE (operator) |
+|------|------------------|------------------------|
+| Project ref in `supabase/config.toml` | `wm-mvp-forensic-v2-local` (local Docker namespace) | **`zgsofkgddpcntdvpckdq`** — see [SUPABASE_TARGETING.md](../ops/SUPABASE_TARGETING.md) |
+| `package.json` typegen | Targets LIVE_ACTIVE ref | `zgsofkgddpcntdvpckdq` |
+| Frontend env | N/A | `.env.local` LIVE_ACTIVE URL + anon key |
 
-Hostname check: `VITE_SUPABASE_URL` should be `https://<staging-ref>.supabase.co` and must **not** contain `wkrcyxcnzhwjtdpmfpaf` unless intentionally testing prod (not recommended).
+Hostname check: `VITE_SUPABASE_URL` should be `https://zgsofkgddpcntdvpckdq.supabase.co` and must **not** contain `wkrcyxcnzhwjtdpmfpaf` unless intentionally testing legacy parent (not recommended).
 
 ---
 
@@ -58,7 +60,7 @@ Storage bucket `quotes` (private)
 | RLS enabled | Yes |
 | Client insert | Constrained anon insert (`leads_anon_insert_constrained`) — OTP fields false on insert |
 | Funnel writes | Prefer Edge Functions with service role: `capture-truth-gate-lead`, `start-upload-scan-session` |
-| `client_slug` | NOT NULL on creation (fallback chain documented in CLAUDE.md) |
+| `client_slug` | NOT NULL on creation (fallback chain documented in claude.md / AGENTS.md) |
 
 ### `quote_files`
 

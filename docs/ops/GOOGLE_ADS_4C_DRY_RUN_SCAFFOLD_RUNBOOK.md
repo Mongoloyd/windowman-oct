@@ -6,6 +6,8 @@ Human-operated only. **Sprint 4C — dry-run scaffold only. No live Google Ads A
 
 **Target staging:** `zgsofkgddpcntdvpckdq` | **Forbidden production:** `wkrcyxcnzhwjtdpmfpaf`
 
+> **Operational role note:** **Target staging** = LIVE_ACTIVE. **Forbidden production** = LEGACY_PARENT. See [SUPABASE_ENVIRONMENT_REGISTRY.md](./SUPABASE_ENVIRONMENT_REGISTRY.md).
+
 **Related:**
 
 - [GOOGLE_ADS_4B_INTERNAL_SENDER_DESIGN.md](./GOOGLE_ADS_4B_INTERNAL_SENDER_DESIGN.md)

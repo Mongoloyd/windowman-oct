@@ -17,15 +17,15 @@ Sequential checklist for local development and promotion of the V2 `/scan` funne
 
 ## Operator blockers (complete before runtime QA)
 
-These are **hard gates**. Do not run live funnel smoke on staging until all are done.
+These are **hard gates**. Do not run live funnel smoke on LIVE_ACTIVE until all are done.
 
 - [ ] **1. Create `.env.local`** from [`.env.example`](../../.env.example) (Vite loads `.env.local` over `.env`; keep secrets out of git).
-- [ ] **2. Fill staging values:** `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_PROJECT_ID` — all must point at the **staging** Supabase project.
-- [ ] **3. Confirm staging project ref is not production.** `supabase/config.toml` uses local namespace `wm-mvp-forensic-v2-local` ([`supabase/config.toml`](../../supabase/config.toml)); staging `VITE_SUPABASE_PROJECT_ID` and URL hostname must **not** match legacy production ref `wkrcyxcnzhwjtdpmfpaf` unless you intentionally accept prod risk. See [SUPABASE_TARGETING.md](../ops/SUPABASE_TARGETING.md).
-- [ ] **4. Confirm staging migrations match `main`.** Especially `get_analysis_full` strict scan binding (`20260428120000_restore_get_analysis_full_strict_scan_binding.sql`). Use [SUPABASE_STAGING_VERIFICATION.md](./SUPABASE_STAGING_VERIFICATION.md) and `scripts/validation/verify-schema-spec.ts` with staging `DATABASE_URL`.
-- [ ] **5. Confirm staging Edge Function secrets** exist for real OTP/scan smoke: Twilio Verify (`TWILIO_*`), Gemini/scanner keys for `scan-quote`, and any other secrets required by the funnel functions. CAPI secrets are server-only; browser must not call `capi-event`.
+- [ ] **2. Fill LIVE_ACTIVE values:** `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_PROJECT_ID` — all must point at **LIVE_ACTIVE** (`zgsofkgddpcntdvpckdq`).
+- [ ] **3. Confirm project ref is not LEGACY_PARENT.** `supabase/config.toml` uses local namespace `wm-mvp-forensic-v2-local` ([`supabase/config.toml`](../../supabase/config.toml)); `VITE_SUPABASE_PROJECT_ID` and URL hostname must **not** match legacy parent ref `wkrcyxcnzhwjtdpmfpaf` unless you intentionally accept that risk. See [SUPABASE_TARGETING.md](../ops/SUPABASE_TARGETING.md).
+- [ ] **4. Confirm LIVE_ACTIVE migrations match `main`.** Especially `get_analysis_full` strict scan binding (`20260428120000_restore_get_analysis_full_strict_scan_binding.sql`). Use [SUPABASE_STAGING_VERIFICATION.md](./SUPABASE_STAGING_VERIFICATION.md) and `scripts/validation/verify-schema-spec.ts` with LIVE_ACTIVE `DATABASE_URL`.
+- [ ] **5. Confirm LIVE_ACTIVE Edge Function secrets** exist for real OTP/scan smoke: Twilio Verify (`TWILIO_*`), Gemini/scanner keys for `scan-quote`, and any other secrets required by the funnel functions. CAPI secrets are server-only; browser must not call `capi-event`.
 
-**Typegen:** [`package.json`](../../package.json) `typegen` targets staging ref `<SUPABASE_PROJECT_REF>` per [SUPABASE_TARGETING.md](../ops/SUPABASE_TARGETING.md). Do not run typegen against legacy production unless explicitly approved.
+**Typegen:** [`package.json`](../../package.json) `typegen` targets LIVE_ACTIVE ref `zgsofkgddpcntdvpckdq` per [SUPABASE_TARGETING.md](../ops/SUPABASE_TARGETING.md). Do not run typegen against LEGACY_PARENT unless explicitly approved.
 
 ---
 
@@ -46,12 +46,12 @@ git rev-list --left-right --count origin/main...HEAD
 
 ---
 
-## Phase 1 — Supabase staging branch
+## Phase 1 — Supabase LIVE_ACTIVE branch
 
-- [ ] Create or confirm a **Supabase database branch** (or dedicated staging project) separate from production.
-- [ ] Record staging project ref in team vault (not in git): `STAGING_PROJECT_REF=____________`
-- [ ] Apply same migration history as `main` on staging.
-- [ ] Deploy Edge Functions to staging (read-only verification from this repo — do not modify function source during doc phase).
+- [ ] Create or confirm Supabase database branch (or dedicated project) for Forensic V2 work — default approved remote target is LIVE_ACTIVE (`zgsofkgddpcntdvpckdq`).
+- [ ] Record LIVE_ACTIVE project ref in team vault (not in git): `LIVE_ACTIVE_PROJECT_REF=zgsofkgddpcntdvpckdq`
+- [ ] Apply same migration history as `main` on LIVE_ACTIVE.
+- [ ] Deploy Edge Functions to LIVE_ACTIVE (read-only verification from this repo — do not modify function source during doc phase).
 - [ ] Complete [SUPABASE_STAGING_VERIFICATION.md](./SUPABASE_STAGING_VERIFICATION.md) before wiring React.
 
 ---
@@ -60,9 +60,9 @@ git rev-list --left-right --count origin/main...HEAD
 
 - [ ] Copy [`.env.example`](../../.env.example) → `.env.local`.
 - [ ] Set only **publishable** (anon) key in frontend env — never service role in Vite env.
-- [ ] Verify `npm run dev` loads staging: in browser DevTools → Network, Supabase host should contain **staging** project ref, not `wkrcyxcnzhwjtdpmfpaf`.
+- [ ] Verify `npm run dev` loads LIVE_ACTIVE: in browser DevTools → Network, Supabase host should contain **`zgsofkgddpcntdvpckdq`**, not `wkrcyxcnzhwjtdpmfpaf`.
 - [ ] Optional: set `VITE_META_PIXEL_ID` to a test pixel or leave unset per measurement policy.
-- [ ] Do not enable prod `DEV_BYPASS` on staging unless deliberately testing dev unlock paths.
+- [ ] Do not enable prod `DEV_BYPASS` on LIVE_ACTIVE unless deliberately testing dev unlock paths.
 
 ---
 

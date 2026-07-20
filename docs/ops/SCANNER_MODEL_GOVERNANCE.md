@@ -2,7 +2,9 @@
 
 **Last updated:** 2026-05-26  
 **Scope:** Gemini extraction model used by `scan-quote` only. Scoring, flagging, and report compilation remain deterministic TypeScript — never AI-generated.  
-**Related:** [`SUPABASE_TARGETING.md`](./SUPABASE_TARGETING.md), [`SUPABASE_FUNCTION_MANIFEST.md`](./SUPABASE_FUNCTION_MANIFEST.md), `supabase/functions/_shared/scannerConfig.ts`
+**Related:** [`SUPABASE_TARGETING.md`](./SUPABASE_TARGETING.md), [`SUPABASE_ENVIRONMENT_REGISTRY.md`](./SUPABASE_ENVIRONMENT_REGISTRY.md), [`SUPABASE_FUNCTION_MANIFEST.md`](./SUPABASE_FUNCTION_MANIFEST.md), `supabase/functions/_shared/scannerConfig.ts`
+
+> **Operational role note:** This runbook uses legacy labels **staging** / **production** in phase headings. Per the environment registry: **`zgsofkgddpcntdvpckdq` = LIVE_ACTIVE** (current live DB; default Forensic V2 target). **`wkrcyxcnzhwjtdpmfpaf` = LEGACY_PARENT** (forbidden unless explicitly authorized). `scripts/supabase/assert-staging.ps1` asserts LIVE_ACTIVE, not a disposable staging environment.
 
 ---
 
@@ -44,7 +46,7 @@ This value exists in `scannerConfig.ts` and is commented in `.env.example`. It i
 |--------|--------|
 | **Runtime override without redeploy** | `scan-quote` reads `Deno.env.get("GEMINI_SCAN_MODEL")` at invocation time. Changing the secret updates behavior without merging code or redeploying functions. |
 | **Secret hygiene** | Model choice is paired with `GEMINI_API_KEY` in the same secret store. API keys must never enter Git; keeping the model in the same layer avoids split-brain config. |
-| **Environment isolation** | Staging and production can diverge temporarily during validation (`zgsofkgddpcntdvpckdq` vs `wkrcyxcnzhwjtdpmfpaf`) without branch churn. |
+| **Environment isolation** | LIVE_ACTIVE and LEGACY_PARENT can diverge temporarily during validation (`zgsofkgddpcntdvpckdq` vs `wkrcyxcnzhwjtdpmfpaf`) without branch churn. |
 | **Incident response speed** | Rollback is a secret revert, not a hotfix deploy. |
 
 **Rule:** Treat `GEMINI_SCAN_MODEL` as **runtime config**, not Git config. `.env.example` documents the variable name and an example value only — never the live production choice.
@@ -113,16 +115,18 @@ Complete **in order**. Do not skip steps.
 - [ ] Complete §5 checklist on staging frontend (`VITE_SUPABASE_URL` → `zgsofkgddpcntdvpckdq`).
 - [ ] Inspect Edge Function logs for all three scans (§7 log checks).
 
-### Phase E — Production (explicit approval only)
+### Phase E — LEGACY_PARENT sync (explicit approval only; not routine live rollout)
 
-- [ ] Operator sign-off after staging pass.
-- [ ] Set production secret:
+LIVE_ACTIVE (`zgsofkgddpcntdvpckdq`) receives current leads. Phases C–D on that ref **are** the live model-change path unless product policy explicitly requires a separate legacy-parent sync.
+
+- [ ] Operator sign-off after LIVE_ACTIVE pass.
+- [ ] Only if explicitly authorized — set LEGACY_PARENT secret (do not treat as current live):
 
   ```powershell
   supabase secrets set GEMINI_SCAN_MODEL=gemini-3.1-flash-lite --project-ref wkrcyxcnzhwjtdpmfpaf
   ```
 
-- [ ] Repeat §5 smoke on production (1 quote minimum; 3 quotes preferred within 24h).
+- [ ] Repeat §5 smoke only if legacy-parent sync was authorized (1 quote minimum).
 - [ ] Update this document's "Last updated" date and note the change in §8 if incident-driven.
 
 ---
@@ -184,10 +188,10 @@ After updating `GEMINI_SCAN_MODEL` on a Supabase project, validate the **full ac
 
 ### Environment targeting
 
-| Target | Project ref | Frontend check |
-|--------|-------------|----------------|
-| Staging | `zgsofkgddpcntdvpckdq` | `.env.local` / Vite URL contains staging hostname |
-| Production | `wkrcyxcnzhwjtdpmfpaf` | Production hostname only with operator approval |
+| Operational role | Project ref | Frontend check |
+|------------------|-------------|----------------|
+| **LIVE_ACTIVE** (legacy runbook label: staging) | `zgsofkgddpcntdvpckdq` | `.env.local` / Vite URL hostname contains `zgsofkgddpcntdvpckdq` |
+| **LEGACY_PARENT** (legacy runbook label: production) | `wkrcyxcnzhwjtdpmfpaf` | Explicit operator approval only — not current live |
 
 See [`SUPABASE_TARGETING.md`](./SUPABASE_TARGETING.md) — never assume `config.toml` `project_id` equals the active CLI or frontend target.
 
@@ -250,9 +254,9 @@ supabase secrets set GEMINI_SCAN_MODEL=gemini-3.1-flash-lite-preview --project-r
 
 Only use preview ID if harness proves Google still serves it — preview models are deprecated.
 
-### Production rollback
+### LEGACY_PARENT rollback (explicit approval only)
 
-Same commands with `--project-ref wkrcyxcnzhwjtdpmfpaf`. Requires operator approval.
+Same commands with `--project-ref wkrcyxcnzhwjtdpmfpaf`. Requires operator approval. Not routine live rollback — LIVE_ACTIVE rollback uses `zgsofkgddpcntdvpckdq`.
 
 ### Post-rollback validation
 
@@ -268,12 +272,12 @@ Same commands with `--project-ref wkrcyxcnzhwjtdpmfpaf`. Requires operator appro
 
 ### Project references
 
-| Environment | `--project-ref` |
-|-------------|-----------------|
-| Staging | `zgsofkgddpcntdvpckdq` |
-| Production | `wkrcyxcnzhwjtdpmfpaf` |
+| Operational role | `--project-ref` |
+|------------------|-----------------|
+| **LIVE_ACTIVE** | `zgsofkgddpcntdvpckdq` |
+| **LEGACY_PARENT** | `wkrcyxcnzhwjtdpmfpaf` |
 
-Always pass `--project-ref` explicitly for secrets commands. Do not rely on a stale `supabase link` when touching production.
+Always pass `--project-ref` explicitly for secrets commands. Do not rely on a stale `supabase link` when touching LIVE_ACTIVE or LEGACY_PARENT.
 
 ### Required commands
 

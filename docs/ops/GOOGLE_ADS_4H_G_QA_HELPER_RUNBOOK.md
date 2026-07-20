@@ -16,6 +16,8 @@ synthetic QA lead with gclid/gbraid/wbraid
 
 **Forbidden production:** `wkrcyxcnzhwjtdpmfpaf` — helper hard-denies this ref at runtime.
 
+> **Operational role note:** Runbook labels **staging** / **production** are legacy naming. Per [SUPABASE_ENVIRONMENT_REGISTRY.md](./SUPABASE_ENVIRONMENT_REGISTRY.md): **`zgsofkgddpcntdvpckdq` = LIVE_ACTIVE**. **`wkrcyxcnzhwjtdpmfpaf` = LEGACY_PARENT** (forbidden unless explicitly authorized).
+
 ---
 
 ## Staging-only warning

@@ -6,6 +6,8 @@ Human-operated only. **No live TikTok dispatch** in this sprint — worker code 
 
 **Code baseline:** `forensic_report_v2` @ `57058cd9` or later with TikTok enqueue + worker dry-run commits.
 
+> **Operational role note:** Runbook **staging** = LIVE_ACTIVE (`zgsofkgddpcntdvpckdq`). See [SUPABASE_ENVIRONMENT_REGISTRY.md](./SUPABASE_ENVIRONMENT_REGISTRY.md).
+
 ---
 
 ## 1. Required deploy functions

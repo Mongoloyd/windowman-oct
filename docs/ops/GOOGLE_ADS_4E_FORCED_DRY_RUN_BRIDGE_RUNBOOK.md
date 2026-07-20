@@ -13,6 +13,8 @@ Human-operated only. **Sprint 4E — worker bridge patch only. No worker invocat
 
 **Target staging:** `zgsofkgddpcntdvpckdq` | **Forbidden production:** `wkrcyxcnzhwjtdpmfpaf`
 
+> **Operational role note:** **Target staging** = LIVE_ACTIVE. **Forbidden production** = LEGACY_PARENT. See [SUPABASE_ENVIRONMENT_REGISTRY.md](./SUPABASE_ENVIRONMENT_REGISTRY.md).
+
 **Related:**
 
 - [GOOGLE_ADS_4C_DRY_RUN_SCAFFOLD_RUNBOOK.md](./GOOGLE_ADS_4C_DRY_RUN_SCAFFOLD_RUNBOOK.md)

@@ -4,6 +4,8 @@ Code-only sprint: wires `dispatch-platform-events` and the canonical dispatch wo
 
 **Target staging:** `zgsofkgddpcntdvpckdq` | **Forbidden production:** `wkrcyxcnzhwjtdpmfpaf`
 
+> **Operational role note:** **Target staging** = LIVE_ACTIVE. **Forbidden production** = LEGACY_PARENT. See [SUPABASE_ENVIRONMENT_REGISTRY.md](./SUPABASE_ENVIRONMENT_REGISTRY.md).
+
 ---
 
 ## Precondition (human-verified)

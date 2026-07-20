@@ -1,6 +1,6 @@
-# V2 Staging QA Matrix
+# V2 LIVE_ACTIVE QA Matrix
 
-Run on **staging** Supabase with `.env.local` pointing at staging (not production `wkrcyxcnzhwjtdpmfpaf`).
+Run on **LIVE_ACTIVE** Supabase (`zgsofkgddpcntdvpckdq`) with `.env.local` pointing at LIVE_ACTIVE — not LEGACY_PARENT (`wkrcyxcnzhwjtdpmfpaf`). Legacy runbooks may say "staging"; see [SUPABASE_ENVIRONMENT_REGISTRY.md](../ops/SUPABASE_ENVIRONMENT_REGISTRY.md).
 
 **Routes under test:**
 
@@ -14,11 +14,11 @@ Run on **staging** Supabase with `.env.local` pointing at staging (not productio
 
 ## Operator blockers (before this matrix)
 
-- [ ] `.env.local` created from `.env.example` with staging URL, publishable key, project ID
-- [ ] Staging project ref confirmed ≠ production
-- [ ] Staging migrations match `main`
-- [ ] Twilio + Gemini/scanner secrets on staging for live OTP/scan tests
-- [ ] Do not run `npm run typegen` against production
+- [ ] `.env.local` created from `.env.example` with LIVE_ACTIVE URL, publishable key, project ID (`zgsofkgddpcntdvpckdq`)
+- [ ] LIVE_ACTIVE project ref confirmed ≠ LEGACY_PARENT (`wkrcyxcnzhwjtdpmfpaf`)
+- [ ] LIVE_ACTIVE migrations match `main`
+- [ ] Twilio + Gemini/scanner secrets on LIVE_ACTIVE for live OTP/scan tests
+- [ ] Do not run `npm run typegen` against LEGACY_PARENT
 
 ---
 
@@ -41,7 +41,7 @@ From AGENTS.md / claude.md (AGENTS.md is canonical):
 | **Steps** | Minimal reproduction |
 | **Expected backend** | Authoritative server behavior |
 | **Expected UI** | User-visible outcome |
-| **Pass** | Checkbox when verified on staging |
+| **Pass** | Checkbox when verified on LIVE_ACTIVE |
 
 ---
 

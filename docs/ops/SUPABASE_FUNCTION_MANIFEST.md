@@ -14,12 +14,17 @@ That means the Supabase API gateway does **not** enforce JWT validation at the e
 
 **Project targeting (documented, not live-verified here):**
 
-| Ref | Role | Evidence |
-|-----|------|----------|
-| `wkrcyxcnzhwjtdpmfpaf` | Legacy Lovable/main production | Historical production project; do not target from `forensic_report_v2` without explicit approval |
-| `zgsofkgddpcntdvpckdq` | Forensic V2 target | Active V2 Supabase project for staging now and future Netlify production promotion |
+Canonical operational roles: [SUPABASE_ENVIRONMENT_REGISTRY.md](./SUPABASE_ENVIRONMENT_REGISTRY.md).
 
-**Per-function deploy parity across projects:** Reconciled **2026-06-11** on forensic V2 via `supabase functions list` (see [§ Live Deployment Matrix](#live-deployment-matrix)); ghost `summarize-row` retired **2026-06-11**. Staging (`zgsofkgddpcntdvpckdq`): **36/54** local functions live, **0 ghosts**. Production (`wkrcyxcnzhwjtdpmfpaf`): **52/52** was last audited **2026-05-26** (may lag new repo folders `capture-power-tool-demo-lead`, `windowman-concierge`). Structural parity between staging and production is **not** good — staging lacks **18** repo functions.
+| Ref | Operational role | Notes |
+|-----|------------------|-------|
+| `zgsofkgddpcntdvpckdq` | **LIVE_ACTIVE** | Current live WindowMan DB; default approved Forensic V2 remote target |
+| `wkrcyxcnzhwjtdpmfpaf` | **LEGACY_PARENT** | Legacy WMProd parent; do not target from `forensic_report_v2` without explicit approval |
+| `aqyptdxsbxqpbgoecykx` | **EMPTY_PREVIEW_V2** | Empty preview DB for V2 branch experiments |
+
+**Matrix column labels:** Tables below use legacy audit labels **Staging** / **Production** for the two refs audited in 2026-05/06. **Staging** = `zgsofkgddpcntdvpckdq` (**LIVE_ACTIVE**). **Production** = `wkrcyxcnzhwjtdpmfpaf` (**LEGACY_PARENT** — not current live). Script names such as `assert-staging.ps1` assert LIVE_ACTIVE, not a disposable staging environment.
+
+**Per-function deploy parity across projects:** Reconciled **2026-06-11** on forensic V2 via `supabase functions list` (see [§ Live Deployment Matrix](#live-deployment-matrix)); ghost `summarize-row` retired **2026-06-11**. LIVE_ACTIVE / legacy matrix label “Staging” (`zgsofkgddpcntdvpckdq`): **36/54** local functions live, **0 ghosts**. LEGACY_PARENT / legacy matrix label “Production” (`wkrcyxcnzhwjtdpmfpaf`): **52/52** was last audited **2026-05-26** (may lag new repo folders `capture-power-tool-demo-lead`, `windowman-concierge`). Structural parity between the two audited refs is **not** good — LIVE_ACTIVE lacks **18** repo functions relative to the legacy parent audit.
 
 **Canonical funnel functions (Verify-to-Reveal):** `start-upload-scan-session` → `scan-quote` → `report-access` (preview/full) → `send-otp` / `verify-otp` → full reveal. OTP must remain server-side; preview must never expose `full_json`.
 
