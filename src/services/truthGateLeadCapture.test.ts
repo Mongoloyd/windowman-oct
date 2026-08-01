@@ -14,6 +14,8 @@ const getAttributionPayloadMock = vi.fn();
 const readLateFbCookiesMock = vi.fn();
 const invokeMock = vi.fn();
 const pushLeadMagnetCapturedMock = vi.fn();
+const getOpenAiAdsCaptureContextMock = vi.fn();
+const trackOpenAiAdsLeadCreatedMock = vi.fn();
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
@@ -34,6 +36,12 @@ vi.mock("@/lib/attribution/fbCookies", () => ({
 
 vi.mock("@/lib/tracking/dataLayer", () => ({
   pushLeadMagnetCaptured: (...args: unknown[]) => pushLeadMagnetCapturedMock(...args),
+}));
+
+vi.mock("@/lib/openAiAdsPixel", () => ({
+  getOpenAiAdsCaptureContext: () => getOpenAiAdsCaptureContextMock(),
+  trackOpenAiAdsLeadCreated: (...args: unknown[]) =>
+    trackOpenAiAdsLeadCreatedMock(...args),
 }));
 
 function installLocalStorageMock(initial?: Record<string, string>) {
@@ -73,6 +81,8 @@ describe("truthGateLeadCapture", () => {
     getAttributionPayloadMock.mockReset();
     readLateFbCookiesMock.mockReset();
     pushLeadMagnetCapturedMock.mockReset();
+    getOpenAiAdsCaptureContextMock.mockReset();
+    trackOpenAiAdsLeadCreatedMock.mockReset();
 
     installLocalStorageMock();
     stubWindowLocation("");
@@ -99,6 +109,12 @@ describe("truthGateLeadCapture", () => {
     });
 
     readLateFbCookiesMock.mockReturnValue({ fbp: "fbp123", fbc: "fbc123" });
+    getOpenAiAdsCaptureContextMock.mockReturnValue({
+      measurementConsent: true,
+      sourceUrl: "https://windowman.app/",
+      oppref: "opaque-oppref",
+      obref: "opaque-obref",
+    });
   });
 
   afterEach(() => {
@@ -326,8 +342,108 @@ describe("truthGateLeadCapture", () => {
       expect(result.ok).toBe(true);
       expect(invokeMock).toHaveBeenCalledTimes(1);
       expect(invokeMock).toHaveBeenCalledWith("capture-truth-gate-lead", {
-        body: expect.objectContaining({ source: TRUTH_GATE_SOURCE }),
+        body: expect.objectContaining({
+          source: TRUTH_GATE_SOURCE,
+          openai_ads: {
+            measurementConsent: true,
+            sourceUrl: "https://windowman.app/",
+            oppref: "opaque-oppref",
+            obref: "opaque-obref",
+          },
+        }),
       });
+    });
+
+    it("fires OpenAI lead_created once with the unchanged server event ID after a new insert", async () => {
+      const serverEventId = `wm_openai_lead_created_${LEAD_ID}`;
+      invokeMock.mockResolvedValue({
+        data: {
+          success: true,
+          lead_id: LEAD_ID,
+          session_id: SESSION_ID,
+          openai_ads_event_id: serverEventId,
+        },
+        error: null,
+      });
+
+      const result = await submitTruthGateLead({
+        sessionId: SESSION_ID,
+        firstName: "Jane",
+        email: "jane@example.com",
+        phone: "",
+        funnelClientSlug: null,
+      });
+
+      expect(result.ok).toBe(true);
+      expect(trackOpenAiAdsLeadCreatedMock).toHaveBeenCalledTimes(1);
+      expect(trackOpenAiAdsLeadCreatedMock).toHaveBeenCalledWith(serverEventId);
+      if (result.ok) {
+        expect(result.openAiAdsEventId).toBe(serverEventId);
+      }
+    });
+
+    it("does not fire OpenAI lead_created for a reused capture", async () => {
+      invokeMock.mockResolvedValue({
+        data: {
+          success: true,
+          lead_id: LEAD_ID,
+          session_id: SESSION_ID,
+          reused: true,
+          openai_ads_event_id: `wm_openai_lead_created_${LEAD_ID}`,
+        },
+        error: null,
+      });
+
+      await submitTruthGateLead({
+        sessionId: SESSION_ID,
+        firstName: "Jane",
+        email: "jane@example.com",
+        phone: "",
+        funnelClientSlug: null,
+      });
+
+      expect(trackOpenAiAdsLeadCreatedMock).not.toHaveBeenCalled();
+    });
+
+    it("does not fire OpenAI lead_created when the server ID is missing", async () => {
+      invokeMock.mockResolvedValue({
+        data: { success: true, lead_id: LEAD_ID, session_id: SESSION_ID },
+        error: null,
+      });
+
+      await submitTruthGateLead({
+        sessionId: SESSION_ID,
+        firstName: "Jane",
+        email: "jane@example.com",
+        phone: "",
+        funnelClientSlug: null,
+      });
+
+      expect(trackOpenAiAdsLeadCreatedMock).not.toHaveBeenCalled();
+    });
+
+    it("does not send OpenAI request context or fire Pixel when consent is absent", async () => {
+      getOpenAiAdsCaptureContextMock.mockReturnValue(null);
+      invokeMock.mockResolvedValue({
+        data: {
+          success: true,
+          lead_id: LEAD_ID,
+          session_id: SESSION_ID,
+          openai_ads_event_id: `wm_openai_lead_created_${LEAD_ID}`,
+        },
+        error: null,
+      });
+
+      await submitTruthGateLead({
+        sessionId: SESSION_ID,
+        firstName: "Jane",
+        email: "jane@example.com",
+        phone: "",
+        funnelClientSlug: null,
+      });
+
+      expect(invokeMock.mock.calls[0][1].body).not.toHaveProperty("openai_ads");
+      expect(trackOpenAiAdsLeadCreatedMock).not.toHaveBeenCalled();
     });
 
     it("fires pushLeadMagnetCaptured once with the DB lead_id after success (not before)", async () => {
@@ -370,6 +486,7 @@ describe("truthGateLeadCapture", () => {
       });
 
       expect(pushLeadMagnetCapturedMock).not.toHaveBeenCalled();
+      expect(trackOpenAiAdsLeadCreatedMock).not.toHaveBeenCalled();
     });
 
     it("normalizes empty phone to null in payload", async () => {

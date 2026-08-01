@@ -1,4 +1,8 @@
 import { readLateFbCookies } from "@/lib/attribution/fbCookies";
+import {
+  getOpenAiAdsCaptureContext,
+  trackOpenAiAdsLeadCreated,
+} from "@/lib/openAiAdsPixel";
 import { pushLeadMagnetCaptured } from "@/lib/tracking/dataLayer";
 import { captureUtmFromUrl, getAttributionPayload } from "@/lib/useUtmCapture";
 import { normalizeTruthGatePhoneToE164 } from "@/lib/validation/truthGateContact";
@@ -31,6 +35,7 @@ export type TruthGateLeadResult =
       leadId: string;
       sessionId: string;
       reused?: boolean;
+      openAiAdsEventId?: string;
       phoneE164: string | null;
       clientSlug?: string | null;
     }
@@ -161,6 +166,11 @@ export async function submitTruthGateLead(
       funnelClientSlug: input.funnelClientSlug,
     });
 
+    const openAiAdsContext = getOpenAiAdsCaptureContext();
+    if (openAiAdsContext) {
+      body.openai_ads = openAiAdsContext;
+    }
+
     const { data: captureData, error: captureError } =
       await supabase.functions.invoke("capture-truth-gate-lead", { body });
 
@@ -200,6 +210,13 @@ export async function submitTruthGateLead(
     }
 
     const clientSlug = (body.client_slug as string | null | undefined) ?? null;
+    const reused = captureData.reused === true;
+    const openAiAdsEventId =
+      !reused &&
+      typeof captureData.openai_ads_event_id === "string" &&
+      captureData.openai_ads_event_id.trim().length > 0
+        ? captureData.openai_ads_event_id
+        : undefined;
 
     if (import.meta.env.DEV) {
       console.info("[truthGateLeadCapture] capture-truth-gate-lead success", {
@@ -220,11 +237,16 @@ export async function submitTruthGateLead(
       clientSlug,
     });
 
+    if (openAiAdsContext && openAiAdsEventId) {
+      trackOpenAiAdsLeadCreated(openAiAdsEventId);
+    }
+
     return {
       ok: true,
       leadId: captureData.lead_id as string,
       sessionId: resolvedSessionId,
-      reused: captureData.reused === true,
+      reused,
+      ...(openAiAdsEventId ? { openAiAdsEventId } : {}),
       phoneE164,
       clientSlug,
     };

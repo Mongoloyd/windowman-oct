@@ -11,6 +11,9 @@
  *      pixel and fire `PageView` on initial load + SPA route change for
  *      top-of-funnel attribution and `_fbp` / `_fbc` cookie seeding only.
  *      Conversion ownership remains server-side. See `metaBrowserPixel.ts`.
+ *   5. Initialize the consent-gated OpenAI Ads Pixel once and emit
+ *      `page_viewed` on initial load + real SPA route changes. OpenAI's
+ *      `lead_created` mirror is owned by the confirmed lead service instead.
  *
  * NON-GOALS:
  *   - No browser-side Meta conversion events (no `Lead`, no `Purchase`,
@@ -36,6 +39,10 @@ import {
   pushVirtualPageView,
 } from "@/lib/tracking/dataLayer";
 import { initMetaBrowserPixel, trackMetaPageView } from "@/lib/metaBrowserPixel";
+import {
+  initOpenAiAdsPixel,
+  trackOpenAiAdsPageViewed,
+} from "@/lib/openAiAdsPixel";
 
 // ── Context ─────────────────────────────────────────────────────────────────
 
@@ -72,6 +79,7 @@ export function AppTrackingProvider({ children }: { children: React.ReactNode })
   // The init call itself fires the initial PageView.
   useEffect(() => {
     initMetaBrowserPixel();
+    initOpenAiAdsPixel();
   }, []);
 
   const value = useMemo<AppTrackingContextValue>(
@@ -91,12 +99,9 @@ export function AppTrackingProvider({ children }: { children: React.ReactNode })
 
 function RouteTracker() {
   const location = useLocation();
-  // Guards against double-firing the initial Meta PageView. The canonical
-  // owner of the FIRST browser Meta `PageView` is `initMetaBrowserPixel()`
-  // in `src/lib/metaBrowserPixel.ts`, which runs in the provider mount
-  // effect. This RouteTracker owns SPA route-change PageViews ONLY, so we
-  // must skip the very first effect run (which corresponds to the initial
-  // mount, not a navigation).
+  // Guards against double-firing the initial vendor page views. The browser
+  // adapters initialize in the provider mount effect; this RouteTracker owns
+  // SPA route-change views only, so the initial effect is skipped.
   const isFirstRouteEffect = useRef(true);
 
   useEffect(() => {
@@ -113,14 +118,14 @@ function RouteTracker() {
       page_hash: location.hash,
     });
 
-    // Browser Meta PageView: skip the first effect run because
-    // `initMetaBrowserPixel` already fired the initial PageView.
-    // Subsequent runs correspond to real SPA navigations.
+    // Skip vendor route events on initial mount because their adapters own
+    // initial-load measurement. Subsequent runs are real SPA navigations.
     if (isFirstRouteEffect.current) {
       isFirstRouteEffect.current = false;
       return;
     }
     trackMetaPageView();
+    trackOpenAiAdsPageViewed();
   }, [location.pathname, location.search, location.hash]);
 
   return null;

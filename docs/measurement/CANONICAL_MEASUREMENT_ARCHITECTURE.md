@@ -1,7 +1,7 @@
 # Canonical Measurement Architecture
 
 > **Status:** Approved production policy. This is the single source of truth
-> for browser ↔ server Meta measurement in the WindowMan repo. Future prompts
+> for browser ↔ server Meta and OpenAI Ads measurement in the WindowMan repo. Future prompts
 > and sprints MUST defer to this memo before touching any tracking code.
 >
 > **Companion memos:**
@@ -14,20 +14,26 @@
 
 ## 1. Status
 
-WindowMan's measurement architecture is **intentionally split** between a
-narrow browser layer and an authoritative server layer.
+WindowMan's measurement architecture is **intentionally split** between
+narrow, vendor-specific browser adapters and authoritative server success
+boundaries.
 
 - **Browser Meta is allowed in one narrow form only:** a single
   WindowMan-controlled pixel firing `init` + `PageView`.
 - **All conversion ownership remains server-side.** OTP-verified events,
   report-revealed events, leads, and purchases are emitted exclusively
   through the canonical server-side dispatch pipeline.
+- **OpenAI Ads has one explicitly approved hybrid exception.** Its browser
+  Pixel may mirror `lead_created` only after `capture-truth-gate-lead` returns
+  the unchanged server-issued event ID for a newly inserted lead. The paired
+  CAPI event uses the same Pixel ID, event name, and ID. This mirror does not
+  make the browser a business-truth owner.
 - This split is deliberate. It is not a transitional state. Do not collapse
   it without a dedicated, explicitly-scoped sprint.
 
 ---
 
-## 2. Browser layer (narrow, top-of-funnel only)
+## 2. Browser Meta layer (narrow, top-of-funnel only)
 
 ### 2.1 What the browser layer does
 
@@ -59,6 +65,33 @@ Conversions never originate in the browser. See §3.
 - **CI guardrail:** `.github/workflows/pageview-guardrail.yml` enforces
   this proof on every change so the dedupe behavior cannot silently regress.
 
+### 2.4 OpenAI Ads browser adapter (consent-gated)
+
+`src/lib/openAiAdsPixel.ts` is the sole OpenAI Ads browser adapter.
+
+| Behavior | Allowed | Notes |
+|---|---|---|
+| `oaiq("consent", false)` before init | ✅ | Required when `wg_consent_mode` is unset or denied. |
+| `oaiq("init", { pixelId })` | ✅ | Exactly once per app load; uses `VITE_OPENAI_ADS_PIXEL_ID`. |
+| `page_viewed` | ✅ | Initial load after granted consent, then real SPA route changes. |
+| `lead_created` | ✅ | Only after a new TruthGate insert; fourth-argument `event_id` is the unchanged server response value. |
+| Browser OpenAI user matching | ❌ | No email, phone, external ID, or hashed identity is sent from the browser in this sprint. |
+
+Consent is fail-closed: only the literal stored value `granted` enables an
+OpenAI Pixel or CAPI event. The adapter re-syncs consent before each event.
+Blocked events are not replayed. The existing `ConsentBanner` is currently
+unmounted, so first-visit OpenAI coverage remains disabled until a separate,
+approved consent-foundation sprint mounts or replaces that UI.
+
+For the lead conversion, `src/services/truthGateLeadCapture.ts` adds optional
+consent-gated `openai_ads` attribution context to the existing lead request.
+It emits the Pixel mirror only when all of these are true:
+
+1. lead persistence succeeded;
+2. the response is not marked `reused`;
+3. the server returned a non-empty `openai_ads_event_id`; and
+4. measurement consent remains granted.
+
 ---
 
 ## 3. Server layer (authoritative conversion ownership)
@@ -72,6 +105,8 @@ Conversions never originate in the browser. See §3.
 - Guarantee match-quality enrichment for every event that has the data.
 - Log every dispatch to `capi_signal_logs` with already-hashed PII for
   observability.
+- For OpenAI Ads, own the `lead_created` event ID and CAPI dispatch directly
+  at the successful new-insert boundary in `capture-truth-gate-lead`.
 
 ### 3.2 Match-quality rules (enforced in `capi-event`)
 
@@ -112,11 +147,31 @@ silent breakage here destroys match quality without any visible failure.
 - These tests must be kept green. If a change to `capi-event` requires a
   test update, the change must be deliberate and reviewed against this memo.
 
+### 3.4 OpenAI Ads new-lead CAPI boundary
+
+`supabase/functions/capture-truth-gate-lead/index.ts` is the only approved
+OpenAI Ads `lead_created` server owner. After a successful new `truth-gate`
+lead insert it:
+
+1. builds `wm_openai_lead_created_<lead_uuid>` once on the server;
+2. returns that ID only on the new-insert success response;
+3. schedules CAPI through `EdgeRuntime.waitUntil` so measurement cannot delay
+   or fail lead capture; and
+4. never performs this work for reused, validation-failed, insert-failed, or
+   unexpected-error paths.
+
+`supabase/functions/_shared/openAiAdsConversions.ts` fixes the provider event
+to `lead_created` with `data.type = "customer_action"`. It reads the server-only
+`OPENAI_ADS_CONVERSIONS_API_KEY`, sanitizes `source_url` to trusted HTTP(S)
+origin + pathname, bounds network time, hashes normalized email server-side,
+and may include consent-gated raw `oppref`, `user.obref`, request IP, and user
+agent. It never sends raw email, raw external IDs, phone data, or phone hashes.
+
 ---
 
 ## 4. Hard rules
 
-### 4.1 Browser is forbidden from
+### 4.1 Browser Meta is forbidden from
 
 - firing `Lead`
 - firing `CompleteRegistration`
@@ -130,13 +185,26 @@ silent breakage here destroys match quality without any visible failure.
 - expanding beyond `init` + `PageView` without a dedicated sprint that
   explicitly amends this memo
 
-### 4.2 Server is forbidden from
+### 4.2 Browser OpenAI Ads is forbidden from
+
+- emitting any event without explicit granted measurement consent
+- creating or transforming the `lead_created` event ID
+- emitting `lead_created` before server-confirmed new persistence
+- emitting `lead_created` for reused or failed captures
+- sending browser user matching, raw PII, phone data, or phone hashes
+- emitting OTP, registration, reveal, upload, appointment, purchase, or
+  custom events
+- reading or sending `OPENAI_ADS_CONVERSIONS_API_KEY`
+
+### 4.3 Server is forbidden from
 
 - weakening any match-quality rule in §3.2
 - reintroducing double-hashing of pre-hashed PII
 - bypassing the canonical mapper for ad-hoc Meta calls
 - emitting business conversions from anywhere other than the canonical
   server-side dispatch path
+- sending OpenAI Ads `lead_created` for a reused or failed TruthGate capture
+- accepting a browser-selected OpenAI event name or browser-selected event ID
 
 ---
 
@@ -150,6 +218,13 @@ modify them as a side effect:
 - `src/components/post-scan/PostScanReportSwitcher.tsx`
 - `src/components/TruthReportFindings/PhoneVerifyModal.tsx`
 - `src/components/TruthReportFindings/VerifyGate.tsx`
+- `src/lib/openAiAdsPixel.ts`
+- `src/lib/openAiAdsPixel.test.ts`
+- `src/services/truthGateLeadCapture.ts`
+- `src/services/truthGateLeadCapture.test.ts`
+- `supabase/functions/capture-truth-gate-lead/index.ts`
+- `supabase/functions/_shared/openAiAdsConversions.ts`
+- `supabase/functions/_shared/openAiAdsConversions.test.ts`
 
 Twilio code, configuration, and behavior are **off-limits** for measurement
 work. Any change that requires touching Twilio or the OTP/reveal files must
@@ -165,6 +240,9 @@ be opened as a separate, explicitly-scoped sprint with its own approval.
 | Browser PageView dedupe | CI enforcement | `.github/workflows/pageview-guardrail.yml` |
 | Server `capi-event` hashing / fallback / pass-through | Deno tests (27 cases) | `supabase/functions/capi-event/index.test.ts` |
 | Server `capi-event` runtime defect (no double-hash) | Asserted directly in tests | same |
+| OpenAI Ads Pixel consent/init/events | Focused Vitest contract | `src/lib/openAiAdsPixel.test.ts` |
+| OpenAI Ads new/reused/failed lead boundary | Focused Vitest contract | `src/services/truthGateLeadCapture.test.ts` |
+| OpenAI Ads CAPI schema/hash/trust/timeout | Focused Deno contract | `supabase/functions/_shared/openAiAdsConversions.test.ts` |
 
 Future prompts must not bypass, weaken, or delete these safeguards.
 
@@ -181,13 +259,21 @@ When auditing the repo for tracking regressions, use this rubric:
   and the SPA route-change effect
 - references to `_fbp` / `_fbc` / `fbclid` in attribution capture code
 - references to `capi-event` from server-side code only
+- `oaiq("measure", "page_viewed", { type: "contents" })` in
+  `src/lib/openAiAdsPixel.ts`
+- `oaiq("measure", "lead_created", ..., { event_id })` in that same adapter
+  when `event_id` came unchanged from the new-insert response
 
 ### 7.2 Regressions (STOP and report)
 
 - any `fbq("track", ...)` for an event other than `PageView`
 - any browser `fetch` / `supabase.functions.invoke("capi-event", ...)` call
 - any browser code reading or sending a Meta access token
-- any new browser pixel ID beyond `VITE_META_PIXEL_ID`
+- any new browser Meta pixel ID beyond `VITE_META_PIXEL_ID`
+- any OpenAI Ads event other than consent-gated `page_viewed` or the
+  server-confirmed `lead_created` mirror
+- any client-created/transformed OpenAI Ads lead event ID
+- any OpenAI Ads CAPI key reference in browser code or a `VITE_*` variable
 - any server-side change that removes the `isSha256Hex` pre-hashed
   pass-through, the IP/UA fallback, or the `em`/`ph` array wrapping
 - any disabled or deleted PageView CI guardrail or `capi-event` test
@@ -195,7 +281,8 @@ When auditing the repo for tracking regressions, use this rubric:
 ### 7.3 When to stop
 
 - If a proposed change requires touching protected files (§5), STOP.
-- If a proposed change requires broadening the browser pixel scope, STOP.
+- If a proposed change requires broadening either approved browser adapter,
+  STOP.
 - If a proposed change weakens any §3.2 match-quality rule, STOP.
 
 In all three cases, do not proceed inline — open a dedicated sprint with
@@ -224,3 +311,8 @@ related cleanup sprints:
 6. **Do not delete or disable** the runtime PageView proof, the CI
    guardrail, or the `capi-event` regression tests. They are the only
    defense against silent regression of this architecture.
+7. **Keep OpenAI Ads consent fail-closed.** Unset and denied consent both mean
+   no event. Mounting/replacing consent UI is a separate sprint.
+8. **Keep OpenAI Ads lead identity server-owned.** The browser may only mirror
+   the exact ID returned after a new insert; reused and failed captures remain
+   silent.

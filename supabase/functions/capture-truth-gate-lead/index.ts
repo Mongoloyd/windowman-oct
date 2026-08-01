@@ -28,7 +28,8 @@
 // Contract
 //   Method: POST
 //   Body  : strict shape (see CapturePayload). Unknown keys are ignored.
-//   Resp  : { success, lead_id, session_id } on 200
+//   Resp  : { success, lead_id, session_id, openai_ads_event_id? } on 200
+//           (OpenAI ID exists only for a newly inserted truth-gate lead)
 //           { success: false, code, message, details? } on 4xx/5xx
 
 import {
@@ -43,9 +44,21 @@ import {
   sanitizeAttributionInput,
   sanitizeQueryParamsInput,
 } from "../_shared/attributionMerge.ts";
-import { getCorsHeaders } from "../_shared/cors.ts";
+import {
+  getCorsHeaders,
+  getOriginFromRequest,
+  isAllowedOrigin,
+} from "../_shared/cors.ts";
 import { deriveLeadSourceFromSource } from "../_shared/deriveLeadSourceFromSource.ts";
 import { emitLeadActivity } from "../_shared/emitLeadActivity.ts";
+import {
+  buildOpenAiAdsLeadEventId,
+  extractOpenAiAdsClientIp,
+  parseOpenAiAdsClientContext,
+  readOpenAiAdsRuntimeConfig,
+  scheduleOpenAiAdsConversion,
+  sendOpenAiAdsLeadCreated,
+} from "../_shared/openAiAdsConversions.ts";
 import { persistCanonicalEvent } from "../_shared/tracking/canonicalBridge.ts";
 
 const FUNCTION_NAME = "capture-truth-gate-lead";
@@ -638,6 +651,7 @@ Deno.serve(async (req) => {
   }
 
   const { payload } = parsed;
+  const openAiAdsContext = parseOpenAiAdsClientContext(bodyJson);
   scrubNoQuoteOrganicFields(payload);
 
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
@@ -853,6 +867,44 @@ Deno.serve(async (req) => {
     has_client_slug: !!payload.client_slug,
   });
 
+  // Server-canonical OpenAI Ads conversion identity exists only for this
+  // successful new TruthGate insert. Reused and failed paths return earlier.
+  let openAiAdsEventId: string | null = null;
+  if (data?.id && payload.source === "truth-gate") {
+    try {
+      openAiAdsEventId = buildOpenAiAdsLeadEventId(data.id);
+
+      if (openAiAdsContext) {
+        const requestOrigin = getOriginFromRequest(req);
+        const trustedRequestOrigin = isAllowedOrigin(requestOrigin)
+          ? requestOrigin
+          : null;
+        const openAiAdsConfig = readOpenAiAdsRuntimeConfig((name) =>
+          Deno.env.get(name)
+        );
+
+        scheduleOpenAiAdsConversion(
+          openAiAdsEventId,
+          sendOpenAiAdsLeadCreated({
+            eventId: openAiAdsEventId,
+            timestampMs: Date.now(),
+            email: payload.email,
+            context: openAiAdsContext,
+            requestOrigin: trustedRequestOrigin,
+            canonicalSiteOrigin: openAiAdsConfig.canonicalSiteOrigin,
+            ipAddress: extractOpenAiAdsClientIp(req.headers),
+            userAgent: req.headers.get("user-agent"),
+            pixelId: openAiAdsConfig.pixelId,
+            apiKey: openAiAdsConfig.apiKey,
+          }),
+        );
+      }
+    } catch {
+      // Measurement identity/dispatch can never fail a persisted lead.
+      openAiAdsEventId = null;
+    }
+  }
+
   if (data?.id) {
     await maybePersistLeadCapturedCanonical(admin, {
       leadId: data.id,
@@ -931,6 +983,9 @@ Deno.serve(async (req) => {
       success: true,
       lead_id: data?.id ?? null,
       session_id: data?.session_id ?? payload.session_id,
+      ...(openAiAdsEventId
+        ? { openai_ads_event_id: openAiAdsEventId }
+        : {}),
     },
     200,
     corsHeaders,

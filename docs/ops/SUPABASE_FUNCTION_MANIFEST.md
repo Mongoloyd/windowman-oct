@@ -299,7 +299,7 @@ Functions reachable by unauthenticated browsers using only the publishable/anon 
 
 | Function | Purpose (short) | Handler gate | Primary tables / RPCs |
 |----------|-----------------|----------------|------------------------|
-| `capture-truth-gate-lead` | TruthGate lead INSERT (RLS-safe) | Payload validation; never sets `phone_verified` | `leads`, `event_logs` |
+| `capture-truth-gate-lead` | TruthGate lead INSERT (RLS-safe) + consent-gated OpenAI Ads `lead_created` | Payload validation; never sets `phone_verified`; server event ID and CAPI only after a new `source=truth-gate` insert | `leads`, `event_logs` |
 | `capture-power-tool-demo-lead` | PowerToolDemo progressive lead capture (`source=power-tool-demo`) | `verify_jwt=false`; source-scoped session lookup; never sets `phone_verified` / report unlock; PII logging banned | `leads`, `event_logs` |
 | `capture-arbitrage-lead` | ArbitrageEngine progressive lead capture (`source=arbitrage-engine`) | `verify_jwt=false`; backend flag `ARBITRAGE_PROGRESSIVE_CAPTURE_ENABLED` (default off); source-scoped `session_id`+`source` lookup; never sets `phone_verified` / report unlock; PII logging banned | `leads`, `event_logs` |
 | `start-upload-scan-session` | Bootstrap lead + quote_file + scan_session | UUID + storage_path contract | `leads`, `quote_files`, `scan_sessions`, `event_logs` |
@@ -390,6 +390,7 @@ Documented in `.env.example` (set via `supabase secrets set`, never in client `.
 | `DEV_BYPASS_ENABLED` | `_shared/adminAuth.ts`, `dev-report-unlock` |
 | `DEV_BYPASS_SECRET` | `_shared/adminAuth.ts`, `dev-report-unlock`, `dev-create-quote-scenario`, `scan-quote` (dev override) |
 | `META_PIXEL_ID`, `META_CAPI_TOKEN`, `META_TEST_EVENT_CODE` | `capi-event`, `_shared/capiRouting.ts`, `admin-data` (Meta health) |
+| `OPENAI_ADS_PIXEL_ID`, `OPENAI_ADS_CONVERSIONS_API_KEY`, `OPENAI_ADS_SITE_ORIGIN` | `capture-truth-gate-lead` via `_shared/openAiAdsConversions.ts` (`OPENAI_ADS_CONVERSIONS_API_KEY` is server-only) |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID` | `send-otp`, `verify-otp` |
 | `TWILIO_LOOKUP_ENABLED` | `send-otp`, `qualify-homepage-lead` |
 | `GEMINI_API_KEY` | `scan-quote`, `compare-quotes`, `generate-negotiation-script` |
@@ -444,7 +445,7 @@ Priority order for pre-deploy / post-deploy verification (last run: **UNKNOWN** 
 | P0 | `scan-quote` | Known fixture session → `analyses` row complete |
 | P0 | `report-access` | preview + full (verified phone) + unauthorized full |
 | P0 | `send-otp` / `verify-otp` | E.164 send → verify → `phone_verified_at` set |
-| P0 | `capture-truth-gate-lead` | TruthGate payload → `lead_id` |
+| P0 | `capture-truth-gate-lead` | New TruthGate payload → `lead_id` + `openai_ads_event_id`; reused response has neither OpenAI ID nor dispatch; CAPI failure remains non-blocking |
 | P1 | `qualify-homepage-lead` | Homepage lead path (confirm deployed on staging) |
 | P1 | `dispatch-lead` | `x-dispatch-secret` drain with `{ limit: 1 }` |
 | P1 | `stripe-webhook` | Stripe CLI test event → credits fulfilled |
@@ -538,10 +539,11 @@ Each entry: **Purpose · Category · verify_jwt · Auth · Env vars · Service r
 - **Smoke:** `smoke_test.ts` requires service-role token; `scripts/verify-capi-fallback.ts` verifies anon rejection + fail-closed routing
 
 ### `capture-truth-gate-lead`
-- **Purpose:** RLS-safe TruthGate lead capture.
+- **Purpose:** RLS-safe TruthGate lead capture; owns consent-gated OpenAI Ads `lead_created` only after a newly persisted lead.
 - **Category:** homeowner public · **Auth:** app-logic
-- **Env:** `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
+- **Env:** `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`; optional OpenAI Ads runtime config `OPENAI_ADS_PIXEL_ID`, server-only `OPENAI_ADS_CONVERSIONS_API_KEY`, `OPENAI_ADS_SITE_ORIGIN`
 - **Tables:** `leads`, `event_logs` · **Callers:** `TruthGateFlow.tsx`
+- **OpenAI Ads contract:** fixed `lead_created`; server ID returned only on new `source=truth-gate` insert; consent-gated `oppref`/`obref`; trusted origin+path `source_url`; normalized SHA-256 email; no phone data; `EdgeRuntime.waitUntil` + bounded timeout; reused/failed paths are silent.
 
 ### `capture-power-tool-demo-lead`
 - **Purpose:** Public homeowner/demo lead capture for PowerToolDemo (no-quote / pre-estimate path).
@@ -696,4 +698,3 @@ supabase functions list --project-ref zgsofkgddpcntdvpckdq
 supabase functions list --project-ref wkrcyxcnzhwjtdpmfpaf
 supabase secrets list --project-ref <ref>
 ```
-

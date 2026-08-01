@@ -112,7 +112,14 @@ From `docs/measurement/CAPI_OPERATOR_HANDOFF_PACKET.md` §5 and related measurem
 | Path | Rule |
 |------|------|
 | `src/lib/metaBrowserPixel.ts` | Browser Meta at approved ceiling (`init` + `PageView`) |
-| `src/components/AppTrackingProvider.tsx` | PageView routing only |
+| `src/lib/openAiAdsPixel.ts` | Consent, single init, `page_viewed`, and server-ID `lead_created` Pixel mirror only |
+| `src/lib/openAiAdsPixel.test.ts` | OpenAI Ads Pixel consent/dedupe regression contract — do not weaken to green CI |
+| `src/components/AppTrackingProvider.tsx` | Meta `PageView` and OpenAI Ads `page_viewed` routing only |
+| `src/services/truthGateLeadCapture.ts` | OpenAI Ads browser mirror only after new-persist response with server event ID |
+| `src/services/truthGateLeadCapture.test.ts` | New/reused/failed OpenAI lead boundary regression contract |
+| `supabase/functions/capture-truth-gate-lead/index.ts` | New-lead-only OpenAI Ads CAPI owner and event-ID authority |
+| `supabase/functions/_shared/openAiAdsConversions.ts` | OpenAI Ads CAPI schema, hashing, URL trust, timeout, and secret boundary |
+| `supabase/functions/_shared/openAiAdsConversions.test.ts` | OpenAI Ads CAPI regression contract — do not weaken to green CI |
 | `supabase/functions/_shared/capiRouting.ts` | Routing precedence — sprint only |
 | `supabase/functions/_shared/mapToMeta.ts` | Payload shape — sprint only |
 | `supabase/functions/capi-event/index.ts` | Hashing, fallback, pre-hashed pass-through |
@@ -126,7 +133,12 @@ From `docs/measurement/CAPI_OPERATOR_HANDOFF_PACKET.md` §5 and related measurem
 - `fbq("track", ...)` for events other than `PageView`
 - Browser `fetch` / `supabase.functions.invoke("capi-event")`
 - Browser Meta access token read/send
-- Extra browser pixel IDs beyond `VITE_META_PIXEL_ID`
+- Extra browser Meta pixel IDs beyond `VITE_META_PIXEL_ID`
+- OpenAI Ads events beyond consent-gated `page_viewed` and server-confirmed
+  `lead_created` with the unchanged server event ID
+- Browser OpenAI Ads user matching or raw PII in Pixel `measure` calls
+- OpenAI Ads CAPI credentials in any `VITE_*` variable or browser code
+- OpenAI Ads CAPI for reused or failed TruthGate captures
 - Removing `isSha256Hex` pass-through, IP/UA fallback, or `em`/`ph` wrapping in `capi-event`
 - Disabling PageView CI guardrail or `capi-event` tests
 

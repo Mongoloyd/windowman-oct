@@ -11,6 +11,10 @@
 
 These lanes must never be conflated. A single business moment may fire one event in each lane, but the event names must differ to prevent confusion.
 
+OpenAI Ads is an explicitly scoped vendor adapter outside these two canonical
+lanes. It does not change dataLayer or operational event ownership. Its browser
+`lead_created` is only a deduplicated mirror of server-confirmed business truth.
+
 ## Business Events — Canonical Owners
 
 | Event Name | Owner File | Trigger Moment | Dedup-Worthy | Identity Keys |
@@ -19,6 +23,22 @@ These lanes must never be conflated. A single business moment may fire one event
 | `phone_verified` | `PostScanReportSwitcher.tsx` | On `pipeline.submitOtp()` returning `status: "verified"` | Yes | `event_id` (server-issued), `scan_session_id`, `phone_e164_last4` |
 | `report_revealed` | `PostScanReportSwitcher.tsx` | On `isFullLoaded` transitioning to `true` after OTP (guarded by `capturedPhone` presence to exclude resume) | Yes | `event_id` (server-issued), `scan_session_id`, `lead_id`, `grade` |
 | `contractor_match_requested` | `PostScanReportSwitcher.tsx` (smart container) | On user clicking the "Get a Counter-Quote" CTA in `TruthReportClassic` | Yes | `event_id`, `scan_session_id`, `lead_id`, `grade`, `county` |
+
+## OpenAI Ads Event Owners
+
+| Event | Browser owner | Server owner | Trigger / dedupe contract |
+|---|---|---|---|
+| `page_viewed` | `AppTrackingProvider.tsx` → `openAiAdsPixel.ts` | None (Pixel-only) | Initial load and real SPA route changes, only after explicit granted `wg_consent_mode`. |
+| `lead_created` | `truthGateLeadCapture.ts` → `openAiAdsPixel.ts` | `capture-truth-gate-lead/index.ts` → `_shared/openAiAdsConversions.ts` | Server creates `openai_ads_event_id` only after a newly inserted `source=truth-gate` lead. Browser reuses that response value unchanged in Pixel options; CAPI uses it as `events[].id`. Reused and failed captures emit neither side. |
+
+OpenAI Ads consent is fail-closed. The lead request includes optional
+`openai_ads` context only when stored measurement consent is explicitly
+`granted`; otherwise Pixel and CAPI remain silent. The server fixes the event
+name and ID and does not accept either from the browser.
+
+The CAPI user object may contain normalized SHA-256 email, consent-gated
+`obref`, request IP, and user agent. Raw email, raw external IDs, all phone
+data, and browser Pixel user matching are out of scope.
 
 ### Why each owner is correct
 
@@ -64,6 +84,12 @@ The following are intentionally NOT implemented in this phase:
 1. **`appointment_booked` activation** — Mapped in canonical constants/value ladder but no live producer on the homeowner path. Activated only when the admin/CRM pipeline owns it.
 2. **`trackBusinessEvent.ts` promotion** — This file has a richer payload contract (auto event_id, lead_id, utm, route) but is not yet the canonical emitter. It will replace `trackGtmEvent` when GTM/CAPI rollout is formalized.
 3. **Direct frontend `capi-event` calls** — Frontend stays vendor-agnostic. CAPI relay is owned by the server canonical lane and GTM server-side container.
+4. **Additional OpenAI Ads events** — OTP, registration, reveal, upload,
+   appointment, order, trial, subscription, and custom events have no approval
+   in this sprint.
+5. **Consent UI activation** — `ConsentBanner` is currently unmounted. Mounting
+   or replacing it and establishing first-load consent defaults requires a
+   separate consent-foundation sprint.
 
 ## Arc 1.5 — Browser/Server `event_id` Parity (active)
 
