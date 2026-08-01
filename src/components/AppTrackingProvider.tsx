@@ -27,7 +27,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useRef } from "react";
 import { useLocation } from "react-router-dom";
-import { useLeadId } from "@/lib/useLeadId";
+import { getLeadId, useLeadId } from "@/lib/useLeadId";
 import {
   useUtmCapture,
   getUtmData,
