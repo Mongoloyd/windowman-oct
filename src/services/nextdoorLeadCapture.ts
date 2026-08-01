@@ -1,12 +1,14 @@
 import type { NextdoorWmIntent, QuoteReadiness } from "@/components/nextdoor/types";
 import type { NextdoorNextRoute } from "@/lib/nextdoor/pathRouter";
 import { supabase } from "@/integrations/supabase/client";
+import { buildLeadCaptureConsentRequest } from "@/lib/consent/buildConsentRequest";
 import { getAttributionPayload, getUtmData } from "@/lib/useUtmCapture";
 
 const SAFE_ERROR = "We couldn't save this yet. Check your details and try again.";
 
 export type SubmitNextdoorLeadInput = {
   sessionId: string;
+  submissionId: string;
   firstName: string;
   email: string;
   zip?: string | null;
@@ -15,11 +17,9 @@ export type SubmitNextdoorLeadInput = {
   quoteReadiness: QuoteReadiness;
   nextRoute: NextdoorNextRoute;
   wmIntent: NextdoorWmIntent;
-  /**
-   * Optional extra query_params keys (e.g. Track C qualification). Folded into
-   * the lead's query_params bag. The Edge merge is per-key non-destructive, so
-   * these only ever ADD missing keys — they never overwrite prior values.
-   */
+  serviceCommunicationsGranted: boolean;
+  marketingConsentPresented: boolean;
+  marketingCommunicationsGranted?: boolean;
   extraQueryParams?: Record<string, string>;
 };
 
@@ -87,12 +87,18 @@ export async function submitNextdoorLead(
         ? `${window.location.pathname}${window.location.search}`
         : null);
 
+    const consent = buildLeadCaptureConsentRequest({
+      submissionId: input.submissionId,
+      source: "nextdoor",
+      serviceCommunicationsGranted: input.serviceCommunicationsGranted,
+      marketingConsentPresented: input.marketingConsentPresented,
+      marketingCommunicationsGranted: input.marketingCommunicationsGranted,
+    });
+
     const body = {
       session_id: input.sessionId,
       first_name: input.firstName.trim(),
       email: input.email.trim().toLowerCase(),
-      // Phone only persists on the first lead insert for a session.
-      // Subsequent submits on the same session do not update PII because the edge capture path is idempotent.
       phone_e164: input.phoneE164 ?? null,
       source: "nextdoor",
       client_slug: null,
@@ -110,6 +116,7 @@ export async function submitNextdoorLead(
       initial_referrer: typeof document !== "undefined" ? document.referrer || null : null,
       attribution: attributionBody,
       query_params: mergeQueryParams(baseQueryParams, input),
+      consent,
     };
 
     const { data, error } = await supabase.functions.invoke("capture-truth-gate-lead", {

@@ -6,6 +6,7 @@
 // submitWindowPricesLead, source "ai_demo". Primary CTA -> /quote-check.
 
 import { useCallback, useMemo, useRef, useState } from "react";
+import { createUuid } from "@/lib/createUuid";
 import {
   PaidSearchLandingFooter,
   PaidSearchLandingHeader,
@@ -17,6 +18,7 @@ import {
 } from "@/components/paid-search/PaidSearchLandingShell";
 import { PaidSearchSection } from "@/components/paid-search/PaidSearchContent";
 import { submitWindowPricesLead } from "@/services/windowPricesLeadCapture";
+import { ServiceAuthorizationDisclosure } from "@/components/consent/ServiceAuthorizationDisclosure";
 import { LeadMagnetSuccessPanel } from "@/components/paid-search/LeadMagnetSuccessPanel";
 
 const EMAIL_RE = /^\S+@\S+\.\S+$/;
@@ -75,6 +77,7 @@ export default function AiDemoLanding() {
       ? crypto.randomUUID()
       : `${Date.now()}-fallback`,
   );
+  const submissionIdRef = useRef<string>(createUuid());
   const inFlightRef = useRef(false);
 
   const validate = useCallback((): FormErrors => {
@@ -97,9 +100,12 @@ export default function AiDemoLanding() {
     try {
       const result = await submitWindowPricesLead({
         sessionId: sessionIdRef.current,
+        submissionId: submissionIdRef.current,
         firstName: firstName.trim(),
         email: email.trim(),
         source: "ai_demo",
+        serviceCommunicationsGranted: true,
+        marketingConsentPresented: false,
       });
       if (result.ok) {
         setCaptureResult({
@@ -271,6 +277,10 @@ export default function AiDemoLanding() {
               <button type="button" onClick={handleSubmit} disabled={submitting} className={`w-full ${paidSearchPrimaryButtonClass}`}>
                 {submitting ? "Saving…" : "Send me the demo →"}
               </button>
+              <ServiceAuthorizationDisclosure
+                buttonLabel="Send me the demo →"
+                className="mt-2 text-center text-[11px] leading-relaxed text-white/50"
+              />
               <a href="/quote-check" className="block text-center text-xs font-semibold text-[#49A5FF] underline-offset-4 hover:underline">
                 Or upload my quote now →
               </a>

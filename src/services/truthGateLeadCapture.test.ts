@@ -5,9 +5,14 @@ import {
   resolveTruthGateClientSlug,
   submitTruthGateLead,
 } from "./truthGateLeadCapture";
+import {
+  TEST_CONSENT_SUBMISSION_ID,
+  testLeadCaptureConsent,
+} from "@/lib/consent/testConsentFixtures";
 
 const SESSION_ID = "11111111-1111-4111-8111-111111111111";
 const LEAD_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const TEST_CONSENT = testLeadCaptureConsent(TRUTH_GATE_SOURCE);
 
 const captureUtmFromUrlMock = vi.fn();
 const getAttributionPayloadMock = vi.fn();
@@ -169,6 +174,7 @@ describe("truthGateLeadCapture", () => {
         email: "jane@example.com",
         phoneE164: null,
         funnelClientSlug: null,
+        consent: TEST_CONSENT,
       });
 
       expect(payload).toMatchObject({
@@ -239,6 +245,7 @@ describe("truthGateLeadCapture", () => {
         email: "jane@example.com",
         phoneE164: null,
         funnelClientSlug: null,
+        consent: TEST_CONSENT,
       });
 
       // Stale first-touch scalar is preserved (v1 keeps first-touch semantics).
@@ -263,6 +270,7 @@ describe("truthGateLeadCapture", () => {
         email: "jane@example.com",
         phoneE164: "+15551234567",
         funnelClientSlug: null,
+        consent: TEST_CONSENT,
       });
 
       expect(captureUtmFromUrlMock).toHaveBeenCalled();
@@ -275,6 +283,7 @@ describe("truthGateLeadCapture", () => {
         email: "jane@example.com",
         phoneE164: null,
         funnelClientSlug: null,
+        consent: TEST_CONSENT,
       });
 
       expect(readLateFbCookiesMock).toHaveBeenCalledWith(
@@ -306,6 +315,7 @@ describe("truthGateLeadCapture", () => {
         email: "jane@example.com",
         phoneE164: null,
         funnelClientSlug: null,
+        consent: TEST_CONSENT,
       });
 
       expect(payload.landing_page_url).toBe("/landing?foo=bar");
@@ -318,6 +328,7 @@ describe("truthGateLeadCapture", () => {
         email: "jane@example.com",
         phoneE164: "+15551234567",
         funnelClientSlug: null,
+        consent: TEST_CONSENT,
       });
 
       expect(payload.phone_e164).toBe("+15551234567");
@@ -337,6 +348,8 @@ describe("truthGateLeadCapture", () => {
         email: "jane@example.com",
         phone: "",
         funnelClientSlug: null,
+        submissionId: TEST_CONSENT_SUBMISSION_ID,
+        marketingCommunicationsGranted: false,
       });
 
       expect(result.ok).toBe(true);
@@ -352,6 +365,43 @@ describe("truthGateLeadCapture", () => {
           },
         }),
       });
+    });
+
+    it("includes consent schema v1 with marketing declined when unchecked", async () => {
+      invokeMock.mockResolvedValue({
+        data: { success: true, lead_id: LEAD_ID, session_id: SESSION_ID },
+        error: null,
+      });
+
+      await submitTruthGateLead({
+        sessionId: SESSION_ID,
+        firstName: "Jane",
+        email: "jane@example.com",
+        phone: "",
+        funnelClientSlug: null,
+        submissionId: TEST_CONSENT_SUBMISSION_ID,
+        marketingCommunicationsGranted: false,
+      });
+
+      const body = invokeMock.mock.calls[0][1].body;
+      expect(body.consent).toMatchObject({
+        schemaVersion: "1",
+        privacyPolicyVersion: "2026-08-01",
+        termsVersion: "2026-04-14",
+        source: TRUTH_GATE_SOURCE,
+      });
+      expect(body.consent.events).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            purpose: "service_communications",
+            decision: "granted",
+          }),
+          expect.objectContaining({
+            purpose: "marketing_communications",
+            decision: "declined",
+          }),
+        ]),
+      );
     });
 
     it("fires OpenAI lead_created once with the unchanged server event ID after a new insert", async () => {
@@ -372,6 +422,8 @@ describe("truthGateLeadCapture", () => {
         email: "jane@example.com",
         phone: "",
         funnelClientSlug: null,
+        submissionId: TEST_CONSENT_SUBMISSION_ID,
+        marketingCommunicationsGranted: false,
       });
 
       expect(result.ok).toBe(true);
@@ -400,6 +452,8 @@ describe("truthGateLeadCapture", () => {
         email: "jane@example.com",
         phone: "",
         funnelClientSlug: null,
+        submissionId: TEST_CONSENT_SUBMISSION_ID,
+        marketingCommunicationsGranted: false,
       });
 
       expect(trackOpenAiAdsLeadCreatedMock).not.toHaveBeenCalled();
@@ -417,6 +471,8 @@ describe("truthGateLeadCapture", () => {
         email: "jane@example.com",
         phone: "",
         funnelClientSlug: null,
+        submissionId: TEST_CONSENT_SUBMISSION_ID,
+        marketingCommunicationsGranted: false,
       });
 
       expect(trackOpenAiAdsLeadCreatedMock).not.toHaveBeenCalled();
@@ -440,10 +496,37 @@ describe("truthGateLeadCapture", () => {
         email: "jane@example.com",
         phone: "",
         funnelClientSlug: null,
+        submissionId: TEST_CONSENT_SUBMISSION_ID,
+        marketingCommunicationsGranted: false,
       });
 
       expect(invokeMock.mock.calls[0][1].body).not.toHaveProperty("openai_ads");
       expect(trackOpenAiAdsLeadCreatedMock).not.toHaveBeenCalled();
+    });
+
+    it("does not push raw contact fields into dataLayer beyond lead/session ids", async () => {
+      invokeMock.mockResolvedValue({
+        data: { success: true, lead_id: LEAD_ID, session_id: SESSION_ID },
+        error: null,
+      });
+
+      await submitTruthGateLead({
+        sessionId: SESSION_ID,
+        firstName: "Jane",
+        email: "jane@example.com",
+        phone: "",
+        funnelClientSlug: null,
+        submissionId: TEST_CONSENT_SUBMISSION_ID,
+        marketingCommunicationsGranted: false,
+      });
+
+      expect(pushLeadMagnetCapturedMock).toHaveBeenCalledWith(
+        expect.not.objectContaining({
+          email: expect.anything(),
+          phone: expect.anything(),
+          firstName: expect.anything(),
+        }),
+      );
     });
 
     it("fires pushLeadMagnetCaptured once with the DB lead_id after success (not before)", async () => {
@@ -458,6 +541,8 @@ describe("truthGateLeadCapture", () => {
         email: "jane@example.com",
         phone: "",
         funnelClientSlug: null,
+        submissionId: TEST_CONSENT_SUBMISSION_ID,
+        marketingCommunicationsGranted: false,
       });
 
       expect(result.ok).toBe(true);
@@ -483,6 +568,8 @@ describe("truthGateLeadCapture", () => {
         email: "jane@example.com",
         phone: "",
         funnelClientSlug: null,
+        submissionId: TEST_CONSENT_SUBMISSION_ID,
+        marketingCommunicationsGranted: false,
       });
 
       expect(pushLeadMagnetCapturedMock).not.toHaveBeenCalled();
@@ -501,6 +588,8 @@ describe("truthGateLeadCapture", () => {
         email: "jane@example.com",
         phone: "",
         funnelClientSlug: null,
+        submissionId: TEST_CONSENT_SUBMISSION_ID,
+        marketingCommunicationsGranted: false,
       });
 
       const body = invokeMock.mock.calls[0][1].body;
@@ -519,6 +608,8 @@ describe("truthGateLeadCapture", () => {
         email: "jane@example.com",
         phone: "(555) 123-4567",
         funnelClientSlug: null,
+        submissionId: TEST_CONSENT_SUBMISSION_ID,
+        marketingCommunicationsGranted: false,
       });
 
       expect(result).toEqual({
@@ -543,6 +634,8 @@ describe("truthGateLeadCapture", () => {
         email: "jane@example.com",
         phone: "",
         funnelClientSlug: null,
+        submissionId: TEST_CONSENT_SUBMISSION_ID,
+        marketingCommunicationsGranted: false,
       });
 
       expect(result.ok).toBe(false);
@@ -564,6 +657,8 @@ describe("truthGateLeadCapture", () => {
         email: "jane@example.com",
         phone: "",
         funnelClientSlug: null,
+        submissionId: TEST_CONSENT_SUBMISSION_ID,
+        marketingCommunicationsGranted: false,
       });
 
       expect(result.ok).toBe(false);
@@ -584,6 +679,8 @@ describe("truthGateLeadCapture", () => {
         email: "jane@example.com",
         phone: "",
         funnelClientSlug: null,
+        submissionId: TEST_CONSENT_SUBMISSION_ID,
+        marketingCommunicationsGranted: false,
       });
 
       expect(result.ok).toBe(false);
@@ -603,6 +700,8 @@ describe("truthGateLeadCapture", () => {
         email: "jane@example.com",
         phone: "",
         funnelClientSlug: null,
+        submissionId: TEST_CONSENT_SUBMISSION_ID,
+        marketingCommunicationsGranted: false,
       });
 
       expect(result.ok).toBe(false);

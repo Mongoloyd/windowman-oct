@@ -8,6 +8,8 @@ import {
 } from "@/lib/nextdoor/attributionHelpers";
 import type { NextdoorIdentityFields, NextdoorPrefilledFields } from "./types";
 import { nextdoorPrimaryCtaClass } from "./nextdoorUi";
+import { MarketingConsentCheckbox } from "@/components/consent/MarketingConsentCheckbox";
+import { ServiceAuthorizationDisclosure } from "@/components/consent/ServiceAuthorizationDisclosure";
 
 type Props = {
   values: NextdoorIdentityFields;
@@ -23,8 +25,9 @@ type Props = {
   areaContext: AreaContext;
   /** Route-specific save label — stable for future backend wiring. */
   saveCtaLabel?: string;
-  /** Contextual copy. "quote_ready" frames the save as the upload unlock moment. */
   variant?: "quote_ready" | "default";
+  marketingConsent?: boolean;
+  onMarketingConsentChange?: (checked: boolean) => void;
 };
 
 type FieldKey = keyof NextdoorIdentityFields;
@@ -72,6 +75,8 @@ export function NextdoorIdentityForm({
   areaContext,
   saveCtaLabel = "Save and continue",
   variant = "default",
+  marketingConsent = false,
+  onMarketingConsentChange,
 }: Props) {
   const isQuoteReady = variant === "quote_ready";
   const [editing, setEditing] = useState<Record<FieldKey, boolean>>({
@@ -248,6 +253,15 @@ export function NextdoorIdentityForm({
         </p>
       ) : null}
 
+      {onMarketingConsentChange ? (
+        <MarketingConsentCheckbox
+          id="nextdoor-marketing-consent"
+          checked={marketingConsent}
+          onChange={onMarketingConsentChange}
+          variant="light"
+        />
+      ) : null}
+
       <button
         type="submit"
         disabled={submitting || submitted}
@@ -266,6 +280,11 @@ export function NextdoorIdentityForm({
               ? `${saveCtaLabel} (optional)`
               : saveCtaLabel}
       </button>
+
+      <ServiceAuthorizationDisclosure
+        buttonLabel={optional ? `${saveCtaLabel} (optional)` : saveCtaLabel}
+        className="mt-3 text-center text-xs leading-relaxed text-slate-500"
+      />
     </form>
   );
 }

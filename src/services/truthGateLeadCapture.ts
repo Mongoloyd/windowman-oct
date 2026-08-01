@@ -1,5 +1,10 @@
 import { readLateFbCookies } from "@/lib/attribution/fbCookies";
 import {
+  buildLeadCaptureConsentRequest,
+  type BuildLeadCaptureConsentInput,
+} from "@/lib/consent/buildConsentRequest";
+import type { ConsentRequest } from "@/lib/consent/consentVersions";
+import {
   getOpenAiAdsCaptureContext,
   trackOpenAiAdsLeadCreated,
 } from "@/lib/openAiAdsPixel";
@@ -19,6 +24,7 @@ export type BuildTruthGateLeadPayloadInput = {
   email: string;
   phoneE164: string | null;
   funnelClientSlug?: string | null;
+  consent: ConsentRequest;
 };
 
 export type SubmitTruthGateLeadInput = {
@@ -27,6 +33,8 @@ export type SubmitTruthGateLeadInput = {
   email: string;
   phone: string;
   funnelClientSlug?: string | null;
+  submissionId: string;
+  marketingCommunicationsGranted: boolean;
 };
 
 export type TruthGateLeadResult =
@@ -149,7 +157,17 @@ export function buildTruthGateLeadPayload(
       capture_page_url: capturePageUrl,
     },
     query_params: queryParams,
+    consent: input.consent,
   };
+}
+
+export function buildTruthGateConsent(
+  input: Omit<BuildLeadCaptureConsentInput, "source">,
+): ConsentRequest {
+  return buildLeadCaptureConsentRequest({
+    ...input,
+    source: TRUTH_GATE_SOURCE,
+  });
 }
 
 export async function submitTruthGateLead(
@@ -158,12 +176,20 @@ export async function submitTruthGateLead(
   const phoneE164 = normalizeTruthGatePhoneToE164(input.phone);
 
   try {
+    const consent = buildTruthGateConsent({
+      submissionId: input.submissionId,
+      serviceCommunicationsGranted: true,
+      marketingConsentPresented: true,
+      marketingCommunicationsGranted: input.marketingCommunicationsGranted,
+    });
+
     const body = buildTruthGateLeadPayload({
       sessionId: input.sessionId,
       firstName: input.firstName,
       email: input.email,
       phoneE164,
       funnelClientSlug: input.funnelClientSlug,
+      consent,
     });
 
     const openAiAdsContext = getOpenAiAdsCaptureContext();

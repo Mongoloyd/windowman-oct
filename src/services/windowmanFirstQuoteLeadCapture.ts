@@ -11,8 +11,12 @@ import {
   normalizeZipCode,
 } from "@/components/landing/firstQuoteIntakeTypes";
 import { readLateFbCookies } from "@/lib/attribution/fbCookies";
-import { getAttributionPayload, getUtmData } from "@/lib/useUtmCapture";
+import { buildLeadCaptureConsentRequest } from "@/lib/consent/buildConsentRequest";
+import {
+  buildTruthGateLeadPayload,
+} from "@/services/truthGateLeadCapture";
 import { supabase } from "@/integrations/supabase/client";
+import { getAttributionPayload, getUtmData } from "@/lib/useUtmCapture";
 
 export const FIRST_QUOTE_SESSION_STORAGE_KEY = "wm_first_quote_session_id";
 export const WINDOWMAN_FIRST_QUOTE_SOURCE = "windowman-first-quote";
@@ -22,12 +26,16 @@ const UUID_RE =
 
 export type SubmitWindowmanFirstQuoteInput = {
   sessionId: string;
+  submissionId: string;
   firstName: string;
   email: string;
   phoneE164: string;
   projectBasics: FirstQuoteProjectBasics;
   helpNeeded: HelpNeeded;
   preferredContact?: PreferredContact | "" | null;
+  serviceCommunicationsGranted: boolean;
+  marketingConsentPresented: boolean;
+  marketingCommunicationsGranted?: boolean;
 };
 
 export type SubmitWindowmanFirstQuoteResult =
@@ -134,15 +142,24 @@ export function buildWindowmanFirstQuoteLeadPayload(
     queryParams.preferred_contact = preferred;
   }
 
-  return {
-    session_id: input.sessionId,
-    first_name: input.firstName.trim(),
+  const consent = buildLeadCaptureConsentRequest({
+    submissionId: input.submissionId,
+    source: WINDOWMAN_FIRST_QUOTE_SOURCE,
+    serviceCommunicationsGranted: input.serviceCommunicationsGranted,
+    marketingConsentPresented: input.marketingConsentPresented,
+    marketingCommunicationsGranted: input.marketingCommunicationsGranted,
+  });
+
+  const base = buildTruthGateLeadPayload({
+    sessionId: input.sessionId,
+    firstName: input.firstName.trim(),
     email: input.email.trim().toLowerCase(),
-    phone_e164: input.phoneE164,
-    county: null,
-    project_type: null,
-    window_count: null,
-    quote_range: null,
+    phoneE164: input.phoneE164,
+    consent,
+  });
+
+  return {
+    ...base,
     source: WINDOWMAN_FIRST_QUOTE_SOURCE,
     client_slug: effectiveClientSlug,
     utm_source: utm.utm_source,

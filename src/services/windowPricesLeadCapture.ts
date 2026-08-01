@@ -1,22 +1,13 @@
 // src/services/windowPricesLeadCapture.ts
-//
-// Lead capture for lightweight paid-search / lead-magnet landing pages.
-//
-// Why this exists
-//   submitTruthGateLead() hardcodes source = "truth-gate". Paid landing pages need
-//   page-specific sources like "google_window_prices", "nextdoor_truth_report",
-//   "window_price_audit", and "google_quote_check". We reuse
-//   buildTruthGateLeadPayload() for the full attribution contract
-//   (utm/gclid/fbclid/landing_page_url/attribution bag), then override `source`
-//   and fold ZIP into query_params — the same per-key non-destructive merge path
-//   nextdoorLeadCapture uses. No Edge Function or schema changes required:
-//   capture-truth-gate-lead already accepts arbitrary source strings and persists
-//   query_params.
 
 import { supabase } from "@/integrations/supabase/client";
+import { buildLeadCaptureConsentRequest } from "@/lib/consent/buildConsentRequest";
 import { pushLeadMagnetCaptured } from "@/lib/tracking/dataLayer";
 import { normalizeTruthGatePhoneToE164 } from "@/lib/validation/truthGateContact";
-import { buildTruthGateLeadPayload } from "@/services/truthGateLeadCapture";
+import {
+  buildTruthGateLeadPayload,
+  TRUTH_GATE_SOURCE,
+} from "@/services/truthGateLeadCapture";
 
 const SAFE_CAPTURE_MESSAGE =
   "We couldn't save your details yet. Check them and try again.";
@@ -31,14 +22,16 @@ export type WindowPricesSource =
 
 export type SubmitWindowPricesLeadInput = {
   sessionId: string;
+  submissionId: string;
   firstName: string;
   email: string;
-  /** Optional: name+email-only lead magnets (truth_report_demo, ai_demo) omit these. */
   phone?: string;
   zip?: string;
-  /** TCPA express consent for marketing/follow-up SMS. Only meaningful when phone is present. */
-  smsConsent?: boolean;
   source: WindowPricesSource;
+  /** Service authorization is recorded on successful submit when true. */
+  serviceCommunicationsGranted: boolean;
+  marketingConsentPresented: boolean;
+  marketingCommunicationsGranted?: boolean;
 };
 
 export type WindowPricesLeadResult =
@@ -62,29 +55,26 @@ export async function submitWindowPricesLead(
   const phoneE164 = normalizeTruthGatePhoneToE164(input.phone ?? "");
 
   try {
+    const consent = buildLeadCaptureConsentRequest({
+      submissionId: input.submissionId,
+      source: input.source,
+      serviceCommunicationsGranted: input.serviceCommunicationsGranted,
+      marketingConsentPresented: input.marketingConsentPresented,
+      marketingCommunicationsGranted: input.marketingCommunicationsGranted,
+    });
+
     const base = buildTruthGateLeadPayload({
       sessionId: input.sessionId,
       firstName: input.firstName,
       email: input.email,
       phoneE164,
+      consent,
     });
 
     const baseQueryParams =
       (base.query_params as Record<string, string | string[]>) ?? {};
 
     const zip = (input.zip ?? "").trim();
-    const phoneProvided = Boolean((input.phone ?? "").trim());
-
-    // TCPA audit trail: only record consent when a phone was actually provided
-    // and the user affirmatively consented. Stored in query_params (jsonb the
-    // backend already persists) — no schema change. Promote to a real column later.
-    const smsConsentFields =
-      phoneProvided && input.smsConsent === true
-        ? {
-            sms_consent_at: new Date().toISOString(),
-            sms_consent_source: input.source,
-          }
-        : {};
 
     const body: Record<string, unknown> = {
       ...base,
@@ -92,7 +82,6 @@ export async function submitWindowPricesLead(
       query_params: {
         ...baseQueryParams,
         ...(zip ? { zip } : {}),
-        ...smsConsentFields,
       },
     };
 
@@ -176,3 +165,6 @@ export async function submitWindowPricesLead(
     };
   }
 }
+
+/** @deprecated unused — kept so imports of TRUTH_GATE_SOURCE from this path still typecheck in tests */
+export { TRUTH_GATE_SOURCE };

@@ -10,6 +10,7 @@
 // page captures + confirms; it does not send email.
 
 import { useCallback, useMemo, useRef, useState } from "react";
+import { createUuid } from "@/lib/createUuid";
 import {
   PaidSearchLandingFooter,
   PaidSearchLandingHeader,
@@ -24,6 +25,7 @@ import {
   PaidSearchFeatureCard,
   PaidSearchSection,
 } from "@/components/paid-search/PaidSearchContent";
+import { ServiceAuthorizationDisclosure } from "@/components/consent/ServiceAuthorizationDisclosure";
 import { submitWindowPricesLead } from "@/services/windowPricesLeadCapture";
 import { TcpaPhoneConsentCheckbox } from "@/components/paid-search/TcpaPhoneConsentCheckbox";
 import { LeadMagnetSuccessPanel } from "@/components/paid-search/LeadMagnetSuccessPanel";
@@ -68,6 +70,7 @@ export default function WindowPriceAuditLanding() {
       ? crypto.randomUUID()
       : `${Date.now()}-fallback`,
   );
+  const submissionIdRef = useRef<string>(createUuid());
   const inFlightRef = useRef(false);
 
   const validate = useCallback((): FormErrors => {
@@ -98,12 +101,15 @@ export default function WindowPriceAuditLanding() {
     try {
       const result = await submitWindowPricesLead({
         sessionId: sessionIdRef.current,
+        submissionId: submissionIdRef.current,
         firstName: firstName.trim(),
         email: email.trim(),
         phone: phone.trim(),
         zip: zip.trim(),
-        smsConsent,
         source: "window_price_audit",
+        serviceCommunicationsGranted: true,
+        marketingConsentPresented: true,
+        marketingCommunicationsGranted: smsConsent,
       });
       if (result.ok) {
         setCaptureResult({
@@ -256,6 +262,10 @@ export default function WindowPriceAuditLanding() {
                     <button type="button" onClick={handleSubmit} disabled={submitting} className={`w-full ${paidSearchPrimaryButtonClass}`}>
                       {submitting ? "Saving…" : "Send me the audit →"}
                     </button>
+                    <ServiceAuthorizationDisclosure
+                      buttonLabel="Send me the audit →"
+                      className="mt-2 text-center text-[11px] leading-relaxed text-white/50"
+                    />
                     <a href="/quote-check" className="block text-center text-xs font-semibold text-[#49A5FF] underline-offset-4 hover:underline">
                       Or upload my quote instead →
                     </a>

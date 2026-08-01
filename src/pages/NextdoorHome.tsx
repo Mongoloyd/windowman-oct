@@ -67,6 +67,7 @@ import {
   saveCtaLabel as resolveSaveCtaLabel,
 } from "@/lib/nextdoor/pathRouter";
 import { submitNextdoorLead } from "@/services/nextdoorLeadCapture";
+import { createUuid } from "@/lib/createUuid";
 import { trackEngagement } from "@/lib/engagementScoring";
 import { getUtmData } from "@/lib/useUtmCapture";
 import { useScanFunnelSafe } from "@/state/scanFunnel";
@@ -235,6 +236,17 @@ export default function NextdoorHome() {
     initialUrlState.quoteReadiness,
   );
   const [identity, setIdentity] = useState<NextdoorIdentityFields>(initialUrlState.identity);
+  const [nextdoorMarketingConsent, setNextdoorMarketingConsent] = useState(false);
+  // One consent-decision transaction per explicit funnel-stage submission.
+  // The id is kept for byte-equivalent retries after a failure, and rotated
+  // after every successful stage and on any consent-decision change.
+  const leadCaptureSubmissionIdRef = useRef(createUuid());
+
+  const handleMarketingConsentChange = useCallback((checked: boolean) => {
+    setNextdoorMarketingConsent(checked);
+    // Changed consent decision → new consent submission transaction.
+    leadCaptureSubmissionIdRef.current = createUuid();
+  }, []);
   const [lastName, setLastName] = useState(initialUrlState.lastName);
   const [prefilled, setPrefilled] = useState<NextdoorPrefilledFields>(initialUrlState.prefilled);
   const [hasKnownLead, setHasKnownLead] = useState(initialUrlState.hasKnownLead);
@@ -451,8 +463,9 @@ export default function NextdoorHome() {
       const utm = getUtmData();
       const wmIntent = resolveWmIntentFromReadiness(params.quoteReadiness, utm.wm_intent);
 
-      return submitNextdoorLead({
+      const result = await submitNextdoorLead({
         sessionId: nextdoorSessionId,
+        submissionId: leadCaptureSubmissionIdRef.current,
         firstName: params.firstName,
         email: params.email,
         zip: params.zip ?? null,
@@ -462,9 +475,21 @@ export default function NextdoorHome() {
         nextRoute: resolveNextRoute(params.quoteReadiness),
         wmIntent,
         extraQueryParams: params.extraQueryParams,
+        serviceCommunicationsGranted: true,
+        marketingConsentPresented: true,
+        marketingCommunicationsGranted: nextdoorMarketingConsent,
       });
+
+      if (result.ok) {
+        // Completed funnel-stage submission closes this consent transaction;
+        // the next stage (e.g. Track C qualification) is a new transaction.
+        // Failed attempts keep the id so identical retries stay idempotent.
+        leadCaptureSubmissionIdRef.current = createUuid();
+      }
+
+      return result;
     },
-    [lastName, nextdoorSessionId],
+    [lastName, nextdoorSessionId, nextdoorMarketingConsent],
   );
 
   const handleReadinessSelect = useCallback(
@@ -965,6 +990,8 @@ export default function NextdoorHome() {
                 areaContext={areaContext}
                 saveCtaLabel={identitySaveLabel}
                 variant={readiness === "has_estimate" ? "quote_ready" : "default"}
+                marketingConsent={nextdoorMarketingConsent}
+                onMarketingConsentChange={handleMarketingConsentChange}
               />
             </section>
           ) : null}

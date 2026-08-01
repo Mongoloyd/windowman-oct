@@ -1,6 +1,7 @@
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import type { UtmData } from "@/lib/useUtmCapture";
 
 const UTM_STORAGE_KEY = "wm_utm_data";
@@ -101,6 +102,10 @@ import {
   hasTrustedContactIdentity,
   isValidLeadSessionUuid,
 } from "@/lib/leadSession";
+
+function renderTruthGate(ui: React.ReactElement) {
+  return render(<MemoryRouter>{ui}</MemoryRouter>);
+}
 
 function installLocalStorageMock() {
   const store = new Map<string, string>();
@@ -224,7 +229,7 @@ describe("TruthGateFlow paid has_quote identity gate (Sprint 2B-1)", () => {
 
   it("does not call onLeadCaptured before contact fields are valid", async () => {
     const onLeadCaptured = vi.fn();
-    render(<TruthGateFlow onLeadCaptured={onLeadCaptured} />);
+    renderTruthGate(<TruthGateFlow onLeadCaptured={onLeadCaptured} />);
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Start Free" }));
@@ -236,7 +241,7 @@ describe("TruthGateFlow paid has_quote identity gate (Sprint 2B-1)", () => {
 
   it("calls capture-truth-gate-lead then onLeadCaptured on success", async () => {
     const onLeadCaptured = vi.fn();
-    render(<TruthGateFlow onLeadCaptured={onLeadCaptured} />);
+    renderTruthGate(<TruthGateFlow onLeadCaptured={onLeadCaptured} />);
 
     await submitPaidHasQuoteForm();
 
@@ -270,7 +275,7 @@ describe("TruthGateFlow paid has_quote identity gate (Sprint 2B-1)", () => {
     });
 
     const onLeadCaptured = vi.fn();
-    render(<TruthGateFlow onLeadCaptured={onLeadCaptured} />);
+    renderTruthGate(<TruthGateFlow onLeadCaptured={onLeadCaptured} />);
 
     await submitPaidHasQuoteForm();
 
@@ -283,13 +288,14 @@ describe("TruthGateFlow paid has_quote identity gate (Sprint 2B-1)", () => {
   });
 });
 
-describe("TruthGateFlow paid has_quote reuse path", () => {
+describe("TruthGateFlow paid has_quote trusted-session path", () => {
   beforeEach(() => {
     funnelMockState.leadId = LEAD_ID;
     funnelMockState.sessionId = SESSION_ID;
     installLocalStorageMock();
     mockSetSessionId.mockReset();
     mockSetLeadId.mockReset();
+    mockSetPhone.mockReset();
     invokeMock.mockReset();
     seedAttribution({ wm_intent: "has_quote" });
   });
@@ -298,9 +304,13 @@ describe("TruthGateFlow paid has_quote reuse path", () => {
     vi.restoreAllMocks();
   });
 
-  it("skips capture-truth-gate-lead when trusted leadId+sessionId already exist", async () => {
+  it("persists consent via capture-truth-gate-lead even with trusted leadId+sessionId, reusing the session", async () => {
+    invokeMock.mockResolvedValue({
+      data: { success: true, lead_id: LEAD_ID, session_id: SESSION_ID, reused: true },
+      error: null,
+    });
     const onLeadCaptured = vi.fn();
-    render(<TruthGateFlow onLeadCaptured={onLeadCaptured} />);
+    renderTruthGate(<TruthGateFlow onLeadCaptured={onLeadCaptured} />);
 
     await submitPaidHasQuoteForm();
 
@@ -308,7 +318,145 @@ describe("TruthGateFlow paid has_quote reuse path", () => {
       expect(onLeadCaptured).toHaveBeenCalledWith(SESSION_ID);
     });
 
-    expect(invokeMock).not.toHaveBeenCalled();
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+    const body = invokeMock.mock.calls[0][1].body;
+    // Session reuse preserved: the trusted funnel session id is submitted.
+    expect(body.session_id).toBe(SESSION_ID);
+    // Consent envelope reaches the existing server capture route.
+    expect(body.consent.schemaVersion).toBe("1");
+    expect(body.consent.events).toContainEqual(
+      expect.objectContaining({
+        purpose: "service_communications",
+        decision: "granted",
+      }),
+    );
+  });
+
+  it("does not unlock the trusted session when consent capture fails", async () => {
+    invokeMock.mockResolvedValue({
+      data: {
+        success: false,
+        code: "consent_persist_failed",
+        message: "Could not save consent records.",
+      },
+      error: null,
+    });
+    const onLeadCaptured = vi.fn();
+    renderTruthGate(<TruthGateFlow onLeadCaptured={onLeadCaptured} />);
+
+    await submitPaidHasQuoteForm();
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalled();
+    });
+
+    expect(onLeadCaptured).not.toHaveBeenCalled();
+    expect(
+      screen.getByText("Could not save consent records."),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("TruthGateFlow consent submission lifecycle", () => {
+  const UUID_V4_REGEX =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+  beforeEach(() => {
+    funnelMockState.leadId = null;
+    funnelMockState.sessionId = null;
+    installLocalStorageMock();
+    mockSetSessionId.mockReset();
+    mockSetLeadId.mockReset();
+    mockSetPhone.mockReset();
+    invokeMock.mockReset();
+    // No crypto.randomUUID stub here — real UUIDs must be generated.
+    seedAttribution({ wm_intent: "has_quote" });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("sends a real v4 UUID submissionId (no fixed fallback)", async () => {
+    invokeMock.mockResolvedValue({
+      data: { success: true, lead_id: LEAD_ID, session_id: SESSION_ID },
+      error: null,
+    });
+    renderTruthGate(<TruthGateFlow />);
+
+    await submitPaidHasQuoteForm();
+
+    await waitFor(() => expect(invokeMock).toHaveBeenCalled());
+    const submissionId = invokeMock.mock.calls[0][1].body.consent.submissionId;
+    expect(submissionId).toMatch(UUID_V4_REGEX);
+    expect(submissionId).not.toMatch(/^00000000-0000-4000-8000-/);
+  });
+
+  it("keeps the same submissionId for an identical retry after a failure", async () => {
+    invokeMock.mockResolvedValueOnce({
+      data: { success: false, code: "lead_capture_failed", message: "Try again." },
+      error: null,
+    });
+    invokeMock.mockResolvedValueOnce({
+      data: { success: true, lead_id: LEAD_ID, session_id: SESSION_ID },
+      error: null,
+    });
+    renderTruthGate(<TruthGateFlow />);
+
+    await submitPaidHasQuoteForm();
+    await waitFor(() => expect(screen.getByText("Try again.")).toBeInTheDocument());
+
+    await act(async () => {
+      fireEvent.submit(
+        screen.getByPlaceholderText("Your first name").closest("form") as HTMLFormElement,
+      );
+    });
+
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(2));
+    const first = invokeMock.mock.calls[0][1].body.consent.submissionId;
+    const second = invokeMock.mock.calls[1][1].body.consent.submissionId;
+    expect(second).toBe(first);
+  });
+
+  it("generates a new submissionId when the marketing decision changes", async () => {
+    invokeMock.mockResolvedValueOnce({
+      data: { success: false, code: "lead_capture_failed", message: "Try again." },
+      error: null,
+    });
+    invokeMock.mockResolvedValueOnce({
+      data: { success: true, lead_id: LEAD_ID, session_id: SESSION_ID },
+      error: null,
+    });
+    renderTruthGate(<TruthGateFlow />);
+
+    await submitPaidHasQuoteForm();
+    await waitFor(() => expect(screen.getByText("Try again.")).toBeInTheDocument());
+
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole("checkbox", {
+          name: /Optional: I agree to receive promotional/i,
+        }),
+      );
+    });
+
+    await act(async () => {
+      fireEvent.submit(
+        screen.getByPlaceholderText("Your first name").closest("form") as HTMLFormElement,
+      );
+    });
+
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(2));
+    const first = invokeMock.mock.calls[0][1].body.consent.submissionId;
+    const second = invokeMock.mock.calls[1][1].body.consent.submissionId;
+    expect(second).toMatch(UUID_V4_REGEX);
+    expect(second).not.toBe(first);
+    expect(invokeMock.mock.calls[1][1].body.consent.events).toContainEqual(
+      expect.objectContaining({
+        purpose: "marketing_communications",
+        decision: "granted",
+      }),
+    );
   });
 });
 
@@ -338,7 +486,7 @@ describe("TruthGateFlow contact validation and UI", () => {
   });
 
   it("rejects junk phone 1111111111 and does not invoke capture", async () => {
-    render(<TruthGateFlow />);
+    renderTruthGate(<TruthGateFlow />);
 
     await act(async () => {
       fireEvent.change(screen.getByPlaceholderText("Your first name"), {
@@ -365,7 +513,7 @@ describe("TruthGateFlow contact validation and UI", () => {
   });
 
   it("formats phone input visually as user types", async () => {
-    render(<TruthGateFlow />);
+    renderTruthGate(<TruthGateFlow />);
 
     await act(async () => {
       fireEvent.change(screen.getByPlaceholderText("(555) 555-5555"), {
@@ -379,8 +527,98 @@ describe("TruthGateFlow contact validation and UI", () => {
   });
 
   it("preserves submit state button copy", () => {
-    render(<TruthGateFlow />);
+    renderTruthGate(<TruthGateFlow />);
 
     expect(screen.getByRole("button", { name: "Start Free" })).toBeInTheDocument();
+  });
+});
+
+describe("TruthGateFlow consent UX", () => {
+  beforeEach(() => {
+    funnelMockState.leadId = null;
+    funnelMockState.sessionId = null;
+    installLocalStorageMock();
+    invokeMock.mockReset();
+    vi.spyOn(crypto, "randomUUID").mockReturnValue(SESSION_ID);
+    seedAttribution({ wm_intent: "has_quote" });
+    invokeMock.mockResolvedValue({
+      data: { success: true, lead_id: LEAD_ID, session_id: SESSION_ID },
+      error: null,
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("shows Quote and Scan pills and no service communications checkbox", () => {
+    renderTruthGate(<TruthGateFlow />);
+    expect(screen.getByText("Quote")).toBeInTheDocument();
+    expect(screen.getByText("Scan")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("checkbox", { name: /service communications/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows service authorization disclosure with Privacy and Terms links", () => {
+    renderTruthGate(<TruthGateFlow />);
+    expect(
+      screen.getByText(/does not include marketing/i),
+    ).toBeInTheDocument();
+    const privacy = screen.getByRole("link", { name: /Privacy Policy/i });
+    const terms = screen.getByRole("link", { name: /Terms of Service/i });
+    expect(privacy).toHaveAttribute("href", "/privacy");
+    expect(terms).toHaveAttribute("href", "/terms");
+  });
+
+  it("starts marketing checkbox unchecked and submits with declined when left unchecked", async () => {
+    renderTruthGate(<TruthGateFlow />);
+    const marketing = screen.getByRole("checkbox", {
+      name: /Optional: I agree to receive promotional/i,
+    });
+    expect(marketing).not.toBeChecked();
+
+    await submitPaidHasQuoteForm();
+
+    await waitFor(() => expect(invokeMock).toHaveBeenCalled());
+    const body = invokeMock.mock.calls[0][1].body;
+    expect(body.consent.schemaVersion).toBe("1");
+    const events = body.consent.events as Array<{ purpose: string; decision: string }>;
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        purpose: "service_communications",
+        decision: "granted",
+      }),
+    );
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        purpose: "marketing_communications",
+        decision: "declined",
+      }),
+    );
+    expect(events.some((e) => e.purpose === "contractor_sharing")).toBe(false);
+  });
+
+  it("sends marketing granted when checkbox is checked", async () => {
+    renderTruthGate(<TruthGateFlow />);
+    const marketing = screen.getByRole("checkbox", {
+      name: /Optional: I agree to receive promotional/i,
+    });
+    await act(async () => {
+      fireEvent.click(marketing);
+    });
+    await submitPaidHasQuoteForm();
+
+    await waitFor(() => expect(invokeMock).toHaveBeenCalled());
+    const events = invokeMock.mock.calls[0][1].body.consent.events as Array<{
+      purpose: string;
+      decision: string;
+    }>;
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        purpose: "marketing_communications",
+        decision: "granted",
+      }),
+    );
   });
 });

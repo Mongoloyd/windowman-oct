@@ -15,10 +15,8 @@ import {
 import { useTickerStats } from "@/hooks/useTickerStats";
 import { useScanFunnelSafe } from "@/state/scanFunnel";
 import { getUtmData } from "@/lib/useUtmCapture";
-import {
-  hasTrustedContactIdentity,
-  isValidLeadSessionUuid,
-} from "@/lib/leadSession";
+import { createUuid } from "@/lib/createUuid";
+import { isValidLeadSessionUuid } from "@/lib/leadSession";
 import {
   formatTruthGatePhoneDisplay,
   validateTruthGateContact,
@@ -26,6 +24,8 @@ import {
   type TruthGateFieldStatus,
 } from "@/lib/validation/truthGateContact";
 import { submitTruthGateLead } from "@/services/truthGateLeadCapture";
+import { MarketingConsentCheckbox } from "@/components/consent/MarketingConsentCheckbox";
+import { ServiceAuthorizationDisclosure } from "@/components/consent/ServiceAuthorizationDisclosure";
 
 const CONTACT_FONT =
   'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
@@ -185,6 +185,8 @@ const ContactCaptureStep = ({
   onPhoneChange,
   onFieldBlur,
   onSubmit,
+  marketingConsent,
+  onMarketingConsentChange,
 }: {
   firstName: string;
   email: string;
@@ -199,6 +201,8 @@ const ContactCaptureStep = ({
   onPhoneChange: (value: string) => void;
   onFieldBlur: (field: string, value: string) => void;
   onSubmit: (e: React.FormEvent) => void;
+  marketingConsent: boolean;
+  onMarketingConsentChange: (checked: boolean) => void;
 }) => (
   <motion.div
     key="contact-capture"
@@ -385,6 +389,13 @@ const ContactCaptureStep = ({
         )}
       </div>
 
+      <MarketingConsentCheckbox
+        id="truth-gate-marketing-consent"
+        checked={marketingConsent}
+        onChange={onMarketingConsentChange}
+        variant="dark"
+      />
+
       <button
         type="submit"
         disabled={submitState === "submitting" || submitState === "success"}
@@ -404,6 +415,8 @@ const ContactCaptureStep = ({
         )}
         {submitState === "error" && "Something went wrong — Try Again"}
       </button>
+
+      <ServiceAuthorizationDisclosure buttonLabel="Start Free" />
 
       {submitState === "error" && submitError?.message && (
         <p className="text-center font-body text-xs text-amber-300">{submitError.message}</p>
@@ -476,6 +489,18 @@ const TruthGateFlow = ({
   });
   const funnel = useScanFunnelSafe();
   const [eyebrowText] = useState(() => resolveContactEyebrow());
+  const [marketingCommunicationsConsent, setMarketingCommunicationsConsent] =
+    useState(false);
+  // One submissionId identifies one immutable consent-decision transaction.
+  // It is reused only for a byte-equivalent retry of the same decision; a
+  // changed decision or a completed submission starts a new transaction.
+  const submissionIdRef = useRef(createUuid());
+
+  const handleMarketingConsentChange = useCallback((checked: boolean) => {
+    setMarketingCommunicationsConsent(checked);
+    // Changed consent decision → new consent submission transaction.
+    submissionIdRef.current = createUuid();
+  }, []);
 
   const unlockAfterContactCapture = useCallback(
     (sessionId: string) => {
@@ -513,20 +538,17 @@ const TruthGateFlow = ({
 
     if (!validation.valid) return;
 
-    if (
-      hasTrustedContactIdentity(funnel?.leadId, funnel?.sessionId) &&
-      funnel?.sessionId
-    ) {
-      unlockAfterContactCapture(funnel.sessionId);
-      return;
-    }
-
+    // Trusted-session note: even when a trusted leadId+sessionId pair already
+    // exists, the submit still goes through capture-truth-gate-lead so the
+    // current consent envelope is persisted server-side before unlock. The
+    // Edge Function reuses the existing lead via session lookup — session
+    // reuse, OTP, and Verify-to-Reveal are unchanged.
     setSubmitState("submitting");
     setSubmitError(null);
 
     const sessionId = isValidLeadSessionUuid(funnel?.sessionId)
       ? funnel!.sessionId!
-      : crypto.randomUUID();
+      : createUuid();
 
     if (funnel && !isValidLeadSessionUuid(funnel.sessionId)) {
       funnel.setSessionId(sessionId);
@@ -538,6 +560,8 @@ const TruthGateFlow = ({
       email: fields.email,
       phone: fields.phone,
       funnelClientSlug: funnel?.clientSlug,
+      submissionId: submissionIdRef.current,
+      marketingCommunicationsGranted: marketingCommunicationsConsent,
     });
 
     if (result.ok === false) {
@@ -556,6 +580,9 @@ const TruthGateFlow = ({
       }
     }
 
+    // Completed submission closes this consent transaction; any later
+    // user-triggered submission is a new transaction.
+    submissionIdRef.current = createUuid();
     unlockAfterContactCapture(result.sessionId);
   };
 
@@ -605,6 +632,8 @@ const TruthGateFlow = ({
                   onPhoneChange={handlePhoneChange}
                   onFieldBlur={handleFieldBlur}
                   onSubmit={handleContactSubmit}
+                  marketingConsent={marketingCommunicationsConsent}
+                  onMarketingConsentChange={handleMarketingConsentChange}
                 />
               </AnimatePresence>
             </div>

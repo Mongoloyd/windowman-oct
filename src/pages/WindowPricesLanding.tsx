@@ -12,6 +12,7 @@
 // Capture path: submitWindowPricesLead() -> capture-truth-gate-lead with
 // source override + zip folded into query_params. No schema/Edge changes.
 
+import { createUuid } from "@/lib/createUuid";
 import { useCallback, useMemo, useRef, useState, type FormEvent } from "react";
 import { usePhoneInput } from "@/hooks/usePhoneInput";
 import {
@@ -28,7 +29,8 @@ import {
   submitWindowPricesLead,
   type WindowPricesSource,
 } from "@/services/windowPricesLeadCapture";
-import { TcpaPhoneConsentCheckbox } from "@/components/paid-search/TcpaPhoneConsentCheckbox";
+import { MarketingConsentCheckbox } from "@/components/consent/MarketingConsentCheckbox";
+import { ServiceAuthorizationDisclosure } from "@/components/consent/ServiceAuthorizationDisclosure";
 import { LeadMagnetSuccessPanel } from "@/components/paid-search/LeadMagnetSuccessPanel";
 import MarketSignals from "@/components/marketing/MarketSignals";
 
@@ -43,7 +45,6 @@ interface FormErrors {
   email?: string;
   phone?: string;
   zip?: string;
-  smsConsent?: string;
 }
 
 function resolveSource(): WindowPricesSource {
@@ -62,7 +63,7 @@ export default function WindowPricesLanding() {
   const { displayValue, rawDigits, e164, handleChange: handlePhoneChange } =
     usePhoneInput();
   const [zip, setZip] = useState("");
-  const [smsConsent, setSmsConsent] = useState(false);
+  const [marketingConsent, setMarketingConsent] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitState, setSubmitState] = useState<SubmitState>("idle");
   const [serverMessage, setServerMessage] = useState<string | null>(null);
@@ -72,13 +73,18 @@ export default function WindowPricesLanding() {
   } | null>(null);
 
   // Stable per-visit session id: retries dedupe via the edge reuse path.
-  const sessionIdRef = useRef<string>(
-    typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID()
-      : `${Date.now()}-fallback`,
-  );
+  const sessionIdRef = useRef<string>(createUuid());
+  // One consent-decision transaction per submission attempt. Kept for
+  // identical retries; rotated on decision change and after success.
+  const submissionIdRef = useRef<string>(createUuid());
   const sourceRef = useRef<WindowPricesSource>(resolveSource());
   const inFlightRef = useRef(false);
+
+  const handleMarketingConsentChange = useCallback((checked: boolean) => {
+    setMarketingConsent(checked);
+    // Changed consent decision → new consent submission transaction.
+    submissionIdRef.current = createUuid();
+  }, []);
 
   const validate = useCallback((): FormErrors => {
     const next: FormErrors = {};
@@ -92,14 +98,12 @@ export default function WindowPricesLanding() {
       next.phone = "Enter your phone number.";
     } else if (rawDigits.length !== PHONE_MIN_DIGITS || !e164) {
       next.phone = "Enter a valid 10-digit phone number.";
-    } else if (!smsConsent) {
-      next.smsConsent = "Please check the box to receive texts.";
     }
     if (!ZIP_RE.test(zip.trim())) {
       next.zip = "Enter a valid 5-digit ZIP.";
     }
     return next;
-  }, [firstName, email, rawDigits, e164, zip, smsConsent]);
+  }, [firstName, email, rawDigits, e164, zip]);
 
   const handleSubmit = useCallback(
     async (event?: FormEvent<HTMLFormElement>) => {
@@ -119,12 +123,15 @@ export default function WindowPricesLanding() {
         // Phone layers: display (XXX) XXX-XXXX → raw 10 digits → submit E.164 +1XXXXXXXXXX
         const result = await submitWindowPricesLead({
           sessionId: sessionIdRef.current,
+          submissionId: submissionIdRef.current,
           firstName: firstName.trim(),
           email: email.trim(),
           phone: e164,
           zip: zip.trim(),
-          smsConsent,
           source: sourceRef.current,
+          serviceCommunicationsGranted: true,
+          marketingConsentPresented: true,
+          marketingCommunicationsGranted: marketingConsent,
         });
 
         if (result.ok) {
@@ -132,6 +139,8 @@ export default function WindowPricesLanding() {
             leadId: result.leadId,
             sessionId: result.sessionId,
           });
+          // Completed submission closes this consent transaction.
+          submissionIdRef.current = createUuid();
           setSubmitState("success");
         } else {
           setSubmitState("error");
@@ -147,7 +156,7 @@ export default function WindowPricesLanding() {
         setSubmitState((s) => (s === "submitting" ? "idle" : s));
       }
     },
-    [firstName, email, e164, zip, smsConsent, submitState, validate],
+    [firstName, email, e164, zip, marketingConsent, submitState, validate],
   );
 
   const year = useMemo(() => new Date().getFullYear(), []);
@@ -301,11 +310,11 @@ export default function WindowPricesLanding() {
                     </div>
                   </div>
 
-                  <TcpaPhoneConsentCheckbox
-                    id="wp-tcpa-sms-consent"
-                    checked={smsConsent}
-                    onChange={setSmsConsent}
-                    error={errors.smsConsent}
+                  <MarketingConsentCheckbox
+                    id="wp-marketing-consent"
+                    checked={marketingConsent}
+                    onChange={handleMarketingConsentChange}
+                    variant="dark"
                   />
 
                   {submitState === "error" && serverMessage && (
@@ -324,6 +333,11 @@ export default function WindowPricesLanding() {
                   >
                     {submitting ? "Saving…" : "Get my free pricing report →"}
                   </button>
+
+                  <ServiceAuthorizationDisclosure
+                    buttonLabel="Get my free pricing report →"
+                    className="text-center text-[11px] leading-relaxed text-white/70"
+                  />
 
                   <p className="text-center text-[11px] leading-relaxed text-white/55">
                     Free for homeowners. Your info is never sold. We contact

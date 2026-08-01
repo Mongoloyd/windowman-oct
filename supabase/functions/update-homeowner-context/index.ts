@@ -18,6 +18,12 @@
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import {
+  persistConsentBatch,
+  validateConsentRequest,
+  validateHandoffContractorConsentConsistency,
+  type ParsedConsentRequest,
+} from "../_shared/consentCapture.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -90,6 +96,7 @@ Deno.serve(async (req) => {
   const handoff_consent_status = typeof body.handoff_consent_status === "string"
     ? body.handoff_consent_status
     : null;
+  const consentRaw = body.consent;
 
   if (!UUID_RE.test(lead_id)) {
     return json(400, { error: "invalid_lead_id" });
@@ -98,7 +105,8 @@ Deno.serve(async (req) => {
     return json(400, { error: "invalid_scan_session_id" });
   }
   if (
-    !property_type_detail && !hoa_or_condo_complexity && !handoff_consent_status
+    !property_type_detail && !hoa_or_condo_complexity && !handoff_consent_status &&
+    !consentRaw
   ) {
     return json(400, { error: "no_fields_provided" });
   }
@@ -120,13 +128,33 @@ Deno.serve(async (req) => {
     return json(400, { error: "invalid_handoff_consent_status" });
   }
 
+  let parsedConsent: ParsedConsentRequest | null = null;
+  if (consentRaw) {
+    const consentParsed = validateConsentRequest(consentRaw, "homeowner-context");
+    if (!consentParsed.ok) {
+      return json(400, {
+        error: consentParsed.code,
+        message: consentParsed.message,
+      });
+    }
+    parsedConsent = consentParsed.consent;
+  }
+
+  const consistency = validateHandoffContractorConsentConsistency(
+    handoff_consent_status,
+    parsedConsent,
+  );
+  if (!consistency.ok) {
+    return json(400, {
+      error: consistency.code,
+      message: consistency.message,
+    });
+  }
+
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  // Verify the scan_session ↔ lead binding. Same defensive pattern used by
-  // submit-diagnosis-intake. If it doesn't match, refuse to write — this
-  // prevents one homeowner from updating another lead's record.
   const { data: session, error: sessionError } = await admin
     .from("scan_sessions")
     .select("id, lead_id")
@@ -144,47 +172,74 @@ Deno.serve(async (req) => {
     return json(403, { error: "scan_session_lead_mismatch" });
   }
 
-  // Build the update payload — only set fields that were actually provided.
-  const update: Record<string, unknown> = {
-    updated_at: new Date().toISOString(),
-  };
-  if (property_type_detail) update.property_type_detail = property_type_detail;
-  if (hoa_or_condo_complexity) {
-    update.hoa_or_condo_complexity = hoa_or_condo_complexity;
-  }
-  if (handoff_consent_status) {
-    update.handoff_consent_status = handoff_consent_status;
-  }
-
-  const { error: updateError } = await admin
-    .from("leads")
-    .update(update)
-    .eq("id", lead_id);
-
-  if (updateError) {
-    console.error("[update-homeowner-context] update failed", updateError);
-    return json(500, { error: "update_failed" });
-  }
-
-  // Best-effort audit row in lead_events (non-fatal if it fails — Phase 10
-  // capture must not break the homeowner UX).
-  try {
-    await admin.from("lead_events").insert({
-      lead_id,
-      scan_session_id,
-      event_name: "human_context_captured",
-      event_source: "homeowner_post_report",
-      metadata: {
-        property_type_detail,
-        hoa_or_condo_complexity,
-        handoff_consent_status,
-      },
+  if (parsedConsent) {
+    const consentPersist = await persistConsentBatch(admin, {
+      leadId: lead_id,
+      sessionId: scan_session_id,
+      consent: parsedConsent,
     });
-  } catch (e) {
-    console.warn(
-      "[update-homeowner-context] audit insert failed (non-fatal)",
-      e,
-    );
+    if (!consentPersist.ok) {
+      return json(500, {
+        error: consentPersist.code,
+        message: consentPersist.message,
+      });
+    }
+  }
+
+  const hasLeadFieldUpdates = !!(
+    property_type_detail ||
+    hoa_or_condo_complexity ||
+    handoff_consent_status
+  );
+
+  if (hasLeadFieldUpdates) {
+    const update: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+    if (property_type_detail) {
+      update.property_type_detail = property_type_detail;
+    }
+    if (hoa_or_condo_complexity) {
+      update.hoa_or_condo_complexity = hoa_or_condo_complexity;
+    }
+    if (handoff_consent_status) {
+      update.handoff_consent_status = handoff_consent_status;
+    }
+
+    const { error: updateError } = await admin
+      .from("leads")
+      .update(update)
+      .eq("id", lead_id);
+
+    if (updateError) {
+      console.error("[update-homeowner-context] update failed", updateError);
+      return json(500, {
+        error: "update_failed",
+        message:
+          "Context could not be saved. Consent may already have been recorded.",
+      });
+    }
+  }
+
+  if (hasLeadFieldUpdates) {
+    try {
+      await admin.from("lead_events").insert({
+        lead_id,
+        scan_session_id,
+        event_name: "human_context_captured",
+        event_source: "homeowner_post_report",
+        metadata: {
+          property_type_detail,
+          hoa_or_condo_complexity,
+          handoff_consent_status,
+        },
+      });
+    } catch (e) {
+      console.warn(
+        "[update-homeowner-context] audit insert failed (non-fatal)",
+        e,
+      );
+    }
   }
 
   return json(200, { ok: true });

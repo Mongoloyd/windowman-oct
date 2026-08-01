@@ -13,7 +13,24 @@ export default defineConfig(({ mode }) => ({
       overlay: false,
     },
   },
-  plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+  plugins: [
+    react(),
+    mode === "development" && componentTagger(),
+    {
+      name: "privacy-prerender-preview",
+      configurePreviewServer(server) {
+        server.middlewares.use((req, _res, next) => {
+          const pathOnly = req.url?.split("?")[0] ?? "";
+
+          if (pathOnly === "/privacy" || pathOnly === "/privacy/") {
+            req.url = "/privacy/index.html";
+          }
+
+          next();
+        });
+      },
+    },
+  ].filter(Boolean),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

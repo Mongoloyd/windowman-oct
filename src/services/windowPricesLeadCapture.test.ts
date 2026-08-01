@@ -1,5 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import React from "react";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { submitWindowPricesLead } from "./windowPricesLeadCapture";
+import { TEST_CONSENT_SUBMISSION_ID } from "@/lib/consent/testConsentFixtures";
+import WindowPricesLanding from "@/pages/WindowPricesLanding";
+
+const defaultConsentFields = {
+  submissionId: TEST_CONSENT_SUBMISSION_ID,
+  serviceCommunicationsGranted: true,
+  marketingConsentPresented: false,
+} as const;
 
 const SESSION_ID = "22222222-2222-4222-8222-222222222222";
 const LEAD_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -83,6 +94,7 @@ describe("windowPricesLeadCapture", () => {
     });
 
     const result = await submitWindowPricesLead({
+      ...defaultConsentFields,
       sessionId: SESSION_ID,
       firstName: "Jane",
       email: "jane@example.com",
@@ -105,6 +117,7 @@ describe("windowPricesLeadCapture", () => {
     });
 
     await submitWindowPricesLead({
+      ...defaultConsentFields,
       sessionId: SESSION_ID,
       firstName: "Jane",
       email: "jane@example.com",
@@ -158,6 +171,7 @@ describe("windowPricesLeadCapture", () => {
     });
 
     const result = await submitWindowPricesLead({
+      ...defaultConsentFields,
       sessionId: quoteCheckSessionId,
       firstName: "Jane",
       email: "jane@example.com",
@@ -192,6 +206,7 @@ describe("windowPricesLeadCapture", () => {
     });
 
     const result = await submitWindowPricesLead({
+      ...defaultConsentFields,
       sessionId: SESSION_ID,
       firstName: "Jane",
       email: "jane@example.com",
@@ -209,6 +224,7 @@ describe("windowPricesLeadCapture", () => {
     });
 
     await submitWindowPricesLead({
+      ...defaultConsentFields,
       sessionId: SESSION_ID,
       firstName: "Jane",
       email: "jane@example.com",
@@ -221,5 +237,64 @@ describe("windowPricesLeadCapture", () => {
       zip: "33301",
       capture_page_path: "/window-price-audit",
     });
+  });
+});
+
+describe("WindowPricesLanding smsConsent regression", () => {
+  beforeEach(() => {
+    invokeMock.mockReset();
+    captureUtmFromUrlMock.mockReset();
+    getAttributionPayloadMock.mockReset();
+    readLateFbCookiesMock.mockReset();
+    pushLeadMagnetCapturedMock.mockReset();
+
+    captureUtmFromUrlMock.mockReturnValue({
+      utm_source: null,
+      utm_medium: null,
+      utm_campaign: null,
+      utm_term: null,
+      utm_content: null,
+      fbclid: null,
+      gclid: null,
+      fbc: null,
+      fbp: null,
+      client_slug: "direct",
+      landing_page: "/window-prices",
+      landing_page_url: "/window-prices",
+    });
+    getAttributionPayloadMock.mockReturnValue({ query_params: {} });
+    readLateFbCookiesMock.mockReturnValue({ fbp: null, fbc: null });
+  });
+
+  it("renders and handles submit without a runtime smsConsent reference", async () => {
+    // The stale undeclared `smsConsent` lived in the submit callback's
+    // dependency array, which is evaluated on every render — rendering plus
+    // submitting proves no ReferenceError remains.
+    render(
+      React.createElement(
+        MemoryRouter,
+        null,
+        React.createElement(WindowPricesLanding),
+      ),
+    );
+
+    const submitButton = screen.getByRole("button", {
+      name: /Get my free pricing report/i,
+    });
+    expect(submitButton).toBeInTheDocument();
+
+    // Marketing consent toggle and empty-form submit both re-render the
+    // component and re-evaluate the callback dependency array.
+    fireEvent.click(
+      screen.getByRole("checkbox", {
+        name: /Optional: I agree to receive promotional/i,
+      }),
+    );
+    fireEvent.submit(submitButton.closest("form") as HTMLFormElement);
+
+    expect(
+      await screen.findByText("Enter your first name."),
+    ).toBeInTheDocument();
+    expect(invokeMock).not.toHaveBeenCalled();
   });
 });

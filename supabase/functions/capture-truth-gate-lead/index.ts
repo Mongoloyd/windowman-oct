@@ -60,6 +60,14 @@ import {
   sendOpenAiAdsLeadCreated,
 } from "../_shared/openAiAdsConversions.ts";
 import { persistCanonicalEvent } from "../_shared/tracking/canonicalBridge.ts";
+import {
+  consentPersistFailureStatus,
+  persistConsentBatch,
+  persistConsentThenRunSuccessEffects,
+  validateConsentRequest,
+  type ParsedConsentRequest,
+} from "../_shared/consentCapture.ts";
+import { stripConsentForLeadsInsert } from "../_shared/leadInsertPayload.ts";
 
 const FUNCTION_NAME = "capture-truth-gate-lead";
 
@@ -348,6 +356,7 @@ interface CapturePayload {
 
   attribution: Record<string, unknown>;
   query_params: Record<string, string | string[]>;
+  consent: ParsedConsentRequest;
 }
 
 type AuditStatus = "started" | "succeeded" | "failed" | "reused" | "skipped";
@@ -376,6 +385,7 @@ const PERSISTED_STAGES = new Set<string>([
   "lead_insert_failed",
   "lead_insert_succeeded",
   "lead_reused",
+  "consent_persist_failed",
   "unexpected_error",
   "response_sent",
 ]);
@@ -552,6 +562,15 @@ function parseAndValidate(input: unknown):
 
   const source = asRequiredString(b.source, 64) ?? "truth-gate";
 
+  const consentParsed = validateConsentRequest(b.consent, source);
+  if (!consentParsed.ok) {
+    return {
+      ok: false,
+      code: consentParsed.code,
+      message: consentParsed.message,
+    };
+  }
+
   const sanitizedAttribution = preserveSiteWideAttributionFields(
     sanitizeAttributionInput(b.attribution),
     b.attribution,
@@ -586,9 +605,23 @@ function parseAndValidate(input: unknown):
 
     attribution: sanitizedAttribution,
     query_params: sanitizedQueryParams,
+    consent: consentParsed.consent,
   };
 
   return { ok: true, payload };
+}
+
+async function persistCaptureConsent(
+  admin: SupabaseClient,
+  leadId: string,
+  sessionId: string,
+  consent: ParsedConsentRequest,
+): Promise<{ ok: true } | { ok: false; code: string; message: string }> {
+  return persistConsentBatch(admin, {
+    leadId,
+    sessionId,
+    consent,
+  });
 }
 
 Deno.serve(async (req) => {
@@ -708,39 +741,72 @@ Deno.serve(async (req) => {
       Array.isArray(existing) && existing.length > 0 && existing[0]?.id
     ) {
       const reusedLeadId = existing[0].id as string;
-      await mergeExistingLeadAttribution(
-        admin,
-        reusedLeadId,
-        parsed.payload.attribution,
-        parsed.payload.query_params,
-      );
-      await maybePersistLeadCapturedCanonical(admin, {
-        leadId: reusedLeadId,
-        sessionId: payload.session_id,
-        email: payload.email,
-        phoneE164: payload.phone_e164,
-        clientSlug: payload.client_slug,
-        landingPageUrl: payload.landing_page_url,
-        firstPagePath: payload.first_page_path,
-        utmSource: payload.utm_source,
-        utmMedium: payload.utm_medium,
-        utmCampaign: payload.utm_campaign,
-        utmContent: payload.utm_content,
-        utmTerm: payload.utm_term,
-        source: payload.source,
-        attribution: payload.attribution,
+      // Required consent persistence FIRST — no success side effect (attribution
+      // merge, canonical lead_captured, lead_source update, CRM activity) may
+      // run unless the consent batch is durably recorded.
+      const consentPersist = await persistConsentThenRunSuccessEffects({
+        persist: () =>
+          persistCaptureConsent(
+            admin,
+            reusedLeadId,
+            payload.session_id,
+            payload.consent,
+          ),
+        runSuccessEffects: async () => {
+          await mergeExistingLeadAttribution(
+            admin,
+            reusedLeadId,
+            parsed.payload.attribution,
+            parsed.payload.query_params,
+          );
+          await maybePersistLeadCapturedCanonical(admin, {
+            leadId: reusedLeadId,
+            sessionId: payload.session_id,
+            email: payload.email,
+            phoneE164: payload.phone_e164,
+            clientSlug: payload.client_slug,
+            landingPageUrl: payload.landing_page_url,
+            firstPagePath: payload.first_page_path,
+            utmSource: payload.utm_source,
+            utmMedium: payload.utm_medium,
+            utmCampaign: payload.utm_campaign,
+            utmContent: payload.utm_content,
+            utmTerm: payload.utm_term,
+            source: payload.source,
+            attribution: payload.attribution,
+          });
+          const derivedLeadSource = deriveLeadSourceFromSource(payload.source);
+          await admin
+            .from("leads")
+            .update({ lead_source: derivedLeadSource })
+            .eq("id", reusedLeadId);
+          await emitTruthGateCaptureActivity(admin, {
+            leadId: reusedLeadId,
+            source: payload.source,
+            email: payload.email,
+            phone_e164: payload.phone_e164,
+          });
+        },
       });
-      const derivedLeadSource = deriveLeadSourceFromSource(payload.source);
-      await admin
-        .from("leads")
-        .update({ lead_source: derivedLeadSource })
-        .eq("id", reusedLeadId);
-      await emitTruthGateCaptureActivity(admin, {
-        leadId: reusedLeadId,
-        source: payload.source,
-        email: payload.email,
-        phone_e164: payload.phone_e164,
-      });
+      if (!consentPersist.ok) {
+        audit(admin, {
+          stage: "consent_persist_failed",
+          status: "failed",
+          session_id: payload.session_id,
+          lead_id: reusedLeadId,
+          error_code: consentPersist.code,
+          error_message: consentPersist.message,
+        });
+        return jsonResponse(
+          {
+            success: false,
+            code: consentPersist.code,
+            message: consentPersist.message,
+          },
+          consentPersistFailureStatus(consentPersist.code),
+          corsHeaders,
+        );
+      }
       audit(admin, {
         stage: "lead_reused",
         status: "reused",
@@ -792,8 +858,10 @@ Deno.serve(async (req) => {
     },
   );
 
+  const leadPayload = stripConsentForLeadsInsert(payload);
+
   const insertRow = {
-    ...payload,
+    ...leadPayload,
     ...promotedFromAttribution,
     utm_source: payload.utm_source ?? promotedFromAttribution.utm_source ?? null,
     utm_medium: payload.utm_medium ?? promotedFromAttribution.utm_medium ?? null,
@@ -868,8 +936,75 @@ Deno.serve(async (req) => {
   });
 
   // Server-canonical OpenAI Ads conversion identity exists only for this
-  // successful new TruthGate insert. Reused and failed paths return earlier.
+  // successful new TruthGate insert. Reused and failed paths return earlier,
+  // and the dispatch itself is deferred until required consent persistence
+  // succeeds below — measurement is a success signal and must not fire for a
+  // lead whose consent batch failed to record.
   let openAiAdsEventId: string | null = null;
+
+  if (data?.id) {
+    const insertedLeadId = data.id as string;
+    // Required consent persistence FIRST — the canonical lead_captured event
+    // and CRM activity are success signals and may only fire after the
+    // consent batch is durably recorded. On failure the client receives an
+    // error and recovers by retrying: the session lookup reuses this lead and
+    // the same submissionId persists idempotently before success effects run.
+    const consentPersist = await persistConsentThenRunSuccessEffects({
+      persist: () =>
+        persistCaptureConsent(
+          admin,
+          insertedLeadId,
+          payload.session_id,
+          payload.consent,
+        ),
+      runSuccessEffects: async () => {
+        await maybePersistLeadCapturedCanonical(admin, {
+          leadId: insertedLeadId,
+          sessionId: payload.session_id,
+          email: payload.email,
+          phoneE164: payload.phone_e164,
+          clientSlug: payload.client_slug,
+          landingPageUrl: payload.landing_page_url,
+          firstPagePath: payload.first_page_path,
+          utmSource: payload.utm_source,
+          utmMedium: payload.utm_medium,
+          utmCampaign: payload.utm_campaign,
+          utmContent: payload.utm_content,
+          utmTerm: payload.utm_term,
+          source: payload.source,
+          attribution: payload.attribution,
+        });
+        await emitTruthGateCaptureActivity(admin, {
+          leadId: insertedLeadId,
+          source: payload.source,
+          email: payload.email,
+          phone_e164: payload.phone_e164,
+        });
+      },
+    });
+    if (!consentPersist.ok) {
+      audit(admin, {
+        stage: "consent_persist_failed",
+        status: "failed",
+        session_id: payload.session_id,
+        lead_id: insertedLeadId,
+        error_code: consentPersist.code,
+        error_message: consentPersist.message,
+      });
+      return jsonResponse(
+        {
+          success: false,
+          code: consentPersist.code,
+          message: consentPersist.message,
+        },
+        consentPersistFailureStatus(consentPersist.code),
+        corsHeaders,
+      );
+    }
+  }
+
+  // OpenAI Ads conversion identity + server dispatch — runs ONLY after the
+  // consent batch above persisted successfully (all failure paths returned).
   if (data?.id && payload.source === "truth-gate") {
     try {
       openAiAdsEventId = buildOpenAiAdsLeadEventId(data.id);
@@ -903,34 +1038,6 @@ Deno.serve(async (req) => {
       // Measurement identity/dispatch can never fail a persisted lead.
       openAiAdsEventId = null;
     }
-  }
-
-  if (data?.id) {
-    await maybePersistLeadCapturedCanonical(admin, {
-      leadId: data.id,
-      sessionId: payload.session_id,
-      email: payload.email,
-      phoneE164: payload.phone_e164,
-      clientSlug: payload.client_slug,
-      landingPageUrl: payload.landing_page_url,
-      firstPagePath: payload.first_page_path,
-      utmSource: payload.utm_source,
-      utmMedium: payload.utm_medium,
-      utmCampaign: payload.utm_campaign,
-      utmContent: payload.utm_content,
-      utmTerm: payload.utm_term,
-      source: payload.source,
-      attribution: payload.attribution,
-    });
-  }
-
-  if (data?.id) {
-    await emitTruthGateCaptureActivity(admin, {
-      leadId: data.id,
-      source: payload.source,
-      email: payload.email,
-      phone_e164: payload.phone_e164,
-    });
   }
 
   // Best-effort business telemetry — never block success.

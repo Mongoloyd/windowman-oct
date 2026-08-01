@@ -6,6 +6,7 @@
 // a real full report or raw JSON, never calls scanner/report APIs.
 
 import { useCallback, useMemo, useRef, useState } from "react";
+import { createUuid } from "@/lib/createUuid";
 import {
   PaidSearchLandingFooter,
   PaidSearchLandingHeader,
@@ -20,6 +21,7 @@ import {
   PaidSearchFeatureCard,
   PaidSearchSection,
 } from "@/components/paid-search/PaidSearchContent";
+import { ServiceAuthorizationDisclosure } from "@/components/consent/ServiceAuthorizationDisclosure";
 import { submitWindowPricesLead } from "@/services/windowPricesLeadCapture";
 import { LeadMagnetSuccessPanel } from "@/components/paid-search/LeadMagnetSuccessPanel";
 
@@ -63,6 +65,7 @@ export default function TruthReportLanding() {
       ? crypto.randomUUID()
       : `${Date.now()}-fallback`,
   );
+  const submissionIdRef = useRef<string>(createUuid());
   const inFlightRef = useRef(false);
 
   const validate = useCallback((): FormErrors => {
@@ -85,9 +88,12 @@ export default function TruthReportLanding() {
     try {
       const result = await submitWindowPricesLead({
         sessionId: sessionIdRef.current,
+        submissionId: submissionIdRef.current,
         firstName: firstName.trim(),
         email: email.trim(),
         source: "truth_report_demo",
+        serviceCommunicationsGranted: true,
+        marketingConsentPresented: false,
       });
       if (result.ok) {
         setCaptureResult({
@@ -270,6 +276,10 @@ export default function TruthReportLanding() {
               <button type="button" onClick={handleSubmit} disabled={submitting} className={`w-full ${paidSearchPrimaryButtonClass}`}>
                 {submitting ? "Saving…" : "Save my Truth Report →"}
               </button>
+              <ServiceAuthorizationDisclosure
+                buttonLabel="Save my Truth Report →"
+                className="mt-2 text-center text-[11px] leading-relaxed text-white/50"
+              />
               <p className="text-center text-[11px] leading-relaxed text-white/50">
                 Free for homeowners. Your info is never sold.
               </p>

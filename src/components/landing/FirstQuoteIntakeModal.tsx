@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import {
   Dialog,
@@ -37,6 +37,9 @@ import {
   getOrCreateFirstQuoteSessionId,
   submitWindowmanFirstQuoteLead,
 } from "@/services/windowmanFirstQuoteLeadCapture";
+import { MarketingConsentCheckbox } from "@/components/consent/MarketingConsentCheckbox";
+import { ServiceAuthorizationDisclosure } from "@/components/consent/ServiceAuthorizationDisclosure";
+import { createUuid } from "@/lib/createUuid";
 import { landingCtaMinH, landingFocusRing } from "./landingTypes";
 
 type FirstQuoteIntakeModalProps = {
@@ -119,6 +122,18 @@ export default function FirstQuoteIntakeModal({ open, onOpenChange }: FirstQuote
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  // One consent-decision transaction per submission attempt. Kept for
+  // identical retries; rotated on decision change, on modal reset, and after
+  // a completed submission.
+  const submissionIdRef = useRef(createUuid());
+  const [marketingCommunicationsConsent, setMarketingCommunicationsConsent] =
+    useState(false);
+
+  const handleMarketingConsentChange = useCallback((checked: boolean) => {
+    setMarketingCommunicationsConsent(checked);
+    // Changed consent decision → new consent submission transaction.
+    submissionIdRef.current = createUuid();
+  }, []);
 
   const resetModal = useCallback(() => {
     setStep(1);
@@ -130,6 +145,8 @@ export default function FirstQuoteIntakeModal({ open, onOpenChange }: FirstQuote
     setSubmitError(null);
     setIsSubmitting(false);
     setSessionId(null);
+    // A re-opened modal is a new funnel-stage submission.
+    submissionIdRef.current = createUuid();
   }, []);
 
   useEffect(() => {
@@ -233,6 +250,7 @@ export default function FirstQuoteIntakeModal({ open, onOpenChange }: FirstQuote
     try {
       const result = await submitWindowmanFirstQuoteLead({
         sessionId: activeSessionId,
+        submissionId: submissionIdRef.current,
         firstName: form.contact.firstName.trim(),
         email: form.contact.email.trim().toLowerCase(),
         phoneE164,
@@ -242,6 +260,9 @@ export default function FirstQuoteIntakeModal({ open, onOpenChange }: FirstQuote
         },
         helpNeeded: form.helpNeeded as HelpNeeded,
         preferredContact: form.contact.preferredContact || null,
+        serviceCommunicationsGranted: true,
+        marketingConsentPresented: true,
+        marketingCommunicationsGranted: marketingCommunicationsConsent,
       });
 
       if (!result.ok) {
@@ -249,6 +270,8 @@ export default function FirstQuoteIntakeModal({ open, onOpenChange }: FirstQuote
         return;
       }
 
+      // Completed submission closes this consent transaction.
+      submissionIdRef.current = createUuid();
       setView("success");
     } finally {
       setIsSubmitting(false);
@@ -581,6 +604,13 @@ export default function FirstQuoteIntakeModal({ open, onOpenChange }: FirstQuote
                   later.
                 </p>
 
+                <MarketingConsentCheckbox
+                  id={`${formId}-marketing-consent`}
+                  checked={marketingCommunicationsConsent}
+                  onChange={handleMarketingConsentChange}
+                  variant="light"
+                />
+
                 <div className="flex gap-3">
                   <button
                     type="button"
@@ -614,6 +644,11 @@ export default function FirstQuoteIntakeModal({ open, onOpenChange }: FirstQuote
                     )}
                   </button>
                 </div>
+
+                <ServiceAuthorizationDisclosure
+                  buttonLabel="Build My First-Quote Plan"
+                  className="text-center text-xs leading-relaxed text-muted-foreground"
+                />
               </form>
             ) : null}
           </>

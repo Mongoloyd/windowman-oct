@@ -1,6 +1,7 @@
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import type { UtmData } from "@/lib/useUtmCapture";
 
 const UTM_STORAGE_KEY = "wm_utm_data";
@@ -80,6 +81,10 @@ vi.mock("framer-motion", () => {
 });
 
 import TruthGateFlow from "./TruthGateFlow";
+
+function renderTruthGate(ui: React.ReactElement) {
+  return render(<MemoryRouter>{ui}</MemoryRouter>);
+}
 
 function installLocalStorageMock() {
   const store = new Map<string, string>();
@@ -224,7 +229,7 @@ describe("TruthGateFlow contact-first intake", () => {
       fbclid: null,
     });
 
-    render(<TruthGateFlow />);
+    renderTruthGate(<TruthGateFlow />);
 
     expectContactFirstSurface();
   });
@@ -238,7 +243,7 @@ describe("TruthGateFlow contact-first intake", () => {
       fbclid: null,
     });
 
-    render(<TruthGateFlow />);
+    renderTruthGate(<TruthGateFlow />);
 
     await submitContactForm();
 
@@ -271,7 +276,7 @@ describe("TruthGateFlow contact-first intake", () => {
     });
 
     const onLeadCaptured = vi.fn();
-    render(<TruthGateFlow onLeadCaptured={onLeadCaptured} />);
+    renderTruthGate(<TruthGateFlow onLeadCaptured={onLeadCaptured} />);
 
     await submitContactForm();
 
@@ -294,7 +299,7 @@ describe("TruthGateFlow contact-first intake", () => {
 
     const onLeadCaptured = vi.fn();
 
-    render(<TruthGateFlow onLeadCaptured={onLeadCaptured} />);
+    renderTruthGate(<TruthGateFlow onLeadCaptured={onLeadCaptured} />);
 
     expectContactFirstSurface({ paidNetworkLabel: "NEXTDOOR" });
 
@@ -328,7 +333,7 @@ describe("TruthGateFlow contact-first intake", () => {
       fbclid: null,
     });
 
-    render(<TruthGateFlow />);
+    renderTruthGate(<TruthGateFlow />);
 
     expectContactFirstSurface({ paidNetworkLabel: "NEXTDOOR" });
   });

@@ -18,6 +18,7 @@
 //   backends directly.
 
 import { useCallback, useMemo, useRef, useState } from "react";
+import { createUuid } from "@/lib/createUuid";
 import { useNavigate } from "react-router-dom";
 import {
   PaidSearchLandingFooter,
@@ -31,6 +32,7 @@ import {
   paidSearchTrustPillClass,
 } from "@/components/paid-search/PaidSearchLandingShell";
 import { pushLeadMagnetUploadCtaClicked } from "@/lib/tracking/dataLayer";
+import { ServiceAuthorizationDisclosure } from "@/components/consent/ServiceAuthorizationDisclosure";
 import { submitWindowPricesLead } from "@/services/windowPricesLeadCapture";
 import { useScanFunnelSafe } from "@/state/scanFunnel";
 
@@ -102,6 +104,7 @@ export default function PricingSearchLanding() {
       ? crypto.randomUUID()
       : `${Date.now()}-fallback`,
   );
+  const submissionIdRef = useRef<string>(createUuid());
 
   const inFlightRef = useRef(false); // duplicate-submit guard
 
@@ -130,9 +133,12 @@ export default function PricingSearchLanding() {
     try {
       const result = await submitWindowPricesLead({
         sessionId: sessionIdRef.current,
+        submissionId: submissionIdRef.current,
         firstName: firstName.trim(),
         email: email.trim(),
         source: QUOTE_CHECK_CAPTURE_SOURCE,
+        serviceCommunicationsGranted: true,
+        marketingConsentPresented: false,
       });
 
       if (result.ok) {
@@ -304,6 +310,11 @@ export default function PricingSearchLanding() {
                 >
                   {submitting ? "Saving…" : "Analyze my quote free →"}
                 </button>
+
+                <ServiceAuthorizationDisclosure
+                  buttonLabel="Analyze my quote free →"
+                  className="mt-2 text-center text-[11px] leading-relaxed text-white/55"
+                />
 
                 <p className="text-center text-[11px] leading-relaxed text-white/55">
                   Free for homeowners. No obligation. Your info is never sold.

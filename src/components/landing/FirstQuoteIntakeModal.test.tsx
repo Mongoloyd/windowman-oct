@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import FirstQuoteIntakeModal from "./FirstQuoteIntakeModal";
 import {
   HELP_NEEDED_OPTIONS,
@@ -29,7 +30,11 @@ import { trackAndHandoffToCanonicalUpload } from "./landingTracking";
 
 function setup(open = true) {
   const onOpenChange = vi.fn();
-  render(<FirstQuoteIntakeModal open={open} onOpenChange={onOpenChange} />);
+  render(
+    <MemoryRouter>
+      <FirstQuoteIntakeModal open={open} onOpenChange={onOpenChange} />
+    </MemoryRouter>,
+  );
   return { onOpenChange };
 }
 
@@ -251,6 +256,74 @@ describe("FirstQuoteIntakeModal", () => {
       expect(
         screen.getByText("We couldn't save your plan yet. Check your details and try again."),
       ).toBeInTheDocument();
+    });
+  });
+
+  describe("consent submission lifecycle", () => {
+    const UUID_V4_REGEX =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+    function submissionIdOfCall(index: number): string {
+      return (submitMock.mock.calls[index][0] as { submissionId: string })
+        .submissionId;
+    }
+
+    it("sends a real v4 UUID submissionId (no fixed fallback)", async () => {
+      setup();
+      goToStep3();
+      fillContact();
+      submitMock.mockResolvedValue({ ok: true });
+
+      fireEvent.click(screen.getByRole("button", { name: "Build My First-Quote Plan" }));
+
+      await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
+      const submissionId = submissionIdOfCall(0);
+      expect(submissionId).toMatch(UUID_V4_REGEX);
+      expect(submissionId).not.toMatch(/^00000000-0000-4000-8000-/);
+    });
+
+    it("keeps the same submissionId for an identical retry after a failure", async () => {
+      setup();
+      goToStep3();
+      fillContact();
+      submitMock.mockResolvedValueOnce({ ok: false, message: "Try again." });
+      submitMock.mockResolvedValueOnce({ ok: true });
+
+      fireEvent.click(screen.getByRole("button", { name: "Build My First-Quote Plan" }));
+      await waitFor(() => expect(screen.getByText("Try again.")).toBeInTheDocument());
+
+      fireEvent.click(screen.getByRole("button", { name: "Build My First-Quote Plan" }));
+      await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(2));
+
+      expect(submissionIdOfCall(1)).toBe(submissionIdOfCall(0));
+    });
+
+    it("generates a new submissionId when the marketing decision changes", async () => {
+      setup();
+      goToStep3();
+      fillContact();
+      submitMock.mockResolvedValueOnce({ ok: false, message: "Try again." });
+      submitMock.mockResolvedValueOnce({ ok: true });
+
+      fireEvent.click(screen.getByRole("button", { name: "Build My First-Quote Plan" }));
+      await waitFor(() => expect(screen.getByText("Try again.")).toBeInTheDocument());
+
+      fireEvent.click(
+        screen.getByRole("checkbox", {
+          name: /Optional: I agree to receive promotional/i,
+        }),
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Build My First-Quote Plan" }));
+      await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(2));
+
+      const first = submissionIdOfCall(0);
+      const second = submissionIdOfCall(1);
+      expect(second).toMatch(UUID_V4_REGEX);
+      expect(second).not.toBe(first);
+      expect(
+        (submitMock.mock.calls[1][0] as { marketingCommunicationsGranted: boolean })
+          .marketingCommunicationsGranted,
+      ).toBe(true);
     });
   });
 

@@ -14,7 +14,7 @@
  *   only writes to the 3 Phase 10 columns on `leads`.
  */
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Loader2, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -25,6 +25,9 @@ import {
   type HoaComplexity,
   type PropertyTypeDetail,
 } from "@/lib/humanContext";
+import { buildContractorSharingConsentRequest } from "@/lib/consent/buildConsentRequest";
+import { ContractorSharingConsentCheckbox } from "@/components/consent/ContractorSharingConsentCheckbox";
+import { createUuid } from "@/lib/createUuid";
 
 interface Props {
   leadId: string;
@@ -55,6 +58,14 @@ const CONSENT_OPTIONS: Array<{ value: HandoffConsentStatus; label: string }> = [
   { value: "text_or_email_first", label: "Text or email me first" },
   { value: "report_only", label: "Not yet — I only want the report" },
 ];
+
+function handoffRequestsContractor(status: HandoffConsentStatus | null): boolean {
+  return (
+    status === "accepted_today" ||
+    status === "accepted_tomorrow" ||
+    status === "text_or_email_first"
+  );
+}
 
 function ChipGroup<T extends string>({
   options,
@@ -101,12 +112,39 @@ export function PropertyAndConsentStep({
   const [propertyType, setPropertyType] = useState<PropertyTypeDetail | null>(null);
   const [hoa, setHoa] = useState<HoaComplexity | null>(null);
   const [consent, setConsent] = useState<HandoffConsentStatus | null>(null);
+  const [contractorSharingConsent, setContractorSharingConsent] = useState(false);
+
+  // One consent-decision transaction per submission. Kept for identical
+  // retries after a failure; rotated whenever the contractor-sharing decision
+  // inputs change and after a completed persist, so a changed decision is
+  // always a new append-only consent event, never a conflicting reuse.
+  const submissionIdRef = useRef(createUuid());
 
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canSubmit = !!propertyType && !!consent && !submitting;
+  const requestsContractor = handoffRequestsContractor(consent);
+
+  const canSubmit =
+    !!propertyType &&
+    !!consent &&
+    (!requestsContractor || contractorSharingConsent) &&
+    !submitting;
+
+  const persistContractorConsent = async (granted: boolean) => {
+    const consentEnvelope = buildContractorSharingConsentRequest({
+      submissionId: submissionIdRef.current,
+      granted,
+    });
+    await supabase.functions.invoke("update-homeowner-context", {
+      body: {
+        lead_id: leadId,
+        scan_session_id: scanSessionId,
+        consent: consentEnvelope,
+      },
+    });
+  };
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -123,12 +161,18 @@ export function PropertyAndConsentStep({
             property_type_detail: propertyType,
             hoa_or_condo_complexity: hoa ?? "unknown",
             handoff_consent_status: consent,
+            consent: buildContractorSharingConsentRequest({
+              submissionId: submissionIdRef.current,
+              granted: requestsContractor && contractorSharingConsent,
+            }),
           },
         },
       );
 
       if (invokeError) throw invokeError;
 
+      // Completed persist closes this consent transaction.
+      submissionIdRef.current = createUuid();
       setSubmitted(true);
       onSubmitted?.();
     } catch (e) {
@@ -140,6 +184,17 @@ export function PropertyAndConsentStep({
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleSkip = async () => {
+    try {
+      await persistContractorConsent(false);
+      // Completed persist closes this consent transaction.
+      submissionIdRef.current = createUuid();
+    } catch {
+      // Non-blocking — homeowner may still skip the step.
+    }
+    onSkipped?.();
   };
 
   if (submitted) {
@@ -210,10 +265,35 @@ export function PropertyAndConsentStep({
         <ChipGroup
           options={CONSENT_OPTIONS}
           value={consent}
-          onChange={(v) => setConsent(v)}
+          onChange={(v) => {
+            setConsent(v);
+            // Changed decision input → new consent submission transaction.
+            submissionIdRef.current = createUuid();
+            if (v === "report_only") {
+              setContractorSharingConsent(false);
+            }
+          }}
           ariaLabel="Handoff consent"
         />
       </div>
+
+      {requestsContractor ? (
+        <ContractorSharingConsentCheckbox
+          checked={contractorSharingConsent}
+          onChange={(checked) => {
+            setContractorSharingConsent(checked);
+            // Changed decision input → new consent submission transaction.
+            submissionIdRef.current = createUuid();
+          }}
+        />
+      ) : null}
+
+      {requestsContractor && !contractorSharingConsent && (
+        <p className="text-xs text-muted-foreground" role="status">
+          Check the contractor authorization box to continue with a contractor
+          introduction.
+        </p>
+      )}
 
       {error && (
         <p className="text-xs text-destructive" role="alert">
@@ -233,7 +313,7 @@ export function PropertyAndConsentStep({
         </button>
         <button
           type="button"
-          onClick={onSkipped}
+          onClick={handleSkip}
           className="text-xs text-muted-foreground hover:text-foreground underline"
         >
           Skip for now

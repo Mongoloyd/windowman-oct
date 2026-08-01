@@ -15,6 +15,9 @@ import {
   isValidZipCode,
   normalizeZipCode,
 } from "@/components/landing/firstQuoteIntakeTypes";
+import {
+  TEST_CONSENT_SUBMISSION_ID,
+} from "@/lib/consent/testConsentFixtures";
 
 const invokeMock = vi.fn();
 
@@ -27,6 +30,20 @@ vi.mock("@/integrations/supabase/client", () => ({
 }));
 
 vi.mock("@/lib/useUtmCapture", () => ({
+  captureUtmFromUrl: vi.fn(() => ({
+    utm_source: "nextdoor",
+    utm_medium: null,
+    utm_campaign: "first_quote_test",
+    utm_term: null,
+    utm_content: null,
+    fbclid: null,
+    gclid: null,
+    fbp: null,
+    fbc: null,
+    client_slug: "direct",
+    landing_page: "/windowman",
+    landing_page_url: "/windowman?utm_source=nextdoor",
+  })),
   getUtmData: vi.fn(() => ({
     utm_source: "nextdoor",
     utm_medium: null,
@@ -59,6 +76,7 @@ const TEST_SESSION_ID = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
 
 const sampleInput = {
   sessionId: TEST_SESSION_ID,
+  submissionId: TEST_CONSENT_SUBMISSION_ID,
   firstName: "Sam",
   email: "sam@example.com",
   phoneE164: "+15551234567",
@@ -72,6 +90,9 @@ const sampleInput = {
   },
   helpNeeded: HELP_NEEDED_OPTIONS[0],
   preferredContact: "Text" as const,
+  serviceCommunicationsGranted: true,
+  marketingConsentPresented: true,
+  marketingCommunicationsGranted: false,
 };
 
 describe("windowmanFirstQuoteLeadCapture", () => {
