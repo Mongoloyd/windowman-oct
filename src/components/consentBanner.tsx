@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { X } from "lucide-react";
 
 const CONSENT_STORAGE_KEY = "wg_consent_mode";
 const CONSENT_CHANGED_EVENT = "consentChanged";
-const SCROLL_ACCEPT_THRESHOLD_PX = 200;
+const PERSISTENCE_ERROR =
+  "Unable to save your choice. Please try again.";
 
 type ConsentMode = "granted" | "denied";
 
@@ -58,7 +58,7 @@ function updateGtagConsent(mode: ConsentMode) {
 export default function ConsentBanner() {
   const [storedMode, setStoredMode] = useState<ConsentMode | null>(null);
   const [isReady, setIsReady] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [persistenceError, setPersistenceError] = useState<string | null>(null);
 
   useEffect(() => {
     const savedMode = readStoredConsent();
@@ -77,60 +77,28 @@ export default function ConsentBanner() {
   }, []);
 
   const saveChoice = useCallback((mode: ConsentMode) => {
-    const persisted = writeStoredConsent(mode);
+    setPersistenceError(null);
 
-    if (persisted) {
-      updateGtagConsent(mode);
-      pushToDataLayer({
-        event: "consent_update",
-        consent_choice: mode === "granted" ? "accepted" : "rejected",
-        consent_type: "all",
-      });
-      window.dispatchEvent(new Event(CONSENT_CHANGED_EVENT));
+    const persisted = writeStoredConsent(mode);
+    if (!persisted) {
+      setPersistenceError(PERSISTENCE_ERROR);
+      return;
     }
 
+    updateGtagConsent(mode);
+    pushToDataLayer({
+      event: "consent_update",
+      consent_choice: mode === "granted" ? "accepted" : "rejected",
+      consent_type: "all",
+    });
+    window.dispatchEvent(new Event(CONSENT_CHANGED_EVENT));
     setStoredMode(mode);
-    setIsSettingsOpen(false);
   }, []);
 
-  const isBannerVisible = isReady && (storedMode === null || isSettingsOpen);
-
-  useEffect(() => {
-    // Scroll acceptance applies only to a first-time, undecided visitor. A
-    // visitor who deliberately reopens Privacy settings must click a choice.
-    if (!isBannerVisible || storedMode !== null || isSettingsOpen) return;
-
-    const startingScrollY = window.scrollY;
-
-    const handleScroll = () => {
-      if (
-        Math.abs(window.scrollY - startingScrollY) <
-        SCROLL_ACCEPT_THRESHOLD_PX
-      ) {
-        return;
-      }
-
-      window.removeEventListener("scroll", handleScroll);
-      saveChoice("granted");
-    };
-
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [isBannerVisible, isSettingsOpen, saveChoice, storedMode]);
+  const isBannerVisible = isReady && storedMode === null;
 
   if (!isReady) return null;
-
-  if (!isBannerVisible) {
-    return (
-      <button
-        type="button"
-        onClick={() => setIsSettingsOpen(true)}
-        className="fixed bottom-2 left-2 z-[60] rounded-sm bg-white/90 px-2 py-1 text-[11px] font-medium text-slate-700 shadow-sm ring-1 ring-slate-300 transition-colors hover:bg-white hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600"
-      >
-        Privacy settings
-      </button>
-    );
-  }
+  if (!isBannerVisible) return null;
 
   return (
     <section
@@ -139,19 +107,19 @@ export default function ConsentBanner() {
       className="fixed inset-x-0 bottom-0 z-[100] border-t border-slate-200 bg-white text-slate-900 shadow-[0_-4px_16px_rgba(15,23,42,0.12)]"
     >
       <div className="mx-auto flex min-h-[52px] max-w-7xl items-center gap-2 px-3 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] sm:gap-4 sm:px-5">
-        <p className="min-w-0 flex-1 text-[11px] leading-4 sm:text-xs">
-          We use cookies and measurement to improve our experience. By using the
-          site you agree.
-        </p>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] leading-4 sm:text-xs">
+            We use cookies and measurement to improve your experience. You can
+            accept or decline measurement.
+          </p>
+          {persistenceError ? (
+            <p role="alert" className="mt-1 text-[11px] font-medium text-red-700 sm:text-xs">
+              {persistenceError}
+            </p>
+          ) : null}
+        </div>
 
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-          <button
-            type="button"
-            onClick={() => saveChoice("denied")}
-            className="px-1.5 py-2 text-[11px] font-medium text-slate-500 underline decoration-slate-300 underline-offset-2 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600 sm:text-xs"
-          >
-            Decline
-          </button>
           <button
             type="button"
             onClick={() => saveChoice("granted")}
@@ -159,15 +127,16 @@ export default function ConsentBanner() {
           >
             Accept
           </button>
-          <button
-            type="button"
-            onClick={() => saveChoice("granted")}
-            aria-label="Accept cookies and close"
-            title="Accept and close"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600"
+          <a
+            href="#decline-measurement"
+            onClick={(event) => {
+              event.preventDefault();
+              saveChoice("denied");
+            }}
+            className="px-1.5 py-2 text-[11px] font-medium text-slate-500 underline decoration-slate-300 underline-offset-2 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600 sm:text-xs"
           >
-            <X aria-hidden="true" className="h-4 w-4" />
-          </button>
+            Decline
+          </a>
         </div>
       </div>
     </section>
