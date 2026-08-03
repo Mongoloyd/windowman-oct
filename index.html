@@ -13,6 +13,29 @@
       text-rendering: optimizeLegibility;
     }
   </style>
+  <!-- Google Consent Mode default — must run synchronously before GTM -->
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    if (typeof window.gtag !== "function") {
+      window.gtag = function () {
+        window.dataLayer.push(arguments);
+      };
+    }
+    var __wmConsentDefault = "denied";
+    try {
+      if (localStorage.getItem("wg_consent_mode") === "granted") {
+        __wmConsentDefault = "granted";
+      }
+    } catch (e) {}
+    window.gtag("consent", "default", {
+      ad_storage: __wmConsentDefault,
+      ad_user_data: __wmConsentDefault,
+      ad_personalization: __wmConsentDefault,
+      analytics_storage: __wmConsentDefault,
+      functionality_storage: __wmConsentDefault,
+      personalization_storage: __wmConsentDefault
+    });
+  </script>
   <!-- Google Tag Manager -->
   <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
   new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
