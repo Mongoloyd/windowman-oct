@@ -5,6 +5,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppTrackingProvider } from "@/components/AppTrackingProvider";
+import ConsentBanner from "@/components/consentBanner";
 import { HelmetProvider } from "react-helmet-async";
 import { ScanFunnelProvider } from "@/state/scanFunnel";
 import { isAdminDashboardTab, PUBLIC_ROOT_ROUTE_DENYLIST } from "@/routes/adminDashboardTabs";
@@ -137,6 +138,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AppTrackingProvider>
+          <ConsentBanner />
           <ScanFunnelProvider>
             <RouteErrorBoundary>
               <Suspense fallback={<PageLoader />}>

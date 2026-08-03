@@ -80,6 +80,16 @@ export function AppTrackingProvider({ children }: { children: React.ReactNode })
   useEffect(() => {
     initMetaBrowserPixel();
     initOpenAiAdsPixel();
+
+    // The consent UI owns the persisted choice. Re-sync the existing OpenAI
+    // adapter when that choice changes so a first-page grant can emit the
+    // current page_viewed without waiting for navigation or reload.
+    const handleConsentChanged = () => trackOpenAiAdsPageViewed();
+    window.addEventListener("consentChanged", handleConsentChanged);
+
+    return () => {
+      window.removeEventListener("consentChanged", handleConsentChanged);
+    };
   }, []);
 
   const value = useMemo<AppTrackingContextValue>(

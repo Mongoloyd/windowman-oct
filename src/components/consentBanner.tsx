@@ -1,134 +1,175 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Button } from '@/components/ui/button';
-import { ShieldCheck } from 'lucide-react';
+import { useCallback, useEffect, useState } from "react";
+import { X } from "lucide-react";
 
-const pushToDataLayer = (payload: Record<string, unknown>) => {
-  if (typeof window === 'undefined') return;
+const CONSENT_STORAGE_KEY = "wg_consent_mode";
+const CONSENT_CHANGED_EVENT = "consentChanged";
+const SCROLL_ACCEPT_THRESHOLD_PX = 200;
+
+type ConsentMode = "granted" | "denied";
+
+function readStoredConsent(): ConsentMode | null {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const value = window.localStorage.getItem(CONSENT_STORAGE_KEY);
+    return value === "granted" || value === "denied" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredConsent(mode: ConsentMode): boolean {
+  try {
+    window.localStorage.setItem(CONSENT_STORAGE_KEY, mode);
+    return true;
+  } catch {
+    // Storage-restricted browsers remain fail-closed for measurement.
+    return false;
+  }
+}
+
+function pushToDataLayer(payload: Record<string, unknown>) {
+  if (typeof window === "undefined") return;
   window.dataLayer = window.dataLayer || [];
   window.dataLayer.push(payload);
-};
+}
 
-const ConsentBanner = () => {
-  const [isVisible, setIsVisible] = useState(false);
+function updateGtagConsent(mode: ConsentMode) {
+  if (typeof window === "undefined") return;
 
-  // Helper to safely update consent via gtag
-  const updateGtagConsent = (status: 'granted' | 'denied') => {
-    if (typeof window !== 'undefined') {
-      // Ensure gtag is defined (standard GTM/GA4 pattern)
-      window.gtag = window.gtag || function (...args: unknown[]) {
-        (window.dataLayer = window.dataLayer || []).push(args as unknown as Record<string, unknown>);
-      };
+  window.gtag =
+    window.gtag ||
+    function (...args: unknown[]) {
+      (window.dataLayer = window.dataLayer || []).push(
+        args as unknown as Record<string, unknown>,
+      );
+    };
 
-      const consentSettings = {
-        'ad_storage': status,
-        'ad_user_data': status,
-        'ad_personalization': status,
-        'analytics_storage': status,
-        'functionality_storage': status,
-        'personalization_storage': status
-      };
+  window.gtag("consent", "update", {
+    ad_storage: mode,
+    ad_user_data: mode,
+    ad_personalization: mode,
+    analytics_storage: mode,
+    functionality_storage: mode,
+    personalization_storage: mode,
+  });
+}
 
-      window.gtag('consent', 'update', consentSettings);
-    }
-  };
+export default function ConsentBanner() {
+  const [storedMode, setStoredMode] = useState<ConsentMode | null>(null);
+  const [isReady, setIsReady] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   useEffect(() => {
-    const savedConsent = localStorage.getItem('wg_consent_mode');
-    
-    if (savedConsent === 'granted') {
-      // Restore granted consent and push event on every page load
-      updateGtagConsent('granted');
-      pushToDataLayer({
-        event: 'consent_update',
-        consent_choice: 'accepted',
-        consent_type: 'all'
-      });
-    } else if (savedConsent === 'denied') {
-      // Restore denied consent and push event on every page load
-      updateGtagConsent('denied');
-      pushToDataLayer({
-        event: 'consent_update',
-        consent_choice: 'rejected',
-        consent_type: 'all'
-      });
-    } else {
-      // No choice made yet, show banner after a short delay
-      const timer = setTimeout(() => setIsVisible(true), 1500);
-      return () => clearTimeout(timer);
-    }
+    const savedMode = readStoredConsent();
+    setStoredMode(savedMode);
+    setIsReady(true);
+
+    if (!savedMode) return;
+
+    // Restore the saved choice for tags that initialize after this component.
+    updateGtagConsent(savedMode);
+    pushToDataLayer({
+      event: "consent_update",
+      consent_choice: savedMode === "granted" ? "accepted" : "rejected",
+      consent_type: "all",
+    });
   }, []);
 
-  const handleAccept = () => {
-    updateGtagConsent('granted');
-    localStorage.setItem('wg_consent_mode', 'granted');
-    setIsVisible(false);
-    
-    // This event is now also fired on page load, but we keep it here
-    // for immediate tracking upon interaction.
-    pushToDataLayer({
-      event: 'consent_update',
-      consent_choice: 'accepted',
-      consent_type: 'all'
-    });
-  };
+  const saveChoice = useCallback((mode: ConsentMode) => {
+    const persisted = writeStoredConsent(mode);
 
-  const handleReject = () => {
-    updateGtagConsent('denied');
-    localStorage.setItem('wg_consent_mode', 'denied');
-    setIsVisible(false);
+    if (persisted) {
+      updateGtagConsent(mode);
+      pushToDataLayer({
+        event: "consent_update",
+        consent_choice: mode === "granted" ? "accepted" : "rejected",
+        consent_type: "all",
+      });
+      window.dispatchEvent(new Event(CONSENT_CHANGED_EVENT));
+    }
 
-    // This event is now also fired on page load, but we keep it here
-    // for immediate tracking upon interaction.
-    pushToDataLayer({
-      event: 'consent_update',
-      consent_choice: 'rejected',
-      consent_type: 'all'
-    });
-  };
+    setStoredMode(mode);
+    setIsSettingsOpen(false);
+  }, []);
+
+  const isBannerVisible = isReady && (storedMode === null || isSettingsOpen);
+
+  useEffect(() => {
+    // Scroll acceptance applies only to a first-time, undecided visitor. A
+    // visitor who deliberately reopens Privacy settings must click a choice.
+    if (!isBannerVisible || storedMode !== null || isSettingsOpen) return;
+
+    const startingScrollY = window.scrollY;
+
+    const handleScroll = () => {
+      if (
+        Math.abs(window.scrollY - startingScrollY) <
+        SCROLL_ACCEPT_THRESHOLD_PX
+      ) {
+        return;
+      }
+
+      window.removeEventListener("scroll", handleScroll);
+      saveChoice("granted");
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [isBannerVisible, isSettingsOpen, saveChoice, storedMode]);
+
+  if (!isReady) return null;
+
+  if (!isBannerVisible) {
+    return (
+      <button
+        type="button"
+        onClick={() => setIsSettingsOpen(true)}
+        className="fixed bottom-2 left-2 z-[60] rounded-sm bg-white/90 px-2 py-1 text-[11px] font-medium text-slate-700 shadow-sm ring-1 ring-slate-300 transition-colors hover:bg-white hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600"
+      >
+        Privacy settings
+      </button>
+    );
+  }
 
   return (
-    <AnimatePresence>
-      {isVisible && (
-        <motion.div
-          initial={{ y: 100, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: 100, opacity: 0 }}
-          className="fixed bottom-0 left-0 right-0 z-[9999] p-4 md:p-6 bg-black/95 border-t border-white/10 backdrop-blur-md shadow-[0_-10px_40px_rgba(0,0,0,0.8)]"
-        >
-          <div className="container mx-auto max-w-5xl flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-start gap-4">
-              <div className="p-3 bg-[#56d4ff]/10 rounded-full border border-[#56d4ff]/20">
-                <ShieldCheck className="w-6 h-6 text-[#56d4ff]" />
-              </div>
-              <div className="text-sm text-slate-300 max-w-2xl">
-                <h4 className="text-white font-bold mb-1 text-base">Your Data. Your Choice.</h4>
-                <p className="leading-relaxed opacity-80">
-                  We use cookies to improve your experience, analyze traffic, and prevent fraud.
-                  Your privacy is our priority.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 w-full md:w-auto min-w-fit">
-              <Button 
-                variant="ghost" 
-                onClick={handleReject}
-                className="flex-1 md:flex-none text-slate-400 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10"
-              >
-                Reject All
-              </Button>
-              <Button 
-                onClick={handleAccept}
-                className="flex-1 md:flex-none bg-[#56d4ff] text-black hover:bg-[#4cc2eb] font-bold px-8 shadow-[0_0_20px_rgba(86,212,255,0.3)] hover:shadow-[0_0_30px_rgba(86,212,255,0.5)] transition-all"
-              >
-                Accept All
-              </Button>
-            </div>
-          </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-};
+    <section
+      aria-label="Cookie consent"
+      aria-live="polite"
+      className="fixed inset-x-0 bottom-0 z-[100] border-t border-slate-200 bg-white text-slate-900 shadow-[0_-4px_16px_rgba(15,23,42,0.12)]"
+    >
+      <div className="mx-auto flex min-h-[52px] max-w-7xl items-center gap-2 px-3 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] sm:gap-4 sm:px-5">
+        <p className="min-w-0 flex-1 text-[11px] leading-4 sm:text-xs">
+          We use cookies and measurement to improve our experience. By using the
+          site you agree.
+        </p>
 
-export default ConsentBanner;
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+          <button
+            type="button"
+            onClick={() => saveChoice("denied")}
+            className="px-1.5 py-2 text-[11px] font-medium text-slate-500 underline decoration-slate-300 underline-offset-2 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600 sm:text-xs"
+          >
+            Decline
+          </button>
+          <button
+            type="button"
+            onClick={() => saveChoice("granted")}
+            className="rounded-md bg-slate-900 px-2.5 py-2 text-[11px] font-semibold text-white transition-colors hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600 focus-visible:ring-offset-2 sm:px-3 sm:text-xs"
+          >
+            Accept
+          </button>
+          <button
+            type="button"
+            onClick={() => saveChoice("granted")}
+            aria-label="Accept cookies and close"
+            title="Accept and close"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600"
+          >
+            <X aria-hidden="true" className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
