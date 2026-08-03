@@ -11,7 +11,7 @@
  */
 
 const OPENAI_ADS_SDK_URL = "https://bzrcdn.openai.com/sdk/oaiq.min.js";
-const OPENAI_ADS_CONSENT_STORAGE_KEY = "wg_consent_mode";
+const OPENAI_ADS_CONSENT_STORAGE_KEY = "wg_consent_mode_v2";
 const OPENAI_ADS_SCRIPT_SELECTOR = "script[data-openai-ads-pixel]";
 
 let initialized = false;
