@@ -5,6 +5,9 @@ import ConsentBanner from "./consentBanner";
 const APPROVED_MESSAGE =
   "We use cookies and measurement to improve your experience. You can accept or decline measurement.";
 
+const V2_KEY = "wg_consent_mode_v2";
+const LEGACY_KEY = "wg_consent_mode";
+
 const originalLocalStorage = window.localStorage;
 
 function setScrollY(value: number) {
@@ -60,9 +63,9 @@ describe("ConsentBanner", () => {
   });
 
   it.each(["granted", "denied"] as const)(
-    "hides the banner when stored consent is %s",
+    "hides the banner when stored v2 consent is %s",
     (mode) => {
-      window.localStorage.setItem("wg_consent_mode", mode);
+      window.localStorage.setItem(V2_KEY, mode);
       render(<ConsentBanner />);
 
       expect(screen.queryByLabelText("Cookie consent")).not.toBeInTheDocument();
@@ -70,8 +73,19 @@ describe("ConsentBanner", () => {
     },
   );
 
-  it("treats an invalid stored value as undecided", () => {
-    window.localStorage.setItem("wg_consent_mode", "invalid");
+  it.each(["granted", "denied"] as const)(
+    "shows the banner when only legacy consent is %s",
+    (legacyMode) => {
+      window.localStorage.setItem(LEGACY_KEY, legacyMode);
+      render(<ConsentBanner />);
+
+      expect(screen.getByLabelText("Cookie consent")).toBeInTheDocument();
+      expect(screen.getByText(APPROVED_MESSAGE)).toBeInTheDocument();
+    },
+  );
+
+  it("treats an invalid stored v2 value as undecided", () => {
+    window.localStorage.setItem(V2_KEY, "invalid");
     render(<ConsentBanner />);
 
     expect(screen.getByLabelText("Cookie consent")).toBeInTheDocument();
@@ -88,7 +102,7 @@ describe("ConsentBanner", () => {
       window.dispatchEvent(new Event("scroll"));
     });
 
-    expect(window.localStorage.getItem("wg_consent_mode")).toBeNull();
+    expect(window.localStorage.getItem(V2_KEY)).toBeNull();
     expect(consentChanged).not.toHaveBeenCalled();
     expect(getGtagConsentUpdates()).toHaveLength(0);
     expect(getConsentUpdateEvents()).toHaveLength(0);
@@ -114,7 +128,8 @@ describe("ConsentBanner", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Accept" }));
 
-    expect(window.localStorage.getItem("wg_consent_mode")).toBe("granted");
+    expect(window.localStorage.getItem(V2_KEY)).toBe("granted");
+    expect(window.localStorage.getItem(LEGACY_KEY)).toBeNull();
     expect(consentChanged).toHaveBeenCalledTimes(1);
     expect(getGtagConsentUpdates().length).toBeGreaterThan(0);
     expect(getConsentUpdateEvents()).toEqual(
@@ -132,18 +147,30 @@ describe("ConsentBanner", () => {
     window.removeEventListener("consentChanged", consentChanged);
   });
 
-  it("declines via a small link-style text action, not a button", () => {
+  it("leaves a pre-existing legacy grant unchanged after Accept", () => {
+    window.localStorage.setItem(LEGACY_KEY, "granted");
+    render(<ConsentBanner />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Accept" }));
+
+    expect(window.localStorage.getItem(V2_KEY)).toBe("granted");
+    expect(window.localStorage.getItem(LEGACY_KEY)).toBe("granted");
+  });
+
+  it("declines via a link-styled button", () => {
     const consentChanged = vi.fn();
     window.addEventListener("consentChanged", consentChanged);
     render(<ConsentBanner />);
 
-    const decline = screen.getByRole("link", { name: "Decline" });
-    expect(decline.tagName).toBe("A");
-    expect(screen.queryByRole("button", { name: "Decline" })).toBeNull();
+    const decline = screen.getByRole("button", { name: "Decline" });
+    expect(decline.tagName).toBe("BUTTON");
+    expect(decline).toHaveAttribute("type", "button");
+    expect(decline.className).toMatch(/underline/);
 
     fireEvent.click(decline);
 
-    expect(window.localStorage.getItem("wg_consent_mode")).toBe("denied");
+    expect(window.localStorage.getItem(V2_KEY)).toBe("denied");
+    expect(window.localStorage.getItem(LEGACY_KEY)).toBeNull();
     expect(consentChanged).toHaveBeenCalledTimes(1);
     expect(getGtagConsentUpdates().length).toBeGreaterThan(0);
     expect(getConsentUpdateEvents()).toEqual(
@@ -161,6 +188,16 @@ describe("ConsentBanner", () => {
     window.removeEventListener("consentChanged", consentChanged);
   });
 
+  it("leaves a pre-existing legacy grant unchanged after Decline", () => {
+    window.localStorage.setItem(LEGACY_KEY, "granted");
+    render(<ConsentBanner />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Decline" }));
+
+    expect(window.localStorage.getItem(V2_KEY)).toBe("denied");
+    expect(window.localStorage.getItem(LEGACY_KEY)).toBe("granted");
+  });
+
   it("renders the exact approved message and no implicit-consent copy", () => {
     render(<ConsentBanner />);
 
@@ -170,12 +207,12 @@ describe("ConsentBanner", () => {
     expect(screen.queryByText(/using the site/i)).toBeNull();
   });
 
-  it("keeps all consent UI hidden for a stored choice", () => {
-    window.localStorage.setItem("wg_consent_mode", "denied");
+  it("keeps all consent UI hidden for a stored v2 choice", () => {
+    window.localStorage.setItem(V2_KEY, "denied");
     render(<ConsentBanner />);
 
     expect(screen.queryByLabelText("Cookie consent")).not.toBeInTheDocument();
-    expect(window.localStorage.getItem("wg_consent_mode")).toBe("denied");
+    expect(window.localStorage.getItem(V2_KEY)).toBe("denied");
     expect(screen.queryByText("Privacy settings")).not.toBeInTheDocument();
   });
 
@@ -205,7 +242,7 @@ describe("ConsentBanner", () => {
     render(<ConsentBanner />);
     fireEvent.click(screen.getByRole("button", { name: "Accept" }));
 
-    expect(window.localStorage.getItem("wg_consent_mode")).toBeNull();
+    expect(window.localStorage.getItem(V2_KEY)).toBeNull();
     expect(consentChanged).not.toHaveBeenCalled();
     expect(getGtagConsentUpdates()).toHaveLength(0);
     expect(getConsentUpdateEvents()).toHaveLength(0);
@@ -250,7 +287,7 @@ describe("ConsentBanner", () => {
     fireEvent.click(screen.getByRole("button", { name: "Accept" }));
 
     expect(screen.queryByRole("alert")).toBeNull();
-    expect(window.localStorage.getItem("wg_consent_mode")).toBe("granted");
+    expect(window.localStorage.getItem(V2_KEY)).toBe("granted");
     expect(screen.queryByLabelText("Cookie consent")).not.toBeInTheDocument();
     expect(screen.queryByText("Privacy settings")).not.toBeInTheDocument();
   });

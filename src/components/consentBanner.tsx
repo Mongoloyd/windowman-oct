@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
-const CONSENT_STORAGE_KEY = "wg_consent_mode";
+const CONSENT_STORAGE_KEY = "wg_consent_mode_v2";
 const CONSENT_CHANGED_EVENT = "consentChanged";
 const PERSISTENCE_ERROR =
   "Unable to save your choice. Please try again.";
@@ -127,16 +127,13 @@ export default function ConsentBanner() {
           >
             Accept
           </button>
-          <a
-            href="#decline-measurement"
-            onClick={(event) => {
-              event.preventDefault();
-              saveChoice("denied");
-            }}
-            className="px-1.5 py-2 text-[11px] font-medium text-slate-500 underline decoration-slate-300 underline-offset-2 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600 sm:text-xs"
+          <button
+            type="button"
+            onClick={() => saveChoice("denied")}
+            className="border-0 bg-transparent px-1.5 py-2 text-[11px] font-medium text-slate-500 underline decoration-slate-300 underline-offset-2 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600 sm:text-xs"
           >
             Decline
-          </a>
+          </button>
         </div>
       </div>
     </section>
