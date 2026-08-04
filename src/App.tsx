@@ -53,6 +53,7 @@ const WindowPricesLanding = lazy(() => import("./pages/WindowPricesLanding.tsx")
 const WindowPriceAuditLanding = lazy(() => import("./pages/WindowPriceAuditLanding.tsx"));
 const TruthReportLanding = lazy(() => import("./pages/TruthReportLanding.tsx"));
 const AiDemoLanding = lazy(() => import("./pages/AiDemoLanding.tsx"));
+const ScanFunnelPage = lazy(() => import("./pages/ScanFunnelPage.tsx"));
 
 // PartnerGuard removed — partner pages render publicly with preview fallback
 
@@ -129,6 +130,10 @@ class RouteErrorBoundary extends Component<
 
 const queryClient = new QueryClient();
 const isDevMode = import.meta.env.DEV;
+// Presentation-only visibility switch for the Sprint 1 `/scan` visual foundation.
+// Exact lowercase "true" mounts the route; anything else leaves it unmounted.
+// This flag is not authorization and must not gate backend intake or reveal.
+const isScanRouteMounted = import.meta.env.VITE_SCAN_ROUTE_MOUNTED === "true";
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -200,6 +205,9 @@ const App = () => (
                 <Route path="/partner/*" element={<PartnerRoutes />} />
                 <Route path="/nextdoor" element={<NextdoorHome />} />
                 <Route path="/windowman" element={<WindowManLanding />} />
+                {isScanRouteMounted && (
+                  <Route path="/scan" element={<ScanFunnelPage />} />
+                )}
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
                 </Routes>
