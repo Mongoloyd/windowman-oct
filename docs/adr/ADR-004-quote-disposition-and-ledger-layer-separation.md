@@ -15,9 +15,8 @@ Date: 2026-08-04
 
 Repository-truth baseline: `d7e19f5d49a8054e39d2f5cf944df26ae11871fa`
 
-Governance adoption: Proposed documents committed at `d828b157`; independent saved-artifact audit
-(PASS_CONTINUE); explicit operator adoption decision; this adoption sprint (operator commit:
-`PENDING OPERATOR COMMIT`).
+Governance adoption: the documents were committed as Proposed at `d828b157`, independently audited,
+explicitly approved, and subsequently promoted to Accepted/CANONICAL status in repository history.
 
 Decision owner: WindowMan Architecture
 
