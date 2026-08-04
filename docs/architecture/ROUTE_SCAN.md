@@ -1,46 +1,57 @@
-# `/scan` Route Law — Proposed Perimeter Contract
+# `/scan` Route Law — Accepted Perimeter Contract
 
-Status: Proposed
+Status: Accepted
 
 Implementation authority: None
 
 Operator approval required: Yes
 
+The document is accepted governing law.
+
+Acceptance does not authorize protected implementation.
+A separately authorized implementation sprint remains required.
+
 Date: 2026-08-04
 
 Repository-truth baseline: `d7e19f5d49a8054e39d2f5cf944df26ae11871fa`
 
+Governance adoption: Proposed documents committed at `d828b157`; independent saved-artifact audit
+(PASS_CONTINUE); explicit operator adoption decision; this adoption sprint (operator commit:
+`PENDING OPERATOR COMMIT`).
+
 Scope: Future production `/scan` route only
 
-> **PROPOSED TARGET CONTRACT** — Creating this file does not mount `/scan`, make this document
-> canonical, or authorize implementation. It becomes binding only after an independent
-> repository-truth audit, explicit operator approval, a separate commit, and reconciliation with
-> [ADR-005](../adr/ADR-005-server-minted-quote-intake-capability.md).
+> **GOVERNING TARGET CONTRACT** — This document is accepted route law registered as CANONICAL in
+> [`DOC_STATUS_REGISTRY.md`](../ops/DOC_STATUS_REGISTRY.md) and routed by
+> [`START_HERE.md`](../START_HERE.md). It does not mount `/scan` or authorize protected
+> implementation. [ADR-005](../adr/ADR-005-server-minted-quote-intake-capability.md) remains
+> Proposed and implementation-blocked except where its prerequisites 1–4 are satisfied by upstream
+> governance adoption.
 
 ## Evidence labels
 
 - **BASELINE EXECUTABLE CODE** — behavior present in inspected code at the baseline commit.
 - **BASELINE SCHEMA/POLICY INTENT** — checked-in migration or generated-type intent; not deployment proof.
 - **DEPLOYED STATE UNKNOWN** — live state was not inspected.
-- **PROPOSED TARGET CONTRACT** — route law proposed here.
+- **GOVERNING TARGET CONTRACT** — An accepted architectural or security requirement governing future authorized work. It does not claim that the target behavior is already implemented or deployed.
 - **IMPLEMENTATION PREREQUISITE** — proof or work required before implementation.
 - **DECISION REQUIRED** — unresolved operator policy.
 
 ## 1. Authority and dependencies
 
-**PROPOSED TARGET CONTRACT** — This route contract is subordinate to
+**GOVERNING TARGET CONTRACT** — This route contract is subordinate to
 [`AGENTS.md`](../../AGENTS.md), [`.cursor/PROTECTED_FILES.md`](../../.cursor/PROTECTED_FILES.md),
 and [Protected Systems](./PROTECTED_SYSTEMS.md).
 
-**PROPOSED TARGET CONTRACT** — Contact prefill and mandatory exact-session OTP **policy** is
+**GOVERNING TARGET CONTRACT** — Contact prefill and mandatory exact-session OTP **policy** is
 governed by [ADR-003](../adr/ADR-003-document-extracted-contact-prefill-and-mandatory-otp.md).
 
-**PROPOSED TARGET CONTRACT** — Proposed [ADR-005](../adr/ADR-005-server-minted-quote-intake-capability.md)
+**GOVERNING TARGET CONTRACT** — Proposed [ADR-005](../adr/ADR-005-server-minted-quote-intake-capability.md)
 defines intake capability, signed upload, scanner dispatch, and capability-bound OTP **mechanics**.
 ADR-005 does not own or weaken ADR-003 policy. When ADR-005 mechanics conflict with Protected
 Systems, this document, or ADR-003, ADR-005 requires reconciliation before implementation.
 
-**PROPOSED TARGET CONTRACT** — Document ownership (reading order: see Protected Systems §2.4):
+**GOVERNING TARGET CONTRACT** — Document ownership (reading order: see Protected Systems §2.4):
 
 | Document | Owns | Does not own |
 | --- | --- | --- |
@@ -50,7 +61,7 @@ Systems, this document, or ADR-003, ADR-005 requires reconciliation before imple
 | ADR-005 | Proposed intake capability, signed upload, scanner dispatch, event, OTP reservation/claim/finalization mechanics | Authority to weaken upstream contact-trust or OTP policy |
 | ADR-004 | Quoted-observation versus verified-outcome trust law | Contact, OTP, route, or intake capability policy |
 
-**PROPOSED TARGET CONTRACT** — **Normative authority** (policy chain):
+**GOVERNING TARGET CONTRACT** — **Normative authority** (policy chain):
 
 ```text
 PROTECTED_SYSTEMS
@@ -58,7 +69,7 @@ PROTECTED_SYSTEMS
 → ADR-003
 ```
 
-**PROPOSED TARGET CONTRACT** — **Implementation conformance**:
+**GOVERNING TARGET CONTRACT** — **Implementation conformance**:
 
 ```text
 ADR-005 proposed mechanics
@@ -67,14 +78,14 @@ ADR-005 proposed mechanics
 → must conform to ADR-003
 ```
 
-**PROPOSED TARGET CONTRACT** — None of these links authorize ADR-005 implementation or the
+**GOVERNING TARGET CONTRACT** — None of these links authorize ADR-005 implementation or the
 Dormant Schema Sprint.
 
 ## 2. Shared terminology
 
-**PROPOSED TARGET CONTRACT** — The four proposed governance documents use these definitions:
+**GOVERNING TARGET CONTRACT** — The four accepted governance documents use these definitions:
 
-| Term | Definition used by the four proposed governance documents |
+| Term | Definition used by the four accepted governance documents |
 |---|---|
 | Canonical analysis | The analysis lifecycle stored in `analyses`; `quote_analyses` remains legacy unless later repository evidence proves otherwise. |
 | Report preview | A teaser-safe, allowlisted projection that excludes `full_json` and cannot reconstruct the full report. |
@@ -129,17 +140,17 @@ the `quotes` bucket so current callers can upload and retry.
 
 ## 5. Proposed route purpose
 
-**PROPOSED TARGET CONTRACT** — `/scan` is the future quote-first intake perimeter.
+**GOVERNING TARGET CONTRACT** — `/scan` is the future quote-first intake perimeter.
 
-**PROPOSED TARGET CONTRACT** — The route may stage user input and display backend lifecycle
+**GOVERNING TARGET CONTRACT** — The route may stage user input and display backend lifecycle
 projections. It never owns canonical identity, upload completion, scanner eligibility, OTP truth,
 report authorization, or outcome truth.
 
-**PROPOSED TARGET CONTRACT** — Route name and route entry confer no privilege.
+**GOVERNING TARGET CONTRACT** — Route name and route entry confer no privilege.
 
 ## 6. Proposed target flow
 
-**PROPOSED TARGET CONTRACT** — The route sequence is:
+**GOVERNING TARGET CONTRACT** — The route sequence is:
 
 ```text
 route entry
@@ -157,35 +168,35 @@ route entry
 → exact-session full reveal
 ```
 
-**PROPOSED TARGET CONTRACT** — `classifyScanGate` termination creates a rejected or safe-recovery
+**GOVERNING TARGET CONTRACT** — `classifyScanGate` termination creates a rejected or safe-recovery
 state and does not continue into report readiness.
 
-**PROPOSED TARGET CONTRACT** — Later extraction failure may create `needs_better_upload` or another
+**GOVERNING TARGET CONTRACT** — Later extraction failure may create `needs_better_upload` or another
 safe failure state. It does not fabricate report readiness.
 
-**PROPOSED TARGET CONTRACT** — A report preview may be requested only through `report-access`.
+**GOVERNING TARGET CONTRACT** — A report preview may be requested only through `report-access`.
 
-**PROPOSED TARGET CONTRACT** — Full reveal may occur only after exact-session backend authorization.
+**GOVERNING TARGET CONTRACT** — Full reveal may occur only after exact-session backend authorization.
 
 ## 7. Capability and browser custody
 
-**PROPOSED TARGET CONTRACT** — The browser may temporarily hold only the raw intake capability and
+**GOVERNING TARGET CONTRACT** — The browser may temporarily hold only the raw intake capability and
 allowlisted lifecycle projection needed for its own intake.
 
-**PROPOSED TARGET CONTRACT** — Preferred capability custody is memory.
+**GOVERNING TARGET CONTRACT** — Preferred capability custody is memory.
 
-**PROPOSED TARGET CONTRACT** — Same-tab recovery may use `sessionStorage` only if ADR-005's final
+**GOVERNING TARGET CONTRACT** — Same-tab recovery may use `sessionStorage` only if ADR-005's final
 approved contract permits it.
 
-**PROPOSED TARGET CONTRACT** — The capability, claim token, OTP, raw OCR text, and `full_json`
+**GOVERNING TARGET CONTRACT** — The capability, claim token, OTP, raw OCR text, and `full_json`
 must not enter persistent browser storage, the navigable address bar, route parameters, query
 strings, URL fragments, browser history, analytics, dataLayer, logs, support payloads, or third-party
 error payloads.
 
-**PROPOSED TARGET CONTRACT** — Browser memory is untrusted and is permitted only as transient
+**GOVERNING TARGET CONTRACT** — Browser memory is untrusted and is permitted only as transient
 custody required to perform the authorized upload.
 
-**PROPOSED TARGET CONTRACT** — An exact-path **signed upload URL** may exist transiently in browser
+**GOVERNING TARGET CONTRACT** — An exact-path **signed upload URL** may exist transiently in browser
 memory and in the single authorized upload request. It must not be:
 
 - persisted in `localStorage` or `sessionStorage`;
@@ -200,17 +211,17 @@ memory and in the single authorized upload request. It must not be:
 - included in third-party error reports;
 - reused outside its exact path, HTTP method, content constraints, or expiration window.
 
-**PROPOSED TARGET CONTRACT** — A signed upload URL is a short-lived write grant for one approved
+**GOVERNING TARGET CONTRACT** — A signed upload URL is a short-lived write grant for one approved
 object path and upload operation. A **private quote read URL** is a separately protected read
 capability that is not granted by the signed upload URL.
 
-**PROPOSED TARGET CONTRACT** — A signed upload URL does not confer read authority, list authority,
+**GOVERNING TARGET CONTRACT** — A signed upload URL does not confer read authority, list authority,
 update or delete authority (unless an approved Storage contract explicitly defines otherwise), scan
 binding, report access, or reveal. It is not a resume token or marketing URL.
 
 ## 8. Primary lifecycle state machine
 
-**PROPOSED TARGET CONTRACT** — The following identifiers are **primary lifecycle states** for
+**GOVERNING TARGET CONTRACT** — The following identifiers are **primary lifecycle states** for
 future `/scan` UX and backend coordination. They do not claim equivalent React state currently
 exists. Proof, preview, and full-reveal authorization are **projections** (§8.1), not lifecycle
 states.
@@ -239,7 +250,7 @@ states.
 | `offline_recovery` | `rehydrating`, `expired_intake`, `terminal_failure` |
 | `terminal_failure` | `idle`, `selecting` |
 
-**PROPOSED TARGET CONTRACT** — Allowlisted resumable primary states after `rehydrating` are:
+**GOVERNING TARGET CONTRACT** — Allowlisted resumable primary states after `rehydrating` are:
 
 ```text
 selecting
@@ -256,20 +267,20 @@ otp_claimed
 verified
 ```
 
-**PROPOSED TARGET CONTRACT** — `manual_review` is fail-closed. It is not phone verification and
+**GOVERNING TARGET CONTRACT** — `manual_review` is fail-closed. It is not phone verification and
 is not full-reveal authorization.
 
-**PROPOSED TARGET CONTRACT** — The physical representation of resume-state metadata is **DECISION
+**GOVERNING TARGET CONTRACT** — The physical representation of resume-state metadata is **DECISION
 REQUIRED** and is not defined as a database column by this document.
 
-**PROPOSED TARGET CONTRACT** — UI transition labels are not canonical database enum names.
+**GOVERNING TARGET CONTRACT** — UI transition labels are not canonical database enum names.
 
 **DECISION REQUIRED** — Final user-visible labels, polling cadence, recovery windows, and terminal
 retry limits require an implementation sprint and accessibility review.
 
 ### 8.1 Availability and authorization projections
 
-**PROPOSED TARGET CONTRACT** — Projections describe backend-authorized availability. They are not
+**GOVERNING TARGET CONTRACT** — Projections describe backend-authorized availability. They are not
 primary lifecycle states and do not move the lifecycle backward.
 
 | Projection | Meaning |
@@ -278,7 +289,7 @@ primary lifecycle states and do not move the lifecycle backward.
 | `preview_available` | A teaser-safe report preview is available through `report-access` |
 | `full_reveal_authorized` | The backend exact-session full-report predicate succeeded for the current request |
 
-**PROPOSED TARGET CONTRACT** — Rules:
+**GOVERNING TARGET CONTRACT** — Rules:
 
 - Multiple projections may coexist.
 - A projection may become false when canonical backend state changes.
@@ -289,16 +300,16 @@ primary lifecycle states and do not move the lifecycle backward.
 
 ## 9. Upload and quarantine law
 
-**PROPOSED TARGET CONTRACT** — `/scan` supports only PDF, JPEG, PNG, and WebP under the approved
+**GOVERNING TARGET CONTRACT** — `/scan` supports only PDF, JPEG, PNG, and WebP under the approved
 intake limit.
 
-**PROPOSED TARGET CONTRACT** — Declared MIME and extension are advisory. Trusted backend
+**GOVERNING TARGET CONTRACT** — Declared MIME and extension are advisory. Trusted backend
 validation of actual bytes is authoritative.
 
-**PROPOSED TARGET CONTRACT** — HEIC/HEIF, active-content PDF, encrypted PDF, unsupported archive,
+**GOVERNING TARGET CONTRACT** — HEIC/HEIF, active-content PDF, encrypted PDF, unsupported archive,
 HTML, SVG, Office document, and executable input fail safely under ADR-005's proposed rules.
 
-**PROPOSED TARGET CONTRACT** — Failed or indeterminate quarantine never reaches Gemini.
+**GOVERNING TARGET CONTRACT** — Failed or indeterminate quarantine never reaches Gemini.
 
 **IMPLEMENTATION PREREQUISITE** — Reconcile the 10 MiB proposed intake limit with scanner and
 deployed Storage limits.
@@ -308,18 +319,18 @@ deployed Storage limits.
 **BASELINE EXECUTABLE CODE** — Current `scan-quote` performs `classifyScanGate` before full
 extraction validation.
 
-**PROPOSED TARGET CONTRACT** — `/scan` must not invoke intake-bound `scan-quote` directly.
+**GOVERNING TARGET CONTRACT** — `/scan` must not invoke intake-bound `scan-quote` directly.
 
-**PROPOSED TARGET CONTRACT** — A trusted backend dispatch must bind the exact canonical scan and
+**GOVERNING TARGET CONTRACT** — A trusted backend dispatch must bind the exact canonical scan and
 intake provenance before scanner execution.
 
-**PROPOSED TARGET CONTRACT** — Proof-of-read may demonstrate that the file was read without
+**GOVERNING TARGET CONTRACT** — Proof-of-read may demonstrate that the file was read without
 exposing `full_json`, raw OCR text, protected contact evidence, exact full flags, or reconstructable
 full-report detail.
 
 ### 10.1 Proof-of-read versus report preview
 
-**PROPOSED TARGET CONTRACT** — **Proof-of-read** is a minimal allowlisted backend projection
+**GOVERNING TARGET CONTRACT** — **Proof-of-read** is a minimal allowlisted backend projection
 showing that WindowMan read and classified enough of the uploaded document to present safe
 document-level evidence.
 
@@ -334,14 +345,14 @@ Proof-of-read does not prove deep extraction completion, deterministic scoring c
 completion, report-preview availability, contact confirmation, lead attachment, OTP verification, or
 full reveal authorization.
 
-**PROPOSED TARGET CONTRACT** — **Report preview** is a separately allowlisted teaser report
+**GOVERNING TARGET CONTRACT** — **Report preview** is a separately allowlisted teaser report
 projection returned through `report-access` preview mode. It may include only fields approved by the
 preview contract. It must not include `full_json`, raw OCR text, raw contact PII, signed Storage
 URLs, capability material, or content that reconstructs the full report. It must not imply
 exact-session verification or complete extraction unless backend lifecycle status explicitly proves
 completion. It must not be returned through a raw browser RPC.
 
-**PROPOSED TARGET CONTRACT** — Conceptual ordering:
+**GOVERNING TARGET CONTRACT** — Conceptual ordering:
 
 ```text
 classifyScanGate continue
@@ -354,7 +365,7 @@ classifyScanGate continue
 → full_reveal_authorized may become true
 ```
 
-**PROPOSED TARGET CONTRACT** — `proof_available` and `preview_available` are independent
+**GOVERNING TARGET CONTRACT** — `proof_available` and `preview_available` are independent
 projections. Neither is reveal authority. Neither changes the contact-trust tier. Neither permits OTP
 bypass. Preview may be displayed before contact confirmation only if an accepted allowlist and
 product policy explicitly permit it. The exact pre-contact preview policy remains **DECISION
@@ -363,45 +374,45 @@ CRO ordering in this sprint.
 
 ## 11. Contact, lead, and OTP law
 
-**PROPOSED TARGET CONTRACT** — OCR contact fields are proposals only.
+**GOVERNING TARGET CONTRACT** — OCR contact fields are proposals only.
 
-**PROPOSED TARGET CONTRACT** — User review or manual entry precedes deterministic normalization.
+**GOVERNING TARGET CONTRACT** — User review or manual entry precedes deterministic normalization.
 
-**PROPOSED TARGET CONTRACT** — Guarded canonical lead attachment must commit before OTP start.
+**GOVERNING TARGET CONTRACT** — Guarded canonical lead attachment must commit before OTP start.
 
-**PROPOSED TARGET CONTRACT** — Lead attachment is unverified and does not authorize reveal.
+**GOVERNING TARGET CONTRACT** — Lead attachment is unverified and does not authorize reveal.
 
-**PROPOSED TARGET CONTRACT** — Intake-bound OTP uses the protected reservation,
+**GOVERNING TARGET CONTRACT** — Intake-bound OTP uses the protected reservation,
 serialized-claim, external-Twilio, and conditional-finalization contract proposed by ADR-005.
 
-**PROPOSED TARGET CONTRACT** — One phone or lead verified for another scan cannot unlock this scan.
+**GOVERNING TARGET CONTRACT** — One phone or lead verified for another scan cannot unlock this scan.
 
 ## 12. Preview and full reveal
 
-**PROPOSED TARGET CONTRACT** — `/scan` must use the approved report service and `report-access` for
+**GOVERNING TARGET CONTRACT** — `/scan` must use the approved report service and `report-access` for
 both preview and full retrieval.
 
-**PROPOSED TARGET CONTRACT** — `/scan` must not call `get_analysis_preview` or
+**GOVERNING TARGET CONTRACT** — `/scan` must not call `get_analysis_preview` or
 `get_analysis_full` directly.
 
-**PROPOSED TARGET CONTRACT** — Preview and full are distinct `report-access` modes. Each call
+**GOVERNING TARGET CONTRACT** — Preview and full are distinct `report-access` modes. Each call
 revalidates current backend state.
 
-**PROPOSED TARGET CONTRACT** — Full UI rendering occurs only after `full_reveal_authorized` for the
+**GOVERNING TARGET CONTRACT** — Full UI rendering occurs only after `full_reveal_authorized` for the
 current request. Rendering is not a lifecycle state. Prior render success does not grant future
 authorization.
 
-**PROPOSED TARGET CONTRACT** — Preview responses exclude `full_json`.
+**GOVERNING TARGET CONTRACT** — Preview responses exclude `full_json`.
 
-**PROPOSED TARGET CONTRACT** — Full responses require the backend exact-session predicate to
+**GOVERNING TARGET CONTRACT** — Full responses require the backend exact-session predicate to
 succeed at request time.
 
-**PROPOSED TARGET CONTRACT** — A prior browser success, verified-access cache, route state, or
+**GOVERNING TARGET CONTRACT** — A prior browser success, verified-access cache, route state, or
 rendered preview does not replace that backend re-check.
 
 ## 13. Route prohibitions
 
-**PROPOSED TARGET CONTRACT** — `/scan` must not:
+**GOVERNING TARGET CONTRACT** — `/scan` must not:
 
 - use browser-selected canonical IDs as authority;
 - call legacy intake-unsafe OTP contracts directly;
@@ -422,13 +433,13 @@ rendered preview does not replace that backend re-check.
 **BASELINE EXECUTABLE CODE** — Current legacy `UploadZone` and `scan-quote` both participate in
 `quote_uploaded` browser/server behavior under the existing event-ownership model.
 
-**PROPOSED TARGET CONTRACT** — ADR-005's intake outbox and event-ID proposal remains subject to
+**GOVERNING TARGET CONTRACT** — ADR-005's intake outbox and event-ID proposal remains subject to
 measurement-owner approval.
 
-**PROPOSED TARGET CONTRACT** — Browser Lane A remains disabled for intake-v1 unless the accepted
+**GOVERNING TARGET CONTRACT** — Browser Lane A remains disabled for intake-v1 unless the accepted
 measurement policy is explicitly amended.
 
-**PROPOSED TARGET CONTRACT** — Route telemetry uses the operational lane and does not become
+**GOVERNING TARGET CONTRACT** — Route telemetry uses the operational lane and does not become
 business, authorization, or transaction truth.
 
 ## 15. Legacy migration boundary
@@ -436,7 +447,7 @@ business, authorization, or transaction truth.
 **BASELINE EXECUTABLE CODE** — Homepage and Nextdoor remain the current production `UploadZone`
 callers.
 
-**PROPOSED TARGET CONTRACT** — Those callers remain protected production behavior until a
+**GOVERNING TARGET CONTRACT** — Those callers remain protected production behavior until a
 separately approved migration changes them.
 
 **IMPLEMENTATION PREREQUISITE** — Inventory and migrate every browser Storage writer, retry path,
@@ -446,7 +457,7 @@ policies or rejecting legacy transport.
 **IMPLEMENTATION PREREQUISITE** — Canary and rollback must prove homepage and Nextdoor continuity
 until their deliberate cutover.
 
-**PROPOSED TARGET CONTRACT** — `/scan` must not silently reuse the legacy upload perimeter merely
+**GOVERNING TARGET CONTRACT** — `/scan` must not silently reuse the legacy upload perimeter merely
 to avoid migration work.
 
 ## 16. Mount, canary, and rollback gate
@@ -497,13 +508,15 @@ rollback, and customer-support recovery policy require operator approval.
   lines 1–23.
 
 **DEPLOYED STATE UNKNOWN** — No browser, hosting, or live Supabase environment was exercised while
-creating this Proposed route contract.
+authoring this accepted route law.
 
 ## 18. Review checklist
 
+- [ ] Document authority: Status is Accepted and governing.
+- [ ] Runtime implementation: not authorized and not presumed present.
 - [ ] `/scan` baseline remains explicitly unmounted.
 - [ ] `ScanFunnelPage` and `PreUploadIntake` are not represented as production wiring.
-- [ ] Every target state is labeled proposed.
+- [ ] Every governing requirement is labeled **GOVERNING TARGET CONTRACT**; runtime behavior is not claimed implemented.
 - [ ] Route entry grants no authority.
 - [ ] Exact-path upload and backend validation precede binding.
 - [ ] Trusted dispatch precedes intake-bound scanner execution.

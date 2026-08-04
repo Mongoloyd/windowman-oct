@@ -42,6 +42,10 @@ Tracks **high-risk** documentation only — not every markdown file in the repo.
 | [docs/measurement/CANONICAL_MEASUREMENT_ARCHITECTURE.md](../measurement/CANONICAL_MEASUREMENT_ARCHITECTURE.md) | Browser vs server measurement policy |
 | [docs/report/SCANNER_BRAIN_CURRENT_VS_TARGET.md](../report/SCANNER_BRAIN_CURRENT_VS_TARGET.md) | Scanner Brain architecture (extract vs score) |
 | [docs/db/TABLE_ACCESS_MODEL.md](../db/TABLE_ACCESS_MODEL.md) | Table access classes and RLS patterns |
+| [docs/architecture/PROTECTED_SYSTEMS.md](../architecture/PROTECTED_SYSTEMS.md) | Repository-wide protected-system and Verify-to-Reveal governing law |
+| [docs/architecture/ROUTE_SCAN.md](../architecture/ROUTE_SCAN.md) | Route-specific governing law for future `/scan` work |
+| [docs/adr/ADR-003-document-extracted-contact-prefill-and-mandatory-otp.md](../adr/ADR-003-document-extracted-contact-prefill-and-mandatory-otp.md) | Document-extracted contact trust, guarded lead attachment, and mandatory exact-session OTP policy |
+| [docs/adr/ADR-004-quote-disposition-and-ledger-layer-separation.md](../adr/ADR-004-quote-disposition-and-ledger-layer-separation.md) | Quoted-market observation versus backend-verified outcome trust law |
 | [docs/ops/PROJECT_OPERATING_MAP.md](./PROJECT_OPERATING_MAP.md) | Subsystem map and safe-edit boundaries |
 
 ---

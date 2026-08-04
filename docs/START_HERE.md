@@ -12,6 +12,9 @@ WindowMan.PRO is a **Verify-to-Reveal** post-quote intelligence product for Flor
 | Task-specific doc routing (this file) | [docs/START_HERE.md](./START_HERE.md) |
 | Protected paths / approval tiers | [.cursor/PROTECTED_FILES.md](../.cursor/PROTECTED_FILES.md) |
 | Document authority labels | [DOC_STATUS_REGISTRY.md](./ops/DOC_STATUS_REGISTRY.md) |
+| Protected-system / repository-wide governing law | [PROTECTED_SYSTEMS.md](./architecture/PROTECTED_SYSTEMS.md) — read before any protected-system work |
+
+**Reading order for `/scan` and intake:** [PROTECTED_SYSTEMS.md](./architecture/PROTECTED_SYSTEMS.md) → route-specific law → policy ADR → Proposed implementation ADR (ADR-005 is not implementation authority).
 
 **Cursor rule loading:** `.cursor/rules/00-windowman-core.mdc` has `alwaysApply: true`. Domain rules (`supabase.mdc`, `twilio.mdc`, `ui-ux.mdc`, `deployment-env.mdc`) are **conditional** — attached when the task matches their description. They must not weaken [AGENTS.md](../AGENTS.md).
 
@@ -42,6 +45,11 @@ WindowMan.PRO is a **Verify-to-Reveal** post-quote intelligence product for Flor
 | **UI-only visual changes** | [AGENTS.md](../AGENTS.md) — "Routes / Dev / Visual / Sandbox Rules" (`/visual/*`) | [FORENSIC_PROPS_CONTRACT.md](./report/FORENSIC_PROPS_CONTRACT.md) | `ui-ux.mdc` | Confirm exact paths; avoid `Index.tsx` orchestration, upload, OTP, report, tracking, scanner, Supabase |
 | **Dev tools / QA bypasses** | [VERIFY_TO_REVEAL_CONTRACT.md](./reveal/VERIFY_TO_REVEAL_CONTRACT.md) §6 | `.lovable/memory/features/dev-bypass.md` | `twilio.mdc`, `deployment-env.mdc` | Tier A `dev-report-unlock`, `otpQaBypass.ts`; DEV-only |
 | **Deprecated / stale docs** | [DOC_STATUS_REGISTRY.md](./ops/DOC_STATUS_REGISTRY.md) | Bannered funnel maps, phase-0, COPILOT spec | — | Do not implement from **STALE WITH BANNER** bodies |
+| **Protected systems (all routes)** | [PROTECTED_SYSTEMS.md](./architecture/PROTECTED_SYSTEMS.md) | [VERIFY_TO_REVEAL_CONTRACT.md](./reveal/VERIFY_TO_REVEAL_CONTRACT.md), [PROTECTED_FILES.md](../.cursor/PROTECTED_FILES.md) | `supabase.mdc`, `twilio.mdc` | Governing law only — `Implementation authority: None`; no runtime change from doc adoption |
+| **`/scan` route, UX, lifecycle, upload, preview, contact, OTP, report, rollout** | [ROUTE_SCAN.md](./architecture/ROUTE_SCAN.md) | [PROTECTED_SYSTEMS.md](./architecture/PROTECTED_SYSTEMS.md), [ADR-003](./adr/ADR-003-document-extracted-contact-prefill-and-mandatory-otp.md) | `ui-ux.mdc`, `twilio.mdc`, `supabase.mdc` | Read PROTECTED_SYSTEMS first; route not mounted until authorized implementation sprint |
+| **Document-extracted contact, OCR prefill, lead attachment, mandatory OTP policy** | [ADR-003-document-extracted-contact-prefill-and-mandatory-otp.md](./adr/ADR-003-document-extracted-contact-prefill-and-mandatory-otp.md) | [PROTECTED_SYSTEMS.md](./architecture/PROTECTED_SYSTEMS.md), [ROUTE_SCAN.md](./architecture/ROUTE_SCAN.md) | `twilio.mdc` | Policy ADR — not ADR-005 mechanics |
+| **Quote disposition, market observations, verified outcomes, benchmarks, outcome provenance** | [ADR-004-quote-disposition-and-ledger-layer-separation.md](./adr/ADR-004-quote-disposition-and-ledger-layer-separation.md) | [PROTECTED_SYSTEMS.md](./architecture/PROTECTED_SYSTEMS.md) | — | Data-trust law — independent of contact/OTP route mechanics |
+| **Proposed server-minted intake capability (implementation planning only)** | [ADR-005-server-minted-quote-intake-capability.md](./adr/ADR-005-server-minted-quote-intake-capability.md) | Canonical law above (PROTECTED_SYSTEMS → ROUTE_SCAN → ADR-003 / ADR-004 as applicable) | — | **Proposed implementation architecture. Not implementation authority.** Read only after applicable CANONICAL law. Prerequisites 1–4 satisfied by governance adoption; 5–38 remain blocking |
 
 ## Deep map
 
@@ -55,6 +63,10 @@ Subsystem detail, code anchors, and safe-edit boundaries: [PROJECT_OPERATING_MAP
 | [docs/START_HERE.md](./START_HERE.md) | Task router / entry map |
 | [.cursor/PROTECTED_FILES.md](../.cursor/PROTECTED_FILES.md) | Tier A–D protected paths |
 | [VERIFY_TO_REVEAL_CONTRACT.md](./reveal/VERIFY_TO_REVEAL_CONTRACT.md) | OTP/reveal transport authority |
+| [PROTECTED_SYSTEMS.md](./architecture/PROTECTED_SYSTEMS.md) | Repository-wide protected-system governing law |
+| [ROUTE_SCAN.md](./architecture/ROUTE_SCAN.md) | Future `/scan` route governing law |
+| [ADR-003-document-extracted-contact-prefill-and-mandatory-otp.md](./adr/ADR-003-document-extracted-contact-prefill-and-mandatory-otp.md) | Document-extracted contact and mandatory OTP policy |
+| [ADR-004-quote-disposition-and-ledger-layer-separation.md](./adr/ADR-004-quote-disposition-and-ledger-layer-separation.md) | Quoted observation vs verified outcome trust law |
 | [ORACLE_EVOLUTION_PROTOCOL.md](./oracle/ORACLE_EVOLUTION_PROTOCOL.md) | Oracle continual learning / Evolution Engine |
 | [SUPABASE_FUNCTION_MANIFEST.md](./ops/SUPABASE_FUNCTION_MANIFEST.md) | Edge Function inventory |
 | [SUPABASE_ENVIRONMENT_REGISTRY.md](./ops/SUPABASE_ENVIRONMENT_REGISTRY.md) | Operational Supabase project roles |

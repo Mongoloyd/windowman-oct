@@ -1,48 +1,59 @@
 # ADR-003: Document-Extracted Contact Prefill and Mandatory Exact-Session SMS OTP
 
-Status: Proposed
+Status: Accepted
 
 Implementation authority: None
 
 Operator approval required: Yes
 
+The document is accepted governing law.
+
+Acceptance does not authorize protected implementation.
+A separately authorized implementation sprint remains required.
+
 Date: 2026-08-04
 
 Repository-truth baseline: `d7e19f5d49a8054e39d2f5cf944df26ae11871fa`
+
+Governance adoption: Proposed documents committed at `d828b157`; independent saved-artifact audit
+(PASS_CONTINUE); explicit operator adoption decision; this adoption sprint (operator commit:
+`PENDING OPERATOR COMMIT`).
 
 Decision owner: WindowMan Architecture
 
 Scope: Future document-extracted contact proposal, guarded lead attachment, and mandatory exact-session SMS OTP policy, including the proposed ADR-005 `/scan` intake.
 
-> **PROPOSED TARGET CONTRACT** — Creating this ADR does not make it accepted or canonical and does
-> not authorize implementation. It becomes binding only after an independent repository-truth
-> audit, explicit operator approval, a separate commit, and reconciliation with
-> [ADR-005](./ADR-005-server-minted-quote-intake-capability.md).
+> **GOVERNING TARGET CONTRACT** — This ADR is accepted governing law registered as CANONICAL in
+> [`DOC_STATUS_REGISTRY.md`](../ops/DOC_STATUS_REGISTRY.md) and routed by
+> [`START_HERE.md`](../START_HERE.md). It does not authorize protected implementation.
+> [ADR-005](./ADR-005-server-minted-quote-intake-capability.md) remains Proposed and
+> implementation-blocked except where its prerequisites 1–4 are satisfied by upstream governance
+> adoption.
 
 ## Evidence labels
 
 - **BASELINE EXECUTABLE CODE** — behavior present in inspected code at the baseline commit.
 - **BASELINE SCHEMA/POLICY INTENT** — checked-in migration or generated-type intent; not deployment proof.
 - **DEPLOYED STATE UNKNOWN** — live state was not inspected.
-- **PROPOSED TARGET CONTRACT** — decision proposed by this ADR.
+- **GOVERNING TARGET CONTRACT** — An accepted architectural or security requirement governing future authorized work. It does not claim that the target behavior is already implemented or deployed.
 - **IMPLEMENTATION PREREQUISITE** — proof or work required before implementation.
 - **DECISION REQUIRED** — unresolved operator policy.
 
 ## 1. Authority and dependencies
 
-**PROPOSED TARGET CONTRACT** — This ADR is subordinate to
+**GOVERNING TARGET CONTRACT** — This ADR is subordinate to
 [`AGENTS.md`](../../AGENTS.md), [`.cursor/PROTECTED_FILES.md`](../../.cursor/PROTECTED_FILES.md),
 and [Protected Systems](../architecture/PROTECTED_SYSTEMS.md).
 
-**PROPOSED TARGET CONTRACT** — Route behavior is governed by
+**GOVERNING TARGET CONTRACT** — Route behavior is governed by
 [`ROUTE_SCAN.md`](../architecture/ROUTE_SCAN.md).
 
-**PROPOSED TARGET CONTRACT** — ADR-005 defines the proposed technical mechanics used to satisfy
+**GOVERNING TARGET CONTRACT** — ADR-005 defines the proposed technical mechanics used to satisfy
 this ADR's contact-trust and mandatory exact-session OTP policy. ADR-005 does not own or weaken
 ADR-003 policy decisions. When ADR-005 mechanics conflict with Protected Systems, ROUTE_SCAN, or
 ADR-003, ADR-005 requires reconciliation before implementation.
 
-**PROPOSED TARGET CONTRACT** — Normative policy relationship:
+**GOVERNING TARGET CONTRACT** — Normative policy relationship:
 
 ```text
 PROTECTED_SYSTEMS
@@ -57,7 +68,7 @@ ADR-003
 → governs mandatory exact-session OTP policy
 ```
 
-**PROPOSED TARGET CONTRACT** — Implementation conformance (ADR-005 mechanics must conform upstream):
+**GOVERNING TARGET CONTRACT** — Implementation conformance (ADR-005 mechanics must conform upstream):
 
 ```text
 ADR-005 proposed mechanics
@@ -66,38 +77,38 @@ ADR-005 proposed mechanics
 → must conform to ADR-003
 ```
 
-**PROPOSED TARGET CONTRACT** — ADR-003 owns policy: OTP cannot be skipped; OCR is not verification;
+**GOVERNING TARGET CONTRACT** — ADR-003 owns policy: OTP cannot be skipped; OCR is not verification;
 confirmation is not verification; lead attachment precedes OTP; exact-session isolation is mandatory;
 cross-scan unlock is forbidden.
 
-**PROPOSED TARGET CONTRACT** — ADR-005 owns proposed mechanics including capability minting,
+**GOVERNING TARGET CONTRACT** — ADR-005 owns proposed mechanics including capability minting,
 capability hashing and expiration, upload binding, OTP reservation RPC mechanics, claim-token
 mechanics, transaction A, external Twilio call, transaction B compare-and-set finalization,
 intake-specific legacy-call rejection, and outbox/event mechanics.
 
-**PROPOSED TARGET CONTRACT** — Approval of this ADR alone does not authorize ADR-005, OTP,
+**GOVERNING TARGET CONTRACT** — Approval of this ADR alone does not authorize ADR-005, OTP,
 scanner, schema, RLS, route, tracking, or deployment changes.
 
 ### 1.1 Target perimeter and legacy exclusion
 
-**PROPOSED TARGET CONTRACT** — This ADR governs future document-extracted contact flows, including
+**GOVERNING TARGET CONTRACT** — This ADR governs future document-extracted contact flows, including
 the proposed `/scan` intake.
 
-**PROPOSED TARGET CONTRACT** — This ADR does not modify current homepage, Nextdoor, Report Classic,
+**GOVERNING TARGET CONTRACT** — This ADR does not modify current homepage, Nextdoor, Report Classic,
 or other legacy OTP behavior until those callers are separately audited, migrated, tested, and
 approved under an explicit implementation sprint.
 
-**PROPOSED TARGET CONTRACT** — Approval of this ADR does not itself authorize changes to
+**GOVERNING TARGET CONTRACT** — Approval of this ADR does not itself authorize changes to
 UploadZone, usePhonePipeline, phoneVerificationService, send-otp, verify-otp, or existing
 null-session fallback behavior.
 
-**PROPOSED TARGET CONTRACT** — Legacy surfaces may continue their inspected baseline behavior until
+**GOVERNING TARGET CONTRACT** — Legacy surfaces may continue their inspected baseline behavior until
 a separately authorized migration changes them.
 
-**PROPOSED TARGET CONTRACT** — The contact-trust hierarchy, browser-distrust model, and
+**GOVERNING TARGET CONTRACT** — The contact-trust hierarchy, browser-distrust model, and
 Verify-to-Reveal invariants remain globally applicable.
 
-**PROPOSED TARGET CONTRACT** — Applying ADR-003 target mechanics to an existing legacy surface
+**GOVERNING TARGET CONTRACT** — Applying ADR-003 target mechanics to an existing legacy surface
 requires:
 
 - exact caller inventory;
@@ -110,9 +121,9 @@ requires:
 
 ## 2. Shared terminology
 
-**PROPOSED TARGET CONTRACT** — The four proposed governance documents use these definitions:
+**GOVERNING TARGET CONTRACT** — The four accepted governance documents use these definitions:
 
-| Term | Definition used by the four proposed governance documents |
+| Term | Definition used by the four accepted governance documents |
 |---|---|
 | Canonical analysis | The analysis lifecycle stored in `analyses`; `quote_analyses` remains legacy unless later repository evidence proves otherwise. |
 | Report preview | A teaser-safe, allowlisted projection that excludes `full_json` and cannot reconstruct the full report. |
@@ -151,18 +162,18 @@ feature flags, RPC bodies, and grants were not inspected.
 
 ## 4. Decision
 
-**PROPOSED TARGET CONTRACT** — OCR may propose contact fields to reduce manual entry.
+**GOVERNING TARGET CONTRACT** — OCR may propose contact fields to reduce manual entry.
 
-**PROPOSED TARGET CONTRACT** — OCR does not verify identity, phone ownership, lead ownership, or
+**GOVERNING TARGET CONTRACT** — OCR does not verify identity, phone ownership, lead ownership, or
 report authorization.
 
-**PROPOSED TARGET CONTRACT** — User confirmation does not verify identity or phone ownership.
+**GOVERNING TARGET CONTRACT** — User confirmation does not verify identity or phone ownership.
 
-**PROPOSED TARGET CONTRACT** — Exact-session SMS OTP remains mandatory even when a proposed phone
+**GOVERNING TARGET CONTRACT** — Exact-session SMS OTP remains mandatory even when a proposed phone
 has high extraction confidence, the user confirms it, or the phone appears on an existing verified
 lead.
 
-**PROPOSED TARGET CONTRACT** — The required sequence is:
+**GOVERNING TARGET CONTRACT** — The required sequence is:
 
 ```text
 OCR proposal
@@ -177,7 +188,7 @@ OCR proposal
 
 ## 5. Contact trust model
 
-**PROPOSED TARGET CONTRACT** — Contact data follows:
+**GOVERNING TARGET CONTRACT** — Contact data follows:
 
 ```text
 OCR-proposed
@@ -186,22 +197,22 @@ OCR-proposed
 < backend exact-session verified
 ```
 
-**PROPOSED TARGET CONTRACT** — `OCR-proposed` means a model identified visible contact text and
+**GOVERNING TARGET CONTRACT** — `OCR-proposed` means a model identified visible contact text and
 reported field-level confidence and evidence provenance.
 
-**PROPOSED TARGET CONTRACT** — `user-confirmed` means the user reviewed or replaced the proposal.
+**GOVERNING TARGET CONTRACT** — `user-confirmed` means the user reviewed or replaced the proposal.
 It remains unverified input.
 
-**PROPOSED TARGET CONTRACT** — `backend-attached unverified` means a guarded backend process
+**GOVERNING TARGET CONTRACT** — `backend-attached unverified` means a guarded backend process
 normalized the confirmed input and attached one canonical lead to the exact scan.
 
-**PROPOSED TARGET CONTRACT** — `backend exact-session verified` means a protected backend process
+**GOVERNING TARGET CONTRACT** — `backend exact-session verified` means a protected backend process
 committed Twilio approval against the exact canonical phone, lead, verification row, and scan
 required by the authorization predicate.
 
 ## 6. OCR proposal contract
 
-**PROPOSED TARGET CONTRACT** — Each proposed contact field must carry:
+**GOVERNING TARGET CONTRACT** — Each proposed contact field must carry:
 
 - the proposed value;
 - field-level confidence;
@@ -210,17 +221,17 @@ required by the authorization predicate.
 - ambiguity or conflict indication;
 - whether user review is required.
 
-**PROPOSED TARGET CONTRACT** — Low confidence must be visible to the user.
+**GOVERNING TARGET CONTRACT** — Low confidence must be visible to the user.
 
-**PROPOSED TARGET CONTRACT** — Missing fields must fall back to manual entry.
+**GOVERNING TARGET CONTRACT** — Missing fields must fall back to manual entry.
 
-**PROPOSED TARGET CONTRACT** — Conflicting values must be shown as ambiguous and must not be
+**GOVERNING TARGET CONTRACT** — Conflicting values must be shown as ambiguous and must not be
 silently merged.
 
-**PROPOSED TARGET CONTRACT** — Raw OCR text is protected backend evidence and must not be returned
+**GOVERNING TARGET CONTRACT** — Raw OCR text is protected backend evidence and must not be returned
 merely to implement prefill.
 
-**PROPOSED TARGET CONTRACT** — The browser may receive only the minimum allowlisted proposal needed
+**GOVERNING TARGET CONTRACT** — The browser may receive only the minimum allowlisted proposal needed
 for review.
 
 **DECISION REQUIRED** — Approved contact fields, confidence vocabulary, confidence thresholds,
@@ -229,20 +240,20 @@ truth.
 
 ## 7. User review and deterministic normalization
 
-**PROPOSED TARGET CONTRACT** — The user must be able to accept, edit, or replace each proposal
+**GOVERNING TARGET CONTRACT** — The user must be able to accept, edit, or replace each proposal
 before OTP starts.
 
-**PROPOSED TARGET CONTRACT** — A prefilled phone is visually identified as extracted rather than
+**GOVERNING TARGET CONTRACT** — A prefilled phone is visually identified as extracted rather than
 verified.
 
-**PROPOSED TARGET CONTRACT** — Client validation exists for UX only.
+**GOVERNING TARGET CONTRACT** — Client validation exists for UX only.
 
-**PROPOSED TARGET CONTRACT** — Trusted backend code repeats format and policy validation.
+**GOVERNING TARGET CONTRACT** — Trusted backend code repeats format and policy validation.
 
-**PROPOSED TARGET CONTRACT** — Phone normalization is deterministic and produces the canonical
+**GOVERNING TARGET CONTRACT** — Phone normalization is deterministic and produces the canonical
 format required by the approved OTP contract.
 
-**PROPOSED TARGET CONTRACT** — Ambiguous identity or conflicting canonical matches fail closed.
+**GOVERNING TARGET CONTRACT** — Ambiguous identity or conflicting canonical matches fail closed.
 
 **BASELINE EXECUTABLE CODE** — Current `send-otp` enforces US E.164.
 
@@ -252,17 +263,17 @@ product decision.
 
 ## 8. Guarded canonical lead attachment
 
-**PROPOSED TARGET CONTRACT** — Canonical lead attachment must commit before OTP reservation begins.
+**GOVERNING TARGET CONTRACT** — Canonical lead attachment must commit before OTP reservation begins.
 
-**PROPOSED TARGET CONTRACT** — The backend resolves or creates the lead from guarded rules and
+**GOVERNING TARGET CONTRACT** — The backend resolves or creates the lead from guarded rules and
 canonical relationships. The browser does not select the authoritative `lead_id`.
 
-**PROPOSED TARGET CONTRACT** — The attached lead must be bound to the exact canonical scan before
+**GOVERNING TARGET CONTRACT** — The attached lead must be bound to the exact canonical scan before
 OTP start.
 
-**PROPOSED TARGET CONTRACT** — Lead attachment remains unverified.
+**GOVERNING TARGET CONTRACT** — Lead attachment remains unverified.
 
-**PROPOSED TARGET CONTRACT** — Native-lead resolution or any existing upsert helper must not be
+**GOVERNING TARGET CONTRACT** — Native-lead resolution or any existing upsert helper must not be
 assumed guard-safe for intake until its exact conflict, tenant, attribution, and identity behavior
 is audited.
 
@@ -271,72 +282,72 @@ and ambiguous-match behavior in an authorized implementation sprint.
 
 ## 9. Mandatory exact-session OTP
 
-**PROPOSED TARGET CONTRACT** — ADR-003 defines the mandatory, non-skippable, exact-session OTP
+**GOVERNING TARGET CONTRACT** — ADR-003 defines the mandatory, non-skippable, exact-session OTP
 policy.
 
-**PROPOSED TARGET CONTRACT** — Proposed [ADR-005](./ADR-005-server-minted-quote-intake-capability.md)
+**GOVERNING TARGET CONTRACT** — Proposed [ADR-005](./ADR-005-server-minted-quote-intake-capability.md)
 §§6.9–6.10 define the proposed reservation, claim, external-call, and conditional-finalization
 mechanics used to implement that policy.
 
-**PROPOSED TARGET CONTRACT** — An extracted phone may prefill the OTP form.
+**GOVERNING TARGET CONTRACT** — An extracted phone may prefill the OTP form.
 
-**PROPOSED TARGET CONTRACT** — An extracted phone never skips SMS OTP.
+**GOVERNING TARGET CONTRACT** — An extracted phone never skips SMS OTP.
 
-**PROPOSED TARGET CONTRACT** — User confirmation never skips SMS OTP.
+**GOVERNING TARGET CONTRACT** — User confirmation never skips SMS OTP.
 
-**PROPOSED TARGET CONTRACT** — Existing lead-level verification never implicitly authorizes a new
+**GOVERNING TARGET CONTRACT** — Existing lead-level verification never implicitly authorizes a new
 scan.
 
-**PROPOSED TARGET CONTRACT** — Intake-bound OTP start requires a backend reservation tied to the
+**GOVERNING TARGET CONTRACT** — Intake-bound OTP start requires a backend reservation tied to the
 capability, attached lead, canonical phone, and exact non-null scan.
 
-**PROPOSED TARGET CONTRACT** — Intake-bound OTP verification requires one exact pending
+**GOVERNING TARGET CONTRACT** — Intake-bound OTP verification requires one exact pending
 verification row matching the capability, lead, canonical phone, non-null scan, pending state, and
 expiry.
 
-**PROPOSED TARGET CONTRACT** — Concurrent verification uses ADR-005's two-transaction protocol:
+**GOVERNING TARGET CONTRACT** — Concurrent verification uses ADR-005's two-transaction protocol:
 serialized database claim, external Twilio call after commit, then compare-and-set finalization in
 a separate transaction.
 
-**PROPOSED TARGET CONTRACT** — Twilio approval alone does not produce `verified: true`.
+**GOVERNING TARGET CONTRACT** — Twilio approval alone does not produce `verified: true`.
 
-**PROPOSED TARGET CONTRACT** — Only committed exact-session backend verification may advance to
+**GOVERNING TARGET CONTRACT** — Only committed exact-session backend verification may advance to
 reveal authorization.
 
 ## 10. Reveal and report data
 
-**PROPOSED TARGET CONTRACT** — `full_json` remains backend-gated.
+**GOVERNING TARGET CONTRACT** — `full_json` remains backend-gated.
 
-**PROPOSED TARGET CONTRACT** — A browser receives the full report only through `report-access`
+**GOVERNING TARGET CONTRACT** — A browser receives the full report only through `report-access`
 after the exact-session predicate succeeds.
 
-**PROPOSED TARGET CONTRACT** — OCR contact confidence, user confirmation, lead attachment, OTP sent,
+**GOVERNING TARGET CONTRACT** — OCR contact confidence, user confirmation, lead attachment, OTP sent,
 OTP entered, or local verified state is insufficient for full-report access.
 
-**PROPOSED TARGET CONTRACT** — One verified phone/session cannot unlock another scan.
+**GOVERNING TARGET CONTRACT** — One verified phone/session cannot unlock another scan.
 
-**PROPOSED TARGET CONTRACT** — Admin, contractor, or partner access does not equal homeowner
+**GOVERNING TARGET CONTRACT** — Admin, contractor, or partner access does not equal homeowner
 report authorization.
 
 ## 11. Privacy and tracking
 
-**PROPOSED TARGET CONTRACT** — OCR text, proposed contact values, confirmed contact PII, OTP codes,
+**GOVERNING TARGET CONTRACT** — OCR text, proposed contact values, confirmed contact PII, OTP codes,
 verification-row IDs, capability material, and claim tokens are protected.
 
-**PROPOSED TARGET CONTRACT** — Raw contact PII must not enter `window.dataLayer`, `event_logs`,
+**GOVERNING TARGET CONTRACT** — Raw contact PII must not enter `window.dataLayer`, `event_logs`,
 console logs, URLs, filenames, Storage paths, or third-party error payloads.
 
-**PROPOSED TARGET CONTRACT** — Business events follow
+**GOVERNING TARGET CONTRACT** — Business events follow
 `trackConversion`/`trackGtmEvent → dataLayer → GTM`.
 
-**PROPOSED TARGET CONTRACT** — Operational telemetry follows `trackEvent → event_logs`.
+**GOVERNING TARGET CONTRACT** — Operational telemetry follows `trackEvent → event_logs`.
 
-**PROPOSED TARGET CONTRACT** — Telemetry may record sanitized state and reason codes only. It is
+**GOVERNING TARGET CONTRACT** — Telemetry may record sanitized state and reason codes only. It is
 not verification truth.
 
 ## 12. Decision table
 
-**PROPOSED TARGET CONTRACT** — The table defines target behavior and does not claim these branches
+**GOVERNING TARGET CONTRACT** — The table defines target behavior and does not claim these branches
 currently exist.
 
 | Scenario | Required target behavior | Forbidden result |
@@ -355,7 +366,7 @@ currently exist.
 
 ## 13. Failure semantics
 
-**PROPOSED TARGET CONTRACT** — Distinct user-safe states include:
+**GOVERNING TARGET CONTRACT** — Distinct user-safe states include:
 
 - contact proposal unavailable;
 - low-confidence proposal;
@@ -375,21 +386,21 @@ currently exist.
 - unauthorized full-report request;
 - manual review required.
 
-**PROPOSED TARGET CONTRACT** — Every failure keeps the full report locked unless backend
+**GOVERNING TARGET CONTRACT** — Every failure keeps the full report locked unless backend
 authorization independently succeeds on a later request.
 
 ## 14. AI and deterministic ownership
 
-**PROPOSED TARGET CONTRACT** — AI extracts contact evidence, candidate values, conflicts, and
+**GOVERNING TARGET CONTRACT** — AI extracts contact evidence, candidate values, conflicts, and
 confidence.
 
-**PROPOSED TARGET CONTRACT** — Deterministic TypeScript validates field shape, normalizes phone
+**GOVERNING TARGET CONTRACT** — Deterministic TypeScript validates field shape, normalizes phone
 format under approved rules, applies route policy, and shapes allowlisted proposals.
 
-**PROPOSED TARGET CONTRACT** — Protected backend/database code owns lead attachment, OTP
+**GOVERNING TARGET CONTRACT** — Protected backend/database code owns lead attachment, OTP
 reservation, verification persistence, exact-session authorization, and reveal.
 
-**PROPOSED TARGET CONTRACT** — AI cannot select canonical identity, set phone verification, or
+**GOVERNING TARGET CONTRACT** — AI cannot select canonical identity, set phone verification, or
 authorize reveal.
 
 ## 15. Implementation prerequisites
@@ -437,16 +448,16 @@ database finalization?
 
 ## 17. Consequences
 
-**PROPOSED TARGET CONTRACT** — Prefill can reduce typing while preserving mandatory verification.
+**GOVERNING TARGET CONTRACT** — Prefill can reduce typing while preserving mandatory verification.
 
-**PROPOSED TARGET CONTRACT** — Explicit provenance and confidence make uncertainty visible.
+**GOVERNING TARGET CONTRACT** — Explicit provenance and confidence make uncertainty visible.
 
-**PROPOSED TARGET CONTRACT** — Exact-session OTP prevents a previously verified phone or lead from
+**GOVERNING TARGET CONTRACT** — Exact-session OTP prevents a previously verified phone or lead from
 implicitly unlocking a different scan.
 
-**PROPOSED TARGET CONTRACT** — Guarded attachment introduces additional backend and recovery work.
+**GOVERNING TARGET CONTRACT** — Guarded attachment introduces additional backend and recovery work.
 
-**PROPOSED TARGET CONTRACT** — Ambiguous identity intentionally fails closed and may require manual
+**GOVERNING TARGET CONTRACT** — Ambiguous identity intentionally fails closed and may require manual
 review.
 
 ## 18. Evidence appendix
@@ -472,11 +483,12 @@ review.
   3128–3170 for the checked-in `phone_verifications` shape.
 
 **DEPLOYED STATE UNKNOWN** — No live verification flow, phone number, customer data, or Supabase
-environment was accessed while creating this Proposed ADR.
+environment was accessed while authoring this accepted ADR.
 
 ## 19. Acceptance checklist
 
-- [ ] Status remains Proposed.
+- [ ] Document authority: Status is Accepted and governing.
+- [ ] Runtime implementation: not authorized and not presumed present.
 - [ ] Implementation authority remains None.
 - [ ] Operator approval remains required.
 - [ ] OCR proposals include confidence and provenance.
