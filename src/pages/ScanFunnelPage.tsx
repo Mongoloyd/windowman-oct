@@ -1,11 +1,10 @@
 /**
  * ScanFunnelPage — V2 quote-scan funnel at `/scan`.
  *
- * Sprint 1: renders the static `ScanLandingExperience` visual foundation.
+ * Sprint 2: renders the local `ScanLandingExperience` conversion prototype.
  * The route is mounted in App.tsx only behind `VITE_SCAN_ROUTE_MOUNTED === "true"`,
- * and the page is noindex while the funnel behind it is not connected.
- * Production wiring (upload custody, scanner, lead capture, reveal) lands in
- * follow-up sprints. Homepage `/` and Edge Functions remain unchanged.
+ * and the page is noindex while live upload / OTP / contractor network are not
+ * connected. Homepage `/` and Edge Functions remain unchanged.
  *
  * ScanFunnelProvider wraps the app in App.tsx — no duplicate provider here.
  */
@@ -17,10 +16,10 @@ export default function ScanFunnelPage() {
   return (
     <>
       <Helmet>
-        <title>Scan Your Quote | WindowMan</title>
+        <title>Make Your Quote Compete | WindowMan</title>
         <meta
           name="description"
-          content="Upload your impact window quote for a forensic truth report."
+          content="Upload any real window or door estimate. WindowMan reviews price, scope, glass, warranty, and fine print—then prepares measured scope so contractors can compete."
         />
         <meta name="robots" content="noindex,nofollow" />
       </Helmet>

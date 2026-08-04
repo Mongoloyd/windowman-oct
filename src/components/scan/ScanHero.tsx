@@ -1,13 +1,13 @@
 /**
- * ScanHero — Sprint 1 static hero for the flag-gated `/scan` landing page.
+ * ScanHero — Sprint 2 Quote Competition hero for the flag-gated `/scan` page.
  *
- * Presentation only. No upload, scanner, Supabase, Gemini, or tracking behavior.
- * The primary CTA delegates to the parent, which owns the scroll + focus move to
- * the upload surface.
+ * Presentation + local upload stage composition only. No real upload, scanner,
+ * Supabase, Gemini, or tracking behavior. The primary CTA scrolls/focuses the
+ * functional upload control owned by the parent.
  */
 
-import { useState } from "react";
-import { ArrowRight, FileCheck2, LayoutGrid, ShieldCheck, UploadCloud } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { ArrowRight } from "lucide-react";
 
 /**
  * Homeowner mascot already served on the homepage hero (`AuditHero`) and the
@@ -16,140 +16,113 @@ import { ArrowRight, FileCheck2, LayoutGrid, ShieldCheck, UploadCloud } from "lu
 const HERO_IMAGE_URL =
   "https://d2xsxph8kpxj0f.cloudfront.net/87108037/YjBTWCdi7jZwa5GFcxbLnp/windowmanwithtruthreportonthephone_be309c26.avif";
 
-const PAIN_POINTS = ["Hidden fees.", "Confusing terms.", "Unclear pricing."];
+type ScanHeroProps = {
+  onGetReview: () => void;
+  competitionStage: ReactNode;
+};
 
-function FlowStep({
-  icon: Icon,
-  label,
-}: {
-  icon: typeof UploadCloud;
-  label: string;
-}) {
-  return (
-    <div className="flex min-w-0 flex-col items-center justify-center gap-2 rounded-lg border border-border bg-white px-2 py-4 text-center">
-      <Icon className="h-7 w-7 text-primary" aria-hidden="true" />
-      <span className="text-[11px] font-bold uppercase leading-tight tracking-[0.08em] text-foreground sm:text-xs">
-        {label}
-      </span>
-    </div>
-  );
-}
-
-/**
- * ScanFlowCard — "Upload Estimate → Summary Report" card.
- * Lives beside the hero copy on desktop and below it on mobile.
- */
-function ScanFlowCard() {
-  return (
-    <div className="card-raised-hero w-full overflow-hidden">
-      <div className="p-5 sm:p-6">
-        <div className="grid grid-cols-[1fr_auto_1fr] items-stretch gap-2 sm:gap-3">
-          <FlowStep icon={UploadCloud} label="Upload Estimate" />
-          <div className="flex items-center justify-center px-1">
-            <ArrowRight className="h-5 w-5 text-primary" aria-hidden="true" />
-            <span className="sr-only">then</span>
-          </div>
-          <FlowStep icon={FileCheck2} label="Summary Report" />
-        </div>
-
-        <div className="my-5 h-px w-full bg-border" />
-
-        <h2 className="text-xl font-extrabold uppercase leading-[1.1] tracking-tight text-foreground sm:text-2xl">
-          Unbiased second opinion
-          <span className="mt-1 block text-primary">Fast AI-powered quote review</span>
-        </h2>
-        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-          See what your estimate covers, what it leaves out, and which line items are worth
-          questioning before you sign.
-        </p>
-      </div>
-
-      <div className="flex items-center gap-2 bg-primary px-5 py-3.5">
-        <LayoutGrid className="h-4 w-4 text-primary-foreground" aria-hidden="true" />
-        <span className="text-sm font-bold text-primary-foreground">WindowMan</span>
-        <span className="min-w-0 truncate text-sm text-primary-foreground/85">
-          Unbiased AI Review
-        </span>
-      </div>
-    </div>
-  );
-}
-
-export default function ScanHero({ onGetReview }: { onGetReview: () => void }) {
+export default function ScanHero({ onGetReview, competitionStage }: ScanHeroProps) {
   const [heroImageFailed, setHeroImageFailed] = useState(false);
 
   return (
     <section
-      className="relative overflow-hidden border-b border-border/60"
-      style={{
-        background:
-          "linear-gradient(168deg, hsl(214 35% 96%) 0%, hsl(216 40% 93%) 45%, hsl(214 33% 95%) 100%)",
-      }}
+      className="
+        relative overflow-hidden
+        bg-[radial-gradient(circle_at_76%_24%,rgba(73,165,255,0.18),transparent_26%),linear-gradient(180deg,#ffffff_0%,#f8fbff_68%,#edf4fb_100%)]
+        border-b border-slate-200/80
+      "
     >
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 py-12 sm:px-6 lg:min-h-[680px] lg:flex-row lg:items-center lg:gap-14 lg:py-16">
-        {/* Copy + CTA — first in DOM so mobile shows headline and CTA before the flow card */}
-        <div className="flex w-full min-w-0 flex-col items-start lg:flex-1">
-          <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white/80 px-3 py-1">
-            <ShieldCheck className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-foreground/70">
-              Independent quote review
-            </span>
-          </span>
+      {/* Subtle 3–4% dot-grid texture */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 opacity-[0.035]"
+        style={{
+          backgroundImage: "radial-gradient(#0B2545 1px, transparent 1px)",
+          backgroundSize: "18px 18px",
+        }}
+      />
 
-          <h1 className="mt-5 text-4xl font-extrabold uppercase leading-[1.05] tracking-tight text-foreground sm:text-5xl lg:text-6xl">
-            Tired of{" "}
-            <span className="block text-primary">confusing estimates?</span>
+      <div className="relative mx-auto grid w-full max-w-6xl gap-5 px-4 py-6 sm:gap-8 sm:px-6 sm:py-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:items-center lg:gap-10 lg:py-12">
+        {/* Copy + CTA — first in DOM for mobile headline-first order */}
+        <div className="flex min-w-0 flex-col items-start">
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#1878F0]">
+            FREE HOMEOWNER QUOTE REVIEW
+          </p>
+
+          <h1 className="mt-2 text-[2rem] font-black uppercase leading-[0.98] tracking-[-0.02em] sm:mt-3 sm:text-5xl lg:text-[3.35rem]">
+            <span className="block text-[#0B2545]">YOU GOT THE QUOTE.</span>
+            <span className="mt-1 block bg-gradient-to-r from-[#1878F0] to-[#22D3EE] bg-clip-text text-transparent">
+              NOW MAKE IT COMPETE.
+            </span>
           </h1>
 
-          <ul className="mt-6 flex flex-col gap-2">
-            {PAIN_POINTS.map((point) => (
-              <li key={point} className="flex items-center gap-2.5 text-lg text-foreground/80">
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" aria-hidden="true" />
-                {point}
-              </li>
-            ))}
-          </ul>
+          <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-slate-600 sm:mt-4 sm:text-lg">
+            Upload any real window or door estimate. WindowMan shows you what the quote includes,
+            what it leaves unclear, and where you have leverage—then prepares the measured scope so
+            contractors can compete to beat the price.
+          </p>
 
-          <p className="mt-4 text-lg font-semibold text-foreground">It&apos;s frustrating.</p>
+          <p className="mt-2 text-sm font-semibold text-[#0B2545] sm:mt-3 sm:text-base">
+            One estimate can be the start of a better one.
+          </p>
 
           <button
             type="button"
             onClick={onGetReview}
-            className="btn-depth-primary mt-8 w-full px-8 py-4 text-base sm:w-auto"
+            className="
+              group mt-4 inline-flex min-h-[60px] w-full sm:mt-6 sm:w-auto min-w-0 sm:min-w-[320px]
+              items-center justify-center gap-3 rounded-xl px-8
+              bg-gradient-to-r from-[#1878F0] to-[#1264D8]
+              text-base sm:text-lg font-black tracking-[-0.01em] text-white
+              border-t border-white/35 border-b-4 border-b-[#0B2545]
+              shadow-[0_12px_28px_-10px_rgba(24,120,240,0.65)]
+              transition-[transform,box-shadow,filter] duration-150
+              hover:-translate-y-0.5 hover:brightness-105
+              hover:shadow-[0_18px_34px_-12px_rgba(24,120,240,0.75)]
+              active:translate-y-1 active:border-b-0
+              focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-300
+              motion-reduce:transition-none motion-reduce:hover:translate-y-0
+            "
           >
-            Get My Free Estimate Review
+            MAKE MY QUOTE COMPETE
+            <ArrowRight
+              className="h-5 w-5 transition-transform duration-150 group-hover:translate-x-0.5 motion-reduce:transition-none"
+              aria-hidden="true"
+            />
           </button>
 
-          <p className="mt-3 text-sm text-muted-foreground">Free review. No obligation.</p>
+          <p className="mt-3 max-w-md text-sm leading-relaxed text-slate-500">
+            Free to homeowners. No obligation.
+            <br />
+            Upload every better estimate and keep the competition moving.
+          </p>
         </div>
 
-        {/* Hero visual + flow card */}
-        <div className="flex w-full min-w-0 justify-center lg:flex-1">
-          <div className="relative flex w-full max-w-[440px] flex-col items-center lg:max-w-[480px]">
+        {/* Quote Competition Stage: mascot + upload + report preview */}
+        <div className="relative min-w-0">
+          <div className="relative">
+            {/* Restrained blue halo — no large blurred blob */}
             <div
-              className="relative flex h-[180px] w-full items-end justify-center sm:h-[230px] lg:h-[280px]"
-              style={{
-                background:
-                  "radial-gradient(60% 60% at 50% 65%, hsl(217 91% 53% / 0.14) 0%, transparent 70%)",
-              }}
-            >
-              {!heroImageFailed && (
+              aria-hidden="true"
+              className="pointer-events-none absolute left-1/2 top-2 h-28 w-40 -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(73,165,255,0.28)_0%,transparent_70%)] sm:h-32 sm:w-48"
+            />
+
+            {!heroImageFailed && (
+              <div className="relative z-20 mx-auto -mb-8 flex h-[110px] w-[128px] items-end justify-center sm:-mb-12 sm:h-[170px] sm:w-[190px] lg:-mb-14 lg:h-[190px] lg:w-[210px]">
                 <img
                   src={HERO_IMAGE_URL}
-                  alt="WindowMan holding a phone showing a window quote review"
-                  width={480}
-                  height={640}
+                  alt="WindowMan reviewing a quote on a phone"
+                  width={420}
+                  height={560}
                   loading="eager"
                   decoding="async"
                   onError={() => setHeroImageFailed(true)}
-                  className="h-full w-full object-contain object-bottom"
+                  className="h-full w-full object-contain object-bottom drop-shadow-[0_14px_22px_rgba(11,37,69,0.28)]"
                 />
-              )}
-            </div>
+              </div>
+            )}
 
-            <div className="relative z-10 -mt-4 w-full">
-              <ScanFlowCard />
-            </div>
+            <div className="relative z-10 pt-1 sm:pt-2">{competitionStage}</div>
           </div>
         </div>
       </div>
