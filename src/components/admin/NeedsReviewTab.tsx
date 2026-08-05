@@ -35,7 +35,6 @@ export interface NeedsReviewLead {
   analysis_status: string | null;
   confidence_score: number | null;
   analysis_error: string | null;
-  full_json: Record<string, unknown> | null;
   quote_image_url: string | null;
   email: string | null;
   phone_e164: string | null;

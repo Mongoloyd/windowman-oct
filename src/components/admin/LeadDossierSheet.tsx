@@ -27,6 +27,10 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 
 import type { CRMLead, AnalysisFlag, LeadAnalysisData } from "./types";
+import {
+  operatorExtractionFromProjection,
+  pillarScoresRecordFromProjection,
+} from "./adminAnalysisEvidence";
 import { fetchLeadAnalysis, fetchLeadVoiceFollowups, invokeAdminData, routeLeadToContractor, fetchContractors } from "@/services/adminDataService";
 import type { VoiceFollowup } from "@/services/adminDataService";
 import { OpportunityRouteTimeline } from "./OpportunityRouteTimeline";
@@ -148,7 +152,7 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
             dollar_delta: data.dollar_delta ?? null,
             confidence_score: data.confidence_score ?? null,
             flags: Array.isArray(data.flags) ? data.flags : [],
-            full_json: data.full_json ?? null,
+            evidence_projection: data.evidence_projection ?? null,
           });
         }
       })
@@ -227,10 +231,12 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
   const name = [lead.first_name, lead.last_name].filter(Boolean).join(" ") || "Unknown";
   const alreadySent = !!lead.latest_opportunity_id || localSentToContractor;
 
-  // ── Pillar data from full_json ──
-  const fullJson = analysis?.full_json;
-  const pillarScores = (fullJson as any)?.pillar_scores as Record<string, number> | null ?? null;
-  const extraction = (fullJson as any)?.extraction as Record<string, any> | null ?? null;
+  // ── Pillar data from safe admin evidence projection ──
+  const evidenceProjection = analysis?.evidence_projection ?? null;
+  const pillarScores = pillarScoresRecordFromProjection(evidenceProjection);
+  const extraction = operatorExtractionFromProjection(evidenceProjection);
+  const pillarDetailUnavailable = analysis != null &&
+    !evidenceProjection?.pillar_detail_available;
 
   // ── Sorted flags ──
   const sortedFlags = [...(analysis?.flags ?? [])].sort(
@@ -423,6 +429,11 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
                 </div>
 
                 {/* ── Pillar Cards ── */}
+                {pillarDetailUnavailable && (
+                  <p className="text-xs text-slate-700 border border-dashed border-border rounded-md px-3 py-2">
+                    Detailed pillar evidence is not available in this admin projection.
+                  </p>
+                )}
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
                   {PILLAR_CONFIG.map(({ key, label }) => {
                     const score = pillarScores?.[key] ?? null;
@@ -514,7 +525,7 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
                 </div>
 
                 {/* ── Operator Metadata ── */}
-                {(extraction || fullJson) && (
+                {(extraction || evidenceProjection?.rubric_version) && (
                   <div className="rounded-lg border border-border/50 bg-muted/20 p-2.5 space-y-1">
                     <div className="flex items-center gap-1.5 mb-1">
                       <Info className="h-3 w-3 text-slate-700" />
@@ -523,28 +534,19 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
                       </span>
                     </div>
                     {extraction?.contractor_name && (
-                      <p className="text-xs"><span className="text-slate-700">Contractor:</span> {extraction.contractor_name}</p>
+                      <p className="text-xs"><span className="text-slate-700">Contractor:</span> {String(extraction.contractor_name)}</p>
                     )}
                     {extraction?.total_quoted_price != null && (
                       <p className="text-xs"><span className="text-slate-700">Total Quoted:</span> ${Number(extraction.total_quoted_price).toLocaleString()}</p>
                     )}
                     {extraction?.opening_count != null && (
-                      <p className="text-xs"><span className="text-slate-700">Openings:</span> {extraction.opening_count}</p>
+                      <p className="text-xs"><span className="text-slate-700">Openings:</span> {String(extraction.opening_count)}</p>
                     )}
                     {extraction?.document_type && (
-                      <p className="text-xs"><span className="text-slate-700">Doc Type:</span> {extraction.document_type}</p>
+                      <p className="text-xs"><span className="text-slate-700">Doc Type:</span> {String(extraction.document_type)}</p>
                     )}
-                    {(fullJson as any)?.rubric_version && (
-                      <p className="text-xs"><span className="text-slate-700">Rubric:</span> v{(fullJson as any).rubric_version}</p>
-                    )}
-                    {(fullJson as any)?.price_fairness && (
-                      <p className="text-xs"><span className="text-slate-700">Price Fairness:</span> {(fullJson as any).price_fairness}</p>
-                    )}
-                    {(fullJson as any)?.markup_estimate && (
-                      <p className="text-xs"><span className="text-slate-700">Markup Est:</span> {(fullJson as any).markup_estimate}</p>
-                    )}
-                    {(fullJson as any)?.negotiation_leverage && (
-                      <p className="text-xs"><span className="text-slate-700">Leverage:</span> {(fullJson as any).negotiation_leverage}</p>
+                    {evidenceProjection?.rubric_version && (
+                      <p className="text-xs"><span className="text-slate-700">Rubric:</span> v{evidenceProjection.rubric_version}</p>
                     )}
                   </div>
                 )}

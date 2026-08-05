@@ -340,12 +340,16 @@ export async function buildOtpObservabilityReadModel(
   for (const lead of stuckCandidates) {
     if (!leadMatchesFilters(lead, filters)) continue;
 
-    const sessionId = leadEvents.length > 0
-      ? (leadEvents.find((e) => e.scan_session_id)?.scan_session_id ?? null)
+    const leadEventsFallback: LifecycleRow[] = filteredEvents.filter(
+      (e) => e.lead_id === lead.id,
+    );
+    const sessionId = leadEventsFallback.length > 0
+      ? (leadEventsFallback.find((e) => e.scan_session_id)?.scan_session_id ??
+        null)
       : null;
     const key = `${lead.id}:${sessionId ?? ""}`;
-    const leadEvents = eventsByLeadSession.get(key) ??
-      filteredEvents.filter((e) => e.lead_id === lead.id);
+    const leadEvents: LifecycleRow[] = eventsByLeadSession.get(key) ??
+      leadEventsFallback;
 
     if (leadEvents.length === 0) continue;
 

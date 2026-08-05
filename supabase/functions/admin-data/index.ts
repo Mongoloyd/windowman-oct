@@ -5,6 +5,7 @@ import {
   successResponse,
   validateAdminRequestWithRole,
 } from "../_shared/adminAuth.ts";
+import { logStructuredError } from "./adminDataLog.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import {
   type CAPIEvent,
@@ -16,6 +17,33 @@ import {
   summarizeTokenPresence,
 } from "../_shared/capiRouting.ts";
 import { buildOtpObservabilityReadModel } from "../_shared/otpObservabilityReadModel.ts";
+import {
+  AdminForbiddenPayloadError,
+  ANALYSIS_ADMIN_SUMMARY_SELECT,
+  ANALYSIS_EVIDENCE_LIST_SELECT,
+  ANALYSIS_FETCH_LEAD_ANALYSIS_SELECT,
+  assertBrowserSafeAdminPayload,
+  batchLatestAnalysesForLeadIds,
+  batchLatestOutcomeSnapshotForLeadIds,
+  batchLatestRoutedAtForLeadIds,
+  batchLatestScansForLeadIds,
+  batchScanCountsForLeadIds,
+  enrichLeadForEvidenceView,
+  fetchLatestScanSessionForLead,
+  fetchLeadIdsWithBookedOutcomeSince,
+  fetchLeadIdsWithClosedOutcomeSince,
+  fetchLeadIdsWithRoutedOpportunitySince,
+  fetchLeadIdsWithScansSince,
+  LEAD_EVIDENCE_LEAD_SELECT,
+  NEEDS_REVIEW_LEAD_SELECT,
+  pickLatestAnalysisForLead,
+  pickLatestScanForLead,
+  type AnalysisSummaryRow,
+  resolveQuoteFileForLeadViaLatestScan,
+  STAGE_LEAD_BASE_SELECT,
+  summarizeFlagCounts,
+} from "./adminReadModel.ts";
+import { buildAdminAnalysisEvidenceProjection } from "./adminEvidenceProjection.ts";
 
 /**
  * admin-data v2.4
@@ -215,6 +243,28 @@ function summarizeJson(
   };
 }
 
+function browserSafeSuccessResponse(
+  data: Record<string, unknown>,
+  status = 200,
+): Response {
+  try {
+    assertBrowserSafeAdminPayload(data);
+  } catch (e) {
+    if (e instanceof AdminForbiddenPayloadError) {
+      console.error("[admin-data] Forbidden browser payload blocked", {
+        key: e.key,
+      });
+      return errorResponse(
+        500,
+        "forbidden_payload",
+        "Internal server error",
+      );
+    }
+    throw e;
+  }
+  return successResponse(data, status);
+}
+
 function summarizeFlags(
   value: unknown,
 ): { count: number; severities: Record<string, number> } {
@@ -229,6 +279,12 @@ function summarizeFlags(
   return { count: flags.length, severities };
 }
 
+function isPostgrestNoRowsError(error: unknown): boolean {
+  return !!error &&
+    typeof error === "object" &&
+    (error as { code?: string }).code === "PGRST116";
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -237,9 +293,11 @@ Deno.serve(async (req) => {
     return errorResponse(405, "method_not_allowed", "Use POST");
   }
 
+  let actionForLog: string | undefined;
   try {
     const body = await req.json();
     const { action, payload = {} } = body;
+    actionForLog = typeof action === "string" ? action : undefined;
     const requiredRoles = ACTION_ROLES[action as ActionName];
 
     if (!requiredRoles) {
@@ -638,80 +696,98 @@ Deno.serve(async (req) => {
     // ─── NEEDS REVIEW ──────────────────────────────────────────────
 
     if (action === "fetch_needs_review") {
-      // Query A: Leads with no analysis, not manually reviewed
-      const { data: noAnalysis } = await supabaseAdmin
+      const { data: noAnalysis, error: noAnalysisErr } = await supabaseAdmin
         .from("leads")
-        .select(`
-          id, first_name, last_name, email, phone_e164, city, created_at,
-          latest_analysis_id, latest_scan_session_id,
-          grade, flag_count, manually_reviewed, manual_entry_data
-        `)
+        .select(NEEDS_REVIEW_LEAD_SELECT)
         .is("latest_analysis_id", null)
         .or("manually_reviewed.is.null,manually_reviewed.eq.false")
         .order("created_at", { ascending: false });
+      if (noAnalysisErr) throw noAnalysisErr;
 
-      // deno-lint-ignore no-explicit-any
-      const taggedNoAnalysis = (noAnalysis ?? []).map((l: any) => ({
-        ...l,
-        review_reason: "no_scan",
-        analysis_status: null,
-        confidence_score: null,
-        analysis_error: null,
-        full_json: null,
-        quote_image_url: null,
-      }));
-
-      // Query B: Analyses that failed or have low confidence
-      const { data: failedAnalyses } = await supabaseAdmin
+      const { data: failedAnalyses, error: failedErr } = await supabaseAdmin
         .from("analyses")
-        .select(
-          "id, analysis_status, confidence_score, full_json, lead_id, scan_session_id",
-        )
+        .select(ANALYSIS_ADMIN_SUMMARY_SELECT)
         .or(
           "analysis_status.eq.invalid_document,analysis_status.eq.needs_better_upload,confidence_score.lt.0.70",
         )
         .not("lead_id", "is", null)
         .order("created_at", { ascending: false });
+      if (failedErr) throw failedErr;
 
       // deno-lint-ignore no-explicit-any
       const failedLeadIds = (failedAnalyses ?? []).map((a: any) => a.lead_id)
         .filter(Boolean);
 
       // deno-lint-ignore no-explicit-any
-      let failedLeads: any[] = [];
+      let failedLeadsRaw: any[] = [];
       if (failedLeadIds.length > 0) {
-        const { data: leads } = await supabaseAdmin
+        const { data: leads, error: leadsErr } = await supabaseAdmin
           .from("leads")
-          .select(`
-            id, first_name, last_name, email, phone_e164, city, created_at,
-            latest_analysis_id, latest_scan_session_id,
-            grade, flag_count, manually_reviewed, manual_entry_data
-          `)
+          .select(NEEDS_REVIEW_LEAD_SELECT)
           .in("id", failedLeadIds)
           .or("manually_reviewed.is.null,manually_reviewed.eq.false");
-
-        // deno-lint-ignore no-explicit-any
-        failedLeads = (leads ?? []).map((lead: any) => {
-          // deno-lint-ignore no-explicit-any
-          const analysis = (failedAnalyses ?? []).find((a: any) =>
-            a.lead_id === lead.id
-          );
-          const isFailed = analysis?.analysis_status === "invalid_document" ||
-            analysis?.analysis_status === "needs_better_upload";
-          return {
-            ...lead,
-            review_reason: isFailed ? "parse_failed" : "low_confidence",
-            analysis_status: analysis?.analysis_status ?? null,
-            confidence_score: analysis?.confidence_score ?? null,
-            // deno-lint-ignore no-explicit-any
-            analysis_error: (analysis?.full_json as any)?.error ?? null,
-            full_json: analysis?.full_json ?? null,
-            quote_image_url: null,
-          };
-        });
+        if (leadsErr) throw leadsErr;
+        failedLeadsRaw = leads ?? [];
       }
 
-      // Merge + deduplicate
+      const allReviewLeadIds = [
+        ...new Set([
+          ...(noAnalysis ?? []).map((l) => l.id as string),
+          ...failedLeadIds,
+        ]),
+      ];
+      const latestScanByLead = await batchLatestScansForLeadIds(
+        supabaseAdmin,
+        allReviewLeadIds,
+      );
+      const latestAnalysisByLead = await batchLatestAnalysesForLeadIds(
+        supabaseAdmin,
+        allReviewLeadIds,
+      );
+
+      // deno-lint-ignore no-explicit-any
+      const taggedNoAnalysis = (noAnalysis ?? []).map((l: any) => {
+        const scan = latestScanByLead.get(l.id) ?? null;
+        const analysis = latestAnalysisByLead.get(l.id) ?? null;
+        const { flag_count } = summarizeFlagCounts(analysis?.flags);
+        return {
+          ...l,
+          latest_scan_session_id: scan?.id ?? null,
+          grade: analysis?.grade ?? null,
+          flag_count,
+          review_reason: "no_scan" as const,
+          analysis_status: null,
+          confidence_score: null,
+          analysis_error: null,
+          quote_image_url: null,
+        };
+      });
+
+      // deno-lint-ignore no-explicit-any
+      const failedLeads = failedLeadsRaw.map((lead: any) => {
+        // deno-lint-ignore no-explicit-any
+        const analysis = (failedAnalyses ?? []).find((a: any) =>
+          a.lead_id === lead.id
+        );
+        const scan = latestScanByLead.get(lead.id) ?? null;
+        const isFailed = analysis?.analysis_status === "invalid_document" ||
+          analysis?.analysis_status === "needs_better_upload";
+        const { flag_count } = summarizeFlagCounts(analysis?.flags);
+        return {
+          ...lead,
+          latest_scan_session_id: scan?.id ?? null,
+          grade: analysis?.grade ?? null,
+          flag_count,
+          review_reason: isFailed ? "parse_failed" : "low_confidence",
+          analysis_status: analysis?.analysis_status ?? null,
+          confidence_score: analysis?.confidence_score ?? null,
+          analysis_error: isFailed
+            ? (analysis?.analysis_status ?? "analysis_failed")
+            : null,
+          quote_image_url: null,
+        };
+      });
+
       const allLeadIds = new Set<string>();
       const merged = [...taggedNoAnalysis, ...failedLeads]
         // deno-lint-ignore no-explicit-any
@@ -725,62 +801,7 @@ Deno.serve(async (req) => {
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         );
 
-      // Generate signed URLs for quote images
-      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-      const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-      const storageClient = createClient(supabaseUrl, serviceRoleKey, {
-        auth: { persistSession: false, autoRefreshToken: false },
-      });
-
-      const sessionIds = merged
-        // deno-lint-ignore no-explicit-any
-        .map((l: any) => l.latest_scan_session_id)
-        .filter(Boolean);
-
-      if (sessionIds.length > 0) {
-        const { data: sessions } = await supabaseAdmin
-          .from("scan_sessions")
-          .select("id, quote_file_id")
-          .in("id", sessionIds);
-
-        const fileIds = (sessions ?? [])
-          // deno-lint-ignore no-explicit-any
-          .map((s: any) => s.quote_file_id)
-          .filter(Boolean);
-
-        const fileMap: Record<string, string> = {};
-        if (fileIds.length > 0) {
-          const { data: files } = await supabaseAdmin
-            .from("quote_files")
-            .select("id, storage_path")
-            .in("id", fileIds);
-
-          for (const f of files ?? []) {
-            fileMap[f.id] = f.storage_path;
-          }
-        }
-
-        const sessionToPath: Record<string, string> = {};
-        for (const s of sessions ?? []) {
-          if (s.quote_file_id && fileMap[s.quote_file_id]) {
-            sessionToPath[s.id] = fileMap[s.quote_file_id];
-          }
-        }
-
-        for (const lead of merged) {
-          const path = sessionToPath[lead.latest_scan_session_id];
-          if (path) {
-            const { data: signedData } = await storageClient.storage
-              .from("quotes")
-              .createSignedUrl(path, 3600);
-            if (signedData?.signedUrl) {
-              lead.quote_image_url = signedData.signedUrl;
-            }
-          }
-        }
-      }
-
-      return successResponse({ data: merged });
+      return browserSafeSuccessResponse({ data: merged });
     }
 
     // ─── RESCAN LEAD ───────────────────────────────────────────────
@@ -791,13 +812,11 @@ Deno.serve(async (req) => {
         return errorResponse(400, "missing_param", "lead_id required");
       }
 
-      const { data: lead, error: leadErr } = await supabaseAdmin
-        .from("leads")
-        .select("latest_scan_session_id")
-        .eq("id", lead_id)
-        .single();
-
-      if (leadErr || !lead?.latest_scan_session_id) {
+      const session = await fetchLatestScanSessionForLead(
+        supabaseAdmin,
+        lead_id,
+      );
+      if (!session?.id) {
         return errorResponse(
           400,
           "no_session",
@@ -805,7 +824,7 @@ Deno.serve(async (req) => {
         );
       }
 
-      const ssId = lead.latest_scan_session_id;
+      const ssId = session.id;
 
       await supabaseAdmin
         .from("scan_sessions")
@@ -1233,11 +1252,24 @@ Deno.serve(async (req) => {
       }
       const { data, error } = await supabaseAdmin
         .from("analyses")
-        .select("grade, dollar_delta, confidence_score, flags, full_json")
+        .select(ANALYSIS_FETCH_LEAD_ANALYSIS_SELECT)
         .eq("id", analysis_id)
         .maybeSingle();
       if (error) throw error;
-      return successResponse({ data: data });
+      if (!data) {
+        return errorResponse(404, "not_found", "Analysis not found");
+      }
+      const row = data as Record<string, unknown>;
+      const evidence_projection = buildAdminAnalysisEvidenceProjection(row);
+      return browserSafeSuccessResponse({
+        data: {
+          grade: row.grade ?? null,
+          dollar_delta: row.dollar_delta ?? null,
+          confidence_score: row.confidence_score ?? null,
+          flags: Array.isArray(row.flags) ? row.flags : [],
+          evidence_projection,
+        },
+      });
     }
 
     // ─── CONTRACTOR ACCOUNT MANAGEMENT ──────────────────────────────────
@@ -1415,14 +1447,21 @@ Deno.serve(async (req) => {
       // deno-lint-ignore no-explicit-any
       const leadMap: Record<string, any> = {};
       if (leadIds.length > 0) {
-        const { data: leads } = await supabaseAdmin
-          .from("leads")
-          .select(
-            "id, first_name, last_name, county, grade, window_count, quote_amount",
-          )
-          .in("id", leadIds);
+        const [{ data: leads, error: leadsError }, latestAnalysisByLead] =
+          await Promise.all([
+            supabaseAdmin
+              .from("leads")
+              .select("id, first_name, last_name, county, window_count")
+              .in("id", leadIds),
+            batchLatestAnalysesForLeadIds(supabaseAdmin, leadIds),
+          ]);
+        if (leadsError) throw leadsError;
         for (const l of leads ?? []) {
-          leadMap[l.id] = l;
+          leadMap[l.id] = {
+            ...l,
+            grade: latestAnalysisByLead.get(l.id)?.grade ?? null,
+            quote_amount: null,
+          };
         }
       }
 
@@ -2899,38 +2938,55 @@ Deno.serve(async (req) => {
 
     // ─── PHASE 26 — TRUTH STRIP DRILLDOWN ────────────────────────────
     // Forensic surface for the Mission Control Truth Strip. Read-only.
-    // Mirrors the exact quote-file resolution path used by fetch_needs_review:
-    //   leads.id -> quote_files.lead_id (latest by created_at) -> storage signed URL.
-    // Storage bucket "quotes" — already private; we only mint a 1h signed URL.
+    // Sole admin-data signed-URL owner:
+    //   leads.id -> latest eligible scan_session -> bound quote_file -> signed URL.
+    // The private "quotes" bucket is exposed only through this bounded action.
 
     if (action === "fetch_quote_evidence") {
       const { lead_id } = payload;
       if (!lead_id) {
         return errorResponse(400, "missing_param", "lead_id is required");
       }
+      if (!UUID_RE.test(lead_id)) {
+        return errorResponse(
+          400,
+          "invalid_param",
+          "lead_id must be a valid UUID",
+        );
+      }
 
-      // Pull the lead's latest scan session (for the operator's context only)
-      const { data: lead } = await supabaseAdmin
+      const { data: leadExists } = await supabaseAdmin
         .from("leads")
-        .select("latest_scan_session_id")
+        .select("id")
         .eq("id", lead_id)
         .maybeSingle();
+      if (!leadExists) {
+        return errorResponse(404, "not_found", "Lead not found");
+      }
 
-      const scan_session_id = lead?.latest_scan_session_id ?? null;
-
-      // Resolve the latest quote_file for this lead — column set verified:
-      // (id, created_at, lead_id, storage_path, status). No filename column on
-      // this table, so file_name is intentionally null.
-      const { data: file } = await supabaseAdmin
-        .from("quote_files")
-        .select("id, storage_path, created_at")
-        .eq("lead_id", lead_id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      let scan_session_id: string | null = null;
+      let file: { storage_path: string } | null = null;
+      try {
+        const resolved = await resolveQuoteFileForLeadViaLatestScan(
+          supabaseAdmin,
+          lead_id,
+        );
+        scan_session_id = resolved.scan_session_id;
+        file = resolved.quoteFile;
+      } catch (e) {
+        logStructuredError("admin-data", e, {
+          action: "fetch_quote_evidence",
+          lead_id,
+        });
+        return errorResponse(
+          500,
+          "quote_evidence_read_failed",
+          "Quote evidence is temporarily unavailable",
+        );
+      }
 
       if (!file?.storage_path) {
-        return successResponse({
+        return browserSafeSuccessResponse({
           data: {
             signed_url: null,
             file_name: null,
@@ -2946,11 +3002,17 @@ Deno.serve(async (req) => {
         auth: { persistSession: false, autoRefreshToken: false },
       });
 
-      const { data: signed } = await storageClient.storage
+      const { data: signed, error: signError } = await storageClient.storage
         .from("quotes")
         .createSignedUrl(file.storage_path, 3600);
 
-      return successResponse({
+      if (signError) {
+        console.error("[admin-data] fetch_quote_evidence signing failed", {
+          lead_id,
+        });
+      }
+
+      return browserSafeSuccessResponse({
         data: {
           signed_url: signed?.signedUrl ?? null,
           file_name: null,
@@ -2973,17 +3035,23 @@ Deno.serve(async (req) => {
         );
       }
 
-      const leadCols = `
-        id, created_at, updated_at, first_name, last_name, email, phone_e164,
-        city, county, state, zip, latest_scan_session_id, latest_analysis_id,
-        grade, status
-      `;
       const { data: lead, error: leadError } = await supabaseAdmin
         .from("leads")
-        .select(leadCols)
+        .select(LEAD_EVIDENCE_LEAD_SELECT)
         .eq("id", lead_id)
         .maybeSingle();
-      if (leadError) throw leadError;
+      if (leadError && !isPostgrestNoRowsError(leadError)) {
+        logStructuredError("admin-data", leadError, {
+          action: "fetch_lead_evidence",
+          phase: "lead_lookup",
+          lead_id,
+        });
+        return errorResponse(
+          500,
+          "lead_lookup_failed",
+          "Lead evidence is temporarily unavailable",
+        );
+      }
       if (!lead) return errorResponse(404, "not_found", "Lead not found");
 
       const { data: sessions, error: sessionsError } = await supabaseAdmin
@@ -2992,27 +3060,67 @@ Deno.serve(async (req) => {
         .eq("lead_id", lead_id)
         .order("created_at", { ascending: false })
         .limit(25);
-      if (sessionsError) throw sessionsError;
+      if (sessionsError) {
+        logStructuredError("admin-data", sessionsError, {
+          action: "fetch_lead_evidence",
+          phase: "scan_sessions",
+          lead_id,
+        });
+        return browserSafeSuccessResponse({
+          data: {
+            lead: enrichLeadForEvidenceView(lead, null, null),
+            quote_files: [],
+            scan_sessions: [],
+            analyses: [],
+            partial: true,
+            warnings: ["scan_sessions_lookup_failed"],
+          },
+        });
+      }
 
       const { data: files, error: filesError } = await supabaseAdmin
         .from("quote_files")
-        .select("id, lead_id, storage_path, status, created_at")
+        .select("id, lead_id, status, created_at")
         .eq("lead_id", lead_id)
         .order("created_at", { ascending: false })
         .limit(5);
-      if (filesError) throw filesError;
+      if (filesError) {
+        logStructuredError("admin-data", filesError, {
+          action: "fetch_lead_evidence",
+          phase: "quote_files",
+          lead_id,
+        });
+        return browserSafeSuccessResponse({
+          data: {
+            lead: enrichLeadForEvidenceView(
+              lead,
+              pickLatestScanForLead(sessions ?? [], lead_id),
+              null,
+            ),
+            quote_files: [],
+            scan_sessions: sessions ?? [],
+            analyses: [],
+            partial: true,
+            warnings: ["quote_files_lookup_failed"],
+          },
+        });
+      }
 
       const { data: analyses, error: analysesError } = await supabaseAdmin
         .from("analyses")
-        .select(`
-          id, lead_id, scan_session_id, grade, analysis_status, confidence_score,
-          rubric_version, document_type, document_is_window_door_related,
-          dollar_delta, flags, preview_json, proof_of_read, created_at, updated_at
-        `)
+        .select(ANALYSIS_EVIDENCE_LIST_SELECT)
         .eq("lead_id", lead_id)
         .order("created_at", { ascending: false })
         .limit(25);
-      if (analysesError) throw analysesError;
+      const evidenceWarnings: string[] = [];
+      if (analysesError) {
+        logStructuredError("admin-data", analysesError, {
+          action: "fetch_lead_evidence",
+          phase: "analyses",
+          lead_id,
+        });
+        evidenceWarnings.push("analyses_lookup_failed");
+      }
 
       const sessionByFileId = new Map<string, string>();
       for (const session of sessions ?? []) {
@@ -3023,44 +3131,20 @@ Deno.serve(async (req) => {
         }
       }
 
-      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-      const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-      const storageClient = createClient(supabaseUrl, serviceRoleKey, {
-        auth: { persistSession: false, autoRefreshToken: false },
-      });
-
       const quoteFiles = [];
       for (const file of files ?? []) {
-        let signed_url: string | null = null;
-        let signed_url_error: "signing_failed" | null = null;
-        if (file.storage_path) {
-          const { data: signed, error: signError } = await storageClient.storage
-            .from("quotes")
-            .createSignedUrl(file.storage_path, 3600);
-          if (signError || !signed?.signedUrl) {
-            console.error("[admin-data] fetch_lead_evidence signing failed", {
-              lead_id,
-              file_id: file.id,
-            });
-            signed_url_error = "signing_failed";
-          } else {
-            signed_url = signed.signedUrl;
-          }
-        }
+        if (file.lead_id && file.lead_id !== lead_id) continue;
         quoteFiles.push({
           id: file.id,
           lead_id: file.lead_id,
-          storage_path: file.storage_path,
           status: file.status,
           created_at: file.created_at,
           related_scan_session_id: sessionByFileId.get(file.id) ?? null,
-          signed_url,
-          signed_url_expires_in: signed_url ? 3600 : null,
-          signed_url_error,
         });
       }
 
-      const safeAnalyses = (analyses ?? []).map((analysis) => ({
+      const safeAnalyses = (analysesError ? [] : (analyses ?? [])).map(
+        (analysis) => ({
         id: analysis.id,
         lead_id: analysis.lead_id,
         scan_session_id: analysis.scan_session_id,
@@ -3077,14 +3161,24 @@ Deno.serve(async (req) => {
         flags_summary: summarizeFlags(analysis.flags),
         preview_summary: summarizeJson(analysis.preview_json),
         proof_summary: summarizeJson(analysis.proof_of_read),
-      }));
+      }),
+      );
 
-      return successResponse({
+      const latestScan = pickLatestScanForLead(sessions ?? [], lead_id);
+      const latestAnalysis = pickLatestAnalysisForLead(
+        (analysesError ? [] : (analyses ?? [])) as AnalysisSummaryRow[],
+        lead_id,
+      );
+
+      return browserSafeSuccessResponse({
         data: {
-          lead,
+          lead: enrichLeadForEvidenceView(lead, latestScan, latestAnalysis),
           quote_files: quoteFiles,
           scan_sessions: sessions ?? [],
           analyses: safeAnalyses,
+          ...(evidenceWarnings.length > 0
+            ? { partial: true, warnings: evidenceWarnings }
+            : {}),
         },
       });
     }
@@ -3132,19 +3226,10 @@ Deno.serve(async (req) => {
         500,
       );
 
-      // Compact column projection
-      const cols = `
-        id, first_name, last_name, city, county,
-        grade, flag_count, red_flag_count,
-        latest_analysis_id, latest_scan_session_id, latest_opportunity_id,
-        deal_value, revenue_amount, deal_status,
-        created_at, phone_verified_at, updated_at,
-        routed_to_contractor_at, appointment_booked_at, closed_at, scan_count
-      `;
+      let q = supabaseAdmin.from("leads").select(STAGE_LEAD_BASE_SELECT).limit(
+        cap,
+      );
 
-      let q = supabaseAdmin.from("leads").select(cols).limit(cap);
-
-      // Stage-specific predicates — canonical timestamps only
       if (stage === "captured") {
         if (sinceIso) q = q.gte("created_at", sinceIso);
         q = q.order("created_at", { ascending: false });
@@ -3153,54 +3238,102 @@ Deno.serve(async (req) => {
         if (sinceIso) q = q.gte("phone_verified_at", sinceIso);
         q = q.order("phone_verified_at", { ascending: false });
       } else if (stage === "scanned") {
-        // Repo-real Scanned predicate: scan_count > 0 AND updated_at in scope.
-        q = q.gt("scan_count", 0);
-        if (sinceIso) q = q.gte("updated_at", sinceIso);
-        q = q.order("updated_at", { ascending: false });
+        const scannedLeadIds = await fetchLeadIdsWithScansSince(
+          supabaseAdmin,
+          sinceIso,
+        );
+        if (scannedLeadIds.length === 0) {
+          return browserSafeSuccessResponse({ data: { leads: [] } });
+        }
+        q = q.in("id", scannedLeadIds).order("updated_at", { ascending: false });
       } else if (stage === "routed") {
-        q = q.not("routed_to_contractor_at", "is", null);
-        if (sinceIso) q = q.gte("routed_to_contractor_at", sinceIso);
-        q = q.order("routed_to_contractor_at", { ascending: false });
+        const routedLeadIds = await fetchLeadIdsWithRoutedOpportunitySince(
+          supabaseAdmin,
+          sinceIso,
+        );
+        if (routedLeadIds.length === 0) {
+          return browserSafeSuccessResponse({ data: { leads: [] } });
+        }
+        q = q.in("id", routedLeadIds).order("updated_at", { ascending: false });
       } else if (stage === "booked") {
-        q = q.not("appointment_booked_at", "is", null);
-        if (sinceIso) q = q.gte("appointment_booked_at", sinceIso);
-        q = q.order("appointment_booked_at", { ascending: false });
+        const bookedLeadIds = await fetchLeadIdsWithBookedOutcomeSince(
+          supabaseAdmin,
+          sinceIso,
+        );
+        if (bookedLeadIds.length === 0) {
+          return browserSafeSuccessResponse({ data: { leads: [] } });
+        }
+        q = q.in("id", bookedLeadIds).order("updated_at", { ascending: false });
       } else if (stage === "closed") {
-        q = q.not("closed_at", "is", null)
-          .in("deal_status", [
-            "won",
-            "sold",
-            "sold_closed",
-            "closed_won",
-            "closed",
-          ]);
-        if (sinceIso) q = q.gte("closed_at", sinceIso);
-        q = q.order("closed_at", { ascending: false });
+        const closedLeadIds = await fetchLeadIdsWithClosedOutcomeSince(
+          supabaseAdmin,
+          sinceIso,
+        );
+        if (closedLeadIds.length === 0) {
+          return browserSafeSuccessResponse({ data: { leads: [] } });
+        }
+        q = q.in("id", closedLeadIds).order("updated_at", { ascending: false });
       }
 
       const { data, error } = await q;
       if (error) throw error;
 
-      // Tag each row with the stage_timestamp that matched (for UI display)
+      const leadRows = data ?? [];
+      const leadIds = leadRows.map((l) => l.id as string);
+      const [
+        latestScanByLead,
+        scanCounts,
+        latestAnalysisByLead,
+        routedAtByLead,
+        outcomeByLead,
+      ] = await Promise.all([
+        batchLatestScansForLeadIds(supabaseAdmin, leadIds),
+        batchScanCountsForLeadIds(supabaseAdmin, leadIds),
+        batchLatestAnalysesForLeadIds(supabaseAdmin, leadIds),
+        batchLatestRoutedAtForLeadIds(supabaseAdmin, leadIds),
+        batchLatestOutcomeSnapshotForLeadIds(supabaseAdmin, leadIds),
+      ]);
+
       // deno-lint-ignore no-explicit-any
-      const stamped = (data ?? []).map((l: any) => {
+      const stamped = leadRows.map((l: any) => {
+        const analysis = latestAnalysisByLead.get(l.id) ?? null;
+        const scan = latestScanByLead.get(l.id) ?? null;
+        const outcome = outcomeByLead.get(l.id) ?? null;
+        const routedAt = routedAtByLead.get(l.id) ?? null;
+        const { flag_count, red_flag_count } = summarizeFlagCounts(
+          analysis?.flags,
+        );
         const ts = stage === "captured"
           ? l.created_at
           : stage === "verified"
           ? l.phone_verified_at
           : stage === "scanned"
-          ? l.updated_at
+          ? scan?.created_at ?? l.updated_at
           : stage === "routed"
-          ? l.routed_to_contractor_at
+          ? routedAt
           : stage === "booked"
-          ? l.appointment_booked_at
+          ? outcome?.appointment_booked_at ?? null
           : stage === "closed"
-          ? l.closed_at
+          ? outcome?.closed_at ?? null
           : null;
-        return { ...l, stage_timestamp: ts };
+        return {
+          ...l,
+          grade: analysis?.grade ?? null,
+          flag_count,
+          red_flag_count,
+          latest_scan_session_id: scan?.id ?? null,
+          scan_count: scanCounts.get(l.id) ?? 0,
+          deal_value: outcome?.deal_value ?? null,
+          revenue_amount: null,
+          deal_status: outcome?.deal_status ?? l.deal_status ?? null,
+          routed_to_contractor_at: routedAt,
+          appointment_booked_at: outcome?.appointment_booked_at ?? null,
+          closed_at: outcome?.closed_at ?? null,
+          stage_timestamp: ts,
+        };
       });
 
-      return successResponse({ data: { leads: stamped } });
+      return browserSafeSuccessResponse({ data: { leads: stamped } });
     }
 
     // ─── TWILIO-OBS-05: OTP observability read model (read-only) ─────
@@ -3219,8 +3352,7 @@ Deno.serve(async (req) => {
       `Action ${action} not implemented`,
     );
   } catch (error) {
-    const errMsg = error instanceof Error ? error.message : String(error);
-    console.error(`[admin-data] Error:`, errMsg);
+    logStructuredError("admin-data", error, { action: actionForLog });
     return errorResponse(500, "server_error", "Internal server error");
   }
 });

@@ -1,17 +1,16 @@
 /**
- * AdminLeadReport — Admin-gated Truth Report viewer.
+ * AdminLeadReport — Admin-gated analysis evidence viewer.
  * Route: /admin/leads/:id/report
  *
- * Renders the same dark forensic V3 report homeowners see after verify-to-reveal,
- * using the admin-authorized `admin-data` RPC (fetch_lead_detail + fetch_lead_analysis)
- * to load the full analysis payload server-side. No homeowner OTP gate is
- * involved — admin RBAC inside admin-data is the gate.
+ * Loads bounded admin evidence via `fetch_lead_analysis` (evidence_projection).
+ * Does not fetch or render homeowner `full_json` / full Truth Report payload.
+ * Admin RBAC inside admin-data is the gate.
  */
 
 import { useEffect, useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, AlertCircle, ArrowLeft, ShieldCheck } from "lucide-react";
+import { Loader2, AlertCircle, ArrowLeft, ShieldCheck, Flag } from "lucide-react";
 import { AdminShell } from "@/components/admin/shell/AdminShell";
 import { AdminGlobalNav } from "@/components/admin/shell/AdminGlobalNav";
 import {
@@ -19,18 +18,32 @@ import {
   fetchLeadAnalysis,
   getErrorMessage,
 } from "@/services/adminDataService";
-import ReportClassicDarkV2Full from "@/components/forensic-report/ReportClassicDarkV2Full";
-import { rawFullRowToV2ReportSource } from "@/components/forensic-report/adapters/reportAccessAdapter.source";
-import { buildFullData } from "@/hooks/useAnalysisData";
 import { isValidLeadId, isValidScanSessionId } from "@/lib/routeIdGuards";
-import type { RawFullRow } from "@/types/serviceResults";
+import {
+  buildAdminLeadReportEvidenceView,
+  type AdminLeadAnalysisResponse,
+} from "@/pages/adminLeadReportEvidence";
+
+const PILLAR_LABELS: Record<string, string> = {
+  safety: "Safety & Code",
+  install: "Install & Scope",
+  price: "Price Fairness",
+  finePrint: "Fine Print",
+  warranty: "Warranty Value",
+};
+
+function formatConfidence(score: number | null): string {
+  if (score == null) return "—";
+  const pct = score <= 1 ? Math.round(score * 100) : Math.round(score);
+  return `${pct}%`;
+}
 
 export default function AdminLeadReport() {
   const { id: leadId } = useParams<{ id: string }>();
   const leadIdValid = isValidLeadId(leadId);
 
   useEffect(() => {
-    document.title = "Truth Report · Admin";
+    document.title = "Analysis evidence · Admin";
   }, []);
 
   const { data: lead, isLoading: leadLoading, isError: leadErr, error: leadErrObj } = useQuery({
@@ -52,23 +65,12 @@ export default function AdminLeadReport() {
     enabled: !!analysisId,
   });
 
-  const { reportData, v2ReportSource } = useMemo(() => {
-    if (!analysis) return { reportData: null, v2ReportSource: null };
-    const row: RawFullRow = {
-      analysis_id: analysisId,
-      grade: analysis.grade ?? "C",
-      flags: analysis.flags ?? [],
-      full_json: analysis.full_json ?? null,
-      preview_json: analysis.full_json?.preview_json ?? analysis.full_json ?? null,
-      proof_of_read: analysis.full_json?.proof_of_read ?? null,
-      confidence_score: analysis.confidence_score ?? null,
-      document_type: analysis.full_json?.document_type ?? null,
-      rubric_version: analysis.full_json?.rubric_version ?? null,
-    } as RawFullRow;
-    return {
-      reportData: buildFullData(row),
-      v2ReportSource: rawFullRowToV2ReportSource(row),
-    };
+  const evidenceView = useMemo(() => {
+    if (!analysis || !analysisId) return null;
+    return buildAdminLeadReportEvidenceView(
+      analysisId,
+      analysis as AdminLeadAnalysisResponse,
+    );
   }, [analysis, analysisId]);
 
   const backTo = leadIdValid ? `/admin/leads/${leadId}` : "/admin/leads";
@@ -92,7 +94,7 @@ export default function AdminLeadReport() {
 
   if (leadLoading || analysisLoading) {
     return (
-      <AdminShell title="Loading Truth Report…" backTo={backTo} backLabel="Back to dossier" nav={<AdminGlobalNav />}>
+      <AdminShell title="Loading analysis evidence…" backTo={backTo} backLabel="Back to dossier" nav={<AdminGlobalNav />}>
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-6 w-6 animate-spin text-slate-700" />
         </div>
@@ -116,14 +118,14 @@ export default function AdminLeadReport() {
 
   if (!analysisId) {
     return (
-      <AdminShell title="Truth Report" backTo={backTo} backLabel="Back to dossier" nav={<AdminGlobalNav />}>
+      <AdminShell title="Analysis evidence" backTo={backTo} backLabel="Back to dossier" nav={<AdminGlobalNav />}>
         <div className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-800">
           <AlertCircle className="h-5 w-5 mt-0.5 shrink-0" />
           <div>
             <p className="font-semibold">No analysis on file yet</p>
             <p className="mt-0.5 opacity-90">
               This lead has no completed Truth Engine analysis. Once a quote is scanned,
-              the full report will appear here.
+              safe admin evidence will appear here.
             </p>
           </div>
         </div>
@@ -131,9 +133,9 @@ export default function AdminLeadReport() {
     );
   }
 
-  if (analysisErr || !reportData) {
+  if (analysisErr || !evidenceView) {
     return (
-      <AdminShell title="Truth Report" backTo={backTo} backLabel="Back to dossier" nav={<AdminGlobalNav />}>
+      <AdminShell title="Analysis evidence" backTo={backTo} backLabel="Back to dossier" nav={<AdminGlobalNav />}>
         <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           <AlertCircle className="h-5 w-5 mt-0.5 shrink-0" />
           <div>
@@ -146,39 +148,122 @@ export default function AdminLeadReport() {
   }
 
   const homeownerName = [lead.first_name, lead.last_name].filter(Boolean).join(" ") || "Unknown";
-  const county = lead.county || "Florida";
+  const pillarEntries = evidenceView.pillarScores
+    ? Object.entries(evidenceView.pillarScores)
+    : [];
+  const extraction = evidenceView.operatorExtraction;
 
   return (
     <AdminShell
-      title={`Truth Report · ${homeownerName}`}
+      title={`Analysis evidence · ${homeownerName}`}
       backTo={backTo}
       backLabel="Back to dossier"
       nav={<AdminGlobalNav />}
     >
-      <div className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-800">
+      <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-800">
         <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
         <span>
-          <span className="font-semibold">Admin view</span> · OTP gate bypassed via admin RBAC.
-          Homeowner-facing route remains verify-to-reveal.
+          <span className="font-semibold">Admin safe projection</span> · Grade, flags, and preview pillars only.
+          Homeowner full report remains verify-to-reveal.
         </span>
         {isValidScanSessionId(lead.latest_scan_session_id) ? (
           <Link
             to={`/report/classic/${lead.latest_scan_session_id}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="ml-auto underline hover:no-underline"
+            className="ml-auto underline hover:no-underline inline-flex items-center gap-1"
           >
-            Open homeowner view ↗
+            Homeowner route ↗
           </Link>
         ) : null}
       </div>
 
-      <div className="rounded-2xl border border-border overflow-hidden">
-        <ReportClassicDarkV2Full
-          analysisData={reportData}
-          v2ReportSource={v2ReportSource}
-          county={county}
-        />
+      <div className="rounded-2xl border border-border bg-card p-6 space-y-6">
+        <div className="flex flex-wrap gap-6 text-sm">
+          <div>
+            <p className="text-xs uppercase text-slate-600">Grade</p>
+            <p className="text-2xl font-bold">{evidenceView.grade ?? "—"}</p>
+          </div>
+          <div>
+            <p className="text-xs uppercase text-slate-600">Confidence</p>
+            <p className="font-mono font-medium">{formatConfidence(evidenceView.confidenceScore)}</p>
+          </div>
+          <div>
+            <p className="text-xs uppercase text-slate-600">Dollar delta</p>
+            <p className="font-bold tabular-nums">
+              {evidenceView.dollarDelta != null
+                ? `${evidenceView.dollarDelta > 0 ? "+" : ""}$${Math.abs(evidenceView.dollarDelta).toLocaleString()}`
+                : "—"}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs uppercase text-slate-600">Flags</p>
+            <p className="font-medium">{evidenceView.flags.length}</p>
+          </div>
+        </div>
+
+        {evidenceView.pillarDetailUnavailable && (
+          <p className="text-sm text-slate-700 border border-dashed border-border rounded-lg px-4 py-3">
+            Detailed pillar evidence is not available in this admin projection.
+          </p>
+        )}
+
+        {pillarEntries.length > 0 && (
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+            {pillarEntries.map(([key, score]) => (
+              <div key={key} className="rounded-lg border border-border/60 bg-muted/30 p-3">
+                <p className="text-xs uppercase text-slate-600">{PILLAR_LABELS[key] ?? key}</p>
+                <p className="text-lg font-bold font-mono">{score}/100</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {evidenceView.flags.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <Flag className="h-4 w-4 text-destructive" />
+              <span className="text-sm font-semibold">Flagged issues</span>
+            </div>
+            <ul className="space-y-1.5 text-sm">
+              {evidenceView.flags.map((f, i) => (
+                <li key={i} className="flex gap-2">
+                  <span className="text-xs font-bold uppercase text-destructive shrink-0">{f.severity}</span>
+                  <span>{f.flag}{f.detail ? ` — ${f.detail}` : ""}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {evidenceView.proofOfRead && (
+          <div className="text-sm text-slate-700">
+            <p className="text-xs uppercase font-semibold mb-1">Proof of read</p>
+            <p className="font-mono text-xs">
+              {evidenceView.proofOfRead.document_read === true ? "Document read confirmed" : "Summary available"}
+            </p>
+          </div>
+        )}
+
+        {extraction && (
+          <div className="rounded-lg border border-border/50 bg-muted/20 p-3 text-sm space-y-1">
+            <p className="text-xs uppercase font-semibold text-slate-600">Operator summary</p>
+            {extraction.contractor_name && (
+              <p><span className="text-slate-600">Contractor:</span> {String(extraction.contractor_name)}</p>
+            )}
+            {extraction.total_quoted_price != null && (
+              <p><span className="text-slate-600">Quoted:</span> ${Number(extraction.total_quoted_price).toLocaleString()}</p>
+            )}
+            {extraction.opening_count != null && (
+              <p><span className="text-slate-600">Openings:</span> {String(extraction.opening_count)}</p>
+            )}
+          </div>
+        )}
+
+        <p className="text-xs text-slate-600 flex items-center gap-1">
+          <ArrowLeft className="h-3 w-3" />
+          Use the lead dossier for CRM actions. This page does not render the homeowner Truth Report skin.
+        </p>
       </div>
     </AdminShell>
   );

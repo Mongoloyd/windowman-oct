@@ -160,12 +160,33 @@ export interface AnalysisFlag {
   detail?: string;
 }
 
+export interface AdminAnalysisEvidenceProjection {
+  analysis_id: string;
+  scan_session_id: string | null;
+  status: string | null;
+  grade: string | null;
+  confidence_score: number | null;
+  dollar_delta: number | null;
+  missing_detail_count: number | null;
+  pillar_scores: { key: string; score: number | null }[] | null;
+  pillar_detail_available: boolean;
+  document_type: string | null;
+  rubric_version: string | null;
+  proof_of_read: Record<string, unknown> | null;
+  operator_summary: {
+    contractor_name: string | null;
+    total_quoted_price: number | null;
+    opening_count: number | null;
+    document_type: string | null;
+  } | null;
+}
+
 export interface LeadAnalysisData {
   grade: string | null;
   dollar_delta: number | null;
   confidence_score: number | null;
   flags: AnalysisFlag[];
-  full_json: Record<string, unknown> | null;
+  evidence_projection: AdminAnalysisEvidenceProjection | null;
 }
 
 // ─── Voice Followup Summary (for CRM table) ────────────────────────────
