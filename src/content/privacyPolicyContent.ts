@@ -165,6 +165,15 @@ export const privacyPolicySections: PrivacySection[] = [
       "From contractors or service providers when you authorize or request an introduction.",
       "From vendors that support hosting, storage, communications, analytics, security, identity verification, or advertising measurement.",
     ],
+    subsections: [
+      {
+        subtitle: "Lead Forms and First-Party Collection",
+        paragraphs: [
+          "Information you submit through a WindowMan website form is collected directly by WindowMan. Information you elect to submit through a Meta Instant Form or another advertising-platform lead form is collected by that platform and transferred to WindowMan; after WindowMan receives it, WindowMan processes it as first-party lead information under this Privacy Policy.",
+          "The privacy policy or consent language linked from a form supplements, and does not replace, the disclosures and choices presented at the point of collection.",
+        ],
+      },
+    ],
   },
   {
     id: "use",
@@ -189,6 +198,14 @@ export const privacyPolicySections: PrivacySection[] = [
       "Enforce our agreements.",
       "Comply with legal obligations.",
       "Facilitate contractor introductions only when you provide the required authorization.",
+    ],
+    subsections: [
+      {
+        subtitle: "Purpose Limitation for Advertising-Platform Leads",
+        paragraphs: [
+          "WindowMan uses Lead Generation Data received through Meta or another advertising platform to provide, follow up on, and measure the service or offer described at the point of collection. If WindowMan wants to use that information for a materially different purpose, we will obtain any additional consent required by applicable law and the terms presented to you.",
+        ],
+      },
     ],
   },
   {
@@ -251,8 +268,15 @@ export const privacyPolicySections: PrivacySection[] = [
         subtitle: "Meta Conversions API",
         paragraphs: [
           "WindowMan may use Meta's server-side Conversions API to report advertising events.",
-          "Information transmitted for conversion measurement may include: event name; event time; page or source URL; browser identifiers; Internet Protocol address; user-agent information; hashed email address; hashed telephone number; and hashed or pseudonymous external identifiers.",
+          "Information transmitted for conversion measurement may include: event name; event time; page or source URL; Meta browser identifiers such as _fbp and _fbc; Internet Protocol address; user-agent information; hashed email address; hashed telephone number; hashed or pseudonymous external identifiers; and a deduplication event identifier.",
           "Contact identifiers are cryptographically hashed before transmission through the server-side conversion process. Hashing is a security transformation and does not necessarily make information anonymous under every privacy law.",
+        ],
+      },
+      {
+        subtitle: "Server-Side Processing and Stape",
+        paragraphs: [
+          "Where configured, WindowMan may route website and server event data through Stape, a server-side tag-management and infrastructure provider, before sending permitted measurement events to platforms such as Meta.",
+          "Server-side processing is used to validate, route, secure, and deduplicate measurement events. It does not eliminate applicable notice, consent, opt-out, or platform-policy requirements.",
         ],
       },
       {
@@ -278,6 +302,7 @@ export const privacyPolicySections: PrivacySection[] = [
           "Send email or text messages.",
           "Verify telephone numbers.",
           "Provide analytics or advertising measurement.",
+          "Operate server-side tag management and event delivery, including through Stape where configured.",
           "Maintain security and prevent fraud.",
           "Provide customer support.",
           "Operate databases and infrastructure.",
@@ -290,6 +315,7 @@ export const privacyPolicySections: PrivacySection[] = [
         subtitle: "Advertising and Measurement Providers",
         paragraphs: [
           "We may disclose limited website, attribution, campaign, device, event, and hashed contact information to advertising and measurement providers for campaign attribution and conversion measurement.",
+          "Third parties, including Meta, may collect or receive this information and use it to provide measurement services and, where permitted, to support ad delivery or personalization. You may use the privacy and advertising controls offered by those platforms and may submit an applicable opt-out request using the contact information below.",
         ],
       },
       {
@@ -320,7 +346,8 @@ export const privacyPolicySections: PrivacySection[] = [
     id: "sale",
     title: "9. Sale, Sharing, and Data Brokers",
     paragraphs: [
-      "WindowMan does not sell uploaded quote documents or personal contact information to data brokers.",
+      "WindowMan does not sell Meta Lead Generation Data under any circumstances. WindowMan also does not sell uploaded quote documents or personal contact information to data brokers.",
+      "WindowMan does not voluntarily transfer lead information except to service providers that help fulfill the purpose for which it was collected, or to a contractor when you affirmatively authorize that introduction. We require recipients to use the information only for the permitted purpose and subject to applicable contractual and legal requirements.",
       "Some state privacy laws define \"sale,\" \"sharing,\" or targeted advertising broadly enough to include certain advertising-measurement or cross-context advertising activities.",
       "Where applicable law provides an opt-out right, you may submit a request using the contact information in this Privacy Policy.",
     ],
@@ -334,12 +361,14 @@ export const privacyPolicySections: PrivacySection[] = [
         paragraphs: [
           "When you request a quote review or create a WindowMan lead record, we may contact you about: identity or telephone verification; quote-upload status; report availability; requested customer support; account or security matters; and contractor help that you specifically requested.",
           "These communications are related to the service you requested.",
+          "Submitting a WindowMan website form or Meta Instant Form authorizes WindowMan to use the contact information you provide to respond to that request and deliver related service communications. That service authorization does not by itself enroll you in unrelated promotional marketing.",
         ],
       },
       {
         subtitle: "Marketing Communications",
         paragraphs: [
-          "We will send promotional email, telephone, or text-message communications only when we have the consent required by applicable law.",
+          "When a form separately requests marketing consent and you provide it, WindowMan may contact you by email, telephone, or SMS/text message, including with automated technology when that is disclosed at the point of collection. Consent to marketing communications is not a condition of purchasing goods or services.",
+          "We will send promotional email, telephone, or text-message communications only when we have the consent required by applicable law and will honor the scope of the consent presented to you.",
           "You may opt out of: marketing email by using the unsubscribe link; marketing text messages by replying STOP; and marketing calls by asking us to place you on our internal do-not-call list.",
           "Opting out of marketing does not prevent necessary service, verification, security, or transactional communications.",
           "Message and data rates may apply. Message frequency may vary.",

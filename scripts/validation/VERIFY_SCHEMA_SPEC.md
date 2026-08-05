@@ -1,7 +1,7 @@
 # Schema Spec Verification
 
 `verify-schema-spec.ts` is a **read-only** check that the deployed Supabase
-schema matches the canonical WindowMan.PRO contract:
+schema matches the canonical WindowMan contract:
 
 - Required public tables exist
 - Required columns exist on each spec'd table

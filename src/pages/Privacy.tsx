@@ -1,6 +1,4 @@
 import { Helmet } from "react-helmet-async";
-import { useNavigate } from "react-router-dom";
-import StickyCTAFooter from "@/components/StickyCTAFooter";
 import { PrivacyPolicyBody } from "@/components/privacy/PrivacyPolicyBody";
 import {
   PRIVACY_POLICY_DESCRIPTION,
@@ -10,7 +8,6 @@ import {
 } from "@/content/privacyPolicyMetadata";
 
 export default function Privacy() {
-  const navigate = useNavigate();
   return (
     <>
       <Helmet prioritizeSeoTags>
@@ -47,22 +44,9 @@ export default function Privacy() {
       </Helmet>
       <section
         aria-labelledby="privacy-policy-title"
-        className="relative min-h-screen overflow-hidden pb-32"
-        style={{
-          background:
-            "linear-gradient(170deg, #dce8f4 0%, #e4edf6 30%, #eaeff8 60%, #dde6f2 100%)",
-        }}
+        className="min-h-screen bg-slate-50 font-sans text-slate-950 [font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe_UI',sans-serif]"
       >
         <PrivacyPolicyBody contentOnly />
-        <StickyCTAFooter
-          isVisible={true}
-          conversionType={null}
-          onScanClick={() => navigate("/?action=scan")}
-          onDemoClick={() => navigate("/?action=demo")}
-          onPostConversionClick={() => {
-            window.location.href = "tel:+15614685571";
-          }}
-        />
       </section>
     </>
   );

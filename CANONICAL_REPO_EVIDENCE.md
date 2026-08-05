@@ -9,7 +9,7 @@
 >
 > Do not "fix" code to match this doc. Read [`docs/reveal/VERIFY_TO_REVEAL_CONTRACT.md`](docs/reveal/VERIFY_TO_REVEAL_CONTRACT.md) first.
 
-**WindowMan.PRO (wm-mvp) — READ-ONLY EVIDENCE EXTRACTION**
+**WindowMan (wm-mvp) — READ-ONLY EVIDENCE EXTRACTION**
 
 ---
 

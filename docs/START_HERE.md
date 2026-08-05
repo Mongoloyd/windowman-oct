@@ -1,6 +1,6 @@
 # WindowMan — Start Here
 
-WindowMan.PRO is a **Verify-to-Reveal** post-quote intelligence product for Florida impact-window homeowners: upload a contractor quote, get a deterministic forensic analysis, unlock the full Truth Report via SMS OTP, then optionally request contractor handoff. Product law lives in [AGENTS.md](../AGENTS.md).
+WindowMan is a **Verify-to-Reveal** post-quote intelligence product for Florida impact-window homeowners: upload a contractor quote, get a deterministic forensic analysis, unlock the full Truth Report via SMS OTP, then optionally request contractor handoff. Product law lives in [AGENTS.md](../AGENTS.md).
 
 **Warning:** This repo has **protected moat systems** (OTP, reveal, scanner, measurement) and **many historical/planning docs**. Some older docs still describe wrong browser transport or future architecture. **Do not trust stale docs over canonical docs.** Check [DOC_STATUS_REGISTRY.md](./ops/DOC_STATUS_REGISTRY.md) before implementing from any doc.
 

@@ -1,4 +1,4 @@
-# Scanner Model Governance — WindowMan.PRO
+# Scanner Model Governance — WindowMan
 
 **Last updated:** 2026-05-26  
 **Scope:** Gemini extraction model used by `scan-quote` only. Scoring, flagging, and report compilation remain deterministic TypeScript — never AI-generated.  

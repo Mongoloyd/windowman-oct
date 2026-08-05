@@ -1,6 +1,6 @@
-# Verify-to-Reveal Contract — WindowMan.PRO
+# Verify-to-Reveal Contract — WindowMan
 
-> **Authority:** This document is the canonical Verify-to-Reveal **transport and protection** contract for WindowMan.PRO. If another doc describes the browser calling `get_analysis_preview` or `get_analysis_full` via `supabase.rpc()`, **this document wins** until a deliberate doc sprint updates the other file.
+> **Authority:** This document is the canonical Verify-to-Reveal **transport and protection** contract for WindowMan. If another doc describes the browser calling `get_analysis_preview` or `get_analysis_full` via `supabase.rpc()`, **this document wins** until a deliberate doc sprint updates the other file.
 
 ---
 

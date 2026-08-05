@@ -1,10 +1,10 @@
 export const PRIVACY_POLICY_EFFECTIVE_DATE = "2026-08-01";
-export const PRIVACY_POLICY_LAST_REVIEWED = "2026-08-01";
+export const PRIVACY_POLICY_LAST_REVIEWED = "2026-08-05";
 export const PRIVACY_POLICY_URL = "https://windowman.app/privacy";
 export const PRIVACY_POLICY_TITLE =
   "WindowMan Privacy Policy | Quote Uploads, Tracking & Data Use";
 export const PRIVACY_POLICY_DESCRIPTION =
-  "Learn how WindowMan collects, processes, protects, retains, and shares information from quote uploads, lead forms, analytics, advertising attribution, and contractor introductions.";
+  "Learn how WindowMan collects, processes, protects, retains, and shares information from quote uploads, Meta lead forms, communications, server-side measurement, and contractor introductions.";
 
 export const PRIVACY_POLICY_JSON_LD = {
   "@context": "https://schema.org",

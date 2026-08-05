@@ -48,6 +48,30 @@ describe("Privacy page", () => {
       screen.queryByText(/\[BUSINESS MAILING ADDRESS\]/i),
     ).not.toBeInTheDocument();
     expect(screen.getAllByText(/Meta Pixel/i).length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/processes it as first-party lead information/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/does not sell Meta Lead Generation Data/i),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/Stape/i).length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/Consent to marketing communications is not a condition/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/replying STOP/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/does not eliminate applicable notice, consent, opt-out/i),
+    ).toBeInTheDocument();
+  });
+
+  it("uses the restrained legal-page presentation", () => {
+    const { container } = renderPrivacyRoute();
+    const policySection = container.querySelector(
+      'section[aria-labelledby="privacy-policy-title"]',
+    );
+    expect(policySection?.className).toContain("bg-slate-50");
+    expect(policySection?.className).not.toContain("overflow-hidden");
+    expect(container.querySelector(".backdrop-blur-sm")).toBeNull();
   });
 
   it("exposes Privacy and Terms links in the site footer", () => {
@@ -78,7 +102,7 @@ describe("Privacy page", () => {
     const wrapper = wrappers[0] as HTMLElement;
     expect(wrapper.className).toContain("mx-auto");
     expect(wrapper.className).toContain("px-4");
-    expect(wrapper.className).toContain("py-16");
+    expect(wrapper.className).toContain("py-14");
   });
 
   it("renders exactly one policy body without duplicated heading", () => {

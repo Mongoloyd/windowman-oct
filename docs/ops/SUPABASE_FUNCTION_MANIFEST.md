@@ -1,4 +1,4 @@
-# Supabase Edge Function Manifest — WindowMan.PRO
+# Supabase Edge Function Manifest — WindowMan
 
 **Generated:** 2026-05-26 · **Forensic V2 refresh:** 2026-06-11
 **Source of truth inputs:** `supabase/functions/**/index.ts`, `supabase/config.toml`, `src/`, `.env.example`  

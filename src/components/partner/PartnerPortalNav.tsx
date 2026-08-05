@@ -97,7 +97,7 @@ export function PartnerPortalNav() {
       {/* Right-aligned utility cluster */}
       <div className="ml-auto flex items-center gap-1">
         <a
-          href="mailto:partners@windowman.pro"
+          href="mailto:support@windowman.app"
           className={TAB_CLASSES}
           data-state="inactive"
         >
