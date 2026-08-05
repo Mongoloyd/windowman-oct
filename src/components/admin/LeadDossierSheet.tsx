@@ -214,6 +214,14 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
     setHandoffModalOpen(false);
   }, [lead?.id]);
 
+  // Load contractors so we can pick the canonical one for the unified routing helper.
+  const { data: contractorsList } = useQuery({
+    queryKey: ["admin", "contractors"],
+    queryFn: fetchContractors,
+    enabled: open && !!lead,
+    staleTime: 60_000,
+  });
+
   if (!lead) return null;
 
   const name = [lead.first_name, lead.last_name].filter(Boolean).join(" ") || "Unknown";
@@ -235,13 +243,6 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
     .filter((f) => f.severity === "High" || f.severity === "Critical")
     .slice(0, 3);
 
-  // Load contractors so we can pick the canonical one for the unified routing helper.
-  const { data: contractorsList } = useQuery({
-    queryKey: ["admin", "contractors"],
-    queryFn: fetchContractors,
-    enabled: open,
-    staleTime: 60_000,
-  });
   const activeContractors = (contractorsList ?? []).filter((c: any) => c.status === "active");
   const canonicalContractorId = activeContractors.length >= 1 ? activeContractors[0].id : null;
 

@@ -13,7 +13,8 @@ import { LogOut, LogIn, ShieldCheck, ShieldAlert, Eye, Wrench } from "lucide-rea
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { decodeJwtRole, type JwtRole } from "@/components/admin/auth/decodeJwtRole";
+import { useCurrentUserRole } from "@/hooks/useCurrentUserRole";
+import type { JwtRole } from "@/components/admin/auth/decodeJwtRole";
 
 function RolePill({ role, devBypass }: { role: JwtRole; devBypass: boolean }) {
   if (devBypass) {
@@ -50,11 +51,13 @@ export function AdminIdentityBar() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const devBypass = import.meta.env.DEV;
+  const { role: dbRole } = useCurrentUserRole();
 
   const [email, setEmail] = useState<string | null>(null);
-  const [role, setRole] = useState<JwtRole>(null);
   const [sessionAlive, setSessionAlive] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+
+  const displayRole: JwtRole = sessionAlive ? (dbRole as JwtRole) : null;
 
   useEffect(() => {
     let mounted = true;
@@ -62,7 +65,6 @@ export function AdminIdentityBar() {
     const apply = (session: Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"]) => {
       if (!mounted) return;
       setEmail(session?.user?.email ?? null);
-      setRole(decodeJwtRole(session?.access_token));
       setSessionAlive(!!session?.user);
     };
 
@@ -123,7 +125,7 @@ export function AdminIdentityBar() {
           </span>
         </div>
       </div>
-      <RolePill role={role} devBypass={devBypass && !sessionAlive} />
+      <RolePill role={displayRole} devBypass={devBypass && !sessionAlive} />
       {sessionAlive ? (
         <Button
           size="sm"
