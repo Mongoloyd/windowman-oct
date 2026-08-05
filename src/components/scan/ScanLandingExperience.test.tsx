@@ -17,7 +17,62 @@ import {
   within,
 } from "@testing-library/react";
 import ScanLandingExperience from "./ScanLandingExperience";
-import { ANALYSIS_DURATION_MS, MAX_PROTOTYPE_BYTES } from "./scanPrototypeModel";
+import AnalysisSummaryModal from "./AnalysisSummaryModal";
+import { demoPreview, MAX_PROTOTYPE_BYTES } from "./scanPrototypeModel";
+import type { QuotePreviewViewModel } from "./scanPrototypeModel";
+
+const livePreviewFixture: QuotePreviewViewModel = {
+  ...demoPreview,
+  source: "live_preview",
+  contractorName: "Live Windows Co",
+};
+
+const bridgeState = vi.hoisted(() => ({
+  phase: "idle" as
+    | "idle"
+    | "selected"
+    | "lead_capture"
+    | "summary"
+    | "retryable_failure",
+  progressLabel: null as string | null,
+  error: null as string | null,
+  livePreview: null as QuotePreviewViewModel | null,
+  scanSessionId: null as string | null,
+  busy: false,
+  canRetryScan: false,
+  canChooseAnother: false,
+  holdSelectedFile: vi.fn(),
+  releaseSelectedFile: vi.fn(),
+  beginScan: vi.fn(async () => {
+    if (bridgeState.busy) return;
+    bridgeState.busy = true;
+    bridgeState.phase = "lead_capture";
+    bridgeState.livePreview = livePreviewFixture;
+    bridgeState.busy = false;
+  }),
+  retryScan: vi.fn(),
+  resetAll: vi.fn(() => {
+    bridgeState.phase = "idle";
+    bridgeState.livePreview = null;
+    bridgeState.error = null;
+    bridgeState.busy = false;
+    bridgeState.canRetryScan = false;
+    bridgeState.canChooseAnother = false;
+  }),
+  openSummaryFromLead: vi.fn(() => {
+    bridgeState.phase = "summary";
+  }),
+  closeLeadModal: vi.fn(() => {
+    bridgeState.phase = "idle";
+  }),
+  closeSummaryModal: vi.fn(() => {
+    bridgeState.phase = "idle";
+  }),
+}));
+
+vi.mock("./useRealScanBridge", () => ({
+  useRealScanBridge: () => bridgeState,
+}));
 
 const supabaseInvoke = vi.fn();
 
@@ -36,10 +91,27 @@ vi.mock("@/integrations/supabase/client", () => ({
 
 const fetchSpy = vi.fn();
 const scrollIntoViewSpy = vi.fn<(options?: boolean | ScrollIntoViewOptions) => void>();
+let scanView: ReturnType<typeof render> | null = null;
+
+function renderScan() {
+  scanView = render(<ScanLandingExperience />);
+  return scanView;
+}
+
+function rerenderScan() {
+  scanView?.rerender(<ScanLandingExperience />);
+}
 
 beforeEach(() => {
   vi.stubGlobal("fetch", fetchSpy);
   Element.prototype.scrollIntoView = scrollIntoViewSpy;
+  bridgeState.phase = "idle";
+  bridgeState.livePreview = null;
+  bridgeState.error = null;
+  bridgeState.busy = false;
+  bridgeState.canRetryScan = false;
+  bridgeState.canChooseAnother = false;
+  bridgeState.beginScan.mockClear();
 });
 
 afterEach(() => {
@@ -63,10 +135,14 @@ function makePdf(name = "estimate.pdf", size = 2048) {
   return new File([contents], name, { type: "application/pdf" });
 }
 
-async function advanceThroughAnalysis() {
+async function advanceToLeadModal() {
+  fireEvent.click(screen.getByRole("button", { name: /review this estimate free/i }));
   await act(async () => {
-    await vi.advanceTimersByTimeAsync(ANALYSIS_DURATION_MS + 50);
+    await bridgeState.beginScan.mock.results[
+      bridgeState.beginScan.mock.results.length - 1
+    ]?.value;
   });
+  rerenderScan();
 }
 
 async function completeLeadForm(
@@ -79,7 +155,7 @@ async function completeLeadForm(
     phone = "(305) 555-1212",
   } = values;
 
-  fireEvent.change(within(dialog).getByLabelText(/full name/i), {
+  fireEvent.change(within(dialog).getByLabelText(/first name/i), {
     target: { value: name },
   });
   fireEvent.change(within(dialog).getByLabelText(/^email/i), {
@@ -89,13 +165,14 @@ async function completeLeadForm(
     target: { value: phone },
   });
   fireEvent.click(
-    within(dialog).getByRole("button", { name: /open my example truth report/i }),
+    within(dialog).getByRole("button", { name: /open my quote preview/i }),
   );
+  rerenderScan();
 }
 
 describe("ScanLandingExperience", () => {
   it("renders the new hero message, competition stage, reverse-auction, and authority ribbon", () => {
-    render(<ScanLandingExperience />);
+    renderScan();
 
     expect(
       screen.getByRole("heading", {
@@ -124,7 +201,7 @@ describe("ScanLandingExperience", () => {
   });
 
   it("scrolls to the upload stage and focuses the upload control from the hero CTA", () => {
-    render(<ScanLandingExperience />);
+    renderScan();
 
     fireEvent.click(screen.getByRole("button", { name: /make my quote compete/i }));
 
@@ -142,7 +219,7 @@ describe("ScanLandingExperience", () => {
       removeEventListener: () => {},
     }));
 
-    render(<ScanLandingExperience />);
+    renderScan();
     fireEvent.click(screen.getByRole("button", { name: /make my quote compete/i }));
 
     expect(scrollIntoViewSpy).toHaveBeenCalledWith({ behavior: "auto", block: "start" });
@@ -150,7 +227,7 @@ describe("ScanLandingExperience", () => {
 
   it("accepts valid supported files and shows the review CTA", () => {
     const fileReaderSpy = vi.spyOn(globalThis, "FileReader");
-    render(<ScanLandingExperience />);
+    renderScan();
 
     const file = makePdf("a-very-long-contractor-estimate-filename-2026.pdf");
     selectFile(file);
@@ -168,7 +245,7 @@ describe("ScanLandingExperience", () => {
   });
 
   it("rejects zero-byte, oversized, and unsupported files", () => {
-    render(<ScanLandingExperience />);
+    renderScan();
     const input = getUploadInput();
 
     selectFile(new File([], "empty.pdf", { type: "application/pdf" }), input);
@@ -180,14 +257,14 @@ describe("ScanLandingExperience", () => {
     const oversized = new File(["x"], "big.pdf", { type: "application/pdf" });
     Object.defineProperty(oversized, "size", { value: MAX_PROTOTYPE_BYTES + 1 });
     selectFile(oversized, input);
-    expect(screen.getByRole("alert")).toHaveTextContent(/15 mib/i);
+    expect(screen.getByRole("alert")).toHaveTextContent(/10 mib/i);
 
     selectFile(new File(["x"], "notes.txt", { type: "text/plain" }), input);
     expect(screen.getByRole("alert")).toHaveTextContent(/unsupported file type/i);
   });
 
   it("selects the first dropped file when several are dropped", () => {
-    render(<ScanLandingExperience />);
+    renderScan();
 
     const first = makePdf("first.pdf");
     const second = makePdf("second.pdf");
@@ -209,7 +286,7 @@ describe("ScanLandingExperience", () => {
   });
 
   it("allows the same file to be selected again after clearing the input", () => {
-    render(<ScanLandingExperience />);
+    renderScan();
     const input = getUploadInput();
     const file = makePdf("same.pdf");
 
@@ -224,83 +301,104 @@ describe("ScanLandingExperience", () => {
     expect(screen.getByText("same.pdf")).toBeInTheDocument();
   });
 
-  it("prevents duplicate analysis submission and opens the lead modal after timers", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    render(<ScanLandingExperience />);
+  it("prevents duplicate scan submission and opens the lead modal after preview readiness", async () => {
+    renderScan();
     selectFile(makePdf());
 
     const reviewButton = screen.getByRole("button", { name: /review this estimate free/i });
     fireEvent.click(reviewButton);
     fireEvent.click(reviewButton);
 
-    expect(screen.getByText(/building your leverage map/i)).toBeInTheDocument();
-    expect(
-      screen.getByText(/local prototype: no document has been uploaded/i),
-    ).toBeInTheDocument();
+    await act(async () => {
+      await Promise.all(bridgeState.beginScan.mock.results.map((result) => result.value));
+    });
+    rerenderScan();
 
-    await advanceThroughAnalysis();
-
+    expect(bridgeState.beginScan).toHaveBeenCalledTimes(1);
     expect(
-      await screen.findByRole("heading", { name: /your review is ready/i }),
+      await screen.findByRole("heading", { name: /your quote preview is ready/i }),
     ).toBeInTheDocument();
   });
 
-  it("blocks an invalid lead form and focuses the first invalid field", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    render(<ScanLandingExperience />);
+  it("shows only first name, email, and phone on the lead form", async () => {
+    renderScan();
     selectFile(makePdf());
     fireEvent.click(screen.getByRole("button", { name: /review this estimate free/i }));
-    await advanceThroughAnalysis();
+    await advanceToLeadModal();
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByLabelText(/first name/i)).toBeInTheDocument();
+    expect(within(dialog).getByLabelText(/^email/i)).toBeInTheDocument();
+    expect(within(dialog).getByLabelText(/^phone/i)).toBeInTheDocument();
+    expect(within(dialog).queryByLabelText(/address/i)).not.toBeInTheDocument();
+    expect(within(dialog).queryByLabelText(/contractor/i)).not.toBeInTheDocument();
+    expect(within(dialog).queryByLabelText(/openings/i)).not.toBeInTheDocument();
+    expect(within(dialog).queryByLabelText(/quoted price/i)).not.toBeInTheDocument();
+  });
+
+  it("blocks an invalid lead form and focuses the first invalid field", async () => {
+    renderScan();
+    selectFile(makePdf());
+    fireEvent.click(screen.getByRole("button", { name: /review this estimate free/i }));
+    await advanceToLeadModal();
 
     const dialog = await screen.findByRole("dialog");
     fireEvent.click(
-      within(dialog).getByRole("button", { name: /open my example truth report/i }),
+      within(dialog).getByRole("button", { name: /open my quote preview/i }),
     );
 
     const alerts = within(dialog).getAllByRole("alert");
-    expect(alerts[0]).toHaveTextContent(/full name/i);
-    expect(document.activeElement).toBe(within(dialog).getByLabelText(/full name/i));
+    expect(alerts[0]).toHaveTextContent(/first name/i);
+    expect(document.activeElement).toBe(within(dialog).getByLabelText(/first name/i));
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(supabaseInvoke).not.toHaveBeenCalled();
   });
 
-  it("opens the example Truth Report from a valid lead form", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    render(<ScanLandingExperience />);
+  it("opens the live Quote Preview from a valid lead form", async () => {
+    renderScan();
     selectFile(makePdf());
     fireEvent.click(screen.getByRole("button", { name: /review this estimate free/i }));
-    await advanceThroughAnalysis();
+    await advanceToLeadModal();
 
     const dialog = await screen.findByRole("dialog");
     await completeLeadForm(dialog);
 
     const report = await screen.findByRole("dialog");
-    expect(within(report).getByText(/^example truth report$/i)).toBeInTheDocument();
     expect(
-      within(report).getByRole("heading", {
-        name: /here.?s where the quote needs pressure/i,
-      }),
+      within(report).getByText(/real scan preview — full truth report remains locked/i),
     ).toBeInTheDocument();
+    expect(
+      within(report).queryByText(/demo preview — sample data, not generated from your file/i),
+    ).not.toBeInTheDocument();
+    expect(within(report).getByText(/^windowman quote preview$/i)).toBeInTheDocument();
+    expect(within(report).getByText("Live Windows Co")).toBeInTheDocument();
+    expect(within(report).queryByText(/\$28,750/)).not.toBeInTheDocument();
+    expect(within(report).queryByText(/^10$/)).not.toBeInTheDocument();
+    expect(
+      within(report).getByText(/warranty labor coverage is unclear/i),
+    ).toBeInTheDocument();
+    expect(within(report).getAllByText(/^evidence$/i).length).toBeGreaterThan(0);
+    expect(within(report).getAllByText(/why it matters/i).length).toBeGreaterThan(0);
+    expect(within(report).getAllByText(/what to ask/i).length).toBeGreaterThan(0);
   });
 
   it("shows only the local prototype statement for the contractor CTA", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    render(<ScanLandingExperience />);
+    renderScan();
     selectFile(makePdf());
     fireEvent.click(screen.getByRole("button", { name: /review this estimate free/i }));
-    await advanceThroughAnalysis();
+    await advanceToLeadModal();
 
     const lead = await screen.findByRole("dialog");
     await completeLeadForm(lead);
 
     const report = await screen.findByRole("dialog");
     fireEvent.click(
-      within(report).getByRole("button", { name: /make contractors compete/i }),
+      within(report).getByRole("button", { name: /prepare my quote for competition/i }),
     );
 
     expect(
       within(report).getByText(
-        /the live contractor-network handoff will be connected in a later sprint/i,
+        /contractor-network preparation will be connected in a later sprint/i,
       ),
     ).toBeInTheDocument();
     expect(within(report).queryByText(/match found/i)).not.toBeInTheDocument();
@@ -308,11 +406,10 @@ describe("ScanLandingExperience", () => {
   });
 
   it("resets to idle from RUN ANOTHER ESTIMATE", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    render(<ScanLandingExperience />);
+    renderScan();
     selectFile(makePdf("reset-me.pdf"));
     fireEvent.click(screen.getByRole("button", { name: /review this estimate free/i }));
-    await advanceThroughAnalysis();
+    await advanceToLeadModal();
 
     const lead = await screen.findByRole("dialog");
     await completeLeadForm(lead);
@@ -330,14 +427,13 @@ describe("ScanLandingExperience", () => {
   });
 
   it("issues no fetch, FileReader, Supabase, or tracking calls across the local funnel", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
     const fileReaderSpy = vi.spyOn(globalThis, "FileReader");
-    render(<ScanLandingExperience />);
+    renderScan();
 
     fireEvent.click(screen.getByRole("button", { name: /make my quote compete/i }));
     selectFile(makePdf());
     fireEvent.click(screen.getByRole("button", { name: /review this estimate free/i }));
-    await advanceThroughAnalysis();
+    await advanceToLeadModal();
 
     const lead = await screen.findByRole("dialog");
     await completeLeadForm(lead);
@@ -346,6 +442,83 @@ describe("ScanLandingExperience", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(supabaseInvoke).not.toHaveBeenCalled();
     expect(window.dataLayer).toBeUndefined();
+  });
+});
+
+describe("AnalysisSummaryModal preview contract", () => {
+  it("shows not-found copy when proof-of-read fields are null", () => {
+    render(
+      <AnalysisSummaryModal
+        open
+        preview={{
+          ...demoPreview,
+          contractorName: null,
+          documentType: null,
+          openingCountBucket: null,
+        }}
+        onClose={() => {}}
+        onRunAnother={() => {}}
+      />,
+    );
+
+    expect(screen.getAllByText(/not found in the estimate/i)).toHaveLength(3);
+  });
+
+  it("omits null summary metrics and shows zero-findings state", () => {
+    render(
+      <AnalysisSummaryModal
+        open
+        preview={{
+          ...demoPreview,
+          source: "live_preview",
+          warningCount: null,
+          missingDetailCount: null,
+          gradeBand: null,
+          findings: [],
+        }}
+        onClose={() => {}}
+        onRunAnother={() => {}}
+      />,
+    );
+
+    expect(
+      screen.getByText(/real scan preview — full truth report remains locked/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/demo preview — sample data, not generated from your file/i),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/warnings/i)).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/no preview findings are available yet/i),
+    ).toBeInTheDocument();
+  });
+
+  it("renders at most three findings when more are supplied", () => {
+    const extraFinding = {
+      id: "extra",
+      title: "Extra finding should not render",
+      evidence: "Extra evidence",
+      importance: "low" as const,
+      whyItMatters: "Extra impact",
+      recommendedAction: "Extra action",
+    };
+
+    render(
+      <AnalysisSummaryModal
+        open
+        preview={{
+          ...demoPreview,
+          findings: [...demoPreview.findings, extraFinding],
+        }}
+        onClose={() => {}}
+        onRunAnother={() => {}}
+      />,
+    );
+
+    expect(
+      screen.queryByText(/extra finding should not render/i),
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByText(/high priority/i).length).toBe(2);
   });
 });
 

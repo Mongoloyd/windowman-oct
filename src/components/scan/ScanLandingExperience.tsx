@@ -1,11 +1,10 @@
 /**
- * ScanLandingExperience — Sprint 2 local conversion prototype for `/scan`.
+ * ScanLandingExperience — `/scan` conversion surface with real upload + scanner bridge.
  *
- * Owns the local prototype state machine only. No file-content reading,
- * Supabase, Gemini, persistence, OTP, contractor network, or tracking.
+ * Lead contact remains local until Sprint 3B. No OTP, full report, or tracking.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Check } from "lucide-react";
 import ScanHero from "./ScanHero";
 import ScanUploadSurface, { SCAN_UPLOAD_SECTION_ID } from "./ScanUploadSurface";
@@ -13,13 +12,11 @@ import BlindReverseAuctionSection from "./BlindReverseAuctionSection";
 import LeadCaptureModal from "./LeadCaptureModal";
 import AnalysisSummaryModal from "./AnalysisSummaryModal";
 import {
-  ANALYSIS_DURATION_MS,
-  ANALYSIS_STEPS,
   MULTI_FILE_NOTICE,
   validateEstimateSelection,
-  type ScanPrototypeState,
   type SelectedEstimateMeta,
 } from "./scanPrototypeModel";
+import { useRealScanBridge } from "./useRealScanBridge";
 
 const AUTHORITY_SIGNALS = ["QUOTE CLARITY", "REPEATABLE PROCESS", "NO OBLIGATION"] as const;
 
@@ -58,9 +55,7 @@ function AuthorityRibbon() {
   );
 }
 
-function AnalyzingOverlay({ stepIndex }: { stepIndex: number }) {
-  const activeStep = ANALYSIS_STEPS[Math.min(stepIndex, ANALYSIS_STEPS.length - 1)];
-
+function ScanProgressOverlay({ label }: { label: string }) {
   return (
     <div
       className="fixed inset-0 z-40 flex items-center justify-center bg-[#0B2545]/72 px-4"
@@ -72,43 +67,11 @@ function AnalyzingOverlay({ stepIndex }: { stepIndex: number }) {
         <h2 className="text-xl font-black uppercase tracking-tight text-[#0B2545] sm:text-2xl">
           BUILDING YOUR LEVERAGE MAP
         </h2>
-        <ol className="mt-5 space-y-2.5">
-          {ANALYSIS_STEPS.map((step, index) => {
-            const done = index < stepIndex;
-            const current = index === stepIndex;
-            return (
-              <li
-                key={step}
-                className={`flex items-center gap-2.5 text-sm ${
-                  current
-                    ? "font-semibold text-[#1878F0]"
-                    : done
-                      ? "text-slate-500"
-                      : "text-slate-400"
-                }`}
-              >
-                <span
-                  className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${
-                    current
-                      ? "bg-[#1878F0] text-white"
-                      : done
-                        ? "bg-slate-200 text-slate-600"
-                        : "border border-slate-200 text-slate-400"
-                  }`}
-                  aria-hidden="true"
-                >
-                  {done ? <Check className="h-3 w-3" /> : index + 1}
-                </span>
-                {step}
-              </li>
-            );
-          })}
-        </ol>
-        <p className="mt-4 text-sm font-medium text-[#0B2545]" aria-live="polite">
-          {activeStep}
+        <p className="mt-4 text-sm font-medium text-[#1878F0]" aria-live="polite">
+          {label}
         </p>
         <p className="mt-3 text-xs text-slate-500">
-          Local prototype: no document has been uploaded and example findings are used.
+          WindowMan is securing and scanning your estimate through the live scanner pipeline.
         </p>
       </div>
     </div>
@@ -117,36 +80,25 @@ function AnalyzingOverlay({ stepIndex }: { stepIndex: number }) {
 
 export default function ScanLandingExperience() {
   const uploadInputRef = useRef<HTMLInputElement>(null);
-  const analysisTimersRef = useRef<number[]>([]);
-  const analyzingLockRef = useRef(false);
+  const scanStartRef = useRef(false);
+  const bridge = useRealScanBridge();
 
-  const [state, setState] = useState<ScanPrototypeState>("idle");
   const [selected, setSelected] = useState<SelectedEstimateMeta | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
   const [multiFileNotice, setMultiFileNotice] = useState<string | null>(null);
-  const [analysisStepIndex, setAnalysisStepIndex] = useState(0);
 
-  function clearAnalysisTimers() {
-    for (const id of analysisTimersRef.current) {
-      window.clearTimeout(id);
-    }
-    analysisTimersRef.current = [];
-    analyzingLockRef.current = false;
-  }
-
-  useEffect(() => {
-    return () => {
-      clearAnalysisTimers();
-    };
-  }, []);
+  const displayError = validationError ?? bridge.error;
+  const showProgressOverlay =
+    bridge.phase === "uploading" ||
+    bridge.phase === "bootstrapping" ||
+    bridge.phase === "processing" ||
+    bridge.phase === "preview_loading";
 
   function resetToIdle() {
-    clearAnalysisTimers();
-    setState("idle");
+    bridge.resetAll();
     setSelected(null);
-    setError(null);
+    setValidationError(null);
     setMultiFileNotice(null);
-    setAnalysisStepIndex(0);
   }
 
   function handleGetReview() {
@@ -162,57 +114,50 @@ export default function ScanLandingExperience() {
   }
 
   function handleFilesChosen(files: File[] | FileList | null) {
-    if (state === "analyzing") return;
+    if (bridge.busy) return;
 
     const result = validateEstimateSelection(files);
     setMultiFileNotice(result.multiFile ? MULTI_FILE_NOTICE : null);
 
     if (result.ok === false) {
+      bridge.releaseSelectedFile();
       setSelected(null);
-      setError(result.error);
-      setState("idle");
+      setValidationError(result.error);
       return;
     }
 
-    // Metadata only — File object is not retained after this handler returns.
+    const file = Array.isArray(files) ? files[0] : files?.[0];
+    if (!file) return;
+
+    bridge.holdSelectedFile(file);
     setSelected(result.meta);
-    setError(null);
-    setState("selected");
+    setValidationError(null);
   }
 
   function handleRemove() {
-    if (state === "analyzing") return;
+    if (bridge.busy) return;
+    bridge.releaseSelectedFile();
     setSelected(null);
-    setError(null);
+    setValidationError(null);
     setMultiFileNotice(null);
-    setState("idle");
+    bridge.resetAll();
   }
 
   function handleReview() {
-    if (state !== "selected" || !selected || analyzingLockRef.current) return;
-
-    analyzingLockRef.current = true;
-    clearAnalysisTimers();
-    setAnalysisStepIndex(0);
-    setState("analyzing");
-
-    const stepCount = ANALYSIS_STEPS.length;
-    const stepMs = ANALYSIS_DURATION_MS / stepCount;
-
-    for (let i = 1; i < stepCount; i += 1) {
-      const id = window.setTimeout(() => {
-        setAnalysisStepIndex(i);
-      }, Math.round(stepMs * i));
-      analysisTimersRef.current.push(id);
-    }
-
-    const completeId = window.setTimeout(() => {
-      analyzingLockRef.current = false;
-      analysisTimersRef.current = [];
-      setState("lead_capture");
-    }, ANALYSIS_DURATION_MS);
-    analysisTimersRef.current.push(completeId);
+    if (!selected || bridge.busy || scanStartRef.current) return;
+    scanStartRef.current = true;
+    void bridge.beginScan().finally(() => {
+      scanStartRef.current = false;
+    });
   }
+
+  const selectedFootnote =
+    bridge.phase === "uploading" ||
+    bridge.phase === "bootstrapping" ||
+    bridge.phase === "processing" ||
+    bridge.phase === "preview_loading"
+      ? "Scan in progress on this device."
+      : "Selected on this device.";
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-background text-foreground">
@@ -222,12 +167,17 @@ export default function ScanLandingExperience() {
           <ScanUploadSurface
             ref={uploadInputRef}
             selected={selected}
-            error={error}
+            error={displayError}
             multiFileNotice={multiFileNotice}
-            reviewDisabled={state === "analyzing"}
+            reviewDisabled={!selected || bridge.busy}
+            selectedFootnote={selectedFootnote}
             onFilesChosen={handleFilesChosen}
             onRemove={handleRemove}
             onReview={handleReview}
+            onRetryScan={
+              bridge.canRetryScan ? () => void bridge.retryScan() : undefined
+            }
+            onStartOver={bridge.canChooseAnother ? resetToIdle : undefined}
           />
         }
       />
@@ -244,25 +194,26 @@ export default function ScanLandingExperience() {
         </p>
       </footer>
 
-      {state === "analyzing" ? <AnalyzingOverlay stepIndex={analysisStepIndex} /> : null}
+      {showProgressOverlay && bridge.progressLabel ? (
+        <ScanProgressOverlay label={bridge.progressLabel} />
+      ) : null}
 
       <LeadCaptureModal
-        open={state === "lead_capture"}
-        onClose={() => {
-          if (state === "lead_capture") setState("selected");
-        }}
+        open={bridge.phase === "lead_capture"}
+        onClose={bridge.closeLeadModal}
         onSubmitValid={() => {
-          setState("summary");
+          bridge.openSummaryFromLead();
         }}
       />
 
-      <AnalysisSummaryModal
-        open={state === "summary"}
-        onClose={() => {
-          if (state === "summary") setState("selected");
-        }}
-        onRunAnother={resetToIdle}
-      />
+      {bridge.livePreview ? (
+        <AnalysisSummaryModal
+          open={bridge.phase === "summary"}
+          preview={bridge.livePreview}
+          onClose={bridge.closeSummaryModal}
+          onRunAnother={resetToIdle}
+        />
+      ) : null}
     </main>
   );
 }

@@ -22,6 +22,7 @@ import {
   ACCEPTED_FILE_TYPES,
   CHECK_DIMENSIONS,
   formatFileSize,
+  MAX_PROTOTYPE_BYTES,
   type SelectedEstimateMeta,
 } from "./scanPrototypeModel";
 
@@ -33,9 +34,12 @@ type ScanUploadSurfaceProps = {
   error: string | null;
   multiFileNotice: string | null;
   reviewDisabled?: boolean;
+  selectedFootnote?: string;
   onFilesChosen: (files: File[] | FileList | null) => void;
   onRemove: () => void;
   onReview: () => void;
+  onRetryScan?: () => void;
+  onStartOver?: () => void;
 };
 
 function ExampleReportPreview() {
@@ -91,9 +95,12 @@ const ScanUploadSurface = forwardRef<HTMLInputElement, ScanUploadSurfaceProps>(
       error,
       multiFileNotice,
       reviewDisabled = false,
+      selectedFootnote = "Selected on this device.",
       onFilesChosen,
       onRemove,
       onReview,
+      onRetryScan,
+      onStartOver,
     },
     ref,
   ) {
@@ -199,7 +206,7 @@ const ScanUploadSurface = forwardRef<HTMLInputElement, ScanUploadSurfaceProps>(
                 DROP YOUR ESTIMATE HERE
               </h2>
               <p id="scan-upload-formats" className="mt-2 text-sm text-slate-500">
-                PDF, JPG, PNG, or WebP — up to 15 MiB
+                PDF, JPG, PNG, or WebP — up to {Math.round(MAX_PROTOTYPE_BYTES / (1024 * 1024))} MiB
               </p>
             </div>
 
@@ -234,7 +241,7 @@ const ScanUploadSurface = forwardRef<HTMLInputElement, ScanUploadSurfaceProps>(
                       {selected.name}
                     </p>
                     <p className="mt-1 text-xs text-slate-500">
-                      {formatFileSize(selected.size)} · Selected on this device. Nothing uploaded.
+                      {formatFileSize(selected.size)} · {selectedFootnote}
                     </p>
                   </div>
                 </div>
@@ -274,6 +281,24 @@ const ScanUploadSurface = forwardRef<HTMLInputElement, ScanUploadSurfaceProps>(
                 >
                   REVIEW THIS ESTIMATE FREE
                 </button>
+                {onRetryScan ? (
+                  <button
+                    type="button"
+                    onClick={onRetryScan}
+                    className="mt-2 inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-[#1878F0]/40 bg-blue-50 px-4 text-sm font-bold uppercase tracking-wide text-[#1264D8] hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-300"
+                  >
+                    Retry scan
+                  </button>
+                ) : null}
+                {onStartOver ? (
+                  <button
+                    type="button"
+                    onClick={onStartOver}
+                    className="mt-2 inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold uppercase tracking-wide text-[#0B2545] hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-300"
+                  >
+                    Start over
+                  </button>
+                ) : null}
               </div>
             ) : null}
           </div>

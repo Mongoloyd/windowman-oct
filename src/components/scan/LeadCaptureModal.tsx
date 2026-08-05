@@ -1,5 +1,5 @@
 /**
- * LeadCaptureModal — Sprint 2 local prototype lead confirmation.
+ * LeadCaptureModal — Sprint 2.5 local prototype lead confirmation.
  *
  * UI progression only. No persistence, network, OTP, or authorization.
  */
@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  demoPreview,
   EMPTY_LEAD_FORM,
   firstInvalidLeadField,
   formatLeadPhoneDisplay,
@@ -34,22 +35,18 @@ type LeadFieldProps = {
   id: string;
   label: string;
   required?: boolean;
-  optional?: boolean;
   error?: string;
   children: ReactNode;
 };
 
 /** Reusable field shell — defined outside the modal function for stable identity. */
-function LeadField({ id, label, required, optional, error, children }: LeadFieldProps) {
+function LeadField({ id, label, required, error, children }: LeadFieldProps) {
   const errorId = `${id}-error`;
   return (
     <div className="space-y-1.5">
       <Label htmlFor={id} className="text-sm font-semibold text-[#0B2545]">
         {label}
         {required ? <span className="text-[#1878F0]"> *</span> : null}
-        {optional ? (
-          <span className="ml-1 font-normal text-slate-500">(optional)</span>
-        ) : null}
       </Label>
       {children}
       {error ? (
@@ -109,31 +106,31 @@ export default function LeadCaptureModal({ open, onClose, onSubmitValid }: LeadC
       <DialogContent className="max-w-lg border-slate-200 bg-white sm:rounded-2xl">
         <DialogHeader>
           <DialogTitle className="text-xl font-black uppercase tracking-tight text-[#0B2545] sm:text-2xl">
-            YOUR REVIEW IS READY.
+            YOUR QUOTE PREVIEW IS READY.
           </DialogTitle>
           <DialogDescription className="text-sm leading-relaxed text-slate-600 sm:text-base">
-            Confirm your details to open the example Truth Report and see what deserves pressure.
+            Confirm where WindowMan should keep your review connected to you.
           </DialogDescription>
         </DialogHeader>
 
         <form id={formId} onSubmit={handleSubmit} className="mt-2 space-y-4" noValidate>
           <LeadField
-            id={`${formId}-fullName`}
-            label="Full name"
+            id={`${formId}-firstName`}
+            label="First name"
             required
-            error={errors.fullName}
+            error={errors.firstName}
           >
             <Input
-              id={`${formId}-fullName`}
+              id={`${formId}-firstName`}
               ref={(node) => {
-                fieldRefs.current.fullName = node;
+                fieldRefs.current.firstName = node;
               }}
-              name="fullName"
-              autoComplete="name"
-              value={values.fullName}
-              onChange={(event) => setField("fullName", event.target.value)}
-              aria-invalid={Boolean(errors.fullName)}
-              aria-describedby={errors.fullName ? `${formId}-fullName-error` : undefined}
+              name="firstName"
+              autoComplete="given-name"
+              value={values.firstName}
+              onChange={(event) => setField("firstName", event.target.value)}
+              aria-invalid={Boolean(errors.firstName)}
+              aria-describedby={errors.firstName ? `${formId}-firstName-error` : undefined}
               className="min-h-11"
             />
           </LeadField>
@@ -174,62 +171,24 @@ export default function LeadCaptureModal({ open, onClose, onSubmitValid }: LeadC
             />
           </LeadField>
 
-          <LeadField id={`${formId}-address`} label="Property or project address" optional>
-            <Input
-              id={`${formId}-address`}
-              ref={(node) => {
-                fieldRefs.current.address = node;
-              }}
-              name="address"
-              autoComplete="street-address"
-              value={values.address}
-              onChange={(event) => setField("address", event.target.value)}
-              className="min-h-11"
-            />
-          </LeadField>
-
-          <LeadField id={`${formId}-contractor`} label="Contractor name" optional>
-            <Input
-              id={`${formId}-contractor`}
-              ref={(node) => {
-                fieldRefs.current.contractorName = node;
-              }}
-              name="contractorName"
-              value={values.contractorName}
-              onChange={(event) => setField("contractorName", event.target.value)}
-              className="min-h-11"
-            />
-          </LeadField>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <LeadField id={`${formId}-openings`} label="Total openings" optional>
-              <Input
-                id={`${formId}-openings`}
-                ref={(node) => {
-                  fieldRefs.current.totalOpenings = node;
-                }}
-                name="totalOpenings"
-                inputMode="numeric"
-                value={values.totalOpenings}
-                onChange={(event) => setField("totalOpenings", event.target.value)}
-                className="min-h-11"
-              />
-            </LeadField>
-
-            <LeadField id={`${formId}-price`} label="Total quoted price" optional>
-              <Input
-                id={`${formId}-price`}
-                ref={(node) => {
-                  fieldRefs.current.totalQuotedPrice = node;
-                }}
-                name="totalQuotedPrice"
-                inputMode="decimal"
-                value={values.totalQuotedPrice}
-                onChange={(event) => setField("totalQuotedPrice", event.target.value)}
-                className="min-h-11"
-              />
-            </LeadField>
-          </div>
+          <details className="rounded-lg border border-dashed border-amber-300/80 bg-amber-50/40 px-3 py-2">
+            <summary className="cursor-pointer text-xs font-bold uppercase tracking-wide text-amber-950">
+              DEMO EXTRACTED DETAILS
+            </summary>
+            <div className="mt-2 space-y-1 text-sm text-slate-700">
+              <p>
+                <span className="font-semibold text-[#0B2545]">Contractor:</span>{" "}
+                {demoPreview.contractorName}
+              </p>
+              <p>
+                <span className="font-semibold text-[#0B2545]">Opening scope:</span>{" "}
+                {demoPreview.openingCountBucket}
+              </p>
+              <p className="text-xs text-slate-600">
+                This demonstrates how scanner-proposed details will be confirmed later.
+              </p>
+            </div>
+          </details>
 
           <button
             type="submit"
@@ -246,7 +205,7 @@ export default function LeadCaptureModal({ open, onClose, onSubmitValid }: LeadC
               motion-reduce:transition-none motion-reduce:hover:translate-y-0
             "
           >
-            OPEN MY EXAMPLE TRUTH REPORT
+            OPEN MY QUOTE PREVIEW
           </button>
 
           <p className="text-center text-xs text-slate-500">

@@ -4,14 +4,13 @@
  * Metadata and UI-state helpers only. No FileReader, object URLs, Base64,
  * Supabase, Gemini, persistence, OTP, or tracking.
  *
- * NOTE: The local 15 MiB prototype limit must be reconciled with backend
- * enforcement before production wiring.
+ * File limits align with UploadZone / backend (10 MiB).
  */
 
+/** @deprecated Use RealScanPhase from useRealScanBridge in ScanLandingExperience. */
 export type ScanPrototypeState =
   | "idle"
   | "selected"
-  | "analyzing"
   | "lead_capture"
   | "summary";
 
@@ -21,30 +20,92 @@ export type SelectedEstimateMeta = {
   type: string;
 };
 
+export type QuotePreviewSource = "demo" | "live_preview";
+
+export type QuotePreviewImportance = "high" | "medium" | "low";
+
+export type QuotePreviewFinding = {
+  id: string;
+  title: string;
+  evidence: string;
+  importance: QuotePreviewImportance;
+  whyItMatters: string;
+  recommendedAction: string;
+};
+
+export type QuotePreviewViewModel = {
+  source: QuotePreviewSource;
+
+  gradeBand: string | null;
+  warningCount: number | null;
+  missingDetailCount: number | null;
+
+  contractorName: string | null;
+  openingCountBucket: string | null;
+  documentType: string | null;
+
+  findings: QuotePreviewFinding[];
+};
+
+export const demoPreview: QuotePreviewViewModel = {
+  source: "demo",
+  gradeBand: null,
+  warningCount: 3,
+  missingDetailCount: 2,
+  contractorName: "ABC Windows",
+  openingCountBucket: "8–12 openings",
+  documentType: "Window and Door Estimate",
+  findings: [
+    {
+      id: "warranty-labor",
+      title: "Warranty labor coverage is unclear",
+      importance: "high",
+      evidence: "Labor coverage was not found in the example warranty language.",
+      whyItMatters:
+        "A product warranty may not cover removal, labor, or future service visits.",
+      recommendedAction:
+        "Ask whether labor and service calls are covered, for how long, and who pays after installation.",
+    },
+    {
+      id: "permit-responsibility",
+      title: "Permit responsibility needs confirmation",
+      importance: "high",
+      evidence:
+        "The example scope does not clearly assign permit fees, filing, or inspection coordination.",
+      whyItMatters:
+        "Unclear permit responsibility can create added cost, delays, or disputes after signing.",
+      recommendedAction:
+        "Ask who obtains the permit, who pays every related fee, and who handles failed inspections.",
+    },
+    {
+      id: "glass-spec",
+      title: "Exact glass specification is incomplete",
+      importance: "medium",
+      evidence: "The example quote does not identify a complete glass package and certification set.",
+      whyItMatters:
+        "Different glass packages can materially affect performance, code suitability, and price.",
+      recommendedAction:
+        "Request the exact manufacturer, product line, glass package, ratings, and approval references.",
+    },
+  ],
+};
+
 export type LeadFormValues = {
-  fullName: string;
+  firstName: string;
   email: string;
   phone: string;
-  address: string;
-  contractorName: string;
-  totalOpenings: string;
-  totalQuotedPrice: string;
 };
 
 export type LeadFieldKey = keyof LeadFormValues;
 
 export const EMPTY_LEAD_FORM: LeadFormValues = {
-  fullName: "",
+  firstName: "",
   email: "",
   phone: "",
-  address: "",
-  contractorName: "",
-  totalOpenings: "",
-  totalQuotedPrice: "",
 };
 
-/** Prototype maximum — must match backend enforcement before production wiring. */
-export const MAX_PROTOTYPE_BYTES = 15_728_640;
+/** Matches UploadZone `MAX_FILE_SIZE` and backend upload guard. */
+export const MAX_PROTOTYPE_BYTES = 10 * 1024 * 1024;
 
 export const ACCEPTED_MIME_TYPES = new Set([
   "application/pdf",
@@ -87,6 +148,13 @@ export function validateEstimateFile(file: File): { ok: true; meta: SelectedEsti
     return { ok: false, error: "That file is empty. Choose a real estimate PDF or image." };
   }
 
+  if (file.type === "image/heic" || file.type === "image/heif") {
+    return {
+      ok: false,
+      error: "HEIC and HEIF are not supported. Use PDF, JPG, PNG, or WebP.",
+    };
+  }
+
   if (!ACCEPTED_MIME_TYPES.has(file.type)) {
     return {
       ok: false,
@@ -97,7 +165,7 @@ export function validateEstimateFile(file: File): { ok: true; meta: SelectedEsti
   if (file.size > MAX_PROTOTYPE_BYTES) {
     return {
       ok: false,
-      error: "That file is larger than 15 MiB. Choose a smaller estimate file.",
+      error: "That file is larger than 10 MiB. Choose a smaller estimate file.",
     };
   }
 
@@ -158,8 +226,8 @@ export type LeadValidationErrors = Partial<Record<LeadFieldKey, string>>;
 export function validateLeadForm(values: LeadFormValues): LeadValidationErrors {
   const errors: LeadValidationErrors = {};
 
-  if (!isValidLeadName(values.fullName)) {
-    errors.fullName = "Enter your full name.";
+  if (!isValidLeadName(values.firstName)) {
+    errors.firstName = "Enter your first name (2–100 characters).";
   }
   if (!isValidLeadEmail(values.email)) {
     errors.email = "Enter a valid email address.";
@@ -171,15 +239,7 @@ export function validateLeadForm(values: LeadFormValues): LeadValidationErrors {
   return errors;
 }
 
-export const LEAD_FIELD_ORDER: LeadFieldKey[] = [
-  "fullName",
-  "email",
-  "phone",
-  "address",
-  "contractorName",
-  "totalOpenings",
-  "totalQuotedPrice",
-];
+export const LEAD_FIELD_ORDER: LeadFieldKey[] = ["firstName", "email", "phone"];
 
 export function firstInvalidLeadField(errors: LeadValidationErrors): LeadFieldKey | null {
   for (const key of LEAD_FIELD_ORDER) {
