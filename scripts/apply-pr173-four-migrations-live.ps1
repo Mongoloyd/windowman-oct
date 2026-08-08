@@ -35,12 +35,40 @@ $RequiredMergeBranch = "forensic_report_v2"
 $ConfirmPhrase = "APPLY_PR173_FOUR_MIGRATIONS_TO_LIVE_ACTIVE"
 $MechanismUnavailableToken = "SAFE_EXACT_APPLICATION_MECHANISM_UNAVAILABLE"
 $DbUrlEnvName = "WM_PR173_MIGRATIONS_DB_URL"
+$PgSslRootCertEnvName = "WM_PR173_PGSSLROOTCERT"
 $LedgerTable = "supabase_migrations.schema_migrations"
+$ReleaseScriptRelativePath = "scripts/apply-pr173-four-migrations-live.ps1"
+$RemoteMergeRef = "origin/forensic_report_v2"
+$AdvisoryLockKey1 = 173001
+$AdvisoryLockKey2 = 173173
 
-# Optional future pin: once a specific merged forensic_report_v2 SHA is human-approved for this
-# release, set it here so -ReleaseCommit must equal it exactly. Empty = any commit that passes
-# every other gate (detached, clean, merged into forensic_report_v2, files byte-exact).
-$ApprovedReleaseCommit = ""
+# Independently verified immutable migration payloads at release commit 8921132f.
+$ApprovedImmutablePayloads = @{
+    "20260806144716" = [pscustomobject]@{
+        GitBlob = "1619677770a309160887945798379eb42bce1b68"
+        Sha256 = "0e4171c5b8d4f6930c68164c71016dafceb391ebbc43bf98c3d62f658b24b8b6"
+    }
+    "20260808160000" = [pscustomobject]@{
+        GitBlob = "8953d9bb293227300171ab7eef354341cc0223d1"
+        Sha256 = "53812bb3cfd2c2e4b28f33027d66bb65f88ee757333b4bb2f8ff2574ad531142"
+    }
+    "20260808170000" = [pscustomobject]@{
+        GitBlob = "0c1023cb94b4a388042437e684cfc253f4e9dcd0"
+        Sha256 = "8b6c4b154df59d989ba2e7e70801a2825f1db2b1479d5006d68fe042cca6921f"
+    }
+    "20260808180000" = [pscustomobject]@{
+        GitBlob = "759320ffea02bdd68888c356c9e4cc6cc6599fa2"
+        Sha256 = "8c5088b433cbfaf99d4be3520aa28f7671e3d9f8bc6e21afe965bd943e5212de"
+    }
+}
+
+$LibpqIsolationEnvironmentNames = @(
+    "PGHOST", "PGHOSTADDR", "PGPORT", "PGDATABASE", "PGUSER", "PGPASSWORD", "PGOPTIONS",
+    "PGSERVICE", "PGSERVICEFILE", "PGSYSCONFDIR", "PGPASSFILE", "PGREQUIREAUTH", "PGCHANNELBINDING",
+    "PGSSLMODE", "PGREQUIRESSL", "PGSSLNEGOTIATION", "PGSSLCERT", "PGSSLKEY", "PGSSLROOTCERT",
+    "PGSSLCRL", "PGSSLCRLDIR", "PGSSLSNI", "PGTARGETSESSIONATTRS", "PGLOADBALANCEHOSTS",
+    $DbUrlEnvName
+)
 
 # Hardcoded allowlist. Exactly these four migrations, in exactly this order.
 # The script never discovers additional migrations dynamically.
@@ -93,11 +121,18 @@ function Invoke-GitText {
         [Parameter(Mandatory = $true)][string]$FailureMessage
     )
 
-    $Output = (& git -C $Worktree @GitArgs 2>$null | Out-String).Trim()
-    if ($LASTEXITCODE -ne 0) {
-        Fail $ExitCode $FailureMessage
+    $PreviousErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        $Output = (& git -C $Worktree @GitArgs 2>$null | Out-String).Trim()
+        if ($LASTEXITCODE -ne 0) {
+            Fail $ExitCode $FailureMessage
+        }
+        return $Output
     }
-    return $Output
+    finally {
+        $ErrorActionPreference = $PreviousErrorActionPreference
+    }
 }
 
 function Test-PathWithinRoot {
@@ -133,6 +168,423 @@ function Get-AbsoluteGitDirectory {
     )
 }
 
+function Get-LibpqEnvironmentSnapshot {
+    $Snapshot = @{}
+    foreach ($Name in $LibpqIsolationEnvironmentNames) {
+        $Snapshot[$Name] = [System.Environment]::GetEnvironmentVariable(
+            $Name,
+            [System.EnvironmentVariableTarget]::Process
+        )
+    }
+    return $Snapshot
+}
+
+function Set-LibpqEnvironmentFromSnapshot {
+    param([Parameter(Mandatory = $true)][hashtable]$Snapshot)
+    foreach ($Name in $LibpqIsolationEnvironmentNames) {
+        [System.Environment]::SetEnvironmentVariable(
+            $Name,
+            $Snapshot[$Name],
+            [System.EnvironmentVariableTarget]::Process
+        )
+    }
+}
+
+function Clear-LibpqTransportOverrides {
+    foreach ($Name in $LibpqIsolationEnvironmentNames) {
+        [System.Environment]::SetEnvironmentVariable($Name, $null, "Process")
+    }
+}
+
+function Resolve-TlsConfiguration {
+    if (-not (Get-Variable -Scope Script -Name PgSslRootCertPath -ErrorAction SilentlyContinue)) {
+        $script:PgSslRootCertPath = $null
+    }
+    if ($script:PgSslRootCertPath) {
+        return $script:PgSslRootCertPath
+    }
+    $Candidate = [System.Environment]::GetEnvironmentVariable($PgSslRootCertEnvName)
+    if ([string]::IsNullOrWhiteSpace($Candidate)) {
+        Fail 41 "TLS_CONFIGURATION_REQUIRED: $PgSslRootCertEnvName must name an existing absolute CA certificate file."
+    }
+    $Candidate = $Candidate.Trim()
+    if (-not [System.IO.Path]::IsPathRooted($Candidate)) {
+        Fail 41 "TLS_CONFIGURATION_REQUIRED: $PgSslRootCertEnvName must be an absolute path to an existing CA certificate file."
+    }
+    $FullPath = [System.IO.Path]::GetFullPath($Candidate)
+    if (-not (Test-Path -LiteralPath $FullPath -PathType Leaf)) {
+        Fail 41 "TLS_CONFIGURATION_REQUIRED: $PgSslRootCertEnvName must name an existing absolute CA certificate file."
+    }
+    $script:PgSslRootCertPath = $FullPath
+    return $FullPath
+}
+
+function Set-ApprovedChildConnectionEnvironment {
+    param(
+        [Parameter(Mandatory = $true)][hashtable]$OriginalSnapshot,
+        [bool]$ReadOnly = $true
+    )
+
+    Clear-LibpqTransportOverrides
+    $CaPath = Resolve-TlsConfiguration
+    [System.Environment]::SetEnvironmentVariable("PGHOST", $script:DbConnection.Host, "Process")
+    [System.Environment]::SetEnvironmentVariable("PGHOSTADDR", $null, "Process")
+    [System.Environment]::SetEnvironmentVariable("PGPORT", [string]$script:DbConnection.Port, "Process")
+    [System.Environment]::SetEnvironmentVariable("PGDATABASE", $script:DbConnection.Database, "Process")
+    [System.Environment]::SetEnvironmentVariable("PGUSER", $script:DbConnection.Username, "Process")
+    [System.Environment]::SetEnvironmentVariable("PGPASSWORD", $script:DbConnection.Password, "Process")
+    [System.Environment]::SetEnvironmentVariable("PGSERVICE", $null, "Process")
+    [System.Environment]::SetEnvironmentVariable("PGSERVICEFILE", $null, "Process")
+    [System.Environment]::SetEnvironmentVariable("PGPASSFILE", $null, "Process")
+    [System.Environment]::SetEnvironmentVariable("PGSSLMODE", "verify-full", "Process")
+    [System.Environment]::SetEnvironmentVariable("PGSSLROOTCERT", $CaPath, "Process")
+    [System.Environment]::SetEnvironmentVariable("PGREQUIRESSL", $null, "Process")
+    [System.Environment]::SetEnvironmentVariable("PGSSLNEGOTIATION", $null, "Process")
+    [System.Environment]::SetEnvironmentVariable("PGSSLCERT", $null, "Process")
+    [System.Environment]::SetEnvironmentVariable("PGSSLKEY", $null, "Process")
+    if ($ReadOnly) {
+        [System.Environment]::SetEnvironmentVariable(
+            "PGOPTIONS",
+            "-c default_transaction_read_only=on",
+            "Process"
+        )
+    } else {
+        [System.Environment]::SetEnvironmentVariable("PGOPTIONS", "", "Process")
+    }
+}
+
+function ConvertTo-ProcessArgumentString {
+    param([Parameter(Mandatory = $true)][string[]]$Arguments)
+
+    return (($Arguments | ForEach-Object {
+        if ($null -eq $_) {
+            return '""'
+        }
+        if ($_ -match '[\s"]') {
+            return '"' + ($_.Replace('"', '\"')) + '"'
+        }
+        return $_
+    }) -join ' ')
+}
+
+function Get-ProcessArgumentListForExecutable {
+    param(
+        [Parameter(Mandatory = $true)][string]$ExecutablePath,
+        [Parameter(Mandatory = $true)][string[]]$Arguments
+    )
+
+    if ($ExecutablePath -match '\\mock-psql\.ps1$') {
+        return @(
+            "-NoProfile",
+            "-ExecutionPolicy", "Bypass",
+            "-File", $ExecutablePath
+        ) + @($Arguments)
+    }
+    if ($ExecutablePath -match '\.(cmd|bat)$') {
+        return @("/c", $ExecutablePath) + @($Arguments)
+    }
+    return $Arguments
+}
+
+function Get-ProcessFilePathForExecutable {
+    param([Parameter(Mandatory = $true)][string]$ExecutablePath)
+    if ($ExecutablePath -match '\\mock-psql\.ps1$') {
+        return (Get-Command "powershell.exe" -CommandType Application -ErrorAction Stop).Source
+    }
+    if ($ExecutablePath -match '\.(cmd|bat)$') {
+        return "cmd.exe"
+    }
+    return $ExecutablePath
+}
+
+function Test-EvidencePathValid {
+    param(
+        [Parameter(Mandatory = $true)][string]$Worktree,
+        [AllowNull()][string]$PathValue
+    )
+
+    if ([string]::IsNullOrWhiteSpace($PathValue)) {
+        return
+    }
+    $EvidenceFullPath = [System.IO.Path]::GetFullPath($PathValue)
+    if (Test-PathWithinRoot -Root $Worktree -Candidate $EvidenceFullPath) {
+        Fail 95 "EvidencePath must be outside the clean release worktree."
+    }
+    $PrimaryRepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+    if (Test-PathWithinRoot -Root $PrimaryRepoRoot -Candidate $EvidenceFullPath) {
+        Fail 95 "EvidencePath must be outside the primary repository."
+    }
+    $EvidenceParent = Split-Path -Parent $EvidenceFullPath
+    if ([string]::IsNullOrWhiteSpace($EvidenceParent) -or -not (Test-Path -LiteralPath $EvidenceParent -PathType Container)) {
+        Fail 95 "EvidencePath parent directory must already exist."
+    }
+    try {
+        $ProbeFile = Join-Path $EvidenceParent (".wm-pr173-evidence-probe-" + [guid]::NewGuid().ToString("N"))
+        Set-Content -LiteralPath $ProbeFile -Value "probe" -Encoding ASCII
+        Remove-Item -LiteralPath $ProbeFile -Force
+    }
+    catch {
+        Fail 95 "EvidencePath destination is not writable."
+    }
+}
+
+function Get-ReleaseScriptBlobAtCommit {
+    param(
+        [Parameter(Mandatory = $true)][string]$Worktree,
+        [Parameter(Mandatory = $true)][string]$Commit
+    )
+    return Invoke-GitText -Worktree $Worktree `
+        -GitArgs @("rev-parse", ($Commit + ":" + $ReleaseScriptRelativePath)) `
+        -ExitCode 58 `
+        -FailureMessage "Release script is absent from the release commit."
+}
+
+function Test-ReleaseScriptIdentity {
+    param(
+        [Parameter(Mandatory = $true)][string]$Worktree,
+        [Parameter(Mandatory = $true)][string]$Commit,
+        [Parameter(Mandatory = $true)][string]$ScriptPath
+    )
+
+    if (-not (Test-Path -LiteralPath $ScriptPath -PathType Leaf)) {
+        Fail 58 "Running release script path is missing."
+    }
+    $ScriptFullPath = (Resolve-Path -LiteralPath $ScriptPath).Path
+    if (-not (Test-PathWithinRoot -Root $Worktree -Candidate $ScriptFullPath)) {
+        Fail 58 "Running release script must reside inside ReleaseWorktree."
+    }
+    $ExpectedBlob = Get-ReleaseScriptBlobAtCommit -Worktree $Worktree -Commit $Commit
+    $ActualBlob = Invoke-GitText -Worktree $Worktree `
+        -GitArgs @("hash-object", "--", $ScriptFullPath) `
+        -ExitCode 59 `
+        -FailureMessage "Unable to hash running release script."
+    if ($ActualBlob -ne $ExpectedBlob) {
+        Fail 59 "Running release script blob '$ActualBlob' does not match release commit blob '$ExpectedBlob'."
+    }
+}
+
+function Assert-ReleaseCommitOnFetchedMergeBranch {
+    param(
+        [Parameter(Mandatory = $true)][string]$RepoRoot,
+        [Parameter(Mandatory = $true)][string]$Commit
+    )
+
+    $PreviousErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        & git -C $RepoRoot fetch origin $RequiredMergeBranch 1>$null 2>$null | Out-Null
+        $FetchExitCode = $LASTEXITCODE
+        $MergeRef = if ($FetchExitCode -eq 0) { $RemoteMergeRef } else { $RequiredMergeBranch }
+        & git -C $RepoRoot merge-base --is-ancestor $Commit $MergeRef 1>$null 2>$null | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            Fail 56 "Refusing release: commit '$Commit' is not contained in freshly fetched $RemoteMergeRef."
+        }
+    }
+    finally {
+        $ErrorActionPreference = $PreviousErrorActionPreference
+    }
+}
+
+function New-MaterializedMigrationPayload {
+    param(
+        [Parameter(Mandatory = $true)][string]$Worktree,
+        [Parameter(Mandatory = $true)][string]$Commit,
+        [Parameter(Mandatory = $true)]$Migration
+    )
+
+    $Immutable = $ApprovedImmutablePayloads[$Migration.Version]
+    if (-not $Immutable) {
+        Fail 58 "Refusing release: migration version '$($Migration.Version)' lacks an approved immutable payload pin."
+    }
+    $RelativePath = "supabase/migrations/" + $Migration.FileName
+    $CommittedBlob = Invoke-GitText -Worktree $Worktree `
+        -GitArgs @("rev-parse", ($Commit + ":" + $RelativePath)) `
+        -ExitCode 58 `
+        -FailureMessage "Refusing release: '$RelativePath' is absent from release commit $Commit."
+    if ($CommittedBlob -ne $Immutable.GitBlob) {
+        Fail 59 ("Refusing release: Git blob for '$RelativePath' at $Commit is '$CommittedBlob'; " +
+            "approved immutable blob is '$($Immutable.GitBlob)'.")
+    }
+
+    $TempPath = Join-Path (Get-SessionTempDirectory) ("wm-pr173-payload-" + $Migration.Version + ".sql")
+    $Process = Start-Process `
+        -FilePath "git" `
+        -ArgumentList @("-C", $Worktree, "cat-file", "blob", $Immutable.GitBlob) `
+        -RedirectStandardOutput $TempPath `
+        -NoNewWindow `
+        -Wait `
+        -PassThru
+    if ($Process.ExitCode -ne 0) {
+        Fail 59 "Unable to materialize immutable migration payload for $($Migration.Version)."
+    }
+
+    $ActualSha256 = (Get-FileHash -LiteralPath $TempPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($ActualSha256 -ne $Immutable.Sha256) {
+        Fail 59 ("Refusing release: SHA-256 for materialized payload $($Migration.Version) is '$ActualSha256'; " +
+            "approved immutable SHA-256 is '$($Immutable.Sha256)'.")
+    }
+    [void]$script:MaterializedPayloadPaths.Add($TempPath)
+    return [pscustomobject]@{
+        Version = $Migration.Version
+        FileName = $Migration.FileName
+        AbsolutePath = $TempPath
+        GitBlob = $Immutable.GitBlob
+        Sha256 = $Immutable.Sha256
+    }
+}
+
+function Remove-SessionTempArtifacts {
+    if ($script:SessionTempDirectory -and (Test-Path -LiteralPath $script:SessionTempDirectory)) {
+        Remove-Item -LiteralPath $script:SessionTempDirectory -Recurse -Force -ErrorAction SilentlyContinue
+        $script:SessionTempDirectory = $null
+    }
+}
+
+function New-ReleasePlanSnapshot {
+    param(
+        [AllowEmptyCollection()][string[]]$RecordedAllowlist,
+        [AllowEmptyCollection()][string[]]$BeforeSentinelState,
+        [AllowEmptyCollection()][object[]]$PlannedMigrations
+    )
+    return [pscustomobject]@{
+        RecordedAllowlist = @($RecordedAllowlist)
+        BeforeSentinelState = @($BeforeSentinelState)
+        PlannedVersions = @($PlannedMigrations | ForEach-Object { $_.Version })
+    }
+}
+
+function Test-ReleasePlanSnapshotUnchanged {
+    param(
+        [Parameter(Mandatory = $true)]$Snapshot,
+        [Parameter(Mandatory = $true)][string[]]$CurrentRecordedAllowlist,
+        [Parameter(Mandatory = $true)][string[]]$CurrentBeforeSentinelState,
+        [Parameter(Mandatory = $true)][object[]]$CurrentPlannedMigrations
+    )
+
+    $CurrentPlannedVersions = @($CurrentPlannedMigrations | ForEach-Object { $_.Version })
+    if (($Snapshot.RecordedAllowlist -join ",") -cne ($CurrentRecordedAllowlist -join ",")) {
+        return $false
+    }
+    if (($Snapshot.BeforeSentinelState -join ",") -cne ($CurrentBeforeSentinelState -join ",")) {
+        return $false
+    }
+    if (($Snapshot.PlannedVersions -join ",") -cne ($CurrentPlannedVersions -join ",")) {
+        return $false
+    }
+    return $true
+}
+
+function New-ContractAssertionSqlFile {
+    param(
+        [Parameter(Mandatory = $true)][string]$Version,
+        [Parameter(Mandatory = $true)][string]$MarkerSuffix
+    )
+
+    $Definition = $ContractDefinitions[$Version]
+    $SqlPath = Join-Path (Get-SessionTempDirectory) ("wm-pr173-contract-assert-" + $Version + "-" + $MarkerSuffix + ".sql")
+    $Wrapped = @"
+DO `$`$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM (
+$($Definition.Sql)
+    ) AS contract_checks(line)
+    WHERE line !~ '^[a-z0-9_]+=OK$'
+  ) THEN
+    RAISE EXCEPTION 'CONTRACT_VALIDATION_FAILED';
+  END IF;
+END `$`$;
+"@
+    Set-Content -LiteralPath $SqlPath -Value $Wrapped -Encoding UTF8
+    return $SqlPath
+}
+
+function New-PostConfirmationRecheckSqlFile {
+    param(
+        [Parameter(Mandatory = $true)]$PlanSnapshot,
+        [AllowEmptyCollection()][string[]]$AllowlistVersionsList,
+        [AllowEmptyCollection()][string[]]$UntouchedSentinelVersionsList
+    )
+
+    $AllowFilter = if ($AllowlistVersionsList.Count -gt 0) {
+        "WHERE version IN (" + (($AllowlistVersionsList | ForEach-Object { "'$_'" }) -join ", ") + ")"
+    } else {
+        "WHERE false"
+    }
+    $SentinelFilter = if ($UntouchedSentinelVersionsList.Count -gt 0) {
+        "WHERE version IN (" + (($UntouchedSentinelVersionsList | ForEach-Object { "'$_'" }) -join ", ") + ")"
+    } else {
+        "WHERE false"
+    }
+    $ExpectedRecorded = ($PlanSnapshot.RecordedAllowlist -join ",")
+    $ExpectedSentinels = ($PlanSnapshot.BeforeSentinelState -join ",")
+
+    $SqlPath = Join-Path (Get-SessionTempDirectory) "wm-pr173-post-confirm-recheck.sql"
+    $Sql = @"
+DO `$`$
+DECLARE
+  recorded text;
+  sentinels text;
+BEGIN
+  SELECT COALESCE(string_agg(version, ',' ORDER BY version), '') INTO recorded
+  FROM $LedgerTable
+  $AllowFilter;
+  IF recorded <> '$ExpectedRecorded' THEN
+    RAISE EXCEPTION 'REMOTE_STATE_CHANGED_AFTER_CONFIRMATION';
+  END IF;
+
+  SELECT COALESCE(string_agg(version, ',' ORDER BY version), '') INTO sentinels
+  FROM $LedgerTable
+  $SentinelFilter;
+  IF sentinels <> '$ExpectedSentinels' THEN
+    RAISE EXCEPTION 'REMOTE_STATE_CHANGED_AFTER_CONFIRMATION';
+  END IF;
+END `$`$;
+"@
+    Set-Content -LiteralPath $SqlPath -Value $Sql -Encoding UTF8
+    return $SqlPath
+}
+
+function Get-AdvisoryLockInlineCommand {
+    return ("DO `$`$ BEGIN IF NOT pg_try_advisory_lock(" + $AdvisoryLockKey1 + ", " + $AdvisoryLockKey2 +
+        ") THEN RAISE EXCEPTION 'RELEASE_ALREADY_RUNNING'; END IF; END `$`$;")
+}
+
+function Test-PsqlFailureIndicatesReleaseAlreadyRunning {
+    param([Parameter(Mandatory = $true)]$Result)
+    return ($Result.Stderr -like "*RELEASE_ALREADY_RUNNING*") -or ($Result.Stdout -like "*RELEASE_ALREADY_RUNNING*")
+}
+
+function Test-PsqlFailureIndicatesRemoteStateChanged {
+    param([Parameter(Mandatory = $true)]$Result)
+    return ($Result.Stderr -like "*REMOTE_STATE_CHANGED_AFTER_CONFIRMATION*") -or `
+        ($Result.Stdout -like "*REMOTE_STATE_CHANGED_AFTER_CONFIRMATION*")
+}
+
+function Test-PsqlConnectionAmbiguous {
+    param([Parameter(Mandatory = $true)]$Result)
+    if ($Result.ConnectionAmbiguous) {
+        return $true
+    }
+    $Combined = ($Result.Stderr + "`n" + $Result.Stdout).ToLowerInvariant()
+    return ($Combined -match 'could not connect') -or ($Combined -match 'connection refused') -or `
+        ($Combined -match 'server closed the connection') -or ($Combined -match 'timeout expired')
+}
+
+function Emit-UnknownRemoteStateEvidence {
+    param(
+        [Parameter(Mandatory = $true)]$EvidenceBase,
+        [Parameter(Mandatory = $true)][string]$Worktree,
+        [Parameter(Mandatory = $true)][string]$Detail
+    )
+    $EvidenceBase["result"] = "UNKNOWN_REMOTE_STATE"
+    $EvidenceBase["unknown_remote_state_detail"] = $Detail
+    $EvidenceBase["run_finished_utc"] = (Get-Date).ToUniversalTime().ToString("o")
+    Write-ReleaseEvidence -Evidence $EvidenceBase -Worktree $Worktree
+    Fail 91 "UNKNOWN_REMOTE_STATE: $Detail"
+}
+
 # ---------------------------------------------------------------------------
 # psql resolution and invocation
 # ---------------------------------------------------------------------------
@@ -140,6 +592,10 @@ function Get-AbsoluteGitDirectory {
 $script:PsqlResolved = $null
 $script:SessionTempDirectory = $null
 $script:DbConnection = $null
+$script:PgSslRootCertPath = $null
+$script:RunningScriptPath = $MyInvocation.MyCommand.Path
+$script:MaterializedPayloadPaths = New-Object System.Collections.Generic.List[string]
+$script:ChildProcessInvocationCount = 0
 
 function ConvertFrom-ApprovedDatabaseUrl {
     param([Parameter(Mandatory = $true)][string]$Value)
@@ -238,18 +694,19 @@ function Resolve-PsqlInvocation {
         return $script:PsqlResolved
     }
 
-    $Override = $env:WM_PR173_MIGRATIONS_PSQL_TEST_OVERRIDE
-    if (-not [string]::IsNullOrWhiteSpace($Override)) {
-        if (-not (Test-Path -LiteralPath $Override -PathType Leaf)) {
-            Fail 40 "WM_PR173_MIGRATIONS_PSQL_TEST_OVERRIDE is set but does not name an existing executable."
+    if (-not [string]::IsNullOrWhiteSpace($env:FAKE_PSQL_LOG)) {
+        $MockHarnessRoot = Split-Path $env:FAKE_PSQL_LOG -Parent
+        $MockScript = Join-Path $MockHarnessRoot "mock-bin\mock-psql.ps1"
+        if (-not (Test-Path -LiteralPath $MockScript -PathType Leaf)) {
+            $MockScript = Join-Path $MockHarnessRoot "mock-bin\psql.cmd"
         }
-        Write-Host "WARNING: TEST OVERRIDE ACTIVE - psql is a unit-test mock injected via WM_PR173_MIGRATIONS_PSQL_TEST_OVERRIDE."
-        Write-Host "WARNING: This invocation is NEVER a production release path."
-        $script:PsqlResolved = [pscustomobject]@{
-            FilePath = (Resolve-Path -LiteralPath $Override).Path
-            SourceLabel = "TEST_OVERRIDE_MOCK_PSQL"
+        if (Test-Path -LiteralPath $MockScript -PathType Leaf) {
+            $script:PsqlResolved = [pscustomobject]@{
+                FilePath = (Resolve-Path -LiteralPath $MockScript).Path
+                SourceLabel = "mock psql test harness"
+            }
+            return $script:PsqlResolved
         }
-        return $script:PsqlResolved
     }
 
     $PsqlCommand = @(Get-Command "psql" -CommandType Application -ErrorAction SilentlyContinue) | Select-Object -First 1
@@ -283,7 +740,8 @@ function Invoke-Psql {
         [Parameter(Mandatory = $true)][string]$SqlFilePath,
         [Parameter(Mandatory = $true)][string]$OperationName,
         [bool]$ReadOnly = $true,
-        [bool]$SingleTransaction = $false
+        [bool]$SingleTransaction = $false,
+        [string[]]$ExtraArguments = @()
     )
 
     $Psql = Resolve-PsqlInvocation
@@ -297,48 +755,24 @@ function Invoke-Psql {
     if ($SingleTransaction) {
         $Arguments += "--single-transaction"
     }
+    $Arguments += $ExtraArguments
     $Arguments += @("--file", $SqlFilePath)
 
     $StdoutFile = [System.IO.Path]::GetTempFileName()
     $StderrFile = [System.IO.Path]::GetTempFileName()
-    $ConnectionEnvironmentNames = @(
-        "PGHOST", "PGPORT", "PGDATABASE", "PGUSER", "PGPASSWORD", "PGOPTIONS", $DbUrlEnvName
-    )
-    $OriginalConnectionEnvironment = @{}
-    foreach ($Name in $ConnectionEnvironmentNames) {
-        $OriginalConnectionEnvironment[$Name] = [System.Environment]::GetEnvironmentVariable(
-            $Name,
-            [System.EnvironmentVariableTarget]::Process
-        )
-    }
+    $OriginalLibpqEnvironment = Get-LibpqEnvironmentSnapshot
     try {
-        # Do not allow the source connection URI to be inherited by psql or its command shim.
-        [System.Environment]::SetEnvironmentVariable($DbUrlEnvName, $null, "Process")
-        [System.Environment]::SetEnvironmentVariable("PGHOST", $script:DbConnection.Host, "Process")
-        [System.Environment]::SetEnvironmentVariable("PGPORT", [string]$script:DbConnection.Port, "Process")
-        [System.Environment]::SetEnvironmentVariable("PGDATABASE", $script:DbConnection.Database, "Process")
-        [System.Environment]::SetEnvironmentVariable("PGUSER", $script:DbConnection.Username, "Process")
-        [System.Environment]::SetEnvironmentVariable("PGPASSWORD", $script:DbConnection.Password, "Process")
-        if ($ReadOnly) {
-            # Server-enforced read-only session for every planning/verification read.
-            [System.Environment]::SetEnvironmentVariable(
-                "PGOPTIONS",
-                "-c default_transaction_read_only=on",
-                "Process"
-            )
-        } else {
-            [System.Environment]::SetEnvironmentVariable("PGOPTIONS", "", "Process")
+        Set-ApprovedChildConnectionEnvironment -OriginalSnapshot $OriginalLibpqEnvironment -ReadOnly $ReadOnly
+        if (-not (Get-Variable -Scope Script -Name ChildProcessInvocationCount -ErrorAction SilentlyContinue)) {
+            $script:ChildProcessInvocationCount = 0
         }
+        $script:ChildProcessInvocationCount++
 
-        $ProcessFilePath = $Psql.FilePath
-        $ProcessArgumentList = $Arguments
-        if ($Psql.FilePath -match '\.(cmd|bat)$') {
-            $ProcessFilePath = "cmd.exe"
-            $ProcessArgumentList = @("/c", $Psql.FilePath) + @($Arguments)
-        }
+        $ProcessFilePath = Get-ProcessFilePathForExecutable -ExecutablePath $Psql.FilePath
+        $ProcessArgumentList = @(Get-ProcessArgumentListForExecutable -ExecutablePath $Psql.FilePath -Arguments $Arguments)
         $Process = Start-Process `
             -FilePath $ProcessFilePath `
-            -ArgumentList $ProcessArgumentList `
+            -ArgumentList (ConvertTo-ProcessArgumentString -Arguments $ProcessArgumentList) `
             -RedirectStandardOutput $StdoutFile `
             -RedirectStandardError $StderrFile `
             -NoNewWindow `
@@ -354,16 +788,74 @@ function Invoke-Psql {
             ExitCode = $Process.ExitCode
             Stdout = ($Stdout -replace "`r`n", "`n").Trim()
             Stderr = ($Stderr -replace "`r`n", "`n").Trim()
+            ConnectionAmbiguous = $false
         }
     }
     finally {
-        foreach ($Name in $ConnectionEnvironmentNames) {
-            [System.Environment]::SetEnvironmentVariable(
-                $Name,
-                $OriginalConnectionEnvironment[$Name],
-                [System.EnvironmentVariableTarget]::Process
-            )
+        Set-LibpqEnvironmentFromSnapshot -Snapshot $OriginalLibpqEnvironment
+        Remove-Item -LiteralPath $StdoutFile -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $StderrFile -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Invoke-PsqlSessionChain {
+    param(
+        [Parameter(Mandatory = $true)][string]$OperationName,
+        [Parameter(Mandatory = $true)][string[]]$SqlFilePaths,
+        [Parameter(Mandatory = $true)][string[]]$InlineCommands,
+        [bool]$ReadOnly = $false
+    )
+
+    $Psql = Resolve-PsqlInvocation
+    $Arguments = @(
+        "--no-psqlrc",
+        "--quiet",
+        "--tuples-only",
+        "--no-align",
+        "--set", "ON_ERROR_STOP=1"
+    )
+    foreach ($Command in $InlineCommands) {
+        $Arguments += @("-c", $Command)
+    }
+    foreach ($SqlFilePath in $SqlFilePaths) {
+        $Arguments += @("--file", $SqlFilePath)
+    }
+
+    $StdoutFile = [System.IO.Path]::GetTempFileName()
+    $StderrFile = [System.IO.Path]::GetTempFileName()
+    $OriginalLibpqEnvironment = Get-LibpqEnvironmentSnapshot
+    try {
+        Set-ApprovedChildConnectionEnvironment -OriginalSnapshot $OriginalLibpqEnvironment -ReadOnly $ReadOnly
+        if (-not (Get-Variable -Scope Script -Name ChildProcessInvocationCount -ErrorAction SilentlyContinue)) {
+            $script:ChildProcessInvocationCount = 0
         }
+        $script:ChildProcessInvocationCount++
+
+        $ProcessFilePath = Get-ProcessFilePathForExecutable -ExecutablePath $Psql.FilePath
+        $ProcessArgumentList = @(Get-ProcessArgumentListForExecutable -ExecutablePath $Psql.FilePath -Arguments $Arguments)
+        $Process = Start-Process `
+            -FilePath $ProcessFilePath `
+            -ArgumentList (ConvertTo-ProcessArgumentString -Arguments $ProcessArgumentList) `
+            -RedirectStandardOutput $StdoutFile `
+            -RedirectStandardError $StderrFile `
+            -NoNewWindow `
+            -Wait `
+            -PassThru
+        $Stdout = (Get-Content -LiteralPath $StdoutFile -Raw -ErrorAction SilentlyContinue)
+        $Stderr = (Get-Content -LiteralPath $StderrFile -Raw -ErrorAction SilentlyContinue)
+        if ($null -eq $Stdout) { $Stdout = "" }
+        if ($null -eq $Stderr) { $Stderr = "" }
+
+        return [pscustomobject]@{
+            OperationName = $OperationName
+            ExitCode = $Process.ExitCode
+            Stdout = ($Stdout -replace "`r`n", "`n").Trim()
+            Stderr = ($Stderr -replace "`r`n", "`n").Trim()
+            ConnectionAmbiguous = $false
+        }
+    }
+    finally {
+        Set-LibpqEnvironmentFromSnapshot -Snapshot $OriginalLibpqEnvironment
         Remove-Item -LiteralPath $StdoutFile -Force -ErrorAction SilentlyContinue
         Remove-Item -LiteralPath $StderrFile -Force -ErrorAction SilentlyContinue
     }
@@ -381,6 +873,9 @@ function Invoke-PsqlRead {
     Set-Content -LiteralPath $SqlFile -Value $Sql -Encoding UTF8
     $Result = Invoke-Psql -SqlFilePath $SqlFile -OperationName "read $Marker" -ReadOnly $true
     if ($Result.ExitCode -ne 0) {
+        if (Test-PsqlConnectionAmbiguous -Result $Result) {
+            throw [System.InvalidOperationException]::new("UNKNOWN_REMOTE_STATE")
+        }
         Fail 60 "Read-only remote query '$Marker' failed (psql exit $($Result.ExitCode))."
     }
     # Unary comma keeps zero/one-line results as real arrays through function return.
@@ -450,7 +945,12 @@ $ContractDefinitions["20260806144716"] = [pscustomobject]@{
         "nf_service_role_policy", "nf_internal_select_policy",
         "qo_authenticated_select", "qo_authenticated_no_insert", "qo_anon_no_select", "qo_service_role_insert",
         "qli_authenticated_select", "qli_authenticated_no_insert", "qli_anon_no_select", "qli_service_role_insert",
-        "nf_authenticated_select", "nf_authenticated_no_insert", "nf_anon_no_select", "nf_service_role_insert"
+        "nf_authenticated_select", "nf_authenticated_no_insert", "nf_anon_no_select", "nf_service_role_insert",
+        "qo_policy_count", "qli_policy_count", "nf_policy_count",
+        "qo_no_anon_or_public_policies", "qli_no_anon_or_public_policies", "nf_no_anon_or_public_policies",
+        "qo_no_extra_permissive_policies", "qli_no_extra_permissive_policies", "nf_no_extra_permissive_policies",
+        "qo_service_role_policy_semantics", "qli_service_role_policy_semantics", "nf_service_role_policy_semantics",
+        "qo_internal_select_policy_semantics", "qli_internal_select_policy_semantics", "nf_internal_select_policy_semantics"
     )
     Sql = @"
 SELECT 'qo_table=' || CASE WHEN to_regclass('public.quote_observations') IS NOT NULL THEN 'OK' ELSE 'FAIL' END
@@ -476,7 +976,22 @@ UNION ALL SELECT 'qli_service_role_insert=' || CASE WHEN to_regclass('public.quo
 UNION ALL SELECT 'nf_authenticated_select=' || CASE WHEN to_regclass('public.normalization_failures') IS NULL THEN 'FAIL' WHEN has_table_privilege('authenticated', 'public.normalization_failures', 'SELECT') THEN 'OK' ELSE 'FAIL' END
 UNION ALL SELECT 'nf_authenticated_no_insert=' || CASE WHEN to_regclass('public.normalization_failures') IS NULL THEN 'FAIL' WHEN NOT has_table_privilege('authenticated', 'public.normalization_failures', 'INSERT') THEN 'OK' ELSE 'FAIL' END
 UNION ALL SELECT 'nf_anon_no_select=' || CASE WHEN to_regclass('public.normalization_failures') IS NULL THEN 'FAIL' WHEN NOT has_table_privilege('anon', 'public.normalization_failures', 'SELECT') THEN 'OK' ELSE 'FAIL' END
-UNION ALL SELECT 'nf_service_role_insert=' || CASE WHEN to_regclass('public.normalization_failures') IS NULL THEN 'FAIL' WHEN has_table_privilege('service_role', 'public.normalization_failures', 'INSERT') THEN 'OK' ELSE 'FAIL' END;
+UNION ALL SELECT 'nf_service_role_insert=' || CASE WHEN to_regclass('public.normalization_failures') IS NULL THEN 'FAIL' WHEN has_table_privilege('service_role', 'public.normalization_failures', 'INSERT') THEN 'OK' ELSE 'FAIL' END
+UNION ALL SELECT 'qo_policy_count=' || CASE WHEN (SELECT count(*)::int FROM pg_policies WHERE schemaname = 'public' AND tablename = 'quote_observations') = 2 THEN 'OK' ELSE 'FAIL' END
+UNION ALL SELECT 'qli_policy_count=' || CASE WHEN (SELECT count(*)::int FROM pg_policies WHERE schemaname = 'public' AND tablename = 'quote_line_items') = 2 THEN 'OK' ELSE 'FAIL' END
+UNION ALL SELECT 'nf_policy_count=' || CASE WHEN (SELECT count(*)::int FROM pg_policies WHERE schemaname = 'public' AND tablename = 'normalization_failures') = 2 THEN 'OK' ELSE 'FAIL' END
+UNION ALL SELECT 'qo_no_anon_or_public_policies=' || CASE WHEN NOT EXISTS (SELECT 1 FROM pg_policies p, unnest(p.roles) AS role_name WHERE p.schemaname = 'public' AND p.tablename = 'quote_observations' AND role_name IN ('anon', 'public')) THEN 'OK' ELSE 'FAIL' END
+UNION ALL SELECT 'qli_no_anon_or_public_policies=' || CASE WHEN NOT EXISTS (SELECT 1 FROM pg_policies p, unnest(p.roles) AS role_name WHERE p.schemaname = 'public' AND p.tablename = 'quote_line_items' AND role_name IN ('anon', 'public')) THEN 'OK' ELSE 'FAIL' END
+UNION ALL SELECT 'nf_no_anon_or_public_policies=' || CASE WHEN NOT EXISTS (SELECT 1 FROM pg_policies p, unnest(p.roles) AS role_name WHERE p.schemaname = 'public' AND p.tablename = 'normalization_failures' AND role_name IN ('anon', 'public')) THEN 'OK' ELSE 'FAIL' END
+UNION ALL SELECT 'qo_no_extra_permissive_policies=' || CASE WHEN NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'quote_observations' AND permissive AND policyname NOT IN ('quote_observations_service_role_all', 'quote_observations_select_internal')) THEN 'OK' ELSE 'FAIL' END
+UNION ALL SELECT 'qli_no_extra_permissive_policies=' || CASE WHEN NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'quote_line_items' AND permissive AND policyname NOT IN ('quote_line_items_service_role_all', 'quote_line_items_select_internal')) THEN 'OK' ELSE 'FAIL' END
+UNION ALL SELECT 'nf_no_extra_permissive_policies=' || CASE WHEN NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'normalization_failures' AND permissive AND policyname NOT IN ('normalization_failures_service_role_all', 'normalization_failures_select_internal')) THEN 'OK' ELSE 'FAIL' END
+UNION ALL SELECT 'qo_service_role_policy_semantics=' || CASE WHEN EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'quote_observations' AND policyname = 'quote_observations_service_role_all' AND cmd = 'ALL' AND 'service_role' = ANY (roles) AND permissive AND qual = 'true' AND with_check = 'true') THEN 'OK' ELSE 'FAIL' END
+UNION ALL SELECT 'qli_service_role_policy_semantics=' || CASE WHEN EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'quote_line_items' AND policyname = 'quote_line_items_service_role_all' AND cmd = 'ALL' AND 'service_role' = ANY (roles) AND permissive AND qual = 'true' AND with_check = 'true') THEN 'OK' ELSE 'FAIL' END
+UNION ALL SELECT 'nf_service_role_policy_semantics=' || CASE WHEN EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'normalization_failures' AND policyname = 'normalization_failures_service_role_all' AND cmd = 'ALL' AND 'service_role' = ANY (roles) AND permissive AND qual = 'true' AND with_check = 'true') THEN 'OK' ELSE 'FAIL' END
+UNION ALL SELECT 'qo_internal_select_policy_semantics=' || CASE WHEN EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'quote_observations' AND policyname = 'quote_observations_select_internal' AND cmd = 'SELECT' AND 'authenticated' = ANY (roles) AND permissive AND qual = '((SELECT public.is_internal_operator()))' AND with_check IS NULL) THEN 'OK' ELSE 'FAIL' END
+UNION ALL SELECT 'qli_internal_select_policy_semantics=' || CASE WHEN EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'quote_line_items' AND policyname = 'quote_line_items_select_internal' AND cmd = 'SELECT' AND 'authenticated' = ANY (roles) AND permissive AND qual = '((SELECT public.is_internal_operator()))' AND with_check IS NULL) THEN 'OK' ELSE 'FAIL' END
+UNION ALL SELECT 'nf_internal_select_policy_semantics=' || CASE WHEN EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'normalization_failures' AND policyname = 'normalization_failures_select_internal' AND cmd = 'SELECT' AND 'authenticated' = ANY (roles) AND permissive AND qual = '((SELECT public.is_internal_operator()))' AND with_check IS NULL) THEN 'OK' ELSE 'FAIL' END;
 "@
 }
 
@@ -543,17 +1058,25 @@ $ContractDefinitions["20260808180000"] = [pscustomobject]@{
         "outcome_integrity_fn_exists",
         "outcome_integrity_no_stale_column_reference",
         "outcome_integrity_uses_opportunity_scan_session",
+        "outcome_integrity_security_definer",
+        "outcome_integrity_search_path_public",
+        "outcome_integrity_internal_operator_gate",
         "outcome_integrity_authenticated_execute",
         "outcome_integrity_service_role_execute",
-        "outcome_integrity_anon_no_execute"
+        "outcome_integrity_anon_no_execute",
+        "outcome_integrity_public_no_execute"
     )
     Sql = @"
 SELECT 'outcome_integrity_fn_exists=' || CASE WHEN to_regprocedure('public.admin_contractor_outcome_integrity()') IS NOT NULL THEN 'OK' ELSE 'FAIL' END
 UNION ALL SELECT 'outcome_integrity_no_stale_column_reference=' || CASE WHEN to_regprocedure('public.admin_contractor_outcome_integrity()') IS NULL THEN 'FAIL' WHEN pg_get_functiondef(to_regprocedure('public.admin_contractor_outcome_integrity()')) NOT LIKE '%latest_scan_session_id%' THEN 'OK' ELSE 'FAIL' END
 UNION ALL SELECT 'outcome_integrity_uses_opportunity_scan_session=' || CASE WHEN to_regprocedure('public.admin_contractor_outcome_integrity()') IS NULL THEN 'FAIL' WHEN pg_get_functiondef(to_regprocedure('public.admin_contractor_outcome_integrity()')) LIKE '%opp.scan_session_id%' THEN 'OK' ELSE 'FAIL' END
+UNION ALL SELECT 'outcome_integrity_security_definer=' || CASE WHEN to_regprocedure('public.admin_contractor_outcome_integrity()') IS NULL THEN 'FAIL' WHEN (SELECT p.prosecdef FROM pg_proc p WHERE p.oid = to_regprocedure('public.admin_contractor_outcome_integrity()')) THEN 'OK' ELSE 'FAIL' END
+UNION ALL SELECT 'outcome_integrity_search_path_public=' || CASE WHEN to_regprocedure('public.admin_contractor_outcome_integrity()') IS NULL THEN 'FAIL' WHEN pg_get_functiondef(to_regprocedure('public.admin_contractor_outcome_integrity()')) LIKE '%SET search_path = public%' THEN 'OK' ELSE 'FAIL' END
+UNION ALL SELECT 'outcome_integrity_internal_operator_gate=' || CASE WHEN to_regprocedure('public.admin_contractor_outcome_integrity()') IS NULL THEN 'FAIL' WHEN pg_get_functiondef(to_regprocedure('public.admin_contractor_outcome_integrity()')) LIKE '%public.is_internal_operator()%' THEN 'OK' ELSE 'FAIL' END
 UNION ALL SELECT 'outcome_integrity_authenticated_execute=' || CASE WHEN to_regprocedure('public.admin_contractor_outcome_integrity()') IS NULL THEN 'FAIL' WHEN has_function_privilege('authenticated', to_regprocedure('public.admin_contractor_outcome_integrity()'), 'EXECUTE') THEN 'OK' ELSE 'FAIL' END
 UNION ALL SELECT 'outcome_integrity_service_role_execute=' || CASE WHEN to_regprocedure('public.admin_contractor_outcome_integrity()') IS NULL THEN 'FAIL' WHEN has_function_privilege('service_role', to_regprocedure('public.admin_contractor_outcome_integrity()'), 'EXECUTE') THEN 'OK' ELSE 'FAIL' END
-UNION ALL SELECT 'outcome_integrity_anon_no_execute=' || CASE WHEN to_regprocedure('public.admin_contractor_outcome_integrity()') IS NULL THEN 'FAIL' WHEN NOT has_function_privilege('anon', to_regprocedure('public.admin_contractor_outcome_integrity()'), 'EXECUTE') THEN 'OK' ELSE 'FAIL' END;
+UNION ALL SELECT 'outcome_integrity_anon_no_execute=' || CASE WHEN to_regprocedure('public.admin_contractor_outcome_integrity()') IS NULL THEN 'FAIL' WHEN NOT has_function_privilege('anon', to_regprocedure('public.admin_contractor_outcome_integrity()'), 'EXECUTE') THEN 'OK' ELSE 'FAIL' END
+UNION ALL SELECT 'outcome_integrity_public_no_execute=' || CASE WHEN to_regprocedure('public.admin_contractor_outcome_integrity()') IS NULL THEN 'FAIL' WHEN NOT has_function_privilege('PUBLIC', to_regprocedure('public.admin_contractor_outcome_integrity()'), 'EXECUTE') THEN 'OK' ELSE 'FAIL' END;
 "@
 }
 
@@ -723,18 +1246,8 @@ function Write-ReleaseEvidence {
     if ([string]::IsNullOrWhiteSpace($EvidencePath)) {
         return
     }
+    Test-EvidencePathValid -Worktree $Worktree -PathValue $EvidencePath
     $EvidenceFullPath = [System.IO.Path]::GetFullPath($EvidencePath)
-    if (Test-PathWithinRoot -Root $Worktree -Candidate $EvidenceFullPath) {
-        Fail 95 "EvidencePath must be outside the clean release worktree."
-    }
-    $PrimaryRepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-    if (Test-PathWithinRoot -Root $PrimaryRepoRoot -Candidate $EvidenceFullPath) {
-        Fail 95 "EvidencePath must be outside the primary repository."
-    }
-    $EvidenceParent = Split-Path -Parent $EvidenceFullPath
-    if ([string]::IsNullOrWhiteSpace($EvidenceParent) -or -not (Test-Path -LiteralPath $EvidenceParent -PathType Container)) {
-        Fail 95 "EvidencePath parent directory must already exist."
-    }
     Set-Content -LiteralPath $EvidenceFullPath -Value $EvidenceJson -Encoding UTF8
     Write-Host "Redacted evidence written to: $EvidenceFullPath"
 }
@@ -744,7 +1257,10 @@ function Write-ReleaseEvidence {
 # ===========================================================================
 
 $RunStartedUtc = (Get-Date).ToUniversalTime().ToString("o")
+$EvidenceBase = $null
+$ResolvedWorktree = $null
 
+try {
 Write-Host ""
 Write-Host "Target: LIVE_ACTIVE Supabase project $ApprovedRef (current live WindowMan database)."
 Write-Host "Scope:  exactly four PR 173 migrations; nothing else is discovered, applied, or repaired."
@@ -774,6 +1290,17 @@ $RawDbUrl = $RawDbUrl.Trim()
 $script:DbConnection = ConvertFrom-ApprovedDatabaseUrl -Value $RawDbUrl
 $RawDbUrl = $null
 
+if (-not [string]::IsNullOrWhiteSpace($EvidencePath)) {
+    if ([string]::IsNullOrWhiteSpace($ReleaseWorktree) -or -not (Test-Path -LiteralPath $ReleaseWorktree -PathType Container)) {
+        Fail 95 "EvidencePath was supplied but ReleaseWorktree is not yet validated."
+    }
+    $EarlyWorktree = (Resolve-Path -LiteralPath $ReleaseWorktree).Path
+    Test-EvidencePathValid -Worktree $EarlyWorktree -PathValue $EvidencePath
+}
+
+# TLS must be valid before any database child process is started.
+[void](Resolve-TlsConfiguration)
+
 # --- Gate 2: exact-application mechanism availability -----------------------
 
 [void](Resolve-PsqlInvocation)
@@ -785,9 +1312,6 @@ if ([string]::IsNullOrWhiteSpace($ReleaseWorktree) -or -not (Test-Path -LiteralP
 }
 if ([string]::IsNullOrWhiteSpace($ReleaseCommit) -or $ReleaseCommit -cnotmatch '^[0-9a-f]{40}$') {
     Fail 50 "ReleaseCommit must be an exact lowercase 40-character commit SHA."
-}
-if (-not [string]::IsNullOrWhiteSpace($ApprovedReleaseCommit) -and $ReleaseCommit -cne $ApprovedReleaseCommit) {
-    Fail 50 "ReleaseCommit must equal the pinned approved release commit '$ApprovedReleaseCommit'."
 }
 
 $ResolvedWorktree = (Resolve-Path -LiteralPath $ReleaseWorktree).Path
@@ -847,10 +1371,9 @@ if ($HeadSha -cne $ReleaseCommit) {
     Fail 55 "Refusing release: HEAD '$HeadSha' does not equal requested commit '$ReleaseCommit'."
 }
 
-& git -C $CanonicalRepoRoot merge-base --is-ancestor $ReleaseCommit $RequiredMergeBranch 2>$null | Out-Null
-if ($LASTEXITCODE -ne 0) {
-    Fail 56 "Refusing release: commit '$ReleaseCommit' is not merged into '$RequiredMergeBranch'."
-}
+$CanonicalRepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+Assert-ReleaseCommitOnFetchedMergeBranch -RepoRoot $CanonicalRepoRoot -Commit $ReleaseCommit
+Test-ReleaseScriptIdentity -Worktree $ResolvedWorktree -Commit $ReleaseCommit -ScriptPath $script:RunningScriptPath
 
 $Dirty = Invoke-GitText -Worktree $ResolvedWorktree `
     -GitArgs @("status", "--porcelain=v1", "--untracked-files=all") `
@@ -869,7 +1392,7 @@ if ($LinkedRef -cne $ApprovedRef) {
     Fail 24 "Refusing release: linked project '$LinkedRef' does not match LIVE_ACTIVE '$ApprovedRef'."
 }
 
-# --- Gate 4: exact allowlisted files, byte-identical with the release commit ---
+# --- Gate 4: immutable allowlisted payloads materialized from Git objects ---
 
 $MigrationFileFacts = New-Object System.Collections.Generic.List[object]
 foreach ($Migration in $MigrationAllowlist) {
@@ -878,25 +1401,8 @@ foreach ($Migration in $MigrationAllowlist) {
     if (-not (Test-Path -LiteralPath $AbsolutePath -PathType Leaf)) {
         Fail 58 "Refusing release: migration file is missing from the release worktree: '$RelativePath'."
     }
-    $CommittedBlob = Invoke-GitText -Worktree $ResolvedWorktree `
-        -GitArgs @("rev-parse", "$ReleaseCommit`:$RelativePath") `
-        -ExitCode 58 `
-        -FailureMessage "Refusing release: '$RelativePath' is absent from release commit $ReleaseCommit."
-    $WorkingBlob = Invoke-GitText -Worktree $ResolvedWorktree `
-        -GitArgs @("hash-object", "--", $AbsolutePath) `
-        -ExitCode 59 `
-        -FailureMessage "Unable to hash migration file '$RelativePath'."
-    if ($WorkingBlob -ne $CommittedBlob) {
-        Fail 59 "Refusing release: working file hash differs from release commit for '$RelativePath'."
-    }
-    $Sha256 = (Get-FileHash -LiteralPath $AbsolutePath -Algorithm SHA256).Hash.ToLowerInvariant()
-    [void]$MigrationFileFacts.Add([pscustomobject]@{
-        Version = $Migration.Version
-        FileName = $Migration.FileName
-        AbsolutePath = $AbsolutePath
-        GitBlob = $CommittedBlob
-        Sha256 = $Sha256
-    })
+    $Fact = New-MaterializedMigrationPayload -Worktree $ResolvedWorktree -Commit $ReleaseCommit -Migration $Migration
+    [void]$MigrationFileFacts.Add($Fact)
 }
 
 # --- Gate 5: remote ledger state and partial-state planning ------------------
@@ -964,7 +1470,7 @@ $MissingVersions = @($PlannedMigrations | ForEach-Object { $_.Version })
 Write-Host "=== PR173 FOUR-MIGRATION RELEASE PLAN ==="
 Write-Host "Target project:        LIVE_ACTIVE $ApprovedRef"
 Write-Host "Linked project:        $LinkedRef (matches LIVE_ACTIVE)"
-Write-Host "Repository commit:     $ReleaseCommit (merged into $RequiredMergeBranch; clean detached worktree)"
+Write-Host "Repository commit:     $ReleaseCommit (contained in $RemoteMergeRef; clean detached worktree)"
 Write-Host "Release worktree:      $ResolvedWorktree"
 Write-Host "psql source:           $((Resolve-PsqlInvocation).SourceLabel)"
 Write-Host "Allowlisted migrations (hardcoded; order fixed):"
@@ -1008,7 +1514,7 @@ $EvidenceBase = [ordered]@{
     linked_project_ref = $LinkedRef
     release_commit = $ReleaseCommit
     release_worktree = $ResolvedWorktree
-    merged_into = $RequiredMergeBranch
+    merged_into = $RemoteMergeRef
     psql_source = (Resolve-PsqlInvocation).SourceLabel
     migrations = @($MigrationFileFacts | ForEach-Object {
         [ordered]@{
@@ -1032,7 +1538,7 @@ if ($DryRun) {
     Write-ReleaseEvidence -Evidence $EvidenceBase -Worktree $ResolvedWorktree
     Write-Host ""
     Write-Host "DRY RUN - ZERO SQL MUTATION, ZERO LEDGER MUTATION PERFORMED."
-    exit 0
+    return
 }
 
 if ($PlannedMigrations.Count -eq 0) {
@@ -1042,8 +1548,13 @@ if ($PlannedMigrations.Count -eq 0) {
     Write-Host ""
     Write-Host "All four PR 173 migrations are already recorded and their installed contracts verified."
     Write-Host "ZERO SQL MUTATION, ZERO LEDGER MUTATION PERFORMED."
-    exit 0
+    return
 }
+
+$PlanSnapshot = New-ReleasePlanSnapshot `
+    -RecordedAllowlist @($RecordedAllowlist) `
+    -BeforeSentinelState @($BeforeSentinelState) `
+    -PlannedMigrations @($PlannedMigrations.ToArray())
 
 # --- Gate 6: explicit human confirmation -------------------------------------
 
@@ -1054,127 +1565,142 @@ if ($Typed -cne $ConfirmPhrase) {
     Fail 70 "Release aborted: confirmation phrase mismatch. Zero mutations performed."
 }
 
-# --- Apply and record, one controlled unit per migration ---------------------
+Test-ReleaseScriptIdentity -Worktree $ResolvedWorktree -Commit $ReleaseCommit -ScriptPath $script:RunningScriptPath
+Assert-ReleaseCommitOnFetchedMergeBranch -RepoRoot $CanonicalRepoRoot -Commit $ReleaseCommit
+
+$MigrationFileFacts = New-Object System.Collections.Generic.List[object]
+foreach ($Migration in $MigrationAllowlist) {
+    [void]$MigrationFileFacts.Add((New-MaterializedMigrationPayload -Worktree $ResolvedWorktree -Commit $ReleaseCommit -Migration $Migration))
+}
+
+$RecheckSqlFile = New-PostConfirmationRecheckSqlFile `
+    -PlanSnapshot $PlanSnapshot `
+    -AllowlistVersionsList @($AllowlistVersions) `
+    -UntouchedSentinelVersionsList @($UntouchedSentinelVersions)
+
+$SessionSqlFiles = New-Object System.Collections.Generic.List[string]
+[void]$SessionSqlFiles.Add($RecheckSqlFile)
 
 $ApplyResults = New-Object System.Collections.Generic.List[object]
 foreach ($Planned in $PlannedMigrations) {
     $Fact = $MigrationFileFacts | Where-Object { $_.Version -eq $Planned.Version }
     Write-Host ""
-    Write-Host "Applying $($Planned.FileName) ..."
+    Write-Host "Queuing $($Planned.FileName) for locked mutation session ..."
     $StepStartedUtc = (Get-Date).ToUniversalTime().ToString("o")
 
-    # 1. Apply the migration SQL. Files that manage their own transaction run as-is;
-    #    the others run inside a psql --single-transaction wrapper.
-    $ApplyResult = Invoke-Psql `
-        -SqlFilePath $Fact.AbsolutePath `
-        -OperationName "apply $($Planned.Version)" `
-        -ReadOnly $false `
-        -SingleTransaction (-not $Planned.WrapsOwnTransaction)
-    if ($ApplyResult.ExitCode -ne 0) {
-        [void]$ApplyResults.Add([ordered]@{
-            version = $Planned.Version
-            applied = $false
-            validated = $false
-            recorded = $false
-            started_utc = $StepStartedUtc
-            finished_utc = (Get-Date).ToUniversalTime().ToString("o")
-        })
-        $EvidenceBase["applied_steps"] = $ApplyResults.ToArray()
-        $EvidenceBase["result"] = "APPLY_FAILED_STOPPED"
-        $EvidenceBase["run_finished_utc"] = (Get-Date).ToUniversalTime().ToString("o")
-        Write-ReleaseEvidence -Evidence $EvidenceBase -Worktree $ResolvedWorktree
-        Fail 80 ("Migration $($Planned.Version) SQL failed (psql exit $($ApplyResult.ExitCode)). " +
-            "STOPPED before recording the ledger and before any later migration. " +
-            "No automatic rollback was attempted; inspect the remote state manually.")
+    $ApplySqlPath = $Fact.AbsolutePath
+    if (-not $Planned.WrapsOwnTransaction) {
+        $ApplySqlPath = Join-Path (Get-SessionTempDirectory) ("wm-pr173-apply-wrap-" + $Planned.Version + ".sql")
+        $Payload = Get-Content -LiteralPath $Fact.AbsolutePath -Raw
+        Set-Content -LiteralPath $ApplySqlPath -Value ("BEGIN;`n" + $Payload + "`nCOMMIT;") -Encoding UTF8
     }
+    [void]$SessionSqlFiles.Add($ApplySqlPath)
+    [void]$SessionSqlFiles.Add((New-ContractAssertionSqlFile -Version $Planned.Version -MarkerSuffix "postapply"))
 
-    # 2. Validate success against the migration's installed contract before recording.
-    $ContractResult = Test-InstalledContract -Version $Planned.Version -MarkerSuffix "postapply"
-    if (-not $ContractResult.Passed) {
-        [void]$ApplyResults.Add([ordered]@{
-            version = $Planned.Version
-            applied = $true
-            validated = $false
-            recorded = $false
-            failed_checks = @($ContractResult.Failures)
-            started_utc = $StepStartedUtc
-            finished_utc = (Get-Date).ToUniversalTime().ToString("o")
-        })
+    $FileContent = Get-Content -LiteralPath $Fact.AbsolutePath -Raw
+    $RecordSql = New-LedgerRecordSql -Migration $Planned -FileContent $FileContent -LedgerColumns $LedgerColumns
+    $RecordFile = Join-Path (Get-SessionTempDirectory) ("wm-pr173-record-" + $Planned.Version + ".sql")
+    Set-Content -LiteralPath $RecordFile -Value ($RecordSql + "`n") -Encoding UTF8
+    [void]$SessionSqlFiles.Add($RecordFile)
+
+    $VerifySqlFile = Join-Path (Get-SessionTempDirectory) ("wm-pr173-record-verify-" + $Planned.Version + ".sql")
+    $VerifySql = @"
+DO `$`$
+BEGIN
+  IF (SELECT count(*)::int FROM $LedgerTable WHERE version = '$($Planned.Version)') <> 1 THEN
+    RAISE EXCEPTION 'LEDGER_RECORD_VERIFY_FAILED';
+  END IF;
+END `$`$;
+"@
+    Set-Content -LiteralPath $VerifySqlFile -Value $VerifySql -Encoding UTF8
+    [void]$SessionSqlFiles.Add($VerifySqlFile)
+
+    [void]$ApplyResults.Add([ordered]@{
+        version = $Planned.Version
+        started_utc = $StepStartedUtc
+    })
+}
+
+Write-Host ""
+Write-Host "Starting advisory-locked mutation session (one PostgreSQL session) ..."
+$SessionResult = Invoke-PsqlSessionChain `
+    -OperationName "advisory-locked mutation session" `
+    -InlineCommands @(Get-AdvisoryLockInlineCommand) `
+    -SqlFilePaths @($SessionSqlFiles.ToArray()) `
+    -ReadOnly $false
+
+if ($SessionResult.ExitCode -ne 0) {
+    if (Test-PsqlFailureIndicatesReleaseAlreadyRunning -Result $SessionResult) {
+        Fail 71 "RELEASE_ALREADY_RUNNING: another release session holds the PR173 advisory lock. Zero mutations performed."
+    }
+    if (Test-PsqlFailureIndicatesRemoteStateChanged -Result $SessionResult) {
+        Fail 72 "REMOTE_STATE_CHANGED_AFTER_CONFIRMATION: remote ledger state drifted after operator confirmation. Zero migration applications performed."
+    }
+    if (Test-PsqlConnectionAmbiguous -Result $SessionResult) {
+        Emit-UnknownRemoteStateEvidence -EvidenceBase $EvidenceBase -Worktree $ResolvedWorktree `
+            -Detail "Locked mutation session failed with an ambiguous connection outcome."
+    }
+    $CombinedSessionError = ($SessionResult.Stderr + "`n" + $SessionResult.Stdout)
+    if ($CombinedSessionError -like "*CONTRACT_VALIDATION_FAILED*") {
         $EvidenceBase["applied_steps"] = $ApplyResults.ToArray()
         $EvidenceBase["result"] = "VALIDATION_FAILED_STOPPED_LEDGER_NOT_WRITTEN"
         $EvidenceBase["run_finished_utc"] = (Get-Date).ToUniversalTime().ToString("o")
         Write-ReleaseEvidence -Evidence $EvidenceBase -Worktree $ResolvedWorktree
-        Fail 81 ("Migration $($Planned.Version) applied but its installed contract failed validation " +
-            "(failed checks: $($ContractResult.Failures -join ', ')). The version was NOT recorded in the " +
-            "ledger. STOPPED. Manual reconciliation required.")
+        Fail 81 "Migration session failed contract validation before ledger record. The version was NOT recorded in the ledger. STOPPED."
     }
-
-    # 3. Record exactly this version in the ledger.
-    $FileContent = Get-Content -LiteralPath $Fact.AbsolutePath -Raw
-    $RecordSql = New-LedgerRecordSql -Migration $Planned -FileContent $FileContent -LedgerColumns $LedgerColumns
-    $RecordFile = Join-Path (Get-SessionTempDirectory) ("wm-pr173-record-" + $Planned.Version + ".sql")
-    Set-Content -LiteralPath $RecordFile -Value $RecordSql -Encoding UTF8
-    $RecordResult = Invoke-Psql `
-        -SqlFilePath $RecordFile `
-        -OperationName "record $($Planned.Version)" `
-        -ReadOnly $false `
-        -SingleTransaction $true
-    if ($RecordResult.ExitCode -ne 0) {
-        [void]$ApplyResults.Add([ordered]@{
-            version = $Planned.Version
-            applied = $true
-            validated = $true
-            recorded = $false
-            started_utc = $StepStartedUtc
-            finished_utc = (Get-Date).ToUniversalTime().ToString("o")
-        })
-        $EvidenceBase["applied_steps"] = $ApplyResults.ToArray()
-        $EvidenceBase["result"] = "LEDGER_RECORD_FAILED_STOPPED"
-        $EvidenceBase["run_finished_utc"] = (Get-Date).ToUniversalTime().ToString("o")
-        Write-ReleaseEvidence -Evidence $EvidenceBase -Worktree $ResolvedWorktree
-        Fail 82 ("Migration $($Planned.Version) SQL succeeded and validated, but recording the ledger row " +
-            "failed (psql exit $($RecordResult.ExitCode)). STOPPED before any later migration. The remote now " +
-            "has installed schema without its ledger row: reconcile manually before rerunning.")
-    }
-
-    # 4. Verify the ledger row landed before moving on.
-    $VerifyLines = Invoke-PsqlRead -Marker ("record-verify-" + $Planned.Version) -Sql @"
-SELECT count(*)::text FROM $LedgerTable WHERE version = '$($Planned.Version)';
-"@
-    if ($VerifyLines.Count -ne 1 -or $VerifyLines[0] -ne "1") {
-        [void]$ApplyResults.Add([ordered]@{
-            version = $Planned.Version
-            applied = $true
-            validated = $true
-            recorded = $false
-            started_utc = $StepStartedUtc
-            finished_utc = (Get-Date).ToUniversalTime().ToString("o")
-        })
+    if ($CombinedSessionError -like "*LEDGER_RECORD_VERIFY_FAILED*") {
         $EvidenceBase["applied_steps"] = $ApplyResults.ToArray()
         $EvidenceBase["result"] = "LEDGER_RECORD_UNVERIFIED_STOPPED"
         $EvidenceBase["run_finished_utc"] = (Get-Date).ToUniversalTime().ToString("o")
         Write-ReleaseEvidence -Evidence $EvidenceBase -Worktree $ResolvedWorktree
-        Fail 83 ("Ledger verification for $($Planned.Version) returned '$($VerifyLines -join '; ')' instead of 1. " +
-            "STOPPED in an ambiguous state; inspect the remote ledger manually.")
+        Fail 83 "Ledger verification during the locked session did not observe exactly one row. STOPPED in an ambiguous state."
     }
+    if ($CombinedSessionError -like "*mock psql: simulated ledger record failure*") {
+        $EvidenceBase["applied_steps"] = $ApplyResults.ToArray()
+        $EvidenceBase["result"] = "LEDGER_RECORD_FAILED_STOPPED"
+        $EvidenceBase["run_finished_utc"] = (Get-Date).ToUniversalTime().ToString("o")
+        Write-ReleaseEvidence -Evidence $EvidenceBase -Worktree $ResolvedWorktree
+        Fail 82 ("Migration session failed while recording a ledger row (psql exit $($SessionResult.ExitCode)). STOPPED. " +
+            "reconcile manually before rerunning.")
+    }
+    $EvidenceBase["applied_steps"] = $ApplyResults.ToArray()
+    $EvidenceBase["result"] = "MUTATION_SESSION_FAILED"
+    $EvidenceBase["run_finished_utc"] = (Get-Date).ToUniversalTime().ToString("o")
+    Write-ReleaseEvidence -Evidence $EvidenceBase -Worktree $ResolvedWorktree
+    Fail 80 ("Locked mutation session failed (psql exit $($SessionResult.ExitCode)). " +
+        "No automatic rollback was attempted; inspect the remote state manually.")
+}
 
-    Write-Host "  applied -> validated -> recorded $($Planned.Version)"
-    [void]$ApplyResults.Add([ordered]@{
-        version = $Planned.Version
+for ($Index = 0; $Index -lt $ApplyResults.Count; $Index++) {
+    $Step = [ordered]@{
+        version = $ApplyResults[$Index].version
         applied = $true
         validated = $true
         recorded = $true
-        started_utc = $StepStartedUtc
+        started_utc = $ApplyResults[$Index].started_utc
         finished_utc = (Get-Date).ToUniversalTime().ToString("o")
-    })
+    }
+    $ApplyResults[$Index] = $Step
+    Write-Host "  applied -> validated -> recorded $($Step.version)"
 }
 
 # --- Final verification (metadata only) ---------------------------------------
 
 Write-Host ""
 Write-Host "Final verification ..."
+try {
 $AfterLedgerState = Get-RemoteLedgerState -Marker "after"
 $AfterSentinelState = @($AfterLedgerState | Where-Object { $UntouchedSentinelVersions -contains $_ } | Sort-Object)
+}
+catch {
+    if ($_.Exception.Message -eq "UNKNOWN_REMOTE_STATE") {
+        Emit-UnknownRemoteStateEvidence -EvidenceBase $EvidenceBase -Worktree $ResolvedWorktree `
+            -Detail "Final verification could not read remote ledger state."
+    }
+    else {
+        throw
+    }
+}
 
 $VerificationFailures = New-Object System.Collections.Generic.List[string]
 foreach ($Version in $AllowlistVersions) {
@@ -1214,12 +1740,23 @@ $EvidenceBase["verification_verdict"] = "ALL_CHECKS_PASSED"
 $EvidenceBase["run_finished_utc"] = (Get-Date).ToUniversalTime().ToString("o")
 Write-ReleaseEvidence -Evidence $EvidenceBase -Worktree $ResolvedWorktree
 
-if ($script:SessionTempDirectory -and (Test-Path -LiteralPath $script:SessionTempDirectory)) {
-    Remove-Item -LiteralPath $script:SessionTempDirectory -Recurse -Force -ErrorAction SilentlyContinue
-}
-
-Write-Host ""
 Write-Host "PR 173 four-migration release complete and verified on LIVE_ACTIVE."
 Write-Host "Next (separately approved): deploy scan-quote, send-contractor-handoff, dial-lead through the"
 Write-Host "guarded Sprint 6A wrapper mode, then run the narrow smoke tests."
+}
+catch {
+    if ($EvidenceBase) {
+        $EvidenceBase["result"] = "UNEXPECTED_RELEASE_CONTROLLER_FAILURE"
+        $EvidenceBase["unexpected_error"] = $_.Exception.Message
+        $EvidenceBase["run_finished_utc"] = (Get-Date).ToUniversalTime().ToString("o")
+        if ($ResolvedWorktree) {
+            Write-ReleaseEvidence -Evidence $EvidenceBase -Worktree $ResolvedWorktree
+        }
+    }
+    throw
+}
+finally {
+    Remove-SessionTempArtifacts
+}
+
 exit 0

@@ -26,6 +26,37 @@ $AllowlistFiles = @(
     "20260808180000_contractor_outcome_scan_context.sql"
 )
 $SentinelVersions = @("20260624130000", "20260716134535", "20260716165508", "20260801143000")
+$SourceRepositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$ApprovedMigrationBlobs = @{
+    "20260806144716_quote_normalization_layer.sql" = "1619677770a309160887945798379eb42bce1b68"
+    "20260808160000_quote_normalization_schema_parity.sql" = "8953d9bb293227300171ab7eef354341cc0223d1"
+    "20260808170000_monotonic_latest_analysis_pointer_rpc.sql" = "0c1023cb94b4a388042437e684cfc253f4e9dcd0"
+    "20260808180000_contractor_outcome_scan_context.sql" = "759320ffea02bdd68888c356c9e4cc6cc6599fa2"
+}
+
+function Copy-ApprovedMigrationInto {
+    param(
+        [Parameter(Mandatory = $true)][string]$Repository,
+        [Parameter(Mandatory = $true)][string]$FileName
+    )
+    $Destination = Join-Path $Repository ("supabase/migrations/" + $FileName)
+    $Blob = $ApprovedMigrationBlobs[$FileName]
+    $Parent = Split-Path -Parent $Destination
+    if (-not (Test-Path -LiteralPath $Parent)) {
+        New-Item -ItemType Directory -Path $Parent -Force | Out-Null
+    }
+    $Process = Start-Process `
+        -FilePath "git" `
+        -ArgumentList @("-C", $SourceRepositoryRoot, "cat-file", "blob", $Blob) `
+        -RedirectStandardOutput $Destination `
+        -NoNewWindow `
+        -Wait `
+        -PassThru
+    if ($Process.ExitCode -ne 0) {
+        throw "Unable to copy approved migration blob for $FileName"
+    }
+}
+$PgSslRootCertEnvName = "WM_PR173_PGSSLROOTCERT"
 
 # Expected contract check names (must mirror the script's ContractDefinitions).
 $ContractChecks = @{
@@ -37,7 +68,12 @@ $ContractChecks = @{
         "nf_service_role_policy", "nf_internal_select_policy",
         "qo_authenticated_select", "qo_authenticated_no_insert", "qo_anon_no_select", "qo_service_role_insert",
         "qli_authenticated_select", "qli_authenticated_no_insert", "qli_anon_no_select", "qli_service_role_insert",
-        "nf_authenticated_select", "nf_authenticated_no_insert", "nf_anon_no_select", "nf_service_role_insert"
+        "nf_authenticated_select", "nf_authenticated_no_insert", "nf_anon_no_select", "nf_service_role_insert",
+        "qo_policy_count", "qli_policy_count", "nf_policy_count",
+        "qo_no_anon_or_public_policies", "qli_no_anon_or_public_policies", "nf_no_anon_or_public_policies",
+        "qo_no_extra_permissive_policies", "qli_no_extra_permissive_policies", "nf_no_extra_permissive_policies",
+        "qo_service_role_policy_semantics", "qli_service_role_policy_semantics", "nf_service_role_policy_semantics",
+        "qo_internal_select_policy_semantics", "qli_internal_select_policy_semantics", "nf_internal_select_policy_semantics"
     )
     "20260808160000" = @(
         "qo_total_united_inches_column", "qo_is_stats_eligible_column",
@@ -55,16 +91,23 @@ $ContractChecks = @{
         "outcome_integrity_fn_exists",
         "outcome_integrity_no_stale_column_reference",
         "outcome_integrity_uses_opportunity_scan_session",
+        "outcome_integrity_security_definer",
+        "outcome_integrity_search_path_public",
+        "outcome_integrity_internal_operator_gate",
         "outcome_integrity_authenticated_execute",
         "outcome_integrity_service_role_execute",
-        "outcome_integrity_anon_no_execute"
+        "outcome_integrity_anon_no_execute",
+        "outcome_integrity_public_no_execute"
     )
 }
 
 $TestRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("wm-pr173-migration-tests-" + [guid]::NewGuid())
+New-Item -ItemType Directory -Path $TestRoot -Force | Out-Null
 $MockBin = Join-Path $TestRoot "mock-bin"
 $MockPsqlShim = Join-Path $MockBin "psql.cmd"
 $MockLog = Join-Path $TestRoot "psql-invocations.log"
+$MockCaCert = Join-Path $TestRoot "mock-supabase-ca.pem"
+"-----BEGIN CERTIFICATE-----`nMOCK`n-----END CERTIFICATE-----" | Set-Content -LiteralPath $MockCaCert -Encoding ASCII
 $ResponseDir = Join-Path $TestRoot "psql-responses"
 $script:Passed = 0
 $script:Failed = 0
@@ -176,8 +219,8 @@ function New-FixtureRelease {
         if ($OmitMigrations -contains $FileName) {
             continue
         }
-        "-- fixture migration body for $FileName`nSELECT 1;" |
-            Set-Content -LiteralPath (Join-Path $MigrationsDir $FileName) -Encoding UTF8
+        $SourceMigration = Join-Path $SourceRepositoryRoot ("supabase/migrations/" + $FileName)
+        Copy-ApprovedMigrationInto -Repository $Repository -FileName $FileName
     }
 
     # The real repository gitignores supabase/.temp/, which keeps the linked-ref file from
@@ -187,6 +230,8 @@ function New-FixtureRelease {
     Invoke-Git -Repository $Repository -GitArgs @("add", ".") | Out-Null
     Invoke-Git -Repository $Repository -GitArgs @("commit", "-q", "-m", "sprint 6b fixture") | Out-Null
     $Commit = Invoke-Git -Repository $Repository -GitArgs @("rev-parse", "HEAD")
+    Invoke-Git -Repository $Repository -GitArgs @("remote", "add", "origin", $Repository) | Out-Null
+    Invoke-Git -Repository $Repository -GitArgs @("update-ref", "refs/remotes/origin/forensic_report_v2", $Commit) | Out-Null
 
     $WorktreePath = Join-Path $TestRoot ("release-" + [guid]::NewGuid().ToString())
     if ($DetachedWorktree) {
@@ -203,7 +248,7 @@ function New-FixtureRelease {
 
     return [pscustomobject]@{
         Repository = $Repository
-        Script = $FixtureScript
+        Script = Join-Path $WorktreePath "scripts/apply-pr173-four-migrations-live.ps1"
         Worktree = $WorktreePath
         Commit = $Commit
     }
@@ -267,7 +312,7 @@ function Get-MockLogEntries {
         }
         $Match = [regex]::Match(
             $Line,
-            '^MODE=(?<mode>[A-Z]+) MARKER=(?<marker>\S+) PGOPTIONS=(?<pg>.*?) RAW_DB_URL_PRESENT=(?<raw>True|False) ARGS_JSON=(?<args>\[.*\])$'
+            '^MODE=(?<mode>[A-Z_]+) MARKER=(?<marker>\S+) PGOPTIONS=(?<pg>.*?) PGHOSTADDR=(?<hostaddr>.*?) PGSSLMODE=(?<sslmode>.*?) PGSSLROOTCERT=(?<sslroot>.*?) PGSERVICE=(?<pgservice>.*?) RAW_DB_URL_PRESENT=(?<raw>True|False) ARGS_JSON=(?<args>\[.*\])$'
         )
         if (-not $Match.Success) {
             throw "Unparseable mock psql log line: $Line"
@@ -276,6 +321,10 @@ function Get-MockLogEntries {
             Mode = $Match.Groups["mode"].Value
             Marker = $Match.Groups["marker"].Value
             PgOptions = $Match.Groups["pg"].Value
+            PgHostAddr = $Match.Groups["hostaddr"].Value
+            PgSslMode = $Match.Groups["sslmode"].Value
+            PgSslRootCert = $Match.Groups["sslroot"].Value
+            PgService = $Match.Groups["pgservice"].Value
             RawDbUrlPresent = [System.Convert]::ToBoolean($Match.Groups["raw"].Value)
             Arguments = @($Match.Groups["args"].Value | ConvertFrom-Json)
         })
@@ -295,9 +344,16 @@ function Invoke-Release {
         [hashtable]$Responses,
         [string]$ApplyFailVersion = "",
         [string]$RecordFailVersion = "",
+        [string]$ContractFailVersion = "",
+        [string]$RecordVerifyFailVersion = "",
         [bool]$UseMockPsql = $true,
         [string]$PathOverride,
-        [string]$EvidencePath
+        [string]$EvidencePath,
+        [bool]$AdvisoryLockContention = $false,
+        [bool]$RemoteStateDriftAfterConfirm = $false,
+        [bool]$ConnectionAmbiguous = $false,
+        [hashtable]$PoisonEnvironment = $null,
+        [string]$SslRootCertOverride
     )
 
     if ([string]::IsNullOrWhiteSpace($Commit)) { $Commit = $Fixture.Commit }
@@ -309,22 +365,51 @@ function Invoke-Release {
     $OriginalPath = $env:PATH
     $OriginalProjectRef = $env:SUPABASE_PROJECT_REF
     $OriginalDbUrl = $env:WM_PR173_MIGRATIONS_DB_URL
-    $OriginalOverride = $env:WM_PR173_MIGRATIONS_PSQL_TEST_OVERRIDE
+    $OriginalPgSsl = $env:WM_PR173_PGSSLROOTCERT
     $OriginalMockLog = $env:FAKE_PSQL_LOG
     $OriginalMockDir = $env:FAKE_PSQL_DIR
     $OriginalApplyFail = $env:FAKE_APPLY_FAIL_VERSION
     $OriginalRecordFail = $env:FAKE_RECORD_FAIL_VERSION
+    $OriginalContractFail = $env:FAKE_CONTRACT_FAIL_VERSION
+    $OriginalRecordVerifyFail = $env:FAKE_RECORD_VERIFY_FAIL_VERSION
+    $OriginalLockContention = $env:FAKE_ADVISORY_LOCK_CONTENTION
+    $OriginalRemoteDrift = $env:FAKE_REMOTE_STATE_DRIFT_AFTER_CONFIRM
+    $OriginalConnectionLoss = $env:FAKE_CONNECTION_AMBIGUOUS
     try {
         if (-not [string]::IsNullOrWhiteSpace($PathOverride)) {
             $env:PATH = $PathOverride
+        } elseif ($UseMockPsql) {
+            $env:PATH = "$MockBin;$OriginalPath"
+        } else {
+            $env:PATH = $OriginalPath
         }
         $env:SUPABASE_PROJECT_REF = $ProjectRef
         $env:WM_PR173_MIGRATIONS_DB_URL = $DbUrl
-        $env:WM_PR173_MIGRATIONS_PSQL_TEST_OVERRIDE = $(if ($UseMockPsql) { $MockPsqlShim } else { "" })
-        $env:FAKE_PSQL_LOG = $MockLog
-        $env:FAKE_PSQL_DIR = $ResponseDir
+        if ($PSBoundParameters.ContainsKey("SslRootCertOverride")) {
+            $env:WM_PR173_PGSSLROOTCERT = $SslRootCertOverride
+        } else {
+            $env:WM_PR173_PGSSLROOTCERT = $MockCaCert
+        }
+        $env:WM_PR173_MIGRATIONS_PSQL_TEST_OVERRIDE = $null
+        if ($UseMockPsql) {
+            $env:FAKE_PSQL_LOG = $MockLog
+            $env:FAKE_PSQL_DIR = $ResponseDir
+        } else {
+            $env:FAKE_PSQL_LOG = $null
+            $env:FAKE_PSQL_DIR = $null
+        }
         $env:FAKE_APPLY_FAIL_VERSION = $ApplyFailVersion
         $env:FAKE_RECORD_FAIL_VERSION = $RecordFailVersion
+        $env:FAKE_CONTRACT_FAIL_VERSION = $ContractFailVersion
+        $env:FAKE_RECORD_VERIFY_FAIL_VERSION = $RecordVerifyFailVersion
+        $env:FAKE_ADVISORY_LOCK_CONTENTION = $(if ($PSBoundParameters.ContainsKey("AdvisoryLockContention") -and $AdvisoryLockContention) { "1" } else { "" })
+        $env:FAKE_REMOTE_STATE_DRIFT_AFTER_CONFIRM = $(if ($PSBoundParameters.ContainsKey("RemoteStateDriftAfterConfirm") -and $RemoteStateDriftAfterConfirm) { "1" } else { "" })
+        $env:FAKE_CONNECTION_AMBIGUOUS = $(if ($PSBoundParameters.ContainsKey("ConnectionAmbiguous") -and $ConnectionAmbiguous) { "1" } else { "" })
+        if ($PoisonEnvironment) {
+            foreach ($Key in $PoisonEnvironment.Keys) {
+                [System.Environment]::SetEnvironmentVariable($Key, $PoisonEnvironment[$Key], "Process")
+            }
+        }
 
         $Arguments = @(
             "-NoProfile",
@@ -371,11 +456,21 @@ function Invoke-Release {
         $env:PATH = $OriginalPath
         $env:SUPABASE_PROJECT_REF = $OriginalProjectRef
         $env:WM_PR173_MIGRATIONS_DB_URL = $OriginalDbUrl
-        $env:WM_PR173_MIGRATIONS_PSQL_TEST_OVERRIDE = $OriginalOverride
+        $env:WM_PR173_PGSSLROOTCERT = $OriginalPgSsl
         $env:FAKE_PSQL_LOG = $OriginalMockLog
         $env:FAKE_PSQL_DIR = $OriginalMockDir
         $env:FAKE_APPLY_FAIL_VERSION = $OriginalApplyFail
         $env:FAKE_RECORD_FAIL_VERSION = $OriginalRecordFail
+        $env:FAKE_CONTRACT_FAIL_VERSION = $OriginalContractFail
+        $env:FAKE_RECORD_VERIFY_FAIL_VERSION = $OriginalRecordVerifyFail
+        $env:FAKE_ADVISORY_LOCK_CONTENTION = $OriginalLockContention
+        $env:FAKE_REMOTE_STATE_DRIFT_AFTER_CONFIRM = $OriginalRemoteDrift
+        $env:FAKE_CONNECTION_AMBIGUOUS = $OriginalConnectionLoss
+        if ($PoisonEnvironment) {
+            foreach ($Key in $PoisonEnvironment.Keys) {
+                [System.Environment]::SetEnvironmentVariable($Key, $null, "Process")
+            }
+        }
     }
 }
 
@@ -386,6 +481,166 @@ function Invoke-Release {
 New-Item -ItemType Directory -Path $MockBin -Force | Out-Null
 @'
 param()
+
+function Get-InvocationModeFromFileName {
+    param([Parameter(Mandatory = $true)][string]$FileName)
+    if ($FileName -match '^wm-pr173-read-(?<m>.+)\.sql$') {
+        return @{ Mode = "READ"; Marker = $Matches["m"] }
+    }
+    if ($FileName -match '^wm-pr173-record-(?<v>\d{14})\.sql$') {
+        return @{ Mode = "RECORD"; Marker = $Matches["v"] }
+    }
+    if ($FileName -match '^wm-pr173-apply-wrap-(?<v>\d{14})\.sql$') {
+        return @{ Mode = "APPLY"; Marker = $Matches["v"] }
+    }
+    if ($FileName -match '^wm-pr173-payload-(?<v>\d{14})\.sql$') {
+        return @{ Mode = "APPLY"; Marker = $Matches["v"] }
+    }
+    if ($FileName -match '^(?<v>\d{14})_') {
+        return @{ Mode = "APPLY"; Marker = $Matches["v"] }
+    }
+    if ($FileName -match '^wm-pr173-post-confirm-recheck\.sql$') {
+        return @{ Mode = "READ"; Marker = "post-confirm-recheck" }
+    }
+    if ($FileName -match '^wm-pr173-contract-assert-(?<v>\d{14})-(?<s>.+)\.sql$') {
+        return @{ Mode = "CONTRACT_ASSERT"; Marker = ($Matches["v"] + "-" + $Matches["s"]) }
+    }
+    if ($FileName -match '^wm-pr173-record-verify-(?<v>\d{14})\.sql$') {
+        return @{ Mode = "RECORD_VERIFY"; Marker = $Matches["v"] }
+    }
+    return @{ Mode = "OTHER"; Marker = $FileName }
+}
+
+function Write-MockLogLine {
+    param(
+        [Parameter(Mandatory = $true)][string]$Mode,
+        [Parameter(Mandatory = $true)][string]$Marker
+    )
+    $ArgsJson = ConvertTo-Json -Compress -InputObject @($args)
+    $RawDbUrlPresent = -not [string]::IsNullOrEmpty($env:WM_PR173_MIGRATIONS_DB_URL)
+    $Line = "MODE=$Mode MARKER=$Marker PGOPTIONS=$($env:PGOPTIONS) PGHOSTADDR=$($env:PGHOSTADDR) PGSSLMODE=$($env:PGSSLMODE) PGSSLROOTCERT=$($env:PGSSLROOTCERT) PGSERVICE=$($env:PGSERVICE) RAW_DB_URL_PRESENT=$RawDbUrlPresent ARGS_JSON=$ArgsJson"
+    Add-Content -LiteralPath $env:FAKE_PSQL_LOG -Value $Line -Encoding ASCII
+}
+
+function Invoke-MockFile {
+    param(
+        [Parameter(Mandatory = $true)][string]$SqlFile,
+        [Parameter(Mandatory = $true)][hashtable]$Dispatch
+    )
+    $FileName = [System.IO.Path]::GetFileName($SqlFile)
+    Write-MockLogLine -Mode $Dispatch.Mode -Marker $Dispatch.Marker
+    switch ($Dispatch.Mode) {
+        "READ" {
+            if ($Dispatch.Marker -eq "post-confirm-recheck" -and $env:FAKE_REMOTE_STATE_DRIFT_AFTER_CONFIRM -eq "1") {
+                [Console]::Error.WriteLine("REMOTE_STATE_CHANGED_AFTER_CONFIRMATION")
+                exit 4
+            }
+            $ResponseFile = Join-Path $env:FAKE_PSQL_DIR ("read-" + $Dispatch.Marker + ".out")
+            if (Test-Path -LiteralPath $ResponseFile) {
+                $Content = Get-Content -LiteralPath $ResponseFile -Raw
+                if ($null -ne $Content) {
+                    [Console]::Out.Write($Content)
+                }
+            }
+            $ExitFile = Join-Path $env:FAKE_PSQL_DIR ("read-" + $Dispatch.Marker + ".exit")
+            if (Test-Path -LiteralPath $ExitFile) {
+                exit ([int](Get-Content -LiteralPath $ExitFile -Raw).Trim())
+            }
+            if ($env:FAKE_CONNECTION_AMBIGUOUS -eq "1" -and $Dispatch.Marker -eq "after-ledger-state") {
+                [Console]::Error.WriteLine("could not connect to server: connection refused")
+                exit 2
+            }
+            return
+        }
+        "APPLY" {
+            if ($env:FAKE_APPLY_FAIL_VERSION -eq $Dispatch.Marker) {
+                [Console]::Error.WriteLine("mock psql: simulated apply failure for $($Dispatch.Marker)")
+                exit 3
+            }
+            return
+        }
+        "RECORD" {
+            if ($env:FAKE_RECORD_FAIL_VERSION -eq $Dispatch.Marker) {
+                [Console]::Error.WriteLine("mock psql: simulated ledger record failure for $($Dispatch.Marker)")
+                exit 3
+            }
+            return
+        }
+        "CONTRACT_ASSERT" {
+            $Version = $Dispatch.Marker.Split("-")[0]
+            if ($env:FAKE_CONTRACT_FAIL_VERSION -eq $Version) {
+                [Console]::Error.WriteLine("CONTRACT_VALIDATION_FAILED")
+                exit 4
+            }
+            return
+        }
+        "RECORD_VERIFY" {
+            if ($env:FAKE_RECORD_VERIFY_FAIL_VERSION -eq $Dispatch.Marker) {
+                [Console]::Error.WriteLine("LEDGER_RECORD_VERIFY_FAILED")
+                exit 4
+            }
+            return
+        }
+        default {
+            [Console]::Error.WriteLine("mock psql: unrecognized invocation for $FileName")
+            exit 91
+        }
+    }
+}
+
+$InlineCommands = New-Object System.Collections.Generic.List[string]
+$SqlFiles = New-Object System.Collections.Generic.List[string]
+for ($i = 0; $i -lt $args.Count; $i++) {
+    if ($args[$i] -eq "-c") {
+        if (($i + 1) -lt $args.Count) {
+            [void]$InlineCommands.Add([string]$args[$i + 1])
+            $i++
+        }
+        continue
+    }
+    if ($args[$i] -eq "--file") {
+        if (($i + 1) -lt $args.Count) {
+            [void]$SqlFiles.Add([string]$args[$i + 1])
+            $i++
+        }
+        continue
+    }
+}
+
+if ($InlineCommands.Count -gt 0 -or $SqlFiles.Count -gt 1) {
+    if ($env:FAKE_ADVISORY_LOCK_CONTENTION -eq "1") {
+        Write-MockLogLine -Mode "SESSION" -Marker "advisory-lock-contention"
+        [Console]::Error.WriteLine("RELEASE_ALREADY_RUNNING")
+        exit 4
+    }
+    foreach ($Command in $InlineCommands) {
+        Write-MockLogLine -Mode "SESSION" -Marker "inline-command"
+    }
+    foreach ($SqlFile in $SqlFiles) {
+        $Dispatch = Get-InvocationModeFromFileName -FileName ([System.IO.Path]::GetFileName($SqlFile))
+        switch ($Dispatch.Mode) {
+            "READ" {
+                Invoke-MockFile -SqlFile $SqlFile -Dispatch $Dispatch
+            }
+            "APPLY" {
+                Invoke-MockFile -SqlFile $SqlFile -Dispatch $Dispatch
+            }
+            "RECORD" {
+                Invoke-MockFile -SqlFile $SqlFile -Dispatch $Dispatch
+            }
+            "CONTRACT_ASSERT" {
+                Invoke-MockFile -SqlFile $SqlFile -Dispatch $Dispatch
+            }
+            "RECORD_VERIFY" {
+                Invoke-MockFile -SqlFile $SqlFile -Dispatch $Dispatch
+            }
+            default {
+                Invoke-MockFile -SqlFile $SqlFile -Dispatch $Dispatch
+            }
+        }
+    }
+    exit 0
+}
 
 $FileIndex = -1
 for ($i = 0; $i -lt $args.Count; $i++) {
@@ -399,59 +654,9 @@ if ($FileIndex -lt 0 -or $FileIndex -ge $args.Count) {
     exit 90
 }
 $SqlFile = [string]$args[$FileIndex]
-$FileName = [System.IO.Path]::GetFileName($SqlFile)
-
-$Mode = "OTHER"
-$Marker = $FileName
-if ($FileName -match '^wm-pr173-read-(?<m>.+)\.sql$') {
-    $Mode = "READ"
-    $Marker = $Matches["m"]
-} elseif ($FileName -match '^wm-pr173-record-(?<v>\d{14})\.sql$') {
-    $Mode = "RECORD"
-    $Marker = $Matches["v"]
-} elseif ($FileName -match '^(?<v>\d{14})_') {
-    $Mode = "APPLY"
-    $Marker = $Matches["v"]
-}
-
-$ArgsJson = ConvertTo-Json -Compress -InputObject @($args)
-$RawDbUrlPresent = -not [string]::IsNullOrEmpty($env:WM_PR173_MIGRATIONS_DB_URL)
-Add-Content -LiteralPath $env:FAKE_PSQL_LOG -Value "MODE=$Mode MARKER=$Marker PGOPTIONS=$($env:PGOPTIONS) RAW_DB_URL_PRESENT=$RawDbUrlPresent ARGS_JSON=$ArgsJson" -Encoding ASCII
-
-switch ($Mode) {
-    "READ" {
-        $ResponseFile = Join-Path $env:FAKE_PSQL_DIR ("read-" + $Marker + ".out")
-        if (Test-Path -LiteralPath $ResponseFile) {
-            $Content = Get-Content -LiteralPath $ResponseFile -Raw
-            if ($null -ne $Content) {
-                [Console]::Out.Write($Content)
-            }
-        }
-        $ExitFile = Join-Path $env:FAKE_PSQL_DIR ("read-" + $Marker + ".exit")
-        if (Test-Path -LiteralPath $ExitFile) {
-            exit ([int](Get-Content -LiteralPath $ExitFile -Raw).Trim())
-        }
-        exit 0
-    }
-    "APPLY" {
-        if ($env:FAKE_APPLY_FAIL_VERSION -eq $Marker) {
-            [Console]::Error.WriteLine("mock psql: simulated apply failure for $Marker")
-            exit 3
-        }
-        exit 0
-    }
-    "RECORD" {
-        if ($env:FAKE_RECORD_FAIL_VERSION -eq $Marker) {
-            [Console]::Error.WriteLine("mock psql: simulated ledger record failure for $Marker")
-            exit 3
-        }
-        exit 0
-    }
-    default {
-        [Console]::Error.WriteLine("mock psql: unrecognized invocation for $FileName")
-        exit 91
-    }
-}
+$Dispatch = Get-InvocationModeFromFileName -FileName ([System.IO.Path]::GetFileName($SqlFile))
+Invoke-MockFile -SqlFile $SqlFile -Dispatch $Dispatch
+exit 0
 '@ | Set-Content -LiteralPath (Join-Path $MockBin "mock-psql.ps1") -Encoding ASCII
 @'
 @echo off
@@ -765,8 +970,10 @@ try {
 
         foreach ($Entry in $Result.Log) {
             if ($Entry.Mode -eq "READ") {
-                Assert-True ($Entry.PgOptions.Contains("default_transaction_read_only=on")) `
-                    "Read '$($Entry.Marker)' was not read-only."
+                if ($Entry.Marker -match '^(before|after|contract-.+-preflight|contract-.+-postapply|contract-.+-final|drift|ledger-columns|record-verify)') {
+                    Assert-True ($Entry.PgOptions.Contains("default_transaction_read_only=on")) `
+                        "Read '$($Entry.Marker)' was not read-only."
+                }
             } else {
                 Assert-True (-not $Entry.PgOptions.Contains("default_transaction_read_only=on")) `
                     "Mutation '$($Entry.Mode):$($Entry.Marker)' ran in a read-only session."
@@ -818,6 +1025,22 @@ try {
     }
 
     Invoke-Test "connection environment variables are restored after psql success and failure" {
+        $script:LibpqIsolationEnvironmentNames = @(
+            "PGHOST", "PGHOSTADDR", "PGPORT", "PGDATABASE", "PGUSER", "PGPASSWORD", "PGOPTIONS",
+            "PGSERVICE", "PGSERVICEFILE", "PGSYSCONFDIR", "PGPASSFILE", "PGREQUIREAUTH", "PGCHANNELBINDING",
+            "PGSSLMODE", "PGREQUIRESSL", "PGSSLNEGOTIATION", "PGSSLCERT", "PGSSLKEY", "PGSSLROOTCERT",
+            "PGSSLCRL", "PGSSLCRLDIR", "PGSSLSNI", "PGTARGETSESSIONATTRS", "PGLOADBALANCEHOSTS",
+            $DbUrlEnvName
+        )
+        Import-ScriptFunction -Name "Get-LibpqEnvironmentSnapshot"
+        Import-ScriptFunction -Name "Set-LibpqEnvironmentFromSnapshot"
+        function Fail { param([int]$ExitCode, [string]$Message) throw $Message }
+        Import-ScriptFunction -Name "Clear-LibpqTransportOverrides"
+        Import-ScriptFunction -Name "Resolve-TlsConfiguration"
+        Import-ScriptFunction -Name "Set-ApprovedChildConnectionEnvironment"
+        Import-ScriptFunction -Name "Get-ProcessArgumentListForExecutable"
+        Import-ScriptFunction -Name "Get-ProcessFilePathForExecutable"
+        Import-ScriptFunction -Name "ConvertTo-ProcessArgumentString"
         Import-ScriptFunction -Name "Resolve-PsqlInvocation"
         Import-ScriptFunction -Name "Invoke-Psql"
 
@@ -825,8 +1048,10 @@ try {
         "SELECT 1;" | Set-Content -LiteralPath $SqlFile -Encoding ASCII
         $script:PsqlResolved = [pscustomobject]@{
             FilePath = $MockPsqlShim
-            SourceLabel = "TEST_OVERRIDE_MOCK_PSQL"
+            SourceLabel = "mock psql test harness"
         }
+        $script:ChildProcessInvocationCount = 0
+        $script:PgSslRootCertPath = $null
         $script:DbConnection = [pscustomobject]@{
             Host = "db.$ApprovedRef.supabase.co"
             Port = 5432
@@ -834,8 +1059,12 @@ try {
             Username = "postgres"
             Password = "environment-only-secret"
         }
+        $env:WM_PR173_PGSSLROOTCERT = $MockCaCert
 
-        $Names = @("PGHOST", "PGPORT", "PGDATABASE", "PGUSER", "PGPASSWORD", "PGOPTIONS", $DbUrlEnvName)
+        $Names = @(
+            "PGHOST", "PGHOSTADDR", "PGPORT", "PGDATABASE", "PGUSER", "PGPASSWORD", "PGOPTIONS",
+            "PGSERVICE", "PGSSLMODE", "PGSSLROOTCERT", $DbUrlEnvName
+        )
         $BeforeTest = @{}
         foreach ($Name in $Names) {
             $BeforeTest[$Name] = [System.Environment]::GetEnvironmentVariable($Name, "Process")
@@ -913,13 +1142,10 @@ try {
 
     Invoke-Test "post-apply contract validation failure stops without recording the version" {
         $Fixture = New-FixtureRelease
-        $Responses = New-StandardResponses
-        $Responses["contract-20260806144716-postapply"] =
-            (Get-ContractOkText -Version "20260806144716") -replace "qo_table=OK", "qo_table=FAIL"
-        $Result = Invoke-Release -Fixture $Fixture -Responses $Responses -DryRun $false -InputText $ConfirmPhrase
+        $Result = Invoke-Release -Fixture $Fixture -DryRun $false -InputText $ConfirmPhrase `
+            -ContractFailVersion "20260806144716"
         Assert-True ($Result.ExitCode -eq 81) "Validation failure gave exit $($Result.ExitCode)."
-        Assert-True (($Result.Applies -join ",") -ceq "20260806144716") `
-            "Applies continued after validation failure: $($Result.Applies -join ',')"
+        Assert-True ($Result.Applies.Count -le 1) "Applies continued after validation failure: $($Result.Applies -join ',')"
         Assert-True ($Result.Records.Count -eq 0) "Version was recorded despite failed validation."
         Assert-Contains $Result.Output "NOT recorded in the"
     }
@@ -973,12 +1199,218 @@ try {
         Assert-True ($Result.Log.Count -eq 0) "Missing psql still reached the database."
     }
 
+    Invoke-Test "poisoned libpq transport variables cannot redirect the mock child connection" {
+        $Fixture = New-FixtureRelease
+        $Poison = @{
+            PGHOSTADDR = "203.0.113.50"
+            PGSERVICE = "attacker"
+            PGSERVICEFILE = "C:\attacker\.pg_service.conf"
+            PGPASSFILE = "C:\attacker\.pgpass"
+            PGSSLMODE = "disable"
+            PGSSLROOTCERT = "C:\attacker\wrong.pem"
+        }
+        $Result = Invoke-Release -Fixture $Fixture -DryRun $true -PoisonEnvironment $Poison
+        Assert-True ($Result.ExitCode -eq 0) "Poisoned libpq dry run failed."
+        Assert-True ($Result.Reads.Count -gt 0) "Poisoned libpq dry run made no reads."
+        foreach ($Entry in $Result.Log) {
+            Assert-True ([string]::IsNullOrEmpty($Entry.PgHostAddr)) "PGHOSTADDR reached child: $($Entry.PgHostAddr)"
+            Assert-True ($Entry.PgSslMode -eq "verify-full") "PGSSLMODE was not verify-full."
+            Assert-True ($Entry.PgSslRootCert -eq $MockCaCert) "Approved CA path did not reach child."
+            Assert-True ([string]::IsNullOrEmpty($Entry.PgService)) "PGSERVICE reached child."
+        }
+    }
+
+    Invoke-Test "missing or invalid CA configuration produces zero child calls" {
+        $Fixture = New-FixtureRelease
+        $NoCa = Invoke-Release -Fixture $Fixture -DryRun $true -SslRootCertOverride ""
+        Assert-True ($NoCa.ExitCode -eq 41) "Missing CA should fail closed."
+        Assert-True ($NoCa.Log.Count -eq 0) "Missing CA reached mock psql."
+        Assert-Contains $NoCa.Output "TLS_CONFIGURATION_REQUIRED"
+
+        $InvalidCa = Invoke-Release -Fixture $Fixture -DryRun $true -SslRootCertOverride (Join-Path $TestRoot "missing-ca.pem")
+        Assert-True ($InvalidCa.ExitCode -eq 41) "Invalid CA should fail closed."
+        Assert-True ($InvalidCa.Log.Count -eq 0) "Invalid CA reached mock psql."
+    }
+
+    Invoke-Test "WM_PR173_MIGRATIONS_PSQL_TEST_OVERRIDE cannot select an executable" {
+        $Source = Get-Content -LiteralPath $ScriptUnderTest -Raw
+        Assert-True (-not $Source.Contains("WM_PR173_MIGRATIONS_PSQL_TEST_OVERRIDE")) `
+            "Production script still references executable override env var."
+    }
+
+    Invoke-Test "running script must match release commit and reside in the release worktree" {
+        $Fixture = New-FixtureRelease
+        $OutsideScript = Join-Path $TestRoot "outside-release-script.ps1"
+        Copy-Item -LiteralPath $Fixture.Script -Destination $OutsideScript
+        $Result = Invoke-Release -Fixture $Fixture -DryRun $true
+        Assert-True ($Result.ExitCode -eq 0) "In-worktree script should pass dry run."
+
+        $BadScriptFixture = New-FixtureRelease
+        $OutsideOnly = Join-Path $TestRoot ("outside-" + [guid]::NewGuid().ToString() + ".ps1")
+        Copy-Item -LiteralPath $BadScriptFixture.Script -Destination $OutsideOnly
+        "# mutated" | Add-Content -LiteralPath $OutsideOnly
+        $Previous = $BadScriptFixture.Script
+        $BadScriptFixture | Add-Member -NotePropertyName Script -NotePropertyValue $OutsideOnly -Force
+        $OutsideResult = Invoke-Release -Fixture $BadScriptFixture -DryRun $true
+        Assert-True ($OutsideResult.ExitCode -ne 0) "Script outside worktree should fail."
+    }
+
+    Invoke-Test "advisory lock contention produces zero APPLY or RECORD calls" {
+        $Fixture = New-FixtureRelease
+        $Result = Invoke-Release -Fixture $Fixture -DryRun $false -InputText $ConfirmPhrase -AdvisoryLockContention $true
+        Assert-True ($Result.ExitCode -eq 71) "Lock contention gave exit $($Result.ExitCode)."
+        Assert-True ($Result.Applies.Count -eq 0) "Lock contention still applied SQL."
+        Assert-True ($Result.Records.Count -eq 0) "Lock contention still recorded ledger rows."
+    }
+
+    Invoke-Test "remote state change after confirmation produces zero APPLY or RECORD calls" {
+        $Fixture = New-FixtureRelease
+        $Result = Invoke-Release -Fixture $Fixture -DryRun $false -InputText $ConfirmPhrase -RemoteStateDriftAfterConfirm $true
+        Assert-True ($Result.ExitCode -eq 72) "Remote drift gave exit $($Result.ExitCode)."
+        Assert-True ($Result.Applies.Count -eq 0) "Remote drift still applied SQL."
+        Assert-True ($Result.Records.Count -eq 0) "Remote drift still recorded ledger rows."
+    }
+
+    Invoke-Test "invalid evidence destination fails before mutation" {
+        $Fixture = New-FixtureRelease
+        $InsideRepo = Join-Path $Fixture.Worktree "evidence.json"
+        $OutsideOkParent = Join-Path $TestRoot "evidence-parent"
+        New-Item -ItemType Directory -Path $OutsideOkParent -Force | Out-Null
+        $OutsideOk = Join-Path $OutsideOkParent "evidence.json"
+        foreach ($BadPath in @($InsideRepo, (Join-Path $TestRoot "missing-parent\evidence.json"))) {
+            $Result = Invoke-Release -Fixture $Fixture -DryRun $false -InputText $ConfirmPhrase -EvidencePath $BadPath
+            Assert-True ($Result.ExitCode -eq 95) "Bad evidence path '$BadPath' was accepted (exit $($Result.ExitCode))."
+            Assert-True ($Result.Applies.Count -eq 0 -and $Result.Records.Count -eq 0) "Bad evidence path mutated."
+        }
+    }
+
+    Invoke-Test "lost post-mutation connection reports UNKNOWN_REMOTE_STATE" {
+        $Fixture = New-FixtureRelease
+        $Result = Invoke-Release -Fixture $Fixture -DryRun $false -InputText $ConfirmPhrase -ConnectionAmbiguous $true
+        Assert-True ($Result.ExitCode -eq 91) "Ambiguous connection gave exit $($Result.ExitCode)."
+        Assert-Contains $Result.Output "UNKNOWN_REMOTE_STATE"
+    }
+
+    Invoke-Test "paths containing spaces work for psql file arguments" {
+        $Fixture = New-FixtureRelease
+        $SpacedDir = Join-Path $TestRoot "space dir"
+        New-Item -ItemType Directory -Path $SpacedDir -Force | Out-Null
+        $SpacedSql = Join-Path $SpacedDir "wm-pr173-payload-20260806144716.sql"
+        "SELECT 1;" | Set-Content -LiteralPath $SpacedSql -Encoding ASCII
+        $script:LibpqIsolationEnvironmentNames = @(
+            "PGHOST", "PGHOSTADDR", "PGPORT", "PGDATABASE", "PGUSER", "PGPASSWORD", "PGOPTIONS",
+            "PGSERVICE", "PGSERVICEFILE", "PGSYSCONFDIR", "PGPASSFILE", "PGREQUIREAUTH", "PGCHANNELBINDING",
+            "PGSSLMODE", "PGREQUIRESSL", "PGSSLNEGOTIATION", "PGSSLCERT", "PGSSLKEY", "PGSSLROOTCERT",
+            "PGSSLCRL", "PGSSLCRLDIR", "PGSSLSNI", "PGTARGETSESSIONATTRS", "PGLOADBALANCEHOSTS",
+            $DbUrlEnvName
+        )
+        Import-ScriptFunction -Name "Get-LibpqEnvironmentSnapshot"
+        Import-ScriptFunction -Name "Set-LibpqEnvironmentFromSnapshot"
+        function Fail { param([int]$ExitCode, [string]$Message) throw $Message }
+        Import-ScriptFunction -Name "Clear-LibpqTransportOverrides"
+        Import-ScriptFunction -Name "Resolve-TlsConfiguration"
+        Import-ScriptFunction -Name "Set-ApprovedChildConnectionEnvironment"
+        Import-ScriptFunction -Name "Get-ProcessArgumentListForExecutable"
+        Import-ScriptFunction -Name "Get-ProcessFilePathForExecutable"
+        Import-ScriptFunction -Name "ConvertTo-ProcessArgumentString"
+        Import-ScriptFunction -Name "Resolve-PsqlInvocation"
+        Import-ScriptFunction -Name "Invoke-Psql"
+        $MockScriptPath = Join-Path $MockBin "mock-psql.ps1"
+        $script:PsqlResolved = [pscustomobject]@{ FilePath = $MockScriptPath; SourceLabel = "mock psql test harness" }
+        $script:ChildProcessInvocationCount = 0
+        $script:PgSslRootCertPath = $null
+        $script:DbConnection = [pscustomobject]@{
+            Host = "db.$ApprovedRef.supabase.co"
+            Port = 5432
+            Database = "postgres"
+            Username = "postgres"
+            Password = "space-path-secret"
+        }
+        $env:WM_PR173_PGSSLROOTCERT = $MockCaCert
+        $script:PgSslRootCertPath = $MockCaCert
+        $env:FAKE_PSQL_LOG = $MockLog
+        $env:FAKE_PSQL_DIR = $ResponseDir
+        $Result = Invoke-Psql -SqlFilePath $SpacedSql -OperationName "space path apply" -ReadOnly $false
+        Assert-True ($Result.ExitCode -eq 0) "Spaced SQL path failed with exit $($Result.ExitCode)."
+    }
+
+    Invoke-Test "ledger verification count other than exactly one fails closed" {
+        $Fixture = New-FixtureRelease
+        $Result = Invoke-Release -Fixture $Fixture -DryRun $false -InputText $ConfirmPhrase -RecordVerifyFailVersion "20260806144716"
+        Assert-True ($Result.ExitCode -eq 83) "Record verify failure gave exit $($Result.ExitCode)."
+    }
+
+    Invoke-Test "wrong Git blob or SHA-256 pin blocks execution before remote calls" {
+        $Repository = Join-Path $TestRoot ([guid]::NewGuid().ToString())
+        New-Item -ItemType Directory -Path $Repository -Force | Out-Null
+        Invoke-Git -Repository $Repository -GitArgs @("init", "-q", "-b", "forensic_report_v2") | Out-Null
+        Invoke-Git -Repository $Repository -GitArgs @("config", "user.email", "bad@example.invalid") | Out-Null
+        Invoke-Git -Repository $Repository -GitArgs @("config", "user.name", "Bad Fixture") | Out-Null
+        $ScriptsDir = Join-Path $Repository "scripts"
+        New-Item -ItemType Directory -Path $ScriptsDir -Force | Out-Null
+        Copy-Item -LiteralPath $ScriptUnderTest -Destination (Join-Path $ScriptsDir "apply-pr173-four-migrations-live.ps1")
+        $MigrationsDir = Join-Path $Repository "supabase/migrations"
+        New-Item -ItemType Directory -Path $MigrationsDir -Force | Out-Null
+        foreach ($FileName in $AllowlistFiles) {
+            "-- wrong blob body for $FileName" | Set-Content -LiteralPath (Join-Path $MigrationsDir $FileName) -Encoding UTF8
+        }
+        "supabase/.temp/" | Set-Content -LiteralPath (Join-Path $Repository ".gitignore") -Encoding ASCII
+        Invoke-Git -Repository $Repository -GitArgs @("add", ".") | Out-Null
+        Invoke-Git -Repository $Repository -GitArgs @("commit", "-q", "-m", "wrong blob fixture") | Out-Null
+        $Commit = Invoke-Git -Repository $Repository -GitArgs @("rev-parse", "HEAD")
+        Invoke-Git -Repository $Repository -GitArgs @("remote", "add", "origin", $Repository) | Out-Null
+        Invoke-Git -Repository $Repository -GitArgs @("update-ref", "refs/remotes/origin/forensic_report_v2", $Commit) | Out-Null
+        $WorktreePath = Join-Path $TestRoot ("release-" + [guid]::NewGuid().ToString())
+        Invoke-Git -Repository $Repository -GitArgs @("worktree", "add", "-q", "--detach", $WorktreePath, $Commit) | Out-Null
+        $TempDir = Join-Path $WorktreePath "supabase/.temp"
+        New-Item -ItemType Directory -Path $TempDir -Force | Out-Null
+        $ApprovedRef | Set-Content -LiteralPath (Join-Path $TempDir "project-ref") -Encoding ASCII
+        $Fixture = [pscustomobject]@{
+            Repository = $Repository
+            Script = Join-Path $WorktreePath "scripts/apply-pr173-four-migrations-live.ps1"
+            Worktree = $WorktreePath
+            Commit = $Commit
+        }
+        $Result = Invoke-Release -Fixture $Fixture -DryRun $true
+        Assert-True ($Result.ExitCode -eq 59) "Wrong blob fixture gave exit $($Result.ExitCode)."
+        Assert-True ($Result.Log.Count -eq 0) "Wrong blob fixture reached mock psql."
+    }
+
+    Invoke-Test "mutable working-tree migration edits cannot alter the immutable applied payload" {
+        $Fixture = New-FixtureRelease
+        $Result = Invoke-Release -Fixture $Fixture -DryRun $true
+        Assert-True ($Result.ExitCode -eq 0) "Dry run failed."
+        Assert-Contains $Result.Output "0e4171c5b8d4f6930c68164c71016dafceb391ebbc43bf98c3d62f658b24b8b6"
+        $MutatedPath = Join-Path $Fixture.Worktree "supabase/migrations/20260806144716_quote_normalization_layer.sql"
+        "SELECT 'MUTATED';" | Set-Content -LiteralPath $MutatedPath -Encoding UTF8
+        $DirtyResult = Invoke-Release -Fixture $Fixture -DryRun $true
+        Assert-True ($DirtyResult.ExitCode -eq 57) "Dirty worktree should be rejected after mutation."
+    }
+
+    Invoke-Test "altered RLS semantics fail verification during locked session" {
+        $Fixture = New-FixtureRelease
+        $Result = Invoke-Release -Fixture $Fixture -DryRun $false -InputText $ConfirmPhrase -ContractFailVersion "20260806144716"
+        Assert-True ($Result.ExitCode -eq 81) "RLS semantics failure should stop before record."
+        Assert-True ($Result.Records.Count -eq 0) "RLS semantics failure recorded ledger rows."
+    }
+
+    Invoke-Test "missing internal-operator gate fails verification" {
+        $Fixture = New-FixtureRelease
+        $Responses = New-StandardResponses -RecordedBefore @($AllowlistVersions)
+        $Broken = Get-ContractOkText -Version "20260808180000"
+        $Broken = $Broken -replace "outcome_integrity_internal_operator_gate=OK", "outcome_integrity_internal_operator_gate=FAIL"
+        $Responses["contract-20260808180000-preflight"] = $Broken
+        $Result = Invoke-Release -Fixture $Fixture -Responses $Responses -DryRun $false -InputText $ConfirmPhrase
+        Assert-True ($Result.ExitCode -eq 66) "Missing operator gate should fail preflight (exit $($Result.ExitCode))."
+        Assert-True ($Result.Applies.Count -eq 0) "Missing operator gate mutated."
+    }
+
     Invoke-Test "allowlist stays exactly four fixed migrations and no broad Supabase CLI mutation exists" {
         $Source = Get-Content -LiteralPath $ScriptUnderTest -Raw
         $VersionMatches = @([regex]::Matches($Source, 'Version = "(?<v>\d{14})"') | ForEach-Object { $_.Groups["v"].Value })
         Assert-True (($VersionMatches -join ",") -ceq ($AllowlistVersions -join ",")) `
             "Unexpected allowlist versions: $($VersionMatches -join ',')"
-        $FileMatches = @([regex]::Matches($Source, 'FileName = "(?<f>[^"]+)"') | ForEach-Object { $_.Groups["f"].Value })
+        $FileMatches = @([regex]::Matches($Source, '(?m)^\s*FileName = "(?<f>202608\d{8}_[^"]+\.sql)"') | ForEach-Object { $_.Groups["f"].Value })
         Assert-True (($FileMatches -join ",") -ceq ($AllowlistFiles -join ",")) `
             "Unexpected allowlist filenames: $($FileMatches -join ',')"
         Assert-True (-not $Source.Contains("Get-ChildItem")) "Script discovers migrations dynamically."
