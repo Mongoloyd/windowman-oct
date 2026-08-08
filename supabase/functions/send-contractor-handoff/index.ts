@@ -9,6 +9,10 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { validateAdminRequestWithRole } from "../_shared/adminAuth.ts";
+import {
+  buildHandoffOpportunityProjection,
+  loadHandoffAnalysisContext,
+} from "./handoffAnalysisContext.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -59,52 +63,38 @@ Deno.serve(async (req) => {
       .from("leads")
       .select(`
         id, first_name, last_name, city, zip,
-        grade, flag_count, latest_analysis_id,
-        latest_opportunity_id, latest_scan_session_id
+        latest_analysis_id, latest_opportunity_id
       `)
       .eq("id", lead_id)
       .single();
 
     if (leadError || !lead) {
-      console.error("[send-contractor-handoff] Lead not found:", leadError);
+      console.error("[send-contractor-handoff] Lead not found");
       return json({ success: false, error: "Lead not found" }, 404);
     }
 
-    if (!lead.latest_scan_session_id || !lead.latest_analysis_id) {
+    const contextResult = await loadHandoffAnalysisContext(
+      supabaseAdmin,
+      lead_id,
+      lead.latest_analysis_id,
+    );
+    if (!contextResult.ok) {
       return json({
         success: false,
-        error: "Lead missing scan session or analysis data",
+        error: contextResult.errorMessage,
       }, 400);
     }
+    const handoffContext = contextResult.context;
+    const opportunityProjection = buildHandoffOpportunityProjection(
+      handoffContext,
+    );
+    const { emailProjection } = handoffContext;
+    const pillarScores = emailProjection.pillarScores;
+    const topFlags = emailProjection.topFlags;
 
     const homeownerName =
       [lead.first_name, lead.last_name].filter(Boolean).join(" ") ||
       "Homeowner";
-
-    // ── Step 2: Fetch analysis ──
-    const { data: analysis } = await supabaseAdmin
-      .from("analyses")
-      .select("full_json")
-      .eq("id", lead.latest_analysis_id)
-      .single();
-
-    const fullJson = analysis?.full_json as Record<string, unknown> | null;
-    const pillarScores = (fullJson?.pillar_scores as
-      | Record<string, { grade?: string; score?: number; summary?: string }>
-      | null) ?? null;
-    const allFlags = (fullJson?.flags as
-      | Array<
-        {
-          severity: string;
-          description?: string;
-          flag?: string;
-          detail?: string;
-        }
-      >
-      | null) ?? [];
-    const topFlags = allFlags
-      .filter((f) => f.severity === "High" || f.severity === "Critical")
-      .slice(0, 3);
 
     // ── Step 3: Upsert contractor_opportunities ──
     let opportunityId: string;
@@ -118,34 +108,37 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (existing) {
-        await supabaseAdmin
+        const { error: updateError } = await supabaseAdmin
           .from("contractor_opportunities")
           .update({
+            ...opportunityProjection,
             status: "sent_to_contractor",
             sent_at: new Date().toISOString(),
           })
           .eq("id", existing.id);
-        opportunityId = existing.id;
+        if (updateError) {
+          console.error(
+            "[send-contractor-handoff] DB opportunity update failed",
+          );
+          dbSuccess = false;
+          opportunityId = "";
+        } else {
+          opportunityId = existing.id;
+        }
       } else {
         const { data: newOpp, error: insertError } = await supabaseAdmin
           .from("contractor_opportunities")
           .insert({
             lead_id: lead_id,
-            scan_session_id: lead.latest_scan_session_id,
-            analysis_id: lead.latest_analysis_id,
+            ...opportunityProjection,
             status: "sent_to_contractor",
             sent_at: new Date().toISOString(),
-            grade: lead.grade,
-            flag_count: lead.flag_count ?? 0,
           })
           .select("id")
           .single();
 
         if (insertError || !newOpp) {
-          console.error(
-            "[send-contractor-handoff] DB insert failed:",
-            insertError,
-          );
+          console.error("[send-contractor-handoff] DB insert failed");
           dbSuccess = false;
           opportunityId = "";
         } else {
@@ -160,8 +153,8 @@ Deno.serve(async (req) => {
           .update({ latest_opportunity_id: opportunityId })
           .eq("id", lead_id);
       }
-    } catch (dbErr) {
-      console.error("[send-contractor-handoff] DB error:", dbErr);
+    } catch {
+      console.error("[send-contractor-handoff] DB error");
       dbSuccess = false;
       opportunityId = "";
     }
@@ -187,7 +180,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const gColor = gradeColorHex(lead.grade || "F");
+    const gColor = gradeColorHex(handoffContext.grade || "F");
     const location = [lead.city, lead.zip].filter(Boolean).join(", ") ||
       "Florida";
 
@@ -274,11 +267,11 @@ Deno.serve(async (req) => {
 <tr><td style="padding:16px 32px;text-align:center;">
   <div style="font-size:11px;letter-spacing:0.1em;color:#64748B;text-transform:uppercase;margin-bottom:12px;">OVERALL GRADE</div>
   <div style="display:inline-block;width:72px;height:72px;line-height:72px;font-size:42px;font-weight:900;color:${gColor};background:${gColor}15;border:2px solid ${gColor}40;text-align:center;">${
-      lead.grade || "?"
+      handoffContext.grade || "?"
     }</div>
-  <div style="font-size:14px;color:#94A3B8;margin-top:12px;">${
-      lead.flag_count ?? 0
-    } flagged issue${(lead.flag_count ?? 0) !== 1 ? "s" : ""}</div>
+  <div style="font-size:14px;color:#94A3B8;margin-top:12px;">${handoffContext.flag_count} flagged issue${
+      handoffContext.flag_count !== 1 ? "s" : ""
+    }</div>
 </td></tr>
 
 <!-- Pillar Summary -->
@@ -342,14 +335,23 @@ ${
       const resendData = await resendResp.json();
 
       if (!resendResp.ok) {
-        console.error("[send-contractor-handoff] Resend error:", resendData);
+        console.error(
+          `[send-contractor-handoff] Resend request failed (${resendResp.status})`,
+        );
         emailSuccess = false;
         emailWarning = "Record created but email failed — check Resend config";
       } else {
-        console.log("[send-contractor-handoff] Email sent:", resendData.id);
+        const messageId = typeof resendData?.id === "string"
+          ? resendData.id
+          : undefined;
+        if (messageId) {
+          console.log("[send-contractor-handoff] Email sent:", messageId);
+        } else {
+          console.log("[send-contractor-handoff] Email sent");
+        }
       }
-    } catch (emailErr) {
-      console.error("[send-contractor-handoff] Email send error:", emailErr);
+    } catch {
+      console.error("[send-contractor-handoff] Email send error");
       emailSuccess = false;
       emailWarning = "Record created but email failed — network error";
     }
@@ -376,11 +378,11 @@ ${
       opportunity_id: opportunityId,
       warning: emailWarning,
     });
-  } catch (err) {
-    console.error("[send-contractor-handoff] Unhandled error:", err);
+  } catch {
+    console.error("[send-contractor-handoff] Unhandled error");
     return json({
       success: false,
-      error: err instanceof Error ? err.message : "Internal server error",
+      error: "Internal server error",
     }, 500);
   }
 });
