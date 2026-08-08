@@ -3,11 +3,14 @@
 # Google-only mode (-GoogleAdsOnly): google-ads-conversion-event only (Sprint 4C).
 # Dispatch-only mode (-DispatchOnly): dispatch-platform-events only (Sprint 4F-C).
 # Admin-only mode (-AdminDataOnly): exact clean detached release worktree only (Admin Recovery 1E).
+# PR 173 mode (-Pr173ExtractionOnly): scan-quote, send-contractor-handoff, dial-lead only,
+#   gated on a read-only remote migration-ledger prerequisite check (Sprint 6A).
 # Never deploy-all, never --prune, never db push/reset/secrets/typegen.
 param(
     [switch]$GoogleAdsOnly,
     [switch]$DispatchOnly,
     [switch]$AdminDataOnly,
+    [switch]$Pr173ExtractionOnly,
     [switch]$DryRun,
     [string]$FunctionName,
     [string]$ReleaseWorktree,
@@ -55,6 +58,18 @@ $GoogleAdsOnlyTargetFunctions = @(
 $DispatchOnlyTargetFunctions = @(
     "dispatch-platform-events"
 )
+$Pr173ConfirmPhrase = "DEPLOY_PR173_FUNCTIONS_AFTER_MIGRATIONS_VERIFIED"
+$Pr173TargetFunctions = @(
+    "scan-quote",
+    "send-contractor-handoff",
+    "dial-lead"
+)
+$Pr173RequiredMigrations = @(
+    "20260806144716",
+    "20260808160000",
+    "20260808170000",
+    "20260808180000"
+)
 
 function Get-BannerText {
     return @"
@@ -72,6 +87,110 @@ function Write-Banner {
 function Fail([int]$ExitCode, [string]$Message) {
     [Console]::Error.WriteLine("ERROR: $Message")
     exit $ExitCode
+}
+
+function Assert-Pr173FunctionSources {
+    param([Parameter(Mandatory = $true)][string]$Worktree)
+
+    Write-Host ""
+    Write-Host "PR 173 source safeguards:"
+    foreach ($Fn in $Pr173TargetFunctions) {
+        $RelativeEntryPath = "supabase/functions/$Fn/index.ts"
+        $EntryPath = Join-Path $Worktree $RelativeEntryPath
+        if (-not (Test-Path -LiteralPath $EntryPath -PathType Leaf)) {
+            Fail 102 "Refusing PR 173 deploy: function source is missing at '$EntryPath'."
+        }
+        Write-Host "  - $RelativeEntryPath present"
+    }
+}
+
+# Remote migration versions are only ever read from the REMOTE column. Every prerequisite file also
+# appears in the LOCAL column, so both substring matching and a fixed column index would pass
+# vacuously; the column position is therefore anchored to the header row and required to be found.
+function Get-RemoteMigrationVersions {
+    param([Parameter(Mandatory = $true)][string]$LedgerOutput)
+
+    $Versions = New-Object System.Collections.Generic.List[string]
+    $RemoteIndex = -1
+    foreach ($Line in ($LedgerOutput -split "\r?\n")) {
+        $Columns = [regex]::Split($Line, "[|\u2502]")
+        if ($Columns.Count -lt 2) {
+            continue
+        }
+        if ($RemoteIndex -lt 0) {
+            for ($Index = 0; $Index -lt $Columns.Count; $Index++) {
+                if ($Columns[$Index].Trim() -eq "REMOTE") {
+                    $RemoteIndex = $Index
+                    break
+                }
+            }
+            continue
+        }
+        if ($Columns.Count -le $RemoteIndex) {
+            continue
+        }
+        $RemoteCell = $Columns[$RemoteIndex].Trim()
+        if ($RemoteCell -match '^\d{14}$') {
+            [void]$Versions.Add($RemoteCell)
+        }
+    }
+
+    return [pscustomobject]@{
+        HeaderFound = ($RemoteIndex -ge 0)
+        Versions = $Versions
+    }
+}
+
+function Assert-Pr173MigrationPrerequisites {
+    param([Parameter(Mandatory = $true)][string]$Worktree)
+
+    Write-Host ""
+    Write-Host "PR 173 migration prerequisite check (read-only, LIVE_ACTIVE ledger):"
+    Write-Host "  npx supabase migration list --linked"
+
+    Push-Location $Worktree
+    try {
+        # Empty stdin so an unexpected interactive password prompt hits EOF and fails closed
+        # instead of hanging this wrapper in an ambiguous state.
+        $LedgerOutput = ("" | & npx supabase migration list --linked 2>&1 | Out-String)
+        $LedgerExitCode = $LASTEXITCODE
+    }
+    finally {
+        Pop-Location
+    }
+    if ($LedgerExitCode -ne 0) {
+        Fail 103 "Refusing PR 173 deploy: read-only remote migration list failed (exit $LedgerExitCode)."
+    }
+
+    $Parsed = Get-RemoteMigrationVersions -LedgerOutput $LedgerOutput
+    if (-not $Parsed.HeaderFound) {
+        Fail 104 "Refusing PR 173 deploy: remote migration ledger output had no identifiable REMOTE column header."
+    }
+
+    $Missing = New-Object System.Collections.Generic.List[string]
+    foreach ($Version in $Pr173RequiredMigrations) {
+        if ($Parsed.Versions -contains $Version) {
+            Write-Host "  - $Version RECORDED remotely"
+        } else {
+            Write-Host "  - $Version MISSING remotely"
+            [void]$Missing.Add($Version)
+        }
+    }
+
+    if ($Missing.Count -gt 0) {
+        Write-Host ""
+        Write-Host "Missing remote migration versions:"
+        foreach ($Version in $Missing) {
+            Write-Host "  - $Version"
+        }
+        $MissingMessage = "Refusing PR 173 deploy: $($Missing.Count) prerequisite migration(s) are not recorded " +
+            "on the linked ledger ($($Missing -join ', ')). Apply them through the separately authorized human " +
+            "migration path first."
+        Fail 105 $MissingMessage
+    }
+
+    Write-Host "All PR 173 prerequisite migrations are recorded remotely."
+    Write-Host "This wrapper verifies migrations only; it never applies, repairs, or pushes them."
 }
 
 function Invoke-GitText {
@@ -364,7 +483,7 @@ function Write-AdminEvidence {
 function Invoke-AdminDataMode {
     [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
 
-    if ($GoogleAdsOnly -or $DispatchOnly) {
+    if ($GoogleAdsOnly -or $DispatchOnly -or $Pr173ExtractionOnly) {
         Fail 60 "SAFETY STOP: -AdminDataOnly is mutually exclusive with all other deployment modes."
     }
     if ([string]::IsNullOrWhiteSpace($FunctionName)) {
@@ -589,7 +708,7 @@ function Invoke-AdminDataMode {
 if ($AdminDataOnly) {
     Invoke-AdminDataMode
 }
-if ($DryRun -or
+if (($DryRun -and -not $Pr173ExtractionOnly) -or
     -not [string]::IsNullOrWhiteSpace($FunctionName) -or
     -not [string]::IsNullOrWhiteSpace($ReleaseWorktree) -or
     -not [string]::IsNullOrWhiteSpace($ReleaseCommit) -or
@@ -671,6 +790,21 @@ Fix link or unset mismatch before deploy:
     Write-Host 'Local linked ref: (missing - OK; --project-ref remains authoritative)'
 }
 
+# PR 173 mode reads the remote migration ledger through 'migration list --linked', which is the only
+# read-only remote listing the installed CLI supports (no --project-ref). The linked ref is therefore
+# a hard precondition for this mode only; it never replaces the authoritative --project-ref below.
+if ($Pr173ExtractionOnly -and $LinkedRef -cne $ApprovedRef) {
+    Fail 101 @"
+PR 173 mode requires the CLI to be linked to the approved target.
+
+  Required linked ref: $ApprovedRef
+  supabase/.temp/project-ref: $(if ($LinkedRef) { $LinkedRef } else { '(missing)' })
+
+Link the approved project, then re-run:
+  npx supabase link --project-ref $ApprovedRef
+"@
+}
+
 $NpxCmd = Get-Command npx -ErrorAction SilentlyContinue
 if (-not $NpxCmd) {
     Fail 30 "npx not found on PATH. Node/npm/npx tooling is required before deploy."
@@ -681,6 +815,9 @@ Write-Host "config.toml project_id is local Docker namespace only - never used a
 
 if ($GoogleAdsOnly -and $DispatchOnly) {
     Fail 15 "SAFETY STOP: -GoogleAdsOnly and -DispatchOnly are mutually exclusive."
+}
+if ($Pr173ExtractionOnly -and ($GoogleAdsOnly -or $DispatchOnly)) {
+    Fail 100 "SAFETY STOP: -Pr173ExtractionOnly is mutually exclusive with all other deployment modes."
 }
 
 if ($GoogleAdsOnly) {
@@ -697,6 +834,15 @@ if ($GoogleAdsOnly) {
     )
     $DeploySummaryTitle = "Dispatch platform events worker only"
     $DeployNextStep = "Next: run Google Ads 4F-C scoped dispatch dry-run smoke."
+} elseif ($Pr173ExtractionOnly) {
+    $TargetFunctions = $Pr173TargetFunctions
+    $DeployCommands = @(
+        "npx supabase functions deploy scan-quote --project-ref $ApprovedRef",
+        "npx supabase functions deploy send-contractor-handoff --project-ref $ApprovedRef",
+        "npx supabase functions deploy dial-lead --project-ref $ApprovedRef"
+    )
+    $DeploySummaryTitle = "PR 173 extraction, handoff, and dial functions only"
+    $DeployNextStep = "Next: smoke tests and migration application remain separate human-operated actions; this wrapper performed neither."
 } else {
     $TargetFunctions = $DefaultTargetFunctions
     $DeployCommands = @(
@@ -711,6 +857,11 @@ if ($GoogleAdsOnly) {
     $DeployNextStep = "Next: run TikTok 3C-5 staging dry-run smoke (see docs/ops/TIKTOK_3C5_STAGING_DRY_RUN_RUNBOOK.md)."
 }
 
+if ($Pr173ExtractionOnly) {
+    Assert-Pr173FunctionSources -Worktree $RepoRoot
+    Assert-Pr173MigrationPrerequisites -Worktree $RepoRoot
+}
+
 Write-Host ""
 Write-Host "=== DEPLOY SUMMARY ($DeploySummaryTitle) ==="
 Write-Host "Branch:              $Branch"
@@ -720,6 +871,7 @@ Write-Host "SUPABASE_PROJECT_REF: $ProjectRef"
 Write-Host "Linked ref (if any): $(if ($LinkedRef) { $LinkedRef } else { '(none)' })"
 Write-Host "GoogleAdsOnly mode:  $(if ($GoogleAdsOnly) { 'true' } else { 'false' })"
 Write-Host "DispatchOnly mode:   $(if ($DispatchOnly) { 'true' } else { 'false' })"
+Write-Host "Pr173ExtractionOnly mode: $(if ($Pr173ExtractionOnly) { 'true' } else { 'false' })"
 Write-Host "Functions to deploy:"
 foreach ($Fn in $TargetFunctions) { Write-Host "  - $Fn" }
 Write-Host "Commands that will run:"
@@ -727,9 +879,18 @@ foreach ($Cmd in $DeployCommands) { Write-Host "  $Cmd" }
 
 Write-Banner
 
-Write-Host "Type exactly: $ConfirmPhrase"
+if ($Pr173ExtractionOnly -and $DryRun) {
+    Write-Host "Migrations $($Pr173RequiredMigrations -join ', ') are prerequisites only."
+    Write-Host "This wrapper never applies, repairs, or pushes migrations."
+    Write-Host ("DRY RUN {0} NO DEPLOYMENT PERFORMED" -f [char]0x2014)
+    exit 0
+}
+
+$ModeConfirmPhrase = if ($Pr173ExtractionOnly) { $Pr173ConfirmPhrase } else { $ConfirmPhrase }
+Write-Host "Type exactly: $ModeConfirmPhrase"
 $Typed = Read-Host "Confirmation"
-if ($Typed -ne $ConfirmPhrase) {
+# Legacy modes keep their existing case-insensitive comparison; PR 173 requires an exact match.
+if ($Typed -ne $ModeConfirmPhrase -or ($Pr173ExtractionOnly -and $Typed -cne $Pr173ConfirmPhrase)) {
     Fail 40 "Deploy aborted: confirmation phrase mismatch."
 }
 
