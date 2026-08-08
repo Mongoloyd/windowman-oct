@@ -50,6 +50,31 @@ export type HandoffOpportunityProjection = Pick<
   "analysis_id" | "scan_session_id" | "grade" | "flag_count"
 >;
 
+export type HandoffExistingOpportunityRow = {
+  id: string;
+  analysis_id: string;
+  scan_session_id: string;
+};
+
+export type HandoffOpportunityMutableUpdate = Pick<
+  HandoffOpportunityProjection,
+  "grade" | "flag_count"
+>;
+
+export type HandoffOpportunityPersistencePlan =
+  | { action: "insert"; projection: HandoffOpportunityProjection }
+  | {
+    action: "refresh";
+    opportunityId: string;
+    mutableUpdate: HandoffOpportunityMutableUpdate;
+  };
+
+export type PillarScoreEntry = {
+  grade?: string;
+  score?: number;
+  summary?: string;
+};
+
 export type ResolveHandoffContextResult =
   | { ok: true; context: HandoffAnalysisContext }
   | { ok: false; errorMessage: string };
@@ -97,14 +122,37 @@ export function countHandoffFlags(
   return parseHandoffFlags(record?.flags).length;
 }
 
+export function parseHandoffPillarScores(
+  raw: unknown,
+): Record<string, PillarScoreEntry> | null {
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
+    return null;
+  }
+  const record = raw as Record<string, unknown>;
+  const out: Record<string, PillarScoreEntry> = {};
+  for (const [key, value] of Object.entries(record)) {
+    if (value === null || typeof value !== "object" || Array.isArray(value)) {
+      continue;
+    }
+    const entry = value as Record<string, unknown>;
+    const projected: PillarScoreEntry = {};
+    if (typeof entry.grade === "string") projected.grade = entry.grade;
+    if (typeof entry.score === "number" && Number.isFinite(entry.score)) {
+      projected.score = entry.score;
+    }
+    if (typeof entry.summary === "string") projected.summary = entry.summary;
+    if (Object.keys(projected).length > 0) out[key] = projected;
+  }
+  return Object.keys(out).length > 0 ? out : null;
+}
+
 export function buildHandoffEmailProjection(
   fullJson: unknown,
 ): HandoffEmailProjection {
   const record = fullJson && typeof fullJson === "object"
     ? fullJson as Record<string, unknown>
     : null;
-  const pillarScores =
-    (record?.pillar_scores as HandoffEmailProjection["pillarScores"]) ?? null;
+  const pillarScores = parseHandoffPillarScores(record?.pillar_scores);
   const allFlags = parseHandoffFlags(record?.flags);
   const topFlags = allFlags
     .filter((f) => f.severity === "High" || f.severity === "Critical")
@@ -121,6 +169,34 @@ export function buildHandoffOpportunityProjection(
     grade: context.grade,
     flag_count: context.flag_count,
   };
+}
+
+export function buildHandoffOpportunityMutableUpdate(
+  projection: HandoffOpportunityProjection,
+): HandoffOpportunityMutableUpdate {
+  return {
+    grade: projection.grade,
+    flag_count: projection.flag_count,
+  };
+}
+
+/** Same scan+analysis retry refreshes mutable fields only; new rescan inserts a new row. */
+export function planHandoffOpportunityPersistence(
+  existing: HandoffExistingOpportunityRow | null,
+  projection: HandoffOpportunityProjection,
+): HandoffOpportunityPersistencePlan {
+  if (
+    existing &&
+    existing.analysis_id === projection.analysis_id &&
+    existing.scan_session_id === projection.scan_session_id
+  ) {
+    return {
+      action: "refresh",
+      opportunityId: existing.id,
+      mutableUpdate: buildHandoffOpportunityMutableUpdate(projection),
+    };
+  }
+  return { action: "insert", projection };
 }
 
 export function resolveHandoffAnalysisContext(

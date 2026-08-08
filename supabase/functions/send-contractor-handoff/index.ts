@@ -12,6 +12,7 @@ import { validateAdminRequestWithRole } from "../_shared/adminAuth.ts";
 import {
   buildHandoffOpportunityProjection,
   loadHandoffAnalysisContext,
+  planHandoffOpportunityPersistence,
 } from "./handoffAnalysisContext.ts";
 
 const corsHeaders = {
@@ -101,48 +102,61 @@ Deno.serve(async (req) => {
     let dbSuccess = true;
 
     try {
-      const { data: existing } = await supabaseAdmin
+      const { data: existing, error: lookupError } = await supabaseAdmin
         .from("contractor_opportunities")
-        .select("id")
+        .select("id, analysis_id, scan_session_id")
         .eq("lead_id", lead_id)
+        .eq("scan_session_id", opportunityProjection.scan_session_id)
+        .eq("analysis_id", opportunityProjection.analysis_id)
         .maybeSingle();
 
-      if (existing) {
-        const { error: updateError } = await supabaseAdmin
-          .from("contractor_opportunities")
-          .update({
-            ...opportunityProjection,
-            status: "sent_to_contractor",
-            sent_at: new Date().toISOString(),
-          })
-          .eq("id", existing.id);
-        if (updateError) {
-          console.error(
-            "[send-contractor-handoff] DB opportunity update failed",
-          );
-          dbSuccess = false;
-          opportunityId = "";
-        } else {
-          opportunityId = existing.id;
-        }
+      if (lookupError) {
+        console.error("[send-contractor-handoff] DB opportunity lookup failed");
+        dbSuccess = false;
+        opportunityId = "";
       } else {
-        const { data: newOpp, error: insertError } = await supabaseAdmin
-          .from("contractor_opportunities")
-          .insert({
-            lead_id: lead_id,
-            ...opportunityProjection,
-            status: "sent_to_contractor",
-            sent_at: new Date().toISOString(),
-          })
-          .select("id")
-          .single();
+        const persistencePlan = planHandoffOpportunityPersistence(
+          existing,
+          opportunityProjection,
+        );
 
-        if (insertError || !newOpp) {
-          console.error("[send-contractor-handoff] DB insert failed");
-          dbSuccess = false;
-          opportunityId = "";
+        if (persistencePlan.action === "refresh") {
+          const { error: updateError } = await supabaseAdmin
+            .from("contractor_opportunities")
+            .update({
+              ...persistencePlan.mutableUpdate,
+              status: "sent_to_contractor",
+              sent_at: new Date().toISOString(),
+            })
+            .eq("id", persistencePlan.opportunityId);
+          if (updateError) {
+            console.error(
+              "[send-contractor-handoff] DB opportunity update failed",
+            );
+            dbSuccess = false;
+            opportunityId = "";
+          } else {
+            opportunityId = persistencePlan.opportunityId;
+          }
         } else {
-          opportunityId = newOpp.id;
+          const { data: newOpp, error: insertError } = await supabaseAdmin
+            .from("contractor_opportunities")
+            .insert({
+              lead_id: lead_id,
+              ...persistencePlan.projection,
+              status: "sent_to_contractor",
+              sent_at: new Date().toISOString(),
+            })
+            .select("id")
+            .single();
+
+          if (insertError || !newOpp) {
+            console.error("[send-contractor-handoff] DB insert failed");
+            dbSuccess = false;
+            opportunityId = "";
+          } else {
+            opportunityId = newOpp.id;
+          }
         }
       }
 

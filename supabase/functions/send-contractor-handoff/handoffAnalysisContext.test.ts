@@ -12,12 +12,16 @@ import {
   type HandoffAnalysisRow,
   loadHandoffAnalysisContext,
   parseHandoffFlags,
+  parseHandoffPillarScores,
+  planHandoffOpportunityPersistence,
   resolveHandoffAnalysisContext,
 } from "./handoffAnalysisContext.ts";
 
 const LEAD_ID = "11111111-1111-4111-8111-111111111111";
 const ANALYSIS_ID = "22222222-2222-4222-8222-222222222222";
 const SESSION_ID = "33333333-3333-4333-8333-333333333333";
+const SESSION_ID_2 = "55555555-5555-4555-8555-555555555555";
+const ANALYSIS_ID_2 = "66666666-6666-4666-8666-666666666666";
 const OTHER_LEAD = "44444444-4444-4444-8444-444444444444";
 
 function validRow(
@@ -45,6 +49,7 @@ function validRow(
 function assertContextHasNoLeadSnapshotKeys(context: HandoffAnalysisContext) {
   const keys = Object.keys(context);
   assert(!keys.includes("latest_scan_session_id"));
+  assert(!keys.includes("full_json"));
   for (
     const key of [
       "critical_flag_count",
@@ -316,7 +321,9 @@ Deno.test("email projection uses full_json server-side only in nested field", ()
         flags: [
           { severity: "Critical", flag: "A" },
           { severity: "High", flag: "B" },
-          { severity: "Low", flag: "C" },
+          { severity: "Critical", flag: "C" },
+          { severity: "High", flag: "D" },
+          { severity: "Low", flag: "ignored" },
         ],
       },
     }),
@@ -324,6 +331,150 @@ Deno.test("email projection uses full_json server-side only in nested field", ()
   assertEquals(result.ok, true);
   if (!result.ok) return;
   const ctx: HandoffAnalysisContext = result.context;
-  assertEquals(ctx.flag_count, 3);
-  assertEquals(ctx.emailProjection.topFlags.length, 2);
+  assertEquals(ctx.flag_count, 5);
+  assertEquals(ctx.emailProjection.topFlags.length, 3);
+  assertEquals(ctx.emailProjection.topFlags.map((f) => f.flag), [
+    "A",
+    "B",
+    "C",
+  ]);
+  assertContextHasNoLeadSnapshotKeys(ctx);
+});
+
+Deno.test("handoff context never exposes full_json", () => {
+  const result = resolveHandoffAnalysisContext(
+    LEAD_ID,
+    ANALYSIS_ID,
+    validRow(),
+  );
+  assertEquals(result.ok, true);
+  if (!result.ok) return;
+  assert(!("full_json" in result.context));
+  assert(!JSON.stringify(result.context).includes("full_json"));
+});
+
+Deno.test("email projection keeps only top three qualifying flags", () => {
+  const projection = buildHandoffEmailProjection({
+    flags: [
+      { severity: "Critical", flag: "1" },
+      { severity: "High", flag: "2" },
+      { severity: "Critical", flag: "3" },
+      { severity: "High", flag: "4" },
+    ],
+  });
+  assertEquals(projection.topFlags.length, 3);
+  assertEquals(projection.topFlags.map((f) => f.flag), ["1", "2", "3"]);
+});
+
+Deno.test("parseHandoffPillarScores rejects non-object shapes", () => {
+  assertEquals(parseHandoffPillarScores(null), null);
+  assertEquals(parseHandoffPillarScores("bad"), null);
+  assertEquals(parseHandoffPillarScores([]), null);
+});
+
+Deno.test("parseHandoffPillarScores keeps only safe entry fields", () => {
+  assertEquals(
+    parseHandoffPillarScores({
+      price: {
+        grade: "C",
+        score: 72,
+        summary: "High",
+        nested: { leak: true },
+      },
+      install: {
+        grade: 123,
+        score: "bad",
+        summary: null,
+        extra: "drop",
+      },
+      safety: {
+        score: Number.NaN,
+      },
+      warranty: {},
+    }),
+    {
+      price: { grade: "C", score: 72, summary: "High" },
+    },
+  );
+});
+
+Deno.test("parseHandoffPillarScores accepts mixed valid and invalid entries", () => {
+  const parsed = parseHandoffPillarScores({
+    price: { score: Infinity },
+    install: { score: 55, grade: "B" },
+  });
+  assertEquals(parsed, { install: { score: 55, grade: "B" } });
+});
+
+Deno.test("parseHandoffPillarScores accepts fully valid projection", () => {
+  assertEquals(
+    parseHandoffPillarScores({
+      price: { grade: "B", score: 80, summary: "Fair" },
+      install: { grade: "A", score: 92, summary: "Solid scope" },
+    }),
+    {
+      price: { grade: "B", score: 80, summary: "Fair" },
+      install: { grade: "A", score: 92, summary: "Solid scope" },
+    },
+  );
+});
+
+Deno.test("first handoff inserts a new opportunity projection", () => {
+  const context = resolveHandoffAnalysisContext(
+    LEAD_ID,
+    ANALYSIS_ID,
+    validRow(),
+  );
+  assertEquals(context.ok, true);
+  if (!context.ok) return;
+  const projection = buildHandoffOpportunityProjection(context.context);
+  const plan = planHandoffOpportunityPersistence(null, projection);
+  assertEquals(plan.action, "insert");
+  if (plan.action !== "insert") return;
+  assertEquals(plan.projection, projection);
+});
+
+Deno.test("same-scan retry refreshes without rebinding opportunity identity", () => {
+  const context = resolveHandoffAnalysisContext(
+    LEAD_ID,
+    ANALYSIS_ID,
+    validRow({ grade: "B" }),
+  );
+  assertEquals(context.ok, true);
+  if (!context.ok) return;
+  const projection = buildHandoffOpportunityProjection(context.context);
+  const plan = planHandoffOpportunityPersistence({
+    id: "opp-existing",
+    analysis_id: ANALYSIS_ID,
+    scan_session_id: SESSION_ID,
+  }, projection);
+  assertEquals(plan.action, "refresh");
+  if (plan.action !== "refresh") return;
+  assertEquals(plan.opportunityId, "opp-existing");
+  assertEquals(plan.mutableUpdate, { grade: "B", flag_count: 1 });
+  assert(!("analysis_id" in plan.mutableUpdate));
+  assert(!("scan_session_id" in plan.mutableUpdate));
+});
+
+Deno.test("new rescan inserts instead of refreshing historical opportunity", () => {
+  const context = resolveHandoffAnalysisContext(
+    LEAD_ID,
+    ANALYSIS_ID_2,
+    validRow({
+      id: ANALYSIS_ID_2,
+      scan_session_id: SESSION_ID_2,
+    }),
+  );
+  assertEquals(context.ok, true);
+  if (!context.ok) return;
+  const projection = buildHandoffOpportunityProjection(context.context);
+  const plan = planHandoffOpportunityPersistence({
+    id: "opp-old",
+    analysis_id: ANALYSIS_ID,
+    scan_session_id: SESSION_ID,
+  }, projection);
+  assertEquals(plan.action, "insert");
+  if (plan.action !== "insert") return;
+  assertEquals(plan.projection.analysis_id, ANALYSIS_ID_2);
+  assertEquals(plan.projection.scan_session_id, SESSION_ID_2);
 });
