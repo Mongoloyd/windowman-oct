@@ -74,7 +74,7 @@ function normalizeFormattedDecimalString(raw: string): string | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;
 
-  const stripped = trimmed.replace(/[\$,\s]/g, "");
+  const stripped = trimmed.replace(/[$,\s]/g, "");
   if (!stripped || stripped === "-" || stripped === "." || stripped === "-.") {
     return null;
   }
@@ -205,32 +205,65 @@ function asPositiveInches(value: unknown): number | null {
   return num;
 }
 
-const DIMENSION_PAIR_PATTERN =
-  /(\d+(?:\.\d+)?)\s*(?:["″'′]|in(?:ch(?:es)?)?\.?)?\s*[x×]\s*(\d+(?:\.\d+)?)\s*(?:["″'′]|in(?:ch(?:es)?)?\.?)?/i;
+const DIMENSION_PAIR_PATTERN = /^([^x×]+)\s*[x×]\s*([^x×]+)$/i;
+
+const UNSUPPORTED_DIMENSION_UNITS =
+  /\b(?:mm|cm|m\b|meter|metre|meters|metres|millimeters?|centimeters?)\b/i;
+
+type ParsedDimensionSide = {
+  inches: number;
+  unitKind: "unitless" | "inch" | "feet";
+};
+
+function parseSingleDimensionToken(token: string): ParsedDimensionSide | null {
+  const trimmed = token.trim();
+  if (!trimmed) return null;
+
+  const match = trimmed.match(/^(\d+(?:\.\d+)?)\s*(.*)$/);
+  if (!match) return null;
+
+  const value = Number.parseFloat(match[1]);
+  const unitRaw = match[2].trim();
+  if (!Number.isFinite(value) || value <= 0) return null;
+
+  if (!unitRaw) {
+    return { inches: value, unitKind: "unitless" };
+  }
+
+  if (/^(?:in(?:ch(?:es)?)?\.?|["″])$/i.test(unitRaw)) {
+    return { inches: value, unitKind: "inch" };
+  }
+
+  if (/^(?:ft|foot|feet|['′])$/i.test(unitRaw)) {
+    return { inches: value * 12, unitKind: "feet" };
+  }
+
+  return null;
+}
 
 function parseDimensions(
   raw: string | null | undefined,
 ): { width_inches: number; height_inches: number } | null {
   if (raw == null || typeof raw !== "string") return null;
   const trimmed = raw.trim();
-  if (!trimmed) return null;
-  try {
-    const match = trimmed.match(DIMENSION_PAIR_PATTERN);
-    if (!match) return null;
-    const width_inches = Number.parseFloat(match[1]);
-    const height_inches = Number.parseFloat(match[2]);
-    if (
-      !Number.isFinite(width_inches) ||
-      !Number.isFinite(height_inches) ||
-      width_inches <= 0 ||
-      height_inches <= 0
-    ) {
-      return null;
-    }
-    return { width_inches, height_inches };
-  } catch {
+  if (!trimmed || UNSUPPORTED_DIMENSION_UNITS.test(trimmed)) return null;
+
+  const pairMatch = trimmed.match(DIMENSION_PAIR_PATTERN);
+  if (!pairMatch) return null;
+
+  const widthSide = parseSingleDimensionToken(pairMatch[1]);
+  const heightSide = parseSingleDimensionToken(pairMatch[2]);
+  if (!widthSide || !heightSide) return null;
+
+  const unitKinds = new Set([widthSide.unitKind, heightSide.unitKind]);
+  if (unitKinds.has("feet") && unitKinds.size > 1) {
     return null;
   }
+
+  return {
+    width_inches: widthSide.inches,
+    height_inches: heightSide.inches,
+  };
 }
 
 function resolveLineDimensions(
@@ -254,9 +287,15 @@ function unitedInchesFromPair(pair: {
   return pair.width_inches + pair.height_inches;
 }
 
+function effectivePositiveQuantity(quantity: number | null): number {
+  if (quantity !== null && quantity > 0) return quantity;
+  return 1;
+}
+
 function centsPerUnitedInch(
   extendedPriceCents: number | null,
   unitedInches: number | null,
+  quantity: number | null,
 ): number | null {
   if (
     extendedPriceCents === null ||
@@ -269,21 +308,49 @@ function centsPerUnitedInch(
 
   const uiDecimal = normalizeDecimalInput(unitedInches);
   if (uiDecimal === null) return null;
-  const parts = parseDecimalParts(uiDecimal);
-  if (!parts || parts.negative) return null;
+  const uiParts = parseDecimalParts(uiDecimal);
+  if (!uiParts || uiParts.negative) return null;
 
-  const fracLen = parts.frac.length;
-  const den = bigIntPow10(fracLen);
-  const uiNumerator = BigInt(parts.whole) * den +
-    (parts.frac.length > 0 ? BigInt(parts.frac) : 0n);
+  const qtyDecimal = normalizeDecimalInput(effectivePositiveQuantity(quantity));
+  if (qtyDecimal === null) return null;
+  const qtyParts = parseDecimalParts(qtyDecimal);
+  if (!qtyParts || qtyParts.negative) return null;
+
+  const uiFracLen = uiParts.frac.length;
+  const uiDen = bigIntPow10(uiFracLen);
+  const uiNumerator = BigInt(uiParts.whole) * uiDen +
+    (uiParts.frac.length > 0 ? BigInt(uiParts.frac) : 0n);
   if (uiNumerator <= 0n) return null;
 
+  const qtyFracLen = qtyParts.frac.length;
+  const qtyDen = bigIntPow10(qtyFracLen);
+  const qtyNumerator = BigInt(qtyParts.whole) * qtyDen +
+    (qtyParts.frac.length > 0 ? BigInt(qtyParts.frac) : 0n);
+  if (qtyNumerator <= 0n) return null;
+
+  const denominator = uiNumerator * qtyNumerator;
+  const numeratorScale = uiDen * qtyDen;
   const quotient = signedHalfUpDivide(
-    BigInt(extendedPriceCents) * den,
-    uiNumerator,
+    BigInt(extendedPriceCents) * numeratorScale,
+    denominator,
   );
   if (quotient === null) return null;
   return bigintToSafeInteger(quotient);
+}
+
+/** Redact likely PII and quote fragments from database error text before persistence. */
+function sanitizeDbErrorMessage(message: string): string {
+  let sanitized = message;
+  sanitized = sanitized.replace(
+    /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g,
+    "[redacted]",
+  );
+  sanitized = sanitized.replace(
+    /\b(?:\+?1[-.\s]?)?(?:\(\d{3}\)|\d{3})[-.\s]?\d{3}[-.\s]?\d{4}\b/g,
+    "[redacted]",
+  );
+  sanitized = sanitized.replace(/\{[\s\S]*\}|\[[\s\S]*\]/g, "[redacted]");
+  return truncateExcerpt(sanitized.trim());
 }
 
 function lineCategoryForDescription(description: string): ItemBucket {
@@ -426,7 +493,6 @@ async function processLineItems(
     const reason = "extraction.line_items is not an array";
     await logFailure("parse_lines", reason, {
       fieldName: "line_items",
-      rawExcerpt: truncateExcerpt(JSON.stringify(lineItemsRaw)),
     });
     return { ok: false, error: reason };
   }
@@ -442,7 +508,6 @@ async function processLineItems(
           {
             lineIndex: index,
             fieldName: "line_items[]",
-            rawExcerpt: truncateExcerpt(JSON.stringify(raw)),
           },
         );
         continue;
@@ -455,7 +520,6 @@ async function processLineItems(
           {
             lineIndex: index,
             fieldName: "description",
-            rawExcerpt: truncateExcerpt(JSON.stringify(raw)),
           },
         );
         continue;
@@ -469,19 +533,24 @@ async function processLineItems(
       const unitedInches = dimensionPair
         ? unitedInchesFromPair(dimensionPair)
         : null;
+      const lineQuantity = asNullableQuantity(raw.quantity);
       processed.push({
         line_index: index,
         raw_description: description.trim(),
         raw_dimensions: rawDimensionsText,
         line_category: category,
         is_scope_adder: isScopeAdder(category),
-        quantity: asNullableQuantity(raw.quantity),
+        quantity: lineQuantity,
         unit_price_cents: parseMoneyToCents(raw.unit_price),
         extended_price_cents: extendedCents,
         width_inches: dimensionPair?.width_inches ?? null,
         height_inches: dimensionPair?.height_inches ?? null,
         united_inches: unitedInches,
-        cents_per_united_inch: centsPerUnitedInch(extendedCents, unitedInches),
+        cents_per_united_inch: centsPerUnitedInch(
+          extendedCents,
+          unitedInches,
+          lineQuantity,
+        ),
         brand: asNullableString(raw.brand),
         series: asNullableString(raw.series),
         dp_rating: asNullableString(raw.dp_rating),
@@ -600,9 +669,8 @@ export async function normalizeAnalysis(
 
     if (upsertError || !observationRow?.id) {
       const message = upsertError?.message ?? "quote_observations upsert failed";
-      await logFailure("write", message, {
+      await logFailure("write", sanitizeDbErrorMessage(message), {
         fieldName: "quote_observations",
-        rawExcerpt: truncateExcerpt(message),
       });
       return { success: false, error: message };
     }
@@ -615,9 +683,8 @@ export async function normalizeAnalysis(
       .eq("observation_id", observationId);
 
     if (deleteError) {
-      await logFailure("write", deleteError.message, {
+      await logFailure("write", sanitizeDbErrorMessage(deleteError.message), {
         fieldName: "quote_line_items.delete",
-        rawExcerpt: truncateExcerpt(deleteError.message),
       });
       return { success: false, error: deleteError.message };
     }
@@ -657,9 +724,8 @@ export async function normalizeAnalysis(
         .insert(insertRows);
 
       if (insertError) {
-        await logFailure("write", insertError.message, {
+        await logFailure("write", sanitizeDbErrorMessage(insertError.message), {
           fieldName: "quote_line_items.insert",
-          rawExcerpt: truncateExcerpt(insertError.message),
         });
         return { success: false, error: insertError.message };
       }
@@ -668,9 +734,7 @@ export async function normalizeAnalysis(
     return { success: true, observationId };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    await logFailure("write", message, {
-      rawExcerpt: truncateExcerpt(message),
-    });
+    await logFailure("write", sanitizeDbErrorMessage(message));
     return { success: false, error: message };
   }
 }

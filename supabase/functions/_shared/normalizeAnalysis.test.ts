@@ -25,7 +25,13 @@ const baseMeta: NormalizeAnalysisMeta = {
 type ObservationRow = Record<string, unknown> & { id: string; analysis_id: string };
 type FailureRow = Record<string, unknown>;
 
-function createMockSupabase() {
+type MockSupabaseOptions = {
+  observationUpsertError?: { message: string };
+  lineDeleteError?: { message: string };
+  lineInsertError?: { message: string };
+};
+
+function createMockSupabase(options: MockSupabaseOptions = {}) {
   const observationsByAnalysis = new Map<string, ObservationRow>();
   let lineItems: Record<string, unknown>[] = [];
   const failures: FailureRow[] = [];
@@ -41,6 +47,20 @@ function createMockSupabase() {
           upsert(payload: Record<string, unknown>, opts?: { onConflict?: string }) {
             upsertCallCount += 1;
             lastUpsertOnConflict = opts?.onConflict;
+            if (options.observationUpsertError) {
+              return {
+                select(_cols: string) {
+                  return {
+                    single() {
+                      return Promise.resolve({
+                        data: null,
+                        error: options.observationUpsertError,
+                      });
+                    },
+                  };
+                },
+              };
+            }
             const analysisId = String(payload.analysis_id);
             const existing = observationsByAnalysis.get(analysisId);
             const row: ObservationRow = {
@@ -69,6 +89,9 @@ function createMockSupabase() {
             return {
               eq(_col: string, observationId: string) {
                 lineDeleteCount += 1;
+                if (options.lineDeleteError) {
+                  return Promise.resolve({ error: options.lineDeleteError });
+                }
                 lineItems = lineItems.filter(
                   (r) => r.observation_id !== observationId,
                 );
@@ -79,6 +102,9 @@ function createMockSupabase() {
           insert(rows: Record<string, unknown> | Record<string, unknown>[]) {
             const batch = Array.isArray(rows) ? rows : [rows];
             lineInsertCount += 1;
+            if (options.lineInsertError) {
+              return Promise.resolve({ error: options.lineInsertError });
+            }
             lineItems.push(...batch);
             return Promise.resolve({ error: null });
           },
@@ -421,7 +447,109 @@ Deno.test("normalizeAnalysis: explicit total_price overrides unit fallback", asy
   assertEquals(line.unit_price_cents, 199900);
 });
 
-Deno.test("normalizeAnalysis: non-array line_items logs parse_lines with truncated excerpt", async () => {
+Deno.test("normalizeAnalysis: batched cents per united inch uses quantity", async () => {
+  const mock = createMockSupabase();
+  const fullJson: Record<string, unknown> = {
+    extraction: {
+      contractor_name: "Batch UI Co",
+      line_items: [
+        {
+          description: "Impact window package",
+          dimensions: "36 x 60",
+          quantity: 7,
+          total_price: 10500,
+        },
+      ],
+    },
+  };
+
+  const result = await normalizeAnalysis(
+    mock.supabase,
+    ANALYSIS_ID,
+    fullJson,
+    baseMeta,
+  );
+  assertEquals(result.success, true);
+  const line = mock.getLineItems()[0];
+  assertEquals(line.united_inches, 96);
+  assertEquals(line.extended_price_cents, 1050000);
+  assertEquals(line.cents_per_united_inch, 1563);
+});
+
+Deno.test("normalizeAnalysis: feet dimensions convert to inches", async () => {
+  const mock = createMockSupabase();
+  const fullJson: Record<string, unknown> = {
+    extraction: {
+      contractor_name: "Feet Dim Co",
+      line_items: [
+        {
+          description: "Impact window",
+          dimensions: "3' x 5'",
+          quantity: 1,
+          total_price: 500,
+        },
+      ],
+    },
+  };
+
+  await normalizeAnalysis(mock.supabase, ANALYSIS_ID, fullJson, baseMeta);
+  const line = mock.getLineItems()[0];
+  assertEquals(line.width_inches, 36);
+  assertEquals(line.height_inches, 60);
+  assertEquals(line.united_inches, 96);
+});
+
+Deno.test("normalizeAnalysis: explicit inch notation unchanged", async () => {
+  const mock = createMockSupabase();
+  const fullJson: Record<string, unknown> = {
+    extraction: {
+      contractor_name: "Inch Mark Co",
+      line_items: [
+        {
+          description: "Impact window",
+          dimensions: '36" x 48"',
+          quantity: 1,
+          total_price: 400,
+        },
+      ],
+    },
+  };
+
+  await normalizeAnalysis(mock.supabase, ANALYSIS_ID, fullJson, baseMeta);
+  const line = mock.getLineItems()[0];
+  assertEquals(line.width_inches, 36);
+  assertEquals(line.height_inches, 48);
+  assertEquals(line.united_inches, 84);
+});
+
+Deno.test("normalizeAnalysis: metric dimensions skip normalized stats", async () => {
+  const mock = createMockSupabase();
+  const fullJson: Record<string, unknown> = {
+    extraction: {
+      contractor_name: "Metric Dim Co",
+      line_items: [
+        {
+          description: "Impact window",
+          dimensions: "900 mm x 1200 mm",
+          quantity: 2,
+          total_price: 8000,
+        },
+      ],
+    },
+  };
+
+  await normalizeAnalysis(mock.supabase, ANALYSIS_ID, fullJson, baseMeta);
+  const line = mock.getLineItems()[0];
+  assertEquals(line.width_inches, null);
+  assertEquals(line.height_inches, null);
+  assertEquals(line.united_inches, null);
+  assertEquals(line.cents_per_united_inch, null);
+  const obs = mock.getObservation(ANALYSIS_ID);
+  assert(obs);
+  assertEquals(obs.is_stats_eligible, false);
+});
+
+Deno.test("normalizeAnalysis: non-array line_items logs parse_lines without raw excerpt", async () => {
   const mock = createMockSupabase();
   const badValue = "x".repeat(600);
   const result = await normalizeAnalysis(
@@ -439,6 +567,102 @@ Deno.test("normalizeAnalysis: non-array line_items logs parse_lines with truncat
   const failures = mock.getFailures();
   assertEquals(failures.length, 1);
   assertEquals(failures[0].failure_stage, "parse_lines");
-  const excerpt = String(failures[0].raw_excerpt ?? "");
-  assert(excerpt.length <= 500);
+  assertEquals(failures[0].raw_excerpt, null);
+});
+
+const PRIVACY_SENTINEL_EMAIL = "SENTINEL_EMAIL@example.com";
+const PRIVACY_SENTINEL_PHONE = "555-867-5309";
+const PRIVACY_SENTINEL_NAME = "SENTINEL_NAME_JANE DOE";
+const PRIVACY_SENTINEL_ADDRESS = "SENTINEL_ADDR_123 Main St";
+
+function assertFailureRowHasNoSentinels(failure: FailureRow) {
+  const serialized = JSON.stringify(failure);
+  assert(!serialized.includes(PRIVACY_SENTINEL_EMAIL));
+  assert(!serialized.includes(PRIVACY_SENTINEL_PHONE));
+  assert(!serialized.includes(PRIVACY_SENTINEL_NAME));
+  assert(!serialized.includes(PRIVACY_SENTINEL_ADDRESS));
+}
+
+Deno.test("normalizeAnalysis: parse failures never persist quote fragments", async () => {
+  const mock = createMockSupabase();
+  const result = await normalizeAnalysis(
+    mock.supabase,
+    ANALYSIS_ID,
+    {
+      extraction: {
+        contractor_name: PRIVACY_SENTINEL_NAME,
+        line_items: [
+          {
+            description: "",
+            customer_email: PRIVACY_SENTINEL_EMAIL,
+            phone: PRIVACY_SENTINEL_PHONE,
+            ship_to: PRIVACY_SENTINEL_ADDRESS,
+          },
+        ],
+      },
+    },
+    baseMeta,
+  );
+  assertEquals(result.success, true);
+  const failures = mock.getFailures();
+  assertEquals(failures.length, 1);
+  assertEquals(failures[0].failure_stage, "parse_lines");
+  assertEquals(failures[0].field_name, "description");
+  assertEquals(failures[0].raw_excerpt, null);
+  assertFailureRowHasNoSentinels(failures[0]);
+});
+
+Deno.test("normalizeAnalysis: write failure on observation upsert is logged safely", async () => {
+  const mock = createMockSupabase({
+    observationUpsertError: {
+      message: `upsert failed for ${PRIVACY_SENTINEL_EMAIL} ${PRIVACY_SENTINEL_PHONE}`,
+    },
+  });
+  const result = await normalizeAnalysis(
+    mock.supabase,
+    ANALYSIS_ID,
+    fullPayloadFullJson(),
+    baseMeta,
+  );
+  assertEquals(result.success, false);
+  const failures = mock.getFailures();
+  assertEquals(failures.length, 1);
+  assertEquals(failures[0].failure_stage, "write");
+  assertEquals(failures[0].field_name, "quote_observations");
+  assertEquals(failures[0].raw_excerpt, null);
+  assertFailureRowHasNoSentinels(failures[0]);
+});
+
+Deno.test("normalizeAnalysis: write failure on line delete is logged safely", async () => {
+  const mock = createMockSupabase({
+    lineDeleteError: { message: "delete blocked" },
+  });
+  const result = await normalizeAnalysis(
+    mock.supabase,
+    ANALYSIS_ID,
+    fullPayloadFullJson(),
+    baseMeta,
+  );
+  assertEquals(result.success, false);
+  const failure = mock.getFailures()[0];
+  assertEquals(failure.failure_stage, "write");
+  assertEquals(failure.field_name, "quote_line_items.delete");
+  assertEquals(failure.raw_excerpt, null);
+});
+
+Deno.test("normalizeAnalysis: write failure on line insert is logged safely", async () => {
+  const mock = createMockSupabase({
+    lineInsertError: { message: "insert blocked" },
+  });
+  const result = await normalizeAnalysis(
+    mock.supabase,
+    ANALYSIS_ID,
+    fullPayloadFullJson(),
+    baseMeta,
+  );
+  assertEquals(result.success, false);
+  const failure = mock.getFailures()[0];
+  assertEquals(failure.failure_stage, "write");
+  assertEquals(failure.field_name, "quote_line_items.insert");
+  assertEquals(failure.raw_excerpt, null);
 });
