@@ -5,7 +5,7 @@
  * Input:  { lead_id }
  * Output: { success, followup_id, webhook_status }
  *
- * 1. Looks up lead metadata (phone, name, county, grade, flags, scan session)
+ * 1. Looks up lead metadata (phone, name, county, canonical analysis context)
  * 2. Inserts a voice_followups row BEFORE firing webhook (audit-first)
  * 3. Fires PHONECALL_BOT_WEBHOOK_URL (graceful skip if unset)
  * 4. Updates followup status based on webhook result
@@ -17,6 +17,11 @@ import {
   corsHeaders,
   validateAdminRequestWithRole,
 } from "../_shared/adminAuth.ts";
+import {
+  buildDialLeadWebhookAnalysisFields,
+  httpStatusForDialLeadContextFailure,
+  loadDialLeadAnalysisContext,
+} from "./dialLeadAnalysisContext.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -49,7 +54,7 @@ Deno.serve(async (req) => {
     const { data: lead, error: leadErr } = await supabase
       .from("leads")
       .select(
-        "id, phone_e164, first_name, county, grade, flag_count, latest_scan_session_id, deal_status, project_type, window_count, quote_range",
+        "id, phone_e164, first_name, county, latest_analysis_id, deal_status, project_type, window_count, quote_range",
       )
       .eq("id", lead_id)
       .maybeSingle();
@@ -74,15 +79,36 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ── 2. Resolve canonical analysis context (optional) ─────────────────
+    const analysisContextResult = await loadDialLeadAnalysisContext(
+      supabase,
+      lead.id,
+      lead.latest_analysis_id,
+    );
+    if (!analysisContextResult.ok) {
+      return new Response(
+        JSON.stringify({ error: analysisContextResult.errorMessage }),
+        {
+          status: httpStatusForDialLeadContextFailure(
+            analysisContextResult.kind,
+          ),
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+    const analysisFields = buildDialLeadWebhookAnalysisFields(
+      analysisContextResult.context,
+    );
+
     const now = new Date().toISOString();
     const call_intent = "operator_outbound";
 
-    // ── 2. Build webhook payload (mirrors voice-followup shape) ──────────
+    // ── 3. Build webhook payload (mirrors voice-followup shape) ──────────
     const webhookPayload = {
       to: lead.phone_e164,
       info: {
         lead_id: lead.id,
-        scan_session_id: lead.latest_scan_session_id || null,
+        scan_session_id: analysisFields.scan_session_id,
         first_name: lead.first_name || null,
         cta_source: "crm_autodial",
         call_intent,
@@ -90,12 +116,12 @@ Deno.serve(async (req) => {
         project_type: lead.project_type || null,
         window_count: lead.window_count || null,
         quote_range: lead.quote_range || null,
-        grade: lead.grade || null,
-        flag_count: lead.flag_count || 0,
+        grade: analysisFields.grade,
+        flag_count: analysisFields.flag_count,
       },
     };
 
-    // ── 3. INSERT voice_followups BEFORE webhook (audit-first) ───────────
+    // ── 4. INSERT voice_followups BEFORE webhook (audit-first) ───────────
     const { data: followup, error: insertErr } = await supabase
       .from("voice_followups")
       .insert({
@@ -104,7 +130,7 @@ Deno.serve(async (req) => {
         call_intent,
         status: "queued",
         provider: "phonecall_bot",
-        scan_session_id: lead.latest_scan_session_id || null,
+        scan_session_id: analysisFields.scan_session_id,
         cta_source: "crm_autodial",
         payload_json: webhookPayload,
       })
@@ -112,10 +138,10 @@ Deno.serve(async (req) => {
       .single();
 
     if (insertErr) {
-      console.error(
-        "[dial-lead] Failed to insert voice_followups:",
-        insertErr.message,
-      );
+      console.error("[dial-lead] voice_followups insert failed", {
+        stage: "voice_followups_insert",
+        lead_id: lead.id,
+      });
       return new Response(
         JSON.stringify({ error: "Failed to queue call" }),
         {
@@ -125,7 +151,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ── 4. Fire webhook (mirrors voice-followup pattern) ─────────────────
+    // ── 5. Fire webhook (mirrors voice-followup pattern) ─────────────────
     const webhookUrl = Deno.env.get("PHONECALL_BOT_WEBHOOK_URL");
     let webhookStatus = "queued";
 
@@ -139,21 +165,26 @@ Deno.serve(async (req) => {
 
         if (resp.ok) {
           webhookStatus = "sent";
-          console.log("[dial-lead] webhook sent successfully");
+          console.log("[dial-lead] webhook sent", {
+            lead_id: lead.id,
+            followup_id: followup.id,
+          });
         } else {
           webhookStatus = "failed";
-          const errText = await resp.text().catch(() => "unknown");
-          console.error(
-            "[dial-lead] webhook failed:",
-            `HTTP ${resp.status}: ${errText}`,
-          );
+          console.error("[dial-lead] webhook failed", {
+            stage: "webhook_response",
+            lead_id: lead.id,
+            followup_id: followup.id,
+            http_status: resp.status,
+          });
         }
-      } catch (err) {
+      } catch {
         webhookStatus = "failed";
-        console.error(
-          "[dial-lead] webhook error:",
-          err instanceof Error ? err.message : err,
-        );
+        console.error("[dial-lead] webhook request failed", {
+          stage: "webhook_fetch",
+          lead_id: lead.id,
+          followup_id: followup.id,
+        });
       }
 
       // Update followup status based on webhook result
@@ -167,7 +198,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ── 5. Bump deal_status ONLY if null or 'new' (.in() guard) ──────────
+    // ── 6. Bump deal_status ONLY if null or 'new' (.in() guard) ──────────
     if (!lead.deal_status || lead.deal_status === "new") {
       await supabase
         .from("leads")
@@ -185,7 +216,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── 6. Log to lead_events (canonical event table) ────────────────────
+    // ── 7. Log to lead_events (canonical event table) ────────────────────
     await supabase.from("lead_events").insert({
       lead_id: lead.id,
       event_name: "voice_followup_queued",
@@ -216,8 +247,8 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       },
     );
-  } catch (err) {
-    console.error("[dial-lead] unhandled error:", err);
+  } catch {
+    console.error("[dial-lead] unhandled error", { stage: "unhandled" });
     return new Response(
       JSON.stringify({ error: "Internal server error" }),
       {
