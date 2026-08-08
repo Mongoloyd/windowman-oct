@@ -66,7 +66,6 @@ CREATE TABLE public.quote_line_items (
   glass_argon_present boolean NULL,
   glass_tint_text text NULL,
   glass_spec_complete boolean NULL,
-  raw_line_json jsonb NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT quote_line_items_observation_line_key
     UNIQUE (observation_id, line_index),
@@ -92,9 +91,6 @@ COMMENT ON COLUMN public.quote_line_items.raw_dimensions IS
 
 COMMENT ON COLUMN public.quote_line_items.line_category IS
   'Bucket emitted by the existing shared classifyLineItem function. Engineering has no dedicated bucket and remains other unless separately approved.';
-
-COMMENT ON COLUMN public.quote_line_items.raw_line_json IS
-  'Untouched extracted source line item retained for deterministic reparsing without rescanning the document.';
 
 CREATE TABLE public.normalization_failures (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

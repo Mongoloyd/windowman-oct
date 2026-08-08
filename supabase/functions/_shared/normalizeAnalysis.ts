@@ -374,7 +374,6 @@ type ProcessedLine = {
   height_inches: number | null;
   united_inches: number | null;
   cents_per_united_inch: number | null;
-  raw_line_json: Record<string, unknown>;
 };
 
 async function logNormalizationFailure(
@@ -496,7 +495,6 @@ async function processLineItems(
         glass_argon_present: asNullableBoolean(raw.glass_argon_present),
         glass_tint_text: asNullableString(raw.glass_tint_text),
         glass_spec_complete: asNullableBoolean(raw.glass_spec_complete),
-        raw_line_json: raw,
       });
     }
     return { ok: true, lines: processed };
@@ -652,7 +650,6 @@ export async function normalizeAnalysis(
         height_inches: line.height_inches,
         united_inches: line.united_inches,
         cents_per_united_inch: line.cents_per_united_inch,
-        raw_line_json: line.raw_line_json,
       }));
 
       const { error: insertError } = await supabase
