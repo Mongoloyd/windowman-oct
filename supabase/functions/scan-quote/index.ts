@@ -73,6 +73,12 @@ import {
   normalizeClassification,
   type RejectReason,
 } from "./classificationGate.ts";
+import {
+  buildLeadPointerSyncClientBody,
+  buildMissingAnalysisIdLog,
+  planLeadPointerSync,
+  syncLeadAnalysisPointer,
+} from "./leadPointerSync.ts";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SECTION 1: CLASSIFICATION-GATE HANDLER GLUE
@@ -1317,46 +1323,47 @@ Deno.serve(async (req: Request) => {
 
       const analysisId = completeAnalysisUpsert.analysisId;
 
-      // 13b. LEAD SNAPSHOT SYNC — update leads table with analysis results
-      if (session.lead_id && analysisId) {
-        const criticalCount = flags.filter((f) =>
-          f.severity === "Critical"
-        ).length;
-        const redCount = flags.filter((f) => f.severity === "High").length;
-        const amberCount = flags.filter((f) => f.severity === "Medium").length;
+      // 13b. LEAD POINTER SYNC — the monotonic RPC is the sole authority for
+      // leads.latest_analysis_id. It must settle before any completion event
+      // or preview_ready so a failed pointer never reads as a finished scan.
+      const pointerPlan = planLeadPointerSync(session.lead_id, analysisId);
 
-        try {
-          const { error: leadUpdateErr } = await supabase
-            .from("leads")
-            .update({
-              latest_analysis_id: analysisId,
-              latest_scan_session_id: scan_session_id,
-              grade: gradeResult.letterGrade,
-              flag_count: flags.length,
-              critical_flag_count: criticalCount,
-              red_flag_count: redCount,
-              amber_flag_count: amberCount,
-              funnel_stage: "scanned",
-            })
-            .eq("id", session.lead_id);
+      if (pointerPlan.kind === "missing_analysis_id") {
+        logScanError(
+          "lead_snapshot",
+          buildMissingAnalysisIdLog(pointerPlan.leadId, scan_session_id),
+        );
+        return jsonResponse(
+          buildLeadPointerSyncClientBody(scan_session_id),
+          500,
+        );
+      }
 
-          if (leadUpdateErr) {
-            console.error(
-              "Lead snapshot sync failed (non-fatal):",
-              leadUpdateErr,
-            );
-          } else {
-            console.log(
-              `[LEAD_SNAPSHOT_SYNC] lead_id=${session.lead_id} analysis_id=${analysisId} grade=${gradeResult.letterGrade}`,
-            );
-          }
-        } catch (leadSyncErr) {
-          console.error(
-            "Lead snapshot sync unexpected error (non-fatal):",
-            leadSyncErr,
-          );
+      if (pointerPlan.kind === "sync") {
+        const pointerSync = await syncLeadAnalysisPointer(supabase, {
+          leadId: pointerPlan.leadId,
+          analysisId: pointerPlan.analysisId,
+          scanSessionId: scan_session_id,
+        });
+
+        if (!pointerSync.ok) {
+          // The analysis stays complete; the session stays processing so the
+          // scan can be retried without rolling back persisted truth.
+          logScanError("lead_snapshot", pointerSync.log);
+          return jsonResponse(pointerSync.clientBody, 500);
         }
 
+        logScanInfo("lead_snapshot", {
+          detail: "lead_pointer_synced",
+          lead_id: pointerPlan.leadId,
+          analysis_id: pointerPlan.analysisId,
+          scan_session_id,
+          outcome: pointerSync.row.outcome,
+          pointer_advanced: pointerSync.row.updated,
+        });
+      }
+
+      if (session.lead_id && analysisId) {
         // 13c. LEAD EVENT — append operational timeline entry
         try {
           const { error: eventErr } = await supabase
