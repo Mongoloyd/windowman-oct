@@ -44,6 +44,7 @@ $AdminFunctionName = "admin-data"
 $ApprovedAdminDeployCommit = "d2c48b52a1e1fe368eaa84ae55548ae0a3565439"
 $ApprovedAdminRollbackVersion = 16
 $ApprovedAdminRollbackCommit = "dd960a6f19247e693a61cf1b0913e94d4170b0cc"
+$AdminAmbiguousExitCode = 106
 $DefaultTargetFunctions = @(
     "start-upload-scan-session",
     "capture-truth-gate-lead",
@@ -358,20 +359,17 @@ function Invoke-AdminValidation {
 function Assert-AdminMetadataInputs {
     param([Parameter(Mandatory = $true)][bool]$Required)
 
-    $AnyProvided = -not [string]::IsNullOrWhiteSpace($CurrentVersion) -or
-        -not [string]::IsNullOrWhiteSpace($CurrentFunctionId) -or
-        -not [string]::IsNullOrWhiteSpace($CurrentDeployedHash)
-    if ($Required -and -not $AnyProvided) {
-        Fail 77 "Current deployment metadata is required before a non-dry-run admin-data action."
+    $VersionProvided = -not [string]::IsNullOrWhiteSpace($CurrentVersion)
+    $FunctionIdProvided = -not [string]::IsNullOrWhiteSpace($CurrentFunctionId)
+    $HashProvided = -not [string]::IsNullOrWhiteSpace($CurrentDeployedHash)
+
+    if ($Required -and -not ($VersionProvided -and $FunctionIdProvided)) {
+        Fail 77 "Current deployment metadata (CurrentVersion and CurrentFunctionId) is required before a non-dry-run admin-data action."
     }
-    if ($AnyProvided -and (
-        [string]::IsNullOrWhiteSpace($CurrentVersion) -or
-        [string]::IsNullOrWhiteSpace($CurrentFunctionId) -or
-        [string]::IsNullOrWhiteSpace($CurrentDeployedHash)
-    )) {
-        Fail 78 "CurrentVersion, CurrentFunctionId, and CurrentDeployedHash must be supplied together."
+    if (($VersionProvided -or $FunctionIdProvided -or $HashProvided) -and -not ($VersionProvided -and $FunctionIdProvided)) {
+        Fail 78 "CurrentVersion and CurrentFunctionId must be supplied together; CurrentDeployedHash is the optional operator-expected prior hash."
     }
-    if (-not $AnyProvided) {
+    if (-not $VersionProvided) {
         return
     }
 
@@ -382,30 +380,252 @@ function Assert-AdminMetadataInputs {
     if (-not [guid]::TryParse($CurrentFunctionId, [ref]$ParsedFunctionId)) {
         Fail 80 "CurrentFunctionId must be a valid UUID."
     }
-    if ($CurrentDeployedHash -cnotmatch '^[0-9a-f]{64}$') {
+    if ($HashProvided -and $CurrentDeployedHash -cnotmatch '^[0-9a-f]{64}$') {
         Fail 81 "CurrentDeployedHash must be a lowercase 64-character SHA-256 value."
     }
 }
 
-function Get-RemoteAdminMetadata {
+$script:BenignSupabaseCliStderrPatterns = @(
+    '(?i)A new version of Supabase CLI is available'
+)
+$script:SupabaseCliResolved = $null
+
+function Remove-AnsiEscapeSequence {
     param(
-        [Parameter(Mandatory = $true)][string]$ProjectRef,
-        [Parameter(Mandatory = $true)][string]$ExpectedFunction
+        [AllowEmptyString()]
+        [string]$Text = ""
     )
 
-    $NpxCmd = Get-Command npx -ErrorAction SilentlyContinue
-    if (-not $NpxCmd) {
-        Fail 82 "npx not found on PATH. Remote metadata capture is mandatory before a real admin-data action."
+    if ([string]::IsNullOrEmpty($Text)) {
+        return ""
+    }
+    $Esc = [char]0x1B
+    $Cleaned = [regex]::Replace($Text, "$Esc\[[0-9;?]*[ -/]*[@-~]", "")
+    return $Cleaned.Replace([string]$Esc, "")
+}
+
+function Test-SupabaseCliStderrClassification {
+    param(
+        [AllowEmptyString()]
+        [string]$Stderr = "",
+        [string[]]$AllowedStderrPatterns = $script:BenignSupabaseCliStderrPatterns
+    )
+
+    $Stderr = Remove-AnsiEscapeSequence -Text $Stderr
+    if ([string]::IsNullOrWhiteSpace($Stderr)) {
+        return [pscustomobject]@{
+            Status = "Clean"
+            ToleratedDiagnostics = @()
+            UnexpectedLines = @()
+        }
     }
 
-    $RawMetadata = (& npx supabase functions list --project-ref $ProjectRef --output json 2>&1 | Out-String).Trim()
-    if ($LASTEXITCODE -ne 0) {
-        Fail 83 "Unable to capture current non-secret Edge Function metadata."
+    $Tolerated = New-Object System.Collections.Generic.List[string]
+    $Unexpected = New-Object System.Collections.Generic.List[string]
+    foreach ($Line in ($Stderr -split "\r?\n")) {
+        $Trimmed = $Line.Trim()
+        if ([string]::IsNullOrWhiteSpace($Trimmed)) {
+            continue
+        }
+        $IsTolerated = $false
+        foreach ($Pattern in $AllowedStderrPatterns) {
+            if ($Trimmed -match $Pattern) {
+                $IsTolerated = $true
+                break
+            }
+        }
+        if ($IsTolerated) {
+            [void]$Tolerated.Add($Trimmed)
+        } else {
+            [void]$Unexpected.Add($Trimmed)
+        }
     }
+
+    if ($Unexpected.Count -gt 0) {
+        return [pscustomobject]@{
+            Status = "Unexpected"
+            ToleratedDiagnostics = @($Tolerated)
+            UnexpectedLines = @($Unexpected)
+        }
+    }
+
+    return [pscustomobject]@{
+        Status = "ToleratedDiagnostics"
+        ToleratedDiagnostics = @($Tolerated)
+        UnexpectedLines = @()
+    }
+}
+
+function Resolve-SupabaseCliInvocation {
+    # Resolution order:
+    #   1. Explicit unit-test mock override, loudly labeled.
+    #   2. Repository-pinned node_modules/.bin/supabase.cmd.
+    if ($script:SupabaseCliResolved) {
+        return $script:SupabaseCliResolved
+    }
+
+    $Override = $env:WM_ADMIN_WRAPPER_SUPABASE_CLI_TEST_OVERRIDE
+    if (-not [string]::IsNullOrWhiteSpace($Override)) {
+        if (-not (Test-Path -LiteralPath $Override -PathType Leaf)) {
+            Fail 82 "WM_ADMIN_WRAPPER_SUPABASE_CLI_TEST_OVERRIDE is set but does not name an existing executable."
+        }
+        Write-Host "WARNING: TEST OVERRIDE ACTIVE - Supabase CLI is a unit-test mock injected via WM_ADMIN_WRAPPER_SUPABASE_CLI_TEST_OVERRIDE."
+        Write-Host "WARNING: This invocation is NEVER a production deployment path."
+        $script:SupabaseCliResolved = [pscustomobject]@{
+            FilePath = (Resolve-Path -LiteralPath $Override).Path
+            LeadingArguments = @()
+            SourceLabel = "TEST_OVERRIDE_MOCK_CLI"
+        }
+        return $script:SupabaseCliResolved
+    }
+
+    $WrapperRepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+    $PinnedCli = Join-Path $WrapperRepoRoot "node_modules\.bin\supabase.cmd"
+    if (Test-Path -LiteralPath $PinnedCli -PathType Leaf) {
+        $script:SupabaseCliResolved = [pscustomobject]@{
+            FilePath = $PinnedCli
+            LeadingArguments = @()
+            SourceLabel = "node_modules/.bin/supabase.cmd (repository-pinned)"
+        }
+        return $script:SupabaseCliResolved
+    }
+
+    Fail 82 "Repository-installed Supabase CLI is required at node_modules/.bin/supabase.cmd. Install repository dependencies from the reviewed lockfile before admin-data actions."
+}
+
+function Invoke-NativeProcessCaptured {
+    param(
+        [Parameter(Mandatory = $true)][string]$FilePath,
+        [Parameter(Mandatory = $true)][string[]]$ArgumentTokens,
+        [string]$WorkingDirectory
+    )
+
+    foreach ($Token in $ArgumentTokens) {
+        if ($Token -notmatch '^-{0,2}[A-Za-z0-9][A-Za-z0-9._\-]*$') {
+            Fail 82 "Refusing native CLI invocation: an argument token failed strict allowlist validation."
+        }
+    }
+
+    $StdoutFile = [System.IO.Path]::GetTempFileName()
+    $StderrFile = [System.IO.Path]::GetTempFileName()
     try {
-        $ParsedMetadata = $RawMetadata | ConvertFrom-Json
-    } catch {
-        Fail 84 "Unable to parse current Edge Function metadata as JSON."
+        $ProcessFilePath = $FilePath
+        $ProcessArgumentList = $ArgumentTokens
+        if ($FilePath -match '\.(cmd|bat)$') {
+            if ($FilePath.IndexOfAny([char[]]'"&|<>()^%!') -ge 0) {
+                Fail 82 "Refusing native CLI invocation: batch executable path contains unsafe cmd.exe metacharacters."
+            }
+            $ProcessFilePath = "cmd.exe"
+            $BatchCommand = if ($ArgumentTokens.Count -gt 0) {
+                '""{0}" {1}"' -f $FilePath, ($ArgumentTokens -join " ")
+            } else {
+                '""{0}""' -f $FilePath
+            }
+            $ProcessArgumentList = @("/d", "/s", "/c", $BatchCommand)
+        }
+        $StartParameters = @{
+            FilePath = $ProcessFilePath
+            ArgumentList = $ProcessArgumentList
+            RedirectStandardOutput = $StdoutFile
+            RedirectStandardError = $StderrFile
+            NoNewWindow = $true
+            Wait = $true
+            PassThru = $true
+        }
+        if (-not [string]::IsNullOrWhiteSpace($WorkingDirectory)) {
+            $StartParameters["WorkingDirectory"] = $WorkingDirectory
+        }
+        $Process = Start-Process @StartParameters
+        $Stdout = Get-Content -LiteralPath $StdoutFile -Raw -ErrorAction SilentlyContinue
+        $Stderr = Get-Content -LiteralPath $StderrFile -Raw -ErrorAction SilentlyContinue
+        if ($null -eq $Stdout) { $Stdout = "" }
+        if ($null -eq $Stderr) { $Stderr = "" }
+
+        return [pscustomobject]@{
+            ExitCode = $Process.ExitCode
+            Stdout = ($Stdout -replace "`r`n", "`n").Trim()
+            Stderr = ($Stderr -replace "`r`n", "`n").Trim()
+        }
+    }
+    finally {
+        Remove-Item -LiteralPath $StdoutFile -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $StderrFile -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Invoke-SupabaseCliProcess {
+    param(
+        [Parameter(Mandatory = $true)][string[]]$Arguments,
+        [string]$WorkingDirectory,
+        [Parameter(Mandatory = $true)][string]$OperationName,
+        [string[]]$AllowedStderrPatterns = $script:BenignSupabaseCliStderrPatterns
+    )
+
+    $Cli = Resolve-SupabaseCliInvocation
+    $AllTokens = @($Cli.LeadingArguments) + @($Arguments)
+    $Captured = Invoke-NativeProcessCaptured `
+        -FilePath $Cli.FilePath `
+        -ArgumentTokens $AllTokens `
+        -WorkingDirectory $WorkingDirectory
+    $Classification = Test-SupabaseCliStderrClassification `
+        -Stderr $Captured.Stderr `
+        -AllowedStderrPatterns $AllowedStderrPatterns
+
+    return [pscustomobject]@{
+        OperationName = $OperationName
+        ExitCode = $Captured.ExitCode
+        Stdout = $Captured.Stdout
+        Stderr = $Captured.Stderr
+        StderrClassification = $Classification
+        CliSourceLabel = $Cli.SourceLabel
+    }
+}
+
+function Get-RemoteAdminFunctionRow {
+    # Read-only remote metadata discovery. Never exits; callers decide failure semantics.
+    param(
+        [Parameter(Mandatory = $true)][string]$ProjectRef,
+        [Parameter(Mandatory = $true)][string]$ExpectedFunction,
+        [Parameter(Mandatory = $true)][string]$OperationName
+    )
+
+    $Invocation = Invoke-SupabaseCliProcess `
+        -Arguments @("functions", "list", "--project-ref", $ProjectRef, "--output", "json") `
+        -OperationName $OperationName
+
+    if ($Invocation.ExitCode -ne 0) {
+        return [pscustomobject]@{
+            Ok = $false
+            FailureCode = 83
+            FailureMessage = "Unable to capture current non-secret Edge Function metadata (CLI exit $($Invocation.ExitCode)). Verify Supabase CLI authentication; the wrapper does not infer a single definitive cause."
+            ToleratedDiagnostics = @()
+        }
+    }
+    if ($Invocation.StderrClassification.Status -eq "Unexpected") {
+        return [pscustomobject]@{
+            Ok = $false
+            FailureCode = 83
+            FailureMessage = "Supabase CLI returned unexpected stderr while listing Edge Functions."
+            ToleratedDiagnostics = @($Invocation.StderrClassification.ToleratedDiagnostics)
+        }
+    }
+
+    $RawMetadata = $Invocation.Stdout
+    $ParsedMetadata = $null
+    if (-not [string]::IsNullOrWhiteSpace($RawMetadata)) {
+        try {
+            $ParsedMetadata = $RawMetadata | ConvertFrom-Json
+        } catch {
+            $ParsedMetadata = $null
+        }
+    }
+    if ($null -eq $ParsedMetadata) {
+        return [pscustomobject]@{
+            Ok = $false
+            FailureCode = 84
+            FailureMessage = "Unable to parse current Edge Function metadata as JSON."
+            ToleratedDiagnostics = @($Invocation.StderrClassification.ToleratedDiagnostics)
+        }
     }
 
     $Rows = if ($ParsedMetadata.PSObject.Properties.Name -contains "functions") {
@@ -414,21 +634,45 @@ function Get-RemoteAdminMetadata {
         @($ParsedMetadata)
     }
     $FunctionRow = @($Rows | Where-Object {
-        ($_.name -eq $ExpectedFunction) -or ($_.slug -eq $ExpectedFunction)
+        $RowName = if ($_.PSObject.Properties.Name -contains "name") { [string]$_.name } else { "" }
+        $Slug = if ($_.PSObject.Properties.Name -contains "slug") { [string]$_.slug } else { "" }
+        ($RowName -eq $ExpectedFunction) -or ($Slug -eq $ExpectedFunction)
     })
     if ($FunctionRow.Count -ne 1) {
-        Fail 85 "Current metadata did not contain exactly one '$ExpectedFunction' function."
+        return [pscustomobject]@{
+            Ok = $false
+            FailureCode = 85
+            FailureMessage = "Current metadata did not contain exactly one '$ExpectedFunction' function."
+            ToleratedDiagnostics = @($Invocation.StderrClassification.ToleratedDiagnostics)
+        }
     }
     $FunctionRow = $FunctionRow[0]
 
-    $RemoteId = [string]$FunctionRow.id
-    $RemoteVersion = [string]$FunctionRow.version
-    if ($RemoteId -ne $CurrentFunctionId -or $RemoteVersion -ne $CurrentVersion) {
-        Fail 86 "Current deployment metadata differs from the operator-reconfirmed ID/version."
+    $RemoteId = if ($FunctionRow.PSObject.Properties.Name -contains "id") {
+        [string]$FunctionRow.id
+    } else {
+        ""
+    }
+    $RemoteVersion = if ($FunctionRow.PSObject.Properties.Name -contains "version") {
+        [string]$FunctionRow.version
+    } else {
+        ""
+    }
+    $ParsedRemoteId = [guid]::Empty
+    if ([string]::IsNullOrWhiteSpace($RemoteId) -or
+        [string]::IsNullOrWhiteSpace($RemoteVersion) -or
+        -not [guid]::TryParse($RemoteId, [ref]$ParsedRemoteId) -or
+        $RemoteVersion -notmatch '^[1-9][0-9]*$') {
+        return [pscustomobject]@{
+            Ok = $false
+            FailureCode = 85
+            FailureMessage = "Current metadata for '$ExpectedFunction' is missing required id/version fields or they failed strict validation. This can indicate incomplete rows from an unauthenticated or partially authenticated Supabase CLI session."
+            ToleratedDiagnostics = @($Invocation.StderrClassification.ToleratedDiagnostics)
+        }
     }
 
     $RemoteHash = $null
-    foreach ($HashProperty in @("sha256", "deployment_hash", "checksum")) {
+    foreach ($HashProperty in @("ezbr_sha256", "sha256", "deployment_hash", "checksum")) {
         if ($FunctionRow.PSObject.Properties.Name -contains $HashProperty) {
             $CandidateHash = [string]$FunctionRow.$HashProperty
             if (-not [string]::IsNullOrWhiteSpace($CandidateHash)) {
@@ -437,16 +681,120 @@ function Get-RemoteAdminMetadata {
             }
         }
     }
-    if ($RemoteHash -and $RemoteHash -ne $CurrentDeployedHash) {
+
+    return [pscustomobject]@{
+        Ok = $true
+        FunctionId = $RemoteId
+        Version = [int64]$RemoteVersion
+        RemoteHash = $RemoteHash
+        ToleratedDiagnostics = @($Invocation.StderrClassification.ToleratedDiagnostics)
+    }
+}
+
+function Get-VerifiedRemoteAdminMetadata {
+    # Mandatory pre-action remote discovery (dry run included). Fails closed on any defect.
+    param(
+        [Parameter(Mandatory = $true)][string]$ProjectRef,
+        [Parameter(Mandatory = $true)][string]$ExpectedFunction
+    )
+
+    $Row = Get-RemoteAdminFunctionRow `
+        -ProjectRef $ProjectRef `
+        -ExpectedFunction $ExpectedFunction `
+        -OperationName "pre-action functions list"
+    if (-not $Row.Ok) {
+        Fail $Row.FailureCode $Row.FailureMessage
+    }
+    foreach ($DiagnosticLine in $Row.ToleratedDiagnostics) {
+        Write-Host "WARNING: Supabase CLI diagnostic (non-blocking): $DiagnosticLine"
+    }
+
+    $HasOperatorIdVersion = -not [string]::IsNullOrWhiteSpace($CurrentVersion) -and
+        -not [string]::IsNullOrWhiteSpace($CurrentFunctionId)
+    if ($HasOperatorIdVersion -and (
+        $Row.FunctionId -ne $CurrentFunctionId -or ([string]$Row.Version) -ne $CurrentVersion
+    )) {
+        Fail 86 "Current deployment metadata differs from the operator-reconfirmed ID/version."
+    }
+    if ($Row.RemoteHash -and
+        -not [string]::IsNullOrWhiteSpace($CurrentDeployedHash) -and
+        $Row.RemoteHash -ne $CurrentDeployedHash) {
         Fail 87 "Current deployed hash differs from the operator-reconfirmed hash."
     }
 
+    Write-Host "REMOTE_READ_CONFIRMED: '$ExpectedFunction' id $($Row.FunctionId), version $($Row.Version)."
+
+    # Only authenticated remote-list values use remote_verified_* labels.
+    # The operator-provided prior hash remains explicitly operator-expected.
     return [ordered]@{
-        version = $RemoteVersion
-        function_id = $RemoteId
-        deployed_hash = $(if ($RemoteHash) { $RemoteHash } else { $CurrentDeployedHash })
-        deployed_hash_source = $(if ($RemoteHash) { "remote-list" } else { "operator-reconfirmed" })
+        remote_verified_function_id = $Row.FunctionId
+        remote_verified_version = $Row.Version
+        remote_reported_hash = $(if ($Row.RemoteHash) { $Row.RemoteHash } else { "NOT_REPORTED_BY_REMOTE" })
+        operator_reconfirmed_id_version = $(if ($HasOperatorIdVersion) { "SUPPLIED_AND_MATCHED" } else { "NOT_SUPPLIED" })
+        operator_expected_prior_hash = $(if (-not [string]::IsNullOrWhiteSpace($CurrentDeployedHash)) { $CurrentDeployedHash } else { "NOT_SUPPLIED" })
         capture_status = "REMOTE_READ_CONFIRMED"
+    }
+}
+
+function Get-SanitizedVersionLine {
+    param(
+        [Parameter(Mandatory = $true)][string]$Tool,
+        [AllowEmptyString()][string]$Text = ""
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Text)) {
+        return "UNAVAILABLE"
+    }
+    $Line = (@($Text -split "\r?\n"))[0].Trim()
+    $IsValid = switch ($Tool) {
+        "supabase" { $Line -match '^v?\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?$'; break }
+        "deno" { $Line -match '^deno\s+v?\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?(?:\s+\([^)]{1,64}\))?$'; break }
+        "node" { $Line -match '^v\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?$'; break }
+        default { $false }
+    }
+    if (-not $IsValid) {
+        return "UNAVAILABLE"
+    }
+    return $Line
+}
+
+function Get-ToolchainEvidence {
+    # Sanitized versions/source labels only: no paths, environment values, or raw diagnostics.
+    $CliInvocation = Invoke-SupabaseCliProcess -Arguments @("--version") -OperationName "supabase CLI version"
+    if ($CliInvocation.ExitCode -ne 0 -or $CliInvocation.StderrClassification.Status -eq "Unexpected") {
+        Fail 82 "Unable to record the Supabase CLI version (exit $($CliInvocation.ExitCode))."
+    }
+    $SupabaseVersion = Get-SanitizedVersionLine -Tool "supabase" -Text $CliInvocation.Stdout
+    if ($SupabaseVersion -eq "UNAVAILABLE") {
+        Fail 82 "Supabase CLI version output was empty or failed strict sanitization."
+    }
+
+    $DenoVersion = "UNAVAILABLE"
+    $DenoCmd = @(Get-Command deno -CommandType Application -ErrorAction SilentlyContinue) |
+        Select-Object -First 1
+    if ($DenoCmd) {
+        $DenoCaptured = Invoke-NativeProcessCaptured -FilePath $DenoCmd.Source -ArgumentTokens @("--version")
+        if ($DenoCaptured.ExitCode -eq 0) {
+            $DenoVersion = Get-SanitizedVersionLine -Tool "deno" -Text $DenoCaptured.Stdout
+        }
+    }
+
+    $NodeVersion = "UNAVAILABLE"
+    $NodeCmd = @(Get-Command node -CommandType Application -ErrorAction SilentlyContinue) |
+        Select-Object -First 1
+    if ($NodeCmd) {
+        $NodeCaptured = Invoke-NativeProcessCaptured -FilePath $NodeCmd.Source -ArgumentTokens @("--version")
+        if ($NodeCaptured.ExitCode -eq 0) {
+            $NodeVersion = Get-SanitizedVersionLine -Tool "node" -Text $NodeCaptured.Stdout
+        }
+    }
+
+    return [ordered]@{
+        supabase_cli = $SupabaseVersion
+        supabase_cli_source = (Resolve-SupabaseCliInvocation).SourceLabel
+        deno = $DenoVersion
+        node = $NodeVersion
+        powershell = $PSVersionTable.PSVersion.ToString()
     }
 }
 
@@ -614,18 +962,11 @@ function Invoke-AdminDataMode {
         Fail 92 "Refusing admin-data action: validation modified the clean release worktree."
     }
 
-    $DeployCommand = "npx supabase functions deploy $AdminFunctionName --project-ref $ApprovedRef"
-    $CurrentMetadata = if ($DryRun) {
-        [ordered]@{
-            version = $(if ([string]::IsNullOrWhiteSpace($CurrentVersion)) { "NOT_SUPPLIED" } else { $CurrentVersion })
-            function_id = $(if ([string]::IsNullOrWhiteSpace($CurrentFunctionId)) { "NOT_SUPPLIED" } else { $CurrentFunctionId })
-            deployed_hash = $(if ([string]::IsNullOrWhiteSpace($CurrentDeployedHash)) { "NOT_SUPPLIED" } else { $CurrentDeployedHash })
-            deployed_hash_source = "operator-expected"
-            capture_status = "REMOTE_NOT_QUERIED_DRY_RUN"
-        }
-    } else {
-        Get-RemoteAdminMetadata -ProjectRef $ProjectRef -ExpectedFunction $AdminFunctionName
-    }
+    $Toolchain = Get-ToolchainEvidence
+    $ResolvedCli = Resolve-SupabaseCliInvocation
+    $DeployCommand = "supabase functions deploy $AdminFunctionName --project-ref $ApprovedRef (cli: $($ResolvedCli.SourceLabel))"
+    # Every admin-data action, including -DryRun, requires read-only remote metadata verification.
+    $CurrentMetadata = Get-VerifiedRemoteAdminMetadata -ProjectRef $ProjectRef -ExpectedFunction $AdminFunctionName
 
     $IntendedAction = if ($AdminOperation -eq "Rollback" -and $RollbackMethod -eq "Version") {
         "Prepare human dashboard rollback of admin-data to recorded version $ApprovedAdminRollbackVersion"
@@ -640,6 +981,7 @@ function Invoke-AdminDataMode {
         operation = $AdminOperation
         rollback_method = $(if ($AdminOperation -eq "Rollback") { $RollbackMethod } else { "NOT_APPLICABLE" })
         rollback_version = $(if ($AdminOperation -eq "Rollback" -and $RollbackMethod -eq "Version") { $ApprovedAdminRollbackVersion } else { $null })
+        toolchain = $Toolchain
         current_deployment = $CurrentMetadata
         release_commit = $ReleaseCommit
         release_worktree = $ResolvedWorktree
@@ -664,6 +1006,8 @@ function Invoke-AdminDataMode {
     Write-Host "Release worktree:     $ResolvedWorktree"
     Write-Host "Exact release commit: $ReleaseCommit"
     Write-Host "Validation status:    PASSED"
+    Write-Host "Toolchain:            Supabase CLI $($Toolchain.supabase_cli) [$($Toolchain.supabase_cli_source)]; Deno $($Toolchain.deno); Node $($Toolchain.node); PowerShell $($Toolchain.powershell)"
+    Write-Host "Remote metadata:      REMOTE_READ_CONFIRMED (id $($CurrentMetadata.remote_verified_function_id), version $($CurrentMetadata.remote_verified_version))"
     Write-Host "Expected bundle files:"
     foreach ($BundleFile in $BundleFiles) {
         Write-Host "  - $BundleFile"
@@ -690,17 +1034,69 @@ function Invoke-AdminDataMode {
         Fail 98 "Admin-data action aborted: confirmation phrase mismatch."
     }
 
-    Push-Location $ResolvedWorktree
-    try {
-        & npx supabase functions deploy $AdminFunctionName --project-ref $ApprovedRef
-        if ($LASTEXITCODE -ne 0) {
-            Fail 99 "Admin-data $AdminOperation failed (exit $LASTEXITCODE)."
+    $PreActionFunctionId = [string]$CurrentMetadata.remote_verified_function_id
+    $PreActionVersion = [int64]$CurrentMetadata.remote_verified_version
+
+    $DeployInvocation = Invoke-SupabaseCliProcess `
+        -Arguments @("functions", "deploy", $AdminFunctionName, "--project-ref", $ApprovedRef) `
+        -WorkingDirectory $ResolvedWorktree `
+        -OperationName "admin-data $AdminOperation"
+    if ($DeployInvocation.ExitCode -ne 0) {
+        Fail 99 "Admin-data $AdminOperation failed (exit $($DeployInvocation.ExitCode))."
+    }
+    if ($DeployInvocation.StderrClassification.Status -eq "ToleratedDiagnostics") {
+        foreach ($DiagnosticLine in $DeployInvocation.StderrClassification.ToleratedDiagnostics) {
+            Write-Host "WARNING: Supabase CLI diagnostic (non-blocking): $DiagnosticLine"
         }
     }
-    finally {
-        Pop-Location
+
+    # Never retry after a deployment attempt. Any inability to prove final state is ambiguous.
+    $AmbiguousReason = $null
+    $PostRow = $null
+    if ($DeployInvocation.StderrClassification.Status -eq "Unexpected") {
+        $AmbiguousReason = "The $AdminOperation command exited zero but produced unexpected stderr."
+    } else {
+        $PostRow = Get-RemoteAdminFunctionRow `
+            -ProjectRef $ProjectRef `
+            -ExpectedFunction $AdminFunctionName `
+            -OperationName "post-action functions list"
+        if (-not $PostRow.Ok) {
+            $AmbiguousReason = "Post-action metadata verification failed: $($PostRow.FailureMessage)"
+        } elseif ($PostRow.FunctionId -ne $PreActionFunctionId) {
+            $AmbiguousReason = "Post-action function ID '$($PostRow.FunctionId)' differs from pre-action ID '$PreActionFunctionId'."
+        } elseif ($PostRow.Version -le $PreActionVersion) {
+            $AmbiguousReason = "Post-action version $($PostRow.Version) did not increase beyond pre-action version $PreActionVersion."
+        }
     }
 
+    if ($AmbiguousReason) {
+        $Evidence["post_action_verification"] = [ordered]@{
+            status = "AMBIGUOUS"
+            reason = $AmbiguousReason
+            observed_function_id = $(if ($PostRow -and $PostRow.Ok) { $PostRow.FunctionId } else { "UNVERIFIED" })
+            observed_version = $(if ($PostRow -and $PostRow.Ok) { $PostRow.Version } else { "UNVERIFIED" })
+            automatic_retry = $false
+            automatic_rollback = $false
+        }
+        Write-AdminEvidence -Evidence $Evidence -Worktree $ResolvedWorktree
+        [Console]::Error.WriteLine(("DEPLOYMENT STATE AMBIGUOUS {0} MANUAL REMOTE INSPECTION REQUIRED" -f [char]0x2014))
+        [Console]::Error.WriteLine("Reason: $AmbiguousReason")
+        [Console]::Error.WriteLine("The wrapper did not retry, did not roll back, and did not issue a second deployment.")
+        exit $AdminAmbiguousExitCode
+    }
+
+    foreach ($DiagnosticLine in $PostRow.ToleratedDiagnostics) {
+        Write-Host "WARNING: Supabase CLI diagnostic (non-blocking): $DiagnosticLine"
+    }
+    $Evidence["post_action_verification"] = [ordered]@{
+        status = "VERIFIED_VERSION_INCREASED"
+        function_id = $PostRow.FunctionId
+        previous_version = $PreActionVersion
+        new_version = $PostRow.Version
+        remote_reported_hash = $(if ($PostRow.RemoteHash) { $PostRow.RemoteHash } else { "NOT_REPORTED_BY_REMOTE" })
+    }
+    Write-AdminEvidence -Evidence $Evidence -Worktree $ResolvedWorktree
+    Write-Host "Post-action verification: function $($PostRow.FunctionId) version $PreActionVersion -> $($PostRow.Version)."
     Write-Host "Admin-data $AdminOperation complete. Run the separately authorized production smoke test."
     exit 0
 }

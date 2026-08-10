@@ -8,12 +8,16 @@ $ExpectedFunctionId = "548b11d4-03c3-4ef3-ab0f-a3cfe28d96d7"
 $ExpectedHash = "a4c7157d961b165dc6158f4dac748245f9bf322ef76eadcdbcd165f261111fc8"
 $ApprovedDeployCommit = "d2c48b52a1e1fe368eaa84ae55548ae0a3565439"
 $ApprovedRollbackCommit = "dd960a6f19247e693a61cf1b0913e94d4170b0cc"
+$DefaultListJson = '[{"name":"admin-data","slug":"admin-data","id":"548b11d4-03c3-4ef3-ab0f-a3cfe28d96d7","version":16}]'
 $CanonicalRepository = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $ApprovedReleasePath = "C:\Projects\wm-mvp-admin-recovery-release"
 $TestRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("wm-admin-deploy-tests-" + [guid]::NewGuid())
 $FakeBin = Join-Path $TestRoot "fake-bin"
+$MockSupabaseDir = Join-Path $FakeBin "mock cli with spaces"
+$MockSupabaseCli = Join-Path $MockSupabaseDir "supabase-mock.cmd"
 $DenoLog = Join-Path $TestRoot "deno.log"
-$NpxLog = Join-Path $TestRoot "npx.log"
+$CliLog = Join-Path $TestRoot "supabase-cli.log"
+$ListCallCounterFile = Join-Path $TestRoot "list-call-counter.txt"
 $Pr173ConfirmPhrase = "DEPLOY_PR173_FUNCTIONS_AFTER_MIGRATIONS_VERIFIED"
 $Pr173Functions = @("scan-quote", "send-contractor-handoff", "dial-lead")
 $Pr173RequiredMigrations = @("20260806144716", "20260808160000", "20260808170000", "20260808180000")
@@ -24,6 +28,7 @@ $Pr173LedgerFile = Join-Path $TestRoot "migration-ledger.txt"
 $script:CanonicalTestWorktrees = New-Object System.Collections.Generic.List[string]
 $script:Passed = 0
 $script:Failed = 0
+$script:CleanDeployFixture = $null
 
 function Assert-True {
     param(
@@ -114,6 +119,35 @@ function New-CanonicalTestWorktree {
     }
 }
 
+function Get-CleanDeployFixture {
+    if (-not $script:CleanDeployFixture) {
+        $script:CleanDeployFixture = New-CanonicalTestWorktree -Commit $ApprovedDeployCommit
+    }
+    return $script:CleanDeployFixture
+}
+
+function Reset-MockSupabaseEnv {
+    param([hashtable]$FakeSupabase = @{})
+
+    Set-Content -LiteralPath $CliLog -Value "" -Encoding ASCII
+    Set-Content -LiteralPath $ListCallCounterFile -Value "0" -Encoding ASCII
+    Remove-Item Env:FAKE_SUPABASE_LIST_STDOUT, Env:FAKE_SUPABASE_LIST_STDERR, Env:FAKE_SUPABASE_LIST_EXIT `
+        , Env:FAKE_SUPABASE_POST_LIST_STDOUT, Env:FAKE_SUPABASE_POST_LIST_STDERR, Env:FAKE_SUPABASE_POST_LIST_EXIT `
+        , Env:FAKE_SUPABASE_DEPLOY_STDOUT, Env:FAKE_SUPABASE_DEPLOY_STDERR, Env:FAKE_SUPABASE_DEPLOY_EXIT `
+        , Env:FAKE_SUPABASE_VERSION -ErrorAction SilentlyContinue
+
+    if ($FakeSupabase.ContainsKey("ListStdout")) { $env:FAKE_SUPABASE_LIST_STDOUT = $FakeSupabase.ListStdout }
+    if ($FakeSupabase.ContainsKey("ListStderr")) { $env:FAKE_SUPABASE_LIST_STDERR = $FakeSupabase.ListStderr }
+    if ($FakeSupabase.ContainsKey("ListExit")) { $env:FAKE_SUPABASE_LIST_EXIT = [string]$FakeSupabase.ListExit }
+    if ($FakeSupabase.ContainsKey("PostListStdout")) { $env:FAKE_SUPABASE_POST_LIST_STDOUT = $FakeSupabase.PostListStdout }
+    if ($FakeSupabase.ContainsKey("PostListStderr")) { $env:FAKE_SUPABASE_POST_LIST_STDERR = $FakeSupabase.PostListStderr }
+    if ($FakeSupabase.ContainsKey("PostListExit")) { $env:FAKE_SUPABASE_POST_LIST_EXIT = [string]$FakeSupabase.PostListExit }
+    if ($FakeSupabase.ContainsKey("DeployStdout")) { $env:FAKE_SUPABASE_DEPLOY_STDOUT = $FakeSupabase.DeployStdout }
+    if ($FakeSupabase.ContainsKey("DeployStderr")) { $env:FAKE_SUPABASE_DEPLOY_STDERR = $FakeSupabase.DeployStderr }
+    if ($FakeSupabase.ContainsKey("DeployExit")) { $env:FAKE_SUPABASE_DEPLOY_EXIT = [string]$FakeSupabase.DeployExit }
+    if ($FakeSupabase.ContainsKey("Version")) { $env:FAKE_SUPABASE_VERSION = $FakeSupabase.Version }
+}
+
 function Invoke-Wrapper {
     param(
         [Parameter(Mandatory = $true)]$Fixture,
@@ -123,26 +157,31 @@ function Invoke-Wrapper {
         [bool]$DryRun = $true,
         [string[]]$AdditionalArgs = @(),
         [string]$InputText,
-        [bool]$FailDeno = $false
+        [bool]$FailDeno = $false,
+        [hashtable]$FakeSupabase = @{}
     )
 
     if ([string]::IsNullOrWhiteSpace($Commit)) {
         $Commit = $Fixture.Commit
     }
     Set-Content -LiteralPath $DenoLog -Value "" -Encoding ASCII
-    Set-Content -LiteralPath $NpxLog -Value "" -Encoding ASCII
+    Reset-MockSupabaseEnv -FakeSupabase $FakeSupabase
 
     $OriginalPath = $env:PATH
     $OriginalProjectRef = $env:SUPABASE_PROJECT_REF
     $OriginalDenoLog = $env:FAKE_DENO_LOG
     $OriginalDenoFail = $env:FAKE_DENO_FAIL
-    $OriginalNpxLog = $env:FAKE_NPX_LOG
+    $OriginalCliLog = $env:FAKE_SUPABASE_LOG
+    $OriginalListCallsFile = $env:FAKE_SUPABASE_LIST_CALLS_FILE
+    $OriginalCliOverride = $env:WM_ADMIN_WRAPPER_SUPABASE_CLI_TEST_OVERRIDE
     try {
         $env:PATH = "$FakeBin;$OriginalPath"
         $env:SUPABASE_PROJECT_REF = $ProjectRef
         $env:FAKE_DENO_LOG = $DenoLog
         $env:FAKE_DENO_FAIL = $(if ($FailDeno) { "1" } else { "0" })
-        $env:FAKE_NPX_LOG = $NpxLog
+        $env:FAKE_SUPABASE_LOG = $CliLog
+        $env:FAKE_SUPABASE_LIST_CALLS_FILE = $ListCallCounterFile
+        $env:WM_ADMIN_WRAPPER_SUPABASE_CLI_TEST_OVERRIDE = $MockSupabaseCli
 
         $Arguments = @(
             "-NoProfile",
@@ -174,11 +213,15 @@ function Invoke-Wrapper {
         finally {
             $ErrorActionPreference = $PreviousErrorActionPreference
         }
+        $CliLogText = ""
+        if (Test-Path -LiteralPath $CliLog) {
+            $CliLogText = Get-Content -LiteralPath $CliLog -Raw
+        }
         return [pscustomobject]@{
             ExitCode = $WrapperExitCode
             Output = $Output
-            DenoLog = (Get-Content -LiteralPath $DenoLog -Raw)
-            NpxLog = (Get-Content -LiteralPath $NpxLog -Raw)
+            DenoLog = (Get-Content -LiteralPath $DenoLog -Raw -ErrorAction SilentlyContinue)
+            CliLog = $CliLogText
         }
     }
     finally {
@@ -186,7 +229,107 @@ function Invoke-Wrapper {
         $env:SUPABASE_PROJECT_REF = $OriginalProjectRef
         $env:FAKE_DENO_LOG = $OriginalDenoLog
         $env:FAKE_DENO_FAIL = $OriginalDenoFail
-        $env:FAKE_NPX_LOG = $OriginalNpxLog
+        $env:FAKE_SUPABASE_LOG = $OriginalCliLog
+        $env:FAKE_SUPABASE_LIST_CALLS_FILE = $OriginalListCallsFile
+        $env:WM_ADMIN_WRAPPER_SUPABASE_CLI_TEST_OVERRIDE = $OriginalCliOverride
+    }
+}
+
+function Measure-CliInvocations {
+    param(
+        [Parameter(Mandatory = $true)][string]$LogText,
+        [Parameter(Mandatory = $true)][string]$Needle
+    )
+    if ([string]::IsNullOrWhiteSpace($LogText)) {
+        return 0
+    }
+    return @($LogText -split "\r?\n" | Where-Object { $_ -like "*$Needle*" }).Count
+}
+
+function Invoke-CliResolutionProbe {
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateSet("Pinned", "NpxPresent", "Missing")]
+        [string]$Mode,
+        [bool]$ResolveTwice = $false
+    )
+
+    $ProbeRoot = Join-Path $TestRoot ("resolution-" + [guid]::NewGuid().ToString())
+    $ProbeScripts = Join-Path $ProbeRoot "scripts"
+    $ProbeBin = Join-Path $ProbeRoot "probe-bin"
+    $NpxInvocationLog = Join-Path $ProbeRoot "npx-invoked.txt"
+    New-Item -ItemType Directory -Path $ProbeScripts, $ProbeBin -Force | Out-Null
+
+    $Tokens = $null
+    $Errors = $null
+    $WrapperAst = [System.Management.Automation.Language.Parser]::ParseFile($Wrapper, [ref]$Tokens, [ref]$Errors)
+    Assert-True ($Errors.Count -eq 0) "Cannot build resolution probe from a wrapper with parse errors."
+    $FunctionTexts = New-Object System.Collections.Generic.List[string]
+    foreach ($Name in @("Fail", "Resolve-SupabaseCliInvocation")) {
+        $FunctionAst = @($WrapperAst.FindAll({
+            param($Node)
+            $Node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+                $Node.Name -eq $Name
+        }, $true))
+        Assert-True ($FunctionAst.Count -eq 1) "Expected exactly one production helper named '$Name'."
+        [void]$FunctionTexts.Add($FunctionAst[0].Extent.Text)
+    }
+
+    if ($Mode -eq "Pinned") {
+        $PinnedDir = Join-Path $ProbeRoot "node_modules/.bin"
+        New-Item -ItemType Directory -Path $PinnedDir -Force | Out-Null
+        "@echo off`r`nexit /b 0`r`n" |
+            Set-Content -LiteralPath (Join-Path $PinnedDir "supabase.cmd") -Encoding ASCII
+    } elseif ($Mode -eq "NpxPresent") {
+        "@echo off`r`necho invoked>>`"$NpxInvocationLog`"`r`nexit /b 0`r`n" |
+            Set-Content -LiteralPath (Join-Path $ProbeBin "npx.cmd") -Encoding ASCII
+    }
+
+    $ProbePath = Join-Path $ProbeScripts "probe.ps1"
+    $ProbeSource = @(
+        'Set-StrictMode -Version Latest',
+        '$ErrorActionPreference = "Stop"',
+        '$script:SupabaseCliResolved = $null',
+        ($FunctionTexts -join "`r`n`r`n"),
+        '$First = Resolve-SupabaseCliInvocation',
+        $(if ($ResolveTwice) {
+            '$env:WM_ADMIN_WRAPPER_SUPABASE_CLI_TEST_OVERRIDE = "Z:\definitely-missing\mock.cmd"' +
+                "`r`n" + '$Second = Resolve-SupabaseCliInvocation'
+        } else {
+            '$Second = $First'
+        }),
+        '[ordered]@{',
+        '  first_source = $First.SourceLabel',
+        '  first_leading = @($First.LeadingArguments)',
+        '  second_source = $Second.SourceLabel',
+        '  cache_same_instance = [object]::ReferenceEquals($First, $Second)',
+        '} | ConvertTo-Json -Compress'
+    ) -join "`r`n"
+    Set-Content -LiteralPath $ProbePath -Value $ProbeSource -Encoding UTF8
+
+    $PowerShellExe = (Get-Command powershell -CommandType Application -ErrorAction Stop).Source
+    $OriginalPath = $env:PATH
+    $OriginalOverride = $env:WM_ADMIN_WRAPPER_SUPABASE_CLI_TEST_OVERRIDE
+    try {
+        $env:PATH = $ProbeBin
+        Remove-Item Env:WM_ADMIN_WRAPPER_SUPABASE_CLI_TEST_OVERRIDE -ErrorAction SilentlyContinue
+        $PreviousErrorActionPreference = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        try {
+            $Output = (& $PowerShellExe -NoProfile -ExecutionPolicy Bypass -File $ProbePath 2>&1 | Out-String)
+            $ExitCode = $LASTEXITCODE
+        } finally {
+            $ErrorActionPreference = $PreviousErrorActionPreference
+        }
+        return [pscustomobject]@{
+            ExitCode = $ExitCode
+            Output = $Output
+            NpxInvoked = (Test-Path -LiteralPath $NpxInvocationLog -PathType Leaf)
+        }
+    }
+    finally {
+        $env:PATH = $OriginalPath
+        $env:WM_ADMIN_WRAPPER_SUPABASE_CLI_TEST_OVERRIDE = $OriginalOverride
     }
 }
 
@@ -353,7 +496,7 @@ function Invoke-Pr173Wrapper {
     }
 }
 
-New-Item -ItemType Directory -Path $FakeBin -Force | Out-Null
+New-Item -ItemType Directory -Path $FakeBin, $MockSupabaseDir -Force | Out-Null
 @'
 @echo off
 echo %*>>"%FAKE_DENO_LOG%"
@@ -362,14 +505,75 @@ exit /b 0
 '@ | Set-Content -LiteralPath (Join-Path $FakeBin "deno.cmd") -Encoding ASCII
 @'
 @echo off
-echo %*>>"%FAKE_NPX_LOG%"
-echo %* | findstr /C:"functions list" >nul
+setlocal EnableDelayedExpansion
+echo %*>>"%FAKE_SUPABASE_LOG%"
+set "joined=%*"
+
+echo !joined! | findstr /C:"--version" >nul
 if not errorlevel 1 (
-  echo [{"name":"admin-data","id":"548b11d4-03c3-4ef3-ab0f-a3cfe28d96d7","version":16}]
+  if defined FAKE_SUPABASE_VERSION (
+    echo !FAKE_SUPABASE_VERSION!
+  ) else (
+    echo 2.101.0-test
+  )
   exit /b 0
 )
+
+echo !joined! | findstr /C:"functions list" >nul
+if not errorlevel 1 goto :functions_list
+
+echo !joined! | findstr /C:"functions deploy" >nul
+if not errorlevel 1 goto :functions_deploy
+
 exit /b 97
-'@ | Set-Content -LiteralPath (Join-Path $FakeBin "npx.cmd") -Encoding ASCII
+
+:functions_list
+set CALLN=0
+if defined FAKE_SUPABASE_LIST_CALLS_FILE if exist "%FAKE_SUPABASE_LIST_CALLS_FILE%" (
+  set /p CALLN=<"%FAKE_SUPABASE_LIST_CALLS_FILE%"
+)
+set /a CALLN+=1
+if defined FAKE_SUPABASE_LIST_CALLS_FILE echo !CALLN!>"%FAKE_SUPABASE_LIST_CALLS_FILE%"
+
+if !CALLN! GEQ 2 (
+  if defined FAKE_SUPABASE_POST_LIST_STDOUT goto :emit_post_list
+  if defined FAKE_SUPABASE_LIST_STDOUT goto :emit_custom_list
+  echo [{"name":"admin-data","slug":"admin-data","id":"548b11d4-03c3-4ef3-ab0f-a3cfe28d96d7","version":17}]
+  goto :after_list_emit
+)
+if defined FAKE_SUPABASE_LIST_STDOUT goto :emit_custom_list
+echo [{"name":"admin-data","slug":"admin-data","id":"548b11d4-03c3-4ef3-ab0f-a3cfe28d96d7","version":16}]
+goto :after_list_emit
+
+:emit_post_list
+if /I "!FAKE_SUPABASE_POST_LIST_STDOUT!"=="__EMPTY__" goto :after_list_emit
+echo !FAKE_SUPABASE_POST_LIST_STDOUT!
+goto :after_list_emit
+
+:emit_custom_list
+if /I "!FAKE_SUPABASE_LIST_STDOUT!"=="__EMPTY__" goto :after_list_emit
+echo !FAKE_SUPABASE_LIST_STDOUT!
+goto :after_list_emit
+
+:after_list_emit
+if !CALLN! GEQ 2 (
+  if defined FAKE_SUPABASE_POST_LIST_STDERR echo !FAKE_SUPABASE_POST_LIST_STDERR! 1>&2
+  if defined FAKE_SUPABASE_POST_LIST_EXIT exit /b !FAKE_SUPABASE_POST_LIST_EXIT!
+)
+if defined FAKE_SUPABASE_LIST_STDERR echo !FAKE_SUPABASE_LIST_STDERR! 1>&2
+if defined FAKE_SUPABASE_LIST_EXIT exit /b !FAKE_SUPABASE_LIST_EXIT!
+exit /b 0
+
+:functions_deploy
+echo !joined! | findstr /C:"admin-data" >nul
+if errorlevel 1 exit /b 98
+echo !joined! | findstr /C:"zgsofkgddpcntdvpckdq" >nul
+if errorlevel 1 exit /b 98
+if defined FAKE_SUPABASE_DEPLOY_STDOUT echo !FAKE_SUPABASE_DEPLOY_STDOUT!
+if defined FAKE_SUPABASE_DEPLOY_STDERR echo !FAKE_SUPABASE_DEPLOY_STDERR! 1>&2
+if defined FAKE_SUPABASE_DEPLOY_EXIT exit /b !FAKE_SUPABASE_DEPLOY_EXIT!
+exit /b 0
+'@ | Set-Content -LiteralPath $MockSupabaseCli -Encoding ASCII
 
 # PR 173 tests use a separate fake bin so the admin-mode shims above stay byte-identical.
 # This shim never reaches the network: it only echoes a local ledger file and logs deploy calls.
@@ -403,9 +607,55 @@ exit /b 0
 try {
     Assert-True (Test-Path -LiteralPath $ApprovedReleasePath -PathType Container) `
         "Approved release worktree is missing: $ApprovedReleasePath"
-    $CleanDetached = [pscustomobject]@{
-        Path = (Resolve-Path -LiteralPath $ApprovedReleasePath).Path
-        Commit = $ApprovedDeployCommit
+    $CleanDetached = Get-CleanDeployFixture
+
+    Invoke-Test "repository-pinned Supabase CLI resolution is preferred and process-cached" {
+        $Result = Invoke-CliResolutionProbe -Mode Pinned -ResolveTwice:$true
+        Assert-True ($Result.ExitCode -eq 0) "Pinned resolution probe failed: $($Result.Output)"
+        $Resolved = $Result.Output.Trim() | ConvertFrom-Json
+        Assert-True ($Resolved.first_source -eq "node_modules/.bin/supabase.cmd (repository-pinned)") `
+            "Pinned source label was not selected: $($Resolved.first_source)"
+        Assert-True ($Resolved.first_leading.Count -eq 0) "Pinned CLI unexpectedly had leading arguments."
+        Assert-True ($Resolved.cache_same_instance -eq $true) "Resolved invocation was not cached in-process."
+        Assert-True ($Resolved.second_source -eq $Resolved.first_source) "Cache was replaced by later environment input."
+    }
+
+    Invoke-Test "npx on PATH is ignored when repository CLI is missing" {
+        $Result = Invoke-CliResolutionProbe -Mode NpxPresent
+        Assert-True ($Result.ExitCode -eq 82) "npx-on-PATH probe gave exit $($Result.ExitCode): $($Result.Output)"
+        Assert-True (-not $Result.NpxInvoked) "Resolver invoked the fake npx executable."
+        Assert-Contains $Result.Output "Repository-installed Supabase CLI is required"
+        Assert-Contains $Result.Output "reviewed lockfile"
+    }
+
+    Invoke-Test "admin CLI resolver contains no network-capable fallback" {
+        $Tokens = $null
+        $Errors = $null
+        $WrapperAst = [System.Management.Automation.Language.Parser]::ParseFile($Wrapper, [ref]$Tokens, [ref]$Errors)
+        Assert-True ($Errors.Count -eq 0) "Cannot inspect resolver fallback policy with parse errors."
+        $ResolverFunctions = @($WrapperAst.FindAll({
+            param($Node)
+            $Node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+                $Node.Name -eq "Resolve-SupabaseCliInvocation"
+        }, $true))
+        Assert-True ($ResolverFunctions.Count -eq 1) "Expected exactly one Resolve-SupabaseCliInvocation function."
+        $ResolverText = $ResolverFunctions[0].Extent.Text
+        foreach ($ForbiddenPattern in @(
+            '(?i)Get-Command\s+["'']?npx',
+            '--no-install',
+            '(?i)Get-Command\s+["'']?supabase',
+            '(?i)\b(?:npm|bunx|pnpm|yarn)\b',
+            '(?i)Invoke-WebRequest|Invoke-RestMethod|Start-BitsTransfer|\bcurl(?:\.exe)?\b|\bwget(?:\.exe)?\b|https?://'
+        )) {
+            Assert-True ($ResolverText -notmatch $ForbiddenPattern) `
+                "Resolver retained forbidden fallback pattern '$ForbiddenPattern'."
+        }
+    }
+
+    Invoke-Test "missing approved CLI resolution paths fail closed" {
+        $Result = Invoke-CliResolutionProbe -Mode Missing
+        Assert-True ($Result.ExitCode -eq 82) "Missing CLI paths gave exit $($Result.ExitCode): $($Result.Output)"
+        Assert-Contains $Result.Output "Repository-installed Supabase CLI is required"
     }
 
     Invoke-Test "approved project and admin-data are accepted" {
@@ -489,16 +739,145 @@ try {
         $Result = Invoke-Wrapper -Fixture $CleanDetached -FailDeno:$true
         Assert-True ($Result.ExitCode -ne 0) "Failed Deno validation was unexpectedly accepted."
         Assert-Contains $Result.Output "admin-data Deno tests"
-        Assert-True ([string]::IsNullOrWhiteSpace($Result.NpxLog)) "npx ran after failed validation."
+        Assert-True ([string]::IsNullOrWhiteSpace($Result.CliLog)) "Supabase CLI ran after failed validation."
     }
 
-    Invoke-Test "dry run performs no remote command and prints exact action" {
+    Invoke-Test "dry run queries mocked remote metadata and performs no deployment" {
         $Result = Invoke-Wrapper -Fixture $CleanDetached
         Assert-True ($Result.ExitCode -eq 0) "Dry run failed: $($Result.Output)"
         Assert-Contains $Result.Output "DRY RUN"
         Assert-Contains $Result.Output "NO DEPLOYMENT PERFORMED"
-        Assert-Contains $Result.Output "npx supabase functions deploy admin-data --project-ref $ApprovedRef"
-        Assert-True ([string]::IsNullOrWhiteSpace($Result.NpxLog)) "Dry run invoked npx: $($Result.NpxLog)"
+        Assert-Contains $Result.Output "supabase functions deploy admin-data --project-ref $ApprovedRef"
+        Assert-True ((Measure-CliInvocations -LogText $Result.CliLog -Needle "functions list") -eq 1) "Dry run did not perform exactly one metadata read."
+        Assert-True ((Measure-CliInvocations -LogText $Result.CliLog -Needle "functions deploy") -eq 0) "Dry run invoked deploy."
+        Assert-Contains $Result.Output '"capture_status":  "REMOTE_READ_CONFIRMED"'
+        Assert-Contains $Result.Output "TEST OVERRIDE ACTIVE"
+        Assert-Contains $Result.Output "NEVER a production deployment path"
+    }
+
+    Invoke-Test "empty stderr is classified clean through metadata capture" {
+        $Result = Invoke-Wrapper -Fixture $CleanDetached
+        Assert-True ($Result.ExitCode -eq 0) "Clean stderr path failed: $($Result.Output)"
+        Assert-True (-not $Result.Output.Contains("unexpected stderr")) "Empty stderr was not clean."
+    }
+
+    Invoke-Test "ANSI is removed before reviewed advisory classification" {
+        $AnsiWarning = ([char]0x1B) + "[33mWarning" + ([char]0x1B) + "[0m A new version of Supabase CLI is available"
+        $Result = Invoke-Wrapper -Fixture $CleanDetached -FakeSupabase @{ ListStderr = $AnsiWarning }
+        Assert-True ($Result.ExitCode -eq 0) "ANSI advisory was rejected: $($Result.Output)"
+        Assert-Contains $Result.Output "non-blocking"
+        Assert-True (-not $Result.Output.Contains(([char]0x1B))) "ANSI escape remained in output."
+    }
+
+    Invoke-Test "reviewed CLI update advisory is tolerated and preserved as warning" {
+        $Advisory = "A new version of Supabase CLI is available: v2.111.0 (currently installed v2.101.0)"
+        $Result = Invoke-Wrapper -Fixture $CleanDetached -FakeSupabase @{ ListStderr = $Advisory }
+        Assert-True ($Result.ExitCode -eq 0) "Reviewed advisory was rejected."
+        Assert-Contains $Result.Output $Advisory
+        Assert-Contains $Result.Output "non-blocking"
+    }
+
+    Invoke-Test "unexpected pre-action stderr fails closed before mutation" {
+        $Result = Invoke-Wrapper -Fixture $CleanDetached -FakeSupabase @{ ListStderr = "unexpected diagnostic from CLI" }
+        Assert-True ($Result.ExitCode -eq 83) "Unexpected stderr gave exit $($Result.ExitCode)."
+        Assert-Contains $Result.Output "unexpected stderr"
+        Assert-True ((Measure-CliInvocations -LogText $Result.CliLog -Needle "functions deploy") -eq 0) "Deploy ran after unexpected stderr."
+    }
+
+    Invoke-Test "stdout stderr and exit code remain distinct" {
+        $Advisory = "A new version of Supabase CLI is available"
+        $Result = Invoke-Wrapper -Fixture $CleanDetached -FakeSupabase @{
+            ListStdout = $DefaultListJson
+            ListStderr = $Advisory
+            ListExit = 7
+        }
+        Assert-True ($Result.ExitCode -eq 83) "Native exit 7 was not preserved as metadata failure."
+        Assert-Contains $Result.Output "CLI exit 7"
+        Assert-True (-not $Result.Output.Contains($DefaultListJson)) "Raw stdout leaked."
+        Assert-True (-not $Result.Output.Contains($Advisory)) "Raw stderr leaked on nonzero exit."
+    }
+
+    Invoke-Test "metadata nonzero exit fails closed without raw authentication diagnostics" {
+        $SecretLikeStderr = "Authentication failed: secret-token-abc123"
+        $Result = Invoke-Wrapper -Fixture $CleanDetached -FakeSupabase @{
+            ListExit = 1
+            ListStderr = $SecretLikeStderr
+        }
+        Assert-True ($Result.ExitCode -eq 83) "Nonzero metadata exit gave $($Result.ExitCode)."
+        Assert-Contains $Result.Output "Unable to capture current non-secret Edge Function metadata"
+        Assert-True (-not $Result.Output.Contains($SecretLikeStderr)) "Authentication stderr leaked."
+    }
+
+    Invoke-Test "malformed metadata JSON fails closed" {
+        foreach ($Payload in @("__EMPTY__", "not-json")) {
+            $Result = Invoke-Wrapper -Fixture $CleanDetached -FakeSupabase @{ ListStdout = $Payload }
+            Assert-True ($Result.ExitCode -eq 84) "Malformed payload '$Payload' gave $($Result.ExitCode)."
+            Assert-Contains $Result.Output "Unable to parse current Edge Function metadata as JSON"
+        }
+    }
+
+    Invoke-Test "missing and duplicate admin-data rows fail closed" {
+        $Cases = @(
+            '[{"name":"scan-quote","id":"11111111-1111-1111-1111-111111111111","version":1}]',
+            '[{"name":"admin-data","id":"548b11d4-03c3-4ef3-ab0f-a3cfe28d96d7","version":16},{"slug":"admin-data","id":"548b11d4-03c3-4ef3-ab0f-a3cfe28d96d7","version":16}]'
+        )
+        foreach ($Payload in $Cases) {
+            $Result = Invoke-Wrapper -Fixture $CleanDetached -FakeSupabase @{ ListStdout = $Payload }
+            Assert-True ($Result.ExitCode -eq 85) "Invalid cardinality gave $($Result.ExitCode)."
+            Assert-Contains $Result.Output "did not contain exactly one 'admin-data' function"
+        }
+    }
+
+    Invoke-Test "missing or malformed metadata identity and version fail closed" {
+        foreach ($Payload in @(
+            '[{"name":"admin-data"}]',
+            '[{"name":"admin-data","id":"not-a-uuid","version":16}]',
+            '[{"name":"admin-data","id":"548b11d4-03c3-4ef3-ab0f-a3cfe28d96d7","version":0}]',
+            '[{"name":"admin-data","id":"548b11d4-03c3-4ef3-ab0f-a3cfe28d96d7","version":"1.5"}]'
+        )) {
+            $Result = Invoke-Wrapper -Fixture $CleanDetached -FakeSupabase @{ ListStdout = $Payload }
+            Assert-True ($Result.ExitCode -eq 85) "Malformed metadata gave $($Result.ExitCode)."
+            Assert-Contains $Result.Output "missing required id/version fields"
+        }
+    }
+
+    Invoke-Test "operator-reconfirmed metadata mismatch fails closed" {
+        foreach ($Payload in @(
+            '[{"name":"admin-data","id":"548b11d4-03c3-4ef3-ab0f-a3cfe28d96d7","version":17}]',
+            '[{"name":"admin-data","id":"11111111-1111-1111-1111-111111111111","version":16}]'
+        )) {
+            $Result = Invoke-Wrapper -Fixture $CleanDetached -FakeSupabase @{ ListStdout = $Payload }
+            Assert-True ($Result.ExitCode -eq 86) "Mismatch gave $($Result.ExitCode)."
+            Assert-Contains $Result.Output "differs from the operator-reconfirmed ID/version"
+        }
+    }
+
+    Invoke-Test "toolchain evidence is sanitized and source-labeled" {
+        $Secret = "TOOLCHAIN_SECRET_MUST_NOT_APPEAR"
+        $OriginalToken = $env:SUPABASE_ACCESS_TOKEN
+        try {
+            $env:SUPABASE_ACCESS_TOKEN = $Secret
+            $Result = Invoke-Wrapper -Fixture $CleanDetached -FakeSupabase @{ Version = "2.101.0-test" }
+            Assert-True ($Result.ExitCode -eq 0) "Toolchain evidence path failed."
+            Assert-Contains $Result.Output '"supabase_cli":  "2.101.0-test"'
+            Assert-Contains $Result.Output '"supabase_cli_source":  "TEST_OVERRIDE_MOCK_CLI"'
+            Assert-Contains $Result.Output '"powershell":'
+            Assert-True (-not $Result.Output.Contains($Secret)) "Environment value leaked."
+            $ToolchainMatch = [regex]::Match($Result.Output, '(?ms)"toolchain"\s*:\s*\{.*?\}')
+            Assert-True $ToolchainMatch.Success "Sanitized toolchain evidence object was not found."
+            Assert-True (-not $ToolchainMatch.Value.Contains($MockSupabaseCli)) "Absolute CLI path leaked into toolchain evidence."
+            Assert-True (-not $ToolchainMatch.Value.Contains($env:USERPROFILE)) "Home directory leaked into toolchain evidence."
+        } finally {
+            $env:SUPABASE_ACCESS_TOKEN = $OriginalToken
+        }
+    }
+
+    Invoke-Test "unsanitized Supabase version evidence fails without echoing raw output" {
+        $HostileVersion = "2.101.0 C:\Users\operator\secret-token"
+        $Result = Invoke-Wrapper -Fixture $CleanDetached -FakeSupabase @{ Version = $HostileVersion }
+        Assert-True ($Result.ExitCode -eq 82) "Unsanitized version gave exit $($Result.ExitCode)."
+        Assert-Contains $Result.Output "failed strict sanitization"
+        Assert-True (-not $Result.Output.Contains($HostileVersion)) "Raw unsanitized version leaked."
     }
 
     Invoke-Test "rollback preparation uses the same project allowlist" {
@@ -514,7 +893,7 @@ try {
             -AdditionalArgs @("-AdminOperation", "Rollback", "-RollbackMethod", "Version", "-RollbackVersion", "16")
         Assert-True ($Result.ExitCode -eq 0) "Version rollback preparation failed: $($Result.Output)"
         Assert-Contains $Result.Output "human Supabase Dashboard version rollback preparation only"
-        Assert-True ([string]::IsNullOrWhiteSpace($Result.NpxLog)) "Rollback dry run invoked npx."
+        Assert-True ((Measure-CliInvocations -LogText $Result.CliLog -Needle "functions deploy") -eq 0) "Rollback dry run invoked deploy."
     }
 
     Invoke-Test "secret-like environment values are never printed" {
@@ -535,8 +914,8 @@ try {
         Assert-True ($Result.ExitCode -ne 0) "Non-dry action accepted wrong confirmation."
         Assert-Contains $Result.Output "DEPLOY_ADMIN_DATA_LIVE"
         Assert-Contains $Result.Output "confirmation phrase mismatch"
-        Assert-True ($Result.NpxLog.Contains("functions list")) "Current metadata was not captured before confirmation."
-        Assert-True (-not $Result.NpxLog.Contains("functions deploy")) "Deployment ran despite wrong confirmation."
+        Assert-True ((Measure-CliInvocations -LogText $Result.CliLog -Needle "functions list") -eq 1) "Current metadata was not captured before confirmation."
+        Assert-True ((Measure-CliInvocations -LogText $Result.CliLog -Needle "functions deploy") -eq 0) "Deployment ran despite wrong confirmation."
     }
 
     Invoke-Test "artifact rollback requires separate rollback confirmation" {
@@ -548,8 +927,90 @@ try {
         Assert-True ($Result.ExitCode -ne 0) "Artifact rollback accepted wrong confirmation."
         Assert-Contains $Result.Output "ROLLBACK_ADMIN_DATA_LIVE"
         Assert-Contains $Result.Output "confirmation phrase mismatch"
-        Assert-True ($Result.NpxLog.Contains("functions list")) "Rollback metadata was not captured."
-        Assert-True (-not $Result.NpxLog.Contains("functions deploy")) "Rollback deployed despite wrong confirmation."
+        Assert-True ((Measure-CliInvocations -LogText $Result.CliLog -Needle "functions list") -eq 1) "Rollback metadata was not captured."
+        Assert-True ((Measure-CliInvocations -LogText $Result.CliLog -Needle "functions deploy") -eq 0) "Rollback deployed despite wrong confirmation."
+    }
+
+    Invoke-Test "deploy nonzero exit is not retried" {
+        $Result = Invoke-Wrapper -Fixture $CleanDetached `
+            -DryRun:$false `
+            -InputText "DEPLOY_ADMIN_DATA_LIVE" `
+            -FakeSupabase @{ DeployExit = 9 }
+        Assert-True ($Result.ExitCode -eq 99) "Deploy failure gave $($Result.ExitCode)."
+        Assert-Contains $Result.Output "failed (exit 9)"
+        Assert-True ((Measure-CliInvocations -LogText $Result.CliLog -Needle "functions deploy") -eq 1) "Deploy was retried."
+    }
+
+    Invoke-Test "deploy exit zero plus benign stderr proceeds to post-check" {
+        $Result = Invoke-Wrapper -Fixture $CleanDetached `
+            -DryRun:$false `
+            -InputText "DEPLOY_ADMIN_DATA_LIVE" `
+            -FakeSupabase @{
+                DeployStdout = "deployed"
+                DeployStderr = "A new version of Supabase CLI is available"
+                PostListStdout = '[{"name":"admin-data","id":"548b11d4-03c3-4ef3-ab0f-a3cfe28d96d7","version":17}]'
+            }
+        Assert-True ($Result.ExitCode -eq 0) "Benign deploy diagnostic failed: $($Result.Output)"
+        Assert-Contains $Result.Output "VERIFIED_VERSION_INCREASED"
+        Assert-True ((Measure-CliInvocations -LogText $Result.CliLog -Needle "functions list") -eq 2) "Post-check did not run."
+        Assert-True ((Measure-CliInvocations -LogText $Result.CliLog -Needle "functions deploy") -eq 1) "Deploy count was not one."
+    }
+
+    Invoke-Test "deploy exit zero plus unexpected stderr is ambiguous without retry" {
+        $Result = Invoke-Wrapper -Fixture $CleanDetached `
+            -DryRun:$false `
+            -InputText "DEPLOY_ADMIN_DATA_LIVE" `
+            -FakeSupabase @{ DeployStderr = "unexpected deploy diagnostic" }
+        Assert-True ($Result.ExitCode -eq 106) "Unexpected deploy stderr gave $($Result.ExitCode)."
+        Assert-Contains $Result.Output "DEPLOYMENT STATE AMBIGUOUS"
+        Assert-True ((Measure-CliInvocations -LogText $Result.CliLog -Needle "functions deploy") -eq 1) "Ambiguous deploy was retried."
+    }
+
+    Invoke-Test "unchanged post-deploy version is ambiguous without retry" {
+        $Result = Invoke-Wrapper -Fixture $CleanDetached `
+            -DryRun:$false `
+            -InputText "DEPLOY_ADMIN_DATA_LIVE" `
+            -FakeSupabase @{ PostListStdout = $DefaultListJson }
+        Assert-True ($Result.ExitCode -eq 106) "Unchanged version gave $($Result.ExitCode)."
+        Assert-Contains $Result.Output "DEPLOYMENT STATE AMBIGUOUS"
+        Assert-Contains $Result.Output "did not increase"
+        Assert-True ((Measure-CliInvocations -LogText $Result.CliLog -Needle "functions deploy") -eq 1) "Ambiguous deploy was retried."
+    }
+
+    Invoke-Test "changed post-deploy function ID is ambiguous" {
+        $Result = Invoke-Wrapper -Fixture $CleanDetached `
+            -DryRun:$false `
+            -InputText "DEPLOY_ADMIN_DATA_LIVE" `
+            -FakeSupabase @{ PostListStdout = '[{"name":"admin-data","id":"11111111-1111-1111-1111-111111111111","version":17}]' }
+        Assert-True ($Result.ExitCode -eq 106) "Changed ID gave $($Result.ExitCode)."
+        Assert-Contains $Result.Output "DEPLOYMENT STATE AMBIGUOUS"
+        Assert-Contains $Result.Output "differs from pre-action ID"
+    }
+
+    Invoke-Test "missing duplicate and malformed post-deploy metadata are ambiguous" {
+        foreach ($Payload in @(
+            "not-json",
+            '[{"name":"scan-quote","id":"11111111-1111-1111-1111-111111111111","version":17}]',
+            '[{"name":"admin-data","id":"548b11d4-03c3-4ef3-ab0f-a3cfe28d96d7","version":17},{"name":"admin-data","id":"548b11d4-03c3-4ef3-ab0f-a3cfe28d96d7","version":18}]'
+        )) {
+            $Result = Invoke-Wrapper -Fixture $CleanDetached `
+                -DryRun:$false `
+                -InputText "DEPLOY_ADMIN_DATA_LIVE" `
+                -FakeSupabase @{ PostListStdout = $Payload }
+            Assert-True ($Result.ExitCode -eq 106) "Bad post metadata gave $($Result.ExitCode)."
+            Assert-Contains $Result.Output "DEPLOYMENT STATE AMBIGUOUS"
+            Assert-True ((Measure-CliInvocations -LogText $Result.CliLog -Needle "functions deploy") -eq 1) "Ambiguous result retried deploy."
+        }
+    }
+
+    Invoke-Test "post-deploy metadata nonzero exit is ambiguous" {
+        $Result = Invoke-Wrapper -Fixture $CleanDetached `
+            -DryRun:$false `
+            -InputText "DEPLOY_ADMIN_DATA_LIVE" `
+            -FakeSupabase @{ PostListExit = 4 }
+        Assert-True ($Result.ExitCode -eq 106) "Post-list failure gave $($Result.ExitCode)."
+        Assert-Contains $Result.Output "DEPLOYMENT STATE AMBIGUOUS"
+        Assert-True ((Measure-CliInvocations -LogText $Result.CliLog -Needle "functions deploy") -eq 1) "Post-list failure retried deploy."
     }
 
     Invoke-Test "existing deployment modes and allowlists remain present" {
