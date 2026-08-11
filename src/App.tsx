@@ -54,6 +54,9 @@ const WindowPriceAuditLanding = lazy(() => import("./pages/WindowPriceAuditLandi
 const TruthReportLanding = lazy(() => import("./pages/TruthReportLanding.tsx"));
 const AiDemoLanding = lazy(() => import("./pages/AiDemoLanding.tsx"));
 const ScanFunnelPage = lazy(() => import("./pages/ScanFunnelPage.tsx"));
+const CampaignNqLanding = lazy(() => import("./pages/CampaignNQ/CampaignNqLanding.tsx"));
+const CampaignNq2Landing = lazy(() => import("./pages/CampaignNQ2/CampaignNq2Landing.tsx"));
+const CampaignNq3Landing = lazy(() => import("./pages/CampaignNQ3/NoQuoteLanding.tsx"));
 
 // PartnerGuard removed — partner pages render publicly with preview fallback
 
@@ -205,6 +208,9 @@ const App = () => (
                 <Route path="/partner/*" element={<PartnerRoutes />} />
                 <Route path="/nextdoor" element={<NextdoorHome />} />
                 <Route path="/windowman" element={<WindowManLanding />} />
+                <Route path="/nq" element={<CampaignNqLanding />} />
+                <Route path="/nq2" element={<CampaignNq2Landing />} />
+                <Route path="/nq3" element={<CampaignNq3Landing />} />
                 {isScanRouteMounted && (
                   <Route path="/scan" element={<ScanFunnelPage />} />
                 )}

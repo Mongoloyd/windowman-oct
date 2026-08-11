@@ -7,6 +7,7 @@ type Props = {
   id?: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
+  disabled?: boolean;
   /** Dark Truth Gate vs light modal */
   variant?: "dark" | "light";
 };
@@ -15,6 +16,7 @@ export function MarketingConsentCheckbox({
   id = "marketing-consent",
   checked,
   onChange,
+  disabled = false,
   variant = "dark",
 }: Props) {
   const labelClass =
@@ -33,6 +35,7 @@ export function MarketingConsentCheckbox({
         id={id}
         type="checkbox"
         checked={checked}
+        disabled={disabled}
         onChange={(e) => onChange(e.target.checked)}
         className={inputClass}
       />
