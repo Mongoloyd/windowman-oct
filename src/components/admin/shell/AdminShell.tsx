@@ -46,27 +46,27 @@ export function AdminShell({
   children,
 }: AdminShellProps) {
   return (
-    <div className="wm-dashboard-surface min-h-screen bg-white text-slate-950">
-      <header className="sticky top-0 z-30 border-b border-slate-300 bg-white shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/95">
+    <div className="wm-dashboard-surface wm-admin-canvas min-h-screen">
+      <header className="wm-admin-chrome sticky top-0 z-30 border-b shadow-sm backdrop-blur">
         <div className="w-full px-4 py-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12">
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div className="min-w-0">
               {backTo && (
                 <Link
                   to={backTo}
-                  className="mb-2 inline-flex min-h-10 items-center gap-1.5 rounded text-sm font-bold text-slate-700 transition-colors hover:text-slate-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 focus-visible:ring-offset-2"
+                  className="mb-2 inline-flex min-h-10 items-center gap-1.5 rounded text-sm font-bold text-slate-300 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 focus-visible:ring-offset-2"
                 >
                   <ArrowLeft className="h-3.5 w-3.5" />
                   {backLabel}
                 </Link>
               )}
-              <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-slate-700">
+              <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-blue-300">
                 {eyebrow}
               </p>
-              <h1 className="mt-0.5 font-display text-3xl md:text-4xl font-black leading-tight tracking-tight text-slate-950">
+              <h1 className="mt-0.5 font-display text-3xl md:text-4xl font-black leading-tight tracking-tight text-white">
                 {title}
               </h1>
-              {subtitle && <p className="mt-0.5 text-base font-bold text-slate-800">{subtitle}</p>}
+              {subtitle && <p className="mt-0.5 text-base font-bold text-slate-300">{subtitle}</p>}
             </div>
             <div className="shrink-0">
               <AdminIdentityBar />

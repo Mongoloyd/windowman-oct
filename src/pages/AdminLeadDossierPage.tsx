@@ -95,7 +95,7 @@ export default function AdminLeadDossierPage() {
     return (
       <AdminShell title="Loading lead…" backTo="/admin/leads" backLabel="Back to inbox" nav={<AdminGlobalNav />}>
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-6 w-6 animate-spin text-slate-700" />
+          <Loader2 className="wm-on-canvas-text h-6 w-6 animate-spin" />
         </div>
       </AdminShell>
     );

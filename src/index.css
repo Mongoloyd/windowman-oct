@@ -311,6 +311,66 @@
     border-color: hsl(0 91% 82%);
   }
 
+  /* === Strategic Cobalt Admin Canvas === */
+
+  .wm-admin-canvas {
+    --wm-admin-canvas: 213 55% 10%;
+    --wm-admin-chrome: 213 50% 13%;
+    --wm-admin-canvas-border: 212 34% 26%;
+    --wm-admin-on-canvas: 210 40% 96%;
+    --wm-admin-on-canvas-muted: 213 27% 82%;
+  }
+
+  .wm-admin-canvas,
+  .wm-admin-canvas.wm-dashboard-surface {
+    background-color: hsl(var(--wm-admin-canvas));
+  }
+
+  .wm-admin-chrome {
+    background-color: hsl(var(--wm-admin-chrome));
+    border-color: hsl(var(--wm-admin-canvas-border));
+    color: hsl(var(--wm-admin-on-canvas));
+  }
+
+  @supports (backdrop-filter: blur(1px)) {
+    .wm-admin-chrome {
+      background-color: hsl(var(--wm-admin-chrome) / 0.92);
+    }
+  }
+
+  .wm-admin-chrome :is(.bg-white, .bg-background, .bg-card, .bg-slate-50) {
+    color: hsl(222 47% 8%);
+  }
+
+  .wm-admin-canvas .bg-destructive\/5,
+  .wm-admin-canvas .bg-destructive\/10 {
+    background-color: hsl(0 93% 96%);
+  }
+
+  .wm-admin-canvas .bg-destructive\/20 {
+    background-color: hsl(0 93% 92%);
+  }
+
+  .wm-admin-canvas
+    :is(.bg-destructive\/5, .bg-destructive\/10, .bg-destructive\/20):is(.text-destructive),
+  .wm-admin-canvas
+    :is(.bg-destructive\/5, .bg-destructive\/10, .bg-destructive\/20)
+    .text-destructive {
+    color: hsl(0 72% 38%);
+  }
+
+  .wm-admin-canvas .bg-card\/95 {
+    background-color: hsl(0 0% 100%);
+  }
+
+  .wm-admin-canvas .wm-on-canvas-title {
+    color: hsl(var(--wm-admin-on-canvas));
+  }
+
+  .wm-admin-canvas .wm-on-canvas-text {
+    color: hsl(var(--wm-admin-on-canvas-muted));
+  }
+
   .wm-slim-scrollbar {
     scrollbar-width: thin;
     scrollbar-color: hsl(215 20% 78%) transparent;

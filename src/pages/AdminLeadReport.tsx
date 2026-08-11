@@ -96,7 +96,7 @@ export default function AdminLeadReport() {
     return (
       <AdminShell title="Loading analysis evidence…" backTo={backTo} backLabel="Back to dossier" nav={<AdminGlobalNav />}>
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-6 w-6 animate-spin text-slate-700" />
+          <Loader2 className="wm-on-canvas-text h-6 w-6 animate-spin" />
         </div>
       </AdminShell>
     );
@@ -119,7 +119,7 @@ export default function AdminLeadReport() {
   if (!analysisId) {
     return (
       <AdminShell title="Analysis evidence" backTo={backTo} backLabel="Back to dossier" nav={<AdminGlobalNav />}>
-        <div className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-800">
+        <div className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
           <AlertCircle className="h-5 w-5 mt-0.5 shrink-0" />
           <div>
             <p className="font-semibold">No analysis on file yet</p>
@@ -160,7 +160,7 @@ export default function AdminLeadReport() {
       backLabel="Back to dossier"
       nav={<AdminGlobalNav />}
     >
-      <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-800">
+      <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs text-emerald-950">
         <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
         <span>
           <span className="font-semibold">Admin safe projection</span> · Grade, flags, and preview pillars only.

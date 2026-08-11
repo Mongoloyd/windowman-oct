@@ -884,10 +884,10 @@ export function MasterCommandCenter({
       <div>
         <div className="flex items-center justify-between gap-3 mb-2 px-1 flex-wrap">
           <div className="flex items-center gap-2 min-w-0">
-            <h2 className="text-sm font-semibold uppercase tracking-widest text-slate-700">
+            <h2 className="wm-on-canvas-title text-sm font-semibold uppercase tracking-widest">
               Truth Strip — Funnel
             </h2>
-            <span className="text-sm text-slate-700 font-mono">
+            <span className="wm-on-canvas-text text-sm font-mono">
               {scope === "today" ? "today" : scope === "7d" ? "last 7 days" : "all-time · Δ vs prior 30d"}
             </span>
           </div>
@@ -913,7 +913,7 @@ export function MasterCommandCenter({
                 </button>
               ))}
             </div>
-            <span className="text-sm text-slate-700 font-mono hidden sm:inline">
+            <span className="wm-on-canvas-text text-sm font-mono hidden sm:inline">
               {leads.length} leads in scope
             </span>
           </div>

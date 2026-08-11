@@ -275,9 +275,9 @@ export function InternalCRMDesk({ leads, isLoading, onStatusChange, latestFollow
 
       {/* ── Power Dialer Table ─────────────────────────────────────── */}
       {isLoading && sorted.length === 0 ? (
-        <div className="text-center py-12 text-slate-700">Loading leads…</div>
+        <div className="wm-on-canvas-text text-center py-12">Loading leads…</div>
       ) : sorted.length === 0 ? (
-        <div className="text-center py-12 text-slate-700">
+        <div className="wm-on-canvas-text text-center py-12">
           No phone-verified leads yet.
         </div>
       ) : (

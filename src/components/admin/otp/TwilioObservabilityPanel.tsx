@@ -126,17 +126,17 @@ export function TwilioObservabilityPanel() {
         <div>
           <div className="flex items-center gap-2">
             <Shield className="h-6 w-6 text-primary" />
-            <h2 className="text-2xl font-black tracking-tight text-slate-950">
+            <h2 className="wm-on-canvas-title text-2xl font-black tracking-tight">
               OTP Ops
             </h2>
-            <Badge variant="outline" className="text-xs font-bold">
+            <Badge variant="outline" className="wm-on-canvas-text text-xs font-bold">
               Read-only
             </Badge>
           </div>
-          <p className="mt-1 text-sm font-semibold text-slate-700">
+          <p className="wm-on-canvas-text mt-1 text-sm font-semibold">
             Twilio OTP funnel health, friction signals, and stuck-lead queue.
             {lastSyncedAt && (
-              <span className="ml-1 text-slate-500">
+              <span className="wm-on-canvas-text ml-1">
                 Updated {formatDistanceToNow(lastSyncedAt, { addSuffix: true })}.
               </span>
             )}

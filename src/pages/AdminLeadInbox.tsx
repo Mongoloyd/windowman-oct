@@ -498,7 +498,7 @@ export default function LeadInbox() {
             <span className="inline-flex items-center rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1">
               Stuck: {leadOpsCounts.stuck}
             </span>
-            <span className="text-xs font-medium text-slate-500">
+            <span className="wm-on-canvas-text text-xs font-medium">
               Kanban v1 — next sprint
             </span>
           </div>
@@ -520,7 +520,7 @@ export default function LeadInbox() {
     >
       {isLoading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-6 w-6 animate-spin text-slate-700" />
+          <Loader2 className="wm-on-canvas-text h-6 w-6 animate-spin" />
         </div>
       ) : isError ? (
         <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">

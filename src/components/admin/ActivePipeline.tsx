@@ -157,7 +157,7 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
 
   if (isLoading && leads.length === 0) {
     return (
-      <div className="flex items-center justify-center py-20 text-slate-700 font-medium">
+      <div className="wm-on-canvas-text flex items-center justify-center py-20 font-medium">
         Loading pipeline…
       </div>
     );
@@ -165,8 +165,8 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
 
   if (!leads.length) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-slate-700 font-medium gap-2">
-        <p className="text-xl font-extrabold text-slate-950">No leads yet</p>
+      <div className="wm-on-canvas-text flex flex-col items-center justify-center py-20 font-medium gap-2">
+        <p className="wm-on-canvas-title text-xl font-extrabold">No leads yet</p>
         <p className="text-sm">Leads will appear here once homeowners start uploading quotes.</p>
       </div>
     );
@@ -230,7 +230,7 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
             )}
           </SelectContent>
         </Select>
-        <span className="text-sm font-semibold text-slate-700">
+        <span className="wm-on-canvas-text text-sm font-semibold">
           {filteredLeads.length} of {leads.length} leads
         </span>
       </div>

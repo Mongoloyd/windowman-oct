@@ -176,7 +176,7 @@ function EvidencePanel({ leadId, query, context }: { leadId: string | null; quer
   const evidence = query.data;
   return (
     <div className="space-y-5">
-      {context.hasUrlContext && <div className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-2 text-sm font-semibold text-foreground">Opened from Command Center context.</div>}
+      {context.hasUrlContext && <div className="rounded-lg border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-950">Opened from Command Center context.</div>}
       <LeadSummary evidence={evidence} />
       <QuoteFiles evidence={evidence} />
       <ScanSessions evidence={evidence} highlightId={context.scanSessionId} />

@@ -98,8 +98,8 @@ export function AdminIdentityBar() {
   if (!sessionAlive && !devBypass) {
     return (
       <div className="flex items-center gap-3">
-        <span className="hidden sm:inline-flex items-center gap-1.5 text-sm font-bold text-slate-700">
-          <span className="h-2 w-2 rounded-full bg-muted-foreground/40" />
+        <span className="hidden sm:inline-flex items-center gap-1.5 text-sm font-bold text-slate-300">
+          <span className="h-2 w-2 rounded-full bg-slate-500" />
           No session
         </span>
         <Button asChild size="sm" variant="outline" className="h-10 border-slate-300 bg-white font-bold shadow-sm">
@@ -115,12 +115,12 @@ export function AdminIdentityBar() {
   return (
     <div className="flex items-center gap-3">
       <div className="hidden md:flex flex-col items-end leading-tight">
-        <span className="text-sm font-semibold text-foreground">
+        <span className="text-sm font-semibold text-slate-100">
           {email ?? (devBypass ? "dev@windowman.app" : "Unknown")}
         </span>
         <div className="mt-0.5 flex items-center gap-2">
-        <span className="inline-flex items-center gap-1 text-sm font-bold text-slate-700">
-            <span className={`h-1.5 w-1.5 rounded-full ${sessionAlive || devBypass ? "bg-emerald-500" : "bg-muted-foreground/40"}`} />
+        <span className="inline-flex items-center gap-1 text-sm font-bold text-slate-300">
+            <span className={`h-1.5 w-1.5 rounded-full ${sessionAlive || devBypass ? "bg-emerald-400" : "bg-slate-500"}`} />
             {sessionAlive ? "Session active" : devBypass ? "Dev session" : "No session"}
           </span>
         </div>

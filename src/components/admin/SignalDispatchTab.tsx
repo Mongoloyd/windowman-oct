@@ -167,8 +167,8 @@ export function SignalDispatchTab() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black tracking-tight text-slate-950">Signal Dispatch</h2>
-          <p className="mt-1 text-sm font-semibold text-slate-700">Server-side delivery monitor for Meta CAPI, Google/GTM readiness, CRM webhooks, and lead-event audit records.</p>
+          <h2 className="wm-on-canvas-title text-2xl font-black tracking-tight">Signal Dispatch</h2>
+          <p className="wm-on-canvas-text mt-1 text-sm font-semibold">Server-side delivery monitor for Meta CAPI, Google/GTM readiness, CRM webhooks, and lead-event audit records.</p>
         </div>
         <Button variant="outline" onClick={load} disabled={isLoading} className="gap-2 border-slate-400 bg-white text-slate-950">
           <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
