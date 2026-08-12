@@ -16,6 +16,7 @@ export default function Nq4IntakeSkin({
   step,
   stepNumber,
   totalSteps,
+  location,
   values,
   validationError,
   submitError,
@@ -187,17 +188,15 @@ export default function Nq4IntakeSkin({
             <form onSubmit={continueToNextStep} noValidate>
               <p className="nq4-intake-kicker">Step 1</p>
               <h2 id="nq4-intake-title">Where is the project?</h2>
-              <p id="nq4-intake-description">
-                Enter the Florida ZIP code for the property.
-              </p>
+              <p id="nq4-intake-description">{location.helperText}</p>
               <div className="nq4-intake-field">
-                <label htmlFor="nq4-intake-zip">Florida ZIP code</label>
+                <label htmlFor="nq4-intake-zip">{location.inputLabel}</label>
                 <input
                   id="nq4-intake-zip"
                   ref={zipRef}
                   inputMode="numeric"
                   maxLength={5}
-                  placeholder="e.g. 33139"
+                  placeholder={location.placeholder}
                   autoComplete="postal-code"
                   aria-invalid={validationError?.field === "zip"}
                   aria-describedby={

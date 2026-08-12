@@ -24,9 +24,12 @@ export const WINDOWMAN_FIRST_QUOTE_SOURCE = "windowman-first-quote";
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+export type FirstQuoteSourcePath = "/windowman" | "/nq3" | "/nq4";
+
 export type SubmitWindowmanFirstQuoteInput = {
   sessionId: string;
   submissionId: string;
+  sourcePath?: FirstQuoteSourcePath;
   firstName: string;
   email: string;
   phoneE164: string;
@@ -122,7 +125,7 @@ export function buildWindowmanFirstQuoteLeadPayload(
   const queryParams: Record<string, string> = {
     ...flattenQueryParams(baseQueryParams),
     wm_intent: "no_quote",
-    source_path: "/windowman",
+    source_path: input.sourcePath ?? "/windowman",
     intake_version: FIRST_QUOTE_INTAKE_VERSION,
     zip_code: zipCode,
     zip_or_city: zipCode,

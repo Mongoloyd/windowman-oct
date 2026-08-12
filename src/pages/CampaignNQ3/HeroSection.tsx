@@ -92,8 +92,8 @@ export default function HeroSection({ zip, zipError, onZipChange, onCheckArea }:
               id="nq3-hero-zip"
               inputMode="numeric"
               maxLength={5}
-              placeholder="Enter your Florida ZIP code"
-              aria-label="Florida ZIP code"
+              placeholder="e.g. 33139"
+              aria-label="Florida project ZIP code"
               aria-describedby={zipError ? "nq3-hero-zip-error" : undefined}
               aria-invalid={Boolean(zipError)}
               autoComplete="postal-code"

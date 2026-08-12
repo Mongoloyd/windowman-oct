@@ -134,6 +134,24 @@ describe("windowmanFirstQuoteLeadCapture", () => {
     expect(qp.source_path).toBe("/windowman");
   });
 
+  it("uses an explicit NQ4 source path without changing the default", () => {
+    const defaultQueryParams = buildWindowmanFirstQuoteLeadPayload(
+      sampleInput,
+    ).query_params as Record<string, string>;
+    const nq3QueryParams = buildWindowmanFirstQuoteLeadPayload({
+      ...sampleInput,
+      sourcePath: "/nq3",
+    }).query_params as Record<string, string>;
+    const nq4QueryParams = buildWindowmanFirstQuoteLeadPayload({
+      ...sampleInput,
+      sourcePath: "/nq4",
+    }).query_params as Record<string, string>;
+
+    expect(defaultQueryParams.source_path).toBe("/windowman");
+    expect(nq3QueryParams.source_path).toBe("/nq3");
+    expect(nq4QueryParams.source_path).toBe("/nq4");
+  });
+
   it("does not include project_type, window_count, or quote_range in query_params", () => {
     const qp = buildWindowmanFirstQuoteLeadPayload(sampleInput).query_params as Record<
       string,

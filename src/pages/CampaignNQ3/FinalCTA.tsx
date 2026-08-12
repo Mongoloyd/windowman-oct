@@ -26,8 +26,8 @@ export default function FinalCTA({ zip, zipError, onZipChange, onCheckArea }: Fi
             id="nq3-final-zip"
             inputMode="numeric"
             maxLength={5}
-            placeholder="Enter your Florida ZIP code"
-            aria-label="Florida ZIP code"
+              placeholder="e.g. 33139"
+              aria-label="Florida project ZIP code"
             aria-describedby={zipError ? "nq3-final-zip-error" : undefined}
             aria-invalid={Boolean(zipError)}
             autoComplete="postal-code"

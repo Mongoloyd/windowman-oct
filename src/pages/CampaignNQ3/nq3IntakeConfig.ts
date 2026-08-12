@@ -3,7 +3,7 @@ import type {
   UniversalIntakeConfig,
 } from "@/components/intake/universal/intakeTypes";
 
-export const nq4FloridaProjectLocation = {
+export const nq3FloridaProjectLocation = {
   marketId: "florida",
   inputLabel: "Florida project ZIP code",
   helperText:
@@ -13,12 +13,12 @@ export const nq4FloridaProjectLocation = {
   isEligibleZip: (value: string) => /^3[2-4]\d{3}$/.test(value.trim()),
 } as const satisfies IntakeLocationConfig;
 
-export const nq4IntakeConfig = {
-  route: "/nq4",
-  campaignVariant: "nq4",
+export const nq3IntakeConfig = {
+  route: "/nq3",
+  campaignVariant: "nq3",
   wmIntent: "no_quote",
   captureSource: "windowman-first-quote",
-  location: nq4FloridaProjectLocation,
+  location: nq3FloridaProjectLocation,
   steps: [
     {
       id: "location",

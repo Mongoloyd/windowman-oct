@@ -300,40 +300,92 @@ footer{background:var(--bg-2);border-top:1px solid var(--line);padding:34px 0}
 }
 .overlay.on{display:flex}
 .modal{
-  width:100%;max-width:452px;border-radius:18px;
+  width:100%;max-width:540px;border-radius:18px;
   background:linear-gradient(170deg,#131a29,#0a0e18);
   border:1px solid var(--line-strong);
   box-shadow:0 30px 90px rgba(0,0,0,.7);
+  display:flex;flex-direction:column;
+  max-height:88vh;max-height:88dvh;
   overflow:hidden;
 }
-.modal-top{padding:20px 22px 0}
-.prog{display:flex;gap:6px;margin-bottom:20px}
-.prog i{flex:1;height:3px;border-radius:99px;background:rgba(148,163,184,.18);transition:background .25s ease}
+.modal-top{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:14px;
+  padding:18px 24px 0;flex:none;
+}
+.prog-group{flex:1;min-width:0}
+.prog-copy{
+  font-size:12.5px;font-weight:650;color:var(--txt-2);
+  letter-spacing:.02em;margin-bottom:9px;
+}
+.prog{display:flex;gap:6px}
+.prog i{flex:1;height:3px;border-radius:99px;background:rgba(148,163,184,.22);transition:background .25s ease}
 .prog i.on{background:var(--accent)}
-.modal-body{padding:0 22px 22px}
-.modal h3{font-size:21px;font-weight:750;letter-spacing:-.025em;margin-bottom:7px}
-.modal .m-sub{font-size:13.8px;color:var(--txt-2);margin-bottom:20px;line-height:1.55}
-.field{margin-bottom:14px}
+.m-close{
+  flex:none;width:44px;height:44px;margin:-10px -10px 0 0;
+  display:flex;align-items:center;justify-content:center;
+  background:none;border:1px solid transparent;border-radius:10px;
+  color:var(--txt-2);font-size:24px;line-height:1;cursor:pointer;font-family:inherit;
+  transition:color .15s ease,border-color .15s ease,background .15s ease;
+}
+.m-close:hover{color:var(--txt);background:rgba(255,255,255,.05)}
+.m-close:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.modal-body{padding:18px 24px 24px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.m-kicker{
+  font-size:11.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--good);margin-bottom:8px;
+}
+.modal h3{font-size:25px;font-weight:750;letter-spacing:-.025em;line-height:1.22;margin-bottom:9px}
+.modal h3:focus{outline:none}
+.modal h3:focus-visible{outline:2px solid var(--accent);outline-offset:4px;border-radius:6px}
+.modal .m-sub{font-size:14px;color:var(--txt-2);margin-bottom:22px;line-height:1.55}
+.field{margin-bottom:16px}
 .field label{display:block;font-size:12px;font-weight:650;color:var(--txt-2);margin-bottom:7px;letter-spacing:.02em}
 .field input,.field select{
   width:100%;background:rgba(255,255,255,.045);border:1px solid var(--line-strong);
-  border-radius:10px;padding:12px 13px;color:var(--txt);font-size:15px;
+  border-radius:10px;padding:13px 44px 13px 13px;color:var(--txt);font-size:15px;
+  min-height:50px;
   font-family:inherit;outline:none;transition:border-color .16s ease;
 }
 .field input:focus,.field select:focus{border-color:rgba(46,155,255,.6)}
+.field input:focus-visible,.field select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .field select{appearance:none;cursor:pointer}
-.opts{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.opts{display:flex;flex-direction:column;gap:10px}
 .opt{
-  padding:13px 12px;border-radius:10px;text-align:center;cursor:pointer;
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  width:100%;min-height:56px;padding:15px 16px;border-radius:12px;
+  text-align:left;cursor:pointer;color:inherit;
   border:1px solid var(--line-strong);background:rgba(255,255,255,.03);
-  font-size:14px;font-weight:600;transition:all .15s ease;
+  font-size:15px;font-weight:600;font-family:inherit;
+  transition:border-color .15s ease,background .15s ease,transform .1s ease;
 }
-.opt:hover{border-color:rgba(46,155,255,.45)}
+.opt:hover{border-color:rgba(46,155,255,.45);background:rgba(255,255,255,.055)}
+.opt:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.opt:active{transform:scale(.99)}
 .opt.sel{border-color:var(--accent);background:var(--accent-soft);color:#a8d3ff}
-.modal .btn{width:100%;margin-top:6px;padding:13px}
-.m-legal{font-size:10.8px;color:var(--txt-3);line-height:1.55;margin-top:13px}
-.m-back{background:none;border:none;color:var(--txt-3);font-size:12.5px;cursor:pointer;margin-top:12px;font-family:inherit}
-.m-back:hover{color:var(--txt-2)}
+.opt .opt-label{flex:1;min-width:0}
+.opt .opt-mark{
+  flex:none;width:20px;height:20px;border-radius:50%;
+  border:1px solid var(--line-strong);position:relative;
+}
+.opt.sel .opt-mark{border-color:var(--accent);background:var(--accent)}
+.opt.sel .opt-mark::after{
+  content:"";position:absolute;left:6px;top:2px;width:5px;height:10px;
+  border:solid #04101f;border-width:0 2px 2px 0;transform:rotate(45deg);
+}
+.modal .btn{width:100%;margin-top:8px;padding:14px;min-height:52px}
+.modal .btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.m-err{font-size:12.5px;color:var(--bad);line-height:1.5;margin-top:12px}
+.m-submit-error{font-size:12.5px;color:var(--bad);line-height:1.5}
+.m-submit-error:not(:empty){margin-top:12px}
+.m-status:not(:empty){font-size:12.5px;color:var(--txt-2);margin-top:10px}
+.m-legal{font-size:11.5px;color:var(--txt-3);line-height:1.6;margin-top:16px}
+.m-back{
+  display:inline-flex;align-items:center;min-height:44px;padding:0 4px;margin-top:10px;
+  background:none;border:1px solid transparent;border-radius:8px;
+  color:var(--txt-2);font-size:13.5px;cursor:pointer;font-family:inherit;
+}
+.m-back:hover{color:var(--txt)}
+.m-back:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .done-ic{
   width:52px;height:52px;border-radius:50%;margin:0 auto 18px;
   background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.35);
@@ -349,4 +401,17 @@ footer{background:var(--bg-2);border-top:1px solid var(--line);padding:34px 0}
   section{padding:60px 0}
   .zip-form{flex-direction:column}
   .zip-form .btn{width:100%}
+}
+
+@media (max-width:560px){
+  .overlay{padding:12px}
+  .modal{max-height:94vh;max-height:94dvh}
+  .modal-top{padding:16px 18px 0}
+  .modal-body{padding:16px 18px 20px}
+  .modal h3{font-size:22px}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .prog i,.opt{transition:none}
+  .opt:active{transform:none}
 }

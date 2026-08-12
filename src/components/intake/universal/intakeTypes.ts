@@ -19,12 +19,21 @@ export type IntakeStepId =
   | "timing"
   | "contact";
 export type IntakeValidationRule =
-  | "florida_zip"
+  | "service_area_zip"
   | "project_scope"
   | "product_scope"
   | "openings_scope"
   | "timing_scope"
   | "contact";
+
+export interface IntakeLocationConfig {
+  marketId: string;
+  inputLabel: string;
+  helperText: string;
+  placeholder: string;
+  invalidMessage: string;
+  isEligibleZip: (value: string) => boolean;
+}
 
 export type IntakeFieldName =
   | "zip"
@@ -51,11 +60,35 @@ export interface IntakeStepConfig {
   validation: IntakeValidationRule;
 }
 
+/** Discrete single-choice fields eligible for atomic select-and-advance. */
+export type IntakeQuickSelectField = Extract<
+  IntakeFieldName,
+  "projectType" | "openings" | "timing"
+>;
+
+/** Steps whose single answer may advance the flow without a Continue press. */
+export const QUICK_SELECT_FIELD_BY_STEP = {
+  product: "projectType",
+  openings: "openings",
+  timing: "timing",
+} as const satisfies Partial<Record<IntakeStepId, IntakeQuickSelectField>>;
+
+export function quickSelectFieldForStep(
+  step: IntakeViewStep,
+): IntakeQuickSelectField | null {
+  return (
+    QUICK_SELECT_FIELD_BY_STEP[
+      step as keyof typeof QUICK_SELECT_FIELD_BY_STEP
+    ] ?? null
+  );
+}
+
 export interface UniversalIntakeConfig {
   route: IntakeRoute;
   campaignVariant: IntakeCampaignVariant;
   wmIntent: IntakeIntent;
   captureSource: string;
+  location: IntakeLocationConfig;
   steps: readonly IntakeStepConfig[];
 }
 
@@ -104,11 +137,17 @@ export interface IntakeSkinProps {
   step: IntakeViewStep;
   stepNumber: number;
   totalSteps: number;
+  location: IntakeLocationConfig;
   values: IntakeValues;
   validationError: IntakeValidationError | null;
   submitError: string | null;
   isSubmitting: boolean;
   onFieldChange: (field: IntakeFieldName, value: string) => void;
+  /**
+   * Atomically records a discrete choice and advances one step. The host owns
+   * eligibility, validation, and sequencing; skins only report the activation.
+   */
+  onSelectAndNext: (field: IntakeQuickSelectField, value: string) => void;
   onNext: () => void;
   onBack: () => void;
   onSubmit: () => void;

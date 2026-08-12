@@ -192,7 +192,7 @@ describe("CampaignNq4Landing", () => {
     expect(
       within(dialog).getByRole("heading", { name: "Where is the project?" }),
     ).toBeInTheDocument();
-    expect(within(dialog).getByLabelText("Florida ZIP code")).toHaveValue(
+    expect(within(dialog).getByLabelText("Florida project ZIP code")).toHaveValue(
       "33301",
     );
   });
@@ -400,6 +400,6 @@ describe("CampaignNq4Landing", () => {
     expect(
       within(dialog).getByRole("progressbar", { name: "Step 1 of 5" }),
     ).toHaveAttribute("aria-valuenow", "1");
-    expect(within(dialog).getByLabelText("Florida ZIP code")).toHaveValue("");
+    expect(within(dialog).getByLabelText("Florida project ZIP code")).toHaveValue("");
   });
 });

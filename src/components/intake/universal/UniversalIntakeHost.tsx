@@ -5,10 +5,13 @@ import {
   normalizeTruthGatePhoneToE164,
 } from "@/lib/validation/truthGateContact";
 import { isValidEmail, isValidName } from "@/utils/formatPhone";
+import { quickSelectFieldForStep } from "./intakeTypes";
 import type {
   IntakeFieldName,
+  IntakeLocationConfig,
   IntakeOpenRequest,
   IntakePersistedSuccessHandler,
+  IntakeQuickSelectField,
   IntakeSkin,
   IntakeStepConfig,
   IntakeSubmitter,
@@ -49,14 +52,15 @@ interface UniversalIntakeHostProps {
 function validateStep(
   step: IntakeStepConfig,
   values: IntakeValues,
+  location: IntakeLocationConfig,
 ): IntakeValidationError | null {
   switch (step.validation) {
-    case "florida_zip":
-      return /^3[2-4]\d{3}$/.test(values.zip.trim())
+    case "service_area_zip":
+      return location.isEligibleZip(values.zip)
         ? null
         : {
             field: "zip",
-            message: "Enter a valid 5-digit Florida ZIP code.",
+            message: location.invalidMessage,
           };
     case "project_scope":
       return values.projectType && values.openings
@@ -166,24 +170,58 @@ export default function UniversalIntakeHost({
 
   const handleFieldChange = useCallback(
     (field: IntakeFieldName, value: string) => {
-      setAttempt((current) =>
-        !current || current.values[field] === value
-          ? current
-          : {
-              ...current,
-              values: { ...current.values, [field]: value },
-            },
-      );
+      setAttempt((current) => {
+        if (!current || current.values[field] === value) return current;
+        return {
+          ...current,
+          values: { ...current.values, [field]: value },
+        };
+      });
       setValidationError(null);
       setSubmitError(null);
     },
     [],
   );
 
+  const handleSelectAndNext = useCallback(
+    (field: IntakeQuickSelectField, value: string) => {
+      if (isSubmitting || submissionInFlightAttemptId.current) return;
+
+      setAttempt((current) => {
+        if (!current || current.succeeded) return current;
+        if (activeAttemptId.current !== current.captureAttemptId) return current;
+
+        const step = config.steps[current.stepIndex];
+        if (quickSelectFieldForStep(step.id) !== field) return current;
+        if (!step.fields.includes(field)) return current;
+
+        const values = { ...current.values, [field]: value };
+        const error = validateStep(step, values, config.location);
+        if (error) {
+          setValidationError(error);
+          return { ...current, values };
+        }
+
+        setValidationError(null);
+        setSubmitError(null);
+        return {
+          ...current,
+          values,
+          stepIndex: Math.min(current.stepIndex + 1, config.steps.length - 1),
+        };
+      });
+    },
+    [config.location, config.steps, isSubmitting],
+  );
+
   const handleNext = useCallback(() => {
     setAttempt((current) => {
       if (!current) return current;
-      const error = validateStep(config.steps[current.stepIndex], current.values);
+      const error = validateStep(
+        config.steps[current.stepIndex],
+        current.values,
+        config.location,
+      );
       if (error) {
         setValidationError(error);
         return current;
@@ -194,7 +232,7 @@ export default function UniversalIntakeHost({
         stepIndex: Math.min(current.stepIndex + 1, config.steps.length - 1),
       };
     });
-  }, [config.steps]);
+  }, [config.location, config.steps]);
 
   const handleBack = useCallback(() => {
     setValidationError(null);
@@ -217,7 +255,7 @@ export default function UniversalIntakeHost({
     }
 
     for (let index = 0; index < config.steps.length; index += 1) {
-      const error = validateStep(config.steps[index], attempt.values);
+      const error = validateStep(config.steps[index], attempt.values, config.location);
       if (error) {
         setValidationError(error);
         setAttempt((current) =>
@@ -285,7 +323,7 @@ export default function UniversalIntakeHost({
     }
   }, [
     attempt,
-    config.steps,
+    config,
     isSubmitting,
     landingVisitId,
     onPersistedSuccess,
@@ -315,11 +353,13 @@ export default function UniversalIntakeHost({
         attempt.succeeded ? config.steps.length : attempt.stepIndex + 1
       }
       totalSteps={config.steps.length}
+      location={config.location}
       values={attempt.values}
       validationError={validationError}
       submitError={submitError}
       isSubmitting={isSubmitting}
       onFieldChange={handleFieldChange}
+      onSelectAndNext={handleSelectAndNext}
       onNext={handleNext}
       onBack={handleBack}
       onSubmit={handleSubmit}

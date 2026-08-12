@@ -1,18 +1,25 @@
 import { useCallback, useRef, useState, type FormEvent } from "react";
 import { Helmet } from "react-helmet-async";
+import UniversalIntakeHost from "@/components/intake/universal/UniversalIntakeHost";
+import type {
+  IntakeEntryPoint,
+  IntakeOpenRequest,
+  IntakeStepId,
+} from "@/components/intake/universal/intakeTypes";
 import nqLandingCss from "./nq-landing.css?raw";
 import FAQ from "./FAQ";
 import FinalCTA from "./FinalCTA";
 import Footer from "./Footer";
 import HeroSection from "./HeroSection";
 import HowItWorks from "./HowItWorks";
-import LeadCaptureModal from "./LeadCaptureModal";
+import Nq3IntakeSkin from "./Nq3IntakeSkin";
 import Navigation from "./Navigation";
 import ReviewCriteria from "./ReviewCriteria";
 import SampleFindings from "./SampleFindings";
 import { createCampaignNq3LeadSubmitter } from "./campaignNq3LeadCapture";
+import { nq3FloridaProjectLocation, nq3IntakeConfig } from "./nq3IntakeConfig";
 import { scopeNq3Css } from "./scopeNq3Css";
-import { isFloridaZip, type OnSubmitLead } from "./types";
+import type { OnSubmitLead } from "./types";
 
 interface NoQuoteLandingProps {
   onSubmitLead?: OnSubmitLead;
@@ -26,16 +33,25 @@ export default function NoQuoteLanding({ onSubmitLead }: NoQuoteLandingProps) {
   const [finalZip, setFinalZip] = useState("");
   const [heroZipError, setHeroZipError] = useState("");
   const [finalZipError, setFinalZipError] = useState("");
-  const [modalState, setModalState] = useState<{ step: 1 | 2; zip: string } | null>(null);
+  const [openRequest, setOpenRequest] = useState<IntakeOpenRequest | null>(null);
   const openerRef = useRef<HTMLElement | null>(null);
 
-  const openModal = useCallback((step: 1 | 2, zip = "") => {
+  const openIntake = useCallback((
+    entryPoint: IntakeEntryPoint,
+    startingStep: IntakeStepId,
+    zipPrefill = "",
+  ) => {
     openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    setModalState({ step, zip });
+    setOpenRequest({
+      requestId: crypto.randomUUID(),
+      entryPoint,
+      startingStep,
+      zipPrefill: zipPrefill || undefined,
+    });
   }, []);
 
-  const closeModal = useCallback(() => {
-    setModalState(null);
+  const closeIntake = useCallback(() => {
+    setOpenRequest(null);
     window.requestAnimationFrame(() => openerRef.current?.focus());
   }, []);
 
@@ -43,15 +59,16 @@ export default function NoQuoteLanding({ onSubmitLead }: NoQuoteLandingProps) {
     event: FormEvent<HTMLFormElement>,
     zip: string,
     setError: (message: string) => void,
+    entryPoint: Extract<IntakeEntryPoint, "hero_zip" | "footer_zip">,
   ) => {
     event.preventDefault();
-    if (!isFloridaZip(zip)) {
-      setError("Enter a valid 5-digit Florida ZIP code.");
+    if (!nq3FloridaProjectLocation.isEligibleZip(zip)) {
+      setError(nq3FloridaProjectLocation.invalidMessage);
       event.currentTarget.querySelector("input")?.focus();
       return;
     }
     setError("");
-    openModal(2, zip.trim());
+    openIntake(entryPoint, "product", zip.trim());
   };
 
   return (
@@ -62,13 +79,19 @@ export default function NoQuoteLanding({ onSubmitLead }: NoQuoteLandingProps) {
       </Helmet>
       <style data-nq3-landing-styles>{scopedNqLandingCss}</style>
       <div data-page="campaign-nq3">
-        <Navigation onGetStarted={() => openModal(1)} />
+        <Navigation
+          onGetStarted={() =>
+            openIntake("navigation_primary", "location")
+          }
+        />
         <main>
           <HeroSection
             zip={heroZip}
             zipError={heroZipError}
             onZipChange={(value) => { setHeroZip(value); setHeroZipError(""); }}
-            onCheckArea={(event) => submitZip(event, heroZip, setHeroZipError)}
+            onCheckArea={(event) =>
+              submitZip(event, heroZip, setHeroZipError, "hero_zip")
+            }
           />
           <HowItWorks />
           <ReviewCriteria />
@@ -78,18 +101,19 @@ export default function NoQuoteLanding({ onSubmitLead }: NoQuoteLandingProps) {
             zip={finalZip}
             zipError={finalZipError}
             onZipChange={(value) => { setFinalZip(value); setFinalZipError(""); }}
-            onCheckArea={(event) => submitZip(event, finalZip, setFinalZipError)}
+            onCheckArea={(event) =>
+              submitZip(event, finalZip, setFinalZipError, "footer_zip")
+            }
           />
         </main>
         <Footer />
-        {modalState && (
-          <LeadCaptureModal
-            initialStep={modalState.step}
-            initialZip={modalState.zip}
-            onClose={closeModal}
-            onSubmitLead={onSubmitLead ?? persistLead}
-          />
-        )}
+        <UniversalIntakeHost
+          config={nq3IntakeConfig}
+          openRequest={openRequest}
+          submitter={onSubmitLead ?? persistLead}
+          skin={Nq3IntakeSkin}
+          onClose={closeIntake}
+        />
       </div>
     </>
   );
