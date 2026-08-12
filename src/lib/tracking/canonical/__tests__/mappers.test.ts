@@ -117,6 +117,20 @@ describe("canonical mappers", () => {
     expect(meta.suppressed).toBe(false);
     expect(meta.payload?.event_name).toBe("SubmitApplication");
   });
+
+  it("maps callback_requested to Contact and never Schedule", () => {
+    const canonical = canonicalFixture({
+      eventName: "callback_requested",
+      eventId: "wmc_callback_requested_lead-a_scan-b",
+    });
+    const meta = mapToMeta(canonical, "https://windowman.example/diagnosis");
+
+    expect(meta.suppressed).toBe(false);
+    expect(meta.payload?.event_name).toBe("Contact");
+    expect(meta.payload?.event_id).toBe(canonical.eventId);
+    expect(meta.payload?.event_name).not.toBe("Schedule");
+    expect(meta.payload?.custom_data?.event_name_internal).toBe("callback_requested");
+  });
 });
 
 describe("mapToGoogle attribution merge", () => {

@@ -8,6 +8,7 @@ export const WM_EVENT_NAMES = [
   "phone_verified",
   "report_revealed",
   "contractor_match_requested",
+  "callback_requested",
   "appointment_booked",
   "sold",
   "lead_identified",

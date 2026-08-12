@@ -12,6 +12,7 @@ const META_EVENT_MAP: Record<string, string> = {
   // server lane can actually dispatch (not to invent value, but to enable parity).
   phone_verified: "CompleteRegistration",
   report_revealed: "ViewContent",
+  callback_requested: "Contact",
   appointment_booked: "Schedule",
   sale_confirmed: "Purchase",
 };

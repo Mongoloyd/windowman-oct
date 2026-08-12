@@ -5,6 +5,10 @@ import type { CreateCanonicalEventInput } from "../types";
 class MockDB {
   public inserts: Record<string, unknown[]> = {};
   public upserts: Record<string, unknown[]> = {};
+  public upsertOptions: Record<
+    string,
+    Array<{ onConflict?: string; ignoreDuplicates?: boolean } | undefined>
+  > = {};
   public slugLookups: Record<string, Record<string, string | null>> = {
     leads: {},
     scan_sessions: {},
@@ -26,9 +30,16 @@ class MockDB {
         this.inserts[table] = [...(this.inserts[table] ?? []), ...rows];
         return { data: rows, error: null };
       },
-      upsert: async (payload: Record<string, unknown> | Record<string, unknown>[]) => {
+      upsert: async (
+        payload: Record<string, unknown> | Record<string, unknown>[],
+        options?: { onConflict?: string; ignoreDuplicates?: boolean },
+      ) => {
         const rows = Array.isArray(payload) ? payload : [payload];
         this.upserts[table] = [...(this.upserts[table] ?? []), ...rows];
+        this.upsertOptions[table] = [
+          ...(this.upsertOptions[table] ?? []),
+          options,
+        ];
         return { data: rows, error: null };
       },
       select: (_columns: string) => ({
@@ -897,4 +908,110 @@ describe("createCanonicalEvent Nextdoor env-gated activation", () => {
       ),
     ).toBe(false);
   });
+
+  it("callback_requested with allowedPlatforms meta and granted consent enqueues only pending Meta", async () => {
+    const db = new MockDB();
+    const result = await createCanonicalEvent(
+      baseInput({
+        eventName: "callback_requested",
+        eventId: "wmc_callback_requested_lead-a_scan-b",
+        payload: {
+          identity: {
+            leadId: crypto.randomUUID(),
+            phoneHash: "b".repeat(64),
+            phoneVerifiedAt: "2026-08-12T00:00:00.000Z",
+          },
+          journey: { route: "/diagnosis", flow: "public" },
+        },
+        dispatchPolicy: {
+          allowedPlatforms: ["meta"],
+          metaConsent: "granted",
+        },
+      }),
+      { db, readTikTokCapiEnabled: () => true, readNextdoorCapiEnabled: () => true },
+    );
+
+    expect(result.canonicalEvent.shouldSendMeta).toBe(true);
+    expect(result.canonicalEvent.shouldSendGoogle).toBe(false);
+    expect(result.dispatchPlatforms).toEqual(["meta"]);
+    expect(result.canonicalEvent.dispatchStatus).toBe("pending");
+    const rows = db.upserts.wm_platform_dispatch_log ?? [];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      platform_name: "meta",
+      dispatch_status: "pending",
+    });
+    expect(db.upsertOptions.wm_platform_dispatch_log).toEqual([{
+      onConflict: "event_log_id,platform_name",
+      ignoreDuplicates: true,
+    }]);
+  });
+
+  it("callback_requested denied consent writes suppressed Meta and no other platforms", async () => {
+    const db = new MockDB();
+    const result = await createCanonicalEvent(
+      baseInput({
+        eventName: "callback_requested",
+        eventId: "wmc_cb_denied",
+        payload: {
+          identity: {
+            leadId: crypto.randomUUID(),
+            phoneHash: "b".repeat(64),
+            phoneVerifiedAt: "2026-08-12T00:00:00.000Z",
+          },
+          journey: { route: "/diagnosis", flow: "public" },
+        },
+        dispatchPolicy: {
+          allowedPlatforms: ["meta"],
+          metaConsent: "denied",
+          metaSuppressionReason: "consent_declined",
+        },
+      }),
+      { db, readTikTokCapiEnabled: () => true },
+    );
+
+    expect(result.canonicalEvent.shouldSendMeta).toBe(false);
+    expect(result.canonicalEvent.dispatchStatus).toBe("suppressed");
+    expect(result.dispatchPlatforms).toEqual(["meta"]);
+    expect(db.upserts.wm_platform_dispatch_log?.[0]).toMatchObject({
+      platform_name: "meta",
+      dispatch_status: "suppressed",
+      error_message: "consent_declined",
+    });
+  });
+
+  it("omitted dispatchPolicy preserves existing quote event platforms", async () => {
+    const db = new MockDB();
+    const result = await createCanonicalEvent(baseInput(), {
+      db,
+      createId: () => "wmc_policy_omitted",
+    });
+    expect(result.dispatchPlatforms).toContain("meta");
+    expect(result.dispatchPlatforms).toContain("google_ads");
+  });
+
+  it.each(["phone_verified", "report_revealed"] as const)(
+    "omitted dispatchPolicy preserves existing %s platforms",
+    async (eventName) => {
+      const db = new MockDB();
+      const base = baseInput();
+      const result = await createCanonicalEvent(
+        baseInput({
+          eventName,
+          payload: {
+            ...base.payload,
+            quote: undefined,
+            analytics: undefined,
+          },
+        }),
+        {
+          db,
+          createId: () => `wmc_policy_omitted_${eventName}`,
+        },
+      );
+
+      expect(result.dispatchPlatforms).toContain("meta");
+      expect(result.dispatchPlatforms).toContain("google_ads");
+    },
+  );
 });

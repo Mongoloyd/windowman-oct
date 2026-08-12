@@ -30,7 +30,7 @@ interface DBLike {
     ): Promise<{ data?: unknown; error?: { message?: string } | null }>;
     upsert(
       payload: Record<string, unknown> | Record<string, unknown>[],
-      options?: { onConflict?: string },
+      options?: { onConflict?: string; ignoreDuplicates?: boolean },
     ): Promise<{ data?: unknown; error?: { message?: string } | null }>;
     select(columns: string): {
       eq(column: string, value: string): {
@@ -151,6 +151,99 @@ function defaultCreateId(input: CreateCanonicalEventInput, now: Date): string {
 
 function resolveDispatchStatus(shouldDispatch: boolean): WMDispatchStatus {
   return shouldDispatch ? "pending" : "not_applicable";
+}
+
+interface DispatchRowPlan {
+  platform: WMPlatformName;
+  dispatch_status: "pending" | "suppressed";
+  error_message?: string | null;
+}
+
+function applyDispatchPolicy(args: {
+  policy: CreateCanonicalEventInput["dispatchPolicy"];
+  identityEligibleMeta: boolean;
+  quoteSafe: boolean;
+  shouldSendNextdoor: boolean;
+}): {
+  shouldSendMeta: boolean;
+  shouldSendGoogle: boolean;
+  shouldSendNextdoor: boolean;
+  allowTikTok: boolean;
+  approvedForAds: boolean;
+  dispatchStatus: WMDispatchStatus;
+  forcedMetaRow: DispatchRowPlan | null;
+} {
+  const identityEligibleMeta = args.identityEligibleMeta;
+  const shouldSendGoogleDefault = args.quoteSafe;
+  const shouldSendNextdoorDefault = args.shouldSendNextdoor;
+
+  if (!args.policy) {
+    return {
+      shouldSendMeta: identityEligibleMeta,
+      shouldSendGoogle: shouldSendGoogleDefault,
+      shouldSendNextdoor: shouldSendNextdoorDefault,
+      allowTikTok: true,
+      approvedForAds: identityEligibleMeta,
+      dispatchStatus: resolveDispatchStatus(
+        identityEligibleMeta || shouldSendGoogleDefault,
+      ),
+      forcedMetaRow: null,
+    };
+  }
+
+  const allowed = args.policy.allowedPlatforms;
+  const metaAllowed = !allowed || allowed.includes("meta");
+  const googleAllowed = !allowed || allowed.includes("google_ads");
+  const nextdoorAllowed = !allowed || allowed.includes("nextdoor");
+  const tiktokAllowed = !allowed || allowed.includes("tiktok");
+
+  const shouldSendGoogle = shouldSendGoogleDefault && googleAllowed;
+  const shouldSendNextdoor = shouldSendNextdoorDefault && nextdoorAllowed;
+
+  let shouldSendMeta = identityEligibleMeta && metaAllowed;
+  let approvedForAds = shouldSendMeta;
+  let forcedMetaRow: DispatchRowPlan | null = null;
+
+  if (metaAllowed && args.policy.metaConsent !== undefined) {
+    if (args.policy.metaConsent === "granted" && identityEligibleMeta) {
+      shouldSendMeta = true;
+      approvedForAds = true;
+    } else {
+      shouldSendMeta = false;
+      approvedForAds = false;
+      const reason = args.policy.metaSuppressionReason ??
+        (args.policy.metaConsent === "denied"
+          ? "consent_declined"
+          : "consent_missing");
+      forcedMetaRow = {
+        platform: "meta",
+        dispatch_status: "suppressed",
+        error_message: reason,
+      };
+    }
+  }
+
+  const onlyMeta = !!allowed && allowed.length === 1 && allowed[0] === "meta";
+  let dispatchStatus: WMDispatchStatus;
+  if (onlyMeta) {
+    dispatchStatus = shouldSendMeta
+      ? "pending"
+      : forcedMetaRow
+      ? "suppressed"
+      : "not_applicable";
+  } else {
+    dispatchStatus = resolveDispatchStatus(shouldSendMeta || shouldSendGoogle);
+  }
+
+  return {
+    shouldSendMeta,
+    shouldSendGoogle,
+    shouldSendNextdoor,
+    allowTikTok: tiktokAllowed,
+    approvedForAds,
+    dispatchStatus,
+    forcedMetaRow,
+  };
 }
 
 function normalizeClientSlug(value: unknown): string | null {
@@ -336,28 +429,34 @@ export async function createCanonicalEvent(
         trustScore >= WM_QUOTE_TRUST_MIN_FOR_DISPATCH)
       : true);
 
-  const shouldSendMeta = identityQuality !== "low" &&
+  const identityEligibleMeta = identityQuality !== "low" &&
     identityQuality !== "unknown" && quoteSafe;
-  const shouldSendGoogle = quoteSafe;
-  const shouldSendNextdoor = resolveShouldSendNextdoor({
+  const nextdoorEligible = resolveShouldSendNextdoor({
     envEnabled: isDenoNextdoorCapiEnabled(),
     eventName: input.eventName,
     identityQuality,
     quoteSafe,
     payload: basePayload,
   });
+  const policyPlan = applyDispatchPolicy({
+    policy: input.dispatchPolicy,
+    identityEligibleMeta,
+    quoteSafe,
+    shouldSendNextdoor: nextdoorEligible,
+  });
+  const shouldSendMeta = policyPlan.shouldSendMeta;
+  const shouldSendGoogle = policyPlan.shouldSendGoogle;
+  const shouldSendNextdoor = policyPlan.shouldSendNextdoor;
 
   const optimization = buildOptimizationPayload({
     eventName: input.eventName,
     marginUsd: input.marginUsd,
-    approvedForAds: shouldSendMeta,
+    approvedForAds: policyPlan.approvedForAds,
     approvedForIndex: shouldSendGoogle,
     manualReviewRequired: anomalyStatus !== "safe",
   });
 
-  const dispatchStatus = resolveDispatchStatus(
-    shouldSendMeta || shouldSendGoogle,
-  );
+  const dispatchStatus = policyPlan.dispatchStatus;
 
   const canonicalEvent: WMCanonicalEvent = {
     eventId,
@@ -514,30 +613,64 @@ export async function createCanonicalEvent(
 
   const dispatchPlatforms: WMPlatformName[] = [];
   if (eventLogId) {
-    if (canonicalEvent.shouldSendMeta) dispatchPlatforms.push("meta");
-    if (canonicalEvent.shouldSendGoogle) dispatchPlatforms.push("google_ads");
-    if (canonicalEvent.shouldSendNextdoor) dispatchPlatforms.push("nextdoor");
-
-    const tiktokEligibility = evaluateTikTokDispatchEligibility({
-      eventName: canonicalEvent.eventName,
-      env: {
-        TIKTOK_CAPI_ENABLED: Deno.env.get("TIKTOK_CAPI_ENABLED") ?? undefined,
-      },
-    });
-    if (tiktokEligibility.shouldEnqueue) {
-      dispatchPlatforms.push("tiktok");
+    const dispatchRows: Array<Record<string, unknown>> = [];
+    if (policyPlan.forcedMetaRow) {
+      dispatchPlatforms.push("meta");
+      dispatchRows.push({
+        event_log_id: eventLogId,
+        platform_name: "meta",
+        dispatch_status: policyPlan.forcedMetaRow.dispatch_status,
+        error_message: policyPlan.forcedMetaRow.error_message ?? null,
+      });
+    } else if (canonicalEvent.shouldSendMeta) {
+      dispatchPlatforms.push("meta");
+      dispatchRows.push({
+        event_log_id: eventLogId,
+        platform_name: "meta",
+        dispatch_status: "pending",
+      });
+    }
+    if (canonicalEvent.shouldSendGoogle) {
+      dispatchPlatforms.push("google_ads");
+      dispatchRows.push({
+        event_log_id: eventLogId,
+        platform_name: "google_ads",
+        dispatch_status: "pending",
+      });
+    }
+    if (canonicalEvent.shouldSendNextdoor) {
+      dispatchPlatforms.push("nextdoor");
+      dispatchRows.push({
+        event_log_id: eventLogId,
+        platform_name: "nextdoor",
+        dispatch_status: "pending",
+      });
     }
 
-    if (dispatchPlatforms.length > 0) {
-      const rows = dispatchPlatforms.map((platform) => ({
-        event_log_id: eventLogId,
-        platform_name: platform,
-        dispatch_status: "pending",
-      }));
+    if (policyPlan.allowTikTok) {
+      const tiktokEligibility = evaluateTikTokDispatchEligibility({
+        eventName: canonicalEvent.eventName,
+        env: {
+          TIKTOK_CAPI_ENABLED: Deno.env.get("TIKTOK_CAPI_ENABLED") ?? undefined,
+        },
+      });
+      if (tiktokEligibility.shouldEnqueue) {
+        dispatchPlatforms.push("tiktok");
+        dispatchRows.push({
+          event_log_id: eventLogId,
+          platform_name: "tiktok",
+          dispatch_status: "pending",
+        });
+      }
+    }
 
+    if (dispatchRows.length > 0) {
       const dispatchInsert = await deps.db
         .from("wm_platform_dispatch_log")
-        .upsert(rows, { onConflict: "event_log_id,platform_name" });
+        .upsert(dispatchRows, {
+          onConflict: "event_log_id,platform_name",
+          ignoreDuplicates: true,
+        });
       if (dispatchInsert.error) {
         throw new Error(
           `wm_platform_dispatch_log upsert failed: ${

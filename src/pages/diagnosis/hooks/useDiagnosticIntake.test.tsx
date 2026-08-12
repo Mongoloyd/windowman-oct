@@ -6,6 +6,7 @@ import { MemoryRouter } from "react-router-dom";
 import { useDiagnosticIntake } from "./useDiagnosticIntake";
 import { supabase } from "@/integrations/supabase/client";
 import { trackGtmEvent } from "@/lib/trackConversion";
+import { trackEvent } from "@/lib/trackEvent";
 import {
   readReportDiagnosisHandoff,
   saveReportDiagnosisHandoff,
@@ -82,6 +83,22 @@ function seedSessionHandoff(leadId: string) {
   });
 }
 
+const EVENT_ID = "wmc_callback_requested_lead-x_scan-y";
+const VOICE_FOLLOWUP_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+const DIAGNOSIS_INTAKE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+
+function successData(overrides: Record<string, unknown> = {}) {
+  return {
+    success: true,
+    event_id: EVENT_ID,
+    diagnosis_intake_id: DIAGNOSIS_INTAKE_ID,
+    voice_followup_id: VOICE_FOLLOWUP_ID,
+    reused: false,
+    meta_dispatch_status: "pending",
+    ...overrides,
+  };
+}
+
 const rpcMock = vi.mocked(
   supabase.rpc as unknown as (...args: unknown[]) => unknown,
 );
@@ -89,11 +106,12 @@ const invokeMock = vi.mocked(
   supabase.functions.invoke as unknown as (...args: unknown[]) => unknown,
 );
 const trackGtmMock = vi.mocked(trackGtmEvent);
+const trackEventMock = vi.mocked(trackEvent);
 
 beforeEach(() => {
   vi.clearAllMocks();
   sessionStorage.clear();
-  invokeMock.mockResolvedValue({ data: { success: true }, error: null });
+  invokeMock.mockResolvedValue({ data: successData(), error: null });
 });
 
 describe("useDiagnosticIntake — server-derived identity hydration", () => {
@@ -211,6 +229,9 @@ describe("useDiagnosticIntake — submission (no browser lead_id required)", () 
     expect(opts.body.primary_diagnosis).toBe("price_shock");
     // The canonical lead_id must be resolved server-side, never sent by the browser.
     expect(opts.body).not.toHaveProperty("lead_id");
+    expect(opts.body.diagnosis_submission_id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
   });
 
   it("answers + note text survive a recoverable submission failure", async () => {
@@ -236,7 +257,7 @@ describe("useDiagnosticIntake — submission (no browser lead_id required)", () 
     );
 
     // Lock released — a subsequent deliberate submit reaches the network again.
-    invokeMock.mockResolvedValueOnce({ data: { success: true }, error: null });
+    invokeMock.mockResolvedValueOnce({ data: successData(), error: null });
     await act(async () => {
       await result.current.handleSubmit(fakeEvent);
     });
@@ -255,10 +276,10 @@ describe("useDiagnosticIntake — submission (no browser lead_id required)", () 
     expect(invokeMock).toHaveBeenCalledTimes(1);
   });
 
-  it("fires the diagnosis_completed tracking event on success (unchanged name)", async () => {
+  it("fires callback_requested with the server event_id after durable success", async () => {
     const { result } = await renderReady();
     invokeMock.mockResolvedValueOnce({
-      data: { success: true, event_id: "evt_123", diagnosis_intake_id: "di_1" },
+      data: successData(),
       error: null,
     });
 
@@ -267,12 +288,96 @@ describe("useDiagnosticIntake — submission (no browser lead_id required)", () 
       await result.current.handleSubmit(fakeEvent);
     });
 
+    expect(trackGtmMock).toHaveBeenCalledWith("callback_requested", {
+      event_id: EVENT_ID,
+      scan_session_id: SCAN_SESSION_ID,
+    });
+    const conversionCalls = trackGtmMock.mock.calls.filter(
+      (call) => call[0] === "callback_requested",
+    );
+    expect(conversionCalls).toHaveLength(1);
+    expect(conversionCalls[0][1]).not.toHaveProperty("lead_id");
+    expect(trackEventMock).toHaveBeenCalledWith(
+      expect.objectContaining({ event_name: "diagnosis_completed" }),
+    );
+  });
+
+  it("same diagnosis_submission_id survives a failed request and retry", async () => {
+    const { result } = await renderReady();
+    invokeMock.mockResolvedValueOnce({
+      data: { success: false, error: "We could not save your diagnosis." },
+      error: null,
+    });
+    const fakeEvent = { preventDefault: vi.fn() } as unknown as React.FormEvent;
+    await act(async () => {
+      await result.current.handleSubmit(fakeEvent);
+    });
+    invokeMock.mockResolvedValueOnce({ data: successData(), error: null });
+    await act(async () => {
+      await result.current.handleSubmit(fakeEvent);
+    });
+    const firstId = (invokeMock.mock.calls[0][1] as { body: { diagnosis_submission_id: string } })
+      .body.diagnosis_submission_id;
+    const secondId = (invokeMock.mock.calls[1][1] as { body: { diagnosis_submission_id: string } })
+      .body.diagnosis_submission_id;
+    expect(firstId).toBe(secondId);
+  });
+
+  it("failed invoke pushes no callback_requested", async () => {
+    const { result } = await renderReady();
+    invokeMock.mockResolvedValueOnce({
+      data: null,
+      error: { message: "FunctionsHttpError" },
+    });
+    const fakeEvent = { preventDefault: vi.fn() } as unknown as React.FormEvent;
+    await act(async () => {
+      await result.current.handleSubmit(fakeEvent);
+    });
+    expect(trackGtmMock.mock.calls.some((call) => call[0] === "callback_requested")).toBe(false);
+    expect(result.current.step).not.toBe("success");
+  });
+
+  it("success=false pushes no callback_requested", async () => {
+    const { result } = await renderReady();
+    invokeMock.mockResolvedValueOnce({
+      data: { success: false, error: "Failed to submit diagnosis" },
+      error: null,
+    });
+    const fakeEvent = { preventDefault: vi.fn() } as unknown as React.FormEvent;
+    await act(async () => {
+      await result.current.handleSubmit(fakeEvent);
+    });
+    expect(trackGtmMock.mock.calls.some((call) => call[0] === "callback_requested")).toBe(false);
+  });
+
+  it("missing event_id is treated as failure", async () => {
+    const { result } = await renderReady();
+    invokeMock.mockResolvedValueOnce({
+      data: successData({ event_id: "" }),
+      error: null,
+    });
+    const fakeEvent = { preventDefault: vi.fn() } as unknown as React.FormEvent;
+    await act(async () => {
+      await result.current.handleSubmit(fakeEvent);
+    });
+    expect(result.current.step).not.toBe("success");
+    expect(trackGtmMock.mock.calls.some((call) => call[0] === "callback_requested")).toBe(false);
+  });
+
+  it("suppressed Meta status still permits callback UI success", async () => {
+    const { result } = await renderReady();
+    invokeMock.mockResolvedValueOnce({
+      data: successData({ meta_dispatch_status: "suppressed" }),
+      error: null,
+    });
+    const fakeEvent = { preventDefault: vi.fn() } as unknown as React.FormEvent;
+    await act(async () => {
+      await result.current.handleSubmit(fakeEvent);
+    });
+    expect(result.current.step).toBe("success");
     expect(trackGtmMock).toHaveBeenCalledWith(
-      "diagnosis_completed",
-      expect.objectContaining({
-        scan_session_id: SCAN_SESSION_ID,
-        diagnosis: "price_shock",
-      }),
+      "callback_requested",
+      expect.objectContaining({ event_id: EVENT_ID }),
     );
   });
 

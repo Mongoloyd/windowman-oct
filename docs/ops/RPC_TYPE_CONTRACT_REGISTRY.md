@@ -225,7 +225,7 @@ WindowMan’s canonical funnel uses **11 backend contracts** spanning Postgres R
 | Field | Value |
 |---|---|
 | **Name** | `request-callback` |
-| **Caller file(s)** | `src/pages/ReportClassic.tsx` (contractor intro + report help), `src/components/post-scan/PostScanReportSwitcher.tsx` (report help), `src/pages/Estimate.tsx` (contractor intro) |
+| **Caller file(s)** | `src/pages/ReportClassic.tsx` (contractor intro + report help), `src/components/post-scan/PostScanReportSwitcher.tsx` (report help), `src/pages/Estimate.tsx` (contractor intro). **Not** the diagnosis CTA — that path uses `submit-diagnosis-intake` only. |
 | **Request** | `{ scan_session_id: string, call_intent: "contractor_intro" \| "report_explainer" \| "general_callback", cta_source?: string }` |
 | **Response (success)** | `{ success: true, followup_id: uuid, webhook_status: "queued" \| "sent" \| "failed" }` |
 | **Response (error)** | `{ error: string }` — 400/403/500 |
@@ -257,6 +257,32 @@ WindowMan’s canonical funnel uses **11 backend contracts** spanning Postgres R
 | **First file to clean up** | `src/pages/ReportClassic.tsx` |
 
 **Edge source:** `supabase/functions/generate-contractor-brief/index.ts`
+
+---
+
+## 2.12 `submit-diagnosis-intake` (Edge Function)
+
+| Field | Value |
+|---|---|
+| **Name** | `submit-diagnosis-intake` |
+| **Caller file(s)** | `src/pages/diagnosis/hooks/useDiagnosticIntake.ts` — diagnosis CTA does **not** invoke `request-callback` |
+| **Request** | `{ scan_session_id: uuid, diagnosis_submission_id: uuid, analysis_id?: uuid, report_grade: string, primary_diagnosis: string, secondary_clarifiers?, other_text?, window_intelligence?, counter_offer?, top_insights_snapshot?, confidence?, prescription_path?, attribution_snapshot?, lead_id?: uuid /* untrusted conflict check only */ }` |
+| **Response (success)** | `{ success: true, event_id: string, diagnosis_intake_id: uuid, voice_followup_id: uuid, reused: boolean, meta_dispatch_status: "pending" \| "suppressed" }` — 200 only after diagnosis + callback + canonical event + Meta outbox exist or were reused |
+| **Response (error)** | `{ error: string }` — 400/403/409/500. Does not return raw phone, consent documents, or Meta payloads. |
+| **Auth / reveal** | **Server-side binding gate.** Canonical `lead_id` is derived from `scan_session_id`. Requires `leads.phone_verified`, `leads.phone_e164`, and a `phone_verifications` row verified for the same lead + scan. Optional `analysis_id` must belong to that scan. Browser must not send authoritative consent, phone, `call_intent`, `cta_source`, or canonical `event_id`. |
+| **Idempotency** | `diagnosis_submission_id` is the diagnosis-intake retry key (partial unique indexes remain on `diagnosis_intakes` and `voice_followups`). Callback and conversion entitlement are scan-scoped: one diagnosis `voice_followups` row and one `callback_requested` event / Meta row per verified `scan_session_id`. A new submission id on the same scan may create another intake row but reuses the callback/event; cross-binding reuse returns 409. |
+| **Consent** | Latest `lead_consent_events` where `purpose = 'marketing_communications'`. Granted → Meta `pending`. Declined / withdrawn / missing / lookup failure → Meta `suppressed` with `error_message` `consent_declined` / `consent_withdrawn` / `consent_missing` / `consent_lookup_failed`. Callback itself still persists. |
+| **Canonical event** | `callback_requested` → Meta `Contact`. Session-stable event id: `wmc_callback_requested_lead-{leadId}_scan-{scanSessionId}`. Dispatch policy `allowedPlatforms: ['meta']`; existing outbox rows are conflict-ignored so `sent`, `processing`, `failed`, `dead_letter`, or `suppressed` is never rewritten to `pending`. |
+| **Tables touched** | `scan_sessions`, `leads`, `phone_verifications`, `analyses`, `diagnosis_intakes`, `voice_followups`, `lead_consent_events`, `wm_event_log`, `wm_platform_dispatch_log`; best-effort `lead_events` (`diagnosis_completed`) + leads funnel update (not the canonical `event_id`) |
+| **Typing status** | **Untyped client / runtime-narrowed.** Hook checks `data.success`, `event_id`, UUID `voice_followup_id`, and `meta_dispatch_status`. |
+| **Risk if shape changes** | **High (conversion).** CTA success and dataLayer `callback_requested` depend on this envelope. No direct reveal leak. |
+| **Recommended interface** | `SubmitDiagnosisIntakeRequest`, `SubmitDiagnosisIntakeSuccessResponse` |
+| **First file to clean up** | `src/pages/diagnosis/hooks/useDiagnosticIntake.ts` |
+
+**Edge source:** `supabase/functions/submit-diagnosis-intake/index.ts`
+**Migrations:** `supabase/migrations/20260812220206_repair_diagnosis_callback_outbox.sql`; `supabase/migrations/20260812225434_one_diagnosis_callback_per_scan_session.sql`
+
+**Call cadence boundary:** WindowMan queues one diagnosis callback for the scan session. The phone-agent product owns the approximate 5-minute initial call, 30-minute / 2-hour no-answer retries, voicemail/busy handling, and stop rules. This Edge Function does not schedule attempts. `request-callback` remains a separate, unchanged caller path and is not used by this CTA.
 
 ---
 
@@ -511,6 +537,9 @@ useAnalysisData
 ReportClassic
   └─ get_county_by_scan_session (direct RPC, casted)
   └─ generate-contractor-brief + request-callback
+
+useDiagnosticIntake
+  └─ submit-diagnosis-intake → diagnosis_intakes + one scan-scoped voice_followup + callback_requested / Meta outbox
 
 PostScanReportSwitcher / Estimate
   └─ request-callback only

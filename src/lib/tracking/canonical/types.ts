@@ -128,6 +128,15 @@ export interface CreateCanonicalEventInput {
   rubricVersion?: string;
   marginUsd?: number;
   rawPayload?: Record<string, unknown>;
+  /**
+   * Server-only dispatch override. Omitted = existing platform eligibility.
+   * Never accept from the browser.
+   */
+  dispatchPolicy?: {
+    allowedPlatforms?: WMPlatformName[];
+    metaConsent?: "granted" | "denied" | "unknown";
+    metaSuppressionReason?: string;
+  };
 }
 
 export interface WMAnomalyInput {

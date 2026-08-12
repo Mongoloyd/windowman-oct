@@ -150,6 +150,7 @@ export function useDiagnosticIntake() {
   // Hard synchronous double-submit lock (React state is async and does not
   // block two fast clicks before the first re-render).
   const submitLockRef = useRef(false);
+  const diagnosisSubmissionIdRef = useRef<string>(crypto.randomUUID());
 
   // ── Hydration ────────────────────────────────────────────────────────────
   // Router state + session storage are display/navigation SEEDS ONLY — never
@@ -415,6 +416,7 @@ export function useDiagnosticIntake() {
     // scan_session_id; the browser must never send or rely on it.
     const payload = {
       scan_session_id: context.scan_session_id,
+      diagnosis_submission_id: diagnosisSubmissionIdRef.current,
       analysis_id: analysisId,
       report_grade: context.report_grade || 'unknown',
       primary_diagnosis: primaryDiagnosis,
@@ -443,41 +445,60 @@ export function useDiagnosticIntake() {
         body: payload,
       });
 
-      if (error || !data?.success) {
+      const body = data && typeof data === 'object'
+        ? (data as Record<string, unknown>)
+        : null;
+      const bodyError =
+        body && typeof body.error === 'string' ? body.error : null;
+      const eventId =
+        body && typeof body.event_id === 'string' && body.event_id.trim().length > 0
+          ? body.event_id.trim()
+          : null;
+      const voiceFollowupId =
+        body && typeof body.voice_followup_id === 'string'
+          ? body.voice_followup_id
+          : null;
+      const metaDispatchStatus =
+        body &&
+        (body.meta_dispatch_status === 'pending' ||
+          body.meta_dispatch_status === 'suppressed')
+          ? body.meta_dispatch_status
+          : null;
+      const voiceFollowupOk =
+        !!voiceFollowupId &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          voiceFollowupId,
+        );
+
+      if (error || !body?.success || !eventId || !voiceFollowupOk || !metaDispatchStatus) {
         const msg =
-          (data && typeof data.error === 'string' && data.error) ||
+          bodyError ||
           'We could not save your diagnosis. Please try again.';
         console.error('[Diagnosis] submit failed:', error || data);
         setSubmitError(msg);
         toast.error(msg);
         setIsSubmitting(false);
         // Recoverable failure — release the lock so the user can retry with
-        // all answers + their note preserved.
+        // all answers + their note preserved. diagnosis_submission_id is kept.
         submitLockRef.current = false;
         return;
       }
 
-      const eventId: string | undefined = data.event_id ?? undefined;
-
-      // Canonical browser conversion event — replaces the old `Schedule` push.
-      trackGtmEvent('diagnosis_completed', {
+      // Paid-media conversion — only after the durable server boundary.
+      trackGtmEvent('callback_requested', {
         event_id: eventId,
-        lead_id: context.lead_id,
         scan_session_id: context.scan_session_id,
-        analysis_id: analysisId ?? undefined,
-        diagnosis: primaryDiagnosis,
-        prescription_path: DIAGNOSTIC_MAP[primaryDiagnosis].prescriptionPath,
-        counter_offer_terms_count: counterOfferTerms.length,
       });
 
-      // Operational telemetry mirror.
+      // Operational telemetry — questionnaire completion, not the conversion.
       trackEvent({
         event_name: 'diagnosis_completed',
         session_id: context.scan_session_id,
         metadata: {
-          lead_id: context.lead_id,
-          diagnosis_intake_id: data.diagnosis_intake_id ?? null,
-          event_id: eventId ?? null,
+          diagnosis_intake_id: body.diagnosis_intake_id ?? null,
+          voice_followup_id: voiceFollowupId,
+          event_id: eventId,
+          meta_dispatch_status: metaDispatchStatus,
           primary_diagnosis: primaryDiagnosis,
         },
       });

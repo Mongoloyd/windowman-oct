@@ -315,7 +315,7 @@ Functions reachable by unauthenticated browsers using only the publishable/anon 
 | `request-callback` | Homeowner callback request | `phone_verified` on lead | `scan_sessions`, `leads`, `analyses`, `contractor_opportunities`, `voice_followups`, `lead_events` |
 | `send-report-email` | Post-unlock snapshot receipt email | `phone_verified` + idempotency on lead | `scan_sessions`, `leads`, `analyses`, `event_logs` |
 | `persist-diagnosis-start` | Stamp `diagnosis_started` | lead/session/analysis binding | `scan_sessions`, `analyses`, `leads`, `lead_events` |
-| `submit-diagnosis-intake` | Persist diagnosis intake | Relationship validation | `diagnosis_intakes`, `scan_sessions`, `analyses`, `leads`, `lead_events` |
+| `submit-diagnosis-intake` | Persist diagnosis intake + queue one scan-scoped diagnosis callback + canonical `callback_requested` | Scan/lead/phone-verification binding; `diagnosis_submission_id` intake retry key; session-unique callback | `diagnosis_intakes`, `voice_followups`, `lead_consent_events`, `wm_event_log`, `wm_platform_dispatch_log`, `scan_sessions`, `analyses`, `leads`, `phone_verifications`, `lead_events` |
 | `update-homeowner-context` | Phase 10 human context fields | Session↔lead binding; enum validation | `scan_sessions`, `leads`, `lead_events` |
 | `windowman-concierge` | Pre-login acquisition routing chat (Gemini JSON) | Zod request/output validation only; no DB; no service-role | **None** (Gemini API only) |
 | `request-partner-access` | Contractor self-serve registration | Zod body validation | `contractor_profiles`, `contractor_accounts`, `event_logs` |
@@ -403,7 +403,7 @@ Additional secrets found in function code (not all listed in `.env.example`):
 | `GEMINI_SCAN_MODEL`, `GEMINI_SCAN_TIMEOUT_MS`, `GEMINI_SCAN_MAX_OUTPUT_TOKENS`, `SCAN_STALE_PROCESSING_MINUTES`, `SCAN_MAX_FILE_BYTES` | `scan-quote` via `_shared/scannerConfig.ts` |
 | `OTP_QA_BYPASS_*`, `WM_SUPABASE_PROJECT_REF` | `send-otp`, `verify-otp` |
 | `RESEND_API_KEY`, `REPORT_FROM_EMAIL`, `REPORT_BASE_URL`, `RESEND_FROM_EMAIL` | `send-report-email`, `lead-reactivation`, `send-contractor-handoff`, `request-partner-access`, `dispatch-lead` |
-| `PHONECALL_BOT_WEBHOOK_URL` | `request-callback`, `dial-lead`, `voice-followup` |
+| `PHONECALL_BOT_WEBHOOK_URL` | `request-callback`, `submit-diagnosis-intake`, `dial-lead`, `voice-followup` |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | `create-checkout-session`, `stripe-webhook` |
 | `PREVIEW_CHECKOUT_ENABLED`, `PREVIEW_CONTRACTOR_PROFILE_ID`, `PREVIEW_CONTRACTOR_ID` | `create-checkout-session` |
 | `DISPATCH_WORKER_SECRET` | `dispatch-platform-events` |
@@ -644,9 +644,22 @@ Each entry: **Purpose · Category · verify_jwt · Auth · Env vars · Service r
 ### `list-contractor-opportunities` / `unlock-lead` / `partner-update-disposition` / `save-routing-preferences`
 - **Category:** contractor · **Auth:** JWT+role · **Callers:** see inventory table
 
-### `persist-diagnosis-start` / `submit-diagnosis-intake` / `update-homeowner-context`
+### `persist-diagnosis-start` / `update-homeowner-context`
 - **Category:** homeowner public · **Auth:** app-logic (service-role writers)
-- **Callers:** PostScan / diagnosis / PropertyAndConsent components
+- **Callers:** PostScan / PropertyAndConsent components
+
+### `submit-diagnosis-intake`
+- **Category:** homeowner public · **Auth:** app-logic (service-role writers)
+- **Callers:** `src/pages/diagnosis/hooks/useDiagnosticIntake.ts` only
+- **Canonical event:** `callback_requested` (Meta `Contact`)
+- **Callback grain:** one `voice_followups` row per `scan_session_id` for `general_callback` + `diagnosis_final_cta`; the same scan reuses the row and never invokes `PHONECALL_BOT_WEBHOOK_URL` again
+- **Conversion grain:** one session-stable `callback_requested` event / Meta row per scan; event id `wmc_callback_requested_lead-{leadId}_scan-{scanSessionId}`; existing dispatch rows are never reset to `pending`
+- **Intake idempotency:** `diagnosis_submission_id` remains the questionnaire retry key only; a new id on the same scan may create another `diagnosis_intakes` row but not another call or Contact
+- **Identity:** `scan_session_id` → server-derived `lead_id` + verified phone binding
+- **Consent:** latest `lead_consent_events.purpose = marketing_communications`
+- **Durable success boundary:** `diagnosis_intakes` + `voice_followups` + `wm_event_log` + Meta `wm_platform_dispatch_log`
+- **Call cadence:** WindowMan queues one request. The phone-agent product owns the initial call, no-answer retries at approximately 30 minutes / 2 hours, and stop rules; no cadence, cron, or extra attempt rows are scheduled here.
+- **Note:** Diagnosis CTA does **not** invoke `request-callback`. `request-callback` remains a separate, unchanged path for Estimate / PostScan / ReportClassic callers; its deployment status was not revalidated in this local-only sprint.
 
 ### `qualify-homepage-lead`
 - **Category:** homeowner public · **Auth:** app-logic

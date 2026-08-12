@@ -23,6 +23,7 @@ lanes. It does not change dataLayer or operational event ownership. Its browser
 | `phone_verified` | `PostScanReportSwitcher.tsx` | On `pipeline.submitOtp()` returning `status: "verified"` | Yes | `event_id` (server-issued), `scan_session_id`, `phone_e164_last4` |
 | `report_revealed` | `PostScanReportSwitcher.tsx` | On `isFullLoaded` transitioning to `true` after OTP (guarded by `capturedPhone` presence to exclude resume) | Yes | `event_id` (server-issued), `scan_session_id`, `lead_id`, `grade` |
 | `contractor_match_requested` | `PostScanReportSwitcher.tsx` (smart container) | On user clicking the "Get a Counter-Quote" CTA in `TruthReportClassic` | Yes | `event_id`, `scan_session_id`, `lead_id`, `grade`, `county` |
+| `callback_requested` | Browser: `useDiagnosticIntake.ts`; server: `submit-diagnosis-intake/index.ts` | After the server has persisted or reused the one diagnosis callback and Meta outbox for the verified scan session | Yes | `event_id` (server-issued), `scan_session_id` |
 
 ## OpenAI Ads Event Owners
 
@@ -46,6 +47,7 @@ data, and browser Pixel user matching are out of scope.
 - **`phone_verified` → PostScanReportSwitcher**: This is the canonical OTP orchestrator. It calls `pipeline.submitOtp()` and receives the verified result. VerifyGate and PhoneVerifyModal are dead code (not imported anywhere).
 - **`report_revealed` → PostScanReportSwitcher**: This component is the single render-decision authority (Phase 3). It knows when `isFullLoaded` transitions after verification. The `capturedPhone` guard prevents firing on resume.
 - **`contractor_match_requested` → PostScanReportSwitcher (Arc 3)**: Ownership moved from `TruthReportClassic` (presentational) to the smart container so the canonical fire carries `event_id`, `lead_id`, and `scan_session_id`. `TruthReportClassic` now only invokes the parent-supplied `onContractorMatchClick` handler.
+- **`callback_requested` → `submit-diagnosis-intake`**: The Edge Function owns the durable diagnosis CTA result. The browser invokes only this function (not `request-callback`) and pushes dataLayer only after the server has persisted or reused `diagnosis_intakes`, the scan-scoped diagnosis `voice_followups` row, `wm_event_log`, and one Meta `wm_platform_dispatch_log` row. `useDiagnosticIntake` reuses the server-minted `event_id` and includes `scan_session_id`, never browser-seed `lead_id`. Meta mapping is standard event `Contact`, not `Schedule`. `diagnosis_completed` is operational/CRM telemetry only and is not the paid-media conversion.
 
 ## Operational Telemetry Events
 
@@ -64,6 +66,7 @@ data, and browser Pixel user matching are out of scope.
 | `phone_submitted` | `PostScanReportSwitcher.tsx` | Track phone form submission |
 | `fetch_stall_retry` | `PostScanReportSwitcher.tsx` | Track stall retry attempts |
 | `lead_captured_with_phone` / `lead_captured_no_phone` | `TruthGateFlow.tsx` | Track lead creation with phone presence flag |
+| `diagnosis_completed` | `useDiagnosticIntake.ts` | Operational/CRM telemetry after durable diagnosis+callback persistence. Not the paid-media conversion (`callback_requested` is). |
 
 ## Quarantined Components (Not on Canonical Path)
 
@@ -100,5 +103,10 @@ Browser dataLayer fires for `quote_uploaded`, `phone_verified`, and `report_reve
 | `quote_uploaded` | `buildCanonicalEventId({ eventName, leadId, scanSessionId })` in `UploadZone.tsx`, forwarded to `scan-quote` as `body.event_id` | `scan-quote` reuses `client_event_id` when supplied; falls back to `defaultCreateId` otherwise |
 | `phone_verified` | Server-issued id returned from `verify-otp` (`phone_verified_event_id`), reused by `PostScanReportSwitcher.tsx` in the dataLayer push | `verify-otp` generates `wmc_phone_verified_lead-{leadId}_scan-{scanSessionId}` |
 | `report_revealed` | Server-issued id returned from `verify-otp` (`report_revealed_event_id`), stored in a ref and used when the reveal effect fires | `verify-otp` generates `wmc_report_revealed_lead-{leadId}_scan-{scanSessionId}` |
+| `callback_requested` | Server-issued id returned from `submit-diagnosis-intake` (`event_id`), reused unchanged by `useDiagnosticIntake.ts` | `submit-diagnosis-intake` generates `wmc_callback_requested_lead-{leadId}_scan-{scanSessionId}` |
 
 Mapper coverage was extended so the server lane is no longer silently suppressed: `phone_verified` → Meta `CompleteRegistration` / Google `wm_phone_verified`; `report_revealed` → Meta `ViewContent` / Google `wm_report_revealed`. Their value rungs remain unset (fall through to `0`) — no fabricated value inflation.
+
+`callback_requested` maps to Meta standard event `Contact` only (`allowedPlatforms: ['meta']`). Consent authority is the latest persisted `lead_consent_events` row for `purpose = 'marketing_communications'` (granted → pending Meta; declined/withdrawn/missing/lookup failure → suppressed Meta with a non-PII `error_message`). The conversion grain is one per verified `scan_session_id`: a refresh, second tab, or new `diagnosis_submission_id` reuses the same canonical event and Meta row, and canonical persistence never changes an existing dispatch row back to `pending`. `diagnosis_submission_id` remains only the diagnosis-intake retry key; a new id may create another questionnaire row without creating another call or Contact. Identity authority is `scan_session_id` → server-derived `lead_id`.
+
+WindowMan queues one diagnosis callback request per scan session and invokes the PHONECALL_BOT webhook only when that row is first created. The phone-agent product—not WindowMan—owns the approximate 5-minute initial call and any 30-minute / 2-hour no-answer retries and stop rules. WindowMan does not schedule those attempts. Provider delivery remains outside the UI success boundary.

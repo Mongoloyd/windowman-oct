@@ -25,10 +25,10 @@
 import {
   assert,
   assertEquals,
-  assertStringIncludes,
 } from "https://deno.land/std@0.224.0/assert/mod.ts";
 
 import {
+  buildCallbackRequestedEventId,
   buildSuccessBody,
   type DiagnosisLeadFetcher,
   INVALID_CONTEXT_ERROR,
@@ -268,21 +268,31 @@ Deno.test("failure errors are generic and expose no lead PII", async () => {
 
 // ── 10. successful response body fields remain compatible ────────────────────
 
-Deno.test("buildSuccessBody preserves the existing response contract", () => {
-  const body = buildSuccessBody("di_1", "evt_1");
+Deno.test("buildSuccessBody returns the durable-boundary contract", () => {
+  const body = buildSuccessBody({
+    eventId: "wmc_callback_requested_lead-a_scan-b",
+    diagnosisIntakeId: "di_1",
+    voiceFollowupId: "vf_1",
+    reused: false,
+    metaDispatchStatus: "pending",
+  });
   assertEquals(body.success, true);
   assertEquals(body.diagnosis_intake_id, "di_1");
-  assertEquals(body.event_id, "evt_1");
-  // Serializes to the exact legacy shape (no lead PII fields added).
+  assertEquals(body.voice_followup_id, "vf_1");
+  assertEquals(body.event_id, "wmc_callback_requested_lead-a_scan-b");
+  assertEquals(body.reused, false);
+  assertEquals(body.meta_dispatch_status, "pending");
   const json = JSON.stringify(body);
-  assertStringIncludes(json, '"success":true');
-  assertStringIncludes(json, '"diagnosis_intake_id":"di_1"');
-  assertStringIncludes(json, '"event_id":"evt_1"');
   assert(!json.includes("lead_id"));
+  assert(!json.includes("phone"));
 });
 
-Deno.test("buildSuccessBody tolerates a null event_id", () => {
-  const body = buildSuccessBody("di_2", null);
-  assertEquals(body.event_id, null);
-  assertEquals(body.success, true);
+Deno.test("callback event id is stable for the verified lead and scan", () => {
+  assertEquals(
+    buildCallbackRequestedEventId({
+      leadId: CANONICAL_LEAD_ID,
+      scanSessionId: SCAN_SESSION_ID,
+    }),
+    `wmc_callback_requested_lead-${CANONICAL_LEAD_ID}_scan-${SCAN_SESSION_ID}`,
+  );
 });
