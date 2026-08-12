@@ -83,10 +83,10 @@ function BrandLogoContent({
       </span>
 
       <span
-        className={["font-display", classes.wordmark, wordmarkClassName].filter(Boolean).join(" ")}
+        className={["font-display", classes.wordmark, wordmarkClassName ?? "text-foreground"].join(" ")}
         style={wordmarkStyle}
       >
-        <span className="text-foreground">WINDOW</span>
+        <span>WINDOW</span>
         <span style={{ color: "#448df7" }}>MAN</span>
       </span>
     </>
