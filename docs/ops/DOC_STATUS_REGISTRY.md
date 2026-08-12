@@ -50,6 +50,26 @@ Tracks **high-risk** documentation only — not every markdown file in the repo.
 
 ---
 
+## PROPOSED — OPERATOR REVIEW
+
+**Implementation authority: None.** Do not implement from these documents until they are accepted and a named protected sprint is approved.
+
+Unresolved operator decisions (must be recorded before any Tier B schema/migration or Tier C measurement sprint):
+
+| ID | Decision |
+|---|---|
+| D1 | 30-minute `session_id` inactivity rotation — rotating after a lead exists affects the one-visit→one-lead invariant |
+| D2 | Arbitrage intake: migrate onto the shared envelope vs accepted exception |
+| D3 | One browser visit → at most one canonical lead (unique `leads.session_id` vs `capture_attempt_id` idempotency) |
+| D4 | Tab-instance uniqueness — `sessionStorage` is copied on duplicate-tab/opener; clone detection or regenerated tab-instance ID required before using `session_id` as a D3 lead-dedup boundary |
+
+| Document | Topic |
+|---|---|
+| [docs/tracking/CANONICAL_IDENTITY_GLOSSARY.md](../tracking/CANONICAL_IDENTITY_GLOSSARY.md) | Canonical ID meanings (`visitor_id`, `lead_id`, `session_id`, `capture_attempt_id`, `landing_visit_id`, `scan_session_id`) — **architectural decision record; no implementation authority until accepted** |
+| [docs/tracking/CANONICAL_INTAKE_ROUTE_MATRIX.md](../tracking/CANONICAL_INTAKE_ROUTE_MATRIX.md) | Current → target intake surface matrix measured against the glossary — **no implementation authority until accepted; D1–D4 remain unresolved** |
+
+---
+
 ## SUPPORTING
 
 | Document | Supports |

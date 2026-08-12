@@ -332,6 +332,8 @@ This guardrail does **not** permit:
 
 | Document | Purpose |
 |----------|---------|
+| [CANONICAL_IDENTITY_GLOSSARY.md](./CANONICAL_IDENTITY_GLOSSARY.md) | Target meanings for intake/measurement IDs (proposed — read before route matrix work) |
+| [CANONICAL_INTAKE_ROUTE_MATRIX.md](./CANONICAL_INTAKE_ROUTE_MATRIX.md) | Current → target intake surfaces measured against the glossary (proposed — no implementation authority) |
 | [EVENT_OWNERSHIP_MODEL.md](./EVENT_OWNERSHIP_MODEL.md) | Two-lane tracking (business vs operational) |
 | [CANONICAL_EVENT_FOUNDATION.md](./CANONICAL_EVENT_FOUNDATION.md) | `wm_event_log` / dispatch foundation |
 | [DISPATCH_WORKER_RUNBOOK.md](./DISPATCH_WORKER_RUNBOOK.md) | Worker lifecycle and SQL checks |
