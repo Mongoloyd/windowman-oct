@@ -119,12 +119,6 @@ h1 em{font-style:normal;color:var(--accent)}
 .mt-item{display:flex;align-items:center;gap:6px}
 .check{width:13px;height:13px;flex:none;color:var(--good)}
 
-/* Proof stats */
-.stats{display:flex;gap:34px;margin-top:36px;padding-top:26px;border-top:1px solid var(--line)}
-.stat .n{font-size:24px;font-weight:800;letter-spacing:-.03em;color:var(--txt)}
-.stat .n span{color:var(--accent)}
-.stat .l{font-size:11.5px;color:var(--txt-3);letter-spacing:.03em;margin-top:3px;line-height:1.35}
-
 /* ---------- RANK CARD (hero visual) ---------- */
 .viz{position:relative}
 .viz-glow{
@@ -395,7 +389,6 @@ footer{background:var(--bg-2);border-top:1px solid var(--line);padding:34px 0}
 @media (max-width:940px){
   .hero-in{grid-template-columns:1fr;gap:48px;padding:52px 0 60px}
   .steps,.checks,.findings{grid-template-columns:1fr}
-  .stats{gap:22px;flex-wrap:wrap}
   .float-chip{display:none}
   .nav-tag{display:none}
   section{padding:60px 0}

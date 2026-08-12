@@ -112,12 +112,6 @@ export default function HeroSection({ zip, zipError, onZipChange, onCheckArea }:
             <div className="mt-item"><CheckIcon /><b>No obligation</b></div>
             <div className="mt-item"><CheckIcon /><b>We don't install anything</b></div>
           </div>
-
-          <div className="stats" aria-label="Illustrative campaign metrics">
-            <div className="stat"><div className="n">[00,000]</div><div className="l">Sample line items<br />benchmarked</div></div>
-            <div className="stat"><div className="n"><span>67</span></div><div className="l">Florida counties<br />covered</div></div>
-            <div className="stat"><div className="n">[00]</div><div className="l">Sample checks run on<br />every estimate</div></div>
-          </div>
         </div>
 
         <EstimateRankCard />
