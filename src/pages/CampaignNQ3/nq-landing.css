@@ -1,4 +1,17 @@
+/* The illumination properties are deliberately left unregistered.
+   Registering them via at-property as non-inheriting looks like free containment, since
+   a per-frame pointer write would then not invalidate style for everything under main.
+   It is incorrect here: the light pool is painted by main::after, and a non-inherited
+   custom property never reaches a pseudo-element, so the pool silently freezes at its
+   initial value. Verified in Chromium — a non-inheriting property set on the host
+   computes to its initial value inside ::after, while an inheriting one computes to the
+   written value. Invalidation is contained instead by writing to main, the closest
+   common ancestor of every consumer, rather than to the page wrapper. At-property
+   registrations are also document-global and would escape this route-scoped stylesheet.
 
+   NOTE: never write a brace character inside a comment in this file. scopeNq3Css scopes
+   selectors with a regex that treats everything before an opening brace as a selector,
+   so a brace in a comment silently swallows the next rule. */
 :root{
   --bg:#05070d;
   --bg-2:#0a0e18;
@@ -7,13 +20,56 @@
   --line-strong:rgba(148,163,184,.26);
   --txt:#f1f5f9;
   --txt-2:#94a3b8;
-  --txt-3:#64748b;
+  /* Weakest text token. Raised from #74859b to buy contrast headroom: the atmospheric
+     wash below lightens the composited backdrop, and 5.04:1 left no safety margin. */
+  --txt-3:#8496ab;
+  --txt-hero:#b0bdd0;
+  /* Form-control boundaries only. --line-strong stays as-is for panels/chips. */
+  --control-border:#5b6b80;
+  /* Opaque control interior. Controls must never be translucent: the atmospheric
+     layer would composite through them and make the --control-border ratio depend
+     on pointer position. This is rgba(255,255,255,.045) pre-flattened over --bg. */
+  --control-fill:#101218;
   --accent:#2e9bff;
   --accent-soft:rgba(46,155,255,.12);
   --good:#34d399;
   --warn:#fbbf24;
   --bad:#f87171;
   --radius:14px;
+  /* Tactile elevation ladder: tight umbra + soft penumbra, tuned for a near-black base.
+     Never set as background-image — control interiors must stay solid for contrast math. */
+  --elev-sm:0 1px 2px rgba(2,6,23,.55), 0 6px 18px rgba(2,6,23,.34);
+  --elev-md:0 2px 4px rgba(2,6,23,.60), 0 14px 36px rgba(2,6,23,.44);
+  --elev-lg:0 6px 10px rgba(2,6,23,.60), 0 30px 80px rgba(2,6,23,.58);
+  --elev-accent:0 2px 4px rgba(2,6,23,.45), 0 10px 28px rgba(46,155,255,.34);
+  --elev-accent-hover:0 4px 8px rgba(2,6,23,.5), 0 18px 40px rgba(46,155,255,.46);
+  --edge-specular:inset 0 1px 0 rgba(255,255,255,.07);
+  --edge-specular-strong:inset 0 1px 0 rgba(255,255,255,.28);
+  --edge-recess:inset 0 1px 2px rgba(2,6,23,.45);
+  --lift:-2px;
+
+  /* ---------- ATMOSPHERE ----------
+     Stationary architecture, travelling light. The mullion geometry is anchored to the
+     page and never slides; only the illumination moves.
+
+     Alpha budget: the three wash layers (grid + pool + cone) can overlap, so the
+     worst-case composite is 1-(1-.032)(1-.035)(1-.040) = 0.1030 of the lightest wash
+     colour. Measured against --txt-3, the weakest text token, that leaves 5.73:1 over
+     --bg and 5.35:1 over --bg-2 — both well clear of the 4.5:1 AA floor.
+     Enforced by nqAtmosphericContrast.test.ts. Do not raise these without re-running it. */
+  --atmo-grid-size:96px;
+  --atmo-grid-line:rgba(148,163,184,.032);
+  --atmo-pool:rgba(164,198,255,.035);
+  --atmo-cone:rgba(180,214,255,.040);
+  /* Edge accents ride on hairlines only, never behind text, so they are exempt
+     from the wash budget above. */
+  --atmo-edge-cyan:rgba(56,189,248,.40);
+  --atmo-edge-amber:rgba(251,191,36,.32);
+  /* Pointer position, normalised 0-1, written by useCampaignNqIllumination onto <main>.
+     Rest position is off-canvas so nothing is lit until the pointer actually moves. */
+  --lit-x:.5;
+  --lit-y:-.5;
+  --lit-lag:420ms;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
@@ -52,17 +108,35 @@ nav{
 .btn{
   display:inline-flex;align-items:center;justify-content:center;gap:8px;
   font-weight:650;font-size:14.5px;border:none;cursor:pointer;
-  border-radius:10px;padding:11px 18px;
-  transition:transform .12s ease, background .16s ease, box-shadow .16s ease;
+  border-radius:10px;padding:11px 18px;min-height:48px;
+  transition:transform .2s ease-out, background .2s ease-out, box-shadow .2s ease-out;
 }
 .btn:active{transform:translateY(1px)}
+/* Z-50 critical action */
 .btn-primary{
   background:var(--accent);color:#04101f;
-  box-shadow:0 4px 18px rgba(46,155,255,.32), inset 0 1px 0 rgba(255,255,255,.28);
+  box-shadow:var(--elev-accent), var(--edge-specular-strong);
 }
-.btn-primary:hover{background:#48a8ff;box-shadow:0 6px 26px rgba(46,155,255,.45)}
-.btn-ghost{background:rgba(148,163,184,.08);color:var(--txt);border:1px solid var(--line-strong)}
-.btn-ghost:hover{background:rgba(148,163,184,.14)}
+.btn-primary:hover{
+  background:#48a8ff;
+  transform:translateY(var(--lift));
+  box-shadow:var(--elev-accent-hover), var(--edge-specular-strong);
+}
+/* Declared after :hover so the press wins while both states are active. */
+.btn-primary:active{
+  transform:translateY(1px);
+  box-shadow:var(--edge-recess), inset 0 1px 0 rgba(255,255,255,.14);
+}
+.btn-ghost{
+  background:rgba(148,163,184,.08);color:var(--txt);border:1px solid var(--line-strong);
+  box-shadow:var(--elev-sm), var(--edge-specular);
+}
+.btn-ghost:hover{
+  background:rgba(148,163,184,.14);
+  transform:translateY(var(--lift));
+  box-shadow:var(--elev-md), var(--edge-specular);
+}
+.btn-ghost:active{transform:translateY(1px);box-shadow:var(--edge-recess)}
 .btn-sm{padding:8px 15px;font-size:13.5px;border-radius:9px}
 
 /* ---------- HERO ---------- */
@@ -76,7 +150,9 @@ nav{
 }
 .hero-in{
   position:relative;display:grid;grid-template-columns:1.03fr .97fr;
-  gap:56px;align-items:center;padding:72px 0 78px;
+  gap:56px;align-items:center;
+  /* Vertical longhand only — .wrap owns the horizontal gutter. */
+  padding-top:72px;padding-bottom:78px;
 }
 .eyebrow{
   display:inline-flex;align-items:center;gap:8px;
@@ -91,18 +167,30 @@ h1{
   letter-spacing:-.035em;font-weight:800;margin-bottom:20px;
 }
 h1 em{font-style:normal;color:var(--accent)}
-.sub{font-size:17.5px;color:var(--txt-2);max-width:520px;margin-bottom:28px;line-height:1.58}
+.sub{font-size:17.5px;color:var(--txt-hero);max-width:520px;margin-bottom:28px;line-height:1.58}
 
 /* ZIP capture */
+.zip-label{
+  display:block;max-width:490px;margin-bottom:8px;
+  font-size:12.5px;font-weight:650;color:var(--txt-2);letter-spacing:.02em;
+}
 .zip-form{
   display:flex;gap:8px;padding:8px;max-width:490px;
-  background:rgba(255,255,255,.045);
-  border:1px solid var(--line-strong);
+  /* Opaque, and identical in both the hero and the .final section. Translucent here
+     let the .final blue radial lighten the interior to a 2.92:1 border ratio; a single
+     dark fill holds 3.39:1 in both placements and reads as a deeper recessed well. */
+  background:var(--control-fill);
+  border:1px solid var(--control-border);
   border-radius:14px;
-  box-shadow:0 8px 30px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.06);
+  /* Recess, not specular: a white inner highlight would lighten the interior and
+     erode the 3:1 --control-border ratio. Dark inset only increases it. */
+  box-shadow:var(--elev-md), var(--edge-recess);
   transition:border-color .18s ease, box-shadow .18s ease;
 }
-.zip-form:focus-within{border-color:rgba(46,155,255,.55);box-shadow:0 8px 34px rgba(46,155,255,.18)}
+.zip-form:focus-within{
+  border-color:rgba(46,155,255,.55);
+  box-shadow:var(--elev-md), 0 0 0 3px rgba(46,155,255,.18), var(--edge-recess);
+}
 .zip-form input{
   flex:1;background:transparent;border:none;outline:none;
   color:var(--txt);font-size:15.5px;padding:12px 14px;font-family:inherit;
@@ -118,6 +206,15 @@ h1 em{font-style:normal;color:var(--accent)}
 .microtrust b{color:var(--txt-2);font-weight:600}
 .mt-item{display:flex;align-items:center;gap:6px}
 .check{width:13px;height:13px;flex:none;color:var(--good)}
+.escape-hatch{
+  display:inline-flex;align-items:center;min-height:48px;margin-top:6px;
+  padding:0 2px;border-radius:8px;
+  font-size:13.5px;font-weight:600;color:var(--accent);
+  text-decoration:underline;text-underline-offset:3px;
+  text-decoration-color:rgba(46,155,255,.5);
+}
+.escape-hatch:hover{color:#8fc9ff;text-decoration-color:#8fc9ff}
+.escape-hatch:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 
 /* ---------- RANK CARD (hero visual) ---------- */
 .viz{position:relative}
@@ -131,7 +228,7 @@ h1 em{font-style:normal;color:var(--accent)}
   background:linear-gradient(168deg,rgba(20,27,42,.96),rgba(10,14,24,.98));
   border:1px solid var(--line-strong);
   border-radius:18px;
-  box-shadow:0 26px 70px rgba(0,0,0,.62), inset 0 1px 0 rgba(255,255,255,.07);
+  box-shadow:var(--elev-lg), var(--edge-specular);
   overflow:hidden;
 }
 .card-top{
@@ -181,7 +278,7 @@ h1 em{font-style:normal;color:var(--accent)}
   position:absolute;display:flex;align-items:center;gap:8px;
   background:rgba(14,19,31,.96);border:1px solid var(--line-strong);
   border-radius:11px;padding:9px 13px;font-size:12px;font-weight:600;
-  box-shadow:0 12px 32px rgba(0,0,0,.6);backdrop-filter:blur(8px);
+  box-shadow:var(--elev-md), var(--edge-specular);backdrop-filter:blur(8px);
   z-index:3;
 }
 .fc-1{top:-18px;left:-30px}
@@ -206,9 +303,13 @@ h2{font-size:clamp(26px,3.1vw,36px);letter-spacing:-.032em;font-weight:800;line-
   position:relative;padding:26px 22px 24px;border-radius:var(--radius);
   background:linear-gradient(170deg,rgba(20,27,42,.8),rgba(10,14,24,.6));
   border:1px solid var(--line);
+  box-shadow:var(--elev-sm), var(--edge-specular);
   transition:border-color .2s ease, transform .2s ease, box-shadow .2s ease;
 }
-.step:hover{border-color:rgba(46,155,255,.38);transform:translateY(-3px);box-shadow:0 16px 40px rgba(0,0,0,.45)}
+.step:hover{
+  border-color:rgba(46,155,255,.38);transform:translateY(-3px);
+  box-shadow:var(--elev-md), var(--edge-specular);
+}
 .step-n{
   display:inline-flex;align-items:center;justify-content:center;
   width:34px;height:34px;border-radius:10px;margin-bottom:16px;
@@ -227,9 +328,11 @@ h2{font-size:clamp(26px,3.1vw,36px);letter-spacing:-.032em;font-weight:800;line-
 
 /* Checked grid */
 .checks{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+/* Z-10 static surface — elevation without hover lift (no false affordance). */
 .chk{
   display:flex;gap:13px;padding:19px 18px;border-radius:12px;
   background:rgba(255,255,255,.026);border:1px solid var(--line);
+  box-shadow:var(--elev-sm), var(--edge-specular);
 }
 .chk-ic{
   width:32px;height:32px;flex:none;border-radius:9px;
@@ -244,6 +347,7 @@ h2{font-size:clamp(26px,3.1vw,36px);letter-spacing:-.032em;font-weight:800;line-
 .finding{
   padding:20px;border-radius:12px;border:1px solid var(--line);
   background:linear-gradient(170deg,rgba(20,27,42,.7),rgba(10,14,24,.55));
+  box-shadow:var(--elev-sm), var(--edge-specular);
 }
 .finding .pill{margin-bottom:13px;display:inline-block}
 .finding h4{font-size:15px;font-weight:700;margin-bottom:8px;letter-spacing:-.015em}
@@ -262,7 +366,12 @@ summary{
   font-size:15.5px;font-weight:650;display:flex;
   align-items:center;justify-content:space-between;gap:16px;
   letter-spacing:-.01em;
+  transition:color .16s ease, box-shadow .16s ease;
 }
+/* Row-level affordance instead of a lift: translating a full-bleed row would
+   break the hairline divider rhythm. Focus ring added — there was none. */
+summary:hover{box-shadow:var(--edge-specular)}
+summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
 summary::-webkit-details-marker{display:none}
 summary::after{content:"+";color:var(--accent);font-size:20px;font-weight:400;flex:none}
 details[open] summary::after{content:"−"}
@@ -271,19 +380,24 @@ details p{padding:0 0 20px;color:var(--txt-2);font-size:14.5px;line-height:1.65;
 /* Final CTA */
 .final{
   border-bottom:none;
+  /* --bg-2 at 74% rather than opaque, so the continuous lattice and the light pool read
+     through the closing panel instead of terminating at its top edge. Compositing a
+     translucent --bg-2 over the darker --bg only lowers this backdrop's luminance, so
+     the contrast budget measured against opaque --bg-2 stays the conservative bound. */
   background:
     radial-gradient(700px 340px at 50% 0%, rgba(46,155,255,.13), transparent 65%),
-    var(--bg-2);
+    rgba(10,14,24,.74);
   text-align:center;
 }
-.final .zip-form{margin:26px auto 0}
+.final .zip-label{margin:26px auto 8px}
+.final .zip-form{margin:0 auto}
 .final .microtrust{justify-content:center}
 
 footer{background:var(--bg-2);border-top:1px solid var(--line);padding:34px 0}
 .foot-in{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;font-size:12.5px;color:var(--txt-3)}
 .foot-links{display:flex;gap:20px}
 .disclaimer{
-  margin-top:16px;font-size:11.5px;color:#475569;line-height:1.65;max-width:820px;
+  margin-top:16px;font-size:11.5px;color:var(--txt-3);line-height:1.65;max-width:820px;
 }
 
 /* ---------- MULTI-STEP MODAL ---------- */
@@ -297,7 +411,7 @@ footer{background:var(--bg-2);border-top:1px solid var(--line);padding:34px 0}
   width:100%;max-width:540px;border-radius:18px;
   background:linear-gradient(170deg,#131a29,#0a0e18);
   border:1px solid var(--line-strong);
-  box-shadow:0 30px 90px rgba(0,0,0,.7);
+  box-shadow:var(--elev-lg), var(--edge-specular);
   display:flex;flex-direction:column;
   max-height:88vh;max-height:88dvh;
   overflow:hidden;
@@ -335,12 +449,16 @@ footer{background:var(--bg-2);border-top:1px solid var(--line);padding:34px 0}
 .field{margin-bottom:16px}
 .field label{display:block;font-size:12px;font-weight:650;color:var(--txt-2);margin-bottom:7px;letter-spacing:.02em}
 .field input,.field select{
-  width:100%;background:rgba(255,255,255,.045);border:1px solid var(--line-strong);
+  width:100%;background:rgba(255,255,255,.045);border:1px solid var(--control-border);
   border-radius:10px;padding:13px 44px 13px 13px;color:var(--txt);font-size:15px;
   min-height:50px;
-  font-family:inherit;outline:none;transition:border-color .16s ease;
+  box-shadow:var(--edge-recess);
+  font-family:inherit;outline:none;transition:border-color .16s ease, box-shadow .16s ease;
 }
-.field input:focus,.field select:focus{border-color:rgba(46,155,255,.6)}
+.field input:focus,.field select:focus{
+  border-color:rgba(46,155,255,.6);
+  box-shadow:var(--edge-recess), 0 0 0 3px rgba(46,155,255,.18);
+}
 .field input:focus-visible,.field select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .field select{appearance:none;cursor:pointer}
 .opts{display:flex;flex-direction:column;gap:10px}
@@ -348,18 +466,23 @@ footer{background:var(--bg-2);border-top:1px solid var(--line);padding:34px 0}
   display:flex;align-items:center;justify-content:space-between;gap:12px;
   width:100%;min-height:56px;padding:15px 16px;border-radius:12px;
   text-align:left;cursor:pointer;color:inherit;
-  border:1px solid var(--line-strong);background:rgba(255,255,255,.03);
+  border:1px solid var(--control-border);background:rgba(255,255,255,.03);
   font-size:15px;font-weight:600;font-family:inherit;
-  transition:border-color .15s ease,background .15s ease,transform .1s ease;
+  box-shadow:var(--elev-sm);
+  transition:border-color .15s ease,background .15s ease,transform .2s ease-out,box-shadow .2s ease-out;
 }
-.opt:hover{border-color:rgba(46,155,255,.45);background:rgba(255,255,255,.055)}
+/* Z-20 interactive */
+.opt:hover{
+  border-color:rgba(46,155,255,.45);background:rgba(255,255,255,.055);
+  transform:translateY(var(--lift));box-shadow:var(--elev-md);
+}
 .opt:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.opt:active{transform:scale(.99)}
+.opt:active{transform:translateY(0);box-shadow:var(--edge-recess)}
 .opt.sel{border-color:var(--accent);background:var(--accent-soft);color:#a8d3ff}
 .opt .opt-label{flex:1;min-width:0}
 .opt .opt-mark{
   flex:none;width:20px;height:20px;border-radius:50%;
-  border:1px solid var(--line-strong);position:relative;
+  border:1px solid var(--control-border);position:relative;
 }
 .opt.sel .opt-mark{border-color:var(--accent);background:var(--accent)}
 .opt.sel .opt-mark::after{
@@ -386,8 +509,68 @@ footer{background:var(--bg-2);border-top:1px solid var(--line);padding:34px 0}
   display:flex;align-items:center;justify-content:center;color:var(--good);
 }
 
+/* ---------- ATMOSPHERIC DEPTH ----------
+   One continuous mullion plane, one travelling light pool, one hero cone, and a live
+   per-section wake. Every layer is a pseudo-element, so there is no extra DOM, no
+   asset, no network request, and nothing that can receive a pointer event. */
+main{position:relative;isolation:isolate}
+
+/* The architecture. A single absolutely-positioned plane spanning the whole of main, so
+   the lattice holds one phase from the first section to the last and cannot seam at a
+   section boundary. Document-anchored rather than viewport-fixed: the geometry stays
+   welded to the page, never slides under the content, and costs no repaint on scroll. */
+main::before{
+  content:"";position:absolute;inset:0;z-index:-2;pointer-events:none;
+  background-image:
+    linear-gradient(to right,var(--atmo-grid-line) 1px,transparent 1px),
+    linear-gradient(to bottom,var(--atmo-grid-line) 1px,transparent 1px);
+  background-size:var(--atmo-grid-size) var(--atmo-grid-size);
+  /* Density falls away from the top right, echoing the light source the hero already
+     implies, so the lattice is densest where there is no copy and merely sensed lower down. */
+  -webkit-mask-image:radial-gradient(155% 115% at 74% -8%,#000 0%,rgba(0,0,0,.6) 42%,rgba(0,0,0,.28) 72%,transparent 100%);
+  mask-image:radial-gradient(155% 115% at 74% -8%,#000 0%,rgba(0,0,0,.6) 42%,rgba(0,0,0,.28) 72%,transparent 100%);
+}
+
+/* The travelling light. Viewport-fixed and moved only by transform, so it composites on
+   the GPU without repainting the lattice beneath it. It rests at --lit-y:-.5, entirely
+   off-canvas, so the page stays unlit until the pointer genuinely moves. */
+main::after{
+  content:"";position:fixed;z-index:-1;pointer-events:none;
+  top:0;left:0;width:62vmax;height:62vmax;margin:-31vmax 0 0 -31vmax;
+  background:radial-gradient(closest-side,var(--atmo-pool),transparent 100%);
+  transform:translate3d(calc(var(--lit-x) * 100vw),calc(var(--lit-y) * 100vh),0);
+  transition:transform var(--lit-lag) cubic-bezier(.22,.61,.36,1);
+  will-change:transform;
+}
+
+/* Overhead cone above the hero rank card, clipped by .hero's own overflow:hidden. */
+.hero::after{
+  content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background:radial-gradient(44% 66% at 76% -8%,var(--atmo-cone),transparent 74%);
+}
+
+/* Live section wake. data-lit is present only while a section holds the middle band of
+   the viewport, so the light follows the reader in both directions rather than latching
+   on first sight. isolation:isolate makes each section its own stacking context so the
+   wake paints above the section's background but still behind its copy. */
+.sec-how,.sec-criteria,.sec-findings,.sec-faq,.final{position:relative;isolation:isolate}
+.sec-how::before,.sec-criteria::before,.sec-findings::before,.sec-faq::before,.final::before{
+  content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background:radial-gradient(120% 76% at 50% 0%,var(--atmo-pool),transparent 76%);
+  opacity:0;transition:opacity .9s ease-out;
+}
+.sec-how[data-lit]::before,.sec-criteria[data-lit]::before,
+.sec-findings[data-lit]::before,.sec-faq[data-lit]::before,
+.final[data-lit]::before{opacity:1}
+
+/* Restrained edge accents: cool cyan where the page explains the analysis, warm amber
+   where it shows findings. Hairlines on the section edge only, never behind copy. */
+.sec-criteria,.sec-findings{transition:box-shadow .9s ease-out}
+.sec-criteria[data-lit]{box-shadow:inset 0 1px 0 var(--atmo-edge-cyan)}
+.sec-findings[data-lit]{box-shadow:inset 0 1px 0 var(--atmo-edge-amber)}
+
 @media (max-width:940px){
-  .hero-in{grid-template-columns:1fr;gap:48px;padding:52px 0 60px}
+  .hero-in{grid-template-columns:1fr;gap:48px;padding-top:52px;padding-bottom:60px}
   .steps,.checks,.findings{grid-template-columns:1fr}
   .float-chip{display:none}
   .nav-tag{display:none}
@@ -405,6 +588,46 @@ footer{background:var(--bg-2);border-top:1px solid var(--line);padding:34px 0}
 }
 
 @media (prefers-reduced-motion:reduce){
-  .prog i,.opt{transition:none}
-  .opt:active{transform:none}
+  .prog i,.opt,.btn,.step,summary{transition:none}
+  /* Depth still reads through box-shadow; only the Z-axis travel is removed. */
+  .opt:hover,.opt:active,
+  .btn:active,
+  .btn-primary:hover,.btn-primary:active,
+  .btn-ghost:hover,.btn-ghost:active,
+  .step:hover{transform:none}
+  /* The illumination becomes a static field. The hook attaches no listeners and sets no
+     data-lit in this mode, so nothing here can depend on either: park the pool somewhere
+     useful, then light every wake and accent unconditionally so the composition still
+     reads as designed rather than going dead. */
+  main::after{
+    transform:translate3d(50vw,28vh,0);
+    transition:none;will-change:auto;
+  }
+  .sec-how::before,.sec-criteria::before,.sec-findings::before,
+  .sec-faq::before,.final::before{opacity:1;transition:none}
+  .sec-criteria,.sec-findings{transition:none}
+  .sec-criteria{box-shadow:inset 0 1px 0 var(--atmo-edge-cyan)}
+  .sec-findings{box-shadow:inset 0 1px 0 var(--atmo-edge-amber)}
+}
+
+/* When the user asks for more contrast, or the OS forces its own palette, the
+   atmosphere is the first thing to go: it exists only to add depth, and every layer of
+   it lightens the backdrop behind text. */
+@media (prefers-contrast:more){
+  main::before,main::after,.hero::after,
+  .sec-how::before,.sec-criteria::before,.sec-findings::before,
+  .sec-faq::before,.final::before{display:none}
+  /* Unqualified so this also clears the unconditional accents applied by the
+     reduced-motion block above when both preferences are active together. */
+  .sec-criteria,.sec-findings,
+  .sec-criteria[data-lit],.sec-findings[data-lit]{box-shadow:none}
+  .final{background:var(--bg-2)}
+}
+
+@media (forced-colors:active){
+  main::before,main::after,.hero::after,
+  .sec-how::before,.sec-criteria::before,.sec-findings::before,
+  .sec-faq::before,.final::before{display:none}
+  .sec-criteria,.sec-findings,
+  .sec-criteria[data-lit],.sec-findings[data-lit]{box-shadow:none}
 }

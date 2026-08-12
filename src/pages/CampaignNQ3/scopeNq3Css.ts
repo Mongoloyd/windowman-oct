@@ -22,8 +22,24 @@ function scopeSelectorList(rawSelector: string): string {
   return `${leading}${scoped}`;
 }
 
+/**
+ * Comments are removed before scoping rather than carried through.
+ *
+ * The scoping pass treats everything before an opening brace as a selector, so a brace
+ * inside a comment splits the comment in half: the first fragment is prefixed as though
+ * it were a selector and the comment's closing brace terminates a rule that was never
+ * opened. That silently corrupts every declaration after it — including the custom
+ * property block, which takes the whole page's theming with it. Stripping comments first
+ * makes the pass immune, so documentation in the stylesheet can describe CSS freely.
+ *
+ * Each comment becomes a single space, because a comment can legally separate two tokens.
+ */
+function stripComments(css: string): string {
+  return css.replace(/\/\*[\s\S]*?\*\//g, " ");
+}
+
 export function scopeNq3Css(css: string): string {
-  return css.replace(
+  return stripComments(css).replace(
     /([^{}]+)\{/g,
     (_match, selector: string) => `${scopeSelectorList(selector)}{`,
   );

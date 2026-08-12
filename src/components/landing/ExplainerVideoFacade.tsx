@@ -25,7 +25,15 @@ export interface ExplainerVideoFacadeProps {
 
 interface ExplainerVideoSectionProps {
   readonly zipInputId: string;
+  readonly headline?: string;
+  readonly supportingCopy?: string;
 }
+
+const DEFAULT_HEADLINE = "See what your written estimate is really saying.";
+const DEFAULT_SUPPORTING_COPY =
+  "WindowMan turns a contractor estimate into a structured review of price, scope, fees, warranty language, and fine print—so you can see what deserves a closer look.";
+
+const LOW_FETCH_PRIORITY_ATTR = { fetchpriority: "low" } as Record<string, string>;
 
 const EXPLAINER_POSTER = "/images/windowman-explainer-poster.webp";
 const EXPLAINER_POSTER_AVIF = "/images/windowman-explainer-poster.avif";
@@ -50,7 +58,7 @@ export function ExplainerVideoFacade({
 
   return (
     <div
-      className="relative aspect-video w-full overflow-hidden rounded-2xl border border-white/10 bg-slate-900 shadow-2xl shadow-black/30"
+      className="relative aspect-video w-full overflow-hidden rounded-2xl border border-white/10 bg-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_6px_10px_rgba(2,6,23,0.6),0_30px_80px_rgba(2,6,23,0.58)]"
       data-testid="explainer-video-facade"
     >
       {isPlaying ? (
@@ -89,7 +97,9 @@ export function ExplainerVideoFacade({
               height={720}
               loading="lazy"
               decoding="async"
-              fetchPriority="low"
+              // React 18 does not recognise camelCase fetchPriority and warns, so
+              // pass the attribute already lowercased. Same DOM output, no warning.
+              {...LOW_FETCH_PRIORITY_ATTR}
             />
           </picture>
           <div
@@ -117,6 +127,8 @@ export function ExplainerVideoFacade({
 
 export function ExplainerVideoSection({
   zipInputId,
+  headline = DEFAULT_HEADLINE,
+  supportingCopy = DEFAULT_SUPPORTING_COPY,
 }: ExplainerVideoSectionProps) {
   return (
     <section
@@ -133,12 +145,10 @@ export function ExplainerVideoSection({
             className="!mb-4 !text-3xl !font-extrabold !leading-tight !tracking-[-0.03em] text-white sm:!text-4xl"
             id="explainer-video-heading"
           >
-            See what your written estimate is really saying.
+            {headline}
           </h2>
           <p className="!m-0 max-w-xl text-base leading-7 text-slate-300">
-            WindowMan turns a contractor estimate into a structured review of
-            price, scope, fees, warranty language, and fine print—so you can
-            see what deserves a closer look.
+            {supportingCopy}
           </p>
 
           <ol className="!mt-7 grid gap-3" aria-label="How the service helps">

@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import type { ReactNode } from "react";
 import {
   cleanup,
@@ -84,6 +86,105 @@ function fillContact(dialog: HTMLElement) {
 }
 
 describe("CampaignNq4Landing", () => {
+  describe("route-scoped stylesheet contract", () => {
+    const css = readFileSync(
+      resolve(process.cwd(), "src/pages/CampaignNQ4/nq4-landing.css"),
+      "utf8",
+    );
+
+    it("keeps every rule scoped to the NQ4 route container", () => {
+      const selectors = css
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .match(/([^{}]+)\{/g)
+        ?.map((match) => match.slice(0, -1).trim())
+        .filter((selector) => selector && !selector.startsWith("@")) ?? [];
+
+      expect(selectors.length).toBeGreaterThan(50);
+      for (const selectorList of selectors) {
+        for (const selector of selectorList.split(",")) {
+          expect(selector.trim()).toMatch(/^\.nq4-root/);
+        }
+      }
+    });
+
+    it("keeps @apply out of the raw-imported stylesheet", () => {
+      expect(css).not.toContain("@apply");
+    });
+
+    it("declares every tactile elevation token as a multi-layer shadow", () => {
+      for (const token of [
+        "--nq4-elev-sm",
+        "--nq4-elev-md",
+        "--nq4-elev-lg",
+        "--nq4-elev-accent",
+        "--nq4-elev-accent-hover",
+      ]) {
+        const declaration = new RegExp(`${token}: ([^;]+);`).exec(css);
+        expect(declaration, `${token} must be declared`).not.toBeNull();
+        expect(declaration![1].split("),").length).toBeGreaterThanOrEqual(2);
+      }
+      for (const token of [
+        "--nq4-edge-specular",
+        "--nq4-edge-specular-strong",
+        "--nq4-edge-recess",
+      ]) {
+        expect(css).toMatch(new RegExp(`${token}: inset `));
+      }
+    });
+
+    it("elevates the previously flat content surfaces", () => {
+      for (const selector of [
+        "nq4-mech-card",
+        "nq4-step",
+        "nq4-compare-row",
+        "nq4-panel",
+      ]) {
+        expect(css).toMatch(
+          new RegExp(`\\.${selector} \\{[^}]*box-shadow: var\\(--nq4-elev-sm\\), var\\(--nq4-edge-specular\\)`),
+        );
+      }
+    });
+
+    it("gives controls a dark recess and never a background gradient", () => {
+      for (const selector of ["nq4-zip-input", "nq4-intake-field input"]) {
+        expect(css).toMatch(
+          new RegExp(`\\.${selector} \\{[^}]*box-shadow: var\\(--nq4-edge-recess\\)`),
+        );
+        expect(css).not.toMatch(
+          new RegExp(`\\.${selector} \\{[^}]*(background-image|background: linear-gradient)`),
+        );
+      }
+    });
+
+    it("preserves the selected-option left rail alongside its elevation", () => {
+      expect(css).toMatch(
+        /\.nq4-intake-option\.is-selected \{[^}]*box-shadow: inset 3px 0 0 var\(--nq4-primary\), var\(--nq4-elev-sm\)/,
+      );
+      expect(css).toMatch(
+        /\.nq4-intake-option\.is-selected:hover \{[^}]*inset 3px 0 0 var\(--nq4-primary\)/,
+      );
+    });
+
+    it("never lifts a disabled intake button", () => {
+      expect(css).toMatch(/\.nq4-intake-primary:hover:not\(:disabled\)/);
+      expect(css).not.toMatch(/\.nq4-intake-primary:hover \{/);
+    });
+
+    it("neutralizes every new transform under reduced motion", () => {
+      const reduced = /@media \(prefers-reduced-motion: reduce\) \{([\s\S]*?)\n\}/.exec(css);
+      expect(reduced).not.toBeNull();
+      for (const selector of [
+        ".nq4-cta:hover",
+        ".nq4-zip-submit:hover",
+        ".nq4-intake-option:hover",
+        ".nq4-intake-primary:hover:not(:disabled)",
+      ]) {
+        expect(reduced![1]).toContain(selector);
+      }
+      expect(reduced![1]).toMatch(/transform: none/);
+    });
+  });
+
   beforeEach(() => {
     defaultSubmitterMock.mockReset();
     window.history.replaceState({}, "", "/nq4");
@@ -143,8 +244,41 @@ describe("CampaignNq4Landing", () => {
       "Check My Area",
     );
     expect(screen.getByTestId("nq4-cta-footer")).toHaveTextContent(
-      "Start My Estimate Request",
+      "Build My Number to Beat",
     );
+  });
+
+  it("states the no-estimate-needed hero copy and support line", () => {
+    renderPage();
+    expect(
+      screen.getByText(
+        "No estimate yet? Start here. WindowMan helps you get a first written estimate, then checks the price, scope, fees, warranty, and fine print — turning it into your Number to Beat.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText(
+        "No estimate needed to start · WindowMan doesn't sell or install windows · No obligation",
+      ),
+    ).toHaveLength(2);
+    expect(
+      screen.getByRole("heading", {
+        name: "See what WindowMan will check when your first estimate arrives.",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("offers an untracked canonical has_quote escape hatch", () => {
+    renderPage();
+    const escapeHatch = screen.getByTestId("nq4-escape-hatch");
+
+    expect(escapeHatch.tagName).toBe("A");
+    expect(escapeHatch).toHaveTextContent(
+      "Already have a written estimate? Upload it for an AI check",
+    );
+    const href = escapeHatch.getAttribute("href") ?? "";
+    expect(href).toContain("wm_intent=has_quote");
+    expect(href).toContain("#truth-gate");
+    expect(href.startsWith("/?")).toBe(true);
   });
 
   it.each(["", "12345"])(

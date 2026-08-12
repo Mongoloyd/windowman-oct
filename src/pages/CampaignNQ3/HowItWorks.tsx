@@ -1,6 +1,6 @@
 export default function HowItWorks() {
   return (
-    <section>
+    <section className="sec-how">
       <div className="wrap">
         <div className="sec-head">
           <div className="sec-eyebrow">How it works</div>

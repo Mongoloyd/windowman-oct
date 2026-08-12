@@ -1,5 +1,7 @@
 import { Fragment, useState, type FormEvent, type ReactNode } from "react";
 import { ExplainerVideoSection } from "@/components/landing/ExplainerVideoFacade";
+import { buildCanonicalTruthGateHandoffUrl } from "@/components/landing/landingHandoff";
+import { useCampaignNqIllumination } from "../CampaignNQ/useCampaignNqIllumination";
 import type {
   IntakeEntryPoint,
   IntakeStepId,
@@ -138,8 +140,11 @@ const SUCCESS_TRACKER = [
   { label: "Optional comparison", done: false },
 ] as const;
 
-const SUPPORT_LINE = "WindowMan doesn't sell or install windows · No obligation";
-const PRIMARY_CTA_LABEL = "Start My Estimate Request →";
+const SUPPORT_LINE =
+  "No estimate needed to start · WindowMan doesn't sell or install windows · No obligation";
+const PRIMARY_CTA_LABEL = "Build My Number to Beat";
+const ESCAPE_HATCH_LABEL =
+  "Already have a written estimate? Upload it for an AI check →";
 const HERO_ZIP_ERROR_ID = "nq4-hero-zip-error";
 const FLORIDA_ZIP_ERROR = "Enter a valid 5-digit Florida ZIP code.";
 const LEGAL_FOOTER =
@@ -251,6 +256,22 @@ export function CampaignNq4Landing({
 }: CampaignNq4LandingProps) {
   useNq4ScopedCss();
   useNq4NoIndex();
+  /**
+   * Scroll-driven on every device: NQ4's illumination is a single scan band tied to
+   * document progress, so it behaves identically with or without a pointer.
+   *
+   * The driver is precise: one passive `scroll` listener (plus `resize`, because the
+   * scrollable travel changes with the viewport) coalesced into a single
+   * `requestAnimationFrame` write per frame, publishing
+   * `scrollY / (scrollHeight - innerHeight)` clamped to 0-1 into
+   * `--nq4-scan-progress`. The band's position is a `translate3d` of that value, so
+   * scrolling moves it on the compositor and never repaints the stile lattice.
+   */
+  const rootRef = useCampaignNqIllumination<HTMLDivElement>({
+    driver: "scroll",
+    sectionSelector: "main > section",
+    progressProperty: "--nq4-scan-progress",
+  });
   const [heroZip, setHeroZip] = useState("");
   const [heroZipError, setHeroZipError] = useState("");
 
@@ -269,6 +290,7 @@ export function CampaignNq4Landing({
 
   return (
     <div
+      ref={rootRef}
       className={NQ4_ROOT_CLASS}
       data-campaign-variant="nq4"
       data-page-path="/nq4"
@@ -285,9 +307,10 @@ export function CampaignNq4Landing({
                 <p className="nq4-eyebrow">The Number to Beat</p>
                 <h1>Give the next contractor a real number to beat.</h1>
                 <p className="nq4-lead">
-                  Start with one written estimate. WindowMan checks its price,
-                  scope, fees, warranty, and fine print so you can turn it into
-                  a benchmark before you decide whether to compare.
+                  No estimate yet? Start here. WindowMan helps you get a first
+                  written estimate, then checks the price, scope, fees,
+                  warranty, and fine print — turning it into your Number to
+                  Beat.
                 </p>
                 <form
                   className="nq4-zip-form"
@@ -338,15 +361,25 @@ export function CampaignNq4Landing({
                   ) : null}
                 </form>
                 <p className="nq4-support">{SUPPORT_LINE}</p>
+                <a
+                  className="nq4-escape-hatch"
+                  href={buildCanonicalTruthGateHandoffUrl("has_quote")}
+                  data-testid="nq4-escape-hatch"
+                >
+                  {ESCAPE_HATCH_LABEL}
+                </a>
               </div>
 
               <MechanismGraphic />
             </div>
           </section>
 
-          <ExplainerVideoSection zipInputId="nq4-hero-zip" />
+          <ExplainerVideoSection
+            zipInputId="nq4-hero-zip"
+            headline="See what WindowMan will check when your first estimate arrives."
+          />
 
-          <section className="nq4-shell nq4-section">
+          <section className="nq4-shell nq4-section nq4-sec-how">
             <p className="nq4-kicker">How it works</p>
             <h2>Four steps, in order.</h2>
             <div className="nq4-steps">
@@ -362,7 +395,7 @@ export function CampaignNq4Landing({
             </div>
           </section>
 
-          <section className="nq4-shell nq4-section">
+          <section className="nq4-shell nq4-section nq4-sec-compare">
             <p className="nq4-kicker">
               Why quote shopping doesn&rsquo;t create competition
             </p>
@@ -394,7 +427,7 @@ export function CampaignNq4Landing({
             </div>
           </section>
 
-          <section className="nq4-shell nq4-section">
+          <section className="nq4-shell nq4-section nq4-sec-what">
             <p className="nq4-kicker">What WindowMan is</p>
             <h2>Plainly stated.</h2>
             <div className="nq4-panel">
@@ -415,7 +448,7 @@ export function CampaignNq4Landing({
             </div>
           </section>
 
-          <section className="nq4-shell nq4-section">
+          <section className="nq4-shell nq4-section nq4-sec-faq">
             <p className="nq4-kicker">Straight answers</p>
             <h2>Before you send anything.</h2>
             <div className="nq4-faq">

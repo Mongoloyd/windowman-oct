@@ -19,7 +19,7 @@ const questions = [
 
 export default function FAQ() {
   return (
-    <section>
+    <section className="sec-faq">
       <div className="wrap">
         <div className="sec-head center" style={{ maxWidth: "620px" }}>
           <div className="sec-eyebrow">Straight answers</div>

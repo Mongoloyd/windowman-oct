@@ -42,7 +42,7 @@ function renderPage(onSubmitLead?: Parameters<typeof NoQuoteLanding>[0]["onSubmi
 }
 
 function advanceToContactStep() {
-  fireEvent.click(screen.getByRole("button", { name: "Get Started" }));
+  fireEvent.click(screen.getByRole("button", { name: "Start My Check" }));
   const dialog = screen.getByRole("dialog");
   fireEvent.change(within(dialog).getByLabelText("Florida project ZIP code"), {
     target: { value: "34997" },
@@ -140,6 +140,73 @@ describe("CampaignNQ3 NoQuoteLanding", () => {
         expect(css).toContain(selector);
       }
     });
+
+    it("declares every tactile elevation token as a multi-layer shadow", () => {
+      for (const token of ["--elev-sm", "--elev-md", "--elev-lg", "--elev-accent", "--elev-accent-hover"]) {
+        const declaration = new RegExp(`${token}:([^;]+);`).exec(css);
+        expect(declaration, `${token} must be declared`).not.toBeNull();
+        expect(declaration![1].split("),").length).toBeGreaterThanOrEqual(2);
+      }
+      for (const token of ["--edge-specular", "--edge-specular-strong", "--edge-recess"]) {
+        expect(css).toMatch(new RegExp(`${token}:inset `));
+      }
+    });
+
+    it("keeps @apply out of the raw-imported stylesheet", () => {
+      expect(css).not.toContain("@apply");
+    });
+
+    /**
+     * A brace inside a comment used to split the comment in half: the first fragment was
+     * prefixed as if it were a selector and the closing brace terminated a rule that was
+     * never opened, silently discarding every declaration that followed — including the
+     * custom property block, which took the entire page theme with it.
+     */
+    it("cannot be corrupted by a brace inside a comment", () => {
+      const scopedWithComment = scopeNq3Css(
+        "/* discussing a{b:c} rule */:root{--x:1px}section{padding:var(--x)}",
+      );
+
+      expect(scopedWithComment).toContain('[data-page="campaign-nq3"]{--x:1px}');
+      expect(scopedWithComment).toContain('[data-page="campaign-nq3"] section{padding:var(--x)}');
+      expect(scopedWithComment).not.toContain("discussing");
+    });
+
+    it("still resolves the custom property block after scoping the real stylesheet", () => {
+      // The token block is what every colour, contrast, and atmospheric value depends on.
+      expect(scoped).toContain('[data-page="campaign-nq3"]{');
+      expect(scoped).toMatch(/\[data-page="campaign-nq3"\]\{[^}]*--txt-3:/);
+      expect(scoped).toMatch(/\[data-page="campaign-nq3"\]\{[^}]*--atmo-grid-size:/);
+    });
+
+    it("gives controls a dark recess and never a background gradient", () => {
+      expect(css).toMatch(/\.zip-form\{[^}]*box-shadow:var\(--elev-md\), ?var\(--edge-recess\)/);
+      expect(css).toMatch(/\.field input,\.field select\{[^}]*box-shadow:var\(--edge-recess\)/);
+      expect(css).not.toMatch(/\.field input,\.field select\{[^}]*background-image/);
+      expect(css).not.toMatch(/\.field input,\.field select\{[^}]*background:linear-gradient/);
+    });
+
+    it("elevates static content cards without giving them a hover lift", () => {
+      expect(css).toMatch(/\.chk\{[^}]*box-shadow:var\(--elev-sm\)/);
+      expect(css).toMatch(/\.finding\{[^}]*box-shadow:var\(--elev-sm\)/);
+      expect(css).not.toMatch(/\.chk:hover/);
+      expect(css).not.toMatch(/\.finding:hover/);
+    });
+
+    it("lifts the primary CTA on hover and presses it on active", () => {
+      expect(css).toMatch(/\.btn-primary:hover\{[^}]*transform:translateY\(var\(--lift\)\)/);
+      expect(css).toMatch(/\.btn-primary:active\{[^}]*transform:translateY\(1px\)/);
+      expect(css.indexOf(".btn-primary:active")).toBeGreaterThan(css.indexOf(".btn-primary:hover"));
+    });
+
+    it("neutralizes every new transform under reduced motion", () => {
+      const reduced = /@media \(prefers-reduced-motion:reduce\)\{([\s\S]*?)\n\}/.exec(css);
+      expect(reduced).not.toBeNull();
+      for (const selector of [".btn-primary:hover", ".btn-ghost:hover", ".opt:hover", ".step:hover"]) {
+        expect(reduced![1]).toContain(selector);
+      }
+      expect(reduced![1]).toMatch(/transform:none/);
+    });
   });
 
   it("renders the modular landing sections, real legal links, and route-lifecycle CSS", () => {
@@ -161,11 +228,76 @@ describe("CampaignNQ3 NoQuoteLanding", () => {
     expect(document.querySelector("style[data-nq3-landing-styles]")).not.toBeInTheDocument();
   });
 
+  it("exposes both ZIP fields through a persistent visible label", () => {
+    const { container } = renderPage();
+    const zipInputs = screen.getAllByLabelText("Florida ZIP code");
+
+    expect(zipInputs).toHaveLength(2);
+    expect(zipInputs[0]).toHaveAttribute("id", "nq3-hero-zip");
+    expect(zipInputs[1]).toHaveAttribute("id", "nq3-final-zip");
+    for (const id of ["nq3-hero-zip", "nq3-final-zip"]) {
+      const label = container.querySelector(`label[for="${id}"]`);
+      expect(label).toBeInTheDocument();
+      expect(label).toHaveTextContent("Florida ZIP code");
+      expect(label).toHaveClass("zip-label");
+    }
+  });
+
+  it("renders the exact hero, footer, and navigation CTA labels", () => {
+    renderPage();
+    expect(
+      screen.getAllByRole("button", { name: /Start My Free Estimate Check/ }),
+    ).toHaveLength(2);
+    expect(
+      screen.getByRole("button", { name: "Start My Check" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Get My Free AI Report/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("recomposes the hero reassurance row without repeating the footer wording", () => {
+    const { container } = renderPage();
+    const heroTrust = container.querySelector(".hero .microtrust");
+
+    expect(heroTrust?.textContent).toBe(
+      "No estimate needed to startFlorida projects onlyFree · no obligation",
+    );
+  });
+
+  it("offers an untracked canonical has_quote escape hatch", () => {
+    renderPage();
+    const escapeHatch = screen.getByTestId("nq3-escape-hatch");
+
+    expect(escapeHatch.tagName).toBe("A");
+    expect(escapeHatch).toHaveTextContent(
+      "Already have a written estimate? Upload it for an AI check",
+    );
+    const href = escapeHatch.getAttribute("href") ?? "";
+    expect(href).toContain("wm_intent=has_quote");
+    expect(href).toContain("#truth-gate");
+    expect(href.startsWith("/?")).toBe(true);
+  });
+
+  it("passes the NQ3 explainer headline without altering the shared default copy", () => {
+    renderPage();
+    expect(
+      screen.getByRole("heading", {
+        name: "See what WindowMan will check when your first estimate arrives.",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /WindowMan turns a contractor estimate into a structured review/,
+      ),
+    ).toBeInTheDocument();
+  });
+
   it.each(["32901", "33301", "34997"])(
     "accepts Florida ZIP %s and opens directly on project details",
     (zip) => {
     renderPage();
-    const heroZip = screen.getAllByLabelText("Florida project ZIP code")[0];
+    const heroZip = screen.getAllByLabelText("Florida ZIP code")[0];
     fireEvent.change(heroZip, { target: { value: zip } });
     fireEvent.submit(heroZip.closest("form")!);
     expect(screen.getByRole("dialog")).toBeInTheDocument();
@@ -175,7 +307,7 @@ describe("CampaignNQ3 NoQuoteLanding", () => {
 
   it("shows an accessible error for a non-Florida ZIP", () => {
     renderPage();
-    const heroZip = screen.getAllByLabelText("Florida project ZIP code")[0];
+    const heroZip = screen.getAllByLabelText("Florida ZIP code")[0];
     fireEvent.change(heroZip, { target: { value: "90210" } });
     fireEvent.submit(heroZip.closest("form")!);
     expect(screen.getByRole("alert")).toHaveTextContent(
@@ -262,7 +394,7 @@ describe("CampaignNQ3 NoQuoteLanding", () => {
 
   it("closes with Escape and returns focus to the opener", async () => {
     renderPage();
-    const opener = screen.getByRole("button", { name: "Get Started" });
+    const opener = screen.getByRole("button", { name: "Start My Check" });
     opener.focus();
     fireEvent.click(opener);
     const dialog = screen.getByRole("dialog");
@@ -276,7 +408,7 @@ describe("CampaignNQ3 NoQuoteLanding", () => {
 
   it("traps forward and reverse Tab focus within the dialog", async () => {
     renderPage();
-    fireEvent.click(screen.getByRole("button", { name: "Get Started" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start My Check" }));
     const dialog = screen.getByRole("dialog");
     const closeButton = within(dialog).getByRole("button", { name: "Close" });
     const continueButton = within(dialog).getByRole("button", { name: "Continue" });
@@ -320,7 +452,7 @@ describe("CampaignNQ3 NoQuoteLanding", () => {
 
   it("opens Get Started at the location step", () => {
     renderPage();
-    fireEvent.click(screen.getByRole("button", { name: "Get Started" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start My Check" }));
     const dialog = screen.getByRole("dialog");
     expect(
       within(dialog).getByRole("heading", { name: "Where's the project?" }),
@@ -329,7 +461,7 @@ describe("CampaignNQ3 NoQuoteLanding", () => {
 
   it("advances each single-choice step on one activation, with no Continue button", () => {
     renderPage();
-    fireEvent.click(screen.getByRole("button", { name: "Get Started" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start My Check" }));
     const dialog = screen.getByRole("dialog");
 
     fireEvent.click(within(dialog).getByRole("button", { name: "Continue" }));
@@ -376,7 +508,7 @@ describe("CampaignNQ3 NoQuoteLanding", () => {
 
   it("renders visible Step X of 5 copy and an accessible step name on every step", () => {
     renderPage();
-    fireEvent.click(screen.getByRole("button", { name: "Get Started" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start My Check" }));
     const dialog = screen.getByRole("dialog");
     const stepCopy = () =>
       within(dialog).getByTestId("nq3-intake-step-copy").textContent;
@@ -412,7 +544,7 @@ describe("CampaignNQ3 NoQuoteLanding", () => {
 
   it("renders the five openings choices as one vertical radiogroup", () => {
     renderPage();
-    fireEvent.click(screen.getByRole("button", { name: "Get Started" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start My Check" }));
     const dialog = screen.getByRole("dialog");
     fireEvent.change(within(dialog).getByLabelText("Florida project ZIP code"), {
       target: { value: "34997" },
@@ -439,7 +571,7 @@ describe("CampaignNQ3 NoQuoteLanding", () => {
 
   it("moves focus to the new step heading after automatic advancement", async () => {
     renderPage();
-    fireEvent.click(screen.getByRole("button", { name: "Get Started" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start My Check" }));
     const dialog = screen.getByRole("dialog");
     fireEvent.change(within(dialog).getByLabelText("Florida project ZIP code"), {
       target: { value: "34997" },
@@ -463,7 +595,7 @@ describe("CampaignNQ3 NoQuoteLanding", () => {
 
   it("does not advance when an option only receives focus", () => {
     renderPage();
-    fireEvent.click(screen.getByRole("button", { name: "Get Started" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start My Check" }));
     const dialog = screen.getByRole("dialog");
     fireEvent.change(within(dialog).getByLabelText("Florida project ZIP code"), {
       target: { value: "34997" },
@@ -484,7 +616,7 @@ describe("CampaignNQ3 NoQuoteLanding", () => {
 
   it("advances on keyboard activation of a choice card", () => {
     renderPage();
-    fireEvent.click(screen.getByRole("button", { name: "Get Started" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start My Check" }));
     const dialog = screen.getByRole("dialog");
     fireEvent.change(within(dialog).getByLabelText("Florida project ZIP code"), {
       target: { value: "34997" },

@@ -1,4 +1,5 @@
 import type { FormEvent } from "react";
+import { buildCanonicalTruthGateHandoffUrl } from "@/components/landing/landingHandoff";
 
 interface HeroSectionProps {
   zip: string;
@@ -87,13 +88,13 @@ export default function HeroSection({ zip, zipError, onZipChange, onCheckArea }:
             you go get a second one if something doesn't look right.
           </p>
 
+          <label className="zip-label" htmlFor="nq3-hero-zip">Florida ZIP code</label>
           <form className="zip-form" onSubmit={onCheckArea} noValidate>
             <input
               id="nq3-hero-zip"
               inputMode="numeric"
               maxLength={5}
               placeholder="e.g. 33139"
-              aria-label="Florida project ZIP code"
               aria-describedby={zipError ? "nq3-hero-zip-error" : undefined}
               aria-invalid={Boolean(zipError)}
               autoComplete="postal-code"
@@ -101,16 +102,26 @@ export default function HeroSection({ zip, zipError, onZipChange, onCheckArea }:
               onChange={(event) => onZipChange(event.target.value.replace(/\D/g, "").slice(0, 5))}
             />
             <button className="btn btn-primary" type="submit">
-              Check My Area
+              Start My Free Estimate Check
               <ArrowIcon />
             </button>
           </form>
           <div className={`zip-err${zipError ? " on" : ""}`} id="nq3-hero-zip-error" role={zipError ? "alert" : undefined}>{zipError}</div>
 
           <div className="microtrust">
-            <div className="mt-item"><CheckIcon /><b>Free</b></div>
-            <div className="mt-item"><CheckIcon /><b>No obligation</b></div>
-            <div className="mt-item"><CheckIcon /><b>We don't install anything</b></div>
+            <div className="mt-item"><CheckIcon /><b>No estimate needed to start</b></div>
+            <div className="mt-item"><CheckIcon /><b>Florida projects only</b></div>
+            <div className="mt-item"><CheckIcon /><b>Free · no obligation</b></div>
+          </div>
+
+          <div>
+            <a
+              className="escape-hatch"
+              href={buildCanonicalTruthGateHandoffUrl("has_quote")}
+              data-testid="nq3-escape-hatch"
+            >
+              Already have a written estimate? Upload it for an AI check →
+            </a>
           </div>
         </div>
 

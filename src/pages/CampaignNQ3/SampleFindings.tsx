@@ -1,6 +1,6 @@
 export default function SampleFindings() {
   return (
-    <section>
+    <section className="sec-findings">
       <div className="wrap">
         <div className="sec-head center" style={{ maxWidth: "660px" }}>
           <div className="sec-eyebrow">What a finding looks like</div>

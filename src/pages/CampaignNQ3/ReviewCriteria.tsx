@@ -33,7 +33,7 @@ const criteria = [
 
 export default function ReviewCriteria() {
   return (
-    <section>
+    <section className="sec-criteria">
       <div className="wrap">
         <div className="sec-head">
           <div className="sec-eyebrow">What WindowMan reviews</div>

@@ -7,6 +7,7 @@ import type {
   IntakeOpenRequest,
   IntakeStepId,
 } from "@/components/intake/universal/intakeTypes";
+import { useCampaignNqIllumination } from "../CampaignNQ/useCampaignNqIllumination";
 import nqLandingCss from "./nq-landing.css?raw";
 import FAQ from "./FAQ";
 import FinalCTA from "./FinalCTA";
@@ -28,7 +29,22 @@ interface NoQuoteLandingProps {
 
 const scopedNqLandingCss = scopeNq3Css(nqLandingCss);
 
+/**
+ * Every top-level block on the page, including the shared explainer section, so the
+ * active-section light tracks the reader continuously rather than skipping blocks.
+ */
+const LIT_SECTION_SELECTOR = ":scope > section";
+
 export default function NoQuoteLanding({ onSubmitLead }: NoQuoteLandingProps) {
+  /**
+   * Mounted on <main>, not the page wrapper. <main> is the closest common ancestor of
+   * every layer that reads the illumination properties, so writing them here keeps
+   * per-frame style invalidation off the nav, the footer, and the intake host.
+   */
+  const litPlaneRef = useCampaignNqIllumination<HTMLElement>({
+    driver: "pointer",
+    sectionSelector: LIT_SECTION_SELECTOR,
+  });
   const [persistLead] = useState(createCampaignNq3LeadSubmitter);
   const [heroZip, setHeroZip] = useState("");
   const [finalZip, setFinalZip] = useState("");
@@ -85,7 +101,7 @@ export default function NoQuoteLanding({ onSubmitLead }: NoQuoteLandingProps) {
             openIntake("navigation_primary", "location")
           }
         />
-        <main>
+        <main ref={litPlaneRef}>
           <HeroSection
             zip={heroZip}
             zipError={heroZipError}
@@ -94,7 +110,10 @@ export default function NoQuoteLanding({ onSubmitLead }: NoQuoteLandingProps) {
               submitZip(event, heroZip, setHeroZipError, "hero_zip")
             }
           />
-          <ExplainerVideoSection zipInputId="nq3-hero-zip" />
+          <ExplainerVideoSection
+            zipInputId="nq3-hero-zip"
+            headline="See what WindowMan will check when your first estimate arrives."
+          />
           <HowItWorks />
           <ReviewCriteria />
           <SampleFindings />

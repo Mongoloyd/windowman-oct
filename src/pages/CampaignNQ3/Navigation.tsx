@@ -13,7 +13,7 @@ export default function Navigation({ onGetStarted }: NavigationProps) {
         <div className="nav-right">
           <div className="nav-tag">Independent · Not a contractor</div>
           <button className="btn btn-primary btn-sm" type="button" onClick={onGetStarted}>
-            Get Started
+            Start My Check
           </button>
         </div>
       </div>
