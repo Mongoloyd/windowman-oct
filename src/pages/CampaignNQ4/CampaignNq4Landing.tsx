@@ -1,4 +1,5 @@
 import { Fragment, useState, type FormEvent, type ReactNode } from "react";
+import { ExplainerVideoSection } from "@/components/landing/ExplainerVideoFacade";
 import type {
   IntakeEntryPoint,
   IntakeStepId,
@@ -342,6 +343,8 @@ export function CampaignNq4Landing({
               <MechanismGraphic />
             </div>
           </section>
+
+          <ExplainerVideoSection zipInputId="nq4-hero-zip" />
 
           <section className="nq4-shell nq4-section">
             <p className="nq4-kicker">How it works</p>

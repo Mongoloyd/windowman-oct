@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState, type FormEvent } from "react";
 import { Helmet } from "react-helmet-async";
+import { ExplainerVideoSection } from "@/components/landing/ExplainerVideoFacade";
 import UniversalIntakeHost from "@/components/intake/universal/UniversalIntakeHost";
 import type {
   IntakeEntryPoint,
@@ -93,6 +94,7 @@ export default function NoQuoteLanding({ onSubmitLead }: NoQuoteLandingProps) {
               submitZip(event, heroZip, setHeroZipError, "hero_zip")
             }
           />
+          <ExplainerVideoSection zipInputId="nq3-hero-zip" />
           <HowItWorks />
           <ReviewCriteria />
           <SampleFindings />
