@@ -1,0 +1,2334 @@
+All four files, complete. Headline changes: zip_code_entry is the universal ingress and carries lead_capture_opened; DEFAULT_INTENT pins all traffic to no_quote; reality_check is now the sole reclassifier with four silent promotion paths; Track D routes its purchase facts to a separate persistence domain; and unknown-step recovery scans for the first unanswered question instead of blindly jumping to a track head.
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+// src/features/intake/types.ts
+
+// Canonical type surface for the Apex Intake Command Center.
+
+// Pure types only — no runtime values, no side effects.
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+
+ * Top-level track. There is NO upfront router: every session begins on
+
+ * `no_quote` (see DEFAULT_INTENT in flow.ts) and is silently promoted by the
+
+ * soft-reclassification rules at `reality_check`.
+
+ */
+
+export type IntakeIntent =
+
+  | 'no_quote'            // TRACK C — universal ingress track, ~99% of paid traffic
+
+  | 'quote_review'        // TRACK A — written estimate surfaced mid-diagnostic
+
+  | 'appointments_booked' // TRACK B — reps scheduled, nothing in writing
+
+  | 'already_bought';     // TRACK D — signed or installed, post-purchase audit
+
+/**
+
+ * Every addressable node in the engine, including system and terminal nodes.
+
+ * Terminal/degraded IDs are first-class so failure paths are routable rather
+
+ * than thrown. `intent_router` no longer exists — `zip_code_entry` is the
+
+ * single ingress for all traffic.
+
+ */
+
+export type IntakeStepId =
+
+  // ── universal ingress ──
+
+  | 'zip_code_entry'        // ◆ micro-commitment; lowest-friction first tap
+
+  // ── shared spine ──
+
+  | 'trigger'
+
+  | 'depth_probe'
+
+  | 'scope'
+
+  | 'email_gate'            // ◆ THE PIVOT — Tier B partial persist
+
+  | 'qualify_property'
+
+  | 'hoa_notice'
+
+  | 'reality_check'         // ◆ THE RECLASSIFIER — sole track-switch point
+
+  | 'objection_harvest'
+
+  | 'insurance'
+
+  | 'timeline_authority'
+
+  | 'commitment'
+
+  | 'preview'
+
+  | 'phone_optional'
+
+  | 'otp_verify'
+
+  | 'submitting'
+
+  | 'mirror'
+
+  | 'success'
+
+  // ── quote_review (TRACK A) ──
+
+  | 'estimate_freshness'
+
+  | 'estimate_count'
+
+  | 'blocked_reason'
+
+  | 'measurements_check'
+
+  | 'hidden_costs_check'
+
+  | 'warranty_check'
+
+  | 'quoted_total'
+
+  | 'document_access'
+
+  // ── appointments_booked (TRACK B) ──
+
+  | 'appointment_count'
+
+  | 'verbal_price'
+
+  | 'budget_expectation'
+
+  | 'pre_meeting_kit'
+
+  // ── already_bought (TRACK D) ──
+
+  | 'purchase_stage'
+
+  | 'rescission_window'
+
+  | 'permit_status'
+
+  | 'deposit_size'
+
+  | 'post_purchase_concern'
+
+  | 'contract_access'
+
+  // ── terminal / degraded ──
+
+  | 'soft_exit'
+
+  | 'salvaged'
+
+  | 'degraded_email_only'
+
+  | 'error_retry';
+
+/**
+
+ * Lifecycle states. `banked` is the load-bearing one: once reached, a lead row
+
+ * exists server-side and every subsequent failure degrades to a
+
+ * worse-but-valid outcome instead of losing the person.
+
+ */
+
+export type FormStatus =
+
+  | 'idle'
+
+  | 'answering'
+
+  | 'banked'
+
+  | 'deepening'
+
+  | 'previewing'
+
+  | 'verifying'
+
+  | 'submitting'
+
+  | 'errored'
+
+  | 'degraded'
+
+  | 'succeeded'
+
+  | 'salvaged'
+
+  | 'abandoned';
+
+export type LeadGrade = 'A' | 'B' | 'C' | 'D';
+
+// ── Answer shape ────────────────────────────────────────────────────────────
+
+export interface IntakeAnswers {
+
+  // universal ingress
+
+  /**
+
+   * The zip micro-commitment. Stored in answers because it is a form field the
+
+   * predicates read; the reducer mirrors it into `contact.zip` on validation.
+
+   */
+
+  zip_code: string;
+
+  // shared
+
+  trigger:
+
+    | 'hurricane_season'
+
+    | 'insurance_letter'
+
+    | 'energy_bills'
+
+    | 'failing_windows'
+
+    | 'noise_security'
+
+    | 'new_home_remodel';
+
+  depth_probe:
+
+    | 'storm_exposure'
+
+    | 'insurance_rate_or_dropped'
+
+    | 'monthly_cost'
+
+    | 'nothing_just_curious';
+
+  scope: '1_5' | '6_10' | '11_plus' | 'whole_house' | 'unsure';
+
+  qualify_property: 'single_family' | 'condo_townhome' | 'rent' | 'commercial_multi';
+
+  /**
+
+   * The soft-reclassification question:
+
+   * "Has anyone already visited, mentioned a price, or given you paperwork?"
+
+   * Each non-default answer silently promotes the session onto another track.
+
+   */
+
+  reality_check:
+
+    | 'nobody_yet'                 // stay TRACK C
+
+    | 'visited_no_numbers'         // stay TRACK C, ghost flag
+
+    | 'appointments_booked'        // → TRACK B
+
+    | 'verbal_number'              // → TRACK A (soft quote)
+
+    | 'have_paperwork'             // → TRACK A (document)
+
+    | 'already_signed_or_installed'; // → TRACK D
+
+  objection_harvest: ReadonlyArray
+
+    | 'no_idea_fair_price'
+
+    | 'no_salesperson_in_house'
+
+    | 'trust'
+
+    | 'money_financing'
+
+    | 'dont_know_what_i_need'
+
+  >;
+
+  insurance: 'storm_claim' | 'premium_pressure' | 'wind_mitigation' | 'not_related';
+
+  timeline: 'within_month' | '1_3_months' | 'before_storm_season' | 'this_year' | 'no_timeline';
+
+  authority: 'just_me' | 'me_and_partner' | 'proxy_for_family';
+
+  commitment: 'yes' | 'probably' | 'depends_on_baseline';
+
+  // quote_review
+
+  estimate_freshness: 'within_72h' | '4_14_days' | '15_30_days' | '31_plus_days';
+
+  estimate_count: '1' | '2_3' | '4_plus';
+
+  blocked_reason: ReadonlyArray
+
+    'price_high' | 'details_missing' | 'distrusted_rep' | 'confusing_contract' | 'still_comparing'
+
+  >;
+
+  measurements_check: 'yes' | 'no' | 'not_sure';
+
+  hidden_costs_check: 'all_listed' | 'partial_or_none' | 'not_sure';
+
+  warranty_check: 'written' | 'verbal_or_unclear';
+
+  quoted_total_cents: number;
+
+  document_access: 'have_it_now' | 'later' | 'never_received';
+
+  // appointments_booked
+
+  appointment_count: '1' | '2_3' | '4_plus';
+
+  verbal_price_cents: number;
+
+  budget_expectation: 'under_10k' | '10_25k' | '25_50k' | 'over_50k' | 'no_idea';
+
+  // already_bought
+
+  purchase_stage: 'signed_not_installed' | 'installed_and_paid';
+
+  signed_within_3_business_days: boolean;
+
+  permit_status: 'pulled' | 'not_pulled' | 'unknown';
+
+  deposit_band: 'under_10' | '10_33' | 'over_third' | 'paid_in_full';
+
+  post_purchase_concern: ReadonlyArray
+
+    'overpaid' | 'no_permit_inspection' | 'warranty_unclear' | 'install_quality' | 'scope_omitted'
+
+  >;
+
+  contract_access: 'have_it' | 'no_copy';
+
+}
+
+// ── Contact / identity ──────────────────────────────────────────────────────
+
+export interface LeadContact {
+
+  readonly firstName: string | null;
+
+  readonly zip: string | null;
+
+  readonly email: string | null;
+
+  readonly phoneE164: string | null;
+
+  readonly phoneVerifiedAt: string | null;
+
+  readonly smsConsentAt: string | null;
+
+  readonly smsConsentSource: string | null;
+
+}
+
+/** Canonical identifiers. `visitorId` is NOT a `leadId` — never conflate. */
+
+export interface IntakeIdentity {
+
+  readonly visitorId: string;
+
+  readonly sessionId: string;
+
+  /** Minted once per intake OPEN (not per submit). Reopening mints a new one. */
+
+  readonly captureAttemptId: string;
+
+  readonly landingVisitId: string | null;
+
+  /** Server-assigned. Null until the email gate banks the row. */
+
+  readonly leadId: string | null;
+
+}
+
+export interface FailureCounters {
+
+  readonly otpAttempts: number;
+
+  readonly submitAttempts: number;
+
+  readonly lastErrorCode: string | null;
+
+}
+
+export interface RuntimeFlags {
+
+  /** True once a `public.leads` row exists. Gates every degradation path. */
+
+  readonly leadBanked: boolean;
+
+  readonly consentGranted: boolean;
+
+  readonly hoaBranchInserted: boolean;
+
+  /** True after any soft reclassification. Prevents double promotion. */
+
+  readonly reclassified: boolean;
+
+  readonly previewComputed: boolean;
+
+  /** Ghost-quote marker: someone visited but never sent numbers. */
+
+  readonly ghostQuoteFlag: boolean;
+
+}
+
+/** The complete readonly snapshot every predicate receives. */
+
+export interface IntakeState {
+
+  readonly version: 'progressive_intake_v2';
+
+  readonly intent: IntakeIntent;
+
+  /**
+
+   * Always `no_quote` under the soft-reclassification model — preserved so
+
+   * attribution can distinguish "arrived on Track A" (impossible now) from
+
+   * "promoted to Track A".
+
+   */
+
+  readonly originIntent: IntakeIntent;
+
+  readonly currentStepId: IntakeStepId;
+
+  readonly status: FormStatus;
+
+  readonly answers: Readonly<Partial<IntakeAnswers>>;
+
+  readonly contact: LeadContact;
+
+  readonly identity: IntakeIdentity;
+
+  readonly failures: FailureCounters;
+
+  readonly flags: RuntimeFlags;
+
+}
+
+// ── Tier C telemetry / Tier B persistence metadata ──────────────────────────
+
+export type DataLayerEvent =
+
+  | 'lead_capture_opened'
+
+  | 'form_fields_completed'
+
+  | 'lead_capture_started'
+
+  | 'lead_capture_completed'
+
+  | 'lead_magnet_captured';
+
+/** Tier C. Never carries raw PII — hash or redact at emit time. */
+
+export interface TelemetryMeta {
+
+  readonly tier: 'C';
+
+  readonly event: DataLayerEvent | null;
+
+  readonly fieldKey: string | null;
+
+  /** 0 = surface question, 1 = +1 depth follow-up, 2 = drill. */
+
+  readonly depthLevel: 0 | 1 | 2;
+
+  readonly redactValue: boolean;
+
+}
+
+export type LeadCaptureMetadataKey =
+
+  | 'capture_attempt_id'
+
+  | 'landing_visit_id'
+
+  | 'primary_fear'
+
+  | 'quote_count'
+
+  | 'quote_age_days'
+
+  | 'willing_to_wait_for_audit'
+
+  | 'audit_preview_findings'
+
+  | 'whisper_key'
+
+  | 'commitment_given'
+
+  | 'reclassified_from'
+
+  | 'ghost_quote_flag';
+
+export type PersistenceWriteMode =
+
+  | 'none'
+
+  | 'partial_on_blur' // ◆ the abandonment insurance policy
+
+  | 'upsert'
+
+  | 'consent_event';
+
+/**
+
+ * Which server-side domain a write belongs to. `lead_intake` targets
+
+ * `public.leads` (+ `lead_capture_metadata`). `verified_purchase_audit`
+
+ * targets the SEPARATE verified-purchases lane — completed, signed
+
+ * transactions must never be co-mingled with unverified contractor quotes,
+
+ * because the verified table is the benchmark corpus the audit engine
+
+ * compares quotes AGAINST.
+
+ */
+
+export type PersistenceDomain = 'lead_intake' | 'verified_purchase_audit';
+
+/** Tier B. Any node with `tier: 'B'` implies a schema-backed write. */
+
+export interface PersistenceMeta {
+
+  readonly tier: 'B' | null;
+
+  readonly writeMode: PersistenceWriteMode;
+
+  readonly domain: PersistenceDomain;
+
+  readonly metadataKeys: readonly LeadCaptureMetadataKey[];
+
+  readonly requiresConsent: boolean;
+
+}
+
+export type RouteNodeKind = 'question' | 'gate' | 'system' | 'terminal';
+
+export interface RouteNode {
+
+  readonly id: IntakeStepId;
+
+  readonly kind: RouteNodeKind;
+
+  readonly optional: boolean;
+
+  /** Terminal nodes end the run; the resolver never advances past them. */
+
+  readonly terminal: boolean;
+
+  /**
+
+   * The answers key this node fills, when it is a question. Drives the
+
+   * unknown-step recovery scan ("first unanswered question wins").
+
+   */
+
+  readonly answerKey: keyof IntakeAnswers | null;
+
+  readonly telemetry: TelemetryMeta;
+
+  readonly persistence: PersistenceMeta;
+
+}
+
+// ── Flow + conditional routing contracts ────────────────────────────────────
+
+export interface IntentFlow {
+
+  readonly intent: IntakeIntent;
+
+  readonly label: string;
+
+  readonly sequence: readonly IntakeStepId[];
+
+  /** The email gate. Everything before it is at risk; everything after is banked. */
+
+  readonly pivotStepId: Extract<IntakeStepId, 'email_gate'>;
+
+  readonly terminalStepId: Extract<IntakeStepId, 'success'>;
+
+  /**
+
+   * Server persistence domain for track-specific facts gathered on this flow.
+
+   * TRACK D is the only flow whose diagnostic facts belong to the
+
+   * verified-purchase lane.
+
+   */
+
+  readonly persistenceDomain: PersistenceDomain;
+
+}
+
+/** Pure. Must not read clocks, storage, or network. */
+
+export type RoutePredicate = (state: Readonly<IntakeState>) => boolean;
+
+export type RouteResolution =
+
+  | { readonly kind: 'continue' }
+
+  | { readonly kind: 'goto'; readonly stepId: IntakeStepId }
+
+  | { readonly kind: 'skip'; readonly stepIds: readonly IntakeStepId[] }
+
+  | { readonly kind: 'insert'; readonly after: IntakeStepId; readonly stepIds: readonly IntakeStepId[] }
+
+  | {
+
+      readonly kind: 'reclassify';
+
+      readonly intent: IntakeIntent;
+
+      readonly resumeAtStepId: IntakeStepId;
+
+      /**
+
+       * Structurally locked to `true`: reclassification is a lens change, not
+
+       * a restart. The reducer MUST carry `answers`, `contact`, `identity`,
+
+       * and `flags` forward verbatim — zip, trigger, and every banked field
+
+       * survive the track switch.
+
+       */
+
+      readonly preserveAnswers: true;
+
+    }
+
+  | { readonly kind: 'terminate'; readonly stepId: IntakeStepId; readonly grade: LeadGrade };
+
+/** Pure. Same signature family as the predicate — no side effects. */
+
+export type RouteResolver = (state: Readonly<IntakeState>) => RouteResolution;
+
+export interface RouteCondition {
+
+  readonly id: string;
+
+  readonly description: string;
+
+  /** Lower runs first. First match wins; evaluation short-circuits. */
+
+  readonly priority: number;
+
+  readonly appliesTo: readonly IntakeIntent[] | 'all';
+
+  readonly appliesAtStep: readonly IntakeStepId[] | 'any';
+
+  readonly when: RoutePredicate;
+
+  readonly then: RouteResolver;
+
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+// src/features/intake/nodes.ts
+
+// Node registry. Carries Tier C telemetry + Tier B persistence metadata so the
+
+// reducer never has to hardcode which steps write to the server, and answerKey
+
+// bindings so recovery can find the first unanswered question.
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+import type {
+
+  IntakeAnswers,
+
+  IntakeStepId,
+
+  PersistenceMeta,
+
+  RouteNode,
+
+  RouteNodeKind,
+
+  TelemetryMeta,
+
+} from './types';
+
+const NO_PERSIST: PersistenceMeta = {
+
+  tier: null,
+
+  writeMode: 'none',
+
+  domain: 'lead_intake',
+
+  metadataKeys: [],
+
+  requiresConsent: false,
+
+};
+
+function tc(
+
+  fieldKey: string | null,
+
+  depthLevel: 0 | 1 | 2 = 0,
+
+  event: TelemetryMeta['event'] = 'form_fields_completed',
+
+  redactValue = false,
+
+): TelemetryMeta {
+
+  return { tier: 'C', event, fieldKey, depthLevel, redactValue };
+
+}
+
+function node(
+
+  id: IntakeStepId,
+
+  kind: RouteNodeKind,
+
+  answerKey: keyof IntakeAnswers | null,
+
+  telemetry: TelemetryMeta,
+
+  persistence: PersistenceMeta = NO_PERSIST,
+
+  opts: { optional?: boolean; terminal?: boolean } = {},
+
+): RouteNode {
+
+  return {
+
+    id,
+
+    kind,
+
+    answerKey,
+
+    telemetry,
+
+    persistence,
+
+    optional: opts.optional ?? false,
+
+    terminal: opts.terminal ?? false,
+
+  };
+
+}
+
+/**
+
+ * The email gate is the only node in the graph that writes a lead row *before*
+
+ * the user submits anything. `partial_on_blur` is what converts abandonment
+
+ * from data loss into a gradeable outcome.
+
+ */
+
+const EMAIL_GATE_PERSISTENCE: PersistenceMeta = {
+
+  tier: 'B',
+
+  writeMode: 'partial_on_blur',
+
+  domain: 'lead_intake',
+
+  metadataKeys: ['capture_attempt_id', 'landing_visit_id', 'primary_fear', 'whisper_key'],
+
+  requiresConsent: false, // email delivery is the stated purpose; SMS consent is separate
+
+};
+
+/**
+
+ * TRACK D diagnostic facts describe a COMPLETED transaction. They are written
+
+ * to the verified-purchase lane, never to the unverified quote metadata, so
+
+ * the benchmark corpus stays clean. Consent still gates the write.
+
+ */
+
+const VERIFIED_PURCHASE_PERSISTENCE: PersistenceMeta = {
+
+  tier: 'B',
+
+  writeMode: 'upsert',
+
+  domain: 'verified_purchase_audit',
+
+  metadataKeys: ['capture_attempt_id'],
+
+  requiresConsent: true,
+
+};
+
+export const ROUTE_NODES: Readonly<Record<IntakeStepId, RouteNode>> = {
+
+  /**
+
+   * Universal ingress. A five-digit zip is the cheapest possible micro-yes:
+
+   * no PII anxiety, instant local relevance ("pulling comparables for 33071"),
+
+   * and it opens the capture attempt — so it carries `lead_capture_opened`.
+
+   */
+
+  zip_code_entry: node(
+
+    'zip_code_entry',
+
+    'question',
+
+    'zip_code',
+
+    tc('zip_code', 0, 'lead_capture_opened'),
+
+  ),
+
+  trigger: node('trigger', 'question', 'trigger', tc('trigger', 0)),
+
+  depth_probe: node('depth_probe', 'question', 'depth_probe', tc('depth_probe', 1)),
+
+  scope: node('scope', 'question', 'scope', tc('scope', 0)),
+
+  email_gate: node(
+
+    'email_gate',
+
+    'gate',
+
+    null,
+
+    tc('email', 0, 'form_fields_completed', true),
+
+    EMAIL_GATE_PERSISTENCE,
+
+  ),
+
+  qualify_property: node(
+
+    'qualify_property',
+
+    'question',
+
+    'qualify_property',
+
+    tc('qualify_property', 0),
+
+  ),
+
+  hoa_notice: node('hoa_notice', 'system', null, tc('hoa_flag', 0, null)),
+
+  reality_check: node('reality_check', 'question', 'reality_check', tc('reality_check', 1)),
+
+  objection_harvest: node(
+
+    'objection_harvest',
+
+    'question',
+
+    'objection_harvest',
+
+    tc('objection_harvest', 1),
+
+  ),
+
+  insurance: node('insurance', 'question', 'insurance', tc('insurance', 0), NO_PERSIST, {
+
+    optional: true,
+
+  }),
+
+  timeline_authority: node(
+
+    'timeline_authority',
+
+    'question',
+
+    'timeline',
+
+    tc('timeline', 0),
+
+  ),
+
+  commitment: node('commitment', 'question', 'commitment', tc('commitment', 2)),
+
+  preview: node('preview', 'system', null, tc('preview_findings', 0, 'lead_capture_started')),
+
+  phone_optional: node(
+
+    'phone_optional',
+
+    'question',
+
+    null,
+
+    tc('phone', 0, 'form_fields_completed', true),
+
+    {
+
+      tier: 'B',
+
+      writeMode: 'consent_event',
+
+      domain: 'lead_intake',
+
+      metadataKeys: ['capture_attempt_id'],
+
+      requiresConsent: true,
+
+    },
+
+    { optional: true },
+
+  ),
+
+  otp_verify: node('otp_verify', 'system', null, tc(null, 0, null), NO_PERSIST, {
+
+    optional: true,
+
+  }),
+
+  submitting: node(
+
+    'submitting',
+
+    'system',
+
+    null,
+
+    tc(null, 0, 'lead_capture_completed'),
+
+    {
+
+      tier: 'B',
+
+      writeMode: 'upsert',
+
+      domain: 'lead_intake',
+
+      metadataKeys: [
+
+        'capture_attempt_id',
+
+        'landing_visit_id',
+
+        'primary_fear',
+
+        'quote_count',
+
+        'quote_age_days',
+
+        'willing_to_wait_for_audit',
+
+        'audit_preview_findings',
+
+        'whisper_key',
+
+        'commitment_given',
+
+        'reclassified_from',
+
+        'ghost_quote_flag',
+
+      ],
+
+      requiresConsent: true,
+
+    },
+
+  ),
+
+  mirror: node('mirror', 'system', null, tc(null, 0, 'lead_magnet_captured')),
+
+  success: node('success', 'terminal', null, tc(null, 0, null), NO_PERSIST, { terminal: true }),
+
+  // ── quote_review ──
+
+  estimate_freshness: node(
+
+    'estimate_freshness',
+
+    'question',
+
+    'estimate_freshness',
+
+    tc('estimate_freshness', 0),
+
+  ),
+
+  estimate_count: node('estimate_count', 'question', 'estimate_count', tc('estimate_count', 0)),
+
+  blocked_reason: node('blocked_reason', 'question', 'blocked_reason', tc('blocked_reason', 1)),
+
+  measurements_check: node(
+
+    'measurements_check',
+
+    'question',
+
+    'measurements_check',
+
+    tc('measurements_check', 1),
+
+  ),
+
+  hidden_costs_check: node(
+
+    'hidden_costs_check',
+
+    'question',
+
+    'hidden_costs_check',
+
+    tc('hidden_costs_check', 1),
+
+  ),
+
+  warranty_check: node('warranty_check', 'question', 'warranty_check', tc('warranty_check', 1)),
+
+  quoted_total: node(
+
+    'quoted_total',
+
+    'question',
+
+    'quoted_total_cents',
+
+    tc('quoted_total_cents', 0),
+
+    NO_PERSIST,
+
+    { optional: true },
+
+  ),
+
+  document_access: node(
+
+    'document_access',
+
+    'question',
+
+    'document_access',
+
+    tc('document_access', 0),
+
+  ),
+
+  // ── appointments_booked ──
+
+  appointment_count: node(
+
+    'appointment_count',
+
+    'question',
+
+    'appointment_count',
+
+    tc('appointment_count', 0),
+
+  ),
+
+  verbal_price: node(
+
+    'verbal_price',
+
+    'question',
+
+    'verbal_price_cents',
+
+    tc('verbal_price_cents', 1),
+
+    NO_PERSIST,
+
+    { optional: true },
+
+  ),
+
+  budget_expectation: node(
+
+    'budget_expectation',
+
+    'question',
+
+    'budget_expectation',
+
+    tc('budget_expectation', 0),
+
+  ),
+
+  pre_meeting_kit: node('pre_meeting_kit', 'system', null, tc(null, 0, null)),
+
+  // ── already_bought — verified-purchase persistence lane ──
+
+  purchase_stage: node(
+
+    'purchase_stage',
+
+    'question',
+
+    'purchase_stage',
+
+    tc('purchase_stage', 0),
+
+    VERIFIED_PURCHASE_PERSISTENCE,
+
+  ),
+
+  rescission_window: node(
+
+    'rescission_window',
+
+    'question',
+
+    'signed_within_3_business_days',
+
+    tc('signed_within_3_business_days', 1),
+
+    VERIFIED_PURCHASE_PERSISTENCE,
+
+  ),
+
+  permit_status: node(
+
+    'permit_status',
+
+    'question',
+
+    'permit_status',
+
+    tc('permit_status', 1),
+
+    VERIFIED_PURCHASE_PERSISTENCE,
+
+  ),
+
+  deposit_size: node(
+
+    'deposit_size',
+
+    'question',
+
+    'deposit_band',
+
+    tc('deposit_band', 1),
+
+    VERIFIED_PURCHASE_PERSISTENCE,
+
+    { optional: true },
+
+  ),
+
+  post_purchase_concern: node(
+
+    'post_purchase_concern',
+
+    'question',
+
+    'post_purchase_concern',
+
+    tc('post_purchase_concern', 1),
+
+    VERIFIED_PURCHASE_PERSISTENCE,
+
+  ),
+
+  contract_access: node(
+
+    'contract_access',
+
+    'question',
+
+    'contract_access',
+
+    tc('contract_access', 0),
+
+    VERIFIED_PURCHASE_PERSISTENCE,
+
+  ),
+
+  // ── terminal / degraded ──
+
+  soft_exit: node(
+
+    'soft_exit',
+
+    'terminal',
+
+    null,
+
+    tc(null, 0, 'lead_capture_completed'),
+
+    NO_PERSIST,
+
+    { terminal: true },
+
+  ),
+
+  salvaged: node('salvaged', 'terminal', null, tc(null, 0, null), NO_PERSIST, { terminal: true }),
+
+  degraded_email_only: node('degraded_email_only', 'system', null, tc(null, 0, null)),
+
+  error_retry: node('error_retry', 'system', null, tc(null, 0, null)),
+
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+// src/features/intake/flow.ts
+
+// Ordered step sequences per intent. Sequence configuration lives outside React
+
+// so UI variants never require a second state machine.
+
+//
+
+// SOFT-RECLASSIFICATION MODEL: there is no upfront track choice. Every session
+
+// begins on `no_quote` (DEFAULT_INTENT). Tracks A, B, and D are reachable ONLY
+
+// through the reclassification rules at `reality_check` — their sequences exist
+
+// to define the resume path forward, not a from-the-top journey.
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+import type { IntakeIntent, IntakeStepId, IntentFlow } from './types';
+
+/** The one and only entry track. The reducer must initialize with this. */
+
+export const DEFAULT_INTENT: IntakeIntent = 'no_quote';
+
+/**
+
+ * Tail shared by every track after the pivot. Kept as one const so a change to
+
+ * the post-capture spine can't silently drift between tracks. The tail ends at
+
+ * `success` — an explicit terminal — so no sequence can run off the end.
+
+ */
+
+const CONVERGENCE_TAIL = [
+
+  'preview',
+
+  'phone_optional',
+
+  'otp_verify',
+
+  'submitting',
+
+  'mirror',
+
+  'success',
+
+] as const satisfies readonly IntakeStepId[];
+
+export const FLOW_BY_INTENT: Readonly<Record<IntakeIntent, IntentFlow>> = {
+
+  /**
+
+   * TRACK C — the universal ingress track. Zip first (cheapest micro-yes),
+
+   * three affect questions, bank the email, THEN qualify. Qualification runs
+
+   * after capture on purpose: a renter who disqualifies at `qualify_property`
+
+   * is already on the list. `reality_check` sits mid-diagnostic and is the
+
+   * sole point where the other three tracks become reachable.
+
+   */
+
+  no_quote: {
+
+    intent: 'no_quote',
+
+    label: 'Default ingress — no estimate assumed',
+
+    sequence: [
+
+      'zip_code_entry',
+
+      'trigger',
+
+      'depth_probe',
+
+      'scope',
+
+      'email_gate', // ◆ PIVOT
+
+      'qualify_property',
+
+      'reality_check', // ◆ RECLASSIFIER
+
+      'objection_harvest',
+
+      'insurance',
+
+      'timeline_authority',
+
+      'commitment',
+
+      ...CONVERGENCE_TAIL,
+
+    ],
+
+    pivotStepId: 'email_gate',
+
+    terminalStepId: 'success',
+
+    persistenceDomain: 'lead_intake',
+
+  },
+
+  /**
+
+   * TRACK A — reached only via reclassification (`have_paperwork` or
+
+   * `verbal_number`). The head segment (zip → reality_check) mirrors TRACK C
+
+   * so already-banked answers map onto identical positions; resume lands at
+
+   * `estimate_freshness` (paperwork) or `blocked_reason` (verbal).
+
+   */
+
+  quote_review: {
+
+    intent: 'quote_review',
+
+    label: 'Estimate surfaced mid-diagnostic',
+
+    sequence: [
+
+      'zip_code_entry',
+
+      'trigger',
+
+      'depth_probe',
+
+      'scope',
+
+      'email_gate', // ◆ PIVOT (already crossed pre-reclassification)
+
+      'qualify_property',
+
+      'reality_check',
+
+      'estimate_freshness',
+
+      'estimate_count',
+
+      'blocked_reason',
+
+      'measurements_check',
+
+      'hidden_costs_check',
+
+      'warranty_check',
+
+      'quoted_total',
+
+      'timeline_authority',
+
+      'commitment',
+
+      'document_access',
+
+      ...CONVERGENCE_TAIL,
+
+    ],
+
+    pivotStepId: 'email_gate',
+
+    terminalStepId: 'success',
+
+    persistenceDomain: 'lead_intake',
+
+  },
+
+  /**
+
+   * TRACK B — reached only via reclassification (`appointments_booked`).
+
+   * Time-boxed: the pre-meeting kit is worthless after the appointment, so
+
+   * this is the shortest post-reclassification path to `submitting`.
+
+   */
+
+  appointments_booked: {
+
+    intent: 'appointments_booked',
+
+    label: 'Reps scheduled, surfaced mid-diagnostic',
+
+    sequence: [
+
+      'zip_code_entry',
+
+      'trigger',
+
+      'depth_probe',
+
+      'scope',
+
+      'email_gate', // ◆ PIVOT (already crossed pre-reclassification)
+
+      'qualify_property',
+
+      'reality_check',
+
+      'appointment_count',
+
+      'verbal_price',
+
+      'budget_expectation',
+
+      'objection_harvest',
+
+      'timeline_authority',
+
+      'commitment',
+
+      'pre_meeting_kit',
+
+      ...CONVERGENCE_TAIL,
+
+    ],
+
+    pivotStepId: 'email_gate',
+
+    terminalStepId: 'success',
+
+    persistenceDomain: 'lead_intake',
+
+  },
+
+  /**
+
+   * TRACK D — reached only via reclassification (`already_signed_or_installed`).
+
+   * Lands on `purchase_stage`, a question that makes sense for someone who has
+
+   * already signed — never the "what made today the day" trigger. All Track D
+
+   * diagnostic facts persist to the verified-purchase lane: completed
+
+   * transactions are benchmark data, never co-mingled with unverified quotes.
+
+   */
+
+  already_bought: {
+
+    intent: 'already_bought',
+
+    label: 'Signed or installed, surfaced mid-diagnostic',
+
+    sequence: [
+
+      'zip_code_entry',
+
+      'trigger',
+
+      'depth_probe',
+
+      'scope',
+
+      'email_gate', // ◆ PIVOT (already crossed pre-reclassification)
+
+      'qualify_property',
+
+      'reality_check',
+
+      'purchase_stage',
+
+      'post_purchase_concern',
+
+      'permit_status',
+
+      'deposit_size',
+
+      'contract_access',
+
+      'timeline_authority',
+
+      ...CONVERGENCE_TAIL,
+
+    ],
+
+    pivotStepId: 'email_gate',
+
+    terminalStepId: 'success',
+
+    persistenceDomain: 'verified_purchase_audit',
+
+  },
+
+};
+
+/** Steps that exist in the registry but are only reachable via CONDITIONAL_ROUTES. */
+
+export const CONDITIONAL_ONLY_STEPS = [
+
+  'hoa_notice',
+
+  'rescission_window',
+
+  'soft_exit',
+
+  'salvaged',
+
+  'degraded_email_only',
+
+  'error_retry',
+
+] as const satisfies readonly IntakeStepId[];
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+// src/features/intake/conditionalRoutes.ts
+
+// Pure predicate/resolver pairs + the resolver entry point.
+
+// No React, no I/O, no Date.now(). Fully unit-testable in isolation.
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { DEFAULT_INTENT, FLOW_BY_INTENT } from './flow';
+
+import { ROUTE_NODES } from './nodes';
+
+import type {
+
+  IntakeState,
+
+  IntakeStepId,
+
+  RouteCondition,
+
+  RouteResolution,
+
+} from './types';
+
+const MAX_OTP_ATTEMPTS = 3;
+
+const MAX_SUBMIT_ATTEMPTS = 3;
+
+export const CONDITIONAL_ROUTES: readonly RouteCondition[] = [
+
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // PRIORITY 0–9 · FAILURE DEGRADATION.
+
+  // Evaluated first so a broken network can never be out-prioritised by a
+
+  // business rule. Every branch here lands somewhere valid.
+
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  {
+
+    id: 'otp_exhausted_degrade',
+
+    description:
+
+      'OTP failed or expired past the attempt ceiling. Fall back to email-only ' +
+
+      'delivery rather than trapping the user in a verification loop.',
+
+    priority: 0,
+
+    appliesTo: 'all',
+
+    appliesAtStep: ['otp_verify'],
+
+    when: (s) => s.failures.otpAttempts >= MAX_OTP_ATTEMPTS || s.status === 'degraded',
+
+    then: () => ({ kind: 'goto', stepId: 'degraded_email_only' }),
+
+  },
+
+  {
+
+    id: 'degraded_rejoins_submit',
+
+    description: 'Email-only path rejoins the server lane; the lead still submits.',
+
+    priority: 1,
+
+    appliesTo: 'all',
+
+    appliesAtStep: ['degraded_email_only'],
+
+    when: () => true,
+
+    then: () => ({ kind: 'goto', stepId: 'submitting' }),
+
+  },
+
+  {
+
+    id: 'submit_exhausted_salvage',
+
+    description:
+
+      'Submit failed repeatedly but the row was already banked at the pivot. ' +
+
+      'Terminate as a salvaged C-grade lead instead of surfacing a dead end.',
+
+    priority: 2,
+
+    appliesTo: 'all',
+
+    appliesAtStep: ['submitting', 'error_retry'],
+
+    when: (s) => s.failures.submitAttempts >= MAX_SUBMIT_ATTEMPTS && s.flags.leadBanked,
+
+    then: () => ({ kind: 'terminate', stepId: 'salvaged', grade: 'C' }),
+
+  },
+
+  {
+
+    id: 'submit_failed_not_banked',
+
+    description:
+
+      'Submit failed and nothing was ever banked — the only true data-loss case. ' +
+
+      'Route to retry and hold the payload in memory.',
+
+    priority: 3,
+
+    appliesTo: 'all',
+
+    appliesAtStep: ['submitting'],
+
+    when: (s) =>
+
+      s.status === 'errored' &&
+
+      !s.flags.leadBanked &&
+
+      s.failures.submitAttempts < MAX_SUBMIT_ATTEMPTS,
+
+    then: () => ({ kind: 'goto', stepId: 'error_retry' }),
+
+  },
+
+  {
+
+    id: 'retry_returns_to_submit',
+
+    description: 'Retry re-enters the server lane with the retained payload.',
+
+    priority: 4,
+
+    appliesTo: 'all',
+
+    appliesAtStep: ['error_retry'],
+
+    when: (s) => s.failures.submitAttempts < MAX_SUBMIT_ATTEMPTS,
+
+    then: () => ({ kind: 'goto', stepId: 'submitting' }),
+
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // PRIORITY 10–19 · HARD DISQUALIFICATION.
+
+  // Runs post-pivot by design: these users are already on the email list.
+
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  {
+
+    id: 'soft_exit_renter',
+
+    description:
+
+      'Renter cannot authorise the work. Terminate as grade D — still a valid ' +
+
+      'audience member, never a call-spend target.',
+
+    priority: 10,
+
+    appliesTo: 'all',
+
+    appliesAtStep: ['qualify_property'],
+
+    when: (s) => s.answers.qualify_property === 'rent',
+
+    then: () => ({ kind: 'terminate', stepId: 'soft_exit', grade: 'D' }),
+
+  },
+
+  {
+
+    id: 'soft_exit_commercial',
+
+    description: 'Commercial / multi-family is outside the single-family ICP.',
+
+    priority: 11,
+
+    appliesTo: 'all',
+
+    appliesAtStep: ['qualify_property'],
+
+    when: (s) => s.answers.qualify_property === 'commercial_multi',
+
+    then: () => ({ kind: 'terminate', stepId: 'soft_exit', grade: 'D' }),
+
+  },
+
+  {
+
+    id: 'hoa_branch',
+
+    description:
+
+      'Condo/townhome stays in-funnel but needs the association-approval notice ' +
+
+      'injected before the rest of the diagnostic.',
+
+    priority: 12,
+
+    appliesTo: 'all',
+
+    appliesAtStep: ['qualify_property'],
+
+    when: (s) =>
+
+      s.answers.qualify_property === 'condo_townhome' && !s.flags.hoaBranchInserted,
+
+    then: () => ({ kind: 'insert', after: 'qualify_property', stepIds: ['hoa_notice'] }),
+
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // PRIORITY 20–29 · SOFT RECLASSIFICATION.
+
+  // The single track-switch point. Every session arrives here as `no_quote`;
+
+  // the answer to "has anyone already visited, mentioned a price, or given you
+
+  // paperwork?" silently promotes the session onto the correct track. The
+
+  // reducer preserves answers/contact/identity/flags verbatim — the zip, the
+
+  // trigger, and the banked email all survive the switch.
+
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  {
+
+    id: 'reclassify_have_paperwork',
+
+    description:
+
+      'A written estimate exists — the highest-value promotion. Resume at ' +
+
+      'estimate_freshness because recency drives the delta computation.',
+
+    priority: 20,
+
+    appliesTo: ['no_quote'],
+
+    appliesAtStep: ['reality_check'],
+
+    when: (s) => s.answers.reality_check === 'have_paperwork' && !s.flags.reclassified,
+
+    then: () => ({
+
+      kind: 'reclassify',
+
+      intent: 'quote_review',
+
+      resumeAtStepId: 'estimate_freshness',
+
+      preserveAnswers: true,
+
+    }),
+
+  },
+
+  {
+
+    id: 'reclassify_verbal_number',
+
+    description:
+
+      'A verbal number is a negotiating position — and an auditable artifact. ' +
+
+      'Promote to quote_review; skip freshness (no document to date) and resume ' +
+
+      'at blocked_reason to learn why it stalled.',
+
+    priority: 21,
+
+    appliesTo: ['no_quote'],
+
+    appliesAtStep: ['reality_check'],
+
+    when: (s) => s.answers.reality_check === 'verbal_number' && !s.flags.reclassified,
+
+    then: () => ({
+
+      kind: 'reclassify',
+
+      intent: 'quote_review',
+
+      resumeAtStepId: 'blocked_reason',
+
+      preserveAnswers: true,
+
+    }),
+
+  },
+
+  {
+
+    id: 'reclassify_appointments_booked',
+
+    description:
+
+      'Reps are already scheduled — the pre-meeting kit is time-sensitive, so ' +
+
+      'swap tracks and shorten the path to delivery.',
+
+    priority: 22,
+
+    appliesTo: ['no_quote'],
+
+    appliesAtStep: ['reality_check'],
+
+    when: (s) => s.answers.reality_check === 'appointments_booked' && !s.flags.reclassified,
+
+    then: () => ({
+
+      kind: 'reclassify',
+
+      intent: 'appointments_booked',
+
+      resumeAtStepId: 'appointment_count',
+
+      preserveAnswers: true,
+
+    }),
+
+  },
+
+  {
+
+    id: 'reclassify_already_bought',
+
+    description:
+
+      'Signed or installed — promote to the post-purchase audit track. Lands on ' +
+
+      'purchase_stage (a question that makes sense post-signature), never the ' +
+
+      '"what made today the day" trigger. Track D facts persist to the ' +
+
+      'verified-purchase lane, separate from unverified quote metadata.',
+
+    priority: 23,
+
+    appliesTo: ['no_quote'],
+
+    appliesAtStep: ['reality_check'],
+
+    when: (s) =>
+
+      s.answers.reality_check === 'already_signed_or_installed' && !s.flags.reclassified,
+
+    then: () => ({
+
+      kind: 'reclassify',
+
+      intent: 'already_bought',
+
+      resumeAtStepId: 'purchase_stage',
+
+      preserveAnswers: true,
+
+    }),
+
+  },
+
+  {
+
+    id: 'ghost_quote_stays_on_track',
+
+    description:
+
+      'Someone visited but never sent numbers. No track switch — stay on the ' +
+
+      'cold track; the reducer sets ghostQuoteFlag from this answer and the ' +
+
+      'chase script ships with the report.',
+
+    priority: 24,
+
+    appliesTo: ['no_quote'],
+
+    appliesAtStep: ['reality_check'],
+
+    when: (s) => s.answers.reality_check === 'visited_no_numbers',
+
+    then: () => ({ kind: 'continue' }),
+
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // PRIORITY 30–39 · PRIORITY JUMPS.
+
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  {
+
+    id: 'rescission_priority_jump',
+
+    description:
+
+      'Signed but not installed: a short statutory cancellation window may apply ' +
+
+      'to some home-solicitation sales. Ask immediately — this answer is the only ' +
+
+      'one in the graph with a hard expiry.',
+
+    priority: 30,
+
+    appliesTo: ['already_bought'],
+
+    appliesAtStep: ['purchase_stage'],
+
+    when: (s) => s.answers.purchase_stage === 'signed_not_installed',
+
+    then: () => ({ kind: 'insert', after: 'purchase_stage', stepIds: ['rescission_window'] }),
+
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // PRIORITY 40–49 · FRICTION REMOVAL.
+
+  // Never re-ask something already known. Each skip is a measurable completion lift.
+
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  {
+
+    id: 'skip_phone_when_verified',
+
+    description: 'Returning verified visitor — do not re-collect or re-verify the number.',
+
+    priority: 40,
+
+    appliesTo: 'all',
+
+    appliesAtStep: ['phone_optional'],
+
+    when: (s) => s.contact.phoneVerifiedAt !== null,
+
+    then: () => ({ kind: 'skip', stepIds: ['phone_optional', 'otp_verify'] }),
+
+  },
+
+  {
+
+    id: 'skip_otp_when_phone_declined',
+
+    description: 'Phone was skipped. Verification is unreachable; do not stall the flow.',
+
+    priority: 41,
+
+    appliesTo: 'all',
+
+    appliesAtStep: ['phone_optional'],
+
+    when: (s) => s.contact.phoneE164 === null && s.status !== 'answering',
+
+    then: () => ({ kind: 'skip', stepIds: ['otp_verify'] }),
+
+  },
+
+  {
+
+    id: 'skip_prefilled_zip',
+
+    description:
+
+      'Zip arrived via query params from a paid LP variant — the micro-commitment ' +
+
+      'already happened on the ad side. Do not re-ask the first question.',
+
+    priority: 42,
+
+    appliesTo: 'all',
+
+    appliesAtStep: ['zip_code_entry'],
+
+    when: (s) => s.answers.zip_code !== undefined && s.answers.zip_code.length === 5,
+
+    then: () => ({ kind: 'skip', stepIds: ['zip_code_entry'] }),
+
+  },
+
+  {
+
+    id: 'skip_prefilled_scope',
+
+    description: 'Scope arrived via query params from a paid LP variant.',
+
+    priority: 43,
+
+    appliesTo: 'all',
+
+    appliesAtStep: ['scope'],
+
+    when: (s) => s.answers.scope !== undefined,
+
+    then: () => ({ kind: 'skip', stepIds: ['scope'] }),
+
+  },
+
+  {
+
+    id: 'skip_insurance_when_irrelevant',
+
+    description:
+
+      'Trigger and depth probe both point away from insurance — the question ' +
+
+      'would read as a non-sequitur and costs a step of goodwill.',
+
+    priority: 44,
+
+    appliesTo: ['no_quote'],
+
+    appliesAtStep: ['insurance'],
+
+    when: (s) =>
+
+      s.answers.trigger !== 'insurance_letter' &&
+
+      s.answers.trigger !== 'hurricane_season' &&
+
+      s.answers.depth_probe !== 'insurance_rate_or_dropped',
+
+    then: () => ({ kind: 'skip', stepIds: ['insurance'] }),
+
+  },
+
+  {
+
+    id: 'skip_deposit_when_installed',
+
+    description: 'Job is complete and paid; deposit banding has no diagnostic value.',
+
+    priority: 45,
+
+    appliesTo: ['already_bought'],
+
+    appliesAtStep: ['deposit_size'],
+
+    when: (s) => s.answers.purchase_stage === 'installed_and_paid',
+
+    then: () => ({ kind: 'skip', stepIds: ['deposit_size'] }),
+
+  },
+
+];
+
+// ═════════════════════════════════════════════════════════════════════════════
+
+// RESOLVER
+
+// ═════════════════════════════════════════════════════════════════════════════
+
+function conditionApplies(condition: RouteCondition, state: Readonly<IntakeState>): boolean {
+
+  const intentOk =
+
+    condition.appliesTo === 'all' || condition.appliesTo.includes(state.intent);
+
+  if (!intentOk) return false;
+
+  const stepOk =
+
+    condition.appliesAtStep === 'any' ||
+
+    condition.appliesAtStep.includes(state.currentStepId);
+
+  if (!stepOk) return false;
+
+  return condition.when(state);
+
+}
+
+/** Deterministic priority ordering; ties break on declaration order. */
+
+const ORDERED_ROUTES: readonly RouteCondition[] = [...CONDITIONAL_ROUTES].sort(
+
+  (a, b) => a.priority - b.priority,
+
+);
+
+/**
+
+ * A step is "answered" when its node binds an answerKey and that key is
+
+ * populated. System/gate nodes with no answerKey are never considered
+
+ * unanswered — recovery skips over them rather than stalling on them.
+
+ */
+
+function isAnswered(state: Readonly<IntakeState>, stepId: IntakeStepId): boolean {
+
+  const key = ROUTE_NODES[stepId].answerKey;
+
+  if (key === null) return true;
+
+  return state.answers[key] !== undefined;
+
+}
+
+/**
+
+ * Graceful unknown-step recovery. Instead of jumping blindly to a track head
+
+ * (which wipes psychological context and re-asks answered questions), scan the
+
+ * current intent's sequence for the first unanswered QUESTION and resume there.
+
+ *
+
+ * Runtime flags shape the scan:
+
+ * - leadBanked   → never resume before the pivot; the pre-capture arc is done.
+
+ * - reclassified → the current intent's sequence is already the promoted one;
+
+ *                  preserved answers make the shared head scan as answered, so
+
+ *                  the resume lands naturally on the first track-specific gap.
+
+ *
+
+ * If every question is answered (e.g. a stale resume of a completed run),
+
+ * degrade to the same banked/unbanked terminal pair as sequence exhaustion.
+
+ */
+
+function recoverUnknownStep(state: Readonly<IntakeState>): RouteResolution {
+
+  const flow = FLOW_BY_INTENT[state.intent] ?? FLOW_BY_INTENT[DEFAULT_INTENT];
+
+  const pivotIndex = flow.sequence.indexOf(flow.pivotStepId);
+
+  const scanStart = state.flags.leadBanked ? Math.max(pivotIndex + 1, 0) : 0;
+
+  for (let i = scanStart; i < flow.sequence.length; i += 1) {
+
+    const candidate = flow.sequence[i];
+
+    if (candidate === undefined) continue;
+
+    const nodeDef = ROUTE_NODES[candidate];
+
+    if (nodeDef.terminal) break;
+
+    if (nodeDef.kind === 'question' && !isAnswered(state, candidate)) {
+
+      return { kind: 'goto', stepId: candidate };
+
+    }
+
+  }
+
+  // Nothing left to ask. If unbanked, the email gate itself is the gap.
+
+  if (!state.flags.leadBanked) {
+
+    return { kind: 'goto', stepId: flow.pivotStepId };
+
+  }
+
+  return { kind: 'terminate', stepId: 'salvaged', grade: 'C' };
+
+}
+
+/**
+
+ * Advance along the intent's declared sequence, honouring any `skip` set.
+
+ * Sequence exhaustion is structurally unreachable (every tail ends at
+
+ * `success`), but the guard remains so a future edit cannot reintroduce an
+
+ * undefined-next-step bug: banked runs salvage, unbanked runs soft-exit.
+
+ */
+
+function advanceSequence(
+
+  state: Readonly<IntakeState>,
+
+  skipped: ReadonlySet<IntakeStepId>,
+
+): RouteResolution {
+
+  const flow = FLOW_BY_INTENT[state.intent];
+
+  const index = flow.sequence.indexOf(state.currentStepId);
+
+  if (index === -1) {
+
+    return recoverUnknownStep(state);
+
+  }
+
+  for (let i = index + 1; i < flow.sequence.length; i += 1) {
+
+    const candidate = flow.sequence[i];
+
+    if (candidate === undefined || skipped.has(candidate)) continue;
+
+    return { kind: 'goto', stepId: candidate };
+
+  }
+
+  return state.flags.leadBanked
+
+    ? { kind: 'terminate', stepId: 'salvaged', grade: 'C' }
+
+    : { kind: 'terminate', stepId: 'soft_exit', grade: 'D' };
+
+}
+
+/**
+
+ * Single pure entry point. Given a state snapshot, return the next routing
+
+ * instruction. The reducer owns all mutation; this function owns all decisions.
+
+ */
+
+export function resolveNextStep(
+
+  state: Readonly<IntakeState>,
+
+  skipped: ReadonlySet<IntakeStepId> = new Set<IntakeStepId>(),
+
+): RouteResolution {
+
+  // Terminal nodes are absorbing — never advance past them.
+
+  if (ROUTE_NODES[state.currentStepId].terminal) {
+
+    return { kind: 'continue' };
+
+  }
+
+  for (const condition of ORDERED_ROUTES) {
+
+    if (!conditionApplies(condition, state)) continue;
+
+    const resolution = condition.then(state);
+
+    // `continue` from a matched rule means "no special routing" — fall through
+
+    // to normal sequence advancement rather than short-circuiting.
+
+    if (resolution.kind === 'continue') break;
+
+    // A `skip` resolves immediately into the next non-skipped sequence step so
+
+    // callers never have to run the resolver twice.
+
+    if (resolution.kind === 'skip') {
+
+      const merged = new Set<IntakeStepId>(skipped);
+
+      for (const id of resolution.stepIds) merged.add(id);
+
+      return advanceSequence(state, merged);
+
+    }
+
+    return resolution;
+
+  }
+
+  return advanceSequence(state, skipped);
+
+}
+
+/**
+
+ * Derived guard for the reducer: anything at or past the pivot has a
+
+ * server-side row, so failures degrade instead of losing the person.
+
+ */
+
+export function isPastPivot(state: Readonly<IntakeState>): boolean {
+
+  const flow = FLOW_BY_INTENT[state.intent];
+
+  const pivotIndex = flow.sequence.indexOf(flow.pivotStepId);
+
+  const currentIndex = flow.sequence.indexOf(state.currentStepId);
+
+  return currentIndex >= 0 && pivotIndex >= 0 && currentIndex >= pivotIndex;
+
+}
+
+Notes on the judgment calls:
+
+Reclassified tracks share the C-track head verbatim. Tracks A/B/D open with the identical zip → trigger → depth_probe → scope → email_gate → qualify → reality_check segment. That's not decoration — it's what makes both reclassification and recovery safe: preserved answers occupy identical sequence positions, so recoverUnknownStep scans past them naturally and lands on the first track-specific gap. If you ever diverge the heads, recovery breaks silently.
+
+ghost_quote_stays_on_track uses continue semantics. That required a resolver tweak: a matched rule returning continue now breaks out of rule evaluation and falls through to normal advancement, instead of being swallowed. Version bumped to progressive_intake_v2 since IntakeState shape changed (ghostQuoteFlag, zip_code).
+
+One thing the types can't enforce: reality_check fires after the pivot, so a Track D reclassification means the lead row was already written to lead_intake before you learned they belong in the verified-purchase lane. The reducer must treat Track D as both — the lead row stays (they're still a person to call), and the purchase facts write to the separate domain. Don't let anyone "fix" this by moving the row.
+
+Verification: npx tsc --noEmit clean; test that reclassify from reality_check with a frozen state preserves all seven prior answer keys; test recoverUnknownStep with leadBanked: true never returns a pre-pivot step; test a completed-run resume terminates salvaged not a re-ask.
+
