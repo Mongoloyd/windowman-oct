@@ -266,6 +266,7 @@ export type WmChatState = Omit<WmChatRuntimeSnapshot, "status"> & {
     | "error"
     | "not_ready";
   readonly submitError: string | null;
+  readonly submitErrorCode: WmChatSubmitErrorCode | null;
   readonly leadId: string | null;
   readonly sessionId: string | null;
 };
@@ -296,7 +297,11 @@ export type WmChatAction =
       leadId: string;
       sessionId: string;
     }
-  | { type: "capture_failed"; message: string };
+  | {
+      type: "capture_failed";
+      message: string;
+      code?: WmChatSubmitErrorCode;
+    };
 
 export interface WmChatOption {
   readonly id: WmChatOptionId;
@@ -347,6 +352,11 @@ export interface WmChatSubmitInput {
   readonly wmchatIntake: WmChatIntakeV1;
 }
 
+export type WmChatSubmitErrorCode =
+  | "invalid_phone"
+  | "lookup_unavailable"
+  | "capture_failed";
+
 export type WmChatSubmitResult =
   | {
       readonly ok: true;
@@ -354,7 +364,12 @@ export type WmChatSubmitResult =
       readonly sessionId: string;
       readonly reused: boolean;
     }
-  | { readonly ok: false; readonly message: string };
+  | {
+      readonly ok: false;
+      readonly message: string;
+      /** Optional so the existing email-only submitter remains compatible. */
+      readonly code?: WmChatSubmitErrorCode;
+    };
 
 export type WmChatSubmitter = (
   input: WmChatSubmitInput,

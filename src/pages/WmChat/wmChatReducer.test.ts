@@ -865,4 +865,48 @@ describe("wmChatReducer correction and completion safety", () => {
     expect(intake?.answers.phone).toBeUndefined();
     expect(intake?.answers.firstName).toBeUndefined();
   });
+
+  it("keeps typed phone failures transient and clears them when the number changes", () => {
+    let state = reachPhone();
+    state = wmChatReducer(state, {
+      type: "update_phone",
+      value: "(561) 555-0123",
+    });
+    state = wmChatReducer(state, { type: "capture_started" });
+    state = wmChatReducer(state, {
+      type: "capture_failed",
+      code: "invalid_phone",
+      message: "Check that number.",
+    });
+
+    expect(state.status).toBe("error");
+    expect(state.submitError).toBe("Check that number.");
+    expect(state.submitErrorCode).toBe("invalid_phone");
+
+    state = wmChatReducer(state, {
+      type: "update_phone",
+      value: "(561) 555-0199",
+    });
+    expect(state.status).toBe("active");
+    expect(state.submitError).toBeNull();
+    expect(state.submitErrorCode).toBeNull();
+    expect(state.contact.phone).toBe("(561) 555-0199");
+  });
+
+  it("distinguishes a temporary Lookup outage from an invalid number", () => {
+    let state = reachPhone();
+    state = wmChatReducer(state, {
+      type: "update_phone",
+      value: "(561) 555-0123",
+    });
+    state = wmChatReducer(state, { type: "capture_started" });
+    state = wmChatReducer(state, {
+      type: "capture_failed",
+      code: "lookup_unavailable",
+      message: "Try again shortly.",
+    });
+
+    expect(state.status).toBe("error");
+    expect(state.submitErrorCode).toBe("lookup_unavailable");
+  });
 });

@@ -484,6 +484,53 @@ describe("WmChatPage", () => {
     expect(seen[1].submissionId).toBe(seen[0].submissionId);
   });
 
+  it("marks a Twilio-invalid number inline and clears the failure on edit", async () => {
+    const submitter = vi.fn(async () => ({
+      ok: false as const,
+      code: "invalid_phone" as const,
+      message:
+        "That number could not be validated. Check it and enter a valid US number.",
+    }));
+    renderPage(submitter);
+    advanceNeedQuoteToPhone();
+
+    const input = screen.getByLabelText("Mobile number");
+    fireEvent.change(input, { target: { value: "5615550123" } });
+    choose("Save my project request");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "That number could not be validated",
+    );
+    expect(input).toHaveAttribute("aria-invalid", "true");
+    expect(input).toHaveValue("(561) 555-0123");
+
+    fireEvent.change(input, { target: { value: "5615550199" } });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(input).not.toHaveAttribute("aria-invalid");
+    expect(input).toHaveValue("(561) 555-0199");
+  });
+
+  it("renders a temporary Lookup outage without blaming the entered number", async () => {
+    const submitter = vi.fn(async () => ({
+      ok: false as const,
+      code: "lookup_unavailable" as const,
+      message:
+        "I couldn’t check that number right now. Your answers are still here—please try again.",
+    }));
+    renderPage(submitter);
+    advanceNeedQuoteToPhone();
+
+    const input = screen.getByLabelText("Mobile number");
+    fireEvent.change(input, { target: { value: "5615550123" } });
+    choose("Save my project request");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "I couldn’t check that number right now",
+    );
+    expect(input).not.toHaveAttribute("aria-invalid");
+    expect(input).toHaveValue("(561) 555-0123");
+  });
+
   it("recovers when the mobile capture submitter rejects", async () => {
     const seen: WmChatSubmitInput[] = [];
     const submitter = vi.fn(async (input: WmChatSubmitInput) => {
@@ -546,6 +593,7 @@ describe("WmChatPage", () => {
     fireEvent.click(button);
     fireEvent.click(button);
     expect(submitter).toHaveBeenCalledTimes(1);
+    expect(button).toHaveTextContent("Checking your number…");
     resolveSubmit({ ok: true, leadId: LEAD_ID, sessionId: "unused", reused: false });
   });
 

@@ -9,6 +9,7 @@ import {
   isValidCaptureIdentity,
   parseAndValidate,
   persistWmChatRequiredCaptureData,
+  validateFreshWmChatPhoneLookup,
 } from "./index.ts";
 
 const SESSION_ID = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
@@ -435,6 +436,117 @@ Deno.test("retry preserves submitted session and consent submission identity", (
       retry.payload.consent.submissionId,
     );
   }
+});
+
+Deno.test("fresh exact /wmchat mobile capture requires a successful Basic Lookup", async () => {
+  const parsed = parseAndValidate(validWmChatBody());
+  assert(parsed.ok);
+  if (!parsed.ok) return;
+
+  const calls: string[] = [];
+  const accepted = await validateFreshWmChatPhoneLookup(
+    parsed.payload,
+    (phoneE164) => {
+      calls.push(phoneE164);
+      return Promise.resolve({ kind: "valid", canonicalPhoneE164: phoneE164 });
+    },
+  );
+  assertEquals(accepted, { ok: true });
+  assertEquals(calls, ["+15615550123"]);
+
+  const invalid = await validateFreshWmChatPhoneLookup(
+    parsed.payload,
+    () => Promise.resolve({ kind: "invalid", validationErrors: ["TOO_LONG"] }),
+  );
+  assertEquals(invalid, {
+    ok: false,
+    code: "wmchat_phone_invalid",
+    message: "That phone number could not be validated.",
+    status: 422,
+  });
+
+  const disabled = await validateFreshWmChatPhoneLookup(
+    parsed.payload,
+    () => Promise.resolve({ kind: "unavailable", reason: "disabled" }),
+  );
+  assertEquals(disabled, { ok: true });
+
+  const unavailableReasons = [
+    "misconfigured",
+    "timeout",
+    "upstream",
+    "malformed",
+  ] as const;
+  for (const reason of unavailableReasons) {
+    const unavailable = await validateFreshWmChatPhoneLookup(
+      parsed.payload,
+      () => Promise.resolve({ kind: "unavailable", reason }),
+    );
+    assertEquals(unavailable, {
+      ok: false,
+      code: "wmchat_phone_lookup_unavailable",
+      message: "Phone validation is temporarily unavailable.",
+      status: 503,
+    });
+  }
+});
+
+Deno.test("Protection Kit and legacy captures never invoke WmChat Basic Lookup", async () => {
+  const protectionKit = parseAndValidate(validProtectionKitBody());
+  const legacy = parseAndValidate(legacyBody());
+  assert(protectionKit.ok && legacy.ok);
+  if (!protectionKit.ok || !legacy.ok) return;
+
+  let calls = 0;
+  const mustNotRun = () => {
+    calls += 1;
+    return Promise.resolve({
+      kind: "unavailable" as const,
+      reason: "upstream" as const,
+    });
+  };
+  assertEquals(
+    await validateFreshWmChatPhoneLookup(protectionKit.payload, mustNotRun),
+    { ok: true },
+  );
+  assertEquals(
+    await validateFreshWmChatPhoneLookup(legacy.payload, mustNotRun),
+    { ok: true },
+  );
+  assertEquals(calls, 0);
+});
+
+Deno.test("a failed WmChat Lookup retry can succeed with the same identity", async () => {
+  const first = parseAndValidate(validWmChatBody());
+  const retry = parseAndValidate(validWmChatBody());
+  assert(first.ok && retry.ok);
+  if (!first.ok || !retry.ok) return;
+
+  assertEquals(first.payload.session_id, retry.payload.session_id);
+  assertEquals(
+    first.payload.consent.submissionId,
+    retry.payload.consent.submissionId,
+  );
+  assertEquals(
+    await validateFreshWmChatPhoneLookup(
+      first.payload,
+      () => Promise.resolve({ kind: "unavailable", reason: "upstream" }),
+    ),
+    {
+      ok: false,
+      code: "wmchat_phone_lookup_unavailable",
+      message: "Phone validation is temporarily unavailable.",
+      status: 503,
+    },
+  );
+  assertEquals(
+    await validateFreshWmChatPhoneLookup(
+      retry.payload,
+      (phoneE164) =>
+        Promise.resolve({ kind: "valid", canonicalPhoneE164: phoneE164 }),
+    ),
+    { ok: true },
+  );
 });
 
 Deno.test("new-lead qualification contains only the validated wmchat_v1 namespace", () => {

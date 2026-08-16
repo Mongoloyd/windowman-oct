@@ -148,6 +148,7 @@ export default function WmChatPage({
       dispatch({
         type: "capture_failed",
         message: "Check the mobile number and try again.",
+        code: "invalid_phone",
       });
       return;
     }
@@ -171,7 +172,11 @@ export default function WmChatPage({
       });
 
       if (!result.ok) {
-        dispatch({ type: "capture_failed", message: result.message });
+        dispatch({
+          type: "capture_failed",
+          message: result.message,
+          code: result.code,
+        });
         return;
       }
 
@@ -182,6 +187,7 @@ export default function WmChatPage({
         dispatch({
           type: "capture_failed",
           message: "That didn’t save safely. Please try again.",
+          code: "capture_failed",
         });
         return;
       }
@@ -210,6 +216,7 @@ export default function WmChatPage({
       dispatch({
         type: "capture_failed",
         message: "That didn’t save safely. Please try again.",
+        code: "capture_failed",
       });
     } finally {
       submittingRef.current = false;

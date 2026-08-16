@@ -360,6 +360,58 @@ describe("wmchatLeadCapture", () => {
     });
   });
 
+  it.each([
+    [
+      "wmchat_phone_invalid",
+      "invalid_phone",
+      "That number could not be validated. Check it and enter a valid US number.",
+    ],
+    [
+      "wmchat_phone_lookup_unavailable",
+      "lookup_unavailable",
+      "I couldn’t check that number right now. Your answers are still here—please try again.",
+    ],
+  ])(
+    "maps the typed Edge code %s to safe WmChat UX",
+    async (edgeCode, code, message) => {
+      invokeMock.mockResolvedValue({
+        data: null,
+        error: {
+          context: {
+            json: vi.fn().mockResolvedValue({
+              code: edgeCode,
+              message: "untrusted upstream detail",
+            }),
+          },
+        },
+      });
+
+      await expect(submitWmChatLead(sampleInput)).resolves.toEqual({
+        ok: false,
+        code,
+        message,
+      });
+    },
+  );
+
+  it("falls back safely when an Edge error body cannot be read", async () => {
+    invokeMock.mockResolvedValue({
+      data: null,
+      error: {
+        context: {
+          json: vi.fn().mockRejectedValue(new Error("body unavailable")),
+        },
+      },
+    });
+
+    await expect(submitWmChatLead(sampleInput)).resolves.toEqual({
+      ok: false,
+      code: "capture_failed",
+      message:
+        "I couldn’t save that yet. Your answers are still here—please try again.",
+    });
+  });
+
   it("coalesces duplicate in-flight submits for the same session/submission identity", async () => {
     let resolveInvoke: ((value: unknown) => void) | undefined;
     invokeMock.mockReturnValue(

@@ -76,6 +76,10 @@ import {
   type ValidatedWmChatIntake,
   validateWmChatIntake,
 } from "../_shared/wmchatIntake.ts";
+import {
+  lookupTwilioBasicPhone,
+  type TwilioBasicLookupResult,
+} from "../_shared/twilioLookup.ts";
 
 const FUNCTION_NAME = "capture-truth-gate-lead";
 
@@ -380,6 +384,72 @@ interface CapturePayload {
   wmchat_intake: ValidatedWmChatIntake | null;
   wmchat_stored: StoredWmChatIntake | null;
   wmchat_capture_kind: "protection_kit" | null;
+}
+
+export type WmChatPhoneLookupGateResult =
+  | { readonly ok: true }
+  | {
+    readonly ok: false;
+    readonly code:
+      | "wmchat_phone_invalid"
+      | "wmchat_phone_lookup_unavailable";
+    readonly message: string;
+    readonly status: 422 | 503;
+  };
+
+type WmChatPhoneLookup = (
+  phoneE164: string,
+) => Promise<TwilioBasicLookupResult>;
+
+function requiresFreshWmChatPhoneLookup(
+  payload: CapturePayload,
+): payload is CapturePayload & { phone_e164: string } {
+  return payload.wmchat_stored !== null &&
+    payload.wmchat_capture_kind === null &&
+    payload.phone_e164 !== null;
+}
+
+/**
+ * New-lead gate only. The handler intentionally calls this after session
+ * reuse has been resolved and before any lead, consent, namespace, or
+ * conversion write occurs.
+ */
+export async function validateFreshWmChatPhoneLookup(
+  payload: CapturePayload,
+  lookup: WmChatPhoneLookup,
+): Promise<WmChatPhoneLookupGateResult> {
+  if (!requiresFreshWmChatPhoneLookup(payload)) return { ok: true };
+
+  const result = await lookup(payload.phone_e164);
+  if (result.kind === "valid") return { ok: true };
+  if (result.kind === "unavailable" && result.reason === "disabled") {
+    return { ok: true };
+  }
+  if (result.kind === "invalid") {
+    return {
+      ok: false,
+      code: "wmchat_phone_invalid",
+      message: "That phone number could not be validated.",
+      status: 422,
+    };
+  }
+  return {
+    ok: false,
+    code: "wmchat_phone_lookup_unavailable",
+    message: "Phone validation is temporarily unavailable.",
+    status: 503,
+  };
+}
+
+function lookupWmChatPhone(
+  phoneE164: string,
+): Promise<TwilioBasicLookupResult> {
+  return lookupTwilioBasicPhone({
+    phoneE164,
+    enabled: Deno.env.get("TWILIO_LOOKUP_ENABLED") === "true",
+    accountSid: Deno.env.get("TWILIO_ACCOUNT_SID"),
+    authToken: Deno.env.get("TWILIO_AUTH_TOKEN"),
+  });
 }
 
 type AuditStatus = "started" | "succeeded" | "failed" | "reused" | "skipped";
@@ -1297,6 +1367,32 @@ export const handler = async (req: Request): Promise<Response> => {
     }
     // Non-fatal — proceed to insert path.
     console.warn(`[${FUNCTION_NAME}] session lookup threw`, String(e));
+  }
+
+  const wmchatPhoneLookup = await validateFreshWmChatPhoneLookup(
+    payload,
+    lookupWmChatPhone,
+  );
+  if (!wmchatPhoneLookup.ok) {
+    audit(admin, {
+      stage: "phone_lookup_failed",
+      status: "failed",
+      session_id: payload.session_id,
+      error_code: wmchatPhoneLookup.code,
+      error_message: wmchatPhoneLookup.message,
+      has_phone: true,
+      has_client_slug: !!payload.client_slug,
+      http_status: wmchatPhoneLookup.status,
+    });
+    return jsonResponse(
+      {
+        success: false,
+        code: wmchatPhoneLookup.code,
+        message: wmchatPhoneLookup.message,
+      },
+      wmchatPhoneLookup.status,
+      corsHeaders,
+    );
   }
 
   // Force OTP-gate-safe defaults — this path must never elevate a lead.

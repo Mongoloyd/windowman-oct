@@ -197,6 +197,8 @@ export function WmChatConversation({
   thinkingDelayMs = randomThinkingDelayMs,
 }: WmChatConversationProps) {
   const node = resolveWmChatNode(state);
+  const phoneIsRejected = state.submitErrorCode === "invalid_phone";
+  const lookupIsUnavailable = state.submitErrorCode === "lookup_unavailable";
   const [selectedMulti, setSelectedMulti] = useState<readonly WmChatOptionId[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [inputError, setInputError] = useState<string | null>(null);
@@ -675,9 +677,13 @@ export function WmChatConversation({
                     onChange={(event) => updatePhone(event.target.value)}
                     autoFocus
                     placeholder="(561) 555-0123"
-                    aria-invalid={inputError ? true : undefined}
+                    aria-invalid={inputError || phoneIsRejected ? true : undefined}
                     aria-describedby="wmchat-service-disclosure wmchat-capture-error"
-                    className="min-h-14 w-full rounded-[15px] border border-[#2a3c50] bg-[#0f1824] px-4 text-base text-white outline-none placeholder:text-[#60758a] focus:border-[#2e8fff] focus:ring-2 focus:ring-[#2e8fff]/25"
+                    className={`min-h-14 w-full rounded-[15px] border bg-[#0f1824] px-4 text-base text-white outline-none placeholder:text-[#60758a] focus:ring-2 ${
+                      inputError || phoneIsRejected
+                        ? "border-[#d8616d] focus:border-[#f07b86] focus:ring-[#d8616d]/25"
+                        : "border-[#2a3c50] focus:border-[#2e8fff] focus:ring-[#2e8fff]/25"
+                    }`}
                   />
                   <p id="wmchat-service-disclosure" className="text-xs leading-5 text-[#9db0c3]">
                     By continuing, you authorize service texts and an automated WindowMan AI call about this request. Consent isn’t required to buy.
@@ -688,7 +694,7 @@ export function WmChatConversation({
                     className="flex min-h-14 w-full items-center justify-center rounded-[16px] border border-[#5bb0ff] bg-[#2e8fff] px-4 text-sm font-bold text-white shadow-[0_14px_32px_rgba(46,143,255,0.2),inset_0_1px_0_rgba(255,255,255,0.16)] hover:bg-[#1a7beb] active:bg-[#1565c0] disabled:cursor-wait disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2e8fff]"
                   >
                     {state.status === "submitting"
-                      ? "Saving securely…"
+                      ? "Checking your number…"
                       : state.captureMode === "quote_upload"
                         ? "Save & open private upload"
                         : "Save my project request"}
@@ -700,7 +706,11 @@ export function WmChatConversation({
                 <p
                   id="wmchat-capture-error"
                   role="alert"
-                  className="rounded-xl border border-[#81434b] bg-[#2a171d] px-3 py-2.5 text-sm text-[#ffbcc4]"
+                  className={`rounded-xl border px-3 py-2.5 text-sm ${
+                    lookupIsUnavailable
+                      ? "border-[#8b6d32] bg-[#261f12] text-[#f5d58a]"
+                      : "border-[#81434b] bg-[#2a171d] text-[#ffbcc4]"
+                  }`}
                 >
                   {inputError ?? state.submitError}
                 </p>

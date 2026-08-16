@@ -52,6 +52,7 @@ export function createWmChatInitialState(): WmChatState {
     isThinking: false,
     status: "active",
     submitError: null,
+    submitErrorCode: null,
     leadId: null,
     sessionId: null,
   };
@@ -84,6 +85,7 @@ function restoreRuntime(
     isThinking: false,
     status: snapshot.status,
     submitError: null,
+    submitErrorCode: null,
     leadId: null,
     sessionId: null,
   };
@@ -686,6 +688,7 @@ export function wmChatReducer(
         ...state,
         contact: { ...state.contact, phone: action.value },
         submitError: null,
+        submitErrorCode: null,
         status: "active",
       };
     case "back": {
@@ -710,7 +713,12 @@ export function wmChatReducer(
       ) {
         return state;
       }
-      return { ...state, status: "submitting", submitError: null };
+      return {
+        ...state,
+        status: "submitting",
+        submitError: null,
+        submitErrorCode: null,
+      };
     case "capture_succeeded":
       if (
         (state.currentNodeId !== "phone" &&
@@ -726,6 +734,7 @@ export function wmChatReducer(
         currentNodeId: "success",
         status: "success",
         submitError: null,
+        submitErrorCode: null,
         leadId: action.leadId,
         sessionId: action.sessionId,
       };
@@ -741,6 +750,7 @@ export function wmChatReducer(
         ...state,
         status: "error",
         submitError: action.message,
+        submitErrorCode: action.code ?? "capture_failed",
         leadId: null,
         sessionId: null,
       };

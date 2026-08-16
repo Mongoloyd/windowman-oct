@@ -28,6 +28,10 @@ export const WM_CHAT_SOURCE_PATH = "/wmchat";
 
 const SAFE_CAPTURE_MESSAGE =
   "I couldn’t save that yet. Your answers are still here—please try again.";
+const INVALID_PHONE_MESSAGE =
+  "That number could not be validated. Check it and enter a valid US number.";
+const LOOKUP_UNAVAILABLE_MESSAGE =
+  "I couldn’t check that number right now. Your answers are still here—please try again.";
 
 const inFlightCaptures = new Map<string, Promise<WmChatSubmitResult>>();
 
@@ -53,6 +57,39 @@ const SAFE_ANSWER_KEYS = new Set([
 const ENTRY_INTENTS = new Set(["have_quote", "need_quote", "learn_powers"]);
 
 const MAX_CANONICAL_QUERY_PARAM_KEYS = 50;
+
+function captureFailureForCode(code: unknown): WmChatSubmitResult {
+  if (code === "wmchat_phone_invalid") {
+    return {
+      ok: false,
+      code: "invalid_phone",
+      message: INVALID_PHONE_MESSAGE,
+    };
+  }
+  if (code === "wmchat_phone_lookup_unavailable") {
+    return {
+      ok: false,
+      code: "lookup_unavailable",
+      message: LOOKUP_UNAVAILABLE_MESSAGE,
+    };
+  }
+  return { ok: false, code: "capture_failed", message: SAFE_CAPTURE_MESSAGE };
+}
+
+async function readEdgeFailureCode(error: unknown): Promise<unknown> {
+  if (!error || typeof error !== "object") return null;
+  const context = (error as { context?: unknown }).context;
+  if (!context || typeof context !== "object") return null;
+  const readJson = (context as { json?: unknown }).json;
+  if (typeof readJson !== "function") return null;
+  try {
+    const body = await readJson.call(context);
+    if (!body || typeof body !== "object" || Array.isArray(body)) return null;
+    return (body as { code?: unknown }).code;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Keeps server-authoritative flow markers inside the bounded query map even
@@ -278,16 +315,19 @@ export async function submitWmChatLead(
         lead_id?: unknown;
         session_id?: unknown;
         reused?: boolean;
+        code?: unknown;
       } | null;
 
+      if (error) {
+        return captureFailureForCode(await readEdgeFailureCode(error));
+      }
       if (
-        error ||
         response?.success !== true ||
         !isValidLeadSessionUuid(response.lead_id) ||
         !isValidLeadSessionUuid(response.session_id) ||
         response.session_id !== input.sessionId
       ) {
-        return { ok: false, message: SAFE_CAPTURE_MESSAGE };
+        return captureFailureForCode(response?.code);
       }
 
       return {
@@ -297,7 +337,7 @@ export async function submitWmChatLead(
         reused: response.reused === true,
       };
     } catch {
-      return { ok: false, message: SAFE_CAPTURE_MESSAGE };
+      return captureFailureForCode(null);
     }
   })();
 
