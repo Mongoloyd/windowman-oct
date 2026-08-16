@@ -10,10 +10,25 @@ $ApprovedDeployCommit = "d2c48b52a1e1fe368eaa84ae55548ae0a3565439"
 $ApprovedRollbackCommit = "dd960a6f19247e693a61cf1b0913e94d4170b0cc"
 $DefaultListJson = '[{"name":"admin-data","slug":"admin-data","id":"548b11d4-03c3-4ef3-ab0f-a3cfe28d96d7","version":16}]'
 $CanonicalRepository = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-$ApprovedReleasePath = "C:\Projects\wm-mvp-admin-recovery-release"
 $TestRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("wm-admin-deploy-tests-" + [guid]::NewGuid())
 $FakeBin = Join-Path $TestRoot "fake-bin"
 $MockSupabaseDir = Join-Path $FakeBin "mock cli with spaces"
+
+function Get-CanonicalBlobTextMd5([string]$Blob) {
+    $Temp = Join-Path ([System.IO.Path]::GetTempPath()) ("wmchat-test-blob-" + [guid]::NewGuid())
+    try {
+        $Process = Start-Process git -ArgumentList @("-C",$CanonicalRepository,"cat-file","blob",$Blob) `
+            -RedirectStandardOutput $Temp -NoNewWindow -Wait -PassThru
+        if ($Process.ExitCode -ne 0) { throw "Unable to materialize canonical test blob $Blob" }
+        $Text = Get-Content -LiteralPath $Temp -Raw
+        $Md5 = [System.Security.Cryptography.MD5]::Create()
+        try {
+            return ([System.BitConverter]::ToString($Md5.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($Text)))).Replace("-","").ToLowerInvariant()
+        } finally { $Md5.Dispose() }
+    } finally { Remove-Item $Temp -Force -ErrorAction SilentlyContinue }
+}
+$WmChatBasePayloadMd5 = Get-CanonicalBlobTextMd5 "2070d0e44ef1ac4d66e3e1d0f93fbfb554f35b16"
+$WmChatGrantPayloadMd5 = Get-CanonicalBlobTextMd5 "57815689795f1417ab9fb6e31a4f61f44a0368e3"
 $MockSupabaseCli = Join-Path $MockSupabaseDir "supabase-mock.cmd"
 $DenoLog = Join-Path $TestRoot "deno.log"
 $CliLog = Join-Path $TestRoot "supabase-cli.log"
@@ -81,6 +96,7 @@ function New-FixtureRepository {
     Invoke-Git -Repository $Repository -GitArgs @("init", "-q", "-b", "fixture-main") | Out-Null
     Invoke-Git -Repository $Repository -GitArgs @("config", "user.email", "wrapper-tests@example.invalid") | Out-Null
     Invoke-Git -Repository $Repository -GitArgs @("config", "user.name", "Wrapper Tests") | Out-Null
+    Invoke-Git -Repository $Repository -GitArgs @("config", "core.autocrlf", "false") | Out-Null
 
     $AdminDir = Join-Path $Repository "supabase/functions/admin-data"
     $SharedDir = Join-Path $Repository "supabase/functions/_shared"
@@ -346,6 +362,7 @@ function New-Pr173FixtureRepository {
     Invoke-Git -Repository $Repository -GitArgs @("init", "-q", "-b", $Branch) | Out-Null
     Invoke-Git -Repository $Repository -GitArgs @("config", "user.email", "wrapper-tests@example.invalid") | Out-Null
     Invoke-Git -Repository $Repository -GitArgs @("config", "user.name", "Wrapper Tests") | Out-Null
+    Invoke-Git -Repository $Repository -GitArgs @("config", "core.autocrlf", "false") | Out-Null
 
     $ScriptsDir = Join-Path $Repository "scripts"
     New-Item -ItemType Directory -Path $ScriptsDir -Force | Out-Null
@@ -496,6 +513,207 @@ function Invoke-Pr173Wrapper {
     }
 }
 
+function New-WmChatFixtureRepository {
+    $Repository = Join-Path $TestRoot ("wmchat-release-" + [guid]::NewGuid())
+    $BareOrigin = Join-Path $TestRoot ("wmchat-origin-" + [guid]::NewGuid() + ".git")
+    if (-not $script:WmChatFixtureTemplate) {
+        $script:WmChatFixtureTemplate = Join-Path $TestRoot "wmchat-fixture-template"
+        & git -c core.autocrlf=false clone --quiet --no-local $CanonicalRepository $script:WmChatFixtureTemplate
+        if ($LASTEXITCODE -ne 0) { throw "Unable to clone canonical repo for WmChat fixture." }
+    }
+    Copy-Item -LiteralPath $script:WmChatFixtureTemplate -Destination $Repository -Recurse
+    Invoke-Git -Repository $Repository -GitArgs @("config","user.email","wmchat-wrapper@example.invalid") | Out-Null
+    Invoke-Git -Repository $Repository -GitArgs @("config","user.name","WmChat Wrapper Tests") | Out-Null
+    Invoke-Git -Repository $Repository -GitArgs @("config","core.autocrlf","false") | Out-Null
+    Copy-Item -LiteralPath $Wrapper -Destination (Join-Path $Repository "scripts/deploy-functions-forensic-v2-live.ps1") -Force
+    Copy-Item -LiteralPath (Join-Path $CanonicalRepository "scripts/apply-wmchat-consent-live.ps1") `
+        -Destination (Join-Path $Repository "scripts/apply-wmchat-consent-live.ps1") -Force
+    $DeployFixturePath = Join-Path $Repository "scripts/deploy-functions-forensic-v2-live.ps1"
+    $DeployFixtureSource = Get-Content -LiteralPath $DeployFixturePath -Raw
+    $DeployFixtureSource = $DeployFixtureSource.Replace(
+        '$WmChatApprovedOriginUrl = "https://github.com/Mongoloyd/wm-mvp.git"',
+        '$WmChatApprovedOriginUrl = "' + $BareOrigin + '"'
+    )
+    Set-Content -LiteralPath $DeployFixturePath -Value $DeployFixtureSource -Encoding UTF8
+    $MigrationFixturePath = Join-Path $Repository "scripts/apply-wmchat-consent-live.ps1"
+    $MigrationFixtureSource = Get-Content -LiteralPath $MigrationFixturePath -Raw
+    $MigrationFixtureSource = $MigrationFixtureSource.Replace(
+        '$ApprovedOriginUrl = "https://github.com/Mongoloyd/wm-mvp.git"',
+        '$ApprovedOriginUrl = "' + $BareOrigin + '"'
+    )
+    Set-Content -LiteralPath $MigrationFixturePath -Value $MigrationFixtureSource -Encoding UTF8
+    Invoke-Git -Repository $Repository -GitArgs @("add","scripts/deploy-functions-forensic-v2-live.ps1","scripts/apply-wmchat-consent-live.ps1") | Out-Null
+    Invoke-Git -Repository $Repository -GitArgs @("commit","-q","-m","wmchat runner fixture") | Out-Null
+    $Commit = Invoke-Git -Repository $Repository -GitArgs @("rev-parse","HEAD")
+    & git init --bare --quiet $BareOrigin
+    if ($LASTEXITCODE -ne 0) { throw "Unable to create WmChat fake origin." }
+    Invoke-Git -Repository $Repository -GitArgs @("remote","set-url","origin",$BareOrigin) | Out-Null
+    Invoke-Git -Repository $Repository -GitArgs @("push","-q","origin","HEAD:refs/heads/forensic_report_v2") | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $Repository "supabase/.temp") -Force | Out-Null
+    Set-Content -LiteralPath (Join-Path $Repository "supabase/.temp/project-ref") -Value $ApprovedRef -Encoding ASCII
+    Invoke-Git -Repository $Repository -GitArgs @("checkout","-q","--detach",$Commit) | Out-Null
+    return [pscustomobject]@{
+        Path = $Repository
+        Commit = $Commit
+        Script = Join-Path $Repository "scripts/deploy-functions-forensic-v2-live.ps1"
+    }
+}
+
+function Invoke-WmChatWrapper {
+    param(
+        [Parameter(Mandatory=$true)]$Fixture,
+        [bool]$DryRun=$true,
+        [string]$InputText="",
+        [string]$ProjectRef=$ApprovedRef,
+        [switch]$FailFirstDeploy,
+        [switch]$NoVersionAdvance,
+        [switch]$SecondFunctionDrift,
+        [switch]$OmitMigration,
+        [switch]$ConsentContractFailureAfterConfirmation,
+        [switch]$OmitEvidencePath,
+        [string[]]$AdditionalArgs=@()
+    )
+    $Bin = Join-Path $TestRoot ("wmchat-bin-" + [guid]::NewGuid())
+    New-Item -ItemType Directory -Path $Bin | Out-Null
+    $Cli = Join-Path $Bin "supabase.cmd"
+    $Deno = Join-Path $Bin "deno.cmd"
+    $Psql = Join-Path $Bin "psql.cmd"
+    $State = Join-Path $Bin "state.txt"
+    $Log = Join-Path $Bin "cli.log"
+    $DenoLog = Join-Path $Bin "deno.log"
+    Set-Content $State "0" -Encoding ASCII
+    @'
+@echo off
+setlocal EnableDelayedExpansion
+echo %*>>"%WMCHAT_CLI_LOG%"
+echo %* | findstr /C:"migration list --linked" >nul
+if not errorlevel 1 goto ledger
+echo %* | findstr /C:"functions list" >nul
+if not errorlevel 1 goto list
+echo %* | findstr /C:"functions download" >nul
+if not errorlevel 1 goto download
+echo %* | findstr /C:"functions deploy" >nul
+if not errorlevel 1 goto deploy
+echo %* | findstr /C:"--version" >nul
+if not errorlevel 1 echo 2.113.0&exit /b 0
+exit /b 90
+:ledger
+echo LOCAL          ^| REMOTE         ^| TIME (UTC)
+echo 20260801143000 ^| 20260801143000 ^| 2026-08-01
+if not defined FAKE_WMCHAT_OMIT_MIGRATION echo 20260816022737 ^| 20260816022737 ^| 2026-08-16
+exit /b 0
+:list
+set /p S=<"%WMCHAT_CLI_STATE%"
+set UVER=58
+set CVER=53
+set UHASH=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+set CHASH=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+if !S! GEQ 1 set UVER=59&set UHASH=cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+if !S! GEQ 2 set CVER=54&set CHASH=dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+if "%WMCHAT_SECOND_FUNCTION_DRIFT%"=="1" if !S! GEQ 1 set CVER=55&set CHASH=eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+if "%WMCHAT_NO_VERSION_ADVANCE%"=="1" set UVER=58&set CVER=53&set UHASH=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&set CHASH=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+echo [{"name":"start-upload-scan-session","slug":"start-upload-scan-session","id":"11111111-1111-4111-8111-111111111111","version":!UVER!,"sha256":"!UHASH!"},{"name":"capture-truth-gate-lead","slug":"capture-truth-gate-lead","id":"22222222-2222-4222-8222-222222222222","version":!CVER!,"sha256":"!CHASH!"}]
+exit /b 0
+:download
+mkdir "supabase\functions\%3" 2>nul
+>"supabase\functions\%3\index.ts" echo // reviewed rollback fixture for %3
+exit /b 0
+:deploy
+echo %* | findstr /C:"start-upload-scan-session" >nul
+if not errorlevel 1 (
+  if "%WMCHAT_FAIL_FIRST_DEPLOY%"=="1" exit /b 7
+  >"%WMCHAT_CLI_STATE%" echo 1
+  exit /b 0
+)
+echo %* | findstr /C:"capture-truth-gate-lead" >nul
+if not errorlevel 1 (
+  >"%WMCHAT_CLI_STATE%" echo 2
+  exit /b 0
+)
+exit /b 91
+'@ | Set-Content -LiteralPath $Cli -Encoding ASCII
+    @'
+@echo off
+echo %*>>"%WMCHAT_DENO_LOG%"
+exit /b 0
+'@ | Set-Content -LiteralPath $Deno -Encoding ASCII
+    @'
+@echo off
+echo ledger_columns=version:text:NO,statements:_text:YES,name:text:YES,created_by:text:YES,idempotency_key:text:YES,rollback:_text:YES
+echo untouched_count=141
+echo untouched_min=20260317051701
+echo untouched_max=20260624120000
+echo untouched_fingerprint=440b0c2521013e15bd6e02f9cf0f96d8
+echo allowed_ledger=20260801143000^|lead_consent_events^|%WMCHAT_TEST_BASE_MD5%,20260816022737^|grant_wmchat_consent_read_to_service_role^|%WMCHAT_TEST_GRANT_MD5%
+echo table=present
+echo rpc=present
+echo rls=true
+echo columns=true
+echo constraints=true
+echo indexes=true
+echo policies=0
+echo rpc_properties=true
+echo rpc_body=true
+echo client_table_privileges=true
+echo service_select=true
+set PSQL_CALLS=0
+if exist "%FAKE_WMCHAT_PSQL_CALLS_FILE%" set /p PSQL_CALLS=<"%FAKE_WMCHAT_PSQL_CALLS_FILE%"
+set /a PSQL_CALLS+=1
+> "%FAKE_WMCHAT_PSQL_CALLS_FILE%" echo !PSQL_CALLS!
+if defined FAKE_WMCHAT_CONSENT_CONTRACT_FAILURE_AFTER if !PSQL_CALLS! GEQ 2 (echo service_direct_writes=true) else (echo service_direct_writes=false)
+if not defined FAKE_WMCHAT_CONSENT_CONTRACT_FAILURE_AFTER echo service_direct_writes=false
+echo service_bypassrls=true
+echo function_privileges=true
+exit /b 0
+'@ | Set-Content -LiteralPath $Psql -Encoding ASCII
+    $Ca=Join-Path $Bin "ca.pem";Set-Content $Ca "test-ca" -Encoding ASCII
+    $PinnedCliDirectory = Join-Path $Fixture.Path "node_modules/.bin"
+    New-Item -ItemType Directory -Path $PinnedCliDirectory -Force | Out-Null
+    Copy-Item -LiteralPath $Cli -Destination (Join-Path $PinnedCliDirectory "supabase.cmd") -Force
+
+    $Old = @{}
+    foreach($Name in @("PATH","SUPABASE_PROJECT_REF","WM_ADMIN_WRAPPER_SUPABASE_CLI_TEST_OVERRIDE","WMCHAT_CLI_LOG","WMCHAT_CLI_STATE","WMCHAT_DENO_LOG","WMCHAT_FAIL_FIRST_DEPLOY","WMCHAT_NO_VERSION_ADVANCE","WMCHAT_SECOND_FUNCTION_DRIFT","WMCHAT_MIGRATION_PSQL_TEST_OVERRIDE","WMCHAT_LIVE_DATABASE_URL","WMCHAT_LIVE_PGSSLROOTCERT","WMCHAT_TEST_BASE_MD5","WMCHAT_TEST_GRANT_MD5","FAKE_WMCHAT_OMIT_MIGRATION","FAKE_WMCHAT_CONSENT_CONTRACT_FAILURE_AFTER","FAKE_WMCHAT_PSQL_CALLS_FILE")) {
+        $Old[$Name]=[Environment]::GetEnvironmentVariable($Name,"Process")
+    }
+    try {
+        $env:PATH="$Bin;$($env:PATH)"
+        $env:SUPABASE_PROJECT_REF=$ProjectRef
+        $env:WM_ADMIN_WRAPPER_SUPABASE_CLI_TEST_OVERRIDE=$null
+        $env:WMCHAT_CLI_LOG=$Log
+        $env:WMCHAT_CLI_STATE=$State
+        $env:WMCHAT_DENO_LOG=$DenoLog
+        $env:WMCHAT_FAIL_FIRST_DEPLOY=$(if($FailFirstDeploy){"1"}else{"0"})
+        $env:WMCHAT_NO_VERSION_ADVANCE=$(if($NoVersionAdvance){"1"}else{"0"})
+        $env:WMCHAT_SECOND_FUNCTION_DRIFT=$(if($SecondFunctionDrift){"1"}else{"0"})
+        $env:FAKE_WMCHAT_OMIT_MIGRATION=$(if($OmitMigration){"1"}else{"0"})
+        $env:FAKE_WMCHAT_CONSENT_CONTRACT_FAILURE_AFTER=$(if($ConsentContractFailureAfterConfirmation){"1"}else{"0"})
+        $env:FAKE_WMCHAT_PSQL_CALLS_FILE=(Join-Path $Bin "psql-calls.txt")
+        $env:WMCHAT_MIGRATION_PSQL_TEST_OVERRIDE=$null
+        $env:WMCHAT_TEST_BASE_MD5=$WmChatBasePayloadMd5
+        $env:WMCHAT_TEST_GRANT_MD5=$WmChatGrantPayloadMd5
+        $env:WMCHAT_LIVE_DATABASE_URL="postgresql://postgres.${ApprovedRef}:test-password@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
+        $env:WMCHAT_LIVE_PGSSLROOTCERT=$Ca
+        $Arguments=@("-NoProfile","-ExecutionPolicy","Bypass","-File",$Fixture.Script,"-WmChatOnly","-ReleaseWorktree",$Fixture.Path,"-ReleaseCommit",$Fixture.Commit)+$AdditionalArgs
+        $EvidenceFile=Join-Path $Bin "wmchat-deploy-evidence.json"
+        if($DryRun){$Arguments+="-DryRun"}
+        elseif(-not $OmitEvidencePath){$Arguments+=@("-EvidencePath",$EvidenceFile)}
+        $In=Join-Path $Bin "stdin.txt";$Out=Join-Path $Bin "stdout.txt";$Err=Join-Path $Bin "stderr.txt"
+        Set-Content $In $InputText -Encoding ASCII
+        $P=Start-Process powershell.exe -ArgumentList $Arguments -RedirectStandardInput $In -RedirectStandardOutput $Out -RedirectStandardError $Err -NoNewWindow -Wait -PassThru
+        $Output=((Get-Content $Out -Raw -ErrorAction SilentlyContinue)+(Get-Content $Err -Raw -ErrorAction SilentlyContinue))
+        return [pscustomobject]@{
+            ExitCode=$P.ExitCode
+            Output=$Output
+            CliLog=@($(if(Test-Path $Log){Get-Content $Log}else{@()}))
+            DenoLog=@($(if(Test-Path $DenoLog){Get-Content $DenoLog}else{@()}))
+            State=(Get-Content $State -Raw).Trim()
+            EvidencePath=$EvidenceFile
+        }
+    } finally {
+        foreach($Name in $Old.Keys){[Environment]::SetEnvironmentVariable($Name,$Old[$Name],"Process")}
+    }
+}
+
 New-Item -ItemType Directory -Path $FakeBin, $MockSupabaseDir -Force | Out-Null
 @'
 @echo off
@@ -605,8 +823,6 @@ exit /b 0
 '@ | Set-Content -LiteralPath (Join-Path $Pr173FakeBin "npx.cmd") -Encoding ASCII
 
 try {
-    Assert-True (Test-Path -LiteralPath $ApprovedReleasePath -PathType Container) `
-        "Approved release worktree is missing: $ApprovedReleasePath"
     $CleanDetached = Get-CleanDeployFixture
 
     Invoke-Test "repository-pinned Supabase CLI resolution is preferred and process-cached" {
@@ -1279,6 +1495,161 @@ try {
                 Assert-True ($Line -match 'functions deploy \$') "Deploy invocation is not name-scoped: $Line"
             }
         }
+    }
+
+    Invoke-Test "WmChat dry run verifies exact scope and performs zero deploys" {
+        $Fixture=New-WmChatFixtureRepository
+        $Result=Invoke-WmChatWrapper -Fixture $Fixture
+        Assert-True ($Result.ExitCode -eq 0) "Exit $($Result.ExitCode): $($Result.Output)"
+        Assert-Contains $Result.Output "DRY RUN - NO DEPLOYMENT PERFORMED"
+        Assert-Contains $Result.Output "start-upload-scan-session, capture-truth-gate-lead"
+        Assert-True ((@($Result.CliLog | Where-Object {$_ -like '*functions deploy*'})).Count -eq 0) "Dry run deployed."
+        Assert-True ($Result.DenoLog.Count -eq 3) "Frozen validation did not run exactly three commands."
+        Assert-True (-not (($Result.DenoLog -join "`n") -match '--no-lock')) "Validation bypassed the lockfile."
+    }
+    Invoke-Test "WmChat missing migration fails before deployment" {
+        $Fixture=New-WmChatFixtureRepository
+        $Result=Invoke-WmChatWrapper -Fixture $Fixture -OmitMigration
+        Assert-True ($Result.ExitCode -eq 120) "Exit $($Result.ExitCode): $($Result.Output)"
+        Assert-True ($Result.State -eq "0") "Missing migration deployed functions."
+        Assert-True ((@($Result.CliLog | Where-Object {$_ -like '*functions deploy*'})).Count -eq 0) "Missing migration reached deployment."
+    }
+    Invoke-Test "WmChat consent contract failure blocks deployment and recheck" {
+        $Fixture=New-WmChatFixtureRepository
+        $Result=Invoke-WmChatWrapper -Fixture $Fixture -ConsentContractFailureAfterConfirmation -DryRun:$false -InputText "DEPLOY_WMCHAT_LIVE_FUNCTIONS"
+        Assert-True ($Result.ExitCode -eq 120) "Exit $($Result.ExitCode): $($Result.Output)"
+        Assert-True ($Result.State -eq "0") "Consent recheck deployed functions."
+        Assert-True ((@($Result.CliLog | Where-Object {$_ -like '*functions deploy*'})).Count -eq 0) "Consent failure reached deployment."
+    }
+
+    Invoke-Test "WmChat exact confirmation deploys two functions in verified order" {
+        $Fixture=New-WmChatFixtureRepository
+        $Result=Invoke-WmChatWrapper -Fixture $Fixture -DryRun:$false -InputText "DEPLOY_WMCHAT_LIVE_FUNCTIONS"
+        Assert-True ($Result.ExitCode -eq 0) "Exit $($Result.ExitCode): $($Result.Output)"
+        $Deploys=@($Result.CliLog | Where-Object {$_ -like '*functions deploy*'})
+        $Downloads=@($Result.CliLog | Where-Object {$_ -like '*functions download*'})
+        Assert-True ($Downloads.Count -eq 2) "Expected exactly two rollback source downloads."
+        Assert-True ($Downloads[0] -like '*start-upload-scan-session*' -and $Downloads[1] -like '*capture-truth-gate-lead*') "Rollback artifacts were not captured in exact order."
+        Assert-True ($Deploys.Count -eq 2) "Expected exactly two deploys: $($Deploys -join ';')"
+        Assert-True ($Deploys[0] -like '*start-upload-scan-session*') "Upload function was not first."
+        Assert-True ($Deploys[1] -like '*capture-truth-gate-lead*') "Capture function was not second."
+        Assert-True ((@($Deploys | Where-Object {$_ -like '*--no-verify-jwt*'})).Count -eq 2) "Public-function JWT mode was not explicit on both deploys."
+        Assert-True ($Result.State -eq "2") "Both mocked deployments did not complete."
+        Assert-Contains $Result.Output '"result":  "VERIFIED"'
+        Assert-True (Test-Path -LiteralPath $Result.EvidencePath -PathType Leaf) "Final evidence file is missing."
+        $Evidence=Get-Content -LiteralPath $Result.EvidencePath -Raw | ConvertFrom-Json
+        Assert-True ($Evidence.result -ceq "VERIFIED") "Final evidence is not VERIFIED."
+        Assert-True (@($Evidence.bundle_files).Count -gt 0) "Bundle evidence is empty."
+        foreach($File in @($Evidence.bundle_files)) {
+            Assert-True ([string]$File.git_blob -match '^[0-9a-f]{40}$') "Bundle Git blob is not pinned."
+            Assert-True ([string]$File.sha256 -match '^[0-9a-f]{64}$') "Bundle SHA-256 is not pinned."
+        }
+        Assert-True (@($Evidence.rollback.artifacts).Count -eq 2) "Rollback artifact evidence is not an exact two-function array."
+        Assert-True ($Evidence.rollback.artifacts[0].function_name -ceq "start-upload-scan-session") "Upload rollback evidence is not first."
+        Assert-True ($Evidence.rollback.artifacts[1].function_name -ceq "capture-truth-gate-lead") "Capture rollback evidence is not second."
+        foreach($Artifact in @($Evidence.rollback.artifacts)) {
+            Assert-True (Test-Path -LiteralPath $Artifact.external_directory -PathType Container) "Rollback source directory is missing."
+            Assert-True (@($Artifact.files).Count -gt 0) "Rollback source artifact is empty."
+            foreach($File in @($Artifact.files)) {
+                Assert-True ([string]$File.sha256 -match '^[0-9a-f]{64}$') "Rollback source SHA-256 is missing."
+            }
+        }
+        $EvidenceName=[System.IO.Path]::GetFileName($Result.EvidencePath)
+        $EvidenceParent=Split-Path -Parent $Result.EvidencePath
+        Assert-True ((@(Get-ChildItem -LiteralPath $EvidenceParent -Force | Where-Object { $_.Name -like ".$EvidenceName.*.tmp" -or $_.Name -like ".$EvidenceName.*.bak" })).Count -eq 0) "Atomic evidence left temporary files."
+    }
+
+    Invoke-Test "WmChat confirmation is case-sensitive" {
+        $Fixture=New-WmChatFixtureRepository
+        $Result=Invoke-WmChatWrapper -Fixture $Fixture -DryRun:$false -InputText "deploy_wmchat_live_functions"
+        Assert-True ($Result.ExitCode -eq 127) "Exit $($Result.ExitCode): $($Result.Output)"
+        Assert-True ($Result.State -eq "0") "Wrong confirmation deployed."
+    }
+
+    Invoke-Test "WmChat non-dry release requires an external evidence path" {
+        $Fixture=New-WmChatFixtureRepository
+        $Result=Invoke-WmChatWrapper -Fixture $Fixture -DryRun:$false -OmitEvidencePath -InputText "DEPLOY_WMCHAT_LIVE_FUNCTIONS"
+        Assert-True ($Result.ExitCode -eq 127) "Exit $($Result.ExitCode): $($Result.Output)"
+        Assert-Contains $Result.Output "EvidencePath is mandatory"
+        Assert-True ((@($Result.CliLog | Where-Object {$_ -like '*functions download*' -or $_ -like '*functions deploy*'})).Count -eq 0) "Missing evidence path reached rollback download or deploy."
+    }
+
+    Invoke-Test "WmChat first deployment failure is ambiguous and blocks capture deployment" {
+        $Fixture=New-WmChatFixtureRepository
+        $Result=Invoke-WmChatWrapper -Fixture $Fixture -DryRun:$false -InputText "DEPLOY_WMCHAT_LIVE_FUNCTIONS" -FailFirstDeploy
+        Assert-True ($Result.ExitCode -eq 116) "Exit $($Result.ExitCode): $($Result.Output)"
+        Assert-Contains $Result.Output "UNKNOWN_REMOTE_STATE"
+        $Deploys=@($Result.CliLog | Where-Object {$_ -like '*functions deploy*'})
+        Assert-True ($Deploys.Count -eq 1) "Failure retried or advanced: $($Deploys -join ';')"
+        Assert-True (-not (($Deploys -join '') -like '*capture-truth-gate-lead*')) "Capture deployed after first failure."
+        $Evidence=Get-Content -LiteralPath $Result.EvidencePath -Raw | ConvertFrom-Json
+        Assert-True ($Evidence.result -ceq "UNKNOWN_REMOTE_STATE") "Ambiguous result was not persisted."
+        Assert-True ($Evidence.post_attempt_metadata.function_name -ceq "start-upload-scan-session") "Post-attempt metadata was discarded."
+        Assert-True ([int]$Evidence.post_attempt_metadata.version -eq 58) "Unexpected ambiguous post-attempt version."
+    }
+
+    Invoke-Test "WmChat unchanged post-deploy version is ambiguous and never advances" {
+        $Fixture=New-WmChatFixtureRepository
+        $Result=Invoke-WmChatWrapper -Fixture $Fixture -DryRun:$false -InputText "DEPLOY_WMCHAT_LIVE_FUNCTIONS" -NoVersionAdvance
+        Assert-True ($Result.ExitCode -eq 116) "Exit $($Result.ExitCode): $($Result.Output)"
+        $Deploys=@($Result.CliLog | Where-Object {$_ -like '*functions deploy*'})
+        Assert-True ($Deploys.Count -eq 1) "Ambiguous first deploy advanced or retried."
+    }
+
+    Invoke-Test "WmChat refreshes each function immediately before deployment" {
+        $Fixture=New-WmChatFixtureRepository
+        $Result=Invoke-WmChatWrapper -Fixture $Fixture -DryRun:$false -InputText "DEPLOY_WMCHAT_LIVE_FUNCTIONS" -SecondFunctionDrift
+        Assert-True ($Result.ExitCode -eq 116) "Exit $($Result.ExitCode): $($Result.Output)"
+        $Deploys=@($Result.CliLog | Where-Object {$_ -like '*functions deploy*'})
+        Assert-True ($Deploys.Count -eq 1 -and $Deploys[0] -like '*start-upload-scan-session*') "Second-function drift was not stopped before its deploy."
+        Assert-True ($Result.State -eq "1") "Unexpected deployment state after second-function drift."
+        $Evidence=Get-Content -LiteralPath $Result.EvidencePath -Raw | ConvertFrom-Json
+        Assert-True ($Evidence.ambiguous_function -ceq "capture-truth-gate-lead") "Drifted function was not identified."
+        Assert-True ([int]$Evidence.pre_deploy_metadata.version -eq 55) "Immediate pre-deploy drift metadata was not preserved."
+    }
+
+    Invoke-Test "WmChat fetch refreshes the exact approved remote-tracking ref" {
+        $Fixture=New-WmChatFixtureRepository
+        $StaleCommit=(Invoke-Git -Repository $Fixture.Path -GitArgs @("rev-parse","$($Fixture.Commit)^" )).Trim()
+        Invoke-Git -Repository $Fixture.Path -GitArgs @("update-ref","refs/remotes/origin/forensic_report_v2",$StaleCommit) | Out-Null
+        $Result=Invoke-WmChatWrapper -Fixture $Fixture
+        Assert-True ($Result.ExitCode -eq 0) "Fresh tracking-ref proof failed: $($Result.Output)"
+        $Refreshed=(Invoke-Git -Repository $Fixture.Path -GitArgs @("rev-parse","refs/remotes/origin/forensic_report_v2")).Trim()
+        Assert-True ($Refreshed -ceq $Fixture.Commit) "Approved remote-tracking ref remained stale."
+    }
+
+    Invoke-Test "WmChat mode rejects wrong target and every other mode combination" {
+        $Wrong=New-WmChatFixtureRepository
+        $WrongResult=Invoke-WmChatWrapper -Fixture $Wrong -ProjectRef "wrong"
+        Assert-True ($WrongResult.ExitCode -eq 125) "Wrong target exit $($WrongResult.ExitCode)."
+        $ModeFixture=New-WmChatFixtureRepository
+        foreach($Other in @("-GoogleAdsOnly","-DispatchOnly","-Pr173ExtractionOnly","-AdminDataOnly")) {
+            $Result=Invoke-WmChatWrapper -Fixture $ModeFixture -AdditionalArgs @($Other)
+            Assert-True ($Result.ExitCode -eq 124 -or $Result.ExitCode -eq 60) "Mode $Other exit $($Result.ExitCode)."
+            Assert-True ($Result.State -eq "0") "Mode combination deployed."
+        }
+    }
+
+    Invoke-Test "WmChat allowlist remains exactly two and legacy allowlists are unchanged" {
+        $Source=Get-Content -LiteralPath $Wrapper -Raw
+        $Match=[regex]::Match($Source,'(?ms)^\$WmChatTargetFunctions = @\((?<body>.*?)^\)')
+        Assert-True $Match.Success "WmChat allowlist missing."
+        $Entries=@([regex]::Matches($Match.Groups['body'].Value,'"(?<fn>[^"]+)"')|ForEach-Object{$_.Groups['fn'].Value})
+        Assert-True (($Entries -join ',') -ceq 'start-upload-scan-session,capture-truth-gate-lead') "Unexpected WmChat allowlist."
+        Assert-True ($Source.Contains('$DefaultTargetFunctions = @(')) "Legacy default mode was removed."
+        Assert-True ($Source.Contains('$Pr173TargetFunctions = @(')) "Legacy PR173 mode was removed."
+        $DeployCalls = [regex]::Matches($Source, '(?ms)Invoke-SupabaseCliProcess\s+`?\s*-\s*Arguments\s+@\((?<args>.*?)\)')
+        Assert-True ($DeployCalls.Count -gt 0) "No wrapped CLI calls found."
+        foreach ($Call in $DeployCalls) {
+            if ($Call.Groups["args"].Value -match '"functions"\s*,\s*"deploy"') {
+                Assert-True ($Call.Groups["args"].Value -match '\$[A-Za-z][A-Za-z0-9_]*') "Deploy call lacks a function-name variable."
+                Assert-True ($Call.Groups["args"].Value -match '"--project-ref"') "Deploy call lacks an explicit project ref."
+            }
+        }
+        foreach($Token in @("wmchatIntake.test.ts","consentCapture_test.ts","contracts/schemas.test.ts","--no-verify-jwt","New-WmChatRollbackArtifacts","post-confirm metadata","immediate pre-deploy metadata","exact next version","File]::Replace","sha256","post_attempt_metadata")) {
+            Assert-Contains $Source $Token
+        }
+        Assert-True ($Source.Contains("WmChat live mode forbids executable test overrides")) "WmChat executable override rejection is missing."
     }
 }
 finally {
