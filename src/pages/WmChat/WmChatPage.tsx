@@ -43,44 +43,6 @@ type WmChatPageProps = {
   readonly thinkingDelayMs?: () => number;
 };
 
-function useWmChatSpeech() {
-  const [supported, setSupported] = useState(false);
-
-  useEffect(() => {
-    setSupported(
-      typeof window !== "undefined" &&
-        "speechSynthesis" in window &&
-        typeof window.SpeechSynthesisUtterance !== "undefined",
-    );
-
-    return () => {
-      if (typeof window !== "undefined" && "speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
-      }
-    };
-  }, []);
-
-  const speak = useCallback((text: string) => {
-    if (
-      typeof window === "undefined" ||
-      !("speechSynthesis" in window) ||
-      typeof window.SpeechSynthesisUtterance === "undefined"
-    ) {
-      return;
-    }
-
-    window.speechSynthesis.cancel();
-    const utterance = new window.SpeechSynthesisUtterance(
-      text.replace(/\s+/g, " ").trim(),
-    );
-    utterance.rate = 0.96;
-    utterance.pitch = 0.94;
-    window.speechSynthesis.speak(utterance);
-  }, []);
-
-  return { supported, speak };
-}
-
 function initializeWmChatState(snapshot: WmChatResumeV1 | null) {
   if (!snapshot) return createWmChatInitialState();
   return wmChatReducer(createWmChatInitialState(), {
@@ -115,7 +77,6 @@ export default function WmChatPage({
   const submissionIdRef = useRef<string>();
   const navigate = useNavigate();
   const funnel = useScanFunnelSafe();
-  const speech = useWmChatSpeech();
 
   if (!sessionIdRef.current) sessionIdRef.current = getOrCreateWmChatSessionId();
   if (!submissionIdRef.current) {
@@ -152,10 +113,10 @@ export default function WmChatPage({
 
   const hero = useMemo(
     () => (
-      <div className="relative isolate mx-auto w-full max-w-[392px]">
+      <div className="relative isolate mx-auto w-full max-w-[400px]">
         <div
           aria-hidden="true"
-          className="absolute -inset-x-[14%] -top-8 bottom-[-4%] z-0 bg-[radial-gradient(ellipse_58%_100%_at_50%_0%,rgba(142,211,255,0.24)_0%,rgba(46,143,255,0.1)_46%,transparent_78%)] [clip-path:polygon(40%_0%,60%_0%,88%_100%,12%_100%)] [mask-image:linear-gradient(to_bottom,black_0%,rgba(0,0,0,0.78)_55%,transparent_100%)]"
+          className="absolute -inset-x-[6%] -top-8 bottom-[-4%] z-0 bg-[radial-gradient(ellipse_58%_100%_at_50%_0%,rgba(142,211,255,0.24)_0%,rgba(46,143,255,0.1)_46%,transparent_78%)] [clip-path:polygon(42%_0%,58%_0%,100%_100%,0%_100%)] [mask-image:linear-gradient(to_bottom,black_0%,rgba(0,0,0,0.78)_55%,transparent_100%)]"
         />
         <div
           aria-hidden="true"
@@ -322,11 +283,11 @@ export default function WmChatPage({
         />
         <div
           aria-hidden="true"
-          className="pointer-events-none fixed inset-0 [background-image:radial-gradient(circle_at_12%_30%,rgba(245,158,11,0.055)_0%,transparent_30%),radial-gradient(circle_at_88%_68%,rgba(46,143,255,0.09)_0%,transparent_34%)]"
+          className="pointer-events-none fixed inset-0 [background-image:radial-gradient(circle_at_12%_30%,rgba(245,158,11,0.075)_0%,transparent_30%),radial-gradient(circle_at_88%_68%,rgba(46,143,255,0.13)_0%,transparent_34%)]"
         />
         <div
           aria-hidden="true"
-          className="pointer-events-none fixed inset-0 opacity-[0.22] [background-image:linear-gradient(rgba(145,173,198,0.16)_1px,transparent_1px),linear-gradient(90deg,rgba(145,173,198,0.16)_1px,transparent_1px)] [background-size:48px_48px] [mask-image:radial-gradient(ellipse_82%_66%_at_50%_28%,black_0%,rgba(0,0,0,0.76)_52%,transparent_88%)]"
+          className="pointer-events-none fixed inset-0 opacity-[0.38] [background-image:linear-gradient(rgba(145,173,198,0.16)_1px,transparent_1px),linear-gradient(90deg,rgba(145,173,198,0.16)_1px,transparent_1px)] [background-size:48px_48px] [mask-image:radial-gradient(ellipse_82%_66%_at_50%_28%,black_0%,rgba(0,0,0,0.76)_52%,transparent_88%)]"
         />
         <div className="relative z-10">
           <WmChatConversation
@@ -334,8 +295,6 @@ export default function WmChatPage({
             dispatch={dispatch}
             onSubmit={handleSubmit}
             onEmailSubmit={handleEmailSubmit}
-            speechSupported={speech.supported}
-            speak={speech.speak}
             hero={hero}
             thinkingDelayMs={thinkingDelayMs}
           />

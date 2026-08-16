@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import PowerToolFlow, {
   buildPowerToolEntryQueryParams,
+  getPowerToolPresentation,
   isTrustedPowerToolCreateResult,
 } from "./PowerToolDemo";
 
@@ -72,6 +73,23 @@ describe("PowerToolDemo wmchat entry", () => {
     expect(buildPowerToolEntryQueryParams("wm_chat")).toEqual({
       entry_point: "wm_chat",
     });
+  });
+
+  it("uses nationwide presentation copy only for the wmchat entry", () => {
+    const wmchatPresentation = JSON.stringify(
+      getPowerToolPresentation("wm_chat"),
+    );
+    expect(wmchatPresentation).not.toMatch(
+      /\bFlorida\b|Miami-Dade|\bNOA\b|Pompano Beach|\bFL\b/,
+    );
+    expect(wmchatPresentation).toContain("Nationwide sample project");
+    expect(wmchatPresentation).toContain(
+      "applicable cancellation window",
+    );
+
+    const directPresentation = JSON.stringify(getPowerToolPresentation());
+    expect(directPresentation).toContain("Florida");
+    expect(directPresentation).toContain("Pompano Beach");
   });
 
   it("rejects a successful response unless the real lead and session pair match", () => {

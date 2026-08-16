@@ -191,7 +191,7 @@ const HAVE_SCOPE_OPTIONS = [
 
 const HAVE_PRODUCT_OPTIONS = [
   option("product_brand_model", "Brand or model"),
-  option("product_impact_noa", "Impact approval or NOA"),
+  option("product_impact_noa", "Required product approvals or ratings"),
   option("product_warranty", "Warranty"),
   option("product_contractor", "The contractor"),
   option("product_verbal_claim", "Something they told me"),

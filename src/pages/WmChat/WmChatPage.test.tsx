@@ -5,6 +5,7 @@ import { HelmetProvider } from "react-helmet-async";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WM_CHAT_RESUME_STORAGE_KEY } from "./wmChatResume";
+import { getWmChatOption } from "./wmChatContent";
 import type {
   WmChatEmailSubmitter,
   WmChatSubmitInput,
@@ -64,19 +65,7 @@ vi.mock("@/components/PowerToolDemo", () => ({
 }));
 
 const LEAD_ID = "99999999-8888-4777-8666-555555555555";
-const speakMock = vi.fn();
-const cancelMock = vi.fn();
 const scrollIntoViewMock = vi.fn();
-
-class SpeechSynthesisUtteranceStub {
-  text: string;
-  rate = 1;
-  pitch = 1;
-
-  constructor(text: string) {
-    this.text = text;
-  }
-}
 
 function renderPage(
   submitter: WmChatSubmitter = vi.fn(),
@@ -154,19 +143,9 @@ describe("WmChatPage", () => {
     setLeadIdMock.mockReset();
     setSessionIdMock.mockReset();
     powerToolPropsMock.mockReset();
-    speakMock.mockReset();
-    cancelMock.mockReset();
     scrollIntoViewMock.mockReset();
     sessionStorage.clear();
     localStorage.clear();
-    Object.defineProperty(window, "SpeechSynthesisUtterance", {
-      configurable: true,
-      value: SpeechSynthesisUtteranceStub,
-    });
-    Object.defineProperty(window, "speechSynthesis", {
-      configurable: true,
-      value: { speak: speakMock, cancel: cancelMock },
-    });
     Object.defineProperty(window, "matchMedia", {
       configurable: true,
       value: vi.fn(() => ({ matches: false })),
@@ -201,6 +180,100 @@ describe("WmChatPage", () => {
     expect(screen.getByRole("button", { name: "I need a quote" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Show me your powers" })).toBeEnabled();
     expect(screen.queryByLabelText(/email/i)).not.toBeInTheDocument();
+  });
+
+  it("shows nationwide first-glance status and evidence cards without unsupported promises", () => {
+    renderPage();
+
+    expect(screen.getByText("Free for homeowners")).toBeInTheDocument();
+    expect(
+      screen.getByText("AI quote intelligence for homeowner protection"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Independent software")).toBeInTheDocument();
+    expect(screen.getByText("Private by design")).toBeInTheDocument();
+
+    const floatingHeader = screen.getByTestId("wmchat-floating-header");
+    expect(floatingHeader.className).not.toMatch(/rounded|border|bg-|shadow/);
+
+    const trustRail = screen.getByRole("complementary", {
+      name: "What WindowMan checks",
+    });
+    expect(trustRail).toHaveTextContent("Find Costly Gaps");
+    expect(trustRail).toHaveTextContent("Check Ratings & Scope");
+    expect(trustRail).toHaveTextContent("Compare Real Evidence");
+    expect(trustRail).not.toHaveTextContent(/save thousands|guarantee your home safety/i);
+    expect(trustRail).not.toHaveTextContent(/verified against florida market data/i);
+    expect(trustRail).not.toHaveTextContent(/statewide labor rates/i);
+    expect(trustRail).not.toHaveTextContent(/truth score|savings potential/i);
+    expect(screen.queryByText(/^Florida$/i)).not.toBeInTheDocument();
+  });
+
+  it("opens only one trust card at a time and exposes the proof accessibly", () => {
+    renderPage();
+
+    const costCard = screen.getByRole("button", {
+      name: "Find Costly Gaps. Show details",
+    });
+    const scopeCard = screen.getByRole("button", {
+      name: "Check Ratings & Scope. Show details",
+    });
+    expect(costCard).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(costCard);
+    expect(
+      screen.getByRole("button", { name: "Find Costly Gaps. Hide details" }),
+    ).toHaveAttribute("aria-expanded", "true");
+    expect(costCard).toHaveTextContent(
+      "Flags unclear fees, bundled pricing, and missing line-item detail.",
+    );
+
+    fireEvent.click(scopeCard);
+    expect(costCard).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.getByRole("button", {
+        name: "Check Ratings & Scope. Hide details",
+      }),
+    ).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("keeps the window-card motion bounded and honors reduced motion", () => {
+    const css = readFileSync(
+      resolve(
+        process.cwd(),
+        "src/pages/WmChat/wmchat-trust-cards.css",
+      ),
+      "utf8",
+    );
+    expect(css).toContain("aspect-ratio: 1");
+    expect(css).toContain("-apple-system");
+    expect(css).toContain("BlinkMacSystemFont");
+    expect(css).toContain('"Segoe UI"');
+    expect(css).toContain("text-shadow");
+    expect(css).toContain("@media (prefers-reduced-motion: reduce)");
+    expect(css).toContain("transition: none");
+    expect(css).not.toMatch(/animation:[^;]*infinite/);
+  });
+
+  it("keeps stable product IDs while presenting nationwide approval copy", () => {
+    expect(getWmChatOption("product_impact_noa")).toEqual(
+      expect.objectContaining({
+        id: "product_impact_noa",
+        label: "Required product approvals or ratings",
+      }),
+    );
+  });
+
+  it("keeps trust peripheral by removing the opening rail after the first choice", async () => {
+    renderPage();
+
+    choose("I need a quote");
+
+    await screen.findByText(/What’s got you looking into windows or doors right now/);
+    expect(
+      screen.queryByRole("complementary", {
+        name: "What WindowMan checks",
+      }),
+    ).not.toBeInTheDocument();
   });
 
   it("keeps the same hero element mounted as the conversation advances", async () => {
@@ -242,29 +315,11 @@ describe("WmChatPage", () => {
     staticRobotsMeta.remove();
   });
 
-  it("is silent by default, speaks only after a tap, cancels prior audio, and cancels on unmount", async () => {
-    const view = renderPage();
-    await screen.findByRole("button", { name: "Tap to hear him" });
-    expect(speakMock).not.toHaveBeenCalled();
-
-    choose("Tap to hear him");
-    expect(cancelMock).toHaveBeenCalledTimes(1);
-    expect(speakMock).toHaveBeenCalledTimes(1);
-    expect(speakMock.mock.calls[0][0].text).toContain("why'd you click my post");
-
-    view.unmount();
-    expect(cancelMock).toHaveBeenCalledTimes(2);
-  });
-
-  it("falls back cleanly when browser speech is unavailable", async () => {
-    // @ts-expect-error test-only removal of a feature-detected browser API
-    delete window.SpeechSynthesisUtterance;
-    // @ts-expect-error test-only removal of a feature-detected browser API
-    delete window.speechSynthesis;
+  it("does not expose inconsistent browser speech controls", () => {
     renderPage();
-    await waitFor(() => {
-      expect(screen.queryByRole("button", { name: "Tap to hear him" })).not.toBeInTheDocument();
-    });
+    expect(
+      screen.queryByRole("button", { name: /tap to hear|hear this reply/i }),
+    ).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "I need a quote" })).toBeEnabled();
   });
 

@@ -5,7 +5,6 @@ import {
   Copy,
   Phone,
   RotateCcw,
-  Volume2,
 } from "lucide-react";
 import {
   type Dispatch,
@@ -26,6 +25,7 @@ import {
 } from "@/lib/validation/truthGateContact";
 import { isValidEmail } from "@/utils/formatPhone";
 import { getWmChatOption, resolveWmChatNode } from "./wmChatContent";
+import { WmChatTrustCards } from "./WmChatTrustCards";
 import type {
   WmChatAction,
   WmChatOption,
@@ -42,8 +42,6 @@ type WmChatConversationProps = {
   readonly dispatch: Dispatch<WmChatAction>;
   readonly onSubmit: () => void;
   readonly onEmailSubmit: (email: string) => void;
-  readonly speechSupported: boolean;
-  readonly speak: (text: string) => void;
   readonly hero: ReactNode;
   readonly thinkingDelayMs?: () => number;
 };
@@ -62,19 +60,13 @@ type DelayedWmChatAction = Extract<
 
 function WindowManBubble({
   text,
-  speak,
-  speechSupported,
   live = false,
-  disabled = false,
 }: {
   readonly text: string;
-  readonly speak: (text: string) => void;
-  readonly speechSupported: boolean;
   readonly live?: boolean;
-  readonly disabled?: boolean;
 }) {
   const surface = live
-    ? "border-white/[0.11] border-t-white/[0.2] bg-[#111d2b]/72 shadow-[0_20px_48px_rgba(0,0,0,0.34),0_10px_30px_rgba(46,143,255,0.07),inset_0_1px_0_rgba(255,255,255,0.13)] backdrop-blur-[7px]"
+    ? "border-white/[0.11] border-t-white/[0.2] bg-[#111d2b] shadow-[0_20px_48px_rgba(0,0,0,0.34),0_10px_30px_rgba(46,143,255,0.07),inset_0_1px_0_rgba(255,255,255,0.13)]"
     : "border-[#223247] bg-[#121c29] shadow-[0_14px_34px_rgba(0,0,0,0.24),inset_0_1px_0_rgba(255,255,255,0.025)]";
 
   return (
@@ -83,18 +75,6 @@ function WindowManBubble({
       aria-live={live ? "polite" : undefined}
     >
       <p className="whitespace-pre-line">{text}</p>
-      {speechSupported ? (
-        <button
-          type="button"
-          onClick={() => speak(text)}
-          disabled={disabled}
-          className="mt-2 inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-xs font-medium text-[#91cfff] transition-colors hover:bg-[#172638] hover:text-white disabled:cursor-wait disabled:opacity-45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2e8fff] motion-reduce:transition-none"
-          aria-label="Hear this WindowMan reply"
-        >
-          <Volume2 className="h-4 w-4" aria-hidden="true" />
-          Hear this reply
-        </button>
-      ) : null}
     </div>
   );
 }
@@ -122,7 +102,7 @@ function OptionButton({
       className={`group flex min-h-14 w-full items-center gap-3 rounded-[17px] border px-4 py-3.5 text-left text-[15px] font-semibold leading-5 shadow-[0_12px_30px_rgba(0,0,0,0.24),inset_0_1px_0_rgba(255,255,255,0.035)] transition-[border-color,background-color,transform,box-shadow] hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2e8fff] focus-visible:ring-offset-2 focus-visible:ring-offset-[#070a0f] active:translate-y-0 motion-reduce:transform-none motion-reduce:transition-none sm:text-base ${
         emphasized
           ? "border-[#5bb0ff] bg-[#2e8fff] text-white shadow-[0_14px_34px_rgba(46,143,255,0.22),inset_0_1px_0_rgba(255,255,255,0.18)] hover:bg-[#1a7beb] active:bg-[#1565c0]"
-          : "border-white/[0.09] border-t-white/[0.14] bg-[#152235]/82 text-[#f2f7fc] shadow-[0_14px_32px_rgba(0,0,0,0.28),0_5px_14px_rgba(46,143,255,0.035),inset_0_1px_0_rgba(255,255,255,0.08)] hover:border-[#4b79a5] hover:bg-[#192d45]/92 hover:shadow-[0_18px_36px_rgba(0,0,0,0.3),0_7px_18px_rgba(46,143,255,0.07),inset_0_1px_0_rgba(255,255,255,0.11)]"
+          : "border-white/[0.09] border-t-white/[0.14] bg-[#152235] text-[#f2f7fc] shadow-[0_14px_32px_rgba(0,0,0,0.28),0_5px_14px_rgba(46,143,255,0.035),inset_0_1px_0_rgba(255,255,255,0.08)] hover:border-[#4b79a5] hover:bg-[#192d45] hover:shadow-[0_18px_36px_rgba(0,0,0,0.3),0_7px_18px_rgba(46,143,255,0.07),inset_0_1px_0_rgba(255,255,255,0.11)]"
       }`}
     >
       <span
@@ -213,8 +193,6 @@ export function WmChatConversation({
   dispatch,
   onSubmit,
   onEmailSubmit,
-  speechSupported,
-  speak,
   hero,
   thinkingDelayMs = randomThinkingDelayMs,
 }: WmChatConversationProps) {
@@ -429,26 +407,33 @@ export function WmChatConversation({
 
   return (
     <div className="mx-auto flex min-h-[100dvh] w-full max-w-[472px] flex-col px-[18px] pb-[calc(28px+env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:pt-5">
-      <header className="relative z-20 -mx-1 flex min-h-12 items-center justify-between gap-3 rounded-[18px] border border-white/[0.07] border-t-white/[0.14] bg-[#0a1420]/68 px-2.5 shadow-[0_14px_34px_rgba(0,0,0,0.24),inset_0_1px_0_rgba(255,255,255,0.1)] backdrop-blur-[7px]">
-        <div className="text-[15px] font-black tracking-[0.04em] text-white">
-          WINDOW<span className="text-[#71c6ff]">MAN</span>
+      <header
+        data-testid="wmchat-floating-header"
+        className="relative z-20 -mx-1 px-1 pt-2"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-[15px] font-black tracking-[0.04em] text-white">
+            WINDOW<span className="text-[#71c6ff]">MAN</span>
+          </div>
+          <span className="text-right text-[10px] font-extrabold uppercase tracking-[0.1em] text-[#8fd1ff] [text-shadow:0_1px_8px_rgba(46,143,255,0.25)]">
+            Free for homeowners
+          </span>
         </div>
-        {speechSupported ? (
-          <button
-            type="button"
-            onClick={() => speak(node.prompt)}
-            disabled={state.isThinking}
-            className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[#28394d] bg-[#0d1621] px-4 text-sm font-medium text-[#a6d9ff] shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] hover:border-[#3b536c] hover:text-white disabled:cursor-wait disabled:opacity-45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2e8fff]"
-          >
-            <Volume2 className="h-4 w-4" aria-hidden="true" />
-            Tap to hear him
-          </button>
-        ) : null}
+        <p className="mx-auto mt-2 max-w-[34ch] text-center text-[11px] font-semibold tracking-[0.045em] text-[#afc4d5] [text-shadow:0_1px_8px_rgba(0,0,0,0.45)]">
+          AI quote intelligence for homeowner protection
+        </p>
+        <div
+          aria-label="WindowMan service status"
+          className="mt-2.5 flex items-center justify-between gap-3 text-[9px] font-bold uppercase tracking-[0.13em] text-[#6fa8cf] [text-shadow:0_1px_8px_rgba(0,0,0,0.55)]"
+        >
+          <span>Independent software</span>
+          <span>Private by design</span>
+        </div>
       </header>
 
       <section className="pt-3 text-center">
         {hero}
-        <p className="mt-1 text-sm font-medium tracking-[0.02em] text-[#79c8ff]">
+        <p className="mt-1 text-[13px] font-medium tracking-[0.015em] text-[#79c8ff] sm:text-sm">
           WindowMan AI · Software, not a contractor
         </p>
         <h1 className="mt-3 text-balance text-2xl font-extrabold tracking-[-0.025em] text-white">
@@ -457,6 +442,7 @@ export function WmChatConversation({
         <p className="mx-auto mt-2 max-w-[38ch] text-sm leading-6 text-[#9db0c3]">
           Tell me what brought you here. I’ll keep the next step simple.
         </p>
+        {isInitial ? <WmChatTrustCards /> : null}
       </section>
 
       {!isInitial ? (
@@ -496,8 +482,6 @@ export function WmChatConversation({
                 <WindowManBubble
                   key={entry.id}
                   text={entry.text}
-                  speak={speak}
-                  speechSupported={speechSupported}
                 />
               ) : (
                 <VisitorBubble key={entry.id} text={entry.text} />
@@ -509,7 +493,7 @@ export function WmChatConversation({
         {state.status === "success" ? (
           <section
             ref={successRef}
-            className="scroll-mb-[20vh] rounded-[20px] border border-white/[0.13] border-t-white/[0.24] bg-[#10243b]/78 px-5 py-6 text-center shadow-[0_22px_60px_rgba(0,0,0,0.34),0_0_42px_rgba(46,143,255,0.14),inset_0_1px_0_rgba(255,255,255,0.14)] ring-1 ring-[#2e8fff]/45 backdrop-blur-[8px]"
+            className="scroll-mb-[20vh] rounded-[20px] border border-white/[0.13] border-t-white/[0.24] bg-[#10243b] px-5 py-6 text-center shadow-[0_22px_60px_rgba(0,0,0,0.34),0_0_42px_rgba(46,143,255,0.14),inset_0_1px_0_rgba(255,255,255,0.14)] ring-1 ring-[#2e8fff]/45"
           >
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-[#67baff] bg-[#153f6b] text-[#9bd4ff]">
               <Check className="h-6 w-6" aria-hidden="true" />
@@ -539,10 +523,7 @@ export function WmChatConversation({
             <div ref={activeReplyRef} className="scroll-mb-[20vh]">
               <WindowManBubble
                 text={node.prompt}
-                speak={speak}
-                speechSupported={speechSupported}
                 live
-                disabled={state.isThinking}
               />
             </div>
 
@@ -558,7 +539,7 @@ export function WmChatConversation({
             ) : null}
 
             {!state.isThinking ? (
-              <div className="mt-4 space-y-3 rounded-[22px] border border-white/[0.06] border-t-white/[0.12] bg-[#0b1522]/48 p-2.5 shadow-[0_18px_42px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.07)] backdrop-blur-[7px]">
+              <div className="mt-4 space-y-3">
                 {node.kind === "single" ||
                 node.kind === "recap" ||
                 node.kind === "power" ||

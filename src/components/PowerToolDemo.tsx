@@ -214,6 +214,74 @@ const NEXT_STEPS = [
   "Add a Written Change-Order Clause.",
   "Request Warranty PDF — Confirm 5-Year Labor Coverage.",
 ];
+
+const WM_CHAT_SCAN_LINES = SCAN_LINES.map((line) => ({
+  ...line,
+  text: line.text
+    .replace("EXCEEDS FL STATUTORY LIMIT", "REQUIRES STATE-SPECIFIC REVIEW")
+    .replace(
+      "Checking Florida hurricane compliance database...",
+      "Checking product approval and structural-rating evidence...",
+    )
+    .replace("NOA numbers", "Approval identifiers")
+    .replace("FL Product Approval: Partial (FL12345 only)", "Product approval evidence: PARTIAL")
+    .replace(
+      "Applying FL §489.126 deposit hard cap...",
+      "Checking deposit terms against applicable requirements...",
+    ),
+}));
+
+const WM_CHAT_FINDINGS = [
+  FINDINGS[0],
+  {
+    severity: "flag",
+    pillar: "SAFETY",
+    title: "Product Approval Evidence Not Documented",
+    why: "Required product identifiers and structural ratings vary by location and product type.",
+    what: "Require the exact approval identifiers and ratings for every proposed product series.",
+  },
+  FINDINGS[2],
+  {
+    severity: "flag",
+    pillar: "FINE PRINT",
+    title: "Cancellation Terms Not Stated",
+    why: "Cancellation rights vary by state and contract type, so the written terms matter.",
+    what: "Require the applicable cancellation window and instructions in writing before signing.",
+  },
+  FINDINGS[4],
+];
+
+const WM_CHAT_NEXT_STEPS = [
+  "Lock Permits + Inspections Into Scope.",
+  "Attach Applicable Product Approval Sheets as Exhibits Before Signing.",
+  "Rewrite Payment Into Clear Milestones.",
+  "Add a Written Change-Order Clause.",
+  "Request the Warranty PDF and Confirm Labor Coverage.",
+];
+
+const DIRECT_POWER_TOOL_PRESENTATION = {
+  scanLines: SCAN_LINES,
+  findings: FINDINGS,
+  nextSteps: NEXT_STEPS,
+  reportRegion: `${DEMO.city}, FL ${DEMO.zip}`,
+  calibrationCopy:
+    "Impact-window pricing changes by county, code zone, opening count, and contractor markup. Your ZIP tells WindowMan what risks to watch for.",
+};
+
+const WM_CHAT_POWER_TOOL_PRESENTATION = {
+  scanLines: WM_CHAT_SCAN_LINES,
+  findings: WM_CHAT_FINDINGS,
+  nextSteps: WM_CHAT_NEXT_STEPS,
+  reportRegion: "Nationwide sample project",
+  calibrationCopy:
+    "Window and door requirements vary by location, product, opening count, and installation scope. Your ZIP helps WindowMan focus the sample on the right questions.",
+};
+
+export const getPowerToolPresentation = (entrySource = "direct") =>
+  entrySource === "wm_chat"
+    ? WM_CHAT_POWER_TOOL_PRESENTATION
+    : DIRECT_POWER_TOOL_PRESENTATION;
+
 const fmt$ = (n) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 
@@ -532,7 +600,7 @@ function ModalBtn({ children, onClick, loading = false }) {
 /* ============================================================
    CalibrationGateModal — ZIP-only mid-scan calibration
    ============================================================ */
-function CalibrationGateModal({ onSubmit }) {
+function CalibrationGateModal({ onSubmit, presentation = DIRECT_POWER_TOOL_PRESENTATION }) {
   const [zipCode, setZipCode] = useState("");
   const [errors, setErrors] = useState({});
   const modalRef = useRef(null);
@@ -670,8 +738,7 @@ function CalibrationGateModal({ onSubmit }) {
             margin: "0 0 24px",
           }}
         >
-          Impact-window pricing changes by county, code zone, opening count, and contractor markup. Your ZIP tells
-          WindowMan what risks to watch for.
+          {presentation.calibrationCopy}
         </p>
 
         {/* Fields */}
@@ -1105,7 +1172,7 @@ const INTAKE_STEPS = [
   },
 ];
 
-function DemoReport({ lead, onUploadQuote, onClose, sessionId, leadId }) {
+function DemoReport({ lead, onUploadQuote, onClose, sessionId, leadId, entrySource = "direct" }) {
   const [visible, setVisible] = useState(false);
   const [assistPhone, setAssistPhone] = useState("");
   const [assistPhase, setAssistPhase] = useState("phone");
@@ -1115,6 +1182,7 @@ function DemoReport({ lead, onUploadQuote, onClose, sessionId, leadId }) {
   const [intakeStepIndex, setIntakeStepIndex] = useState(0);
   const [intakeData, setIntakeData] = useState({});
   const [intakeHistory, setIntakeHistory] = useState([]);
+  const presentation = getPowerToolPresentation(entrySource);
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), 80);
     return () => clearTimeout(t);
@@ -1374,7 +1442,7 @@ function DemoReport({ lead, onUploadQuote, onClose, sessionId, leadId }) {
               {firstName.charAt(0).toUpperCase() + firstName.slice(1)}'s WindowMan Truth Report
             </h1>
             <p style={{ color: T.muted, fontSize: "15px", margin: 0 }}>
-              Forensic Consumer Protection Analysis — {DEMO.city}, FL {DEMO.zip}
+              Forensic Consumer Protection Analysis — {presentation.reportRegion}
             </p>
           </div>
         </FadeIn>
@@ -1572,7 +1640,7 @@ function DemoReport({ lead, onUploadQuote, onClose, sessionId, leadId }) {
         <FadeIn delay={240}>
           <SectionHead kicker="CRITICAL FINDINGS" title="Do Not Sign Until These Are Fixed" />
           <div style={{ display: "grid", gap: "12px" }}>
-            {FINDINGS.map((f, i) => (
+            {presentation.findings.map((f, i) => (
               <div
                 key={i}
                 style={{
@@ -1598,7 +1666,7 @@ function DemoReport({ lead, onUploadQuote, onClose, sessionId, leadId }) {
           <SectionHead kicker="NEXT STEPS" title="Protect yourself before you sign" />
           <Card>
             <div style={{ display: "grid", gap: "10px", marginBottom: "28px" }}>
-              {NEXT_STEPS.map((b, i) => (
+              {presentation.nextSteps.map((b, i) => (
                 <div
                   key={i}
                   style={{
@@ -1727,7 +1795,15 @@ function DemoReport({ lead, onUploadQuote, onClose, sessionId, leadId }) {
 /* ============================================================
    DemoScanPage — orchestrates scanning, calibration gate, reveal
    ============================================================ */
-function DemoScanPage({ lead, onUploadQuote, onClose, onCalibrationComplete, sessionId, leadId }) {
+function DemoScanPage({
+  lead,
+  onUploadQuote,
+  onClose,
+  onCalibrationComplete,
+  sessionId,
+  leadId,
+  entrySource = "direct",
+}) {
   const [phase, setPhase] = useState("scanning");
   const [lines, setLines] = useState([]);
   const [progress, setProgress] = useState(0);
@@ -1735,6 +1811,8 @@ function DemoScanPage({ lead, onUploadQuote, onClose, onCalibrationComplete, ses
   const [isCalibrationGateOpen, setIsCalibrationGateOpen] = useState(false);
   const terminalRef = useRef(null);
   const timersRef = useRef([]);
+  const presentation = getPowerToolPresentation(entrySource);
+  const scanLines = presentation.scanLines;
 
   // Refs for timer-sensitive state to avoid stale closures
   const isDemoPausedRef = useRef(false);
@@ -1745,7 +1823,7 @@ function DemoScanPage({ lead, onUploadQuote, onClose, onCalibrationComplete, ses
   const firstName = lead?.name?.split(" ")[0] || "";
 
   // Find the trigger line index once
-  const triggerIndex = SCAN_LINES.findIndex((line) =>
+  const triggerIndex = scanLines.findIndex((line) =>
     line.text.startsWith(CALIBRATION_TRIGGER_TEXT.replace("...", "")),
   );
 
@@ -1766,13 +1844,13 @@ function DemoScanPage({ lead, onUploadQuote, onClose, onCalibrationComplete, ses
     isDemoPausedRef.current = false;
     hasCalibrationBeenSubmittedRef.current = false;
 
-    const timers = SCAN_LINES.map((line, i) => {
+    const timers = scanLines.map((line, i) => {
       const tid = setTimeout(() => {
         // If paused, don't render any more lines
         if (isDemoPausedRef.current) return;
 
         setLines((prev) => [...prev, line]);
-        setProgress(Math.round(((i + 1) / SCAN_LINES.length) * 100));
+        setProgress(Math.round(((i + 1) / scanLines.length) * 100));
         requestAnimationFrame(() => {
           if (terminalRef.current) terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
         });
@@ -1800,13 +1878,13 @@ function DemoScanPage({ lead, onUploadQuote, onClose, onCalibrationComplete, ses
           setPhase("revealing");
         }
       },
-      SCAN_LINES[SCAN_LINES.length - 1].ms + 1400,
+      scanLines[scanLines.length - 1].ms + 1400,
     );
 
     timersRef.current = [...timers, transitionTimer];
 
     return () => clearTimers();
-  }, [phase]);
+  }, [clearTimers, phase, scanLines, triggerIndex]);
 
   // Score reveal counter
   useEffect(() => {
@@ -1842,7 +1920,7 @@ function DemoScanPage({ lead, onUploadQuote, onClose, onCalibrationComplete, ses
 
       // Get remaining lines after the trigger
       const resumeFromIndex = triggerLineIndexRef.current + 1;
-      const remainingLines = SCAN_LINES.slice(resumeFromIndex);
+      const remainingLines = scanLines.slice(resumeFromIndex);
 
       // Add the "[DONE] Risk Score Computed" line
       const doneConfirmLine = { text: "[DONE] Risk Score Computed", type: "complete" };
@@ -1858,7 +1936,7 @@ function DemoScanPage({ lead, onUploadQuote, onClose, onCalibrationComplete, ses
         const tid = setTimeout(
           () => {
             setLines((prev) => [...prev, line]);
-            setProgress(Math.round(((resumeFromIndex + i + 1) / SCAN_LINES.length) * 100));
+            setProgress(Math.round(((resumeFromIndex + i + 1) / scanLines.length) * 100));
             requestAnimationFrame(() => {
               if (terminalRef.current) terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
             });
@@ -1889,7 +1967,7 @@ function DemoScanPage({ lead, onUploadQuote, onClose, onCalibrationComplete, ses
 
       timersRef.current = newTimers;
     },
-    [onCalibrationComplete],
+    [onCalibrationComplete, scanLines],
   );
 
   if (phase === "scanning" || isCalibrationGateOpen) {
@@ -1904,7 +1982,12 @@ function DemoScanPage({ lead, onUploadQuote, onClose, onCalibrationComplete, ses
         >
           <ScanTerminal lines={lines} progress={progress} terminalRef={terminalRef} firstName={firstName} />
         </div>
-        {isCalibrationGateOpen && <CalibrationGateModal onSubmit={handleCalibrationSubmit} />}
+        {isCalibrationGateOpen && (
+          <CalibrationGateModal
+            onSubmit={handleCalibrationSubmit}
+            presentation={presentation}
+          />
+        )}
       </div>
     );
   }
@@ -1916,6 +1999,7 @@ function DemoScanPage({ lead, onUploadQuote, onClose, onCalibrationComplete, ses
       onClose={onClose}
       sessionId={sessionId}
       leadId={leadId}
+      entrySource={entrySource}
     />
   );
 }
@@ -2082,6 +2166,7 @@ const PowerToolFlow = React.forwardRef<
               onCalibrationComplete={handleCalibrationComplete}
               sessionId={getPowerToolSessionId()}
               leadId={powerToolLeadId}
+              entrySource={entrySource}
             />
           </div>,
           document.body,
