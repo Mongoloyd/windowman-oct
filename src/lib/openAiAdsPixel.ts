@@ -17,6 +17,7 @@ const OPENAI_ADS_SCRIPT_SELECTOR = "script[data-openai-ads-pixel]";
 let initialized = false;
 let scriptInjected = false;
 let lastMeasuredPageKey: string | null = null;
+let resumePageViewAfterSuppression = false;
 
 export interface OpenAiAdsCaptureContext {
   measurementConsent: true;
@@ -112,6 +113,7 @@ function ensureInitialized(): {
   if (consentGranted) {
     window.oaiq("measure", "page_viewed", { type: "contents" });
     lastMeasuredPageKey = currentPageKey();
+    resumePageViewAfterSuppression = false;
   }
 
   return { ready: true, consentGranted, initializedNow: true };
@@ -126,6 +128,11 @@ export function initOpenAiAdsPixel(): void {
   }
 }
 
+/** Allow one eligible page view after the app deliberately suppresses a route. */
+export function markOpenAiAdsPageViewSuppressed(): void {
+  resumePageViewAfterSuppression = true;
+}
+
 /** Emit one SPA page_viewed event; an initializing call already emits once. */
 export function trackOpenAiAdsPageViewed(): void {
   try {
@@ -133,10 +140,19 @@ export function trackOpenAiAdsPageViewed(): void {
     if (!state.ready || !state.consentGranted || state.initializedNow) return;
 
     const pageKey = currentPageKey();
-    if (!pageKey || pageKey === lastMeasuredPageKey) return;
+    if (
+      !pageKey ||
+      (pageKey === lastMeasuredPageKey && !resumePageViewAfterSuppression)
+    ) {
+      return;
+    }
 
-    window.oaiq?.("measure", "page_viewed", { type: "contents" });
+    const oaiq = window.oaiq;
+    if (!oaiq) return;
+
+    oaiq("measure", "page_viewed", { type: "contents" });
     lastMeasuredPageKey = pageKey;
+    resumePageViewAfterSuppression = false;
   } catch {
     // Measurement must never affect navigation.
   }

@@ -84,6 +84,139 @@ describe("openAiAdsPixel", () => {
     ]);
   });
 
+  it("emits one same-route page_viewed after a suppressed route, then deduplicates", async () => {
+    window.localStorage.setItem(V2_KEY, "granted");
+    window.history.replaceState({}, "", "/about");
+    const oaiq = installOaiqSpy();
+    const {
+      initOpenAiAdsPixel,
+      markOpenAiAdsPageViewSuppressed,
+      trackOpenAiAdsPageViewed,
+    } = await loadPixelModule();
+
+    initOpenAiAdsPixel();
+    markOpenAiAdsPageViewSuppressed();
+    window.history.replaceState({}, "", "/wmchat");
+    window.history.replaceState({}, "", "/about");
+    trackOpenAiAdsPageViewed();
+    trackOpenAiAdsPageViewed();
+
+    expect(
+      oaiq.mock.calls.filter(
+        ([command, eventName]) =>
+          command === "measure" && eventName === "page_viewed",
+      ),
+    ).toHaveLength(2);
+  });
+
+  it("keeps the one-shot marker while consent is denied, then consumes it after grant", async () => {
+    window.localStorage.setItem(V2_KEY, "granted");
+    window.history.replaceState({}, "", "/about");
+    const oaiq = installOaiqSpy();
+    const {
+      initOpenAiAdsPixel,
+      markOpenAiAdsPageViewSuppressed,
+      trackOpenAiAdsPageViewed,
+    } = await loadPixelModule();
+
+    initOpenAiAdsPixel();
+    markOpenAiAdsPageViewSuppressed();
+    window.localStorage.setItem(V2_KEY, "denied");
+    trackOpenAiAdsPageViewed();
+    window.localStorage.setItem(V2_KEY, "granted");
+    trackOpenAiAdsPageViewed();
+    trackOpenAiAdsPageViewed();
+
+    expect(
+      oaiq.mock.calls.filter(
+        ([command, eventName]) =>
+          command === "measure" && eventName === "page_viewed",
+      ),
+    ).toHaveLength(2);
+  });
+
+  it("treats repeated suppression markers as one pending resume", async () => {
+    window.localStorage.setItem(V2_KEY, "granted");
+    window.history.replaceState({}, "", "/about");
+    const oaiq = installOaiqSpy();
+    const {
+      initOpenAiAdsPixel,
+      markOpenAiAdsPageViewSuppressed,
+      trackOpenAiAdsPageViewed,
+    } = await loadPixelModule();
+
+    initOpenAiAdsPixel();
+    markOpenAiAdsPageViewSuppressed();
+    markOpenAiAdsPageViewSuppressed();
+    trackOpenAiAdsPageViewed();
+    trackOpenAiAdsPageViewed();
+
+    expect(
+      oaiq.mock.calls.filter(
+        ([command, eventName]) =>
+          command === "measure" && eventName === "page_viewed",
+      ),
+    ).toHaveLength(2);
+  });
+
+  it("retains the one-shot marker when SDK emission throws", async () => {
+    window.localStorage.setItem(V2_KEY, "granted");
+    window.history.replaceState({}, "", "/about");
+    const oaiq = installOaiqSpy();
+    const {
+      initOpenAiAdsPixel,
+      markOpenAiAdsPageViewSuppressed,
+      trackOpenAiAdsPageViewed,
+    } = await loadPixelModule();
+
+    initOpenAiAdsPixel();
+    markOpenAiAdsPageViewSuppressed();
+    let throwNextPageView = true;
+    oaiq.mockImplementation((command, eventName) => {
+      if (
+        command === "measure" &&
+        eventName === "page_viewed" &&
+        throwNextPageView
+      ) {
+        throwNextPageView = false;
+        throw new Error("SDK unavailable");
+      }
+    });
+
+    trackOpenAiAdsPageViewed();
+    trackOpenAiAdsPageViewed();
+    trackOpenAiAdsPageViewed();
+
+    expect(
+      oaiq.mock.calls.filter(
+        ([command, eventName]) =>
+          command === "measure" && eventName === "page_viewed",
+      ),
+    ).toHaveLength(3);
+  });
+
+  it("clears a pending marker when initialization emits the eligible page", async () => {
+    window.localStorage.setItem(V2_KEY, "granted");
+    window.history.replaceState({}, "", "/about");
+    const oaiq = installOaiqSpy();
+    const {
+      initOpenAiAdsPixel,
+      markOpenAiAdsPageViewSuppressed,
+      trackOpenAiAdsPageViewed,
+    } = await loadPixelModule();
+
+    markOpenAiAdsPageViewSuppressed();
+    initOpenAiAdsPixel();
+    trackOpenAiAdsPageViewed();
+
+    expect(
+      oaiq.mock.calls.filter(
+        ([command, eventName]) =>
+          command === "measure" && eventName === "page_viewed",
+      ),
+    ).toHaveLength(1);
+  });
+
   it("does not count a hash-only navigation as a new page", async () => {
     window.localStorage.setItem(V2_KEY, "granted");
     const oaiq = installOaiqSpy();

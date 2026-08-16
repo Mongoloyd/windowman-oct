@@ -1,0 +1,780 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { HelmetProvider } from "react-helmet-async";
+import { MemoryRouter } from "react-router-dom";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { WM_CHAT_RESUME_STORAGE_KEY } from "./wmChatResume";
+import type {
+  WmChatEmailSubmitter,
+  WmChatSubmitInput,
+  WmChatSubmitter,
+} from "./wmChatTypes";
+import WmChatPage from "./WmChatPage";
+
+const {
+  navigateMock,
+  setPhoneMock,
+  setLeadIdMock,
+  setSessionIdMock,
+  powerToolPropsMock,
+} = vi.hoisted(() => ({
+  navigateMock: vi.fn(),
+  setPhoneMock: vi.fn(),
+  setLeadIdMock: vi.fn(),
+  setSessionIdMock: vi.fn(),
+  powerToolPropsMock: vi.fn(),
+}));
+
+vi.mock("react-router-dom", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("react-router-dom")>();
+  return { ...actual, useNavigate: () => navigateMock };
+});
+
+vi.mock("@/state/scanFunnel", () => ({
+  useScanFunnelSafe: () => ({
+    setPhone: setPhoneMock,
+    setLeadId: setLeadIdMock,
+    setSessionId: setSessionIdMock,
+  }),
+}));
+
+vi.mock("./wmChatIdentity", () => ({
+  getOrCreateWmChatSessionId: () =>
+    "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+  getOrCreateWmChatSubmissionId: () =>
+    "11111111-2222-4333-8444-555555555555",
+}));
+
+vi.mock("@/components/PowerToolDemo", () => ({
+  default: (props: {
+    triggerOpen?: boolean;
+    entrySource?: string;
+    onToolClose?: () => void;
+  }) => {
+    powerToolPropsMock(props);
+    return (
+      <div role="dialog" aria-label="WindowMan Power Demo">
+        <button type="button" onClick={props.onToolClose}>
+          Close Instant Demo
+        </button>
+      </div>
+    );
+  },
+}));
+
+const LEAD_ID = "99999999-8888-4777-8666-555555555555";
+const speakMock = vi.fn();
+const cancelMock = vi.fn();
+const scrollIntoViewMock = vi.fn();
+
+class SpeechSynthesisUtteranceStub {
+  text: string;
+  rate = 1;
+  pitch = 1;
+
+  constructor(text: string) {
+    this.text = text;
+  }
+}
+
+function renderPage(
+  submitter: WmChatSubmitter = vi.fn(),
+  initialEntry = "/wmchat",
+  thinkingDelayMs: () => number = () => 0,
+  emailSubmitter?: WmChatEmailSubmitter,
+) {
+  return render(
+    <HelmetProvider>
+      <MemoryRouter initialEntries={[initialEntry]}>
+        <WmChatPage
+          submitter={submitter}
+          emailSubmitter={emailSubmitter}
+          thinkingDelayMs={thinkingDelayMs}
+        />
+      </MemoryRouter>
+    </HelmetProvider>,
+  );
+}
+
+function renderPageWithProductionDelay(submitter: WmChatSubmitter = vi.fn()) {
+  return render(
+    <HelmetProvider>
+      <MemoryRouter initialEntries={["/wmchat"]}>
+        <WmChatPage submitter={submitter} />
+      </MemoryRouter>
+    </HelmetProvider>,
+  );
+}
+
+function choose(name: string) {
+  fireEvent.click(screen.getByRole("button", { name }));
+}
+
+function advanceNeedQuoteToFullRecap() {
+  choose("I need a quote");
+  choose("I’m planning, budgeting, or researching");
+  choose("A realistic price baseline");
+  choose("A clear price baseline");
+  choose("Keep going");
+  choose("Unexpected cost later");
+  choose("Pressure to sign quickly");
+}
+
+function advanceNeedQuoteToPhone() {
+  advanceNeedQuoteToFullRecap();
+  choose("That’s right");
+  fireEvent.change(screen.getByLabelText("ZIP code"), {
+    target: { value: "33301" },
+  });
+  choose("Continue");
+  choose("Windows");
+  choose("6–10");
+  choose("I’m setting a baseline");
+  choose("1–3 months");
+  choose("Skip");
+}
+
+function advanceQuoteUploadToPhone() {
+  choose("I already have a quote");
+  choose("Upload first");
+}
+
+function advanceQuoteDiagnosisToPhone() {
+  choose("I already have a quote");
+  choose("The price");
+  choose("The total feels high");
+  choose("Skip");
+}
+
+describe("WmChatPage", () => {
+  beforeEach(() => {
+    navigateMock.mockReset();
+    setPhoneMock.mockReset();
+    setLeadIdMock.mockReset();
+    setSessionIdMock.mockReset();
+    powerToolPropsMock.mockReset();
+    speakMock.mockReset();
+    cancelMock.mockReset();
+    scrollIntoViewMock.mockReset();
+    sessionStorage.clear();
+    localStorage.clear();
+    Object.defineProperty(window, "SpeechSynthesisUtterance", {
+      configurable: true,
+      value: SpeechSynthesisUtteranceStub,
+    });
+    Object.defineProperty(window, "speechSynthesis", {
+      configurable: true,
+      value: { speak: speakMock, cancel: cancelMock },
+    });
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      value: vi.fn(() => ({ matches: false })),
+    });
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoViewMock,
+    });
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("renders the approved hero, identity, opening, equal-weight choices, and no email field", () => {
+    renderPage();
+    expect(
+      screen.getByRole("heading", { level: 1, name: "WindowMan: Your Quote Hero" }),
+    ).toBeInTheDocument();
+    expect(screen.getByAltText("WindowMan holding a project checklist")).toHaveAttribute(
+      "src",
+      expect.stringContaining("windowman-script"),
+    );
+    expect(screen.getByText("WindowMan AI · Software, not a contractor")).toBeInTheDocument();
+    expect(
+      screen.getByText("Tell me what brought you here. I’ll keep the next step simple."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("👋 Hey — I'm WindowMan. Quick one: why'd you click my post?"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "I already have a quote" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "I need a quote" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Show me your powers" })).toBeEnabled();
+    expect(screen.queryByLabelText(/email/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps the same hero element mounted as the conversation advances", async () => {
+    renderPage();
+    const hero = screen.getByAltText("WindowMan holding a project checklist");
+
+    choose("I need a quote");
+
+    expect(
+      await screen.findByText(/What’s got you looking into windows or doors right now/),
+    ).toBeInTheDocument();
+    expect(screen.getByAltText("WindowMan holding a project checklist")).toBe(hero);
+    expect(
+      screen.getByRole("heading", { level: 1, name: "WindowMan: Your Quote Hero" }),
+    ).toBeInTheDocument();
+  });
+
+  it("sets the locked title, noindex, and theme metadata", async () => {
+    const staticRobotsMeta = document.createElement("meta");
+    staticRobotsMeta.name = "robots";
+    staticRobotsMeta.content = "index, follow";
+    document.head.appendChild(staticRobotsMeta);
+    const view = renderPage();
+    await waitFor(() => expect(document.title).toBe("WindowMan: Your Quote Hero"));
+    await waitFor(() => {
+      const robots = Array.from(
+        document.querySelectorAll('meta[name="robots"]'),
+      );
+      expect(robots.length).toBeGreaterThan(0);
+      expect(robots.every((meta) => meta.getAttribute("content") === "noindex,nofollow"))
+        .toBe(true);
+      expect(document.querySelector('meta[name="theme-color"]')).toHaveAttribute(
+        "content",
+        "#070a0f",
+      );
+    });
+    view.unmount();
+    expect(staticRobotsMeta).toHaveAttribute("content", "index, follow");
+    staticRobotsMeta.remove();
+  });
+
+  it("is silent by default, speaks only after a tap, cancels prior audio, and cancels on unmount", async () => {
+    const view = renderPage();
+    await screen.findByRole("button", { name: "Tap to hear him" });
+    expect(speakMock).not.toHaveBeenCalled();
+
+    choose("Tap to hear him");
+    expect(cancelMock).toHaveBeenCalledTimes(1);
+    expect(speakMock).toHaveBeenCalledTimes(1);
+    expect(speakMock.mock.calls[0][0].text).toContain("why'd you click my post");
+
+    view.unmount();
+    expect(cancelMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("falls back cleanly when browser speech is unavailable", async () => {
+    // @ts-expect-error test-only removal of a feature-detected browser API
+    delete window.SpeechSynthesisUtterance;
+    // @ts-expect-error test-only removal of a feature-detected browser API
+    delete window.speechSynthesis;
+    renderPage();
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "Tap to hear him" })).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: "I need a quote" })).toBeEnabled();
+  });
+
+  it("uses instant transcript positioning when reduced motion is requested", async () => {
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      value: vi.fn((query: string) => ({
+        matches: query === "(prefers-reduced-motion: reduce)",
+      })),
+    });
+    renderPage();
+
+    choose("I need a quote");
+
+    await waitFor(() => {
+      expect(scrollIntoViewMock).toHaveBeenCalledWith({
+        behavior: "auto",
+        block: "end",
+      });
+    });
+  });
+
+  it("scrolls each new reply into view with viewport breathing room", async () => {
+    renderPage();
+
+    choose("I need a quote");
+
+    const prompt = await screen.findByText(
+      /What’s got you looking into windows or doors right now/,
+    );
+    expect(prompt.parentElement?.parentElement).toHaveClass("scroll-mb-[20vh]");
+    await waitFor(() => {
+      expect(scrollIntoViewMock).toHaveBeenCalledWith({
+        behavior: "smooth",
+        block: "end",
+      });
+    });
+  });
+
+  it("locks the choices and shows a bounded WindowMan typing pause before advancing", async () => {
+    vi.useFakeTimers();
+    try {
+      renderPage(vi.fn(), "/wmchat", () => 500);
+
+      const choice = screen.getByRole("button", { name: "I need a quote" });
+      fireEvent.click(choice);
+      fireEvent.click(choice);
+
+      expect(screen.getByRole("status", { name: "WindowMan is typing" })).toBeInTheDocument();
+      expect(screen.getByText("I need a quote")).toBeInTheDocument();
+      expect(screen.queryByText(/What’s got you looking into windows or doors right now/)).not.toBeInTheDocument();
+
+      await act(async () => {
+        vi.advanceTimersByTime(499);
+      });
+      expect(screen.getByRole("status", { name: "WindowMan is typing" })).toBeInTheDocument();
+
+      await act(async () => {
+        vi.advanceTimersByTime(1);
+      });
+      expect(screen.queryByRole("status", { name: "WindowMan is typing" })).not.toBeInTheDocument();
+      expect(screen.getByText(/What’s got you looking into windows or doors right now/)).toBeInTheDocument();
+      expect(screen.getAllByText("I need a quote")).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("uses the production delay when no test delay hook is supplied", async () => {
+    vi.useFakeTimers();
+    const random = vi.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      renderPageWithProductionDelay();
+
+      choose("I need a quote");
+      expect(
+        screen.getByRole("status", { name: "WindowMan is typing" }),
+      ).toBeInTheDocument();
+
+      await act(async () => {
+        vi.advanceTimersByTime(500);
+      });
+
+      expect(
+        screen.getByText(
+          /What’s got you looking into windows or doors right now/,
+        ),
+      ).toBeInTheDocument();
+    } finally {
+      random.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it("captures optional name, required mobile, service-only consent, and succeeds only with a real pair", async () => {
+    const submitter = vi.fn(async (input: WmChatSubmitInput) => ({
+      ok: true as const,
+      leadId: LEAD_ID,
+      sessionId: input.sessionId,
+      reused: false,
+    }));
+    renderPage(submitter);
+    advanceNeedQuoteToPhone();
+
+    expect(screen.queryByLabelText(/email/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/authorize service texts and an automated WindowMan AI call/i)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Mobile number"), {
+      target: { value: "5615550123" },
+    });
+    choose("Save my project request");
+
+    expect(
+      await screen.findByRole("heading", { name: "Project request received." }),
+    ).toBeInTheDocument();
+    expect(submitter).toHaveBeenCalledTimes(1);
+    expect(submitter.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        firstName: null,
+        phoneE164: "+15615550123",
+        serviceCommunicationsGranted: true,
+        marketingConsentPresented: false,
+        marketingCommunicationsGranted: false,
+      }),
+    );
+    expect(JSON.stringify(submitter.mock.calls[0][0].wmchatIntake)).not.toContain(
+      "+15615550123",
+    );
+    expect(setPhoneMock).not.toHaveBeenCalled();
+    expect(setLeadIdMock).not.toHaveBeenCalled();
+    expect(setSessionIdMock).not.toHaveBeenCalled();
+    expect(navigateMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps input and submission identity stable across a failed retry", async () => {
+    const seen: WmChatSubmitInput[] = [];
+    const submitter = vi.fn(async (input: WmChatSubmitInput) => {
+      seen.push(input);
+      if (seen.length === 1) return { ok: false as const, message: "Try that again." };
+      return {
+        ok: true as const,
+        leadId: LEAD_ID,
+        sessionId: input.sessionId,
+        reused: true,
+      };
+    });
+    renderPage(submitter);
+    advanceQuoteUploadToPhone();
+    fireEvent.change(screen.getByLabelText("Mobile number"), {
+      target: { value: "5615550123" },
+    });
+    choose("Save & open private upload");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Try that again.");
+    expect(screen.getByLabelText("Mobile number")).toHaveValue("(561) 555-0123");
+    expect(setPhoneMock).not.toHaveBeenCalled();
+    expect(setLeadIdMock).not.toHaveBeenCalled();
+    expect(setSessionIdMock).not.toHaveBeenCalled();
+    expect(navigateMock).not.toHaveBeenCalled();
+    choose("Save & open private upload");
+    await waitFor(() => expect(submitter).toHaveBeenCalledTimes(2));
+    expect(seen[1].sessionId).toBe(seen[0].sessionId);
+    expect(seen[1].submissionId).toBe(seen[0].submissionId);
+  });
+
+  it("recovers when the mobile capture submitter rejects", async () => {
+    const seen: WmChatSubmitInput[] = [];
+    const submitter = vi.fn(async (input: WmChatSubmitInput) => {
+      seen.push(input);
+      if (seen.length === 1) throw new Error("offline");
+      return {
+        ok: true as const,
+        leadId: LEAD_ID,
+        sessionId: input.sessionId,
+        reused: true,
+      };
+    });
+    renderPage(submitter);
+    advanceQuoteUploadToPhone();
+    fireEvent.change(screen.getByLabelText("Mobile number"), {
+      target: { value: "5615550123" },
+    });
+    choose("Save & open private upload");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "That didn’t save safely. Please try again.",
+    );
+    expect(screen.getByLabelText("Mobile number")).toHaveValue("(561) 555-0123");
+    expect(screen.getByRole("button", { name: "Save & open private upload" })).toBeEnabled();
+    expect(navigateMock).not.toHaveBeenCalled();
+    choose("Save & open private upload");
+    expect(
+      await screen.findByRole("heading", { name: "Now show me the quote." }),
+    ).toBeInTheDocument();
+    expect(submitter).toHaveBeenCalledTimes(2);
+    expect(seen[1].sessionId).toBe(seen[0].sessionId);
+    expect(seen[1].submissionId).toBe(seen[0].submissionId);
+  });
+
+  it("blocks duplicate submit taps", async () => {
+    let resolveSubmit!: (value: {
+      ok: true;
+      leadId: string;
+      sessionId: string;
+      reused: boolean;
+    }) => void;
+    const submitter = vi.fn(
+      (input: WmChatSubmitInput) =>
+        new Promise((resolve) => {
+          resolveSubmit = () =>
+            resolve({
+              ok: true,
+              leadId: LEAD_ID,
+              sessionId: input.sessionId,
+              reused: false,
+            });
+        }),
+    );
+    renderPage(submitter);
+    advanceQuoteUploadToPhone();
+    fireEvent.change(screen.getByLabelText("Mobile number"), {
+      target: { value: "5615550123" },
+    });
+    const button = screen.getByRole("button", { name: "Save & open private upload" });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    expect(submitter).toHaveBeenCalledTimes(1);
+    resolveSubmit({ ok: true, leadId: LEAD_ID, sessionId: "unused", reused: false });
+  });
+
+  it("carries the trusted quote-holder identity into the existing private-upload handoff", async () => {
+    const submitter = vi.fn(async (input: WmChatSubmitInput) => ({
+      ok: true as const,
+      leadId: LEAD_ID,
+      sessionId: input.sessionId,
+      reused: false,
+    }));
+    renderPage(submitter);
+    advanceQuoteUploadToPhone();
+    fireEvent.change(screen.getByLabelText("Mobile number"), {
+      target: { value: "5615550123" },
+    });
+    choose("Save & open private upload");
+
+    expect(await screen.findByRole("heading", { name: "Now show me the quote." })).toBeInTheDocument();
+    expect(screen.getByText("PDF or clear photos. Private upload. No retyping.")).toBeInTheDocument();
+    await waitFor(() => expect(setLeadIdMock).toHaveBeenCalledWith(LEAD_ID));
+    expect(setPhoneMock).toHaveBeenCalledWith("+15615550123", "screened_valid");
+    const submittedSessionId = submitter.mock.calls[0][0].sessionId;
+    expect(setSessionIdMock).toHaveBeenCalledWith(submittedSessionId);
+    await waitFor(() => {
+      expect(navigateMock).toHaveBeenCalledWith(
+        "/?post_capture=upload&source=wmchat",
+      );
+    });
+    expect(navigateMock).toHaveBeenCalledTimes(1);
+    const handoffUrl = navigateMock.mock.calls[0][0] as string;
+    expect(handoffUrl).not.toContain(LEAD_ID);
+    expect(handoffUrl).not.toContain(submittedSessionId);
+    expect(handoffUrl).not.toContain("5615550123");
+    expect(handoffUrl).not.toContain("consent");
+  });
+
+  it("hands off the completed quote-diagnosis path through the same private uploader", async () => {
+    const submitter = vi.fn(async (input: WmChatSubmitInput) => ({
+      ok: true as const,
+      leadId: LEAD_ID,
+      sessionId: input.sessionId,
+      reused: false,
+    }));
+    renderPage(submitter);
+    advanceQuoteDiagnosisToPhone();
+    fireEvent.change(screen.getByLabelText("Mobile number"), {
+      target: { value: "(561) 555-0123" },
+    });
+    choose("Save & open private upload");
+
+    await waitFor(() => expect(setPhoneMock).toHaveBeenCalledTimes(1));
+    expect(setPhoneMock).toHaveBeenCalledWith("+15615550123", "screened_valid");
+    expect(setLeadIdMock).toHaveBeenCalledWith(LEAD_ID);
+    expect(setSessionIdMock).toHaveBeenCalledWith(
+      submitter.mock.calls[0][0].sessionId,
+    );
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledTimes(1));
+  });
+
+  it("rejects a capture response whose session does not match the submitted identity", async () => {
+    const submitter = vi.fn(async () => ({
+      ok: true as const,
+      leadId: LEAD_ID,
+      sessionId: "bbbbbbbb-cccc-4ddd-8eee-ffffffffffff",
+      reused: false,
+    }));
+    renderPage(submitter);
+    advanceQuoteUploadToPhone();
+    fireEvent.change(screen.getByLabelText("Mobile number"), {
+      target: { value: "5615550123" },
+    });
+    choose("Save & open private upload");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "That didn’t save safely. Please try again.",
+    );
+    expect(screen.getByLabelText("Mobile number")).toHaveValue("(561) 555-0123");
+    expect(screen.queryByRole("heading", { name: "Now show me the quote." })).not.toBeInTheDocument();
+    expect(setPhoneMock).not.toHaveBeenCalled();
+    expect(setLeadIdMock).not.toHaveBeenCalled();
+    expect(setSessionIdMock).not.toHaveBeenCalled();
+    expect(navigateMock).not.toHaveBeenCalled();
+  });
+
+  it("starts direct cold traffic at the opening and clears a stale resume record", () => {
+    localStorage.setItem(
+      WM_CHAT_RESUME_STORAGE_KEY,
+      JSON.stringify({
+        schemaVersion: 1,
+        savedAtMs: Date.now(),
+        entryIntent: "need_quote",
+        currentNodeId: "need_reason",
+        history: [{ nodeId: "entry", optionIds: ["entry_need_quote"] }],
+      }),
+    );
+    renderPage();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByText(/What’s got you looking into windows or doors right now/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "I need a quote" })).toBeEnabled();
+    expect(localStorage.getItem(WM_CHAT_RESUME_STORAGE_KEY)).toBeNull();
+  });
+
+  it.each(["/wmchat?r=1", "/wmchat?resume_token=returning"]) (
+    "restores a cached conversation only through an explicit resume URL (%s)",
+    (initialEntry) => {
+      localStorage.setItem(
+        WM_CHAT_RESUME_STORAGE_KEY,
+        JSON.stringify({
+          schemaVersion: 1,
+          savedAtMs: Date.now(),
+          entryIntent: "need_quote",
+          currentNodeId: "need_reason",
+          history: [{ nodeId: "entry", optionIds: ["entry_need_quote"] }],
+        }),
+      );
+      renderPage(vi.fn(), initialEntry);
+
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Start over" })).toBeEnabled();
+      expect(screen.queryByRole("button", { name: "Resume conversation" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "I need a quote" })).not.toBeInTheDocument();
+      expect(screen.getByText(/What’s got you looking into windows or doors right now/)).toBeInTheDocument();
+    },
+  );
+
+  it("renders the config-driven recap edit menu and returns an unfinished edit to it", () => {
+    renderPage();
+    advanceNeedQuoteToFullRecap();
+
+    expect(screen.getByText(/You care most about a clear price baseline/i)).toBeInTheDocument();
+    expect(screen.getByText(/practical outcome you most want to avoid is unexpected cost later/i)).toBeInTheDocument();
+    expect(screen.getByText(/biggest concern with the process is pressure to sign quickly/i)).toBeInTheDocument();
+
+    choose("Change something");
+    expect(screen.getByRole("button", { name: "What brought me here" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "The specific situation" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "What matters most" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "What I want to avoid" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "My trust concern" })).toBeEnabled();
+
+    choose("What brought me here");
+    choose("Comfort, outside noise, or energy use");
+    expect(screen.getByText(/What’s most noticeable/i)).toBeInTheDocument();
+    choose("Back");
+
+    expect(screen.getByText("Absolutely. What should we change?")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "What brought me here" })).toBeEnabled();
+  });
+
+  it("keeps UI modules free of direct database, tracking, scanner, OTP, reveal, and full_json imports", () => {
+    const files = [
+      "WmChatPage.tsx",
+      "WmChatConversation.tsx",
+      "wmChatContent.ts",
+      "wmChatReducer.ts",
+      "wmChatResume.ts",
+    ];
+    const source = files
+      .map((file) =>
+        readFileSync(resolve(process.cwd(), "src/pages/WmChat", file), "utf8"),
+      )
+      .join("\n");
+    expect(source).not.toMatch(/from ["'][^"']*supabase/i);
+    expect(source).not.toMatch(/trackConversion|dataLayer|capi-event|scan-quote|full_json/i);
+    expect(source).not.toMatch(/otp|reveal authorization/i);
+  });
+
+  it("opens the existing Power Demo with wm_chat attribution and returns to the hesitation choice", async () => {
+    renderPage();
+    choose("Show me your powers");
+    choose("Show me what quotes leave out");
+    choose("Show me how real comparisons work");
+    choose("Show me how my contact stays private");
+    choose("Show me how you track follow-through");
+    choose("Not ready yet");
+
+    expect(screen.getByRole("button", { name: "Run the Instant Demo" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Email me what to watch for" })).toBeEnabled();
+    choose("Run the Instant Demo");
+
+    expect(
+      await screen.findByRole("dialog", { name: "WindowMan Power Demo" }),
+    ).toBeInTheDocument();
+    expect(powerToolPropsMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ triggerOpen: true, entrySource: "wm_chat" }),
+    );
+    expect(navigateMock).not.toHaveBeenCalled();
+    choose("Close Instant Demo");
+    expect(
+      await screen.findByRole("button", { name: "Run the Instant Demo" }),
+    ).toBeEnabled();
+  });
+
+  it("captures the Protection Kit as email-only with truthful service disclosure", async () => {
+    const emailSubmitter = vi.fn(async () => ({
+      ok: true as const,
+      leadId: LEAD_ID,
+      sessionId: "bbbbbbbb-cccc-4ddd-8eee-ffffffffffff",
+      reused: false,
+    }));
+    renderPage(vi.fn(), "/wmchat", () => 0, emailSubmitter);
+    choose("Show me your powers");
+    choose("Show me what quotes leave out");
+    choose("Show me how real comparisons work");
+    choose("Show me how my contact stays private");
+    choose("Show me how you track follow-through");
+    choose("Not ready yet");
+    choose("Email me what to watch for");
+
+    expect(
+      screen.getByText("Get the Answers Before You Get the Quote"),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/does not enroll you in marketing messages/i)).not.toHaveLength(0);
+    expect(screen.getByText(/Automated delivery is not live yet/i)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Email address"), {
+      target: { value: "  Maria@Example.com  " },
+    });
+    choose("Save my Protection Kit request");
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Protection Kit request received.",
+      }),
+    ).toBeInTheDocument();
+    expect(emailSubmitter).toHaveBeenCalledTimes(1);
+    expect(emailSubmitter).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: "maria@example.com",
+        wmchatIntake: expect.objectContaining({
+          continuation: "email_only",
+          entry_intent: "learn_powers",
+        }),
+      }),
+    );
+    expect(JSON.stringify(emailSubmitter.mock.calls[0][0].wmchatIntake)).not.toContain(
+      "maria@example.com",
+    );
+    expect(setPhoneMock).not.toHaveBeenCalled();
+    expect(setLeadIdMock).not.toHaveBeenCalled();
+    expect(setSessionIdMock).not.toHaveBeenCalled();
+    expect(navigateMock).not.toHaveBeenCalled();
+  });
+
+  it("recovers when the Protection Kit submitter rejects", async () => {
+    let attempts = 0;
+    const emailSubmitter = vi.fn(async () => {
+      attempts += 1;
+      if (attempts === 1) throw new Error("offline");
+      return {
+        ok: true as const,
+        leadId: LEAD_ID,
+        sessionId: "bbbbbbbb-cccc-4ddd-8eee-ffffffffffff",
+        reused: true,
+      };
+    });
+    renderPage(vi.fn(), "/wmchat", () => 0, emailSubmitter);
+    choose("Show me your powers");
+    choose("Show me what quotes leave out");
+    choose("Show me how real comparisons work");
+    choose("Show me how my contact stays private");
+    choose("Show me how you track follow-through");
+    choose("Not ready yet");
+    choose("Email me what to watch for");
+    fireEvent.change(screen.getByLabelText("Email address"), {
+      target: { value: "maria@example.com" },
+    });
+    choose("Save my Protection Kit request");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "That didn’t save safely. Please try again.",
+    );
+    expect(screen.getByLabelText("Email address")).toHaveValue(
+      "maria@example.com",
+    );
+    expect(
+      screen.getByRole("button", { name: "Save my Protection Kit request" }),
+    ).toBeEnabled();
+    choose("Save my Protection Kit request");
+    expect(
+      await screen.findByRole("heading", {
+        name: "Protection Kit request received.",
+      }),
+    ).toBeInTheDocument();
+    expect(emailSubmitter).toHaveBeenCalledTimes(2);
+  });
+});

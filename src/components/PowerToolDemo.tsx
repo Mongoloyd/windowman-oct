@@ -5,10 +5,43 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useTickerStats } from "@/hooks/useTickerStats";
 import { formatPhoneDisplay, stripNonDigits } from "@/utils/formatPhone";
-import { capturePowerToolDemoLead } from "@/lib/capturePowerToolDemoLead";
+import {
+  capturePowerToolDemoLead,
+  type CapturePowerToolDemoLeadResult,
+} from "@/lib/capturePowerToolDemoLead";
+import { isValidLeadSessionUuid } from "@/lib/leadSession";
 import PowerToolButton from "./PowerToolButton";
 
 const POWER_TOOL_SAVE_ERROR = "We could not save that yet. Please try again.";
+
+// eslint-disable-next-line react-refresh/only-export-components
+export const buildPowerToolEntryQueryParams = (entrySource = "direct") =>
+  entrySource === "wm_chat"
+    ? {
+        entry_point: "wm_chat",
+      }
+    : undefined;
+
+// eslint-disable-next-line react-refresh/only-export-components
+export const isTrustedPowerToolCreateResult = (
+  result: unknown,
+  sessionId: string,
+): result is Extract<CapturePowerToolDemoLeadResult, { ok: true }> & {
+  leadId: string;
+  sessionId: string;
+} => {
+  if (typeof result !== "object" || result === null) return false;
+  const candidate = result as Partial<
+    Extract<CapturePowerToolDemoLeadResult, { ok: true }>
+  >;
+  return (
+    candidate.ok === true &&
+    candidate.source === "power-tool-demo" &&
+    isValidLeadSessionUuid(candidate.leadId) &&
+    isValidLeadSessionUuid(candidate.sessionId) &&
+    candidate.sessionId === sessionId
+  );
+};
 
 const createPowerToolSessionId = () => {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -1892,14 +1925,23 @@ function DemoScanPage({ lead, onUploadQuote, onClose, onCalibrationComplete, ses
    ============================================================ */
 const PowerToolFlow = React.forwardRef<
   unknown,
-  { onUploadQuote?: () => void; triggerOpen?: boolean; onToolClose?: () => void }
->(function PowerToolFlow({ onUploadQuote, triggerOpen, onToolClose }, _ref) {
+  {
+    onUploadQuote?: () => void;
+    triggerOpen?: boolean;
+    onToolClose?: () => void;
+    entrySource?: "direct" | "wm_chat";
+  }
+>(function PowerToolFlow(
+  { onUploadQuote, triggerOpen, onToolClose, entrySource = "direct" },
+  _ref,
+) {
   const [state, setState] = useState("idle");
   const [lead, setLead] = useState(null);
   const [calibrationData, setCalibrationData] = useState(null);
   const [powerToolLeadId, setPowerToolLeadId] = useState(null);
   const [powerToolSaveStatus, setPowerToolSaveStatus] = useState("idle");
   const powerToolSessionIdRef = useRef(null);
+  const powerToolCreateInFlightRef = useRef(null);
 
   const getPowerToolSessionId = useCallback(() => {
     if (!powerToolSessionIdRef.current) {
@@ -1941,30 +1983,52 @@ const PowerToolFlow = React.forwardRef<
   }, [triggerOpen]);
 
   const handleLeadSubmit = useCallback(
-    async (formData) => {
-      setPowerToolSaveStatus("saving");
-      const firstName = formData.name.trim();
-      const result = await capturePowerToolDemoLead({
-        action: "create",
-        session_id: getPowerToolSessionId(),
-        source: "power-tool-demo",
-        client_slug: "direct",
-        first_name: firstName,
-        email: formData.email.trim().toLowerCase(),
+    (formData) => {
+      if (powerToolCreateInFlightRef.current) {
+        return powerToolCreateInFlightRef.current;
+      }
+
+      const request = (async () => {
+        setPowerToolSaveStatus("saving");
+        const firstName = formData.name.trim();
+        const sessionId = getPowerToolSessionId();
+        const entryQueryParams = buildPowerToolEntryQueryParams(entrySource);
+        try {
+          const result = await capturePowerToolDemoLead({
+            action: "create",
+            session_id: sessionId,
+            source: "power-tool-demo",
+            client_slug: "direct",
+            first_name: firstName,
+            email: formData.email.trim().toLowerCase(),
+            ...(entryQueryParams
+              ? { query_params: entryQueryParams }
+              : {}),
+          });
+          if (!isTrustedPowerToolCreateResult(result, sessionId)) {
+            setPowerToolSaveStatus("error");
+            return false;
+          }
+          setPowerToolLeadId(result.leadId);
+          setPowerToolSaveStatus("saved");
+          setLead(formData);
+          setState("demo");
+          return true;
+        } catch {
+          setPowerToolSaveStatus("error");
+          return false;
+        }
+      })();
+
+      const guardedRequest = request.finally(() => {
+        if (powerToolCreateInFlightRef.current === guardedRequest) {
+          powerToolCreateInFlightRef.current = null;
+        }
       });
-      if (!result.ok) {
-        setPowerToolSaveStatus("error");
-        return false;
-      }
-      if (result.leadId) {
-        setPowerToolLeadId(result.leadId);
-      }
-      setPowerToolSaveStatus("saved");
-      setLead(formData);
-      setState("demo");
-      return true;
+      powerToolCreateInFlightRef.current = guardedRequest;
+      return guardedRequest;
     },
-    [getPowerToolSessionId],
+    [entrySource, getPowerToolSessionId],
   );
   const handleCalibrationComplete = useCallback(
     (data) => {

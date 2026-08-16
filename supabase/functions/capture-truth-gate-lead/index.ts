@@ -62,12 +62,20 @@ import {
 import { persistCanonicalEvent } from "../_shared/tracking/canonicalBridge.ts";
 import {
   consentPersistFailureStatus,
+  type ParsedConsentRequest,
   persistConsentBatch,
   persistConsentThenRunSuccessEffects,
   validateConsentRequest,
-  type ParsedConsentRequest,
 } from "../_shared/consentCapture.ts";
 import { stripConsentForLeadsInsert } from "../_shared/leadInsertPayload.ts";
+import {
+  buildStoredWmChatIntake,
+  isProtectionKitWmChatIntake,
+  mergeWmChatQualificationNamespace,
+  type StoredWmChatIntake,
+  type ValidatedWmChatIntake,
+  validateWmChatIntake,
+} from "../_shared/wmchatIntake.ts";
 
 const FUNCTION_NAME = "capture-truth-gate-lead";
 
@@ -90,7 +98,7 @@ async function emitTruthGateCaptureActivity(
   args: {
     leadId: string;
     source: string;
-    email: string;
+    email: string | null;
     phone_e164: string | null;
   },
 ): Promise<void> {
@@ -168,7 +176,7 @@ async function mergeExistingLeadAttribution(
 interface LeadCapturedCanonicalParams {
   leadId: string;
   sessionId: string;
-  email: string;
+  email: string | null;
   phoneE164: string | null;
   clientSlug: string | null;
   landingPageUrl: string | null;
@@ -200,10 +208,14 @@ function buildLeadCapturedAttributionMetadata(
 
   return {
     intake_source: params.source,
-    utm_source: params.utmSource ?? pickAttributionString(attr, "utm_source", 255),
-    utm_medium: params.utmMedium ?? pickAttributionString(attr, "utm_medium", 255),
-    utm_campaign: params.utmCampaign ?? pickAttributionString(attr, "utm_campaign", 255),
-    utm_content: params.utmContent ?? pickAttributionString(attr, "utm_content", 255),
+    utm_source: params.utmSource ??
+      pickAttributionString(attr, "utm_source", 255),
+    utm_medium: params.utmMedium ??
+      pickAttributionString(attr, "utm_medium", 255),
+    utm_campaign: params.utmCampaign ??
+      pickAttributionString(attr, "utm_campaign", 255),
+    utm_content: params.utmContent ??
+      pickAttributionString(attr, "utm_content", 255),
     utm_term: params.utmTerm ?? pickAttributionString(attr, "utm_term", 255),
     wm_intent: pickAttributionString(attr, "wm_intent", 32),
     ndclid: pickAttributionString(attr, "ndclid"),
@@ -218,20 +230,22 @@ function buildLeadCapturedAttributionMetadata(
     fbclid: pickAttributionString(attr, "fbclid"),
     ttclid: pickAttributionString(attr, "ttclid"),
     msclkid: pickAttributionString(attr, "msclkid"),
-    landing_page_url:
-      params.landingPageUrl ?? pickAttributionString(attr, "landing_page_url", 1000),
-    event_source_url:
-      params.landingPageUrl ??
+    landing_page_url: params.landingPageUrl ??
+      pickAttributionString(attr, "landing_page_url", 1000),
+    event_source_url: params.landingPageUrl ??
       pickAttributionString(attr, "current_page_url", 1000),
     current_page_url: pickAttributionString(attr, "current_page_url", 1000),
-    landing_path: params.firstPagePath ?? pickAttributionString(attr, "landing_page", 500),
+    landing_path: params.firstPagePath ??
+      pickAttributionString(attr, "landing_page", 500),
     referrer: pickAttributionString(attr, "referrer", 1000),
     has_phone: !!params.phoneE164,
     paid_attribution_signal: hasPaidAttributionSignal(params),
   };
 }
 
-function hasPaidAttributionSignal(params: LeadCapturedCanonicalParams): boolean {
+function hasPaidAttributionSignal(
+  params: LeadCapturedCanonicalParams,
+): boolean {
   const attr = params.attribution;
   return Boolean(
     params.utmSource?.trim() ||
@@ -263,10 +277,16 @@ function preserveSiteWideAttributionFields(
   const currentPageUrl = asNullableString(src.current_page_url, 1000);
   if (currentPageUrl) out.current_page_url = currentPageUrl;
 
-  if (typeof src.first_touch_at === "number" && Number.isFinite(src.first_touch_at)) {
+  if (
+    typeof src.first_touch_at === "number" &&
+    Number.isFinite(src.first_touch_at)
+  ) {
     out.first_touch_at = Math.trunc(src.first_touch_at);
   }
-  if (typeof src.latest_touch_at === "number" && Number.isFinite(src.latest_touch_at)) {
+  if (
+    typeof src.latest_touch_at === "number" &&
+    Number.isFinite(src.latest_touch_at)
+  ) {
     out.latest_touch_at = Math.trunc(src.latest_touch_at);
   }
 
@@ -297,7 +317,7 @@ async function maybePersistLeadCapturedCanonical(
       payload: {
         identity: {
           leadId: params.leadId,
-          email: params.email,
+          ...(params.email ? { email: params.email } : {}),
           phone: params.phoneE164 ?? undefined,
         },
         journey: {
@@ -329,8 +349,8 @@ async function maybePersistLeadCapturedCanonical(
 
 interface CapturePayload {
   session_id: string;
-  first_name: string;
-  email: string;
+  first_name: string | null;
+  email: string | null;
   phone_e164: string | null;
   county: string | null;
   project_type: string | null;
@@ -357,6 +377,9 @@ interface CapturePayload {
   attribution: Record<string, unknown>;
   query_params: Record<string, string | string[]>;
   consent: ParsedConsentRequest;
+  wmchat_intake: ValidatedWmChatIntake | null;
+  wmchat_stored: StoredWmChatIntake | null;
+  wmchat_capture_kind: "protection_kit" | null;
 }
 
 type AuditStatus = "started" | "succeeded" | "failed" | "reused" | "skipped";
@@ -386,6 +409,7 @@ const PERSISTED_STAGES = new Set<string>([
   "lead_insert_succeeded",
   "lead_reused",
   "consent_persist_failed",
+  "required_capture_persist_failed",
   "unexpected_error",
   "response_sent",
 ]);
@@ -470,6 +494,31 @@ function asNullableInt(v: unknown): number | null {
   return null;
 }
 
+export function isValidCaptureIdentity(
+  leadId: unknown,
+  returnedSessionId: unknown,
+  submittedSessionId: string,
+): leadId is string {
+  return typeof leadId === "string" && UUID_RE.test(leadId) &&
+    typeof returnedSessionId === "string" &&
+    UUID_RE.test(returnedSessionId) &&
+    returnedSessionId === submittedSessionId;
+}
+
+function exactQueryString(
+  queryParams: Record<string, string | string[]>,
+  key: string,
+): string | null {
+  const value = queryParams[key];
+  return typeof value === "string" ? value : null;
+}
+
+function isStrictWmChatConsent(consent: ParsedConsentRequest): boolean {
+  return consent.events.length === 1 &&
+    consent.events[0].purpose === "service_communications" &&
+    consent.events[0].decision === "granted";
+}
+
 function normalizeIntentValue(value: string): string {
   return value.trim().toLowerCase().replace(/-/g, "_");
 }
@@ -512,7 +561,7 @@ function scrubNoQuoteOrganicFields(payload: CapturePayload): void {
   payload.quote_range = null;
 }
 
-function parseAndValidate(input: unknown):
+export function parseAndValidate(input: unknown):
   | { ok: true; payload: CapturePayload }
   | { ok: false; code: string; message: string; details?: unknown } {
   if (!input || typeof input !== "object") {
@@ -534,48 +583,195 @@ function parseAndValidate(input: unknown):
     };
   }
 
-  const first_name = asRequiredString(b.first_name, 100);
-  if (!first_name || first_name.length < 2) {
-    return {
-      ok: false,
-      code: "invalid_first_name",
-      message: "first_name is required (2+ chars).",
-    };
-  }
-
-  const rawEmail = asRequiredString(b.email, 255);
-  const email = rawEmail ? rawEmail.toLowerCase() : null;
-  if (!email || !EMAIL_RE.test(email)) {
-    return {
-      ok: false,
-      code: "invalid_email",
-      message: "A valid email is required.",
-    };
-  }
-
-  // phone_e164 is optional. If present, must look like +1XXXXXXXXXX.
-  let phone_e164 = asNullableString(b.phone_e164, 32);
-  if (phone_e164 && !/^\+\d{10,15}$/.test(phone_e164)) {
-    // Don't fail the whole submit on a malformed optional phone — just drop it.
-    phone_e164 = null;
-  }
-
   const source = asRequiredString(b.source, 64) ?? "truth-gate";
-
-  const consentParsed = validateConsentRequest(b.consent, source);
-  if (!consentParsed.ok) {
-    return {
-      ok: false,
-      code: consentParsed.code,
-      message: consentParsed.message,
-    };
-  }
-
   const sanitizedAttribution = preserveSiteWideAttributionFields(
     sanitizeAttributionInput(b.attribution),
     b.attribution,
   );
   const sanitizedQueryParams = sanitizeQueryParamsInput(b.query_params);
+
+  const rawQueryParams = b.query_params &&
+      typeof b.query_params === "object" &&
+      !Array.isArray(b.query_params)
+    ? b.query_params as Record<string, unknown>
+    : {};
+  const sourcePath = typeof rawQueryParams.source_path === "string"
+    ? exactQueryString(sanitizedQueryParams, "source_path")
+    : null;
+  const intakeVersion = typeof rawQueryParams.intake_version === "string"
+    ? exactQueryString(
+      sanitizedQueryParams,
+      "intake_version",
+    )
+    : null;
+  const queryCaptureKind = typeof rawQueryParams.capture_kind === "string"
+    ? exactQueryString(sanitizedQueryParams, "capture_kind")
+    : null;
+  const entryPoint = typeof rawQueryParams.entry_point === "string"
+    ? exactQueryString(sanitizedQueryParams, "entry_point")
+    : null;
+  const hasWmChatMarker = b.wmchat_intake !== undefined ||
+    b.wmchat_capture_kind !== undefined || sourcePath === "/wmchat" ||
+    intakeVersion === "wmchat_v1";
+
+  let first_name: string | null;
+  let email: string | null;
+  let phone_e164: string | null;
+  let consentParsed: ReturnType<typeof validateConsentRequest>;
+  let wmchat_intake: ValidatedWmChatIntake | null = null;
+  let wmchat_stored: StoredWmChatIntake | null = null;
+  let wmchat_capture_kind: "protection_kit" | null = null;
+
+  if (hasWmChatMarker) {
+    if (
+      source !== "windowman-first-quote" ||
+      sourcePath !== "/wmchat" ||
+      intakeVersion !== "wmchat_v1"
+    ) {
+      return {
+        ok: false,
+        code: "invalid_wmchat_contract",
+        message: "WindowMan capture markers do not agree.",
+      };
+    }
+
+    const intakeParsed = validateWmChatIntake(b.wmchat_intake);
+    if (!intakeParsed.ok) {
+      return {
+        ok: false,
+        code: intakeParsed.code,
+        message: intakeParsed.message,
+      };
+    }
+
+    consentParsed = validateConsentRequest(b.consent, source);
+    if (!consentParsed.ok) {
+      return {
+        ok: false,
+        code: consentParsed.code,
+        message: consentParsed.message,
+      };
+    }
+    if (!isStrictWmChatConsent(consentParsed.consent)) {
+      return {
+        ok: false,
+        code: "invalid_wmchat_consent",
+        message: "WindowMan capture requires service-only authorization.",
+      };
+    }
+    const isProtectionKitCapture = b.wmchat_capture_kind === "protection_kit" &&
+      queryCaptureKind === "protection_kit" && entryPoint === "wm_chat" &&
+      isProtectionKitWmChatIntake(intakeParsed.intake);
+
+    if (isProtectionKitCapture) {
+      if (b.first_name !== null || b.phone_e164 !== null) {
+        return {
+          ok: false,
+          code: "invalid_wmchat_email_contact",
+          message: "Protection Kit capture accepts email only.",
+        };
+      }
+      const rawEmail = typeof b.email === "string" ? b.email.trim() : "";
+      email = rawEmail.toLowerCase();
+      if (!email || email.length > 255 || !EMAIL_RE.test(email)) {
+        return {
+          ok: false,
+          code: "invalid_wmchat_email",
+          message: "A valid email is required for the Protection Kit.",
+        };
+      }
+      first_name = null;
+      phone_e164 = null;
+      wmchat_capture_kind = "protection_kit";
+    } else {
+      if (
+        b.wmchat_capture_kind !== undefined || queryCaptureKind !== null ||
+        isProtectionKitWmChatIntake(intakeParsed.intake)
+      ) {
+        return {
+          ok: false,
+          code: "invalid_wmchat_capture_kind",
+          message: "WindowMan capture mode does not match the completed path.",
+        };
+      }
+      if (b.email !== null) {
+        return {
+          ok: false,
+          code: "invalid_wmchat_email",
+          message: "WindowMan mobile capture does not accept email.",
+        };
+      }
+
+      if (b.first_name === null) {
+        first_name = null;
+      } else if (typeof b.first_name === "string") {
+        first_name = b.first_name.trim();
+        if (first_name.length < 2 || first_name.length > 100) {
+          return {
+            ok: false,
+            code: "invalid_first_name",
+            message: "first_name must be null or 2–100 characters.",
+          };
+        }
+      } else {
+        return {
+          ok: false,
+          code: "invalid_first_name",
+          message: "first_name must be null or 2–100 characters.",
+        };
+      }
+
+      phone_e164 = asNullableString(b.phone_e164, 32);
+      if (!phone_e164 || !/^\+1\d{10}$/.test(phone_e164)) {
+        return {
+          ok: false,
+          code: "invalid_wmchat_phone",
+          message: "A valid US mobile in E.164 format is required.",
+        };
+      }
+      email = null;
+    }
+    wmchat_intake = intakeParsed.intake;
+    wmchat_stored = buildStoredWmChatIntake(
+      intakeParsed.intake,
+      new Date().toISOString(),
+    );
+  } else {
+    // Preserve the existing contact contract for every legacy caller.
+    first_name = asRequiredString(b.first_name, 100);
+    if (!first_name || first_name.length < 2) {
+      return {
+        ok: false,
+        code: "invalid_first_name",
+        message: "first_name is required (2+ chars).",
+      };
+    }
+
+    const rawEmail = asRequiredString(b.email, 255);
+    email = rawEmail ? rawEmail.toLowerCase() : null;
+    if (!email || !EMAIL_RE.test(email)) {
+      return {
+        ok: false,
+        code: "invalid_email",
+        message: "A valid email is required.",
+      };
+    }
+
+    // Legacy phone remains optional. A malformed optional value is dropped.
+    phone_e164 = asNullableString(b.phone_e164, 32);
+    if (phone_e164 && !/^\+\d{10,15}$/.test(phone_e164)) {
+      phone_e164 = null;
+    }
+
+    consentParsed = validateConsentRequest(b.consent, source);
+    if (!consentParsed.ok) {
+      return {
+        ok: false,
+        code: consentParsed.code,
+        message: consentParsed.message,
+      };
+    }
+  }
 
   const payload: CapturePayload = {
     session_id,
@@ -606,6 +802,9 @@ function parseAndValidate(input: unknown):
     attribution: sanitizedAttribution,
     query_params: sanitizedQueryParams,
     consent: consentParsed.consent,
+    wmchat_intake,
+    wmchat_stored,
+    wmchat_capture_kind,
   };
 
   return { ok: true, payload };
@@ -617,14 +816,222 @@ async function persistCaptureConsent(
   sessionId: string,
   consent: ParsedConsentRequest,
 ): Promise<{ ok: true } | { ok: false; code: string; message: string }> {
-  return persistConsentBatch(admin, {
+  return persistConsentBatch({
+    rpc: async (fn, args) => {
+      const { error } = await admin.rpc(fn, args);
+      return { error };
+    },
+  }, {
     leadId,
     sessionId,
     consent,
   });
 }
 
-Deno.serve(async (req) => {
+type RequiredCaptureResult =
+  | { ok: true }
+  | { ok: false; code: string; message: string };
+
+export function buildWmChatInsertQualification(
+  stored: StoredWmChatIntake,
+): Record<string, unknown> {
+  return mergeWmChatQualificationNamespace({}, stored);
+}
+
+export type ExpectedWmChatReuseContact =
+  | {
+    mode: "protection_kit";
+    email: string;
+  }
+  | {
+    mode: "mobile";
+    phoneE164: string;
+    firstName: string | null;
+  };
+
+export function isMatchingWmChatReuseLead(
+  value: unknown,
+  sessionId: string,
+  expectedContact: ExpectedWmChatReuseContact,
+): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const lead = value as Record<string, unknown>;
+  if (
+    typeof lead.id !== "string" || !UUID_RE.test(lead.id) ||
+    lead.session_id !== sessionId || lead.source !== "windowman-first-quote"
+  ) {
+    return false;
+  }
+  if (expectedContact.mode === "protection_kit") {
+    return typeof lead.email === "string" &&
+      lead.email.trim().toLowerCase() === expectedContact.email &&
+      lead.first_name === null && lead.phone_e164 === null;
+  }
+
+  return lead.email === null &&
+    lead.phone_e164 === expectedContact.phoneE164 &&
+    lead.first_name === expectedContact.firstName;
+}
+
+/**
+ * Pure ordering boundary used by focused tests. A /wmchat response may not run
+ * success effects until both append-only consent and the namespaced intake are
+ * durable.
+ */
+export async function persistWmChatRequiredCaptureData(args: {
+  verifyLead: () => Promise<RequiredCaptureResult>;
+  persistConsent: () => Promise<RequiredCaptureResult>;
+  persistNamespace: () => Promise<RequiredCaptureResult>;
+  runSuccessEffects: () => Promise<void>;
+}): Promise<RequiredCaptureResult> {
+  const verified = await args.verifyLead();
+  if (!verified.ok) return verified;
+
+  const consent = await args.persistConsent();
+  if (!consent.ok) return consent;
+
+  const namespace = await args.persistNamespace();
+  if (!namespace.ok) return namespace;
+
+  await args.runSuccessEffects();
+  return { ok: true };
+}
+
+async function loadWmChatQualificationForUpdate(
+  admin: SupabaseClient,
+  leadId: string,
+  sessionId: string,
+  stored: StoredWmChatIntake,
+  expectedContact: ExpectedWmChatReuseContact,
+): Promise<
+  | { ok: true; qualification: Record<string, unknown> }
+  | { ok: false; code: string; message: string }
+> {
+  const { data, error } = await admin
+    .from("leads")
+    .select(
+      "id, session_id, source, email, first_name, phone_e164, qualification_answers_json",
+    )
+    .eq("id", leadId)
+    .eq("session_id", sessionId)
+    .eq("source", "windowman-first-quote")
+    .maybeSingle();
+
+  if (error || !isMatchingWmChatReuseLead(data, sessionId, expectedContact)) {
+    return {
+      ok: false,
+      code: "wmchat_lead_mismatch",
+      message: "WindowMan lead/session ownership could not be confirmed.",
+    };
+  }
+
+  return {
+    ok: true,
+    qualification: mergeWmChatQualificationNamespace(
+      (data as { qualification_answers_json?: unknown })
+        .qualification_answers_json,
+      stored,
+    ),
+  };
+}
+
+async function updateWmChatQualificationNamespace(
+  admin: SupabaseClient,
+  leadId: string,
+  sessionId: string,
+  qualification: Record<string, unknown>,
+): Promise<RequiredCaptureResult> {
+  const { data, error } = await admin
+    .from("leads")
+    .update({ qualification_answers_json: qualification })
+    .eq("id", leadId)
+    .eq("session_id", sessionId)
+    .eq("source", "windowman-first-quote")
+    .select("id, session_id")
+    .maybeSingle();
+
+  if (error || !data?.id || data.session_id !== sessionId) {
+    return {
+      ok: false,
+      code: "wmchat_namespace_persist_failed",
+      message: "Could not save the WindowMan intake.",
+    };
+  }
+  return { ok: true };
+}
+
+async function persistCaptureRequirementsThenRunEffects(args: {
+  admin: SupabaseClient;
+  leadId: string;
+  payload: CapturePayload;
+  runSuccessEffects: () => Promise<void>;
+}): Promise<RequiredCaptureResult> {
+  const { admin, leadId, payload } = args;
+  if (!payload.wmchat_stored) {
+    return persistConsentThenRunSuccessEffects({
+      persist: () =>
+        persistCaptureConsent(
+          admin,
+          leadId,
+          payload.session_id,
+          payload.consent,
+        ),
+      runSuccessEffects: args.runSuccessEffects,
+    });
+  }
+
+  let preparedQualification: Record<string, unknown> | null = null;
+  return persistWmChatRequiredCaptureData({
+    verifyLead: async () => {
+      const prepared = await loadWmChatQualificationForUpdate(
+        admin,
+        leadId,
+        payload.session_id,
+        payload.wmchat_stored!,
+        payload.wmchat_capture_kind === "protection_kit"
+          ? {
+            mode: "protection_kit",
+            email: payload.email!,
+          }
+          : {
+            mode: "mobile",
+            phoneE164: payload.phone_e164!,
+            firstName: payload.first_name,
+          },
+      );
+      if (!prepared.ok) return prepared;
+      preparedQualification = prepared.qualification;
+      return { ok: true };
+    },
+    persistConsent: () =>
+      persistCaptureConsent(
+        admin,
+        leadId,
+        payload.session_id,
+        payload.consent,
+      ),
+    persistNamespace: () => {
+      if (!preparedQualification) {
+        return Promise.resolve({
+          ok: false as const,
+          code: "wmchat_namespace_persist_failed",
+          message: "Could not save the WindowMan intake.",
+        });
+      }
+      return updateWmChatQualificationNamespace(
+        admin,
+        leadId,
+        payload.session_id,
+        preparedQualification,
+      );
+    },
+    runSuccessEffects: args.runSuccessEffects,
+  });
+}
+
+export const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: getCorsHeaders(req) });
   }
@@ -724,6 +1131,7 @@ Deno.serve(async (req) => {
   // ── Idempotency: lookup existing lead bound to this session_id ───────────
   // If found, reuse it. Do not insert a duplicate. Do not update OTP /
   // verified state. Do not overwrite PII in this pass.
+  let reuseLeadResolved = false;
   try {
     const { data: existing, error: lookupErr } = await admin.rpc(
       "get_lead_by_session",
@@ -731,6 +1139,17 @@ Deno.serve(async (req) => {
     );
 
     if (lookupErr) {
+      if (payload.wmchat_stored) {
+        return jsonResponse(
+          {
+            success: false,
+            code: "wmchat_session_lookup_failed",
+            message: "Could not safely check the existing WindowMan session.",
+          },
+          500,
+          corsHeaders,
+        );
+      }
       // Lookup failure is non-fatal — fall through to insert. Postgres unique
       // constraints (if any) will still protect against true duplicates.
       console.warn(`[${FUNCTION_NAME}] session lookup failed`, {
@@ -741,17 +1160,31 @@ Deno.serve(async (req) => {
       Array.isArray(existing) && existing.length > 0 && existing[0]?.id
     ) {
       const reusedLeadId = existing[0].id as string;
+      reuseLeadResolved = true;
+      if (
+        !isValidCaptureIdentity(
+          reusedLeadId,
+          payload.session_id,
+          payload.session_id,
+        )
+      ) {
+        return jsonResponse(
+          {
+            success: false,
+            code: "invalid_reused_lead_id",
+            message: "Stored lead identity is invalid.",
+          },
+          500,
+          corsHeaders,
+        );
+      }
       // Required consent persistence FIRST — no success side effect (attribution
       // merge, canonical lead_captured, lead_source update, CRM activity) may
       // run unless the consent batch is durably recorded.
-      const consentPersist = await persistConsentThenRunSuccessEffects({
-        persist: () =>
-          persistCaptureConsent(
-            admin,
-            reusedLeadId,
-            payload.session_id,
-            payload.consent,
-          ),
+      const consentPersist = await persistCaptureRequirementsThenRunEffects({
+        admin,
+        leadId: reusedLeadId,
+        payload,
         runSuccessEffects: async () => {
           await mergeExistingLeadAttribution(
             admin,
@@ -790,7 +1223,9 @@ Deno.serve(async (req) => {
       });
       if (!consentPersist.ok) {
         audit(admin, {
-          stage: "consent_persist_failed",
+          stage: payload.wmchat_stored
+            ? "required_capture_persist_failed"
+            : "consent_persist_failed",
           status: "failed",
           session_id: payload.session_id,
           lead_id: reusedLeadId,
@@ -834,6 +1269,32 @@ Deno.serve(async (req) => {
       );
     }
   } catch (e) {
+    if (reuseLeadResolved || payload.wmchat_stored) {
+      audit(admin, {
+        stage: "unexpected_error",
+        status: "failed",
+        session_id: payload.session_id,
+        error_code: reuseLeadResolved
+          ? "lead_reuse_failed"
+          : "wmchat_session_lookup_failed",
+        error_message: reuseLeadResolved
+          ? "Existing lead reuse failed."
+          : "WindowMan session lookup failed.",
+      });
+      return jsonResponse(
+        {
+          success: false,
+          code: reuseLeadResolved
+            ? "lead_reuse_failed"
+            : "wmchat_session_lookup_failed",
+          message: reuseLeadResolved
+            ? "Could not safely reuse the existing lead."
+            : "Could not safely check the existing WindowMan session.",
+        },
+        500,
+        corsHeaders,
+      );
+    }
     // Non-fatal — proceed to insert path.
     console.warn(`[${FUNCTION_NAME}] session lookup threw`, String(e));
   }
@@ -858,33 +1319,41 @@ Deno.serve(async (req) => {
     },
   );
 
-  const leadPayload = stripConsentForLeadsInsert(payload);
+  const strippedPayload = stripConsentForLeadsInsert(payload);
+  const {
+    wmchat_intake: _wmchatIntake,
+    wmchat_stored: wmchatStored,
+    wmchat_capture_kind: _wmchatCaptureKind,
+    ...leadPayload
+  } = strippedPayload;
 
   const insertRow = {
     ...leadPayload,
     ...promotedFromAttribution,
-    utm_source: payload.utm_source ?? promotedFromAttribution.utm_source ?? null,
-    utm_medium: payload.utm_medium ?? promotedFromAttribution.utm_medium ?? null,
-    utm_campaign:
-      payload.utm_campaign ?? promotedFromAttribution.utm_campaign ?? null,
+    utm_source: payload.utm_source ?? promotedFromAttribution.utm_source ??
+      null,
+    utm_medium: payload.utm_medium ?? promotedFromAttribution.utm_medium ??
+      null,
+    utm_campaign: payload.utm_campaign ??
+      promotedFromAttribution.utm_campaign ?? null,
     utm_term: payload.utm_term ?? promotedFromAttribution.utm_term ?? null,
-    utm_content:
-      payload.utm_content ?? promotedFromAttribution.utm_content ?? null,
+    utm_content: payload.utm_content ?? promotedFromAttribution.utm_content ??
+      null,
     fbclid: payload.fbclid ?? promotedFromAttribution.fbclid ?? null,
     gclid: payload.gclid ?? promotedFromAttribution.gclid ?? null,
     fbc: payload.fbc ?? promotedFromAttribution.fbc ?? null,
     fbp: payload.fbp ?? promotedFromAttribution.fbp ?? null,
-    landing_page_url:
-      payload.landing_page_url ?? promotedFromAttribution.landing_page_url ??
+    landing_page_url: payload.landing_page_url ??
+      promotedFromAttribution.landing_page_url ??
       null,
-    first_page_path:
-      payload.first_page_path ?? promotedFromAttribution.first_page_path ??
+    first_page_path: payload.first_page_path ??
+      promotedFromAttribution.first_page_path ??
       null,
-    initial_referrer:
-      payload.initial_referrer ?? promotedFromAttribution.initial_referrer ??
+    initial_referrer: payload.initial_referrer ??
+      promotedFromAttribution.initial_referrer ??
       null,
-    client_slug:
-      payload.client_slug ?? promotedFromAttribution.client_slug ?? null,
+    client_slug: payload.client_slug ?? promotedFromAttribution.client_slug ??
+      null,
     status: "new",
     phone_verified: false,
     phone_verified_at: null,
@@ -894,6 +1363,13 @@ Deno.serve(async (req) => {
     last_otp_verified_at: null,
     report_unlocked_at: null,
     lead_source: deriveLeadSourceFromSource(payload.source),
+    ...(wmchatStored
+      ? {
+        qualification_answers_json: buildWmChatInsertQualification(
+          wmchatStored,
+        ),
+      }
+      : {}),
   };
 
   const { data, error } = await admin
@@ -942,21 +1418,36 @@ Deno.serve(async (req) => {
   // lead whose consent batch failed to record.
   let openAiAdsEventId: string | null = null;
 
-  if (data?.id) {
-    const insertedLeadId = data.id as string;
+  const insertedLeadId = data?.id as string | undefined;
+  const insertedSessionId = data?.session_id as string | undefined;
+  if (
+    !isValidCaptureIdentity(
+      insertedLeadId,
+      insertedSessionId,
+      payload.session_id,
+    )
+  ) {
+    return jsonResponse(
+      {
+        success: false,
+        code: "invalid_persisted_identity",
+        message: "Lead identity could not be confirmed.",
+      },
+      500,
+      corsHeaders,
+    );
+  }
+
+  {
     // Required consent persistence FIRST — the canonical lead_captured event
     // and CRM activity are success signals and may only fire after the
     // consent batch is durably recorded. On failure the client receives an
     // error and recovers by retrying: the session lookup reuses this lead and
     // the same submissionId persists idempotently before success effects run.
-    const consentPersist = await persistConsentThenRunSuccessEffects({
-      persist: () =>
-        persistCaptureConsent(
-          admin,
-          insertedLeadId,
-          payload.session_id,
-          payload.consent,
-        ),
+    const consentPersist = await persistCaptureRequirementsThenRunEffects({
+      admin,
+      leadId: insertedLeadId,
+      payload,
       runSuccessEffects: async () => {
         await maybePersistLeadCapturedCanonical(admin, {
           leadId: insertedLeadId,
@@ -984,7 +1475,9 @@ Deno.serve(async (req) => {
     });
     if (!consentPersist.ok) {
       audit(admin, {
-        stage: "consent_persist_failed",
+        stage: payload.wmchat_stored
+          ? "required_capture_persist_failed"
+          : "consent_persist_failed",
         status: "failed",
         session_id: payload.session_id,
         lead_id: insertedLeadId,
@@ -1005,9 +1498,9 @@ Deno.serve(async (req) => {
 
   // OpenAI Ads conversion identity + server dispatch — runs ONLY after the
   // consent batch above persisted successfully (all failure paths returned).
-  if (data?.id && payload.source === "truth-gate") {
+  if (payload.source === "truth-gate" && payload.email) {
     try {
-      openAiAdsEventId = buildOpenAiAdsLeadEventId(data.id);
+      openAiAdsEventId = buildOpenAiAdsLeadEventId(insertedLeadId);
 
       if (openAiAdsContext) {
         const requestOrigin = getOriginFromRequest(req);
@@ -1088,13 +1581,15 @@ Deno.serve(async (req) => {
   return jsonResponse(
     {
       success: true,
-      lead_id: data?.id ?? null,
-      session_id: data?.session_id ?? payload.session_id,
-      ...(openAiAdsEventId
-        ? { openai_ads_event_id: openAiAdsEventId }
-        : {}),
+      lead_id: insertedLeadId,
+      session_id: insertedSessionId,
+      ...(openAiAdsEventId ? { openai_ads_event_id: openAiAdsEventId } : {}),
     },
     200,
     corsHeaders,
   );
-});
+};
+
+if (import.meta.main) {
+  Deno.serve(handler);
+}

@@ -12,6 +12,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:wmchat": "vitest run src/pages/WmChat src/services/wmchatLeadCapture.test.ts src/services/wmchatEmailLeadCapture.test.ts src/components/PowerToolDemo.wmchat.test.tsx src/components/AppTrackingProvider.wmchat.test.tsx src/lib/openAiAdsPixel.test.ts",
     "test:e2e:legacy-golden-thread": "playwright test tests/golden-thread.spec.ts",
     "test:e2e:scanner-smoke": "echo \"TODO: add canonical scanner smoke: / -> TruthGateFlow -> capture-truth-gate-lead -> UploadZone -> start-upload-scan-session -> scan-quote -> preview -> OTP gate\"",
     "test:watch": "vitest",

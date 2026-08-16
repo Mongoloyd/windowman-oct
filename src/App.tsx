@@ -58,6 +58,7 @@ const CampaignNqLanding = lazy(() => import("./pages/CampaignNQ/CampaignNqLandin
 const CampaignNq2Landing = lazy(() => import("./pages/CampaignNQ2/CampaignNq2Landing.tsx"));
 const CampaignNq3Landing = lazy(() => import("./pages/CampaignNQ3/NoQuoteLanding.tsx"));
 const CampaignNq4Page = lazy(() => import("./pages/CampaignNQ4/CampaignNq4Page.tsx"));
+const WmChatPage = lazy(() => import("./pages/WmChat/WmChatPage.tsx"));
 
 // PartnerGuard removed — partner pages render publicly with preview fallback
 
@@ -213,6 +214,7 @@ const App = () => (
                 <Route path="/nq2" element={<CampaignNq2Landing />} />
                 <Route path="/nq3" element={<CampaignNq3Landing />} />
                 <Route path="/nq4" element={<CampaignNq4Page />} />
+                <Route path="/wmchat" element={<WmChatPage />} />
                 {isScanRouteMounted && (
                   <Route path="/scan" element={<ScanFunnelPage />} />
                 )}

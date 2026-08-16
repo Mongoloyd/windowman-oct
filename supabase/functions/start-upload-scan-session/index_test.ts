@@ -34,8 +34,10 @@ import {
   type ContactOwnedLeadRow,
   hasContactOwnedFields,
   isServiceRoleBypass,
+  resolveLatestServiceConsentRows,
   SESSION_MISMATCH_MESSAGE,
   validateContactOwnedUploadLead,
+  type WmChatServiceConsentRow,
 } from "./index.ts";
 
 const SESSION_ID = "11111111-2222-3333-4444-555555555555";
@@ -47,10 +49,12 @@ const SERVICE_ROLE = "service-role-secret-key";
 function stubFetcher(
   row: ContactOwnedLeadRow | null,
   error: { code?: string | null; message?: string | null } | null = null,
+  consent: WmChatServiceConsentRow | null = null,
 ): ContactOwnedLeadFetcher {
   return {
-    fetchLeadById: (_leadId: string) =>
-      Promise.resolve({ data: row, error }),
+    fetchLeadById: (_leadId: string) => Promise.resolve({ data: row, error }),
+    fetchLatestServiceConsent: (_leadId: string, _sessionId: string) =>
+      Promise.resolve({ data: consent, error: null }),
   };
 }
 
@@ -60,14 +64,87 @@ function neverCalledFetcher(): ContactOwnedLeadFetcher {
     fetchLeadById: (_leadId: string) => {
       throw new Error("fetchLeadById must not be called");
     },
+    fetchLatestServiceConsent: () => {
+      throw new Error("fetchLatestServiceConsent must not be called");
+    },
   };
 }
 
-const validLead = (over: Partial<ContactOwnedLeadRow> = {}): ContactOwnedLeadRow => ({
+const validLead = (
+  over: Partial<ContactOwnedLeadRow> = {},
+): ContactOwnedLeadRow => ({
   id: LEAD_ID,
   session_id: SESSION_ID,
   first_name: "Jordan",
   email: "jordan@example.com",
+  ...over,
+});
+
+const storedWmChatIntake = (over: Record<string, unknown> = {}) => ({
+  schema_version: "1",
+  intake_version: "wmchat_v1",
+  entry_intent: "have_quote",
+  answer_path: [
+    "entry:entry_have_quote",
+    "have_concern:have_upload_first",
+  ],
+  answers: {
+    entry_intent: "have_quote",
+    have_concern: "have_upload_first",
+  },
+  continuation: "sms_then_voice",
+  completed_at: "2026-08-15T12:00:00.000Z",
+  ...over,
+});
+
+const grantedServiceConsent = (
+  over: Partial<WmChatServiceConsentRow> = {},
+): WmChatServiceConsentRow => ({
+  decision: "granted",
+  source: "windowman-first-quote",
+  session_id: SESSION_ID,
+  created_at: "2026-08-15T12:01:00.000Z",
+  id: "12345678-1234-4234-8234-123456789abc",
+  ...over,
+});
+
+const storedProtectionKitIntake = () =>
+  storedWmChatIntake({
+    entry_intent: "learn_powers",
+    answer_path: [
+      "entry:entry_learn_powers",
+      "power_1:power_next_2",
+      "power_2:power_next_3",
+      "power_3:power_next_4",
+      "power_4:power_next_5",
+      "power_5:power_not_ready",
+      "not_ready:not_ready_protection_kit",
+    ],
+    answers: {
+      entry_intent: "learn_powers",
+      powers: "power_not_ready",
+      hesitation_action: "not_ready_protection_kit",
+    },
+    continuation: "email_only",
+  });
+
+const validWmChatLead = (
+  over: Partial<ContactOwnedLeadRow> = {},
+): ContactOwnedLeadRow => ({
+  id: LEAD_ID,
+  session_id: SESSION_ID,
+  first_name: null,
+  email: null,
+  phone_e164: "+15615550123",
+  source: "windowman-first-quote",
+  query_params: {
+    source_path: "/wmchat",
+    intake_version: "wmchat_v1",
+  },
+  qualification_answers_json: {
+    existing_namespace: { keep: true },
+    wmchat_v1: storedWmChatIntake(),
+  },
   ...over,
 });
 
@@ -250,6 +327,413 @@ Deno.test("Test 9b: trims contact fields when judging non-emptiness", async () =
   const result = await validateContactOwnedUploadLead(
     { leadId: LEAD_ID, sessionId: SESSION_ID },
     stubFetcher(validLead({ first_name: "  Jordan  ", email: "  j@b.co  " })),
+  );
+  assert(result.ok, JSON.stringify(result));
+});
+
+// ── /wmchat source-specific mobile contact ownership ───────────────────────
+
+Deno.test("accepts exact persisted /wmchat mobile ownership with latest granted service consent", async () => {
+  const calls: Array<[string, string]> = [];
+  const result = await validateContactOwnedUploadLead(
+    { leadId: LEAD_ID, sessionId: SESSION_ID },
+    {
+      fetchLeadById: () =>
+        Promise.resolve({ data: validWmChatLead(), error: null }),
+      fetchLatestServiceConsent: (leadId, sessionId) => {
+        calls.push([leadId, sessionId]);
+        return Promise.resolve({ data: grantedServiceConsent(), error: null });
+      },
+    },
+  );
+  assert(result.ok, JSON.stringify(result));
+  assertEquals(calls, [[LEAD_ID, SESSION_ID]]);
+});
+
+Deno.test("accepts /wmchat with either omitted or valid optional first name", async () => {
+  for (const first_name of [null, "Maria", "  Maria  "]) {
+    const result = await validateContactOwnedUploadLead(
+      { leadId: LEAD_ID, sessionId: SESSION_ID },
+      stubFetcher(
+        validWmChatLead({ first_name }),
+        null,
+        grantedServiceConsent(),
+      ),
+    );
+    assert(result.ok, JSON.stringify({ first_name, result }));
+  }
+});
+
+Deno.test("rejects /wmchat lookalikes with wrong source, path, version, or non-null email", async () => {
+  const rows = [
+    validWmChatLead({ source: "direct_upload" }),
+    validWmChatLead({
+      query_params: { source_path: "/nq4", intake_version: "wmchat_v1" },
+    }),
+    validWmChatLead({
+      query_params: { source_path: "/wmchat", intake_version: "wmchat_v2" },
+    }),
+    validWmChatLead({
+      first_name: null,
+      phone_e164: null,
+      email: "invented@example.com",
+      qualification_answers_json: { wmchat_v1: storedProtectionKitIntake() },
+    }),
+    validWmChatLead({
+      qualification_answers_json: { wmchat_v1: storedProtectionKitIntake() },
+    }),
+  ];
+  for (const row of rows) {
+    let consentCalls = 0;
+    const result = await validateContactOwnedUploadLead(
+      { leadId: LEAD_ID, sessionId: SESSION_ID },
+      {
+        fetchLeadById: () => Promise.resolve({ data: row, error: null }),
+        fetchLatestServiceConsent: () => {
+          consentCalls += 1;
+          return Promise.resolve({
+            data: grantedServiceConsent(),
+            error: null,
+          });
+        },
+      },
+    );
+    assert(!result.ok, JSON.stringify(row));
+    if (!result.ok) assertEquals(result.code, "contact_required_before_upload");
+    assertEquals(consentCalls, 0);
+  }
+});
+
+Deno.test("rejects a fetched lead whose durable id differs from the submitted lead id", async () => {
+  const result = await validateContactOwnedUploadLead(
+    { leadId: LEAD_ID, sessionId: SESSION_ID },
+    stubFetcher(
+      validWmChatLead({ id: "22222222-3333-4444-8555-666666666666" }),
+      null,
+      grantedServiceConsent(),
+    ),
+  );
+  assert(!result.ok);
+  if (!result.ok) assertEquals(result.code, "contact_required_before_upload");
+});
+
+Deno.test("marked /wmchat rows cannot fall back to legacy name plus email eligibility", async () => {
+  let consentCalls = 0;
+  const result = await validateContactOwnedUploadLead(
+    { leadId: LEAD_ID, sessionId: SESSION_ID },
+    {
+      fetchLeadById: () =>
+        Promise.resolve({
+          data: validWmChatLead({
+            first_name: "Maria",
+            email: "maria@example.com",
+            phone_e164: null,
+            qualification_answers_json: { wmchat_v1: { malformed: true } },
+          }),
+          error: null,
+        }),
+      fetchLatestServiceConsent: () => {
+        consentCalls += 1;
+        throw new Error("invalid marked row must reject before consent");
+      },
+    },
+  );
+  assert(!result.ok);
+  if (!result.ok) assertEquals(result.code, "contact_required_before_upload");
+  assertEquals(consentCalls, 0);
+});
+
+Deno.test("partial /wmchat markers fail closed instead of reaching legacy eligibility", async () => {
+  const rows = [
+    validLead({
+      source: "windowman-first-quote",
+      query_params: { source_path: "/wmchat" },
+    }),
+    validLead({
+      source: "windowman-first-quote",
+      query_params: { intake_version: "wmchat_v1" },
+    }),
+    validLead({
+      source: "windowman-first-quote",
+      qualification_answers_json: { wmchat_v1: { malformed: true } },
+    }),
+  ];
+  for (const row of rows) {
+    const result = await validateContactOwnedUploadLead(
+      { leadId: LEAD_ID, sessionId: SESSION_ID },
+      stubFetcher(row, null, grantedServiceConsent()),
+    );
+    assert(!result.ok, JSON.stringify(row));
+    if (!result.ok) assertEquals(result.code, "contact_required_before_upload");
+  }
+});
+
+Deno.test("rejects missing, malformed, and non-US /wmchat mobile values", async () => {
+  for (
+    const phone_e164 of [null, "", "5615550123", "+445615550123", "+1561555012"]
+  ) {
+    const result = await validateContactOwnedUploadLead(
+      { leadId: LEAD_ID, sessionId: SESSION_ID },
+      stubFetcher(
+        validWmChatLead({ phone_e164 }),
+        null,
+        grantedServiceConsent(),
+      ),
+    );
+    assert(!result.ok, String(phone_e164));
+    if (!result.ok) assertEquals(result.code, "contact_required_before_upload");
+  }
+});
+
+Deno.test("rejects missing, malformed, unknown-ID, and unstamped stored /wmchat namespaces", async () => {
+  const namespaces: unknown[] = [
+    null,
+    {},
+    { wmchat_v1: null },
+    { wmchat_v1: storedWmChatIntake({ completed_at: undefined }) },
+    { wmchat_v1: storedWmChatIntake({ completed_at: "client timestamp" }) },
+    {
+      wmchat_v1: storedWmChatIntake({
+        answer_path: ["entry:entry_have_quote", "unknown:have_upload_first"],
+      }),
+    },
+    {
+      wmchat_v1: storedWmChatIntake({
+        answer_path: ["entry:entry_have_quote", "have_concern:unknown"],
+      }),
+    },
+    {
+      wmchat_v1: storedWmChatIntake({
+        answer_path: ["entry:entry_have_quote", "have_concern:price_total"],
+      }),
+    },
+    { wmchat_v1: storedWmChatIntake({ transcript: [] }) },
+  ];
+  for (const qualification_answers_json of namespaces) {
+    const result = await validateContactOwnedUploadLead(
+      { leadId: LEAD_ID, sessionId: SESSION_ID },
+      stubFetcher(
+        validWmChatLead({ qualification_answers_json }),
+        null,
+        grantedServiceConsent(),
+      ),
+    );
+    assert(!result.ok, JSON.stringify(qualification_answers_json));
+    if (!result.ok) assertEquals(result.code, "contact_required_before_upload");
+  }
+});
+
+Deno.test("rejects missing, declined, withdrawn, wrong-source, and wrong-session latest service consent", async () => {
+  const decisions: Array<WmChatServiceConsentRow | null> = [
+    null,
+    grantedServiceConsent({ decision: "declined" }),
+    grantedServiceConsent({ decision: "withdrawn" }),
+    grantedServiceConsent({ source: "some-other-source" }),
+    grantedServiceConsent({ session_id: OTHER_SESSION_ID }),
+  ];
+  for (const consent of decisions) {
+    const result = await validateContactOwnedUploadLead(
+      { leadId: LEAD_ID, sessionId: SESSION_ID },
+      stubFetcher(validWmChatLead(), null, consent),
+    );
+    assert(!result.ok, JSON.stringify(consent));
+    if (!result.ok) assertEquals(result.code, "contact_required_before_upload");
+  }
+});
+
+Deno.test("later withdrawal remains authoritative and cannot reveal an older grant", async () => {
+  const latest = grantedServiceConsent({
+    decision: "withdrawn",
+    created_at: "2026-08-15T12:02:00.000Z",
+  });
+  const result = await validateContactOwnedUploadLead(
+    { leadId: LEAD_ID, sessionId: SESSION_ID },
+    stubFetcher(validWmChatLead(), null, latest),
+  );
+  assert(!result.ok);
+  if (!result.ok) assertEquals(result.code, "contact_required_before_upload");
+});
+
+Deno.test("latest consent timestamp ties are accepted only when unambiguous", () => {
+  const timestamp = "2026-08-15T12:02:00.000Z";
+  const grant = grantedServiceConsent({ created_at: timestamp });
+  const duplicateGrant = grantedServiceConsent({
+    created_at: timestamp,
+    id: "22345678-1234-4234-8234-123456789abc",
+  });
+  const withdrawal = grantedServiceConsent({
+    created_at: timestamp,
+    decision: "withdrawn",
+    id: "32345678-1234-4234-8234-123456789abc",
+  });
+
+  assertEquals(
+    resolveLatestServiceConsentRows([grant, duplicateGrant], 2),
+    { data: grant, error: null },
+  );
+  assertEquals(resolveLatestServiceConsentRows([grant, withdrawal], 2), {
+    data: null,
+    error: null,
+  });
+  assert(resolveLatestServiceConsentRows([grant], 2).error);
+});
+
+Deno.test("consent timestamp conflicts fail upload closed without becoming server errors", async () => {
+  const timestamp = "2026-08-15T12:02:00.000Z";
+  const grant = grantedServiceConsent({ created_at: timestamp });
+  const deniedRows = ["withdrawn", "declined"].flatMap((decision) => [
+    [grant, grantedServiceConsent({ decision, created_at: timestamp })],
+    [grantedServiceConsent({ decision, created_at: timestamp }), grant],
+  ]);
+
+  for (const rows of deniedRows) {
+    const result = await validateContactOwnedUploadLead(
+      { leadId: LEAD_ID, sessionId: SESSION_ID },
+      {
+        fetchLeadById: () =>
+          Promise.resolve({ data: validWmChatLead(), error: null }),
+        fetchLatestServiceConsent: () =>
+          Promise.resolve(resolveLatestServiceConsentRows(rows, rows.length)),
+      },
+    );
+    assert(!result.ok);
+    if (!result.ok) {
+      assertEquals(result.httpStatus, 400);
+      assertEquals(result.code, "contact_required_before_upload");
+    }
+  }
+});
+
+Deno.test("consent resolver accepts a clear latest grant and identical tied grants", async () => {
+  const latestGrant = grantedServiceConsent({
+    created_at: "2026-08-15T12:03:00.000Z",
+  });
+  const olderWithdrawal = grantedServiceConsent({
+    decision: "withdrawn",
+    created_at: "2026-08-15T12:02:00.000Z",
+  });
+  const duplicateGrant = grantedServiceConsent({
+    created_at: latestGrant.created_at,
+    id: "22345678-1234-4234-8234-123456789abc",
+  });
+
+  for (
+    const rows of [
+      [olderWithdrawal, latestGrant],
+      [latestGrant, duplicateGrant],
+    ]
+  ) {
+    const result = await validateContactOwnedUploadLead(
+      { leadId: LEAD_ID, sessionId: SESSION_ID },
+      {
+        fetchLeadById: () =>
+          Promise.resolve({ data: validWmChatLead(), error: null }),
+        fetchLatestServiceConsent: () =>
+          Promise.resolve(resolveLatestServiceConsentRows(rows, rows.length)),
+      },
+    );
+    assert(result.ok, JSON.stringify(result));
+  }
+});
+
+Deno.test("consent resolver keeps a latest withdrawal authoritative", async () => {
+  const rows = [
+    grantedServiceConsent({ created_at: "2026-08-15T12:01:00.000Z" }),
+    grantedServiceConsent({
+      decision: "withdrawn",
+      created_at: "2026-08-15T12:02:00.000Z",
+    }),
+  ];
+  const result = await validateContactOwnedUploadLead(
+    { leadId: LEAD_ID, sessionId: SESSION_ID },
+    {
+      fetchLeadById: () =>
+        Promise.resolve({ data: validWmChatLead(), error: null }),
+      fetchLatestServiceConsent: () =>
+        Promise.resolve(resolveLatestServiceConsentRows(rows, rows.length)),
+    },
+  );
+  assert(!result.ok);
+  if (!result.ok) {
+    assertEquals(result.httpStatus, 400);
+    assertEquals(result.code, "contact_required_before_upload");
+  }
+});
+
+Deno.test("malformed latest consent timestamps fail upload closed", async () => {
+  const rows = [grantedServiceConsent({ created_at: "not-a-timestamp" })];
+  const result = await validateContactOwnedUploadLead(
+    { leadId: LEAD_ID, sessionId: SESSION_ID },
+    {
+      fetchLeadById: () =>
+        Promise.resolve({ data: validWmChatLead(), error: null }),
+      fetchLatestServiceConsent: () =>
+        Promise.resolve(resolveLatestServiceConsentRows(rows, rows.length)),
+    },
+  );
+  assert(!result.ok);
+  if (!result.ok) {
+    assertEquals(result.httpStatus, 400);
+    assertEquals(result.code, "contact_required_before_upload");
+  }
+});
+
+Deno.test("consent lookup error or thrown lookup fails closed with 500", async () => {
+  const dependencies: ContactOwnedLeadFetcher[] = [
+    {
+      fetchLeadById: () =>
+        Promise.resolve({ data: validWmChatLead(), error: null }),
+      fetchLatestServiceConsent: () =>
+        Promise.resolve({ data: null, error: { message: "lookup failed" } }),
+    },
+    {
+      fetchLeadById: () =>
+        Promise.resolve({ data: validWmChatLead(), error: null }),
+      fetchLatestServiceConsent: () => {
+        throw new Error("lookup failed");
+      },
+    },
+  ];
+  for (const deps of dependencies) {
+    const result = await validateContactOwnedUploadLead(
+      { leadId: LEAD_ID, sessionId: SESSION_ID },
+      deps,
+    );
+    assert(!result.ok);
+    if (!result.ok) {
+      assertEquals(result.httpStatus, 500);
+      assertEquals(result.code, "unexpected_error");
+    }
+  }
+});
+
+Deno.test("/wmchat session mismatch rejects before consent lookup", async () => {
+  let consentCalls = 0;
+  const result = await validateContactOwnedUploadLead(
+    { leadId: LEAD_ID, sessionId: OTHER_SESSION_ID },
+    {
+      fetchLeadById: () =>
+        Promise.resolve({ data: validWmChatLead(), error: null }),
+      fetchLatestServiceConsent: () => {
+        consentCalls += 1;
+        return Promise.resolve({ data: grantedServiceConsent(), error: null });
+      },
+    },
+  );
+  assert(!result.ok);
+  if (!result.ok) assertEquals(result.code, "session_mismatch_with_lead");
+  assertEquals(consentCalls, 0);
+});
+
+Deno.test("legacy first-name + email ownership never requires /wmchat consent metadata", async () => {
+  const result = await validateContactOwnedUploadLead(
+    { leadId: LEAD_ID, sessionId: SESSION_ID },
+    {
+      fetchLeadById: () => Promise.resolve({ data: validLead(), error: null }),
+      fetchLatestServiceConsent: () => {
+        throw new Error("legacy path must not query consent");
+      },
+    },
   );
   assert(result.ok, JSON.stringify(result));
 });

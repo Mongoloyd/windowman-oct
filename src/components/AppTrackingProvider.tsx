@@ -4,7 +4,7 @@
  * Responsibilities:
  *   1. Passive UTM capture on mount and SPA route-search changes (via useUtmCapture).
  *   2. Passive lead ID context (via useLeadId).
- *   3. Vendor-agnostic `virtual_page_view` push on every SPA route change,
+ *   3. Vendor-agnostic `virtual_page_view` push on eligible SPA route changes,
  *      routed through the canonical `trackGtmEvent` dataLayer path so GTM
  *      (and any vendor it owns) decides where to forward it.
  *   4. NARROW EXCEPTION: initialize one WindowMan-controlled Meta browser
@@ -14,6 +14,8 @@
  *   5. Initialize the consent-gated OpenAI Ads Pixel once and emit
  *      `page_viewed` on initial load + real SPA route changes. OpenAI's
  *      `lead_created` mirror is owned by the confirmed lead service instead.
+ *   6. NARROW EXCEPTION: `/wmchat` keeps passive first-party attribution but
+ *      emits no application-owned browser page measurement.
  *
  * NON-GOALS:
  *   - No browser-side Meta conversion events (no `Lead`, no `Purchase`,
@@ -25,7 +27,14 @@
  * Must render INSIDE <BrowserRouter> because it uses `useLocation`.
  */
 
-import { createContext, useContext, useEffect, useMemo, useRef } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from "react";
 import { useLocation } from "react-router-dom";
 import { getLeadId, useLeadId } from "@/lib/useLeadId";
 import {
@@ -41,6 +50,7 @@ import {
 import { initMetaBrowserPixel, trackMetaPageView } from "@/lib/metaBrowserPixel";
 import {
   initOpenAiAdsPixel,
+  markOpenAiAdsPageViewSuppressed,
   trackOpenAiAdsPageViewed,
 } from "@/lib/openAiAdsPixel";
 
@@ -73,18 +83,26 @@ export function AppTrackingProvider({ children }: { children: React.ReactNode })
   const location = useLocation();
   const leadId = useLeadId();
   const utmData = useUtmCapture(`${location.pathname}${location.search}`);
+  const pageMeasurementSuppressedRef = useRef(
+    isWmChatMeasurementPath(location.pathname),
+  );
 
-  // Initialize the WindowMan Meta browser pixel exactly once on mount.
-  // No-op if VITE_META_PIXEL_ID is unset or set to the dev placeholder.
-  // The init call itself fires the initial PageView.
+  useLayoutEffect(() => {
+    pageMeasurementSuppressedRef.current = isWmChatMeasurementPath(
+      location.pathname,
+    );
+  }, [location.pathname]);
+
+  // RouteTracker owns page-adapter initialization so a direct /wmchat load
+  // cannot trigger the initial events built into either adapter.
   useEffect(() => {
-    initMetaBrowserPixel();
-    initOpenAiAdsPixel();
-
     // The consent UI owns the persisted choice. Re-sync the existing OpenAI
     // adapter when that choice changes so a first-page grant can emit the
     // current page_viewed without waiting for navigation or reload.
-    const handleConsentChanged = () => trackOpenAiAdsPageViewed();
+    const handleConsentChanged = () => {
+      if (pageMeasurementSuppressedRef.current) return;
+      trackOpenAiAdsPageViewed();
+    };
     window.addEventListener("consentChanged", handleConsentChanged);
 
     return () => {
@@ -107,16 +125,39 @@ export function AppTrackingProvider({ children }: { children: React.ReactNode })
 
 // ── Route change tracker ────────────────────────────────────────────────────
 
+function isWmChatMeasurementPath(pathname: string): boolean {
+  const normalizedPathname = pathname.toLowerCase();
+  return (
+    normalizedPathname === "/wmchat" ||
+    normalizedPathname.startsWith("/wmchat/")
+  );
+}
+
 function RouteTracker() {
   const location = useLocation();
-  // Guards against double-firing the initial vendor page views. The browser
-  // adapters initialize in the provider mount effect; this RouteTracker owns
-  // SPA route-change views only, so the initial effect is skipped.
-  const isFirstRouteEffect = useRef(true);
+  const lastObservedRouteKey = useRef<string | null>(null);
+  const hasEligibleRoute = useRef(false);
+  const wasWmChatRoute = useRef(isWmChatMeasurementPath(location.pathname));
 
   useEffect(() => {
+    const routeKey = `${location.pathname}${location.search}${location.hash}`;
+    if (lastObservedRouteKey.current === routeKey) return;
+    lastObservedRouteKey.current = routeKey;
+
+    const isWmChatRoute = isWmChatMeasurementPath(location.pathname);
+    const enteredWmChat = isWmChatRoute && !wasWmChatRoute.current;
+    wasWmChatRoute.current = isWmChatRoute;
+
+    if (isWmChatRoute) {
+      if (enteredWmChat && hasEligibleRoute.current) {
+        markOpenAiAdsPageViewSuppressed();
+      }
+      return;
+    }
+
     // Canonical, vendor-agnostic SPA page-view signal — fires on every
-    // route change AND initial mount. GTM owns downstream routing.
+    // eligible route change and eligible initial mount. GTM owns downstream
+    // routing. Passive attribution capture remains mounted above this guard.
     pushVirtualPageView({
       page_path: location.pathname,
       page_search: location.search,
@@ -128,10 +169,13 @@ function RouteTracker() {
       page_hash: location.hash,
     });
 
-    // Skip vendor route events on initial mount because their adapters own
-    // initial-load measurement. Subsequent runs are real SPA navigations.
-    if (isFirstRouteEffect.current) {
-      isFirstRouteEffect.current = false;
+    // Adapter initialization owns the first eligible page event. This may be
+    // the initial route or the first destination after a suppressed /wmchat
+    // visit. Later eligible routes use the adapters' SPA event functions.
+    if (!hasEligibleRoute.current) {
+      hasEligibleRoute.current = true;
+      initMetaBrowserPixel();
+      initOpenAiAdsPixel();
       return;
     }
     trackMetaPageView();

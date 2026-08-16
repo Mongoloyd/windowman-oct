@@ -42,9 +42,9 @@ import {
   SupabaseClient,
 } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import {
+  type BootstrapResponse,
   RequestSchema,
   ResponseSchema,
-  type BootstrapResponse,
 } from "./contracts/schemas.ts";
 import {
   hasAttributionPayload,
@@ -57,6 +57,7 @@ import {
 } from "../_shared/attributionMerge.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { emitLeadActivity } from "../_shared/emitLeadActivity.ts";
+import { validateStoredWmChatIntake } from "../_shared/wmchatIntake.ts";
 
 const FUNCTION_NAME = "start-upload-scan-session";
 
@@ -95,8 +96,6 @@ async function emitQuoteUploadedActivity(
 // `./contracts/schemas.ts` (RequestSchema). The historical UUID_RE and
 // BootstrapPayload/validateStoragePathScope helpers have been removed in
 // favor of zod parsing — see Deno.serve handler below.
-
-
 
 type AuditStatus = "started" | "succeeded" | "failed" | "reused" | "skipped";
 
@@ -191,10 +190,9 @@ function resolveEffectiveClientSlug(
   const fromRequest = requestClientSlug?.trim() || null;
   if (fromRequest) return fromRequest;
 
-  const fromAttribution =
-    typeof attribution.client_slug === "string"
-      ? attribution.client_slug.trim()
-      : "";
+  const fromAttribution = typeof attribution.client_slug === "string"
+    ? attribution.client_slug.trim()
+    : "";
   if (fromAttribution && fromAttribution !== "direct") return fromAttribution;
 
   return null;
@@ -324,7 +322,6 @@ async function mergeScanSessionAttribution(
   }
 }
 
-
 /**
  * Validate the outgoing body against the published ResponseSchema before
  * serializing. A schema violation here means the handler itself drifted
@@ -367,7 +364,11 @@ function badRequest(
   corsHeaders: Record<string, string>,
   details?: unknown,
 ): Response {
-  return jsonResponse(400, { success: false, code, message, details }, corsHeaders);
+  return jsonResponse(
+    400,
+    { success: false, code, message, details },
+    corsHeaders,
+  );
 }
 
 function serverError(
@@ -376,7 +377,11 @@ function serverError(
   corsHeaders: Record<string, string>,
   details?: unknown,
 ): Response {
-  return jsonResponse(500, { success: false, code, message, details }, corsHeaders);
+  return jsonResponse(
+    500,
+    { success: false, code, message, details },
+    corsHeaders,
+  );
 }
 
 // ── Contact-owned upload enforcer (Sprint 1 V2) ────────────────────────────
@@ -385,7 +390,15 @@ function serverError(
 // them to the real admin client. See docs/sprints/sprint-1-enforcer.md.
 
 export const CONTACT_REQUIRED_MESSAGE = "Contact is required before upload.";
-export const SESSION_MISMATCH_MESSAGE = "Upload session does not match the lead.";
+export const SESSION_MISMATCH_MESSAGE =
+  "Upload session does not match the lead.";
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    Object.getPrototypeOf(value) === Object.prototype;
+}
 
 /**
  * Server-side-only transport bypass. ONLY an exact `Bearer ${SERVICE_ROLE}`
@@ -444,6 +457,18 @@ export interface ContactOwnedLeadRow {
   session_id: string | null;
   first_name: string | null;
   email: string | null;
+  phone_e164?: string | null;
+  source?: string | null;
+  query_params?: unknown;
+  qualification_answers_json?: unknown;
+}
+
+export interface WmChatServiceConsentRow {
+  decision: string | null;
+  source: string | null;
+  session_id: string | null;
+  created_at?: string | null;
+  id?: string | null;
 }
 
 /**
@@ -455,6 +480,62 @@ export interface ContactOwnedLeadFetcher {
     data: ContactOwnedLeadRow | null;
     error: { code?: string | null; message?: string | null } | null;
   }>;
+  fetchLatestServiceConsent: (
+    leadId: string,
+    sessionId: string,
+  ) => Promise<{
+    data: WmChatServiceConsentRow | null;
+    error: { code?: string | null; message?: string | null } | null;
+  }>;
+}
+
+type ServiceConsentLookupResult = {
+  data: WmChatServiceConsentRow | null;
+  error: { code?: string | null; message?: string | null } | null;
+};
+
+/**
+ * Selects an unambiguous latest consent event from one complete query result.
+ * Conflicting events at the newest timestamp fail closed because UUID order
+ * cannot represent insertion order.
+ */
+export function resolveLatestServiceConsentRows(
+  rows: readonly WmChatServiceConsentRow[],
+  totalCount: number | null,
+): ServiceConsentLookupResult {
+  if (totalCount === null || totalCount !== rows.length) {
+    return { data: null, error: { message: "Consent history was truncated." } };
+  }
+  if (rows.length === 0) return { data: null, error: null };
+
+  const timestampedRows = rows.map((row) => ({
+    row,
+    timestamp: typeof row.created_at === "string"
+      ? Date.parse(row.created_at)
+      : Number.NaN,
+  }));
+  if (timestampedRows.some(({ timestamp }) => Number.isNaN(timestamp))) {
+    return { data: null, error: null };
+  }
+
+  const latestTimestamp = Math.max(
+    ...timestampedRows.map(({ timestamp }) => timestamp),
+  );
+  const latestRows = timestampedRows
+    .filter(({ timestamp }) => timestamp === latestTimestamp)
+    .map(({ row }) => row);
+  const selected = latestRows[0];
+  const hasConflict = latestRows.some(
+    (row) =>
+      row.decision !== selected.decision ||
+      row.source !== selected.source ||
+      row.session_id !== selected.session_id,
+  );
+  if (hasConflict) {
+    return { data: null, error: null };
+  }
+
+  return { data: selected, error: null };
 }
 
 export type ContactOwnedValidationResult =
@@ -475,9 +556,11 @@ export type ContactOwnedValidationResult =
  *   Step 1 — require lead_id (present + non-empty)
  *   Step 2 — fetch lead by id
  *   Step 3 — verify lead exists (db error → 500 unexpected_error)
- *   Step 4 — verify trimmed first_name + email (no status / phone / zip)
- *   Step 5 — verify lead.session_id === body.session_id
- *   Step 6 — return validated lead id as the sole authority
+ *   Step 4 — preserve legacy trimmed first_name + email eligibility
+ *   Step 5 — otherwise require exact persisted /wmchat source, mobile,
+ *            stored intake, and latest granted service consent
+ *   Step 6 — verify lead.session_id === body.session_id before consent/storage
+ *   Step 7 — return validated lead id as the sole authority
  */
 export async function validateContactOwnedUploadLead(
   args: { leadId: string | null | undefined; sessionId: string },
@@ -513,7 +596,56 @@ export async function validateContactOwnedUploadLead(
     };
   }
 
-  if (!hasContactOwnedFields(lead)) {
+  if (lead.id !== leadId) {
+    return {
+      ok: false,
+      httpStatus: 400,
+      code: "contact_required_before_upload",
+      message: CONTACT_REQUIRED_MESSAGE,
+    };
+  }
+
+  const queryParams = isPlainObject(lead.query_params)
+    ? lead.query_params
+    : null;
+  const qualification = isPlainObject(lead.qualification_answers_json)
+    ? lead.qualification_answers_json
+    : null;
+  const hasWmChatMarker = queryParams?.source_path === "/wmchat" ||
+    queryParams?.intake_version === "wmchat_v1" ||
+    Boolean(
+      qualification &&
+        Object.prototype.hasOwnProperty.call(qualification, "wmchat_v1"),
+    );
+
+  // Preserve the legacy first-name + email path only for unmarked rows. Once
+  // any durable /wmchat marker exists, contradictory or incomplete metadata
+  // must fail closed instead of falling back to legacy eligibility.
+  if (!hasWmChatMarker) {
+    if (!hasContactOwnedFields(lead)) {
+      return {
+        ok: false,
+        httpStatus: 400,
+        code: "contact_required_before_upload",
+        message: CONTACT_REQUIRED_MESSAGE,
+      };
+    }
+    if (lead.session_id !== args.sessionId) {
+      return {
+        ok: false,
+        httpStatus: 400,
+        code: "session_mismatch_with_lead",
+        message: SESSION_MISMATCH_MESSAGE,
+      };
+    }
+    return { ok: true, lead_id: lead.id };
+  }
+
+  const isWmChatSource = lead.source === "windowman-first-quote" &&
+    queryParams?.source_path === "/wmchat" &&
+    queryParams?.intake_version === "wmchat_v1";
+
+  if (!isWmChatSource) {
     return {
       ok: false,
       httpStatus: 400,
@@ -531,9 +663,72 @@ export async function validateContactOwnedUploadLead(
     };
   }
 
+  if (
+    lead.email !== null ||
+    typeof lead.phone_e164 !== "string" ||
+    !/^\+1\d{10}$/.test(lead.phone_e164)
+  ) {
+    return {
+      ok: false,
+      httpStatus: 400,
+      code: "contact_required_before_upload",
+      message: CONTACT_REQUIRED_MESSAGE,
+    };
+  }
+
+  const storedIntake = validateStoredWmChatIntake(
+    qualification?.wmchat_v1,
+  );
+  if (
+    !storedIntake.ok || storedIntake.intake.continuation !== "sms_then_voice"
+  ) {
+    return {
+      ok: false,
+      httpStatus: 400,
+      code: "contact_required_before_upload",
+      message: CONTACT_REQUIRED_MESSAGE,
+    };
+  }
+
+  let consent: WmChatServiceConsentRow | null = null;
+  try {
+    const consentResult = await deps.fetchLatestServiceConsent(
+      lead.id,
+      args.sessionId,
+    );
+    if (consentResult.error) {
+      return {
+        ok: false,
+        httpStatus: 500,
+        code: "unexpected_error",
+        message: "An unexpected error occurred.",
+      };
+    }
+    consent = consentResult.data;
+  } catch {
+    return {
+      ok: false,
+      httpStatus: 500,
+      code: "unexpected_error",
+      message: "An unexpected error occurred.",
+    };
+  }
+
+  if (
+    consent?.decision !== "granted" ||
+    consent.source !== "windowman-first-quote" ||
+    consent.session_id !== args.sessionId
+  ) {
+    return {
+      ok: false,
+      httpStatus: 400,
+      code: "contact_required_before_upload",
+      message: CONTACT_REQUIRED_MESSAGE,
+    };
+  }
+
   return { ok: true, lead_id: lead.id };
 }
-
 
 export const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
@@ -562,7 +757,11 @@ export const handler = async (req: Request): Promise<Response> => {
       error_code: "invalid_json",
       error_message: "Request body must be valid JSON.",
     });
-    return badRequest("invalid_json", "Request body must be valid JSON.", corsHeaders);
+    return badRequest(
+      "invalid_json",
+      "Request body must be valid JSON.",
+      corsHeaders,
+    );
   }
 
   // ── Request contract validation (zod) ─────────────────────────────────────
@@ -582,8 +781,8 @@ export const handler = async (req: Request): Promise<Response> => {
   const parsed = RequestSchema.safeParse(raw);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
-    const isScopeIssue =
-      issue?.path?.[0] === "storage_path" && SCOPE_REASONS.has(issue.message);
+    const isScopeIssue = issue?.path?.[0] === "storage_path" &&
+      SCOPE_REASONS.has(issue.message);
     if (isScopeIssue) {
       audit(null, {
         stage: "storage_path_scope_mismatch",
@@ -606,7 +805,11 @@ export const handler = async (req: Request): Promise<Response> => {
       error_code: "invalid_payload",
       error_message: `Payload validation failed: ${reason}`,
     });
-    return badRequest("invalid_payload", `Payload validation failed: ${reason}`, corsHeaders);
+    return badRequest(
+      "invalid_payload",
+      `Payload validation failed: ${reason}`,
+      corsHeaders,
+    );
   }
   const {
     session_id,
@@ -648,7 +851,11 @@ export const handler = async (req: Request): Promise<Response> => {
       error_code: "server_misconfigured",
       error_message: "Service credentials missing.",
     });
-    return serverError("server_misconfigured", "Service credentials missing.", corsHeaders);
+    return serverError(
+      "server_misconfigured",
+      "Service credentials missing.",
+      corsHeaders,
+    );
   }
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
@@ -688,13 +895,36 @@ export const handler = async (req: Request): Promise<Response> => {
         fetchLeadById: async (leadId: string) => {
           const { data, error } = await admin
             .from("leads")
-            .select("id, session_id, first_name, email")
+            .select(
+              "id, session_id, first_name, email, phone_e164, source, query_params, qualification_answers_json",
+            )
             .eq("id", leadId)
             .maybeSingle();
           return {
             data: (data as ContactOwnedLeadRow | null) ?? null,
             error,
           };
+        },
+        fetchLatestServiceConsent: async (
+          leadId: string,
+          consentSessionId: string,
+        ) => {
+          // Resolve the latest service decision first. Do not filter by source:
+          // a later withdrawal or wrong-source decision must remain authoritative
+          // and fail closed instead of revealing an older matching grant.
+          const { data, error, count } = await admin
+            .from("lead_consent_events")
+            .select("id, decision, source, session_id, created_at", {
+              count: "exact",
+            })
+            .eq("lead_id", leadId)
+            .eq("session_id", consentSessionId)
+            .eq("purpose", "service_communications");
+          if (error) return { data: null, error };
+          return resolveLatestServiceConsentRows(
+            Array.isArray(data) ? data as WmChatServiceConsentRow[] : [],
+            count,
+          );
         },
       },
     );
@@ -1144,7 +1374,11 @@ export const handler = async (req: Request): Promise<Response> => {
       session_id,
       error_message: String(e),
     });
-    return serverError("unexpected_error", "An unexpected error occurred.", corsHeaders);
+    return serverError(
+      "unexpected_error",
+      "An unexpected error occurred.",
+      corsHeaders,
+    );
   }
 };
 
