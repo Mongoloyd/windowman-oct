@@ -13,9 +13,9 @@ const option = (
 ): WmChatOption => ({ id, label, ...extras });
 
 const ENTRY_OPTIONS = [
-  option("entry_have_quote", "I already have a quote"),
-  option("entry_need_quote", "I need a quote", { tone: "primary" }),
-  option("entry_learn_powers", "Show me your powers"),
+  option("entry_have_quote", "Check my existing quote"),
+  option("entry_need_quote", "Help me get a fair quote", { tone: "primary" }),
+  option("entry_learn_powers", "Show me how it works"),
 ] as const;
 
 const NEED_REASON_OPTIONS = [
@@ -387,7 +387,7 @@ export function resolveWmChatNode(state: WmChatState): WmChatResolvedNode {
       return {
         id: "entry",
         kind: "single",
-        prompt: "👋 Hey — I'm WindowMan. Quick one: why'd you click my post?",
+        prompt: "What can I help you with?",
         options: ENTRY_OPTIONS,
       };
     case "need_reason":
@@ -563,8 +563,8 @@ export function resolveWmChatNode(state: WmChatState): WmChatResolvedNode {
         kind: "phone",
         prompt:
           state.captureMode === "quote_upload"
-            ? "What mobile should I use to save your place and open the private upload without making you start over?"
-            : "What mobile should I use to save this conversation and continue your project request?",
+            ? "I’ve got your review focus. What mobile should I use to save your request and open your secure quote scanner without making you start over?"
+            : "Your first-quote game plan is ready. What mobile should I use to save it and continue without making you repeat these answers?",
         inputLabel: "Mobile number",
         inputPlaceholder: "(561) 555-0123",
       };

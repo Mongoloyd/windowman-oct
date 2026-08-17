@@ -25,7 +25,9 @@ import {
 } from "@/lib/validation/truthGateContact";
 import { isValidEmail } from "@/utils/formatPhone";
 import { getWmChatOption, resolveWmChatNode } from "./wmChatContent";
-import { WmChatTrustCards } from "./WmChatTrustCards";
+import { WmChatOpening } from "./WmChatOpening";
+import { WmChatProjectBriefPreview } from "./WmChatProjectBriefPreview";
+import type { WmChatProjectBrief } from "./wmChatProjectBrief";
 import type {
   WmChatAction,
   WmChatOption,
@@ -43,6 +45,7 @@ type WmChatConversationProps = {
   readonly onSubmit: () => void;
   readonly onEmailSubmit: (email: string) => void;
   readonly hero: ReactNode;
+  readonly projectBrief?: WmChatProjectBrief | null;
   readonly thinkingDelayMs?: () => number;
 };
 
@@ -82,36 +85,48 @@ function WindowManBubble({
 function OptionButton({
   option,
   selected,
-  equalWeight,
+  openingChoice,
   onClick,
   disabled = false,
 }: {
   readonly option: WmChatOption;
   readonly selected?: boolean;
-  readonly equalWeight?: boolean;
+  readonly openingChoice?: boolean;
   readonly onClick: () => void;
   readonly disabled?: boolean;
 }) {
-  const emphasized = selected || (!equalWeight && option.tone === "primary");
+  const openingRecommended = openingChoice && option.tone === "primary";
+  const emphasized = selected || (!openingChoice && option.tone === "primary");
+  const surface = emphasized
+    ? "border-[#5bb0ff] bg-[#2e8fff] text-white shadow-[0_14px_34px_rgba(46,143,255,0.22),inset_0_1px_0_rgba(255,255,255,0.18)] hover:bg-[#1a7beb] active:bg-[#1565c0]"
+    : openingRecommended
+      ? "border-[#4f9fe3] bg-[linear-gradient(180deg,rgba(46,143,255,0.08),rgba(21,34,53,1))] text-white shadow-[0_16px_36px_rgba(0,0,0,0.3),0_8px_24px_rgba(46,143,255,0.12),inset_0_1px_0_rgba(255,255,255,0.1)] hover:border-[#72baff] hover:bg-[linear-gradient(180deg,rgba(46,143,255,0.12),rgba(25,45,69,1))]"
+      : "border-white/[0.09] border-t-white/[0.14] bg-[#152235] text-[#f2f7fc] shadow-[0_14px_32px_rgba(0,0,0,0.28),0_5px_14px_rgba(46,143,255,0.035),inset_0_1px_0_rgba(255,255,255,0.08)] hover:border-[#4b79a5] hover:bg-[#192d45] hover:shadow-[0_18px_36px_rgba(0,0,0,0.3),0_7px_18px_rgba(46,143,255,0.07),inset_0_1px_0_rgba(255,255,255,0.11)]";
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
       aria-pressed={selected}
-      className={`group flex min-h-14 w-full items-center gap-3 rounded-[17px] border px-4 py-3.5 text-left text-[15px] font-semibold leading-5 shadow-[0_12px_30px_rgba(0,0,0,0.24),inset_0_1px_0_rgba(255,255,255,0.035)] transition-[border-color,background-color,transform,box-shadow] hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2e8fff] focus-visible:ring-offset-2 focus-visible:ring-offset-[#070a0f] active:translate-y-0 motion-reduce:transform-none motion-reduce:transition-none sm:text-base ${
-        emphasized
-          ? "border-[#5bb0ff] bg-[#2e8fff] text-white shadow-[0_14px_34px_rgba(46,143,255,0.22),inset_0_1px_0_rgba(255,255,255,0.18)] hover:bg-[#1a7beb] active:bg-[#1565c0]"
-          : "border-white/[0.09] border-t-white/[0.14] bg-[#152235] text-[#f2f7fc] shadow-[0_14px_32px_rgba(0,0,0,0.28),0_5px_14px_rgba(46,143,255,0.035),inset_0_1px_0_rgba(255,255,255,0.08)] hover:border-[#4b79a5] hover:bg-[#192d45] hover:shadow-[0_18px_36px_rgba(0,0,0,0.3),0_7px_18px_rgba(46,143,255,0.07),inset_0_1px_0_rgba(255,255,255,0.11)]"
-      }`}
+      data-opening-choice={openingChoice ? "true" : undefined}
+      data-recommended={openingRecommended ? "true" : undefined}
+      className={`group flex min-h-14 w-full items-center gap-3 rounded-[17px] border px-4 py-3.5 text-left text-[15px] font-semibold leading-5 shadow-[0_12px_30px_rgba(0,0,0,0.24),inset_0_1px_0_rgba(255,255,255,0.035)] transition-[border-color,background-color,transform,box-shadow] hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2e8fff] focus-visible:ring-offset-2 focus-visible:ring-offset-[#070a0f] active:translate-y-0 motion-reduce:transform-none motion-reduce:transition-none sm:text-base ${surface}`}
     >
       <span
         className={`h-2.5 w-2.5 shrink-0 rounded-full ${
-          emphasized ? "bg-white" : "bg-[#45627f] group-hover:bg-[#7ec6ff]"
+          emphasized
+            ? "bg-white"
+            : openingRecommended
+              ? "bg-[#2e8fff] shadow-[0_0_0_4px_rgba(46,143,255,0.14),0_0_14px_rgba(46,143,255,0.5)]"
+              : "bg-[#45627f] group-hover:bg-[#7ec6ff]"
         }`}
         aria-hidden="true"
       />
-      <span className="min-w-0 flex-1">
+      <span
+        className={`min-w-0 flex-1 ${
+          openingChoice ? "whitespace-nowrap text-[14px] tracking-[-0.01em] min-[390px]:text-[15px]" : ""
+        }`}
+      >
         {option.label}
         {option.hint ? (
           <span className="mt-1 block text-xs font-normal text-[#91a7bc]">
@@ -194,6 +209,7 @@ export function WmChatConversation({
   onSubmit,
   onEmailSubmit,
   hero,
+  projectBrief,
   thinkingDelayMs = randomThinkingDelayMs,
 }: WmChatConversationProps) {
   const node = resolveWmChatNode(state);
@@ -433,19 +449,7 @@ export function WmChatConversation({
         </div>
       </header>
 
-      <section className="pt-3 text-center">
-        {hero}
-        <p className="mt-1 text-[13px] font-medium tracking-[0.015em] text-[#79c8ff] sm:text-sm">
-          WindowMan AI · Software, not a contractor
-        </p>
-        <h1 className="mt-3 text-balance text-2xl font-extrabold tracking-[-0.025em] text-white">
-          WindowMan: Your Quote Hero
-        </h1>
-        <p className="mx-auto mt-2 max-w-[38ch] text-sm leading-6 text-[#9db0c3]">
-          Tell me what brought you here. I’ll keep the next step simple.
-        </p>
-        {isInitial ? <WmChatTrustCards /> : null}
-      </section>
+      <WmChatOpening hero={hero} showTrust={isInitial} />
 
       {!isInitial ? (
         <div className="mt-2 flex items-center justify-between border-b border-[#182638] pb-2">
@@ -516,12 +520,15 @@ export function WmChatConversation({
             </p>
             {state.captureMode === "quote_upload" ? (
               <p className="mt-3 text-xs font-semibold uppercase tracking-[0.12em] text-[#8dceff]">
-                Project request received · Opening private upload
+                Project request received · Opening your secure quote scanner
               </p>
             ) : null}
           </section>
         ) : (
           <div>
+            {projectBrief ? (
+              <WmChatProjectBriefPreview brief={projectBrief} />
+            ) : null}
             <div ref={activeReplyRef} className="scroll-mb-[20vh]">
               <WindowManBubble
                 text={node.prompt}
@@ -550,7 +557,7 @@ export function WmChatConversation({
                       <OptionButton
                         key={option.id}
                         option={option}
-                        equalWeight={node.id === "entry"}
+                        openingChoice={node.id === "entry"}
                         onClick={() => selectSingle(option.id)}
                         disabled={state.isThinking}
                       />
@@ -675,7 +682,7 @@ export function WmChatConversation({
                     autoComplete="tel"
                     value={inputValue}
                     onChange={(event) => updatePhone(event.target.value)}
-                    autoFocus
+                    autoFocus={state.captureMode === "quote_upload"}
                     placeholder="(561) 555-0123"
                     aria-invalid={inputError || phoneIsRejected ? true : undefined}
                     aria-describedby="wmchat-service-disclosure wmchat-capture-error"
@@ -693,10 +700,10 @@ export function WmChatConversation({
                     disabled={state.status === "submitting"}
                     className="flex min-h-14 w-full items-center justify-center rounded-[16px] border border-[#5bb0ff] bg-[#2e8fff] px-4 text-sm font-bold text-white shadow-[0_14px_32px_rgba(46,143,255,0.2),inset_0_1px_0_rgba(255,255,255,0.16)] hover:bg-[#1a7beb] active:bg-[#1565c0] disabled:cursor-wait disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2e8fff]"
                   >
-                    {state.status === "submitting"
-                      ? "Checking your number…"
-                      : state.captureMode === "quote_upload"
-                        ? "Save & open private upload"
+                      {state.status === "submitting"
+                        ? "Checking your number…"
+                        : state.captureMode === "quote_upload"
+                        ? "Save & open secure scanner"
                         : "Save my project request"}
                   </button>
                 </form>

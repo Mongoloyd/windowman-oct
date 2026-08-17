@@ -101,7 +101,7 @@ function choose(name: string) {
 }
 
 function advanceNeedQuoteToFullRecap() {
-  choose("I need a quote");
+  choose("Help me get a fair quote");
   choose("I’m planning, budgeting, or researching");
   choose("A realistic price baseline");
   choose("A clear price baseline");
@@ -125,12 +125,12 @@ function advanceNeedQuoteToPhone() {
 }
 
 function advanceQuoteUploadToPhone() {
-  choose("I already have a quote");
+  choose("Check my existing quote");
   choose("Upload first");
 }
 
 function advanceQuoteDiagnosisToPhone() {
-  choose("I already have a quote");
+  choose("Check my existing quote");
   choose("The price");
   choose("The total feels high");
   choose("Skip");
@@ -160,7 +160,7 @@ describe("WmChatPage", () => {
     cleanup();
   });
 
-  it("renders the approved hero, identity, opening, equal-weight choices, and no email field", () => {
+  it("renders the approved hero, identity, opening, restrained recommendation, and no email field", () => {
     renderPage();
     expect(
       screen.getByRole("heading", { level: 1, name: "WindowMan: Your Quote Hero" }),
@@ -174,11 +174,19 @@ describe("WmChatPage", () => {
       screen.getByText("Tell me what brought you here. I’ll keep the next step simple."),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("👋 Hey — I'm WindowMan. Quick one: why'd you click my post?"),
+      screen.getByText("What can I help you with?"),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "I already have a quote" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "I need a quote" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Show me your powers" })).toBeEnabled();
+    const quoteButton = screen.getByRole("button", { name: "Check my existing quote" });
+    const fairQuoteButton = screen.getByRole("button", { name: "Help me get a fair quote" });
+    const powersButton = screen.getByRole("button", { name: "Show me how it works" });
+    expect(quoteButton).toBeEnabled();
+    expect(fairQuoteButton).toBeEnabled();
+    expect(powersButton).toBeEnabled();
+    expect(fairQuoteButton).toHaveAttribute("data-recommended", "true");
+    expect(fairQuoteButton.className).toContain("rgba(46,143,255,0.08)");
+    expect(fairQuoteButton.className).not.toContain("bg-[#2e8fff]");
+    expect(quoteButton).not.toHaveAttribute("data-recommended");
+    expect(powersButton).not.toHaveAttribute("data-recommended");
     expect(screen.queryByLabelText(/email/i)).not.toBeInTheDocument();
   });
 
@@ -266,7 +274,7 @@ describe("WmChatPage", () => {
   it("keeps trust peripheral by removing the opening rail after the first choice", async () => {
     renderPage();
 
-    choose("I need a quote");
+    choose("Help me get a fair quote");
 
     await screen.findByText(/What’s got you looking into windows or doors right now/);
     expect(
@@ -280,7 +288,7 @@ describe("WmChatPage", () => {
     renderPage();
     const hero = screen.getByAltText("WindowMan holding a project checklist");
 
-    choose("I need a quote");
+    choose("Help me get a fair quote");
 
     expect(
       await screen.findByText(/What’s got you looking into windows or doors right now/),
@@ -320,7 +328,7 @@ describe("WmChatPage", () => {
     expect(
       screen.queryByRole("button", { name: /tap to hear|hear this reply/i }),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "I need a quote" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Help me get a fair quote" })).toBeEnabled();
   });
 
   it("uses instant transcript positioning when reduced motion is requested", async () => {
@@ -332,7 +340,7 @@ describe("WmChatPage", () => {
     });
     renderPage();
 
-    choose("I need a quote");
+    choose("Help me get a fair quote");
 
     await waitFor(() => {
       expect(scrollIntoViewMock).toHaveBeenCalledWith({
@@ -345,7 +353,7 @@ describe("WmChatPage", () => {
   it("scrolls each new reply into view with viewport breathing room", async () => {
     renderPage();
 
-    choose("I need a quote");
+    choose("Help me get a fair quote");
 
     const prompt = await screen.findByText(
       /What’s got you looking into windows or doors right now/,
@@ -364,12 +372,12 @@ describe("WmChatPage", () => {
     try {
       renderPage(vi.fn(), "/wmchat", () => 500);
 
-      const choice = screen.getByRole("button", { name: "I need a quote" });
+      const choice = screen.getByRole("button", { name: "Help me get a fair quote" });
       fireEvent.click(choice);
       fireEvent.click(choice);
 
       expect(screen.getByRole("status", { name: "WindowMan is typing" })).toBeInTheDocument();
-      expect(screen.getByText("I need a quote")).toBeInTheDocument();
+      expect(screen.getByText("Help me get a fair quote")).toBeInTheDocument();
       expect(screen.queryByText(/What’s got you looking into windows or doors right now/)).not.toBeInTheDocument();
 
       await act(async () => {
@@ -382,7 +390,7 @@ describe("WmChatPage", () => {
       });
       expect(screen.queryByRole("status", { name: "WindowMan is typing" })).not.toBeInTheDocument();
       expect(screen.getByText(/What’s got you looking into windows or doors right now/)).toBeInTheDocument();
-      expect(screen.getAllByText("I need a quote")).toHaveLength(1);
+      expect(screen.getAllByText("Help me get a fair quote")).toHaveLength(1);
     } finally {
       vi.useRealTimers();
     }
@@ -394,7 +402,7 @@ describe("WmChatPage", () => {
     try {
       renderPageWithProductionDelay();
 
-      choose("I need a quote");
+      choose("Help me get a fair quote");
       expect(
         screen.getByRole("status", { name: "WindowMan is typing" }),
       ).toBeInTheDocument();
@@ -453,6 +461,46 @@ describe("WmChatPage", () => {
     expect(navigateMock).not.toHaveBeenCalled();
   });
 
+  it("pays out the deterministic project brief immediately before no-quote phone capture", () => {
+    const submitter = vi.fn();
+    renderPage(submitter);
+    advanceNeedQuoteToPhone();
+
+    const preview = screen.getByTestId("wmchat-project-brief-preview");
+    const phonePrompt = screen.getByText(
+      /Your first-quote game plan is ready\. What mobile should I use/i,
+    );
+    const phoneInput = screen.getByLabelText("Mobile number");
+
+    expect(preview).toHaveTextContent("Your first-quote game plan");
+    expect(preview).toHaveTextContent("Goal");
+    expect(preview).toHaveTextContent(
+      "Build a comparable baseline before sales pressure begins.",
+    );
+    expect(preview).toHaveTextContent("Scope checklist");
+    expect(preview.querySelectorAll("li").length).toBeGreaterThan(0);
+    expect(preview.querySelectorAll("li").length).toBeLessThanOrEqual(3);
+    expect(preview).toHaveTextContent("Key question");
+    expect(preview).toHaveTextContent(
+      "What specifically changes if I do not sign today?",
+    );
+    expect(
+      preview.compareDocumentPosition(phonePrompt) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(phoneInput).not.toHaveFocus();
+    expect(submitter).not.toHaveBeenCalled();
+  });
+
+  it("does not show the no-quote brief on the quote-upload handoff", () => {
+    renderPage();
+    advanceQuoteUploadToPhone();
+
+    expect(screen.queryByTestId("wmchat-project-brief-preview")).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/open your secure quote scanner without making you start over/i),
+    ).toBeInTheDocument();
+  });
+
   it("keeps input and submission identity stable across a failed retry", async () => {
     const seen: WmChatSubmitInput[] = [];
     const submitter = vi.fn(async (input: WmChatSubmitInput) => {
@@ -470,7 +518,7 @@ describe("WmChatPage", () => {
     fireEvent.change(screen.getByLabelText("Mobile number"), {
       target: { value: "5615550123" },
     });
-    choose("Save & open private upload");
+    choose("Save & open secure scanner");
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Try that again.");
     expect(screen.getByLabelText("Mobile number")).toHaveValue("(561) 555-0123");
@@ -478,7 +526,7 @@ describe("WmChatPage", () => {
     expect(setLeadIdMock).not.toHaveBeenCalled();
     expect(setSessionIdMock).not.toHaveBeenCalled();
     expect(navigateMock).not.toHaveBeenCalled();
-    choose("Save & open private upload");
+    choose("Save & open secure scanner");
     await waitFor(() => expect(submitter).toHaveBeenCalledTimes(2));
     expect(seen[1].sessionId).toBe(seen[0].sessionId);
     expect(seen[1].submissionId).toBe(seen[0].submissionId);
@@ -548,15 +596,15 @@ describe("WmChatPage", () => {
     fireEvent.change(screen.getByLabelText("Mobile number"), {
       target: { value: "5615550123" },
     });
-    choose("Save & open private upload");
+    choose("Save & open secure scanner");
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "That didn’t save safely. Please try again.",
     );
     expect(screen.getByLabelText("Mobile number")).toHaveValue("(561) 555-0123");
-    expect(screen.getByRole("button", { name: "Save & open private upload" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Save & open secure scanner" })).toBeEnabled();
     expect(navigateMock).not.toHaveBeenCalled();
-    choose("Save & open private upload");
+    choose("Save & open secure scanner");
     expect(
       await screen.findByRole("heading", { name: "Now show me the quote." }),
     ).toBeInTheDocument();
@@ -589,7 +637,7 @@ describe("WmChatPage", () => {
     fireEvent.change(screen.getByLabelText("Mobile number"), {
       target: { value: "5615550123" },
     });
-    const button = screen.getByRole("button", { name: "Save & open private upload" });
+    const button = screen.getByRole("button", { name: "Save & open secure scanner" });
     fireEvent.click(button);
     fireEvent.click(button);
     expect(submitter).toHaveBeenCalledTimes(1);
@@ -609,10 +657,13 @@ describe("WmChatPage", () => {
     fireEvent.change(screen.getByLabelText("Mobile number"), {
       target: { value: "5615550123" },
     });
-    choose("Save & open private upload");
+    choose("Save & open secure scanner");
 
     expect(await screen.findByRole("heading", { name: "Now show me the quote." })).toBeInTheDocument();
     expect(screen.getByText("PDF or clear photos. Private upload. No retyping.")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Opening your secure quote scanner/i),
+    ).toBeInTheDocument();
     await waitFor(() => expect(setLeadIdMock).toHaveBeenCalledWith(LEAD_ID));
     expect(setPhoneMock).toHaveBeenCalledWith("+15615550123", "screened_valid");
     const submittedSessionId = submitter.mock.calls[0][0].sessionId;
@@ -642,7 +693,7 @@ describe("WmChatPage", () => {
     fireEvent.change(screen.getByLabelText("Mobile number"), {
       target: { value: "(561) 555-0123" },
     });
-    choose("Save & open private upload");
+    choose("Save & open secure scanner");
 
     await waitFor(() => expect(setPhoneMock).toHaveBeenCalledTimes(1));
     expect(setPhoneMock).toHaveBeenCalledWith("+15615550123", "screened_valid");
@@ -665,7 +716,7 @@ describe("WmChatPage", () => {
     fireEvent.change(screen.getByLabelText("Mobile number"), {
       target: { value: "5615550123" },
     });
-    choose("Save & open private upload");
+    choose("Save & open secure scanner");
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "That didn’t save safely. Please try again.",
@@ -692,7 +743,7 @@ describe("WmChatPage", () => {
     renderPage();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.queryByText(/What’s got you looking into windows or doors right now/)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "I need a quote" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Help me get a fair quote" })).toBeEnabled();
     expect(localStorage.getItem(WM_CHAT_RESUME_STORAGE_KEY)).toBeNull();
   });
 
@@ -714,7 +765,7 @@ describe("WmChatPage", () => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Start over" })).toBeEnabled();
       expect(screen.queryByRole("button", { name: "Resume conversation" })).not.toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "I need a quote" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Help me get a fair quote" })).not.toBeInTheDocument();
       expect(screen.getByText(/What’s got you looking into windows or doors right now/)).toBeInTheDocument();
     },
   );
@@ -747,6 +798,8 @@ describe("WmChatPage", () => {
     const files = [
       "WmChatPage.tsx",
       "WmChatConversation.tsx",
+      "WmChatOpening.tsx",
+      "WmChatProjectBriefPreview.tsx",
       "wmChatContent.ts",
       "wmChatReducer.ts",
       "wmChatResume.ts",
@@ -763,7 +816,7 @@ describe("WmChatPage", () => {
 
   it("opens the existing Power Demo with wm_chat attribution and returns to the hesitation choice", async () => {
     renderPage();
-    choose("Show me your powers");
+    choose("Show me how it works");
     choose("Show me what quotes leave out");
     choose("Show me how real comparisons work");
     choose("Show me how my contact stays private");
@@ -795,7 +848,7 @@ describe("WmChatPage", () => {
       reused: false,
     }));
     renderPage(vi.fn(), "/wmchat", () => 0, emailSubmitter);
-    choose("Show me your powers");
+    choose("Show me how it works");
     choose("Show me what quotes leave out");
     choose("Show me how real comparisons work");
     choose("Show me how my contact stays private");
@@ -851,7 +904,7 @@ describe("WmChatPage", () => {
       };
     });
     renderPage(vi.fn(), "/wmchat", () => 0, emailSubmitter);
-    choose("Show me your powers");
+    choose("Show me how it works");
     choose("Show me what quotes leave out");
     choose("Show me how real comparisons work");
     choose("Show me how my contact stays private");

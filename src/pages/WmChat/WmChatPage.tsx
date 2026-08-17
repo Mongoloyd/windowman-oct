@@ -24,6 +24,7 @@ import {
   createWmChatInitialState,
   wmChatReducer,
 } from "./wmChatReducer";
+import { buildWmChatProjectBrief } from "./wmChatProjectBrief";
 import {
   clearWmChatResume,
   loadWmChatResume,
@@ -135,6 +136,19 @@ export default function WmChatPage({
     ),
     [],
   );
+
+  const projectBrief = useMemo(() => {
+    if (
+      state.currentNodeId !== "phone" ||
+      state.captureMode !== "lead" ||
+      !state.answers.need_reason
+    ) {
+      return null;
+    }
+
+    const intake = buildWmChatIntake(state);
+    return intake ? buildWmChatProjectBrief(intake) : null;
+  }, [state]);
 
   const handleSubmit = useCallback(async () => {
     if (submittingRef.current || state.status === "submitting") return;
@@ -303,6 +317,7 @@ export default function WmChatPage({
             onSubmit={handleSubmit}
             onEmailSubmit={handleEmailSubmit}
             hero={hero}
+            projectBrief={projectBrief}
             thinkingDelayMs={thinkingDelayMs}
           />
           {state.currentNodeId === "demo_launch" ? (

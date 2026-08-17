@@ -80,7 +80,7 @@ describe("/wmchat route", () => {
       await screen.findByRole("heading", { name: "WindowMan: Your Quote Hero" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("👋 Hey — I'm WindowMan. Quick one: why'd you click my post?"),
+      screen.getByText("What can I help you with?"),
     ).toBeInTheDocument();
 
     await waitFor(() => {
