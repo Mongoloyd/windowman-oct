@@ -26,6 +26,7 @@ import {
 import { isValidEmail } from "@/utils/formatPhone";
 import { getWmChatOption, resolveWmChatNode } from "./wmChatContent";
 import { WmChatOpening } from "./WmChatOpening";
+import { WmChatPostCaptureStage } from "./WmChatPostCaptureStage";
 import { WmChatProjectBriefPreview } from "./WmChatProjectBriefPreview";
 import type { WmChatProjectBrief } from "./wmChatProjectBrief";
 import type {
@@ -44,6 +45,7 @@ type WmChatConversationProps = {
   readonly dispatch: Dispatch<WmChatAction>;
   readonly onSubmit: () => void;
   readonly onEmailSubmit: (email: string) => void;
+  readonly onPersistPostCapture: () => void;
   readonly hero: ReactNode;
   readonly projectBrief?: WmChatProjectBrief | null;
   readonly thinkingDelayMs?: () => number;
@@ -208,6 +210,7 @@ export function WmChatConversation({
   dispatch,
   onSubmit,
   onEmailSubmit,
+  onPersistPostCapture,
   hero,
   projectBrief,
   thinkingDelayMs = randomThinkingDelayMs,
@@ -249,17 +252,20 @@ export function WmChatConversation({
     state.contact.zip,
   ]);
 
-  const canGoBack =
-    state.past.length > 0 &&
-    state.status !== "submitting" &&
-    !state.isThinking;
+  const isPostCapture = state.postCaptureNodeId !== null;
+  const canGoBack = isPostCapture
+    ? state.postCaptureNodeId !== "choice" &&
+      state.continuationStatus !== "submitting"
+    : state.past.length > 0 &&
+      state.status !== "submitting" &&
+      !state.isThinking;
   const options = node.options ?? [];
   const limit = node.selectionLimit ?? 1;
   const isInitial = node.id === "entry" && state.history.length === 0;
   const phoneIsValid = isValidTruthGatePhone(state.contact.phone) && state.contact.phone.trim() !== "";
   const scrollTargetKey =
     state.status === "success"
-      ? "success"
+      ? `success:${state.postCaptureNodeId ?? state.captureMode}`
       : state.isThinking
         ? `thinking:${state.transcript.length}`
         : isInitial
@@ -282,9 +288,17 @@ export function WmChatConversation({
     ).matches;
     target.scrollIntoView({
       behavior: reduceMotion ? "auto" : "smooth",
-      block: "end",
+      block:
+        state.status === "success" && state.postCaptureNodeId
+          ? "start"
+          : "end",
     });
-  }, [scrollTargetKey, state.isThinking, state.status]);
+  }, [
+    scrollTargetKey,
+    state.isThinking,
+    state.postCaptureNodeId,
+    state.status,
+  ]);
 
   const supporting = useMemo(() => {
     if (node.kind === "multi") {
@@ -460,7 +474,9 @@ export function WmChatConversation({
           <div className="flex items-center gap-1">
             <button
               type="button"
-              onClick={() => dispatch({ type: "back" })}
+              onClick={() =>
+                dispatch({ type: isPostCapture ? "post_capture_back" : "back" })
+              }
               disabled={!canGoBack}
               className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-[#91a7bc] hover:bg-[#111c29] hover:text-white disabled:cursor-not-allowed disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2e8fff]"
             >
@@ -469,12 +485,25 @@ export function WmChatConversation({
             </button>
             <button
               type="button"
-              onClick={() => dispatch({ type: "restart" })}
-              disabled={state.status === "submitting" || state.isThinking}
+              onClick={() =>
+                dispatch({
+                  type: isPostCapture
+                    ? "return_to_post_capture_choices"
+                    : "restart",
+                })
+              }
+              disabled={
+                state.status === "submitting" ||
+                state.isThinking ||
+                state.continuationStatus === "submitting"
+              }
+              aria-label={
+                isPostCapture ? "Return to post-capture choices" : undefined
+              }
               className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-[#91a7bc] hover:bg-[#111c29] hover:text-white disabled:cursor-not-allowed disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2e8fff]"
             >
               <RotateCcw className="h-4 w-4" aria-hidden="true" />
-              Start over
+              {isPostCapture ? "Choices" : "Start over"}
             </button>
           </div>
         </div>
@@ -496,7 +525,15 @@ export function WmChatConversation({
           </div>
         ) : null}
 
-        {state.status === "success" ? (
+        {state.status === "success" && state.postCaptureNodeId ? (
+          <div ref={successRef} className="scroll-mb-[20vh] scroll-mt-4">
+            <WmChatPostCaptureStage
+              state={state}
+              dispatch={dispatch}
+              onPersist={onPersistPostCapture}
+            />
+          </div>
+        ) : state.status === "success" ? (
           <section
             ref={successRef}
             className="scroll-mb-[20vh] rounded-[20px] border border-white/[0.13] border-t-white/[0.24] bg-[#10243b] px-5 py-6 text-center shadow-[0_22px_60px_rgba(0,0,0,0.34),0_0_42px_rgba(46,143,255,0.14),inset_0_1px_0_rgba(255,255,255,0.14)] ring-1 ring-[#2e8fff]/45"

@@ -29,6 +29,29 @@ const EMPTY_CONTACT = {
   phone: "",
 } as const;
 
+const EMPTY_PROPERTY_ADDRESS = {
+  line1: "",
+  line2: "",
+  city: "",
+  region: "",
+  postalCode: "",
+} as const;
+
+function emptyPostCaptureState() {
+  return {
+    postCaptureNodeId: null,
+    postCaptureAction: null,
+    propertyAddressDraft: EMPTY_PROPERTY_ADDRESS,
+    propertyAddressDecision: null,
+    conversationTimePreference: null,
+    quoteReadiness: null,
+    callbackPreference: null,
+    continuationStatus: "idle" as const,
+    continuationError: null,
+    continuationSubmissionId: null,
+  };
+}
+
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -55,6 +78,7 @@ export function createWmChatInitialState(): WmChatState {
     submitErrorCode: null,
     leadId: null,
     sessionId: null,
+    ...emptyPostCaptureState(),
   };
 }
 
@@ -88,6 +112,25 @@ function restoreRuntime(
     submitErrorCode: null,
     leadId: null,
     sessionId: null,
+    ...emptyPostCaptureState(),
+  };
+}
+
+function returnToPostCaptureChoices(state: WmChatState): WmChatState {
+  if (!state.postCaptureNodeId || state.continuationStatus === "submitting") {
+    return state;
+  }
+
+  return {
+    ...state,
+    ...emptyPostCaptureState(),
+    currentNodeId: "success",
+    postCaptureNodeId: "choice",
+    status: "success",
+    past: [],
+    isThinking: false,
+    submitError: null,
+    submitErrorCode: null,
   };
 }
 
@@ -701,7 +744,9 @@ export function wmChatReducer(
       return restoreRuntime(state, previous, state.past.slice(0, -1));
     }
     case "restart":
-      return createWmChatInitialState();
+      return state.postCaptureNodeId
+        ? returnToPostCaptureChoices(state)
+        : createWmChatInitialState();
     case "restore":
       return restoreFromResume(action.snapshot);
     case "capture_started":
@@ -731,12 +776,15 @@ export function wmChatReducer(
       }
       return {
         ...state,
+        ...emptyPostCaptureState(),
         currentNodeId: "success",
         status: "success",
         submitError: null,
         submitErrorCode: null,
         leadId: action.leadId,
         sessionId: action.sessionId,
+        postCaptureNodeId: state.captureMode === "lead" ? "choice" : null,
+        past: [],
       };
     case "capture_failed":
       if (
@@ -753,6 +801,196 @@ export function wmChatReducer(
         submitErrorCode: action.code ?? "capture_failed",
         leadId: null,
         sessionId: null,
+      };
+    case "select_post_capture_action":
+      if (
+        state.postCaptureNodeId !== "choice" ||
+        state.continuationStatus === "submitting"
+      ) {
+        return state;
+      }
+      return {
+        ...state,
+        postCaptureAction: action.postCaptureAction,
+        postCaptureNodeId:
+          action.postCaptureAction === "schedule_windowman_conversation"
+            ? "conversation_time"
+            : action.postCaptureAction === "review_quote_when_ready"
+              ? "quote_readiness"
+              : "address",
+        propertyAddressDraft: EMPTY_PROPERTY_ADDRESS,
+        propertyAddressDecision: null,
+        conversationTimePreference: null,
+        quoteReadiness: null,
+        callbackPreference: null,
+        continuationStatus: "idle",
+        continuationError: null,
+        continuationSubmissionId: null,
+      };
+    case "update_property_address":
+      if (
+        state.postCaptureNodeId !== "address" ||
+        state.continuationStatus === "submitting"
+      ) {
+        return state;
+      }
+      return {
+        ...state,
+        propertyAddressDraft: {
+          ...state.propertyAddressDraft,
+          [action.field]: action.value,
+        },
+        continuationError: null,
+      };
+    case "skip_property_address":
+      if (state.postCaptureNodeId !== "address") return state;
+      return {
+        ...state,
+        propertyAddressDecision: "skip",
+        propertyAddressDraft: EMPTY_PROPERTY_ADDRESS,
+        postCaptureNodeId: "review",
+        continuationError: null,
+      };
+    case "continue_property_address":
+      if (state.postCaptureNodeId !== "address") return state;
+      return {
+        ...state,
+        propertyAddressDecision: "add",
+        postCaptureNodeId: "review",
+        continuationError: null,
+      };
+    case "select_conversation_time":
+      if (
+        state.postCaptureNodeId !== "conversation_time" ||
+        state.postCaptureAction !== "schedule_windowman_conversation"
+      ) {
+        return state;
+      }
+      return {
+        ...state,
+        conversationTimePreference: action.value,
+        postCaptureNodeId: "address",
+        continuationError: null,
+      };
+    case "select_quote_readiness":
+      if (
+        state.postCaptureNodeId !== "quote_readiness" ||
+        state.postCaptureAction !== "review_quote_when_ready"
+      ) {
+        return state;
+      }
+      return {
+        ...state,
+        quoteReadiness: action.value,
+        postCaptureNodeId:
+          action.value === "ready_now"
+            ? "scanner_transition"
+            : "callback_preference",
+        continuationError: null,
+      };
+    case "select_callback_preference":
+      if (
+        state.postCaptureNodeId !== "callback_preference" ||
+        state.postCaptureAction !== "review_quote_when_ready"
+      ) {
+        return state;
+      }
+      return {
+        ...state,
+        callbackPreference: action.value,
+        postCaptureNodeId: "review",
+        continuationError: null,
+      };
+    case "post_capture_back": {
+      if (
+        !state.postCaptureNodeId ||
+        state.postCaptureNodeId === "choice" ||
+        state.continuationStatus === "submitting"
+      ) {
+        return state;
+      }
+
+      let postCaptureNodeId = state.postCaptureNodeId;
+      if (state.postCaptureNodeId === "conversation_time") {
+        postCaptureNodeId = "choice";
+      } else if (state.postCaptureNodeId === "address") {
+        postCaptureNodeId =
+          state.postCaptureAction === "schedule_windowman_conversation"
+            ? "conversation_time"
+            : "choice";
+      } else if (state.postCaptureNodeId === "quote_readiness") {
+        postCaptureNodeId = "choice";
+      } else if (state.postCaptureNodeId === "callback_preference") {
+        postCaptureNodeId = "quote_readiness";
+      } else if (state.postCaptureNodeId === "scanner_transition") {
+        postCaptureNodeId = "quote_readiness";
+      } else if (state.postCaptureNodeId === "review") {
+        postCaptureNodeId =
+          state.postCaptureAction === "review_quote_when_ready"
+            ? "callback_preference"
+            : "address";
+      } else if (state.postCaptureNodeId === "confirmation") {
+        postCaptureNodeId = "choice";
+      }
+
+      return {
+        ...state,
+        postCaptureNodeId,
+        continuationError: null,
+        continuationStatus:
+          state.continuationStatus === "error"
+            ? "idle"
+            : state.continuationStatus,
+      };
+    }
+    case "return_to_post_capture_choices":
+      return returnToPostCaptureChoices(state);
+    case "continuation_started":
+      if (
+        state.postCaptureNodeId !== "review" ||
+        !isNonZeroUuid(state.leadId ?? "") ||
+        !isNonZeroUuid(state.sessionId ?? "") ||
+        !isNonZeroUuid(action.submissionId) ||
+        state.continuationStatus === "submitting"
+      ) {
+        return state;
+      }
+      return {
+        ...state,
+        continuationStatus: "submitting",
+        continuationError: null,
+        continuationSubmissionId: action.submissionId,
+      };
+    case "continuation_succeeded":
+      if (
+        state.postCaptureNodeId !== "review" ||
+        state.continuationStatus !== "submitting" ||
+        state.continuationSubmissionId !== action.submissionId ||
+        state.leadId !== action.leadId ||
+        state.sessionId !== action.sessionId ||
+        !isNonZeroUuid(action.leadId) ||
+        !isNonZeroUuid(action.sessionId)
+      ) {
+        return state;
+      }
+      return {
+        ...state,
+        postCaptureNodeId: "confirmation",
+        continuationStatus: "success",
+        continuationError: null,
+      };
+    case "continuation_failed":
+      if (
+        state.postCaptureNodeId !== "review" ||
+        state.continuationStatus !== "submitting" ||
+        state.continuationSubmissionId !== action.submissionId
+      ) {
+        return state;
+      }
+      return {
+        ...state,
+        continuationStatus: "error",
+        continuationError: action.message,
       };
     default:
       return state;

@@ -8,6 +8,8 @@ import { WM_CHAT_RESUME_STORAGE_KEY } from "./wmChatResume";
 import { getWmChatOption } from "./wmChatContent";
 import type {
   WmChatEmailSubmitter,
+  WmChatPostCaptureSubmitInput,
+  WmChatPostCaptureSubmitter,
   WmChatSubmitInput,
   WmChatSubmitter,
 } from "./wmChatTypes";
@@ -72,6 +74,7 @@ function renderPage(
   initialEntry = "/wmchat",
   thinkingDelayMs: () => number = () => 0,
   emailSubmitter?: WmChatEmailSubmitter,
+  postCaptureSubmitter?: WmChatPostCaptureSubmitter,
 ) {
   return render(
     <HelmetProvider>
@@ -79,6 +82,7 @@ function renderPage(
         <WmChatPage
           submitter={submitter}
           emailSubmitter={emailSubmitter}
+          postCaptureSubmitter={postCaptureSubmitter}
           thinkingDelayMs={thinkingDelayMs}
         />
       </MemoryRouter>
@@ -440,8 +444,11 @@ describe("WmChatPage", () => {
     choose("Save my project request");
 
     expect(
-      await screen.findByRole("heading", { name: "Project request received." }),
+      await screen.findByRole("heading", { name: "Your project request is saved." }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Build my quote-request game plan/i }),
+    ).toBeEnabled();
     expect(submitter).toHaveBeenCalledTimes(1);
     expect(submitter.mock.calls[0][0]).toEqual(
       expect.objectContaining({
@@ -459,6 +466,156 @@ describe("WmChatPage", () => {
     expect(setLeadIdMock).not.toHaveBeenCalled();
     expect(setSessionIdMock).not.toHaveBeenCalled();
     expect(navigateMock).not.toHaveBeenCalled();
+  });
+
+  it("routes a captured no-quote lead into the game-plan review without recapturing contact", async () => {
+    const submitter = vi.fn(async (input: WmChatSubmitInput) => ({
+      ok: true as const,
+      leadId: LEAD_ID,
+      sessionId: input.sessionId,
+      reused: false,
+    }));
+    const postCaptureSubmitter = vi.fn(
+      async (input: WmChatPostCaptureSubmitInput) => ({
+        ok: true as const,
+        leadId: input.leadId,
+        sessionId: input.sessionId,
+      }),
+    );
+    renderPage(
+      submitter,
+      "/wmchat",
+      () => 0,
+      undefined,
+      postCaptureSubmitter,
+    );
+    advanceNeedQuoteToPhone();
+    fireEvent.change(screen.getByLabelText("Mobile number"), {
+      target: { value: "5615550123" },
+    });
+    choose("Save my project request");
+
+    await screen.findByRole("heading", { name: "Your project request is saved." });
+    fireEvent.click(
+      screen.getByRole("button", { name: /Build my quote-request game plan/i }),
+    );
+    expect(
+      screen.getByRole("heading", { name: "Where is this project?" }),
+    ).toBeInTheDocument();
+    choose("Skip this step");
+    expect(screen.getByText(/Project address:/i).closest("p")).toHaveTextContent(
+      "Skipped",
+    );
+    choose("Confirm this next step");
+
+    expect(
+      await screen.findByRole("heading", { name: "Game-plan request received." }),
+    ).toBeInTheDocument();
+    expect(postCaptureSubmitter).toHaveBeenCalledTimes(1);
+    expect(postCaptureSubmitter.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        leadId: LEAD_ID,
+        action: "quote_request_game_plan",
+        propertyAddress: null,
+      }),
+    );
+    expect(screen.queryByLabelText("Mobile number")).not.toBeInTheDocument();
+  });
+
+  it("opens the existing private scanner directly from the post-capture quote path", async () => {
+    const submitter = vi.fn(async (input: WmChatSubmitInput) => ({
+      ok: true as const,
+      leadId: LEAD_ID,
+      sessionId: input.sessionId,
+      reused: false,
+    }));
+    renderPage(submitter);
+    advanceNeedQuoteToPhone();
+    fireEvent.change(screen.getByLabelText("Mobile number"), {
+      target: { value: "5615550123" },
+    });
+    choose("Save my project request");
+
+    await screen.findByRole("heading", { name: "Your project request is saved." });
+    fireEvent.click(
+      screen.getByRole("button", { name: /Review my quote when ready/i }),
+    );
+    expect(screen.queryByText("Where is this project?")).not.toBeInTheDocument();
+    choose("Yes — open my secure scanner");
+
+    expect(
+      screen.getByRole("heading", { name: "Opening your secure quote scanner." }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Project address:/i)).not.toBeInTheDocument();
+    await waitFor(() => expect(setLeadIdMock).toHaveBeenCalledWith(LEAD_ID));
+    expect(setPhoneMock).toHaveBeenCalledWith("+15615550123", "screened_valid");
+    expect(setSessionIdMock).toHaveBeenCalledWith(
+      submitter.mock.calls[0][0].sessionId,
+    );
+    await waitFor(() =>
+      expect(navigateMock).toHaveBeenCalledWith(
+        "/?post_capture=upload&source=wmchat",
+      ),
+    );
+  });
+
+  it("reuses one continuation identity after a failure and blocks duplicate taps", async () => {
+    const submitter = vi.fn(async (input: WmChatSubmitInput) => ({
+      ok: true as const,
+      leadId: LEAD_ID,
+      sessionId: input.sessionId,
+      reused: false,
+    }));
+    const seen: WmChatPostCaptureSubmitInput[] = [];
+    let resolveFirst!: (value: { ok: false; message: string }) => void;
+    const postCaptureSubmitter = vi.fn(
+      (input: WmChatPostCaptureSubmitInput) => {
+        seen.push(input);
+        if (seen.length === 1) {
+          return new Promise<{ ok: false; message: string }>((resolve) => {
+            resolveFirst = resolve;
+          });
+        }
+        return Promise.resolve({
+          ok: true as const,
+          leadId: input.leadId,
+          sessionId: input.sessionId,
+        });
+      },
+    );
+    renderPage(
+      submitter,
+      "/wmchat",
+      () => 0,
+      undefined,
+      postCaptureSubmitter,
+    );
+    advanceNeedQuoteToPhone();
+    fireEvent.change(screen.getByLabelText("Mobile number"), {
+      target: { value: "5615550123" },
+    });
+    choose("Save my project request");
+    await screen.findByRole("heading", { name: "Your project request is saved." });
+    fireEvent.click(
+      screen.getByRole("button", { name: /Build my quote-request game plan/i }),
+    );
+    choose("Skip this step");
+
+    const confirm = screen.getByRole("button", { name: "Confirm this next step" });
+    fireEvent.click(confirm);
+    fireEvent.click(confirm);
+    expect(postCaptureSubmitter).toHaveBeenCalledTimes(1);
+    resolveFirst({ ok: false, message: "Try that again." });
+    expect(await screen.findByRole("alert")).toHaveTextContent("Try that again.");
+
+    choose("Confirm this next step");
+    expect(
+      await screen.findByRole("heading", { name: "Game-plan request received." }),
+    ).toBeInTheDocument();
+    expect(postCaptureSubmitter).toHaveBeenCalledTimes(2);
+    expect(seen[1].submissionId).toBe(seen[0].submissionId);
+    expect(seen[1].leadId).toBe(seen[0].leadId);
+    expect(seen[1].sessionId).toBe(seen[0].sessionId);
   });
 
   it("pays out the deterministic project brief immediately before no-quote phone capture", () => {

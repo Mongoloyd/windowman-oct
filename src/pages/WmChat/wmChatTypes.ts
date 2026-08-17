@@ -224,6 +224,54 @@ export type WmChatContactDraft = {
 
 export type WmChatCaptureMode = "lead" | "quote_upload" | "protection_kit";
 
+export const WM_CHAT_POST_CAPTURE_NODE_IDS = [
+  "choice",
+  "address",
+  "conversation_time",
+  "quote_readiness",
+  "callback_preference",
+  "review",
+  "scanner_transition",
+  "confirmation",
+] as const;
+
+export type WmChatPostCaptureNodeId =
+  (typeof WM_CHAT_POST_CAPTURE_NODE_IDS)[number];
+
+export type WmChatPostCaptureAction =
+  | "quote_request_game_plan"
+  | "schedule_windowman_conversation"
+  | "review_quote_when_ready";
+
+export type WmChatConversationTimePreference =
+  | "asap"
+  | "weekday_morning"
+  | "weekday_afternoon"
+  | "weekday_evening";
+
+export type WmChatQuoteReadiness = "ready_now" | "not_yet";
+
+export type WmChatCallbackPreference =
+  | "next_week"
+  | "one_month"
+  | "three_months"
+  | "self_return";
+
+export type WmChatPropertyAddressDraft = {
+  readonly line1: string;
+  readonly line2: string;
+  readonly city: string;
+  readonly region: string;
+  readonly postalCode: string;
+};
+
+export type WmChatContinuationStatus =
+  | "unavailable"
+  | "idle"
+  | "submitting"
+  | "success"
+  | "error";
+
 export type WmChatRecapEditTarget =
   | "need_reason"
   | "need_detail"
@@ -269,6 +317,17 @@ export type WmChatState = Omit<WmChatRuntimeSnapshot, "status"> & {
   readonly submitErrorCode: WmChatSubmitErrorCode | null;
   readonly leadId: string | null;
   readonly sessionId: string | null;
+  /** Post-capture state is React-memory only and never enters wmchat_v1. */
+  readonly postCaptureNodeId: WmChatPostCaptureNodeId | null;
+  readonly postCaptureAction: WmChatPostCaptureAction | null;
+  readonly propertyAddressDraft: WmChatPropertyAddressDraft;
+  readonly propertyAddressDecision: "add" | "skip" | null;
+  readonly conversationTimePreference: WmChatConversationTimePreference | null;
+  readonly quoteReadiness: WmChatQuoteReadiness | null;
+  readonly callbackPreference: WmChatCallbackPreference | null;
+  readonly continuationStatus: WmChatContinuationStatus;
+  readonly continuationError: string | null;
+  readonly continuationSubmissionId: string | null;
 };
 
 export type WmChatAction =
@@ -301,6 +360,37 @@ export type WmChatAction =
       type: "capture_failed";
       message: string;
       code?: WmChatSubmitErrorCode;
+    }
+  | {
+      type: "select_post_capture_action";
+      postCaptureAction: WmChatPostCaptureAction;
+    }
+  | {
+      type: "update_property_address";
+      field: keyof WmChatPropertyAddressDraft;
+      value: string;
+    }
+  | { type: "skip_property_address" }
+  | { type: "continue_property_address" }
+  | {
+      type: "select_conversation_time";
+      value: WmChatConversationTimePreference;
+    }
+  | { type: "select_quote_readiness"; value: WmChatQuoteReadiness }
+  | { type: "select_callback_preference"; value: WmChatCallbackPreference }
+  | { type: "post_capture_back" }
+  | { type: "return_to_post_capture_choices" }
+  | { type: "continuation_started"; submissionId: string }
+  | {
+      type: "continuation_succeeded";
+      submissionId: string;
+      leadId: string;
+      sessionId: string;
+    }
+  | {
+      type: "continuation_failed";
+      submissionId: string;
+      message: string;
     };
 
 export interface WmChatOption {
@@ -383,6 +473,29 @@ export interface WmChatEmailSubmitInput {
 export type WmChatEmailSubmitter = (
   input: WmChatEmailSubmitInput,
 ) => Promise<WmChatSubmitResult>;
+
+export interface WmChatPostCaptureSubmitInput {
+  readonly leadId: string;
+  readonly sessionId: string;
+  readonly submissionId: string;
+  readonly action: WmChatPostCaptureAction;
+  readonly propertyAddress: WmChatPropertyAddressDraft | null;
+  readonly conversationTimePreference: WmChatConversationTimePreference | null;
+  readonly quoteReadiness: WmChatQuoteReadiness | null;
+  readonly callbackPreference: WmChatCallbackPreference | null;
+}
+
+export type WmChatPostCaptureSubmitResult =
+  | {
+      readonly ok: true;
+      readonly leadId: string;
+      readonly sessionId: string;
+    }
+  | { readonly ok: false; readonly message: string };
+
+export type WmChatPostCaptureSubmitter = (
+  input: WmChatPostCaptureSubmitInput,
+) => Promise<WmChatPostCaptureSubmitResult>;
 
 export interface WmChatResumeV1 {
   readonly schemaVersion: typeof WM_CHAT_RESUME_VERSION;

@@ -471,6 +471,28 @@ describe("wmChatResume", () => {
     expect(localStorage.getItem(WM_CHAT_RESUME_STORAGE_KEY)).toBeNull();
   });
 
+  it("never serializes durable identity or post-capture address drafts", () => {
+    const postCapture: WmChatState = {
+      ...progressToPriorities(),
+      currentNodeId: "success",
+      status: "active",
+      leadId: "d6d9a0b5-12ad-4b95-9493-72a3ba98ad2f",
+      sessionId: "86080f63-66ff-4756-bc21-81fbd497761c",
+      postCaptureNodeId: "address",
+      postCaptureAction: "quote_request_game_plan",
+      propertyAddressDraft: {
+        line1: "123 Palm Avenue",
+        line2: "Unit 4",
+        city: "Boca Raton",
+        region: "FL",
+        postalCode: "33431",
+      },
+    };
+
+    expect(saveWmChatResume(postCapture, localStorage, NOW_MS)).toBeNull();
+    expect(localStorage.getItem(WM_CHAT_RESUME_STORAGE_KEY)).toBeNull();
+  });
+
   it("fails quietly when storage is unavailable", () => {
     const blockedStorage = {
       getItem: vi.fn(() => {

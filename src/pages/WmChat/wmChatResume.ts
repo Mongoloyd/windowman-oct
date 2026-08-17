@@ -236,7 +236,13 @@ export function createWmChatResumeSnapshot(
   state: WmChatState,
   nowMs = Date.now(),
 ): WmChatResumeV1 | null {
-  if (!Number.isSafeInteger(nowMs) || state.status === "success") return null;
+  if (
+    !Number.isSafeInteger(nowMs) ||
+    state.status === "success" ||
+    state.postCaptureNodeId !== null
+  ) {
+    return null;
+  }
 
   const progress = safeProgressFromState(state);
   if (!progress) return null;

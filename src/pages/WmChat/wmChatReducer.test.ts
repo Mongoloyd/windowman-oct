@@ -15,6 +15,7 @@ import type {
 
 const LEAD_ID = "d6d9a0b5-12ad-4b95-9493-72a3ba98ad2f";
 const SESSION_ID = "86080f63-66ff-4756-bc21-81fbd497761c";
+const CONTINUATION_ID = "b4fc75ef-f7a7-4c30-bc4c-e0fdd9ba0f8f";
 
 function select(
   state: WmChatState,
@@ -58,6 +59,20 @@ function reachPhone(): WmChatState {
   state = select(state, "budget", "budget_baseline");
   state = select(state, "timing", "timing_1_3_months");
   return wmChatReducer(state, { type: "skip_name" });
+}
+
+function captureNeedQuote(): WmChatState {
+  let state = reachPhone();
+  state = wmChatReducer(state, {
+    type: "update_phone",
+    value: "(561) 555-0123",
+  });
+  state = wmChatReducer(state, { type: "capture_started" });
+  return wmChatReducer(state, {
+    type: "capture_succeeded",
+    leadId: LEAD_ID,
+    sessionId: SESSION_ID,
+  });
 }
 
 function reachFullRecap(): WmChatState {
@@ -908,5 +923,195 @@ describe("wmChatReducer correction and completion safety", () => {
 
     expect(state.status).toBe("error");
     expect(state.submitErrorCode).toBe("lookup_unavailable");
+  });
+
+  describe("post-capture continuation", () => {
+    it("opens the additive choice tree only after a durable lead capture", () => {
+      const state = captureNeedQuote();
+
+      expect(state.currentNodeId).toBe("success");
+      expect(state.status).toBe("success");
+      expect(state.postCaptureNodeId).toBe("choice");
+      expect(state.leadId).toBe(LEAD_ID);
+      expect(state.sessionId).toBe(SESSION_ID);
+      expect(state.past).toEqual([]);
+    });
+
+    it("keeps direct quote-upload capture on the existing handoff", () => {
+      let state: WmChatState = {
+        ...reachPhone(),
+        captureMode: "quote_upload",
+      };
+      state = wmChatReducer(state, {
+        type: "update_phone",
+        value: "(561) 555-0123",
+      });
+      state = wmChatReducer(state, { type: "capture_started" });
+      state = wmChatReducer(state, {
+        type: "capture_succeeded",
+        leadId: LEAD_ID,
+        sessionId: SESSION_ID,
+      });
+
+      expect(state.postCaptureNodeId).toBeNull();
+      expect(state.captureMode).toBe("quote_upload");
+    });
+
+    it("routes the game-plan fast lane through optional address and review", () => {
+      let state = captureNeedQuote();
+      state = wmChatReducer(state, {
+        type: "select_post_capture_action",
+        postCaptureAction: "quote_request_game_plan",
+      });
+      expect(state.postCaptureNodeId).toBe("address");
+
+      state = wmChatReducer(state, { type: "skip_property_address" });
+      expect(state.postCaptureNodeId).toBe("review");
+      expect(state.propertyAddressDecision).toBe("skip");
+
+      state = wmChatReducer(state, { type: "post_capture_back" });
+      expect(state.postCaptureNodeId).toBe("address");
+      state = wmChatReducer(state, { type: "post_capture_back" });
+      expect(state.postCaptureNodeId).toBe("choice");
+      expect(state.currentNodeId).toBe("success");
+      expect(state.leadId).toBe(LEAD_ID);
+    });
+
+    it("routes a conversation request through time preference before address", () => {
+      let state = captureNeedQuote();
+      state = wmChatReducer(state, {
+        type: "select_post_capture_action",
+        postCaptureAction: "schedule_windowman_conversation",
+      });
+      expect(state.postCaptureNodeId).toBe("conversation_time");
+
+      state = wmChatReducer(state, {
+        type: "select_conversation_time",
+        value: "weekday_afternoon",
+      });
+      expect(state.postCaptureNodeId).toBe("address");
+      expect(state.conversationTimePreference).toBe("weekday_afternoon");
+    });
+
+    it("opens the scanner directly for a ready quote without an address node", () => {
+      let state = captureNeedQuote();
+      state = wmChatReducer(state, {
+        type: "select_post_capture_action",
+        postCaptureAction: "review_quote_when_ready",
+      });
+      expect(state.postCaptureNodeId).toBe("quote_readiness");
+
+      state = wmChatReducer(state, {
+        type: "select_quote_readiness",
+        value: "ready_now",
+      });
+      expect(state.postCaptureNodeId).toBe("scanner_transition");
+      expect(state.propertyAddressDecision).toBeNull();
+      expect(state.propertyAddressDraft.line1).toBe("");
+    });
+
+    it("records a future quote-review preference without claiming an appointment", () => {
+      let state = captureNeedQuote();
+      state = wmChatReducer(state, {
+        type: "select_post_capture_action",
+        postCaptureAction: "review_quote_when_ready",
+      });
+      state = wmChatReducer(state, {
+        type: "select_quote_readiness",
+        value: "not_yet",
+      });
+      expect(state.postCaptureNodeId).toBe("callback_preference");
+
+      state = wmChatReducer(state, {
+        type: "select_callback_preference",
+        value: "next_week",
+      });
+      expect(state.postCaptureNodeId).toBe("review");
+      expect(state.callbackPreference).toBe("next_week");
+    });
+
+    it("accepts continuation success only for the active submission and bound pair", () => {
+      let state = captureNeedQuote();
+      state = wmChatReducer(state, {
+        type: "select_post_capture_action",
+        postCaptureAction: "quote_request_game_plan",
+      });
+      state = wmChatReducer(state, { type: "skip_property_address" });
+      state = wmChatReducer(state, {
+        type: "continuation_started",
+        submissionId: CONTINUATION_ID,
+      });
+      expect(state.continuationStatus).toBe("submitting");
+
+      const mismatched = wmChatReducer(state, {
+        type: "continuation_succeeded",
+        submissionId: CONTINUATION_ID,
+        leadId: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+        sessionId: SESSION_ID,
+      });
+      expect(mismatched).toBe(state);
+
+      state = wmChatReducer(state, {
+        type: "continuation_succeeded",
+        submissionId: CONTINUATION_ID,
+        leadId: LEAD_ID,
+        sessionId: SESSION_ID,
+      });
+      expect(state.postCaptureNodeId).toBe("confirmation");
+      expect(state.continuationStatus).toBe("success");
+    });
+
+    it("ignores stale failures and preserves the selected draft for retry", () => {
+      let state = captureNeedQuote();
+      state = wmChatReducer(state, {
+        type: "select_post_capture_action",
+        postCaptureAction: "schedule_windowman_conversation",
+      });
+      state = wmChatReducer(state, {
+        type: "select_conversation_time",
+        value: "weekday_morning",
+      });
+      state = wmChatReducer(state, { type: "skip_property_address" });
+      state = wmChatReducer(state, {
+        type: "continuation_started",
+        submissionId: CONTINUATION_ID,
+      });
+
+      const stale = wmChatReducer(state, {
+        type: "continuation_failed",
+        submissionId: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+        message: "stale",
+      });
+      expect(stale).toBe(state);
+
+      state = wmChatReducer(state, {
+        type: "continuation_failed",
+        submissionId: CONTINUATION_ID,
+        message: "Try again.",
+      });
+      expect(state.continuationStatus).toBe("error");
+      expect(state.postCaptureAction).toBe("schedule_windowman_conversation");
+      expect(state.conversationTimePreference).toBe("weekday_morning");
+      expect(state.propertyAddressDecision).toBe("skip");
+    });
+
+    it("never adds post-capture address or scheduling data to wmchat_v1", () => {
+      let state = captureNeedQuote();
+      state = wmChatReducer(state, {
+        type: "select_post_capture_action",
+        postCaptureAction: "quote_request_game_plan",
+      });
+      state = wmChatReducer(state, {
+        type: "update_property_address",
+        field: "line1",
+        value: "123 Palm Avenue",
+      });
+
+      const intake = buildWmChatIntake(state);
+      const raw = JSON.stringify(intake);
+      expect(raw).not.toContain("postCapture");
+      expect(raw).not.toContain("123 Palm Avenue");
+      expect(raw).not.toContain("propertyAddress");
+    });
   });
 });

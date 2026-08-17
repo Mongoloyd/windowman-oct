@@ -11,6 +11,7 @@ import {
 } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import windowmanScript from "@/assets/windowman-script.png";
+import { createUuid } from "@/lib/createUuid";
 import { hasTrustedContactIdentity } from "@/lib/leadSession";
 import { normalizeTruthGatePhoneToE164 } from "@/lib/validation/truthGateContact";
 import { useScanFunnelSafe } from "@/state/scanFunnel";
@@ -26,12 +27,18 @@ import {
 } from "./wmChatReducer";
 import { buildWmChatProjectBrief } from "./wmChatProjectBrief";
 import {
+  buildWmChatPostCaptureDraft,
+  buildWmChatPostCaptureSubmission,
+  fingerprintWmChatPostCaptureDraft,
+} from "./wmChatPostCapturePayload";
+import {
   clearWmChatResume,
   loadWmChatResume,
   saveWmChatResume,
 } from "./wmChatResume";
 import type {
   WmChatEmailSubmitter,
+  WmChatPostCaptureSubmitter,
   WmChatResumeV1,
   WmChatSubmitter,
 } from "./wmChatTypes";
@@ -41,8 +48,15 @@ const PowerToolFlow = lazy(() => import("@/components/PowerToolDemo"));
 type WmChatPageProps = {
   readonly submitter?: WmChatSubmitter;
   readonly emailSubmitter?: WmChatEmailSubmitter;
+  readonly postCaptureSubmitter?: WmChatPostCaptureSubmitter;
   readonly thinkingDelayMs?: () => number;
 };
+
+const unavailablePostCaptureSubmitter: WmChatPostCaptureSubmitter = async () => ({
+  ok: false,
+  message:
+    "This next-step request is not connected yet. Your original project request is still saved.",
+});
 
 function initializeWmChatState(snapshot: WmChatResumeV1 | null) {
   if (!snapshot) return createWmChatInitialState();
@@ -55,6 +69,7 @@ function initializeWmChatState(snapshot: WmChatResumeV1 | null) {
 export default function WmChatPage({
   submitter,
   emailSubmitter,
+  postCaptureSubmitter,
   thinkingDelayMs,
 }: WmChatPageProps) {
   const [searchParams] = useSearchParams();
@@ -72,6 +87,11 @@ export default function WmChatPage({
     null,
   );
   const submittingRef = useRef(false);
+  const continuationSubmittingRef = useRef(false);
+  const continuationIdentityRef = useRef<{
+    fingerprint: string;
+    submissionId: string;
+  } | null>(null);
   const preparedHandoffRef = useRef<string | null>(null);
   const completedHandoffRef = useRef<string | null>(null);
   const sessionIdRef = useRef<string>();
@@ -150,6 +170,43 @@ export default function WmChatPage({
     return intake ? buildWmChatProjectBrief(intake) : null;
   }, [state]);
 
+  const prepareUploadHandoff = useCallback(
+    (leadId: string, sessionId: string, phoneE164: string) => {
+      if (!funnel || !hasTrustedContactIdentity(leadId, sessionId)) return;
+      const handoffKey = `${leadId}:${sessionId}`;
+      if (preparedHandoffRef.current === handoffKey) return;
+
+      preparedHandoffRef.current = handoffKey;
+      funnel.setPhone(phoneE164, "screened_valid");
+      funnel.setLeadId(leadId);
+      funnel.setSessionId(sessionId);
+      setUploadHandoffReady(handoffKey);
+    },
+    [funnel],
+  );
+
+  useEffect(() => {
+    if (
+      state.status !== "success" ||
+      state.postCaptureNodeId !== "scanner_transition" ||
+      !state.leadId ||
+      !state.sessionId
+    ) {
+      return;
+    }
+
+    const phoneE164 = normalizeTruthGatePhoneToE164(state.contact.phone);
+    if (!phoneE164) return;
+    prepareUploadHandoff(state.leadId, state.sessionId, phoneE164);
+  }, [
+    prepareUploadHandoff,
+    state.contact.phone,
+    state.leadId,
+    state.postCaptureNodeId,
+    state.sessionId,
+    state.status,
+  ]);
+
   const handleSubmit = useCallback(async () => {
     if (submittingRef.current || state.status === "submitting") return;
     const phoneE164 = normalizeTruthGatePhoneToE164(state.contact.phone);
@@ -213,18 +270,8 @@ export default function WmChatPage({
       });
       clearWmChatResume();
 
-      if (
-        state.captureMode === "quote_upload" &&
-        funnel
-      ) {
-        const handoffKey = `${result.leadId}:${result.sessionId}`;
-        if (preparedHandoffRef.current !== handoffKey) {
-          preparedHandoffRef.current = handoffKey;
-          funnel.setPhone(phoneE164, "screened_valid");
-          funnel.setLeadId(result.leadId);
-          funnel.setSessionId(result.sessionId);
-          setUploadHandoffReady(handoffKey);
-        }
+      if (state.captureMode === "quote_upload") {
+        prepareUploadHandoff(result.leadId, result.sessionId, phoneE164);
       }
     } catch {
       dispatch({
@@ -235,7 +282,7 @@ export default function WmChatPage({
     } finally {
       submittingRef.current = false;
     }
-  }, [funnel, state, submitter]);
+  }, [prepareUploadHandoff, state, submitter]);
 
   const handleEmailSubmit = useCallback(
     async (email: string) => {
@@ -290,6 +337,86 @@ export default function WmChatPage({
     [emailSubmitter, state],
   );
 
+  const handlePostCapturePersist = useCallback(async () => {
+    if (
+      continuationSubmittingRef.current ||
+      state.continuationStatus === "submitting"
+    ) {
+      return;
+    }
+
+    const draft = buildWmChatPostCaptureDraft(state);
+    let submissionId: string;
+    try {
+      const fingerprint = draft
+        ? fingerprintWmChatPostCaptureDraft(draft)
+        : "invalid-post-capture-draft";
+      const existingIdentity = continuationIdentityRef.current;
+      submissionId =
+        existingIdentity?.fingerprint === fingerprint
+          ? existingIdentity.submissionId
+          : createUuid();
+      continuationIdentityRef.current = { fingerprint, submissionId };
+    } catch {
+      return;
+    }
+
+    continuationSubmittingRef.current = true;
+    dispatch({ type: "continuation_started", submissionId });
+
+    try {
+      const input = buildWmChatPostCaptureSubmission(state, submissionId);
+      if (!input) {
+        dispatch({
+          type: "continuation_failed",
+          submissionId,
+          message: "Review this next step and try again.",
+        });
+        return;
+      }
+
+      const activeSubmitter =
+        postCaptureSubmitter ?? unavailablePostCaptureSubmitter;
+      const result = await activeSubmitter(input);
+      if (!result.ok) {
+        dispatch({
+          type: "continuation_failed",
+          submissionId,
+          message: result.message,
+        });
+        return;
+      }
+
+      if (
+        !hasTrustedContactIdentity(result.leadId, result.sessionId) ||
+        result.leadId !== input.leadId ||
+        result.sessionId !== input.sessionId
+      ) {
+        dispatch({
+          type: "continuation_failed",
+          submissionId,
+          message: "That next step did not save safely. Please try again.",
+        });
+        return;
+      }
+
+      dispatch({
+        type: "continuation_succeeded",
+        submissionId,
+        leadId: result.leadId,
+        sessionId: result.sessionId,
+      });
+    } catch {
+      dispatch({
+        type: "continuation_failed",
+        submissionId,
+        message: "That next step did not save safely. Please try again.",
+      });
+    } finally {
+      continuationSubmittingRef.current = false;
+    }
+  }, [postCaptureSubmitter, state]);
+
   return (
     <>
       <Helmet>
@@ -316,6 +443,7 @@ export default function WmChatPage({
             dispatch={dispatch}
             onSubmit={handleSubmit}
             onEmailSubmit={handleEmailSubmit}
+            onPersistPostCapture={handlePostCapturePersist}
             hero={hero}
             projectBrief={projectBrief}
             thinkingDelayMs={thinkingDelayMs}
