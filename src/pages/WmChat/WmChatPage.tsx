@@ -120,13 +120,34 @@ export default function WmChatPage({
 
   useEffect(() => {
     if (!uploadHandoffReady) return;
+
+    const scannerHandoffIsActive =
+      state.status === "success" &&
+      (state.captureMode === "quote_upload" ||
+        state.postCaptureNodeId === "scanner_transition");
+
+    if (!scannerHandoffIsActive) {
+      console.warn("scanner_timer_orphaned_cleanup");
+      if (preparedHandoffRef.current === uploadHandoffReady) {
+        preparedHandoffRef.current = null;
+      }
+      setUploadHandoffReady(null);
+      return;
+    }
+
     const timer = window.setTimeout(() => {
       if (completedHandoffRef.current === uploadHandoffReady) return;
       completedHandoffRef.current = uploadHandoffReady;
       navigate("/?post_capture=upload&source=wmchat");
     }, 280);
     return () => window.clearTimeout(timer);
-  }, [navigate, uploadHandoffReady]);
+  }, [
+    navigate,
+    state.captureMode,
+    state.postCaptureNodeId,
+    state.status,
+    uploadHandoffReady,
+  ]);
 
   const hero = useMemo(
     () => (

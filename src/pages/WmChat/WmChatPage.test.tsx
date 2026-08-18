@@ -713,6 +713,60 @@ describe("WmChatPage", () => {
     );
   });
 
+  it("cancels an abandoned scanner handoff and rearms it once on re-entry", async () => {
+    const submitter = vi.fn(async (input: WmChatSubmitInput) => ({
+      ok: true as const,
+      leadId: LEAD_ID,
+      sessionId: input.sessionId,
+      reused: false,
+    }));
+    renderPage(submitter);
+    advanceNeedQuoteToPhone();
+    fireEvent.change(screen.getByLabelText("Mobile number"), {
+      target: { value: "5615550123" },
+    });
+    choose("Save my project request");
+
+    await screen.findByRole("heading", { name: "Your project request is saved." });
+    fireEvent.click(
+      screen.getByRole("button", { name: /Review my quote when ready/i }),
+    );
+
+    vi.useFakeTimers();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      choose("Yes — open my secure scanner");
+      expect(
+        screen.getByRole("heading", { name: "Opening your secure quote scanner." }),
+      ).toBeInTheDocument();
+
+      choose("Back");
+      expect(
+        screen.getByRole("heading", { name: "Do you have the written quote now?" }),
+      ).toBeInTheDocument();
+
+      await act(async () => {
+        vi.advanceTimersByTime(1_000);
+      });
+      expect(navigateMock).not.toHaveBeenCalled();
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledWith("scanner_timer_orphaned_cleanup");
+
+      choose("Yes — open my secure scanner");
+      await act(async () => {
+        vi.advanceTimersByTime(280);
+      });
+      expect(navigateMock).toHaveBeenCalledTimes(1);
+      expect(navigateMock).toHaveBeenCalledWith(
+        "/?post_capture=upload&source=wmchat",
+      );
+      expect(warn).toHaveBeenCalledTimes(1);
+    } finally {
+      warn.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
   it("reuses one continuation identity after a failure and blocks duplicate taps", async () => {
     const submitter = vi.fn(async (input: WmChatSubmitInput) => ({
       ok: true as const,
