@@ -5,11 +5,17 @@ import {
 } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   buildWmChatInsertQualification,
+  handler,
   isMatchingWmChatReuseLead,
   isValidCaptureIdentity,
+  isWmChatPostCaptureCandidateEnvelope,
   parseAndValidate,
+  parseWmChatPostCaptureRequest,
+  persistValidatedWmChatPostCapture,
   persistWmChatRequiredCaptureData,
+  type ValidatedWmChatPostCaptureRequest,
   validateFreshWmChatPhoneLookup,
+  type WmChatPostCapturePersistenceDeps,
 } from "./index.ts";
 
 const SESSION_ID = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
@@ -118,6 +124,64 @@ const legacyBody = (source = "truth-gate") => ({
     source,
   },
 });
+
+const validPostCaptureBody = () => ({
+  mode: "wmchat_post_capture_v1",
+  source: "windowman-first-quote",
+  lead_id: LEAD_ID,
+  session_id: SESSION_ID,
+  submission_id: SUBMISSION_ID,
+  query_params: {
+    source_path: "/wmchat",
+    intake_version: "wmchat_v1",
+  },
+  action: "quote_request_game_plan",
+  property_address: null,
+  conversation_time_preference: null,
+  quote_readiness: null,
+  callback_preference: null,
+});
+
+const storedWmChatV1 = () => ({
+  ...validIntake(),
+  completed_at: "2026-08-17T12:00:00.000Z",
+});
+
+function validatedPostCaptureRequest(): ValidatedWmChatPostCaptureRequest {
+  const parsed = parseWmChatPostCaptureRequest(validPostCaptureBody());
+  if (!parsed.ok) throw new Error("expected valid post-capture request");
+  return parsed.request;
+}
+
+function postCaptureDeps(
+  overrides: Partial<WmChatPostCapturePersistenceDeps> = {},
+): WmChatPostCapturePersistenceDeps {
+  return {
+    loadLead: () =>
+      Promise.resolve({
+        data: {
+          id: LEAD_ID,
+          session_id: SESSION_ID,
+          source: "windowman-first-quote",
+          qualification_answers_json: {
+            wmchat_v1: storedWmChatV1(),
+            existing_sibling: { preserved: true },
+          },
+        },
+        error: null,
+      }),
+    persistNamespace: () =>
+      Promise.resolve({
+        data: [{
+          outcome: "inserted",
+          lead_id: LEAD_ID,
+          session_id: SESSION_ID,
+        }],
+        error: null,
+      }),
+    ...overrides,
+  };
+}
 
 Deno.test("exact /wmchat accepts mobile-only contact with omitted optional name", () => {
   const result = parseAndValidate(validWmChatBody());
@@ -652,4 +716,430 @@ Deno.test("success identity requires real UUIDs and the submitted session", () =
       SESSION_ID,
     ),
   );
+});
+
+Deno.test("post-capture parser accepts each exact action contract", () => {
+  const gamePlan = parseWmChatPostCaptureRequest({
+    ...validPostCaptureBody(),
+    property_address: {
+      line1: " 123 Main Street ",
+      line2: " Unit 4 ",
+      city: " Miami ",
+      region: " fl ",
+      postal_code: "33101",
+    },
+  });
+  assert(gamePlan.ok);
+  if (gamePlan.ok) {
+    assertEquals(gamePlan.request.namespace.property_address, {
+      line1: "123 Main Street",
+      line2: "Unit 4",
+      city: "Miami",
+      region: "FL",
+      postal_code: "33101",
+    });
+  }
+
+  const schedule = parseWmChatPostCaptureRequest({
+    ...validPostCaptureBody(),
+    action: "schedule_windowman_conversation",
+    conversation_time_preference: "weekday_afternoon",
+  });
+  assert(schedule.ok);
+  if (schedule.ok) {
+    assertEquals(
+      schedule.request.namespace.conversation_time_preference,
+      "weekday_afternoon",
+    );
+  }
+
+  const review = parseWmChatPostCaptureRequest({
+    ...validPostCaptureBody(),
+    action: "review_quote_when_ready",
+    quote_readiness: "not_yet",
+    callback_preference: "one_month",
+  });
+  assert(review.ok);
+  if (review.ok) {
+    assertEquals(review.request.namespace.quote_readiness, "not_yet");
+    assertEquals(review.request.namespace.callback_preference, "one_month");
+  }
+});
+
+Deno.test("post-capture parser rejects identity, path, source, and unknown-field drift", () => {
+  const candidates: unknown[] = [
+    { ...validPostCaptureBody(), lead_id: "not-a-uuid" },
+    { ...validPostCaptureBody(), session_id: "not-a-uuid" },
+    { ...validPostCaptureBody(), submission_id: "not-a-uuid" },
+    { ...validPostCaptureBody(), source: "truth-gate" },
+    {
+      ...validPostCaptureBody(),
+      query_params: { source_path: "/nq4", intake_version: "wmchat_v1" },
+    },
+    {
+      ...validPostCaptureBody(),
+      query_params: { source_path: "/wmchat", intake_version: "wmchat_v2" },
+    },
+    { ...validPostCaptureBody(), unexpected: true },
+  ];
+
+  for (const candidate of candidates) {
+    const parsed = parseWmChatPostCaptureRequest(candidate);
+    assert(!parsed.ok);
+    if (!parsed.ok) assertEquals(parsed.code, "invalid_wmchat_post_capture");
+  }
+});
+
+Deno.test("post-capture parser enforces every action field boundary", () => {
+  const invalidCandidates: unknown[] = [
+    { ...validPostCaptureBody(), action: "unknown_action" },
+    {
+      ...validPostCaptureBody(),
+      conversation_time_preference: "weekday_morning",
+    },
+    { ...validPostCaptureBody(), quote_readiness: "not_yet" },
+    { ...validPostCaptureBody(), callback_preference: "next_week" },
+    {
+      ...validPostCaptureBody(),
+      action: "schedule_windowman_conversation",
+    },
+    {
+      ...validPostCaptureBody(),
+      action: "schedule_windowman_conversation",
+      conversation_time_preference: "tomorrow",
+    },
+    {
+      ...validPostCaptureBody(),
+      action: "schedule_windowman_conversation",
+      conversation_time_preference: "asap",
+      callback_preference: "next_week",
+    },
+    {
+      ...validPostCaptureBody(),
+      action: "review_quote_when_ready",
+      quote_readiness: "ready_now",
+      callback_preference: "next_week",
+    },
+    {
+      ...validPostCaptureBody(),
+      action: "review_quote_when_ready",
+      quote_readiness: "not_yet",
+    },
+    {
+      ...validPostCaptureBody(),
+      action: "review_quote_when_ready",
+      quote_readiness: "not_yet",
+      callback_preference: "tomorrow",
+    },
+    {
+      ...validPostCaptureBody(),
+      action: "review_quote_when_ready",
+      quote_readiness: "not_yet",
+      callback_preference: "self_return",
+      property_address: {
+        line1: "123 Main Street",
+        line2: "",
+        city: "Miami",
+        region: "FL",
+        postal_code: "33101",
+      },
+    },
+  ];
+
+  for (const candidate of invalidCandidates) {
+    assert(!parseWmChatPostCaptureRequest(candidate).ok);
+  }
+});
+
+Deno.test("post-capture parser rejects partial, malformed, and expanded addresses", () => {
+  const addresses: unknown[] = [
+    {},
+    {
+      line1: "12",
+      line2: "",
+      city: "M",
+      region: "F",
+      postal_code: "3310",
+    },
+    {
+      line1: "123 Main Street",
+      line2: "",
+      city: "Miami",
+      region: "FL",
+      postal_code: "33101-1234",
+    },
+    {
+      line1: "123 Main Street\nprivate",
+      line2: "",
+      city: "Miami",
+      region: "FL",
+      postal_code: "33101",
+    },
+    {
+      line1: "123 Main Street",
+      line2: "",
+      city: "Miami",
+      region: "FL",
+      postal_code: "33101",
+      county: "Miami-Dade",
+    },
+  ];
+
+  for (const property_address of addresses) {
+    assert(
+      !parseWmChatPostCaptureRequest({
+        ...validPostCaptureBody(),
+        property_address,
+      }).ok,
+    );
+  }
+});
+
+Deno.test("post-capture persistence performs only bound lead read then atomic RPC", async () => {
+  const operations: string[] = [];
+  let receivedExpected: unknown = null;
+  let receivedRequest: ValidatedWmChatPostCaptureRequest | null = null;
+  const request = validatedPostCaptureRequest();
+  const result = await persistValidatedWmChatPostCapture(
+    request,
+    postCaptureDeps({
+      loadLead: () => {
+        operations.push("load_exact_lead");
+        return Promise.resolve({
+          data: {
+            id: LEAD_ID,
+            session_id: SESSION_ID,
+            source: "windowman-first-quote",
+            qualification_answers_json: {
+              wmchat_v1: storedWmChatV1(),
+              arbitrary_sibling: { keep: true },
+            },
+          },
+          error: null,
+        });
+      },
+      persistNamespace: (received, expected) => {
+        operations.push("persist_atomic_namespace");
+        receivedRequest = received;
+        receivedExpected = expected;
+        return Promise.resolve({
+          data: [{
+            outcome: "inserted",
+            lead_id: LEAD_ID,
+            session_id: SESSION_ID,
+          }],
+          error: null,
+        });
+      },
+    }),
+  );
+
+  assert(result.ok);
+  assertEquals(operations, ["load_exact_lead", "persist_atomic_namespace"]);
+  assertEquals(receivedRequest, request);
+  assertEquals(receivedExpected, storedWmChatV1());
+});
+
+Deno.test("post-capture persistence rejects an untrusted original before mutation", async () => {
+  const invalidRows: unknown[] = [
+    null,
+    {
+      id: "22222222-3333-4444-8555-666666666666",
+      session_id: SESSION_ID,
+      source: "windowman-first-quote",
+      qualification_answers_json: { wmchat_v1: storedWmChatV1() },
+    },
+    {
+      id: LEAD_ID,
+      session_id: SESSION_ID,
+      source: "truth-gate",
+      qualification_answers_json: { wmchat_v1: storedWmChatV1() },
+    },
+  ];
+
+  for (const data of invalidRows) {
+    let persisted = false;
+    const result = await persistValidatedWmChatPostCapture(
+      validatedPostCaptureRequest(),
+      postCaptureDeps({
+        loadLead: () => Promise.resolve({ data, error: null }),
+        persistNamespace: () => {
+          persisted = true;
+          return Promise.resolve({ data: null, error: null });
+        },
+      }),
+    );
+    assert(!result.ok);
+    if (!result.ok) assertEquals(result.kind, "identity_mismatch");
+    assertEquals(persisted, false);
+  }
+
+  let persisted = false;
+  const invalidOriginal = await persistValidatedWmChatPostCapture(
+    validatedPostCaptureRequest(),
+    postCaptureDeps({
+      loadLead: () =>
+        Promise.resolve({
+          data: {
+            id: LEAD_ID,
+            session_id: SESSION_ID,
+            source: "windowman-first-quote",
+            qualification_answers_json: { wmchat_v1: { forged: true } },
+          },
+          error: null,
+        }),
+      persistNamespace: () => {
+        persisted = true;
+        return Promise.resolve({ data: null, error: null });
+      },
+    }),
+  );
+  assert(!invalidOriginal.ok);
+  if (!invalidOriginal.ok) {
+    assertEquals(invalidOriginal.kind, "invalid_original");
+  }
+  assertEquals(persisted, false);
+});
+
+Deno.test("email-only WmChat intake cannot enter mobile post-capture persistence", async () => {
+  const result = await persistValidatedWmChatPostCapture(
+    validatedPostCaptureRequest(),
+    postCaptureDeps({
+      loadLead: () =>
+        Promise.resolve({
+          data: {
+            id: LEAD_ID,
+            session_id: SESSION_ID,
+            source: "windowman-first-quote",
+            qualification_answers_json: {
+              wmchat_v1: {
+                ...validProtectionKitIntake(),
+                completed_at: "2026-08-17T12:00:00.000Z",
+              },
+            },
+          },
+          error: null,
+        }),
+      persistNamespace: () => {
+        throw new Error("must not persist");
+      },
+    }),
+  );
+  assert(!result.ok);
+  if (!result.ok) assertEquals(result.kind, "invalid_original");
+});
+
+Deno.test("post-capture persistence maps replay, conflict, and database failures fail-closed", async () => {
+  const request = validatedPostCaptureRequest();
+  const replayed = await persistValidatedWmChatPostCapture(
+    request,
+    postCaptureDeps({
+      persistNamespace: () =>
+        Promise.resolve({
+          data: [{
+            outcome: "replayed",
+            lead_id: LEAD_ID,
+            session_id: SESSION_ID,
+          }],
+          error: null,
+        }),
+    }),
+  );
+  assert(replayed.ok);
+  if (replayed.ok) assertEquals(replayed.outcome, "replayed");
+
+  for (
+    const outcome of [
+      "conflict",
+      "identity_mismatch",
+      "invalid_original",
+      "invalid_namespace",
+    ] as const
+  ) {
+    const result = await persistValidatedWmChatPostCapture(
+      request,
+      postCaptureDeps({
+        persistNamespace: () =>
+          Promise.resolve({
+            data: [{ outcome, lead_id: null, session_id: null }],
+            error: null,
+          }),
+      }),
+    );
+    assert(!result.ok);
+    if (!result.ok) assertEquals(result.kind, outcome);
+  }
+
+  for (
+    const deps of [
+      postCaptureDeps({
+        loadLead: () => Promise.resolve({ data: null, error: { code: "db" } }),
+      }),
+      postCaptureDeps({
+        persistNamespace: () =>
+          Promise.resolve({ data: null, error: { code: "db" } }),
+      }),
+      postCaptureDeps({
+        persistNamespace: () =>
+          Promise.resolve({
+            data: [{ outcome: "unknown", lead_id: null, session_id: null }],
+            error: null,
+          }),
+      }),
+    ]
+  ) {
+    const result = await persistValidatedWmChatPostCapture(request, deps);
+    assert(!result.ok);
+    if (!result.ok) assertEquals(result.kind, "storage_unavailable");
+  }
+});
+
+Deno.test("post-capture success never accepts a changed returned identity", async () => {
+  const result = await persistValidatedWmChatPostCapture(
+    validatedPostCaptureRequest(),
+    postCaptureDeps({
+      persistNamespace: () =>
+        Promise.resolve({
+          data: [{
+            outcome: "inserted",
+            lead_id: LEAD_ID,
+            session_id: "22222222-3333-4444-8555-666666666666",
+          }],
+          error: null,
+        }),
+    }),
+  );
+  assert(!result.ok);
+  if (!result.ok) assertEquals(result.kind, "identity_mismatch");
+});
+
+Deno.test("any explicit mode envelope selects the isolated post-capture validator", () => {
+  assert(isWmChatPostCaptureCandidateEnvelope(validPostCaptureBody()));
+  assert(!isWmChatPostCaptureCandidateEnvelope(validWmChatBody()));
+  assert(
+    isWmChatPostCaptureCandidateEnvelope({
+      ...validPostCaptureBody(),
+      mode: "wmchat_post_capture_v2",
+    }),
+  );
+});
+
+Deno.test("mode drift is rejected before legacy capture side effects", async () => {
+  const response = await handler(
+    new Request("http://localhost/functions/v1/capture-truth-gate-lead", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...validWmChatBody(),
+        mode: "wmchat_post_capture_v2",
+      }),
+    }),
+  );
+
+  assertEquals(response.status, 400);
+  assertEquals(await response.json(), {
+    success: false,
+    code: "invalid_wmchat_post_capture",
+    message: "The WindowMan next-step request is invalid.",
+  });
 });

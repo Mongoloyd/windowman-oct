@@ -74,6 +74,7 @@ import {
   mergeWmChatQualificationNamespace,
   type StoredWmChatIntake,
   type ValidatedWmChatIntake,
+  validateStoredWmChatIntake,
   validateWmChatIntake,
 } from "../_shared/wmchatIntake.ts";
 import {
@@ -88,6 +89,136 @@ const CANONICAL_LEAD_CAPTURED_ENABLED =
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const WMCHAT_POST_CAPTURE_MODE = "wmchat_post_capture_v1" as const;
+const WMCHAT_POST_CAPTURE_SOURCE = "windowman-first-quote" as const;
+const WMCHAT_POST_CAPTURE_SOURCE_PATH = "/wmchat" as const;
+const WMCHAT_POST_CAPTURE_INTAKE_VERSION = "wmchat_v1" as const;
+
+const WMCHAT_POST_CAPTURE_ROOT_KEYS = new Set([
+  "mode",
+  "source",
+  "lead_id",
+  "session_id",
+  "submission_id",
+  "query_params",
+  "action",
+  "property_address",
+  "conversation_time_preference",
+  "quote_readiness",
+  "callback_preference",
+]);
+const WMCHAT_POST_CAPTURE_QUERY_KEYS = new Set([
+  "source_path",
+  "intake_version",
+]);
+const WMCHAT_POST_CAPTURE_ADDRESS_KEYS = new Set([
+  "line1",
+  "line2",
+  "city",
+  "region",
+  "postal_code",
+]);
+const WMCHAT_CONVERSATION_TIMES = new Set([
+  "asap",
+  "weekday_morning",
+  "weekday_afternoon",
+  "weekday_evening",
+]);
+const WMCHAT_CALLBACK_PREFERENCES = new Set([
+  "next_week",
+  "one_month",
+  "three_months",
+  "self_return",
+]);
+
+type WmChatPostCaptureAction =
+  | "quote_request_game_plan"
+  | "schedule_windowman_conversation"
+  | "review_quote_when_ready";
+
+type WmChatPostCaptureAddress = {
+  readonly line1: string;
+  readonly line2: string;
+  readonly city: string;
+  readonly region: string;
+  readonly postal_code: string;
+};
+
+export type ValidatedWmChatPostCaptureRequest = {
+  readonly leadId: string;
+  readonly sessionId: string;
+  readonly submissionId: string;
+  readonly namespace: {
+    readonly schema_version: "1";
+    readonly mode: typeof WMCHAT_POST_CAPTURE_MODE;
+    readonly source: typeof WMCHAT_POST_CAPTURE_SOURCE;
+    readonly submission_id: string;
+    readonly action: WmChatPostCaptureAction;
+    readonly property_address: WmChatPostCaptureAddress | null;
+    readonly conversation_time_preference: string | null;
+    readonly quote_readiness: "not_yet" | null;
+    readonly callback_preference: string | null;
+  };
+};
+
+type WmChatPostCaptureParseResult =
+  | { readonly ok: true; readonly request: ValidatedWmChatPostCaptureRequest }
+  | {
+    readonly ok: false;
+    readonly code: "invalid_wmchat_post_capture";
+    readonly message: string;
+  };
+
+type WmChatPostCaptureLeadRow = {
+  readonly id: string;
+  readonly session_id: string;
+  readonly source: string;
+  readonly qualification_answers_json: unknown;
+};
+
+type WmChatPostCaptureRpcRow = {
+  readonly outcome: string;
+  readonly lead_id: unknown;
+  readonly session_id: unknown;
+};
+
+export type WmChatPostCapturePersistenceDeps = {
+  readonly loadLead: (
+    request: ValidatedWmChatPostCaptureRequest,
+  ) => Promise<{
+    readonly data: unknown;
+    readonly error:
+      | { readonly code?: string; readonly message?: string }
+      | null;
+  }>;
+  readonly persistNamespace: (
+    request: ValidatedWmChatPostCaptureRequest,
+    expectedWmChatV1: StoredWmChatIntake,
+  ) => Promise<{
+    readonly data: unknown;
+    readonly error:
+      | { readonly code?: string; readonly message?: string }
+      | null;
+  }>;
+};
+
+export type WmChatPostCapturePersistenceResult =
+  | {
+    readonly ok: true;
+    readonly outcome: "inserted" | "replayed";
+    readonly leadId: string;
+    readonly sessionId: string;
+  }
+  | {
+    readonly ok: false;
+    readonly kind:
+      | "conflict"
+      | "identity_mismatch"
+      | "invalid_original"
+      | "invalid_namespace"
+      | "storage_unavailable";
+  };
 
 const EMAIL_RE = /^\S+@\S+\.\S+$/;
 
@@ -562,6 +693,248 @@ function asNullableInt(v: unknown): number | null {
     return Math.trunc(Number(v));
   }
   return null;
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function hasExactKeys(
+  value: Record<string, unknown>,
+  expected: ReadonlySet<string>,
+): boolean {
+  const keys = Object.keys(value);
+  return keys.length === expected.size &&
+    keys.every((key) => expected.has(key));
+}
+
+function invalidWmChatPostCapture(): WmChatPostCaptureParseResult {
+  return {
+    ok: false,
+    code: "invalid_wmchat_post_capture",
+    message: "The WindowMan next-step request is invalid.",
+  };
+}
+
+function normalizeWmChatPostCaptureAddress(
+  value: unknown,
+): WmChatPostCaptureAddress | null | undefined {
+  if (value === null) return null;
+  if (
+    !isPlainRecord(value) ||
+    !hasExactKeys(value, WMCHAT_POST_CAPTURE_ADDRESS_KEYS)
+  ) {
+    return undefined;
+  }
+
+  const { line1, line2, city, region, postal_code: postalCode } = value;
+  if (
+    typeof line1 !== "string" ||
+    typeof line2 !== "string" ||
+    typeof city !== "string" ||
+    typeof region !== "string" ||
+    typeof postalCode !== "string"
+  ) {
+    return undefined;
+  }
+
+  const normalized = {
+    line1: line1.trim(),
+    line2: line2.trim(),
+    city: city.trim(),
+    region: region.trim().toUpperCase(),
+    postal_code: postalCode.trim(),
+  };
+  if (
+    normalized.line1.length < 3 || normalized.line1.length > 120 ||
+    normalized.line2.length > 120 ||
+    normalized.city.length < 2 || normalized.city.length > 80 ||
+    normalized.region.length < 2 || normalized.region.length > 40 ||
+    !/^\d{5}$/.test(normalized.postal_code) ||
+    [normalized.line1, normalized.line2, normalized.city, normalized.region]
+      .some((entry) => /[\r\n]/.test(entry))
+  ) {
+    return undefined;
+  }
+  return normalized;
+}
+
+/**
+ * Strict validator for the isolated Phase 2 continuation envelope. This runs
+ * before the legacy lead-capture parser, attribution, consent, or measurement.
+ */
+export function parseWmChatPostCaptureRequest(
+  input: unknown,
+): WmChatPostCaptureParseResult {
+  if (
+    !isPlainRecord(input) ||
+    !hasExactKeys(input, WMCHAT_POST_CAPTURE_ROOT_KEYS)
+  ) {
+    return invalidWmChatPostCapture();
+  }
+
+  const queryParams = input.query_params;
+  if (
+    input.mode !== WMCHAT_POST_CAPTURE_MODE ||
+    input.source !== WMCHAT_POST_CAPTURE_SOURCE ||
+    typeof input.lead_id !== "string" || !UUID_RE.test(input.lead_id) ||
+    typeof input.session_id !== "string" || !UUID_RE.test(input.session_id) ||
+    typeof input.submission_id !== "string" ||
+    !UUID_RE.test(input.submission_id) ||
+    !isPlainRecord(queryParams) ||
+    !hasExactKeys(queryParams, WMCHAT_POST_CAPTURE_QUERY_KEYS) ||
+    queryParams.source_path !== WMCHAT_POST_CAPTURE_SOURCE_PATH ||
+    queryParams.intake_version !== WMCHAT_POST_CAPTURE_INTAKE_VERSION
+  ) {
+    return invalidWmChatPostCapture();
+  }
+
+  const action = input.action;
+  if (
+    action !== "quote_request_game_plan" &&
+    action !== "schedule_windowman_conversation" &&
+    action !== "review_quote_when_ready"
+  ) {
+    return invalidWmChatPostCapture();
+  }
+
+  const propertyAddress = normalizeWmChatPostCaptureAddress(
+    input.property_address,
+  );
+  if (propertyAddress === undefined) return invalidWmChatPostCapture();
+
+  const conversationTime = input.conversation_time_preference;
+  const quoteReadiness = input.quote_readiness;
+  const callbackPreference = input.callback_preference;
+
+  if (action === "quote_request_game_plan") {
+    if (
+      conversationTime !== null ||
+      quoteReadiness !== null ||
+      callbackPreference !== null
+    ) {
+      return invalidWmChatPostCapture();
+    }
+  } else if (action === "schedule_windowman_conversation") {
+    if (
+      typeof conversationTime !== "string" ||
+      !WMCHAT_CONVERSATION_TIMES.has(conversationTime) ||
+      quoteReadiness !== null ||
+      callbackPreference !== null
+    ) {
+      return invalidWmChatPostCapture();
+    }
+  } else if (
+    propertyAddress !== null ||
+    conversationTime !== null ||
+    quoteReadiness !== "not_yet" ||
+    typeof callbackPreference !== "string" ||
+    !WMCHAT_CALLBACK_PREFERENCES.has(callbackPreference)
+  ) {
+    return invalidWmChatPostCapture();
+  }
+
+  return {
+    ok: true,
+    request: {
+      leadId: input.lead_id,
+      sessionId: input.session_id,
+      submissionId: input.submission_id,
+      namespace: {
+        schema_version: "1",
+        mode: WMCHAT_POST_CAPTURE_MODE,
+        source: WMCHAT_POST_CAPTURE_SOURCE,
+        submission_id: input.submission_id,
+        action,
+        property_address: propertyAddress,
+        conversation_time_preference: action ===
+            "schedule_windowman_conversation"
+          ? conversationTime
+          : null,
+        quote_readiness: action === "review_quote_when_ready"
+          ? "not_yet"
+          : null,
+        callback_preference: action === "review_quote_when_ready"
+          ? callbackPreference
+          : null,
+      },
+    },
+  };
+}
+
+export function isWmChatPostCaptureCandidateEnvelope(input: unknown): boolean {
+  return isPlainRecord(input) &&
+    Object.prototype.hasOwnProperty.call(input, "mode");
+}
+
+export async function persistValidatedWmChatPostCapture(
+  request: ValidatedWmChatPostCaptureRequest,
+  deps: WmChatPostCapturePersistenceDeps,
+): Promise<WmChatPostCapturePersistenceResult> {
+  try {
+    const loaded = await deps.loadLead(request);
+    if (loaded.error) return { ok: false, kind: "storage_unavailable" };
+    if (!isPlainRecord(loaded.data)) {
+      return { ok: false, kind: "identity_mismatch" };
+    }
+
+    const row = loaded.data as unknown as WmChatPostCaptureLeadRow;
+    if (
+      row.id !== request.leadId ||
+      row.session_id !== request.sessionId ||
+      row.source !== WMCHAT_POST_CAPTURE_SOURCE ||
+      !isPlainRecord(row.qualification_answers_json)
+    ) {
+      return { ok: false, kind: "identity_mismatch" };
+    }
+
+    const stored = validateStoredWmChatIntake(
+      row.qualification_answers_json.wmchat_v1,
+    );
+    if (!stored.ok || stored.intake.continuation !== "sms_then_voice") {
+      return { ok: false, kind: "invalid_original" };
+    }
+
+    const persisted = await deps.persistNamespace(request, stored.intake);
+    if (persisted.error) return { ok: false, kind: "storage_unavailable" };
+    if (
+      !Array.isArray(persisted.data) || persisted.data.length !== 1 ||
+      !isPlainRecord(persisted.data[0])
+    ) {
+      return { ok: false, kind: "storage_unavailable" };
+    }
+
+    const rpcRow = persisted.data[0] as unknown as WmChatPostCaptureRpcRow;
+    if (rpcRow.outcome === "inserted" || rpcRow.outcome === "replayed") {
+      if (
+        rpcRow.lead_id !== request.leadId ||
+        rpcRow.session_id !== request.sessionId
+      ) {
+        return { ok: false, kind: "identity_mismatch" };
+      }
+      return {
+        ok: true,
+        outcome: rpcRow.outcome,
+        leadId: request.leadId,
+        sessionId: request.sessionId,
+      };
+    }
+    if (rpcRow.outcome === "conflict") {
+      return { ok: false, kind: "conflict" };
+    }
+    if (rpcRow.outcome === "identity_mismatch") {
+      return { ok: false, kind: "identity_mismatch" };
+    }
+    if (rpcRow.outcome === "invalid_original") {
+      return { ok: false, kind: "invalid_original" };
+    }
+    if (rpcRow.outcome === "invalid_namespace") {
+      return { ok: false, kind: "invalid_namespace" };
+    }
+    return { ok: false, kind: "storage_unavailable" };
+  } catch {
+    return { ok: false, kind: "storage_unavailable" };
+  }
 }
 
 export function isValidCaptureIdentity(
@@ -1101,6 +1474,108 @@ async function persistCaptureRequirementsThenRunEffects(args: {
   });
 }
 
+async function handleWmChatPostCapture(
+  body: unknown,
+  corsHeaders: Record<string, string>,
+): Promise<Response> {
+  const parsed = parseWmChatPostCaptureRequest(body);
+  if (!parsed.ok) {
+    return jsonResponse(
+      { success: false, code: parsed.code, message: parsed.message },
+      400,
+      corsHeaders,
+    );
+  }
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !serviceRole) {
+    console.error(`[${FUNCTION_NAME}] missing service-role env`);
+    return jsonResponse(
+      {
+        success: false,
+        code: "server_misconfigured",
+        message: "Server misconfigured.",
+      },
+      500,
+      corsHeaders,
+    );
+  }
+
+  const admin = createClient(supabaseUrl, serviceRole, {
+    auth: { persistSession: false },
+  });
+  const result = await persistValidatedWmChatPostCapture(parsed.request, {
+    loadLead: async (request) => {
+      const response = await admin
+        .from("leads")
+        .select("id, session_id, source, qualification_answers_json")
+        .eq("id", request.leadId)
+        .eq("session_id", request.sessionId)
+        .eq("source", WMCHAT_POST_CAPTURE_SOURCE)
+        .maybeSingle();
+      return { data: response.data, error: response.error };
+    },
+    persistNamespace: async (request, expectedWmChatV1) => {
+      const response = await admin.rpc("persist_wmchat_post_capture_v1", {
+        p_lead_id: request.leadId,
+        p_session_id: request.sessionId,
+        p_source: WMCHAT_POST_CAPTURE_SOURCE,
+        p_submission_id: request.submissionId,
+        p_expected_wmchat_v1: expectedWmChatV1,
+        p_namespace: request.namespace,
+      });
+      return { data: response.data, error: response.error };
+    },
+  });
+
+  if (result.ok) {
+    return jsonResponse(
+      {
+        success: true,
+        lead_id: result.leadId,
+        session_id: result.sessionId,
+      },
+      200,
+      corsHeaders,
+    );
+  }
+
+  const failure = {
+    conflict: {
+      status: 409,
+      code: "wmchat_post_capture_conflict",
+      message: "A different next step is already saved for this project.",
+    },
+    identity_mismatch: {
+      status: 404,
+      code: "wmchat_post_capture_identity_mismatch",
+      message: "The saved project could not be matched.",
+    },
+    invalid_original: {
+      status: 409,
+      code: "wmchat_post_capture_original_invalid",
+      message: "The saved project cannot accept this next step.",
+    },
+    invalid_namespace: {
+      status: 400,
+      code: "invalid_wmchat_post_capture",
+      message: "The WindowMan next-step request is invalid.",
+    },
+    storage_unavailable: {
+      status: 503,
+      code: "wmchat_post_capture_unavailable",
+      message: "The next step could not be saved safely.",
+    },
+  }[result.kind];
+
+  return jsonResponse(
+    { success: false, code: failure.code, message: failure.message },
+    failure.status,
+    corsHeaders,
+  );
+}
+
 export const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: getCorsHeaders(req) });
@@ -1138,6 +1613,13 @@ export const handler = async (req: Request): Promise<Response> => {
       400,
       corsHeaders,
     );
+  }
+
+  // The post-capture continuation is a deliberately isolated update mode.
+  // It exits before legacy parsing, attribution, consent, audit persistence,
+  // lead capture/reuse, CRM activity, and every conversion side effect.
+  if (isWmChatPostCaptureCandidateEnvelope(bodyJson)) {
+    return handleWmChatPostCapture(bodyJson, corsHeaders);
   }
 
   const parsed = parseAndValidate(bodyJson);

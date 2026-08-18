@@ -11,15 +11,17 @@ import {
 } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import windowmanScript from "@/assets/windowman-script.png";
-import { createUuid } from "@/lib/createUuid";
 import { hasTrustedContactIdentity } from "@/lib/leadSession";
 import { normalizeTruthGatePhoneToE164 } from "@/lib/validation/truthGateContact";
 import { useScanFunnelSafe } from "@/state/scanFunnel";
 import { WmChatConversation } from "./WmChatConversation";
 import {
+  getOrCreateWmChatContinuationSubmissionId,
   getOrCreateWmChatSessionId,
   getOrCreateWmChatSubmissionId,
+  rotateWmChatContinuationSubmissionId,
 } from "./wmChatIdentity";
+import { WmChatPostCaptureActionAvailability } from "./WmChatPostCaptureStage";
 import {
   buildWmChatIntake,
   createWmChatInitialState,
@@ -51,12 +53,6 @@ type WmChatPageProps = {
   readonly postCaptureSubmitter?: WmChatPostCaptureSubmitter;
   readonly thinkingDelayMs?: () => number;
 };
-
-const unavailablePostCaptureSubmitter: WmChatPostCaptureSubmitter = async () => ({
-  ok: false,
-  message:
-    "This next-step request is not connected yet. Your original project request is still saved.",
-});
 
 function initializeWmChatState(snapshot: WmChatResumeV1 | null) {
   if (!snapshot) return createWmChatInitialState();
@@ -352,10 +348,13 @@ export default function WmChatPage({
         ? fingerprintWmChatPostCaptureDraft(draft)
         : "invalid-post-capture-draft";
       const existingIdentity = continuationIdentityRef.current;
-      submissionId =
-        existingIdentity?.fingerprint === fingerprint
-          ? existingIdentity.submissionId
-          : createUuid();
+      if (!existingIdentity) {
+        submissionId = getOrCreateWmChatContinuationSubmissionId();
+      } else if (existingIdentity.fingerprint === fingerprint) {
+        submissionId = existingIdentity.submissionId;
+      } else {
+        submissionId = rotateWmChatContinuationSubmissionId();
+      }
       continuationIdentityRef.current = { fingerprint, submissionId };
     } catch {
       return;
@@ -376,7 +375,9 @@ export default function WmChatPage({
       }
 
       const activeSubmitter =
-        postCaptureSubmitter ?? unavailablePostCaptureSubmitter;
+        postCaptureSubmitter ??
+        (await import("@/services/wmchatPostCapture"))
+          .submitWmChatPostCapture;
       const result = await activeSubmitter(input);
       if (!result.ok) {
         dispatch({
@@ -438,16 +439,20 @@ export default function WmChatPage({
           className="pointer-events-none fixed inset-0 opacity-[0.38] [background-image:linear-gradient(rgba(145,173,198,0.16)_1px,transparent_1px),linear-gradient(90deg,rgba(145,173,198,0.16)_1px,transparent_1px)] [background-size:48px_48px] [mask-image:radial-gradient(ellipse_82%_66%_at_50%_28%,black_0%,rgba(0,0,0,0.76)_52%,transparent_88%)]"
         />
         <div className="relative z-10">
-          <WmChatConversation
-            state={state}
-            dispatch={dispatch}
-            onSubmit={handleSubmit}
-            onEmailSubmit={handleEmailSubmit}
-            onPersistPostCapture={handlePostCapturePersist}
-            hero={hero}
-            projectBrief={projectBrief}
-            thinkingDelayMs={thinkingDelayMs}
-          />
+          <WmChatPostCaptureActionAvailability
+            scheduleConversationVisible={false}
+          >
+            <WmChatConversation
+              state={state}
+              dispatch={dispatch}
+              onSubmit={handleSubmit}
+              onEmailSubmit={handleEmailSubmit}
+              onPersistPostCapture={handlePostCapturePersist}
+              hero={hero}
+              projectBrief={projectBrief}
+              thinkingDelayMs={thinkingDelayMs}
+            />
+          </WmChatPostCaptureActionAvailability>
           {state.currentNodeId === "demo_launch" ? (
             <Suspense fallback={null}>
               <PowerToolFlow

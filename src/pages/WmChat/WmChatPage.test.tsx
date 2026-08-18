@@ -21,12 +21,18 @@ const {
   setLeadIdMock,
   setSessionIdMock,
   powerToolPropsMock,
+  submitWmChatPostCaptureMock,
+  getOrCreateContinuationSubmissionIdMock,
+  rotateContinuationSubmissionIdMock,
 } = vi.hoisted(() => ({
   navigateMock: vi.fn(),
   setPhoneMock: vi.fn(),
   setLeadIdMock: vi.fn(),
   setSessionIdMock: vi.fn(),
   powerToolPropsMock: vi.fn(),
+  submitWmChatPostCaptureMock: vi.fn(),
+  getOrCreateContinuationSubmissionIdMock: vi.fn(),
+  rotateContinuationSubmissionIdMock: vi.fn(),
 }));
 
 vi.mock("react-router-dom", async (importOriginal) => {
@@ -42,11 +48,20 @@ vi.mock("@/state/scanFunnel", () => ({
   }),
 }));
 
+vi.mock("@/services/wmchatPostCapture", () => ({
+  submitWmChatPostCapture: (input: WmChatPostCaptureSubmitInput) =>
+    submitWmChatPostCaptureMock(input),
+}));
+
 vi.mock("./wmChatIdentity", () => ({
   getOrCreateWmChatSessionId: () =>
     "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
   getOrCreateWmChatSubmissionId: () =>
     "11111111-2222-4333-8444-555555555555",
+  getOrCreateWmChatContinuationSubmissionId: () =>
+    getOrCreateContinuationSubmissionIdMock(),
+  rotateWmChatContinuationSubmissionId: () =>
+    rotateContinuationSubmissionIdMock(),
 }));
 
 vi.mock("@/components/PowerToolDemo", () => ({
@@ -67,6 +82,9 @@ vi.mock("@/components/PowerToolDemo", () => ({
 }));
 
 const LEAD_ID = "99999999-8888-4777-8666-555555555555";
+const CONTINUATION_STORAGE_KEY = "wm_wmchat_continuation_submission_id";
+const CONTINUATION_ID = "66666666-7777-4888-8999-aaaaaaaaaaaa";
+const ROTATED_CONTINUATION_ID = "bbbbbbbb-cccc-4ddd-8eee-ffffffffffff";
 const scrollIntoViewMock = vi.fn();
 
 function renderPage(
@@ -147,9 +165,25 @@ describe("WmChatPage", () => {
     setLeadIdMock.mockReset();
     setSessionIdMock.mockReset();
     powerToolPropsMock.mockReset();
+    submitWmChatPostCaptureMock.mockReset();
+    getOrCreateContinuationSubmissionIdMock.mockReset();
+    rotateContinuationSubmissionIdMock.mockReset();
     scrollIntoViewMock.mockReset();
     sessionStorage.clear();
     localStorage.clear();
+    getOrCreateContinuationSubmissionIdMock.mockImplementation(() => {
+      const existing = sessionStorage.getItem(CONTINUATION_STORAGE_KEY);
+      if (existing) return existing;
+      sessionStorage.setItem(CONTINUATION_STORAGE_KEY, CONTINUATION_ID);
+      return CONTINUATION_ID;
+    });
+    rotateContinuationSubmissionIdMock.mockImplementation(() => {
+      sessionStorage.setItem(
+        CONTINUATION_STORAGE_KEY,
+        ROTATED_CONTINUATION_ID,
+      );
+      return ROTATED_CONTINUATION_ID;
+    });
     Object.defineProperty(window, "matchMedia", {
       configurable: true,
       value: vi.fn(() => ({ matches: false })),
@@ -512,6 +546,7 @@ describe("WmChatPage", () => {
       await screen.findByRole("heading", { name: "Game-plan request received." }),
     ).toBeInTheDocument();
     expect(postCaptureSubmitter).toHaveBeenCalledTimes(1);
+    expect(submitWmChatPostCaptureMock).not.toHaveBeenCalled();
     expect(postCaptureSubmitter.mock.calls[0][0]).toEqual(
       expect.objectContaining({
         leadId: LEAD_ID,
@@ -520,6 +555,125 @@ describe("WmChatPage", () => {
       }),
     );
     expect(screen.queryByLabelText("Mobile number")).not.toBeInTheDocument();
+  });
+
+  it("temporarily hides the unfulfilled WindowMan conversation action", async () => {
+    const submitter = vi.fn(async (input: WmChatSubmitInput) => ({
+      ok: true as const,
+      leadId: LEAD_ID,
+      sessionId: input.sessionId,
+      reused: false,
+    }));
+    renderPage(submitter);
+    advanceNeedQuoteToPhone();
+    fireEvent.change(screen.getByLabelText("Mobile number"), {
+      target: { value: "5615550123" },
+    });
+    choose("Save my project request");
+
+    await screen.findByRole("heading", { name: "Your project request is saved." });
+    expect(
+      screen.queryByRole("button", {
+        name: /Schedule a WindowMan conversation/i,
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Build my quote-request game plan/i }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: /Review my quote when ready/i }),
+    ).toBeEnabled();
+  });
+
+  it("uses the canonical production post-capture submitter when no test seam is injected", async () => {
+    const submitter = vi.fn(async (input: WmChatSubmitInput) => ({
+      ok: true as const,
+      leadId: LEAD_ID,
+      sessionId: input.sessionId,
+      reused: false,
+    }));
+    submitWmChatPostCaptureMock.mockImplementation(
+      async (input: WmChatPostCaptureSubmitInput) => ({
+        ok: true as const,
+        leadId: input.leadId,
+        sessionId: input.sessionId,
+      }),
+    );
+    renderPage(submitter);
+    advanceNeedQuoteToPhone();
+    fireEvent.change(screen.getByLabelText("Mobile number"), {
+      target: { value: "5615550123" },
+    });
+    choose("Save my project request");
+
+    await screen.findByRole("heading", { name: "Your project request is saved." });
+    fireEvent.click(
+      screen.getByRole("button", { name: /Build my quote-request game plan/i }),
+    );
+    choose("Skip this step");
+    choose("Confirm this next step");
+
+    expect(
+      await screen.findByRole("heading", { name: "Game-plan request received." }),
+    ).toBeInTheDocument();
+    expect(submitWmChatPostCaptureMock).toHaveBeenCalledTimes(1);
+    expect(submitWmChatPostCaptureMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        leadId: LEAD_ID,
+        sessionId: submitter.mock.calls[0][0].sessionId,
+        action: "quote_request_game_plan",
+        propertyAddress: null,
+      }),
+    );
+  });
+
+  it("keeps the synchronous duplicate-submit guard on the production submitter", async () => {
+    const submitter = vi.fn(async (input: WmChatSubmitInput) => ({
+      ok: true as const,
+      leadId: LEAD_ID,
+      sessionId: input.sessionId,
+      reused: false,
+    }));
+    let resolveContinuation!: (value: {
+      ok: true;
+      leadId: string;
+      sessionId: string;
+    }) => void;
+    submitWmChatPostCaptureMock.mockImplementation(
+      (input: WmChatPostCaptureSubmitInput) =>
+        new Promise((resolve) => {
+          resolveContinuation = () =>
+            resolve({
+              ok: true,
+              leadId: input.leadId,
+              sessionId: input.sessionId,
+            });
+        }),
+    );
+    renderPage(submitter);
+    advanceNeedQuoteToPhone();
+    fireEvent.change(screen.getByLabelText("Mobile number"), {
+      target: { value: "5615550123" },
+    });
+    choose("Save my project request");
+    await screen.findByRole("heading", { name: "Your project request is saved." });
+    fireEvent.click(
+      screen.getByRole("button", { name: /Build my quote-request game plan/i }),
+    );
+    choose("Skip this step");
+
+    const confirm = screen.getByRole("button", { name: "Confirm this next step" });
+    fireEvent.click(confirm);
+    fireEvent.click(confirm);
+    await waitFor(() =>
+      expect(submitWmChatPostCaptureMock).toHaveBeenCalledTimes(1),
+    );
+    expect(confirm).toBeDisabled();
+
+    resolveContinuation({ ok: true, leadId: LEAD_ID, sessionId: "unused" });
+    expect(
+      await screen.findByRole("heading", { name: "Game-plan request received." }),
+    ).toBeInTheDocument();
   });
 
   it("opens the existing private scanner directly from the post-capture quote path", async () => {
@@ -616,6 +770,214 @@ describe("WmChatPage", () => {
     expect(seen[1].submissionId).toBe(seen[0].submissionId);
     expect(seen[1].leadId).toBe(seen[0].leadId);
     expect(seen[1].sessionId).toBe(seen[0].sessionId);
+    expect(getOrCreateContinuationSubmissionIdMock).toHaveBeenCalledTimes(1);
+    expect(rotateContinuationSubmissionIdMock).not.toHaveBeenCalled();
+  });
+
+  it("reuses the sessionStorage continuation UUID after a page reload", async () => {
+    const submitter = vi.fn(async (input: WmChatSubmitInput) => ({
+      ok: true as const,
+      leadId: LEAD_ID,
+      sessionId: input.sessionId,
+      reused: false,
+    }));
+    const seen: WmChatPostCaptureSubmitInput[] = [];
+    const postCaptureSubmitter = vi.fn(
+      async (input: WmChatPostCaptureSubmitInput) => {
+        seen.push(input);
+        return seen.length === 1
+          ? { ok: false as const, message: "The response was interrupted." }
+          : {
+              ok: true as const,
+              leadId: input.leadId,
+              sessionId: input.sessionId,
+            };
+      },
+    );
+
+    const firstPage = renderPage(
+      submitter,
+      "/wmchat",
+      () => 0,
+      undefined,
+      postCaptureSubmitter,
+    );
+    advanceNeedQuoteToPhone();
+    fireEvent.change(screen.getByLabelText("Mobile number"), {
+      target: { value: "5615550123" },
+    });
+    choose("Save my project request");
+    await screen.findByRole("heading", { name: "Your project request is saved." });
+    fireEvent.click(
+      screen.getByRole("button", { name: /Build my quote-request game plan/i }),
+    );
+    choose("Skip this step");
+    choose("Confirm this next step");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "The response was interrupted.",
+    );
+    expect(sessionStorage.getItem(CONTINUATION_STORAGE_KEY)).toBe(
+      CONTINUATION_ID,
+    );
+
+    firstPage.unmount();
+    renderPage(
+      submitter,
+      "/wmchat",
+      () => 0,
+      undefined,
+      postCaptureSubmitter,
+    );
+    advanceNeedQuoteToPhone();
+    fireEvent.change(screen.getByLabelText("Mobile number"), {
+      target: { value: "5615550123" },
+    });
+    choose("Save my project request");
+    await screen.findByRole("heading", { name: "Your project request is saved." });
+    fireEvent.click(
+      screen.getByRole("button", { name: /Build my quote-request game plan/i }),
+    );
+    choose("Skip this step");
+    choose("Confirm this next step");
+
+    expect(
+      await screen.findByRole("heading", { name: "Game-plan request received." }),
+    ).toBeInTheDocument();
+    expect(seen).toHaveLength(2);
+    expect(seen[1].submissionId).toBe(seen[0].submissionId);
+    expect(seen[1].submissionId).toBe(CONTINUATION_ID);
+    expect(rotateContinuationSubmissionIdMock).not.toHaveBeenCalled();
+  });
+
+  it("rotates the continuation UUID when the draft changes before persistence", async () => {
+    const submitter = vi.fn(async (input: WmChatSubmitInput) => ({
+      ok: true as const,
+      leadId: LEAD_ID,
+      sessionId: input.sessionId,
+      reused: false,
+    }));
+    const seen: WmChatPostCaptureSubmitInput[] = [];
+    const postCaptureSubmitter = vi.fn(
+      async (input: WmChatPostCaptureSubmitInput) => {
+        seen.push(input);
+        return seen.length === 1
+          ? { ok: false as const, message: "Review the address." }
+          : {
+              ok: true as const,
+              leadId: input.leadId,
+              sessionId: input.sessionId,
+            };
+      },
+    );
+    renderPage(
+      submitter,
+      "/wmchat",
+      () => 0,
+      undefined,
+      postCaptureSubmitter,
+    );
+    advanceNeedQuoteToPhone();
+    fireEvent.change(screen.getByLabelText("Mobile number"), {
+      target: { value: "5615550123" },
+    });
+    choose("Save my project request");
+    await screen.findByRole("heading", { name: "Your project request is saved." });
+    fireEvent.click(
+      screen.getByRole("button", { name: /Build my quote-request game plan/i }),
+    );
+    fireEvent.change(screen.getByLabelText("Street address"), {
+      target: { value: "123 Main Street" },
+    });
+    fireEvent.change(screen.getByLabelText("City"), {
+      target: { value: "Fort Lauderdale" },
+    });
+    fireEvent.change(screen.getByLabelText("State"), {
+      target: { value: "FL" },
+    });
+    fireEvent.change(screen.getByLabelText("Project ZIP code"), {
+      target: { value: "33301" },
+    });
+    choose("Add to my game plan");
+    choose("Confirm this next step");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Review the address.",
+    );
+
+    choose("Back");
+    fireEvent.change(screen.getByLabelText("Street address"), {
+      target: { value: "456 Oak Avenue" },
+    });
+    choose("Add to my game plan");
+    choose("Confirm this next step");
+
+    expect(
+      await screen.findByRole("heading", { name: "Game-plan request received." }),
+    ).toBeInTheDocument();
+    expect(seen.map(({ submissionId }) => submissionId)).toEqual([
+      CONTINUATION_ID,
+      ROTATED_CONTINUATION_ID,
+    ]);
+    expect(rotateContinuationSubmissionIdMock).toHaveBeenCalledTimes(1);
+    expect(sessionStorage.getItem(CONTINUATION_STORAGE_KEY)).toBe(
+      ROTATED_CONTINUATION_ID,
+    );
+  });
+
+  it("stores no phone or property PII with the continuation UUID", async () => {
+    const submitter = vi.fn(async (input: WmChatSubmitInput) => ({
+      ok: true as const,
+      leadId: LEAD_ID,
+      sessionId: input.sessionId,
+      reused: false,
+    }));
+    const postCaptureSubmitter = vi.fn(
+      async () => ({ ok: false as const, message: "Try again later." }),
+    );
+    renderPage(
+      submitter,
+      "/wmchat",
+      () => 0,
+      undefined,
+      postCaptureSubmitter,
+    );
+    advanceNeedQuoteToPhone();
+    fireEvent.change(screen.getByLabelText("Mobile number"), {
+      target: { value: "5615550123" },
+    });
+    choose("Save my project request");
+    await screen.findByRole("heading", { name: "Your project request is saved." });
+    fireEvent.click(
+      screen.getByRole("button", { name: /Build my quote-request game plan/i }),
+    );
+    fireEvent.change(screen.getByLabelText("Street address"), {
+      target: { value: "123 Main Street" },
+    });
+    fireEvent.change(screen.getByLabelText("City"), {
+      target: { value: "Fort Lauderdale" },
+    });
+    fireEvent.change(screen.getByLabelText("State"), {
+      target: { value: "FL" },
+    });
+    fireEvent.change(screen.getByLabelText("Project ZIP code"), {
+      target: { value: "33301" },
+    });
+    choose("Add to my game plan");
+    choose("Confirm this next step");
+    await screen.findByRole("alert");
+
+    const storedEntries = Array.from(
+      { length: sessionStorage.length },
+      (_, index) => {
+        const key = sessionStorage.key(index);
+        return key ? [key, sessionStorage.getItem(key)] : null;
+      },
+    ).filter(Boolean);
+    expect(storedEntries).toEqual([
+      [CONTINUATION_STORAGE_KEY, CONTINUATION_ID],
+    ]);
+    expect(JSON.stringify(storedEntries)).not.toMatch(
+      /5615550123|123 main street|fort lauderdale|33301/i,
+    );
   });
 
   it("pays out the deterministic project brief immediately before no-quote phone capture", () => {

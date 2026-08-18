@@ -5,7 +5,14 @@ import {
   FileSearch,
   LockKeyhole,
 } from "lucide-react";
-import { type Dispatch, type FormEvent, type ReactNode, useState } from "react";
+import {
+  createContext,
+  type Dispatch,
+  type FormEvent,
+  type ReactNode,
+  useContext,
+  useState,
+} from "react";
 
 import { isCompleteWmChatPropertyAddress } from "./wmChatPostCapturePayload";
 import type {
@@ -21,6 +28,24 @@ type WmChatPostCaptureStageProps = {
   readonly dispatch: Dispatch<WmChatAction>;
   readonly onPersist: () => void;
 };
+
+const ScheduleConversationVisibilityContext = createContext(true);
+
+export function WmChatPostCaptureActionAvailability({
+  children,
+  scheduleConversationVisible,
+}: {
+  readonly children: ReactNode;
+  readonly scheduleConversationVisible: boolean;
+}) {
+  return (
+    <ScheduleConversationVisibilityContext.Provider
+      value={scheduleConversationVisible}
+    >
+      {children}
+    </ScheduleConversationVisibilityContext.Provider>
+  );
+}
 
 const ACTION_LABELS: Record<WmChatPostCaptureAction, string> = {
   quote_request_game_plan: "Build my quote-request game plan",
@@ -128,6 +153,9 @@ function ChoiceStage({
 }: {
   readonly dispatch: Dispatch<WmChatAction>;
 }) {
+  const scheduleConversationVisible = useContext(
+    ScheduleConversationVisibilityContext,
+  );
   const select = (postCaptureAction: WmChatPostCaptureAction) =>
     dispatch({ type: "select_post_capture_action", postCaptureAction });
 
@@ -144,12 +172,14 @@ function ChoiceStage({
         description="Turn what you shared into a cleaner request checklist."
         onClick={() => select("quote_request_game_plan")}
       />
-      <ActionCard
-        icon={<CalendarClock className="h-5 w-5" aria-hidden="true" />}
-        title="Schedule a WindowMan conversation"
-        description="Choose a preferred callback window. We’ll confirm it separately."
-        onClick={() => select("schedule_windowman_conversation")}
-      />
+      {scheduleConversationVisible ? (
+        <ActionCard
+          icon={<CalendarClock className="h-5 w-5" aria-hidden="true" />}
+          title="Schedule a WindowMan conversation"
+          description="Choose a preferred callback window. We’ll confirm it separately."
+          onClick={() => select("schedule_windowman_conversation")}
+        />
+      ) : null}
       <ActionCard
         icon={<FileSearch className="h-5 w-5" aria-hidden="true" />}
         title="Review my quote when ready"
