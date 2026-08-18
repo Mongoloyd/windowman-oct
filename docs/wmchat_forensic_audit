@@ -1,0 +1,1088 @@
+WindowMan /wmchat Forensic Audit
+CRO, user-flow, and technical architecture reconstruction of the /wmchat conversational funnel as implemented in PR #211 — evidence-graded, with a scoped follow-up sprint.
+
+Repository
+Mongoloyd/wm-mvp
+Pull request
+#211
+Audited commit
+0ff96fdb
+Base branch
+forensic_report_v2
+Runtime inspection
+Blocked — static only
+Audit date
+2026-08-18
+01
+Audit Verdict
+PR #211 is a well-engineered persistence layer attached to a funnel that emits no measurement at all. The backend work is among the most disciplined in the repository. The conversion-tracking surface for /wmchat is empty by deliberate design, and one of the three post-capture actions it builds is switched off in the UI.
+
+The persistence contract — strict envelope validation, service-role-only RPC, first-write immutability, a trigger that fails closed against stale whole-document writers, and identity re-verification on both sides of the write — is correct and defensible. Nothing in this PR introduces a client-side tracking SDK, a premature conversion, or a consent regression.
+
+The problems are not defects in what was built. They are gaps between what was built and what can be observed, reached, or optimized: a funnel invisible to every ad platform, a completed vertical hidden behind a hard-coded false, a 14-step path competing with a 3-step path, and a CI configuration under which none of the 2,000+ lines of new frontend tests actually execute.
+
+0
+Blocker
+6
+High
+7
+Medium
+4
+Low
+3
+Deferred
+The five findings that matter most
+Zero tracking, by architecture. /wmchat is an explicit measurement-suppressed path. No page view, no Meta pixel init, no canonical event, no CAPI dispatch — for any step, including successful lead capture. Confirmed
+One of three post-capture actions is unreachable. schedule_windowman_conversation is fully implemented across reducer, payload, service, Edge Function and SQL — and hidden by a hard-coded prop. Confirmed
+The frontend test suite never runs in CI on this PR. Typecheck, build and Vitest are gated to PRs targeting main; this PR targets forensic_report_v2. Confirmed
+Returning to the post-capture menu leads to a guaranteed error. The UI invites a second choice; the RPC is first-write-immutable and answers 409. Confirmed
+Path-length asymmetry is 3 vs 14 vs 20 steps. The quote-in-hand user reaches capture in 3 taps; the quote-seeking user needs 14; the curious user needs about 20. Confirmed
+Scope note
+
+The PR head advanced two commits between the triggering webhook (a294c77) and this audit. This report audits the live PR head 0ff96fdb. See §2.
+
+02
+Repository and PR Evidence
+Item	Value	Grade
+Repository path	/home/user/wm-mvp	Confirmed
+Remote URL	https://github.com/Mongoloyd/wm-mvp	Confirmed
+Checked-out branch	claude/loving-feynman-8s7wxv	Confirmed
+Checked-out commit	a294c77f5395… (webhook-time head)	Confirmed
+Working-tree status	Clean — 0 modified paths, both worktrees	Confirmed
+PR URL	github.com/Mongoloyd/wm-mvp/pull/211	Confirmed
+PR title	feat(wmchat): persist post-capture continuation atomically	Confirmed
+PR base branch	forensic_report_v2 — base SHA 8ad47520…	Confirmed
+Base branch tip (now)	79507b5c… — base has advanced past the PR's merge-base	Confirmed
+PR head at webhook	a294c77f5395…	Confirmed
+PR head now	0ff96fdb78e7… — 2 commits ahead	Confirmed
+Source audited	0ff96fdb in an isolated detached worktree	Confirmed
+Mergeable state	unstable	Confirmed
+Commits added after the webhook fired
+SHA	Subject	Material change
+86da185	fix(wmchat): address post-capture persistence review	Adds continuation submission-ID rotation (wmChatIdentity.ts), 262 new page tests
+0ff96fd	fix(wmchat): close post-capture persistence review	Renames isWmChatPostCaptureMode → isWmChatPostCaptureCandidateEnvelope; adds timeout: 15_000 to the invoke; removes BEGIN;/COMMIT; from the migration
+Governance documents read
+AGENTS.md, claude.md — present at repository root. Confirmed
+docs/architecture/PROTECTED_SYSTEMS.md — present, 28.6 KB, 20 numbered sections. Confirmed
+docs/architecture/ROUTE_SCAN.md — present. Confirmed
+Governance gap
+
+PROTECTED_SYSTEMS.md contains zero occurrences of wmchat, wm-chat, or windowman-first-quote. No /wmchat-specific governing document exists anywhere under docs/. Confirmed
+
+Per the prompt's instruction not to invent a governing document: none is asserted. The generic sections that do bind this work are §5 Browser distrust, §6 Contact trust tiers, §10 Edge Function rules, §11 Raw RPC rules, §14 Tracking and event ownership, and §16 Protected modification authorization. The PR is consistent with all six.
+
+03
+What /wmchat Is Actually For
+Read from the implementation rather than from any spec, /wmchat is a standalone, unindexed, paid-traffic conversational intake that converts a cold homeowner into a phone-identified lead with a rich qualitative brief attached, then offers a saved "next step" without promising a scheduled appointment.
+
+Evidence for that reading
+Signal	Evidence	Grade
+Not organically discoverable	noindex,nofollow set twice — Helmet at WmChatPage.tsx:425 and a static-meta override effect at :107–119	Confirmed
+No internal entry points	Repo-wide search for links to /wmchat returns only the route declaration, the tracking-suppression predicate, and a source-path constant. Zero navigational links.	Confirmed
+Attribution still captured	useUtmCapture mounts above the suppression guard — AppTrackingProvider.tsx:85	Confirmed
+Dedicated lead source	WM_CHAT_SOURCE = "windowman-first-quote", WM_CHAT_SOURCE_PATH = "/wmchat" — wmchatLeadCapture.ts:27	Confirmed
+Positioned as neutral advisor	Persistent footer: "WindowMan provides software-guided quote support. It is not a contractor, insurer, law firm, or guarantee of price or savings." — WmChatConversation.tsx:781–783	Confirmed
+Qualitative brief is the product	wmChatProjectBrief.ts (837 lines) converts answers into a requirement/question checklist rendered pre-capture	Confirmed
+Deliberately excluded from measurement	isWmChatMeasurementPath — AppTrackingProvider.tsx:128–134, applied at :151–156	Confirmed
+Audience and intent states served
+Intent state	Entry option	Internal intent	Capture mode	Terminal outcome
+Has a written quote, hesitating before signing	"Check my existing quote"	have_quote	quote_upload	Phone capture → secure scanner at /
+Needs a quote, wants to not be taken advantage of	"Help me get a fair quote"	need_quote	lead	Phone capture → post-capture continuation menu
+Curious / not yet committed	"Show me how it works"	learn_powers	resolved later	5 power cards → routed into one of the two above, or Demo / email kit
+Explicitly not ready	"Not ready yet" (after powers)	—	protection_kit	Email capture, or Instant Demo
+What it is not
+
+It is not an estimator, not a booking system, and not a scanner. It produces no price, no appointment, and no report. The only thing it durably creates is a leads row with a wmchat_v1 qualification namespace, optionally joined by one immutable wmchat_post_capture_v1 sibling namespace — which is precisely what PR #211 adds.
+
+04
+Confirmed vs. Inferred vs. Unknown
+Prompt-supplied assumptions, checked against source
+Assumption in prompt	Reality	Grade
+WmChatPage.tsx	Exists — src/pages/WmChat/WmChatPage.tsx, 469 lines	Confirmed
+wmchatPostCapture.ts	Exists — src/services/wmchatPostCapture.ts, 268 lines	Confirmed
+handleWmChatPostCapture	Exists — supabase/functions/capture-truth-gate-lead/index.ts:1477	Confirmed
+capture-truth-gate-lead	Exists; serves both legacy capture and the new isolated mode	Confirmed
+Intent "Have a quote"	Label is "Check my existing quote" → entry_have_quote	Contradicted
+Intent "Want a quote"	Label is "Help me get a fair quote" → entry_need_quote	Contradicted
+Intent "Learn my powers"	Label is "Show me how it works" → entry_learn_powers	Contradicted
+Reason "I moved"	"I moved or bought the home" → need_moved	Confirmed
+Reason "Insurance"	Merged with storm: "Storm or insurance concerns" → need_storm. No standalone insurance angle.	Contradicted
+Reason "Remodel"	"I'm remodeling or changing the look" → need_remodel	Confirmed
+Reason "Storm prep"	Not a top-level reason; exists as detail option storm_preparation	Contradicted
+Reason "Just researching"	"I'm planning, budgeting, or researching" → need_planning	Confirmed
+"A four-step intake"	False. The need_quote path is 14 nodes; have_quote is 5; the upload shortcut is 3.	Contradicted
+schedule_windowman_conversation	Fully implemented — and hidden from the UI by scheduleConversationVisible={false}	Confirmed
+quote_request_game_plan	Exists and is the primary post-capture action	Confirmed
+review_quote_when_ready	Exists; splits into a persisted branch and a non-persisted scanner handoff	Confirmed
+Two additional reason angles exist that the prompt did not anticipate: need_problems ("They're old, damaged, or giving me problems") and need_comfort ("Comfort, outside noise, or energy use"), plus a catch-all need_other. Seven reason angles total. Confirmed
+
+Unknowns this audit could not resolve
+Deployed value of CANONICAL_LEAD_CAPTURED_ENABLED — env-gated, default off. Unknown
+Whether the migration has been applied to any environment. Unknown
+Live GTM container contents and any tags keyed to this funnel. Unknown
+Real completion, drop-off, and lead-quality rates — no analytics exist to produce them. Unknown
+Rendered contrast ratios and screen-reader output — runtime blocked (§11). Unknown
+05
+Route and Entry Architecture
+Declaration
+A single unguarded, non-lazy route.
+
+src/App.tsx:217
+<Route path="/wmchat" element={<WmChatPage />} />
+Notably, the adjacent /scan route is flag-guarded (isScanRouteMounted, App.tsx:218–220) while /wmchat is not. There is no route guard, no environment condition, no redirect, and no lazy boundary on /wmchat. Confirmed
+
+Entry surface
+Property	Behavior	Evidence
+Internal links in	None. Direct/paid entry only.	Repo-wide search
+Indexing	noindex,nofollow, applied twice	WmChatPage.tsx:425, :107–119
+Static-meta override	Effect rewrites the pre-existing non-Helmet robots meta on mount and restores it on unmount	WmChatPage.tsx:107–119
+Query params consumed	Only r and resume_token — presence-checked, values never read	WmChatPage.tsx:72–73
+Attribution params	Captured passively by useUtmCapture; not consumed by the page	AppTrackingProvider.tsx:85
+Competing routes	/nq2, /nq3, /nq4 campaign landings sit adjacent; no overlap in components	App.tsx:214–216
+Refresh, direct navigation, and back behavior
+src/pages/WmChat/WmChatPage.tsx:71–81
+const explicitResume = searchParams.has("r") || searchParams.has("resume_token");
+const [resumeCandidate] = useState(() => explicitResume ? loadWmChatResume() : null);
+Recovery gap — High
+
+Progress is saved on every state change (WmChatPage.tsx:103–105) but is only read back when the URL carries ?r= or ?resume_token=. A plain refresh, an accidental back-out, an app switch that evicts the tab, or a re-click on the same ad all restart the conversation at entry — while a complete, valid, non-PII snapshot sits unused in localStorage for 24 hours. Confirmed
+
+Nothing in the codebase generates a ?r= link. The resume feature is, in practice, unreachable by an ordinary user. Inferred — no link generator found in repo-wide search; classified Inferred because an external system could mint such a URL.
+
+Browser back is not intercepted; the flow is a single route with no history entries per step, so the OS/browser back gesture exits /wmchat entirely rather than stepping back one question. In-flow reversal is available only through the in-page Back control. Inferred — no history.pushState, useBlocker, or per-step navigation exists in the feature.
+
+06
+Component and State Architecture
+Hierarchy
+App (BrowserRouter)
+ └─ AppTrackingProvider ······················· UTM capture; page measurement SUPPRESSED here
+    └─ Route /wmchat → WmChatPage ············· owns useReducer, identity refs, all 3 submit handlers
+       ├─ WmChatPostCaptureActionAvailability ·· context provider, scheduleConversationVisible={false}
+       │  └─ WmChatConversation ············· transcript, node rendering, Back/Choices, TCPA footer
+       │     ├─ WmChatOpening (h1 + hero + trust cards)
+       │     ├─ WmChatProjectBriefPreview (pre-capture value proof)
+       │     └─ WmChatPostCaptureStage ······ 8 post-capture nodes
+       └─ PowerToolFlow (lazy) ················· demo_launch only
+State ownership
+Concern	Owner	Notes
+Conversation state machine	wmChatReducer.ts (1,030 lines)	Single reducer; 22 action types; pure
+Node graph & all copy	wmChatContent.ts (776 lines)	resolveWmChatNode / resolveNextWmChatNode
+Types & schema constants	wmChatTypes.ts (514 lines)	WM_CHAT_INTAKE_VERSION = "wmchat_v1"
+Resume snapshot	wmChatResume.ts (319 lines)	Strict non-PII projection; 24 h TTL
+Identity (session/submission)	wmChatIdentity.ts (49 lines)	sessionStorage; continuation ID rotatable
+Post-capture payload build	wmChatPostCapturePayload.ts (114 lines)	Draft → fingerprint → submission
+Brief generation	wmChatProjectBrief.ts (837 lines)	Deterministic mapping, no AI
+Duplicate-submission protection — three independent layers
+Synchronous ref guard. continuationSubmittingRef.current flips before any await, closing the double-tap window that a state-only guard leaves open. WmChatPage.tsx:337–342, 363 Confirmed
+In-flight coalescing by identity + fingerprint. Identical concurrent submissions share one promise; a different payload under the same identity is rejected with the conflict message without a network call. wmchatPostCapture.ts:737–745 Confirmed
+Server-side first-write immutability. An exact replay returns replayed; any divergent payload returns conflict. Migration RPC. Confirmed
+Submission-ID rotation (added in 86da185) is the piece that makes layer 3 usable: when the user edits their choice, rotateWmChatContinuationSubmissionId() mints a fresh ID so the retry is not misread as a replay of the old one. WmChatPage.tsx:350–358 Confirmed
+
+Agreement between visible flow, state machine, and payload
+Three independent validators enforce the same per-action field matrix — client payload builder, Edge parser, and SQL RPC — and they agree exactly on all three actions. This is the strongest part of the PR. Confirmed
+
+Action	address	conversation_time	quote_readiness	callback_pref
+quote_request_game_plan	optional	must be null	must be null	must be null
+schedule_windowman_conversation	optional	required enum	must be null	must be null
+review_quote_when_ready	must be null	must be null	= "not_yet"	required enum
+wmchatPostCapture.ts:651–685 · index.ts:1056–1081 · migration lines ~2132–2200
+State-machine divergence — Medium
+
+A state that the reducer can enter is unreachable through the UI. select_post_capture_action accepts schedule_windowman_conversation and routes to conversation_time (wmChatReducer.ts:816–817), but no control dispatches it because ChoiceStage gates that card on a context value hard-coded to false. The reducer, payload builder, service, Edge parser, and SQL all fully support a path the user cannot start. Confirmed
+
+07
+Field, Validation, and Payload Map
+UI label	Internal	Req.	Validation	Normalization	Reaches backend	Persisted as
+ZIP code	contact.zip + answers.zip	Yes
+(need path)	/^\d{5}$/	.trim()	Yes — inside answers	wmchat_v1.answers.zip
+First name (optional)	contact.firstName	No — Skip button	length 2–60	.trim()	Yes — as firstName	Lead contact column
+Mobile number	contact.phone	Yes	isValidTruthGatePhone + E.164 normalize	normalizeTruthGatePhoneToE164	Yes — as phoneE164	Lead contact column
+Email address	—	Yes
+(kit path)	Service-side	Service-side	Yes	Lead contact column
+Windows / doors / both	answers.project_scope	Yes
+(need path)	Enum membership	—	Yes	wmchat_v1.answers
+Number of openings	answers.openings	Yes
+(need path)	Enum (5 buckets)	—	Yes	wmchat_v1.answers
+Budget posture	answers.budget_posture	Yes
+(need path)	Enum	—	Yes	wmchat_v1.answers
+Timing	answers.timing	Yes
+(need path)	Enum (5 buckets)	—	Yes	wmchat_v1.answers
+Reason for interest	answers.need_reason	Yes
+(need path)	Enum (7)	—	Yes	wmchat_v1.answers
+Specific situation	answers.need_detail	Yes
+(need path)	Enum, reason-scoped	—	Yes	wmchat_v1.answers
+What matters most	answers.priorities	Yes
+(need path)	Multi, limit 2, no dupes	—	Yes	wmchat_v1.answers
+What to avoid	answers.stakes	Conditional	Enum; skipped by short-budget rule	—	Yes	wmchat_v1.answers
+Trust concern	answers.trust_concern	Yes
+(need path)	Enum (7)	—	Yes	wmchat_v1.answers
+Quote concern	answers.have_concern	Yes
+(have path)	Enum (7)	—	Yes	wmchat_v1.answers
+Free-text explanation	otherText	Conditional	Non-empty, no CR/LF	collapse WS, slice 160	Yes — as other_text	wmchat_v1.other_text
+Street address	propertyAddressDraft.line1	No — Skip	3–120 chars	trim	Post-capture only	wmchat_post_capture_v1
+Apartment or unit	…line2	No	≤120	trim	Post-capture only	wmchat_post_capture_v1
+City	…city	With address	2–80	trim	Post-capture only	wmchat_post_capture_v1
+State	…region	With address	2–40	trim + uppercase	Post-capture only	wmchat_post_capture_v1
+Project ZIP code	…postalCode	With address	/^\d{5}$/	digits-only, slice 5	Post-capture only	wmchat_post_capture_v1
+Consent (TCPA)	serviceCommunicationsGranted	Implicit	Disclosure-based, no checkbox	—	Hard-coded true	Consent persistence
+Fields collected but not given a dedicated column
+Every qualification answer — scope, openings, budget, timing, reason, priorities, stakes, trust concern, ZIP — lands inside the qualification_answers_json.wmchat_v1 JSONB blob rather than in typed columns. The migration is explicit that it "changes no columns, RLS policies, table grants, contact fields, consent data, or scanner/reveal state." Confirmed
+
+Consequence: none of these are queryable as first-class lead attributes without JSON extraction, and none of them drive routing or scoring today. ZIP is collected twice — once in the intake (answers.zip) and again inside the optional post-capture address — with no reconciliation between them. Confirmed
+
+Consent handling
+src/pages/WmChat/WmChatPage.tsx:235–237
+serviceCommunicationsGranted: true,
+marketingConsentPresented: false,
+marketingCommunicationsGranted: false,
+Service consent is asserted, marketing consent is explicitly not claimed. This is honest and matches the two disclosures actually rendered (§14). The pattern is disclosure-based rather than checkbox-based: the full TCPA text sits in a persistent footer visible at every step (WmChatConversation.tsx:772–780), with a short restatement adjacent to the phone input and wired via aria-describedby (:725, :732–734). Confirmed
+
+08
+Submission and Persistence Call Graph
+Path A — Phase 1 lead capture (phone)
+Continue tap
+ → WmChatConversation.submitPhone
+ → WmChatPage.handleSubmit ····················· WmChatPage.tsx:206
+   ├─ normalizeTruthGatePhoneToE164 + buildWmChatIntake (fail-fast)
+   ├─ submittingRef guard, dispatch capture_started
+   └─ dynamic import → wmchatLeadCapture.submitWmChatLead
+      ├─ getAttributionPayload() + getUtmData() + readLateFbCookies()
+      └─ supabase.functions.invoke("capture-truth-gate-lead", { body })
+ → EDGE: legacy parseAndValidate → attribution → consent → audit
+    → lead capture/reuse → CRM activity → canonical lead_captured (FLAG-GATED)
+ → response { success, lead_id, session_id }
+ → hasTrustedContactIdentity + sessionId echo check ······ WmChatPage.tsx:250–253
+ → dispatch capture_succeeded → clearWmChatResume()
+ → if quote_upload: prepareUploadHandoff → navigate("/?post_capture=upload&source=wmchat")
+Path B — Phase 2 post-capture continuation (this PR)
+"Confirm this next step" tap
+ → WmChatPage.handlePostCapturePersist ·········· WmChatPage.tsx:336
+   ├─ buildWmChatPostCaptureDraft(state) → fingerprint
+   ├─ submission ID: reuse if fingerprint matches, else ROTATE
+   ├─ continuationSubmittingRef guard, dispatch continuation_started
+   └─ dynamic import → wmchatPostCapture.submitWmChatPostCapture
+      ├─ buildWmChatPostCapturePayload (3-UUID + per-action matrix)
+      ├─ in-flight map: coalesce identical / reject divergent
+      └─ supabase.functions.invoke("capture-truth-gate-lead", { body, timeout })
+ → EDGE handler:1618 isWmChatPostCaptureCandidateEnvelope(bodyJson)
+      ⇒ EARLY RETURN — bypasses parsing, attribution, consent, audit,
+         capture/reuse, CRM activity, and EVERY conversion side effect
+ → handleWmChatPostCapture ····················· index.ts:1477
+   ├─ parseWmChatPostCaptureRequest (exact-key envelope; 400 on drift)
+   ├─ service-role client (500 if env missing)
+   ├─ loadLead: leads WHERE id AND session_id AND source, maybeSingle
+   ├─ validateStoredWmChatIntake + continuation === "sms_then_voice"
+   └─ rpc persist_wmchat_post_capture_v1(6 args)
+ → SQL (SECURITY DEFINER, search_path=''):
+   ├─ re-validate whole namespace + address + per-action matrix
+   ├─ SELECT … FOR UPDATE (row lock)
+   ├─ compare locked wmchat_v1 against Edge-supplied expected value
+   ├─ if namespace exists: identical ⇒ replayed, else ⇒ conflict
+   ├─ set_config write-token, jsonb_set sibling namespace, clear token
+   └─ post-write invariant re-check ⇒ RAISE on mismatch
+ → typed failure map ⇒ 400 / 404 / 409 / 503
+ → client: identity re-check ⇒ dispatch continuation_succeeded
+Edge Function contract
+Aspect	Behavior	Evidence
+Mode selection	Any body carrying a mode key routes to the isolated branch — deliberately broad so drift (e.g. wmchat_post_capture_v2) is rejected rather than falling through to legacy capture	index.ts:864–867, 1618–1624
+Envelope validation	hasExactKeys — unknown root or nested keys rejected outright	index.ts:948–955, 1015–1020
+Identity relationship	Lead must match id + session + source; RPC then re-locks and re-checks	index.ts:1226–1233 + migration
+Idempotency	inserted / replayed / conflict tri-state, keyed on exact payload equality less completed_at	Migration RPC
+Address privacy	Address never enters localStorage — sent only at confirm	Stage:284–287; resume projection
+Error translation	Upstream text never surfaced; only wmchat_post_capture_conflict maps to a distinct message, all else to one safe string	wmchatPostCapture.ts:705–713
+Post-capture before persistence?	No. continuation_succeeded requires review node + matching submission ID + matching lead/session	wmChatReducer.ts:964–981
+Partial intent persisted early?	No. Nothing reaches the server before the final Confirm tap	WmChatPage.tsx:336–419
+Likely no-op option — Medium Inferred
+
+supabase.functions.invoke("capture-truth-gate-lead", { body, timeout: 15_000 }) — wmchatPostCapture.ts:229. @supabase/supabase-js is pinned at 2.99.3; FunctionInvokeOptions in v2 exposes headers, method, region, body and signal — not timeout. If so the option is silently discarded and the call has no timeout while reading as though it does. No other functions.invoke call site in the repository passes timeout.
+
+Graded Inferred because node_modules is absent and the type could not be read directly. It is also exactly the class of error the missing typecheck job (§16) would catch — TypeScript excess-property checking rejects unknown keys in an object literal. Verify via node_modules/@supabase/functions-js/dist/module/types.d.ts or npm run typecheck.
+
+09
+Complete User-Flow Branch Table
+Pre-capture paths and their true lengths
+Path	Node sequence	Interactions to capture
+Upload shortcut
+(fastest)	entry → have_concern → Upload first → phone	3
+Have quote
+(standard)	entry → have_concern → have_detail_* → first_name → phone	5 (4 if name skipped)
+Need quote	entry → need_reason → need_detail_* → priorities → stakes → trust → recap → zip → project_scope → openings → budget → timing → first_name → phone	14 (13 under short-budget)
+Need quote + free text	…plus need_other_text	15
+Learn powers → need quote	entry → power_1…5 → power_route → full need path	~20
+Learn powers → have quote	entry → power_1…5 → power_route → have path	~11
+Not ready → demo	entry → powers → not_ready → demo_launch	8 — no capture
+Not ready → kit	entry → powers → not_ready → protection_kit_email	9 — email capture
+The central CRO asymmetry — High
+
+The user furthest from purchase is asked to work the hardest. A quote-in-hand homeowner reaches capture in 3 taps. A homeowner who needs a quote — the audience the primary-toned entry button is aimed at — must complete 14. The curious user faces ~20. Confirmed
+
+The long path is not padding: every node collects something a contractor brief would want. But six nodes (zip, project_scope, openings, budget, timing, and stakes) sit after the recap — after the user has been told "Let me make sure I have this right" and has confirmed. That framing implies the conversation is concluding; five more questions then follow before contact is requested.
+
+Post-capture branches
+Branch	Reachable	Nodes	Persists?	Terminal state
+quote_request_game_plan	Yes — primary card	choice → address → review → confirmation	Yes	"Game-plan request received."
+review_quote_when_ready → ready now	Yes	choice → quote_readiness → scanner_transition → navigate away	No — by design	Leaves /wmchat for the scanner
+review_quote_when_ready → not yet	Yes	choice → quote_readiness → callback_preference → review → confirmation	Yes	"Quote-review preference saved."
+schedule_windowman_conversation	No — hidden	choice → conversation_time → address → review → confirmation	Would persist	"Conversation request received."
+The ready_now non-persistence is intentional and explicitly tested — wmChatPostCapturePayload.test.ts:122–133, "does not persist the ready-now scanner handoff as a continuation request", asserting toBeNull(). A deliberate design decision, not a defect; its consequence is a measurement one, covered in §16. Confirmed
+
+10
+Post-Capture Routing Map
+Node	Copy shown	Type	Server-confirmed	What the homeowner is told
+choice	"Your project request is saved." / "What would help you most next?"	Menu	n/a	Their request is already safe
+conversation_time	"We'll treat it as a request until it is confirmed."	Preference	n/a	Unreachable
+address	"Optional — add it so your game plan can include the right local pricing and permit questions."	Optional input	n/a	Address is optional and locally private
+quote_readiness	"If you do, WindowMan can open the existing private scanner without asking for your address."	Branch	n/a	A scanner exists and is private
+callback_preference	"Choose a preference without scheduling an appointment."	Preference	n/a	Explicitly not an appointment
+review	"Confirm this request before WindowMan saves the continuation."	Commit	Pending	Nothing is saved until they confirm
+scanner_transition	"Opening your secure quote scanner." / "PDF or clear photos. Private upload. No retyping."	Navigation	No	They are handed off, identity carried
+confirmation	Per action, always plus "Your original project request remains safely preserved."	Terminal	Yes	The next step is recorded
+Expectation honesty — a genuine strength
+Every branch that could imply a commitment explicitly disclaims one:
+
+Scheduling confirmation: "This is a request, not a confirmed appointment." — Stage:366
+Callback preference: "Choose a preference without scheduling an appointment." — Stage:431
+Conversation time: "We'll treat it as a request until it is confirmed." — Stage:393
+Protection Kit: "Automated delivery is not live yet." — wmChatContent.ts:670
+This is unusually disciplined and directly serves the neutral-advisor positioning. Preserve it through any optimization. Confirmed
+
+Dead end — High
+
+The "Choices" control invites an action the backend will always reject. On confirmation the header's Choices button is enabled — disabled only while submitting or thinking (WmChatConversation.tsx:495–499) — and dispatches return_to_post_capture_choices, which resets post-capture state and returns to the menu (wmChatReducer.ts:119–135). post_capture_back from confirmation likewise returns to choice (:932–934).
+
+But the RPC is first-write-immutable: a second, different action on the same lead returns conflict → HTTP 409 → "A different next step is already saved for this project. Your original project request remains safe." The interface offers a door that is always locked. Confirmed
+
+The copy is well-written for the failure it describes. The problem is that a well-designed error is standing in for a disabled or re-framed control.
+
+Terminal-state gaps
+No timeline anywhere. No confirmation states when contact will happen. "WindowMan saved the project context needed to continue building your request plan" describes a database write, not an outcome. Confirmed
+No artifact is delivered. The "game plan" is requested, never produced or shown at the end — even though a real brief was already rendered pre-capture by WmChatProjectBriefPreview. Confirmed
+demo_launch has no capture path. Users who pick the demo exit with no lead and no measurement. Confirmed
+11
+Runtime Inspection Results
+Runtime inspection: BLOCKED
+
+Every runtime check in Phase 4 of the audit brief is NOT RUNTIME VERIFIED. The blocker is environmental and cannot be cleared without violating the audit's own constraints.
+
+Capability	State	Consequence
+node_modules	Absent	No vite dev, no vitest, no tsc, no Playwright
+deno	Not installed	Edge Function tests cannot execute
+Mermaid CLI	Unavailable (ships in node_modules)	Diagram syntax cannot be machine-validated
+Installing them	Prohibited by the audit brief	Constraint respected; no install attempted
+Classification of every finding in this report
+STATICALLY CONFIRMED — all findings graded Confirmed: source reading, Git objects, GitHub API, CI configuration, and check-run results.
+RUNTIME CONFIRMED — none.
+NOT RUNTIME VERIFIED — all of: 390×844 and 1440×900 rendering; forward/back traversal; validation-failure display; duplicate-submit behavior in a real browser; simulated server failure; keyboard-only navigation; actual focus order; screen-reader output; computed contrast ratios; long-copy wrapping; reduced-motion behavior.
+What static reading does establish about the runtime surface
+Code-level facts about accessibility and responsive intent. These show correct implementation, not verified behavior:
+
+Concern	Implementation found	Evidence
+Single h1, always present	WmChatOpening renders unconditionally; only its trust cards are conditional	Conversation:466
+Live regions	aria-live="polite" on bubbles; role="status" + sr-only for the thinking indicator	:80, :162–169
+Error announcement	role="alert" on capture, address, and continuation errors	:752; Stage:268, :343
+Input association	Phone has a real <label for>, aria-invalid, and aria-describedby pointing at both disclosure and error	:712–725
+Touch targets	min-h-11 / 12 / 14 throughout; action cards min-h-[92px]	Both components
+Focus visibility	focus-visible:ring-2 with offsets on every interactive element	Both components
+Reduced motion	motion-reduce:transform-none; scroll behavior branches on prefers-reduced-motion	Stage:71,74,124; :283–289
+Narrow-screen layout	Address grid switches at a min-[390px] breakpoint — tuned for the smallest common device	Stage:240
+Autocomplete	tel, address-line1/2, address-level1/2, postal-code all correct	:719; Stage:226–262
+12
+As-Built Mermaid Diagram
+Confirmed current-state behavior only. Recommendations are excluded. The one unreachable branch is drawn with a dotted edge and labelled, because omitting it would misrepresent what the code contains.
+
+POST-CAPTURE — browser
+
+POSTGRES
+
+EDGE — capture-truth-gate-lead
+
+BROWSER — no page measurement emitted
+
+suppressed
+
+yes
+
+no · default
+
+Check my existing quote
+
+Help me get a fair quote
+
+Show me how it works
+
+short-budget rule
+
+Change something
+
+That's right
+
+Not ready yet
+
+Yes I have one
+
+Not yet
+
+no
+
+yes
+
+true
+
+false · default
+
+quote_upload mode
+
+lead mode
+
+HIDDEN scheduleConversationVisible=false
+
+Yes
+
+Not yet
+
+yes · EARLY RETURNbypasses all conversion side effects
+
+conflict 409
+
+Choices button2nd action always 409
+
+/wmchat direct entrynoindex,nofollow · no internal links
+
+useUtmCaptureUTM + fbclid captured_fbc synthesized · _fbp NOT seeded
+
+isWmChatMeasurementPath
+
+No virtual_page_viewNo Meta PageView / pixel initNo OpenAI page_viewed
+
+?r= or ?resume_token= ?
+
+Restore from localStoragenon-PII · 24h TTL
+
+entry · What can I help you with?
+
+have_concern
+
+have_detail_*
+
+Upload first — shortcut
+
+need_reason · 7 angles
+
+need_detail_*
+
+priorities · max 2
+
+stakes
+
+trust
+
+recap · confirm or edit
+
+recap_edit_menureplay-rebuild
+
+zip · 5 digits
+
+project_scope
+
+openings
+
+budget
+
+timing
+
+power_1..power_5
+
+power_route
+
+not_ready
+
+demo_launchTERMINAL · no capture
+
+protection_kit_email
+
+first_name · skippable
+
+phone + TCPA disclosure
+
+E.164 valid?
+
+parseAndValidate → attribution→ consent → audit → capture/reuse→ CRM activity
+
+CANONICAL_LEAD_CAPTURED_ENABLED
+
+canonical lead_capturedevent_id wmc_lead_captured_lead-{id}_session-{sid}
+
+No-op · flag off by default
+
+body has 'mode' key?
+
+parseWmChatPostCaptureRequestexact-key envelope
+
+loadLead: id + session + source
+
+leads rowqualification_answers_json.wmchat_v1
+
+persist_wmchat_post_capture_v1SECURITY DEFINER · FOR UPDATE lock
+
+preserve_immutable_wmchat_qualification_namespaces
+
+wmchat_post_capture_v1FIRST-WRITE IMMUTABLE
+
+choice menu
+
+quote_request_game_plan
+
+schedule_windowman_conversation
+
+review_quote_when_ready
+
+conversation_time
+
+address · optional
+
+quote in hand now?
+
+callback_preference
+
+review · Confirm this next step
+
+confirmation
+
+scanner_transitionNOT PERSISTED
+
+/?post_capture=upload&source=wmchatmeasurement resumes here
+
+Missing or unverified nodes — listed rather than drawn
+No paid-media conversion node exists anywhere. There is no browser conversion and no server-side CAPI dispatch on any /wmchat path. The absence is the finding.
+CANONEV is drawn but is almost certainly inert — deployed flag state Unknown.
+Resume-link generation — no code path mints a ?r= URL; RESTORE is effectively unreachable.
+Scanner-side behavior after EXT — out of audit scope; measurement resumes there but was not traced.
+Email path terminal state — protection_kit_email reaches capture but its downstream delivery is stated in-product as not live.
+Mermaid validation: UNVERIFIED
+
+No validator could be run. node_modules is absent, no mmdc binary exists, and installing one is prohibited by the audit brief. The repository's own Mermaid Diagram Sync Assistant check reports skipped on this PR.
+
+Validation command: not executed. Exit result: none. Corrections made: none from tooling — the diagram was hand-checked for balanced subgraph/end pairs, unique node IDs, and quoted labels only. Syntax correctness is not claimed.
+
+13
+CRO Strengths
+These are working and should survive any optimization sprint intact.
+
+1 · The high-intent shortcut is genuinely excellent
+"Upload first" (tone: "quiet") sits inside the have_concern list and jumps straight to phone, skipping detail and name. A homeowner holding a quote reaches capture in three taps. It is correctly de-emphasized so it does not cannibalize the qualifying question from users who benefit from it. wmChatContent.ts:174, 713 Confirmed
+
+2 · Reason-why adaptation is real, not cosmetic
+familyAcknowledgement() returns a distinct, substantive paragraph per reason, and the detail node that follows is a different question set per reason — seven bespoke option groups, not one generic list re-labelled. wmChatContent.ts:324–343, 365–382 Confirmed
+
+3 · The recap earns trust before the ask
+recapText() reflects the user's own answers back in their own option language and asks "Did I get that right?", with a working correction path that replays and rebuilds the downstream path rather than leaving stale state. The rebuild is careful: it preserves a still-valid detail answer when the reason is unchanged and discards it otherwise. wmChatContent.ts:345–363; wmChatReducer.ts:314–376, 415–490 Confirmed
+
+4 · Value is delivered before contact is requested
+WmChatProjectBriefPreview renders a real, deterministic brief at the phone node — requirements, questions, and scope derived from the answers. The user sees the product of their effort before being asked for a number. WmChatPage.tsx:156–167 Confirmed
+
+5 · Consent is handled better than most funnels
+Full TCPA language — automated texts, artificial/prerecorded voice, message and data rates, not a condition of purchase, revocation including STOP, links to Privacy and Terms — sits in a footer visible at every step, not buried at submit. A short restatement sits beside the input and is wired to it via aria-describedby. The payload asserts service consent and explicitly declines to claim marketing consent. Conversation:725, 732–734, 772–780; WmChatPage.tsx:235–237 Confirmed
+
+6 · Anti-overclaim discipline throughout the copy
+The power cards actively undercut themselves where a lesser funnel would overclaim: "A comparison target, not a savings guarantee." · "Clear questions, not contractor accusations or legal advice." · "If the sample is thin, I say so. Pretend certainty isn't one of my powers." Plus the persistent disclaimer naming what WindowMan is not. wmChatContent.ts:286–302; Conversation:781–783 Confirmed
+
+7 · The privacy-conscious resume record
+The snapshot stores only schemaVersion, savedAtMs, entryIntent, currentNodeId, and option-ID history — and rewinds to the first typed-input node, so ZIP, name, phone, email, and free text never touch localStorage. 24-hour TTL with strict shape parsing on read. This is a well-designed privacy boundary. wmChatResume.ts:24–31, 215–300 Confirmed
+
+8 · The short-conversation budget
+Users who signal uncertainty — need_planning + "I'm not sure yet", or any detail answer ending in not_sure — skip the stakes node. The flow already recognizes that low-clarity users should be asked less. wmChatContent.ts:767–776 Confirmed
+
+9 · Three-layer duplicate protection with correct ordering
+Covered in §6. The synchronous ref guard specifically closes the double-tap window that a state-only guard leaves open — a mistake most implementations make. Confirmed
+
+10 · Failure states never lie about persistence
+Every failure message reassures that the original request is safe, which is true — the post-capture write cannot corrupt wmchat_v1, enforced by the trigger. The reassurance is backed by the schema, not just by copy. Confirmed
+
+14
+CRO and UX Weaknesses
+14.1 Intent bifurcation
+Entry choice	Intent represented	Label clarity	Expected vs. actual destination	Misclassification risk
+"Check my existing quote"	Quote in hand, pre-signature hesitation	High — concrete and testable against the user's own reality	Match. Leads to concern triage, then capture, then scanner.	Low
+"Help me get a fair quote"
+(primary)	No quote yet, fears being taken advantage of	Medium — "fair" implies a benchmark the funnel never delivers on this path	Mismatch. Implies help obtaining a quote; actually a 14-step intake ending in a saved request.	High
+"Show me how it works"	Curiosity, low commitment	High	Match — 5 power cards, then re-routing.	Low
+Where high intent is downgraded. A user who is quote-ready but taps the primary "Help me get a fair quote" — the visually dominant option — is committed to the 14-step path with no visible escape to the 3-step one. The only shortcut lives inside have_concern, which that user never sees. There is no "I already have a quote" affordance after the first tap. Confirmed
+
+14.2 Reason-why hooks — rated
+Reason	Personal relevance	Specificity	Emotional resonance	Credibility	Earns next tap	Advisor fit	Fear-amplification risk
+I moved or bought the home	9	8	7	9	8	9	Very low
+Old, damaged, or giving me problems	9	7	8	9	8	9	Low
+Storm or insurance concerns	8	5	9	8	7	8	Moderate — two topics merged
+I'm remodeling or changing the look	8	8	6	9	8	9	Very low
+Comfort, outside noise, or energy use	9	7	7	9	8	9	Very low
+I'm planning, budgeting, or researching	8	7	5	9	7	9	Very low
+Something else	6	3	4	8	6	8	Very low
+Insurance and storm. The prompt asked whether this copy could imply insurance, legal, code-compliance, or guaranteed-savings claims. It does not. The acknowledgement is explicitly hedged — "I'll keep written product ratings and scope separate from assumptions—without making insurance promises" (wmChatContent.ts:332) — the detail prompt says "I'll focus on what a future quote documents, not assumptions" (:422), and the persistent footer names insurer and law firm as things WindowMan is not. The one option that edges closest, "I'm not sure what counts as impact-rated", is phrased as the user's uncertainty rather than a WindowMan claim. This is handled responsibly. Confirmed
+
+The real weakness is specificity, not compliance: merging storm and insurance into one option forces two materially different situations — an active claim versus pre-season preparation — down one acknowledgement. The detail list does separate them, so the information is recovered one step later; the cost is a less resonant acknowledgement at the moment it matters most.
+
+14.3 Progressive disclosure
+Step	Effort	Value returned	Sensitivity	Reason given	Visible progress	Abandonment pressure
+entry	1 tap	Direction	None	Implicit	None	Low
+need_reason	1 tap	High — tailored acknowledgement	None	"helps me be useful instead of generic"	None	Low
+need_detail_*	1 tap	Medium	None	Yes, per-reason	None	Low
+priorities	Up to 2 + Continue	Medium	None	Yes — "so I know what should win if trade-offs appear"	None	Medium
+stakes	1 tap	Low	None	Weak	None	Medium-high
+trust	1 tap	Low	Mild	"Last thing before I map the practical details"	Implied ending	Medium
+recap	1 tap	High — being understood	None	Yes	Implies completion	Low
+zip	Typing	Low	Medium	"enough for me to stop guessing"	None	High — false-summit effect
+project_scope	1 tap	Low	None	None	None	High
+openings	1 tap	Low	None	"A range is enough"	None	High
+budget	1 tap	Low	High	Yes — "No dollar range needed"	None	Medium
+timing	1 tap	Low	Medium	None	None	High
+first_name	Typing or Skip	Low	Medium	"You can skip this"	None	Low
+phone	Typing	High — brief is visible	Highest	Yes — "save it and continue without making you repeat these answers"	None	Medium
+The false summit — High
+
+recap asks "Did I get that right?" and the user confirms. Psychologically that is a closing gesture. Five more questions then follow before contact. This is the single highest-leverage structural problem in the pre-capture flow: the funnel spends its strongest trust moment and then immediately asks for more. Confirmed
+
+Is the jump to contact psychologically earned? On the have_quote path, clearly yes — three or four steps, strong reason-why, brief visible. On the need_quote path it is earned by the brief (a real artifact) but undermined by the false summit and by the absence of any progress indicator across 14 steps. The only progress cue anywhere in the product is "Power N of 5" on the powers path — the one path that does not lead directly to capture. wmChatContent.ts:645 Confirmed
+
+14.4 Trust and expectation architecture
+Role clarity: strong. "Software, not a contractor" appears in the sticky header (Conversation:471) and the opening kicker; the footer names what WindowMan is not.
+Why contact is requested: stated. The phone prompt gives a concrete reason tied to the user's own effort.
+What happens after: not stated. No confirmation gives a timeline, a channel, or a named next action. "Your conversation was saved" is a system fact, not a user outcome. Confirmed
+AI vs. human ambiguity. The disclosure says "an automated WindowMan AI call". Users are told a robot will phone them, with no indication of when or whether a human is ever involved. Honest, but a plausible abandonment driver at the highest-friction moment. Inferred
+Pressure and urgency: absent by design. No countdowns, no scarcity, no fear amplification. Consistent with the positioning.
+Trust anchors: present but front-loaded. WmChatTrustCards renders only when showTrust={isInitial} — that is, only on the very first screen. They disappear for the remaining 13 steps and never reappear near the phone field, where reassurance is worth most. Conversation:466; Opening:28 Confirmed
+14.5 Conversion quality — the distinctions that must not be collapsed
+Stage	Observable today	Would it be a qualified conversion?
+Page entered	No — suppressed	No
+Intent selected	No	No — engagement only
+Recap confirmed	No	No — but the strongest qualification signal in the funnel
+Phone submitted	No	No — an attempt, not a lead
+Lead persisted (server-confirmed)	No — flag-gated, off	Yes — this is the real lead event
+Post-capture action chosen	No	No — a tap, not a commitment
+Continuation persisted	No	Yes — a distinct, server-confirmed intent upgrade
+Scanner opened (ready_now)	No — not even persisted	Arguably the highest-intent signal in the entire funnel
+Quote actually uploaded	Yes — on the scanner side, outside this route	Yes
+Nothing in this report should be read as a promise of conversion lift. Every recommendation in §17 is framed as a hypothesis with a named metric — and today none of those metrics can be measured, which is itself the first thing to fix.
+
+15
+Accessibility and Responsive Findings
+Scope limit
+
+All findings below are static. Contrast ratios, focus order, and screen-reader output were not measured (§11). Nothing here should be treated as a passed audit.
+
+Implemented well
+Exactly one h1, present on every screen; h2/h3 nest beneath it without skips.
+Conversation bubbles carry aria-live="polite"; the thinking indicator pairs role="status" with an sr-only sentence rather than relying on an animation alone.
+All three error surfaces use role="alert".
+Phone input: real <label for>, type="tel", inputMode="tel", autoComplete="tel", aria-invalid, and aria-describedby referencing both the consent disclosure and the error node.
+Touch targets meet or exceed 44 px throughout.
+Every interactive element has a focus-visible ring; post-capture controls add ring offsets against the dark ground.
+prefers-reduced-motion respected twice — via motion-reduce: utilities and via a runtime matchMedia check that switches scrollIntoView from smooth to auto.
+The address grid breaks at min-[390px], indicating deliberate design for the smallest common viewport.
+Findings
+#	Finding	Evidence	Severity
+A1	Four of five address inputs have no visible label. Unit, City, State, and ZIP rely on aria-label + placeholder; only Street address has a rendered <label>. Placeholders vanish on input, leaving sighted users — especially with cognitive load or magnification — without a persistent field name.	Stage:221–266	Medium
+A2	No focus management on node transition. The flow moves focus only via scrollIntoView. Keyboard and screen-reader users must re-traverse to reach new controls after each of 14 steps.	Conversation:275–299	Medium
+A3	autoFocus used on three inputs. Legitimate for a focused conversational step, but it moves focus without user action and can disorient screen-reader users; on the phone node it is conditional on quote_upload mode only, so behavior differs between paths.	Conversation:641, 668, 722	Low
+A4	No visible progress indicator on a 14-step path. Affects everyone; disproportionately affects users with working-memory or attention differences.	Absence across wmChatContent.ts	High (CRO + a11y)
+A5	Contrast unverified on low-emphasis text. Several tokens sit in a range that warrants measurement: #758da3 and #6f879e on #0d1927/#070a0f grounds, at 11 px, for the address privacy note and the TCPA footer — legally significant copy at the smallest size and lowest contrast on the page.	Stage:284; Conversation:772	Medium
+A6	aria-label on a non-landmark div ("Conversation so far") — not reliably announced. A list or region role would carry the name properly.	Conversation:514	Low
+A7	Transcript grows unbounded. By step 14 a screen-reader user traversing from the top passes ~28 accumulated bubbles to reach the active control. No skip link, no collapse.	Conversation:513–528	Medium
+Brand-direction compliance
+The tactile, dimensional direction is honored consistently: layered shadows with inset highlights, differentiated top borders (border-t-white/[0.17]) simulating a light source, and translate-on-hover with motion-reduce guards. No custom web fonts are loaded — the page uses font-sans. Confirmed
+
+One direction violation to note: the audit brief prohibits orange promotional UI. An ambient background layer uses rgba(245,158,11,0.075) — an amber radial at 7.5% opacity — in the page-level gradient stack. It is decorative, sub-perceptual, and not promotional, but it is an orange value in the palette and is recorded here as instructed. WmChatPage.tsx:435 Confirmed
+
+16
+Tracking and Meta CAPI Gap Analysis
+Headline finding
+
+/wmchat emits zero application-owned measurement of any kind, at any step, including successful lead capture. A repo-wide search across src/pages/WmChat/** and src/services/wmchat* returns no import of trackConversion, trackGtmEvent, trackEvent, trackBusinessEvent, dataLayer, fbq, gtag, or any canonical event helper. Confirmed
+
+16.1 The suppression is deliberate and documented
+AppTrackingProvider names /wmchat as a narrow exception in its own header comment — "/wmchat keeps passive first-party attribution but emits no application-owned browser page measurement" — and enforces it with isWmChatMeasurementPath, which returns before pushVirtualPageView, pushTruthGateViewedOnce, initMetaBrowserPixel, initOpenAiAdsPixel, trackMetaPageView, and trackOpenAiAdsPageViewed. AppTrackingProvider.tsx:17–18, 128–134, 147–156 Confirmed
+
+This is a defensible architectural stance and it is not a violation of the repository's tracking law. PROTECTED_SYSTEMS §14 requires business events to flow trackConversion/trackGtmEvent → dataLayer → GTM and operational telemetry to flow trackEvent → event_logs; emitting nothing violates neither rule. The gap is one of observability and optimization, not compliance.
+
+16.2 What survives suppression, and what does not
+Attribution signal	Survives a direct /wmchat entry?	Mechanism
+UTM parameters	Yes	useUtmCapture mounts above the guard — :85
+fbclid, gclid, ttclid, msclkid	Yes	Captured from the query string — useUtmCapture.ts:39–40, 313–314
+_fbc	Yes	Synthesized independently of the pixel: fb.1.{ts}.{fbclid}, written to cookie — :350–356
+_fbp	No — for a first-touch /wmchat visitor	Only ever read from cookie (:269, :421); it is written by the Meta pixel script, and initMetaBrowserPixel() never runs on this route
+Landing page / first path	Yes	Persisted and sent with the lead — wmchatLeadCapture.ts:242, 268
+Match-quality consequence — High
+
+For a user whose only touch is /wmchat — the expected case for a dedicated paid landing page with no internal links — the Meta pixel never initializes, so _fbp is never seeded. Any future server-side CAPI event for that lead therefore carries fbc but not fbp, measurably degrading match quality. Users who arrive via another page first are unaffected. Confirmed (mechanism) / Inferred (magnitude — unmeasurable without live data)
+
+16.3 The canonical system that exists and is not used
+The repository already contains a complete server-authoritative conversion architecture. /wmchat simply does not connect to it.
+
+Component	Path	Used by /wmchat?
+createCanonicalEvent (Edge)	supabase/functions/_shared/tracking/canonical/createCanonicalEvent.ts:369	No
+persistCanonicalEvent bridge	supabase/functions/_shared/tracking/canonicalBridge.ts:20	No
+Canonical vocabulary WM_EVENT_NAMES	src/lib/tracking/canonical/constants.ts:1–20	No
+Meta mapper + dispatch worker	canonical/mapToMeta.ts, canonical/dispatchWorker.ts	No
+Identity quality & trust scoring	canonical/identity.ts, canonical/trustScore.ts	No
+Deterministic event-ID contract	src/lib/tracking/canonicalEventId.ts	No
+Three names in WM_EVENT_NAMES map almost exactly onto /wmchat states and are unused by it: lead_captured, lead_qualified, and callback_requested. Confirmed
+
+The one hook that does exist is inert by default: capture-truth-gate-lead contains a "fail-closed canonical lead_captured scaffold" gated on CANONICAL_LEAD_CAPTURED_ENABLED === "true", with a correctly deterministic event ID — wmc_lead_captured_lead-{leadId}_session-{sessionId}. Because /wmchat Phase 1 does traverse the legacy path, enabling that flag would light up lead capture for this funnel with no /wmchat code change at all. Deployed flag value Unknown. index.ts:87–88, 432–475 Confirmed
+
+16.4 Event inventory — current state
+Event / action	Business meaning	Current trigger	Origin	Persistence prereq	Existing helper	event_id	Dedup	Destination	Gap
+Page entered	Paid click landed	none	—	None	none	—	—	Nowhere	No landing signal; ad platforms cannot see arrival
+Intent selected	Audience segment revealed	none	—	None	none	—	—	Nowhere	Highest-value segmentation signal is discarded
+Recap confirmed	Qualified intent	none	—	None	none	—	—	Nowhere	Best mid-funnel optimization signal is unobservable
+Phone submit attempted	Capture attempt	none	—	None	none	—	—	Nowhere	Attempt-vs-success rate unmeasurable
+Lead persisted	Real lead	Edge scaffold	Server	Yes — post-insert	persistCanonicalEvent	wmc_lead_captured_lead-…_session-…	Deterministic	Flag-gated, default off	Correct boundary, likely dormant
+Post-capture action chosen	Engagement	none	—	None	none	—	—	Nowhere	Should stay operational-only
+Continuation persisted	Intent upgrade	none	—	Yes — RPC inserted	none	—	RPC gives natural idempotency	Nowhere	This PR's entire deliverable is invisible
+Scanner handoff (ready_now)	Highest intent in funnel	none	—	Nothing persisted	none	—	—	Nowhere	No server record exists to hang an event on
+Protection Kit email	Soft lead	Legacy path	Server	Yes	Same scaffold	Same	Deterministic	Flag-gated	Should not share lead_captured semantics with a phone lead
+16.5 Three tiers, kept separate
+Tier	Correct transport	Proposed /wmchat members
+1 · Operational interaction telemetry	trackEvent → event_logs	Intent selected · recap confirmed · step reached · abandonment node · post-capture card tapped · scanner handoff started
+2 · Persisted business-state transitions	persistCanonicalEvent inside the Edge Function, after the write succeeds	lead_captured (exists, gated) · lead_qualified (new, on continuation inserted)
+3 · Paid-media conversions	Canonical row → existing dispatch worker → Meta CAPI. Never from a React component.	Derived from tier 2 only. No new browser code.
+16.6 Correct server-authoritative boundaries
+Applying the brief's own test — a click is not a completion:
+
+Tapping "Schedule a WindowMan conversation" is not an appointment_booked. The product itself says so: "a request, not a confirmed appointment." If this vertical is unhidden, the honest canonical event is callback_requested, fired only on RPC outcome inserted.
+Choosing "Review my quote when ready" is not a quote upload. quote_uploaded is already owned by scan-quote and must not be duplicated here.
+Navigating to the scanner is not a scan. At most an operational scan_initiated-adjacent telemetry row.
+Submitting the phone form is not a lead. Only the persisted row is.
+Confirming a continuation is a genuine, server-confirmed intent upgrade — the strongest new signal this PR makes available.
+16.7 Is handleWmChatPostCapture the right integration point?
+Yes — and it exists. supabase/functions/capture-truth-gate-lead/index.ts:1477. The precise insertion point is inside the result.ok branch at index.ts:1531, after the RPC has returned and before the 200 response, gated on result.outcome === "inserted" so replays do not double-fire.
+
+It satisfies every requirement: it runs server-side with the service role, it already holds the confirmed leadId/sessionId, it distinguishes inserted from replayed natively, and the same file already imports persistCanonicalEvent (index.ts:62) — so no new dependency is introduced.
+
+16.8 Recommended events
+Field	Recommendation A	Recommendation B
+Semantic name	lead_captured (existing — enable, do not author)	lead_qualified (new)
+Business state	A /wmchat lead row exists with verified identity	A persisted lead chose and confirmed a continuation
+Success prerequisite	Legacy capture path returned a persisted lead	RPC returned outcome = "inserted"
+Integration point	Existing scaffold — index.ts:432–475	handleWmChatPostCapture, inside result.ok — index.ts:1531
+Event ID	wmc_lead_captured_lead-{leadId}_session-{sessionId} (already deterministic)	wmc_lead_qualified_lead-{leadId}_submission-{submissionId} — submission ID is already a server-validated UUID
+Attribution	Already carried by legacy capture	Read from the stored lead row; do not accept from the browser (PROTECTED_SYSTEMS §5)
+Retry	Non-fatal, already wrapped	Non-fatal — a tracking failure must never fail a persisted continuation
+Dedup	Deterministic ID + platform dedup	replayed never fires; deterministic ID covers Edge retries
+Failure behavior	Log and continue	Log and continue; 200 still returned
+Changes existing semantics?	No — flag flip only	No — new name, new state, no existing consumer
+Not recommended: any browser-side conversion, any direct capi-event call from React, any event named appointment_booked or quote_uploaded from this route, and any value or revenue figure attached to these events — no verified transaction exists, and PROTECTED_SYSTEMS §14 is explicit that canonical rows are not revenue truth.
+
+No events were emitted during this audit. Confirmed
+
+16.9 Guardrail coverage gap
+CI does not protect this PR — High
+
+Both tracking guardrails and the frontend test suite are scoped to pull_request: branches: [main]. PR #211 targets forensic_report_v2. Confirmed
+
+pageview-guardrail.yml — runs npm run typecheck, the production build, and the PageView dedupe proof. Did not run.
+capi-event-guardrail.yml — additionally path-filtered to supabase/functions/capi-event/**. Did not run.
+No Vitest job exists in any workflow. The 1,455-line WmChatPage.test.tsx, the 373-line service test, and the rest of the ~2,000 new frontend test lines never execute in CI.
+Confirmed by the check-run list: only deno check + bun build (×2, success), Netlify deploy checks, two Cursor agents, a skipped Mermaid check, and a skipped Supabase Preview. No typecheck job, no Vitest job. bun build bundles via esbuild and strips types without checking them, so it cannot substitute.
+
+This is why the timeout: 15_000 question in §8 remains open: the exact job that would have answered it did not run.
+
+17
+ADD / DELETE / UPDATE / IMPROVE Matrix
+Every CRO claim below is a hypothesis with a named validating metric. Most of those metrics do not exist yet — which is why the measurement items rank first.
+
+ID	Mut.	Current node / copy	Evidence	Problem	Proposed change	CRO hypothesis	Lead-quality effect	Tech dependency	Risk / edge case	Pri.	Effort	Conf.	Measurement
+M1	Improve	Continuation persists; nothing observes it	§16.4	This PR's entire deliverable is invisible to every platform and dashboard	Emit canonical lead_qualified in handleWmChatPostCapture on outcome==="inserted"	Enables optimization toward continuation, not raw form fills	Strongly positive — optimizes on a deeper signal	persistCanonicalEvent (already imported)	Must be non-fatal; must not fire on replayed	High	S	High	Canonical rows appear with correct event_id; count matches RPC inserted count
+M2	Improve	CANONICAL_LEAD_CAPTURED_ENABLED off	index.ts:87–88	Even successful lead capture produces no conversion signal	Decide and document the deployed flag state; enable if the measurement owner approves	Restores the baseline lead conversion signal	Neutral — observability only	Env var; measurement-owner sign-off (PROTECTED_SYSTEMS §14)	Affects all lead sources, not just /wmchat — blast radius beyond this route	High	S	Med	lead_captured row count vs. leads insert count
+M3	Improve	No CI on this base branch	§16.9	~2,000 lines of new tests never run; typecheck never runs	Extend workflow triggers to long-lived integration branches; add a Vitest job	None directly — protects every other item here	Neutral	Workflow YAML only	May surface pre-existing failures on the base branch	High	S	High	Typecheck + Vitest visible and green in PR checks
+M4	Update	scheduleConversationVisible={false}	WmChatPage.tsx:443	A complete vertical is unreachable; the reducer supports a state no UI can enter	Make it an explicit named flag with a stated reason, or unhide it — do not leave a bare literal	If unhidden, adds a callback-intent path for users wanting human contact	Positive if fulfilment exists; negative if it does not	Requires a real callback operation before unhiding	Do not unhide without fulfilment — an unanswered request is worse than no option	High	S	High	Share of post-capture selections; callback fulfilment rate
+M5	Delete	"Choices" enabled on confirmation	§10 dead end	UI invites a second action the RPC always rejects with 409	Disable the control on confirmation, or relabel to a read-only review of the saved step	Removes a guaranteed error at the funnel's final moment	Positive — prevents a confused user abandoning after success	Reducer guard + ChoiceStage awareness of an existing continuation	Must not block legitimate retry after a failed attempt	High	S	High	409 conflict rate → near zero
+M6	Add	Nothing between recap and zip	§14.3 false summit	Recap reads as an ending; five questions follow	Add a bridging line at zip naming exactly what remains — e.g. "Five quick details left"	Reframes remaining effort as bounded; should reduce post-recap drop-off	Neutral to positive — same data, better framed	Copy only	Must stay truthful if the step count later changes	High	S	Med	Drop-off between recap and phone (needs M9)
+M7	Add	No progress indicator on a 14-step path	§14.3, A4	Unbounded-effort perception; the only progress cue is on the powers path	Add a lightweight step indicator to the practical-details block (not the whole conversation)	Bounded effort reduces mid-path abandonment	Neutral	Node metadata in wmChatContent.ts	Branching lengths differ — an inaccurate counter is worse than none; scope it to the fixed tail	High	M	Med	Per-node abandonment distribution
+M8	Add	No escape hatch on the need_quote path	§14.1	A quote-holder who taps the primary button is locked into 14 steps	Add a quiet "I already have a quote" affordance at need_reason routing to have_concern	Recovers misrouted high-intent users into the 3-step path	Strongly positive — quote-in-hand is the highest-value segment	One resolveNextWmChatNode entry + option	Must stay visually quiet or it will cannibalize legitimate need_quote users	High	S	Med	Usage rate; downstream scanner-upload rate of switchers
+M9	Add	No operational telemetry at all	§16.4	Every CRO hypothesis here is currently unfalsifiable	Add trackEvent → event_logs for node reached, intent selected, recap confirmed, abandonment node	None directly — makes all others measurable	Neutral	Existing trackEvent; must respect the page-measurement suppression contract	Must not become a business event or reach a paid platform; keep tiers separate	High	M	High	A per-node funnel chart exists at all
+M10	Improve	Resume gated on ?r=	§5	A valid 24 h snapshot is never read on a plain refresh; nothing mints such a URL	Offer resume when a fresh snapshot exists — as an explicit "Pick up where you left off?" prompt, not a silent restore	Recovers interrupted mobile sessions instead of restarting them	Positive — recovers already-qualified users	loadWmChatResume already safe and non-PII	Silent restore would confuse a genuinely new user on a shared device — must be opt-in	Medium	M	Med	Resume acceptance rate; completion rate of resumed sessions
+M11	Add	Trust cards render only on screen 1	§14.4	Reassurance is absent exactly where sensitivity peaks	Surface one relevant trust anchor at phone — reuse existing card content, no new claims	Reassurance at the highest-friction step should lift capture	Neutral	WmChatTrustCards already componentized	Must not crowd the TCPA disclosure or push the button below the fold	Medium	S	Med	Phone-node abandonment rate
+M12	Update	"Storm or insurance concerns"	§14.2	Two materially different situations share one acknowledgement	Split into distinct reasons, or add a reason-aware second clause to the acknowledgement	Higher specificity should improve next-tap rate on this branch	Positive — cleaner segmentation for routing	wmChatContent.ts option + acknowledgement map	Must preserve the existing no-insurance-promises hedge verbatim	Medium	S	Med	Continue rate on the storm branch
+M13	Add	Confirmation states no timeline	§10	User leaves without knowing what happens or when	Add a truthful expectation line — only if a real service level exists to state	Reduces post-conversion anxiety and duplicate submissions	Positive — sets accurate expectations before contact	Requires a real operational commitment	Do not add without one — a false promise is worse than silence and would breach the honesty discipline in §13	Medium	S	Low	Inbound "what happens next" contacts; duplicate submissions
+M14	Improve	Address fields without visible labels	A1	Placeholders vanish on input; four of five fields lose their name	Add visible labels matching the Street-address pattern	Lower address-abandonment on the optional step	Positive — better address completion enriches the brief	Markup only	Adds vertical height on a 390 px viewport	Medium	S	High	Address add vs. skip ratio
+M15	Improve	No focus move on node transition	A2	Keyboard users re-traverse the transcript on each of 14 steps	Move focus to the new node's heading or first control on transition	Indirect — removes a real barrier for keyboard users	Neutral	Ref + focus() alongside existing scroll logic	Must not fight autoFocus or steal focus mid-typing	Medium	M	High	Keyboard-only traversal test
+M16	Improve	timeout: 15_000	§8	Probably an unsupported option, silently discarded	Verify against the installed types; replace with AbortSignal if unsupported	None	Neutral	Depends on M3 to be caught automatically	A real abort must still map to the safe failure message	Medium	S	Med	npm run typecheck passes with the option present
+M17	Improve	ZIP collected twice, unreconciled	§7	Intake ZIP and post-capture ZIP can disagree with no resolution rule	Prefill the address ZIP from the intake answer; flag divergence server-side rather than silently keeping both	Fewer keystrokes on the optional step	Positive — removes ambiguity about which ZIP is authoritative	Client prefill; namespace already stores both	They may legitimately differ (buyer vs. project property) — flag, do not overwrite	Low	S	Med	Address-step completion time; divergence rate
+M18	Delete	stakes node	§14.3	Lowest value-per-effort node on the longest path; already skipped for uncertain users	Test removing it for all users, or extend the short-budget rule further	One fewer step at the highest-pressure point	Slightly negative — loses a brief input; must be measured, not assumed	Short-budget rule already exists	Brief quality may degrade; run as an experiment with a quality read-out	Low	S	Low	A/B: completion rate and downstream lead quality together
+M19	Add	demo_launch terminal	§10	Demo users exit with no lead and no signal	Add a return path from the demo back into power_route	Recovers engaged-but-uncaptured users	Positive — demo completion is a genuine interest signal	PowerToolDemo already calls back on close (currently dispatches back)	Must not trap users in a loop	Low	M	Low	Post-demo continuation rate
+M20	Update	Amber radial in the background stack	A a11y §15	An orange value persists in the palette despite the stated direction	Replace with a neutral or blue-biased tint	None — brand consistency only	Neutral	One class string	Sub-perceptual; may be an intentional warmth choice — confirm with design	Low	S	High	Visual QA
+Deferred — valid, but outside the immediate /wmchat objective
+D1 · Author a /wmchat governing document. No route-level governance exists (§2). Ownership sits with the architecture doc owner, not this sprint.
+D2 · Promote qualification answers out of JSONB. Nothing collected drives routing or scoring today. Real schema work, gated by PROTECTED_SYSTEMS §16.
+D3 · Fulfilment for the Protection Kit. The product states delivery is not live. A CRM/ESP concern, not a funnel one.
+18
+Current vs. Optimized Copy
+All "current" strings are verbatim from PR #211 at 0ff96fdb. Every proposal preserves the existing anti-overclaim discipline; none introduces a savings, insurance, legal, or timing promise that the evidence does not support.
+
+Primary headline · WmChatOpening.tsx:22
+Current
+WindowMan: Your Quote Hero
+Recommended
+Know what your window quote should say.
+Why stronger: "Quote Hero" is brand language that asks the visitor to decode a metaphor. The alternative states the benefit in the homeowner's own terms and works for both entry intents. Compliance: "should say" is about document completeness, not price — no savings implication.
+Supporting promise · WmChatOpening.tsx:25
+Current
+Tell me what brought you here. I'll keep the next step simple.
+Recommended
+Tell me what brought you here. A few questions, then a written plan you can use.
+Why stronger: "Simple" is an unverifiable claim contradicted by a 14-step path. Naming a concrete deliverable — the brief the product genuinely produces — sets a truthful expectation. Compliance: describes an artifact that already exists in WmChatProjectBriefPreview.
+Entry option 2 (primary) · wmChatContent.ts:17
+Current
+Help me get a fair quote
+Recommended
+I need a quote — help me ask for it right
+Why stronger: "Fair" implies a price benchmark this path never delivers, creating the misclassification risk in §14.1. The alternative describes what actually happens and sharpens the contrast with option 1. Compliance: removes an implied pricing guarantee.
+Reason option · wmChatContent.ts:24
+Current
+Storm or insurance concerns
+Recommended
+Split into two: "An insurance or claim question came up" · "I'm getting ready for storm season"
+Why stronger: An active claim and pre-season preparation are different emotional and practical states; one acknowledgement cannot serve both. Compliance: both options describe the user's situation, never a WindowMan capability — and the existing no-insurance-promises hedge must carry over verbatim to both.
+Insurance/storm acknowledgement · wmChatContent.ts:332
+Current
+Good reason to slow down and document it. I'll keep written product ratings and scope separate from assumptions—without making insurance promises.
+Recommended
+Keep as-is.
+Why: This is the single best-calibrated line in the funnel. It acknowledges the concern, states a concrete action, and disclaims the one thing WindowMan cannot do — in one sentence, without hedging into vagueness. It is a model for the rest of the copy.
+ZIP reason-why · wmChatContent.ts:516
+Current
+That's enough for me to stop guessing. What's the project ZIP?
+Recommended
+That's the hard part done. Five quick details left — starting with the project ZIP, so local pricing and permit rules apply.
+Why stronger: Directly addresses the false summit (§14.3) by naming the remaining scope, and gives ZIP a specific purpose instead of "stop guessing", which describes WindowMan's state rather than the user's benefit. Compliance: keep the count accurate if the step list changes.
+Phone prompt (lead mode) · wmChatContent.ts:567
+Current
+Your first-quote game plan is ready. What mobile should I use to save it and continue without making you repeat these answers?
+Recommended
+Your game plan is ready — it's below. What mobile should I save it to, so you never have to repeat these answers?
+Why stronger: The brief is already rendered on this screen and the current copy does not point at it. "It's below" converts an abstract claim into visible proof at the exact moment the user weighs giving up their number. Compliance: unchanged — no new promise.
+Inline consent reinforcement · WmChatConversation.tsx:733
+Current
+By continuing, you authorize service texts and an automated WindowMan AI call about this request. Consent isn't required to buy.
+Recommended
+Keep the sentence. Add one line above it: "Your number goes to WindowMan only — not to a list of contractors."
+Why stronger: "My number getting sent everywhere" is an explicit trust option in the funnel's own list (trust_too_many_calls), and power card 4 already makes this promise — but not at the phone field, where it matters. Compliance: restates an existing product claim; do not add it if any contractor-sharing occurs.
+Submit button · WmChatConversation.tsx:744
+Current
+Save my project request
+Recommended
+Keep as-is.
+Why: Accurate, first-person, and describes exactly what the system does. The paired loading state — "Checking your number…" — correctly describes validation rather than claiming a save that has not happened.
+Submission failure · WmChatPage.tsx:256, 275
+Current
+That didn't save safely. Please try again.
+Recommended
+That didn't save. Your answers are still here — tap to try again.
+Why stronger: "Safely" invites the reading that something unsafe occurred. Confirming the answers are preserved removes the fear that drives abandonment at a failed submit. Compliance: true — reducer state is retained on capture_failed.
+Post-capture menu heading · WmChatPostCaptureStage.tsx:165–166
+Current
+Your project request is saved. / What would help you most next?
+Recommended
+Keep as-is.
+Why: Confirms completion before asking for more — the correct order. The user knows they are safe before considering an optional next step.
+Game-plan confirmation · WmChatPostCaptureStage.tsx:362, 369
+Current
+Game-plan request received. / WindowMan saved the project context needed to continue building your request plan.
+Recommended
+Game plan saved. / Your project details are locked in. WindowMan will use them to build your quote-request checklist.
+Why stronger: "Saved the project context needed to continue building" describes a database write. The alternative describes an outcome the user cares about. Compliance: deliberately states no timeline — add one only under M13, and only if a real service level exists.
+Continuation conflict error · wmchatPostCapture.ts:542–543
+Current
+A different next step is already saved for this project. Your original project request remains safe.
+Recommended
+Keep the string — but stop users reaching it (M5). If it must remain reachable: "You've already chosen a next step for this project. It's saved, and so is your original request."
+Why stronger: The current wording reads as a rejection of something the user just did. The alternative reads as confirmation of something already accomplished. Compliance: both are accurate; the real fix is structural.
+Protection Kit supporting line · wmChatContent.ts:670
+Current
+Leave your email and I'll save your request for the pre-quote red flags. Automated delivery is not live yet.
+Recommended
+Keep the disclosure. Consider reordering: lead with what they get, close with the honest limitation.
+Why: Admitting delivery is not live is exactly right and must not be removed to lift conversion. Only the ordering is worth testing — the honesty is not negotiable.
+19
+Prioritized Recommendations
+No BLOCKER-severity findings. Nothing in PR #211 prevents safe or reliable use. The persistence layer is sound, consent is handled correctly, and no user-facing path is broken in a way that loses data.
+
+HIGH — detail
+H1 · The funnel is unobservable end to end High
+Evidence: §16.1, §16.4. Zero tracking imports in the feature; isWmChatMeasurementPath suppresses all page measurement; CANONICAL_LEAD_CAPTURED_ENABLED defaults off.
+User impact: None directly — but every UX problem in this report stays invisible and unprioritizable.
+Business impact: Paid spend on /wmchat cannot be optimized, attributed, or evaluated. Ad platforms receive no conversion signal from this funnel at all.
+Root cause: A deliberate suppression decision applied at page level was never paired with a server-side event contract for the funnel's real business states.
+Smallest safe correction: M1 — emit canonical lead_qualified from handleWmChatPostCapture on inserted. One Edge-side call, using an already-imported helper, after the write succeeds.
+Dependencies: Measurement-owner approval (PROTECTED_SYSTEMS §14). M2 needs a separate decision because its blast radius exceeds this route.
+Regression risk: Low if non-fatal. A tracking failure must never fail a persisted continuation.
+Verification: Canonical row count equals RPC inserted count; no rows on replayed; continuation still succeeds when event insertion is forced to fail.
+H2 · CI does not run on this branch High
+Evidence: §16.9. Workflows scoped to branches: [main]; check-run list shows no typecheck and no Vitest job.
+User impact: Indirect — regressions can reach the integration branch unchecked.
+Business impact: ~2,000 lines of new, well-written tests provide zero enforcement. The timeout question in §8 is open precisely because of this.
+Root cause: Long-lived integration branches were never added to workflow triggers.
+Smallest safe correction: Add forensic_report_v2 to the pull_request.branches lists; add a Vitest job running npm run test:wmchat.
+Dependencies: None.
+Regression risk: May surface pre-existing failures — worth knowing.
+Verification: Both jobs appear and pass in PR checks.
+H3 · A complete vertical is hidden by a bare literal High
+Evidence: WmChatPage.tsx:443, scheduleConversationVisible={false}; full implementation across five layers.
+User impact: Users who want human contact have no path to request it.
+Business impact: Callback intent — a high-value signal — is never captured. Meanwhile the code, tests, and SQL carry ongoing maintenance cost.
+Root cause: Almost certainly a deliberate hold pending fulfilment capability, recorded as a literal rather than a named, documented flag.
+Smallest safe correction: Replace the literal with a named constant plus a comment stating why and what unblocks it. Do not unhide until callback fulfilment exists.
+Dependencies: Operational capability to answer a callback request.
+Regression risk: Unhiding without fulfilment is worse than the current state.
+Verification: Flag documented; visibility unchanged.
+H4 · Post-capture menu leads to a guaranteed 409 High
+Evidence: §10. "Choices" enabled on confirmation; RPC is first-write-immutable.
+User impact: A user who succeeds, explores, and tries a second action receives an error as their final experience.
+Business impact: Turns a completed conversion into a confused exit.
+Root cause: Client navigation model (reversible) does not match the server persistence model (immutable).
+Smallest safe correction: Disable "Choices" when continuationStatus === "success".
+Dependencies: None — one reducer/UI guard.
+Regression risk: Must preserve retry after a failed attempt. Existing tests cover the failure path.
+Verification: 409 conflict rate approaches zero; failure-retry tests still pass.
+H5 · The false summit between recap and capture High
+Evidence: §14.3. Recap asks "Did I get that right?", then five more questions follow.
+User impact: Effort feels unbounded at the moment the user expected to finish.
+Business impact: Likely the largest single drop-off on the need_quote path — unmeasurable until M9.
+Root cause: Two intake phases (qualitative, then practical) share one uninterrupted conversation with no framing between them.
+Smallest safe correction: M6 — one bridging sentence at zip naming what remains.
+Dependencies: M9 to measure the effect.
+Regression risk: Copy-only; the count must stay accurate.
+Verification: Recap→phone drop-off before and after.
+H6 · Path-length asymmetry strands high-intent users High
+Evidence: §9, §14.1. 3 vs. 14 vs. 20 steps; the only shortcut lives inside a branch the primary button does not reach.
+User impact: A quote-holder who taps the primary CTA is committed to 14 steps with no visible escape.
+Business impact: Loses the segment closest to a decision.
+Root cause: The entry taxonomy assumes users self-classify correctly on the first tap, with no recovery.
+Smallest safe correction: M8 — a quiet "I already have a quote" option at need_reason.
+Dependencies: None — one option plus one routing entry.
+Regression risk: Over-prominence would cannibalize legitimate need_quote users; keep tone: "quiet".
+Verification: Usage rate and downstream upload rate of switchers.
+MEDIUM
+M10 resume recovery · M11 trust anchor at phone · M12 storm/insurance split · M13 expectation line (only with a real service level) · M14 visible address labels · M15 focus management · M16 timeout verification · plus a11y A5 and A7.
+
+LOW
+M17 ZIP reconciliation · M18 stakes removal experiment · M19 demo return path · M20 amber background token · plus a11y A3 and A6.
+
+DEFERRED
+D1 /wmchat governing document · D2 promote qualification answers out of JSONB · D3 Protection Kit fulfilment.
+
+20
+Smallest Safe Follow-Up Sprint
+Sprint objective
+
+Make the /wmchat funnel observable and enforced, and remove the one guaranteed-error dead end — without changing the conversation flow, the copy, the schema, or the consent model. Measurement first: every CRO change in §17 is unfalsifiable until this lands.
+
+Allowed scope
+One canonical lead_qualified emission inside handleWmChatPostCapture, gated on outcome === "inserted", non-fatal.
+Operational telemetry via the existing trackEvent → event_logs path for node-reached, intent-selected, and recap-confirmed.
+CI trigger extension plus a Vitest job.
+Disable "Choices" on a successful confirmation.
+Replace scheduleConversationVisible={false} with a named, documented constant — visibility unchanged.
+Verify and, if needed, correct the timeout option.
+Protected / no-touch scope
+No schema or migration changes. The persistence contract is correct — do not touch the RPC, the trigger, or the namespace shape.
+No consent changes. Both disclosures and the payload flags stay exactly as they are.
+No browser-side conversion events. No fbq, no gtag, no direct capi-event call, no conversion before its backend write succeeds.
+No change to the page-measurement suppression contract without measurement-owner approval.
+No conversation-flow or copy changes — those belong to a later sprint, after measurement exists.
+Do not unhide the scheduling vertical.
+No CANONICAL_LEAD_CAPTURED_ENABLED flip in this sprint — its blast radius exceeds /wmchat and needs its own decision.
+No lockfile or dependency changes.
+Files likely involved
+Confidence	Path	Change
+Confirmed	supabase/functions/capture-truth-gate-lead/index.ts	Emit lead_qualified in the result.ok branch (~:1531)
+Confirmed	src/pages/WmChat/WmChatPage.tsx	Named constant replacing the literal at :443
+Confirmed	src/pages/WmChat/WmChatConversation.tsx	Disable "Choices" on success (~:495)
+Confirmed	src/services/wmchatPostCapture.ts	timeout → verified option or AbortSignal (:229)
+Confirmed	.github/workflows/pageview-guardrail.yml	Extend pull_request.branches; add Vitest job
+Possible	src/pages/WmChat/wmChatReducer.ts	Guard return_to_post_capture_choices on success
+Possible	supabase/functions/capture-truth-gate-lead/index_test.ts	Tests for emission on inserted, none on replayed
+Possible	src/pages/WmChat/WmChatPage.test.tsx	Test the disabled "Choices" control
+Possible	src/lib/tracking/canonical/constants.ts	Only if lead_qualified needs registering — it is already present
+Ordered implementation tasks
+CI first. Extend triggers, add the Vitest job, confirm the suite runs green on the unmodified branch. Everything after this is protected by it.
+Resolve timeout. With typecheck running, the answer is immediate. Fix or keep accordingly.
+Name the scheduling flag. Constant plus comment. Visibility unchanged. Smallest possible diff.
+Close the dead end. Disable "Choices" on success; add the test; confirm failure-retry still works.
+Emit lead_qualified. Deterministic event ID from leadId + submissionId; wrap non-fatally; add Deno tests for both inserted and replayed.
+Add operational telemetry. Node-reached, intent-selected, recap-confirmed via trackEvent only. Keep the tiers strictly separate — no business or paid-media semantics.
+Document. Record the /wmchat event contract and the measurement-suppression rationale where the next engineer will find it.
+Required tests
+Deno: lead_qualified emitted exactly once on inserted; not emitted on replayed, conflict, or any failure kind.
+Deno: a forced event-insertion failure still returns HTTP 200 and preserves the continuation.
+Deno: the event ID is deterministic for identical inputs.
+Vitest: "Choices" is disabled after a successful continuation and enabled after a failed one.
+Vitest: the full existing WmChat suite passes — it must now actually execute.
+Typecheck: npm run typecheck passes with the timeout resolution in place.
+Tracking verification
+Canonical lead_qualified row count equals RPC inserted count over a test window.
+No canonical rows produced by replays or conflicts.
+No new browser network calls to capi-event — assert via the existing guardrail, now running.
+The PageView dedupe proof still passes: /wmchat continues to emit no browser page measurement.
+Operational telemetry lands in event_logs only — never in dataLayer and never on a paid platform.
+Rollback considerations
+Event emission is additive and non-fatal — revert the single call site; persistence is unaffected.
+Telemetry is additive — revert independently.
+The "Choices" guard is a one-line UI revert.
+CI changes are YAML-only.
+No migration is involved, so there is nothing to roll back in the database. If the existing migration is ever reverted, follow the ordered rollback the migration itself documents — callers first, trigger last.
+Definition of done — binary
+☐ Typecheck and Vitest both appear in PR checks and pass.
+☐ A confirmed continuation produces exactly one canonical lead_qualified row.
+☐ A replayed continuation produces zero additional rows.
+☐ A forced tracking failure does not fail the continuation.
+☐ "Choices" is disabled after success; retry after failure still works.
+☐ scheduleConversationVisible is a named constant with a documented reason; visibility unchanged.
+☐ The timeout option is verified or replaced, and typecheck passes.
+☐ Per-node telemetry is queryable in event_logs.
+☐ No browser conversion event and no capi-event call was added.
+☐ No schema, consent, or copy change shipped.
+21
+Unresolved Questions
+These must be answered before the sprint in §20 is implemented.
+
+#	Question	Why it blocks	Who answers
+Q1	Is the measurement suppression on /wmchat a permanent architectural decision or a temporary hold?	Determines whether a server-side event contract is the right fix or a workaround around a decision that should be revisited	Measurement owner
+Q2	What is the deployed value of CANONICAL_LEAD_CAPTURED_ENABLED?	Decides whether /wmchat lead capture is observable today; changes the baseline the sprint builds on	Platform / infra owner
+Q3	Why is the scheduling vertical hidden, and what unblocks it?	Determines whether M4 is documentation or a real feature launch	Product owner
+Q4	Is there a real service level for post-capture follow-up?	M13 must not ship without one — a false promise would breach the honesty discipline that is this funnel's main asset	Operations
+Q5	Is /wmchat currently receiving paid traffic?	Sets urgency for H1. Unattributed live spend makes it critical rather than merely high	Marketing
+Q6	Does FunctionInvokeOptions in supabase-js 2.99.3 accept timeout?	Determines whether the continuation call has any timeout protection at all	Resolved by running M3 then npm run typecheck
+Q7	Has the migration been applied anywhere?	The preflight raises on pre-existing wmchat_post_capture_v1 data; re-running against a partially-applied state needs care	Database owner
+Q8	Should /wmchat get its own entry in PROTECTED_SYSTEMS.md?	A route with a bespoke measurement exception and a dedicated immutable namespace arguably qualifies as a protected system	Architecture doc owner
+Q9	Is the ?r= resume link generated by any system outside this repository?	If not, the resume feature is dead code and M10 is a genuine recovery win rather than a re-plumbing job	Product / lifecycle owner
+Q10	Is the amber background tint intentional?	Determines whether M20 is a fix or an unwanted change to a deliberate design choice	Design owner
+22
+Commands and Validation Evidence
+Executed — all read-only
+Command	Purpose	Result
+git rev-parse HEAD · status --porcelain	Establish baseline	a294c77…, clean (0 paths)
+git fetch origin refs/pull/211/head	Resolve live PR head	0ff96fdb… — 2 commits ahead
+git fetch origin forensic_report_v2	Resolve base	79507b5c…; merge-base 8ad4752…
+git worktree add --detach … 0ff96fdb	Isolated inspection of the live head	Created; original worktree untouched
+git diff a294c77 0ff96fdb -- <paths>	Review post-webhook commits	4 files materially changed
+grep across src/pages/WmChat/**, src/services/wmchat*	Tracking-import census	Zero tracking imports
+grep for /wmchat repo-wide	Entry-point census	Route + suppression predicate + source constant only
+grep -i wmchat docs/architecture/PROTECTED_SYSTEMS.md	Governance check	Zero matches
+GitHub API — PR get / files / check-runs	PR metadata and CI state	15 check runs; no typecheck, no Vitest
+Read of 14 source files at 0ff96fdb	Architecture reconstruction	Basis for §5–§10
+Not executed — and why
+Command	Blocker
+npm run typecheck	node_modules absent; installing prohibited by the audit brief
+npm run test:wmchat	Same
+npm run dev + browser inspection	Same — this is the sole cause of the §11 runtime blocker
+deno test supabase/functions/…	Deno not installed
+mmdc / mermaid validation	CLI unavailable; §12 labelled UNVERIFIED
+Any Supabase / GTM / Meta call	Prohibited — read-only audit
+Audit constraints honored
+No tracked application file modified. No commit, push, merge, or deploy.
+No migration authored or applied; no schema or RLS change.
+No production Edge Function invoked; no lead submitted; no advertising event emitted.
+No dependency installed; no lockfile touched.
+No destructive Git operation. The PR head was inspected in an added detached worktree; the original checkout remained at a294c77, clean, throughout.
+All report artifacts were written outside the repository, to the session scratchpad.
+Read-only forensic audit of PR #211 at 0ff96fdb78e7b1ca93a25e7c73569f5d48c50556. No implementation was performed. Findings graded Confirmed rest on direct source, Git, or API evidence; Inferred and Unknown items are labelled where they appear and should be resolved before acting on them.
