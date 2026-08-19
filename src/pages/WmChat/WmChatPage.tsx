@@ -9,7 +9,7 @@ import {
   useState,
   Suspense,
 } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import windowmanScript from "@/assets/windowman-script.png";
 import { hasTrustedContactIdentity } from "@/lib/leadSession";
 import { normalizeTruthGatePhoneToE164 } from "@/lib/validation/truthGateContact";
@@ -71,12 +71,7 @@ export default function WmChatPage({
   postCaptureSubmitter,
   thinkingDelayMs,
 }: WmChatPageProps) {
-  const [searchParams] = useSearchParams();
-  const explicitResume =
-    searchParams.has("r") || searchParams.has("resume_token");
-  const [resumeCandidate] = useState(() =>
-    explicitResume ? loadWmChatResume() : null,
-  );
+  const [resumeCandidate] = useState(() => loadWmChatResume());
   const [state, dispatch] = useReducer(
     wmChatReducer,
     resumeCandidate,

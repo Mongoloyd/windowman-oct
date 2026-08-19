@@ -117,7 +117,14 @@ function restoreRuntime(
 }
 
 function returnToPostCaptureChoices(state: WmChatState): WmChatState {
-  if (!state.postCaptureNodeId || state.continuationStatus === "submitting") {
+  const hasPersistedContinuation =
+    state.postCaptureNodeId === "confirmation" &&
+    state.continuationStatus === "success";
+  if (
+    !state.postCaptureNodeId ||
+    state.continuationStatus === "submitting" ||
+    hasPersistedContinuation
+  ) {
     return state;
   }
 
@@ -902,10 +909,14 @@ export function wmChatReducer(
         continuationError: null,
       };
     case "post_capture_back": {
+      const hasPersistedContinuation =
+        state.postCaptureNodeId === "confirmation" &&
+        state.continuationStatus === "success";
       if (
         !state.postCaptureNodeId ||
         state.postCaptureNodeId === "choice" ||
-        state.continuationStatus === "submitting"
+        state.continuationStatus === "submitting" ||
+        hasPersistedContinuation
       ) {
         return state;
       }

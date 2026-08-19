@@ -1322,7 +1322,7 @@ describe("WmChatPage", () => {
     expect(navigateMock).not.toHaveBeenCalled();
   });
 
-  it("starts direct cold traffic at the opening and clears a stale resume record", () => {
+  it("restores a validated cached conversation on an ordinary refresh", () => {
     localStorage.setItem(
       WM_CHAT_RESUME_STORAGE_KEY,
       JSON.stringify({
@@ -1335,13 +1335,18 @@ describe("WmChatPage", () => {
     );
     renderPage();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(screen.queryByText(/What’s got you looking into windows or doors right now/)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Help me get a fair quote" })).toBeEnabled();
-    expect(localStorage.getItem(WM_CHAT_RESUME_STORAGE_KEY)).toBeNull();
+    expect(screen.getByRole("button", { name: "Start over" })).toBeEnabled();
+    expect(
+      screen.queryByRole("button", { name: "Help me get a fair quote" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/What’s got you looking into windows or doors right now/),
+    ).toBeInTheDocument();
+    expect(localStorage.getItem(WM_CHAT_RESUME_STORAGE_KEY)).not.toBeNull();
   });
 
   it.each(["/wmchat?r=1", "/wmchat?resume_token=returning"]) (
-    "restores a cached conversation only through an explicit resume URL (%s)",
+    "also restores a cached conversation through an explicit resume URL (%s)",
     (initialEntry) => {
       localStorage.setItem(
         WM_CHAT_RESUME_STORAGE_KEY,

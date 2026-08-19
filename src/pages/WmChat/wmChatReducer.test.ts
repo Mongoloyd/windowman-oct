@@ -1061,6 +1061,33 @@ describe("wmChatReducer correction and completion safety", () => {
       expect(state.continuationStatus).toBe("success");
     });
 
+    it("keeps a successfully persisted continuation immutable under choice-return actions", () => {
+      let state = captureNeedQuote();
+      state = wmChatReducer(state, {
+        type: "select_post_capture_action",
+        postCaptureAction: "quote_request_game_plan",
+      });
+      state = wmChatReducer(state, { type: "skip_property_address" });
+      state = wmChatReducer(state, {
+        type: "continuation_started",
+        submissionId: CONTINUATION_ID,
+      });
+      state = wmChatReducer(state, {
+        type: "continuation_succeeded",
+        submissionId: CONTINUATION_ID,
+        leadId: LEAD_ID,
+        sessionId: SESSION_ID,
+      });
+
+      const persisted = state;
+      expect(
+        wmChatReducer(persisted, { type: "post_capture_back" }),
+      ).toBe(persisted);
+      expect(
+        wmChatReducer(persisted, { type: "return_to_post_capture_choices" }),
+      ).toBe(persisted);
+    });
+
     it("ignores stale failures and preserves the selected draft for retry", () => {
       let state = captureNeedQuote();
       state = wmChatReducer(state, {
