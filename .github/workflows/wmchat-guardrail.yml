@@ -1,0 +1,111 @@
+# WmChat contract guardrail.
+#
+# Enforces the WmChat TypeScript, frontend state-machine, persistence-adapter,
+# Edge request, intake-validation, and consent-ordering contracts.
+#
+# This workflow does not deploy, mutate Supabase, use production secrets, or
+# change runtime behavior. Making these jobs required is a later human-operator
+# step after their triggers and pinned runtimes are proven green on GitHub.
+
+name: WmChat Contract Guardrail
+
+on:
+  push:
+    branches: [forensic_report_v2, main]
+    paths:
+      - "src/pages/WmChat/**"
+      - "src/services/wmchat*.ts"
+      - "src/components/AppTrackingProvider.tsx"
+      - "src/components/AppTrackingProvider.wmchat.test.tsx"
+      - "src/components/PowerToolDemo.tsx"
+      - "src/components/PowerToolDemo.wmchat.test.tsx"
+      - "src/lib/openAiAdsPixel.ts"
+      - "src/lib/openAiAdsPixel.test.ts"
+      - "src/App.tsx"
+      - "package.json"
+      - "package-lock.json"
+      - "deno.json"
+      - "tsconfig*.json"
+      - "vitest.config.ts"
+      - "supabase/functions/capture-truth-gate-lead/**"
+      - "supabase/functions/_shared/wmchatIntake.ts"
+      - "supabase/functions/_shared/wmchatIntake.test.ts"
+      - "supabase/functions/_shared/consentCapture.ts"
+      - "supabase/functions/_shared/consentCapture_test.ts"
+      - ".github/workflows/wmchat-guardrail.yml"
+  pull_request:
+    branches: [forensic_report_v2, main]
+    paths:
+      - "src/pages/WmChat/**"
+      - "src/services/wmchat*.ts"
+      - "src/components/AppTrackingProvider.tsx"
+      - "src/components/AppTrackingProvider.wmchat.test.tsx"
+      - "src/components/PowerToolDemo.tsx"
+      - "src/components/PowerToolDemo.wmchat.test.tsx"
+      - "src/lib/openAiAdsPixel.ts"
+      - "src/lib/openAiAdsPixel.test.ts"
+      - "src/App.tsx"
+      - "package.json"
+      - "package-lock.json"
+      - "deno.json"
+      - "tsconfig*.json"
+      - "vitest.config.ts"
+      - "supabase/functions/capture-truth-gate-lead/**"
+      - "supabase/functions/_shared/wmchatIntake.ts"
+      - "supabase/functions/_shared/wmchatIntake.test.ts"
+      - "supabase/functions/_shared/consentCapture.ts"
+      - "supabase/functions/_shared/consentCapture_test.ts"
+      - ".github/workflows/wmchat-guardrail.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  frontend-contract:
+    name: frontend-contract
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript typecheck
+        run: npm run typecheck
+
+      - name: WmChat contract tests
+        run: npm run test:wmchat
+
+  edge-contract:
+    name: edge-contract
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v1
+        with:
+          # repo deno.lock is version 5; Deno 1.46.3 cannot read it
+          deno-version: v2.x
+
+      - name: Typecheck capture-truth-gate-lead
+        run: deno check supabase/functions/capture-truth-gate-lead/index.ts
+
+      - name: Test capture-truth-gate-lead
+        run: deno test --allow-env supabase/functions/capture-truth-gate-lead/index_test.ts
+
+      - name: Test WmChat intake contract
+        run: deno test --allow-env supabase/functions/_shared/wmchatIntake.test.ts
+
+      - name: Test consent ordering contract
+        run: deno test --allow-env supabase/functions/_shared/consentCapture_test.ts
