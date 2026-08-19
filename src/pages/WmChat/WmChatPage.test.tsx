@@ -376,7 +376,7 @@ describe("WmChatPage", () => {
         matches: query === "(prefers-reduced-motion: reduce)",
       })),
     });
-    renderPage();
+    renderPage(vi.fn(), "/wmchat", () => 500);
 
     choose("Help me get a fair quote");
 
@@ -388,7 +388,7 @@ describe("WmChatPage", () => {
     });
   });
 
-  it("scrolls each new reply into view with viewport breathing room", async () => {
+  it("top-aligns each complete new question and its answer options", async () => {
     renderPage();
 
     choose("Help me get a fair quote");
@@ -396,12 +396,19 @@ describe("WmChatPage", () => {
     const prompt = await screen.findByText(
       /What’s got you looking into windows or doors right now/,
     );
-    expect(prompt.parentElement?.parentElement).toHaveClass("scroll-mb-[20vh]");
+    const activeQuestion = screen.getByTestId("wmchat-active-question");
+    expect(activeQuestion).toContainElement(prompt);
+    expect(activeQuestion).toContainElement(
+      screen.getByRole("button", {
+        name: "I’m planning, budgeting, or researching",
+      }),
+    );
     await waitFor(() => {
-      expect(scrollIntoViewMock).toHaveBeenCalledWith({
-        behavior: "smooth",
-        block: "end",
+      expect(scrollIntoViewMock).toHaveBeenLastCalledWith({
+        behavior: "auto",
+        block: "start",
       });
+      expect(scrollIntoViewMock.mock.contexts.at(-1)).toBe(activeQuestion);
     });
   });
 

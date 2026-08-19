@@ -11,6 +11,7 @@ import {
   type FormEvent,
   type ReactNode,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -276,7 +277,7 @@ export function WmChatConversation({
           ? null
           : `reply:${node.id}:${state.transcript.length}`;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!scrollTargetKey || typeof window === "undefined") return;
 
     const target =
@@ -290,12 +291,10 @@ export function WmChatConversation({
     const reduceMotion = window.matchMedia?.(
       "(prefers-reduced-motion: reduce)",
     ).matches;
+    const isActiveQuestion = state.status !== "success" && !state.isThinking;
     target.scrollIntoView({
-      behavior: reduceMotion ? "auto" : "smooth",
-      block:
-        state.status === "success" && state.postCaptureNodeId
-          ? "start"
-          : "end",
+      behavior: isActiveQuestion || reduceMotion ? "auto" : "smooth",
+      block: isActiveQuestion || state.status === "success" ? "start" : "end",
     });
   }, [
     scrollTargetKey,
@@ -574,26 +573,28 @@ export function WmChatConversation({
             {projectBrief ? (
               <WmChatProjectBriefPreview brief={projectBrief} />
             ) : null}
-            <div ref={activeReplyRef} className="scroll-mb-[20vh]">
+            <div
+              ref={activeReplyRef}
+              data-testid="wmchat-active-question"
+            >
               <WindowManBubble
                 text={node.prompt}
                 live
               />
-            </div>
 
-            {supporting ? (
-              <p className="mt-2 px-1 text-xs leading-5 text-[#7890a7]">{supporting}</p>
-            ) : null}
+              {supporting ? (
+                <p className="mt-2 px-1 text-xs leading-5 text-[#7890a7]">{supporting}</p>
+              ) : null}
 
-            {state.isThinking && pendingVisitorText ? (
-              <div ref={thinkingRef} className="mt-4 scroll-mb-[20vh] space-y-3">
-                <VisitorBubble text={pendingVisitorText} />
-                <ThinkingBubble />
-              </div>
-            ) : null}
+              {state.isThinking && pendingVisitorText ? (
+                <div ref={thinkingRef} className="mt-4 scroll-mb-[20vh] space-y-3">
+                  <VisitorBubble text={pendingVisitorText} />
+                  <ThinkingBubble />
+                </div>
+              ) : null}
 
-            {!state.isThinking ? (
-              <div className="mt-4 space-y-3">
+              {!state.isThinking ? (
+                <div className="mt-4 space-y-3">
                 {node.kind === "single" ||
                 node.kind === "recap" ||
                 node.kind === "power" ||
@@ -767,8 +768,9 @@ export function WmChatConversation({
                   {inputError ?? state.submitError}
                 </p>
               ) : null}
-              </div>
-            ) : null}
+                </div>
+              ) : null}
+            </div>
           </div>
         )}
       </main>
