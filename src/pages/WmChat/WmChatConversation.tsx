@@ -253,8 +253,12 @@ export function WmChatConversation({
   ]);
 
   const isPostCapture = state.postCaptureNodeId !== null;
+  const hasPersistedPostCaptureChoice =
+    state.postCaptureNodeId === "confirmation" &&
+    state.continuationStatus === "success";
   const canGoBack = isPostCapture
-    ? state.postCaptureNodeId !== "choice" &&
+    ? !hasPersistedPostCaptureChoice &&
+      state.postCaptureNodeId !== "choice" &&
       state.continuationStatus !== "submitting"
     : state.past.length > 0 &&
       state.status !== "submitting" &&
@@ -471,41 +475,45 @@ export function WmChatConversation({
             <p className="text-sm font-semibold text-[#dce9f5]">WindowMan AI</p>
             <p className="text-xs text-[#7990a7]">Software, not a contractor</p>
           </div>
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() =>
-                dispatch({ type: isPostCapture ? "post_capture_back" : "back" })
-              }
-              disabled={!canGoBack}
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-[#91a7bc] hover:bg-[#111c29] hover:text-white disabled:cursor-not-allowed disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2e8fff]"
-            >
-              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-              Back
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                dispatch({
-                  type: isPostCapture
-                    ? "return_to_post_capture_choices"
-                    : "restart",
-                })
-              }
-              disabled={
-                state.status === "submitting" ||
-                state.isThinking ||
-                state.continuationStatus === "submitting"
-              }
-              aria-label={
-                isPostCapture ? "Return to post-capture choices" : undefined
-              }
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-[#91a7bc] hover:bg-[#111c29] hover:text-white disabled:cursor-not-allowed disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2e8fff]"
-            >
-              <RotateCcw className="h-4 w-4" aria-hidden="true" />
-              {isPostCapture ? "Choices" : "Start over"}
-            </button>
-          </div>
+          {!hasPersistedPostCaptureChoice ? (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() =>
+                  dispatch({
+                    type: isPostCapture ? "post_capture_back" : "back",
+                  })
+                }
+                disabled={!canGoBack}
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-[#91a7bc] hover:bg-[#111c29] hover:text-white disabled:cursor-not-allowed disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2e8fff]"
+              >
+                <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                Back
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  dispatch({
+                    type: isPostCapture
+                      ? "return_to_post_capture_choices"
+                      : "restart",
+                  })
+                }
+                disabled={
+                  state.status === "submitting" ||
+                  state.isThinking ||
+                  state.continuationStatus === "submitting"
+                }
+                aria-label={
+                  isPostCapture ? "Return to post-capture choices" : undefined
+                }
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-[#91a7bc] hover:bg-[#111c29] hover:text-white disabled:cursor-not-allowed disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2e8fff]"
+              >
+                <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                {isPostCapture ? "Choices" : "Start over"}
+              </button>
+            </div>
+          ) : null}
         </div>
       ) : null}
 

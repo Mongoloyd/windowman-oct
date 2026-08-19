@@ -47,6 +47,9 @@ import type {
 
 const PowerToolFlow = lazy(() => import("@/components/PowerToolDemo"));
 
+// Scheduling stays hidden until a durable operator fulfillment path exists.
+const WMCHAT_SCHEDULE_CONVERSATION_VISIBLE = false;
+
 type WmChatPageProps = {
   readonly submitter?: WmChatSubmitter;
   readonly emailSubmitter?: WmChatEmailSubmitter;
@@ -461,7 +464,7 @@ export default function WmChatPage({
         />
         <div className="relative z-10">
           <WmChatPostCaptureActionAvailability
-            scheduleConversationVisible={false}
+            scheduleConversationVisible={WMCHAT_SCHEDULE_CONVERSATION_VISIBLE}
           >
             <WmChatConversation
               state={state}

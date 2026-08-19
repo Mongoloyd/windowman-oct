@@ -502,7 +502,7 @@ describe("WmChatPage", () => {
     expect(navigateMock).not.toHaveBeenCalled();
   });
 
-  it("routes a captured no-quote lead into the game-plan review without recapturing contact", async () => {
+  it("makes a persisted game-plan choice terminal without recapturing contact", async () => {
     const submitter = vi.fn(async (input: WmChatSubmitInput) => ({
       ok: true as const,
       leadId: LEAD_ID,
@@ -545,6 +545,15 @@ describe("WmChatPage", () => {
     expect(
       await screen.findByRole("heading", { name: "Game-plan request received." }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText("Your original project request remains safely preserved."),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Back" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: "Return to post-capture choices",
+      }),
+    ).not.toBeInTheDocument();
     expect(postCaptureSubmitter).toHaveBeenCalledTimes(1);
     expect(submitWmChatPostCaptureMock).not.toHaveBeenCalled();
     expect(postCaptureSubmitter.mock.calls[0][0]).toEqual(
@@ -815,6 +824,10 @@ describe("WmChatPage", () => {
     expect(postCaptureSubmitter).toHaveBeenCalledTimes(1);
     resolveFirst({ ok: false, message: "Try that again." });
     expect(await screen.findByRole("alert")).toHaveTextContent("Try that again.");
+    expect(screen.getByRole("button", { name: "Back" })).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Return to post-capture choices" }),
+    ).toBeEnabled();
 
     choose("Confirm this next step");
     expect(
