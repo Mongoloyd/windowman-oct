@@ -16,10 +16,14 @@ import { normalizeTruthGatePhoneToE164 } from "@/lib/validation/truthGateContact
 import { useScanFunnelSafe } from "@/state/scanFunnel";
 import { WmChatConversation } from "./WmChatConversation";
 import {
+  buildWmChatContactDigest,
   getOrCreateWmChatContinuationSubmissionId,
   getOrCreateWmChatSessionId,
   getOrCreateWmChatSubmissionId,
+  readWmChatCapturedContact,
+  rotateWmChatCaptureIdentity,
   rotateWmChatContinuationSubmissionId,
+  writeWmChatCapturedContact,
 } from "./wmChatIdentity";
 import { WmChatPostCaptureActionAvailability } from "./WmChatPostCaptureStage";
 import {
@@ -246,16 +250,47 @@ export default function WmChatPage({
       const activeSubmitter =
         submitter ??
         (await import("@/services/wmchatLeadCapture")).submitWmChatLead;
-      const result = await activeSubmitter({
-        sessionId,
-        submissionId,
-        firstName: state.contact.firstName.trim() || null,
-        phoneE164,
-        serviceCommunicationsGranted: true,
-        marketingConsentPresented: false,
-        marketingCommunicationsGranted: false,
-        wmchatIntake,
-      });
+      const firstName = state.contact.firstName.trim() || null;
+      const contactDigest = buildWmChatContactDigest(firstName, phoneE164);
+
+      // The server binds one lead per session_id and rejects a later capture
+      // carrying different contact details. Rotate up front when this tab has
+      // already captured someone else, so the homeowner never sees that error.
+      let activeSessionId = sessionId;
+      let activeSubmissionId = submissionId;
+      const capturedContact = readWmChatCapturedContact();
+      if (capturedContact && capturedContact !== contactDigest) {
+        const rotated = rotateWmChatCaptureIdentity();
+        activeSessionId = rotated.sessionId;
+        activeSubmissionId = rotated.submissionId;
+        sessionIdRef.current = rotated.sessionId;
+        submissionIdRef.current = rotated.submissionId;
+      }
+
+      const submitOnce = () =>
+        activeSubmitter({
+          sessionId: activeSessionId,
+          submissionId: activeSubmissionId,
+          firstName,
+          phoneE164,
+          serviceCommunicationsGranted: true,
+          marketingConsentPresented: false,
+          marketingCommunicationsGranted: false,
+          wmchatIntake,
+        });
+
+      let result = await submitOnce();
+
+      // Retrying the same session can never clear an ownership conflict, so
+      // recover with one fresh identity instead of stranding the homeowner.
+      if (!result.ok && result.code === "identity_conflict") {
+        const rotated = rotateWmChatCaptureIdentity();
+        activeSessionId = rotated.sessionId;
+        activeSubmissionId = rotated.submissionId;
+        sessionIdRef.current = rotated.sessionId;
+        submissionIdRef.current = rotated.submissionId;
+        result = await submitOnce();
+      }
 
       if (!result.ok) {
         dispatch({
@@ -268,7 +303,7 @@ export default function WmChatPage({
 
       if (
         !hasTrustedContactIdentity(result.leadId, result.sessionId) ||
-        result.sessionId !== sessionId
+        result.sessionId !== activeSessionId
       ) {
         dispatch({
           type: "capture_failed",
@@ -278,6 +313,7 @@ export default function WmChatPage({
         return;
       }
 
+      writeWmChatCapturedContact(contactDigest);
       dispatch({
         type: "capture_succeeded",
         leadId: result.leadId,

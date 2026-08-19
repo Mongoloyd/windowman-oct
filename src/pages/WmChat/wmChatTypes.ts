@@ -445,6 +445,8 @@ export interface WmChatSubmitInput {
 export type WmChatSubmitErrorCode =
   | "invalid_phone"
   | "lookup_unavailable"
+  /** This tab's session is bound to a lead with different contact details. */
+  | "identity_conflict"
   | "capture_failed";
 
 export type WmChatSubmitResult =

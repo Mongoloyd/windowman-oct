@@ -24,6 +24,8 @@ const {
   submitWmChatPostCaptureMock,
   getOrCreateContinuationSubmissionIdMock,
   rotateContinuationSubmissionIdMock,
+  buildContactDigestMock,
+  rotateCaptureIdentityMock,
 } = vi.hoisted(() => ({
   navigateMock: vi.fn(),
   setPhoneMock: vi.fn(),
@@ -33,6 +35,8 @@ const {
   submitWmChatPostCaptureMock: vi.fn(),
   getOrCreateContinuationSubmissionIdMock: vi.fn(),
   rotateContinuationSubmissionIdMock: vi.fn(),
+  buildContactDigestMock: vi.fn(),
+  rotateCaptureIdentityMock: vi.fn(),
 }));
 
 vi.mock("react-router-dom", async (importOriginal) => {
@@ -62,6 +66,15 @@ vi.mock("./wmChatIdentity", () => ({
     getOrCreateContinuationSubmissionIdMock(),
   rotateWmChatContinuationSubmissionId: () =>
     rotateContinuationSubmissionIdMock(),
+  buildWmChatContactDigest: (firstName: string | null, phoneE164: string) =>
+    buildContactDigestMock(firstName, phoneE164),
+  readWmChatCapturedContact: () =>
+    sessionStorage.getItem("wm_wmchat_captured_contact"),
+  writeWmChatCapturedContact: (digest: string) =>
+    sessionStorage.setItem("wm_wmchat_captured_contact", digest),
+  clearWmChatCapturedContact: () =>
+    sessionStorage.removeItem("wm_wmchat_captured_contact"),
+  rotateWmChatCaptureIdentity: () => rotateCaptureIdentityMock(),
 }));
 
 vi.mock("@/components/PowerToolDemo", () => ({
@@ -83,6 +96,9 @@ vi.mock("@/components/PowerToolDemo", () => ({
 
 const LEAD_ID = "99999999-8888-4777-8666-555555555555";
 const CONTINUATION_STORAGE_KEY = "wm_wmchat_continuation_submission_id";
+const CAPTURED_CONTACT_STORAGE_KEY = "wm_wmchat_captured_contact";
+const ROTATED_SESSION_ID = "12121212-3434-4565-8787-989898989898";
+const ROTATED_SUBMISSION_ID = "21212121-4343-4656-8878-899898989899";
 const CONTINUATION_ID = "66666666-7777-4888-8999-aaaaaaaaaaaa";
 const ROTATED_CONTINUATION_ID = "bbbbbbbb-cccc-4ddd-8eee-ffffffffffff";
 const scrollIntoViewMock = vi.fn();
@@ -168,9 +184,29 @@ describe("WmChatPage", () => {
     submitWmChatPostCaptureMock.mockReset();
     getOrCreateContinuationSubmissionIdMock.mockReset();
     rotateContinuationSubmissionIdMock.mockReset();
+    buildContactDigestMock.mockReset();
+    rotateCaptureIdentityMock.mockReset();
     scrollIntoViewMock.mockReset();
     sessionStorage.clear();
     localStorage.clear();
+    // Mirrors the production djb2 digest: distinct per contact, never raw PII.
+    buildContactDigestMock.mockImplementation(
+      (firstName: string | null, phoneE164: string) => {
+        const input = `${(firstName ?? "").trim().toLowerCase()}|${phoneE164}`;
+        let hash = 5381;
+        for (let index = 0; index < input.length; index += 1) {
+          hash = ((hash << 5) + hash + input.charCodeAt(index)) | 0;
+        }
+        return (hash >>> 0).toString(36);
+      },
+    );
+    rotateCaptureIdentityMock.mockImplementation(() => {
+      sessionStorage.removeItem("wm_wmchat_captured_contact");
+      return {
+        sessionId: ROTATED_SESSION_ID,
+        submissionId: ROTATED_SUBMISSION_ID,
+      };
+    });
     getOrCreateContinuationSubmissionIdMock.mockImplementation(() => {
       const existing = sessionStorage.getItem(CONTINUATION_STORAGE_KEY);
       if (existing) return existing;
@@ -1046,9 +1082,14 @@ describe("WmChatPage", () => {
         return key ? [key, sessionStorage.getItem(key)] : null;
       },
     ).filter(Boolean);
-    expect(storedEntries).toEqual([
-      [CONTINUATION_STORAGE_KEY, CONTINUATION_ID],
+    expect(storedEntries.map(([key]) => key).sort()).toEqual([
+      CAPTURED_CONTACT_STORAGE_KEY,
+      CONTINUATION_STORAGE_KEY,
     ]);
+    expect(
+      storedEntries.find(([key]) => key === CONTINUATION_STORAGE_KEY),
+    ).toEqual([CONTINUATION_STORAGE_KEY, CONTINUATION_ID]);
+    // The captured-contact entry is a change-detector digest, never raw PII.
     expect(JSON.stringify(storedEntries)).not.toMatch(
       /5615550123|123 main street|fort lauderdale|33301/i,
     );
@@ -1123,6 +1164,89 @@ describe("WmChatPage", () => {
     await waitFor(() => expect(submitter).toHaveBeenCalledTimes(2));
     expect(seen[1].sessionId).toBe(seen[0].sessionId);
     expect(seen[1].submissionId).toBe(seen[0].submissionId);
+  });
+
+  it("recovers from a bound-session identity conflict with one fresh identity", async () => {
+    const seen: WmChatSubmitInput[] = [];
+    const submitter = vi.fn(async (input: WmChatSubmitInput) => {
+      seen.push(input);
+      if (seen.length === 1) {
+        return {
+          ok: false as const,
+          code: "identity_conflict" as const,
+          message: "Let me start a fresh conversation for those details—one moment.",
+        };
+      }
+      return {
+        ok: true as const,
+        leadId: LEAD_ID,
+        sessionId: input.sessionId,
+        reused: false,
+      };
+    });
+    renderPage(submitter);
+    advanceQuoteUploadToPhone();
+    fireEvent.change(screen.getByLabelText("Mobile number"), {
+      target: { value: "5615550123" },
+    });
+    choose("Save & open secure scanner");
+
+    await waitFor(() => expect(submitter).toHaveBeenCalledTimes(2));
+    expect(rotateCaptureIdentityMock).toHaveBeenCalledTimes(1);
+    expect(seen[1].sessionId).toBe(ROTATED_SESSION_ID);
+    expect(seen[1].submissionId).toBe(ROTATED_SUBMISSION_ID);
+    expect(seen[1].sessionId).not.toBe(seen[0].sessionId);
+    await waitFor(() => expect(setLeadIdMock).toHaveBeenCalledWith(LEAD_ID));
+    expect(setSessionIdMock).toHaveBeenCalledWith(ROTATED_SESSION_ID);
+  });
+
+  it("rotates capture identity up front when this tab already captured someone else", async () => {
+    sessionStorage.setItem(CAPTURED_CONTACT_STORAGE_KEY, "a-previous-contact");
+    const seen: WmChatSubmitInput[] = [];
+    const submitter = vi.fn(async (input: WmChatSubmitInput) => {
+      seen.push(input);
+      return {
+        ok: true as const,
+        leadId: LEAD_ID,
+        sessionId: input.sessionId,
+        reused: false,
+      };
+    });
+    renderPage(submitter);
+    advanceQuoteUploadToPhone();
+    fireEvent.change(screen.getByLabelText("Mobile number"), {
+      target: { value: "5615550123" },
+    });
+    choose("Save & open secure scanner");
+
+    await waitFor(() => expect(submitter).toHaveBeenCalledTimes(1));
+    expect(rotateCaptureIdentityMock).toHaveBeenCalledTimes(1);
+    expect(seen[0].sessionId).toBe(ROTATED_SESSION_ID);
+    expect(seen[0].submissionId).toBe(ROTATED_SUBMISSION_ID);
+  });
+
+  it("keeps one session when the same contact resubmits so server reuse still applies", async () => {
+    const seen: WmChatSubmitInput[] = [];
+    const submitter = vi.fn(async (input: WmChatSubmitInput) => {
+      seen.push(input);
+      return {
+        ok: true as const,
+        leadId: LEAD_ID,
+        sessionId: input.sessionId,
+        reused: seen.length > 1,
+      };
+    });
+    renderPage(submitter);
+    advanceQuoteUploadToPhone();
+    fireEvent.change(screen.getByLabelText("Mobile number"), {
+      target: { value: "5615550123" },
+    });
+    choose("Save & open secure scanner");
+    await waitFor(() => expect(submitter).toHaveBeenCalledTimes(1));
+
+    expect(rotateCaptureIdentityMock).not.toHaveBeenCalled();
+    expect(seen[0].sessionId).not.toBe(ROTATED_SESSION_ID);
+    expect(sessionStorage.getItem(CAPTURED_CONTACT_STORAGE_KEY)).not.toBeNull();
   });
 
   it("marks a Twilio-invalid number inline and clears the failure on edit", async () => {

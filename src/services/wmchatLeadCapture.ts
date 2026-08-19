@@ -32,6 +32,8 @@ const INVALID_PHONE_MESSAGE =
   "That number could not be validated. Check it and enter a valid US number.";
 const LOOKUP_UNAVAILABLE_MESSAGE =
   "I couldn’t check that number right now. Your answers are still here—please try again.";
+const IDENTITY_CONFLICT_MESSAGE =
+  "Let me start a fresh conversation for those details—one moment.";
 
 const inFlightCaptures = new Map<string, Promise<WmChatSubmitResult>>();
 
@@ -71,6 +73,15 @@ function captureFailureForCode(code: unknown): WmChatSubmitResult {
       ok: false,
       code: "lookup_unavailable",
       message: LOOKUP_UNAVAILABLE_MESSAGE,
+    };
+  }
+  // The session already owns a lead captured under different contact details.
+  // Retrying this session can never succeed — the caller must rotate identity.
+  if (code === "wmchat_lead_mismatch" || code === "invalid_reused_lead_id") {
+    return {
+      ok: false,
+      code: "identity_conflict",
+      message: IDENTITY_CONFLICT_MESSAGE,
     };
   }
   return { ok: false, code: "capture_failed", message: SAFE_CAPTURE_MESSAGE };

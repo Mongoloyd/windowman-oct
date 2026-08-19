@@ -371,6 +371,16 @@ describe("wmchatLeadCapture", () => {
       "lookup_unavailable",
       "I couldn’t check that number right now. Your answers are still here—please try again.",
     ],
+    [
+      "wmchat_lead_mismatch",
+      "identity_conflict",
+      "Let me start a fresh conversation for those details—one moment.",
+    ],
+    [
+      "invalid_reused_lead_id",
+      "identity_conflict",
+      "Let me start a fresh conversation for those details—one moment.",
+    ],
   ])(
     "maps the typed Edge code %s to safe WmChat UX",
     async (edgeCode, code, message) => {
