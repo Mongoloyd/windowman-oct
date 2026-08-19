@@ -1,4 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  createClient,
+  type FunctionInvokeOptions,
+  type SupabaseClient,
+} from "@supabase/supabase-js";
 
 import type { WmChatPostCaptureSubmitInput } from "@/pages/WmChat/wmChatTypes";
 
@@ -54,6 +59,31 @@ function successfulInvoke() {
       session_id: SESSION_ID,
     },
     error: null,
+  };
+}
+
+function testFunctionsClient(customFetch: typeof fetch): SupabaseClient {
+  return createClient(
+    "https://wmchat-timeout-contract.supabase.co",
+    "wmchat-timeout-contract-anon-key",
+    {
+      auth: {
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+        persistSession: false,
+      },
+      global: { fetch: customFetch },
+    },
+  );
+}
+
+function invokeWith(client: SupabaseClient) {
+  return (...args: unknown[]) => {
+    const [functionName, options] = args as [
+      string,
+      FunctionInvokeOptions,
+    ];
+    return client.functions.invoke(functionName, options);
   };
 }
 
@@ -336,38 +366,112 @@ describe("wmchatPostCapture", () => {
     });
   });
 
-  it("fails safely on timeout and clears the in-flight entry for retry", async () => {
-    invokeMock
-      .mockResolvedValueOnce({
-        data: null,
-        error: {
-          name: "FunctionsFetchError",
-          message: "Edge Function request timed out",
-        },
-      })
-      .mockResolvedValueOnce(successfulInvoke());
+  it("enforces the installed client's 15-second timeout without auto-retry or timer leakage", async () => {
+    vi.useFakeTimers();
+    try {
+      const hangingFetch = vi.fn(
+        (_input: RequestInfo | URL, init?: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            const signal = init?.signal;
+            if (!signal) {
+              reject(new Error("The Functions client did not provide an AbortSignal."));
+              return;
+            }
+            signal.addEventListener(
+              "abort",
+              () => reject(new DOMException("Aborted", "AbortError")),
+              { once: true },
+            );
+          }),
+      );
+      const client = testFunctionsClient(hangingFetch);
+      invokeMock
+        .mockImplementationOnce(invokeWith(client))
+        .mockResolvedValueOnce(successfulInvoke());
 
-    const input = gamePlanInput();
-    await expect(submitWmChatPostCapture(input)).resolves.toEqual({
-      ok: false,
-      message: SAFE_FAILURE_MESSAGE,
-    });
-    await expect(submitWmChatPostCapture(input)).resolves.toEqual({
-      ok: true,
-      leadId: LEAD_ID,
-      sessionId: SESSION_ID,
-    });
+      const input = gamePlanInput();
+      const timeoutResult = submitWmChatPostCapture(input);
+      const settled = vi.fn();
+      void timeoutResult.then(settled);
 
-    expect(invokeMock).toHaveBeenCalledTimes(2);
-    expect(invokeMock).toHaveBeenNthCalledWith(
-      1,
-      "capture-truth-gate-lead",
-      expect.objectContaining({ timeout: 15_000 }),
-    );
-    expect(invokeMock).toHaveBeenNthCalledWith(
-      2,
-      "capture-truth-gate-lead",
-      expect.objectContaining({ timeout: 15_000 }),
-    );
+      await vi.advanceTimersByTimeAsync(14_999);
+      expect(settled).not.toHaveBeenCalled();
+      expect(invokeMock).toHaveBeenCalledTimes(1);
+      expect(hangingFetch).toHaveBeenCalledTimes(1);
+
+      await vi.advanceTimersByTimeAsync(1);
+      await expect(timeoutResult).resolves.toEqual({
+        ok: false,
+        message: SAFE_FAILURE_MESSAGE,
+      });
+      expect(invokeMock).toHaveBeenCalledTimes(1);
+      expect(vi.getTimerCount()).toBe(0);
+
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(invokeMock).toHaveBeenCalledTimes(1);
+
+      await expect(submitWmChatPostCapture(input)).resolves.toEqual({
+        ok: true,
+        leadId: LEAD_ID,
+        sessionId: SESSION_ID,
+      });
+      expect(invokeMock).toHaveBeenCalledTimes(2);
+      expect(invokeMock).toHaveBeenNthCalledWith(
+        1,
+        "capture-truth-gate-lead",
+        expect.objectContaining({ timeout: 15_000 }),
+      );
+      expect(invokeMock).toHaveBeenNthCalledWith(
+        2,
+        "capture-truth-gate-lead",
+        expect.objectContaining({ timeout: 15_000 }),
+      );
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.clearAllTimers();
+      vi.useRealTimers();
+    }
   });
+
+  it.each([
+    [
+      "success",
+      new Response(JSON.stringify(successfulInvoke().data), {
+        headers: { "Content-Type": "application/json" },
+        status: 200,
+      }),
+      {
+        ok: true,
+        leadId: LEAD_ID,
+        sessionId: SESSION_ID,
+      },
+    ],
+    [
+      "HTTP error",
+      new Response(JSON.stringify({ code: "private_upstream_failure" }), {
+        headers: { "Content-Type": "application/json" },
+        status: 503,
+      }),
+      { ok: false, message: SAFE_FAILURE_MESSAGE },
+    ],
+  ])(
+    "clears the installed client's timeout after an immediate %s response",
+    async (_label, response, expected) => {
+      vi.useFakeTimers();
+      try {
+        const customFetch = vi.fn().mockResolvedValue(response);
+        const client = testFunctionsClient(customFetch);
+        invokeMock.mockImplementationOnce(invokeWith(client));
+
+        await expect(
+          submitWmChatPostCapture(gamePlanInput()),
+        ).resolves.toEqual(expected);
+        expect(customFetch).toHaveBeenCalledTimes(1);
+        expect(vi.getTimerCount()).toBe(0);
+      } finally {
+        vi.clearAllTimers();
+        vi.useRealTimers();
+      }
+    },
+  );
 });
