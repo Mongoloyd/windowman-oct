@@ -5,6 +5,7 @@ export const CONSENT_DISCLOSURE_VERSION = "2026-08-01";
 
 export type ConsentPurpose =
   | "service_communications"
+  | "advertising_measurement"
   | "marketing_communications"
   | "contractor_sharing";
 

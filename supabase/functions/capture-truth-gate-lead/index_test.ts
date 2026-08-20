@@ -2,6 +2,7 @@ import {
   assert,
   assertEquals,
   assertMatch,
+  assertRejects,
 } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   buildWmChatInsertQualification,
@@ -11,8 +12,11 @@ import {
   isWmChatPostCaptureCandidateEnvelope,
   parseAndValidate,
   parseWmChatPostCaptureRequest,
+  persistCanonicalEventWithRetry,
   persistValidatedWmChatPostCapture,
   persistWmChatRequiredCaptureData,
+  recoverWmChatSessionUniqueConflict,
+  runWmChatMeasurementBestEffort,
   type ValidatedWmChatPostCaptureRequest,
   validateFreshWmChatPhoneLookup,
   type WmChatPostCapturePersistenceDeps,
@@ -470,6 +474,19 @@ Deno.test("service authorization is required and marketing presentation is rejec
   }
 });
 
+Deno.test("WMChat accepts granted, declined, and missing measurement consent", () => {
+  for (const decision of ["granted", "declined"] as const) {
+    const body = validWmChatBody();
+    body.consent.events.push({
+      purpose: "advertising_measurement",
+      decision,
+      disclosureVersion: "2026-08-01",
+    });
+    assert(parseAndValidate(body).ok);
+  }
+  assert(parseAndValidate(validWmChatBody()).ok);
+});
+
 Deno.test("legacy caller requirements and optional malformed-phone behavior remain unchanged", () => {
   const valid = parseAndValidate(legacyBody());
   assert(valid.ok);
@@ -648,7 +665,7 @@ Deno.test("required-data ordering stops on consent failure", async () => {
     },
     runSuccessEffects: () => {
       order.push("effects");
-      return Promise.resolve();
+      return Promise.resolve({ ok: true });
     },
   });
   assert(!result.ok);
@@ -683,7 +700,7 @@ Deno.test("namespace failure blocks every conversion/success effect and can retr
       },
       runSuccessEffects: () => {
         order.push("effects");
-        return Promise.resolve();
+        return Promise.resolve({ ok: true });
       },
     });
 
@@ -702,6 +719,89 @@ Deno.test("namespace failure blocks every conversion/success effect and can retr
     "namespace",
     "effects",
   ]);
+});
+
+Deno.test("required canonical persistence retries a partial outbox write once", async () => {
+  let attempts = 0;
+  const result = await persistCanonicalEventWithRetry(() => {
+    attempts += 1;
+    return Promise.resolve(
+      (attempts === 1
+        ? {
+          eventLogId: "event-log-id",
+          dispatchPlatforms: [],
+          canonicalEvent: {},
+        }
+        : {
+          eventLogId: "event-log-id",
+          dispatchPlatforms: ["meta"],
+          canonicalEvent: {},
+        }) as never,
+    );
+  });
+
+  assertEquals(attempts, 2);
+  assertEquals(result.eventLogId, "event-log-id");
+  assertEquals(result.dispatchPlatforms, ["meta"]);
+});
+
+Deno.test("required canonical persistence fails after exactly two attempts", async () => {
+  let attempts = 0;
+  await assertRejects(() =>
+    persistCanonicalEventWithRetry(() => {
+      attempts += 1;
+      return Promise.reject(new Error("database unavailable"));
+    })
+  );
+  assertEquals(attempts, 2);
+});
+
+Deno.test("outbox insert failure leaves the persisted lead successful and records repair", async () => {
+  const durableLeadIds = new Set([LEAD_ID]);
+  let attempts = 0;
+  let repairSignals = 0;
+
+  const persisted = await runWmChatMeasurementBestEffort({
+    persist: () => {
+      attempts += 1;
+      return Promise.reject(new Error("outbox insert unavailable"));
+    },
+    recordRepair: () => {
+      repairSignals += 1;
+    },
+  });
+
+  assertEquals(persisted, false);
+  assertEquals(attempts, 2);
+  assertEquals(repairSignals, 1);
+  assertEquals(durableLeadIds.has(LEAD_ID), true);
+});
+
+Deno.test("double-submit unique conflict reuses one lead row and one canonical Meta event", async () => {
+  const leadRows = new Set([LEAD_ID]);
+  const eventIds = new Set([
+    `wmc_lead_captured_lead-${LEAD_ID}_session-${SESSION_ID}`,
+  ]);
+
+  const recovery = await recoverWmChatSessionUniqueConflict({
+    errorCode: "23505",
+    hasWmChatIntake: true,
+    loadExistingLeadId: () => Promise.resolve(LEAD_ID),
+    completeExistingLead: (leadId) => {
+      eventIds.add(
+        `wmc_lead_captured_lead-${leadId}_session-${SESSION_ID}`,
+      );
+      return Promise.resolve({ ok: true });
+    },
+  });
+
+  assertEquals(recovery, {
+    recovered: true,
+    leadId: LEAD_ID,
+    completion: { ok: true },
+  });
+  assertEquals(leadRows.size, 1);
+  assertEquals(eventIds.size, 1);
 });
 
 Deno.test("success identity requires real UUIDs and the submitted session", () => {

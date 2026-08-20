@@ -2,6 +2,7 @@ import { WM_QUOTE_TRUST_MIN_FOR_DISPATCH } from "./constants.ts";
 import type { WMCanonicalEvent } from "./types.ts";
 
 const META_EVENT_MAP: Record<string, string> = {
+  lead_captured: "Lead",
   lead_identified: "Lead",
   lead_qualified: "Lead",
   quote_uploaded: "SubmitApplication",

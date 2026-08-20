@@ -6,16 +6,16 @@ import type {
   WmChatSubmitInput,
 } from "@/pages/WmChat/wmChatTypes";
 import {
-  WM_CHAT_SESSION_STORAGE_KEY,
-  WM_CHAT_SOURCE,
-  WM_CHAT_SOURCE_PATH,
-  WM_CHAT_SUBMISSION_STORAGE_KEY,
-  buildWmChatQueryParams,
   buildWmChatLeadPayload,
+  buildWmChatQueryParams,
   getOrCreateWmChatSessionId,
   getOrCreateWmChatSubmissionId,
   isValidWmChatIntake,
   submitWmChatLead,
+  WM_CHAT_SESSION_STORAGE_KEY,
+  WM_CHAT_SOURCE,
+  WM_CHAT_SOURCE_PATH,
+  WM_CHAT_SUBMISSION_STORAGE_KEY,
 } from "./wmchatLeadCapture";
 
 const invokeMock = vi.fn();
@@ -138,6 +138,7 @@ const sampleInput: WmChatSubmitInput = {
   serviceCommunicationsGranted: true,
   marketingConsentPresented: false,
   marketingCommunicationsGranted: false,
+  advertisingMeasurementDecision: null,
   wmchatIntake: needQuoteIntake,
 };
 
@@ -249,6 +250,40 @@ describe("wmchatLeadCapture", () => {
       },
     ]);
   });
+
+  it.each(
+    [
+      ["granted", "granted"],
+      ["declined", "declined"],
+    ] as const,
+  )(
+    "records the persisted advertising measurement decision %s",
+    (decision, expectedDecision) => {
+      const payload = buildWmChatLeadPayload({
+        ...sampleInput,
+        advertisingMeasurementDecision: decision,
+      });
+      const consent = payload.consent as {
+        events: Array<{
+          purpose: string;
+          decision: string;
+          disclosureVersion: string;
+        }>;
+      };
+
+      expect(consent.events).toEqual([
+        expect.objectContaining({
+          purpose: "service_communications",
+          decision: "granted",
+        }),
+        expect.objectContaining({
+          purpose: "advertising_measurement",
+          decision: expectedDecision,
+          disclosureVersion: expect.any(String),
+        }),
+      ]);
+    },
+  );
 
   it("rejects unknown IDs, PII keys, multiline Other, and mismatched entry intent", () => {
     expect(isValidWmChatIntake(needQuoteIntake)).toBe(true);
@@ -422,7 +457,7 @@ describe("wmchatLeadCapture", () => {
     });
   });
 
-  it("coalesces duplicate in-flight submits for the same session/submission identity", async () => {
+  it("double-submit coalesces to one capture request and one lead/event path", async () => {
     let resolveInvoke: ((value: unknown) => void) | undefined;
     invokeMock.mockReturnValue(
       new Promise((resolve) => {

@@ -80,9 +80,7 @@ async function navigate(to: string) {
   });
 }
 
-function expectNoApplicationPageMeasurement() {
-  expect(mocks.initMetaBrowserPixel).not.toHaveBeenCalled();
-  expect(mocks.trackMetaPageView).not.toHaveBeenCalled();
+function expectNoNonMetaApplicationPageMeasurement() {
   expect(mocks.initOpenAiAdsPixel).not.toHaveBeenCalled();
   expect(mocks.trackOpenAiAdsPageViewed).not.toHaveBeenCalled();
   expect(mocks.pushVirtualPageView).not.toHaveBeenCalled();
@@ -94,16 +92,20 @@ describe("AppTrackingProvider /wmchat measurement exclusion", () => {
     navigateRef = null;
     suspendWmChatRender = false;
     vi.clearAllMocks();
+    mocks.initMetaBrowserPixel.mockReturnValue(true);
+    mocks.trackMetaPageView.mockReturnValue(true);
   });
 
-  it("keeps attribution capture but emits no initial /wmchat page measurement", () => {
+  it("keeps attribution capture and emits one initial /wmchat Meta PageView", () => {
     renderProvider("/wmchat?utm_source=meta#truth-gate");
 
     expect(mocks.useUtmCapture).toHaveBeenCalledWith(
       "/wmchat?utm_source=meta",
     );
     expect(mocks.markOpenAiAdsPageViewSuppressed).not.toHaveBeenCalled();
-    expectNoApplicationPageMeasurement();
+    expect(mocks.initMetaBrowserPixel).toHaveBeenCalledTimes(1);
+    expect(mocks.trackMetaPageView).not.toHaveBeenCalled();
+    expectNoNonMetaApplicationPageMeasurement();
   });
 
   it("keeps /wmchat search and hash changes silent while attribution updates", async () => {
@@ -114,7 +116,9 @@ describe("AppTrackingProvider /wmchat measurement exclusion", () => {
       "/wmchat?utm_source=next",
     );
     expect(mocks.markOpenAiAdsPageViewSuppressed).not.toHaveBeenCalled();
-    expectNoApplicationPageMeasurement();
+    expect(mocks.initMetaBrowserPixel).toHaveBeenCalledTimes(1);
+    expect(mocks.trackMetaPageView).not.toHaveBeenCalled();
+    expectNoNonMetaApplicationPageMeasurement();
   });
 
   it("keeps uppercase and descendant /wmchat routes silent", () => {
@@ -124,16 +128,23 @@ describe("AppTrackingProvider /wmchat measurement exclusion", () => {
       "/WMCHAT/diagnosis?utm_source=meta",
     );
     expect(mocks.markOpenAiAdsPageViewSuppressed).not.toHaveBeenCalled();
-    expectNoApplicationPageMeasurement();
+    expect(mocks.initMetaBrowserPixel).toHaveBeenCalledTimes(1);
+    expect(mocks.trackMetaPageView).not.toHaveBeenCalled();
+    expectNoNonMetaApplicationPageMeasurement();
   });
 
-  it("suppresses consent-triggered OpenAI page measurement on /wmchat", () => {
+  it("fires a withheld /wmchat PageView once consent becomes granted", () => {
+    mocks.initMetaBrowserPixel
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(true);
     renderProvider("/wmchat");
     act(() => {
       window.dispatchEvent(new Event("consentChanged"));
     });
 
-    expectNoApplicationPageMeasurement();
+    expect(mocks.initMetaBrowserPixel).toHaveBeenCalledTimes(2);
+    expect(mocks.trackMetaPageView).not.toHaveBeenCalled();
+    expectNoNonMetaApplicationPageMeasurement();
   });
 
   it("keeps consent measurement bound to the last committed route", () => {
@@ -167,7 +178,7 @@ describe("AppTrackingProvider /wmchat measurement exclusion", () => {
     expect(mocks.trackOpenAiAdsPageViewed).not.toHaveBeenCalled();
   });
 
-  it("emits nothing when an eligible route enters /wmchat", async () => {
+  it("emits one Meta PageView when an eligible route enters /wmchat", async () => {
     renderProvider("/about");
     vi.clearAllMocks();
 
@@ -177,7 +188,9 @@ describe("AppTrackingProvider /wmchat measurement exclusion", () => {
       "/wmchat?utm_source=meta",
     );
     expect(mocks.markOpenAiAdsPageViewSuppressed).toHaveBeenCalledTimes(1);
-    expectNoApplicationPageMeasurement();
+    expect(mocks.trackMetaPageView).toHaveBeenCalledTimes(1);
+    expect(mocks.initMetaBrowserPixel).not.toHaveBeenCalled();
+    expectNoNonMetaApplicationPageMeasurement();
   });
 
   it("marks only the transition into /wmchat, not internal route changes", async () => {
@@ -187,6 +200,7 @@ describe("AppTrackingProvider /wmchat measurement exclusion", () => {
     await navigate("/WMCHAT/diagnosis?step=two#details");
 
     expect(mocks.markOpenAiAdsPageViewSuppressed).toHaveBeenCalledTimes(1);
+    expect(mocks.trackMetaPageView).toHaveBeenCalledTimes(1);
     expect(mocks.trackOpenAiAdsPageViewed).not.toHaveBeenCalled();
   });
 
@@ -198,7 +212,7 @@ describe("AppTrackingProvider /wmchat measurement exclusion", () => {
     expect(mocks.pushTruthGateViewedOnce).toHaveBeenCalledTimes(1);
     expect(mocks.initMetaBrowserPixel).toHaveBeenCalledTimes(1);
     expect(mocks.initOpenAiAdsPixel).toHaveBeenCalledTimes(1);
-    expect(mocks.trackMetaPageView).not.toHaveBeenCalled();
+    expect(mocks.trackMetaPageView).toHaveBeenCalledTimes(1);
     expect(mocks.trackOpenAiAdsPageViewed).not.toHaveBeenCalled();
   });
 

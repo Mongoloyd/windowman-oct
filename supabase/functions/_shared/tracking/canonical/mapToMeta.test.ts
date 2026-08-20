@@ -50,3 +50,26 @@ Deno.test("callback_requested is not mapped to Schedule", () => {
   assertEquals(mapped.payload?.event_name, "Contact");
   assertEquals(mapped.payload?.event_name === "Schedule", false);
 });
+
+Deno.test("lead_captured maps to one standard Meta Lead with hashed PII", () => {
+  const canonical = callbackEvent({
+    eventId: "wmc_lead_captured_lead-a_session-b",
+    eventName: "lead_captured",
+    payload: {
+      identity: {
+        leadId: "lead-1",
+        phoneHash: "c".repeat(64),
+        fbp: "fb.1.1",
+      },
+      journey: { route: "/wmchat", flow: "public" },
+      metadata: { measurement_scope: "wmchat_day1_lead" },
+    },
+  });
+
+  const mapped = mapToMeta(canonical, "https://windowman.example/wmchat");
+  assertEquals(mapped.suppressed, false);
+  assertEquals(mapped.payload?.event_name, "Lead");
+  assertEquals(mapped.payload?.event_id, canonical.eventId);
+  assertEquals(mapped.payload?.user_data.ph, "c".repeat(64));
+  assertEquals(JSON.stringify(mapped.payload).includes("+1"), false);
+});

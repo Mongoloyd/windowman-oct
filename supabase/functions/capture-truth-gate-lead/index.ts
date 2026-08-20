@@ -60,11 +60,12 @@ import {
   sendOpenAiAdsLeadCreated,
 } from "../_shared/openAiAdsConversions.ts";
 import { persistCanonicalEvent } from "../_shared/tracking/canonicalBridge.ts";
+import { WMCHAT_DAY1_META_SCOPE } from "../_shared/tracking/canonical/routeOwnership.ts";
 import {
   consentPersistFailureStatus,
   type ParsedConsentRequest,
   persistConsentBatch,
-  persistConsentThenRunSuccessEffects,
+  resolveAdvertisingMeasurementConsent,
   validateConsentRequest,
 } from "../_shared/consentCapture.ts";
 import { stripConsentForLeadsInsert } from "../_shared/leadInsertPayload.ts";
@@ -323,6 +324,12 @@ interface LeadCapturedCanonicalParams {
   utmTerm: string | null;
   source: string;
   attribution: Record<string, unknown>;
+  fbc?: string | null;
+  fbp?: string | null;
+  gclid?: string | null;
+  clientIp?: string | null;
+  userAgent?: string | null;
+  measurementScope?: typeof WMCHAT_DAY1_META_SCOPE;
 }
 
 function pickAttributionString(
@@ -428,10 +435,71 @@ function preserveSiteWideAttributionFields(
   return out;
 }
 
-/**
- * Fail-closed canonical lead_captured scaffold. No-op while
- * CANONICAL_LEAD_CAPTURED_ENABLED is false. Non-fatal when enabled later.
- */
+function persistLeadCapturedCanonical(
+  admin: SupabaseClient,
+  params: LeadCapturedCanonicalParams,
+  consent?: ParsedConsentRequest,
+) {
+  const metaConsent = consent
+    ? resolveAdvertisingMeasurementConsent(consent)
+    : undefined;
+  const journeyRoute = params.measurementScope === WMCHAT_DAY1_META_SCOPE
+    ? "/wmchat"
+    : params.firstPagePath ?? params.landingPageUrl ?? "/";
+
+  return persistCanonicalEvent(admin, {
+    eventId:
+      `wmc_lead_captured_lead-${params.leadId}_session-${params.sessionId}`,
+    eventName: "lead_captured",
+    leadId: params.leadId,
+    clientSlug: params.clientSlug ?? undefined,
+    payload: {
+      identity: {
+        leadId: params.leadId,
+        ...(params.email ? { email: params.email } : {}),
+        phone: params.phoneE164 ?? undefined,
+        fbc: params.fbc ?? undefined,
+        fbp: params.fbp ?? undefined,
+        gclid: params.gclid ?? undefined,
+        clientIp: params.clientIp ?? undefined,
+        userAgent: params.userAgent ?? undefined,
+      },
+      journey: {
+        route: journeyRoute,
+        flow: "public",
+        sessionId: params.sessionId,
+      },
+      source: {
+        sourceSystem: "edge_function",
+        utmSource: params.utmSource ?? undefined,
+        utmMedium: params.utmMedium ?? undefined,
+        utmCampaign: params.utmCampaign ?? undefined,
+        referrer: pickAttributionString(params.attribution, "referrer", 1000),
+      },
+      metadata: {
+        ...buildLeadCapturedAttributionMetadata(params),
+        ...(params.measurementScope
+          ? { measurement_scope: params.measurementScope }
+          : {}),
+      },
+    },
+    ...(metaConsent
+      ? {
+        dispatchPolicy: {
+          allowedPlatforms: ["meta" as const],
+          metaConsent,
+          ...(metaConsent === "granted" ? {} : {
+            metaSuppressionReason: metaConsent === "denied"
+              ? "advertising_measurement_declined"
+              : "advertising_measurement_missing",
+          }),
+        },
+      }
+      : {}),
+  });
+}
+
+/** Legacy sources retain their existing feature flag and best-effort behavior. */
 async function maybePersistLeadCapturedCanonical(
   admin: SupabaseClient,
   params: LeadCapturedCanonicalParams,
@@ -440,36 +508,8 @@ async function maybePersistLeadCapturedCanonical(
     return;
   }
 
-  const journeyRoute = params.firstPagePath ?? params.landingPageUrl ?? "/";
-
   try {
-    await persistCanonicalEvent(admin, {
-      eventId:
-        `wmc_lead_captured_lead-${params.leadId}_session-${params.sessionId}`,
-      eventName: "lead_captured",
-      leadId: params.leadId,
-      clientSlug: params.clientSlug ?? undefined,
-      payload: {
-        identity: {
-          leadId: params.leadId,
-          ...(params.email ? { email: params.email } : {}),
-          phone: params.phoneE164 ?? undefined,
-        },
-        journey: {
-          route: journeyRoute,
-          flow: "public",
-          sessionId: params.sessionId,
-        },
-        source: {
-          sourceSystem: "edge_function",
-          utmSource: params.utmSource ?? undefined,
-          utmMedium: params.utmMedium ?? undefined,
-          utmCampaign: params.utmCampaign ?? undefined,
-          referrer: pickAttributionString(params.attribution, "referrer", 1000),
-        },
-        metadata: buildLeadCapturedAttributionMetadata(params),
-      },
-    });
+    await persistLeadCapturedCanonical(admin, params);
   } catch (err) {
     console.warn(
       `[${FUNCTION_NAME}] lead_captured canonical scaffold failed (non-fatal)`,
@@ -480,6 +520,127 @@ async function maybePersistLeadCapturedCanonical(
       },
     );
   }
+}
+
+type CanonicalPersistResult = Awaited<
+  ReturnType<typeof persistCanonicalEvent>
+>;
+
+export async function persistCanonicalEventWithRetry(
+  persist: () => Promise<CanonicalPersistResult>,
+): Promise<CanonicalPersistResult> {
+  let lastError: unknown = new Error("canonical_persist_failed");
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      const result = await persist();
+      if (!result.eventLogId || !result.dispatchPlatforms.includes("meta")) {
+        throw new Error("canonical_meta_outbox_missing");
+      }
+      return result;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError;
+}
+
+/**
+ * Marketing measurement is downstream of durable lead capture. Exhausting the
+ * idempotent event/outbox retry records a repair signal but never converts a
+ * persisted homeowner lead into an HTTP failure.
+ */
+export async function runWmChatMeasurementBestEffort(args: {
+  persist: () => Promise<CanonicalPersistResult>;
+  recordRepair: () => void | Promise<void>;
+}): Promise<boolean> {
+  try {
+    await persistCanonicalEventWithRetry(args.persist);
+    return true;
+  } catch {
+    await args.recordRepair();
+    return false;
+  }
+}
+
+async function persistWmChatLeadCapturedCanonicalBestEffort(args: {
+  admin: SupabaseClient;
+  leadId: string;
+  sessionId: string;
+  consent: ParsedConsentRequest;
+  clientIp: string | null;
+  userAgent: string | null;
+}): Promise<void> {
+  const { data, error } = await args.admin
+    .from("leads")
+    .select(
+      "id, session_id, source, email, phone_e164, client_slug, attribution, utm_source, utm_medium, utm_campaign, utm_content, utm_term, fbc, fbp, gclid, landing_page_url, first_page_path",
+    )
+    .eq("id", args.leadId)
+    .maybeSingle();
+
+  const stored = data as Record<string, unknown> | null;
+  if (
+    error || !stored || stored.id !== args.leadId ||
+    stored.session_id !== args.sessionId ||
+    stored.source !== "windowman-first-quote" ||
+    typeof stored.phone_e164 !== "string" ||
+    !/^\+1\d{10}$/.test(stored.phone_e164)
+  ) {
+    audit(args.admin, {
+      stage: "measurement_repair_required",
+      status: "failed",
+      session_id: args.sessionId,
+      lead_id: args.leadId,
+      error_code: "canonical_source_lead_unavailable",
+      error_message:
+        "Stored WMChat lead could not be loaded for measurement repair.",
+    });
+    return;
+  }
+
+  const attribution = isPlainRecord(stored.attribution)
+    ? stored.attribution
+    : {};
+  const asStoredString = (value: unknown): string | null =>
+    typeof value === "string" && value.trim() ? value : null;
+
+  await runWmChatMeasurementBestEffort({
+    persist: () =>
+      persistLeadCapturedCanonical(args.admin, {
+        leadId: args.leadId,
+        sessionId: args.sessionId,
+        email: asStoredString(stored.email),
+        phoneE164: stored.phone_e164 as string,
+        clientSlug: asStoredString(stored.client_slug),
+        landingPageUrl: asStoredString(stored.landing_page_url),
+        firstPagePath: asStoredString(stored.first_page_path),
+        utmSource: asStoredString(stored.utm_source),
+        utmMedium: asStoredString(stored.utm_medium),
+        utmCampaign: asStoredString(stored.utm_campaign),
+        utmContent: asStoredString(stored.utm_content),
+        utmTerm: asStoredString(stored.utm_term),
+        source: "windowman-first-quote",
+        attribution,
+        fbc: asStoredString(stored.fbc) ??
+          pickAttributionString(attribution, "fbc"),
+        fbp: asStoredString(stored.fbp) ??
+          pickAttributionString(attribution, "fbp"),
+        gclid: asStoredString(stored.gclid) ??
+          pickAttributionString(attribution, "gclid"),
+        clientIp: args.clientIp,
+        userAgent: args.userAgent,
+        measurementScope: WMCHAT_DAY1_META_SCOPE,
+      }, args.consent),
+    recordRepair: () =>
+      audit(args.admin, {
+        stage: "measurement_repair_required",
+        status: "failed",
+        session_id: args.sessionId,
+        lead_id: args.leadId,
+        error_code: "canonical_meta_outbox_persist_failed",
+        error_message: "WMChat lead measurement requires idempotent repair.",
+      }),
+  });
 }
 
 interface CapturePayload {
@@ -611,6 +772,7 @@ const PERSISTED_STAGES = new Set<string>([
   "lead_reused",
   "consent_persist_failed",
   "required_capture_persist_failed",
+  "measurement_repair_required",
   "unexpected_error",
   "response_sent",
 ]);
@@ -647,6 +809,7 @@ function audit(
       .insert({
         event_name: "truthgate_capture_audit",
         session_id: evt.session_id ?? null,
+        lead_id: evt.lead_id ?? null,
         route: "/",
         metadata: fullEvt as unknown as Record<string, unknown>,
       })
@@ -957,9 +1120,24 @@ function exactQueryString(
 }
 
 function isStrictWmChatConsent(consent: ParsedConsentRequest): boolean {
-  return consent.events.length === 1 &&
-    consent.events[0].purpose === "service_communications" &&
-    consent.events[0].decision === "granted";
+  if (consent.events.length < 1 || consent.events.length > 2) return false;
+
+  const service = consent.events.find(
+    (event) => event.purpose === "service_communications",
+  );
+  const measurement = consent.events.find(
+    (event) => event.purpose === "advertising_measurement",
+  );
+
+  return service?.decision === "granted" &&
+    (!measurement ||
+      measurement.decision === "granted" ||
+      measurement.decision === "declined") &&
+    consent.events.every(
+      (event) =>
+        event.purpose === "service_communications" ||
+        event.purpose === "advertising_measurement",
+    );
 }
 
 function normalizeIntentValue(value: string): string {
@@ -1275,6 +1453,37 @@ type RequiredCaptureResult =
   | { ok: true }
   | { ok: false; code: string; message: string };
 
+export async function recoverWmChatSessionUniqueConflict(args: {
+  errorCode: string | null | undefined;
+  hasWmChatIntake: boolean;
+  loadExistingLeadId: () => Promise<string | null>;
+  completeExistingLead: (leadId: string) => Promise<RequiredCaptureResult>;
+}): Promise<
+  | { recovered: false }
+  | {
+    recovered: true;
+    leadId: string;
+    completion: RequiredCaptureResult;
+  }
+> {
+  if (args.errorCode !== "23505" || !args.hasWmChatIntake) {
+    return { recovered: false };
+  }
+
+  const leadId = await args.loadExistingLeadId();
+  if (!leadId) return { recovered: false };
+
+  return {
+    recovered: true,
+    leadId,
+    completion: await args.completeExistingLead(leadId),
+  };
+}
+
+function requiredCaptureFailureStatus(code: string): number {
+  return consentPersistFailureStatus(code);
+}
+
 export function buildWmChatInsertQualification(
   stored: StoredWmChatIntake,
 ): Record<string, unknown> {
@@ -1327,7 +1536,7 @@ export async function persistWmChatRequiredCaptureData(args: {
   verifyLead: () => Promise<RequiredCaptureResult>;
   persistConsent: () => Promise<RequiredCaptureResult>;
   persistNamespace: () => Promise<RequiredCaptureResult>;
-  runSuccessEffects: () => Promise<void>;
+  runSuccessEffects: () => Promise<RequiredCaptureResult>;
 }): Promise<RequiredCaptureResult> {
   const verified = await args.verifyLead();
   if (!verified.ok) return verified;
@@ -1338,8 +1547,7 @@ export async function persistWmChatRequiredCaptureData(args: {
   const namespace = await args.persistNamespace();
   if (!namespace.ok) return namespace;
 
-  await args.runSuccessEffects();
-  return { ok: true };
+  return args.runSuccessEffects();
 }
 
 async function loadWmChatQualificationForUpdate(
@@ -1409,20 +1617,18 @@ async function persistCaptureRequirementsThenRunEffects(args: {
   admin: SupabaseClient;
   leadId: string;
   payload: CapturePayload;
-  runSuccessEffects: () => Promise<void>;
+  runSuccessEffects: () => Promise<RequiredCaptureResult>;
 }): Promise<RequiredCaptureResult> {
   const { admin, leadId, payload } = args;
   if (!payload.wmchat_stored) {
-    return persistConsentThenRunSuccessEffects({
-      persist: () =>
-        persistCaptureConsent(
-          admin,
-          leadId,
-          payload.session_id,
-          payload.consent,
-        ),
-      runSuccessEffects: args.runSuccessEffects,
-    });
+    const consent = await persistCaptureConsent(
+      admin,
+      leadId,
+      payload.session_id,
+      payload.consent,
+    );
+    if (!consent.ok) return consent;
+    return args.runSuccessEffects();
   }
 
   let preparedQualification: Record<string, unknown> | null = null;
@@ -1472,6 +1678,65 @@ async function persistCaptureRequirementsThenRunEffects(args: {
     },
     runSuccessEffects: args.runSuccessEffects,
   });
+}
+
+async function completeWmChatLeadCaptureEffects(args: {
+  admin: SupabaseClient;
+  leadId: string;
+  payload: CapturePayload;
+  clientIp: string | null;
+  userAgent: string | null;
+  mergeAttribution: boolean;
+}): Promise<RequiredCaptureResult> {
+  if (args.mergeAttribution) {
+    await mergeExistingLeadAttribution(
+      args.admin,
+      args.leadId,
+      args.payload.attribution,
+      args.payload.query_params,
+    );
+  }
+
+  if (args.payload.wmchat_stored && args.payload.wmchat_capture_kind === null) {
+    await persistWmChatLeadCapturedCanonicalBestEffort({
+      admin: args.admin,
+      leadId: args.leadId,
+      sessionId: args.payload.session_id,
+      consent: args.payload.consent,
+      clientIp: args.clientIp,
+      userAgent: args.userAgent,
+    });
+  } else {
+    await maybePersistLeadCapturedCanonical(args.admin, {
+      leadId: args.leadId,
+      sessionId: args.payload.session_id,
+      email: args.payload.email,
+      phoneE164: args.payload.phone_e164,
+      clientSlug: args.payload.client_slug,
+      landingPageUrl: args.payload.landing_page_url,
+      firstPagePath: args.payload.first_page_path,
+      utmSource: args.payload.utm_source,
+      utmMedium: args.payload.utm_medium,
+      utmCampaign: args.payload.utm_campaign,
+      utmContent: args.payload.utm_content,
+      utmTerm: args.payload.utm_term,
+      source: args.payload.source,
+      attribution: args.payload.attribution,
+    });
+  }
+
+  const derivedLeadSource = deriveLeadSourceFromSource(args.payload.source);
+  await args.admin
+    .from("leads")
+    .update({ lead_source: derivedLeadSource })
+    .eq("id", args.leadId);
+  await emitTruthGateCaptureActivity(args.admin, {
+    leadId: args.leadId,
+    source: args.payload.source,
+    email: args.payload.email,
+    phone_e164: args.payload.phone_e164,
+  });
+  return { ok: true };
 }
 
 async function handleWmChatPostCapture(
@@ -1737,41 +2002,15 @@ export const handler = async (req: Request): Promise<Response> => {
         admin,
         leadId: reusedLeadId,
         payload,
-        runSuccessEffects: async () => {
-          await mergeExistingLeadAttribution(
+        runSuccessEffects: () =>
+          completeWmChatLeadCaptureEffects({
             admin,
-            reusedLeadId,
-            parsed.payload.attribution,
-            parsed.payload.query_params,
-          );
-          await maybePersistLeadCapturedCanonical(admin, {
             leadId: reusedLeadId,
-            sessionId: payload.session_id,
-            email: payload.email,
-            phoneE164: payload.phone_e164,
-            clientSlug: payload.client_slug,
-            landingPageUrl: payload.landing_page_url,
-            firstPagePath: payload.first_page_path,
-            utmSource: payload.utm_source,
-            utmMedium: payload.utm_medium,
-            utmCampaign: payload.utm_campaign,
-            utmContent: payload.utm_content,
-            utmTerm: payload.utm_term,
-            source: payload.source,
-            attribution: payload.attribution,
-          });
-          const derivedLeadSource = deriveLeadSourceFromSource(payload.source);
-          await admin
-            .from("leads")
-            .update({ lead_source: derivedLeadSource })
-            .eq("id", reusedLeadId);
-          await emitTruthGateCaptureActivity(admin, {
-            leadId: reusedLeadId,
-            source: payload.source,
-            email: payload.email,
-            phone_e164: payload.phone_e164,
-          });
-        },
+            payload,
+            clientIp: extractOpenAiAdsClientIp(req.headers),
+            userAgent: req.headers.get("user-agent"),
+            mergeAttribution: true,
+          }),
       });
       if (!consentPersist.ok) {
         audit(admin, {
@@ -1790,7 +2029,7 @@ export const handler = async (req: Request): Promise<Response> => {
             code: consentPersist.code,
             message: consentPersist.message,
           },
-          consentPersistFailureStatus(consentPersist.code),
+          requiredCaptureFailureStatus(consentPersist.code),
           corsHeaders,
         );
       }
@@ -1957,6 +2196,98 @@ export const handler = async (req: Request): Promise<Response> => {
     .single();
 
   if (error) {
+    // The partial unique index on WMChat session_id closes the lookup/insert
+    // race. The losing request completes the same idempotent consent,
+    // namespace, event, and outbox path against the winner's durable lead.
+    const conflictRecovery = await recoverWmChatSessionUniqueConflict({
+      errorCode: error.code,
+      hasWmChatIntake: payload.wmchat_stored !== null,
+      loadExistingLeadId: async () => {
+        const { data: existingAfterConflict, error: recoveryLookupError } =
+          await admin.rpc("get_lead_by_session", {
+            p_session_id: payload.session_id,
+          });
+        const recoveredLeadId = !recoveryLookupError &&
+            Array.isArray(existingAfterConflict) &&
+            typeof existingAfterConflict[0]?.id === "string"
+          ? existingAfterConflict[0].id as string
+          : null;
+        return recoveredLeadId &&
+            isValidCaptureIdentity(
+              recoveredLeadId,
+              payload.session_id,
+              payload.session_id,
+            )
+          ? recoveredLeadId
+          : null;
+      },
+      completeExistingLead: (leadId) =>
+        persistCaptureRequirementsThenRunEffects({
+          admin,
+          leadId,
+          payload,
+          runSuccessEffects: () =>
+            completeWmChatLeadCaptureEffects({
+              admin,
+              leadId,
+              payload,
+              clientIp: extractOpenAiAdsClientIp(req.headers),
+              userAgent: req.headers.get("user-agent"),
+              mergeAttribution: true,
+            }),
+        }),
+    });
+
+    if (conflictRecovery.recovered) {
+      const recoveredLeadId = conflictRecovery.leadId;
+      const recovered = conflictRecovery.completion;
+      if (recovered.ok) {
+        audit(admin, {
+          stage: "lead_reused",
+          status: "reused",
+          session_id: payload.session_id,
+          lead_id: recoveredLeadId,
+          has_phone: true,
+          has_client_slug: !!payload.client_slug,
+        });
+        audit(admin, {
+          stage: "response_sent",
+          status: "succeeded",
+          session_id: payload.session_id,
+          lead_id: recoveredLeadId,
+          http_status: 200,
+        });
+        return jsonResponse(
+          {
+            success: true,
+            lead_id: recoveredLeadId,
+            session_id: payload.session_id,
+            reused: true,
+          },
+          200,
+          corsHeaders,
+        );
+      }
+
+      audit(admin, {
+        stage: "required_capture_persist_failed",
+        status: "failed",
+        session_id: payload.session_id,
+        lead_id: recoveredLeadId,
+        error_code: recovered.code,
+        error_message: recovered.message,
+      });
+      return jsonResponse(
+        {
+          success: false,
+          code: recovered.code,
+          message: recovered.message,
+        },
+        requiredCaptureFailureStatus(recovered.code),
+        corsHeaders,
+      );
+    }
+
     audit(admin, {
       stage: "lead_insert_failed",
       status: "failed",
@@ -2017,39 +2348,23 @@ export const handler = async (req: Request): Promise<Response> => {
   }
 
   {
-    // Required consent persistence FIRST — the canonical lead_captured event
-    // and CRM activity are success signals and may only fire after the
-    // consent batch is durably recorded. On failure the client receives an
-    // error and recovers by retrying: the session lookup reuses this lead and
-    // the same submissionId persists idempotently before success effects run.
+    // Required consent persistence FIRST. Lead/consent/namespace failures may
+    // fail the capture; downstream advertising measurement may not. Canonical
+    // event/outbox failure is retried and recorded for repair while the durable
+    // homeowner lead still receives a successful response.
     const consentPersist = await persistCaptureRequirementsThenRunEffects({
       admin,
       leadId: insertedLeadId,
       payload,
-      runSuccessEffects: async () => {
-        await maybePersistLeadCapturedCanonical(admin, {
+      runSuccessEffects: () =>
+        completeWmChatLeadCaptureEffects({
+          admin,
           leadId: insertedLeadId,
-          sessionId: payload.session_id,
-          email: payload.email,
-          phoneE164: payload.phone_e164,
-          clientSlug: payload.client_slug,
-          landingPageUrl: payload.landing_page_url,
-          firstPagePath: payload.first_page_path,
-          utmSource: payload.utm_source,
-          utmMedium: payload.utm_medium,
-          utmCampaign: payload.utm_campaign,
-          utmContent: payload.utm_content,
-          utmTerm: payload.utm_term,
-          source: payload.source,
-          attribution: payload.attribution,
-        });
-        await emitTruthGateCaptureActivity(admin, {
-          leadId: insertedLeadId,
-          source: payload.source,
-          email: payload.email,
-          phone_e164: payload.phone_e164,
-        });
-      },
+          payload,
+          clientIp: extractOpenAiAdsClientIp(req.headers),
+          userAgent: req.headers.get("user-agent"),
+          mergeAttribution: false,
+        }),
     });
     if (!consentPersist.ok) {
       audit(admin, {
@@ -2068,7 +2383,7 @@ export const handler = async (req: Request): Promise<Response> => {
           code: consentPersist.code,
           message: consentPersist.message,
         },
-        consentPersistFailureStatus(consentPersist.code),
+        requiredCaptureFailureStatus(consentPersist.code),
         corsHeaders,
       );
     }

@@ -42,6 +42,50 @@ describe("classifyRouteOwnership", () => {
     });
   });
 
+  it("allows only the exact server-minted WMChat lead scope", () => {
+    const result = classifyRouteOwnership(
+      makeInput({
+        eventName: "lead_captured",
+        eventLeadId: crypto.randomUUID(),
+        eventMeasurementScope: "wmchat_day1_lead",
+      }),
+    );
+
+    expect(result).toEqual({
+      routeClass: "platform_owned",
+      verifiedClientSlug: null,
+      reason: "platform_owned_wmchat_lead",
+      allowDefaultPixel: true,
+      allowEnvFallback: true,
+    });
+  });
+
+  it("keeps tenant ownership ahead of the platform WMChat scope", () => {
+    const result = classifyRouteOwnership(
+      makeInput({
+        eventName: "lead_captured",
+        eventClientSlug: "Tenant-Alpha",
+        eventMeasurementScope: "wmchat_day1_lead",
+      }),
+    );
+
+    expect(result.routeClass).toBe("tenant_required");
+    expect(result.verifiedClientSlug).toBe("tenant-alpha");
+  });
+
+  it("rejects unrelated events even if they copy the scope literal", () => {
+    const result = classifyRouteOwnership(
+      makeInput({
+        eventName: "lead_qualified",
+        eventLeadId: crypto.randomUUID(),
+        eventMeasurementScope: "wmchat_day1_lead",
+      }),
+    );
+
+    expect(result.routeClass).toBe("unresolved");
+    expect(result.reason).toBe("missing_client_slug");
+  });
+
   it("returns unresolved missing_client_slug when lead_id exists without slug", () => {
     const result = classifyRouteOwnership(
       makeInput({ eventLeadId: crypto.randomUUID() }),

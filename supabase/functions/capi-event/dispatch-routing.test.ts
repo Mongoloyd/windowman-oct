@@ -12,6 +12,7 @@ import {
 
 import {
   type CAPIEvent,
+  buildHashedUserData,
   dispatchCapiEvent,
   parseInternalRouteContext,
   processAuthorizedCapiRequest,
@@ -209,6 +210,60 @@ Deno.test("resolvePixelConfigForDispatch: platform_owned with empty allowlist fa
 
   assertEquals(result.ok, false);
   assertEquals(result.reason, "platform_default_not_allowed");
+});
+
+Deno.test("platform WMChat Lead requires the exact internal scope and uses default config", async () => {
+  clearEnv();
+  const supabase = buildMockSupabase(baseTables);
+  const context = parseInternalRouteContext({
+    event_name: "Lead",
+    event_id: "wmc_lead_captured_lead-a_session-b",
+    event_source_url: "https://windowman.app/wmchat",
+    action_source: "website",
+    route_class: "platform_owned",
+    platform_event_scope: "wmchat_day1_lead",
+    user_data: { ph: "a".repeat(64) },
+  });
+
+  assertEquals(context.routeClass, "platform_owned");
+  assertEquals("platform_event_scope" in context.metaEvent, false);
+  const result = await resolvePixelConfigForDispatch({
+    supabase: supabase as never,
+    routeClass: context.routeClass,
+    verifiedClientSlug: context.verifiedClientSlug,
+    eventName: "Lead",
+  });
+  assertEquals(result.ok, true);
+  assertEquals(result.config?.pixelId, "PIXEL_DEFAULT");
+});
+
+Deno.test("platform route without the exact WMChat scope is unresolved", () => {
+  const context = parseInternalRouteContext({
+    event_name: "Lead",
+    event_id: "unscoped-lead",
+    event_source_url: "https://windowman.app/wmchat",
+    action_source: "website",
+    route_class: "platform_owned",
+    user_data: { ph: "a".repeat(64) },
+  });
+  assertEquals(context.routeClass, "unresolved");
+  assertEquals(context.verifiedClientSlug, undefined);
+});
+
+Deno.test("buildHashedUserData preserves the captured browser IP and hashes PII", async () => {
+  const userData = await buildHashedUserData(
+    {
+      ph: "+15615550123",
+      client_ip_address: "203.0.113.10",
+      client_user_agent: "captured-browser-agent",
+    },
+    { clientIp: "127.0.0.1", userAgent: "worker-agent" },
+  );
+
+  assertEquals(userData.client_ip_address, "203.0.113.10");
+  assertEquals(userData.client_user_agent, "captured-browser-agent");
+  assertEquals(Array.isArray(userData.ph), true);
+  assertEquals(String((userData.ph as string[])[0]).includes("5615550123"), false);
 });
 
 Deno.test("resolvePixelConfig: legacy default fallback still works for admin preview path", async () => {

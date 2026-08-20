@@ -12,6 +12,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import windowmanScript from "@/assets/windowman-script.png";
 import { hasTrustedContactIdentity } from "@/lib/leadSession";
+import { readAdvertisingMeasurementDecision } from "@/lib/consent/measurementConsent";
 import { normalizeTruthGatePhoneToE164 } from "@/lib/validation/truthGateContact";
 import { useScanFunnelSafe } from "@/state/scanFunnel";
 import { WmChatConversation } from "./WmChatConversation";
@@ -252,6 +253,8 @@ export default function WmChatPage({
         (await import("@/services/wmchatLeadCapture")).submitWmChatLead;
       const firstName = state.contact.firstName.trim() || null;
       const contactDigest = buildWmChatContactDigest(firstName, phoneE164);
+      const advertisingMeasurementDecision =
+        readAdvertisingMeasurementDecision();
 
       // The server binds one lead per session_id and rejects a later capture
       // carrying different contact details. Rotate up front when this tab has
@@ -276,6 +279,7 @@ export default function WmChatPage({
           serviceCommunicationsGranted: true,
           marketingConsentPresented: false,
           marketingCommunicationsGranted: false,
+          advertisingMeasurementDecision,
           wmchatIntake,
         });
 

@@ -30,6 +30,8 @@ export interface WMIdentityPayload {
   ipRiskLevel?: "low" | "medium" | "high";
   userAgent?: string;
   clientIp?: string;
+  /** Persisted so workers never have to reconstruct identity quality. */
+  identityQuality?: WMIdentityQuality;
 }
 
 export interface WMJourneyPayload {
@@ -90,6 +92,8 @@ export interface WMCanonicalEventPayload {
   optimization?: WMOptimizationPayload;
   source?: WMSourcePayload;
   metadata?: Record<string, unknown>;
+  shouldSendMeta?: boolean;
+  shouldSendGoogle?: boolean;
 }
 
 export interface WMCanonicalEvent {

@@ -14,8 +14,9 @@
  *   5. Initialize the consent-gated OpenAI Ads Pixel once and emit
  *      `page_viewed` on initial load + real SPA route changes. OpenAI's
  *      `lead_created` mirror is owned by the confirmed lead service instead.
- *   6. NARROW EXCEPTION: `/wmchat` keeps passive first-party attribution but
- *      emits no application-owned browser page measurement.
+ *   6. NARROW EXCEPTION: `/wmchat` keeps passive first-party attribution and
+ *      emits one consented Meta PageView per real route entry. Internal chat
+ *      search/hash/step changes stay silent; its other page lanes remain off.
  *
  * NON-GOALS:
  *   - No browser-side Meta conversion events (no `Lead`, no `Purchase`,
@@ -29,6 +30,7 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useLayoutEffect,
@@ -53,6 +55,7 @@ import {
   markOpenAiAdsPageViewSuppressed,
   trackOpenAiAdsPageViewed,
 } from "@/lib/openAiAdsPixel";
+import { MEASUREMENT_CONSENT_CHANGED_EVENT } from "@/lib/consent/measurementConsent";
 
 // ── Context ─────────────────────────────────────────────────────────────────
 
@@ -83,32 +86,6 @@ export function AppTrackingProvider({ children }: { children: React.ReactNode })
   const location = useLocation();
   const leadId = useLeadId();
   const utmData = useUtmCapture(`${location.pathname}${location.search}`);
-  const pageMeasurementSuppressedRef = useRef(
-    isWmChatMeasurementPath(location.pathname),
-  );
-
-  useLayoutEffect(() => {
-    pageMeasurementSuppressedRef.current = isWmChatMeasurementPath(
-      location.pathname,
-    );
-  }, [location.pathname]);
-
-  // RouteTracker owns page-adapter initialization so a direct /wmchat load
-  // cannot trigger the initial events built into either adapter.
-  useEffect(() => {
-    // The consent UI owns the persisted choice. Re-sync the existing OpenAI
-    // adapter when that choice changes so a first-page grant can emit the
-    // current page_viewed without waiting for navigation or reload.
-    const handleConsentChanged = () => {
-      if (pageMeasurementSuppressedRef.current) return;
-      trackOpenAiAdsPageViewed();
-    };
-    window.addEventListener("consentChanged", handleConsentChanged);
-
-    return () => {
-      window.removeEventListener("consentChanged", handleConsentChanged);
-    };
-  }, []);
 
   const value = useMemo<AppTrackingContextValue>(
     () => ({ leadId, utmData, getUtmPayload }),
@@ -136,8 +113,49 @@ function isWmChatMeasurementPath(pathname: string): boolean {
 function RouteTracker() {
   const location = useLocation();
   const lastObservedRouteKey = useRef<string | null>(null);
-  const hasEligibleRoute = useRef(false);
+  const lastMetaPageViewRouteKey = useRef<string | null>(null);
+  const currentMetaRouteKey = useRef<string>("");
+  const currentRouteIsWmChat = useRef(false);
+  const hasEligibleOpenAiRoute = useRef(false);
   const wasWmChatRoute = useRef(isWmChatMeasurementPath(location.pathname));
+
+  useLayoutEffect(() => {
+    const isWmChatRoute = isWmChatMeasurementPath(location.pathname);
+    currentRouteIsWmChat.current = isWmChatRoute;
+    currentMetaRouteKey.current = isWmChatRoute
+      ? "/wmchat"
+      : `${location.pathname}${location.search}${location.hash}`;
+  }, [location.pathname, location.search, location.hash]);
+
+  const emitMetaPageViewForCommittedRoute = useCallback(() => {
+    const routeKey = currentMetaRouteKey.current;
+    if (!routeKey || lastMetaPageViewRouteKey.current === routeKey) return;
+
+    const fired = lastMetaPageViewRouteKey.current === null
+      ? initMetaBrowserPixel()
+      : trackMetaPageView();
+    if (fired) lastMetaPageViewRouteKey.current = routeKey;
+  }, []);
+
+  useEffect(() => {
+    const handleConsentChanged = () => {
+      emitMetaPageViewForCommittedRoute();
+      if (!currentRouteIsWmChat.current) {
+        trackOpenAiAdsPageViewed();
+      }
+    };
+
+    window.addEventListener(
+      MEASUREMENT_CONSENT_CHANGED_EVENT,
+      handleConsentChanged,
+    );
+    return () => {
+      window.removeEventListener(
+        MEASUREMENT_CONSENT_CHANGED_EVENT,
+        handleConsentChanged,
+      );
+    };
+  }, [emitMetaPageViewForCommittedRoute]);
 
   useEffect(() => {
     const routeKey = `${location.pathname}${location.search}${location.hash}`;
@@ -149,9 +167,10 @@ function RouteTracker() {
     wasWmChatRoute.current = isWmChatRoute;
 
     if (isWmChatRoute) {
-      if (enteredWmChat && hasEligibleRoute.current) {
+      if (enteredWmChat && hasEligibleOpenAiRoute.current) {
         markOpenAiAdsPageViewSuppressed();
       }
+      emitMetaPageViewForCommittedRoute();
       return;
     }
 
@@ -172,15 +191,20 @@ function RouteTracker() {
     // Adapter initialization owns the first eligible page event. This may be
     // the initial route or the first destination after a suppressed /wmchat
     // visit. Later eligible routes use the adapters' SPA event functions.
-    if (!hasEligibleRoute.current) {
-      hasEligibleRoute.current = true;
-      initMetaBrowserPixel();
+    if (!hasEligibleOpenAiRoute.current) {
+      hasEligibleOpenAiRoute.current = true;
+      emitMetaPageViewForCommittedRoute();
       initOpenAiAdsPixel();
       return;
     }
-    trackMetaPageView();
+    emitMetaPageViewForCommittedRoute();
     trackOpenAiAdsPageViewed();
-  }, [location.pathname, location.search, location.hash]);
+  }, [
+    emitMetaPageViewForCommittedRoute,
+    location.pathname,
+    location.search,
+    location.hash,
+  ]);
 
   return null;
 }

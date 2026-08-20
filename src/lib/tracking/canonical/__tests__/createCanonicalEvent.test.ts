@@ -14,18 +14,26 @@ class MockDB {
     scan_sessions: {},
     analyses: {},
   };
-  public attributionLookups: Record<string, Record<string, Record<string, unknown>>> = {
+  public attributionLookups: Record<
+    string,
+    Record<string, Record<string, unknown>>
+  > = {
     leads: {},
     scan_sessions: {},
   };
-  public queryParamsLookups: Record<string, Record<string, Record<string, string | string[]>>> = {
+  public queryParamsLookups: Record<
+    string,
+    Record<string, Record<string, string | string[]>>
+  > = {
     leads: {},
     scan_sessions: {},
   };
 
   from(table: string) {
     return {
-      insert: async (payload: Record<string, unknown> | Record<string, unknown>[]) => {
+      insert: async (
+        payload: Record<string, unknown> | Record<string, unknown>[],
+      ) => {
         const rows = Array.isArray(payload) ? payload : [payload];
         this.inserts[table] = [...(this.inserts[table] ?? []), ...rows];
         return { data: rows, error: null };
@@ -49,7 +57,10 @@ class MockDB {
               return { data: { id: "event-log-1" }, error: null };
             }
 
-            if (table === "leads" || table === "scan_sessions" || table === "analyses") {
+            if (
+              table === "leads" || table === "scan_sessions" ||
+              table === "analyses"
+            ) {
               const data: Record<string, unknown> = {};
               const slug = this.slugLookups[table]?.[value];
               if (slug != null) {
@@ -77,7 +88,9 @@ class MockDB {
   }
 }
 
-function baseInput(overrides: Partial<CreateCanonicalEventInput> = {}): CreateCanonicalEventInput {
+function baseInput(
+  overrides: Partial<CreateCanonicalEventInput> = {},
+): CreateCanonicalEventInput {
   return {
     eventName: "quote_validation_passed",
     leadId: crypto.randomUUID(),
@@ -150,16 +163,22 @@ describe("createCanonicalEvent", () => {
   it("generates event_id when omitted and reuses when provided", async () => {
     const db = new MockDB();
 
-    const generated = await createCanonicalEvent(baseInput({ eventId: undefined }), {
-      db,
-      createId: () => "wmc_fixed",
-      now: () => new Date("2026-04-14T10:00:00.000Z"),
-    });
+    const generated = await createCanonicalEvent(
+      baseInput({ eventId: undefined }),
+      {
+        db,
+        createId: () => "wmc_fixed",
+        now: () => new Date("2026-04-14T10:00:00.000Z"),
+      },
+    );
 
-    const reused = await createCanonicalEvent(baseInput({ eventId: "wmc_reused" }), {
-      db,
-      now: () => new Date("2026-04-14T10:00:00.000Z"),
-    });
+    const reused = await createCanonicalEvent(
+      baseInput({ eventId: "wmc_reused" }),
+      {
+        db,
+        now: () => new Date("2026-04-14T10:00:00.000Z"),
+      },
+    );
 
     expect(generated.canonicalEvent.eventId).toBe("wmc_fixed");
     expect(reused.canonicalEvent.eventId).toBe("wmc_reused");
@@ -354,12 +373,17 @@ describe("createCanonicalEvent", () => {
         let insertCount = 0;
         return {
           ...base,
-          insert: async (payload: Record<string, unknown> | Record<string, unknown>[]) => {
+          insert: async (
+            payload: Record<string, unknown> | Record<string, unknown>[],
+          ) => {
             insertCount += 1;
             if (insertCount === 1) {
               return {
                 data: null,
-                error: { message: "duplicate key value violates unique constraint wm_event_log_event_id" },
+                error: {
+                  message:
+                    "duplicate key value violates unique constraint wm_event_log_event_id",
+                },
               };
             }
             return base.insert(payload);
@@ -414,7 +438,11 @@ describe("createCanonicalEvent", () => {
           metadata: { utm_source: "nextdoor", ndclid: "pv-1" },
         },
       }),
-      { db, createId: () => "wmc_nextdoor_pv", readNextdoorCapiEnabled: () => true },
+      {
+        db,
+        createId: () => "wmc_nextdoor_pv",
+        readNextdoorCapiEnabled: () => true,
+      },
     );
 
     expect(result.canonicalEvent.shouldSendNextdoor).toBe(false);
@@ -471,7 +499,11 @@ describe("createCanonicalEvent Nextdoor env-gated activation", () => {
           journey: { route: "/", flow: "public" },
         },
       }),
-      { db, createId: () => "wmc_no_attr", readNextdoorCapiEnabled: () => true },
+      {
+        db,
+        createId: () => "wmc_no_attr",
+        readNextdoorCapiEnabled: () => true,
+      },
     );
 
     expect(result.canonicalEvent.shouldSendNextdoor).toBe(false);
@@ -490,7 +522,11 @@ describe("createCanonicalEvent Nextdoor env-gated activation", () => {
           metadata: { utm_source: "nextdoor", ndclid: "nd-1" },
         },
       }),
-      { db, createId: () => "wmc_low_identity", readNextdoorCapiEnabled: () => true },
+      {
+        db,
+        createId: () => "wmc_low_identity",
+        readNextdoorCapiEnabled: () => true,
+      },
     );
 
     expect(result.canonicalEvent.shouldSendNextdoor).toBe(false);
@@ -514,7 +550,11 @@ describe("createCanonicalEvent Nextdoor env-gated activation", () => {
           analytics: baseInput().payload.analytics,
         },
       }),
-      { db, createId: () => "wmc_unsafe_quote", readNextdoorCapiEnabled: () => true },
+      {
+        db,
+        createId: () => "wmc_unsafe_quote",
+        readNextdoorCapiEnabled: () => true,
+      },
     );
 
     expect(result.canonicalEvent.shouldSendNextdoor).toBe(false);
@@ -538,7 +578,11 @@ describe("createCanonicalEvent Nextdoor env-gated activation", () => {
           metadata: { ndclid: "only-ndclid" },
         },
       }),
-      { db, createId: () => "wmc_ndclid_only", readNextdoorCapiEnabled: () => true },
+      {
+        db,
+        createId: () => "wmc_ndclid_only",
+        readNextdoorCapiEnabled: () => true,
+      },
     );
 
     expect(result.canonicalEvent.shouldSendNextdoor).toBe(true);
@@ -562,7 +606,11 @@ describe("createCanonicalEvent Nextdoor env-gated activation", () => {
           metadata: { nd_lead_id: "lead-only" },
         },
       }),
-      { db, createId: () => "wmc_nd_lead_only", readNextdoorCapiEnabled: () => true },
+      {
+        db,
+        createId: () => "wmc_nd_lead_only",
+        readNextdoorCapiEnabled: () => true,
+      },
     );
 
     expect(result.canonicalEvent.shouldSendNextdoor).toBe(true);
@@ -585,7 +633,11 @@ describe("createCanonicalEvent Nextdoor env-gated activation", () => {
           journey: { route: "/nextdoor", flow: "public" },
         },
       }),
-      { db, createId: () => "wmc_path_only", readNextdoorCapiEnabled: () => true },
+      {
+        db,
+        createId: () => "wmc_path_only",
+        readNextdoorCapiEnabled: () => true,
+      },
     );
 
     expect(result.canonicalEvent.shouldSendNextdoor).toBe(false);
@@ -609,7 +661,11 @@ describe("createCanonicalEvent Nextdoor env-gated activation", () => {
           source: { utmSource: "nextdoor" },
         },
       }),
-      { db, createId: () => "wmc_source_utm", readNextdoorCapiEnabled: () => true },
+      {
+        db,
+        createId: () => "wmc_source_utm",
+        readNextdoorCapiEnabled: () => true,
+      },
     );
 
     expect(result.canonicalEvent.shouldSendNextdoor).toBe(true);
@@ -928,11 +984,20 @@ describe("createCanonicalEvent Nextdoor env-gated activation", () => {
           metaConsent: "granted",
         },
       }),
-      { db, readTikTokCapiEnabled: () => true, readNextdoorCapiEnabled: () => true },
+      {
+        db,
+        readTikTokCapiEnabled: () => true,
+        readNextdoorCapiEnabled: () => true,
+      },
     );
 
     expect(result.canonicalEvent.shouldSendMeta).toBe(true);
     expect(result.canonicalEvent.shouldSendGoogle).toBe(false);
+    expect(result.canonicalEvent.payload.identity.identityQuality).toBe(
+      result.canonicalEvent.identityQuality,
+    );
+    expect(result.canonicalEvent.payload.shouldSendMeta).toBe(true);
+    expect(result.canonicalEvent.payload.shouldSendGoogle).toBe(false);
     expect(result.dispatchPlatforms).toEqual(["meta"]);
     expect(result.canonicalEvent.dispatchStatus).toBe("pending");
     const rows = db.upserts.wm_platform_dispatch_log ?? [];
@@ -979,6 +1044,48 @@ describe("createCanonicalEvent Nextdoor env-gated activation", () => {
       error_message: "consent_declined",
     });
   });
+
+  it.each(
+    [
+      ["denied", "advertising_measurement_declined"],
+      ["unknown", "advertising_measurement_missing"],
+    ] as const,
+  )(
+    "WMChat lead_captured with %s consent creates a suppressed row and zero sendable Meta dispatch",
+    async (metaConsent, reason) => {
+      const db = new MockDB();
+      const leadId = crypto.randomUUID();
+      const result = await createCanonicalEvent(
+        baseInput({
+          eventName: "lead_captured",
+          eventId: `wmc_lead_captured_${metaConsent}`,
+          leadId,
+          payload: {
+            identity: { leadId, phoneHash: "c".repeat(64) },
+            journey: { route: "/wmchat", flow: "public" },
+            metadata: { measurement_scope: "wmchat_day1_lead" },
+          },
+          dispatchPolicy: {
+            allowedPlatforms: ["meta"],
+            metaConsent,
+            metaSuppressionReason: reason,
+          },
+        }),
+        { db },
+      );
+
+      expect(result.canonicalEvent.shouldSendMeta).toBe(false);
+      expect(result.canonicalEvent.dispatchStatus).toBe("suppressed");
+      expect(result.dispatchPlatforms).toEqual(["meta"]);
+      expect(db.upserts.wm_platform_dispatch_log).toEqual([
+        expect.objectContaining({
+          platform_name: "meta",
+          dispatch_status: "suppressed",
+          error_message: reason,
+        }),
+      ]);
+    },
+  );
 
   it("omitted dispatchPolicy preserves existing quote event platforms", async () => {
     const db = new MockDB();

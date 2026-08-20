@@ -11,6 +11,7 @@ const MAX_DISCLOSURE_LEN = 32;
 
 const PURPOSES = new Set([
   "service_communications",
+  "advertising_measurement",
   "marketing_communications",
   "contractor_sharing",
 ]);
@@ -42,6 +43,24 @@ export type ParsedConsentRequest = {
     disclosureVersion: string;
   }>;
 };
+
+export type AdvertisingMeasurementConsentState =
+  | "granted"
+  | "denied"
+  | "unknown";
+
+export function resolveAdvertisingMeasurementConsent(
+  consent: ParsedConsentRequest,
+): AdvertisingMeasurementConsentState {
+  const event = consent.events.find(
+    (candidate) => candidate.purpose === "advertising_measurement",
+  );
+  if (event?.decision === "granted") return "granted";
+  if (event?.decision === "declined" || event?.decision === "withdrawn") {
+    return "denied";
+  }
+  return "unknown";
+}
 
 export function validateConsentRequest(
   raw: unknown,

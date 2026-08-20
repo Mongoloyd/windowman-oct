@@ -45,6 +45,7 @@ export interface InternalCAPIEvent extends CAPIEvent {
   route_class?: CapiRouteClass;
   route_reason?: string;
   verified_client_slug?: string;
+  platform_event_scope?: "wmchat_day1_lead";
 }
 
 export interface DispatchRouteResolution {
@@ -119,7 +120,7 @@ export async function buildHashedUserData(
 ): Promise<Record<string, unknown>> {
   const hashedUserData: Record<string, unknown> = {
     ...userData,
-    client_ip_address: headers.clientIp,
+    client_ip_address: userData.client_ip_address || headers.clientIp,
   };
 
   if (userData.em) {
@@ -364,6 +365,7 @@ export function parseInternalRouteContext(body: InternalCAPIEvent): {
     route_class,
     route_reason,
     verified_client_slug,
+    platform_event_scope,
     client_slug,
     ...metaFields
   } = body;
@@ -375,6 +377,14 @@ export function parseInternalRouteContext(body: InternalCAPIEvent): {
     routeClass = slug ? "tenant_required" : "unresolved";
   }
 
+  const verifiedPlatformScope =
+    routeClass === "platform_owned" &&
+    platform_event_scope === "wmchat_day1_lead" &&
+    metaFields.event_name === "Lead";
+  if (routeClass === "platform_owned" && !verifiedPlatformScope) {
+    routeClass = "unresolved";
+  }
+
   const metaEvent = {
     ...metaFields,
     ...(slug ? { client_slug: slug } : {}),
@@ -382,14 +392,15 @@ export function parseInternalRouteContext(body: InternalCAPIEvent): {
 
   return {
     routeClass,
-    verifiedClientSlug: slug,
+    verifiedClientSlug: verifiedPlatformScope
+      ? "__wmchat_day1_lead__"
+      : slug,
     routeReason: route_reason,
     metaEvent,
   };
 }
 
-/** Platform-owned events may use default DB/env fallback when explicitly allowlisted. */
-const PLATFORM_OWNED_EVENT_ALLOWLIST = new Set<string>([]);
+const WMCHAT_PLATFORM_SCOPE_SENTINEL = "__wmchat_day1_lead__";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Core Routing Logic
@@ -544,7 +555,10 @@ export async function resolvePixelConfigForDispatch(args: {
   }
 
   if (routeClass === "platform_owned") {
-    if (!eventName || !PLATFORM_OWNED_EVENT_ALLOWLIST.has(eventName)) {
+    if (
+      eventName !== "Lead" ||
+      verifiedClientSlug !== WMCHAT_PLATFORM_SCOPE_SENTINEL
+    ) {
       return { ok: false, reason: "platform_default_not_allowed" };
     }
 

@@ -4,6 +4,7 @@ import {
   consentPersistFailureStatus,
   persistConsentBatch,
   persistConsentThenRunSuccessEffects,
+  resolveAdvertisingMeasurementConsent,
   validateConsentRequest,
   validateHandoffContractorConsentConsistency,
   type ParsedConsentRequest,
@@ -55,6 +56,58 @@ Deno.test("validateConsentRequest accepts marketing declined when presented", ()
     "truth-gate",
   );
   assertEquals(ok.ok, true);
+});
+
+Deno.test("advertising measurement consent accepts granted and declined states", () => {
+  for (const decision of ["granted", "declined"] as const) {
+    const parsed = validateConsentRequest(
+      {
+        schemaVersion: "1",
+        submissionId: "11111111-1111-4111-8111-111111111111",
+        privacyPolicyVersion: "2026-08-01",
+        termsVersion: "2026-04-14",
+        source: "windowman-first-quote",
+        events: [
+          {
+            purpose: "service_communications",
+            decision: "granted",
+            disclosureVersion: "2026-08-01",
+          },
+          {
+            purpose: "advertising_measurement",
+            decision,
+            disclosureVersion: "2026-08-01",
+          },
+        ],
+      },
+      "windowman-first-quote",
+    );
+    assertEquals(parsed.ok, true);
+    if (parsed.ok) {
+      assertEquals(
+        resolveAdvertisingMeasurementConsent(parsed.consent),
+        decision === "granted" ? "granted" : "denied",
+      );
+    }
+  }
+});
+
+Deno.test("advertising measurement consent is unknown when not recorded", () => {
+  assertEquals(
+    resolveAdvertisingMeasurementConsent({
+      schemaVersion: "1",
+      submissionId: "11111111-1111-4111-8111-111111111111",
+      privacyPolicyVersion: "2026-08-01",
+      termsVersion: "2026-04-14",
+      source: "windowman-first-quote",
+      events: [{
+        purpose: "service_communications",
+        decision: "granted",
+        disclosureVersion: "2026-08-01",
+      }],
+    }),
+    "unknown",
+  );
 });
 
 Deno.test("consentEventsToRpcJson maps disclosure version snake_case", () => {

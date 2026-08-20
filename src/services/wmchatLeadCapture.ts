@@ -1,5 +1,6 @@
 import { readLateFbCookies } from "@/lib/attribution/fbCookies";
 import { buildLeadCaptureConsentRequest } from "@/lib/consent/buildConsentRequest";
+import { CONSENT_DISCLOSURE_VERSION } from "@/lib/consent/consentVersions";
 import { getAttributionPayload, getUtmData } from "@/lib/useUtmCapture";
 import {
   isValidTruthGatePhone,
@@ -244,6 +245,15 @@ export function buildWmChatLeadPayload(
     serviceCommunicationsGranted: input.serviceCommunicationsGranted,
     marketingConsentPresented: input.marketingConsentPresented,
     marketingCommunicationsGranted: input.marketingCommunicationsGranted,
+    extraEvents: input.advertisingMeasurementDecision
+      ? [
+          {
+            purpose: "advertising_measurement",
+            decision: input.advertisingMeasurementDecision,
+            disclosureVersion: CONSENT_DISCLOSURE_VERSION,
+          },
+        ]
+      : undefined,
   });
   const fb = readLateFbCookies(
     { fbp: utm.fbp, fbc: utm.fbc },
@@ -303,6 +313,9 @@ export async function submitWmChatLead(
     !input.serviceCommunicationsGranted ||
     input.marketingConsentPresented ||
     input.marketingCommunicationsGranted ||
+    (input.advertisingMeasurementDecision !== null &&
+      input.advertisingMeasurementDecision !== "granted" &&
+      input.advertisingMeasurementDecision !== "declined") ||
     !isValidTruthGatePhone(input.phoneE164) ||
     normalizeTruthGatePhoneToE164(input.phoneE164) !== input.phoneE164 ||
     (firstName !== null && (firstName.length < 2 || firstName.length > 100)) ||

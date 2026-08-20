@@ -20,8 +20,8 @@ type DbSingleResult = {
 export async function persistCanonicalEvent(
   supabase: SupabaseClient,
   input: CreateCanonicalEventInput,
-): Promise<void> {
-  await createCanonicalEvent(input, {
+): Promise<Awaited<ReturnType<typeof createCanonicalEvent>>> {
+  return createCanonicalEvent(input, {
     db: {
       from(table: string) {
         const query = supabase.from(table);

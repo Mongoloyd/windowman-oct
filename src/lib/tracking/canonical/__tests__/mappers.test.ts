@@ -131,6 +131,29 @@ describe("canonical mappers", () => {
     expect(meta.payload?.event_name).not.toBe("Schedule");
     expect(meta.payload?.custom_data?.event_name_internal).toBe("callback_requested");
   });
+
+  it("maps lead_captured to one standard Meta Lead", () => {
+    const canonical = canonicalFixture({
+      eventName: "lead_captured",
+      eventId: "wmc_lead_captured_lead-a_session-b",
+      payload: {
+        identity: {
+          leadId: "lead-1",
+          phoneHash: "c".repeat(64),
+          fbp: "fb.1.1",
+        },
+        journey: { route: "/wmchat", flow: "public" },
+        metadata: { measurement_scope: "wmchat_day1_lead" },
+      },
+    });
+    const meta = mapToMeta(canonical, "https://windowman.example/wmchat");
+
+    expect(meta.suppressed).toBe(false);
+    expect(meta.payload?.event_name).toBe("Lead");
+    expect(meta.payload?.event_id).toBe(canonical.eventId);
+    expect(meta.payload?.user_data.ph).toBe("c".repeat(64));
+    expect(JSON.stringify(meta.payload)).not.toContain("+1");
+  });
 });
 
 describe("mapToGoogle attribution merge", () => {

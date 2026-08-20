@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildGoogleDryRunDispatchEnvelope,
   buildGoogleDispatchAuthHeaders,
+  buildGoogleDryRunDispatchEnvelope,
   buildMissingGoogleDispatchUrlResult,
+  type DBLike,
   evaluateGoogleDispatchHttpResponse,
   GOOGLE_ADS_DISPATCH_DRY_RUN_ONLY,
   parseDispatchWorkerRequest,
@@ -10,7 +11,6 @@ import {
   runDispatchWorker,
   TIKTOK_DISPATCH_DRY_RUN_ONLY,
   TIKTOK_DRY_RUN_EVENT_SOURCE_ID,
-  type DBLike,
 } from "../dispatchWorker";
 import type { WMDispatchStatus, WMPlatformName } from "../types";
 
@@ -68,16 +68,26 @@ class MockDB {
     }
   }
 
-  private applyPlatformDispatchPatch(dispatchId: string, patch: Record<string, unknown>): void {
+  private applyPlatformDispatchPatch(
+    dispatchId: string,
+    patch: Record<string, unknown>,
+  ): void {
     const matched = this.rows.find((item) => item.dispatch_id === dispatchId);
     if (matched && typeof patch.dispatch_status === "string") {
       matched.dispatch_status = patch.dispatch_status as WMDispatchStatus;
-      const eventStatusList = this.eventStatuses.get(matched.event_log_id) ?? [];
-      this.eventStatuses.set(matched.event_log_id, [matched.dispatch_status, ...eventStatusList.slice(1)]);
+      const eventStatusList = this.eventStatuses.get(matched.event_log_id) ??
+        [];
+      this.eventStatuses.set(matched.event_log_id, [
+        matched.dispatch_status,
+        ...eventStatusList.slice(1),
+      ]);
     }
   }
 
-  async rpc<T>(fn: string, args?: Record<string, unknown>): Promise<{ data: T | null; error: { message?: string } | null }> {
+  async rpc<T>(
+    fn: string,
+    args?: Record<string, unknown>,
+  ): Promise<{ data: T | null; error: { message?: string } | null }> {
     this.rpcCalls.push({ fn, args });
     return { data: this.rows as T, error: null };
   }
@@ -102,7 +112,10 @@ class MockDB {
             }
 
             const slug = this.slugLookups[table]?.[value] ?? null;
-            if (table === "leads" || table === "scan_sessions" || table === "analyses") {
+            if (
+              table === "leads" || table === "scan_sessions" ||
+              table === "analyses"
+            ) {
               return {
                 data: slug != null ? { client_slug: slug } : null,
                 error: null,
@@ -144,7 +157,10 @@ class MockDB {
       }),
       update: (payload: Record<string, unknown>) => ({
         eq: async (_column: string, value: string) => {
-          this.updates[table] = [...(this.updates[table] ?? []), { id: value, ...payload }];
+          this.updates[table] = [...(this.updates[table] ?? []), {
+            id: value,
+            ...payload,
+          }];
 
           if (table === "wm_platform_dispatch_log") {
             this.applyPlatformDispatchPatch(value, payload);
@@ -153,7 +169,9 @@ class MockDB {
           return { data: null, error: null };
         },
       }),
-      upsert: async (payload: Record<string, unknown> | Record<string, unknown>[]) => {
+      upsert: async (
+        payload: Record<string, unknown> | Record<string, unknown>[],
+      ) => {
         const rows = Array.isArray(payload) ? payload : [payload];
         this.upserts[table] = [...(this.upserts[table] ?? []), ...rows];
 
@@ -188,7 +206,12 @@ function makeRow(overrides: Partial<MockDispatchRow> = {}): MockDispatchRow {
         emailHash: "a".repeat(64),
       },
       journey: { route: "/", flow: "public" },
-      optimization: { approvedForAds: true, approvedForIndex: true, manualReviewRequired: false, valueUsd: 10 },
+      optimization: {
+        approvedForAds: true,
+        approvedForIndex: true,
+        manualReviewRequired: false,
+        valueUsd: 10,
+      },
     },
     event_raw_payload: {},
     event_schema_version: "1.0.0",
@@ -211,7 +234,11 @@ describe("runDispatchWorker", () => {
       await runDispatchWorker({
         db: mock as unknown as DBLike,
         metaEventSourceUrl: "https://windowman.app",
-        sendToMeta: async () => ({ ok: true, statusCode: 200, responseBody: { success: true } }),
+        sendToMeta: async () => ({
+          ok: true,
+          statusCode: 200,
+          responseBody: { success: true },
+        }),
         sendToGoogle: async () => ({ ok: true }),
       });
 
@@ -232,7 +259,11 @@ describe("runDispatchWorker", () => {
         claimScope: { targetPlatform: "google_ads" },
         metaEventSourceUrl: "https://windowman.app",
         sendToMeta: async () => ({ ok: true }),
-        sendToGoogle: async () => ({ ok: true, statusCode: 200, responseBody: { success: true } }),
+        sendToGoogle: async () => ({
+          ok: true,
+          statusCode: 200,
+          responseBody: { success: true },
+        }),
       });
 
       expect(mock.rpcCalls[0]?.fn).toBe("wm_claim_dispatch_rows_scoped");
@@ -241,12 +272,16 @@ describe("runDispatchWorker", () => {
         p_lock_stale_minutes: 10,
         p_platform_name: "google_ads",
         p_dispatch_id: null,
+        p_event_name: null,
       });
     });
 
     it("calls wm_claim_dispatch_rows_scoped with p_dispatch_id and effective limit 1", async () => {
       const dispatchId = "00000000-0000-4000-8000-000000000001";
-      const row = makeRow({ dispatch_id: dispatchId, platform_name: "google_ads" });
+      const row = makeRow({
+        dispatch_id: dispatchId,
+        platform_name: "google_ads",
+      });
       const mock = new MockDB([row]);
 
       await runDispatchWorker({
@@ -255,7 +290,11 @@ describe("runDispatchWorker", () => {
         claimScope: { dispatchId },
         metaEventSourceUrl: "https://windowman.app",
         sendToMeta: async () => ({ ok: true }),
-        sendToGoogle: async () => ({ ok: true, statusCode: 200, responseBody: { success: true } }),
+        sendToGoogle: async () => ({
+          ok: true,
+          statusCode: 200,
+          responseBody: { success: true },
+        }),
       });
 
       expect(mock.rpcCalls[0]?.fn).toBe("wm_claim_dispatch_rows_scoped");
@@ -264,12 +303,16 @@ describe("runDispatchWorker", () => {
         p_lock_stale_minutes: 10,
         p_platform_name: null,
         p_dispatch_id: dispatchId,
+        p_event_name: null,
       });
     });
 
     it("calls wm_claim_dispatch_rows_scoped with both platform and dispatch_id when provided", async () => {
       const dispatchId = "00000000-0000-4000-8000-000000000002";
-      const row = makeRow({ dispatch_id: dispatchId, platform_name: "google_ads" });
+      const row = makeRow({
+        dispatch_id: dispatchId,
+        platform_name: "google_ads",
+      });
       const mock = new MockDB([row]);
 
       await runDispatchWorker({
@@ -277,7 +320,11 @@ describe("runDispatchWorker", () => {
         claimScope: { targetPlatform: "google_ads", dispatchId },
         metaEventSourceUrl: "https://windowman.app",
         sendToMeta: async () => ({ ok: true }),
-        sendToGoogle: async () => ({ ok: true, statusCode: 200, responseBody: { success: true } }),
+        sendToGoogle: async () => ({
+          ok: true,
+          statusCode: 200,
+          responseBody: { success: true },
+        }),
       });
 
       expect(mock.rpcCalls[0]?.fn).toBe("wm_claim_dispatch_rows_scoped");
@@ -286,16 +333,78 @@ describe("runDispatchWorker", () => {
         p_lock_stale_minutes: 10,
         p_platform_name: "google_ads",
         p_dispatch_id: dispatchId,
+        p_event_name: null,
       });
     });
   });
 
   describe("parseDispatchWorkerRequest", () => {
-    it("rejects invalid target_platform safely", () => {
+    it("requires the lead_captured event scope for Meta", () => {
       const result = parseDispatchWorkerRequest({ target_platform: "meta" });
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.error).toBe("target_platform must be google_ads when provided");
+        expect(result.error).toBe(
+          "target_platform meta requires target_event_name lead_captured",
+        );
+      }
+    });
+
+    it("claims only Meta lead_captured rows for the Day-1 worker", async () => {
+      const row = makeRow({
+        event_name: "lead_captured",
+        platform_name: "meta",
+      });
+      const mock = new MockDB([row]);
+
+      await runDispatchWorker({
+        db: mock as unknown as DBLike,
+        claimScope: {
+          targetPlatform: "meta",
+          targetEventName: "lead_captured",
+        },
+        metaEventSourceUrl: "https://windowman.app",
+        sendToMeta: async () => ({ ok: true }),
+        sendToGoogle: async () => ({ ok: true }),
+      });
+
+      expect(mock.rpcCalls[0]).toEqual({
+        fn: "wm_claim_dispatch_rows_scoped",
+        args: {
+          p_limit: 25,
+          p_lock_stale_minutes: 10,
+          p_platform_name: "meta",
+          p_dispatch_id: null,
+          p_event_name: "lead_captured",
+        },
+      });
+    });
+
+    it("accepts only the Day-1 Meta lead_captured scope", () => {
+      const result = parseDispatchWorkerRequest({
+        target_platform: "meta",
+        target_event_name: "lead_captured",
+        limit: 10,
+      });
+      expect(result).toEqual({
+        ok: true,
+        batchSize: 10,
+        claimScope: {
+          targetPlatform: "meta",
+          targetEventName: "lead_captured",
+        },
+      });
+    });
+
+    it("rejects an event scope without the Meta platform scope", () => {
+      const result = parseDispatchWorkerRequest({
+        target_platform: "google_ads",
+        target_event_name: "lead_captured",
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).toBe(
+          "target_event_name requires target_platform meta",
+        );
       }
     });
 
@@ -303,7 +412,9 @@ describe("runDispatchWorker", () => {
       const result = parseDispatchWorkerRequest({ dispatch_id: "not-a-uuid" });
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.error).toBe("dispatch_id must be a valid UUID when provided");
+        expect(result.error).toBe(
+          "dispatch_id must be a valid UUID when provided",
+        );
       }
     });
 
@@ -363,7 +474,11 @@ describe("runDispatchWorker", () => {
     await runDispatchWorker({
       db: mock as unknown as DBLike,
       metaEventSourceUrl: "https://windowman.app",
-      sendToMeta: async () => ({ ok: true, statusCode: 200, responseBody: { success: true } }),
+      sendToMeta: async () => ({
+        ok: true,
+        statusCode: 200,
+        responseBody: { success: true },
+      }),
       sendToGoogle: async () => ({ ok: true }),
     });
 
@@ -391,7 +506,9 @@ describe("runDispatchWorker", () => {
 
     const failureUpsert = mock.updates.wm_platform_dispatch_log?.[0];
     expect(failureUpsert?.dispatch_status).toBe("failed");
-    expect(String(failureUpsert?.next_attempt_at)).toBe("2026-04-14T12:30:00.000Z");
+    expect(String(failureUpsert?.next_attempt_at)).toBe(
+      "2026-04-14T12:30:00.000Z",
+    );
   });
 
   it("dead-letters after max attempts for retryable errors", async () => {
@@ -480,7 +597,9 @@ describe("runDispatchWorker", () => {
     });
 
     expect(calls).toBe(1);
-    expect(mock.updates.wm_platform_dispatch_log?.[0]?.dispatch_status).toBe("sent");
+    expect(mock.updates.wm_platform_dispatch_log?.[0]?.dispatch_status).toBe(
+      "sent",
+    );
   });
 
   it("sends to Meta and injects client_slug when event_client_slug is present", async () => {
@@ -499,7 +618,89 @@ describe("runDispatchWorker", () => {
     });
 
     expect(capturedPayload?.client_slug).toBe("tenant-beta");
-    expect(mock.updates.wm_platform_dispatch_log?.[0]?.dispatch_status).toBe("sent");
+    expect(mock.updates.wm_platform_dispatch_log?.[0]?.dispatch_status).toBe(
+      "sent",
+    );
+  });
+
+  it("routes only the server-scoped WMChat lead through the platform Meta config", async () => {
+    const leadId = crypto.randomUUID();
+    const row = makeRow({
+      event_name: "lead_captured",
+      event_client_slug: null,
+      event_lead_id: leadId,
+      event_payload: {
+        identity: {
+          leadId,
+          phoneHash: "c".repeat(64),
+        },
+        journey: { route: "/wmchat", flow: "public" },
+        metadata: { measurement_scope: "wmchat_day1_lead" },
+        optimization: {
+          approvedForAds: true,
+          approvedForIndex: false,
+          manualReviewRequired: false,
+        },
+      },
+    });
+    const mock = new MockDB([row]);
+    let capturedPayload: Record<string, unknown> | null = null;
+
+    await runDispatchWorker({
+      db: mock as unknown as DBLike,
+      metaEventSourceUrl: "https://tracking.example/private?token=secret",
+      sendToMeta: async (payload) => {
+        capturedPayload = payload;
+        return {
+          ok: true,
+          statusCode: 200,
+          responseBody: { events_received: 1 },
+        };
+      },
+      sendToGoogle: async () => ({ ok: true }),
+    });
+
+    expect(capturedPayload).toMatchObject({
+      event_name: "Lead",
+      event_source_url: "https://tracking.example/wmchat",
+      route_class: "platform_owned",
+      platform_event_scope: "wmchat_day1_lead",
+    });
+    expect(capturedPayload?.client_slug).toBeUndefined();
+    expect(capturedPayload?.verified_client_slug).toBeUndefined();
+  });
+
+  it("consent-denied or missing WMChat lead calls Meta CAPI zero times", async () => {
+    const leadId = crypto.randomUUID();
+    const row = makeRow({
+      event_name: "lead_captured",
+      event_client_slug: null,
+      event_lead_id: leadId,
+      should_send_meta: false,
+      event_payload: {
+        identity: { leadId, phoneHash: "c".repeat(64) },
+        journey: { route: "/wmchat", flow: "public" },
+        metadata: { measurement_scope: "wmchat_day1_lead" },
+        shouldSendMeta: false,
+      },
+    });
+    const mock = new MockDB([row]);
+    let calls = 0;
+
+    await runDispatchWorker({
+      db: mock as unknown as DBLike,
+      metaEventSourceUrl: "https://windowman.app",
+      sendToMeta: async () => {
+        calls += 1;
+        return { ok: true };
+      },
+      sendToGoogle: async () => ({ ok: true }),
+    });
+
+    expect(calls).toBe(0);
+    expect(mock.updates.wm_platform_dispatch_log?.[0]?.dispatch_status).toBe(
+      "suppressed",
+    );
   });
 
   it("does not call sendToMeta when slug is null and lead_id is present", async () => {
@@ -549,7 +750,9 @@ describe("runDispatchWorker", () => {
     });
 
     expect(calls).toBe(0);
-    expect(mock.updates.wm_platform_dispatch_log?.[0]?.error_message).toBe("route_resolution_deferred");
+    expect(mock.updates.wm_platform_dispatch_log?.[0]?.error_message).toBe(
+      "route_resolution_deferred",
+    );
   });
 
   it("does not call sendToMeta when slug is null and analysis_id is present", async () => {
@@ -572,7 +775,9 @@ describe("runDispatchWorker", () => {
     });
 
     expect(calls).toBe(0);
-    expect(mock.updates.wm_platform_dispatch_log?.[0]?.error_message).toBe("route_resolution_deferred");
+    expect(mock.updates.wm_platform_dispatch_log?.[0]?.error_message).toBe(
+      "route_resolution_deferred",
+    );
   });
 
   it("does not call sendToMeta when slug is null and quote_file_id is present", async () => {
@@ -595,7 +800,9 @@ describe("runDispatchWorker", () => {
     });
 
     expect(calls).toBe(0);
-    expect(mock.updates.wm_platform_dispatch_log?.[0]?.error_message).toBe("route_resolution_deferred");
+    expect(mock.updates.wm_platform_dispatch_log?.[0]?.error_message).toBe(
+      "route_resolution_deferred",
+    );
   });
 
   it("defers unresolved tenant rows when attemptCount is less than 4", async () => {
@@ -676,7 +883,9 @@ describe("runDispatchWorker", () => {
     expect(upsert?.next_attempt_at).toBeNull();
   });
 
-  function makeNextdoorRow(overrides: Partial<MockDispatchRow> = {}): MockDispatchRow {
+  function makeNextdoorRow(
+    overrides: Partial<MockDispatchRow> = {},
+  ): MockDispatchRow {
     return makeRow({
       platform_name: "nextdoor",
       event_name: "lead_identified",
@@ -686,7 +895,9 @@ describe("runDispatchWorker", () => {
     });
   }
 
-  function makeTikTokRow(overrides: Partial<MockDispatchRow> = {}): MockDispatchRow {
+  function makeTikTokRow(
+    overrides: Partial<MockDispatchRow> = {},
+  ): MockDispatchRow {
     return makeRow({
       platform_name: "tiktok",
       event_name: "quote_uploaded",
@@ -711,7 +922,9 @@ describe("runDispatchWorker", () => {
 
   function tiktokWorkerDeps(
     mock: MockDB,
-    sendToTikTok: NonNullable<Parameters<typeof runDispatchWorker>[0]["sendToTikTok"]>,
+    sendToTikTok: NonNullable<
+      Parameters<typeof runDispatchWorker>[0]["sendToTikTok"]
+    >,
     overrides: Partial<Parameters<typeof runDispatchWorker>[0]> = {},
   ) {
     return {
@@ -825,10 +1038,14 @@ describe("runDispatchWorker", () => {
     expect(capturedRequest?.clientSlug).toBe("tenant-alpha");
     expect(capturedRequest?.verifiedClientSlug).toBe("tenant-alpha");
     expect(capturedRequest?.eventId).toBe("wmc_1");
-    expect((capturedRequest?.payload as Record<string, unknown>)?.data_source_id).toBe(
+    expect(
+      (capturedRequest?.payload as Record<string, unknown>)?.data_source_id,
+    ).toBe(
       "server_resolved_by_nextdoor_capi_event",
     );
-    expect(mock.updates.wm_platform_dispatch_log?.[0]?.dispatch_status).toBe("sent");
+    expect(mock.updates.wm_platform_dispatch_log?.[0]?.dispatch_status).toBe(
+      "sent",
+    );
   });
 
   it("nextdoor branch schedules retry for retryable sendToNextdoor errors", async () => {
@@ -898,7 +1115,9 @@ describe("runDispatchWorker", () => {
     });
 
     expect(googleCalls).toBe(1);
-    expect(mock.updates.wm_platform_dispatch_log?.[0]?.dispatch_status).toBe("sent");
+    expect(mock.updates.wm_platform_dispatch_log?.[0]?.dispatch_status).toBe(
+      "sent",
+    );
   });
 
   it("google branch batch-fetches attribution and query_params from wm_event_log", async () => {
@@ -921,7 +1140,10 @@ describe("runDispatchWorker", () => {
     });
     const mock = new MockDB([row]);
     mock.eventLogs.set(row.event_log_id, {
-      attribution: { gclid: "attr-gclid-from-log", gbraid: "attr-gbraid-from-log" },
+      attribution: {
+        gclid: "attr-gclid-from-log",
+        gbraid: "attr-gbraid-from-log",
+      },
       query_params: { wbraid: "query-wbraid-from-log" },
     });
 
@@ -933,7 +1155,11 @@ describe("runDispatchWorker", () => {
       sendToMeta: async () => ({ ok: true }),
       sendToGoogle: async (payload) => {
         sentPayload = payload;
-        return { ok: true, statusCode: 200, responseBody: { success: true, dry_run: true } };
+        return {
+          ok: true,
+          statusCode: 200,
+          responseBody: { success: true, dry_run: true },
+        };
       },
     });
 
@@ -961,7 +1187,9 @@ describe("runDispatchWorker", () => {
 
       expect(envelope.dry_run).toBe(true);
       expect(envelope.payload).toEqual(mapPayload);
-      expect(JSON.stringify(envelope)).not.toMatch(/@|\+1\d{10}|Bearer\s+[A-Za-z0-9._-]{20,}/);
+      expect(JSON.stringify(envelope)).not.toMatch(
+        /@|\+1\d{10}|Bearer\s+[A-Za-z0-9._-]{20,}/,
+      );
     });
 
     it("never emits dry_run:false from envelope builder", () => {
@@ -973,9 +1201,13 @@ describe("runDispatchWorker", () => {
     });
 
     it("buildGoogleDispatchAuthHeaders uses Authorization Bearer service role", () => {
-      const headers = buildGoogleDispatchAuthHeaders("staging-service-role-placeholder");
+      const headers = buildGoogleDispatchAuthHeaders(
+        "staging-service-role-placeholder",
+      );
 
-      expect(headers.Authorization).toBe("Bearer staging-service-role-placeholder");
+      expect(headers.Authorization).toBe(
+        "Bearer staging-service-role-placeholder",
+      );
       expect(headers["Content-Type"]).toBe("application/json");
       expect(JSON.stringify(headers)).not.toMatch(/@|\+1\d{10}/);
     });
@@ -986,7 +1218,9 @@ describe("runDispatchWorker", () => {
       expect(result.ok).toBe(false);
       expect(result.retryable).toBe(false);
       expect(result.statusCode).toBe(400);
-      expect(result.errorMessage).toBe("GOOGLE_ADS_DISPATCH_URL is not configured");
+      expect(result.errorMessage).toBe(
+        "GOOGLE_ADS_DISPATCH_URL is not configured",
+      );
       expect(result.requestPayload).toEqual(mapPayload);
     });
 
@@ -1078,9 +1312,12 @@ describe("runDispatchWorker", () => {
         },
       });
 
-      expect(envelopes).toEqual([{ dry_run: true, payload: expect.objectContaining({
-        conversion_action: "wm_lead_identified",
-      }) }]);
+      expect(envelopes).toEqual([{
+        dry_run: true,
+        payload: expect.objectContaining({
+          conversion_action: "wm_lead_identified",
+        }),
+      }]);
       expect(envelopes.some((item) => item.dry_run === false)).toBe(false);
     });
   });
@@ -1103,7 +1340,9 @@ describe("runDispatchWorker", () => {
     });
 
     expect(sendCalls).toBe(1);
-    expect(mock.updates.wm_platform_dispatch_log?.[0]?.dispatch_status).toBe("sent");
+    expect(mock.updates.wm_platform_dispatch_log?.[0]?.dispatch_status).toBe(
+      "sent",
+    );
   });
 
   it("nextdoor branch prefers metadata current_page_url over NEXTDOOR_EVENT_SOURCE_URL", async () => {
@@ -1144,7 +1383,9 @@ describe("runDispatchWorker", () => {
     });
 
     expect(actionSourceUrl).toBe("/truth-gate?utm_source=nextdoor");
-    expect(mock.updates.wm_platform_dispatch_log?.[0]?.dispatch_status).toBe("sent");
+    expect(mock.updates.wm_platform_dispatch_log?.[0]?.dispatch_status).toBe(
+      "sent",
+    );
   });
 
   it("nextdoor branch falls back to metadata landing_page_url when current_page_url is absent", async () => {
@@ -1210,7 +1451,9 @@ describe("runDispatchWorker", () => {
   it("tiktok dry-run success marks dispatch row sent with dry_run in provider_response_body", async () => {
     const row = makeTikTokRow();
     const mock = new MockDB([row]);
-    mock.eventLogs.set(row.event_log_id, { attribution: { ttclid: "ttclid-1" } });
+    mock.eventLogs.set(row.event_log_id, {
+      attribution: { ttclid: "ttclid-1" },
+    });
 
     await runDispatchWorker(
       tiktokWorkerDeps(mock, async () => ({
@@ -1234,7 +1477,11 @@ describe("runDispatchWorker", () => {
     await runDispatchWorker(
       tiktokWorkerDeps(mock, async (request) => {
         capturedRequest = request as unknown as Record<string, unknown>;
-        return { ok: true, statusCode: 200, responseBody: { success: true, dry_run: true } };
+        return {
+          ok: true,
+          statusCode: 200,
+          responseBody: { success: true, dry_run: true },
+        };
       }),
     );
 
@@ -1256,7 +1503,9 @@ describe("runDispatchWorker", () => {
       }),
     );
 
-    expect(capturedPayload?.event_source_id).toBe(TIKTOK_DRY_RUN_EVENT_SOURCE_ID);
+    expect(capturedPayload?.event_source_id).toBe(
+      TIKTOK_DRY_RUN_EVENT_SOURCE_ID,
+    );
     expect(capturedPayload?.event_source).toBe("web");
     expect(Array.isArray(capturedPayload?.data)).toBe(true);
   });
@@ -1278,8 +1527,9 @@ describe("runDispatchWorker", () => {
     );
 
     expect(mock.attributionBatchFetchIds).toEqual([row.event_log_id]);
-    const user = ((capturedPayload?.data as Array<Record<string, unknown>>)?.[0]?.user ??
-      {}) as Record<string, string>;
+    const user =
+      ((capturedPayload?.data as Array<Record<string, unknown>>)?.[0]?.user ??
+        {}) as Record<string, string>;
     expect(user.ttclid).toBe("tt-attribution-clid");
     expect(user.ttp).toBe("ttp-from-query");
   });
@@ -1409,7 +1659,11 @@ describe("runDispatchWorker", () => {
       await runDispatchWorker({
         db: mock as unknown as DBLike,
         metaEventSourceUrl: "https://windowman.app",
-        sendToMeta: async () => ({ ok: true, statusCode: 200, responseBody: { success: true } }),
+        sendToMeta: async () => ({
+          ok: true,
+          statusCode: 200,
+          responseBody: { success: true },
+        }),
         sendToGoogle: async () => ({ ok: true }),
       });
 
@@ -1457,7 +1711,11 @@ describe("runDispatchWorker", () => {
       await runDispatchWorker({
         db: mock as unknown as DBLike,
         metaEventSourceUrl: "https://windowman.app",
-        sendToMeta: async () => ({ ok: true, statusCode: 200, responseBody: { success: true } }),
+        sendToMeta: async () => ({
+          ok: true,
+          statusCode: 200,
+          responseBody: { success: true },
+        }),
         sendToGoogle: async () => ({ ok: true }),
       });
 
@@ -1472,7 +1730,9 @@ describe("runDispatchWorker", () => {
     it("does not write private report or secret fields in dispatch write-back", async () => {
       const row = makeTikTokRow();
       const mock = new MockDB([row]);
-      mock.eventLogs.set(row.event_log_id, { attribution: { ttclid: "ttclid-1" } });
+      mock.eventLogs.set(row.event_log_id, {
+        attribution: { ttclid: "ttclid-1" },
+      });
 
       await runDispatchWorker(
         tiktokWorkerDeps(mock, async () => ({
@@ -1482,11 +1742,16 @@ describe("runDispatchWorker", () => {
         })),
       );
 
-      const serialized = JSON.stringify(mock.updates.wm_platform_dispatch_log ?? []);
-      expect(serialized).not.toMatch(/full_json|signedUrl|createSignedUrl|ACCESS_TOKEN|SECRET|ocr/i);
-      expect(mock.updates.wm_platform_dispatch_log?.[0]?.provider_response_body).toMatchObject({
-        dry_run: true,
-      });
+      const serialized = JSON.stringify(
+        mock.updates.wm_platform_dispatch_log ?? [],
+      );
+      expect(serialized).not.toMatch(
+        /full_json|signedUrl|createSignedUrl|ACCESS_TOKEN|SECRET|ocr/i,
+      );
+      expect(mock.updates.wm_platform_dispatch_log?.[0]?.provider_response_body)
+        .toMatchObject({
+          dry_run: true,
+        });
     });
   });
 
@@ -1512,7 +1777,9 @@ describe("runDispatchWorker", () => {
         },
       };
 
-      expect(resolveNextdoorActionSourceUrl(canonical, "https://fallback.example")).toBe(
+      expect(
+        resolveNextdoorActionSourceUrl(canonical, "https://fallback.example"),
+      ).toBe(
         "/truth-gate",
       );
 
@@ -1523,7 +1790,9 @@ describe("runDispatchWorker", () => {
           metadata: { landing_page_url: "/about?utm_source=nextdoor" },
         },
       };
-      expect(resolveNextdoorActionSourceUrl(landingOnly, "https://fallback.example")).toBe(
+      expect(
+        resolveNextdoorActionSourceUrl(landingOnly, "https://fallback.example"),
+      ).toBe(
         "/about?utm_source=nextdoor",
       );
 
@@ -1534,7 +1803,9 @@ describe("runDispatchWorker", () => {
           journey: { route: "/", flow: "public" as const },
         },
       };
-      expect(resolveNextdoorActionSourceUrl(noEventUrls, "https://fallback.example")).toBe(
+      expect(
+        resolveNextdoorActionSourceUrl(noEventUrls, "https://fallback.example"),
+      ).toBe(
         "https://fallback.example",
       );
     });

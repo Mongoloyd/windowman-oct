@@ -534,6 +534,7 @@ describe("WmChatPage", () => {
         serviceCommunicationsGranted: true,
         marketingConsentPresented: false,
         marketingCommunicationsGranted: false,
+        advertisingMeasurementDecision: null,
       }),
     );
     expect(JSON.stringify(submitter.mock.calls[0][0].wmchatIntake)).not.toContain(

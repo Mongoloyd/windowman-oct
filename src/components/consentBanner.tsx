@@ -1,32 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-
-const CONSENT_STORAGE_KEY = "wg_consent_mode_v2";
-const CONSENT_CHANGED_EVENT = "consentChanged";
+import {
+  MEASUREMENT_CONSENT_CHANGED_EVENT,
+  readStoredMeasurementConsent,
+  writeStoredMeasurementConsent,
+  type StoredMeasurementConsent,
+} from "@/lib/consent/measurementConsent";
 const PERSISTENCE_ERROR =
   "Unable to save your choice. Please try again.";
-
-type ConsentMode = "granted" | "denied";
-
-function readStoredConsent(): ConsentMode | null {
-  if (typeof window === "undefined") return null;
-
-  try {
-    const value = window.localStorage.getItem(CONSENT_STORAGE_KEY);
-    return value === "granted" || value === "denied" ? value : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeStoredConsent(mode: ConsentMode): boolean {
-  try {
-    window.localStorage.setItem(CONSENT_STORAGE_KEY, mode);
-    return true;
-  } catch {
-    // Storage-restricted browsers remain fail-closed for measurement.
-    return false;
-  }
-}
 
 function pushToDataLayer(payload: Record<string, unknown>) {
   if (typeof window === "undefined") return;
@@ -34,7 +14,7 @@ function pushToDataLayer(payload: Record<string, unknown>) {
   window.dataLayer.push(payload);
 }
 
-function updateGtagConsent(mode: ConsentMode) {
+function updateGtagConsent(mode: StoredMeasurementConsent) {
   if (typeof window === "undefined") return;
 
   window.gtag =
@@ -56,12 +36,13 @@ function updateGtagConsent(mode: ConsentMode) {
 }
 
 export default function ConsentBanner() {
-  const [storedMode, setStoredMode] = useState<ConsentMode | null>(null);
+  const [storedMode, setStoredMode] =
+    useState<StoredMeasurementConsent | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [persistenceError, setPersistenceError] = useState<string | null>(null);
 
   useEffect(() => {
-    const savedMode = readStoredConsent();
+    const savedMode = readStoredMeasurementConsent();
     setStoredMode(savedMode);
     setIsReady(true);
 
@@ -76,10 +57,10 @@ export default function ConsentBanner() {
     });
   }, []);
 
-  const saveChoice = useCallback((mode: ConsentMode) => {
+  const saveChoice = useCallback((mode: StoredMeasurementConsent) => {
     setPersistenceError(null);
 
-    const persisted = writeStoredConsent(mode);
+    const persisted = writeStoredMeasurementConsent(mode);
     if (!persisted) {
       setPersistenceError(PERSISTENCE_ERROR);
       return;
@@ -91,7 +72,7 @@ export default function ConsentBanner() {
       consent_choice: mode === "granted" ? "accepted" : "rejected",
       consent_type: "all",
     });
-    window.dispatchEvent(new Event(CONSENT_CHANGED_EVENT));
+    window.dispatchEvent(new Event(MEASUREMENT_CONSENT_CHANGED_EVENT));
     setStoredMode(mode);
   }, []);
 

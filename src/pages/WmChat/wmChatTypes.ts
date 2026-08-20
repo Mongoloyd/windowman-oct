@@ -439,6 +439,7 @@ export interface WmChatSubmitInput {
   readonly serviceCommunicationsGranted: true;
   readonly marketingConsentPresented: false;
   readonly marketingCommunicationsGranted: false;
+  readonly advertisingMeasurementDecision: "granted" | "declined" | null;
   readonly wmchatIntake: WmChatIntakeV1;
 }
 

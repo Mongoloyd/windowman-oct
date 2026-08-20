@@ -470,8 +470,14 @@ export async function createCanonicalEvent(
     dispatchStatus,
     payload: {
       ...basePayload,
+      identity: {
+        ...basePayload.identity,
+        identityQuality,
+      },
       analytics,
       optimization,
+      shouldSendMeta,
+      shouldSendGoogle,
     },
     rawPayload: input.rawPayload,
   };

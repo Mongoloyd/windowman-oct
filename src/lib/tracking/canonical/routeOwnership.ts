@@ -7,6 +7,8 @@ export interface RouteOwnershipInput {
   eventScanSessionId?: string | null;
   eventAnalysisId?: string | null;
   eventQuoteFileId?: string | null;
+  /** Server-minted canonical scope; never sourced from browser attribution. */
+  eventMeasurementScope?: string | null;
   attemptCount: number;
 }
 
@@ -18,8 +20,12 @@ export interface RouteOwnershipResult {
   allowEnvFallback: boolean;
 }
 
-/** Wave A.5: empty allowlist — fail closed on no-entity events. */
-const PLATFORM_OWNED_EVENT_NAMES = new Set<string>();
+export const WMCHAT_DAY1_META_SCOPE = "wmchat_day1_lead" as const;
+
+function isPlatformOwnedWmChatLead(input: RouteOwnershipInput): boolean {
+  return input.eventName === "lead_captured" &&
+    input.eventMeasurementScope === WMCHAT_DAY1_META_SCOPE;
+}
 
 export interface OwnershipResolutionDB {
   from(table: string): {
@@ -111,6 +117,16 @@ export function classifyRouteOwnership(
     };
   }
 
+  if (isPlatformOwnedWmChatLead(input)) {
+    return {
+      routeClass: "platform_owned",
+      verifiedClientSlug: null,
+      reason: "platform_owned_wmchat_lead",
+      allowDefaultPixel: true,
+      allowEnvFallback: true,
+    };
+  }
+
   if (hasEntityIds(input)) {
     return {
       routeClass: "unresolved",
@@ -118,16 +134,6 @@ export function classifyRouteOwnership(
       reason: "missing_client_slug",
       allowDefaultPixel: false,
       allowEnvFallback: false,
-    };
-  }
-
-  if (PLATFORM_OWNED_EVENT_NAMES.has(input.eventName)) {
-    return {
-      routeClass: "platform_owned",
-      verifiedClientSlug: null,
-      reason: "platform_owned_event",
-      allowDefaultPixel: true,
-      allowEnvFallback: true,
     };
   }
 

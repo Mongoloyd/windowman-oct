@@ -6,6 +6,7 @@ import {
   classifyRouteOwnership,
   resolveVerifiedClientSlug,
   type RouteOwnershipResult,
+  WMCHAT_DAY1_META_SCOPE,
 } from "./routeOwnership.ts";
 import type { WMCanonicalEvent, WMDispatchStatus, WMPlatformName } from "./types.ts";
 
@@ -25,7 +26,8 @@ export const DEFAULT_DISPATCH_BATCH_SIZE = 25;
 export const MAX_DISPATCH_BATCH_SIZE = 25;
 
 export type DispatchClaimScope = {
-  targetPlatform?: "google_ads";
+  targetPlatform?: "google_ads" | "meta";
+  targetEventName?: "lead_captured";
   dispatchId?: string;
 };
 
@@ -61,18 +63,50 @@ export function parseDispatchWorkerRequest(body: unknown): ParsedDispatchWorkerR
   }
 
   const rawTargetPlatform = body.target_platform;
+  const rawTargetEventName = body.target_event_name;
   const rawDispatchId = body.dispatch_id;
   const rawLimit = body.limit;
 
   const hasTargetPlatform = rawTargetPlatform !== undefined && rawTargetPlatform !== null;
+  const hasTargetEventName = rawTargetEventName !== undefined && rawTargetEventName !== null;
   const hasDispatchId = rawDispatchId !== undefined && rawDispatchId !== null;
 
-  let targetPlatform: "google_ads" | undefined;
+  let targetPlatform: "google_ads" | "meta" | undefined;
   if (hasTargetPlatform) {
-    if (typeof rawTargetPlatform !== "string" || rawTargetPlatform !== "google_ads") {
-      return { ok: false, error: "target_platform must be google_ads when provided" };
+    if (
+      typeof rawTargetPlatform !== "string" ||
+      (rawTargetPlatform !== "google_ads" && rawTargetPlatform !== "meta")
+    ) {
+      return {
+        ok: false,
+        error: "target_platform must be google_ads or meta when provided",
+      };
     }
-    targetPlatform = "google_ads";
+    targetPlatform = rawTargetPlatform;
+  }
+
+  let targetEventName: "lead_captured" | undefined;
+  if (hasTargetEventName) {
+    if (rawTargetEventName !== "lead_captured") {
+      return {
+        ok: false,
+        error: "target_event_name must be lead_captured when provided",
+      };
+    }
+    targetEventName = "lead_captured";
+  }
+
+  if (targetEventName && targetPlatform !== "meta") {
+    return {
+      ok: false,
+      error: "target_event_name requires target_platform meta",
+    };
+  }
+  if (targetPlatform === "meta" && !targetEventName) {
+    return {
+      ok: false,
+      error: "target_platform meta requires target_event_name lead_captured",
+    };
   }
 
   let dispatchId: string | undefined;
@@ -102,9 +136,10 @@ export function parseDispatchWorkerRequest(body: unknown): ParsedDispatchWorkerR
   }
 
   const claimScope: DispatchClaimScope | undefined =
-    targetPlatform || dispatchId
+    targetPlatform || targetEventName || dispatchId
       ? {
           ...(targetPlatform ? { targetPlatform } : {}),
+          ...(targetEventName ? { targetEventName } : {}),
           ...(dispatchId ? { dispatchId } : {}),
         }
       : undefined;
@@ -352,6 +387,25 @@ export function resolveNextdoorActionSourceUrl(
   return pick(fallbackUrl);
 }
 
+export function resolveMetaEventSourceUrl(
+  canonical: WMCanonicalEvent,
+  configuredUrl: string,
+): string {
+  const measurementScope = canonical.payload.metadata?.measurement_scope;
+  if (
+    canonical.eventName !== "lead_captured" ||
+    measurementScope !== WMCHAT_DAY1_META_SCOPE
+  ) {
+    return configuredUrl;
+  }
+
+  try {
+    return `${new URL(configuredUrl).origin}/wmchat`;
+  } catch {
+    return "https://windowman.app/wmchat";
+  }
+}
+
 function getRetryDelayMs(attemptCount: number): number | null {
   const retryIndex = attemptCount - 1;
   const minutes = RETRY_DELAYS_MINUTES[retryIndex] as number | undefined;
@@ -511,7 +565,9 @@ async function syncEventDispatchStatus(db: DBLike, eventLogId: string, nowIso: s
 }
 
 function hasScopedClaim(scope: DispatchClaimScope | undefined): scope is DispatchClaimScope {
-  return Boolean(scope?.targetPlatform || scope?.dispatchId);
+  return Boolean(
+    scope?.targetPlatform || scope?.targetEventName || scope?.dispatchId,
+  );
 }
 
 export async function runDispatchWorker(deps: WorkerDeps): Promise<{ processed: number }> {
@@ -529,6 +585,7 @@ export async function runDispatchWorker(deps: WorkerDeps): Promise<{ processed: 
           p_lock_stale_minutes: LOCK_STALE_MINUTES,
           p_platform_name: claimScope.targetPlatform ?? null,
           p_dispatch_id: claimScope.dispatchId ?? null,
+          p_event_name: claimScope.targetEventName ?? null,
         }
       : {
           p_limit: effectiveLimit,
@@ -586,6 +643,10 @@ export async function runDispatchWorker(deps: WorkerDeps): Promise<{ processed: 
         eventScanSessionId: resolution.scanSessionId,
         eventAnalysisId: resolution.analysisId,
         eventQuoteFileId: resolution.quoteFileId,
+        eventMeasurementScope: typeof canonical.payload.metadata
+            ?.measurement_scope === "string"
+          ? canonical.payload.metadata.measurement_scope
+          : null,
         attemptCount: row.attempt_count,
       });
 
@@ -595,7 +656,10 @@ export async function runDispatchWorker(deps: WorkerDeps): Promise<{ processed: 
         continue;
       }
 
-      const mapped = mapToMeta(canonical, deps.metaEventSourceUrl);
+      const mapped = mapToMeta(
+        canonical,
+        resolveMetaEventSourceUrl(canonical, deps.metaEventSourceUrl),
+      );
       if (mapped.suppressed || !mapped.payload) {
         suppressedReason = mapped.reason ?? "meta_suppressed";
       } else {
@@ -603,8 +667,11 @@ export async function runDispatchWorker(deps: WorkerDeps): Promise<{ processed: 
           ...(mapped.payload as Record<string, unknown>),
           client_slug: classification.verifiedClientSlug ?? undefined,
           verified_client_slug: classification.verifiedClientSlug ?? undefined,
-          route_class: "tenant_required",
+          route_class: classification.routeClass,
           route_reason: classification.reason,
+          ...(classification.routeClass === "platform_owned"
+            ? { platform_event_scope: WMCHAT_DAY1_META_SCOPE }
+            : {}),
         };
         sendResult = await deps.sendToMeta(metaPayload);
       }
@@ -664,7 +731,7 @@ export async function runDispatchWorker(deps: WorkerDeps): Promise<{ processed: 
               suppressedReason = mapped.reason ?? "nextdoor_suppressed";
             } else {
               sendResult = await deps.sendToNextdoor({
-                payload: mapped.payload as Record<string, unknown>,
+                payload: mapped.payload as unknown as Record<string, unknown>,
                 clientSlug: resolution.slug,
                 verifiedClientSlug: resolution.slug,
                 eventId: canonical.eventId,
@@ -708,7 +775,7 @@ export async function runDispatchWorker(deps: WorkerDeps): Promise<{ processed: 
           } else {
             tiktokDryRunDispatch = true;
             sendResult = await deps.sendToTikTok({
-              payload: mapped.payload as Record<string, unknown>,
+              payload: mapped.payload as unknown as Record<string, unknown>,
               clientSlug: resolution.slug,
               verifiedClientSlug: resolution.slug,
               eventId: canonical.eventId,

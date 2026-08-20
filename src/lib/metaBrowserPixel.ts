@@ -3,7 +3,7 @@
  *
  * SCOPE (intentionally narrow):
  *   - Initialize one WindowMan-controlled Meta Pixel exactly once.
- *   - Fire `PageView` on initial app load and on every SPA route change.
+ *   - Fire consent-gated `PageView` on initial app load and real SPA routes.
  *   - Allow Meta to passively seed/read `_fbp` and `_fbc` cookies for
  *     server-side CAPI deduplication and attribution support.
  *
@@ -20,6 +20,8 @@
  *
  * See: docs/measurement/BROWSER_META_DECOUPLING_COMPLETE.md
  */
+
+import { isMeasurementConsentGranted } from "@/lib/consent/measurementConsent";
 
 declare global {
   interface Window {
@@ -48,7 +50,7 @@ function injectBaseScript(): void {
   // Standard Meta Pixel base snippet, ported to TS without `eval`.
   const fbq: Window["fbq"] = function (...args: unknown[]) {
     if (fbq.callMethod) {
-      fbq.callMethod.apply(fbq, args);
+      fbq.callMethod(...args);
     } else {
       (fbq.queue = fbq.queue || []).push(args);
     }
@@ -74,22 +76,24 @@ function injectBaseScript(): void {
  * Initialize the pixel exactly once, then fire the initial PageView.
  * Safe to call repeatedly — subsequent calls are no-ops.
  */
-export function initMetaBrowserPixel(): void {
-  if (initialized || typeof window === "undefined") return;
+export function initMetaBrowserPixel(): boolean {
+  if (initialized || typeof window === "undefined") return false;
+  if (!isMeasurementConsentGranted()) return false;
 
   const pixelId = import.meta.env.VITE_META_PIXEL_ID as string | undefined;
   if (!pixelId || pixelId === "test-pixel-id") {
     // No real pixel configured (or running with the placeholder dev value).
     // Stay silent — do not inject the script and do not pretend to track.
-    return;
+    return false;
   }
 
   injectBaseScript();
-  if (!window.fbq) return;
+  if (!window.fbq) return false;
 
   window.fbq("init", pixelId);
   window.fbq("track", "PageView");
   initialized = true;
+  return true;
 }
 
 /**
@@ -99,8 +103,11 @@ export function initMetaBrowserPixel(): void {
  * This is ADDITIVE to the canonical `virtual_page_view` dataLayer push —
  * it does not replace it.
  */
-export function trackMetaPageView(): void {
-  if (typeof window === "undefined") return;
-  if (!initialized || !window.fbq) return;
+export function trackMetaPageView(): boolean {
+  if (typeof window === "undefined") return false;
+  if (!isMeasurementConsentGranted()) return false;
+  if (!initialized) return initMetaBrowserPixel();
+  if (!window.fbq) return false;
   window.fbq("track", "PageView");
+  return true;
 }
