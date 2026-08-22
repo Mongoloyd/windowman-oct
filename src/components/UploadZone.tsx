@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { trackEvent } from "@/lib/trackEvent";
-import { trackGtmEvent } from "@/lib/trackConversion";
+import { pushV3BusinessEvent } from "@/lib/tracking/dataLayer";
 import { useScanPolling } from "@/hooks/useScanPolling";
 import { useScanFunnelSafe } from "@/state/scanFunnel";
 // Forever rule: event_id is an opaque UUID v4. Never descriptive, never
@@ -554,14 +554,14 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId, leadId: 
     }
 
     if (responseKind === "valid") {
-      trackGtmEvent("quote_uploaded", {
-        event_id: quoteUploadedEventId,
-        value: 250,
-        currency: "USD",
-        scan_session_id: scanSessionId,
-        lead_id: leadId || undefined,
-        file_size: file?.size,
-        file_type: file?.type,
+      pushV3BusinessEvent("quote_uploaded", {
+        eventId: quoteUploadedEventId,
+        parameters: {
+          source_tool: "scanner",
+          measurement_source: "native",
+          journey_type: "scanner",
+          file_type: file?.type || null,
+        },
       });
     }
 

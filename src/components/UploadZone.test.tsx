@@ -87,8 +87,8 @@ vi.mock("@/lib/trackEvent", () => ({
   trackEvent: vi.fn(),
 }));
 
-vi.mock("@/lib/trackConversion", () => ({
-  trackGtmEvent: vi.fn(),
+vi.mock("@/lib/tracking/dataLayer", () => ({
+  pushV3BusinessEvent: vi.fn(),
 }));
 
 vi.mock("sonner", () => ({
@@ -114,7 +114,7 @@ vi.mock("framer-motion", () => {
 });
 
 import UploadZone from "./UploadZone";
-import { trackGtmEvent } from "@/lib/trackConversion";
+import { pushV3BusinessEvent } from "@/lib/tracking/dataLayer";
 
 // ── Builders ────────────────────────────────────────────────────────────
 function buildSelectChain(returnValue: any) {
@@ -362,6 +362,7 @@ describe("UploadZone — idempotency", () => {
 
     // Retry button surfaces from the scan-quote failure (bootstrap succeeded).
     const retryBtn = await findRetryButton();
+    expect(pushV3BusinessEvent).not.toHaveBeenCalled();
 
     storageUpload.mockClear();
     await act(async () => { fireEvent.click(retryBtn); });
@@ -369,8 +370,24 @@ describe("UploadZone — idempotency", () => {
     // bootstrap + scan-quote(fail) + scan-quote(retry via rpc path) = 3 invoke calls
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledTimes(3);
+      expect(pushV3BusinessEvent).toHaveBeenCalledTimes(1);
     });
     expect(storageUpload).not.toHaveBeenCalled();
+
+    const scanQuoteCalls = invokeMock.mock.calls.filter(
+      ([name]) => name === "scan-quote",
+    );
+    expect(scanQuoteCalls).toHaveLength(2);
+    const retryEventId = scanQuoteCalls[1][1].body.event_id;
+    expect(pushV3BusinessEvent).toHaveBeenCalledWith("quote_uploaded", {
+      eventId: retryEventId,
+      parameters: {
+        source_tool: "scanner",
+        measurement_source: "native",
+        journey_type: "scanner",
+        file_type: "application/pdf",
+      },
+    });
   });
 
   it("after invalid retry context, next attempt escapes retry loop and re-enters fresh bootstrap", async () => {
@@ -723,6 +740,46 @@ describe("UploadZone — leadId contract (Sprint 2A)", () => {
   });
 });
 
+describe("UploadZone — quote_uploaded V3 envelope", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setupHappyPath();
+  });
+
+  it("reuses the scan-quote event_id for the valid-response browser event", async () => {
+    render(
+      <UploadZone
+        isVisible
+        sessionId="00000000-0000-0000-0000-000000000016"
+      />,
+    );
+    await selectFile(makeFile("quote.pdf", 1024));
+    await act(async () => {
+      fireEvent.click(await findStartButton());
+    });
+
+    await waitFor(() => {
+      expect(pushV3BusinessEvent).toHaveBeenCalledTimes(1);
+    });
+
+    const scanQuoteCalls = invokeMock.mock.calls.filter(
+      ([name]) => name === "scan-quote",
+    );
+    expect(scanQuoteCalls).toHaveLength(1);
+    const scanQuoteEventId = scanQuoteCalls[0][1].body.event_id;
+    expect(scanQuoteEventId).toEqual(expect.any(String));
+    expect(pushV3BusinessEvent).toHaveBeenCalledWith("quote_uploaded", {
+      eventId: scanQuoteEventId,
+      parameters: {
+        source_tool: "scanner",
+        measurement_source: "native",
+        journey_type: "scanner",
+        file_type: "application/pdf",
+      },
+    });
+  });
+});
+
 describe("UploadZone — scan-quote terminal response", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -771,10 +828,7 @@ describe("UploadZone — scan-quote terminal response", () => {
     });
 
     expect(onScanStart).not.toHaveBeenCalled();
-    expect(trackGtmEvent).not.toHaveBeenCalledWith(
-      "quote_uploaded",
-      expect.anything(),
-    );
+    expect(pushV3BusinessEvent).not.toHaveBeenCalled();
   });
 });
 
@@ -1037,7 +1091,7 @@ describe("UploadZone — same-file retry recovery and 409 conflict handling", ()
     expect(mockSetQuoteFileId).toHaveBeenCalledWith(null);
     expect(mockSetSessionId).not.toHaveBeenCalled();
     expect(mockSetLeadId).not.toHaveBeenCalled();
-    expect(trackGtmEvent).not.toHaveBeenCalledWith("quote_uploaded", expect.anything());
+    expect(pushV3BusinessEvent).not.toHaveBeenCalled();
     expect(input.value).toBe("");
     expect(screen.queryByText(/safely reconnect/i)).not.toBeInTheDocument();
     expect(onUploadReset).toHaveBeenCalled();

@@ -49,6 +49,70 @@ export type AttributionDataLayerFields = {
   lead_id: string | null;
 };
 
+const V3_BUSINESS_EVENT_NAMES = [
+  "lead_captured",
+  "quote_uploaded",
+  "phone_verified",
+  "report_revealed",
+] as const;
+
+const V3_DIAGNOSTIC_EVENT_NAMES = [
+  "wmchat_started",
+  "wmchat_step_completed",
+  "powerdemo_started",
+  "powerdemo_location_submitted",
+  "powerdemo_project_selected",
+] as const;
+
+const V3_PARAMETER_KEYS = new Set([
+  "source_tool",
+  "flow_variant",
+  "project_type",
+  "project_scope",
+  "project_stage",
+  "service_area_status",
+  "window_count_bucket",
+  "journey_type",
+  "measurement_source",
+  "wm_intent",
+  "capture_source",
+  "handoff_source",
+  "step_name",
+  "step_index",
+  "file_type",
+  "cta_location",
+]);
+
+const V3_BUSINESS_EVENT_NAME_SET = new Set<string>(V3_BUSINESS_EVENT_NAMES);
+const V3_DIAGNOSTIC_EVENT_NAME_SET = new Set<string>(V3_DIAGNOSTIC_EVENT_NAMES);
+
+export type V3BusinessEventName = (typeof V3_BUSINESS_EVENT_NAMES)[number];
+export type V3DiagnosticEventName = (typeof V3_DIAGNOSTIC_EVENT_NAMES)[number];
+
+export interface V3DataLayerParameters {
+  source_tool?: string | null;
+  flow_variant?: string | null;
+  project_type?: string | null;
+  project_scope?: string | null;
+  project_stage?: string | null;
+  service_area_status?: string | null;
+  window_count_bucket?: string | null;
+  journey_type?: string | null;
+  measurement_source?: "native" | null;
+  wm_intent?: string | null;
+  capture_source?: string | null;
+  handoff_source?: string | null;
+  step_name?: string | null;
+  step_index?: number | null;
+  file_type?: string | null;
+  cta_location?: string | null;
+}
+
+export interface V3BusinessEventArgs {
+  eventId: string;
+  parameters: V3DataLayerParameters;
+}
+
 function normalizeWmIntentForDataLayer(intent: WmIntent): WmIntent | null {
   return intent === "unknown" ? null : intent;
 }
@@ -106,6 +170,68 @@ export function pushDataLayerEvent(
   payload: Record<string, unknown> = {},
 ): void {
   trackGtmEvent(eventName, stripForbiddenKeys(payload));
+}
+
+function sanitizeV3Parameters(
+  parameters: V3DataLayerParameters,
+): Record<string, string | number | null> {
+  if (!parameters || typeof parameters !== "object" || Array.isArray(parameters)) {
+    return {};
+  }
+
+  const safeParameters: Record<string, string | number | null> = {};
+
+  for (const [key, value] of Object.entries(parameters)) {
+    if (!V3_PARAMETER_KEYS.has(key) || value === undefined) continue;
+
+    if (value === null) {
+      safeParameters[key] = null;
+      continue;
+    }
+
+    if (key === "step_index") {
+      if (typeof value === "number" && Number.isFinite(value)) {
+        safeParameters[key] = value;
+      }
+      continue;
+    }
+
+    if (typeof value !== "string") continue;
+
+    const trimmedValue = value.trim();
+    if (!trimmedValue) continue;
+    if (key === "measurement_source" && trimmedValue !== "native") continue;
+
+    safeParameters[key] = trimmedValue;
+  }
+
+  return safeParameters;
+}
+
+/** Push an allowlisted V3 business event with a caller-owned event ID. */
+export function pushV3BusinessEvent(
+  eventName: V3BusinessEventName,
+  args: V3BusinessEventArgs,
+): void {
+  if (!V3_BUSINESS_EVENT_NAME_SET.has(eventName)) return;
+  if (!args || typeof args.eventId !== "string") return;
+
+  const eventId = args.eventId.trim();
+  if (!eventId) return;
+
+  pushDataLayerEvent(eventName, {
+    ...sanitizeV3Parameters(args.parameters),
+    event_id: eventId,
+  });
+}
+
+/** Push an allowlisted V3 diagnostic event without manufacturing an event ID. */
+export function pushV3DiagnosticEvent(
+  eventName: V3DiagnosticEventName,
+  parameters: V3DataLayerParameters,
+): void {
+  if (!V3_DIAGNOSTIC_EVENT_NAME_SET.has(eventName)) return;
+  pushDataLayerEvent(eventName, sanitizeV3Parameters(parameters));
 }
 
 /** Enriched SPA page-view signal for GTM. */

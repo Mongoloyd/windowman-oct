@@ -42,7 +42,12 @@ import {
   pushLeadMagnetUploadCtaClicked,
   pushLowIntentEvent,
   pushTruthGateViewedOnce,
+  pushV3BusinessEvent,
+  pushV3DiagnosticEvent,
   pushVirtualPageView,
+  type V3BusinessEventName,
+  type V3DataLayerParameters,
+  type V3DiagnosticEventName,
 } from "@/lib/tracking/dataLayer";
 
 describe("dataLayer helper", () => {
@@ -289,6 +294,144 @@ describe("dataLayer helper", () => {
 
     const payload = trackGtmEventMock.mock.calls[0][1] as Record<string, unknown>;
     expect(payload.wm_intent).toBe("has_quote");
+  });
+
+  describe("V3 browser envelope", () => {
+    it("pushes an allowlisted business event with the trimmed caller-owned event ID", () => {
+      pushV3BusinessEvent("lead_captured", {
+        eventId: "  canonical-event-id  ",
+        parameters: {
+          source_tool: "wmchat",
+          measurement_source: "native",
+          step_index: 0,
+          project_type: null,
+        },
+      });
+
+      expect(trackGtmEventMock).toHaveBeenCalledWith("lead_captured", {
+        source_tool: "wmchat",
+        measurement_source: "native",
+        step_index: 0,
+        project_type: null,
+        event_id: "canonical-event-id",
+      });
+    });
+
+    it("suppresses a business event with a blank caller-owned event ID", () => {
+      pushV3BusinessEvent("quote_uploaded", {
+        eventId: "   ",
+        parameters: { source_tool: "upload_zone" },
+      });
+
+      expect(trackGtmEventMock).not.toHaveBeenCalled();
+    });
+
+    it("does not let V3 parameters override the caller-owned event ID", () => {
+      pushV3BusinessEvent("phone_verified", {
+        eventId: "server-event-id",
+        parameters: {
+          source_tool: "verify_gate",
+          event_id: "substituted-event-id",
+        } as V3DataLayerParameters,
+      });
+
+      expect(trackGtmEventMock).toHaveBeenCalledWith("phone_verified", {
+        source_tool: "verify_gate",
+        event_id: "server-event-id",
+      });
+    });
+
+    it("pushes a diagnostic event without manufacturing an event ID", () => {
+      pushV3DiagnosticEvent("wmchat_step_completed", {
+        step_name: "project_type",
+        step_index: 0,
+        journey_type: null,
+        measurement_source: null,
+      });
+
+      const payload = trackGtmEventMock.mock.calls[0][1] as Record<string, unknown>;
+      expect(payload).toEqual({
+        step_name: "project_type",
+        step_index: 0,
+        journey_type: null,
+        measurement_source: null,
+      });
+      expect(payload).not.toHaveProperty("event_id");
+    });
+
+    it("drops blank, non-finite, array, object, and invalid measurement values", () => {
+      pushV3DiagnosticEvent(
+        "powerdemo_started",
+        {
+          source_tool: "   ",
+          flow_variant: [],
+          project_type: {},
+          step_index: Number.NaN,
+          project_scope: Number.POSITIVE_INFINITY,
+          project_stage: Number.NEGATIVE_INFINITY,
+          measurement_source: "server",
+          service_area_status: undefined,
+          journey_type: null,
+          cta_location: "  hero  ",
+        } as V3DataLayerParameters,
+      );
+
+      expect(trackGtmEventMock).toHaveBeenCalledWith("powerdemo_started", {
+        journey_type: null,
+        cta_location: "hero",
+      });
+    });
+
+    it("rejects forbidden identifiers, PII, click IDs, raw JSON, and unknown keys at runtime", () => {
+      const forbiddenParameters = {
+        source_tool: "wmchat",
+        email: "owner@example.com",
+        phone: "5551234567",
+        phone_e164: "+15551234567",
+        first_name: "Ada",
+        last_name: "Lovelace",
+        name: "Ada Lovelace",
+        full_name: "Ada Lovelace",
+        zip: "33101",
+        zipcode: "33101",
+        zip_code: "33101",
+        postal_code: "33101",
+        address: "1 Main Street",
+        street_address: "1 Main Street",
+        lead_id: "lead-id",
+        visitor_id: "visitor-id",
+        session_id: "session-id",
+        scan_session_id: "scan-session-id",
+        quote_id: "quote-id",
+        report_id: "report-id",
+        gclid: "gclid-value",
+        fbclid: "fbclid-value",
+        ttclid: "ttclid-value",
+        msclkid: "msclkid-value",
+        full_json: { secret: true },
+        preview_json: { teaser: true },
+        arbitrary_unknown_key: "unknown-value",
+      } as V3DataLayerParameters;
+
+      pushV3DiagnosticEvent("wmchat_started", forbiddenParameters);
+
+      expect(trackGtmEventMock).toHaveBeenCalledWith("wmchat_started", {
+        source_tool: "wmchat",
+      });
+    });
+
+    it("rejects non-allowlisted event names even when TypeScript is bypassed", () => {
+      pushV3BusinessEvent("purchase" as V3BusinessEventName, {
+        eventId: "event-id",
+        parameters: {},
+      });
+      pushV3DiagnosticEvent(
+        "debug_event" as V3DiagnosticEventName,
+        { source_tool: "wmchat" },
+      );
+
+      expect(trackGtmEventMock).not.toHaveBeenCalled();
+    });
   });
 
   describe("pushLeadMagnetCaptured", () => {
