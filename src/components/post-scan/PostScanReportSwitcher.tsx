@@ -19,6 +19,7 @@ import DarkV2ReportRecoveryPanel from "@/components/forensic-report/DarkV2Report
 import { useNavigate } from "react-router-dom";
 import { trackEvent } from "@/lib/trackEvent";
 import { trackGtmEvent } from "@/lib/trackConversion";
+import { pushV3BusinessEvent } from "@/lib/tracking/dataLayer";
 import { resolveEffectiveSeverity } from "@/utils/resolveEffectiveSeverity";
 import { useScanFunnelSafe } from "@/state/scanFunnel";
 import { usePhonePipeline } from "@/hooks/usePhonePipeline";
@@ -272,11 +273,13 @@ export function PostScanReportSwitcher(props: Props) {
     if (reportRevealedRef.current) return;
     if (props.isFullLoaded && activeCapturedPhone) {
       reportRevealedRef.current = true;
-      trackGtmEvent("report_revealed", {
-        event_id: reportRevealedEventIdRef.current ?? undefined,
-        scan_session_id: props.scanSessionId || undefined,
-        lead_id: leadId ?? undefined,
-        grade: props.grade,
+      pushV3BusinessEvent("report_revealed", {
+        eventId: reportRevealedEventIdRef.current ?? "",
+        parameters: {
+          source_tool: "scanner",
+          measurement_source: "native",
+          journey_type: "scanner",
+        },
       });
     }
   }, [props.isFullLoaded, activeCapturedPhone, props.scanSessionId, props.grade, leadId]);
@@ -498,10 +501,13 @@ export function PostScanReportSwitcher(props: Props) {
           stallTimerSessionRef.current = null;
         }
         reportRevealedEventIdRef.current = result.reportRevealedEventId ?? null;
-        trackGtmEvent("phone_verified", {
-          event_id: result.phoneVerifiedEventId ?? undefined,
-          scan_session_id: requestScanSessionId || undefined,
-          phone_e164_last4: result.e164.slice(-4),
+        pushV3BusinessEvent("phone_verified", {
+          eventId: result.phoneVerifiedEventId ?? "",
+          parameters: {
+            source_tool: "scanner",
+            measurement_source: "native",
+            journey_type: "scanner",
+          },
         });
         props.onVerified?.(result.e164);
       }

@@ -40,6 +40,7 @@ const {
   navigateSpy,
   trackEventMock,
   trackGtmEventMock,
+  pushV3BusinessEventMock,
 } = vi.hoisted(() => ({
   mockUseReportAccess: vi.fn(),
   mockUseScanFunnelSafe: vi.fn(),
@@ -47,6 +48,7 @@ const {
   navigateSpy: vi.fn(),
   trackEventMock: vi.fn(),
   trackGtmEventMock: vi.fn(),
+  pushV3BusinessEventMock: vi.fn(),
 }));
 
 vi.mock("@/hooks/useReportAccess", () => ({
@@ -75,6 +77,10 @@ vi.mock("@/lib/trackEvent", () => ({
 
 vi.mock("@/lib/trackConversion", () => ({
   trackGtmEvent: trackGtmEventMock,
+}));
+
+vi.mock("@/lib/tracking/dataLayer", () => ({
+  pushV3BusinessEvent: pushV3BusinessEventMock,
 }));
 
 vi.mock("@/integrations/supabase/client", () => ({
@@ -176,6 +182,67 @@ function baseProps() {
     isFullLoaded: false,
     analysisData: MOCK_ANALYSIS_DATA,
   };
+}
+
+const SAFE_SCANNER_V3_PARAMETERS = {
+  source_tool: "scanner",
+  measurement_source: "native",
+  journey_type: "scanner",
+};
+
+const FORBIDDEN_V3_BROWSER_FIELDS = [
+  "phone",
+  "phone_e164",
+  "phone_e164_last4",
+  "scan_session_id",
+  "lead_id",
+  "session_id",
+  "quote_id",
+  "report_id",
+  "email",
+  "name",
+  "zip",
+  "address",
+  "otp",
+  "grade",
+  "value",
+  "currency",
+  "full_json",
+  "preview_json",
+];
+
+function getV3Calls(eventName: string) {
+  return pushV3BusinessEventMock.mock.calls.filter(([name]) => name === eventName);
+}
+
+function getEmittedV3Calls(eventName: string) {
+  return getV3Calls(eventName).filter(([, args]) => {
+    const eventId = (args as { eventId?: unknown } | undefined)?.eventId;
+    return typeof eventId === "string" && eventId.trim().length > 0;
+  });
+}
+
+function expectSafeScannerV3Call(
+  call: unknown[],
+  eventName: "phone_verified" | "report_revealed",
+  eventId: string,
+) {
+  expect(call).toEqual([
+    eventName,
+    {
+      eventId,
+      parameters: SAFE_SCANNER_V3_PARAMETERS,
+    },
+  ]);
+
+  const args = call[1] as {
+    eventId: string;
+    parameters: Record<string, unknown>;
+  };
+  for (const key of FORBIDDEN_V3_BROWSER_FIELDS) {
+    expect(args).not.toHaveProperty(key);
+    expect(args.parameters).not.toHaveProperty(key);
+  }
 }
 
 describe("PostScanReportSwitcher shared OTP status wiring", () => {
@@ -723,6 +790,12 @@ describe("PostScanReportSwitcher — post-OTP unlock transition", () => {
   });
 
   it("valid scanSessionId permits OTP verify and hands off unlock with server-canonical phone", async () => {
+    const sequence: string[] = [];
+    pushV3BusinessEventMock.mockImplementationOnce((eventName: string) => {
+      if (eventName === "phone_verified") sequence.push("phone_verified");
+    });
+    onVerifiedMock.mockImplementation(() => sequence.push("onVerified"));
+
     render(
       <MemoryRouter>
         <PostScanReportSwitcher
@@ -740,6 +813,174 @@ describe("PostScanReportSwitcher — post-OTP unlock transition", () => {
     expect(submitOtpMock).toHaveBeenCalledWith("123456");
     expect(funnelState.setPhone).toHaveBeenCalledWith("+13055551234", "verified");
     expect(onVerifiedMock).toHaveBeenCalledWith("+13055551234");
+    expect(getEmittedV3Calls("phone_verified")).toHaveLength(1);
+    expect(getV3Calls("report_revealed")).toHaveLength(0);
+    expectSafeScannerV3Call(
+      getEmittedV3Calls("phone_verified")[0],
+      "phone_verified",
+      "evt-pv",
+    );
+    expect(sequence).toEqual(["phone_verified", "onVerified"]);
+  });
+
+  it("waits for full load before report_revealed and emits it only once across rerenders", async () => {
+    const renderState = (isFullLoaded: boolean) => (
+      <MemoryRouter>
+        <PostScanReportSwitcher
+          {...baseProps()}
+          scanSessionId={VALID_SCAN_SESSION_ID}
+          onVerified={onVerifiedMock}
+          isFullLoaded={isFullLoaded}
+        />
+      </MemoryRouter>
+    );
+    const { rerender } = render(renderState(false));
+
+    fireEvent.change(screen.getByTestId("otp-input"), { target: { value: "123456" } });
+    fireEvent.click(screen.getByText("otp-submit"));
+
+    await waitFor(() => expect(getEmittedV3Calls("phone_verified")).toHaveLength(1));
+    expect(getV3Calls("report_revealed")).toHaveLength(0);
+
+    rerender(renderState(true));
+    await waitFor(() => expect(getEmittedV3Calls("report_revealed")).toHaveLength(1));
+    expectSafeScannerV3Call(
+      getEmittedV3Calls("report_revealed")[0],
+      "report_revealed",
+      "evt-rr",
+    );
+
+    rerender(renderState(true));
+    await Promise.resolve();
+    expect(getEmittedV3Calls("phone_verified")).toHaveLength(1);
+    expect(getEmittedV3Calls("report_revealed")).toHaveLength(1);
+  });
+
+  it("keeps report_revealed suppressed through full-fetch failure and emits once after recovery", async () => {
+    const renderState = (isFullLoaded: boolean, fullFetchError: string | null) => (
+      <MemoryRouter>
+        <PostScanReportSwitcher
+          {...baseProps()}
+          scanSessionId={VALID_SCAN_SESSION_ID}
+          onVerified={onVerifiedMock}
+          isFullLoaded={isFullLoaded}
+          fullFetchError={fullFetchError}
+        />
+      </MemoryRouter>
+    );
+    const { rerender } = render(renderState(false, "Failed to unlock report."));
+
+    fireEvent.change(screen.getByTestId("otp-input"), { target: { value: "123456" } });
+    fireEvent.click(screen.getByText("otp-submit"));
+
+    await waitFor(() => expect(getEmittedV3Calls("phone_verified")).toHaveLength(1));
+    expect(getV3Calls("report_revealed")).toHaveLength(0);
+
+    funnelState = {
+      ...funnelState,
+      phoneStatus: "verified",
+      scanSessionId: VALID_SCAN_SESSION_ID,
+    };
+    onVerifiedMock.mockClear();
+    rerender(renderState(false, "Failed to unlock report."));
+    fireEvent.click(screen.getByText("retry-fetch-full"));
+    await waitFor(() => expect(onVerifiedMock).toHaveBeenCalledWith("+13055551234"));
+    expect(getEmittedV3Calls("phone_verified")).toHaveLength(1);
+    expect(getV3Calls("report_revealed")).toHaveLength(0);
+
+    rerender(renderState(true, null));
+    await waitFor(() => expect(getEmittedV3Calls("report_revealed")).toHaveLength(1));
+    expect(getEmittedV3Calls("phone_verified")).toHaveLength(1);
+  });
+
+  it("preserves product progression while blank server event IDs suppress browser emission", async () => {
+    submitOtpMock.mockResolvedValueOnce({
+      status: "verified",
+      e164: "+13055551234",
+      phoneVerifiedEventId: undefined,
+      reportRevealedEventId: undefined,
+    });
+    const renderState = (isFullLoaded: boolean) => (
+      <MemoryRouter>
+        <PostScanReportSwitcher
+          {...baseProps()}
+          scanSessionId={VALID_SCAN_SESSION_ID}
+          onVerified={onVerifiedMock}
+          isFullLoaded={isFullLoaded}
+        />
+      </MemoryRouter>
+    );
+    const { rerender } = render(renderState(false));
+
+    fireEvent.change(screen.getByTestId("otp-input"), { target: { value: "123456" } });
+    fireEvent.click(screen.getByText("otp-submit"));
+
+    await waitFor(() => expect(onVerifiedMock).toHaveBeenCalledWith("+13055551234"));
+    expect(funnelState.setPhone).toHaveBeenCalledWith("+13055551234", "verified");
+    expect(getV3Calls("phone_verified")).toHaveLength(1);
+    expect(getV3Calls("phone_verified")[0][1]).toEqual({
+      eventId: "",
+      parameters: SAFE_SCANNER_V3_PARAMETERS,
+    });
+    expect(getEmittedV3Calls("phone_verified")).toHaveLength(0);
+
+    rerender(renderState(true));
+    await waitFor(() => expect(getV3Calls("report_revealed")).toHaveLength(1));
+    expect(getV3Calls("report_revealed")[0][1]).toEqual({
+      eventId: "",
+      parameters: SAFE_SCANNER_V3_PARAMETERS,
+    });
+    expect(getEmittedV3Calls("report_revealed")).toHaveLength(0);
+    expect(screen.getByTestId("access-level")).toHaveTextContent("full");
+  });
+
+  it("keeps verifyLockRef effective across two rapid OTP submit clicks", async () => {
+    let resolveOtp: ((value: {
+      status: "verified";
+      e164: string;
+      phoneVerifiedEventId: string;
+      reportRevealedEventId: string;
+    }) => void) | undefined;
+    submitOtpMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveOtp = resolve;
+        }),
+    );
+    renderSwitcher({ scanSessionId: VALID_SCAN_SESSION_ID, onVerified: onVerifiedMock });
+
+    fireEvent.change(screen.getByTestId("otp-input"), { target: { value: "123456" } });
+    const submitButton = screen.getByText("otp-submit");
+    fireEvent.click(submitButton);
+    fireEvent.click(submitButton);
+    expect(submitOtpMock).toHaveBeenCalledTimes(1);
+
+    resolveOtp?.({
+      status: "verified",
+      e164: "+13055551234",
+      phoneVerifiedEventId: "evt-pv",
+      reportRevealedEventId: "evt-rr",
+    });
+    await waitFor(() => expect(getEmittedV3Calls("phone_verified")).toHaveLength(1));
+    expect(submitOtpMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not emit business events for an invalid_code OTP result", async () => {
+    submitOtpMock.mockResolvedValueOnce({
+      status: "invalid_code",
+      error: "Invalid or expired code.",
+    });
+    renderSwitcher({ scanSessionId: VALID_SCAN_SESSION_ID, onVerified: onVerifiedMock });
+
+    fireEvent.change(screen.getByTestId("otp-input"), { target: { value: "123456" } });
+    fireEvent.click(screen.getByText("otp-submit"));
+
+    await waitFor(() => expect(submitOtpMock).toHaveBeenCalledTimes(1));
+    expect(getV3Calls("phone_verified")).toHaveLength(0);
+    expect(getV3Calls("report_revealed")).toHaveLength(0);
+    expect(funnelState.setPhone).not.toHaveBeenCalledWith("+13055551234", "verified");
+    expect(onVerifiedMock).not.toHaveBeenCalled();
+    expect(screen.getByTestId("access-level")).toHaveTextContent("preview");
   });
 
   it("transitions from preview to full when isFullLoaded flips to true after onVerified", () => {
@@ -1183,8 +1424,12 @@ describe("PostScanReportSwitcher — async session guard", () => {
 
     expect(onVerifiedMock).not.toHaveBeenCalled();
     expect(funnelState.setPhone).not.toHaveBeenCalled();
-    expect(trackGtmEventMock).not.toHaveBeenCalledWith(
+    expect(pushV3BusinessEventMock).not.toHaveBeenCalledWith(
       "phone_verified",
+      expect.anything(),
+    );
+    expect(pushV3BusinessEventMock).not.toHaveBeenCalledWith(
+      "report_revealed",
       expect.anything(),
     );
 
@@ -1340,7 +1585,7 @@ describe("PostScanReportSwitcher — async cleanup (FIX-3.2)", () => {
     expect(toast.error).not.toHaveBeenCalledWith("Connection error. Please try again.");
   });
 
-  it("does not fire phone_verified GTM event for inactive session after OTP resolves", async () => {
+  it("does not fire phone_verified V3 event for inactive session after OTP resolves", async () => {
     let resolveOtp: (value: {
       status: string;
       e164: string;
@@ -1382,7 +1627,8 @@ describe("PostScanReportSwitcher — async cleanup (FIX-3.2)", () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(trackGtmEventMock).not.toHaveBeenCalledWith("phone_verified", expect.anything());
+    expect(pushV3BusinessEventMock).not.toHaveBeenCalledWith("phone_verified", expect.anything());
+    expect(pushV3BusinessEventMock).not.toHaveBeenCalledWith("report_revealed", expect.anything());
     expect(onVerifiedMock).not.toHaveBeenCalled();
   });
 
