@@ -16,6 +16,7 @@ const { mockSetSessionId, mockSetLeadId, mockSetPhone, invokeMock } = vi.hoisted
     invokeMock: vi.fn(),
   }),
 );
+const truthGateLeadCaptureModuleState = vi.hoisted(() => ({ loads: 0 }));
 
 const funnelMockState = vi.hoisted(() => ({
   leadId: null as string | null,
@@ -41,6 +42,13 @@ vi.mock("@/integrations/supabase/client", () => ({
     functions: { invoke: invokeMock },
   },
 }));
+
+vi.mock("@/services/truthGateLeadCapture", async () => {
+  truthGateLeadCaptureModuleState.loads += 1;
+  return vi.importActual<typeof import("@/services/truthGateLeadCapture")>(
+    "@/services/truthGateLeadCapture",
+  );
+});
 
 vi.mock("@/lib/useUtmCapture", () => ({
   captureUtmFromUrl: vi.fn(() => ({
@@ -97,7 +105,9 @@ vi.mock("framer-motion", () => {
   };
 });
 
-import TruthGateFlow from "./TruthGateFlow";
+import TruthGateFlow, {
+  createTruthGateLeadCaptureModuleLoader,
+} from "./TruthGateFlow";
 import {
   hasTrustedContactIdentity,
   isValidLeadSessionUuid,
@@ -184,6 +194,81 @@ async function submitPaidHasQuoteForm() {
     timeout: 3000,
   }).catch(() => undefined);
 }
+
+describe("TruthGateFlow intent-loaded capture service", () => {
+  beforeEach(() => {
+    funnelMockState.leadId = null;
+    funnelMockState.sessionId = null;
+    installLocalStorageMock();
+    mockSetSessionId.mockReset();
+    mockSetLeadId.mockReset();
+    mockSetPhone.mockReset();
+    invokeMock.mockReset();
+    seedAttribution({ wm_intent: "has_quote" });
+    invokeMock.mockResolvedValue({
+      data: { success: true, lead_id: LEAD_ID, session_id: SESSION_ID },
+      error: null,
+    });
+    vi.spyOn(crypto, "randomUUID").mockReturnValue(SESSION_ID);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("resets a rejected module promise so a later load can retry", async () => {
+    const recoveredModule = {
+      submitTruthGateLead: vi.fn(),
+    } as unknown as typeof import("@/services/truthGateLeadCapture");
+    const importer = vi.fn<
+      () => Promise<typeof import("@/services/truthGateLeadCapture")>
+    >();
+    importer
+      .mockRejectedValueOnce(new Error("chunk unavailable"))
+      .mockResolvedValueOnce(recoveredModule);
+    const loader = createTruthGateLeadCaptureModuleLoader(importer);
+
+    await expect(loader.load()).rejects.toThrow("chunk unavailable");
+    await expect(loader.load()).resolves.toBe(recoveredModule);
+    expect(importer).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not load the capture service on render or invalid submission", async () => {
+    renderTruthGate(<TruthGateFlow />);
+
+    expect(truthGateLeadCaptureModuleState.loads).toBe(0);
+
+    await act(async () => {
+      fireEvent.change(screen.getByPlaceholderText("Your first name"), {
+        target: { value: "J" },
+      });
+      fireEvent.submit(
+        screen.getByPlaceholderText("Your first name").closest("form") as HTMLFormElement,
+      );
+    });
+
+    expect(invokeMock).not.toHaveBeenCalled();
+    expect(truthGateLeadCaptureModuleState.loads).toBe(0);
+  });
+
+  it("prewarms once on intent and reuses the module during submission", async () => {
+    renderTruthGate(<TruthGateFlow />);
+
+    const firstName = screen.getByPlaceholderText("Your first name");
+    const email = screen.getByPlaceholderText("your@email.com");
+
+    fireEvent.focus(firstName);
+    await waitFor(() => expect(truthGateLeadCaptureModuleState.loads).toBe(1));
+
+    fireEvent.pointerDown(email);
+    expect(truthGateLeadCaptureModuleState.loads).toBe(1);
+
+    await submitPaidHasQuoteForm();
+
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+    expect(truthGateLeadCaptureModuleState.loads).toBe(1);
+  });
+});
 
 describe("TruthGateFlow helpers", () => {
   it("isValidLeadSessionUuid accepts UUID v4", () => {

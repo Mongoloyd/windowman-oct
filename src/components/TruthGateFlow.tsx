@@ -23,9 +23,39 @@ import {
   validateTruthGateContactField,
   type TruthGateFieldStatus,
 } from "@/lib/validation/truthGateContact";
-import { submitTruthGateLead } from "@/services/truthGateLeadCapture";
 import { MarketingConsentCheckbox } from "@/components/consent/MarketingConsentCheckbox";
 import { ServiceAuthorizationDisclosure } from "@/components/consent/ServiceAuthorizationDisclosure";
+
+type TruthGateLeadCaptureModule = typeof import("@/services/truthGateLeadCapture");
+
+export function createTruthGateLeadCaptureModuleLoader(
+  importer: () => Promise<TruthGateLeadCaptureModule>,
+) {
+  let modulePromise: Promise<TruthGateLeadCaptureModule> | null = null;
+
+  const load = () => {
+    if (modulePromise) return modulePromise;
+
+    modulePromise = importer().catch((error: unknown) => {
+      modulePromise = null;
+      throw error;
+    });
+    return modulePromise;
+  };
+
+  const prewarm = () => {
+    void load().catch(() => undefined);
+  };
+
+  return { load, prewarm };
+}
+
+const truthGateLeadCaptureLoader = createTruthGateLeadCaptureModuleLoader(
+  () => import("@/services/truthGateLeadCapture"),
+);
+
+const SAFE_CAPTURE_MESSAGE =
+  "We couldn't save your details yet. Check them and try again.";
 
 const CONTACT_FONT =
   'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
@@ -184,6 +214,7 @@ const ContactCaptureStep = ({
   onEmailChange,
   onPhoneChange,
   onFieldBlur,
+  onIntent,
   onSubmit,
   marketingConsent,
   onMarketingConsentChange,
@@ -200,6 +231,7 @@ const ContactCaptureStep = ({
   onEmailChange: (value: string) => void;
   onPhoneChange: (value: string) => void;
   onFieldBlur: (field: string, value: string) => void;
+  onIntent: () => void;
   onSubmit: (e: React.FormEvent) => void;
   marketingConsent: boolean;
   onMarketingConsentChange: (checked: boolean) => void;
@@ -267,7 +299,13 @@ const ContactCaptureStep = ({
       </div>
     </div>
 
-    <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+    <form
+      onSubmit={onSubmit}
+      onFocusCapture={onIntent}
+      onPointerDownCapture={onIntent}
+      noValidate
+      className="flex flex-col gap-4"
+    >
       <div>
         <label className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-300">FIRST NAME</label>
         <div className="relative group">
@@ -546,6 +584,15 @@ const TruthGateFlow = ({
     setSubmitState("submitting");
     setSubmitError(null);
 
+    let captureModule: TruthGateLeadCaptureModule;
+    try {
+      captureModule = await truthGateLeadCaptureLoader.load();
+    } catch {
+      setSubmitError({ code: "lead_capture_failed", message: SAFE_CAPTURE_MESSAGE });
+      setSubmitState("error");
+      return;
+    }
+
     const sessionId = isValidLeadSessionUuid(funnel?.sessionId)
       ? funnel!.sessionId!
       : createUuid();
@@ -554,7 +601,7 @@ const TruthGateFlow = ({
       funnel.setSessionId(sessionId);
     }
 
-    const result = await submitTruthGateLead({
+    const result = await captureModule.submitTruthGateLead({
       sessionId,
       firstName: fields.firstName,
       email: fields.email,
@@ -631,6 +678,7 @@ const TruthGateFlow = ({
                   }
                   onPhoneChange={handlePhoneChange}
                   onFieldBlur={handleFieldBlur}
+                  onIntent={truthGateLeadCaptureLoader.prewarm}
                   onSubmit={handleContactSubmit}
                   marketingConsent={marketingCommunicationsConsent}
                   onMarketingConsentChange={handleMarketingConsentChange}

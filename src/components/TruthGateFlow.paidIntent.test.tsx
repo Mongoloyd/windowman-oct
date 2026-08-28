@@ -15,6 +15,7 @@ const { mockSetSessionId, mockSetLeadId, mockSetPhone, invokeMock, getUtmDataMoc
     invokeMock: vi.fn(),
     getUtmDataMock: vi.fn(),
   }));
+const truthGateLeadCaptureModuleState = vi.hoisted(() => ({ loads: 0 }));
 
 vi.mock("@/hooks/useTickerStats", () => ({
   useTickerStats: () => ({ total: 1000, today: 12 }),
@@ -35,6 +36,13 @@ vi.mock("@/integrations/supabase/client", () => ({
     functions: { invoke: invokeMock },
   },
 }));
+
+vi.mock("@/services/truthGateLeadCapture", async () => {
+  truthGateLeadCaptureModuleState.loads += 1;
+  return vi.importActual<typeof import("@/services/truthGateLeadCapture")>(
+    "@/services/truthGateLeadCapture",
+  );
+});
 
 vi.mock("@/lib/useUtmCapture", () => ({
   captureUtmFromUrl: vi.fn(() => ({
@@ -232,6 +240,7 @@ describe("TruthGateFlow contact-first intake", () => {
     renderTruthGate(<TruthGateFlow />);
 
     expectContactFirstSurface();
+    expect(truthGateLeadCaptureModuleState.loads).toBe(0);
   });
 
   it("submits null quiz scalars for organic/default traffic", async () => {
@@ -245,6 +254,7 @@ describe("TruthGateFlow contact-first intake", () => {
 
     renderTruthGate(<TruthGateFlow />);
 
+    expect(truthGateLeadCaptureModuleState.loads).toBe(0);
     await submitContactForm();
 
     await waitFor(() => {
@@ -264,6 +274,7 @@ describe("TruthGateFlow contact-first intake", () => {
         }),
       );
     });
+    expect(truthGateLeadCaptureModuleState.loads).toBe(1);
   });
 
   it("succeeds with first name and email only (phone optional)", async () => {
