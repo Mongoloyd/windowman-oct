@@ -67,7 +67,7 @@ begin
     return new;
   end if;
 
-  perform "extensions"."net"."http_post"(
+  perform extensions.http_post(
     url := project_url || '/functions/v1/summarize-row',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
