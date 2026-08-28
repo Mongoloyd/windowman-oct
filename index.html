@@ -57,13 +57,18 @@
   <link rel="preconnect" href="https://d2xsxph8kpxj0f.cloudfront.net" crossorigin />
   <link rel="dns-prefetch" href="https://graph.facebook.com" />
 
-  <link
-    rel="preload"
-    as="image"
-    fetchpriority="high"
-    href="https://d2xsxph8kpxj0f.cloudfront.net/87108037/YjBTWCdi7jZwa5GFcxbLnp/windowmanwithtruthreportonthephone_be309c26.avif"
-    type="image/avif"
-  />
+  <script>
+    if (window.location.pathname === "/") {
+      var __wmHomepageHeroPreload = document.createElement("link");
+      __wmHomepageHeroPreload.rel = "preload";
+      __wmHomepageHeroPreload.as = "image";
+      __wmHomepageHeroPreload.fetchPriority = "high";
+      __wmHomepageHeroPreload.href =
+        "https://d2xsxph8kpxj0f.cloudfront.net/87108037/YjBTWCdi7jZwa5GFcxbLnp/windowmanwithtruthreportonthephone_be309c26.avif";
+      __wmHomepageHeroPreload.type = "image/avif";
+      document.head.appendChild(__wmHomepageHeroPreload);
+    }
+  </script>
 
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://windowman.app/" />

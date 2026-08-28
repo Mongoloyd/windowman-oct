@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useLayoutEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, useAnimationControls } from "framer-motion";
 import { AlertTriangle, Zap, CheckCircle2 } from "lucide-react";
 
@@ -181,10 +181,8 @@ const AnimatedCounter = ({ target }: { target: number }) => {
 type Phase = "scanning" | "reveal";
 
 const SampleGradeCard = () => {
-  const cardRef = useRef<HTMLDivElement>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [phase, setPhase] = useState<Phase>("reveal");
-  const [cardHeight, setCardHeight] = useState(0);
   const [reducedMotion, setReducedMotion] = useState(false);
 
   const laserControls = useAnimationControls();
@@ -202,22 +200,6 @@ const SampleGradeCard = () => {
     const handler = (e: MediaQueryListEvent) => setReducedMotion(e.matches);
     mq.addEventListener?.("change", handler);
     return () => mq.removeEventListener?.("change", handler);
-  }, []);
-
-  // Measure card height + observe resize
-  useLayoutEffect(() => {
-    const el = cardRef.current;
-    if (!el) return;
-    setCardHeight(el.offsetHeight);
-    if (typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const h = (entry.target as HTMLElement).offsetHeight;
-        if (h > 0) setCardHeight(h);
-      }
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
   }, []);
 
   const clearAllTimers = () => {
@@ -243,7 +225,6 @@ const SampleGradeCard = () => {
   useEffect(() => {
     if (reducedMotion) return;
     if (startedRef.current) return;
-    if (cardHeight <= 0) return;
 
     startedRef.current = true;
 
@@ -272,12 +253,11 @@ const SampleGradeCard = () => {
 
     const t = window.setTimeout(start, 500);
     pushTimer(t);
-  }, [cardHeight, reducedMotion]);
+  }, [reducedMotion]);
 
   // Phase machine
   useEffect(() => {
     if (reducedMotion) return;
-    if (cardHeight <= 0) return;
     if (!startedRef.current) return;
 
     let cancelled = false;
@@ -288,9 +268,9 @@ const SampleGradeCard = () => {
       overlayControls.set({ opacity: 0 });
       overlayControls.start({ opacity: 1, transition: { duration: 0.2, ease: "easeOut" } });
 
-      laserControls.set({ y: 0, opacity: 1 });
+      laserControls.set({ y: "0%", opacity: 1 });
       laserControls.start({
-        y: cardHeight,
+        y: "100%",
         transition: { duration: SCAN_MS / 1000, ease: "easeInOut", type: "tween" },
       });
 
@@ -320,7 +300,7 @@ const SampleGradeCard = () => {
     return () => {
       cancelled = true;
     };
-  }, [phase, cardHeight, reducedMotion, laserControls, overlayControls, gradeControls]);
+  }, [phase, reducedMotion, laserControls, overlayControls, gradeControls]);
 
   // Final cleanup on unmount
   useEffect(() => {
@@ -337,7 +317,6 @@ const SampleGradeCard = () => {
 
   return (
     <div
-      ref={cardRef}
       className="relative overflow-hidden card-raised-hero wm-sample-card-float"
       style={{
         padding: 28,
@@ -379,22 +358,26 @@ const SampleGradeCard = () => {
       {!reducedMotion && (
         <motion.div
           aria-hidden
-          initial={{ y: 0, opacity: 0 }}
+          initial={{ y: "0%", opacity: 0 }}
           animate={laserControls}
           style={{
             position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: 2,
+            inset: 0,
             zIndex: 30,
             pointerEvents: "none",
-            background: "#00FFFF",
-            boxShadow: "0 0 15px 2px rgba(0,255,255,0.7)",
             willChange: "transform, opacity",
             transform: "translateZ(0)",
           }}
-        />
+        >
+          <div
+            style={{
+              width: "100%",
+              height: 2,
+              background: "#00FFFF",
+              boxShadow: "0 0 15px 2px rgba(0,255,255,0.7)",
+            }}
+          />
+        </motion.div>
       )}
 
       {/* SCANNING… label (z 40) */}

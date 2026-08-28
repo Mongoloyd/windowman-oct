@@ -734,7 +734,7 @@ const Index = () => {
               </div>
 
               <>
-                <React.Suspense fallback={<SectionReserve className="min-h-[760px]" />}>
+                <LazySection height="760px" rootMargin="0px" skeleton={true}>
                   <ScamConcernImage />
                   <OrangeScanner
                     onScanClick={() => triggerTruthGate("demo_scan")}
@@ -743,7 +743,7 @@ const Index = () => {
                       window.scrollTo({ top: 0, behavior: "smooth" });
                     }}
                   />
-                </React.Suspense>
+                </LazySection>
                 <div className="scroll-mt-24">
                   <TruthGateFlow
                     key={intakeResetKey}
@@ -817,7 +817,7 @@ const Index = () => {
                     setFileUploaded(true);
                   }}
                 />
-                <React.Suspense fallback={<SectionReserve className="min-h-[640px]" />}>
+                <LazySection height="640px" rootMargin="0px" skeleton={true}>
                   <ProcessSteps
                     onScanClick={() => triggerTruthGate("process_steps")}
                     onDemoClick={() => {
@@ -828,7 +828,7 @@ const Index = () => {
                   <div className="mt-24">
                     <SocialProofStrip />
                   </div>
-                </React.Suspense>
+                </LazySection>
               </>
             </>
           )}
