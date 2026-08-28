@@ -10,7 +10,26 @@ import { hasTrustedContactIdentity } from "@/lib/leadSession";
 import PostCaptureRouter, { type PostCapturePath } from "@/components/PostCaptureRouter";
 import UploadZone from "@/components/UploadZone";
 import ScanTheatrics from "@/components/ScanTheatrics";
-import { PostScanReportSwitcher } from "@/components/post-scan/PostScanReportSwitcher";
+import { isValidScanSessionId } from "@/lib/routeIdGuards";
+
+type PostScanReportModule = typeof import("@/components/post-scan/PostScanReportSwitcher");
+
+let postScanReportModulePromise: Promise<PostScanReportModule> | null = null;
+
+const loadPostScanReportModule = () => {
+  postScanReportModulePromise ??=
+    import("@/components/post-scan/PostScanReportSwitcher").catch((error) => {
+      postScanReportModulePromise = null;
+      throw error;
+    });
+  return postScanReportModulePromise;
+};
+
+const PostScanReportSwitcher = React.lazy(() =>
+  loadPostScanReportModule().then((module) => ({
+    default: module.PostScanReportSwitcher,
+  })),
+);
 
 const ExitIntentPhoneModal = React.lazy(() => import("@/components/ExitIntentPhoneModal"));
 
@@ -85,6 +104,13 @@ export function shouldRehydrateContactUpload(input: {
   if (input.inProductPhase) return false;
   if (input.persistedScanSessionId) return false;
   return hasTrustedContactIdentity(input.leadId, input.sessionId);
+}
+
+export function shouldPreloadPostScanReport(input: {
+  fileUploaded: boolean;
+  scanSessionId: string | null;
+}): boolean {
+  return input.fileUploaded || isValidScanSessionId(input.scanSessionId);
 }
 
 const Index = () => {
@@ -373,6 +399,11 @@ const Index = () => {
   // so post-upload time is not counted as acquisition-page engagement.
   const shouldTrackHomepageAcquisition =
     !isProductExperiencePhase && !isDevPreview;
+
+  useEffect(() => {
+    if (!shouldPreloadPostScanReport({ fileUploaded, scanSessionId })) return;
+    void loadPostScanReportModule();
+  }, [fileUploaded, scanSessionId]);
 
   const { slug: queryClientSlug, ready: clientSlugReady } = useClientSlug();
 
@@ -900,50 +931,63 @@ const Index = () => {
                   </div>
                 </div>
               ) : activeData ? (
-                <PostScanReportSwitcher
-                  grade={reportGrade}
-                  flags={reportFlags}
-                  pillarScores={activeData.pillarScores}
-                  contractorName={activeData.contractorName}
-                  county={selectedCounty}
-                  confidenceScore={activeData.confidenceScore}
-                  documentType={activeData.documentType}
-                  analysisId={activeData?.analysisId ?? null}
-                  qualityBand={activeData.qualityBand}
-                  hasWarranty={activeData.hasWarranty}
-                  hasPermits={activeData.hasPermits}
-                  pageCount={activeData.pageCount}
-                  lineItemCount={activeData.lineItemCount}
-                  onSecondScan={() => triggerTruthGate("second_opinion_scan")}
-                  scanSessionId={scanSessionId}
-                  flagCount={activeData?.flagCount}
-                  flagRedCount={activeData?.flagRedCount}
-                  flagAmberCount={activeData?.flagAmberCount}
-                  isFullLoaded={isFullLoaded}
-                  isLoadingFull={isLoadingFull}
-                  fullFetchError={fullFetchError}
-                  priceFairness={activeData?.priceFairness}
-                  markupEstimate={activeData?.markupEstimate}
-                  negotiationLeverage={activeData?.negotiationLeverage}
-                  derivedMetrics={activeData.derivedMetrics as any}
-                  warnings={activeData.warnings}
-                  missingItems={activeData.missingItems}
-                  summary={activeData.summary}
-                  topWarning={activeData.topWarning}
-                  topMissingItem={activeData.topMissingItem}
-                  pricePerOpening={activeData.pricePerOpening}
-                  pricePerOpeningBand={activeData.pricePerOpeningBand}
-                  paymentRiskDetected={activeData.paymentRiskDetected}
-                  scopeGapDetected={activeData.scopeGapDetected}
-                  summaryTeaser={activeData.summaryTeaser}
-                  missingItemsCount={activeData.missingItemsCount}
-                  analysisData={activeData}
-                  v2ReportSource={v2ReportSource}
-                  isResuming={isResuming}
-                  onVerified={(phoneE164: string) => {
-                    fetchFull(phoneE164);
-                  }}
-                />
+                <React.Suspense
+                  fallback={(
+                    <div
+                      className="max-w-4xl mx-auto py-16 px-4 space-y-6"
+                      role="status"
+                      aria-label="Loading report"
+                    >
+                      <Skeleton className="h-32 w-full rounded-xl" />
+                      <Skeleton className="h-24 w-full rounded-xl" />
+                    </div>
+                  )}
+                >
+                  <PostScanReportSwitcher
+                    grade={reportGrade}
+                    flags={reportFlags}
+                    pillarScores={activeData.pillarScores}
+                    contractorName={activeData.contractorName}
+                    county={selectedCounty}
+                    confidenceScore={activeData.confidenceScore}
+                    documentType={activeData.documentType}
+                    analysisId={activeData?.analysisId ?? null}
+                    qualityBand={activeData.qualityBand}
+                    hasWarranty={activeData.hasWarranty}
+                    hasPermits={activeData.hasPermits}
+                    pageCount={activeData.pageCount}
+                    lineItemCount={activeData.lineItemCount}
+                    onSecondScan={() => triggerTruthGate("second_opinion_scan")}
+                    scanSessionId={scanSessionId}
+                    flagCount={activeData?.flagCount}
+                    flagRedCount={activeData?.flagRedCount}
+                    flagAmberCount={activeData?.flagAmberCount}
+                    isFullLoaded={isFullLoaded}
+                    isLoadingFull={isLoadingFull}
+                    fullFetchError={fullFetchError}
+                    priceFairness={activeData?.priceFairness}
+                    markupEstimate={activeData?.markupEstimate}
+                    negotiationLeverage={activeData?.negotiationLeverage}
+                    derivedMetrics={activeData.derivedMetrics as any}
+                    warnings={activeData.warnings}
+                    missingItems={activeData.missingItems}
+                    summary={activeData.summary}
+                    topWarning={activeData.topWarning}
+                    topMissingItem={activeData.topMissingItem}
+                    pricePerOpening={activeData.pricePerOpening}
+                    pricePerOpeningBand={activeData.pricePerOpeningBand}
+                    paymentRiskDetected={activeData.paymentRiskDetected}
+                    scopeGapDetected={activeData.scopeGapDetected}
+                    summaryTeaser={activeData.summaryTeaser}
+                    missingItemsCount={activeData.missingItemsCount}
+                    analysisData={activeData}
+                    v2ReportSource={v2ReportSource}
+                    isResuming={isResuming}
+                    onVerified={(phoneE164: string) => {
+                      fetchFull(phoneE164);
+                    }}
+                  />
+                </React.Suspense>
               ) : null}
             </>
           )}

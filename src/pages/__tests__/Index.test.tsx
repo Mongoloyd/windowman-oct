@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ScanFunnelProvider, useScanFunnel } from "@/state/scanFunnel";
@@ -14,6 +14,9 @@ const funnelMemoryRef = vi.hoisted(() => ({
   current: { leadId: null as string | null, sessionId: null as string | null },
 }));
 const invokeMock = vi.hoisted(() => vi.fn());
+const analysisDataState = vi.hoisted(() => ({ current: null as Record<string, unknown> | null }));
+const scanTheatricsPropsRef = vi.hoisted(() => ({ current: null as Record<string, unknown> | null }));
+const postScanReportModuleState = vi.hoisted(() => ({ loads: 0 }));
 // Session id that the mocked TruthGateFlow emits via onLeadCaptured when clicked.
 const truthGateEmit = vi.hoisted(() => ({
   sessionId: "",
@@ -34,7 +37,7 @@ vi.mock("@/integrations/supabase/client", () => ({
 
 vi.mock("@/hooks/useAnalysisData", () => ({
   useAnalysisData: () => ({
-    data: null,
+    data: analysisDataState.current,
     v2ReportSource: null,
     isLoading: false,
     error: null,
@@ -132,12 +135,18 @@ vi.mock("@/components/UploadZone", () => ({
 }));
 
 vi.mock("@/components/ScanTheatrics", () => ({
-  default: () => null,
+  default: (props: Record<string, unknown>) => {
+    scanTheatricsPropsRef.current = props;
+    return props.isActive ? <div data-testid="scan-theatrics" /> : null;
+  },
 }));
 
-vi.mock("@/components/post-scan/PostScanReportSwitcher", () => ({
-  PostScanReportSwitcher: () => null,
-}));
+vi.mock("@/components/post-scan/PostScanReportSwitcher", () => {
+  postScanReportModuleState.loads += 1;
+  return {
+    PostScanReportSwitcher: () => <div data-testid="post-scan-report" />,
+  };
+});
 
 const nullComponent = { default: () => null };
 
@@ -154,7 +163,10 @@ vi.mock("@/components/QuoteSpreadShowcase", () => nullComponent);
 vi.mock("@/components/Footer", () => nullComponent);
 vi.mock("@/components/ExitIntentPhoneModal", () => nullComponent);
 
-import Index, { shouldRehydrateContactUpload } from "@/pages/Index";
+import Index, {
+  shouldPreloadPostScanReport,
+  shouldRehydrateContactUpload,
+} from "@/pages/Index";
 import { readPersistedFunnelSnapshot } from "@/state/scanFunnel";
 import { trackEvent } from "@/lib/trackEvent";
 import { NO_QUOTE_DIAGNOSTIC } from "@/components/postcapture/postCaptureCopy";
@@ -248,6 +260,95 @@ function stubDomObservers() {
   vi.stubGlobal("IntersectionObserver", MockIntersectionObserver);
   vi.stubGlobal("ResizeObserver", MockResizeObserver);
 }
+
+describe("Index post-scan lazy boundary", () => {
+  beforeEach(() => {
+    analysisDataState.current = null;
+    scanTheatricsPropsRef.current = null;
+    uploadZonePropsRef.current = null;
+    postScanReportModuleState.loads = 0;
+    readPersistedFunnelSnapshotMock.mockReturnValue(null);
+    seedFunnelStorage({ leadId: null, sessionId: null });
+    stubDomObservers();
+  });
+
+  afterEach(() => {
+    analysisDataState.current = null;
+    vi.unstubAllGlobals();
+  });
+
+  it("preloads only after an upload begins or a valid scan session exists", () => {
+    expect(
+      shouldPreloadPostScanReport({ fileUploaded: false, scanSessionId: null }),
+    ).toBe(false);
+    expect(
+      shouldPreloadPostScanReport({ fileUploaded: false, scanSessionId: "not-a-uuid" }),
+    ).toBe(false);
+    expect(
+      shouldPreloadPostScanReport({ fileUploaded: true, scanSessionId: null }),
+    ).toBe(true);
+    expect(
+      shouldPreloadPostScanReport({
+        fileUploaded: false,
+        scanSessionId: SCAN_SESSION_ID,
+      }),
+    ).toBe(true);
+  });
+
+  it("does not load the report module for a fresh homepage visit", async () => {
+    renderIndex();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("truth-gate-flow")).toBeInTheDocument();
+    });
+
+    expect(postScanReportModuleState.loads).toBe(0);
+  });
+
+  it("preloads during scanning and reuses that module when the report renders", async () => {
+    seedFunnelStorage();
+    analysisDataState.current = { grade: "C", flags: [] };
+
+    renderIndex();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("post-capture-router")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Scan my quote" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("upload-zone")).toBeInTheDocument();
+    });
+
+    const onScanStart = uploadZonePropsRef.current?.onScanStart as
+      | ((fileName: string, scanSessionId: string) => void)
+      | undefined;
+    expect(onScanStart).toBeTypeOf("function");
+
+    act(() => {
+      onScanStart?.("quote.pdf", SCAN_SESSION_ID);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("scan-theatrics")).toBeInTheDocument();
+      expect(postScanReportModuleState.loads).toBe(1);
+    });
+
+    const onRevealComplete = scanTheatricsPropsRef.current?.onRevealComplete as
+      | (() => void)
+      | undefined;
+    expect(onRevealComplete).toBeTypeOf("function");
+
+    act(() => {
+      onRevealComplete?.();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("post-scan-report")).toBeInTheDocument();
+    });
+    expect(postScanReportModuleState.loads).toBe(1);
+  });
+});
 
 describe("shouldRehydrateContactUpload", () => {
   it("returns true for trusted contact ids without scan session", () => {
