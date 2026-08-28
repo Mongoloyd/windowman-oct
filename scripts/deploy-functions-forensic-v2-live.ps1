@@ -84,6 +84,13 @@ $WmChatRequiredMigrations = @(
     "20260816022737"
 )
 $WmChatAmbiguousExitCode = 116
+$WmChatRequiredDenoVersion = "2.1.4"
+$NativeProcessDefaultTimeoutSeconds = 120
+$NativeProcessDeployTimeoutSeconds = 600
+$SensitiveEnvironmentNames = @(
+    "SUPABASE_ACCESS_TOKEN", "SUPABASE_DB_PASSWORD", "SUPABASE_DATABASE_URL",
+    "WMCHAT_LIVE_DATABASE_URL", "PGPASSWORD"
+)
 
 function Get-BannerText {
     return @"
@@ -300,7 +307,7 @@ function Get-AdminBundleFiles {
             -ExitCode 70 `
             -FailureMessage "Refusing admin-data action: '$RelativePath' is absent from release commit $Commit."
         $WorkingBlob = Invoke-GitText -Worktree $Worktree `
-            -GitArgs @("hash-object", "--", $CurrentPath) `
+            -GitArgs @("hash-object", "--path", $RelativePath, "--", $CurrentPath) `
             -ExitCode 71 `
             -FailureMessage "Unable to hash local bundle file '$RelativePath'."
         if ($WorkingBlob -ne $CommittedBlob) {
@@ -492,7 +499,7 @@ function Resolve-SupabaseCliInvocation {
         return $script:SupabaseCliResolved
     }
 
-    $WrapperRepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+    $WrapperRepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
     $PinnedCli = Join-Path $WrapperRepoRoot "node_modules\.bin\supabase.cmd"
     if (Test-Path -LiteralPath $PinnedCli -PathType Leaf) {
         $script:SupabaseCliResolved = [pscustomobject]@{
@@ -510,15 +517,26 @@ function Invoke-NativeProcessCaptured {
     param(
         [Parameter(Mandatory = $true)][string]$FilePath,
         [Parameter(Mandatory = $true)][string[]]$ArgumentTokens,
-        [string]$WorkingDirectory
+        [string]$WorkingDirectory,
+        [int]$TimeoutSeconds = $NativeProcessDefaultTimeoutSeconds,
+        [switch]$AllowRelativePathTokens
     )
 
+    if ($TimeoutSeconds -lt 1 -or $TimeoutSeconds -gt 1800) {
+        Fail 82 "Refusing native CLI invocation: timeout is outside the approved 1-1800 second range."
+    }
     foreach ($Token in $ArgumentTokens) {
-        if ($Token -notmatch '^-{0,2}[A-Za-z0-9][A-Za-z0-9._\-]*$') {
+        $IsSimpleToken = $Token -match '^-{0,2}[A-Za-z0-9][A-Za-z0-9._\-]*$'
+        $IsRelativePathToken = $AllowRelativePathTokens -and
+            $Token -match '^[A-Za-z0-9][A-Za-z0-9._/\-]*$' -and
+            -not $Token.Contains("..") -and
+            -not $Token.StartsWith("/")
+        if (-not $IsSimpleToken -and -not $IsRelativePathToken) {
             Fail 82 "Refusing native CLI invocation: an argument token failed strict allowlist validation."
         }
     }
 
+    $StdinFile = [System.IO.Path]::GetTempFileName()
     $StdoutFile = [System.IO.Path]::GetTempFileName()
     $StderrFile = [System.IO.Path]::GetTempFileName()
     try {
@@ -539,30 +557,35 @@ function Invoke-NativeProcessCaptured {
         $StartParameters = @{
             FilePath = $ProcessFilePath
             ArgumentList = $ProcessArgumentList
+            RedirectStandardInput = $StdinFile
             RedirectStandardOutput = $StdoutFile
             RedirectStandardError = $StderrFile
             NoNewWindow = $true
-            Wait = $true
             PassThru = $true
         }
         if (-not [string]::IsNullOrWhiteSpace($WorkingDirectory)) {
             $StartParameters["WorkingDirectory"] = $WorkingDirectory
         }
         $Process = Start-Process @StartParameters
+        $Completed = $Process.WaitForExit($TimeoutSeconds * 1000)
+        if (-not $Completed) {
+            try { $Process.Kill() } catch { }
+            [void]$Process.WaitForExit()
+        }
         $Stdout = Get-Content -LiteralPath $StdoutFile -Raw -ErrorAction SilentlyContinue
         $Stderr = Get-Content -LiteralPath $StderrFile -Raw -ErrorAction SilentlyContinue
         if ($null -eq $Stdout) { $Stdout = "" }
         if ($null -eq $Stderr) { $Stderr = "" }
 
         return [pscustomobject]@{
-            ExitCode = $Process.ExitCode
+            ExitCode = $(if ($Completed) { $Process.ExitCode } else { 124 })
+            TimedOut = (-not $Completed)
             Stdout = ($Stdout -replace "`r`n", "`n").Trim()
             Stderr = ($Stderr -replace "`r`n", "`n").Trim()
         }
     }
     finally {
-        Remove-Item -LiteralPath $StdoutFile -Force -ErrorAction SilentlyContinue
-        Remove-Item -LiteralPath $StderrFile -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $StdinFile,$StdoutFile,$StderrFile -Force -ErrorAction SilentlyContinue
     }
 }
 
@@ -571,7 +594,8 @@ function Invoke-SupabaseCliProcess {
         [Parameter(Mandatory = $true)][string[]]$Arguments,
         [string]$WorkingDirectory,
         [Parameter(Mandatory = $true)][string]$OperationName,
-        [string[]]$AllowedStderrPatterns = $script:BenignSupabaseCliStderrPatterns
+        [string[]]$AllowedStderrPatterns = $script:BenignSupabaseCliStderrPatterns,
+        [int]$TimeoutSeconds = $NativeProcessDefaultTimeoutSeconds
     )
 
     $Cli = Resolve-SupabaseCliInvocation
@@ -579,7 +603,8 @@ function Invoke-SupabaseCliProcess {
     $Captured = Invoke-NativeProcessCaptured `
         -FilePath $Cli.FilePath `
         -ArgumentTokens $AllTokens `
-        -WorkingDirectory $WorkingDirectory
+        -WorkingDirectory $WorkingDirectory `
+        -TimeoutSeconds $TimeoutSeconds
     $Classification = Test-SupabaseCliStderrClassification `
         -Stderr $Captured.Stderr `
         -AllowedStderrPatterns $AllowedStderrPatterns
@@ -829,7 +854,7 @@ function Write-AdminEvidence {
     if (Test-PathWithinRoot -Root $Worktree -Candidate $EvidenceFullPath) {
         Fail 88 "EvidencePath must be outside the clean release worktree."
     }
-    $PrimaryRepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+    $PrimaryRepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
     if (Test-PathWithinRoot -Root $PrimaryRepoRoot -Candidate $EvidenceFullPath) {
         Fail 88 "EvidencePath must be outside the primary repository."
     }
@@ -848,13 +873,14 @@ function Write-WmChatDeployEvidence {
     )
 
     $EvidenceJson = $Evidence | ConvertTo-Json -Depth 10
+    Assert-EvidenceContainsNoSensitiveValues -EvidenceJson $EvidenceJson -ExitCode 117
     Write-Host ""
     Write-Host "=== SANITIZED WMCHAT DEPLOY EVIDENCE ==="
     Write-Host $EvidenceJson
     if ([string]::IsNullOrWhiteSpace($EvidencePath)) { return }
 
     $EvidenceFullPath = [System.IO.Path]::GetFullPath($EvidencePath)
-    $PrimaryRepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+    $PrimaryRepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
     if ((Test-PathWithinRoot -Root $Worktree -Candidate $EvidenceFullPath) -or
         (Test-PathWithinRoot -Root $PrimaryRepoRoot -Candidate $EvidenceFullPath)) {
         Fail 117 "EvidencePath must be outside every repository worktree."
@@ -952,7 +978,7 @@ function Get-WmChatBundleFiles {
             -ExitCode 118 `
             -FailureMessage "Refusing WmChat deploy: approved runtime/config pin is missing: '$PinnedRelativePath'."
         $WorkingBlob = Invoke-GitText -Worktree $Worktree `
-            -GitArgs @("hash-object", "--", $PinnedPath) `
+            -GitArgs @("hash-object", "--path", $PinnedRelativePath, "--", $PinnedPath) `
             -ExitCode 118 `
             -FailureMessage "Unable to hash WmChat runtime/config pin '$PinnedRelativePath'."
         if ($WorkingBlob -cne $ApprovedBlob) {
@@ -975,10 +1001,55 @@ function Get-WmChatBundleFiles {
     return @($Bundle | Sort-Object path)
 }
 
-function Invoke-WmChatValidation {
-    param([Parameter(Mandatory = $true)][string]$Worktree)
+function Resolve-WmChatDenoTool {
     $Deno = Get-Command deno -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
-    if (-not $Deno) { Fail 118 "Deno is required for frozen WmChat validation." }
+    if (-not $Deno) { Fail 118 "Deno $WmChatRequiredDenoVersion is required for frozen WmChat validation." }
+    $VersionResult = Invoke-NativeProcessCaptured `
+        -FilePath $Deno.Source -ArgumentTokens @("--version") -TimeoutSeconds 30
+    $VersionLine = if ($VersionResult.Stdout) { (@($VersionResult.Stdout -split "\r?\n"))[0].Trim() } else { "" }
+    if ($VersionResult.ExitCode -ne 0 -or
+        $VersionResult.TimedOut -or
+        $VersionLine -notmatch ('^deno\s+' + [regex]::Escape($WmChatRequiredDenoVersion) + '(?:\s|$)')) {
+        Fail 118 "Deno must resolve to the reviewed version $WmChatRequiredDenoVersion."
+    }
+    $HelpResult = Invoke-NativeProcessCaptured `
+        -FilePath $Deno.Source -ArgumentTokens @("test", "--help") -TimeoutSeconds 30
+    if ($HelpResult.ExitCode -ne 0 -or $HelpResult.TimedOut -or -not $HelpResult.Stdout.Contains("--frozen")) {
+        Fail 118 "The reviewed Deno executable does not prove frozen-lockfile support."
+    }
+    return [pscustomobject]@{
+        Source = $Deno.Source
+        Version = $WmChatRequiredDenoVersion
+        SourceLabel = "PATH application (exact version required)"
+    }
+}
+
+function Protect-SensitiveText([string]$Text) {
+    $Protected = if ($null -eq $Text) { "" } else { $Text }
+    foreach ($Name in $SensitiveEnvironmentNames) {
+        $Value = [System.Environment]::GetEnvironmentVariable($Name, "Process")
+        if (-not [string]::IsNullOrWhiteSpace($Value) -and $Value.Length -ge 8) {
+            $Protected = $Protected.Replace($Value, "[REDACTED]")
+        }
+    }
+    return $Protected
+}
+
+function Assert-EvidenceContainsNoSensitiveValues([string]$EvidenceJson, [int]$ExitCode) {
+    foreach ($Name in $SensitiveEnvironmentNames) {
+        $Value = [System.Environment]::GetEnvironmentVariable($Name, "Process")
+        if (-not [string]::IsNullOrWhiteSpace($Value) -and $Value.Length -ge 8 -and $EvidenceJson.Contains($Value)) {
+            [Console]::Error.WriteLine("ERROR: Refusing to emit evidence containing a sensitive environment value.")
+            exit $ExitCode
+        }
+    }
+}
+
+function Invoke-WmChatValidation {
+    param(
+        [Parameter(Mandatory = $true)][string]$Worktree,
+        [Parameter(Mandatory = $true)]$DenoTool
+    )
     $Checks = @(
         @("test", "--frozen", "--allow-env", "supabase/functions/start-upload-scan-session/index_test.ts", "supabase/functions/start-upload-scan-session/contracts/schemas.test.ts"),
         @("test", "--frozen", "--allow-env", "supabase/functions/capture-truth-gate-lead/index_test.ts", "supabase/functions/_shared/wmchatIntake.test.ts", "supabase/functions/_shared/consentCapture_test.ts"),
@@ -987,8 +1058,13 @@ function Invoke-WmChatValidation {
     Push-Location $Worktree
     try {
         foreach ($Arguments in $Checks) {
-            & $Deno.Source @Arguments
-            if ($LASTEXITCODE -ne 0) { Fail 118 "Frozen WmChat Deno validation failed." }
+            $Check = Invoke-NativeProcessCaptured `
+                -FilePath $DenoTool.Source `
+                -ArgumentTokens $Arguments `
+                -WorkingDirectory $Worktree `
+                -TimeoutSeconds 300 `
+                -AllowRelativePathTokens
+            if ($Check.ExitCode -ne 0 -or $Check.TimedOut) { Fail 118 "Frozen WmChat Deno validation failed." }
         }
     } finally { Pop-Location }
     $Dirty = Invoke-GitText -Worktree $Worktree `
@@ -998,48 +1074,77 @@ function Invoke-WmChatValidation {
 }
 
 function Get-WmChatMigrationLedger {
-    param([Parameter(Mandatory = $true)][string]$Worktree)
+    param(
+        [Parameter(Mandatory = $true)][string]$Worktree,
+        [switch]$ReturnFailure
+    )
 
     $Invocation = Invoke-SupabaseCliProcess `
         -Arguments @("migration", "list", "--linked") `
         -WorkingDirectory $Worktree `
         -OperationName "WmChat remote migration ledger"
     if ($Invocation.ExitCode -ne 0 -or $Invocation.StderrClassification.Status -eq "Unexpected") {
+        if ($ReturnFailure) { return [ordered]@{ ok=$false; reason="Unable to verify the linked migration ledger." } }
         Fail 119 "Unable to verify the linked LIVE_ACTIVE migration ledger."
     }
     $Parsed = Get-RemoteMigrationVersions -LedgerOutput $Invocation.Stdout
     if (-not $Parsed.HeaderFound) {
+        if ($ReturnFailure) { return [ordered]@{ ok=$false; reason="Remote migration output did not contain an identifiable REMOTE column." } }
         Fail 119 "Remote migration output did not contain an identifiable REMOTE column."
     }
     foreach ($Version in $WmChatRequiredMigrations) {
         if ($Parsed.Versions -notcontains $Version) {
+            if ($ReturnFailure) { return [ordered]@{ ok=$false; reason="Required WmChat migration '$Version' is not recorded remotely." } }
             Fail 120 "Required WmChat migration '$Version' is not recorded remotely. Run the separate consent migration runner first."
         }
     }
+    if ($ReturnFailure) { return [ordered]@{ ok=$true; versions=@($Parsed.Versions) } }
     return @($Parsed.Versions)
 }
 
 function Assert-WmChatConsentContract {
-    param([Parameter(Mandatory=$true)][string]$Worktree)
+    param(
+        [Parameter(Mandatory=$true)][string]$Worktree,
+        [switch]$ReturnFailure
+    )
     $Runner = Join-Path $Worktree "scripts/apply-wmchat-consent-live.ps1"
     if (-not (Test-Path -LiteralPath $Runner -PathType Leaf)) {
+        if ($ReturnFailure) { return [ordered]@{ ok=$false; reason="The reviewed consent contract runner is missing." } }
         Fail 120 "The reviewed WmChat consent contract runner is missing from the release worktree."
     }
-    $Out=[System.IO.Path]::GetTempFileName();$Err=[System.IO.Path]::GetTempFileName()
+    $In=[System.IO.Path]::GetTempFileName();$Out=[System.IO.Path]::GetTempFileName();$Err=[System.IO.Path]::GetTempFileName()
     try {
         $Arguments=@("-NoProfile","-ExecutionPolicy","Bypass","-File",$Runner,"-DryRun","-ReleaseWorktree",$Worktree,"-ReleaseCommit",$ReleaseCommit)
         $Process=Start-Process -FilePath "powershell.exe" -ArgumentList $Arguments `
-            -RedirectStandardOutput $Out -RedirectStandardError $Err -NoNewWindow -Wait -PassThru
-        if ($Process.ExitCode -ne 0) {
-            Fail 120 "The read-only WmChat consent contract verification failed. No deployment was attempted."
+            -RedirectStandardInput $In -RedirectStandardOutput $Out -RedirectStandardError $Err -NoNewWindow -PassThru
+        $Completed=$Process.WaitForExit($NativeProcessDefaultTimeoutSeconds * 1000)
+        if (-not $Completed) {
+            try { $Process.Kill() } catch { }
+            [void]$Process.WaitForExit()
         }
         $ContractOutput=[string](Get-Content -LiteralPath $Out -Raw -ErrorAction SilentlyContinue)
+        $ContractError=[string](Get-Content -LiteralPath $Err -Raw -ErrorAction SilentlyContinue)
+        $SafeError=(Protect-SensitiveText $ContractError).Trim()
+        if ($SafeError.Length -gt 240) { $SafeError=$SafeError.Substring(0,240) }
+        if (-not $Completed -or $Process.ExitCode -ne 0) {
+            $Reason = if (-not $Completed) {
+                "The read-only consent contract verifier timed out."
+            } elseif ([string]::IsNullOrWhiteSpace($SafeError)) {
+                "The read-only consent contract verifier exited $($Process.ExitCode)."
+            } else {
+                "The read-only consent contract verifier exited $($Process.ExitCode): $SafeError"
+            }
+            if ($ReturnFailure) { return [ordered]@{ ok=$false; reason=$Reason } }
+            Fail 120 "$Reason No deployment was attempted."
+        }
         if (-not $ContractOutput.Contains('"result":  "DRY_RUN_VERIFIED"') -or
             -not $ContractOutput.Contains('"planned_versions":  [') -or
             -not $ContractOutput.Contains('DRY RUN - NO MIGRATIONS APPLIED')) {
+            if ($ReturnFailure) { return [ordered]@{ ok=$false; reason="The consent contract verifier returned an unrecognized result." } }
             Fail 120 "The consent contract verifier returned an unrecognized result."
         }
-    } finally { Remove-Item $Out,$Err -Force -ErrorAction SilentlyContinue }
+        if ($ReturnFailure) { return [ordered]@{ ok=$true } }
+    } finally { Remove-Item -LiteralPath $In,$Out,$Err -Force -ErrorAction SilentlyContinue }
 }
 
 function Get-WmChatRemoteFunctionMetadata {
@@ -1079,7 +1184,7 @@ function New-WmChatRollbackArtifacts {
     )
     $EvidenceFullPath = [System.IO.Path]::GetFullPath($ExternalEvidencePath)
     $ArtifactRoot = $EvidenceFullPath + ".rollback-artifacts"
-    $PrimaryRepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+    $PrimaryRepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
     if ((Test-PathWithinRoot -Root $Worktree -Candidate $ArtifactRoot) -or
         (Test-PathWithinRoot -Root $PrimaryRepoRoot -Candidate $ArtifactRoot) -or
         (Test-Path -LiteralPath $ArtifactRoot)) {
@@ -1138,13 +1243,13 @@ function Assert-WmChatReleaseWorktree {
         Fail 122 "ReleaseCommit must be an exact lowercase 40-character commit SHA."
     }
     $ResolvedWorktree = (Resolve-Path -LiteralPath $ReleaseWorktree).Path
-    $ExecutingRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+    $ExecutingRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
     if (-not $ResolvedWorktree.Equals($ExecutingRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
         Fail 122 "Run this script from the exact ReleaseWorktree; cross-worktree execution is forbidden."
     }
     $Top = Invoke-GitText -Worktree $ResolvedWorktree -GitArgs @("rev-parse", "--show-toplevel") `
         -ExitCode 122 -FailureMessage "Unable to resolve the release worktree root."
-    if (-not ((Resolve-Path $Top).Path).Equals($ResolvedWorktree, [System.StringComparison]::OrdinalIgnoreCase)) {
+    if (-not ((Resolve-Path -LiteralPath $Top).Path).Equals($ResolvedWorktree, [System.StringComparison]::OrdinalIgnoreCase)) {
         Fail 122 "ReleaseWorktree must be the exact Git worktree root."
     }
     $Branch = Invoke-GitText -Worktree $ResolvedWorktree -GitArgs @("branch", "--show-current") `
@@ -1176,15 +1281,6 @@ function Assert-WmChatReleaseWorktree {
     if ($OriginUrl -cne $WmChatApprovedOriginUrl) {
         Fail 123 "WmChat release origin must be exactly the approved WindowMan repository."
     }
-    $CommonDir = Invoke-GitText -Worktree $ResolvedWorktree -GitArgs @("rev-parse","--git-common-dir") `
-        -ExitCode 123 -FailureMessage "Unable to resolve WmChat common Git directory."
-    $CommonDirFull = if ([System.IO.Path]::IsPathRooted($CommonDir)) {
-        [System.IO.Path]::GetFullPath($CommonDir)
-    } else { [System.IO.Path]::GetFullPath((Join-Path $ResolvedWorktree $CommonDir)) }
-    if (-not (Test-Path -LiteralPath $CommonDirFull -PathType Container)) {
-        Fail 123 "WmChat common Git directory is missing."
-    }
-
     $ApprovedTrackingRef = "refs/remotes/origin/$RequiredBranch"
     $ApprovedFetchRefspec = "+refs/heads/$($RequiredBranch):$ApprovedTrackingRef"
     & git -C $ResolvedWorktree fetch --quiet origin $ApprovedFetchRefspec
@@ -1201,7 +1297,7 @@ function Assert-WmChatReleaseWorktree {
         -GitArgs @("rev-parse", "$ReleaseCommit`:$ScriptRelative") `
         -ExitCode 123 -FailureMessage "Release commit does not contain this runner."
     $RunningScriptBlob = Invoke-GitText -Worktree $ResolvedWorktree `
-        -GitArgs @("hash-object", "--", $PSCommandPath) `
+        -GitArgs @("hash-object", "--path", "scripts/deploy-functions-forensic-v2-live.ps1", "--", $PSCommandPath) `
         -ExitCode 123 -FailureMessage "Unable to hash the running release script."
     if ($CommittedScriptBlob -cne $RunningScriptBlob) { Fail 123 "Running script differs from the exact release commit." }
     return $ResolvedWorktree
@@ -1236,8 +1332,10 @@ function Invoke-WmChatDeployMode {
     $LinkedRef = (Get-Content -LiteralPath $LinkedRefPath -Raw).Trim()
     if ($LinkedRef -cne $ApprovedRef) { Fail 126 "Linked project ref does not match LIVE_ACTIVE." }
 
+    $WmChatDenoTool = Resolve-WmChatDenoTool
     $BundleFiles = Get-WmChatBundleFiles -Worktree $ResolvedWorktree
-    Invoke-WmChatValidation -Worktree $ResolvedWorktree
+    Invoke-WmChatValidation -Worktree $ResolvedWorktree -DenoTool $WmChatDenoTool
+    $Toolchain = Get-ToolchainEvidence
     $LedgerVersions = Get-WmChatMigrationLedger -Worktree $ResolvedWorktree
     Assert-WmChatConsentContract -Worktree $ResolvedWorktree
     $Before = @()
@@ -1262,6 +1360,13 @@ function Invoke-WmChatDeployMode {
         bundle_files = $BundleFiles
         functions_before = $Before
         deployment_order = $WmChatTargetFunctions
+        toolchain = [ordered]@{
+            deno = "deno $($WmChatDenoTool.Version)"
+            deno_source = $WmChatDenoTool.SourceLabel
+            supabase_cli = $Toolchain.supabase_cli
+            supabase_cli_source = $Toolchain.supabase_cli_source
+            powershell = $Toolchain.powershell
+        }
         dry_run = [bool]$DryRun
         rollback = [ordered]@{
             automatic = $false
@@ -1328,7 +1433,8 @@ function Invoke-WmChatDeployMode {
         $Invocation = Invoke-SupabaseCliProcess `
             -Arguments @("functions", "deploy", $Fn, "--project-ref", $ApprovedRef, "--no-verify-jwt") `
             -WorkingDirectory $ResolvedWorktree `
-            -OperationName "WmChat deploy $Fn"
+            -OperationName "WmChat deploy $Fn" `
+            -TimeoutSeconds $NativeProcessDeployTimeoutSeconds
         $AmbiguousReason = $null
         if ($Invocation.ExitCode -ne 0) {
             $AmbiguousReason = "Deploy command for '$Fn' exited $($Invocation.ExitCode)."
@@ -1364,10 +1470,53 @@ function Invoke-WmChatDeployMode {
         Write-WmChatDeployEvidence -Evidence $Evidence -Worktree $ResolvedWorktree
     }
 
-    [void](Get-WmChatMigrationLedger -Worktree $ResolvedWorktree)
-    Assert-WmChatConsentContract -Worktree $ResolvedWorktree
+    $FinalVerificationReasons = New-Object System.Collections.Generic.List[string]
+    try {
+        $FinalLedger = Get-WmChatMigrationLedger -Worktree $ResolvedWorktree -ReturnFailure
+        if (-not $FinalLedger.ok) { [void]$FinalVerificationReasons.Add([string]$FinalLedger.reason) }
+    } catch {
+        [void]$FinalVerificationReasons.Add("Final migration-ledger verification raised an unexpected local error.")
+    }
+    try {
+        $FinalConsent = Assert-WmChatConsentContract -Worktree $ResolvedWorktree -ReturnFailure
+        if (-not $FinalConsent.ok) { [void]$FinalVerificationReasons.Add([string]$FinalConsent.reason) }
+    } catch {
+        [void]$FinalVerificationReasons.Add("Final consent-contract verification raised an unexpected local error.")
+    }
+    $FinalFunctions = New-Object System.Collections.Generic.List[object]
+    for ($Index = 0; $Index -lt $WmChatTargetFunctions.Count; $Index++) {
+        $Fn = $WmChatTargetFunctions[$Index]
+        $Expected = $After[$Index]
+        try {
+            $Fresh = Get-WmChatRemoteFunctionMetadata -FunctionNameValue $Fn `
+                -OperationName "final pre-VERIFIED metadata for $Fn" -ReturnFailure
+        } catch {
+            $Fresh = [ordered]@{ ok=$false; reason="Final metadata verification raised an unexpected local error." }
+        }
+        [void]$FinalFunctions.Add($Fresh)
+        if (-not $Fresh.ok) {
+            [void]$FinalVerificationReasons.Add("Final metadata for '$Fn' could not be proven.")
+        } elseif ($Fresh.function_name -cne $Expected.function_name -or
+                  $Fresh.function_id -cne $Expected.function_id -or
+                  $Fresh.version -ne $Expected.version -or
+                  $Fresh.deployed_hash -cne $Expected.deployed_hash) {
+            [void]$FinalVerificationReasons.Add("Final metadata for '$Fn' changed after its verified deployment.")
+        }
+    }
+    if ($FinalVerificationReasons.Count -gt 0) {
+        $Evidence["result"] = "UNKNOWN_REMOTE_STATE"
+        $Evidence["functions_after_attempt"] = @($After | ForEach-Object { $_ })
+        $Evidence["final_function_observations"] = @($FinalFunctions | ForEach-Object { $_ })
+        $Evidence["reason"] = ($FinalVerificationReasons -join " ")
+        $Evidence["automatic_retry"] = $false
+        $Evidence["completed_utc"] = (Get-Date).ToUniversalTime().ToString("o")
+        Write-WmChatDeployEvidence -Evidence $Evidence -Worktree $ResolvedWorktree
+        [Console]::Error.WriteLine("UNKNOWN_REMOTE_STATE: Final post-deployment verification failed. No retry or rollback was attempted.")
+        exit $WmChatAmbiguousExitCode
+    }
     $Evidence["result"] = "VERIFIED"
-    $Evidence["functions_after"] = @($After | ForEach-Object { $_ })
+    $Evidence["functions_after"] = @($FinalFunctions | ForEach-Object { $_ })
+    $Evidence["completed_utc"] = (Get-Date).ToUniversalTime().ToString("o")
     Write-WmChatDeployEvidence -Evidence $Evidence -Worktree $ResolvedWorktree
     Write-Host "WmChat live function release verified. No smoke lead was created."
     exit 0
@@ -1419,7 +1568,7 @@ function Invoke-AdminDataMode {
         Fail 65 "ReleaseWorktree must point to the exact Git worktree root."
     }
 
-    $CanonicalRepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+    $CanonicalRepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
     $CanonicalCommonDirectory = Get-AbsoluteGitDirectory `
         -Worktree $CanonicalRepoRoot `
         -GitDirectoryArgument "--git-common-dir"
@@ -1668,7 +1817,7 @@ if (($DryRun -and -not $Pr173ExtractionOnly) -or
 
 Write-Banner
 
-$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
 
 try {
     $InsideWorkTree = (git -C $RepoRoot rev-parse --is-inside-work-tree 2>$null).Trim()

@@ -29,7 +29,11 @@ using System.Linq;
 public static class FakePsql {
   public static int Main(string[] args) {
     var sql = "";
-    for (var i = 0; i < args.Length - 1; i++) if (args[i] == "-f") sql = File.ReadAllText(args[i + 1]);
+    for (var i = 0; i < args.Length - 1; i++) if (args[i] == "-f") {
+      var sqlBytes = File.ReadAllBytes(args[i + 1]);
+      if (sqlBytes.Length >= 3 && sqlBytes[0] == 0xef && sqlBytes[1] == 0xbb && sqlBytes[2] == 0xbf) return 85;
+      sql = File.ReadAllText(args[i + 1]);
+    }
     var marker = "unknown";
     var token = "WMCHAT:";
     var at = sql.IndexOf(token, StringComparison.Ordinal);
@@ -43,12 +47,17 @@ public static class FakePsql {
       Environment.GetEnvironmentVariable("PGSSLMODE") + "|" +
       Environment.GetEnvironmentVariable("PGHOSTADDR") + "|" +
       Environment.GetEnvironmentVariable("PGOPTIONS") + "|" +
-      Environment.GetEnvironmentVariable("PGPASSFILE") + Environment.NewLine);
+      Environment.GetEnvironmentVariable("PGPASSFILE") + "|" +
+      Environment.GetEnvironmentVariable("PGCONNECT_TIMEOUT") + "|" +
+      Environment.GetEnvironmentVariable("PGCLIENTENCODING") + Environment.NewLine);
     var stateFile = Environment.GetEnvironmentVariable("WMCHAT_TEST_STATE_FILE");
     var state = File.Exists(stateFile) ? File.ReadAllText(stateFile).Trim() : "none";
     if (marker == "after-confirmation" && Environment.GetEnvironmentVariable("WMCHAT_TEST_DRIFT") == "1") state = "base";
     if (marker == "mutation") {
       if (sql.IndexOf("CAST(1/0", StringComparison.Ordinal) >= 0 ||
+          sql.IndexOf("SET LOCAL lock_timeout = '15s'", StringComparison.Ordinal) < 0 ||
+          sql.IndexOf("SET LOCAL statement_timeout = '300s'", StringComparison.Ordinal) < 0 ||
+          sql.IndexOf("SET LOCAL idle_in_transaction_session_timeout = '60s'", StringComparison.Ordinal) < 0 ||
           sql.IndexOf("IF NOT pg_try_advisory_lock", StringComparison.Ordinal) < 0 ||
           sql.IndexOf("LOCK TABLE supabase_migrations.schema_migrations", StringComparison.Ordinal) < 0 ||
           sql.IndexOf("wmchat_contract_ok", StringComparison.Ordinal) < 0 ||
@@ -130,7 +139,6 @@ function New-Fixture {
     }
 }
 
-$FakePsql = New-FakePsql
 function Get-TextMd5([string]$Path) {
     $Text = Get-Content -LiteralPath $Path -Raw
     $Md5 = [System.Security.Cryptography.MD5]::Create()
@@ -146,8 +154,16 @@ function Get-GitBlobTextMd5([string]$Blob) {
         return Get-TextMd5 $Temp
     } finally { Remove-Item $Temp -Force -ErrorAction SilentlyContinue }
 }
-$BasePayloadMd5 = Get-GitBlobTextMd5 "2070d0e44ef1ac4d66e3e1d0f93fbfb554f35b16"
-$GrantPayloadMd5 = Get-GitBlobTextMd5 "57815689795f1417ab9fb6e31a4f61f44a0368e3"
+function Get-MigrationBlobPin([string]$Version) {
+    $RunnerSource = Get-Content -LiteralPath $ScriptUnderTest -Raw
+    $Pattern = '(?ms)version\s*=\s*"' + [regex]::Escape($Version) + '".*?git_blob\s*=\s*"(?<blob>[0-9a-f]{40})"'
+    $Match = [regex]::Match($RunnerSource, $Pattern)
+    if (-not $Match.Success) { throw "Unable to read migration blob pin for $Version from the runner." }
+    return $Match.Groups['blob'].Value
+}
+$FakePsql = New-FakePsql
+$BasePayloadMd5 = Get-GitBlobTextMd5 (Get-MigrationBlobPin "20260801143000")
+$GrantPayloadMd5 = Get-GitBlobTextMd5 (Get-MigrationBlobPin "20260816022737")
 
 function Invoke-Runner {
     param(
@@ -167,7 +183,7 @@ function Invoke-Runner {
     Set-Content $Fixture.Ca "test-ca"
     Remove-Item $Fixture.Log -Force -ErrorAction SilentlyContinue
     $Old = @{}
-    foreach ($Name in @("PATH","SUPABASE_PROJECT_REF","WMCHAT_LIVE_DATABASE_URL","WMCHAT_LIVE_PGSSLROOTCERT","WMCHAT_TEST_STATE_FILE","WMCHAT_TEST_LOG","WMCHAT_TEST_MUTATION_FAIL","WMCHAT_TEST_DRIFT","WMCHAT_TEST_POST_READ_FAIL","WMCHAT_TEST_BASE_MD5","WMCHAT_TEST_GRANT_MD5","PGHOSTADDR","PGSSLMODE","PGPASSFILE","PGCLIENTENCODING")) {
+    foreach ($Name in @("PATH","SUPABASE_PROJECT_REF","SUPABASE_ACCESS_TOKEN","WMCHAT_LIVE_DATABASE_URL","WMCHAT_LIVE_PGSSLROOTCERT","WMCHAT_TEST_STATE_FILE","WMCHAT_TEST_LOG","WMCHAT_TEST_MUTATION_FAIL","WMCHAT_TEST_DRIFT","WMCHAT_TEST_POST_READ_FAIL","WMCHAT_TEST_BASE_MD5","WMCHAT_TEST_GRANT_MD5","PGHOSTADDR","PGSSLMODE","PGPASSFILE","PGCONNECT_TIMEOUT","PGCLIENTENCODING")) {
         $Old[$Name] = [Environment]::GetEnvironmentVariable($Name,"Process")
     }
     try {
@@ -182,16 +198,17 @@ function Invoke-Runner {
         $env:WMCHAT_TEST_POST_READ_FAIL = $(if ($PostReadFail) { "1" } else { "0" })
         $env:WMCHAT_TEST_BASE_MD5 = $BasePayloadMd5
         $env:WMCHAT_TEST_GRANT_MD5 = $GrantPayloadMd5
+        $env:SUPABASE_ACCESS_TOKEN = "sentinel-access-token-must-not-leak"
         if ($PoisonLibpq) { $env:PGHOSTADDR="203.0.113.5"; $env:PGSSLMODE="disable"; $env:PGPASSFILE="C:\attacker\.pgpass" }
-        $Args = @("-NoProfile","-ExecutionPolicy","Bypass","-File",$Fixture.Script,"-ReleaseWorktree",$Fixture.Repo,"-ReleaseCommit",$Fixture.Commit)
+        $RunnerArguments = @("-NoProfile","-ExecutionPolicy","Bypass","-File",$Fixture.Script,"-ReleaseWorktree",$Fixture.Repo,"-ReleaseCommit",$Fixture.Commit)
         $EvidenceFile = Join-Path $TestRoot ("evidence-" + [guid]::NewGuid() + ".json")
-        if ($DryRun) { $Args += "-DryRun" }
-        else { $Args += @("-EvidencePath", $EvidenceFile) }
+        if ($DryRun) { $RunnerArguments += "-DryRun" }
+        else { $RunnerArguments += @("-EvidencePath", $EvidenceFile) }
         $StdIn = Join-Path $TestRoot ("stdin-" + [guid]::NewGuid() + ".txt")
         $StdOut = Join-Path $TestRoot ("stdout-" + [guid]::NewGuid() + ".txt")
         $StdErr = Join-Path $TestRoot ("stderr-" + [guid]::NewGuid() + ".txt")
         Set-Content -LiteralPath $StdIn -Value $InputText -Encoding ASCII
-        $Process = Start-Process -FilePath "powershell.exe" -ArgumentList $Args `
+        $Process = Start-Process -FilePath "powershell.exe" -ArgumentList $RunnerArguments `
             -RedirectStandardInput $StdIn -RedirectStandardOutput $StdOut -RedirectStandardError $StdErr `
             -NoNewWindow -Wait -PassThru
         $Output = ((Get-Content $StdOut -Raw -ErrorAction SilentlyContinue) + (Get-Content $StdErr -Raw -ErrorAction SilentlyContinue))
@@ -235,11 +252,16 @@ try {
         Assert-True (-not (($R2.Log -join "`n").Contains("mutation"))) "Already-complete run invoked mutation."
     }
     Invoke-Test "impossible later-migration and schema-without-ledger states fail closed" {
-        foreach($StateName in @("later","drift","base_no_bypass")) {
+        foreach($StateName in @("later","drift","base_no_bypass","base_direct_writes")) {
             $F=New-Fixture; $R=Invoke-Runner $F -State $StateName
             Assert-True ($R.ExitCode -eq 41) "State $StateName exit $($R.ExitCode): $($R.Output)"
             Assert-True (-not (($R.Log -join "`n").Contains("mutation"))) "State $StateName mutated."
         }
+    }
+    Invoke-Test "direct service-role writes fail the base contract" {
+        $F=New-Fixture; $R=Invoke-Runner $F -State "base_direct_writes"
+        Assert-True ($R.ExitCode -eq 41) "Exit $($R.ExitCode): $($R.Output)"
+        Assert-True (-not (($R.Log -join "`n").Contains("mutation"))) "Invalid direct-write state mutated."
     }
     Invoke-Test "wrong project target fails before psql" {
         $F=New-Fixture; $R=Invoke-Runner $F -ProjectRef "wrongprojectref"
@@ -267,11 +289,6 @@ try {
         Assert-True ($R.ExitCode -eq 44) "Exit $($R.ExitCode): $($R.Output)"
         Assert-True (-not (($R.Log -join "`n").Contains("mutation"))) "Drift still mutated."
     }
-    Invoke-Test "direct service-role writes fail the base contract" {
-        $F=New-Fixture; $R=Invoke-Runner $F -State "base_direct_writes"
-        Assert-True ($R.ExitCode -eq 41) "Exit $($R.ExitCode): $($R.Output)"
-        Assert-True (-not (($R.Log -join "`n").Contains("mutation"))) "Invalid direct-write state mutated."
-    }
     Invoke-Test "ambiguous mutation failure never retries" {
         $F=New-Fixture; $R=Invoke-Runner $F -DryRun:$false -InputText $ConfirmPhrase -MutationFail
         Assert-True ($R.ExitCode -eq 45) "Exit $($R.ExitCode): $($R.Output)"
@@ -284,7 +301,8 @@ try {
         foreach ($Line in $R.Log) {
             Assert-Contains $Line "aws-0-us-east-1.pooler.supabase.com|verify-full|"
             Assert-Contains $Line "default_transaction_read_only=on|"
-            Assert-True (-not $Line.EndsWith("C:\attacker\.pgpass")) "PGPASSFILE leaked into child connection."
+            Assert-True (-not $Line.Contains("C:\attacker\.pgpass")) "PGPASSFILE leaked into child connection."
+            Assert-True ($Line.EndsWith("|15|UTF8")) "Connection timeout or client encoding was not isolated: $Line"
         }
     }
     Invoke-Test "strict target grammar rejects query strings, wrong database, and wrong usernames" {
@@ -309,6 +327,7 @@ try {
         $Evidence=Get-Content -LiteralPath $R.Evidence -Raw
         Assert-Contains $Evidence '"result":  "UNKNOWN_REMOTE_STATE"'
         Assert-True (-not $Evidence.Contains("test-password")) "Evidence leaked database credentials."
+        Assert-True (-not $Evidence.Contains("sentinel-access-token-must-not-leak")) "Evidence leaked an access token."
     }
     Invoke-Test "dirty or attached release worktree is rejected" {
         $F=New-Fixture; Set-Content (Join-Path $F.Repo "untracked.txt") "dirty"
@@ -320,9 +339,15 @@ try {
         Assert-True ($Attached.ExitCode -eq 33) "Attached exit $($Attached.ExitCode): $($Attached.Output)"
     }
     Invoke-Test "migration payload tampering fails before remote reads" {
-        $F=New-Fixture; Add-Content (Join-Path $F.Repo "supabase/migrations/20260801143000_lead_consent_events.sql") "-- tamper"
+        $F=New-Fixture
+        $TamperedPath=Join-Path $F.Repo "supabase/migrations/20260801143000_lead_consent_events.sql"
+        Add-Content -LiteralPath $TamperedPath "-- tamper"
+        Invoke-Git $F.Repo @("add","supabase/migrations/20260801143000_lead_consent_events.sql") | Out-Null
+        Invoke-Git $F.Repo @("commit","-m","tamper fixture") | Out-Null
+        $F.Commit=(& git -C $F.Repo rev-parse HEAD).Trim()
+        Invoke-Git $F.Repo @("push","origin","HEAD:forensic_report_v2") | Out-Null
         $R=Invoke-Runner $F
-        Assert-True ($R.ExitCode -eq 33 -or $R.ExitCode -eq 38) "Exit $($R.ExitCode): $($R.Output)"
+        Assert-True ($R.ExitCode -eq 38) "Exit $($R.ExitCode): $($R.Output)"
         Assert-True ($R.Log.Count -eq 0) "Tampered payload reached psql."
     }
     Invoke-Test "source contains a fixed two-migration allowlist and no broad mutation call" {
@@ -332,9 +357,10 @@ try {
         Assert-True (-not $Source.Contains("Get-ChildItem")) "Runner dynamically discovers migrations."
         Assert-True (-not $Source.Contains("WMCHAT_MIGRATION_PSQL_TEST_OVERRIDE")) "Live-usable psql override remains."
         Assert-True (-not $Source.Contains("CAST(1/0")) "Constant-folding lock failure remains."
-        foreach($Token in @("IF NOT pg_try_advisory_lock",'LOCK TABLE $LedgerTable IN SHARE ROW EXCLUSIVE MODE',"default_transaction_read_only=on","untouched_fingerprint","wmchat_contract_ok","service_bypassrls","DRY_RUN_VERIFIED","completed_utc","File]::Replace","UNKNOWN_REMOTE_STATE")) {
+        foreach($Token in @("IF NOT pg_try_advisory_lock",'LOCK TABLE $LedgerTable IN SHARE ROW EXCLUSIVE MODE',"SET LOCAL lock_timeout = '15s'","SET LOCAL statement_timeout = '300s'","SET LOCAL idle_in_transaction_session_timeout = '60s'","PGCONNECT_TIMEOUT","PGCLIENTENCODING","UTF8Encoding(`$false)","--path",'$ScriptRelativePath',"default_transaction_read_only=on","untouched_fingerprint","wmchat_contract_ok","service_bypassrls","DRY_RUN_VERIFIED","completed_utc","File]::Replace","UNKNOWN_REMOTE_STATE")) {
             Assert-Contains $Source $Token
         }
+        Assert-True ($Source.Contains('$AdvisoryKey1 = 187992347') -and $Source.Contains('$AdvisoryKey2 = 20260816')) "WmChat advisory-lock namespace changed unexpectedly."
     }
 } finally {
     Remove-Item $TestRoot -Recurse -Force -ErrorAction SilentlyContinue

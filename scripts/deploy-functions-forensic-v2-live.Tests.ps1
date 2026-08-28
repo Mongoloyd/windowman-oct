@@ -9,7 +9,7 @@ $ExpectedHash = "a4c7157d961b165dc6158f4dac748245f9bf322ef76eadcdbcd165f261111fc
 $ApprovedDeployCommit = "d2c48b52a1e1fe368eaa84ae55548ae0a3565439"
 $ApprovedRollbackCommit = "dd960a6f19247e693a61cf1b0913e94d4170b0cc"
 $DefaultListJson = '[{"name":"admin-data","slug":"admin-data","id":"548b11d4-03c3-4ef3-ab0f-a3cfe28d96d7","version":16}]'
-$CanonicalRepository = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$CanonicalRepository = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
 $TestRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("wm-admin-deploy-tests-" + [guid]::NewGuid())
 $FakeBin = Join-Path $TestRoot "fake-bin"
 $MockSupabaseDir = Join-Path $FakeBin "mock cli with spaces"
@@ -27,8 +27,16 @@ function Get-CanonicalBlobTextMd5([string]$Blob) {
         } finally { $Md5.Dispose() }
     } finally { Remove-Item $Temp -Force -ErrorAction SilentlyContinue }
 }
-$WmChatBasePayloadMd5 = Get-CanonicalBlobTextMd5 "2070d0e44ef1ac4d66e3e1d0f93fbfb554f35b16"
-$WmChatGrantPayloadMd5 = Get-CanonicalBlobTextMd5 "57815689795f1417ab9fb6e31a4f61f44a0368e3"
+function Get-WmChatMigrationBlobPin([string]$Version) {
+    $MigrationRunner = Get-Content -LiteralPath (Join-Path $PSScriptRoot "apply-wmchat-consent-live.ps1") -Raw
+    $Pattern = '(?ms)version\s*=\s*"' + [regex]::Escape($Version) + '".*?git_blob\s*=\s*"(?<blob>[0-9a-f]{40})"'
+    $Match = [regex]::Match($MigrationRunner, $Pattern)
+    if (-not $Match.Success) { throw "Unable to read WmChat migration blob pin for $Version." }
+    return $Match.Groups['blob'].Value
+}
+# The fixture MD5s are derived from the runner's reviewed Git-blob pins so tests cannot drift independently.
+$WmChatBasePayloadMd5 = Get-CanonicalBlobTextMd5 (Get-WmChatMigrationBlobPin "20260801143000")
+$WmChatGrantPayloadMd5 = Get-CanonicalBlobTextMd5 (Get-WmChatMigrationBlobPin "20260816022737")
 $MockSupabaseCli = Join-Path $MockSupabaseDir "supabase-mock.cmd"
 $DenoLog = Join-Path $TestRoot "deno.log"
 $CliLog = Join-Path $TestRoot "supabase-cli.log"
@@ -516,12 +524,8 @@ function Invoke-Pr173Wrapper {
 function New-WmChatFixtureRepository {
     $Repository = Join-Path $TestRoot ("wmchat-release-" + [guid]::NewGuid())
     $BareOrigin = Join-Path $TestRoot ("wmchat-origin-" + [guid]::NewGuid() + ".git")
-    if (-not $script:WmChatFixtureTemplate) {
-        $script:WmChatFixtureTemplate = Join-Path $TestRoot "wmchat-fixture-template"
-        & git -c core.autocrlf=false clone --quiet --no-local $CanonicalRepository $script:WmChatFixtureTemplate
-        if ($LASTEXITCODE -ne 0) { throw "Unable to clone canonical repo for WmChat fixture." }
-    }
-    Copy-Item -LiteralPath $script:WmChatFixtureTemplate -Destination $Repository -Recurse
+    & git -c core.autocrlf=false clone --quiet --no-local $CanonicalRepository $Repository
+    if ($LASTEXITCODE -ne 0) { throw "Unable to clone canonical repo for WmChat fixture." }
     Invoke-Git -Repository $Repository -GitArgs @("config","user.email","wmchat-wrapper@example.invalid") | Out-Null
     Invoke-Git -Repository $Repository -GitArgs @("config","user.name","WmChat Wrapper Tests") | Out-Null
     Invoke-Git -Repository $Repository -GitArgs @("config","core.autocrlf","false") | Out-Null
@@ -568,8 +572,13 @@ function Invoke-WmChatWrapper {
         [switch]$FailFirstDeploy,
         [switch]$NoVersionAdvance,
         [switch]$SecondFunctionDrift,
-        [switch]$OmitMigration,
-        [switch]$ConsentContractFailureAfterConfirmation,
+        [switch]$FinalFunctionDrift,
+        [switch]$MissingMigration,
+        [switch]$ConsentFailure,
+        [switch]$FinalLedgerFailure,
+        [switch]$FinalConsentFailure,
+        [switch]$WrongDenoVersion,
+        [switch]$MissingFrozenSupport,
         [switch]$OmitEvidencePath,
         [string[]]$AdditionalArgs=@()
     )
@@ -579,9 +588,11 @@ function Invoke-WmChatWrapper {
     $Deno = Join-Path $Bin "deno.cmd"
     $Psql = Join-Path $Bin "psql.cmd"
     $State = Join-Path $Bin "state.txt"
+    $FunctionListCount = Join-Path $Bin "function-list-count.txt"
     $Log = Join-Path $Bin "cli.log"
     $DenoLog = Join-Path $Bin "deno.log"
     Set-Content $State "0" -Encoding ASCII
+    Set-Content $FunctionListCount "0" -Encoding ASCII
     @'
 @echo off
 setlocal EnableDelayedExpansion
@@ -598,11 +609,17 @@ echo %* | findstr /C:"--version" >nul
 if not errorlevel 1 echo 2.113.0&exit /b 0
 exit /b 90
 :ledger
+set /p S=<"%WMCHAT_CLI_STATE%"
+if "%WMCHAT_FINAL_LEDGER_FAILURE%"=="1" if "!S!"=="2" exit /b 7
 echo LOCAL          ^| REMOTE         ^| TIME (UTC)
 echo 20260801143000 ^| 20260801143000 ^| 2026-08-01
-if not defined FAKE_WMCHAT_OMIT_MIGRATION echo 20260816022737 ^| 20260816022737 ^| 2026-08-16
+if "%WMCHAT_MISSING_MIGRATION%"=="1" exit /b 0
+echo 20260816022737 ^| 20260816022737 ^| 2026-08-16
 exit /b 0
 :list
+set /p L=<"%WMCHAT_FUNCTION_LIST_COUNT%"
+set /a L+=1
+>"%WMCHAT_FUNCTION_LIST_COUNT%" echo !L!
 set /p S=<"%WMCHAT_CLI_STATE%"
 set UVER=58
 set CVER=53
@@ -612,6 +629,7 @@ if !S! GEQ 1 set UVER=59&set UHASH=ccccccccccccccccccccccccccccccccccccccccccccc
 if !S! GEQ 2 set CVER=54&set CHASH=dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 if "%WMCHAT_SECOND_FUNCTION_DRIFT%"=="1" if !S! GEQ 1 set CVER=55&set CHASH=eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 if "%WMCHAT_NO_VERSION_ADVANCE%"=="1" set UVER=58&set CVER=53&set UHASH=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&set CHASH=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+if "%WMCHAT_FINAL_FUNCTION_DRIFT%"=="1" if !L! GEQ 11 set UVER=60&set UHASH=ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 echo [{"name":"start-upload-scan-session","slug":"start-upload-scan-session","id":"11111111-1111-4111-8111-111111111111","version":!UVER!,"sha256":"!UHASH!"},{"name":"capture-truth-gate-lead","slug":"capture-truth-gate-lead","id":"22222222-2222-4222-8222-222222222222","version":!CVER!,"sha256":"!CHASH!"}]
 exit /b 0
 :download
@@ -634,11 +652,25 @@ exit /b 91
 '@ | Set-Content -LiteralPath $Cli -Encoding ASCII
     @'
 @echo off
+if "%1"=="--version" (
+  if "%WMCHAT_WRONG_DENO_VERSION%"=="1" (echo deno 2.0.0) else (echo deno 2.1.4)
+  exit /b 0
+)
+if "%1"=="test" if "%2"=="--help" (
+  if not "%WMCHAT_MISSING_FROZEN_SUPPORT%"=="1" echo --frozen
+  exit /b 0
+)
 echo %*>>"%WMCHAT_DENO_LOG%"
 exit /b 0
 '@ | Set-Content -LiteralPath $Deno -Encoding ASCII
     @'
 @echo off
+setlocal EnableDelayedExpansion
+if "%WMCHAT_CONSENT_FAILURE%"=="1" exit /b 9
+if "%WMCHAT_FINAL_CONSENT_FAILURE%"=="1" (
+  set /p S=<"%WMCHAT_CLI_STATE%"
+  if "!S!"=="2" exit /b 9
+)
 echo ledger_columns=version:text:NO,statements:_text:YES,name:text:YES,created_by:text:YES,idempotency_key:text:YES,rollback:_text:YES
 echo untouched_count=141
 echo untouched_min=20260317051701
@@ -656,12 +688,7 @@ echo rpc_properties=true
 echo rpc_body=true
 echo client_table_privileges=true
 echo service_select=true
-set PSQL_CALLS=0
-if exist "%FAKE_WMCHAT_PSQL_CALLS_FILE%" set /p PSQL_CALLS=<"%FAKE_WMCHAT_PSQL_CALLS_FILE%"
-set /a PSQL_CALLS+=1
-> "%FAKE_WMCHAT_PSQL_CALLS_FILE%" echo !PSQL_CALLS!
-if defined FAKE_WMCHAT_CONSENT_CONTRACT_FAILURE_AFTER if !PSQL_CALLS! GEQ 2 (echo service_direct_writes=true) else (echo service_direct_writes=false)
-if not defined FAKE_WMCHAT_CONSENT_CONTRACT_FAILURE_AFTER echo service_direct_writes=false
+echo service_direct_writes=true
 echo service_bypassrls=true
 echo function_privileges=true
 exit /b 0
@@ -672,7 +699,7 @@ exit /b 0
     Copy-Item -LiteralPath $Cli -Destination (Join-Path $PinnedCliDirectory "supabase.cmd") -Force
 
     $Old = @{}
-    foreach($Name in @("PATH","SUPABASE_PROJECT_REF","WM_ADMIN_WRAPPER_SUPABASE_CLI_TEST_OVERRIDE","WMCHAT_CLI_LOG","WMCHAT_CLI_STATE","WMCHAT_DENO_LOG","WMCHAT_FAIL_FIRST_DEPLOY","WMCHAT_NO_VERSION_ADVANCE","WMCHAT_SECOND_FUNCTION_DRIFT","WMCHAT_MIGRATION_PSQL_TEST_OVERRIDE","WMCHAT_LIVE_DATABASE_URL","WMCHAT_LIVE_PGSSLROOTCERT","WMCHAT_TEST_BASE_MD5","WMCHAT_TEST_GRANT_MD5","FAKE_WMCHAT_OMIT_MIGRATION","FAKE_WMCHAT_CONSENT_CONTRACT_FAILURE_AFTER","FAKE_WMCHAT_PSQL_CALLS_FILE")) {
+    foreach($Name in @("PATH","SUPABASE_PROJECT_REF","SUPABASE_ACCESS_TOKEN","WM_ADMIN_WRAPPER_SUPABASE_CLI_TEST_OVERRIDE","WMCHAT_CLI_LOG","WMCHAT_CLI_STATE","WMCHAT_FUNCTION_LIST_COUNT","WMCHAT_DENO_LOG","WMCHAT_FAIL_FIRST_DEPLOY","WMCHAT_NO_VERSION_ADVANCE","WMCHAT_SECOND_FUNCTION_DRIFT","WMCHAT_FINAL_FUNCTION_DRIFT","WMCHAT_MISSING_MIGRATION","WMCHAT_CONSENT_FAILURE","WMCHAT_FINAL_LEDGER_FAILURE","WMCHAT_FINAL_CONSENT_FAILURE","WMCHAT_WRONG_DENO_VERSION","WMCHAT_MISSING_FROZEN_SUPPORT","WMCHAT_MIGRATION_PSQL_TEST_OVERRIDE","WMCHAT_LIVE_DATABASE_URL","WMCHAT_LIVE_PGSSLROOTCERT","WMCHAT_TEST_BASE_MD5","WMCHAT_TEST_GRANT_MD5")) {
         $Old[$Name]=[Environment]::GetEnvironmentVariable($Name,"Process")
     }
     try {
@@ -681,13 +708,19 @@ exit /b 0
         $env:WM_ADMIN_WRAPPER_SUPABASE_CLI_TEST_OVERRIDE=$null
         $env:WMCHAT_CLI_LOG=$Log
         $env:WMCHAT_CLI_STATE=$State
+        $env:WMCHAT_FUNCTION_LIST_COUNT=$FunctionListCount
         $env:WMCHAT_DENO_LOG=$DenoLog
         $env:WMCHAT_FAIL_FIRST_DEPLOY=$(if($FailFirstDeploy){"1"}else{"0"})
         $env:WMCHAT_NO_VERSION_ADVANCE=$(if($NoVersionAdvance){"1"}else{"0"})
         $env:WMCHAT_SECOND_FUNCTION_DRIFT=$(if($SecondFunctionDrift){"1"}else{"0"})
-        $env:FAKE_WMCHAT_OMIT_MIGRATION=$(if($OmitMigration){"1"}else{"0"})
-        $env:FAKE_WMCHAT_CONSENT_CONTRACT_FAILURE_AFTER=$(if($ConsentContractFailureAfterConfirmation){"1"}else{"0"})
-        $env:FAKE_WMCHAT_PSQL_CALLS_FILE=(Join-Path $Bin "psql-calls.txt")
+        $env:WMCHAT_FINAL_FUNCTION_DRIFT=$(if($FinalFunctionDrift){"1"}else{"0"})
+        $env:WMCHAT_MISSING_MIGRATION=$(if($MissingMigration){"1"}else{"0"})
+        $env:WMCHAT_CONSENT_FAILURE=$(if($ConsentFailure){"1"}else{"0"})
+        $env:WMCHAT_FINAL_LEDGER_FAILURE=$(if($FinalLedgerFailure){"1"}else{"0"})
+        $env:WMCHAT_FINAL_CONSENT_FAILURE=$(if($FinalConsentFailure){"1"}else{"0"})
+        $env:WMCHAT_WRONG_DENO_VERSION=$(if($WrongDenoVersion){"1"}else{"0"})
+        $env:WMCHAT_MISSING_FROZEN_SUPPORT=$(if($MissingFrozenSupport){"1"}else{"0"})
+        $env:SUPABASE_ACCESS_TOKEN="sentinel-access-token-must-not-leak"
         $env:WMCHAT_MIGRATION_PSQL_TEST_OVERRIDE=$null
         $env:WMCHAT_TEST_BASE_MD5=$WmChatBasePayloadMd5
         $env:WMCHAT_TEST_GRANT_MD5=$WmChatGrantPayloadMd5
@@ -707,6 +740,7 @@ exit /b 0
             CliLog=@($(if(Test-Path $Log){Get-Content $Log}else{@()}))
             DenoLog=@($(if(Test-Path $DenoLog){Get-Content $DenoLog}else{@()}))
             State=(Get-Content $State -Raw).Trim()
+            FunctionListCount=[int](Get-Content $FunctionListCount -Raw).Trim()
             EvidencePath=$EvidenceFile
         }
     } finally {
@@ -1507,19 +1541,27 @@ try {
         Assert-True ($Result.DenoLog.Count -eq 3) "Frozen validation did not run exactly three commands."
         Assert-True (-not (($Result.DenoLog -join "`n") -match '--no-lock')) "Validation bypassed the lockfile."
     }
-    Invoke-Test "WmChat missing migration fails before deployment" {
-        $Fixture=New-WmChatFixtureRepository
-        $Result=Invoke-WmChatWrapper -Fixture $Fixture -OmitMigration
-        Assert-True ($Result.ExitCode -eq 120) "Exit $($Result.ExitCode): $($Result.Output)"
-        Assert-True ($Result.State -eq "0") "Missing migration deployed functions."
-        Assert-True ((@($Result.CliLog | Where-Object {$_ -like '*functions deploy*'})).Count -eq 0) "Missing migration reached deployment."
+
+    Invoke-Test "WmChat requires exact Deno version and frozen support" {
+        $WrongVersion=New-WmChatFixtureRepository
+        $WrongResult=Invoke-WmChatWrapper -Fixture $WrongVersion -WrongDenoVersion
+        Assert-True ($WrongResult.ExitCode -eq 118) "Wrong-Deno exit $($WrongResult.ExitCode): $($WrongResult.Output)"
+        Assert-True ((@($WrongResult.CliLog | Where-Object {$_ -like '*functions deploy*'})).Count -eq 0) "Wrong Deno reached deploy."
+        $MissingFrozen=New-WmChatFixtureRepository
+        $FrozenResult=Invoke-WmChatWrapper -Fixture $MissingFrozen -MissingFrozenSupport
+        Assert-True ($FrozenResult.ExitCode -eq 118) "Missing-frozen exit $($FrozenResult.ExitCode): $($FrozenResult.Output)"
+        Assert-True ((@($FrozenResult.CliLog | Where-Object {$_ -like '*functions deploy*'})).Count -eq 0) "Deno without frozen support reached deploy."
     }
-    Invoke-Test "WmChat consent contract failure blocks deployment and recheck" {
-        $Fixture=New-WmChatFixtureRepository
-        $Result=Invoke-WmChatWrapper -Fixture $Fixture -ConsentContractFailureAfterConfirmation -DryRun:$false -InputText "DEPLOY_WMCHAT_LIVE_FUNCTIONS"
-        Assert-True ($Result.ExitCode -eq 120) "Exit $($Result.ExitCode): $($Result.Output)"
-        Assert-True ($Result.State -eq "0") "Consent recheck deployed functions."
-        Assert-True ((@($Result.CliLog | Where-Object {$_ -like '*functions deploy*'})).Count -eq 0) "Consent failure reached deployment."
+
+    Invoke-Test "WmChat migration-ledger and consent preconditions fail before deploy" {
+        $MissingMigrationFixture=New-WmChatFixtureRepository
+        $MissingMigrationResult=Invoke-WmChatWrapper -Fixture $MissingMigrationFixture -MissingMigration
+        Assert-True ($MissingMigrationResult.ExitCode -eq 120) "Missing-migration exit $($MissingMigrationResult.ExitCode): $($MissingMigrationResult.Output)"
+        Assert-True ((@($MissingMigrationResult.CliLog | Where-Object {$_ -like '*functions deploy*'})).Count -eq 0) "Missing migration reached deploy."
+        $ConsentFixture=New-WmChatFixtureRepository
+        $ConsentResult=Invoke-WmChatWrapper -Fixture $ConsentFixture -ConsentFailure
+        Assert-True ($ConsentResult.ExitCode -eq 120) "Consent-contract exit $($ConsentResult.ExitCode): $($ConsentResult.Output)"
+        Assert-True ((@($ConsentResult.CliLog | Where-Object {$_ -like '*functions deploy*'})).Count -eq 0) "Failed consent contract reached deploy."
     }
 
     Invoke-Test "WmChat exact confirmation deploys two functions in verified order" {
@@ -1539,6 +1581,9 @@ try {
         Assert-True (Test-Path -LiteralPath $Result.EvidencePath -PathType Leaf) "Final evidence file is missing."
         $Evidence=Get-Content -LiteralPath $Result.EvidencePath -Raw | ConvertFrom-Json
         Assert-True ($Evidence.result -ceq "VERIFIED") "Final evidence is not VERIFIED."
+        Assert-True ($Result.FunctionListCount -eq 12) "Both functions were not re-read immediately before VERIFIED."
+        Assert-True ($Evidence.toolchain.deno -ceq "deno 2.1.4") "Pinned Deno evidence is missing."
+        Assert-True (-not ((Get-Content -LiteralPath $Result.EvidencePath -Raw).Contains("sentinel-access-token-must-not-leak"))) "Evidence leaked an access token."
         Assert-True (@($Evidence.bundle_files).Count -gt 0) "Bundle evidence is empty."
         foreach($File in @($Evidence.bundle_files)) {
             Assert-True ([string]$File.git_blob -match '^[0-9a-f]{40}$') "Bundle Git blob is not pinned."
@@ -1588,6 +1633,31 @@ try {
         Assert-True ([int]$Evidence.post_attempt_metadata.version -eq 58) "Unexpected ambiguous post-attempt version."
     }
 
+    Invoke-Test "WmChat final function drift records UNKNOWN_REMOTE_STATE" {
+        $Fixture=New-WmChatFixtureRepository
+        $Result=Invoke-WmChatWrapper -Fixture $Fixture -DryRun:$false -InputText "DEPLOY_WMCHAT_LIVE_FUNCTIONS" -FinalFunctionDrift
+        Assert-True ($Result.ExitCode -eq 116) "Exit $($Result.ExitCode): $($Result.Output)"
+        $Evidence=Get-Content -LiteralPath $Result.EvidencePath -Raw | ConvertFrom-Json
+        Assert-True ($Evidence.result -ceq "UNKNOWN_REMOTE_STATE") "Final function drift did not persist ambiguity."
+        Assert-True ($Evidence.automatic_retry -eq $false) "Final function drift enabled retry."
+        Assert-True ((@($Result.CliLog | Where-Object {$_ -like '*functions deploy*'})).Count -eq 2) "Final drift changed deploy count."
+    }
+
+    Invoke-Test "WmChat final ledger and consent failures remain ambiguous without retry" {
+        foreach($FailureMode in @("ledger","consent")) {
+            $Fixture=New-WmChatFixtureRepository
+            $Result = if($FailureMode -eq "ledger") {
+                Invoke-WmChatWrapper -Fixture $Fixture -DryRun:$false -InputText "DEPLOY_WMCHAT_LIVE_FUNCTIONS" -FinalLedgerFailure
+            } else {
+                Invoke-WmChatWrapper -Fixture $Fixture -DryRun:$false -InputText "DEPLOY_WMCHAT_LIVE_FUNCTIONS" -FinalConsentFailure
+            }
+            Assert-True ($Result.ExitCode -eq 116) "$FailureMode final failure exit $($Result.ExitCode): $($Result.Output)"
+            $Evidence=Get-Content -LiteralPath $Result.EvidencePath -Raw | ConvertFrom-Json
+            Assert-True ($Evidence.result -ceq "UNKNOWN_REMOTE_STATE") "$FailureMode final failure was not persisted as ambiguous."
+            Assert-True ((@($Result.CliLog | Where-Object {$_ -like '*functions deploy*'})).Count -eq 2) "$FailureMode final failure retried a deploy."
+        }
+    }
+
     Invoke-Test "WmChat unchanged post-deploy version is ambiguous and never advances" {
         $Fixture=New-WmChatFixtureRepository
         $Result=Invoke-WmChatWrapper -Fixture $Fixture -DryRun:$false -InputText "DEPLOY_WMCHAT_LIVE_FUNCTIONS" -NoVersionAdvance
@@ -1622,9 +1692,9 @@ try {
         $Wrong=New-WmChatFixtureRepository
         $WrongResult=Invoke-WmChatWrapper -Fixture $Wrong -ProjectRef "wrong"
         Assert-True ($WrongResult.ExitCode -eq 125) "Wrong target exit $($WrongResult.ExitCode)."
-        $ModeFixture=New-WmChatFixtureRepository
         foreach($Other in @("-GoogleAdsOnly","-DispatchOnly","-Pr173ExtractionOnly","-AdminDataOnly")) {
-            $Result=Invoke-WmChatWrapper -Fixture $ModeFixture -AdditionalArgs @($Other)
+            $Fixture=New-WmChatFixtureRepository
+            $Result=Invoke-WmChatWrapper -Fixture $Fixture -AdditionalArgs @($Other)
             Assert-True ($Result.ExitCode -eq 124 -or $Result.ExitCode -eq 60) "Mode $Other exit $($Result.ExitCode)."
             Assert-True ($Result.State -eq "0") "Mode combination deployed."
         }
@@ -1638,14 +1708,7 @@ try {
         Assert-True (($Entries -join ',') -ceq 'start-upload-scan-session,capture-truth-gate-lead') "Unexpected WmChat allowlist."
         Assert-True ($Source.Contains('$DefaultTargetFunctions = @(')) "Legacy default mode was removed."
         Assert-True ($Source.Contains('$Pr173TargetFunctions = @(')) "Legacy PR173 mode was removed."
-        $DeployCalls = [regex]::Matches($Source, '(?ms)Invoke-SupabaseCliProcess\s+`?\s*-\s*Arguments\s+@\((?<args>.*?)\)')
-        Assert-True ($DeployCalls.Count -gt 0) "No wrapped CLI calls found."
-        foreach ($Call in $DeployCalls) {
-            if ($Call.Groups["args"].Value -match '"functions"\s*,\s*"deploy"') {
-                Assert-True ($Call.Groups["args"].Value -match '\$[A-Za-z][A-Za-z0-9_]*') "Deploy call lacks a function-name variable."
-                Assert-True ($Call.Groups["args"].Value -match '"--project-ref"') "Deploy call lacks an explicit project ref."
-            }
-        }
+        Assert-True (-not ($Source -match '(?m)^\s*&\s*supabase\s+functions\s+deploy\s*(--|$)')) "Unscoped deploy invocation found."
         foreach($Token in @("wmchatIntake.test.ts","consentCapture_test.ts","contracts/schemas.test.ts","--no-verify-jwt","New-WmChatRollbackArtifacts","post-confirm metadata","immediate pre-deploy metadata","exact next version","File]::Replace","sha256","post_attempt_metadata")) {
             Assert-Contains $Source $Token
         }

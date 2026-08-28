@@ -30,10 +30,12 @@ $UntouchedLedgerMinVersion = "20260317051701"
 $UntouchedLedgerMaxVersion = "20260624120000"
 $UntouchedLedgerFingerprint = "440b0c2521013e15bd6e02f9cf0f96d8"
 $ExpectedLedgerColumns = "version:text:NO,statements:_text:YES,name:text:YES,created_by:text:YES,idempotency_key:text:YES,rollback:_text:YES"
+$PsqlProcessTimeoutSeconds = 330
 $LibpqIsolationEnvironmentNames = @(
     "PGHOST", "PGHOSTADDR", "PGPORT", "PGDATABASE", "PGUSER", "PGPASSWORD", "PGOPTIONS",
+    "PGCONNECT_TIMEOUT", "PGCLIENTENCODING",
     "PGSERVICE", "PGSERVICEFILE", "PGSYSCONFDIR", "PGPASSFILE", "PGREQUIREAUTH", "PGCHANNELBINDING",
-    "PGSSLMODE", "PGREQUIRESSL", "PGSSLNEGOTIATION", "PGSSLCERT", "PGSSLKEY", "PGSSLROOTCERT", "PGCLIENTENCODING",
+    "PGSSLMODE", "PGREQUIRESSL", "PGSSLNEGOTIATION", "PGSSLCERT", "PGSSLKEY", "PGSSLROOTCERT",
     "PGSSLCRL", "PGSSLCRLDIR", "PGSSLSNI", "PGTARGETSESSIONATTRS", "PGLOADBALANCEHOSTS"
 )
 $Migrations = @(
@@ -166,7 +168,7 @@ function Assert-ReleaseWorktree {
     & git -C $Worktree merge-base --is-ancestor $ReleaseCommit "origin/$ApprovedRemoteBranch"
     if ($LASTEXITCODE -ne 0) { Fail 34 "ReleaseCommit is not contained in freshly fetched approved branch." }
     $CommittedScript = Invoke-GitText $Worktree @("rev-parse", "$ReleaseCommit`:$ScriptRelativePath") "Release commit does not contain this runner."
-    $RunningScript = Invoke-GitText $Worktree @("hash-object", "--path=$ScriptRelativePath", "--", $PSCommandPath) "Unable to hash running script."
+    $RunningScript = Invoke-GitText $Worktree @("hash-object", "--path", $ScriptRelativePath, "--", $PSCommandPath) "Unable to hash running script."
     if ($CommittedScript -cne $RunningScript) { Fail 34 "Running script differs from ReleaseCommit." }
     return $Worktree
 }
@@ -281,12 +283,14 @@ function Set-IsolatedLibpqEnvironment($Connection) {
     [System.Environment]::SetEnvironmentVariable("PGPASSWORD", $Connection.Password, "Process")
     [System.Environment]::SetEnvironmentVariable("PGSSLMODE", "verify-full", "Process")
     [System.Environment]::SetEnvironmentVariable("PGSSLROOTCERT", $Connection.SslRootCert, "Process")
+    [System.Environment]::SetEnvironmentVariable("PGCONNECT_TIMEOUT", "15", "Process")
     [System.Environment]::SetEnvironmentVariable("PGCLIENTENCODING", "UTF8", "Process")
     [System.Environment]::SetEnvironmentVariable("PGAPPNAME", "wmchat-consent-release", "Process")
 }
 
 function Invoke-Psql([string]$Psql, [string]$Sql, [string]$Marker, [bool]$ReadOnly = $true) {
     $Out = [System.IO.Path]::GetTempFileName(); $Err = [System.IO.Path]::GetTempFileName()
+    $InputFile = [System.IO.Path]::GetTempFileName()
     $SqlFile = [System.IO.Path]::GetTempFileName()
     try {
         [System.Environment]::SetEnvironmentVariable(
@@ -295,19 +299,30 @@ function Invoke-Psql([string]$Psql, [string]$Sql, [string]$Marker, [bool]$ReadOn
             "Process"
         )
         $MarkedSql = "/* WMCHAT:$Marker */`n$Sql"
-        Set-Content -LiteralPath $SqlFile -Value $MarkedSql -Encoding utf8NoBOM
+        [System.IO.File]::WriteAllText(
+            $SqlFile,
+            $MarkedSql,
+            (New-Object System.Text.UTF8Encoding($false))
+        )
         $Process = Start-Process -FilePath $Psql -ArgumentList @("-X", "-v", "ON_ERROR_STOP=1", "-qAt", "-f", $SqlFile) `
-            -RedirectStandardOutput $Out -RedirectStandardError $Err -NoNewWindow -Wait -PassThru
+            -RedirectStandardInput $InputFile -RedirectStandardOutput $Out -RedirectStandardError $Err `
+            -NoNewWindow -PassThru
+        $Completed = $Process.WaitForExit($PsqlProcessTimeoutSeconds * 1000)
+        if (-not $Completed) {
+            try { $Process.Kill() } catch { }
+            [void]$Process.WaitForExit()
+        }
         [string]$StdoutText = Get-Content $Out -Raw -ErrorAction SilentlyContinue
         [string]$StderrText = Get-Content $Err -Raw -ErrorAction SilentlyContinue
         if ($null -eq $StdoutText) { $StdoutText = "" }
         if ($null -eq $StderrText) { $StderrText = "" }
         return [pscustomobject]@{
-            ExitCode = $Process.ExitCode
+            ExitCode = $(if ($Completed) { $Process.ExitCode } else { 124 })
+            TimedOut = (-not $Completed)
             Stdout = $StdoutText.Replace("`r`n", "`n").Trim()
             Stderr = $StderrText.Replace("`r`n", "`n").Trim()
         }
-    } finally { Remove-Item $Out,$Err,$SqlFile -Force -ErrorAction SilentlyContinue }
+    } finally { Remove-Item -LiteralPath $Out,$Err,$InputFile,$SqlFile -Force -ErrorAction SilentlyContinue }
 }
 
 function Get-RemoteState([string]$Psql, [string]$Marker) {
@@ -443,9 +458,8 @@ function Get-Plan($State, $MigrationFacts) {
     $BaseContract = $State.table -eq "present" -and $State.rls -eq "true" -and $State.rpc -eq "present" -and
         $State.columns -eq "true" -and $State.indexes -eq "true" -and $State.constraints -eq "true" -and
         $State.policies -eq "0" -and $State.rpc_properties -eq "true" -and $State.rpc_body -eq "true" -and
-        $State.client_table_privileges -eq "true" -and $State.service_bypassrls -eq "true" -and
-        $State.service_direct_writes -eq "false" -and
-        $State.function_privileges -eq "true"
+        $State.client_table_privileges -eq "true" -and $State.service_direct_writes -eq "false" -and
+        $State.service_bypassrls -eq "true" -and $State.function_privileges -eq "true"
     if (-not $BaseContract) { Fail 41 "Recorded base migration does not match its fail-closed contract." }
     if (-not $Grant) { return @($Migrations[1]) }
     if ($State.service_select -ne "true") { Fail 41 "Recorded grant migration is missing service-role SELECT." }
@@ -491,10 +505,7 @@ AND NOT has_function_privilege('anon',to_regprocedure('public.persist_lead_conse
 AND NOT has_function_privilege('authenticated',to_regprocedure('public.persist_lead_consent_batch(uuid,text,uuid,text,text,text,text,jsonb)'),'EXECUTE')
 AND NOT EXISTS (SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(COALESCE(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid=to_regprocedure('public.persist_lead_consent_batch(uuid,text,uuid,text,text,text,text,jsonb)') AND a.grantee=0 AND a.privilege_type='EXECUTE')
 AND COALESCE((SELECT rolbypassrls FROM pg_roles WHERE rolname='service_role'),false)
-AND NOT (has_table_privilege('service_role',to_regclass('public.lead_consent_events'),'INSERT')
-  OR has_table_privilege('service_role',to_regclass('public.lead_consent_events'),'UPDATE')
-  OR has_table_privilege('service_role',to_regclass('public.lead_consent_events'),'DELETE')
-  OR has_table_privilege('service_role',to_regclass('public.lead_consent_events'),'TRUNCATE'))
+AND NOT (has_table_privilege('service_role',to_regclass('public.lead_consent_events'),'INSERT') OR has_table_privilege('service_role',to_regclass('public.lead_consent_events'),'UPDATE') OR has_table_privilege('service_role',to_regclass('public.lead_consent_events'),'DELETE') OR has_table_privilege('service_role',to_regclass('public.lead_consent_events'),'TRUNCATE'))
 '@
 }
 
@@ -512,6 +523,9 @@ function New-MutationSql($Plan, $BeforeState, $MigrationFacts) {
     $ContractPredicate = Get-WmChatContractPredicateSql
     $Parts = New-Object System.Collections.Generic.List[string]
     [void]$Parts.Add("BEGIN;")
+    [void]$Parts.Add("SET LOCAL lock_timeout = '15s';")
+    [void]$Parts.Add("SET LOCAL statement_timeout = '300s';")
+    [void]$Parts.Add("SET LOCAL idle_in_transaction_session_timeout = '60s';")
     [void]$Parts.Add("DO `$wm_lock`$ BEGIN IF NOT pg_try_advisory_lock($AdvisoryKey1,$AdvisoryKey2) THEN RAISE EXCEPTION 'WMCHAT_RELEASE_ALREADY_RUNNING'; END IF; END `$wm_lock`$;")
     [void]$Parts.Add("LOCK TABLE $LedgerTable IN SHARE ROW EXCLUSIVE MODE;")
     [void]$Parts.Add(@"
