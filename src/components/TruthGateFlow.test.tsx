@@ -199,6 +199,7 @@ describe("TruthGateFlow intent-loaded capture service", () => {
   beforeEach(() => {
     funnelMockState.leadId = null;
     funnelMockState.sessionId = null;
+    truthGateLeadCaptureModuleState.loads = 0;
     installLocalStorageMock();
     mockSetSessionId.mockReset();
     mockSetLeadId.mockReset();
@@ -287,6 +288,7 @@ describe("TruthGateFlow paid has_quote identity gate (Sprint 2B-1)", () => {
   beforeEach(() => {
     funnelMockState.leadId = null;
     funnelMockState.sessionId = null;
+    truthGateLeadCaptureModuleState.loads = 0;
     installLocalStorageMock();
     mockSetSessionId.mockReset();
     mockSetLeadId.mockReset();

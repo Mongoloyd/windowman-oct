@@ -207,6 +207,7 @@ function expectContactFirstSurface(options?: { paidNetworkLabel?: string }) {
 
 describe("TruthGateFlow contact-first intake", () => {
   beforeEach(() => {
+    truthGateLeadCaptureModuleState.loads = 0;
     installLocalStorageMock();
     mockSetSessionId.mockReset();
     mockSetLeadId.mockReset();
@@ -229,6 +230,7 @@ describe("TruthGateFlow contact-first intake", () => {
   });
 
   it("renders contact form immediately for organic/default traffic", () => {
+    truthGateLeadCaptureModuleState.loads = 0;
     getUtmDataMock.mockReturnValue({
       utm_source: null,
       wm_intent: "unknown",
@@ -244,6 +246,7 @@ describe("TruthGateFlow contact-first intake", () => {
   });
 
   it("submits null quiz scalars for organic/default traffic", async () => {
+    truthGateLeadCaptureModuleState.loads = 0;
     getUtmDataMock.mockReturnValue({
       utm_source: null,
       wm_intent: "unknown",
