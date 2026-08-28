@@ -952,8 +952,7 @@ export function createMockQuote(overrides: Record<string, unknown> = {}) {
     file,
     extracted: baseData,
     getFile: async (): Promise<File> => {
-      const blob = await getSampleQuoteBlob();
-      return new File([blob], `sample-quote-${id.slice(0, 8)}.avif`, { type: "image/avif" });
+      return new File([fallbackBytes], `sample-quote-${id.slice(0, 8)}.png`, { type: "image/png" });
     },
   };
 }

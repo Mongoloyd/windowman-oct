@@ -4,7 +4,7 @@
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
-import { lazy, useEffect, useState, useCallback, useRef } from "react";
+import { lazy, Suspense, useEffect, useState, useCallback, useRef } from "react";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Settings } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -562,6 +562,7 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
           needsReviewCount={needsReview.length}
         />
 
+        <Suspense fallback={<div className="flex items-center justify-center py-12 text-sm text-slate-500">Loading…</div>}>
           <TabsContent value="mission-control" className="w-full pt-1">
             <MasterCommandCenter
               leads={leads}
@@ -795,6 +796,7 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
           <TabsContent value="otp-ops" className="w-full px-0 pt-2 sm:px-2">
             <TwilioObservabilityPanel />
           </TabsContent>
+        </Suspense>
       </Tabs>
       </div>
     </AdminShell>
