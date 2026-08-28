@@ -27,7 +27,7 @@ import {
   MapPin,
   Sparkles,
 } from "lucide-react";
-import wmPointing from "@/assets/wm-pointing-tall.png";
+import wmPointing from "@/assets/wm-pointing-tall.avif";
 import wmReceiptBg from "@/assets/wm-receipt-bg.png";
 
 /**

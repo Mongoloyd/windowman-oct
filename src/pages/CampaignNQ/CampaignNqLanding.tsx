@@ -17,7 +17,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { handoffToCanonicalUpload } from "@/components/landing/landingHandoff";
-import windowManGuide from "@/assets/wm-pointing-tall.png";
+import windowManGuide from "@/assets/wm-pointing-tall.avif";
 import CampaignNqCaptureDialog from "./CampaignNqCaptureDialog";
 import CampaignNqQuoteMockup from "./CampaignNqQuoteMockup";
 import {

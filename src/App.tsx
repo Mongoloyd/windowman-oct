@@ -10,10 +10,8 @@ import { HelmetProvider } from "react-helmet-async";
 import { ScanFunnelProvider } from "@/state/scanFunnel";
 import { isAdminDashboardTab, PUBLIC_ROOT_ROUTE_DENYLIST } from "@/routes/adminDashboardTabs";
 
-// ── Static import for critical home route ────────────────────────────────────
-import Index from "./pages/Index";
-
 // ── Lazy-loaded routes ──────────────────────────────────────────────────────
+const Index = lazy(() => import("./pages/Index"));
 const ReportClassic = lazy(() => import("./pages/ReportClassic.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 const AdminRoutes = lazy(() =>
@@ -24,7 +22,9 @@ const PartnerRoutes = lazy(() =>
 );
 
 // Dev/internal only — not linked from any production CTA
-import { WindowManIntakePreview } from "@/components/intake";
+const WindowManIntakePreview = lazy(
+  () => import("@/components/intake/WindowManIntakePreview"),
+);
 const DevReportPreview = lazy(() => import("./pages/DevReportPreview.tsx"));
 const DevTesting = lazy(() => import("./pages/DevTesting.tsx"));
 const PreUploadIntake = lazy(() => import("@/components/forensic-report/PreUploadIntake"));

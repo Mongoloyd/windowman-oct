@@ -10,7 +10,7 @@ import {
   Suspense,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import windowmanScript from "@/assets/windowman-script.png";
+import windowmanScript from "@/assets/windowman-script.avif";
 import { hasTrustedContactIdentity } from "@/lib/leadSession";
 import { readAdvertisingMeasurementDecision } from "@/lib/consent/measurementConsent";
 import { normalizeTruthGatePhoneToE164 } from "@/lib/validation/truthGateContact";

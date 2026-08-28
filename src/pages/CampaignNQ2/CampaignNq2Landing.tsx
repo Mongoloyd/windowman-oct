@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/accordion";
 import { BUSINESS_EVENTS } from "@/lib/tracking/events";
 import { pushLowIntentEvent } from "@/lib/tracking/dataLayer";
-import windowManGuide from "@/assets/wm-pointing.png";
+import windowManGuide from "@/assets/wm-pointing.avif";
 import CampaignNq2CaptureDialog from "./CampaignNq2CaptureDialog";
 import DirectQuoteUploader from "./DirectQuoteUploader";
 import {

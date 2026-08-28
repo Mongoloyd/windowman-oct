@@ -4,7 +4,7 @@
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { lazy, useEffect, useState, useCallback, useRef } from "react";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Settings } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -16,58 +16,7 @@ import { PreviewModeBadge } from "@/components/PreviewModeBadge";
 // Phase 26 — legacy <CommandCenter /> removed. Canonical Mission Control
 // engine is <MasterCommandCenter />. The legacy file is kept on disk as
 // @deprecated for archaeology but is no longer imported anywhere.
-import { MasterCommandCenter } from "@/components/admin/MasterCommandCenter";
-import { ActivePipeline } from "@/components/admin/ActivePipeline";
-import { GhostRecovery } from "@/components/admin/GhostRecovery";
-import { InternalCRMDesk } from "@/components/admin/InternalCRMDesk";
-import { NeedsReviewTab, type NeedsReviewLead } from "@/components/admin/NeedsReviewTab";
-import { AttributionTab } from "@/components/admin/AttributionTab";
-import { ContractorAccountsTab } from "@/components/admin/ContractorAccountsTab";
-import { RoutingDesk } from "@/components/admin/RoutingDesk";
-import { OneContractorSummaryStrip } from "@/components/admin/OneContractorSummaryStrip";
-import { MarketOpsFeed } from "@/components/admin/MarketOpsFeed";
-import { PilotReadiness } from "@/components/admin/PilotReadiness";
-import { PilotOpsLaunchControl } from "@/components/admin/PilotOpsLaunchControl";
-import { OutcomeTrackingReport } from "@/components/admin/OutcomeTrackingReport";
-import { ContractorOnboardingSurface } from "@/components/admin/ContractorOnboardingSurface";
-import { OperatorReportingSurface } from "@/components/admin/OperatorReportingSurface";
-import { DeadStaleRecoveryWorkflowSurface } from "@/components/admin/DeadStaleRecoveryWorkflowSurface";
-import { ContractorFeedbackLoopSurface } from "@/components/admin/ContractorFeedbackLoopSurface";
-import { SharedMarketManualControlsSurface } from "@/components/admin/SharedMarketManualControlsSurface";
-import { ClientFacingReportingPrepSurface } from "@/components/admin/ClientFacingReportingPrepSurface";
-import { PilotToPlatformAuditSurface } from "@/components/admin/PilotToPlatformAuditSurface";
-import { LaunchReadinessSurface } from "@/components/admin/LaunchReadinessSurface";
-import { OperatorTrainingSOPSurface } from "@/components/admin/OperatorTrainingSOPSurface";
-import { RolloutPlanningReadinessSurface } from "@/components/admin/RolloutPlanningReadinessSurface";
-import { DataQualityFieldIntegritySurface } from "@/components/admin/DataQualityFieldIntegritySurface";
-import { ExceptionHandlingManualEscalationSurface } from "@/components/admin/ExceptionHandlingManualEscalationSurface";
-import { DocumentationHandoffReadinessSurface } from "@/components/admin/DocumentationHandoffReadinessSurface";
-import { PostPilotLearningsDecisionSupportSurface } from "@/components/admin/PostPilotLearningsDecisionSupportSurface";
-import { ChangeManagementSafeUpdateReadinessSurface } from "@/components/admin/ChangeManagementSafeUpdateReadinessSurface";
-import { MinimumViableGovernanceDecisionBoundariesSurface } from "@/components/admin/MinimumViableGovernanceDecisionBoundariesSurface";
-import { OperatorScenarioDrillsSurface } from "@/components/admin/OperatorScenarioDrillsSurface";
-import { ExpansionPreconditionsMarketEntryReadinessSurface } from "@/components/admin/ExpansionPreconditionsMarketEntryReadinessSurface";
-import { TechnicalDebtRefactorReadinessReviewSurface } from "@/components/admin/TechnicalDebtRefactorReadinessReviewSurface";
-import { CrossSurfaceConsistencyStatusAlignmentAuditSurface } from "@/components/admin/CrossSurfaceConsistencyStatusAlignmentAuditSurface";
-import { AdminInformationArchitectureNavigationSimplificationSurface } from "@/components/admin/AdminInformationArchitectureNavigationSimplificationSurface";
-import { StrategicPrioritizationNextBuildDecisionFrameworkSurface } from "@/components/admin/StrategicPrioritizationNextBuildDecisionFrameworkSurface";
-import { DeliveryInspectorPage } from "@/components/admin/deliveries/DeliveryInspectorPage";
-import { SessionDiagnosticPanel } from "@/components/admin/diagnostics/SessionDiagnosticPanel";
-import { TwilioObservabilityPanel } from "@/components/admin/otp/TwilioObservabilityPanel";
-import { SignalDispatchTab } from "@/components/admin/SignalDispatchTab";
-import { RevenueDispatchReadiness } from "@/components/admin/RevenueDispatchReadiness";
-import { RevenueSignalDryRunAudit } from "@/components/admin/RevenueSignalDryRunAudit";
-import { ClientPlatformConfigs } from "@/components/admin/ClientPlatformConfigs";
-import { DispatchDryRunQueue } from "@/components/admin/DispatchDryRunQueue";
-import { DispatchOutboxControl } from "@/components/admin/DispatchOutboxControl";
-import { DispatchAttemptReconciliation } from "@/components/admin/DispatchAttemptReconciliation";
-import { DispatchGovernanceConsole } from "@/components/admin/DispatchGovernanceConsole";
-import { NextdoorReadinessPanel } from "@/components/admin/NextdoorReadinessPanel";
-import { LeadAssignmentBoard } from "@/components/admin/LeadAssignmentBoard";
-import { ContractorOutcomeInspector } from "@/components/admin/ContractorOutcomeInspector";
-import { SyndicateHealthDashboard } from "@/components/admin/SyndicateHealthDashboard";
-import { LeadReleaseQueue } from "@/components/admin/LeadReleaseQueue";
-import { ContractorPerformanceDashboard } from "@/components/admin/ContractorPerformanceDashboard";
+import type { NeedsReviewLead } from "@/components/admin/NeedsReviewTab";
 
 import {
   invokeAdminDataSafe,
@@ -79,6 +28,163 @@ import {
 } from "@/components/admin/system/AdminBackendStatusBanner";
 
 import type { CRMLead, WebhookDelivery, CommandCenterKPIs, VoiceFollowupSummary } from "@/components/admin/types";
+
+const MasterCommandCenter = lazy(() =>
+  import("@/components/admin/MasterCommandCenter").then((module) => ({ default: module.MasterCommandCenter })),
+);
+const ActivePipeline = lazy(() =>
+  import("@/components/admin/ActivePipeline").then((module) => ({ default: module.ActivePipeline })),
+);
+const GhostRecovery = lazy(() =>
+  import("@/components/admin/GhostRecovery").then((module) => ({ default: module.GhostRecovery })),
+);
+const InternalCRMDesk = lazy(() =>
+  import("@/components/admin/InternalCRMDesk").then((module) => ({ default: module.InternalCRMDesk })),
+);
+const NeedsReviewTab = lazy(() =>
+  import("@/components/admin/NeedsReviewTab").then((module) => ({ default: module.NeedsReviewTab })),
+);
+const AttributionTab = lazy(() =>
+  import("@/components/admin/AttributionTab").then((module) => ({ default: module.AttributionTab })),
+);
+const ContractorAccountsTab = lazy(() =>
+  import("@/components/admin/ContractorAccountsTab").then((module) => ({ default: module.ContractorAccountsTab })),
+);
+const RoutingDesk = lazy(() =>
+  import("@/components/admin/RoutingDesk").then((module) => ({ default: module.RoutingDesk })),
+);
+const OneContractorSummaryStrip = lazy(() =>
+  import("@/components/admin/OneContractorSummaryStrip").then((module) => ({ default: module.OneContractorSummaryStrip })),
+);
+const MarketOpsFeed = lazy(() =>
+  import("@/components/admin/MarketOpsFeed").then((module) => ({ default: module.MarketOpsFeed })),
+);
+const PilotReadiness = lazy(() =>
+  import("@/components/admin/PilotReadiness").then((module) => ({ default: module.PilotReadiness })),
+);
+const PilotOpsLaunchControl = lazy(() =>
+  import("@/components/admin/PilotOpsLaunchControl").then((module) => ({ default: module.PilotOpsLaunchControl })),
+);
+const OutcomeTrackingReport = lazy(() =>
+  import("@/components/admin/OutcomeTrackingReport").then((module) => ({ default: module.OutcomeTrackingReport })),
+);
+const ContractorOnboardingSurface = lazy(() =>
+  import("@/components/admin/ContractorOnboardingSurface").then((module) => ({ default: module.ContractorOnboardingSurface })),
+);
+const OperatorReportingSurface = lazy(() =>
+  import("@/components/admin/OperatorReportingSurface").then((module) => ({ default: module.OperatorReportingSurface })),
+);
+const DeadStaleRecoveryWorkflowSurface = lazy(() =>
+  import("@/components/admin/DeadStaleRecoveryWorkflowSurface").then((module) => ({ default: module.DeadStaleRecoveryWorkflowSurface })),
+);
+const ContractorFeedbackLoopSurface = lazy(() =>
+  import("@/components/admin/ContractorFeedbackLoopSurface").then((module) => ({ default: module.ContractorFeedbackLoopSurface })),
+);
+const SharedMarketManualControlsSurface = lazy(() =>
+  import("@/components/admin/SharedMarketManualControlsSurface").then((module) => ({ default: module.SharedMarketManualControlsSurface })),
+);
+const ClientFacingReportingPrepSurface = lazy(() =>
+  import("@/components/admin/ClientFacingReportingPrepSurface").then((module) => ({ default: module.ClientFacingReportingPrepSurface })),
+);
+const PilotToPlatformAuditSurface = lazy(() =>
+  import("@/components/admin/PilotToPlatformAuditSurface").then((module) => ({ default: module.PilotToPlatformAuditSurface })),
+);
+const LaunchReadinessSurface = lazy(() =>
+  import("@/components/admin/LaunchReadinessSurface").then((module) => ({ default: module.LaunchReadinessSurface })),
+);
+const OperatorTrainingSOPSurface = lazy(() =>
+  import("@/components/admin/OperatorTrainingSOPSurface").then((module) => ({ default: module.OperatorTrainingSOPSurface })),
+);
+const RolloutPlanningReadinessSurface = lazy(() =>
+  import("@/components/admin/RolloutPlanningReadinessSurface").then((module) => ({ default: module.RolloutPlanningReadinessSurface })),
+);
+const DataQualityFieldIntegritySurface = lazy(() =>
+  import("@/components/admin/DataQualityFieldIntegritySurface").then((module) => ({ default: module.DataQualityFieldIntegritySurface })),
+);
+const ExceptionHandlingManualEscalationSurface = lazy(() =>
+  import("@/components/admin/ExceptionHandlingManualEscalationSurface").then((module) => ({ default: module.ExceptionHandlingManualEscalationSurface })),
+);
+const DocumentationHandoffReadinessSurface = lazy(() =>
+  import("@/components/admin/DocumentationHandoffReadinessSurface").then((module) => ({ default: module.DocumentationHandoffReadinessSurface })),
+);
+const PostPilotLearningsDecisionSupportSurface = lazy(() =>
+  import("@/components/admin/PostPilotLearningsDecisionSupportSurface").then((module) => ({ default: module.PostPilotLearningsDecisionSupportSurface })),
+);
+const ChangeManagementSafeUpdateReadinessSurface = lazy(() =>
+  import("@/components/admin/ChangeManagementSafeUpdateReadinessSurface").then((module) => ({ default: module.ChangeManagementSafeUpdateReadinessSurface })),
+);
+const MinimumViableGovernanceDecisionBoundariesSurface = lazy(() =>
+  import("@/components/admin/MinimumViableGovernanceDecisionBoundariesSurface").then((module) => ({ default: module.MinimumViableGovernanceDecisionBoundariesSurface })),
+);
+const OperatorScenarioDrillsSurface = lazy(() =>
+  import("@/components/admin/OperatorScenarioDrillsSurface").then((module) => ({ default: module.OperatorScenarioDrillsSurface })),
+);
+const ExpansionPreconditionsMarketEntryReadinessSurface = lazy(() =>
+  import("@/components/admin/ExpansionPreconditionsMarketEntryReadinessSurface").then((module) => ({ default: module.ExpansionPreconditionsMarketEntryReadinessSurface })),
+);
+const TechnicalDebtRefactorReadinessReviewSurface = lazy(() =>
+  import("@/components/admin/TechnicalDebtRefactorReadinessReviewSurface").then((module) => ({ default: module.TechnicalDebtRefactorReadinessReviewSurface })),
+);
+const CrossSurfaceConsistencyStatusAlignmentAuditSurface = lazy(() =>
+  import("@/components/admin/CrossSurfaceConsistencyStatusAlignmentAuditSurface").then((module) => ({ default: module.CrossSurfaceConsistencyStatusAlignmentAuditSurface })),
+);
+const AdminInformationArchitectureNavigationSimplificationSurface = lazy(() =>
+  import("@/components/admin/AdminInformationArchitectureNavigationSimplificationSurface").then((module) => ({ default: module.AdminInformationArchitectureNavigationSimplificationSurface })),
+);
+const StrategicPrioritizationNextBuildDecisionFrameworkSurface = lazy(() =>
+  import("@/components/admin/StrategicPrioritizationNextBuildDecisionFrameworkSurface").then((module) => ({ default: module.StrategicPrioritizationNextBuildDecisionFrameworkSurface })),
+);
+const DeliveryInspectorPage = lazy(() =>
+  import("@/components/admin/deliveries/DeliveryInspectorPage").then((module) => ({ default: module.DeliveryInspectorPage })),
+);
+const SessionDiagnosticPanel = lazy(() =>
+  import("@/components/admin/diagnostics/SessionDiagnosticPanel").then((module) => ({ default: module.SessionDiagnosticPanel })),
+);
+const TwilioObservabilityPanel = lazy(() =>
+  import("@/components/admin/otp/TwilioObservabilityPanel").then((module) => ({ default: module.TwilioObservabilityPanel })),
+);
+const SignalDispatchTab = lazy(() =>
+  import("@/components/admin/SignalDispatchTab").then((module) => ({ default: module.SignalDispatchTab })),
+);
+const RevenueDispatchReadiness = lazy(() =>
+  import("@/components/admin/RevenueDispatchReadiness").then((module) => ({ default: module.RevenueDispatchReadiness })),
+);
+const RevenueSignalDryRunAudit = lazy(() =>
+  import("@/components/admin/RevenueSignalDryRunAudit").then((module) => ({ default: module.RevenueSignalDryRunAudit })),
+);
+const ClientPlatformConfigs = lazy(() =>
+  import("@/components/admin/ClientPlatformConfigs").then((module) => ({ default: module.ClientPlatformConfigs })),
+);
+const DispatchDryRunQueue = lazy(() =>
+  import("@/components/admin/DispatchDryRunQueue").then((module) => ({ default: module.DispatchDryRunQueue })),
+);
+const DispatchOutboxControl = lazy(() =>
+  import("@/components/admin/DispatchOutboxControl").then((module) => ({ default: module.DispatchOutboxControl })),
+);
+const DispatchAttemptReconciliation = lazy(() =>
+  import("@/components/admin/DispatchAttemptReconciliation").then((module) => ({ default: module.DispatchAttemptReconciliation })),
+);
+const DispatchGovernanceConsole = lazy(() =>
+  import("@/components/admin/DispatchGovernanceConsole").then((module) => ({ default: module.DispatchGovernanceConsole })),
+);
+const NextdoorReadinessPanel = lazy(() =>
+  import("@/components/admin/NextdoorReadinessPanel").then((module) => ({ default: module.NextdoorReadinessPanel })),
+);
+const LeadAssignmentBoard = lazy(() =>
+  import("@/components/admin/LeadAssignmentBoard").then((module) => ({ default: module.LeadAssignmentBoard })),
+);
+const ContractorOutcomeInspector = lazy(() =>
+  import("@/components/admin/ContractorOutcomeInspector").then((module) => ({ default: module.ContractorOutcomeInspector })),
+);
+const SyndicateHealthDashboard = lazy(() =>
+  import("@/components/admin/SyndicateHealthDashboard").then((module) => ({ default: module.SyndicateHealthDashboard })),
+);
+const LeadReleaseQueue = lazy(() =>
+  import("@/components/admin/LeadReleaseQueue").then((module) => ({ default: module.LeadReleaseQueue })),
+);
+const ContractorPerformanceDashboard = lazy(() =>
+  import("@/components/admin/ContractorPerformanceDashboard").then((module) => ({ default: module.ContractorPerformanceDashboard })),
+);
 
 const REFRESH_INTERVAL_MS = 120_000;
 

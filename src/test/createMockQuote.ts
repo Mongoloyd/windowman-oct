@@ -1,4 +1,4 @@
-import sampleQuoteUrl from "./sample-quote.png";
+import sampleQuoteUrl from "@/assets/sample-quote.avif";
 
 let cachedBlob: Blob | null = null;
 
@@ -953,7 +953,7 @@ export function createMockQuote(overrides: Record<string, unknown> = {}) {
     extracted: baseData,
     getFile: async (): Promise<File> => {
       const blob = await getSampleQuoteBlob();
-      return new File([blob], `sample-quote-${id.slice(0, 8)}.png`, { type: "image/png" });
+      return new File([blob], `sample-quote-${id.slice(0, 8)}.avif`, { type: "image/avif" });
     },
   };
 }
