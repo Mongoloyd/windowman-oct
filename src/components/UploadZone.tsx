@@ -7,6 +7,7 @@ import {
   ShieldCheck,
   Upload,
 } from "lucide-react";
+import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { trackEvent } from "@/lib/trackEvent";
 import { pushV3BusinessEvent } from "@/lib/tracking/dataLayer";
@@ -89,13 +90,30 @@ function resolveScanQuoteTerminalStatus(fnData: unknown): string | null {
     typeof obj.analysis_status === "string" ? obj.analysis_status : null;
   const sessionStatus =
     typeof obj.scan_session_status === "string" ? obj.scan_session_status : null;
+  const errorStatus = typeof obj.error === "string" ? obj.error : null;
   if (analysisStatus && SCAN_QUOTE_TERMINAL_STATUSES.has(analysisStatus)) {
     return analysisStatus;
   }
   if (sessionStatus && SCAN_QUOTE_TERMINAL_STATUSES.has(sessionStatus)) {
     return sessionStatus;
   }
+  if (errorStatus && SCAN_QUOTE_TERMINAL_STATUSES.has(errorStatus)) {
+    return errorStatus;
+  }
   return null;
+}
+
+async function readScanQuoteHttpErrorPayload(
+  error: unknown,
+  fallback: unknown,
+): Promise<unknown> {
+  if (!(error instanceof FunctionsHttpError)) return fallback;
+
+  try {
+    return await error.context.json();
+  } catch {
+    return fallback;
+  }
 }
 
 function classifyScanQuoteResponse(fnData: unknown): ScanQuoteResponseKind {
@@ -520,11 +538,24 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId, leadId: 
       body: { scan_session_id: scanSessionId, event_id: quoteUploadedEventId },
     });
     if (fnError) {
-      const isRateLimited = fnData?.error === "rate_limit_exceeded";
-      const msg = isRateLimited
-        ? fnData?.message ||
-          "You've reached the limit for free scans this hour. Please try again in a bit."
-        : "Scan encountered an issue. Tap retry to try again.";
+      const errorPayload = await readScanQuoteHttpErrorPayload(fnError, fnData);
+      const errorRecord =
+        errorPayload && typeof errorPayload === "object"
+          ? (errorPayload as Record<string, unknown>)
+          : null;
+      const errorCode =
+        typeof errorRecord?.error === "string" ? errorRecord.error : null;
+      const terminalStatus = resolveScanQuoteTerminalStatus(errorPayload);
+      const isRateLimited = errorCode === "rate_limit_exceeded";
+      const safeServerMessage =
+        typeof errorRecord?.message === "string" ? errorRecord.message : null;
+      const msg = terminalStatus
+        ? SCAN_QUOTE_TERMINAL_USER_MESSAGES[terminalStatus] ??
+          "This does not appear to be a valid window estimate or quote."
+        : isRateLimited
+          ? safeServerMessage ||
+            "You've reached the limit for free scans this hour. Please try again in a bit."
+          : "Scan encountered an issue. Tap retry to try again.";
       setUploadError(msg);
       toast.error(msg);
       await supabase.from("event_logs").insert({
@@ -533,6 +564,7 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId, leadId: 
         metadata: {
           scan_session_id: scanSessionId,
           quote_file_id: quoteFileId,
+          error_code: errorCode,
           error_message: fnError.message || String(fnError),
           file_name: file?.name,
           file_size: file?.size,

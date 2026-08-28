@@ -15,6 +15,7 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import { FunctionsHttpError } from "@supabase/supabase-js";
 
 // ── Hoisted mocks ───────────────────────────────────────────────────────
 const {
@@ -141,6 +142,15 @@ function makeFile(name = "quote.pdf", size = 1024) {
 
 function makeRpcResult(result: any) {
   return Promise.resolve(result);
+}
+
+function makeFunctionsHttpError(payload: unknown, status = 422) {
+  return new FunctionsHttpError(
+    new Response(JSON.stringify(payload), {
+      status,
+      headers: { "Content-Type": "application/json" },
+    }),
+  );
 }
 
 // Canonical valid UUIDs for test fixtures.
@@ -829,6 +839,154 @@ describe("UploadZone — scan-quote terminal response", () => {
 
     expect(onScanStart).not.toHaveBeenCalled();
     expect(pushV3BusinessEvent).not.toHaveBeenCalled();
+  });
+
+  it("reads needs_better_upload from FunctionsHttpError context", async () => {
+    const onScanStart = vi.fn();
+    invokeMock.mockImplementation((name: string) => {
+      if (name === "start-upload-scan-session") {
+        return Promise.resolve({
+          data: {
+            success: true,
+            scan_session_id: DEFAULT_SCAN_SESSION_ID,
+            quote_file_id: DEFAULT_QUOTE_FILE_ID,
+            lead_id: null,
+          },
+          error: null,
+        });
+      }
+      return Promise.resolve({
+        data: null,
+        error: makeFunctionsHttpError({ error: "needs_better_upload" }),
+      });
+    });
+
+    render(
+      <UploadZone
+        isVisible
+        sessionId="00000000-0000-0000-0000-000000000601"
+        onScanStart={onScanStart}
+      />,
+    );
+    await selectFile(makeFile());
+    await act(async () => { fireEvent.click(await findStartButton()); });
+
+    await waitFor(() => {
+      expect(screen.getByText(/upload a clearer window estimate/i)).toBeInTheDocument();
+    });
+    expect(onScanStart).not.toHaveBeenCalled();
+  });
+
+  it("reads rate-limit code and safe message from FunctionsHttpError context", async () => {
+    invokeMock.mockImplementation((name: string) => {
+      if (name === "start-upload-scan-session") {
+        return Promise.resolve({
+          data: {
+            success: true,
+            scan_session_id: DEFAULT_SCAN_SESSION_ID,
+            quote_file_id: DEFAULT_QUOTE_FILE_ID,
+            lead_id: null,
+          },
+          error: null,
+        });
+      }
+      return Promise.resolve({
+        data: null,
+        error: makeFunctionsHttpError(
+          { error: "rate_limit_exceeded", message: "Please try again in 12 minutes." },
+          429,
+        ),
+      });
+    });
+
+    render(<UploadZone isVisible sessionId="00000000-0000-0000-0000-000000000602" />);
+    await selectFile(makeFile());
+    await act(async () => { fireEvent.click(await findStartButton()); });
+
+    await waitFor(() => {
+      expect(screen.getByText("Please try again in 12 minutes.")).toBeInTheDocument();
+    });
+  });
+
+  it("keeps unknown HTTP and network failures generic", async () => {
+    let scanCall = 0;
+    invokeMock.mockImplementation((name: string) => {
+      if (name === "start-upload-scan-session") {
+        return Promise.resolve({
+          data: {
+            success: true,
+            scan_session_id: DEFAULT_SCAN_SESSION_ID,
+            quote_file_id: DEFAULT_QUOTE_FILE_ID,
+            lead_id: null,
+          },
+          error: null,
+        });
+      }
+      scanCall += 1;
+      return Promise.resolve({
+        data: null,
+        error: scanCall === 1
+          ? makeFunctionsHttpError({ error: "unexpected_internal_detail" }, 500)
+          : { message: "network offline" },
+      });
+    });
+
+    render(<UploadZone isVisible sessionId="00000000-0000-0000-0000-000000000603" />);
+    await selectFile(makeFile());
+    await act(async () => { fireEvent.click(await findStartButton()); });
+
+    expect(await screen.findByText("Scan encountered an issue. Tap retry to try again.")).toBeInTheDocument();
+    await act(async () => { fireEvent.click(await findRetryButton()); });
+    await waitFor(() => {
+      expect(invokeMock.mock.calls.filter((args) => args[0] === "scan-quote")).toHaveLength(2);
+    });
+    expect(screen.getByText("Scan encountered an issue. Tap retry to try again.")).toBeInTheDocument();
+  });
+
+  it("recovers from a structured HTTP error on retry", async () => {
+    let scanCall = 0;
+    invokeMock.mockImplementation((name: string) => {
+      if (name === "start-upload-scan-session") {
+        return Promise.resolve({
+          data: {
+            success: true,
+            scan_session_id: DEFAULT_SCAN_SESSION_ID,
+            quote_file_id: DEFAULT_QUOTE_FILE_ID,
+            lead_id: null,
+          },
+          error: null,
+        });
+      }
+      scanCall += 1;
+      if (scanCall === 1) {
+        return Promise.resolve({
+          data: null,
+          error: makeFunctionsHttpError({ error: "needs_better_upload" }),
+        });
+      }
+      return Promise.resolve({
+        data: {
+          analysis_status: "complete",
+          scan_session_status: "preview_ready",
+        },
+        error: null,
+      });
+    });
+
+    const onScanStart = vi.fn();
+    render(
+      <UploadZone
+        isVisible
+        sessionId="00000000-0000-0000-0000-000000000604"
+        onScanStart={onScanStart}
+      />,
+    );
+    await selectFile(makeFile());
+    await act(async () => { fireEvent.click(await findStartButton()); });
+    await act(async () => { fireEvent.click(await findRetryButton()); });
+
+    await waitFor(() => expect(onScanStart).toHaveBeenCalledTimes(1));
+    expect(storageUpload).toHaveBeenCalledTimes(1);
   });
 });
 

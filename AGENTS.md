@@ -737,3 +737,14 @@ docs/oracle/ORACLE_EVOLUTION_PROTOCOL.md
 Use `docs/ops/DOC_STATUS_REGISTRY.md` before trusting historical planning docs.
 
 If a historical doc conflicts with current canonical policy or executable repo truth, do not implement from the stale doc.
+
+## Canonical Local Checkout Policy
+
+- The only canonical checkout is `C:\Projects\wm-mvp-github-clean`.
+- Do not create worktrees, sibling clones, temporary repositories, backup branches, or stashes unless the user explicitly overrides this rule.
+- New implementation work uses a short-lived `codex/<feature>` branch in this same folder, based on a clean and current `forensic_report_v2`.
+- Pull requests target `forensic_report_v2`, not stale `main`, unless the user explicitly changes the integration branch.
+- Before editing, verify repository root, branch, clean status, upstream, and `HEAD` parity with `origin/forensic_report_v2`.
+- If the checkout is dirty or has diverged unexpectedly, stop and report it. Do not reset, stash, clean, or preserve work in another folder.
+- `.env.local` and `supabase/functions/.env` remain ignored and local. Never commit, print, or copy their values into another checkout.
+- Use `npm run dev:all` for the standard local Vite, Supabase, and Edge Function environment.

@@ -970,3 +970,19 @@ Verified invariants implemented at the pinned SHA:
 8. **CRM automatic delivery is fail-closed at the database layer** in the latest migration at this SHA.
 9. **Service-role credentials stay server-side.** Browser Supabase client uses publishable/anon key only.
 10. **This README is a snapshot** of `forensic_report_v2 @ a83283a7ΓÇª` and is not authoritative beyond that commit without regeneration.
+
+### Local development
+
+The canonical local checkout is used for all feature branches.
+
+Required ignored files:
+- `.env.local`
+- `supabase/functions/.env`
+
+Start the complete local environment:
+
+```powershell
+npm run dev:all
+```
+
+This starts the local Supabase stack, Vite, and the Supabase Edge Function server. Press `Ctrl+C` to stop Vite and Edge Functions. Run `npm run supabase:stop` separately when you also want to stop local Docker services.
