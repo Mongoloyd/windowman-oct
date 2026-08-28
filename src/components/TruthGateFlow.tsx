@@ -1,5 +1,4 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import {
   Check,
   Shield,
@@ -161,12 +160,6 @@ type ContactFields = {
 type SubmitState = "idle" | "submitting" | "success" | "error";
 type FieldStatus = TruthGateFieldStatus;
 
-const slideVariants = {
-  enter: { x: 40, opacity: 0 },
-  center: { x: 0, opacity: 1 },
-  exit: { x: -40, opacity: 0 },
-};
-
 const Spinner = () => (
   <svg width="20" height="20" viewBox="0 0 20 20" className="animate-spin" style={{ color: "#F8FBFF" }}>
     <circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth="2" fill="none" opacity="0.25" />
@@ -236,13 +229,7 @@ const ContactCaptureStep = ({
   marketingConsent: boolean;
   onMarketingConsentChange: (checked: boolean) => void;
 }) => (
-  <motion.div
-    key="contact-capture"
-    variants={slideVariants}
-    initial="enter"
-    animate="center"
-    exit="exit"
-    transition={{ duration: 0.15 }}
+  <div
     className="flex flex-col gap-5"
     style={{ fontFamily: CONTACT_FONT }}
   >
@@ -478,7 +465,7 @@ const ContactCaptureStep = ({
         </span>
       </div>
     </form>
-  </motion.div>
+  </div>
 );
 
 const TruthGateFlow = ({
@@ -660,30 +647,28 @@ const TruthGateFlow = ({
             </div>
 
             <div className="relative z-10">
-              <AnimatePresence mode="wait">
-                <ContactCaptureStep
-                  firstName={fields.firstName}
-                  email={fields.email}
-                  phone={fields.phone}
-                  fieldStatus={fieldStatus}
-                  submitState={submitState}
-                  submitError={submitError}
-                  total={total}
-                  tickerToday={tickerToday}
-                  onFirstNameChange={(value) =>
-                    setFields((prev) => ({ ...prev, firstName: value }))
-                  }
-                  onEmailChange={(value) =>
-                    setFields((prev) => ({ ...prev, email: value }))
-                  }
-                  onPhoneChange={handlePhoneChange}
-                  onFieldBlur={handleFieldBlur}
-                  onIntent={truthGateLeadCaptureLoader.prewarm}
-                  onSubmit={handleContactSubmit}
-                  marketingConsent={marketingCommunicationsConsent}
-                  onMarketingConsentChange={handleMarketingConsentChange}
-                />
-              </AnimatePresence>
+              <ContactCaptureStep
+                firstName={fields.firstName}
+                email={fields.email}
+                phone={fields.phone}
+                fieldStatus={fieldStatus}
+                submitState={submitState}
+                submitError={submitError}
+                total={total}
+                tickerToday={tickerToday}
+                onFirstNameChange={(value) =>
+                  setFields((prev) => ({ ...prev, firstName: value }))
+                }
+                onEmailChange={(value) =>
+                  setFields((prev) => ({ ...prev, email: value }))
+                }
+                onPhoneChange={handlePhoneChange}
+                onFieldBlur={handleFieldBlur}
+                onIntent={truthGateLeadCaptureLoader.prewarm}
+                onSubmit={handleContactSubmit}
+                marketingConsent={marketingCommunicationsConsent}
+                onMarketingConsentChange={handleMarketingConsentChange}
+              />
             </div>
           </div>
         </div>

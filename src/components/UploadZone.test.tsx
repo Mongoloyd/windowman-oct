@@ -23,6 +23,7 @@ const {
   fromMock,
   invokeMock,
   rpcMock,
+  rpcReceiverMock,
   insertMock,
   selectMock,
   eqMock,
@@ -41,6 +42,7 @@ const {
     fromMock: vi.fn(),
     invokeMock: vi.fn(),
     rpcMock: vi.fn(),
+    rpcReceiverMock: vi.fn(),
     insertMock: vi.fn(),
     selectMock: vi.fn(),
     eqMock: vi.fn(),
@@ -57,13 +59,18 @@ const {
 });
 
 vi.mock("@/integrations/supabase/client", () => {
-  return {
-    supabase: {
-      storage: { from: () => ({ upload: storageUpload }) },
-      from: fromMock,
-      functions: { invoke: invokeMock },
-      rpc: rpcMock,
+  const supabase = {
+    storage: { from: () => ({ upload: storageUpload }) },
+    from: fromMock,
+    functions: { invoke: invokeMock },
+    rpc(this: unknown, fnName: string, args: Record<string, unknown>) {
+      rpcReceiverMock(this === supabase);
+      return rpcMock(fnName, args);
     },
+  };
+
+  return {
+    supabase,
   };
 });
 
@@ -1167,6 +1174,9 @@ describe("UploadZone — same-file retry recovery and 409 conflict handling", ()
     expect(invokeMock).not.toHaveBeenCalledWith("start-upload-scan-session", expect.anything());
     // Retry-context was queried twice (initial + conflict re-check)
     expect(retryContextCallCount).toBe(2);
+    expect(rpcReceiverMock).toHaveBeenCalledTimes(2);
+    expect(rpcReceiverMock).toHaveBeenNthCalledWith(1, true);
+    expect(rpcReceiverMock).toHaveBeenNthCalledWith(2, true);
   });
 
   // ── Test 6: numeric 409 status triggers object-conflict branch ─────────

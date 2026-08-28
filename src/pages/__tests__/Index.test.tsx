@@ -10,6 +10,7 @@ const LEAD_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const SCAN_SESSION_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 
 const uploadZonePropsRef = vi.hoisted(() => ({ current: null as Record<string, unknown> | null }));
+const uploadZoneLifecycleRef = vi.hoisted(() => ({ mounts: 0, unmounts: 0 }));
 const funnelMemoryRef = vi.hoisted(() => ({
   current: { leadId: null as string | null, sessionId: null as string | null },
 }));
@@ -127,12 +128,19 @@ vi.mock("@/components/TruthGateFlow", () => ({
   },
 }));
 
-vi.mock("@/components/UploadZone", () => ({
-  default: (props: Record<string, unknown>) => {
+vi.mock("@/components/UploadZone", () => {
+  const MockUploadZone = (props: Record<string, unknown>) => {
+    useEffect(() => {
+      uploadZoneLifecycleRef.mounts += 1;
+      return () => {
+        uploadZoneLifecycleRef.unmounts += 1;
+      };
+    }, []);
     uploadZonePropsRef.current = props;
     return props.isVisible ? <div data-testid="upload-zone">Upload zone</div> : null;
-  },
-}));
+  };
+  return { default: MockUploadZone };
+});
 
 vi.mock("@/components/ScanTheatrics", () => ({
   default: (props: Record<string, unknown>) => {
@@ -435,6 +443,8 @@ function stubPaidHandoffLocation(search = "?post_capture=upload&source=quote-che
 describe("Index paid-LP upload handoff", () => {
   beforeEach(() => {
     uploadZonePropsRef.current = null;
+    uploadZoneLifecycleRef.mounts = 0;
+    uploadZoneLifecycleRef.unmounts = 0;
     invokeMock.mockReset();
     readPersistedFunnelSnapshotMock.mockReturnValue({
       scanSessionId: SCAN_SESSION_ID,
@@ -466,6 +476,25 @@ describe("Index paid-LP upload handoff", () => {
       sessionId: SESSION_ID,
       leadId: LEAD_ID,
     });
+  });
+
+  it("waits for the lazy UploadZone child before scrolling the paid handoff", async () => {
+    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+    const scrollTargets: HTMLElement[] = [];
+    const scrollIntoViewMock = vi.fn(function (this: HTMLElement) {
+      scrollTargets.push(this);
+    });
+    HTMLElement.prototype.scrollIntoView = scrollIntoViewMock;
+
+    try {
+      renderIndex();
+
+      expect(scrollIntoViewMock).not.toHaveBeenCalled();
+      const uploadZone = await screen.findByTestId("upload-zone");
+      await waitFor(() => expect(scrollTargets).toContain(uploadZone));
+    } finally {
+      HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+    }
   });
 
   it("does not re-force upload on refresh after handoff params are stripped", async () => {
@@ -582,6 +611,8 @@ const LOCK_HEADLINE = /Don.t let a window quote sit unchecked/;
 describe("Index homepage upload mount guard (Sprint 2B-3B)", () => {
   beforeEach(() => {
     uploadZonePropsRef.current = null;
+    uploadZoneLifecycleRef.mounts = 0;
+    uploadZoneLifecycleRef.unmounts = 0;
     invokeMock.mockReset();
     trackEventMock.mockReset();
     truthGateEmit.sessionId = "";
@@ -615,6 +646,40 @@ describe("Index homepage upload mount guard (Sprint 2B-3B)", () => {
       leadId: LEAD_ID,
     });
     expect(screen.queryByText(LOCK_HEADLINE)).not.toBeInTheDocument();
+  });
+
+  it("keeps UploadZone mounted after first intent while scan state hides it", async () => {
+    renderIndex();
+
+    await screen.findByTestId("post-capture-router");
+    expect(uploadZoneLifecycleRef.mounts).toBe(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Scan my quote" }));
+    await screen.findByTestId("upload-zone");
+
+    const lifecycleAfterMount = { ...uploadZoneLifecycleRef };
+    expect(lifecycleAfterMount.mounts - lifecycleAfterMount.unmounts).toBe(1);
+
+    await act(async () => {
+      const onScanStart = uploadZonePropsRef.current?.onScanStart as
+        | ((fileName: string, scanSessionId: string) => void)
+        | undefined;
+      onScanStart?.("quote.pdf", SCAN_SESSION_ID);
+    });
+
+    await screen.findByTestId("scan-theatrics");
+    expect(screen.queryByTestId("upload-zone")).not.toBeInTheDocument();
+    expect(uploadZoneLifecycleRef).toEqual(lifecycleAfterMount);
+
+    await act(async () => {
+      const onInvalidDocument = scanTheatricsPropsRef.current?.onInvalidDocument as
+        | (() => void)
+        | undefined;
+      onInvalidDocument?.();
+    });
+
+    await screen.findByTestId("upload-zone");
+    expect(uploadZoneLifecycleRef).toEqual(lifecycleAfterMount);
   });
 
   it("shows the locked placeholder when upload is unlocked but leadId is missing", async () => {

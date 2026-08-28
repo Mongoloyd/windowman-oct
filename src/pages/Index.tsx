@@ -8,9 +8,44 @@ import { LazySection } from "@/components/LazySection";
 import TruthGateFlow from "@/components/TruthGateFlow";
 import { hasTrustedContactIdentity } from "@/lib/leadSession";
 import PostCaptureRouter, { type PostCapturePath } from "@/components/PostCaptureRouter";
-import UploadZone from "@/components/UploadZone";
-import ScanTheatrics from "@/components/ScanTheatrics";
 import { isValidScanSessionId } from "@/lib/routeIdGuards";
+
+type UploadZoneModule = typeof import("@/components/UploadZone");
+type ScanTheatricsModule = typeof import("@/components/ScanTheatrics");
+
+let uploadZoneModulePromise: Promise<UploadZoneModule> | null = null;
+let scanTheatricsModulePromise: Promise<ScanTheatricsModule> | null = null;
+
+const loadUploadZoneModule = () => {
+  uploadZoneModulePromise ??= import("@/components/UploadZone").catch((error) => {
+    uploadZoneModulePromise = null;
+    throw error;
+  });
+  return uploadZoneModulePromise;
+};
+
+const loadScanTheatricsModule = () => {
+  scanTheatricsModulePromise ??= import("@/components/ScanTheatrics").catch((error) => {
+    scanTheatricsModulePromise = null;
+    throw error;
+  });
+  return scanTheatricsModulePromise;
+};
+
+const UploadZone = React.lazy(loadUploadZoneModule);
+const ScanTheatrics = React.lazy(loadScanTheatricsModule);
+
+type DeferredUploadZoneProps = React.ComponentProps<typeof UploadZone> & {
+  onReady: () => void;
+};
+
+const DeferredUploadZone = ({ onReady, ...props }: DeferredUploadZoneProps) => {
+  useEffect(() => {
+    onReady();
+  }, [onReady]);
+
+  return <UploadZone {...props} />;
+};
 
 type PostScanReportModule = typeof import("@/components/post-scan/PostScanReportSwitcher");
 
@@ -132,6 +167,8 @@ const Index = () => {
   // never touch the scan/upload backend. Default "router" = show the chooser.
   const [postCapturePath, setPostCapturePath] = useState<PostCapturePath>("router");
   const [contactResumedFromFunnel, setContactResumedFromFunnel] = useState(false);
+  const [hasMountedUploadZone, setHasMountedUploadZone] = useState(false);
+  const [uploadZoneReady, setUploadZoneReady] = useState(false);
   const contactRehydrateCheckedRef = useRef(false);
   const paidLpHandoffScrollPendingRef = useRef(false);
   const [truthGateHighlight, setTruthGateHighlight] = useState(false);
@@ -429,9 +466,18 @@ const Index = () => {
   // (chooser + upload_later/no_quote placeholders) owns every other path.
   const canMountUsableUpload =
     inUploadIntentPhase && trustedContactIdentity && postCapturePath === "upload";
+  const shouldRetainUploadZone = hasMountedUploadZone || canMountUsableUpload;
   const showPostCaptureRouter =
     inUploadIntentPhase && trustedContactIdentity && postCapturePath !== "upload";
   const showContactUploadLock = inUploadIntentPhase && !trustedContactIdentity;
+
+  useEffect(() => {
+    if (canMountUsableUpload) {
+      setHasMountedUploadZone(true);
+    } else if (!trustedContactIdentity) {
+      setHasMountedUploadZone(false);
+    }
+  }, [canMountUsableUpload, trustedContactIdentity]);
 
   // Contact-only resume + paid-LP upload handoff.
   // The paid search landing page may redirect to /?post_capture=upload&source=quote-check
@@ -501,21 +547,31 @@ const Index = () => {
 
   // Paid-LP handoff lands on the homepage hero; scroll upload into view once guards pass.
   useEffect(() => {
-    if (!paidLpHandoffScrollPendingRef.current || !canMountUsableUpload) return;
-    paidLpHandoffScrollPendingRef.current = false;
+    if (
+      !paidLpHandoffScrollPendingRef.current ||
+      !canMountUsableUpload ||
+      !uploadZoneReady
+    ) return;
     const prefersReducedMotion =
       typeof window !== "undefined" &&
       window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
+        if (!paidLpHandoffScrollPendingRef.current) return;
         const uploadEl = document.querySelector('[data-testid="upload-zone"]');
-        uploadEl?.scrollIntoView?.({
+        if (!uploadEl) return;
+        paidLpHandoffScrollPendingRef.current = false;
+        uploadEl.scrollIntoView?.({
           behavior: prefersReducedMotion ? "auto" : "smooth",
           block: "start",
         });
       });
     });
-  }, [canMountUsableUpload]);
+  }, [canMountUsableUpload, uploadZoneReady]);
+
+  const handleUploadZoneReady = useCallback(() => {
+    setUploadZoneReady(true);
+  }, []);
 
   useEffect(() => {
     if (!clientSlugReady || !queryClientSlug || funnel.clientSlug === queryClientSlug) return;
@@ -834,20 +890,35 @@ const Index = () => {
                     </button>
                   </div>
                 ) : null}
-                <UploadZone
-                  isVisible={canMountUsableUpload}
-                  sessionId={sessionId ?? funnel.sessionId ?? undefined}
-                  leadId={funnel.leadId}
-                  onUploadReset={() => {
-                    setScanSessionId(null);
-                    setFileUploaded(false);
-                  }}
-                  onScanStart={(_fileName, ssId) => {
-                    trackEvent({ event_name: "scan_started", session_id: ssId, metadata: { file_name: _fileName } });
-                    setScanSessionId(ssId);
-                    setFileUploaded(true);
-                  }}
-                />
+                {shouldRetainUploadZone ? (
+                  <React.Suspense
+                    fallback={canMountUsableUpload ? (
+                      <div
+                        className="mx-auto mt-6 max-w-2xl px-4 py-3 text-center font-body text-sm text-muted-foreground"
+                        data-testid="upload-zone-loading"
+                        role="status"
+                      >
+                        Preparing secure upload…
+                      </div>
+                    ) : null}
+                  >
+                    <DeferredUploadZone
+                      isVisible={canMountUsableUpload}
+                      sessionId={sessionId ?? funnel.sessionId ?? undefined}
+                      leadId={funnel.leadId}
+                      onReady={handleUploadZoneReady}
+                      onUploadReset={() => {
+                        setScanSessionId(null);
+                        setFileUploaded(false);
+                      }}
+                      onScanStart={(_fileName, ssId) => {
+                        trackEvent({ event_name: "scan_started", session_id: ssId, metadata: { file_name: _fileName } });
+                        setScanSessionId(ssId);
+                        setFileUploaded(true);
+                      }}
+                    />
+                  </React.Suspense>
+                ) : null}
                 <LazySection height="640px" rootMargin="0px" skeleton={true}>
                   <ProcessSteps
                     onScanClick={() => triggerTruthGate("process_steps")}
@@ -865,27 +936,39 @@ const Index = () => {
           )}
 
           {fileUploaded && !gradeRevealed && !isDevPreview && (
-            <ScanTheatrics
-              isActive={true}
-              selectedCounty={selectedCounty}
-              scanSessionId={scanSessionId}
-              grade={analysisData?.grade}
-              analysisData={analysisData}
-              onRevealComplete={() => {
-                setGradeRevealed(true);
-                setTimeout(() => {
-                  document.getElementById("truth-report-top")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                }, 100);
-              }}
-              onInvalidDocument={() => {
-                setFileUploaded(false);
-                setScanSessionId(null);
-              }}
-              onNeedsBetterUpload={() => {
-                setFileUploaded(false);
-                setScanSessionId(null);
-              }}
-            />
+            <React.Suspense
+              fallback={(
+                <div
+                  className="mx-auto my-8 max-w-2xl px-4 py-3 text-center font-body text-sm text-muted-foreground"
+                  data-testid="scan-theatrics-loading"
+                  role="status"
+                >
+                  Preparing your scan…
+                </div>
+              )}
+            >
+              <ScanTheatrics
+                isActive={true}
+                selectedCounty={selectedCounty}
+                scanSessionId={scanSessionId}
+                grade={analysisData?.grade}
+                analysisData={analysisData}
+                onRevealComplete={() => {
+                  setGradeRevealed(true);
+                  setTimeout(() => {
+                    document.getElementById("truth-report-top")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }, 100);
+                }}
+                onInvalidDocument={() => {
+                  setFileUploaded(false);
+                  setScanSessionId(null);
+                }}
+                onNeedsBetterUpload={() => {
+                  setFileUploaded(false);
+                  setScanSessionId(null);
+                }}
+              />
+            </React.Suspense>
           )}
 
           {/* ─── Report view (real or dev fixture) ─── */}

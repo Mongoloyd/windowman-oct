@@ -409,7 +409,7 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId, leadId: 
   // rows for the same user intent, even if React state is stale.
   const uploadedOnceRef = useRef(false);
   const funnel = useScanFunnelSafe();
-  const rpc = supabase.rpc as unknown as (
+  const rpc = supabase.rpc.bind(supabase) as unknown as (
     fnName: string,
     args: Record<string, unknown>,
   ) => Promise<{ data: unknown; error: unknown }>;
