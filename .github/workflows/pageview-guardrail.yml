@@ -22,9 +22,9 @@ name: PageView Guardrail
 
 on:
   push:
-    branches: [main]
+    branches: [forensic_report_v2, main]
   pull_request:
-    branches: [main]
+    branches: [forensic_report_v2, main]
 
 jobs:
   pageview-guardrail:
@@ -40,6 +40,11 @@ jobs:
         with:
           node-version: "20"
           cache: "npm"
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
 
       - name: Install dependencies
         run: npm ci

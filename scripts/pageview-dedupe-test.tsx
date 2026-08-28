@@ -18,7 +18,7 @@ import { act, render } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 
-import { AppTrackingProvider } from "@/components/AppTrackingProvider";
+import { MEASUREMENT_CONSENT_STORAGE_KEY } from "@/lib/consent/measurementConsent";
 
 // ── Forbidden browser-side Meta event names (must NEVER appear) ────────────
 const FORBIDDEN_EVENTS = new Set([
@@ -32,10 +32,17 @@ const FORBIDDEN_EVENTS = new Set([
 // ── Module-state reset ─────────────────────────────────────────────────────
 // `metaBrowserPixel.ts` holds module-level `initialized` + `scriptInjected`
 // flags. We must reset the module between tests so each test starts clean.
-async function freshSetup() {
+type StoredConsent = "granted" | "denied" | null;
+
+async function freshSetup(consent: StoredConsent) {
   vi.resetModules();
   // Stub the env var BEFORE importing anything that reads it.
   vi.stubEnv("VITE_META_PIXEL_ID", "1234567890");
+
+  window.localStorage.removeItem(MEASUREMENT_CONSENT_STORAGE_KEY);
+  if (consent !== null) {
+    window.localStorage.setItem(MEASUREMENT_CONSENT_STORAGE_KEY, consent);
+  }
 
   // Install the fbq spy BEFORE the module's init runs. Because `window.fbq`
   // already exists, `injectBaseScript` bails out early and does NOT load
@@ -50,8 +57,7 @@ async function freshSetup() {
   const fetchSpy = vi.fn().mockResolvedValue(
     new Response("{}", { status: 200, headers: { "content-type": "application/json" } })
   );
-  // @ts-expect-error
-  globalThis.fetch = fetchSpy;
+  vi.stubGlobal("fetch", fetchSpy);
 
   // Re-import provider AFTER env + fbq are in place so module-level state
   // (initialized flag) starts fresh for this test.
@@ -102,6 +108,8 @@ describe("Browser Meta PageView dedupe — runtime proof", () => {
 
   afterEach(() => {
     vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    window.localStorage.removeItem(MEASUREMENT_CONSENT_STORAGE_KEY);
     // @ts-expect-error
     delete window.fbq;
     // @ts-expect-error
@@ -109,7 +117,8 @@ describe("Browser Meta PageView dedupe — runtime proof", () => {
   });
 
   it("fires exactly 1 PageView on initial mount", async () => {
-    const { fbqSpy, fetchSpy, AppTrackingProvider } = await freshSetup();
+    const { fbqSpy, fetchSpy, AppTrackingProvider } =
+      await freshSetup("granted");
 
     await act(async () => {
       render(
@@ -133,7 +142,8 @@ describe("Browser Meta PageView dedupe — runtime proof", () => {
   });
 
   it("adds exactly +1 PageView per SPA route change", async () => {
-    const { fbqSpy, fetchSpy, AppTrackingProvider } = await freshSetup();
+    const { fbqSpy, fetchSpy, AppTrackingProvider } =
+      await freshSetup("granted");
 
     await act(async () => {
       render(
@@ -183,7 +193,8 @@ describe("Browser Meta PageView dedupe — runtime proof", () => {
   });
 
   it("does not double-fire when re-navigating to the same path with new search", async () => {
-    const { fbqSpy, AppTrackingProvider } = await freshSetup();
+    const { fbqSpy, fetchSpy, AppTrackingProvider } =
+      await freshSetup("granted");
 
     await act(async () => {
       render(
@@ -212,5 +223,43 @@ describe("Browser Meta PageView dedupe — runtime proof", () => {
     expect(countPageViews(fbqSpy)).toBe(3);
 
     expect(forbiddenEventsSeen(fbqSpy)).toEqual([]);
+    expect(capiEventCallSeen(fetchSpy)).toBe(false);
   });
+
+  it.each([
+    ["missing", null],
+    ["denied", "denied"],
+  ] as const)(
+    "stays fail-closed when measurement consent is %s",
+    async (_label, consent) => {
+      const { fbqSpy, fetchSpy, AppTrackingProvider } =
+        await freshSetup(consent);
+
+      await act(async () => {
+        render(
+          <MemoryRouter initialEntries={["/"]}>
+            <AppTrackingProvider>
+              <NavExposer />
+              <Routes>
+                <Route path="/" element={<div>home</div>} />
+                <Route path="/about" element={<div>about</div>} />
+              </Routes>
+            </AppTrackingProvider>
+          </MemoryRouter>
+        );
+      });
+
+      expect(countInits(fbqSpy)).toBe(0);
+      expect(countPageViews(fbqSpy)).toBe(0);
+
+      await act(async () => {
+        navigateRef!("/about");
+      });
+
+      expect(countInits(fbqSpy)).toBe(0);
+      expect(countPageViews(fbqSpy)).toBe(0);
+      expect(forbiddenEventsSeen(fbqSpy)).toEqual([]);
+      expect(capiEventCallSeen(fetchSpy)).toBe(false);
+    }
+  );
 });
