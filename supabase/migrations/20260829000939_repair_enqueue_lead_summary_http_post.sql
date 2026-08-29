@@ -1,23 +1,42 @@
-ALTER TABLE public.leads
-  ADD COLUMN IF NOT EXISTS is_test boolean NOT NULL DEFAULT false;
-
-COMMENT ON COLUMN public.leads.is_test IS
-  'Marks synthetic QA leads. Human-facing CRM and summary side effects must skip these rows; canonical measurement remains enabled.';
-
-CREATE OR REPLACE FUNCTION public.fire_crm_handoff()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = ''
-AS $function$
+DO $preflight$
+DECLARE
+  http_post_oid oid;
+  http_post_argument_names text[];
+  http_post_result text;
 BEGIN
-  IF NEW.is_test THEN
-    RETURN NEW;
+  http_post_oid := pg_catalog.to_regprocedure(
+    'net.http_post(text,jsonb,jsonb,jsonb,integer)'
+  );
+
+  IF http_post_oid IS NULL THEN
+    RAISE EXCEPTION
+      'Required pg_net function net.http_post(text,jsonb,jsonb,jsonb,integer) is missing';
   END IF;
 
-  RETURN NEW;
+  SELECT p.proargnames, pg_catalog.pg_get_function_result(p.oid)
+  INTO http_post_argument_names, http_post_result
+  FROM pg_catalog.pg_proc AS p
+  WHERE p.oid = http_post_oid;
+
+  IF http_post_argument_names IS DISTINCT FROM ARRAY[
+    'url',
+    'body',
+    'params',
+    'headers',
+    'timeout_milliseconds'
+  ]::text[] THEN
+    RAISE EXCEPTION
+      'Required pg_net function has unexpected named arguments: %',
+      http_post_argument_names;
+  END IF;
+
+  IF http_post_result IS DISTINCT FROM 'bigint' THEN
+    RAISE EXCEPTION
+      'Required pg_net function has unexpected result type: %',
+      http_post_result;
+  END IF;
 END;
-$function$;
+$preflight$;
 
 CREATE OR REPLACE FUNCTION public.enqueue_lead_summary()
 RETURNS trigger
@@ -67,7 +86,7 @@ begin
     return new;
   end if;
 
-  perform "extensions"."net"."http_post"(
+  perform net.http_post(
     url := project_url || '/functions/v1/summarize-row',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
