@@ -41,6 +41,7 @@ import {
   type ExperimentalWeights,
   type WeightKey,
 } from "./scoringPlaygroundModel";
+import { GoldenRegressionStudio } from "./components/GoldenRegressionStudio";
 
 const SYSTEM_FONT =
   "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
@@ -811,6 +812,7 @@ export default function ScoringPlayground() {
             </Card>
           </aside>
         </div>
+        <GoldenRegressionStudio weights={weights} />
       </main>
     </div>
   );
