@@ -30,6 +30,9 @@ const DevTesting = lazy(() => import("./pages/DevTesting.tsx"));
 const PreUploadIntake = lazy(() => import("@/components/forensic-report/PreUploadIntake"));
 const VisualPreUploadIntake = lazy(() => import("./pages/VisualPreUploadIntake.tsx"));
 const VisualOracleLab = lazy(() => import("./pages/VisualOracleLab.tsx"));
+const ScoringPlayground = import.meta.env.DEV
+  ? lazy(() => import("./pages/debug/ScoringPlayground.tsx"))
+  : null;
 
 // ── Static content pages ─────────────────────────────────────────────────────
 const PublicLayout = lazy(() => import("@/components/PublicLayout"));
@@ -179,6 +182,9 @@ const App = () => (
                   <>
                     <Route path="/dev/report-preview" element={<DevReportPreview />} />
                     <Route path="/devtesting" element={<DevTesting />} />
+                    {ScoringPlayground ? (
+                      <Route path="/debug/scoring" element={<ScoringPlayground />} />
+                    ) : null}
                     <Route path="/dialer" element={<Navigate to="/admin/dialer" replace />} />
                     <Route path="/settings" element={<Navigate to="/admin/settings" replace />} />
                     <Route path="/partners" element={<Navigate to="/admin/partners" replace />} />
