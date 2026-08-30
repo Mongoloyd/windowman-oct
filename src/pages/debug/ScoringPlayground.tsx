@@ -49,11 +49,13 @@ const MONO_FONT =
   "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace";
 
 const PANEL_CLASS =
-  "border-slate-800/90 bg-[#11161e] text-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.035),0_18px_45px_rgba(0,0,0,0.22)]";
+  "border-slate-700/70 bg-[#11161e] text-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_18px_45px_rgba(0,0,0,0.22)]";
 const INPUT_CLASS =
-  "min-h-12 border-slate-700 bg-[#172131] text-slate-100 placeholder:text-slate-600 focus-visible:ring-blue-500";
+  "min-h-12 border-slate-600/80 bg-[#172131] text-sm text-slate-100 placeholder:text-slate-500 focus-visible:ring-blue-500";
 const BUTTON_FOCUS =
   "min-h-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#070a0f]";
+const DESKTOP_RAIL_CLASS =
+  "lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain lg:pb-2 lg:pr-2 lg:[scrollbar-color:rgb(71_85_105)_transparent] lg:[scrollbar-gutter:stable]";
 
 const WEIGHT_LABELS: Record<WeightKey, string> = {
   safety: "Safety",
@@ -77,12 +79,12 @@ function ControlPanel({ title, icon, children }: { title: string; icon: ReactNod
   return (
     <Card className={PANEL_CLASS}>
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-sm font-semibold text-slate-100">
+        <CardTitle className="flex items-center gap-2 text-[15px] font-semibold text-slate-50">
           <span className="text-blue-400">{icon}</span>
           {title}
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">{children}</CardContent>
+      <CardContent className="space-y-3.5">{children}</CardContent>
     </Card>
   );
 }
@@ -108,7 +110,7 @@ function TextField({
 }) {
   return (
     <div className="space-y-2">
-      <Label htmlFor={id} className="text-xs font-medium text-slate-400">
+      <Label htmlFor={id} className="text-[13px] font-medium text-slate-300">
         {label}
       </Label>
       <Input
@@ -142,7 +144,7 @@ function ToggleRow({
     <div className="flex min-h-12 items-center justify-between gap-4">
       <Label
         htmlFor={id}
-        className={`cursor-pointer text-sm leading-5 ${risk ? "text-rose-300" : "text-slate-200"}`}
+        className={`cursor-pointer text-sm leading-5 ${risk ? "text-rose-300" : "text-slate-100"}`}
       >
         {label}
       </Label>
@@ -162,7 +164,7 @@ function PillarBar({ label, score, weight }: { label: string; score: number; wei
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-3 text-sm">
         <span className="text-slate-300">
-          {label} <span className="text-slate-500">({weight}%)</span>
+          {label} <span className="text-slate-400">({weight}%)</span>
         </span>
         <span className="font-semibold text-slate-100" style={{ fontFamily: MONO_FONT }}>
           {score}
@@ -203,7 +205,7 @@ function WeightControl({
         max={100}
         step={5}
         onChange={(event) => onChange(Number(event.target.value))}
-        className="h-12 w-full cursor-pointer accent-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#070a0f]"
+        className="h-12 w-full cursor-pointer accent-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#070a0f] [&::-moz-range-track]:h-2 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-slate-700 [&::-webkit-slider-runnable-track]:h-2 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-slate-700"
       />
     </div>
   );
@@ -371,8 +373,11 @@ export default function ScoringPlayground() {
           </div>
         </header>
 
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
-          <section className="space-y-5 lg:col-span-3" aria-label="Scoring inputs">
+        <div
+          className="grid grid-cols-1 gap-5 lg:h-[calc(100dvh-11rem)] lg:min-h-[760px] lg:max-h-[1080px] lg:grid-cols-12 lg:items-stretch"
+          data-testid="scoring-workbench"
+        >
+          <section className={`space-y-5 lg:col-span-3 ${DESKTOP_RAIL_CLASS}`} aria-label="Scoring inputs">
             <ControlPanel title="Document" icon={<FileText className="h-4 w-4" />}>
               <ToggleRow
                 id="is-window-door-related"
@@ -532,7 +537,7 @@ export default function ScoringPlayground() {
             </ControlPanel>
           </section>
 
-          <section className="space-y-5 lg:col-span-5" aria-label="Canonical scoring result">
+          <section className={`space-y-5 lg:col-span-5 ${DESKTOP_RAIL_CLASS}`} aria-label="Canonical scoring result">
             {outcome.kind === "terminal" ? (
               <Card className={`${PANEL_CLASS} border-amber-500/40`} data-testid="terminal-outcome">
                 <CardContent className="p-7">
@@ -544,7 +549,7 @@ export default function ScoringPlayground() {
                       </Badge>
                       <h2 className="text-2xl font-bold text-white">No grade is produced</h2>
                       <p className="mt-2 text-slate-300">{outcome.gate.reason}</p>
-                      <p className="mt-4 text-sm text-slate-500">
+                      <p className="mt-4 text-sm text-slate-400">
                         This local fixture follows the same fail-closed classification gate as the scanner.
                       </p>
                     </div>
@@ -587,7 +592,7 @@ export default function ScoringPlayground() {
                           <p className="text-sm text-slate-400">
                             {outcome.experiment.result.weightedAverage.toFixed(2)} / 100
                           </p>
-                          <p className="mt-2 text-xs text-slate-500">Not production behavior</p>
+                          <p className="mt-2 text-xs text-slate-400">Not production behavior</p>
                         </>
                       ) : outcome.experiment.kind === "invalid_weights" ? (
                         <p className="mt-3 text-sm text-rose-300" role="alert">
@@ -747,10 +752,10 @@ export default function ScoringPlayground() {
             )}
           </section>
 
-          <aside className="space-y-5 lg:col-span-4" aria-label="Weight and JSON tools">
+          <aside className={`space-y-5 lg:col-span-4 ${DESKTOP_RAIL_CLASS}`} aria-label="Weight and JSON tools">
             <ControlPanel title="Pillar Weights" icon={<Beaker className="h-4 w-4" />}>
               <div className="flex items-center justify-between rounded-md border border-slate-800 bg-slate-950/50 px-3 py-2">
-                <span className="text-xs text-slate-500">Local experiment only</span>
+                <span className="text-[13px] text-slate-300">Local experiment only</span>
                 <Badge
                   variant="outline"
                   className={weightSum === 100 ? "border-emerald-500/40 text-emerald-300" : "border-rose-500/40 text-rose-300"}
@@ -781,7 +786,7 @@ export default function ScoringPlayground() {
             </ControlPanel>
 
             <ControlPanel title="Import Fixture JSON" icon={<FileJson className="h-4 w-4" />}>
-              <p className="text-xs leading-5 text-slate-500">
+              <p className="text-sm leading-5 text-slate-400">
                 Paste one canonical ExtractionResult fixture. Do not paste persisted report payloads, full_json, sessions, or customer contact data.
               </p>
               <Textarea

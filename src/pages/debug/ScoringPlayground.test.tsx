@@ -37,6 +37,10 @@ describe("ScoringPlayground", () => {
       "motion-reduce:[&_*]:animate-none",
       "motion-reduce:[&_*]:transition-none",
     );
+    expect(screen.getByTestId("scoring-workbench")).toHaveClass(
+      "lg:h-[calc(100dvh-11rem)]",
+      "lg:max-h-[1080px]",
+    );
     await waitFor(() =>
       expect(document.head.querySelector('meta[name="robots"]')).toHaveAttribute(
         "content",

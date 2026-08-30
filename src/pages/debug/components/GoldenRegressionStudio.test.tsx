@@ -11,15 +11,22 @@ const canonicalWeights = {
 };
 
 describe("GoldenRegressionStudio", () => {
-  it("shows four intact golden fixtures and a passing default experiment", () => {
+  it("shows fourteen intact goldens, twelve scored passes, and two safe terminal cases", () => {
     render(<GoldenRegressionStudio weights={canonicalWeights} />);
 
     expect(
       screen.getByRole("heading", { name: "Golden Fixture Regression Studio" }),
     ).toBeInTheDocument();
+    expect(screen.getByTestId("golden-regression-summary")).toHaveClass(
+      "bg-[#11161e]",
+      "text-slate-100",
+    );
     expect(screen.getByText("Hypothetical local simulation — not production scoring")).toBeInTheDocument();
-    expect(screen.getAllByText("4/4", { selector: "p" })).toHaveLength(2);
-    expect(screen.getAllByText("Pass")).toHaveLength(4);
+    expect(screen.getByText("14/14", { selector: "p" })).toBeInTheDocument();
+    expect(screen.getByText("12/12", { selector: "p" })).toBeInTheDocument();
+    expect(screen.getAllByText("Pass")).toHaveLength(12);
+    expect(screen.getAllByText("Unavailable")).toHaveLength(3);
+    expect(screen.getAllByText("Terminal gate")).toHaveLength(2);
     expect(screen.getByText("Diff Inspector · Grade A Control")).toBeInTheDocument();
   });
 
@@ -49,7 +56,7 @@ describe("GoldenRegressionStudio", () => {
       />,
     );
 
-    expect(screen.getAllByText("Unavailable")).toHaveLength(5);
+    expect(screen.getAllByText("Unavailable")).toHaveLength(15);
     expect(screen.getAllByText("—").length).toBeGreaterThan(0);
   });
 });

@@ -37,11 +37,11 @@ describe("golden fixture regression contract", () => {
 
     expect(suite.rubricVersion).toBe("1.6.0");
     expect(suite.summary).toEqual({
-      total: 4,
-      goldenIntegrityPasses: 4,
-      experimentalPasses: 4,
+      total: 14,
+      goldenIntegrityPasses: 14,
+      experimentalPasses: 12,
       regressions: 0,
-      unavailable: 0,
+      unavailable: 2,
     });
     for (const comparison of suite.comparisons) {
       expect(comparison.goldenIntegrity).toMatchObject({
@@ -52,8 +52,36 @@ describe("golden fixture regression contract", () => {
         canonicalOutputMatches: true,
         diagnosticsParity: true,
       });
-      expect(comparison.regressionPass).toBe(true);
+      if (comparison.fixture.expected_results.kind === "scored") {
+        expect(comparison.regressionPass).toBe(true);
+      } else {
+        expect(comparison.experimental).toEqual({ kind: "unavailable", reason: "terminal" });
+      }
     }
+  });
+
+  it("keeps both checked-in terminal gates out of scoring and diagnostics", () => {
+    const terminals = GOLDEN_FIXTURES.filter(
+      (fixture) => fixture.expected_results.kind === "terminal",
+    );
+    const scorer = vi.fn<(value: ExtractionResult) => ReturnType<typeof computeGrade>>(computeGrade);
+    const diagnostics = vi.fn(computeGradeWithTrace);
+
+    const suite = compareRubricVersions(terminals, scorer, defaultConfig, diagnostics);
+
+    expect(terminals.map((fixture) => fixture.expected_results)).toEqual([
+      { kind: "terminal", terminalOutcome: "invalid_document" },
+      { kind: "terminal", terminalOutcome: "needs_better_upload" },
+    ]);
+    expect(scorer).not.toHaveBeenCalled();
+    expect(diagnostics).not.toHaveBeenCalled();
+    expect(suite.summary).toEqual({
+      total: 2,
+      goldenIntegrityPasses: 2,
+      experimentalPasses: 0,
+      regressions: 0,
+      unavailable: 2,
+    });
   });
 
   it("reports rubric, fixture-input, classification, and expected-output drift without auto-accepting", () => {
@@ -100,6 +128,7 @@ describe("golden fixture regression contract", () => {
       id: "terminal-proof",
       label: "Terminal proof",
       description: "Synthetic non-quote",
+      category: "terminal",
       provenance: {
         sourceFixtureKey: "invalidDocument",
         capturedRubricVersion: RUBRIC_VERSION,

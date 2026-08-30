@@ -29,8 +29,8 @@ const DEFAULT_HARD_CAP_SETTINGS = createDefaultHardCapSettings(GOLDEN_FIXTURES);
 
 function SummaryMetric({ label, value, tone }: { label: string; value: string; tone: string }) {
   return (
-    <div className="rounded-lg border border-slate-800 bg-[#0d1219] p-4">
-      <p className="text-xs uppercase tracking-wider text-slate-600">{label}</p>
+    <div className="rounded-lg border border-slate-700/75 bg-[#0b1017] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+      <p className="text-xs font-medium uppercase tracking-wider text-slate-400">{label}</p>
       <p className={`mt-2 text-2xl font-bold ${tone}`}>{value}</p>
     </div>
   );
@@ -53,6 +53,9 @@ export function GoldenRegressionStudio({ weights }: GoldenRegressionStudioProps)
   const selectedComparison =
     suite.comparisons.find((comparison) => comparison.fixture.id === selectedFixtureId) ??
     suite.comparisons[0];
+  const scorableFixtureCount = suite.comparisons.filter(
+    (comparison) => comparison.fixture.expected_results.kind === "scored",
+  ).length;
 
   const toggleHardCap = (cap: string, enabled: boolean) => {
     setEnabledHardCaps((current) => ({ ...current, [cap]: enabled }));
@@ -60,7 +63,10 @@ export function GoldenRegressionStudio({ weights }: GoldenRegressionStudioProps)
 
   return (
     <section className="mt-8 space-y-5" aria-labelledby="golden-regression-title">
-      <Card className="border-blue-500/25 bg-gradient-to-br from-blue-500/[0.08] to-[#11161e] text-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_20px_60px_rgba(0,0,0,0.24)]">
+      <Card
+        className="border-blue-500/30 bg-[#11161e] bg-gradient-to-br from-blue-500/[0.12] via-[#11161e] to-[#0b1017] text-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_20px_60px_rgba(0,0,0,0.24)]"
+        data-testid="golden-regression-summary"
+      >
         <CardContent className="p-5 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-5">
             <div className="max-w-3xl">
@@ -72,12 +78,12 @@ export function GoldenRegressionStudio({ weights }: GoldenRegressionStudioProps)
                   <h2 id="golden-regression-title" className="text-xl font-bold text-slate-50">
                     Golden Fixture Regression Studio
                   </h2>
-                  <p className="mt-1 text-sm text-slate-400">
+                  <p className="mt-1 text-sm text-slate-300">
                     Canonical rubric {RUBRIC_VERSION} versus a hypothetical in-memory configuration.
                   </p>
                 </div>
               </div>
-              <p className="mt-4 text-sm leading-6 text-slate-400">
+              <p className="mt-4 text-sm leading-6 text-slate-300">
                 Goldens are pinned human-reviewed expectations. The simulator uses the pillar weights above and can only suppress already-triggered canonical cap predicates.
               </p>
             </div>
@@ -89,7 +95,7 @@ export function GoldenRegressionStudio({ weights }: GoldenRegressionStudioProps)
 
           <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <SummaryMetric label="Golden integrity" value={`${suite.summary.goldenIntegrityPasses}/${suite.summary.total}`} tone={suite.summary.goldenIntegrityPasses === suite.summary.total ? "text-emerald-300" : "text-rose-300"} />
-            <SummaryMetric label="Regression passes" value={`${suite.summary.experimentalPasses}/${suite.summary.total}`} tone={suite.summary.experimentalPasses === suite.summary.total ? "text-emerald-300" : "text-amber-200"} />
+            <SummaryMetric label="Regression passes" value={`${suite.summary.experimentalPasses}/${scorableFixtureCount}`} tone={suite.summary.experimentalPasses === scorableFixtureCount ? "text-emerald-300" : "text-amber-200"} />
             <SummaryMetric label="Regressions" value={String(suite.summary.regressions)} tone={suite.summary.regressions === 0 ? "text-emerald-300" : "text-rose-300"} />
             <SummaryMetric label="Unavailable" value={String(suite.summary.unavailable)} tone={suite.summary.unavailable === 0 ? "text-slate-300" : "text-amber-200"} />
           </div>
@@ -101,7 +107,7 @@ export function GoldenRegressionStudio({ weights }: GoldenRegressionStudioProps)
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <h3 className="text-sm font-semibold text-slate-100">Canonical hard-cap predicates</h3>
-              <p className="mt-1 text-xs leading-5 text-slate-500">
+              <p className="mt-1 text-sm leading-5 text-slate-400">
                 Turning a predicate off affects only the hypothetical run. It cannot force an untriggered cap or change canonical output.
               </p>
             </div>

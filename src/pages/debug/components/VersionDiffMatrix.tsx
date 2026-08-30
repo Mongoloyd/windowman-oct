@@ -11,6 +11,14 @@ interface VersionDiffMatrixProps {
   onSelectFixture: (fixtureId: string) => void;
 }
 
+const CATEGORY_LABELS = {
+  control: "Control",
+  terminal: "Terminal gate",
+  evidence: "Evidence",
+  contract: "Contract terms",
+  boundary: "Boundary",
+} as const;
+
 function statusFor(comparison: FixtureRubricComparison) {
   if (!comparison.goldenIntegrity.pass) {
     return {
@@ -70,8 +78,11 @@ export function VersionDiffMatrix({
           >
             <div className="flex items-start justify-between gap-3">
               <div>
+                <p className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-blue-300/85">
+                  {CATEGORY_LABELS[comparison.fixture.category]}
+                </p>
                 <p className="text-sm font-semibold text-slate-100">{comparison.fixture.label}</p>
-                <p className="mt-1 text-xs leading-5 text-slate-500">
+                <p className="mt-1 text-sm leading-5 text-slate-400">
                   {comparison.fixture.description}
                 </p>
               </div>
@@ -82,19 +93,19 @@ export function VersionDiffMatrix({
             </div>
             <div className="mt-4 grid grid-cols-3 gap-2 border-t border-slate-800 pt-3 text-xs">
               <div>
-                <p className="text-slate-600">Expected</p>
+                <p className="text-slate-400">Expected</p>
                 <p className="mt-1 font-semibold text-slate-200">
                   {expected.kind === "scored" ? expected.baselineGrade : "Terminal"}
                 </p>
               </div>
               <div>
-                <p className="text-slate-600">Experiment</p>
+                <p className="text-slate-400">Experiment</p>
                 <p className="mt-1 font-semibold text-slate-200">
                   {experimental?.finalGrade ?? "—"}
                 </p>
               </div>
               <div>
-                <p className="text-slate-600">Δ score</p>
+                <p className="text-slate-400">Δ score</p>
                 <p
                   className={`mt-1 font-semibold ${
                     comparison.delta.scoreDelta === 0 ? "text-emerald-300" : "text-amber-200"
