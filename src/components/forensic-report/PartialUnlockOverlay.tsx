@@ -9,7 +9,7 @@ interface Props {
 }
 
 export default function PartialUnlockOverlay({
-  message = "Verify your phone to access your full Forensic Audit.",
+  message = "Verify your phone number to unlock what was found, why it matters, and the exact questions to ask before signing.",
 }: Props) {
   return (
     <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-4">

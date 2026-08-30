@@ -1,7 +1,7 @@
 /**
  * ScopeOverviewCard — total openings, price-per-opening, total contract price.
  */
-import { LayoutGrid, Lock } from "lucide-react";
+import { BadgeCheck, FileQuestion, LayoutGrid, Lock } from "lucide-react";
 
 const LOCKED_METRIC_VALUE = "Locked";
 
@@ -19,6 +19,8 @@ interface Props {
   quoteMathConfidence?: number | null;
   benchmarkSourceLabel?: string | null;
   benchmarkUpdatedAt?: string | null;
+  hasWarranty?: boolean | null;
+  hasPermits?: boolean | null;
 }
 
 function fmtMoney(n: number | null | undefined): string {
@@ -44,6 +46,36 @@ function bandLabel(band?: string | null, riskContext?: boolean): string | null {
   if (band === "low") return riskContext ? "Low price · high risk" : "Below market";
   if (band === "market") return "Market range";
   return null;
+}
+
+type PreviewPriceBand = "lower" | "typical" | "elevated";
+
+const PREVIEW_PRICE_BANDS: ReadonlyArray<{
+  key: PreviewPriceBand;
+  label: string;
+}> = [
+  { key: "lower", label: "Lower Price Band" },
+  { key: "typical", label: "Typical Price Band" },
+  { key: "elevated", label: "Elevated Price Band" },
+];
+
+function previewPriceBand(
+  band: Props["pricePerOpeningBand"],
+): PreviewPriceBand | null {
+  if (band === "low") return "lower";
+  if (band === "market") return "typical";
+  if (band === "high" || band === "extreme") return "elevated";
+  return null;
+}
+
+function activeBandClass(band: PreviewPriceBand): string {
+  if (band === "typical") {
+    return "border-emerald-500/55 bg-emerald-500/12 text-emerald-200 shadow-[inset_0_1px_0_hsl(0_0%_100%/0.06)]";
+  }
+  if (band === "elevated") {
+    return "border-[hsl(var(--fr-caution)/0.6)] bg-[hsl(var(--fr-caution)/0.12)] text-[hsl(var(--fr-caution))] shadow-[inset_0_1px_0_hsl(0_0%_100%/0.06)]";
+  }
+  return "border-cyan-500/50 bg-cyan-500/10 text-cyan-200 shadow-[inset_0_1px_0_hsl(0_0%_100%/0.06)]";
 }
 
 function bandTileClass(band?: string | null, riskContext?: boolean): string {
@@ -91,6 +123,8 @@ export default function ScopeOverviewCard({
   quoteMathConfidence,
   benchmarkSourceLabel,
   benchmarkUpdatedAt,
+  hasWarranty,
+  hasPermits,
 }: Props) {
   const isPreview = accessLevel === "preview";
   const isFull = !isPreview;
@@ -104,6 +138,126 @@ export default function ScopeOverviewCard({
     : null;
   const showQuoteMathConfidence =
     isFull && quoteMathConfidence != null && Number.isFinite(quoteMathConfidence);
+
+  const activePreviewBand = previewPriceBand(pricePerOpeningBand);
+  const documentationSignals = [
+    hasWarranty == null
+      ? null
+      : {
+          key: "warranty",
+          label: "Warranty terms",
+          detected: hasWarranty,
+        },
+    hasPermits == null
+      ? null
+      : {
+          key: "permits",
+          label: "Permit language",
+          detected: hasPermits,
+        },
+  ].filter(
+    (
+      signal,
+    ): signal is { key: string; label: string; detected: boolean } => signal !== null,
+  );
+
+  if (isPreview) {
+    if (activePreviewBand == null && documentationSignals.length === 0) return null;
+
+    return (
+      <section className="fr-card p-5 sm:p-6">
+        <div className="flex items-center gap-2 mb-4 pb-3 border-b border-white/10">
+          <LayoutGrid
+            size={14}
+            className="shrink-0 text-[hsl(var(--fr-cyan))]"
+            aria-hidden="true"
+          />
+          <h2 className="fr-mono text-[11px] font-bold tracking-wider text-[hsl(var(--fr-cyan))]">
+            QUOTE CONTEXT
+          </h2>
+        </div>
+
+        <div
+          className={`grid grid-cols-1 gap-3 sm:gap-4 ${
+            activePreviewBand != null && documentationSignals.length > 0
+              ? "lg:grid-cols-[1.35fr_1fr]"
+              : ""
+          }`}
+        >
+          {activePreviewBand != null ? (
+            <div className="rounded-xl border border-slate-700/80 bg-slate-950/35 p-4 sm:p-5">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h3 className="text-sm font-bold text-white">Quote Price Band</h3>
+                <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-500">
+                  Categorical preview
+                </span>
+              </div>
+              <div
+                className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3"
+                role="list"
+                aria-label={`Quote price band: ${PREVIEW_PRICE_BANDS.find(({ key }) => key === activePreviewBand)?.label}`}
+              >
+                {PREVIEW_PRICE_BANDS.map(({ key, label }) => {
+                  const isActive = key === activePreviewBand;
+                  return (
+                    <div
+                      key={key}
+                      role="listitem"
+                      aria-current={isActive ? "true" : undefined}
+                      className={`min-h-12 rounded-lg border px-3 py-2.5 text-center text-[11px] font-semibold leading-tight sm:min-h-14 sm:text-xs ${
+                        isActive
+                          ? activeBandClass(key)
+                          : "border-slate-800 bg-slate-900/55 text-slate-500"
+                      }`}
+                    >
+                      {label}
+                      {isActive ? <span className="sr-only"> (current)</span> : null}
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
+                A broad quoted-price category, not a localized market appraisal.
+              </p>
+            </div>
+          ) : null}
+
+          {documentationSignals.length > 0 ? (
+            <div className="rounded-xl border border-slate-700/80 bg-slate-950/35 p-4 sm:p-5">
+              <h3 className="text-sm font-bold text-white">Documentation Signals</h3>
+              <div className="mt-3 divide-y divide-slate-800/90">
+                {documentationSignals.map((signal) => {
+                  const SignalIcon = signal.detected ? BadgeCheck : FileQuestion;
+                  return (
+                    <div
+                      key={signal.key}
+                      className="flex items-center justify-between gap-3 py-3 first:pt-1 last:pb-1"
+                    >
+                      <span className="text-xs font-medium text-slate-300 sm:text-sm">
+                        {signal.label}
+                      </span>
+                      <span
+                        className={`inline-flex items-center gap-1.5 text-right text-[11px] font-semibold sm:text-xs ${
+                          signal.detected
+                            ? "text-emerald-300"
+                            : "text-[hsl(var(--fr-caution))]"
+                        }`}
+                      >
+                        <SignalIcon size={15} aria-hidden="true" />
+                        {signal.detected
+                          ? "Mentioned in quote"
+                          : "Not documented in quote"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </section>
+    );
+  }
 
   if (totalOpenings == null && pricePerOpening == null && totalContractPrice == null) return null;
 
@@ -175,6 +329,7 @@ function Tile({
   sub,
   subExtra,
   valueColor,
+  valueSizeClass = "text-3xl sm:text-[2rem]",
   tileClass = "",
   bandLabel: bandLabelText,
   locked = false,
@@ -184,6 +339,7 @@ function Tile({
   sub?: string;
   subExtra?: string;
   valueColor?: string;
+  valueSizeClass?: string;
   tileClass?: string;
   bandLabel?: string | null;
   locked?: boolean;
@@ -215,7 +371,7 @@ function Tile({
             />
           )}
           <div
-            className="fr-num fr-text-t1 text-3xl sm:text-[2rem] font-extrabold leading-none tracking-tight"
+            className={`fr-num fr-text-t1 ${valueSizeClass} font-extrabold leading-none tracking-tight`}
             style={{ color: valueColor ?? "hsl(var(--fr-text))" }}
           >
             {value}

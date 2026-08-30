@@ -9,7 +9,6 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp
 
 export default function ForensicUnlockSlot({
   gateMode,
-  grade,
   flagCount,
   otpValue,
   onOtpChange,
@@ -63,7 +62,7 @@ export default function ForensicUnlockSlot({
     <div
       className="bg-slate-900 border border-blue-500/25 rounded-2xl shadow-2xl p-6 md:p-8 space-y-5 max-w-2xl mx-auto"
       role="region"
-      aria-label="Unlock the full Truth Report"
+      aria-label="View your full quote analysis"
     >
       <div className="flex items-start gap-3">
         <div
@@ -77,14 +76,14 @@ export default function ForensicUnlockSlot({
             VERIFICATION REQUIRED
           </p>
           <h3 className="text-xl md:text-2xl font-bold text-white leading-tight tracking-tight">
-            Unlock the full Truth Report
+            View Your Full Quote Analysis
           </h3>
           <p className="text-sm text-slate-300/90 leading-relaxed">
-            Verify your phone to reveal the full findings, money-risk details, and next safest step.
+            Enter your mobile number to view the findings, supporting context, and the exact questions to ask before signing.
           </p>
           {flagCount > 0 && (
             <p className="text-xs text-slate-400">
-              Grade {grade} · {flagCount} issue{flagCount !== 1 ? "s" : ""} detected in preview
+              Review your full 5-pillar analysis and scope breakdown.
             </p>
           )}
         </div>
@@ -185,6 +184,9 @@ export default function ForensicUnlockSlot({
             {phoneDigitCount > 0 && phoneDigitCount < 10 && (
               <p className="text-xs text-slate-500">{phoneDigitCount}/10 digits</p>
             )}
+            <p className="text-[11px] leading-relaxed text-slate-400">
+              Your number is used to send a one-time verification code for this report. It does not enroll you in marketing messages or authorize contractor calls.
+            </p>
           </div>
 
           <label className="flex items-start gap-2 cursor-pointer">

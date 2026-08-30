@@ -59,20 +59,15 @@ const evidenceLeads: Record<ForensicVerdictTone, string> = {
 };
 
 const previewLeads: Record<ForensicVerdictTone, string> = {
-  danger: "This quote needs further review before signing or comparing estimates.",
-  caution: "Some contract details may still need confirmation before you commit.",
-  safe:
-    "This quote shows fewer warning signals than average, but key terms should still be confirmed before signing.",
+  danger: "This quote has items worth clarifying before signing or comparing estimates.",
+  caution: "This quote has items worth clarifying before signing or comparing estimates.",
+  safe: "This quote has items worth clarifying before signing or comparing estimates.",
 };
 
 const previewBullets: Record<ForensicVerdictTone, string[]> = {
-  danger: [
-    "Unlock the full report to see what WindowMan found before you sign or compare quotes.",
-  ],
-  caution: [
-    "Unlock the full report to confirm which contract details still need written clarification.",
-  ],
-  safe: [GENERIC_SAFE],
+  danger: ["Unlock the full report to see what was documented, why it matters, and the questions to ask before signing."],
+  caution: ["Unlock the full report to see what was documented, why it matters, and the questions to ask before signing."],
+  safe: ["Unlock the full report to see what was documented, why it matters, and the questions to ask before signing."],
 };
 
 function getActivePillars(flags: AnalysisFlag[]): string[] {
@@ -149,8 +144,15 @@ export function ForensicVerdictPanel({
       ? Math.max(0, Math.trunc(amberCount))
       : 0;
 
-  const tone = resolveForensicVerdictTone(safeGrade, safeRedCount, safeAmberCount);
-  const { lead, bullets } = resolveForensicVerdictContent(tone, flags);
+  const isPreview = flags === undefined;
+  const tone = resolveForensicVerdictTone(isPreview ? "" : safeGrade, safeRedCount, safeAmberCount);
+  const { lead: resolvedLead, bullets } = resolveForensicVerdictContent(tone, flags);
+  const totalReviewItems = safeRedCount + safeAmberCount;
+  const lead = isPreview
+    ? totalReviewItems > 0
+      ? `We found ${totalReviewItems} ${totalReviewItems === 1 ? "item" : "items"} worth reviewing in this quote before signing or comparing estimates.`
+      : "No material concerns or clarifications were identified in this quote preview."
+    : resolvedLead;
   const toneColor = forensicToneColors[tone];
 
   return (
@@ -161,7 +163,7 @@ export function ForensicVerdictPanel({
           className="fr-mono text-xs font-bold uppercase tracking-[0.12em]"
           style={{ color: toneColor }}
         >
-          THE FORENSIC VERDICT
+          {isPreview ? "QUOTE READINESS REVIEW" : "THE FORENSIC VERDICT"}
         </p>
         <p className="mt-2 text-sm sm:text-[15px] leading-relaxed text-[hsl(var(--fr-text))]">{lead}</p>
         <ul className="mt-3 space-y-2">

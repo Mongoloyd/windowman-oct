@@ -99,16 +99,40 @@ describe("ForensicVerdictPanel", () => {
     expect(screen.queryByText(PAYMENT_BULLET)).not.toBeInTheDocument();
     expect(screen.queryByText(WARRANTY_BULLET)).not.toBeInTheDocument();
     expect(screen.queryByText(PRODUCT_APPROVAL_BULLET)).not.toBeInTheDocument();
+    expect(screen.getByText("THE FORENSIC VERDICT")).toBeInTheDocument();
   });
 
   it("renders preview-safe generic copy when flags are omitted", () => {
     render(<ForensicVerdictPanel grade="F" redCount={2} amberCount={1} />);
 
     expect(
-      screen.getByText(/unlock the full report to see what windowman found/i),
+      screen.getByText(
+        "We found 3 items worth reviewing in this quote before signing or comparing estimates.",
+      ),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText(/unlock the full report to see what was documented/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText("QUOTE READINESS REVIEW")).toBeInTheDocument();
+    expect(screen.queryByText("THE FORENSIC VERDICT")).not.toBeInTheDocument();
     expect(screen.queryByText(PAYMENT_BULLET)).not.toBeInTheDocument();
     expect(screen.queryByText(WARRANTY_BULLET)).not.toBeInTheDocument();
     expect(screen.queryByText(PRODUCT_APPROVAL_BULLET)).not.toBeInTheDocument();
+  });
+
+  it("pluralizes one preview item and handles a zero-count preview honestly", () => {
+    const { rerender } = render(<ForensicVerdictPanel grade="F" redCount={1} amberCount={0} />);
+
+    expect(
+      screen.getByText(
+        "We found 1 item worth reviewing in this quote before signing or comparing estimates.",
+      ),
+    ).toBeInTheDocument();
+
+    rerender(<ForensicVerdictPanel grade="A" redCount={0} amberCount={0} />);
+
+    expect(
+      screen.getByText("No material concerns or clarifications were identified in this quote preview."),
+    ).toBeInTheDocument();
   });
 });

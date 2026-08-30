@@ -72,7 +72,7 @@ export default function PreviewUnlockSlot() {
     <div
       className="bg-slate-900 border border-blue-500/25 rounded-2xl shadow-2xl p-6 md:p-8 space-y-5 max-w-2xl mx-auto"
       role="region"
-      aria-label="Unlock your private Truth Report"
+      aria-label="View your full quote analysis"
     >
       {/* Header */}
       <div className="flex items-start gap-3">
@@ -87,24 +87,24 @@ export default function PreviewUnlockSlot() {
             VERIFICATION REQUIRED
           </p>
           <h3 className="text-xl md:text-2xl font-bold text-white leading-tight tracking-tight">
-            Unlock Your Private Truth Report
+            View Your Full Quote Analysis
           </h3>
           <p className="text-sm text-slate-300/90 leading-relaxed">
-            WindowMan found risk signals in your quote. Verify your phone to
-            access your full Forensic Audit.
+            Enter your mobile number to view the findings, supporting context,
+            and the exact questions to ask before signing.
           </p>
         </div>
       </div>
 
-      {/* Case file ready summary */}
+      {/* Analysis-ready summary */}
       <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-3.5 flex items-start gap-3">
         <FileCheck2 size={18} className="text-emerald-400 shrink-0 mt-0.5" />
         <div className="space-y-0.5">
           <p className="text-sm font-semibold text-emerald-300">
-            Scan Complete · Case File Created
+            Analysis Complete · Ready to Verify
           </p>
           <p className="text-xs text-slate-400 leading-relaxed">
-            Your case file is saved. Verify your phone to access your full Forensic Audit.
+            Your quote analysis is saved. Enter your mobile number to continue.
           </p>
         </div>
       </div>
@@ -143,7 +143,7 @@ export default function PreviewUnlockSlot() {
                   ? "text-red-400"
                   : isValid
                     ? "text-emerald-400"
-                    : "text-slate-500"
+                    : "text-[#b0b4ba]"
               }`}
             >
               {showInvalid
@@ -151,6 +151,9 @@ export default function PreviewUnlockSlot() {
                 : isValid
                   ? "Ready to send verification code."
                   : "Check SMS for your secure code."}
+            </p>
+            <p className="text-[11px] leading-relaxed text-slate-400">
+              Your number is used to send a one-time verification code for this report. It does not enroll you in marketing messages or authorize contractor calls.
             </p>
           </div>
 

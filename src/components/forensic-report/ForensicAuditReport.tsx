@@ -9,7 +9,7 @@
  * Pure presentation. Does not fetch data, does not gate access (server does that).
  */
 import { useMemo } from "react";
-import type { AnalysisFlag } from "@/hooks/useAnalysisData";
+import type { AnalysisFlag, PillarScore } from "@/hooks/useAnalysisData";
 // Legacy ReportHeader retained in repo but no longer rendered by this shell (UnlockedHeader replaces it).
 import UnlockedHeader from "./UnlockedHeader";
 import ExecutiveSummaryCard from "./ExecutiveSummaryCard";
@@ -17,6 +17,7 @@ import PartialRevealHero from "./PartialRevealHero";
 import TopFindingsList from "./TopFindingsList";
 import PartialUnlockOverlay from "./PartialUnlockOverlay";
 import ExecutiveSummaryBand from "./ExecutiveSummaryBand";
+import QuoteAnalysisBento from "./QuoteAnalysisBento";
 import PropertyProfileCard from "./PropertyProfileCard";
 import ScopeOverviewCard from "./ScopeOverviewCard";
 import MoneyAtRiskCard from "./MoneyAtRiskCard";
@@ -41,6 +42,10 @@ export interface ForensicAuditReportProps {
   confidenceScore: number | null;
   flagRedCount: number;
   flagAmberCount: number;
+  contractorName?: string | null;
+  documentType?: string | null;
+  pageCount?: number | null;
+  lineItemCount?: number | null;
   flagClearCount?: number;
   signalsExtracted?: number | null;
   signalsTotal?: number | null;
@@ -51,6 +56,9 @@ export interface ForensicAuditReportProps {
   overpaymentBasis?: string | null;
   pricePerOpening?: number | null;
   pricePerOpeningBand?: "low" | "market" | "high" | "extreme" | null;
+  pillarScores?: readonly PillarScore[];
+  hasWarranty?: boolean | null;
+  hasPermits?: boolean | null;
   marketLow?: number | null;
   marketHigh?: number | null;
   totalContractPrice?: number | null;
@@ -105,6 +113,7 @@ export default function ForensicAuditReport(props: ForensicAuditReportProps) {
     gradeUpper === "D" ||
     gradeUpper === "F" ||
     (props.flagRedCount ?? 0) > 0;
+  const totalReviewCount = (props.flagRedCount ?? 0) + (props.flagAmberCount ?? 0);
 
   return (
     <div className={`report-dark min-h-screen ${FR.pagePad} py-6 sm:py-10`}>
@@ -127,14 +136,13 @@ export default function ForensicAuditReport(props: ForensicAuditReportProps) {
           {isPreview ? (
             <>
               <PartialRevealHero
-                grade={props.grade}
+                contractorName={props.contractorName}
+                documentType={props.documentType}
+                pageCount={props.pageCount}
+                openingCount={props.totalOpenings}
+                lineItemCount={props.lineItemCount}
                 flagRedCount={props.flagRedCount}
                 flagAmberCount={props.flagAmberCount}
-                overpaymentLow={props.overpaymentLow}
-                overpaymentHigh={props.overpaymentHigh}
-                overpaymentBasis={props.overpaymentBasis}
-                signalsExtracted={props.signalsExtracted}
-                signalsTotal={props.signalsTotal}
               />
 
               <ForensicVerdictPanel
@@ -147,26 +155,19 @@ export default function ForensicAuditReport(props: ForensicAuditReportProps) {
                 <TopFindingsList
                   flags={safeFlags}
                   blurred
-                  totalRedCount={props.flagRedCount}
+                  totalReviewCount={totalReviewCount}
                 />
-                <PartialUnlockOverlay />
+                {totalReviewCount > 0 ? <PartialUnlockOverlay /> : null}
               </div>
 
-              <ExecutiveSummaryBand
-                accessLevel={props.accessLevel}
+              <QuoteAnalysisBento
+                contractorName={props.contractorName}
+                pillarScores={props.pillarScores}
+                pricePerOpeningBand={props.pricePerOpeningBand}
+                hasWarranty={props.hasWarranty}
+                hasPermits={props.hasPermits}
                 flagRedCount={props.flagRedCount}
                 flagAmberCount={props.flagAmberCount}
-                summary={props.executiveSummaryTeaser}
-              />
-
-              <ScopeOverviewCard
-                accessLevel={props.accessLevel}
-                totalOpenings={props.totalOpenings}
-                pricePerOpening={props.pricePerOpening}
-                pricePerOpeningBand={props.pricePerOpeningBand}
-                marketLow={props.marketLow}
-                marketHigh={props.marketHigh}
-                totalContractPrice={props.totalContractPrice}
               />
             </>
           ) : (
@@ -232,7 +233,7 @@ export default function ForensicAuditReport(props: ForensicAuditReportProps) {
               <div className="relative">
                 <TopFindingsList
                   flags={safeFlags}
-                  totalRedCount={props.flagRedCount}
+                  totalReviewCount={totalReviewCount}
                   variant="detail"
                 />
               </div>

@@ -1,84 +1,122 @@
 /**
  * PartialRevealHero — FOG layer of the forensic ritual.
  *
- * Pure presentation. No data fetch, no gating logic. Same prop signature as
- * before; visual hierarchy now leads with a dominant, frosted, grade-tinted
- * verdict plate ("the glass before it clears") and falls down to severity
- * counts, metric tiles, and a locked teaser pointing at the OTP gate.
+ * Pure presentation. No data fetch, no gating logic. The hero leads with a
+ * safe proof-of-read evidence and falls down to severity counts, metric tiles,
+ * and a locked teaser pointing at the OTP gate.
  *
  * Rendered only when the orchestrator passes accessLevel === "preview".
  */
-import { Lock, AlertOctagon, DollarSign, FileWarning } from "lucide-react";
+import {
+  AlertOctagon,
+  ClipboardCheck,
+  FileQuestion,
+  FileSearch,
+  FileText,
+  ListChecks,
+  Lock,
+  ShieldCheck,
+} from "lucide-react";
 import WindowManMark from "./WindowManMark";
-
-const LOCKED_METRIC_VALUE = "Locked";
+import { formatContractorName } from "./utils/formatContractorName";
 
 interface Props {
-  grade: string;
+  contractorName?: string | null;
+  documentType?: string | null;
+  pageCount?: number | null;
+  openingCount?: number | null;
+  lineItemCount?: number | null;
   flagRedCount: number;
   flagAmberCount: number;
-  overpaymentLow?: number | null;
-  overpaymentHigh?: number | null;
-  overpaymentBasis?: string | null;
-  signalsExtracted?: number | null;
-  signalsTotal?: number | null;
-}
-
-function fmtMoney(n: number | null | undefined): string {
-  if (n == null) return "—";
-  return `$${Math.round(n).toLocaleString()}`;
-}
-
-function midpoint(a?: number | null, b?: number | null): number | null {
-  if (a != null && b != null) return Math.round((a + b) / 2);
-  return a ?? b ?? null;
 }
 
 type Band = {
   rgb: string;
-  tone: "good" | "fair" | "poor" | "critical";
+  foregroundRgb: string;
 };
 
-function gradeBand(grade: string): Band {
-  const g = (grade || "").toUpperCase().charAt(0);
-  if (g === "A") return { rgb: "16, 185, 129", tone: "good" };
-  if (g === "B") return { rgb: "132, 204, 22", tone: "good" };
-  if (g === "C") return { rgb: "245, 158, 11", tone: "fair" };
-  if (g === "D") return { rgb: "239, 68, 68", tone: "poor" };
-  return { rgb: "220, 38, 38", tone: "critical" };
+function readinessBand(flagRedCount: number, flagAmberCount: number): Band {
+  if (flagRedCount > 0) {
+    return { rgb: "239, 68, 68", foregroundRgb: "248, 113, 113" };
+  }
+  if (flagAmberCount > 0) {
+    return { rgb: "245, 158, 11", foregroundRgb: "251, 191, 36" };
+  }
+  return { rgb: "16, 185, 129", foregroundRgb: "52, 211, 153" };
+}
+
+function cleanDisplayText(value: string | null | undefined, maxLength = 80): string | null {
+  const normalized = value?.trim().replace(/\s+/g, " ");
+  return normalized ? normalized.slice(0, maxLength) : null;
+}
+
+function safeCount(value: number | null | undefined): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? Math.round(value)
+    : null;
+}
+
+function safeAggregateCount(value: number): number {
+  return Number.isFinite(value) && value > 0 ? Math.trunc(value) : 0;
 }
 
 export default function PartialRevealHero({
-  grade,
+  contractorName,
+  documentType,
+  pageCount,
+  openingCount,
+  lineItemCount,
   flagRedCount,
   flagAmberCount,
-  overpaymentLow,
-  overpaymentHigh,
-  overpaymentBasis,
-  signalsExtracted,
-  signalsTotal,
 }: Props) {
-  const band = gradeBand(grade);
-  const totalIssues = flagRedCount + flagAmberCount;
-
-  // "Missing Regulatory Items" = signals expected but not found (preserved from prior behavior)
-  const missingRegulatory =
-    signalsTotal != null && signalsExtracted != null
-      ? Math.max(0, signalsTotal - signalsExtracted)
-      : flagAmberCount;
-
-  const overpayMid = midpoint(overpaymentLow, overpaymentHigh);
+  const safeRedCount = safeAggregateCount(flagRedCount);
+  const safeAmberCount = safeAggregateCount(flagAmberCount);
+  const band = readinessBand(safeRedCount, safeAmberCount);
+  const totalReviewItems = safeRedCount + safeAmberCount;
+  const safeContractorName = formatContractorName(contractorName, 80);
+  const safeDocumentType = cleanDisplayText(documentType, 32)?.toLowerCase();
+  const safeOpeningCount = safeCount(openingCount);
+  const safePageCount = safeCount(pageCount);
+  const safeLineItemCount = safeCount(lineItemCount);
+  const documentLabel = safeContractorName
+    ? `${safeContractorName}’s quote`
+    : safeDocumentType
+      ? `this ${safeDocumentType}`
+      : "this quote";
+  const evidenceFacts = [
+    {
+      key: "openings",
+      value: safeOpeningCount,
+      label: safeOpeningCount === 1 ? "opening detected" : "openings detected",
+      icon: FileSearch,
+    },
+    {
+      key: "pages",
+      value: safePageCount,
+      label: safePageCount === 1 ? "page read" : "pages read",
+      icon: FileText,
+    },
+    {
+      key: "line-items",
+      value: safeLineItemCount,
+      label:
+        safeLineItemCount === 1
+          ? "quoted line item parsed"
+          : "quoted line items parsed",
+      icon: ListChecks,
+    },
+  ].filter((fact): fact is typeof fact & { value: number } => fact.value !== null);
 
   return (
     <section
       className="relative fr-card overflow-hidden"
-      aria-label="Forensic audit preview"
+      aria-label="Quote analysis preview"
       style={{
         borderColor: `rgba(${band.rgb}, 0.45)`,
         boxShadow: `0 0 0 1px rgba(${band.rgb}, 0.15), 0 24px 70px -28px rgba(${band.rgb}, 0.35), 0 8px 32px -12px hsl(220 60% 2% / 0.7)`,
       }}
     >
-      {/* Layer 1 — grade-tinted radial wash from the top */}
+      {/* Layer 1 — readiness-tinted radial wash from the top */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
@@ -116,7 +154,7 @@ export default function PartialRevealHero({
       />
 
       <div className="relative p-6 sm:p-8 md:p-10">
-        {/* Eyebrow — tinted to grade band */}
+        {/* Eyebrow — tinted to the qualitative readiness band */}
         <div
           className="inline-flex items-center gap-2 mb-3 px-2.5 py-1 rounded-full"
           style={{
@@ -132,196 +170,108 @@ export default function PartialRevealHero({
             }}
           />
           <span
-            className="fr-mono text-[10px] font-bold tracking-[0.18em] uppercase"
-            style={{ color: `rgb(${band.rgb})` }}
+            className="fr-mono text-xs font-bold tracking-[0.14em] uppercase"
+            style={{ color: `rgb(${band.foregroundRgb})` }}
           >
-            Forensic Audit · Preview Locked
+            Quote Analysis Preview
           </span>
         </div>
 
         {/* Heading + subtitle */}
         <h1 className="text-2xl sm:text-3xl md:text-[2.5rem] font-extrabold tracking-tight text-white leading-[1.1]">
-          Unlock Your Forensic Audit
+          Your Quote Analysis Preview
         </h1>
         <p className="mt-3 text-sm sm:text-base text-slate-300/90 leading-relaxed max-w-2xl">
-          WindowMan reviewed your quote like a private forensic second opinion.
-          Here's the preview of what we found before you sign.
+          Windowman reviewed the information documented in your quote. Below is a quick snapshot of what appears clear and what may need clarification before you sign. Verify your phone below to unlock the complete audit, supporting context and the questions you may want to ask.
         </p>
-        {totalIssues > 0 && (
-          <p className="mt-2 text-sm sm:text-base text-slate-200 leading-relaxed">
-            We found{" "}
-            <span
-              className="font-bold"
-              style={{ color: `rgb(${band.rgb})` }}
-            >
-              {totalIssues}
-            </span>{" "}
-            {totalIssues === 1 ? "risk signal" : "risk signals"} in your estimate.
-          </p>
-        )}
-
-        {/* Dominant grade plate — the focal point of the FOG layer */}
-        <div className="mt-8 sm:mt-10 flex flex-col items-center text-center">
+        {/* Safe proof-of-read evidence replaces the unreliable pillar preview. */}
+        <div className="mt-6 sm:mt-8 flex flex-col items-center text-center">
           <div
-            className="relative flex items-center justify-center"
-            style={{ width: "min(190px, 60vw)", height: "min(190px, 60vw)" }}
+            className="w-full overflow-hidden rounded-2xl border border-slate-600/75 bg-slate-950/45 p-4 text-left shadow-[inset_0_1px_0_hsl(0_0%_100%/0.06),0_18px_42px_-28px_hsl(220_60%_2%/0.9)] backdrop-blur-sm sm:p-6"
+            aria-label="Document evidence summary"
           >
-            {/* Outer halo */}
-            <div
-              aria-hidden
-              className="absolute -inset-3 rounded-full"
-              style={{
-                background: `radial-gradient(circle, rgba(${band.rgb}, 0.22) 0%, rgba(${band.rgb}, 0.08) 50%, transparent 75%)`,
-                filter: "blur(10px)",
-              }}
-            />
-            {/* Frosted plate */}
-            <div
-              className="relative flex items-center justify-center rounded-full"
-              style={{
-                width: "100%",
-                height: "100%",
-                background: `linear-gradient(180deg, rgba(${band.rgb}, 0.18) 0%, rgba(${band.rgb}, 0.08) 55%, hsl(var(--fr-surface) / 0.65) 100%)`,
-                border: `1.5px solid rgba(${band.rgb}, 0.45)`,
-                backdropFilter: "blur(12px)",
-                WebkitBackdropFilter: "blur(12px)",
-                boxShadow: `inset 0 1px 0 hsl(0 0% 100% / 0.08), inset 0 -2px 0 rgba(0,0,0,0.25), 0 12px 40px -10px rgba(${band.rgb}, 0.35)`,
-              }}
-            >
-              <span
-                className="font-mono font-extrabold leading-none text-[4.5rem] sm:text-[5.5rem] md:text-[6.25rem]"
-                style={{
-                  color: `rgb(${band.rgb})`,
-                  letterSpacing: "0.02em",
-                  textShadow: `0 0 28px rgba(${band.rgb}, 0.55)`,
-                }}
-                aria-label={`Quote grade ${grade}`}
-              >
-                {grade}
-              </span>
+            <div className="flex items-center gap-2.5 text-emerald-300">
+              <ShieldCheck size={22} strokeWidth={2.1} aria-hidden />
+              <h2 className="fr-mono text-xs font-bold uppercase tracking-[0.14em]">
+                Evidence Summary
+              </h2>
             </div>
-          </div>
-          <div className="mt-4 fr-mono text-[11px] font-bold tracking-[0.22em] text-slate-200 uppercase">
-            Audit Verdict · Quote Grade
+
+            <p className="mt-5 max-w-3xl text-xl font-extrabold leading-tight tracking-tight text-white sm:text-2xl md:text-3xl">
+              We read {documentLabel}
+              {totalReviewItems > 0 ? (
+                <>
+                  {" "}and found{" "}
+                  <span className="text-emerald-300 tabular-nums">{totalReviewItems}</span>{" "}
+                  {totalReviewItems === 1 ? "item" : "items"} worth reviewing before you sign.
+                </>
+              ) : (
+                <> and completed a documentation review before you sign.</>
+              )}
+            </p>
+
+            {evidenceFacts.length > 0 ? (
+              <dl
+                className="mt-5 grid border-y border-slate-700/80 py-4"
+                style={{ gridTemplateColumns: `repeat(${evidenceFacts.length}, minmax(0, 1fr))` }}
+                aria-label="Detected document facts"
+              >
+                {evidenceFacts.map((fact, index) => {
+                  const FactIcon = fact.icon;
+                  return (
+                    <div
+                      key={fact.key}
+                      className={`min-w-0 px-2 text-center first:pl-0 last:pr-0 sm:px-4 ${index > 0 ? "border-l border-slate-700/80" : ""}`}
+                    >
+                      <div className="flex items-center justify-center gap-1.5 text-emerald-300">
+                        <FactIcon size={18} strokeWidth={2} aria-hidden />
+                        <dd className="text-xl font-extrabold leading-none text-white tabular-nums sm:text-2xl">
+                          {fact.value}
+                        </dd>
+                      </div>
+                      <dt className="mt-1.5 min-h-8 text-xs font-medium leading-snug text-slate-300">
+                        {fact.label}
+                      </dt>
+                    </div>
+                  );
+                })}
+              </dl>
+            ) : null}
+
+            <div className="mt-4 flex items-center gap-2 text-left text-sm leading-snug text-slate-400">
+              <Lock size={16} strokeWidth={2} aria-hidden />
+              <span>Specific findings unlock after verification.</span>
+            </div>
           </div>
 
-          {/* Inline severity summary */}
-          {totalIssues > 0 && (
-            <div className="mt-4 inline-flex items-center gap-3 text-sm font-medium text-slate-200">
-              <span className="inline-flex items-center gap-1.5">
-                <span
-                  className="h-2 w-2 rounded-full"
-                  style={{
-                    background: "hsl(var(--fr-danger))",
-                    boxShadow: "0 0 8px hsl(var(--fr-danger) / 0.6)",
-                  }}
-                />
-                <span className="tabular-nums">{flagRedCount}</span>{" "}
-                <span className="text-slate-300">critical</span>
-              </span>
-              <span aria-hidden className="text-slate-600">·</span>
-              <span className="inline-flex items-center gap-1.5">
-                <span
-                  className="h-2 w-2 rounded-full"
-                  style={{
-                    background: "hsl(var(--fr-caution))",
-                    boxShadow: "0 0 8px hsl(var(--fr-caution) / 0.6)",
-                  }}
-                />
-                <span className="tabular-nums">{flagAmberCount}</span>{" "}
-                <span className="text-slate-300">warnings</span>
-              </span>
-            </div>
-          )}
+          <p className="mt-4 max-w-3xl rounded-xl border border-slate-700/70 bg-slate-950/45 px-4 py-3 text-left text-sm leading-relaxed text-[#aab3c0] shadow-[inset_0_1px_0_hsl(0_0%_100%/0.04)]">
+            This review evaluates what is documented in this quote. It does not grade the contractor’s workmanship, reputation, or professional quality. A missing item means it was omitted from the document—not necessarily from the contractor’s planned work. It does not verify legal compliance, engineering suitability, installed conditions, or whether the quote is safe to sign.
+          </p>
         </div>
 
-        {/* Metric tiles — frosted, secondary to the grade */}
-        <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {/* Metric tiles — frosted, secondary to the evidence summary */}
+        <dl className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-3">
           <MetricTile
             variant="critical"
             icon={<AlertOctagon size={16} />}
-            value={String(flagRedCount)}
-            label="Critical Risk Signals Detected"
-          />
-          <MetricTile
-            variant="warning"
-            icon={<DollarSign size={16} />}
-            value={overpayMid != null ? fmtMoney(overpayMid) : LOCKED_METRIC_VALUE}
-            label="Potential Overcharge"
+            value={String(safeRedCount)}
+            label={safeRedCount === 1 ? "Material Quote Concern" : "Material Quote Concerns"}
           />
           <MetricTile
             variant="info"
-            icon={<FileWarning size={16} />}
-            value={String(missingRegulatory)}
-            label="Missing Regulatory Items"
+            icon={<ClipboardCheck size={16} />}
+            value="Analysis Ready"
+            label="Pricing & Scope Review"
+            compactValue
           />
-        </div>
-
-        {/* Locked teaser block — points at the OTP gate */}
-        <div
-          className="mt-8 relative rounded-2xl p-5 sm:p-7 text-center overflow-hidden"
-          style={{
-            background: "hsl(var(--fr-bg) / 0.78)",
-            border: "1px solid hsl(var(--fr-border) / 0.9)",
-            boxShadow:
-              "inset 0 1px 0 hsl(0 0% 100% / 0.05), 0 8px 28px -16px hsl(220 60% 2% / 0.6)",
-            backdropFilter: "blur(10px)",
-            WebkitBackdropFilter: "blur(10px)",
-          }}
-        >
-          {/* Frosted underlay — subtle grade tint on the locked block */}
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0"
-            style={{
-              background: `radial-gradient(80% 60% at 50% 0%, rgba(${band.rgb}, 0.10) 0%, transparent 60%)`,
-            }}
+          <MetricTile
+            variant="warning"
+            icon={<FileQuestion size={16} />}
+            value={String(safeAmberCount)}
+            label={safeAmberCount === 1 ? "Clarification Needed" : "Clarifications Needed"}
           />
+        </dl>
 
-          <div className="relative">
-            <div
-              className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full"
-              style={{
-                background: "hsl(var(--fr-cyan) / 0.14)",
-                border: "1px solid hsl(var(--fr-cyan) / 0.45)",
-                boxShadow: "0 0 24px -6px hsl(var(--fr-cyan) / 0.35)",
-                color: "hsl(var(--fr-cyan-soft))",
-              }}
-            >
-              <Lock size={20} strokeWidth={2.25} />
-            </div>
-            <p className="fr-mono text-[10px] font-bold tracking-[0.2em] text-[hsl(var(--fr-cyan-soft))] mb-2 uppercase">
-              Scan Complete · Case File Created
-            </p>
-            <h2 className="text-lg sm:text-xl font-bold text-white leading-snug mb-2">
-              Unlock Your Private Truth Report
-            </h2>
-            <p className="text-sm sm:text-base text-slate-300 leading-relaxed max-w-xl mx-auto">
-              Your quote received a{" "}
-              <span
-                className="font-bold"
-                style={{ color: `rgb(${band.rgb})` }}
-              >
-                {grade}
-              </span>
-              . We detected{" "}
-              <span
-                className="font-bold"
-                style={{ color: `rgb(${band.rgb})` }}
-              >
-                {missingRegulatory} missing regulatory line item
-                {missingRegulatory === 1 ? "" : "s"}.
-              </span>{" "}
-              Your financial exposure estimate is locked until verification.
-              Verify your phone to access your full Forensic Audit.
-            </p>
-            {overpaymentBasis && (
-              <p className="mt-3 text-[11px] leading-snug max-w-md mx-auto text-slate-400">
-                {overpaymentBasis}
-              </p>
-            )}
-          </div>
-        </div>
       </div>
     </section>
   );
@@ -334,11 +284,13 @@ function MetricTile({
   icon,
   value,
   label,
+  compactValue = false,
 }: {
   variant: "critical" | "warning" | "info";
   icon: React.ReactNode;
   value: string;
   label: string;
+  compactValue?: boolean;
 }) {
   const colorClass =
     variant === "critical"
@@ -369,15 +321,19 @@ function MetricTile({
           background: `linear-gradient(90deg, transparent 0%, hsl(var(${railVar})) 50%, transparent 100%)`,
         }}
       />
-      <div className={`flex items-center justify-center gap-1.5 ${colorClass}`}>
+      <dd className={`flex items-center justify-center gap-1.5 ${colorClass}`}>
         {icon}
-        <span className="font-mono text-2xl sm:text-3xl font-extrabold leading-none tracking-tight tabular-nums">
+        <span
+          className={`font-mono font-extrabold leading-none tracking-tight tabular-nums ${
+            compactValue ? "text-base sm:text-lg" : "text-2xl sm:text-3xl"
+          }`}
+        >
           {value}
         </span>
-      </div>
-      <div className="mt-2 text-[10px] sm:text-[11px] uppercase tracking-wider leading-tight text-slate-300 font-semibold">
+      </dd>
+      <dt className="mt-2 text-xs sm:text-sm uppercase tracking-wider leading-snug text-slate-300 font-semibold">
         {label}
-      </div>
+      </dt>
     </div>
   );
 }

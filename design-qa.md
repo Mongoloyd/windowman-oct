@@ -1,61 +1,72 @@
-# `/wmchat` Nationwide Trust Layer — Design QA
+# Partial Reveal Evidence Summary — Design QA
 
-- Source visual truth: `C:\Users\Dell\Downloads\wmchat hero CRO stuff.PNG`
-- Supplied styling reference: `C:\Users\Dell\Downloads\impact window css.css`
-- Motion reference: `C:\Users\Dell\Screen REcordings\Recording 2026-08-16 032016.mp4`
-- Implementation route: `http://127.0.0.1:5174/wmchat`
-- Full comparison: `C:\Users\Dell\AppData\Local\Temp\wmchat-design-qa\comparison-1107x911.jpg`
-- Focused trust-card comparison: `C:\Users\Dell\AppData\Local\Temp\wmchat-design-qa\comparison-trust-cards.jpg`
-- Final mobile capture: `C:\Users\Dell\AppData\Local\Temp\wmchat-design-qa\implementation-final-375.jpg`
-- Refined header/mobile capture: `C:\Users\Dell\AppData\Local\Temp\wmchat-design-qa\implementation-header-refined-375.png`
-- Viewport comparison: source and implementation normalized to 1107 × 911 pixels at device scale 1
-- Responsive checks: 375 × 812, 472 × 900, and 1107 × 911
-- State: direct cold entry before the first conversation choice
+- Source visual truth: local QA artifact; not committed.
+- Implementation route: `http://localhost:8080/dev/report-preview?v=v3&mode=preview`
+- Desktop implementation capture: local QA artifact; not committed.
+- Mobile viewport capture: local QA artifact; not committed.
+- Mobile full-page capture: local QA artifact; not committed.
+- State: DEV preview fixture, safe pre-verification projection, no full-report authorization
+- Source pixels: 852 × 1847
+- Desktop capture: 852 × 1162 pixels from an 852 × 1200 CSS viewport override, device density 1
+- Mobile capture: 390 × 845 pixels from a 390 × 844 CSS viewport override, device density 1
+- Mobile full-page capture: 390 × 3404 pixels
+- Density normalization: source and desktop implementation were compared at the same 852-pixel width and 1× density; no resampling was required
 
-## Full-view comparison
+## Full-view comparison evidence
 
-The implementation preserves the selected dark architectural grid, spotlighted WindowMan hero, narrow centered conversation stage, and existing image asset. It intentionally replaces the source's placeholder labels, Florida-specific trust card, and speech control with the approved nationwide header and evidence hierarchy.
+The selected source visual and the desktop implementation capture were opened together in one comparison input. The implementation preserves the selected hierarchy: forensic eyebrow, preview heading, explanatory copy, bordered Evidence Summary, dominant document-specific statement, three safe proof-of-read facts, locked-detail line, objective disclaimer, and the existing aggregate metric rail.
 
-The three-card rail measures 348px at the 375px viewport while the active WindowMan bubble measures 298px. At 472px, the rail measures 446px and the bubble 388px. This produces the requested wider proof hierarchy without horizontal overflow.
+The source is a taller 852 × 1847 component mock while the implementation capture is the 852 × 1162 browser viewport. The common hero region was compared at equal width and density. The implementation intentionally keeps the current application shell, red readiness tint, locked case-file panel, and existing aggregate metric semantics.
 
-## Focused-region comparison
+Dynamic fixture values intentionally differ from the art-direction mock:
+- source: Coastal Fortress, 12 review items, 10 openings, 3 pages, 24 line items
+- implementation: BrightView Window, 18 review items, 14 openings, 1 page, 3 line items
 
-The supplied impact-window CSS informed the metallic outer rail, inset glass, reflection, and depth. The implementation makes the functional glass surface opaque, removes the reference's infinite shine, uses amber/emerald/cyan semantics, and adds a bounded tap/keyboard flip. The focused comparison confirms the new cards are more visually prominent and less monotonous than the source trust strip.
+The implementation also preserves the existing `9 / Locked / 9` aggregate metric contract instead of adopting the mock's illustrative `4 / 1 / 1` values.
+
+## Focused-region comparison evidence
+
+A separate crop was not required because the Evidence Summary text, icons, separators, disclaimer, and metric cards are readable in both 852-pixel-wide images. The focused comparison confirms:
+
+- the shield-check and evidence facts use the existing Lucide icon family;
+- the main statement carries the strongest visual weight;
+- the review count is highlighted in emerald without becoming a CTA;
+- the three facts are separated cleanly and remain non-interactive;
+- the lock line is visibly subordinate;
+- the implementation uses existing WindowMan typography and forensic surface tokens rather than introducing a second design system.
 
 ## Required fidelity surfaces
 
-- Fonts and typography: passed. Existing app typography is preserved; card titles were increased after the first mobile capture for 50+ readability.
-- Spacing and layout rhythm: passed. Cards extend beyond the chat column, remain symmetrical with the hero cone, and introduce no horizontal overflow at 375px or 472px.
-- Colors and tokens: passed. Opaque navy surfaces block the page grid; amber, emerald, and cyan accents carry distinct meanings without becoming promotional CTA colors.
-- Image quality and asset fidelity: passed. The approved WindowMan raster remains uncropped, sharp, and unchanged.
-- Copy and content: passed. First-glance copy is nationwide, avoids savings/safety guarantees, and retains stable internal intake IDs.
+- Fonts and typography: passed. Existing WindowMan display and body faces are preserved. The heading, evidence statement, monospaced eyebrow, fact counts, and support copy retain the source hierarchy without cramped desktop wrapping.
+- Spacing and layout rhythm: passed. The evidence panel uses a compact internal rhythm and does not recreate the tall pillar-card roadblock. At 390px, its measured width is 308.84px with `scrollWidth === clientWidth === 307`; no horizontal overflow occurs.
+- Colors and tokens: passed. The panel uses the selected emerald proof color, slate dividers, dark forensic glass, and the existing readiness-tinted hero. No orange promotional CTA treatment was introduced.
+- Image quality and asset fidelity: passed. The target uses icons rather than raster imagery; the implementation uses the existing Lucide vector family and the existing WindowMan mark with no placeholder or handcrafted SVG substitute.
+- Copy and content: passed. The implementation renders only safe proof-of-read facts and aggregate review count, correctly pluralizes “1 page read,” and keeps specific findings locked.
+- Icons: passed. Shield, document-search, page, list, and lock icons are visually consistent and aligned with their labels.
+- Responsiveness: passed. Desktop and 390px mobile captures preserve hierarchy, readable wrapping, and containment. The three fact cells remain visible without clipping.
+- Accessibility and behavior: passed. The summary is labeled, facts have a labeled grouping, decorative icons are hidden from assistive technology, and the static panel has no button, link, hover, or false-click affordance.
+- Runtime: passed. A clean in-app-browser tab rendered the Evidence Summary with zero console errors.
 
-## Interaction and accessibility evidence
+## Security and data-boundary evidence
 
-- One card opens at a time.
-- Tap and Enter both toggle the flip state.
-- Each card exposes `aria-expanded` and a state-specific accessible name.
-- Reduced-motion CSS disables entrance, flip transition, lift, and sheen.
-- Initial option buttons remain at least 56px high at 375px.
-- Selecting the first chat choice removes the proof rail, preserves the hero, and advances the existing state machine.
-- Browser console showed no application errors; only pre-existing React Router future-flag warnings appeared.
+- No pillar numeric scores or protected findings are rendered.
+- Missing contractor, page, opening, or line-item values collapse rather than displaying “Unknown,” `NaN`, or fabricated zeroes.
+- Hostile sentinels for `full_json`, raw line items, exact total, and phone remain absent from rendered output in the focused test suite.
+- No Supabase function, migration, analysis hook, or report service changed.
 
 ## Comparison history
 
-1. Initial mobile capture: `implementation-375.jpg`
-   - P2: front/back trust-card copy was too small for the 50+ target.
-   - Fix: raised minimum front title, back detail, eyebrow, and action sizes; preserved the fixed square footprint.
-   - Compatibility fix: replaced `color-mix()` shadows with explicit tone variables.
-2. Post-fix capture: `implementation-final-375.jpg`
-   - The cards remain compact, readable, and fully visible at 375px with no horizontal overflow.
-3. Header and mobile-legibility refinement:
-   - Removed the bordered header panel so the brand, centered promise, and split status signals sit directly on the page canvas.
-   - Locked the trust rail to native operating-system fonts with antialiasing and restrained text shadows for narrow-screen clarity.
-   - Confirmed the header computes to a transparent background, zero border, and no box shadow; the cards show no text overflow at 375px, 472px, or desktop widths.
-
-## Evidence limits
-
-The motion recording could not be frame-extracted in the local toolchain. Motion was verified from the supplied CSS contract and the live interactive implementation rather than as a frame-for-frame video comparison. This does not block the approved bounded flip behavior.
+1. Initial implementation verification:
+   - Type-level review found the one-page fixture needed a singular label.
+   - Fix: fact labels now pluralize from the sanitized count, producing “1 page read.”
+2. Desktop visual comparison:
+   - No actionable P0, P1, or P2 differences remained.
+   - Intentional differences were classified as dynamic fixture content and preservation of the existing aggregate metric contract.
+3. Mobile visual comparison:
+   - No overflow or broken wrapping was found.
+   - Evidence panel measured 308.84px wide inside the mobile hero with equal client and scroll widths.
+4. Clean-runtime verification:
+   - A fresh in-app-browser tab rendered the selected state with zero console errors.
 
 ## Findings
 
@@ -63,6 +74,32 @@ No actionable P0, P1, or P2 findings remain.
 
 ## Follow-up polish
 
-- P3: after real-device testing, the metallic border brightness can be tuned ±5% without changing layout or interaction.
+- P3: after testing with unusually long real contractor names, the statement's maximum two-to-three-line rhythm can be tuned if needed without changing the safe data contract.
+
+## Partial reveal CRO polish verification (checkpoint `dc2232ab`)
+
+- Reference: local QA artifact; not committed.
+- Runtime: `http://localhost:8080/dev/report-preview?v=v3&mode=preview`.
+- Desktop and 390px mobile review confirmed the intermediate hero CTA is removed while the blurred findings, central lock overlay, readiness review, and final verification gate remain intact.
+- The evidence facts fail closed and use the approved `quoted line items parsed` label.
+- The center metric is a neutral, non-interactive `Analysis Ready / Pricing & Scope Review` tile.
+- The preview summary names the detected contractor without repeating the total or severity split.
+- The preview Scope Overview contains only safe, available facts: openings detected and the mapped pricing category. The selected fixture correctly renders `Below Market` from its `low` band.
+- The full-report branches remain covered by focused regression tests.
+- Browser console review found no application errors; only existing React Router future-flag warnings were present.
+- Focused forensic-report tests, typecheck, production build, diff checks, and protected-surface no-touch checks passed.
+- Screenshots: local QA artifacts; not committed.
+
+## Preview count derivation correction
+
+- Reference: local QA artifact; not committed.
+- Runtime: `http://localhost:8080/dev/report-preview?v=v3&mode=preview&scenario=typical`.
+- Repo inspection confirmed the production evidence-summary total remains `flagRedCount + flagAmberCount`; the incorrect `2` was isolated to the DEV `typical` fixture's temporary `1 + 1` values.
+- The corrected typical fixture renders 9 material concerns, 9 clarifications, and 18 total review items in both the Evidence Summary and the lower Quote Readiness Review.
+- Singular states render `1 Material Quote Concern`, `1 Clarification Needed`, and `1 item`; zero states use honest non-numeric preview copy.
+- The three blurred findings, central lock overlay, and verification presentation remain unchanged.
+- The 609 × 771 mobile viewport has no horizontal overflow. Desktop comparison matches the requested 9 / Analysis Ready / 9 hierarchy and adds the combined total directly below it.
+- Runtime console review found no application errors; only the existing React Router future-flag warnings remain.
+- Screenshots: local QA artifacts; not committed.
 
 final result: passed

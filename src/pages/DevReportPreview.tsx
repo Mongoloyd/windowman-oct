@@ -11,6 +11,8 @@
  *   ?ledger=full|partial|empty → QuoteMathLedger fixture (full + v3 only)
  *   ?matrix=high|protected|unknown → ChangeOrderDefenseMatrix fixture (full + v3 only)
  *   ?scope=protected|gaps|excluded → ScopeGapChecklist fixture (full + v3 only; default gaps)
+ *   ?scenario=typical|disaster|perfect|missing-data|price-warning|long-name
+ *     → sanitized preview-only Bento visual states
  *   ?source=adapter     → adapter-derived ledger, matrix, and ScopeGap props (full + v3 only)
  *   ?source=live        → staging report-access smoke test (requires scan_session_id)
  *   (no params)      → dark ForensicAuditReport v3 preview (canonical)
@@ -89,7 +91,7 @@ import type { RawFullRow, RawPreviewRow } from "@/types/serviceResults";
 import type { V2ReportModuleSource, V2ReportSourceMode } from "@/types/v2ReportTransport";
 
 type LabMode = "preview" | "full" | "unauthorized";
-type LabPillarStatus = "pass" | "warn" | "fail";
+type LabPillarStatus = "pass" | "warn" | "fail" | "pending";
 
 interface LabPillarScore {
   status: LabPillarStatus;
@@ -105,12 +107,48 @@ interface LabPillarScores {
   warranty: LabPillarScore;
 }
 
+const PREVIEW_PILLAR_DEFS = [
+  { key: "safety_code", label: "Safety & Code" },
+  { key: "install_scope", label: "Installation Scope" },
+  { key: "price_fairness", label: "Price Clarity" },
+  { key: "fine_print", label: "Fine Print" },
+  { key: "warranty", label: "Warranty Coverage" },
+] as const;
+
+function isLabPillarStatus(value: unknown): value is LabPillarStatus {
+  return value === "pass" || value === "warn" || value === "fail" || value === "pending";
+}
+
+function mapPreviewPillarScores(scores: unknown): PillarScore[] {
+  const raw =
+    scores !== null && typeof scores === "object" && !Array.isArray(scores)
+      ? (scores as Record<string, unknown>)
+      : {};
+
+  return PREVIEW_PILLAR_DEFS.map((definition) => {
+    const entry = raw[definition.key];
+    const candidate =
+      entry !== null && typeof entry === "object" && !Array.isArray(entry)
+        ? (entry as { status?: unknown })
+        : null;
+    const status = isLabPillarStatus(candidate?.status)
+      ? candidate.status
+      : "pending";
+
+    return { ...definition, score: null, status };
+  });
+}
+
+function readOptionalBoolean(value: unknown): boolean | null {
+  return typeof value === "boolean" ? value : null;
+}
+
 interface LabPreviewJson {
   grade: string;
   flag_count: number;
-  has_permits: boolean;
+  has_permits: boolean | null;
   top_warning: string;
-  has_warranty: boolean;
+  has_warranty: boolean | null;
   quality_band: "good" | "fair" | "poor";
   summary_teaser: string;
   hard_cap_applied: number | null;
@@ -119,7 +157,7 @@ interface LabPreviewJson {
   missing_items_count: number;
   opening_count_bucket: string;
   payment_risk_detected: boolean;
-  price_per_opening_band: "low" | "market" | "high" | "extreme";
+  price_per_opening_band: "low" | "market" | "high" | "extreme" | null;
   pillar_scores: LabPillarScores;
 }
 
@@ -127,7 +165,7 @@ interface LabProofOfRead {
   page_count: number;
   document_type: string;
   opening_count: number;
-  contractor_name: string;
+  contractor_name: string | null;
   line_item_count: number;
 }
 
@@ -364,6 +402,172 @@ const mockPreviewReportAccessResponse: LabPreviewReportAccessResponse = {
     rubric_version: "1.6.0",
   },
 };
+
+type PreviewEdgeScenario =
+  | "typical"
+  | "disaster"
+  | "perfect"
+  | "missing-data"
+  | "price-warning"
+  | "long-name";
+
+interface PreviewScenarioDefinition {
+  contractorName: string | null;
+  statuses: Record<keyof LabPillarScores, LabPillarStatus>;
+  priceBand: LabPreviewJson["price_per_opening_band"];
+  hasWarranty: boolean | null;
+  hasPermits: boolean | null;
+  redCount: number;
+  amberCount: number;
+}
+
+const PREVIEW_EDGE_SCENARIOS: Readonly<Record<PreviewEdgeScenario, PreviewScenarioDefinition>> = {
+  typical: {
+    contractorName: "BrightView Window",
+    statuses: {
+      safety_code: "fail",
+      install_scope: "pass",
+      price_fairness: "warn",
+      fine_print: "pass",
+      warranty: "pass",
+    },
+    priceBand: "market",
+    hasWarranty: true,
+    hasPermits: true,
+    redCount: 9,
+    amberCount: 9,
+  },
+  disaster: {
+    contractorName: "BrightView Window",
+    statuses: {
+      safety_code: "fail",
+      install_scope: "fail",
+      price_fairness: "warn",
+      fine_print: "fail",
+      warranty: "fail",
+    },
+    priceBand: "high",
+    hasWarranty: false,
+    hasPermits: false,
+    redCount: 4,
+    amberCount: 1,
+  },
+  perfect: {
+    contractorName: "BrightView Window",
+    statuses: {
+      safety_code: "pass",
+      install_scope: "pass",
+      price_fairness: "pass",
+      fine_print: "pass",
+      warranty: "pass",
+    },
+    priceBand: "low",
+    hasWarranty: true,
+    hasPermits: true,
+    redCount: 0,
+    amberCount: 0,
+  },
+  "missing-data": {
+    contractorName: null,
+    statuses: {
+      safety_code: "pending",
+      install_scope: "pending",
+      price_fairness: "pending",
+      fine_print: "pending",
+      warranty: "pending",
+    },
+    priceBand: null,
+    hasWarranty: null,
+    hasPermits: null,
+    redCount: 0,
+    amberCount: 0,
+  },
+  "price-warning": {
+    contractorName: "BrightView Window",
+    statuses: {
+      safety_code: "pass",
+      install_scope: "pass",
+      price_fairness: "fail",
+      fine_print: "pass",
+      warranty: "pass",
+    },
+    priceBand: "high",
+    hasWarranty: true,
+    hasPermits: true,
+    redCount: 1,
+    amberCount: 0,
+  },
+  "long-name": {
+    contractorName:
+      "Southeast Florida Architectural Impact Window and Coastal Door Specialists Incorporated",
+    statuses: {
+      safety_code: "warn",
+      install_scope: "pass",
+      price_fairness: "pass",
+      fine_print: "fail",
+      warranty: "warn",
+    },
+    priceBand: "market",
+    hasWarranty: true,
+    hasPermits: false,
+    redCount: 1,
+    amberCount: 2,
+  },
+};
+
+function parsePreviewEdgeScenario(value: string | null): PreviewEdgeScenario | null {
+  return value != null && Object.prototype.hasOwnProperty.call(PREVIEW_EDGE_SCENARIOS, value)
+    ? (value as PreviewEdgeScenario)
+    : null;
+}
+
+function applyPillarStatuses(
+  source: LabPillarScores,
+  statuses: PreviewScenarioDefinition["statuses"],
+): LabPillarScores {
+  return {
+    safety_code: { ...source.safety_code, status: statuses.safety_code },
+    install_scope: { ...source.install_scope, status: statuses.install_scope },
+    price_fairness: { ...source.price_fairness, status: statuses.price_fairness },
+    fine_print: { ...source.fine_print, status: statuses.fine_print },
+    warranty: { ...source.warranty, status: statuses.warranty },
+  };
+}
+
+function applyPreviewEdgeScenario(
+  fixture: LabPreviewReportAccessResponse,
+  scenarioValue: string | null,
+): LabPreviewReportAccessResponse {
+  const scenarioKey = parsePreviewEdgeScenario(scenarioValue);
+  if (scenarioKey == null) return fixture;
+
+  const scenario = PREVIEW_EDGE_SCENARIOS[scenarioKey];
+  const flagCount = scenario.redCount + scenario.amberCount;
+  return {
+    ...fixture,
+    data: {
+      ...fixture.data,
+      flag_count: flagCount,
+      flag_red_count: scenario.redCount,
+      flag_amber_count: scenario.amberCount,
+      proof_of_read: {
+        ...fixture.data.proof_of_read,
+        contractor_name: scenario.contractorName,
+      },
+      preview_json: {
+        ...fixture.data.preview_json,
+        flag_count: flagCount,
+        has_warranty: scenario.hasWarranty,
+        has_permits: scenario.hasPermits,
+        price_per_opening_band: scenario.priceBand,
+        pillar_scores: applyPillarStatuses(
+          fixture.data.preview_json.pillar_scores,
+          scenario.statuses,
+        ),
+      },
+    },
+  };
+}
 
 const mockFullReportAccessResponse: LabFullReportAccessResponse = {
   ok: true,
@@ -937,6 +1141,10 @@ export default function DevReportPreview() {
               accessLevel="preview"
               analysisId={shell.analysisId}
               grade={shell.grade}
+              contractorName={readOptionalString(livePreviewRow.proof_of_read?.contractor_name)}
+              documentType={readOptionalString(livePreviewRow.proof_of_read?.document_type)}
+              pageCount={readFiniteNumber(livePreviewRow.proof_of_read?.page_count)}
+              lineItemCount={readFiniteNumber(livePreviewRow.proof_of_read?.line_item_count)}
               confidenceScore={shell.confidenceScore}
               signalsExtracted={null}
               signalsTotal={null}
@@ -948,6 +1156,9 @@ export default function DevReportPreview() {
               overpaymentBasis={null}
               pricePerOpening={null}
               pricePerOpeningBand={shell.pricePerOpeningBand}
+              pillarScores={mapPreviewPillarScores(livePreviewRow.preview_json?.pillar_scores)}
+              hasWarranty={readOptionalBoolean(livePreviewRow.preview_json?.has_warranty)}
+              hasPermits={readOptionalBoolean(livePreviewRow.preview_json?.has_permits)}
               marketLow={null}
               marketHigh={null}
               totalContractPrice={null}
@@ -1022,7 +1233,10 @@ export default function DevReportPreview() {
     }
 
     if (mode === "preview") {
-      const fixture = getLabReportFixture("preview");
+      const fixture = applyPreviewEdgeScenario(
+        getLabReportFixture("preview"),
+        params.get("scenario"),
+      );
       if (!isPreviewFixture(fixture)) {
         return null;
       }
@@ -1037,6 +1251,10 @@ export default function DevReportPreview() {
           accessLevel="preview"
           analysisId={fixture.data.analysis_id}
           grade={fixture.data.grade}
+          contractorName={fixture.data.proof_of_read.contractor_name}
+          documentType={fixture.data.proof_of_read.document_type}
+          pageCount={fixture.data.proof_of_read.page_count}
+          lineItemCount={fixture.data.proof_of_read.line_item_count}
           confidenceScore={confidenceScore}
           signalsExtracted={null}
           signalsTotal={null}
@@ -1048,6 +1266,9 @@ export default function DevReportPreview() {
           overpaymentBasis={null}
           pricePerOpening={null}
           pricePerOpeningBand={fixture.data.preview_json.price_per_opening_band}
+          pillarScores={mapPreviewPillarScores(fixture.data.preview_json.pillar_scores)}
+          hasWarranty={fixture.data.preview_json.has_warranty}
+          hasPermits={fixture.data.preview_json.has_permits}
           marketLow={null}
           marketHigh={null}
           totalContractPrice={null}

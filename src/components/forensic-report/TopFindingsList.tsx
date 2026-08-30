@@ -10,7 +10,7 @@
 
 import type { AnalysisFlag } from "@/hooks/useAnalysisData";
 
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, CircleDashed } from "lucide-react";
 
 import { mapFlagSeverityToVisual, toneIconClass } from "./visualState";
 
@@ -22,7 +22,7 @@ interface Props {
 
   blurred?: boolean;
 
-  totalRedCount?: number;
+  totalReviewCount?: number;
 
   /**
 
@@ -78,14 +78,26 @@ function resolveFlagSeverity(flag: AnalysisFlag | null): "red" | "amber" | "gree
 
 
 
-export default function TopFindingsList({ flags, blurred, totalRedCount, variant = "summary" }: Props) {
+function safeAggregateCount(value: number | null | undefined): number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? Math.trunc(value) : 0;
+}
+
+export default function TopFindingsList({
+  flags,
+  blurred,
+  totalReviewCount,
+  variant = "summary",
+}: Props) {
+  const safeTotalReviewCount = safeAggregateCount(totalReviewCount);
+  const showBlurredPreviewPlaceholders = Boolean(blurred && safeTotalReviewCount > 0);
+  const showNeutralPreviewState = Boolean(blurred && safeTotalReviewCount === 0);
 
   // In preview/blurred mode, render skeleton placeholders (NOT real flags).
 
   const itemsToRender: (AnalysisFlag | null)[] = blurred
-
-    ? [null, null, null]
-
+    ? showBlurredPreviewPlaceholders
+      ? [null, null, null]
+      : []
     : flags.slice(0, 5);
 
 
@@ -102,26 +114,23 @@ export default function TopFindingsList({ flags, blurred, totalRedCount, variant
 
       <div className="flex items-center gap-2 mb-1">
 
-        <AlertTriangle size={14} className="text-[hsl(var(--fr-danger))]" />
+        <AlertTriangle size={14} className="text-[hsl(var(--fr-danger))]" aria-hidden="true" />
 
         <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
 
-          {isDetail ? "Detailed Findings" : "Top Forensic Findings"}
+          {isDetail ? "Detailed Findings" : blurred ? "Quote Review Items" : "Top Forensic Findings"}
 
         </h2>
 
       </div>
 
-      <p className="text-xs mb-4 text-slate-300 sm:text-base font-semibold">
+      <p className="text-sm mb-4 text-slate-300 sm:text-base font-semibold">
 
         {blurred
 
-          ? totalRedCount != null
-
-            ? `${Math.min(3, totalRedCount)} Critical Red Flags Identified in Your Quote`
-
-            : "The 3 most critical red flags in your quote"
-
+          ? showBlurredPreviewPlaceholders
+            ? "Material concerns and clarifications were identified in this quote"
+            : "No review items are indicated in this preview."
           : isDetail
 
             ? "The specific quote issues behind your grade."
@@ -132,90 +141,69 @@ export default function TopFindingsList({ flags, blurred, totalRedCount, variant
 
 
 
-      <div className={blurred ? "space-y-3 select-none pointer-events-none" : "space-y-3"}>
+      {showNeutralPreviewState ? (
+        <article className="relative overflow-hidden rounded-2xl border border-slate-800/90 bg-slate-950/60">
+          <div className="p-4 sm:p-5">
+            <div className="flex flex-wrap items-center gap-2 mb-1.5">
+              <CircleDashed size={14} className="text-slate-400" aria-hidden="true" />
+              <span className="text-sm sm:text-base font-bold text-white">
+                No review items are previewed here
+              </span>
+            </div>
+            <p className="text-xs sm:text-sm text-[hsl(var(--fr-text-muted))] leading-relaxed">
+              Category-level details are available in the full analysis after verification.
+            </p>
+          </div>
+        </article>
+      ) : (
+        <div
+          className={blurred ? "space-y-3 select-none pointer-events-none" : "space-y-3"}
+          aria-hidden={blurred ? "true" : undefined}
+        >
+          {itemsToRender.map((flag, idx) => {
+            const severity = resolveFlagSeverity(flag);
+            const visual = mapFlagSeverityToVisual(severity);
+            const severityLabel = SEVERITY_LABELS[severity];
 
-        {itemsToRender.map((flag, idx) => {
+            return (
+              <article
+                key={idx}
+                className={`${visual.cardClass} overflow-hidden relative`}
+                style={{
+                  filter: blurred ? "blur(7px) saturate(85%)" : undefined,
+                  minHeight: blurred ? 96 : undefined,
+                }}
+              >
+                <div className="p-4 sm:p-5 pl-5 sm:pl-6">
+                  <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                    <AlertTriangle
+                      size={14}
+                      className={toneIconClass(visual.tone)}
+                      aria-hidden="true"
+                    />
 
-          const severity = resolveFlagSeverity(flag);
+                    <span className={`text-sm sm:text-base font-bold ${visual.titleClass}`}>
+                      {flag?.label ?? "Locked Review Item"}
+                    </span>
 
-          const visual = mapFlagSeverityToVisual(severity);
+                    <span
+                      className={`ml-auto fr-mono text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider inline-block ${visual.pillClass}`}
+                    >
+                      {flag ? severityLabel : "Details Locked"}
+                      {flag ? ` · ${PILLAR_LABELS[flag.pillar ?? ""] ?? flag.pillar}` : ""}
+                    </span>
+                  </div>
 
-          const severityLabel = SEVERITY_LABELS[severity];
-
-
-
-          return (
-
-            <article
-
-              key={idx}
-
-              className={`${visual.cardClass} overflow-hidden relative`}
-
-              style={{
-
-                filter: blurred ? "blur(7px) saturate(85%)" : undefined,
-
-                minHeight: blurred ? 96 : undefined,
-
-              }}
-
-            >
-
-              <div className="p-4 sm:p-5 pl-5 sm:pl-6">
-
-                <div className="flex flex-wrap items-center gap-2 mb-1.5">
-
-                  <AlertTriangle
-
-                    size={14}
-
-                    className={toneIconClass(visual.tone)}
-
-                  />
-
-                  <span className={`text-sm sm:text-base font-bold ${visual.titleClass}`}>
-
-                    {flag?.label ?? "Hidden Finding Placeholder"}
-
-                  </span>
-
-                  <span
-
-                    className={`ml-auto fr-mono text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider inline-block ${visual.pillClass}`}
-
-                  >
-
-                    {severityLabel}
-
-                    {flag ? ` · ${PILLAR_LABELS[flag.pillar ?? ""] ?? flag.pillar}` : ""}
-
-                  </span>
-
+                  <p className="text-xs sm:text-sm text-[hsl(var(--fr-text-muted))] leading-relaxed">
+                    {flag?.detail ??
+                      "Verify your phone number to unlock what was found, why it matters, and the exact questions to ask before signing."}
+                  </p>
                 </div>
-
-                <p className="text-xs sm:text-sm text-[hsl(var(--fr-text-muted))] leading-relaxed">
-
-                  {flag?.detail ??
-
-                    "Verify your phone number to view the detailed finding, evidence, and benchmark for this critical signal."}
-
-                </p>
-
-              </div>
-
-            </article>
-
-          );
-
-        })}
-
-      </div>
-
+              </article>
+            );
+          })}
+        </div>
+      )}
     </section>
-
   );
-
 }
-
-
