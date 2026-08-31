@@ -396,3 +396,61 @@ Required reading list:
 ## 14. Prompt 3 authorization boundary
 
 Do not begin Prompt 3 based solely on this document. Obtain a new explicit `SPRINT APPROVAL:` scoped to canonical contractor identity and placement authority. Prompt 3 begins with read-only identity reconciliation and an ADR; it does not begin with widget UI, billing, or upload implementation.
+
+---
+
+## 15. Future Restart Prompt
+
+To resume this project, paste the following into a fresh coding-agent chat:
+
+```markdown
+Resume the WindowMan Contractor Widget from the committed hibernation checkpoint.
+
+Historical hibernation checkpoint commit:
+`dc26a1d605fc50fa60bf2f4485c310f485f2361f`
+
+Implementation freeze commit:
+`a5c894a2bc8c648972256e520f52a6e2fe916a98`
+
+The current hibernation document may have later documentation-only commits. Treat the SHAs above as historical anchors, not assumptions about the current branch name or current HEAD.
+
+First read:
+
+- `AGENTS.md`
+- `docs/WIDGET_HIBERNATION_STATE.md`
+- Every required file listed in its resume-preflight section
+
+Perform a read-only resumption audit before editing:
+
+1. Identify the current canonical branch and current repository policy.
+2. Confirm the historical hibernation commit is an ancestor of the current canonical HEAD.
+3. Confirm the checkout is clean and no concurrent agent is writing to it.
+4. Compare current repository migrations, generated types, Edge Function sources, configuration, grants, RLS, Storage policies, contractor identities, and consent contracts against live Supabase project `zgsofkgddpcntdvpckdq`.
+5. Reverify that the current deployed `generate-contractor-brief` preserves official publishable admission followed by exact-session resource authorization.
+6. Identify every material repository, database, function, policy, dependency, and product-decision change since hibernation.
+7. Classify each change as compatible, conflicting, security-sensitive, irrelevant, or unknown.
+8. Decide whether Prompt 3 remains safe and correctly scoped.
+
+Do not assume:
+
+- The canonical branch is still named `forensic_report_v2`.
+- Production is still function version 49.
+- The database, generated types, grants, RLS, Storage policies, or Supabase APIs remain unchanged.
+- Frozen pilot decisions were implemented.
+- Existing widget shell files represent completed widget infrastructure.
+
+Do not modify files, create or switch development branches, deploy, run SQL, access production rows, or invoke production functions during this audit.
+
+Return:
+
+1. Current repository, branch, and live-environment state
+2. Hibernation-commit ancestry result
+3. Repository-to-live parity assessment
+4. Material drift matrix
+5. New blockers or resolved blockers
+6. Current `generate-contractor-brief` admission/authorization parity
+7. Whether Prompt 3 remains the correct next action
+8. A bounded Prompt 3 execution prompt if and only if the evidence supports it
+
+Prompt 3 must begin with canonical contractor-identity and placement-authority reconciliation. It must not begin with widget UI, uploads, billing, or production schema mutations without separate approval.
+```
