@@ -6,6 +6,7 @@ import {
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import {
   type AuthorizedAnalysisRow,
+  type ContractorBriefAdmissionOperation,
   handleGenerateContractorBriefRequest,
 } from "./index.ts";
 
@@ -25,6 +26,12 @@ interface RecordedCalls {
   from: string[];
   updates: Array<{ table: string; payload: unknown }>;
   inserts: Array<{ table: string; payload: unknown }>;
+}
+
+interface InvokeOptions {
+  request?: Request;
+  supabase?: SupabaseClient;
+  admitPublishable?: ContractorBriefAdmissionOperation;
 }
 
 function emptyCalls(): RecordedCalls {
@@ -82,6 +89,9 @@ function request(): Request {
   });
 }
 
+const admitPublishable: ContractorBriefAdmissionOperation = () =>
+  Promise.resolve({ error: null });
+
 function rejectingClient(
   rpcResult: RpcResult,
   calls: RecordedCalls,
@@ -98,7 +108,10 @@ function rejectingClient(
   } as unknown as SupabaseClient;
 }
 
-function authorizedClient(calls: RecordedCalls): SupabaseClient {
+function authorizedClient(
+  calls: RecordedCalls,
+  options: { existingOpportunity?: boolean } = {},
+): SupabaseClient {
   function resultFor(
     table: string,
     operation: "select" | "update" | "insert" | null,
@@ -125,6 +138,18 @@ function authorizedClient(calls: RecordedCalls): SupabaseClient {
       return { data: [], error: null };
     }
     if (table === "contractor_opportunities" && operation === "select") {
+      if (options.existingOpportunity) {
+        return {
+          data: {
+            id: OPPORTUNITY_ID,
+            suggested_match_snapshot: null,
+            suggested_match_confidence: null,
+            suggested_match_reasons: null,
+            suggested_contractor_id: null,
+          },
+          error: null,
+        };
+      }
       return { data: null, error: null };
     }
     if (table === "contractor_opportunities" && operation === "insert") {
@@ -193,7 +218,7 @@ function authorizedClient(calls: RecordedCalls): SupabaseClient {
 }
 
 async function invokeWithoutExternalRequests(
-  supabase: SupabaseClient,
+  options: InvokeOptions,
 ): Promise<{ response: Response; externalRequestCount: number }> {
   const originalFetch = globalThis.fetch;
   let externalRequestCount = 0;
@@ -203,9 +228,13 @@ async function invokeWithoutExternalRequests(
   }) as typeof globalThis.fetch;
 
   try {
-    const response = await handleGenerateContractorBriefRequest(request(), {
-      supabase,
-    });
+    const response = await handleGenerateContractorBriefRequest(
+      options.request ?? request(),
+      {
+        supabase: options.supabase,
+        admitPublishable: options.admitPublishable ?? admitPublishable,
+      },
+    );
     return { response, externalRequestCount };
   } finally {
     globalThis.fetch = originalFetch;
@@ -220,7 +249,7 @@ async function assertRejectedWithoutSideEffects(
   const calls = emptyCalls();
   const { response, externalRequestCount } =
     await invokeWithoutExternalRequests(
-      rejectingClient(rpcResult, calls),
+      { supabase: rejectingClient(rpcResult, calls) },
     );
   const responseText = await response.text();
 
@@ -260,6 +289,199 @@ async function assertRejectedWithoutSideEffects(
     );
   }
 }
+
+Deno.test(
+  "CORS preflight succeeds without admission, parsing, RPC, or side effects",
+  async () => {
+    let admissionCalls = 0;
+    let jsonCalls = 0;
+    const calls = emptyCalls();
+    const preflightRequest = {
+      method: "OPTIONS",
+      json() {
+        jsonCalls += 1;
+        throw new Error("preflight body must not be parsed");
+      },
+    } as unknown as Request;
+
+    const { response, externalRequestCount } =
+      await invokeWithoutExternalRequests({
+        request: preflightRequest,
+        supabase: rejectingClient(
+          { data: [unauthorizedSentinel()], error: null },
+          calls,
+        ),
+        admitPublishable: () => {
+          admissionCalls += 1;
+          return Promise.resolve({ error: null });
+        },
+      });
+
+    const allowHeaders = response.headers.get("Access-Control-Allow-Headers") ??
+      "";
+    assertEquals(response.status, 200);
+    assertEquals(admissionCalls, 0);
+    assertEquals(jsonCalls, 0);
+    assertEquals(calls.rpc, []);
+    assertEquals(calls.from, []);
+    assertEquals(calls.updates, []);
+    assertEquals(calls.inserts, []);
+    assertEquals(externalRequestCount, 0);
+    assertEquals(response.headers.get("Access-Control-Allow-Origin"), "*");
+    for (
+      const requiredHeader of [
+        "authorization",
+        "apikey",
+        "content-type",
+        "x-client-info",
+      ]
+    ) {
+      assert(
+        allowHeaders.split(",").map((header) => header.trim()).includes(
+          requiredHeader,
+        ),
+        `preflight is missing ${requiredHeader}`,
+      );
+    }
+  },
+);
+
+async function assertAdmissionRejected(
+  syntheticAdmissionError: unknown,
+  shouldThrow = false,
+): Promise<void> {
+  let admissionCalls = 0;
+  let jsonCalls = 0;
+  const calls = emptyCalls();
+  const trackedRequest = {
+    method: "POST",
+    json() {
+      jsonCalls += 1;
+      return Promise.resolve({
+        scan_session_id: SCAN_ID,
+        phone_e164: PHONE,
+      });
+    },
+  } as unknown as Request;
+
+  const { response, externalRequestCount } =
+    await invokeWithoutExternalRequests({
+      request: trackedRequest,
+      supabase: rejectingClient(
+        { data: [unauthorizedSentinel()], error: null },
+        calls,
+      ),
+      admitPublishable: () => {
+        admissionCalls += 1;
+        if (shouldThrow) {
+          return Promise.reject(syntheticAdmissionError);
+        }
+        return Promise.resolve({ error: syntheticAdmissionError });
+      },
+    });
+  const responseText = await response.text();
+
+  assertEquals(response.status, 401);
+  assertEquals(responseText, JSON.stringify({ error: "Unauthorized." }));
+  assertFalse(responseText.includes(String(syntheticAdmissionError)));
+  assertEquals(admissionCalls, 1);
+  assertEquals(jsonCalls, 0);
+  assertEquals(calls.rpc, []);
+  assertEquals(calls.from, []);
+  assertEquals(calls.updates, []);
+  assertEquals(calls.inserts, []);
+  assertEquals(externalRequestCount, 0);
+}
+
+Deno.test(
+  "missing publishable admission returns a generic 401 before parsing or RPC",
+  async () => {
+    await assertAdmissionRejected("synthetic missing credential detail");
+  },
+);
+
+Deno.test(
+  "invalid publishable admission returns the same generic 401 without error disclosure",
+  async () => {
+    await assertAdmissionRejected("synthetic invalid credential detail");
+  },
+);
+
+Deno.test(
+  "thrown publishable admission failures return the same generic 401",
+  async () => {
+    await assertAdmissionRejected(
+      new Error("synthetic admission infrastructure detail"),
+      true,
+    );
+  },
+);
+
+Deno.test(
+  "valid publishable admission permits body validation but empty body fields stop before RPC",
+  async () => {
+    const calls = emptyCalls();
+    const emptyBodyRequest = new Request(
+      "http://localhost/generate-contractor-brief",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      },
+    );
+    const { response, externalRequestCount } =
+      await invokeWithoutExternalRequests({
+        request: emptyBodyRequest,
+        supabase: rejectingClient(
+          { data: [authorizedRow()], error: null },
+          calls,
+        ),
+      });
+
+    assertEquals(response.status, 400);
+    assertEquals(
+      await response.text(),
+      JSON.stringify({
+        error: "scan_session_id and phone_e164 are required.",
+      }),
+    );
+    assertEquals(calls.rpc, []);
+    assertEquals(calls.from, []);
+    assertEquals(calls.updates, []);
+    assertEquals(calls.inserts, []);
+    assertEquals(externalRequestCount, 0);
+  },
+);
+
+Deno.test(
+  "valid publishable admission rejects invalid JSON with the generic 400 before RPC",
+  async () => {
+    const calls = emptyCalls();
+    const invalidJsonRequest = new Request(
+      "http://localhost/generate-contractor-brief",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{",
+      },
+    );
+    const { response, externalRequestCount } =
+      await invokeWithoutExternalRequests({
+        request: invalidJsonRequest,
+        supabase: rejectingClient(
+          { data: [authorizedRow()], error: null },
+          calls,
+        ),
+      });
+
+    assertEquals(response.status, 400);
+    assertEquals(calls.rpc, []);
+    assertEquals(calls.from, []);
+    assertEquals(calls.updates, []);
+    assertEquals(calls.inserts, []);
+    assertEquals(externalRequestCount, 0);
+  },
+);
 
 Deno.test(
   "get_analysis_full caller authorization rejects exact unauthorized sentinel before side effects",
@@ -339,7 +561,7 @@ Deno.test(
     const calls = emptyCalls();
     const { response, externalRequestCount } =
       await invokeWithoutExternalRequests(
-        authorizedClient(calls),
+        { supabase: authorizedClient(calls) },
       );
     const body = await response.json();
 
@@ -385,5 +607,38 @@ Deno.test(
     );
     assertEquals(externalRequestCount, 0);
     assert(calls.from.length > 0);
+  },
+);
+
+Deno.test(
+  "valid admission and authorization preserve the existing idempotent opportunity response",
+  async () => {
+    const calls = emptyCalls();
+    const { response, externalRequestCount } =
+      await invokeWithoutExternalRequests({
+        supabase: authorizedClient(calls, { existingOpportunity: true }),
+      });
+    const body = await response.json();
+
+    assertEquals(response.status, 200);
+    assertEquals(body, {
+      success: true,
+      opportunity_id: OPPORTUNITY_ID,
+      analysis_id: ANALYSIS_ID,
+      status: "brief_ready",
+      suggested_match: null,
+      idempotent: true,
+    });
+    assertEquals(calls.rpc.length, 1);
+    assertEquals(
+      calls.inserts.filter((call) => call.table === "contractor_opportunities")
+        .length,
+      0,
+    );
+    assertEquals(
+      calls.inserts.filter((call) => call.table === "event_logs").length,
+      0,
+    );
+    assertEquals(externalRequestCount, 0);
   },
 );

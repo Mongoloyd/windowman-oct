@@ -28,8 +28,17 @@ export interface AuthorizedAnalysisRow {
 
 export type ContractorBriefSupabaseClient = SupabaseClient;
 
+export interface ContractorBriefAdmissionResult {
+  error: unknown | null;
+}
+
+export type ContractorBriefAdmissionOperation = (
+  request: Request,
+) => Promise<ContractorBriefAdmissionResult>;
+
 export interface ContractorBriefDeps {
   supabase?: ContractorBriefSupabaseClient;
+  admitPublishable?: ContractorBriefAdmissionOperation;
 }
 
 type AnalysisAuthorizationResult =
@@ -152,6 +161,28 @@ function authorizationDeniedResponse(): Response {
   );
 }
 
+function applicationAdmissionDeniedResponse(): Response {
+  return new Response(
+    JSON.stringify({ error: "Unauthorized." }),
+    {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    },
+  );
+}
+
+function invalidRequestResponse(): Response {
+  return new Response(
+    JSON.stringify({
+      error: "scan_session_id and phone_e164 are required.",
+    }),
+    {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    },
+  );
+}
+
 function internalErrorResponse(): Response {
   return new Response(
     JSON.stringify({ error: "Internal server error." }),
@@ -160,6 +191,17 @@ function internalErrorResponse(): Response {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     },
   );
+}
+
+async function admitPublishableRequest(
+  request: Request,
+): Promise<ContractorBriefAdmissionResult> {
+  const { createSupabaseContext } = await import("npm:@supabase/server");
+  const { error } = await createSupabaseContext(request, {
+    auth: "publishable",
+  });
+
+  return { error };
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -458,28 +500,41 @@ export async function handleGenerateContractorBriefRequest(
     return new Response(null, { headers: corsHeaders });
   }
 
+  const admitPublishable = deps.admitPublishable ?? admitPublishableRequest;
   try {
-    const { scan_session_id, phone_e164: rawPhone, cta_source } = await req
-      .json();
+    const admission = await admitPublishable(req);
+    if (admission.error !== null) {
+      console.warn("[generate-contractor-brief] application admission denied");
+      return applicationAdmissionDeniedResponse();
+    }
+  } catch {
+    console.warn("[generate-contractor-brief] application admission denied");
+    return applicationAdmissionDeniedResponse();
+  }
+
+  try {
+    let requestBody: unknown;
+    try {
+      requestBody = await req.json();
+    } catch {
+      return invalidRequestResponse();
+    }
+
+    if (!isRecord(requestBody)) {
+      return invalidRequestResponse();
+    }
+
+    const { scan_session_id, phone_e164: rawPhone, cta_source } = requestBody;
     const phone_e164 = typeof rawPhone === "string" ? rawPhone.trim() : "";
 
     console.log("[generate-contractor-brief] invoked", {
-      scan_session_id,
       has_phone_e164: phone_e164.length > 0,
       cta_source: cta_source || "intro_request",
     });
 
     // ── STEP 1: Input Validation ────────────────────────────────────────────
     if (!scan_session_id || !phone_e164) {
-      return new Response(
-        JSON.stringify({
-          error: "scan_session_id and phone_e164 are required.",
-        }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
+      return invalidRequestResponse();
     }
 
     const supabase: ContractorBriefSupabaseClient = deps.supabase ??
@@ -505,7 +560,6 @@ export async function handleGenerateContractorBriefRequest(
     if (authorization.kind === "internal_error") {
       console.error(
         "[generate-contractor-brief] authorization validation failed",
-        { reason: authorization.reason },
       );
       return internalErrorResponse();
     }
@@ -645,9 +699,6 @@ export async function handleGenerateContractorBriefRequest(
     if (existingOpp) {
       console.log(
         "[generate-contractor-brief] idempotent hit — returning existing opportunity",
-        {
-          opportunityId: existingOpp.id,
-        },
       );
 
       const existingMatch = existingOpp.suggested_contractor_id
@@ -773,10 +824,8 @@ export async function handleGenerateContractorBriefRequest(
     }
 
     console.log("[generate-contractor-brief] complete", {
-      opportunityId,
-      analysisId: analysisRow.id,
       status: "brief_ready",
-      suggestedContractor: matchResult.topCandidate?.contractor_id || null,
+      hasSuggestedContractor: matchResult.topCandidate !== null,
     });
 
     // ── STEP 11: Success Response ───────────────────────────────────────────
@@ -801,8 +850,8 @@ export async function handleGenerateContractorBriefRequest(
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       },
     );
-  } catch (err) {
-    console.error("[generate-contractor-brief] unhandled exception:", err);
+  } catch {
+    console.error("[generate-contractor-brief] unhandled exception");
     return internalErrorResponse();
   }
 }
