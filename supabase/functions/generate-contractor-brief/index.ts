@@ -1,4 +1,7 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import {
+  createClient,
+  type SupabaseClient,
+} from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // CORS CONFIGURATION
@@ -8,6 +11,198 @@ const corsHeaders = {
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+type JsonRecord = Record<string, unknown>;
+
+export interface AuthorizedAnalysisRow {
+  analysis_id: string;
+  grade: string;
+  flags: unknown[] | null;
+  full_json: JsonRecord | null;
+  proof_of_read: JsonRecord | null;
+  preview_json: JsonRecord | null;
+  confidence_score: number | null;
+  document_type: string | null;
+  rubric_version: string | null;
+}
+
+export type ContractorBriefSupabaseClient = SupabaseClient;
+
+export interface ContractorBriefAdmissionResult {
+  error: unknown | null;
+}
+
+export type ContractorBriefAdmissionOperation = (
+  request: Request,
+) => Promise<ContractorBriefAdmissionResult>;
+
+export interface ContractorBriefDeps {
+  supabase?: ContractorBriefSupabaseClient;
+  admitPublishable?: ContractorBriefAdmissionOperation;
+}
+
+type AnalysisAuthorizationResult =
+  | { kind: "authorized"; analysis: AuthorizedAnalysisRow }
+  | { kind: "unauthorized" }
+  | { kind: "internal_error"; reason: "rpc_error" | "malformed_result" };
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const ANALYSIS_RESULT_FIELDS = [
+  "analysis_id",
+  "grade",
+  "flags",
+  "full_json",
+  "proof_of_read",
+  "preview_json",
+  "confidence_score",
+  "document_type",
+  "rubric_version",
+] as const;
+
+function isRecord(value: unknown): value is JsonRecord {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasAnalysisResultFields(value: JsonRecord): boolean {
+  return ANALYSIS_RESULT_FIELDS.every((field) =>
+    Object.prototype.hasOwnProperty.call(value, field)
+  );
+}
+
+function isNullableRecord(value: unknown): value is JsonRecord | null {
+  return value === null || isRecord(value);
+}
+
+function isNullableString(value: unknown): value is string | null {
+  return value === null || typeof value === "string";
+}
+
+function isExactUnauthorizedSentinel(value: unknown): boolean {
+  if (!isRecord(value) || !hasAnalysisResultFields(value)) return false;
+
+  return value.analysis_id === null &&
+    value.grade === "__UNAUTHORIZED__" &&
+    value.flags === null &&
+    value.full_json === null &&
+    value.proof_of_read === null &&
+    value.preview_json === null &&
+    value.confidence_score === null &&
+    value.document_type === null &&
+    value.rubric_version === null;
+}
+
+function isAuthorizedAnalysisRow(
+  value: unknown,
+): value is AuthorizedAnalysisRow {
+  if (!isRecord(value) || !hasAnalysisResultFields(value)) return false;
+
+  return typeof value.analysis_id === "string" &&
+    UUID_RE.test(value.analysis_id) &&
+    typeof value.grade === "string" &&
+    value.grade.length > 0 &&
+    value.grade !== "__UNAUTHORIZED__" &&
+    (value.flags === null || Array.isArray(value.flags)) &&
+    isNullableRecord(value.full_json) &&
+    isNullableRecord(value.proof_of_read) &&
+    isNullableRecord(value.preview_json) &&
+    (value.confidence_score === null ||
+      typeof value.confidence_score === "number") &&
+    isNullableString(value.document_type) &&
+    isNullableString(value.rubric_version);
+}
+
+export function evaluateAnalysisAuthorization(
+  data: unknown,
+  error: unknown,
+): AnalysisAuthorizationResult {
+  if (error !== null && error !== undefined) {
+    return { kind: "internal_error", reason: "rpc_error" };
+  }
+
+  if (data === null || data === undefined) {
+    return { kind: "unauthorized" };
+  }
+
+  if (!Array.isArray(data)) {
+    return { kind: "internal_error", reason: "malformed_result" };
+  }
+
+  if (data.length === 0) {
+    return { kind: "unauthorized" };
+  }
+
+  if (data.length !== 1) {
+    return { kind: "internal_error", reason: "malformed_result" };
+  }
+
+  const row = data[0];
+  if (isExactUnauthorizedSentinel(row)) {
+    return { kind: "unauthorized" };
+  }
+
+  if (!isAuthorizedAnalysisRow(row)) {
+    return { kind: "internal_error", reason: "malformed_result" };
+  }
+
+  return { kind: "authorized", analysis: row };
+}
+
+function authorizationDeniedResponse(): Response {
+  return new Response(
+    JSON.stringify({
+      error: "Not authorized. Phone verification required.",
+    }),
+    {
+      status: 403,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    },
+  );
+}
+
+function applicationAdmissionDeniedResponse(): Response {
+  return new Response(
+    JSON.stringify({ error: "Unauthorized." }),
+    {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    },
+  );
+}
+
+function invalidRequestResponse(): Response {
+  return new Response(
+    JSON.stringify({
+      error: "scan_session_id and phone_e164 are required.",
+    }),
+    {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    },
+  );
+}
+
+function internalErrorResponse(): Response {
+  return new Response(
+    JSON.stringify({ error: "Internal server error." }),
+    {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    },
+  );
+}
+
+async function admitPublishableRequest(
+  request: Request,
+): Promise<ContractorBriefAdmissionResult> {
+  const { createSupabaseContext } = await import("npm:@supabase/server");
+  const { error } = await createSupabaseContext(request, {
+    auth: "publishable",
+  });
+
+  return { error };
+}
 
 // ──────────────────────────────────────────────────────────────────────────────
 // BUSINESS LOGIC: PRIORITY SCORE COMPUTATION
@@ -297,62 +492,81 @@ function computeSuggestedMatch(params: {
 // ──────────────────────────────────────────────────────────────────────────────
 // MAIN REQUEST HANDLER
 // ──────────────────────────────────────────────────────────────────────────────
-Deno.serve(async (req) => {
+export async function handleGenerateContractorBriefRequest(
+  req: Request,
+  deps: ContractorBriefDeps = {},
+): Promise<Response> {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const admitPublishable = deps.admitPublishable ?? admitPublishableRequest;
   try {
-    const { scan_session_id, phone_e164: rawPhone, cta_source } = await req
-      .json();
+    const admission = await admitPublishable(req);
+    if (admission.error !== null) {
+      console.warn("[generate-contractor-brief] application admission denied");
+      return applicationAdmissionDeniedResponse();
+    }
+  } catch {
+    console.warn("[generate-contractor-brief] application admission denied");
+    return applicationAdmissionDeniedResponse();
+  }
+
+  try {
+    let requestBody: unknown;
+    try {
+      requestBody = await req.json();
+    } catch {
+      return invalidRequestResponse();
+    }
+
+    if (!isRecord(requestBody)) {
+      return invalidRequestResponse();
+    }
+
+    const { scan_session_id, phone_e164: rawPhone, cta_source } = requestBody;
     const phone_e164 = typeof rawPhone === "string" ? rawPhone.trim() : "";
 
     console.log("[generate-contractor-brief] invoked", {
-      scan_session_id,
-      phone_e164: phone_e164 ? `${phone_e164.slice(0, 4)}****` : "(empty)",
+      has_phone_e164: phone_e164.length > 0,
       cta_source: cta_source || "intro_request",
     });
 
     // ── STEP 1: Input Validation ────────────────────────────────────────────
     if (!scan_session_id || !phone_e164) {
-      return new Response(
-        JSON.stringify({
-          error: "scan_session_id and phone_e164 are required.",
-        }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
+      return invalidRequestResponse();
     }
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    const supabase: ContractorBriefSupabaseClient = deps.supabase ??
+      createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      );
 
     // ── STEP 2: Phone Verification Gate ─────────────────────────────────────
-    const { data: authCheck } = await supabase.rpc("get_analysis_full", {
-      p_scan_session_id: scan_session_id,
-      p_phone_e164: phone_e164,
-    });
+    const { data: authCheck, error: authError } = await supabase.rpc(
+      "get_analysis_full",
+      {
+        p_scan_session_id: scan_session_id,
+        p_phone_e164: phone_e164,
+      },
+    );
 
-    if (!authCheck || authCheck.length === 0) {
-      console.error("[generate-contractor-brief] authorization failed", {
-        scan_session_id,
-      });
-      return new Response(
-        JSON.stringify({
-          error: "Not authorized. Phone verification required.",
-        }),
-        {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
+    const authorization = evaluateAnalysisAuthorization(authCheck, authError);
+    if (authorization.kind === "unauthorized") {
+      console.warn("[generate-contractor-brief] authorization denied");
+      return authorizationDeniedResponse();
+    }
+    if (authorization.kind === "internal_error") {
+      console.error(
+        "[generate-contractor-brief] authorization validation failed",
       );
+      return internalErrorResponse();
     }
 
-    const analysis = authCheck[0];
+    // No service-role table access or downstream side effect is reachable
+    // before the RPC returns exactly one validated authorized analysis row.
+    const analysis = authorization.analysis;
 
     // ── STEP 3: Lead Context Retrieval ──────────────────────────────────────
     const { data: session } = await supabase
@@ -485,9 +699,6 @@ Deno.serve(async (req) => {
     if (existingOpp) {
       console.log(
         "[generate-contractor-brief] idempotent hit — returning existing opportunity",
-        {
-          opportunityId: existingOpp.id,
-        },
       );
 
       const existingMatch = existingOpp.suggested_contractor_id
@@ -613,10 +824,8 @@ Deno.serve(async (req) => {
     }
 
     console.log("[generate-contractor-brief] complete", {
-      opportunityId,
-      analysisId: analysisRow.id,
       status: "brief_ready",
-      suggestedContractor: matchResult.topCandidate?.contractor_id || null,
+      hasSuggestedContractor: matchResult.topCandidate !== null,
     });
 
     // ── STEP 11: Success Response ───────────────────────────────────────────
@@ -641,14 +850,12 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       },
     );
-  } catch (err) {
-    console.error("[generate-contractor-brief] unhandled exception:", err);
-    return new Response(
-      JSON.stringify({ error: "Internal server error." }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
-    );
+  } catch {
+    console.error("[generate-contractor-brief] unhandled exception");
+    return internalErrorResponse();
   }
-});
+}
+
+if (import.meta.main) {
+  Deno.serve((request) => handleGenerateContractorBriefRequest(request));
+}
