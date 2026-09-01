@@ -120,7 +120,7 @@ function persistInput(sha: string): PersistSuccessInput {
       promptVersion: "p1",
     },
     provider: "gemini",
-    runtimeModelId: "gemini-2.0-flash",
+    runtimeModelId: "gemini-3.1-flash-lite",
     validatedPayload: { document_type: "contractor_quote" },
     normalizedPayload: { contract_total_cents: 0 },
     fieldConfidence: { document_type: 0.9 },
@@ -216,7 +216,7 @@ Deno.test({
     assertEquals(extErr, null);
     assertEquals(
       (extraction as { runtime_model_id?: string } | null)?.runtime_model_id,
-      "gemini-2.0-flash",
+      "gemini-3.1-flash-lite",
     );
   },
 });

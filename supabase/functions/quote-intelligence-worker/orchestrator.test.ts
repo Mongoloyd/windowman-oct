@@ -100,7 +100,7 @@ function createMockPorts(
           county_name: "Miami-Dade",
           zip_code: "33139",
         }),
-        modelId: "gemini-2.0-flash",
+        modelId: "gemini-3.1-flash-lite",
         metadata: {},
       };
     },
@@ -244,7 +244,7 @@ Deno.test("malformed provider payload yields no authoritative observations", asy
       return {
         ok: true,
         text: "not-json",
-        modelId: "gemini-2.0-flash",
+        modelId: "gemini-3.1-flash-lite",
         metadata: {},
       };
     },

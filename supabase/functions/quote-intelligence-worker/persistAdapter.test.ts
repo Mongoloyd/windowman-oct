@@ -85,7 +85,7 @@ function samplePersistInput(
   return {
     identity: IDENTITY,
     provider: "gemini",
-    runtimeModelId: "gemini-2.0-flash",
+    runtimeModelId: "gemini-3.1-flash-lite",
     validatedPayload: { document_type: "contractor_quote" },
     normalizedPayload: { contract_total_cents: 0 },
     fieldConfidence: { document_type: 0.9 },
@@ -141,7 +141,7 @@ Deno.test("buildPersistRpcPayload maps extraction metadata and observations", ()
   assertEquals(payload.p_schema_version, IDENTITY.schemaVersion);
   assertEquals(payload.p_prompt_version, IDENTITY.promptVersion);
   assertEquals(payload.p_provider, "gemini");
-  assertEquals(payload.p_runtime_model_id, "gemini-2.0-flash");
+  assertEquals(payload.p_runtime_model_id, "gemini-3.1-flash-lite");
   assertEquals(payload.p_validated_payload, input.validatedPayload);
   assertEquals(payload.p_normalized_payload, input.normalizedPayload);
   assertEquals(payload.p_field_confidence, input.fieldConfidence);

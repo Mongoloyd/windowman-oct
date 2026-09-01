@@ -404,6 +404,7 @@ Additional secrets found in function code (not all listed in `.env.example`):
 | Secret | Used by |
 |--------|---------|
 | `GEMINI_SCAN_MODEL`, `GEMINI_SCAN_TIMEOUT_MS`, `GEMINI_SCAN_MAX_OUTPUT_TOKENS`, `SCAN_STALE_PROCESSING_MINUTES`, `SCAN_MAX_FILE_BYTES` | `scan-quote` via `_shared/scannerConfig.ts` |
+| `QI_GEMINI_MODEL`, `QI_GEMINI_TIMEOUT_MS` | `quote-intelligence-worker` via `contract.ts` / `provider.ts` (independent of `GEMINI_SCAN_MODEL`; align both in production) |
 | `OTP_QA_BYPASS_*`, `WM_SUPABASE_PROJECT_REF` | `send-otp`, `verify-otp` |
 | `RESEND_API_KEY`, `REPORT_FROM_EMAIL`, `REPORT_BASE_URL`, `RESEND_FROM_EMAIL` | `send-report-email`, `lead-reactivation`, `send-contractor-handoff`, `request-partner-access`, `dispatch-lead` |
 | `PHONECALL_BOT_WEBHOOK_URL` | `request-callback`, `submit-diagnosis-intake`, `dial-lead`, `voice-followup` |

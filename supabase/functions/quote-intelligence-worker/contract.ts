@@ -29,7 +29,8 @@ export const ALLOWED_FIELD_KEY_SET: ReadonlySet<string> = new Set(
 );
 
 export const PROVIDER = "gemini";
-export const DEFAULT_RUNTIME_MODEL_ID = "gemini-2.0-flash";
+/** Aligns with authorized `GEMINI_SCAN_MODEL` / live `QI_GEMINI_MODEL` when unset. */
+export const DEFAULT_RUNTIME_MODEL_ID = "gemini-3.1-flash-lite";
 
 export const DEFAULT_JOB_LEASE_SECONDS = 300;
 export const DEFAULT_CONTENT_LEASE_SECONDS = 300;
