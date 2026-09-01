@@ -11,6 +11,10 @@ describe("IntelligenceConsoleSurface", () => {
     expect(screen.getByRole("heading", { name: "Quoted vs Bought", level: 1 })).toBeInTheDocument();
     expect(screen.getByText("Governed estimates")).toBeInTheDocument();
     expect(screen.getAllByText("Verified accepted").length).toBeGreaterThan(0);
+    expect(screen.getByText("Evidence ledger")).toBeInTheDocument();
+    expect(screen.getByLabelText("Quoted, verified accepted, and verified final price distributions")).toBeInTheDocument();
+    expect(screen.getByText("Governed decision pipelines")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Sales brief" })).toHaveLength(1);
 
     for (const label of ["Pulse", "Quoted vs Bought", "Products & Price", "Scope & Terms", "Contractors & Bids", "Outcomes & Data Quality"]) {
       expect(screen.getAllByRole("button", { name: label }).length).toBeGreaterThan(0);
@@ -38,6 +42,16 @@ describe("IntelligenceConsoleSurface", () => {
     expect(screen.getByText("Approved language")).toBeInTheDocument();
     expect(screen.getByText("Do not claim")).toBeInTheDocument();
     expect(screen.getByText("Do not call an unknown outcome a loss.")).toBeInTheDocument();
+  });
+
+  it("renders the quality sequence as four separately named governed stages", () => {
+    render(<IntelligenceConsoleSurface data={INTERNAL_INTELLIGENCE_FIXTURE} />);
+    fireEvent.click(screen.getAllByRole("button", { name: "Outcomes & Data Quality" })[0]);
+
+    for (const label of ["Closed extraction contract", "Outcome verification coverage", "Quote/revision linkage", "Public cohort readiness"]) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+    expect(screen.getByText("Governed / in-development pipelines")).toBeInTheDocument();
   });
 
   it("renders an explicit insufficient-data state", () => {

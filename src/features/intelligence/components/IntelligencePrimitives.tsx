@@ -19,6 +19,7 @@ import type {
   InsightModule,
   IntelligenceViewState,
 } from "../types";
+import { OracleStatusRail, ORACLE_VISUAL_TOKENS } from "./OracleVisualSystem";
 
 const metricTone = {
   BLUE: "border-blue-200 bg-blue-50/70 text-blue-950",
@@ -47,16 +48,13 @@ export function UnverifiedMetricChip({
 
 export function SyntheticPreviewBanner({ compact = false }: { compact?: boolean }) {
   return (
-    <div
-      role="status"
-      className={cn(
-        "flex items-center justify-center gap-2 border border-blue-200 bg-blue-50 text-blue-900 shadow-sm",
-        compact ? "min-h-9 rounded-lg px-3 text-xs font-semibold" : "min-h-11 rounded-xl px-4 text-sm font-bold",
-      )}
-    >
-      <Sparkles className="h-4 w-4" aria-hidden="true" />
-      Synthetic Preview · No live market or customer data
-    </div>
+    <OracleStatusRail
+      compact={compact}
+      tone="legacy"
+      icon={<Sparkles className="h-4 w-4" aria-hidden="true" />}
+      title="Synthetic Preview"
+      detail={compact ? undefined : "No live market or customer data"}
+    />
   );
 }
 
@@ -90,12 +88,12 @@ export function StatePanel({ state, audience }: { state: Exclude<IntelligenceVie
   const config = configs[state];
 
   return (
-    <section className={cn("mx-auto flex min-h-[360px] max-w-3xl flex-col items-center justify-center rounded-2xl border p-8 text-center shadow-sm", config.tone)}>
+    <section className={cn("mx-auto flex min-h-[360px] max-w-3xl flex-col items-center justify-center border p-8 text-center", ORACLE_VISUAL_TOKENS.panel, config.tone)}>
       {config.icon}
       <h2 className="mt-4 text-2xl font-black tracking-tight">{config.title}</h2>
       <p className="mt-2 max-w-xl text-sm font-medium leading-6 opacity-80">{config.detail}</p>
       {state === "ERROR" ? (
-        <button type="button" className="mt-6 min-h-11 rounded-lg border border-current bg-white px-5 text-sm font-bold shadow-sm">
+        <button type="button" className={cn("mt-6 min-h-11 rounded-lg border border-current bg-white px-5 text-sm font-bold shadow-sm", ORACLE_VISUAL_TOKENS.focusRing)}>
           Try again
         </button>
       ) : null}

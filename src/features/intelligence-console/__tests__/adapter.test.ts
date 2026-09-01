@@ -53,6 +53,9 @@ describe("intelligence console fixture contract", () => {
 
     expect(viewModel.initialToAcceptedDeltaCents).toBeNull();
     expect(viewModel.initialToAcceptedDeltaBasisPoints).toBeNull();
+    expect(viewModel.moneyStages[0].sampleCount).toBe(200);
+    expect(viewModel.moneyStages[1].sampleCount).toBe(32);
+    expect(viewModel.moneyStages[2].sampleCount).toBe(32);
     expect(viewModel.acceptedToFinalDeltaCents).toBe(0);
     expect(viewModel.acceptedToFinalDeltaBasisPoints).toBe(0);
   });
