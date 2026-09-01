@@ -33,6 +33,7 @@ The babysitter may **PROCEED** only for files explicitly named in that scope.
 | `supabase/functions/report-access/**` | Service-role proxy for preview/full; post-OTP full fetch gate |
 | `supabase/functions/_shared/otpQaBypass.ts` | QA bypass evaluation shared by send-otp / verify-otp |
 | `supabase/functions/scan-quote/**` | Scanner Brain: extraction → deterministic scoring → `analyses` upsert |
+| `supabase/functions/quote-intelligence-worker/**` | private quote download, service-role database and Storage access, Gemini extraction, intelligence persistence |
 | `supabase/functions/dev-report-unlock/**` | Dev-only full-report bypass; must not generalize to prod |
 | `src/components/post-scan/PostScanReportSwitcher.tsx` | In-page post-scan orchestrator (OTP, reveal, CTA) |
 | `src/pages/ReportClassic.tsx` | Classic-route OTP orchestrator (`/report/classic/:sessionId`) |

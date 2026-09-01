@@ -176,3 +176,6 @@ verify_jwt = false
 
 [functions.ingest-native-lead]
 verify_jwt = false
+
+[functions.quote-intelligence-worker]
+verify_jwt = false
