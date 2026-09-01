@@ -1,18 +1,15 @@
-import { AlertTriangle } from "lucide-react";
+import { FlaskConical } from "lucide-react";
 import { SYNTHETIC_DATA_BANNER } from "@/lib/windowOracle";
+import { OracleStatusRail } from "@/features/intelligence/components/OracleVisualSystem";
 
 export function SyntheticBanner() {
   return (
-    <div
-      data-testid="oracle-synthetic-banner"
-      className="flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950"
-      role="status"
-    >
-      <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
-      <span className="font-semibold tracking-wide">{SYNTHETIC_DATA_BANNER}</span>
-      <span className="text-amber-900/80">
-        Fixture-only — not connected to Supabase or production UX.
-      </span>
-    </div>
+    <OracleStatusRail
+      testId="oracle-synthetic-banner"
+      tone="synthetic"
+      icon={<FlaskConical className="h-4 w-4 shrink-0 text-[#356AC3]" aria-hidden />}
+      title={SYNTHETIC_DATA_BANNER}
+      detail="Local fixture evidence only · no Supabase or production market connection."
+    />
   );
 }

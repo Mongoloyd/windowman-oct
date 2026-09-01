@@ -92,13 +92,13 @@ export function runOracleQuery(input: RunOracleQueryInput): OracleQueryResponse 
   let marketScopeLabel: string;
   if (request.provenance === "VERIFIED_SOLD") {
     primaryObs = sold;
-    marketScopeLabel = "WindowMan-observed verified sold market";
+    marketScopeLabel = "Synthetic verified-sold fixture cohort";
   } else if (request.provenance === "COMPARE") {
     primaryObs = quoted;
-    marketScopeLabel = "WindowMan-observed quoted market (compare mode)";
+    marketScopeLabel = "Synthetic quoted fixture cohort (compare mode)";
   } else {
     primaryObs = quoted;
-    marketScopeLabel = "WindowMan-observed quoted market";
+    marketScopeLabel = "Synthetic quoted fixture cohort";
   }
 
   const ppo = buildDistribution(primaryObs.map((o) => o.ppo));

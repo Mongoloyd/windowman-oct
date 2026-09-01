@@ -14,7 +14,7 @@ import {
 } from "@/lib/windowOracle";
 
 const DEFAULT_REQUEST: OracleQueryRequest = {
-  geography: { zip: "33301", county: "Broward" },
+  geography: { zip: "00001", county: "Synthetic Region A" },
   product: { brand: "PGT", series: "WinGuard", type: "single_hung" },
   project: { projectType: "full_home", openingCountMin: 8, openingCountMax: 20 },
   provenance: "QUOTED",

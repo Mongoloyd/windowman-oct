@@ -230,4 +230,6 @@ export async function handleCapiEventRequest(req: Request): Promise<Response> {
   return processAuthorizedCapiRequest(body, req, supabase);
 }
 
-Deno.serve(handleCapiEventRequest);
+if (import.meta.main) {
+  Deno.serve(handleCapiEventRequest);
+}

@@ -191,7 +191,7 @@ describe("windowOracle fallback", () => {
     const plan = broadenCohort({
       pool: SYNTHETIC_ORACLE_OBSERVATIONS.filter((o) => o.provenance === "QUOTED"),
       request: {
-        geography: { zip: "33480", county: "Palm Beach" },
+        geography: { zip: "00022", county: "Synthetic Region C" },
         product: { brand: "PGT", series: "WinGuard", type: "single_hung", width: 36, height: 60 },
         provenance: "QUOTED",
         dateRangeMonths: 24,
@@ -213,7 +213,7 @@ describe("windowOracle queryEngine provenance", () => {
     const quoted = runOracleQuery({
       observations: SYNTHETIC_ORACLE_OBSERVATIONS,
       request: {
-        geography: { zip: "33301", county: "Broward" },
+        geography: { zip: "00001", county: "Synthetic Region A" },
         provenance: "QUOTED",
         dateRangeMonths: 24,
         homeownerPpo: 2710,
@@ -229,7 +229,7 @@ describe("windowOracle queryEngine provenance", () => {
     const compare = runOracleQuery({
       observations: SYNTHETIC_ORACLE_OBSERVATIONS,
       request: {
-        geography: { county: "Broward" },
+        geography: { county: "Synthetic Region A" },
         provenance: "COMPARE",
         dateRangeMonths: 24,
       },
@@ -249,7 +249,7 @@ describe("windowOracle queryEngine provenance", () => {
     const result = runOracleQuery({
       observations: SYNTHETIC_ORACLE_OBSERVATIONS,
       request: {
-        geography: { zip: "33301", county: "Broward" },
+        geography: { zip: "00001", county: "Synthetic Region A" },
         provenance: "QUOTED",
         dateRangeMonths: 24,
         homeownerPpo: 3500,

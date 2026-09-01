@@ -27,7 +27,7 @@ export function buildCallSummary(input: {
 
   const scriptLines: string[] = [
     `Confidence: ${confidence.level}`,
-    `${confidence.sampleCount} comparable WindowMan-observed ${input.provenanceLabel} projects.`,
+    `${confidence.sampleCount} comparable synthetic ${input.provenanceLabel} projects.`,
   ];
 
   if (ppo.median !== null) {
@@ -52,20 +52,20 @@ export function buildCallSummary(input: {
     confidence.sampleCount >= 5
   ) {
     approvedInterpretation =
-      "This quote appears materially above the middle of the WindowMan-observed market for comparable projects.";
+      "This synthetic input appears materially above the middle of the fixture cohort for comparable projects.";
   } else if (
     position === "BELOW_P25" &&
     confidence.level !== "INSUFFICIENT" &&
     confidence.sampleCount >= 5
   ) {
     approvedInterpretation =
-      "This quote appears below the middle of the WindowMan-observed market for comparable projects.";
+      "This synthetic input appears below the middle of the fixture cohort for comparable projects.";
   } else if (
     (position === "WITHIN_MIDDLE_50" || position === "AT_MEDIAN") &&
     confidence.level !== "INSUFFICIENT"
   ) {
     approvedInterpretation =
-      "This quote sits within the middle of the WindowMan-observed market for comparable projects.";
+      "This synthetic input sits within the middle of the fixture cohort for comparable projects.";
   }
 
   if (
