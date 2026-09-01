@@ -5,6 +5,8 @@
 # Admin-only mode (-AdminDataOnly): exact clean detached release worktree only (Admin Recovery 1E).
 # PR 173 mode (-Pr173ExtractionOnly): scan-quote, send-contractor-handoff, dial-lead only,
 #   gated on a read-only remote migration-ledger prerequisite check (Sprint 6A).
+# Quote-intelligence worker mode (-QuoteIntelligenceWorkerOnly): quote-intelligence-worker only
+#   (Sprint QI Worker-Only Deploy Wrapper V1).
 # Never deploy-all, never --prune, never db push/reset/secrets/typegen.
 param(
     [switch]$GoogleAdsOnly,
@@ -12,6 +14,7 @@ param(
     [switch]$AdminDataOnly,
     [switch]$Pr173ExtractionOnly,
     [switch]$WmChatOnly,
+    [switch]$QuoteIntelligenceWorkerOnly,
     [switch]$DryRun,
     [string]$FunctionName,
     [string]$ReleaseWorktree,
@@ -83,6 +86,10 @@ $WmChatRequiredMigrations = @(
     "20260801143000",
     "20260816022737"
 )
+$QuoteIntelligenceWorkerConfirmPhrase = "DEPLOY_QUOTE_INTELLIGENCE_WORKER_LIVE"
+$QuoteIntelligenceWorkerTargetFunctions = @(
+    "quote-intelligence-worker"
+)
 $WmChatAmbiguousExitCode = 116
 $WmChatRequiredDenoVersion = "2.1.4"
 $NativeProcessDefaultTimeoutSeconds = 120
@@ -120,6 +127,28 @@ function Assert-Pr173FunctionSources {
         $EntryPath = Join-Path $Worktree $RelativeEntryPath
         if (-not (Test-Path -LiteralPath $EntryPath -PathType Leaf)) {
             Fail 102 "Refusing PR 173 deploy: function source is missing at '$EntryPath'."
+        }
+        Write-Host "  - $RelativeEntryPath present"
+    }
+}
+
+function Assert-QuoteIntelligenceWorkerFunctionSource {
+    param([Parameter(Mandatory = $true)][string]$Worktree)
+
+    if ($QuoteIntelligenceWorkerTargetFunctions.Count -ne 1) {
+        Fail 106 "Refusing quote-intelligence worker deploy: worker-only deploy set must contain exactly one function."
+    }
+    if ($QuoteIntelligenceWorkerTargetFunctions[0] -cne "quote-intelligence-worker") {
+        Fail 106 "Refusing quote-intelligence worker deploy: worker-only deploy set must be quote-intelligence-worker."
+    }
+
+    Write-Host ""
+    Write-Host "Quote-intelligence worker source safeguards:"
+    foreach ($Fn in $QuoteIntelligenceWorkerTargetFunctions) {
+        $RelativeEntryPath = "supabase/functions/$Fn/index.ts"
+        $EntryPath = Join-Path $Worktree $RelativeEntryPath
+        if (-not (Test-Path -LiteralPath $EntryPath -PathType Leaf)) {
+            Fail 106 "Refusing quote-intelligence worker deploy: function source is missing at '$EntryPath'."
         }
         Write-Host "  - $RelativeEntryPath present"
     }
@@ -1309,7 +1338,7 @@ function Invoke-WmChatDeployMode {
         -not [string]::IsNullOrWhiteSpace($env:WMCHAT_MIGRATION_PSQL_TEST_OVERRIDE)) {
         Fail 124 "WmChat live mode forbids executable test overrides. Use reviewed tools from PATH/repository dependencies."
     }
-    if ($GoogleAdsOnly -or $DispatchOnly -or $AdminDataOnly -or $Pr173ExtractionOnly) {
+    if ($GoogleAdsOnly -or $DispatchOnly -or $AdminDataOnly -or $Pr173ExtractionOnly -or $QuoteIntelligenceWorkerOnly) {
         Fail 124 "SAFETY STOP: -WmChatOnly is mutually exclusive with every other deployment mode."
     }
     if (-not [string]::IsNullOrWhiteSpace($FunctionName) -or
@@ -1525,7 +1554,7 @@ function Invoke-WmChatDeployMode {
 function Invoke-AdminDataMode {
     [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
 
-    if ($GoogleAdsOnly -or $DispatchOnly -or $Pr173ExtractionOnly -or $WmChatOnly) {
+    if ($GoogleAdsOnly -or $DispatchOnly -or $Pr173ExtractionOnly -or $WmChatOnly -or $QuoteIntelligenceWorkerOnly) {
         Fail 60 "SAFETY STOP: -AdminDataOnly is mutually exclusive with all other deployment modes."
     }
     if ([string]::IsNullOrWhiteSpace($FunctionName)) {
@@ -1795,13 +1824,18 @@ function Invoke-AdminDataMode {
     exit 0
 }
 
+if ($QuoteIntelligenceWorkerOnly -and ($AdminDataOnly -or $WmChatOnly)) {
+    Fail 105 "SAFETY STOP: -QuoteIntelligenceWorkerOnly is mutually exclusive with -AdminDataOnly and -WmChatOnly."
+}
+
 if ($AdminDataOnly) {
     Invoke-AdminDataMode
 }
 if ($WmChatOnly) {
     Invoke-WmChatDeployMode
 }
-if (($DryRun -and -not $Pr173ExtractionOnly) -or
+$LegacyScopedDeployMode = $GoogleAdsOnly -or $DispatchOnly -or $Pr173ExtractionOnly -or $QuoteIntelligenceWorkerOnly
+if (($DryRun -and -not $LegacyScopedDeployMode) -or
     -not [string]::IsNullOrWhiteSpace($FunctionName) -or
     -not [string]::IsNullOrWhiteSpace($ReleaseWorktree) -or
     -not [string]::IsNullOrWhiteSpace($ReleaseCommit) -or
@@ -1909,8 +1943,11 @@ Write-Host "config.toml project_id is local Docker namespace only - never used a
 if ($GoogleAdsOnly -and $DispatchOnly) {
     Fail 15 "SAFETY STOP: -GoogleAdsOnly and -DispatchOnly are mutually exclusive."
 }
-if ($Pr173ExtractionOnly -and ($GoogleAdsOnly -or $DispatchOnly)) {
+if ($Pr173ExtractionOnly -and ($GoogleAdsOnly -or $DispatchOnly -or $QuoteIntelligenceWorkerOnly)) {
     Fail 100 "SAFETY STOP: -Pr173ExtractionOnly is mutually exclusive with all other deployment modes."
+}
+if ($QuoteIntelligenceWorkerOnly -and ($GoogleAdsOnly -or $DispatchOnly)) {
+    Fail 105 "SAFETY STOP: -QuoteIntelligenceWorkerOnly is mutually exclusive with all other deployment modes."
 }
 
 if ($GoogleAdsOnly) {
@@ -1936,6 +1973,16 @@ if ($GoogleAdsOnly) {
     )
     $DeploySummaryTitle = "PR 173 extraction, handoff, and dial functions only"
     $DeployNextStep = "Next: smoke tests and migration application remain separate human-operated actions; this wrapper performed neither."
+} elseif ($QuoteIntelligenceWorkerOnly) {
+    $TargetFunctions = $QuoteIntelligenceWorkerTargetFunctions
+    if ($TargetFunctions.Count -ne 1 -or $TargetFunctions[0] -cne "quote-intelligence-worker") {
+        Fail 106 "Refusing quote-intelligence worker deploy: deploy set must resolve to quote-intelligence-worker only."
+    }
+    $DeployCommands = @(
+        "npx supabase functions deploy quote-intelligence-worker --project-ref $ApprovedRef"
+    )
+    $DeploySummaryTitle = "Quote-intelligence worker only"
+    $DeployNextStep = "Next: human operator sets QUOTE_INTELLIGENCE_WORKER_SECRET, then runs auth/no-work smoke. Cron activation remains unauthorized."
 } else {
     $TargetFunctions = $DefaultTargetFunctions
     $DeployCommands = @(
@@ -1954,6 +2001,9 @@ if ($Pr173ExtractionOnly) {
     Assert-Pr173FunctionSources -Worktree $RepoRoot
     Assert-Pr173MigrationPrerequisites -Worktree $RepoRoot
 }
+if ($QuoteIntelligenceWorkerOnly) {
+    Assert-QuoteIntelligenceWorkerFunctionSource -Worktree $RepoRoot
+}
 
 Write-Host ""
 Write-Host "=== DEPLOY SUMMARY ($DeploySummaryTitle) ==="
@@ -1965,6 +2015,7 @@ Write-Host "Linked ref (if any): $(if ($LinkedRef) { $LinkedRef } else { '(none)
 Write-Host "GoogleAdsOnly mode:  $(if ($GoogleAdsOnly) { 'true' } else { 'false' })"
 Write-Host "DispatchOnly mode:   $(if ($DispatchOnly) { 'true' } else { 'false' })"
 Write-Host "Pr173ExtractionOnly mode: $(if ($Pr173ExtractionOnly) { 'true' } else { 'false' })"
+Write-Host "QuoteIntelligenceWorkerOnly mode: $(if ($QuoteIntelligenceWorkerOnly) { 'true' } else { 'false' })"
 Write-Host "Functions to deploy:"
 foreach ($Fn in $TargetFunctions) { Write-Host "  - $Fn" }
 Write-Host "Commands that will run:"
@@ -1978,12 +2029,25 @@ if ($Pr173ExtractionOnly -and $DryRun) {
     Write-Host ("DRY RUN {0} NO DEPLOYMENT PERFORMED" -f [char]0x2014)
     exit 0
 }
+if ($QuoteIntelligenceWorkerOnly -and $DryRun) {
+    Write-Host "Quote-intelligence worker deploy set is exactly: quote-intelligence-worker"
+    Write-Host ("DRY RUN {0} NO DEPLOYMENT PERFORMED" -f [char]0x2014)
+    exit 0
+}
 
-$ModeConfirmPhrase = if ($Pr173ExtractionOnly) { $Pr173ConfirmPhrase } else { $ConfirmPhrase }
+$ModeConfirmPhrase = if ($Pr173ExtractionOnly) {
+    $Pr173ConfirmPhrase
+} elseif ($QuoteIntelligenceWorkerOnly) {
+    $QuoteIntelligenceWorkerConfirmPhrase
+} else {
+    $ConfirmPhrase
+}
 Write-Host "Type exactly: $ModeConfirmPhrase"
 $Typed = Read-Host "Confirmation"
-# Legacy modes keep their existing case-insensitive comparison; PR 173 requires an exact match.
-if ($Typed -ne $ModeConfirmPhrase -or ($Pr173ExtractionOnly -and $Typed -cne $Pr173ConfirmPhrase)) {
+# Legacy modes keep their existing case-insensitive comparison; PR 173 and QI worker require an exact match.
+if ($Typed -ne $ModeConfirmPhrase -or
+    ($Pr173ExtractionOnly -and $Typed -cne $Pr173ConfirmPhrase) -or
+    ($QuoteIntelligenceWorkerOnly -and $Typed -cne $QuoteIntelligenceWorkerConfirmPhrase)) {
     Fail 40 "Deploy aborted: confirmation phrase mismatch."
 }
 
