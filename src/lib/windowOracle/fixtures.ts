@@ -36,10 +36,10 @@ type Seed = {
 };
 
 const CONTRACTORS = [
-  { key: "abc-impact", label: "ABC Impact" },
-  { key: "xyz-windows", label: "XYZ Windows" },
-  { key: "sunshine-glass", label: "Sunshine Glass" },
-  { key: "coastal-shield", label: "Coastal Shield" },
+  { key: "synthetic-contractor-a", label: "Synthetic Contractor A" },
+  { key: "synthetic-contractor-b", label: "Synthetic Contractor B" },
+  { key: "synthetic-contractor-c", label: "Synthetic Contractor C" },
+  { key: "synthetic-contractor-d", label: "Synthetic Contractor D" },
 ] as const;
 
 const BRANDS = [
@@ -116,12 +116,12 @@ export function buildSyntheticOracleObservations(
     zips: string[];
     projectType: string;
   }> = [
-    { county: "Broward", zips: ["33301", "33304", "33020"], projectType: "full_home" },
-    { county: "Miami-Dade", zips: ["33139", "33156"], projectType: "partial" },
-    { county: "Palm Beach", zips: ["33401", "33480"], projectType: "full_home" },
+    { county: "Synthetic Region A", zips: ["00001", "00002", "00003"], projectType: "full_home" },
+    { county: "Synthetic Region B", zips: ["00011", "00012"], projectType: "partial" },
+    { county: "Synthetic Region C", zips: ["00021", "00022"], projectType: "full_home" },
   ];
 
-  // Dense Broward PGT quoted market
+  // Dense synthetic Region A quoted market
   for (let i = 0; i < 40; i++) {
     n += 1;
     const brand = BRANDS[i % 3];
@@ -131,8 +131,8 @@ export function buildSyntheticOracleObservations(
       id: `OBS-${String(n).padStart(3, "0")}`,
       provenance: "QUOTED",
       daysAgo: 10 + (i % 300),
-      zip: i < 28 ? "33301" : counties[0].zips[i % 3],
-      county: "Broward",
+      zip: i < 28 ? "00001" : counties[0].zips[i % 3],
+      county: "Synthetic Region A",
       projectType: "full_home",
       openings: 8 + (i % 10),
       installedPpo: i === 7 ? 4200 : base, // outlier
@@ -147,7 +147,7 @@ export function buildSyntheticOracleObservations(
     });
   }
 
-  // Thin ZIP 33480 (Palm Beach) — few samples
+  // Thin synthetic ZIP 00022 (Region C) — few samples
   for (let i = 0; i < 3; i++) {
     n += 1;
     const c = CONTRACTORS[i % CONTRACTORS.length];
@@ -155,8 +155,8 @@ export function buildSyntheticOracleObservations(
       id: `OBS-${String(n).padStart(3, "0")}`,
       provenance: "QUOTED",
       daysAgo: 40 + i * 10,
-      zip: "33480",
-      county: "Palm Beach",
+      zip: "00022",
+      county: "Synthetic Region C",
       projectType: "full_home",
       openings: 12,
       installedPpo: 2100 + i * 80,
@@ -171,7 +171,7 @@ export function buildSyntheticOracleObservations(
     });
   }
 
-  // Miami-Dade mix + missing brand/series
+  // Synthetic Region B mix + missing brand/series
   for (let i = 0; i < 20; i++) {
     n += 1;
     const brand = BRANDS[i % BRANDS.length];
@@ -181,7 +181,7 @@ export function buildSyntheticOracleObservations(
       provenance: "QUOTED",
       daysAgo: 20 + i * 7,
       zip: counties[1].zips[i % 2],
-      county: "Miami-Dade",
+      county: "Synthetic Region B",
       projectType: i % 2 === 0 ? "partial" : "full_home",
       openings: 10 + (i % 8),
       installedPpo: 1600 + i * 35,
@@ -203,8 +203,8 @@ export function buildSyntheticOracleObservations(
     id: `OBS-${String(n).padStart(3, "0")}`,
     provenance: "QUOTED",
     daysAgo: 5,
-    zip: "33301",
-    county: "Broward",
+    zip: "00001",
+    county: "Synthetic Region A",
     projectType: "full_home",
     openings: 14,
     installedPpo: 1900,
@@ -214,8 +214,8 @@ export function buildSyntheticOracleObservations(
     productType: "single_hung",
     width: 36,
     height: 60,
-    contractorKey: "abc-impact",
-    contractorLabel: "ABC Impact",
+    contractorKey: "synthetic-contractor-a",
+    contractorLabel: "Synthetic Contractor A",
     manualReviewRequired: true,
   });
 
@@ -224,8 +224,8 @@ export function buildSyntheticOracleObservations(
     id: `OBS-${String(n).padStart(3, "0")}`,
     provenance: "QUOTED",
     daysAgo: 6,
-    zip: "33301",
-    county: "Broward",
+    zip: "00001",
+    county: "Synthetic Region A",
     projectType: "full_home",
     openings: 14,
     installedPpo: 1900,
@@ -235,8 +235,8 @@ export function buildSyntheticOracleObservations(
     productType: "single_hung",
     width: 36,
     height: 60,
-    contractorKey: "abc-impact",
-    contractorLabel: "ABC Impact",
+    contractorKey: "synthetic-contractor-a",
+    contractorLabel: "Synthetic Contractor A",
     duplicateSuspected: true,
   });
 
@@ -245,8 +245,8 @@ export function buildSyntheticOracleObservations(
     id: `OBS-${String(n).padStart(3, "0")}`,
     provenance: "QUOTED",
     daysAgo: 8,
-    zip: "33301",
-    county: "Broward",
+    zip: "00001",
+    county: "Synthetic Region A",
     projectType: "full_home",
     openings: 10,
     installedPpo: null,
@@ -256,8 +256,8 @@ export function buildSyntheticOracleObservations(
     productType: "casement",
     width: 36,
     height: 60,
-    contractorKey: "xyz-windows",
-    contractorLabel: "XYZ Windows",
+    contractorKey: "synthetic-contractor-b",
+    contractorLabel: "Synthetic Contractor B",
   });
 
   // Verified sold outcomes
@@ -270,8 +270,8 @@ export function buildSyntheticOracleObservations(
       id: `OBS-${String(n).padStart(3, "0")}`,
       provenance: "VERIFIED_SOLD",
       daysAgo: 15 + i * 11,
-      zip: i < 15 ? "33301" : counties[1].zips[i % 2],
-      county: i < 15 ? "Broward" : "Miami-Dade",
+      zip: i < 15 ? "00001" : counties[1].zips[i % 2],
+      county: i < 15 ? "Synthetic Region A" : "Synthetic Region B",
       projectType: "full_home",
       openings: 10 + (i % 6),
       installedPpo: quoteLike - 120,
@@ -296,7 +296,7 @@ export function buildSyntheticOracleObservations(
     provenance: "QUOTED",
     daysAgo: 50,
     zip: null,
-    county: "Broward",
+    county: "Synthetic Region A",
     projectType: "full_home",
     openings: 16,
     installedPpo: 1880,
@@ -306,8 +306,8 @@ export function buildSyntheticOracleObservations(
     productType: "sliding_glass_door",
     width: 72,
     height: 80,
-    contractorKey: "sunshine-glass",
-    contractorLabel: "Sunshine Glass",
+    contractorKey: "synthetic-contractor-c",
+    contractorLabel: "Synthetic Contractor C",
   });
 
   return seeds.map((s) => makeObservation(s, nowMs));

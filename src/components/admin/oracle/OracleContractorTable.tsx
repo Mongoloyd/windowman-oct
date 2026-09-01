@@ -16,7 +16,7 @@ export function OracleContractorTable({ contractors }: Props) {
     <Card data-testid="oracle-contractor-table">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm">
-          Contractor observations (WindowMan-observed)
+          Contractor observations (synthetic fixture)
         </CardTitle>
       </CardHeader>
       <CardContent className="overflow-x-auto">

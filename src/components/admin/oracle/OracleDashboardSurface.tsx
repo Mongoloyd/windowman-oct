@@ -1,10 +1,12 @@
 /**
  * Fixture-only Window Oracle operator cockpit.
  *
- * UNMOUNTED: do not import into App.tsx / AdminDashboard / adminDataService.
+ * VISUAL-LAB ONLY: do not import into App.tsx / AdminDashboard / adminDataService.
  */
 
 import { useState } from "react";
+import { canRenderRegisteredMetric } from "@/types/domainMetric";
+import type { MetricId } from "@/types/metrics.dictionary";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { OracleCallSummaryPanel } from "./OracleCallSummaryPanel";
@@ -33,9 +35,54 @@ const TABS: Array<{ id: TabId; label: string }> = [
   { id: "observations", label: "Observations" },
 ];
 
+const COCKPIT_METRIC_IDS: readonly MetricId[] = [
+  "cockpit.confidence_level",
+  "cockpit.sample_count",
+  "cockpit.exact_match_count",
+  "cockpit.geography_level",
+  "cockpit.ppo_median",
+  "cockpit.ppo_p25",
+  "cockpit.ppo_p75",
+  "cockpit.ppo_average",
+  "cockpit.ppo_min",
+  "cockpit.ppo_max",
+  "cockpit.homeowner_ppo",
+  "cockpit.provenance_counts",
+  "cockpit.quoted_vs_sold_delta_pct",
+  "cockpit.contractor_quote_count",
+  "cockpit.contractor_sold_count",
+  "cockpit.contractor_median_quoted_ppo",
+  "cockpit.contractor_median_sold_ppo",
+  "cockpit.contractor_beat_price_freq",
+  "cockpit.contractor_tier",
+  "cockpit.brand_series_median_ppo",
+  "cockpit.call_summary_position",
+  "cockpit.eligibility_summary",
+  "cockpit.date_range",
+  "cockpit.fallbacks",
+  "cockpit.brand_series_observation_count",
+  "cockpit.recent_observation_id",
+  "cockpit.high_price_outlier_flag",
+  "cockpit.tight_distribution_flag",
+];
+
 export function OracleDashboardSurface() {
   const { request, setRequest, response, search } = useOracleFixtureHarness();
   const [tab, setTab] = useState<TabId>("overview");
+  const contractReady = COCKPIT_METRIC_IDS.every((metricId) =>
+    canRenderRegisteredMetric(metricId, "COCKPIT", response.sampleCount),
+  );
+
+  if (!contractReady) {
+    return (
+      <div className="space-y-4 p-4" data-testid="oracle-dashboard">
+        <SyntheticBanner />
+        <div role="status" className="rounded-xl border border-dashed border-amber-300 bg-amber-50 p-6 text-center text-sm font-semibold text-amber-950">
+          INSUFFICIENT_DATA · Cockpit metrics are withheld because the registered synthetic contract or minimum sample is not satisfied.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 p-4" data-testid="oracle-dashboard">
@@ -56,13 +103,15 @@ export function OracleDashboardSurface() {
         onSearch={search}
       />
 
-      <div className="flex flex-wrap gap-2">
+      <div role="tablist" aria-label="Operator Cockpit views" className="flex flex-wrap gap-2">
         {TABS.map((t) => (
           <button
             key={t.id}
             type="button"
+            role="tab"
+            aria-selected={tab === t.id}
             onClick={() => setTab(t.id)}
-            className={`rounded-full border px-3 py-1 text-xs font-medium ${
+            className={`min-h-11 rounded-lg border px-3 py-2 text-xs font-medium ${
               tab === t.id
                 ? "border-slate-900 bg-slate-900 text-white"
                 : "border-slate-200 bg-white text-slate-700"

@@ -59,7 +59,7 @@ describe("windowOracle PII contract", () => {
     const response: OracleQueryResponse = runOracleQuery({
       observations: SYNTHETIC_ORACLE_OBSERVATIONS,
       request: {
-        geography: { zip: "33301", county: "Broward" },
+        geography: { zip: "00001", county: "Synthetic Region A" },
         provenance: "COMPARE",
         dateRangeMonths: 24,
         homeownerPpo: 2500,

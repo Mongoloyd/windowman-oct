@@ -20,10 +20,10 @@ describe("OracleDashboardSurface", () => {
   it("switches tabs without mounting production routes", () => {
     render(<OracleDashboardSurface />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Contractors" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Contractors" }));
     expect(screen.getByTestId("oracle-contractor-table")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Quoted vs sold" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Quoted vs sold" }));
     expect(screen.getByTestId("oracle-quoted-vs-sold")).toBeInTheDocument();
   });
 });

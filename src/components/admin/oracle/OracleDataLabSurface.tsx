@@ -1,11 +1,13 @@
 /**
  * Oracle Data Lab v0 — fixture-only microscope.
  *
- * UNMOUNTED: do not import into App.tsx / AdminDashboard / adminDataService.
+ * VISUAL-LAB ONLY: do not import into App.tsx / AdminDashboard / adminDataService.
  * Purpose: see coverage, intake, early distributions from synthetic data.
  */
 
 import { useMemo } from "react";
+import { canRenderRegisteredMetric } from "@/types/domainMetric";
+import type { MetricId } from "@/types/metrics.dictionary";
 import {
   BarChart3,
   Database,
@@ -26,6 +28,29 @@ import {
 } from "@/lib/windowOracle";
 import { SyntheticBanner } from "./SyntheticBanner";
 
+const DATA_LAB_METRIC_IDS: readonly MetricId[] = [
+  "datalab.intake_quotes",
+  "datalab.intake_analyses",
+  "datalab.intake_trusted",
+  "datalab.intake_rejected",
+  "datalab.intake_manual_review",
+  "datalab.field_coverage_pct",
+  "datalab.project_market_distribution",
+  "datalab.contractor_label",
+  "datalab.contractor_quote_count",
+  "datalab.contractor_sold_count",
+  "datalab.contractor_median_quoted_ppo",
+  "datalab.contractor_median_sold_ppo",
+  "datalab.contractor_beat_price_frequency",
+  "datalab.recent_observation_id",
+  "datalab.recent_observation_provenance",
+  "datalab.recent_observation_region",
+  "datalab.recent_observation_zip",
+  "datalab.recent_observation_brand",
+  "datalab.recent_observation_opening_count",
+  "datalab.recent_observation_ppo",
+];
+
 function money(n: number | null): string {
   if (n === null) return "—";
   return `$${Math.round(n).toLocaleString("en-US")}`;
@@ -33,6 +58,9 @@ function money(n: number | null): string {
 
 export function OracleDataLabSurface() {
   const observations = SYNTHETIC_ORACLE_OBSERVATIONS;
+  const contractReady = DATA_LAB_METRIC_IDS.every((metricId) =>
+    canRenderRegisteredMetric(metricId, "DATALAB", observations.length),
+  );
 
   const intake = useMemo(() => computeDataIntake(observations), [observations]);
   const coverage = useMemo(
@@ -43,12 +71,20 @@ export function OracleDataLabSurface() {
     () => computeProjectMarketBuckets(observations),
     [observations],
   );
+  const reportableProjectMarket = projectMarket.filter((row) =>
+    canRenderRegisteredMetric(
+      "datalab.project_market_distribution",
+      "DATALAB",
+      row.sampleCount,
+    ),
+  );
+  const withheldProjectMarketCount = projectMarket.length - reportableProjectMarket.length;
 
   const contractorRows = useMemo(() => {
     const result = runOracleQuery({
       observations,
       request: {
-        geography: { county: "Broward" },
+        geography: { county: "Synthetic Region A" },
         provenance: "COMPARE",
         dateRangeMonths: 24,
       },
@@ -69,6 +105,17 @@ export function OracleDataLabSurface() {
     [observations],
   );
 
+  if (!contractReady) {
+    return (
+      <div className="space-y-4 p-4" data-testid="oracle-data-lab">
+        <SyntheticBanner />
+        <div role="status" className="rounded-xl border border-dashed border-amber-300 bg-amber-50 p-6 text-center text-sm font-semibold text-amber-950">
+          INSUFFICIENT_DATA · Data Lab values are withheld because the registered synthetic contract is incomplete.
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4 p-4" data-testid="oracle-data-lab">
       <SyntheticBanner />
@@ -78,8 +125,8 @@ export function OracleDataLabSurface() {
           Oracle Data Lab v0
         </h1>
         <p className="text-sm text-slate-700">
-          Microscope over what WindowMan already captures — not the full searchable
-          Oracle. Quoted and sold provenance stay separate.
+          Fixture-based contract microscope — not a live searchable Oracle. Quoted
+          and sold provenance stay separate.
         </p>
       </header>
 
@@ -162,7 +209,7 @@ export function OracleDataLabSurface() {
               </tr>
             </thead>
             <tbody>
-              {projectMarket.map((row) => (
+              {reportableProjectMarket.map((row) => (
                 <tr key={`${row.county}-${row.projectType}`} className="border-b border-slate-50">
                   <td className="py-2 pr-3">{row.county}</td>
                   <td className="py-2 pr-3">{row.projectType}</td>
@@ -180,6 +227,11 @@ export function OracleDataLabSurface() {
           <p className="text-xs text-slate-500 mt-2">
             source_type=QUOTED · sample_count shown per row · synthetic geography
           </p>
+          {withheldProjectMarketCount > 0 && (
+            <p className="mt-1 text-xs font-medium text-amber-800">
+              {withheldProjectMarketCount} synthetic cohort withheld below the registered minimum sample of 5.
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -188,7 +240,7 @@ export function OracleDataLabSurface() {
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-sm">
             <Users className="h-4 w-4" />
-            Contractor Observations (WindowMan-observed)
+            Contractor Observations (synthetic fixture)
           </CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto">
@@ -204,24 +256,45 @@ export function OracleDataLabSurface() {
               </tr>
             </thead>
             <tbody>
-              {contractorRows.map((row) => (
-                <tr key={row.contractorKey} className="border-b border-slate-50">
-                  <td className="py-2 pr-3">{row.contractorLabel}</td>
-                  <td className="py-2 pr-3 tabular-nums">{row.quoteCount}</td>
-                  <td className="py-2 pr-3 tabular-nums">{row.verifiedSoldCount}</td>
-                  <td className="py-2 pr-3 tabular-nums">{money(row.medianQuotedPpo)}</td>
-                  <td className="py-2 pr-3 tabular-nums">{money(row.medianSoldPpo)}</td>
-                  <td className="py-2 tabular-nums">
-                    {row.beatPriceFrequency === null
-                      ? "—"
-                      : `${Math.round(row.beatPriceFrequency * 100)}%`}
-                  </td>
-                </tr>
-              ))}
+              {contractorRows.map((row) => {
+                const quoteMetricsReady = canRenderRegisteredMetric(
+                  "datalab.contractor_median_quoted_ppo",
+                  "DATALAB",
+                  row.quoteCount,
+                );
+                const soldMetricsReady = canRenderRegisteredMetric(
+                  "datalab.contractor_median_sold_ppo",
+                  "DATALAB",
+                  row.verifiedSoldCount,
+                );
+
+                return (
+                  <tr key={row.contractorKey} className="border-b border-slate-50">
+                    <td className="py-2 pr-3">{row.contractorLabel}</td>
+                    <td className="py-2 pr-3 tabular-nums">
+                      {quoteMetricsReady ? row.quoteCount : "INSUFFICIENT_DATA"}
+                    </td>
+                    <td className="py-2 pr-3 tabular-nums">
+                      {soldMetricsReady ? row.verifiedSoldCount : "INSUFFICIENT_DATA"}
+                    </td>
+                    <td className="py-2 pr-3 tabular-nums">
+                      {quoteMetricsReady ? money(row.medianQuotedPpo) : "INSUFFICIENT_DATA"}
+                    </td>
+                    <td className="py-2 pr-3 tabular-nums">
+                      {soldMetricsReady ? money(row.medianSoldPpo) : "INSUFFICIENT_DATA"}
+                    </td>
+                    <td className="py-2 tabular-nums">
+                      {!soldMetricsReady || row.beatPriceFrequency === null
+                        ? "INSUFFICIENT_DATA"
+                        : `${Math.round(row.beatPriceFrequency * 100)}%`}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
           <p className="text-xs text-slate-500 mt-2">
-            Not a market ranking — WindowMan-observed counts only.
+            Synthetic observations only. Contractor outcome metrics fail closed below their registered sample minimum.
           </p>
         </CardContent>
       </Card>
@@ -231,7 +304,7 @@ export function OracleDataLabSurface() {
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-sm">
             <BarChart3 className="h-4 w-4" />
-            Recent Observations
+            Recent Synthetic Observations
           </CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto">

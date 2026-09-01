@@ -26,7 +26,7 @@ export function OracleSearchFilters({ value, onChange, onSearch }: Props) {
                 geography: { ...value.geography, zip: e.target.value },
               })
             }
-            placeholder="33301"
+            placeholder="00001"
           />
         </Field>
         <Field label="County">
@@ -38,7 +38,7 @@ export function OracleSearchFilters({ value, onChange, onSearch }: Props) {
                 geography: { ...value.geography, county: e.target.value },
               })
             }
-            placeholder="Broward"
+            placeholder="Synthetic Region A"
           />
         </Field>
         <Field label="Brand">

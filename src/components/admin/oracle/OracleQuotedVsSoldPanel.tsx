@@ -35,7 +35,7 @@ export function OracleQuotedVsSoldPanel({
         </div>
         {deltaPct !== null && (
           <p className="sm:col-span-2 text-slate-700">
-            Within the WindowMan-observed cohort, verified sold prices were{" "}
+            Within the synthetic fixture cohort, verified sold prices were{" "}
             <span className="font-semibold">{Math.abs(deltaPct)}%</span>{" "}
             {deltaPct < 0 ? "below" : "above"} initial quoted prices at the
             median.
