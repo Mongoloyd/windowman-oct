@@ -21,6 +21,13 @@
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+import {
+  attachReportSummaryBody,
+  fullAuthorizationAllowsSummaryLookup,
+  loadDisplayEligibleSummaryBody,
+  stripPreviewUnsafeFields,
+  UNAUTHORIZED_FULL_ENVELOPE,
+} from "./reportSummaryProjection.ts";
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
 
@@ -459,9 +466,12 @@ Deno.serve(async (req: Request) => {
 
       // Belt-and-suspenders: get_analysis_preview does not return full_json,
       // but strip it defensively in case the RPC definition ever changes.
-      const { full_json: _fullJsonStripped, ...safeRow } = row;
-
-      return json({ ok: true, mode: "preview", data: safeRow });
+      // Also strip any Summary V1 field so preview can never carry it.
+      return json({
+        ok: true,
+        mode: "preview",
+        data: stripPreviewUnsafeFields(row),
+      });
     } catch (err) {
       console.error(
         "[report-access] preview exception:",
@@ -504,21 +514,24 @@ Deno.serve(async (req: Request) => {
     }
 
     // Backend sentinel: phone/session mismatch or phone not yet verified.
-    if (row.grade === "__UNAUTHORIZED__") {
-      return json({
-        ok: true,
-        mode: "full",
-        authorized: false,
-        locked: true,
-        reason: "unauthorized",
-      });
+    // Summary V1 is never queried or returned on this path.
+    if (!fullAuthorizationAllowsSummaryLookup(row.grade)) {
+      return json(UNAUTHORIZED_FULL_ENVELOPE);
     }
+
+    const analysisId = typeof row.analysis_id === "string" ? row.analysis_id : "";
+    const reportSummaryBody = analysisId
+      ? await loadDisplayEligibleSummaryBody(supabase, analysisId)
+      : null;
 
     return json({
       ok: true,
       mode: "full",
       authorized: true,
-      data: withV2SourceOnAuthorizedFullData(row),
+      data: attachReportSummaryBody(
+        withV2SourceOnAuthorizedFullData(row),
+        reportSummaryBody,
+      ),
     });
   } catch (err) {
     console.error(

@@ -1,14 +1,20 @@
 import { describe, it, expect } from "vitest";
+import {
+  buildFullData,
+  buildPreviewData,
+  buildTerminalData,
+} from "./useAnalysisData";
+import type { RawFullRow, RawPreviewRow } from "@/types/serviceResults";
 
 /**
- * useAnalysisData unit tests — pure helper coverage.
+ * useAnalysisData unit tests â€” pure helper coverage.
  *
  * The hook itself relies heavily on Supabase RPCs and cannot be unit-tested
  * without mocking the entire client. These tests cover the deterministic
  * mapping helpers that are exercised by the hook.
  */
 
-// ── mapSeverity logic (inlined for testing since it's not exported) ──────────
+// â”€â”€ mapSeverity logic (inlined for testing since it's not exported) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function mapSeverity(raw: string | undefined | null): "red" | "amber" | "green" {
   const s = (raw || "").toLowerCase();
@@ -78,5 +84,73 @@ describe("pillarStatus", () => {
   it("returns fail for < 40", () => {
     expect(pillarStatus(39)).toBe("fail");
     expect(pillarStatus(0)).toBe("fail");
+  });
+});
+
+const READY_SUMMARY = "WindowMan found three high-risk gaps in this estimate.";
+
+const previewRow: RawPreviewRow = {
+  analysis_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  grade: "C",
+  flag_count: 2,
+  flag_red_count: 1,
+  flag_amber_count: 1,
+  proof_of_read: null,
+  preview_json: { summary_teaser: "preview teaser" },
+  confidence_score: 0.8,
+  document_type: "estimate",
+  rubric_version: "v1",
+};
+
+function fullRow(overrides: Partial<RawFullRow> = {}): RawFullRow {
+  return {
+    analysis_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    grade: "C",
+    flags: [],
+    full_json: { summary: "deterministic full_json.summary" },
+    proof_of_read: null,
+    preview_json: { summary_teaser: "preview teaser" },
+    confidence_score: 0.8,
+    document_type: "estimate",
+    rubric_version: "v1",
+    ...overrides,
+  };
+}
+
+describe("AnalysisData reportSummaryBody", () => {
+  it("buildPreviewData always sets reportSummaryBody to null", () => {
+    const data = buildPreviewData(previewRow);
+    expect(data.reportSummaryBody).toBeNull();
+    expect(data.summaryTeaser).toBe("preview teaser");
+    expect(data.summary).toBeNull();
+  });
+
+  it("buildFullData maps authorized ready report_summary_body", () => {
+    const data = buildFullData(fullRow({ report_summary_body: READY_SUMMARY }));
+    expect(data.reportSummaryBody).toBe(READY_SUMMARY);
+    expect(data.summary).toBe("deterministic full_json.summary");
+    expect(data.summaryTeaser).toBe("deterministic full_json.summary");
+  });
+
+  it("buildFullData does not source reportSummaryBody from full_json.summary", () => {
+    const data = buildFullData(fullRow({ report_summary_body: null }));
+    expect(data.reportSummaryBody).toBeNull();
+    expect(data.summary).toBe("deterministic full_json.summary");
+  });
+
+  it("buildFullData does not source reportSummaryBody from preview_json.summary_teaser", () => {
+    const data = buildFullData(
+      fullRow({
+        report_summary_body: undefined,
+        full_json: {},
+        preview_json: { summary_teaser: "preview teaser" },
+      }),
+    );
+    expect(data.reportSummaryBody).toBeNull();
+    expect(data.summaryTeaser).toBe("preview teaser");
+  });
+
+  it("buildTerminalData sets reportSummaryBody to null", () => {
+    expect(buildTerminalData("error").reportSummaryBody).toBeNull();
   });
 });

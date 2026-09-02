@@ -57,6 +57,8 @@ export interface RawFullRow {
   rubric_version: string | null;
   v2_source_version?: string | null;
   v2_source?: V2SourceProjection | null;
+  /** Authorized FULL only. Display-eligible ReportSummaryV1.summary_body, else null. */
+  report_summary_body?: string | null;
 }
 
 export interface ScanStatusRow {

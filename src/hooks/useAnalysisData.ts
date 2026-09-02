@@ -79,6 +79,8 @@ export interface AnalysisData {
   scopeGapDetected?: boolean;
   summaryTeaser?: string | null;
   missingItemsCount?: number;
+  /** Authorized FULL only. Display-eligible ReportSummaryV1.summary_body, else null. */
+  reportSummaryBody?: string | null;
 }
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -210,9 +212,15 @@ function extractPillarScoresWithFlags(previewJson: unknown, flags: AnalysisFlag[
   });
 }
 
+function parseAuthorizedReportSummaryBody(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 // ── Data assembly helpers ───────────────────────────────────────────────────
 
-function buildPreviewData(row: RawPreviewRow): AnalysisData {
+export function buildPreviewData(row: RawPreviewRow): AnalysisData {
   const proofOfRead = row.proof_of_read;
   const previewJson = row.preview_json;
   const qualityBandRaw = (previewJson as any)?.quality_band as string | undefined;
@@ -260,6 +268,7 @@ function buildPreviewData(row: RawPreviewRow): AnalysisData {
       typeof hybridPreview?.missing_items_count === "number" && hybridPreview.missing_items_count >= 0
         ? hybridPreview.missing_items_count
         : 0,
+    reportSummaryBody: null,
   };
 }
 
@@ -337,10 +346,11 @@ export function buildFullData(row: RawFullRow): AnalysisData {
     scopeGapDetected: Boolean(hybridFull?.scope_gap_detected),
     summaryTeaser,
     missingItemsCount: fullMissingItems.length,
+    reportSummaryBody: parseAuthorizedReportSummaryBody(row.report_summary_body),
   };
 }
 
-function buildTerminalData(sessionStatus: string): AnalysisData {
+export function buildTerminalData(sessionStatus: string): AnalysisData {
   return {
     analysisId: null,
     grade: "N/A",
@@ -374,6 +384,7 @@ function buildTerminalData(sessionStatus: string): AnalysisData {
     scopeGapDetected: false,
     summaryTeaser: null,
     missingItemsCount: 0,
+    reportSummaryBody: null,
   };
 }
 

@@ -26,6 +26,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function parseReportSummaryBody(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 function mapRawFullRow(row: Record<string, unknown>): RawFullRow {
   return {
     analysis_id:
@@ -43,6 +49,7 @@ function mapRawFullRow(row: Record<string, unknown>): RawFullRow {
     rubric_version: typeof row.rubric_version === "string" ? row.rubric_version : null,
     v2_source_version: parseV2SourceVersion(row.v2_source_version),
     v2_source: parseV2SourceProjection(row.v2_source),
+    report_summary_body: parseReportSummaryBody(row.report_summary_body),
   };
 }
 
