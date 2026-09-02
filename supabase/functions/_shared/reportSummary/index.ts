@@ -3,6 +3,10 @@ export {
   factPackHasMinimumFacts,
 } from "./buildFullSummaryFactPackV1.ts";
 export {
+  buildSummarySourceFromAnalysisRow,
+} from "./buildSummarySourceFromAnalysis.ts";
+export type { AnalysisRowForSummary } from "./buildSummarySourceFromAnalysis.ts";
+export {
   MAX_ACTION_QUESTIONS,
   MAX_MISSING_FINDINGS,
   MAX_POSITIVE_FINDINGS,

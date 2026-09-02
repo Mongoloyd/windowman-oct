@@ -8,7 +8,7 @@
 
 ## 1. Executive Summary
 
-WindowMan ships **55 Edge Functions** under `supabase/functions/` (excluding `_shared/` helpers) in this inventory, after registering `quote-intelligence-worker`. Directly affected totals: function-directory count **54 → 55**; config-entry count **54 → 55**. `quote-intelligence-worker` has a matching `[functions.quote-intelligence-worker]` block with `verify_jwt = false`. Pre-existing inventory gaps outside this sprint, including `ingest-native-lead`, are unchanged and were not repaired.
+WindowMan ships **56 Edge Functions** under `supabase/functions/` (excluding `_shared/` helpers) in this inventory, after registering `report-summary-worker`. Directly affected totals: function-directory count **55 → 56**; config-entry count **55 → 56**. `report-summary-worker` has a matching `[functions.report-summary-worker]` block with `verify_jwt = false`. Pre-existing inventory gaps outside this sprint, including `ingest-native-lead`, are unchanged and were not repaired.
 
 That means the Supabase API gateway does **not** enforce JWT validation at the edge. Security relies entirely on **in-function auth** (adminAuth, contractor JWT checks, phone-verification RPC gates, cron/webhook secrets, or dev bypass flags). Any caller holding the public anon/publishable key can reach every function URL; only handler logic restricts abuse.
 
@@ -77,6 +77,7 @@ Legend — **Auth model:** `app-logic` (handler validation, no gateway JWT); `ad
 | `process-webhook` | cron | false | secret-header | yes | none |
 | `qualify-homepage-lead` | homeowner public | false | app-logic | yes | `qualifyHomepageLead.ts` |
 | `quote-intelligence-worker` | cron | false | secret-header (`x-quote-intelligence-worker-secret` = `QUOTE_INTELLIGENCE_WORKER_SECRET`) | yes | none |
+| `report-summary-worker` | cron | false | secret-header (`x-report-summary-worker-secret` = `REPORT_SUMMARY_WORKER_SECRET`) | yes | none |
 | `refresh-benchmarks` | cron | false | secret-header | yes | none |
 | `report-access` | homeowner public | false | app-logic / phone-RPC | yes | `reportService.ts`, `labLiveReportAccess.ts` (DevReportPreview) |
 | `request-callback` | homeowner public | false | app-logic | yes | `Estimate.tsx`, `PostScanReportSwitcher.tsx`, `ReportClassic.tsx` |
@@ -95,7 +96,7 @@ Legend — **Auth model:** `app-logic` (handler validation, no gateway JWT); `ad
 | `voice-followup` | admin | false | adminAuth | yes | none direct; via `admin-data` action `trigger_voice_followup` |
 | `windowman-concierge` | homeowner public | false | app-logic (Zod + Gemini JSON only) | no | none observed in `src/` (acquisition concierge endpoint) |
 
-**Config reconciliation:** 55 inventoried function directories with `index.ts` ↔ 55 inventoried `[functions.*]` entries in `config.toml` after adding `quote-intelligence-worker`. This sprint does not re-audit or repair pre-existing inventory gaps.
+**Config reconciliation:** 56 inventoried function directories with `index.ts` ↔ 56 inventoried `[functions.*]` entries in `config.toml` after adding `report-summary-worker`. This sprint does not re-audit or repair pre-existing inventory gaps.
 
 **Deployment projects column:** See [§ Live Deployment Matrix](#live-deployment-matrix) (audited 2026-05-26).
 
@@ -373,6 +374,7 @@ Functions reachable by unauthenticated browsers using only the publishable/anon 
 | `process-webhook` | Legacy CRM webhook drain | `x-cron-secret` = `PROCESS_WEBHOOK_SECRET` or `CONTRACTOR_CRON_SECRET` | `webhook_deliveries`, `leads`, `lead_events` |
 | `refresh-benchmarks` | Nightly county benchmarks | `x-cron-secret` = `BENCHMARK_CRON_SECRET` or `CONTRACTOR_CRON_SECRET` | `analyses`, `scan_sessions`, `leads`, `county_benchmarks`, `event_logs` |
 | `quote-intelligence-worker` | Quote intelligence extraction worker (one job per invoke) | `x-quote-intelligence-worker-secret` = `QUOTE_INTELLIGENCE_WORKER_SECRET` | `wm_quote_intelligence_*` via worker RPCs |
+| `report-summary-worker` | Truth Report executive summary worker (one analysis per invoke) | `x-report-summary-worker-secret` = `REPORT_SUMMARY_WORKER_SECRET` | `wm_report_summaries` via worker RPCs |
 | `lead-reactivation` | Cold lead drip email | `x-cron-secret` = `REACTIVATION_CRON_SECRET` or `CONTRACTOR_CRON_SECRET` | `leads`, `scan_sessions`, `analyses`, `event_logs` |
 | `contractor-booking-confirmed` | Booking confirmation hook | `x-contractor-secret` = `CONTRACTOR_CRON_SECRET` | `contractor_leads`, `contractor_followups`, `contractor_activity_log` |
 | `contractor-mark-no-show` | No-show marker | `x-contractor-secret` = `CONTRACTOR_CRON_SECRET` | same family |
@@ -405,6 +407,7 @@ Additional secrets found in function code (not all listed in `.env.example`):
 |--------|---------|
 | `GEMINI_SCAN_MODEL`, `GEMINI_SCAN_TIMEOUT_MS`, `GEMINI_SCAN_MAX_OUTPUT_TOKENS`, `SCAN_STALE_PROCESSING_MINUTES`, `SCAN_MAX_FILE_BYTES` | `scan-quote` via `_shared/scannerConfig.ts` |
 | `QI_GEMINI_MODEL`, `QI_GEMINI_TIMEOUT_MS` | `quote-intelligence-worker` via `contract.ts` / `provider.ts` (independent of `GEMINI_SCAN_MODEL`; align both in production) |
+| `REPORT_SUMMARY_GEMINI_MODEL`, `REPORT_SUMMARY_GEMINI_TIMEOUT_MS`, `REPORT_SUMMARY_GEMINI_MAX_OUTPUT_TOKENS`, `REPORT_SUMMARY_LEASE_SECONDS` | `report-summary-worker` via `_shared/reportSummary/summaryProviderConfig.ts` / `contract.ts` (independent of scanner/QI model envs) |
 | `OTP_QA_BYPASS_*`, `WM_SUPABASE_PROJECT_REF` | `send-otp`, `verify-otp` |
 | `RESEND_API_KEY`, `REPORT_FROM_EMAIL`, `REPORT_BASE_URL`, `RESEND_FROM_EMAIL` | `send-report-email`, `lead-reactivation`, `send-contractor-handoff`, `request-partner-access`, `dispatch-lead` |
 | `PHONECALL_BOT_WEBHOOK_URL` | `request-callback`, `submit-diagnosis-intake`, `dial-lead`, `voice-followup` |
@@ -418,6 +421,7 @@ Additional secrets found in function code (not all listed in `.env.example`):
 | `FACEBOOK_LEAD_AD_IMPORT_SECRET` | `import-facebook-lead-ad` |
 | `LOVABLE_API_KEY` | `dispatch-lead` |
 | `QUOTE_INTELLIGENCE_WORKER_SECRET` | `quote-intelligence-worker` |
+| `REPORT_SUMMARY_WORKER_SECRET` | `report-summary-worker` |
 | `CONTRACTOR_EMAIL`, `CONTRACTOR_NAME` | `send-contractor-handoff`, `request-partner-access` |
 | `WM_EDGE_DIAGNOSTICS`, `EDGE_DIAGNOSTICS` | `get-contractor-dossier` |
 
