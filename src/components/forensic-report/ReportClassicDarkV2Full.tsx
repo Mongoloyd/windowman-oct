@@ -208,6 +208,7 @@ export default function ReportClassicDarkV2Full({
           <RevealDiagnosisBridgeCard
             ctaEnabled={ctaEnabled}
             onPrimaryClick={ctaEnabled ? handleDiagnosisCta : undefined}
+            summaryBody={analysisData.reportSummaryBody ?? null}
           />
         }
         fullEvidenceStack={buildFullEvidenceStack(v2Modules, ctaEnabled ? handleDiagnosisCta : undefined)}

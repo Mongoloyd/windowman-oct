@@ -3,15 +3,30 @@ import { PostUploadProgressRail } from '@/pages/diagnosis/components/PostUploadP
 
 const PRESCRIBED_HERO_SRC = '/images/wm-prescribed-for-you.avif';
 
+export const FALLBACK_BRIDGE_EXPLANATION =
+  'WindowMan found the risks in your current estimate. Answer a few quick questions so we can shape the next quote around your budget, timeline, and what needs to be fixed before you sign.';
+
+export const WINDOWMAN_BRIDGE_TRANSITION =
+  'WindowMan can help you get a quote that fixes these issues.';
+
 interface RevealDiagnosisBridgeCardProps {
   onPrimaryClick?: () => void;
   ctaEnabled?: boolean;
+  summaryBody?: string | null;
+}
+
+function resolveSummaryBody(summaryBody?: string | null): string | null {
+  if (typeof summaryBody !== 'string') return null;
+  const trimmed = summaryBody.trim();
+  return trimmed.length > 0 ? trimmed : null;
 }
 
 export default function RevealDiagnosisBridgeCard({
   onPrimaryClick,
   ctaEnabled = true,
+  summaryBody = null,
 }: RevealDiagnosisBridgeCardProps) {
+  const explanation = resolveSummaryBody(summaryBody) ?? FALLBACK_BRIDGE_EXPLANATION;
   return (
     <section
       className="fr-card fr-card--hero fr-glow--info relative overflow-hidden rounded-3xl p-6 md:p-8"
@@ -36,8 +51,8 @@ export default function RevealDiagnosisBridgeCard({
           Truth Report Complete · Next: Better Quote Plan
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-6 md:grid-cols-2 md:items-center md:gap-8">
-          <div className="order-1 md:order-none md:col-start-1 md:row-start-1">
+        <div className="mt-4 grid grid-cols-1 gap-6 md:grid-cols-2 md:items-start md:gap-8">
+          <div className="order-1 min-w-0 md:order-none md:col-start-1 md:row-start-1">
             <h2 className="font-display fr-text-t1 text-2xl font-black leading-tight tracking-tight md:text-3xl">
               Your quote has problems.
             </h2>
@@ -46,7 +61,7 @@ export default function RevealDiagnosisBridgeCard({
             </p>
           </div>
 
-          <div className="order-2 flex justify-center md:order-none md:col-start-2 md:row-start-1 md:row-span-2 md:items-center md:justify-end">
+          <div className="order-2 flex justify-center md:order-none md:col-start-2 md:row-start-1 md:row-span-2 md:items-start md:justify-end">
             <img
               src={PRESCRIBED_HERO_SRC}
               alt="WindowMan prescription: we handle the contractor conversation so you don't waste time on estimates"
@@ -56,11 +71,12 @@ export default function RevealDiagnosisBridgeCard({
             />
           </div>
 
-          <div className="order-3 md:order-none md:col-start-1 md:row-start-2">
-            <p className="max-w-2xl fr-text-t3 text-sm font-medium leading-relaxed md:text-base">
-              WindowMan found the risks in your current estimate. Answer a few quick questions so we
-              can shape the next quote around your budget, timeline, and what needs to be fixed before
-              you sign.
+          <div className="order-3 min-w-0 md:order-none md:col-start-1 md:row-start-2">
+            <p className="max-w-2xl break-words fr-text-t3 text-sm font-medium leading-relaxed md:text-base">
+              {explanation}
+            </p>
+            <p className="mt-3 max-w-2xl fr-text-t2 text-sm font-semibold leading-relaxed md:text-base">
+              {WINDOWMAN_BRIDGE_TRANSITION}
             </p>
           </div>
         </div>

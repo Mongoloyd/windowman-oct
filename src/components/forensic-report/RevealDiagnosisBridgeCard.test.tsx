@@ -1,6 +1,12 @@
 import { describe, it, expect, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
-import RevealDiagnosisBridgeCard from './RevealDiagnosisBridgeCard';
+import RevealDiagnosisBridgeCard, {
+  FALLBACK_BRIDGE_EXPLANATION,
+  WINDOWMAN_BRIDGE_TRANSITION,
+} from './RevealDiagnosisBridgeCard';
+
+const READY_SUMMARY =
+  'This estimate leaves permit responsibility unclear and prices rot repairs as extras. Deposit terms also lock you in before the scope is verified. Those gaps are the ones that usually become change orders.';
 
 describe('RevealDiagnosisBridgeCard', () => {
   it('renders split headlines as separate elements', () => {
@@ -8,6 +14,34 @@ describe('RevealDiagnosisBridgeCard', () => {
 
     expect(screen.getByRole('heading', { level: 2, name: 'Your quote has problems.' })).toBeInTheDocument();
     expect(screen.getByText("Now let's help you get a better one.")).toBeInTheDocument();
+  });
+
+  it('renders an authorized summaryBody in place of the generic paragraph', () => {
+    render(<RevealDiagnosisBridgeCard summaryBody={READY_SUMMARY} />);
+
+    expect(screen.getByText(READY_SUMMARY)).toBeInTheDocument();
+    expect(screen.queryByText(FALLBACK_BRIDGE_EXPLANATION)).not.toBeInTheDocument();
+  });
+
+  it('renders the exact generic paragraph when summaryBody is null', () => {
+    render(<RevealDiagnosisBridgeCard summaryBody={null} />);
+
+    expect(screen.getByText(FALLBACK_BRIDGE_EXPLANATION)).toBeInTheDocument();
+  });
+
+  it('renders the exact generic paragraph when summaryBody is whitespace', () => {
+    render(<RevealDiagnosisBridgeCard summaryBody="   " />);
+
+    expect(screen.getByText(FALLBACK_BRIDGE_EXPLANATION)).toBeInTheDocument();
+  });
+
+  it('renders the static WindowMan transition before the CTA', () => {
+    render(<RevealDiagnosisBridgeCard ctaEnabled onPrimaryClick={vi.fn()} summaryBody={READY_SUMMARY} />);
+
+    expect(screen.getByText(WINDOWMAN_BRIDGE_TRANSITION)).toBeInTheDocument();
+    const transition = screen.getByText(WINDOWMAN_BRIDGE_TRANSITION);
+    const cta = screen.getByRole('button', { name: /A Better Quote is Moments Away/i });
+    expect(transition.compareDocumentPosition(cta) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('renders the prescribed hero image', () => {
