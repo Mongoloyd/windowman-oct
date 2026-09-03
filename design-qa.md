@@ -103,3 +103,52 @@ No actionable P0, P1, or P2 findings remain.
 - Screenshots: local QA artifacts; not committed.
 
 final result: passed
+
+## Truth Report selective Change-Order accordion rebuild (2026-09-03)
+
+- Primary visual reference: `C:\Users\Dell\Desktop\wm-mvp\4 only one that had something that can work if we can condense the non red boxes and keep the red boxes open by default and not accordian the whole component.PNG` (1510 x 12434).
+- Rejected-state references: `C:\Users\Dell\Desktop\wm-mvp\1.png`, `2.png`, `3.png`, and `5.png`. These were used to confirm that major report sections must not become parent accordions.
+- Implementation route: `http://127.0.0.1:8080/dev/report-preview?v=v3&mode=full&scenario=typical`.
+- Tested state: full-report sanitized development fixture, with WindowMan report chrome intact and the development-only `SANDBOX PREVIEW` label visible.
+
+## Source-to-implementation comparison
+
+- Full-page comparison was performed at a 1510 CSS-pixel desktop width against the primary reference. The implementation document measured 1510 x 13836 because Financial Integrity and Questions to Get a Better Quote remain fully rendered, as required by the user's written direction. The reference image showed those areas collapsed; the written direction intentionally overrides that rejected part of the screenshot.
+- The browser's stitched full-page capture visually repeated a few long-page regions. DOM inspection confirmed this was a capture artifact: every major `h2` heading, including Quote Math Ledger, Code & Compliance Proof, Change-Order Defense Matrix, Financial Integrity, Warranty & Fine Print, and Questions to Get a Better Quote, exists exactly once.
+- Focused 1280 x 900 desktop captures confirmed the Change-Order header, summary chips, parsed-policy notice, and all risk rows retain the forensic visual hierarchy.
+- Focused Financial Integrity and Better Quote Toolkit captures confirmed both sections remain visible and fully populated rather than being hidden behind section-level accordions.
+
+## Interaction and state verification
+
+- The Change-Order risk list uses independent multi-open items. Opening a non-red row does not close an already-open red row.
+- All rows whose canonical severity is `fail` start expanded. The typical fixture expands Written Change Orders, Homeowner Approval Rule, Unilateral Price Adjustments, and Remeasure Price Cap.
+- Non-fail rows start condensed, including Open-Wall / Substrate Clause, Hidden Condition Clause, and Change-Order Policy Text.
+- Condensed rows preserve the item title, homeowner-facing summary, semantic status pill, and disclosure control. Expanded rows reveal parsed clause evidence, potential exposure, and the contractor question.
+- The trigger is keyboard-operable through the existing Radix primitive and retains a minimum 44-pixel tap target.
+
+## Required fidelity surfaces
+
+- Fonts and typography: passed. Existing forensic display, body, and monospaced label styles are preserved.
+- Spacing and layout rhythm: passed. Condensed rows reduce vertical density without removing report context; expanded critical rows retain readable evidence spacing.
+- Colors and tokens: passed. Existing red, amber, blue, green, slate, and navy semantic treatments remain unchanged.
+- Image quality and assets: passed. No new raster asset, placeholder, handcrafted SVG, or substituted icon was introduced.
+- Copy and content: passed. Existing titles, summaries, evidence, exposure text, and contractor questions remain intact.
+- Icons: passed. Existing Lucide alert and chevron icons are reused and rotate with disclosure state.
+- Responsiveness: passed. At 390 x 844, the report had no horizontal overflow; a condensed non-red row remained readable and measured 139 pixels tall.
+- Accessibility and behavior: passed. `aria-expanded` reflects each independent item, multiple items can remain open, and visible context is retained in every collapsed row.
+- Runtime: passed. The clean page rendered without a Vite error overlay. The only console messages were pre-existing React Router future-flag warnings.
+
+## Verification results
+
+- Focused Change-Order and report-shell tests: 19/19 passed.
+- Full forensic-report suite: 91/91 passed.
+- Typecheck: passed.
+- Exact-file lint: passed with zero errors and zero warnings.
+- Production build: passed; only the existing Browserslist data-age notice was emitted.
+- No backend, Supabase, OTP/reveal, scanner, tracking, deployment, or full-report authorization surface changed.
+
+## Findings
+
+No actionable P0, P1, or P2 findings remain.
+
+final result: passed

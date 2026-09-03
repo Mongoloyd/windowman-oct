@@ -3,6 +3,12 @@
  * Presentation-only; receives pre-mapped rows. No fetch, no backend imports.
  */
 import { AlertCircle, AlertTriangle, CheckCircle2, Shield } from "lucide-react";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import type {
   ChangeOrderDefenseMatrixProps,
   ChangeOrderRiskRow,
@@ -169,24 +175,35 @@ function ContractorQuestionCallout({ question }: { question: string }) {
   );
 }
 
-function RiskRowCard({ row }: { row: ChangeOrderRiskRow }) {
-  const evidence = isNonEmptyString(row.evidenceText) ? row.evidenceText : EVIDENCE_FALLBACK;
+function RiskRowHeader({ row }: { row: ChangeOrderRiskRow }) {
   const visual = severityVisual(row.severity);
   const Icon = visual.icon;
 
   return (
-    <article className={`${visual.cardClass} min-w-0 space-y-3 break-words p-4 sm:p-5`}>
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex min-w-0 items-start gap-2">
-          <Icon size={16} className={`mt-0.5 shrink-0 ${visual.iconClass}`} aria-hidden />
-          <h3 className={`min-w-0 text-sm font-bold sm:text-base ${visual.titleClass}`}>
+    <div className="flex min-w-0 flex-1 flex-col gap-2 pr-3 text-left sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex min-w-0 items-start gap-2">
+        <Icon size={16} className={`mt-0.5 shrink-0 ${visual.iconClass}`} aria-hidden />
+        <div className="min-w-0 break-words">
+          <h3 className={`text-sm font-bold sm:text-base ${visual.titleClass}`}>
             {row.displayLabel}
           </h3>
+          <p className="fr-text-t3 mt-1 text-xs leading-relaxed">
+            {row.homeownerRiskCopy}
+          </p>
         </div>
-        <span className={`${PILL_BASE} ${visual.pillClass} ml-auto`} role="status">
-          {row.statusText}
-        </span>
       </div>
+      <span className={`${PILL_BASE} ${visual.pillClass} shrink-0 sm:ml-auto`} role="status">
+        {row.statusText}
+      </span>
+    </div>
+  );
+}
+
+function RiskRowBody({ row }: { row: ChangeOrderRiskRow }) {
+  const evidence = isNonEmptyString(row.evidenceText) ? row.evidenceText : EVIDENCE_FALLBACK;
+
+  return (
+    <div className="space-y-3 border-t border-white/10 pt-3">
       <div>
         <p className="fr-text-t3 mb-1 text-[10px] uppercase tracking-wide">Parsed clause evidence</p>
         <p className="fr-text-t3 text-xs leading-relaxed whitespace-pre-wrap">{evidence}</p>
@@ -198,17 +215,39 @@ function RiskRowCard({ row }: { row: ChangeOrderRiskRow }) {
         <p className="fr-text-t2 text-sm leading-relaxed">{row.homeownerRiskCopy}</p>
       </div>
       <ContractorQuestionCallout question={row.contractorQuestion} />
-    </article>
+    </div>
+  );
+}
+
+function RiskRowAccordionItem({ row }: { row: ChangeOrderRiskRow }) {
+  const visual = severityVisual(row.severity);
+
+  return (
+    <AccordionItem
+      value={row.fieldKey}
+      className={`${visual.cardClass} min-w-0 overflow-hidden break-words`}
+    >
+      <AccordionTrigger className="min-h-11 px-4 py-3.5 hover:no-underline sm:px-5 [&[data-state=open]]:pb-2.5">
+        <RiskRowHeader row={row} />
+      </AccordionTrigger>
+      <AccordionContent className="px-4 pb-4 sm:px-5">
+        <RiskRowBody row={row} />
+      </AccordionContent>
+    </AccordionItem>
   );
 }
 
 function RiskMatrix({ risks }: { risks: ChangeOrderRiskRow[] }) {
+  const defaultOpenRiskKeys = risks
+    .filter((row) => row.severity === "fail")
+    .map((row) => row.fieldKey);
+
   return (
-    <div className="space-y-3">
+    <Accordion type="multiple" defaultValue={defaultOpenRiskKeys} className="space-y-3">
       {risks.map((row) => (
-        <RiskRowCard key={row.fieldKey} row={row} />
+        <RiskRowAccordionItem key={row.fieldKey} row={row} />
       ))}
-    </div>
+    </Accordion>
   );
 }
 
