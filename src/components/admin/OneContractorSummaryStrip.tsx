@@ -151,23 +151,23 @@ function Tile({
     rose: "border-rose-500/30 bg-rose-500/5",
   };
   const iconStyles: Record<string, string> = {
-    cyan: "text-cyan-600",
-    emerald: "text-emerald-600",
-    amber: "text-amber-600",
-    rose: "text-rose-600",
+    cyan: "text-cyan-300",
+    emerald: "text-emerald-300",
+    amber: "text-amber-300",
+    rose: "text-rose-300",
   };
   return (
-    <div className={`rounded-lg border ${toneStyles[tone]} p-3 flex items-start gap-3`}>
+    <div className={`wm-on-canvas-tile rounded-lg border ${toneStyles[tone]} p-3 flex items-start gap-3`}>
       <div className={`shrink-0 mt-0.5 ${iconStyles[tone]}`}>
         <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0">
         <p className="text-2xl font-bold tabular-nums leading-none">{value}</p>
-        <p className="text-sm uppercase tracking-wide text-slate-700 mt-1 font-semibold">
+        <p className="wm-on-canvas-tile-title text-sm uppercase tracking-wide mt-1 font-semibold">
           {label}
         </p>
         {sublabel && (
-          <p className="text-sm text-slate-700 italic">{sublabel}</p>
+          <p className="wm-on-canvas-tile-muted text-sm italic">{sublabel}</p>
         )}
       </div>
     </div>

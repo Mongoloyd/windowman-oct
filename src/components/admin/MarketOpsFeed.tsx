@@ -237,7 +237,7 @@ export function MarketOpsFeed({ leads }: Props) {
   const isLoading = oppsLoading || routesLoading;
 
   return (
-    <Card>
+    <Card className="h-full">
       <CardHeader className="pb-3 flex flex-row items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2">
           <Activity className="h-4 w-4 text-slate-700" />
