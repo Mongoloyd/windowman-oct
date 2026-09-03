@@ -262,7 +262,10 @@ export default function ScopeOverviewCard({
   if (totalOpenings == null && pricePerOpening == null && totalContractPrice == null) return null;
 
   return (
-    <section className="fr-card p-5 sm:p-6">
+    <section
+      className="fr-card fr-card--quiet p-5 sm:p-6"
+      style={{ boxShadow: "inset 0 1px 0 hsl(0 0% 100% / 0.04)" }}
+    >
       <div className="flex items-center gap-2 mb-4 pb-3 border-b border-white/10">
         <LayoutGrid
           size={14}

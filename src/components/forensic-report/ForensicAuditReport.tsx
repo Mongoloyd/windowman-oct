@@ -85,7 +85,7 @@ export interface ForensicAuditReportProps {
   fullEvidenceStack?: React.ReactNode;
   /** When true, built-in NextActionCard is omitted (lab renders CTA after evidence stack) */
   suppressBuiltInNextAction?: boolean;
-  /** Optional Paper Advisor bridge slot after executive summary (full mode only) */
+  /** Optional WindowMan / Summary V1 bridge slot after supported financial exposure (full mode only) */
   revealBridgeSlot?: React.ReactNode;
   /** Optional teaser copy for ExecutiveSummaryBand (e.g. preview_json.summary_teaser) */
   executiveSummaryTeaser?: string | null;
@@ -188,6 +188,21 @@ export default function ForensicAuditReport(props: ForensicAuditReportProps) {
                 pricePerOpeningBand={props.pricePerOpeningBand}
               />
 
+              <ScopeOverviewCard
+                accessLevel={props.accessLevel}
+                totalOpenings={props.totalOpenings}
+                pricePerOpening={props.pricePerOpening}
+                pricePerOpeningBand={props.pricePerOpeningBand}
+                marketLow={props.marketLow}
+                marketHigh={props.marketHigh}
+                totalContractPrice={props.totalContractPrice}
+                riskContext={riskContext}
+                openingCountSource={props.openingCountSource}
+                quoteMathConfidence={props.quoteMathConfidence}
+                benchmarkSourceLabel={props.benchmarkSourceLabel}
+                benchmarkUpdatedAt={props.benchmarkUpdatedAt}
+              />
+
               <SigningRiskSummary flags={safeFlags} />
 
               <PriceRiskClarificationCard
@@ -198,6 +213,17 @@ export default function ForensicAuditReport(props: ForensicAuditReportProps) {
                 marketLow={props.marketLow}
                 marketHigh={props.marketHigh}
               />
+
+              {hasOverpayment && (
+                <MoneyAtRiskCard
+                  overpaymentLow={props.overpaymentLow}
+                  overpaymentHigh={props.overpaymentHigh}
+                  overpaymentBasis={props.overpaymentBasis}
+                  totalContractPrice={props.totalContractPrice}
+                  marketLow={props.marketLow}
+                  marketHigh={props.marketHigh}
+                />
+              )}
 
               {props.revealBridgeSlot ? (
                 <div className="mt-6 sm:mt-8">{props.revealBridgeSlot}</div>
@@ -219,17 +245,6 @@ export default function ForensicAuditReport(props: ForensicAuditReportProps) {
                 flags={safeFlags}
               />
 
-              {hasOverpayment && (
-                <MoneyAtRiskCard
-                  overpaymentLow={props.overpaymentLow}
-                  overpaymentHigh={props.overpaymentHigh}
-                  overpaymentBasis={props.overpaymentBasis}
-                  totalContractPrice={props.totalContractPrice}
-                  marketLow={props.marketLow}
-                  marketHigh={props.marketHigh}
-                />
-              )}
-
               <div className="relative">
                 <TopFindingsList
                   flags={safeFlags}
@@ -237,21 +252,6 @@ export default function ForensicAuditReport(props: ForensicAuditReportProps) {
                   variant="detail"
                 />
               </div>
-
-              <ScopeOverviewCard
-                accessLevel={props.accessLevel}
-                totalOpenings={props.totalOpenings}
-                pricePerOpening={props.pricePerOpening}
-                pricePerOpeningBand={props.pricePerOpeningBand}
-                marketLow={props.marketLow}
-                marketHigh={props.marketHigh}
-                totalContractPrice={props.totalContractPrice}
-                riskContext={riskContext}
-                openingCountSource={props.openingCountSource}
-                quoteMathConfidence={props.quoteMathConfidence}
-                benchmarkSourceLabel={props.benchmarkSourceLabel}
-                benchmarkUpdatedAt={props.benchmarkUpdatedAt}
-              />
 
               <PropertyProfileCard
                 homeownerName={props.homeownerName}

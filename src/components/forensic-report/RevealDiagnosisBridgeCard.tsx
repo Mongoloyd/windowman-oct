@@ -29,15 +29,19 @@ export default function RevealDiagnosisBridgeCard({
   const explanation = resolveSummaryBody(summaryBody) ?? FALLBACK_BRIDGE_EXPLANATION;
   return (
     <section
-      className="fr-card fr-card--hero fr-glow--info relative overflow-hidden rounded-3xl p-6 md:p-8"
+      className="fr-card fr-card--hero relative overflow-hidden rounded-3xl p-6 md:p-8"
       aria-label="Get a better quote"
+      style={{
+        boxShadow:
+          "var(--fr-glow-info), var(--fr-elev-2), 0 1px 0 hsl(0 0% 100% / 0.08) inset",
+      }}
     >
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            'radial-gradient(80% 60% at 100% 0%, hsl(var(--fr-cyan) / 0.12), transparent 60%)',
+            'radial-gradient(70% 50% at 100% 0%, hsl(var(--fr-cyan) / 0.10), transparent 58%)',
         }}
       />
 
@@ -67,7 +71,7 @@ export default function RevealDiagnosisBridgeCard({
               alt="WindowMan prescription: we handle the contractor conversation so you don't waste time on estimates"
               loading="lazy"
               decoding="async"
-              className="aspect-[4/3] w-full rounded-xl border border-[hsl(var(--fr-border))] object-cover"
+              className="aspect-[4/3] w-full rounded-xl border border-[hsl(var(--fr-cyan)/0.35)] object-cover"
             />
           </div>
 
