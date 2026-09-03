@@ -40,21 +40,25 @@ export default function MoneyAtRiskCard({
 
   return (
     <section
-      className="fr-card fr-glow--critical relative overflow-hidden p-6 sm:p-8"
-      style={{ borderColor: "hsl(var(--fr-danger) / 0.4)" }}
+      className="fr-card relative overflow-hidden p-6 sm:p-8"
+      style={{
+        borderColor: "hsl(var(--fr-caution) / 0.55)",
+        boxShadow:
+          "0 1px 0 hsl(0 0% 100% / 0.08) inset, 0 8px 16px -10px hsl(220 60% 2% / 0.9), 0 0 36px hsl(var(--fr-caution) / 0.28)",
+      }}
     >
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(80% 60% at 100% 0%, hsl(var(--fr-danger) / 0.14), transparent 60%)",
+            "radial-gradient(80% 60% at 100% 0%, hsl(var(--fr-caution) / 0.16), transparent 60%)",
         }}
       />
       <div className="relative">
         <div className="flex items-center gap-2 mb-2">
-          <TrendingUp size={14} className="text-[hsl(var(--fr-danger))]" />
-          <span className="fr-mono text-[11px] font-bold tracking-wider uppercase text-[hsl(var(--fr-danger))]">
+          <TrendingUp size={14} className="text-[hsl(var(--fr-caution))]" />
+          <span className="fr-mono text-[11px] font-bold tracking-wider uppercase text-[hsl(var(--fr-caution))]">
             Money at Risk
           </span>
         </div>
@@ -64,7 +68,7 @@ export default function MoneyAtRiskCard({
 
         <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-6 items-end">
           <div>
-            <div className="fr-num text-4xl sm:text-5xl font-black leading-none text-[hsl(var(--fr-danger))] tracking-tight">
+            <div className="fr-num text-4xl sm:text-5xl font-black leading-none text-[hsl(var(--fr-caution))] tracking-tight">
               {range}
             </div>
             {overpaymentBasis && (
@@ -87,10 +91,10 @@ export default function MoneyAtRiskCard({
             {pct != null && (
               <div className="fr-tile fr-tile--critical p-3">
                 <div className="text-[10px] fr-mono uppercase tracking-wider text-[hsl(var(--fr-text-dim))]">
-                  Of Quote
+                  Upper-Bound Exposure
                 </div>
                 <div className="mt-1 fr-num text-lg font-bold text-[hsl(var(--fr-danger))]">
-                  ~{pct}%
+                  ~{pct}% of quote
                 </div>
               </div>
             )}

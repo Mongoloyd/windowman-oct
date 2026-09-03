@@ -84,4 +84,98 @@ describe("ForensicAuditReport Bento integration", () => {
     expect(screen.getByText("SCOPE OVERVIEW")).toBeInTheDocument();
     expect(screen.getByText("Total Openings")).toBeInTheDocument();
   });
+
+  it("orders supported project facts and financial exposure before WindowMan", () => {
+    render(
+      <ForensicAuditReport
+        {...commonProps}
+        accessLevel="full"
+        flags={[]}
+        totalOpenings={14}
+        pricePerOpening={1800}
+        pricePerOpeningBand="low"
+        totalContractPrice={25200}
+        overpaymentLow={3400}
+        overpaymentHigh={4200}
+        revealBridgeSlot={<div>Get a better quote</div>}
+      />,
+    );
+
+    const verdict = screen.getByText("▦ VERDICT AT A GLANCE");
+    const scope = screen.getByText("SCOPE OVERVIEW");
+    const signing = screen.getByText("Your 3 Biggest Signing Risks");
+    const priceRisk = screen.getByText("Price vs. Quote Safety");
+    const money = screen.getByText("Money at Risk");
+    const windowMan = screen.getByText("Get a better quote");
+    const evidence = screen.getByText("Evidence Behind the Grade");
+
+    expect(verdict.compareDocumentPosition(scope) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(scope.compareDocumentPosition(signing) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(signing.compareDocumentPosition(priceRisk) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(priceRisk.compareDocumentPosition(money) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(money.compareDocumentPosition(windowMan) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(windowMan.compareDocumentPosition(evidence) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByText("Upper-Bound Exposure")).toBeInTheDocument();
+    expect(screen.getByText("~17% of quote")).toBeInTheDocument();
+  });
+
+  it.each([
+    { label: "missing", overpaymentLow: null, overpaymentHigh: null },
+    { label: "non-positive", overpaymentLow: 0, overpaymentHigh: 0 },
+  ])("keeps Money at Risk absent when supported overpayment is $label", ({ overpaymentLow, overpaymentHigh }) => {
+    render(
+      <ForensicAuditReport
+        {...commonProps}
+        accessLevel="full"
+        flags={[]}
+        totalOpenings={14}
+        pricePerOpening={1800}
+        pricePerOpeningBand="low"
+        totalContractPrice={25200}
+        overpaymentLow={overpaymentLow}
+        overpaymentHigh={overpaymentHigh}
+        revealBridgeSlot={<div>Get a better quote</div>}
+      />,
+    );
+
+    const signing = screen.getByText("Your 3 Biggest Signing Risks");
+    const priceRisk = screen.getByText("Price vs. Quote Safety");
+    const windowMan = screen.getByText("Get a better quote");
+    const evidence = screen.getByText("Evidence Behind the Grade");
+
+    expect(signing.compareDocumentPosition(priceRisk) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(priceRisk.compareDocumentPosition(windowMan) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(windowMan.compareDocumentPosition(evidence) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByText("Money at Risk")).not.toBeInTheDocument();
+  });
+
+  it("drops full-only content even when it is accidentally supplied in preview mode", () => {
+    render(
+      <ForensicAuditReport
+        {...commonProps}
+        accessLevel="preview"
+        flags={[
+          {
+            id: 99,
+            severity: "red",
+            label: "Private full-report finding",
+            detail: "Private full-report detail",
+            tip: null,
+            pillar: "fine_print",
+          },
+        ]}
+        overpaymentLow={3400}
+        overpaymentHigh={4200}
+        totalContractPrice={25200}
+        revealBridgeSlot={<div>Private WindowMan bridge</div>}
+        fullEvidenceStack={<div>Private full evidence</div>}
+      />,
+    );
+
+    expect(screen.queryByText("Private full-report finding")).not.toBeInTheDocument();
+    expect(screen.queryByText("Private full-report detail")).not.toBeInTheDocument();
+    expect(screen.queryByText("Private WindowMan bridge")).not.toBeInTheDocument();
+    expect(screen.queryByText("Private full evidence")).not.toBeInTheDocument();
+    expect(screen.queryByText("Money at Risk")).not.toBeInTheDocument();
+  });
 });

@@ -1,6 +1,6 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { AnalysisData } from '@/hooks/useAnalysisData';
 import ReportClassicDarkV2Full from './ReportClassicDarkV2Full';
 import { FALLBACK_BRIDGE_EXPLANATION } from './RevealDiagnosisBridgeCard';
@@ -43,7 +43,7 @@ function baseAnalysisData(overrides: Partial<AnalysisData> = {}): AnalysisData {
   };
 }
 
-function renderFull(analysisData: AnalysisData) {
+function renderFull(analysisData: AnalysisData, onDiagnosisCta = vi.fn()) {
   return render(
     <MemoryRouter>
       <ReportClassicDarkV2Full
@@ -51,7 +51,7 @@ function renderFull(analysisData: AnalysisData) {
         v2ReportSource={{}}
         county="Broward"
         scanSessionId="11111111-1111-4111-8111-111111111111"
-        onDiagnosisCta={() => undefined}
+        onDiagnosisCta={onDiagnosisCta}
       />
     </MemoryRouter>,
   );
@@ -77,11 +77,13 @@ describe('ReportClassicDarkV2Full Summary V1 bridge wiring', () => {
     ).toBeInTheDocument();
   });
 
-  it('keeps the existing Better Quote CTA', () => {
-    renderFull(baseAnalysisData({ reportSummaryBody: READY_SUMMARY }));
+  it('keeps the existing Better Quote CTA wired to the diagnosis handoff', () => {
+    const onDiagnosisCta = vi.fn();
+    renderFull(baseAnalysisData({ reportSummaryBody: READY_SUMMARY }), onDiagnosisCta);
 
-    expect(
-      screen.getByRole('button', { name: /A Better Quote is Moments Away/i }),
-    ).toBeInTheDocument();
+    const button = screen.getByRole('button', { name: /A Better Quote is Moments Away/i });
+    fireEvent.click(button);
+
+    expect(onDiagnosisCta).toHaveBeenCalledTimes(1);
   });
 });
