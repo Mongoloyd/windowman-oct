@@ -709,23 +709,23 @@ function SnapshotTile({
     emerald: "border-emerald-500/30 bg-emerald-500/5",
     amber: "border-amber-500/30 bg-amber-500/5",
     cyan: "border-cyan-500/30 bg-cyan-500/5",
-    slate: "border-border bg-card",
+    slate: "border-slate-500/40 bg-slate-500/10",
   };
   return (
     <div
-      className={`rounded-lg border p-3 flex flex-col gap-1 ${accentClasses[accent]}`}
+      className={`wm-on-canvas-tile rounded-lg border p-3 flex flex-col gap-1 ${accentClasses[accent]}`}
     >
       <div className="flex items-center justify-between gap-2">
-        <Icon className="h-4 w-4 text-slate-700" />
+        <Icon className="wm-on-canvas-tile-muted h-4 w-4" />
         <span className="text-2xl font-bold tabular-nums leading-none">
           {value}
         </span>
       </div>
-      <p className="text-sm uppercase tracking-wide text-slate-700 font-semibold">
+      <p className="wm-on-canvas-tile-title text-sm uppercase tracking-wide font-semibold">
         {label}
       </p>
       {hint && (
-        <p className="text-sm text-slate-700 leading-snug">{hint}</p>
+        <p className="wm-on-canvas-tile-muted text-sm leading-snug">{hint}</p>
       )}
     </div>
   );

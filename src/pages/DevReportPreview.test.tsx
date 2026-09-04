@@ -181,6 +181,44 @@ describe("DevReportPreview evidence-summary fixture plumbing", () => {
     expect(screen.queryByText(/Category-level review is not available/i)).not.toBeInTheDocument();
   });
 
+  it("mirrors the authorized production report with the WindowMan summary bridge", () => {
+    render(
+      <HelmetProvider>
+        <MemoryRouter initialEntries={["/dev/report-preview?v=v3&mode=full&scenario=typical"]}>
+          <DevReportPreview />
+        </MemoryRouter>
+      </HelmetProvider>,
+    );
+
+    const bridge = screen.getByRole("region", { name: "Get a better quote" });
+    expect(within(bridge).getByRole("img", { name: /WindowMan prescription/i })).toBeInTheDocument();
+    expect(bridge).toHaveTextContent(
+      "WindowMan found that this estimate does not document design-pressure ratings",
+    );
+    expect(bridge).toHaveTextContent("WindowMan can help you get a quote that fixes these issues.");
+  });
+
+  it("keeps the WindowMan full-report bridge out of preview and unauthorized modes", () => {
+    const preview = render(
+      <HelmetProvider>
+        <MemoryRouter initialEntries={["/dev/report-preview?v=v3&mode=preview"]}>
+          <DevReportPreview />
+        </MemoryRouter>
+      </HelmetProvider>,
+    );
+    expect(screen.queryByRole("region", { name: "Get a better quote" })).not.toBeInTheDocument();
+    preview.unmount();
+
+    render(
+      <HelmetProvider>
+        <MemoryRouter initialEntries={["/dev/report-preview?v=v3&mode=unauthorized"]}>
+          <DevReportPreview />
+        </MemoryRouter>
+      </HelmetProvider>,
+    );
+    expect(screen.queryByRole("region", { name: "Get a better quote" })).not.toBeInTheDocument();
+  });
+
   it("does not apply preview scenarios to unauthorized or live-source paths", () => {
     const unauthorized = render(
       <HelmetProvider>

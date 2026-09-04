@@ -371,6 +371,27 @@
     color: hsl(var(--wm-admin-on-canvas-muted));
   }
 
+  /*
+   * Semantic treatment for translucent status tiles rendered directly on the
+   * cobalt canvas. Keep this narrowly opt-in so light cards retain their dark
+   * foreground while canvas-level KPI text receives dependable contrast.
+   */
+  .wm-dashboard-surface.wm-admin-canvas .wm-on-canvas-tile {
+    color: hsl(var(--wm-admin-on-canvas));
+    border-color: hsl(var(--wm-admin-canvas-border));
+    box-shadow:
+      inset 0 1px 0 hsl(0 0% 100% / 0.06),
+      0 10px 24px hsl(213 70% 4% / 0.2);
+  }
+
+  .wm-dashboard-surface.wm-admin-canvas .wm-on-canvas-tile-title {
+    color: hsl(var(--wm-admin-on-canvas));
+  }
+
+  .wm-dashboard-surface.wm-admin-canvas .wm-on-canvas-tile-muted {
+    color: hsl(var(--wm-admin-on-canvas-muted));
+  }
+
   .wm-slim-scrollbar {
     scrollbar-width: thin;
     scrollbar-color: hsl(215 20% 78%) transparent;

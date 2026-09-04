@@ -166,7 +166,7 @@ export function PilotReadiness({ leads }: Props) {
           </p>
         </CardHeader>
         <CardContent>
-          <OneContractorSummaryStrip leads={leads} />
+          <OneContractorSummaryStrip leads={leads} surface="card" />
         </CardContent>
       </Card>
 
