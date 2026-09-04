@@ -1,12 +1,21 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import {
+  buildTrustedImportPayload,
+  extractMetaLeadgenEvents,
+  type FetchLike,
+  fetchMetaGraphLead,
+  isMetaWebhookTestMode,
+  type JsonRecord,
+  type MetaLeadgenEvent,
+  resolveMetaVerification,
+  verifyMetaWebhookSignature,
+} from "./metaWebhook.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-import-secret",
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-import-secret, x-hub-signature-256",
 };
-
-type JsonRecord = Record<string, unknown>;
 
 type NormalizedLeadAdPayload = {
   platformLeadId: string;
@@ -44,7 +53,24 @@ type NormalizedLeadAdPayload = {
 };
 
 const MAX_TEXT = 500;
+const MAX_REQUEST_BYTES = 1_000_000;
 const SOURCE = "facebook_lead_ads";
+
+type FunctionSupabaseClient = ReturnType<typeof createClient>;
+type EnvReader = (name: string) => string | undefined;
+type ImportPayload = (
+  supabase: FunctionSupabaseClient,
+  body: JsonRecord,
+  now: Date,
+) => Promise<Response>;
+
+export type FacebookLeadAdHandlerDependencies = {
+  env?: EnvReader;
+  fetchImpl?: FetchLike;
+  importPayload?: ImportPayload;
+  now?: () => Date;
+  supabase?: FunctionSupabaseClient;
+};
 
 function jsonResponse(body: JsonRecord, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -154,7 +180,7 @@ function splitName(
   return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
 }
 
-function normalizePayload(
+export function normalizePayload(
   body: JsonRecord,
 ): { ok: true; payload: NormalizedLeadAdPayload } | {
   ok: false;
@@ -239,8 +265,8 @@ function normalizePayload(
   };
 }
 
-function authOk(req: Request): boolean {
-  const expected = Deno.env.get("FACEBOOK_LEAD_AD_IMPORT_SECRET");
+function authOk(req: Request, env: EnvReader): boolean {
+  const expected = env("FACEBOOK_LEAD_AD_IMPORT_SECRET");
   if (!expected) return false;
   const importSecret = req.headers.get("x-import-secret");
   const authHeader = req.headers.get("authorization");
@@ -248,44 +274,18 @@ function authOk(req: Request): boolean {
   return importSecret === expected || bearer === expected;
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
-  if (req.method !== "POST") {
-    return jsonResponse({ success: false, error: "method_not_allowed" }, 405);
-  }
-  if (!authOk(req)) {
-    return jsonResponse({ success: false, error: "unauthorized" }, 401);
-  }
-
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  );
-
-  let rawBody: unknown;
-  try {
-    rawBody = await req.json();
-  } catch (_err) {
-    return jsonResponse({ success: false, error: "invalid_json" }, 400);
-  }
-
-  const body = asRecord(rawBody);
-  if (!body) {
-    return jsonResponse(
-      { success: false, error: "payload_must_be_object" },
-      400,
-    );
-  }
-
+async function importLeadPayload(
+  supabase: FunctionSupabaseClient,
+  body: JsonRecord,
+  clock: Date,
+): Promise<Response> {
   const normalized = normalizePayload(body);
   if (!normalized.ok) {
     return jsonResponse({ success: false, error: normalized.error }, 400);
   }
 
   const payload = normalized.payload;
-  const now = new Date().toISOString();
+  const now = clock.toISOString();
 
   try {
     const { data: existingAttribution, error: attributionLookupError } =
@@ -484,4 +484,317 @@ Deno.serve(async (req) => {
 
     return jsonResponse({ success: false, error: "import_failed" }, 500);
   }
-});
+}
+
+function parseJsonObject(
+  rawBytes: Uint8Array,
+): { ok: true; body: JsonRecord } | {
+  ok: false;
+  error: "invalid_json" | "payload_must_be_object";
+} {
+  let rawBody: unknown;
+  try {
+    rawBody = JSON.parse(new TextDecoder().decode(rawBytes));
+  } catch (_error) {
+    return { ok: false, error: "invalid_json" };
+  }
+
+  const body = asRecord(rawBody);
+  return body
+    ? { ok: true, body }
+    : { ok: false, error: "payload_must_be_object" };
+}
+
+function resolveSupabaseClient(
+  dependencies: FacebookLeadAdHandlerDependencies,
+  env: EnvReader,
+): FunctionSupabaseClient | null {
+  if (dependencies.supabase) return dependencies.supabase;
+
+  const supabaseUrl = env("SUPABASE_URL");
+  const serviceRoleKey = env("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !serviceRoleKey) return null;
+
+  return createClient(supabaseUrl, serviceRoleKey);
+}
+
+async function recordMetaWebhookReceipts(
+  supabase: FunctionSupabaseClient,
+  events: MetaLeadgenEvent[],
+  rawPayload: JsonRecord,
+  testMode: boolean,
+  receivedAt: string,
+): Promise<boolean> {
+  for (const event of events) {
+    const { error } = await supabase.from("event_logs").insert({
+      event_name: "facebook_leadgen_webhook_received",
+      flow_type: SOURCE,
+      route: "import-facebook-lead-ad",
+      session_id: `fbla_${event.leadgenId}`,
+      metadata: {
+        provider: "meta",
+        leadgen_id: event.leadgenId,
+        page_id: event.pageId,
+        form_id: event.formId,
+        ad_id: event.adId,
+        platform_created_time: event.createdTime,
+        test_mode: testMode,
+        received_at: receivedAt,
+        raw_payload: rawPayload,
+      },
+    });
+
+    if (error) {
+      console.error(
+        "[FB_LEAD_AD_WEBHOOK:RECEIPT_FAILED]",
+        event.leadgenId,
+      );
+      return false;
+    }
+  }
+
+  return true;
+}
+
+async function logMetaGraphFailure(
+  supabase: FunctionSupabaseClient,
+  event: MetaLeadgenEvent,
+  error: string,
+  upstreamStatus: number | null,
+  failedAt: string,
+): Promise<void> {
+  try {
+    await supabase.from("event_logs").insert({
+      event_name: "facebook_leadgen_graph_fetch_failed",
+      flow_type: SOURCE,
+      route: "import-facebook-lead-ad",
+      session_id: `fbla_${event.leadgenId}`,
+      metadata: {
+        provider: "meta",
+        leadgen_id: event.leadgenId,
+        page_id: event.pageId,
+        form_id: event.formId,
+        error,
+        upstream_status: upstreamStatus,
+        failed_at: failedAt,
+      },
+    });
+  } catch (_error) {
+    // The durable pre-fetch receipt already exists; this diagnostic is best effort.
+  }
+}
+
+async function handleNativeMetaWebhook(
+  rawBytes: Uint8Array,
+  signatureHeader: string,
+  appSecret: string,
+  dependencies: FacebookLeadAdHandlerDependencies,
+  env: EnvReader,
+  now: Date,
+): Promise<Response> {
+  const signatureValid = await verifyMetaWebhookSignature(
+    rawBytes,
+    signatureHeader,
+    appSecret,
+  );
+  if (!signatureValid) {
+    return jsonResponse({ success: false, error: "unauthorized" }, 401);
+  }
+
+  const parsed = parseJsonObject(rawBytes);
+  if (!parsed.ok) {
+    return jsonResponse({ success: false, error: parsed.error }, 400);
+  }
+
+  const events = extractMetaLeadgenEvents(parsed.body);
+  const testMode = isMetaWebhookTestMode(env("META_WEBHOOK_TEST_MODE"));
+  if (events.length === 0) {
+    return jsonResponse({
+      success: true,
+      received: 0,
+      ignored: true,
+      test_mode: testMode,
+    });
+  }
+
+  const supabase = resolveSupabaseClient(dependencies, env);
+  if (!supabase) {
+    return jsonResponse(
+      { success: false, error: "server_not_configured" },
+      500,
+    );
+  }
+
+  const receivedAt = now.toISOString();
+  const receiptsStored = await recordMetaWebhookReceipts(
+    supabase,
+    events,
+    parsed.body,
+    testMode,
+    receivedAt,
+  );
+  if (!receiptsStored) {
+    return jsonResponse(
+      { success: false, error: "webhook_receipt_failed" },
+      500,
+    );
+  }
+
+  const accessToken = env("META_PAGE_ACCESS_TOKEN");
+  const apiVersion = env("META_GRAPH_API_VERSION");
+  if (!accessToken || !apiVersion) {
+    return jsonResponse(
+      { success: false, error: "meta_graph_not_configured" },
+      503,
+    );
+  }
+
+  const imported: JsonRecord[] = [];
+  const importPayload = dependencies.importPayload ?? importLeadPayload;
+
+  for (const event of events) {
+    const graphResult = await fetchMetaGraphLead(event.leadgenId, {
+      accessToken,
+      apiVersion,
+      fetchImpl: dependencies.fetchImpl,
+    });
+
+    if (!graphResult.ok) {
+      await logMetaGraphFailure(
+        supabase,
+        event,
+        graphResult.error,
+        graphResult.upstreamStatus,
+        now.toISOString(),
+      );
+      const status = graphResult.error === "meta_graph_invalid_config"
+        ? 503
+        : 502;
+      return jsonResponse(
+        { success: false, error: graphResult.error },
+        status,
+      );
+    }
+
+    const trustedPayload = buildTrustedImportPayload(
+      graphResult.lead,
+      event,
+      testMode,
+    );
+    const importResponse = await importPayload(supabase, trustedPayload, now);
+    if (!importResponse.ok) return importResponse;
+
+    let resultBody: unknown;
+    try {
+      resultBody = await importResponse.json();
+    } catch (_error) {
+      return jsonResponse(
+        { success: false, error: "invalid_import_response" },
+        500,
+      );
+    }
+    imported.push(asRecord(resultBody) ?? { success: true });
+  }
+
+  return jsonResponse({
+    success: true,
+    source: "meta_webhook",
+    received: events.length,
+    imported,
+    test_mode: testMode,
+    downstream_actions: testMode ? "suppressed" : "none_configured",
+  });
+}
+
+export async function handleImportFacebookLeadAdRequest(
+  req: Request,
+  dependencies: FacebookLeadAdHandlerDependencies = {},
+): Promise<Response> {
+  const env = dependencies.env ?? ((name: string) => Deno.env.get(name));
+  const now = dependencies.now?.() ?? new Date();
+
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  if (req.method === "GET") {
+    const verification = resolveMetaVerification(
+      new URL(req.url),
+      env("META_WEBHOOK_VERIFY_TOKEN"),
+    );
+    if (!verification.ok) {
+      const status = verification.error === "not_configured" ? 503 : 403;
+      return jsonResponse(
+        { success: false, error: `meta_webhook_${verification.error}` },
+        status,
+      );
+    }
+
+    return new Response(verification.challenge, {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "text/plain; charset=utf-8" },
+    });
+  }
+
+  if (req.method !== "POST") {
+    return jsonResponse({ success: false, error: "method_not_allowed" }, 405);
+  }
+
+  const trustedImportAuthorized = authOk(req, env);
+  const signatureHeader = req.headers.get("x-hub-signature-256");
+  if (!trustedImportAuthorized && !signatureHeader) {
+    return jsonResponse({ success: false, error: "unauthorized" }, 401);
+  }
+
+  const appSecret = env("META_APP_SECRET");
+  if (!trustedImportAuthorized && !appSecret) {
+    return jsonResponse(
+      { success: false, error: "meta_webhook_not_configured" },
+      503,
+    );
+  }
+
+  const contentLength = Number(req.headers.get("content-length"));
+  if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BYTES) {
+    return jsonResponse({ success: false, error: "payload_too_large" }, 413);
+  }
+
+  const rawBytes = new Uint8Array(await req.arrayBuffer());
+  if (rawBytes.byteLength > MAX_REQUEST_BYTES) {
+    return jsonResponse({ success: false, error: "payload_too_large" }, 413);
+  }
+
+  if (!trustedImportAuthorized) {
+    return handleNativeMetaWebhook(
+      rawBytes,
+      signatureHeader!,
+      appSecret!,
+      dependencies,
+      env,
+      now,
+    );
+  }
+
+  const parsed = parseJsonObject(rawBytes);
+  if (!parsed.ok) {
+    return jsonResponse({ success: false, error: parsed.error }, 400);
+  }
+
+  const supabase = resolveSupabaseClient(dependencies, env);
+  if (!supabase) {
+    return jsonResponse(
+      { success: false, error: "server_not_configured" },
+      500,
+    );
+  }
+
+  return (dependencies.importPayload ?? importLeadPayload)(
+    supabase,
+    parsed.body,
+    now,
+  );
+}
+
+if (import.meta.main) {
+  Deno.serve((req) => handleImportFacebookLeadAdRequest(req));
+}
