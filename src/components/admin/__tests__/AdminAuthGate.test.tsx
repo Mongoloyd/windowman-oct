@@ -8,9 +8,9 @@
  *     claims; backend admin-data/user_roles remains the role authority.
  *   - SIGNED_OUT events fired mid-session evict the user immediately.
  *
- * Each scenario is run against every admin route (/admin, /admin/settings,
- * /admin/partners, /admin/leads, /admin/leads/:id) so future routes added
- * through AdminAuthGate inherit the same coverage matrix.
+ * Each scenario is run against representative admin routes, including the
+ * Meta Intake Lab, so routes added through AdminAuthGate inherit the same
+ * coverage matrix.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -112,6 +112,14 @@ function renderGated(initialPath: string) {
           }
         />
         <Route
+          path="/admin/meta-intake-lab"
+          element={
+            <AdminAuthGate>
+              <div data-testid="meta-intake-lab">Meta Intake Lab</div>
+            </AdminAuthGate>
+          }
+        />
+        <Route
           path="/admin/login"
           element={<div data-testid="login-page">Login Page</div>}
         />
@@ -126,6 +134,7 @@ const ADMIN_ROUTES = [
   "/admin/partners",
   "/admin/leads",
   "/admin/leads/abc-123",
+  "/admin/meta-intake-lab",
 ] as const;
 const ROUTE_TESTID: Record<(typeof ADMIN_ROUTES)[number], string> = {
   "/admin": "admin-dashboard",
@@ -133,6 +142,7 @@ const ROUTE_TESTID: Record<(typeof ADMIN_ROUTES)[number], string> = {
   "/admin/partners": "admin-partners",
   "/admin/leads": "admin-leads",
   "/admin/leads/abc-123": "admin-lead-dossier",
+  "/admin/meta-intake-lab": "meta-intake-lab",
 };
 
 describe("AdminAuthGate (production mode — DEV bypass disabled)", () => {
