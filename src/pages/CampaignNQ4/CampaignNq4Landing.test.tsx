@@ -63,13 +63,10 @@ function advanceToContact() {
   fireEvent.click(
     within(dialog).getByRole("radio", { name: "Impact windows" }),
   );
-  fireEvent.click(within(dialog).getByRole("button", { name: "Continue" }));
   fireEvent.click(within(dialog).getByRole("radio", { name: "6–10" }));
-  fireEvent.click(within(dialog).getByRole("button", { name: "Continue" }));
   fireEvent.click(
     within(dialog).getByRole("radio", { name: "1–3 months" }),
   );
-  fireEvent.click(within(dialog).getByRole("button", { name: "Continue" }));
   return dialog;
 }
 
@@ -331,36 +328,36 @@ describe("CampaignNq4Landing", () => {
     );
   });
 
-  it("strictly enforces product, openings, and timing before contact", () => {
+  it("advances each single-choice step on one activation without a Continue button", () => {
     renderPage();
     const dialog = openHeroIntake();
 
-    fireEvent.click(within(dialog).getByRole("button", { name: "Continue" }));
-    expect(within(dialog).getByRole("alert")).toHaveTextContent(
-      "Choose what you are replacing.",
-    );
+    expect(
+      within(dialog).queryByRole("button", { name: "Continue" }),
+    ).toBeNull();
     fireEvent.click(
       within(dialog).getByRole("radio", { name: "Impact doors" }),
     );
-    fireEvent.click(within(dialog).getByRole("button", { name: "Continue" }));
-
-    fireEvent.click(within(dialog).getByRole("button", { name: "Continue" }));
-    expect(within(dialog).getByRole("alert")).toHaveTextContent(
-      "Choose the approximate number of openings.",
-    );
-    fireEvent.click(
-      within(dialog).getByRole("radio", { name: "Not sure" }),
-    );
-    fireEvent.click(within(dialog).getByRole("button", { name: "Continue" }));
-
-    fireEvent.click(within(dialog).getByRole("button", { name: "Continue" }));
-    expect(within(dialog).getByRole("alert")).toHaveTextContent(
-      "Choose when you are hoping to start.",
-    );
+    const openingsHeading = within(dialog).getByRole("heading", {
+      name: "Roughly how many openings?",
+    });
+    expect(openingsHeading).toBeInTheDocument();
+    expect(openingsHeading).toHaveFocus();
+    expect(
+      within(dialog).queryByRole("button", { name: "Continue" }),
+    ).toBeNull();
+    fireEvent.click(within(dialog).getByRole("radio", { name: "Not sure" }));
+    const timingHeading = within(dialog).getByRole("heading", {
+      name: "When are you hoping to start?",
+    });
+    expect(timingHeading).toBeInTheDocument();
+    expect(timingHeading).toHaveFocus();
+    expect(
+      within(dialog).queryByRole("button", { name: "Continue" }),
+    ).toBeNull();
     fireEvent.click(
       within(dialog).getByRole("radio", { name: "Planning ahead" }),
     );
-    fireEvent.click(within(dialog).getByRole("button", { name: "Continue" }));
 
     expect(
       within(dialog).getByRole("heading", {

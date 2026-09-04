@@ -22,12 +22,14 @@ export default function Nq4IntakeSkin({
   submitError,
   isSubmitting,
   onFieldChange,
+  onSelectAndNext,
   onNext,
   onBack,
   onSubmit,
   onClose,
 }: IntakeSkinProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const zipRef = useRef<HTMLInputElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
@@ -45,21 +47,9 @@ export default function Nq4IntakeSkin({
     const focusTarget =
       step === "location"
         ? zipRef.current
-        : step === "product"
-          ? dialogRef.current?.querySelector<HTMLElement>(
-              '[data-intake-field="projectType"]',
-            )
-          : step === "openings"
-            ? dialogRef.current?.querySelector<HTMLElement>(
-                '[data-intake-field="openings"]',
-              )
-            : step === "timing"
-              ? dialogRef.current?.querySelector<HTMLElement>(
-                  '[data-intake-field="timing"]',
-                )
-              : step === "contact"
-                ? nameRef.current
-                : dialogRef.current?.querySelector<HTMLElement>("button");
+        : step === "contact"
+          ? nameRef.current
+          : headingRef.current;
     focusTarget?.focus();
   }, [step]);
 
@@ -187,7 +177,9 @@ export default function Nq4IntakeSkin({
           {step === "location" ? (
             <form onSubmit={continueToNextStep} noValidate>
               <p className="nq4-intake-kicker">Step 1</p>
-              <h2 id="nq4-intake-title">Where is the project?</h2>
+              <h2 id="nq4-intake-title" ref={headingRef} tabIndex={-1}>
+                Where is the project?
+              </h2>
               <p id="nq4-intake-description">{location.helperText}</p>
               <div className="nq4-intake-field">
                 <label htmlFor="nq4-intake-zip">{location.inputLabel}</label>
@@ -229,11 +221,14 @@ export default function Nq4IntakeSkin({
           ) : null}
 
           {step === "product" ? (
-            <form onSubmit={continueToNextStep} noValidate>
+            <div>
               <p className="nq4-intake-kicker">Step 2</p>
-              <h2 id="nq4-intake-title">What are you replacing?</h2>
+              <h2 id="nq4-intake-title" ref={headingRef} tabIndex={-1}>
+                What are you replacing?
+              </h2>
               <p id="nq4-intake-description">
-                Choose the closest match for this project.
+                Choose the closest match. Your answer moves you forward
+                automatically.
               </p>
               <div
                 className="nq4-intake-options"
@@ -257,7 +252,7 @@ export default function Nq4IntakeSkin({
                     aria-checked={values.projectType === option}
                     data-intake-field="projectType"
                     key={option}
-                    onClick={() => onFieldChange("projectType", option)}
+                    onClick={() => onSelectAndNext("projectType", option)}
                   >
                     {option}
                   </button>
@@ -272,9 +267,6 @@ export default function Nq4IntakeSkin({
                   {fieldError}
                 </p>
               ) : null}
-              <button className="nq4-intake-primary" type="submit">
-                Continue
-              </button>
               <button
                 className="nq4-intake-back"
                 type="button"
@@ -282,13 +274,15 @@ export default function Nq4IntakeSkin({
               >
                 ← Back
               </button>
-            </form>
+            </div>
           ) : null}
 
           {step === "openings" ? (
-            <form onSubmit={continueToNextStep} noValidate>
+            <div>
               <p className="nq4-intake-kicker">Step 3</p>
-              <h2 id="nq4-intake-title">Roughly how many openings?</h2>
+              <h2 id="nq4-intake-title" ref={headingRef} tabIndex={-1}>
+                Roughly how many openings?
+              </h2>
               <p id="nq4-intake-description">
                 Count each window or door opening once.
               </p>
@@ -314,7 +308,7 @@ export default function Nq4IntakeSkin({
                     aria-checked={values.openings === option}
                     data-intake-field="openings"
                     key={option}
-                    onClick={() => onFieldChange("openings", option)}
+                    onClick={() => onSelectAndNext("openings", option)}
                   >
                     {option}
                   </button>
@@ -329,9 +323,6 @@ export default function Nq4IntakeSkin({
                   {fieldError}
                 </p>
               ) : null}
-              <button className="nq4-intake-primary" type="submit">
-                Continue
-              </button>
               <button
                 className="nq4-intake-back"
                 type="button"
@@ -339,13 +330,13 @@ export default function Nq4IntakeSkin({
               >
                 ← Back
               </button>
-            </form>
+            </div>
           ) : null}
 
           {step === "timing" ? (
-            <form onSubmit={continueToNextStep} noValidate>
+            <div>
               <p className="nq4-intake-kicker">Step 4</p>
-              <h2 id="nq4-intake-title">
+              <h2 id="nq4-intake-title" ref={headingRef} tabIndex={-1}>
                 When are you hoping to start?
               </h2>
               <p id="nq4-intake-description">
@@ -373,7 +364,7 @@ export default function Nq4IntakeSkin({
                     aria-checked={values.timing === option}
                     data-intake-field="timing"
                     key={option}
-                    onClick={() => onFieldChange("timing", option)}
+                    onClick={() => onSelectAndNext("timing", option)}
                   >
                     {option}
                   </button>
@@ -388,9 +379,6 @@ export default function Nq4IntakeSkin({
                   {fieldError}
                 </p>
               ) : null}
-              <button className="nq4-intake-primary" type="submit">
-                Continue
-              </button>
               <button
                 className="nq4-intake-back"
                 type="button"
@@ -398,13 +386,15 @@ export default function Nq4IntakeSkin({
               >
                 ← Back
               </button>
-            </form>
+            </div>
           ) : null}
 
           {step === "contact" ? (
             <form onSubmit={submitLead} noValidate>
               <p className="nq4-intake-kicker">Step 5</p>
-              <h2 id="nq4-intake-title">Save your project request</h2>
+              <h2 id="nq4-intake-title" ref={headingRef} tabIndex={-1}>
+                Save your project request
+              </h2>
               <p id="nq4-intake-description">
                 Add your details so WindowMan can follow up about this request.
               </p>
@@ -527,7 +517,9 @@ export default function Nq4IntakeSkin({
               <div className="nq4-intake-check" aria-hidden="true">
                 ✓
               </div>
-              <h2 id="nq4-intake-title">Project request received</h2>
+              <h2 id="nq4-intake-title" ref={headingRef} tabIndex={-1}>
+                Project request received
+              </h2>
               <p id="nq4-intake-description">
                 Your request was saved for WindowMan follow-up.
               </p>
