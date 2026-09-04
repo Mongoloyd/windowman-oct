@@ -379,7 +379,7 @@ Functions reachable by unauthenticated browsers using only the publishable/anon 
 | `contractor-booking-confirmed` | Booking confirmation hook | `x-contractor-secret` = `CONTRACTOR_CRON_SECRET` | `contractor_leads`, `contractor_followups`, `contractor_activity_log` |
 | `contractor-mark-no-show` | No-show marker | `x-contractor-secret` = `CONTRACTOR_CRON_SECRET` | same family |
 | `contractor-send-followups` | Follow-up email sender | `x-contractor-secret` = `CONTRACTOR_CRON_SECRET` | `contractor_followups`, `contractor_leads`, `contractor_activity_log` |
-| `import-facebook-lead-ad` | Facebook lead ad ingest | `x-import-secret` or Bearer = `FACEBOOK_LEAD_AD_IMPORT_SECRET` | `leads`, `lead_attribution_details`, `event_logs` |
+| `import-facebook-lead-ad` | Native Meta webhook + trusted Facebook lead ad ingest | Meta GET verify token / POST `X-Hub-Signature-256`, or `x-import-secret` / Bearer = `FACEBOOK_LEAD_AD_IMPORT_SECRET` | `leads`, `lead_attribution_details`, `event_logs` |
 | `stripe-webhook` | Stripe checkout fulfillment | Stripe `stripe-signature` = `STRIPE_WEBHOOK_SECRET` | `contractor_credit_purchases`; RPC `fulfill_contractor_credit_purchase` |
 
 ---
@@ -418,7 +418,7 @@ Additional secrets found in function code (not all listed in `.env.example`):
 | `CONTRACTOR_CRON_SECRET` | `contractor-booking-confirmed`, `contractor-mark-no-show`, `contractor-send-followups`, `process-webhook`, `refresh-benchmarks`, `lead-reactivation` |
 | `PROCESS_WEBHOOK_SECRET`, `BENCHMARK_CRON_SECRET`, `REACTIVATION_CRON_SECRET` | respective cron functions (fallback to `CONTRACTOR_CRON_SECRET`) |
 | `CRM_WEBHOOK_URL`, `CRM_WEBHOOK_SECRET` | `process-webhook` |
-| `FACEBOOK_LEAD_AD_IMPORT_SECRET` | `import-facebook-lead-ad` |
+| `FACEBOOK_LEAD_AD_IMPORT_SECRET`, `META_WEBHOOK_VERIFY_TOKEN`, `META_APP_SECRET`, `META_PAGE_ACCESS_TOKEN`, `META_GRAPH_API_VERSION`, `META_WEBHOOK_TEST_MODE` | `import-facebook-lead-ad` |
 | `LOVABLE_API_KEY` | `dispatch-lead` |
 | `QUOTE_INTELLIGENCE_WORKER_SECRET` | `quote-intelligence-worker` |
 | `REPORT_SUMMARY_WORKER_SECRET` | `report-summary-worker` |
@@ -645,7 +645,10 @@ Each entry: **Purpose · Category · verify_jwt · Auth · Env vars · Service r
 - **Category:** contractor · **Auth:** JWT+role · **Callers:** `PartnerDossier.tsx`
 
 ### `import-facebook-lead-ad`
-- **Category:** webhook · **Auth:** `FACEBOOK_LEAD_AD_IMPORT_SECRET` · **Callers:** none
+- **Category:** webhook · **Auth:** Meta GET verification uses `META_WEBHOOK_VERIFY_TOKEN`; native POST verifies `X-Hub-Signature-256` with `META_APP_SECRET`; the existing trusted importer still accepts `FACEBOOK_LEAD_AD_IMPORT_SECRET`
+- **Callers:** Meta Page `leadgen` webhooks; existing trusted server-side importer
+- **Retrieval:** `leadgen_id` is receipted with the raw signed callback in `event_logs` before a versioned Graph API request using `META_PAGE_ACCESS_TOKEN`
+- **Test mode:** `META_WEBHOOK_TEST_MODE` defaults to enabled unless explicitly set to `false`; this function performs ingestion only and does not invoke PhoneCall.bot or CRM sync
 
 ### `lead-reactivation` / `refresh-benchmarks`
 - **Category:** cron · **Auth:** `x-cron-secret` · **Callers:** none
