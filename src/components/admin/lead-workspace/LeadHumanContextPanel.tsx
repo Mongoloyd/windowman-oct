@@ -182,15 +182,15 @@ export function LeadHumanContextPanel({
   };
 
   return (
-    <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+    <section className="wm-lead-dossier-panel">
       <header className="flex items-center justify-between mb-4">
         <div>
-          <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-700">
+          <p className="wm-lead-dossier-kicker">
             Sales Context
           </p>
-          <h3 className="font-display text-lg font-extrabold tracking-tight text-foreground mt-0.5">
+          <h2 className="wm-lead-dossier-heading">
             Human Context
-          </h3>
+          </h2>
         </div>
         <Sparkles className="h-4 w-4 text-slate-700" />
       </header>
@@ -296,7 +296,7 @@ export function LeadHumanContextPanel({
       {/* Recommended Opening Script */}
       <div className="mt-4 rounded-lg border border-cyan-500/30 bg-cyan-500/5 p-3.5">
         <div className="flex items-center justify-between mb-1.5">
-          <p className="text-sm font-bold uppercase tracking-[0.18em] text-cyan-800">
+          <div className="text-sm font-bold uppercase tracking-[0.18em] text-cyan-800">
             Recommended Opening
             {opener.isUrgent && (
               <Badge className="ml-2 bg-orange-100 text-orange-950 border border-orange-300 text-sm px-1.5 py-0">
@@ -308,12 +308,12 @@ export function LeadHumanContextPanel({
                 REPORT ONLY
               </Badge>
             )}
-          </p>
+          </div>
           <Button
             size="sm"
             variant="ghost"
             onClick={handleCopy}
-            className="h-6 px-2 text-sm"
+            className="h-11 min-h-11 px-3 text-sm"
           >
             {copied ? (
               <>
@@ -326,7 +326,7 @@ export function LeadHumanContextPanel({
             )}
           </Button>
         </div>
-        <p className="text-sm leading-relaxed text-foreground/90 font-serif italic">
+        <p className="text-sm leading-relaxed text-foreground">
           "{opener.script}"
         </p>
       </div>

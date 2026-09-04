@@ -71,10 +71,20 @@ const INACTIVE_CLASSES =
 const ACTIVE_CLASSES =
   "border-slate-400 bg-white text-slate-950 font-black shadow-sm";
 
-export function AdminGlobalNav() {
+export function AdminGlobalNav({
+  variant = "default",
+}: {
+  variant?: "default" | "lead-dossier";
+}) {
+  const isLeadDossier = variant === "lead-dossier";
+
   return (
     <nav aria-label="Admin sections">
-      <div className="wm-slim-scrollbar flex flex-nowrap items-center gap-2 overflow-x-auto overscroll-x-contain rounded-2xl border border-slate-300 bg-white p-2 shadow-sm [scrollbar-gutter:stable]">
+      <div
+        className={`wm-slim-scrollbar flex max-w-full flex-nowrap items-center gap-2 overflow-x-auto overscroll-x-contain border border-slate-300 bg-white shadow-sm [scrollbar-gutter:stable] ${
+          isLeadDossier ? "rounded-xl p-1.5" : "rounded-2xl p-2"
+        }`}
+      >
         {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
           <NavLink
             key={to}

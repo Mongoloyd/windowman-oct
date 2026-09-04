@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import {
   createLeadNote, deleteLeadNote, getErrorMessage, listLeadNotes,
@@ -68,15 +69,15 @@ export function LeadNotesPanel({ leadId }: LeadNotesPanelProps) {
   };
 
   return (
-    <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+    <section className="wm-lead-dossier-panel">
       <header className="flex items-center justify-between mb-4">
         <div>
-          <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-700">
+          <p className="wm-lead-dossier-kicker">
             Workflow
           </p>
-          <h3 className="font-display text-lg font-extrabold tracking-tight text-foreground mt-0.5">
+          <h2 className="wm-lead-dossier-heading">
             Notes
-          </h3>
+          </h2>
         </div>
         <span className="inline-flex items-center gap-1.5 text-xs text-slate-700">
           <MessageSquareText className="h-3.5 w-3.5" />
@@ -84,36 +85,50 @@ export function LeadNotesPanel({ leadId }: LeadNotesPanelProps) {
         </span>
       </header>
 
-      <form onSubmit={handleSubmit} className="space-y-2.5 mb-5">
-        <Textarea
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          placeholder="Log a call, capture context, or leave an internal note…"
-          rows={3}
-          maxLength={4000}
-          className="resize-none"
-        />
-        <div className="flex items-center gap-2">
-          <Select value={category} onValueChange={setCategory}>
-            <SelectTrigger className="h-9 w-32 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {NOTE_CATEGORIES.map((c) => (
-                <SelectItem key={c.value} value={c.value} className="text-xs">
-                  {c.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <span className="text-sm text-slate-700 ml-auto">
+      <form onSubmit={handleSubmit} className="mb-5 space-y-3">
+        <div className="space-y-2">
+          <Label htmlFor="lead-note-body" className="text-sm font-semibold text-slate-800">
+            Internal note
+          </Label>
+          <Textarea
+            id="lead-note-body"
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            placeholder="Log a call, capture context, or leave an internal note…"
+            rows={3}
+            maxLength={4000}
+            className="resize-none"
+          />
+        </div>
+        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-[minmax(8rem,12rem)_1fr_auto] sm:items-end">
+          <div className="space-y-2">
+            <Label id="lead-note-category-label" className="text-sm font-semibold text-slate-800">
+              Category
+            </Label>
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger
+                className="h-11 w-full text-sm"
+                aria-labelledby="lead-note-category-label"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {NOTE_CATEGORIES.map((c) => (
+                  <SelectItem key={c.value} value={c.value} className="text-xs">
+                    {c.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <span className="text-sm text-slate-700 sm:pb-3 sm:text-right">
             {body.length}/4000
           </span>
           <Button
             type="submit"
             size="sm"
             disabled={!body.trim() || createMutation.isPending}
-            className="h-9"
+            className="h-11 min-h-11"
           >
             {createMutation.isPending ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -169,7 +184,7 @@ function NoteRow({
   const cat = NOTE_CATEGORIES.find((c) => c.value === note.category)?.label ?? "Note";
   return (
     <li className="rounded-xl border border-border bg-background/60 p-3">
-      <div className="flex items-center justify-between gap-2 mb-1.5">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 mb-1.5">
         <div className="flex items-center gap-2 min-w-0">
           <span className="inline-flex items-center rounded-full border border-border bg-muted px-2 py-0.5 text-sm font-bold uppercase tracking-wider text-slate-700">
             {cat}
@@ -188,7 +203,7 @@ function NoteRow({
             size="icon"
             onClick={onDelete}
             disabled={deleting}
-            className="h-7 w-7 text-slate-700 hover:text-destructive"
+            className="h-11 w-11 text-slate-700 hover:text-destructive"
             aria-label="Delete note"
           >
             {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}

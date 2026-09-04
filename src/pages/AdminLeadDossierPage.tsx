@@ -11,7 +11,7 @@ import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   Loader2, AlertCircle, Mail, Phone, MapPin, Hash, DollarSign,
-  CheckCircle2, ExternalLink, FileText, Flag, ArrowLeft,
+  CheckCircle2, ExternalLink, FileText, Flag,
 } from "lucide-react";
 import { format } from "date-fns";
 import { AdminShell } from "@/components/admin/shell/AdminShell";
@@ -27,7 +27,22 @@ import { LeadTimelinePanel } from "@/components/admin/lead-workspace/LeadTimelin
 import { LeadHumanContextPanel } from "@/components/admin/lead-workspace/LeadHumanContextPanel";
 import { QuoteViewerButton } from "@/components/admin/QuoteViewerButton";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+
+interface DossierAnalysisFlag {
+  severity?: string;
+  flag?: string;
+}
+
+type HumanContextProps = React.ComponentProps<typeof LeadHumanContextPanel>;
+
+interface DossierLeadContext {
+  property_type_detail?: string | null;
+  hoa_or_condo_complexity?: string | null;
+  handoff_consent_status?: string | null;
+  timeline_bucket?: string | null;
+  diagnosis_intake?: HumanContextProps["diagnosisIntake"];
+  latest_route?: HumanContextProps["latestRoute"];
+}
 
 function gradeColor(grade: string | null): string {
   switch (grade) {
@@ -44,9 +59,9 @@ function InfoCell({
   label, value, icon: Icon,
 }: { label: string; value: React.ReactNode; icon?: React.ElementType }) {
   return (
-    <div className="space-y-0.5">
+    <div className="min-w-0 space-y-1">
       <p className="text-sm font-extrabold uppercase tracking-[0.16em] text-slate-700">{label}</p>
-      <div className="flex items-center gap-1.5 break-all text-base font-semibold text-slate-950">
+      <div className="wm-lead-break flex min-w-0 items-start gap-1.5 text-base font-semibold text-slate-950">
         {Icon && <Icon className="h-3.5 w-3.5 text-slate-700 shrink-0" />}
         {value || <span className="text-slate-700">—</span>}
       </div>
@@ -117,7 +132,8 @@ export default function AdminLeadDossierPage() {
   }
 
   const name = [lead.first_name, lead.last_name].filter(Boolean).join(" ") || "Unknown";
-  const flags = Array.isArray(analysis?.flags) ? analysis!.flags : [];
+  const flags: DossierAnalysisFlag[] = Array.isArray(analysis?.flags) ? analysis.flags : [];
+  const leadContext = lead as DossierLeadContext;
 
   return (
     <AdminShell
@@ -126,65 +142,57 @@ export default function AdminLeadDossierPage() {
       subtitle={`Lead ID: ${lead.id.slice(0, 8)}… · Created ${format(new Date(lead.created_at), "MMM d, yyyy h:mm a")}`}
       backTo="/admin/leads"
       backLabel="Back to inbox"
-      nav={<AdminGlobalNav />}
+      nav={<AdminGlobalNav variant="lead-dossier" />}
+      variant="lead-dossier"
     >
-      {/* Prominent "Back to Inbox" affordance — the AdminShell breadcrumb is small;
-          this is the canonical exit so operators can't miss it on the dossier page. */}
-      <div className="mb-5 flex items-center justify-between">
-        <Button asChild variant="outline" size="sm">
-          <Link to="/admin/leads" className="inline-flex items-center gap-1.5">
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Back to Inbox
-          </Link>
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* ── Left column: Intake + Scan + Timeline ─────────────────── */}
-        <div className="lg:col-span-2 space-y-5">
-          <section className="wm-admin-panel p-5">
-            <header className="flex items-center justify-between mb-4">
-              <div>
-                <p className="text-sm font-extrabold uppercase tracking-[0.16em] text-slate-700">
-                  Intake
-                </p>
-                <h3 className="font-display text-lg font-extrabold tracking-tight text-foreground mt-0.5">
-                  Contact &amp; project
-                </h3>
-              </div>
-              {lead.phone_verified && (
-                <span className="wm-admin-badge border-emerald-300 bg-emerald-100 text-emerald-950">
-                  <CheckCircle2 className="h-3 w-3" />
-                  Verified
-                </span>
-              )}
-            </header>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <InfoCell label="Name" value={name} />
-              <InfoCell label="Email" icon={Mail} value={lead.email && (
-                <a href={`mailto:${lead.email}`} className="text-primary hover:underline truncate">{lead.email}</a>
-              )} />
-              <InfoCell label="Phone" icon={Phone} value={lead.phone_e164 && (
-                <a href={`tel:${lead.phone_e164}`} className="text-primary hover:underline font-mono">{lead.phone_e164}</a>
-              )} />
-              <InfoCell label="Location" icon={MapPin} value={[lead.county, lead.state, lead.zip].filter(Boolean).join(", ") || null} />
-              <InfoCell label="Window count" icon={Hash} value={lead.window_count} />
-              <InfoCell label="Project type" value={lead.project_type} />
-              <InfoCell label="Quote range" value={lead.quote_range} />
-              <InfoCell label="Quote amount" icon={DollarSign} value={lead.quote_amount ? `$${Number(lead.quote_amount).toLocaleString()}` : null} />
-              <InfoCell label="Source" value={lead.utm_source ?? lead.source ?? null} />
+      <div className="wm-lead-dossier-grid">
+        <section className="wm-lead-dossier-panel wm-lead-dossier-intake">
+          <header className="flex items-center justify-between mb-4">
+            <div>
+              <p className="wm-lead-dossier-kicker">
+                Intake
+              </p>
+              <h2 className="wm-lead-dossier-heading">
+                Contact &amp; project
+              </h2>
             </div>
-          </section>
+            {lead.phone_verified && (
+              <span className="wm-admin-badge border-emerald-300 bg-emerald-100 text-emerald-950">
+                <CheckCircle2 className="h-3 w-3" />
+                Verified
+              </span>
+            )}
+          </header>
+          <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <InfoCell label="Name" value={name} />
+            <InfoCell label="Email" icon={Mail} value={lead.email && (
+              <a href={`mailto:${lead.email}`} className="min-w-0 break-words text-primary hover:underline">{lead.email}</a>
+            )} />
+            <InfoCell label="Phone" icon={Phone} value={lead.phone_e164 && (
+              <a href={`tel:${lead.phone_e164}`} className="text-primary hover:underline font-mono">{lead.phone_e164}</a>
+            )} />
+            <InfoCell label="Location" icon={MapPin} value={[lead.county, lead.state, lead.zip].filter(Boolean).join(", ") || null} />
+            <InfoCell label="Window count" icon={Hash} value={lead.window_count} />
+            <InfoCell label="Project type" value={lead.project_type} />
+            <InfoCell label="Quote range" value={lead.quote_range} />
+            <InfoCell label="Quote amount" icon={DollarSign} value={lead.quote_amount ? `$${Number(lead.quote_amount).toLocaleString()}` : null} />
+            <InfoCell label="Source" value={lead.utm_source ?? lead.source ?? null} />
+          </div>
+        </section>
 
-          <section className="wm-admin-panel p-5">
+        <div className="wm-lead-dossier-stage">
+          <LeadStatusPanel leadId={leadId} currentStage={lead.funnel_stage} />
+        </div>
+
+        <section className="wm-lead-dossier-panel wm-lead-dossier-truth">
             <header className="flex items-center justify-between mb-4">
               <div>
-                <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-slate-700">
+                <p className="wm-lead-dossier-kicker">
                   Scan &amp; Report
                 </p>
-                <h3 className="mt-0.5 font-display text-xl font-black tracking-tight text-slate-950">
+                <h2 className="wm-lead-dossier-heading">
                   Truth Engine
-                </h3>
+                </h2>
               </div>
               <div className="flex items-center gap-3">
                 <QuoteViewerButton leadId={lead.id} />
@@ -199,7 +207,7 @@ export default function AdminLeadDossierPage() {
               <p className="text-sm text-slate-700 italic">No analysis yet for this lead.</p>
             ) : (
               <div className="space-y-3">
-                <div className="grid grid-cols-3 gap-3 text-sm">
+                <div className="wm-lead-dossier-metrics">
                   <div>
                     <p className="text-sm font-extrabold uppercase tracking-wide text-slate-700">Confidence</p>
                     <p className="font-mono text-base font-bold text-slate-950">{analysis?.confidence_score ?? lead.confidence_score ?? "—"}%</p>
@@ -210,7 +218,7 @@ export default function AdminLeadDossierPage() {
                   </div>
                   <div>
                     <p className="text-sm font-extrabold uppercase tracking-wide text-slate-700">Critical</p>
-                    <p className="text-base font-bold text-destructive">{lead.critical_flag_count ?? 0}</p>
+                    <p className="text-base font-bold text-red-800">{lead.critical_flag_count ?? 0}</p>
                   </div>
                 </div>
 
@@ -220,7 +228,7 @@ export default function AdminLeadDossierPage() {
                       <Flag className="h-4 w-4" /> Top flags
                     </p>
                     <ul className="space-y-1.5">
-                      {flags.slice(0, 5).map((f: any, i: number) => (
+                      {flags.slice(0, 5).map((f, i) => (
                         <li key={i} className="flex items-start gap-2 text-sm font-semibold leading-5 text-slate-950">
                           <Badge
                             className={`shrink-0 px-2 py-0.5 text-xs font-extrabold uppercase ${
@@ -268,33 +276,33 @@ export default function AdminLeadDossierPage() {
                 ) : null}
               </div>
             )}
-          </section>
+        </section>
 
-          {/* Phase 10 — Human Context Layer (motivation, property, timeline,
-              handoff consent, fit warnings, deterministic opening script). */}
+        <div className="wm-lead-dossier-context">
           <LeadHumanContextPanel
             lead={{
               first_name: lead.first_name,
               last_name: lead.last_name,
               county: lead.county,
-              property_type_detail: (lead as any).property_type_detail ?? null,
-              hoa_or_condo_complexity: (lead as any).hoa_or_condo_complexity ?? null,
-              handoff_consent_status: (lead as any).handoff_consent_status ?? null,
-              timeline_bucket: (lead as any).timeline_bucket ?? null,
+              property_type_detail: leadContext.property_type_detail ?? null,
+              hoa_or_condo_complexity: leadContext.hoa_or_condo_complexity ?? null,
+              handoff_consent_status: leadContext.handoff_consent_status ?? null,
+              timeline_bucket: leadContext.timeline_bucket ?? null,
             }}
-            diagnosisIntake={(lead as any).diagnosis_intake ?? null}
+            diagnosisIntake={leadContext.diagnosis_intake ?? null}
             analysis={analysis ?? null}
-            latestRoute={(lead as any).latest_route ?? null}
+            latestRoute={leadContext.latest_route ?? null}
           />
-
-          <LeadTimelinePanel leadId={leadId} />
         </div>
 
-        {/* ── Right column: Status + Notes + Tasks ──────────────────── */}
-        <div className="space-y-5">
-          <LeadStatusPanel leadId={leadId} currentStage={lead.funnel_stage} />
+        <div className="wm-lead-dossier-tasks">
           <LeadTasksPanel leadId={leadId} />
+        </div>
+        <div className="wm-lead-dossier-notes">
           <LeadNotesPanel leadId={leadId} />
+        </div>
+        <div className="wm-lead-dossier-timeline">
+          <LeadTimelinePanel leadId={leadId} />
         </div>
       </div>
     </AdminShell>

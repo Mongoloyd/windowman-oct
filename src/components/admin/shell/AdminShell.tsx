@@ -31,6 +31,8 @@ interface AdminShellProps {
   belowHeader?: ReactNode;
   /** Whether the content area gets the standard max-width container.  */
   fullBleed?: boolean;
+  /** Opt-in page treatment. Defaults preserve every existing admin surface. */
+  variant?: "default" | "lead-dossier";
   children: ReactNode;
 }
 
@@ -43,13 +45,32 @@ export function AdminShell({
   nav,
   belowHeader,
   fullBleed = false,
+  variant = "default",
   children,
 }: AdminShellProps) {
+  const isLeadDossier = variant === "lead-dossier";
+
   return (
-    <div className="wm-dashboard-surface wm-admin-canvas min-h-screen">
+    <div
+      className={`wm-dashboard-surface wm-admin-canvas min-h-screen ${
+        isLeadDossier ? "wm-lead-dossier" : ""
+      }`}
+    >
       <header className="wm-admin-chrome sticky top-0 z-30 border-b shadow-sm backdrop-blur">
-        <div className="w-full px-4 py-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12">
-          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div
+          className={
+            isLeadDossier
+              ? "w-full px-4 py-3 sm:px-6 lg:px-8 xl:px-10 2xl:px-12"
+              : "w-full px-4 py-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12"
+          }
+        >
+          <div
+            className={
+              isLeadDossier
+                ? "flex flex-col gap-2 md:flex-row md:items-end md:justify-between"
+                : "flex flex-col gap-3 md:flex-row md:items-end md:justify-between"
+            }
+          >
             <div className="min-w-0">
               {backTo && (
                 <Link
@@ -63,7 +84,13 @@ export function AdminShell({
               <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-blue-300">
                 {eyebrow}
               </p>
-              <h1 className="mt-0.5 font-display text-3xl md:text-4xl font-black leading-tight tracking-tight text-white">
+              <h1
+                className={
+                  isLeadDossier
+                    ? "mt-0.5 font-display text-3xl font-extrabold leading-tight tracking-tight text-white md:text-4xl"
+                    : "mt-0.5 font-display text-3xl md:text-4xl font-black leading-tight tracking-tight text-white"
+                }
+              >
                 {title}
               </h1>
               {subtitle && <p className="mt-0.5 text-base font-bold text-slate-300">{subtitle}</p>}
@@ -72,7 +99,7 @@ export function AdminShell({
               <AdminIdentityBar />
             </div>
           </div>
-          {nav && <div className="mt-4">{nav}</div>}
+          {nav && <div className={isLeadDossier ? "mt-3" : "mt-4"}>{nav}</div>}
           {belowHeader && <div className="mt-4">{belowHeader}</div>}
         </div>
       </header>
