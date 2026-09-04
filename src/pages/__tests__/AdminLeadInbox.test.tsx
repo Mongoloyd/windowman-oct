@@ -365,6 +365,21 @@ describe("AdminLeadInbox", () => {
     ]);
   });
 
+  it.each(["ghost", "stale"] as const)(
+    "uses an attention tone for %s funnel stage cards",
+    async (stage) => {
+      invokeAdminDataMock.mockResolvedValueOnce([
+        { ...baseLead, funnel_stage: stage, phone_verified: true },
+      ]);
+      renderInbox();
+      const card = (
+        await screen.findByRole("link", { name: "View details for Jane Doe" })
+      ).closest("article");
+      expect(card).not.toBeNull();
+      expect(card).toHaveClass("wm-lead-card--attention");
+    },
+  );
+
   it("preserves empty and error lifecycle states", async () => {
     invokeAdminDataMock.mockResolvedValueOnce([]);
     const empty = renderInbox();

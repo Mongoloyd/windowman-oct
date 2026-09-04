@@ -1355,7 +1355,10 @@ function LeadList({ leads }: { leads: InboxLead[] }) {
           ? "attention"
           : stageValue === "booked" || stageValue === "closed"
             ? "resolved"
-            : stageValue === "contacted" || stageValue === "routed"
+            : stageValue === "contacted" ||
+                stageValue === "routed" ||
+                stageValue === "ghost" ||
+                stageValue === "stale"
               ? "attention"
               : lead.phone_verified
                 ? "active"
