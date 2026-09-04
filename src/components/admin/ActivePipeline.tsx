@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   Table,
   TableBody,
@@ -8,6 +9,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -16,10 +18,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search } from "lucide-react";
+import { ExternalLink, Search } from "lucide-react";
 import { LeadDossierSheet } from "./LeadDossierSheet";
+import { LeadIdentity } from "./LeadIdentity";
 import type { CRMLead, PipelineStatus } from "./types";
 import { derivePipelineStatus } from "./types";
+import { matchesAdminLeadSearch } from "@/lib/adminLeadSearch";
 
 interface ActivePipelineProps {
   leads: CRMLead[];
@@ -85,11 +89,35 @@ const UNKNOWN_COUNTY = "Unknown County";
 /* ── Component ───────────────────────────────────────────────────────── */
 
 export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedLead, setSelectedLead] = useState<CRMLead | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [ownershipFilter, setOwnershipFilter] = useState<OwnershipFilter>("all");
   const [marketFilter, setMarketFilter] = useState<string>("all");
+  const linkedLeadId = searchParams.get("lead_id");
+
+  const openLead = useCallback((lead: CRMLead) => {
+    setSelectedLead(lead);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("lead_id", lead.id);
+    setSearchParams(nextParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const closeLead = useCallback(() => {
+    setSelectedLead(null);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("lead_id");
+    setSearchParams(nextParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (!linkedLeadId) return;
+    const linkedLead = leads.find((lead) => lead.id === linkedLeadId);
+    if (linkedLead && selectedLead?.id !== linkedLead.id) {
+      setSelectedLead(linkedLead);
+    }
+  }, [leads, linkedLeadId, selectedLead?.id]);
 
   // Phase 8 — distinct county list for dropdown, with safe Unknown fallback.
   const marketOptions = useMemo(() => {
@@ -143,13 +171,7 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
 
     // Search filter
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter((lead) => {
-        const name = displayName(lead).toLowerCase();
-        const email = (lead.email ?? "").toLowerCase();
-        const county = (lead.county ?? "").toLowerCase();
-        return name.includes(q) || email.includes(q) || county.includes(q);
-      });
+      result = result.filter((lead) => matchesAdminLeadSearch(lead, searchQuery));
     }
 
     return result;
@@ -179,10 +201,11 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-700" />
           <Input
-            placeholder="Search name, email, county…"
+            placeholder="Search name, phone, email, ZIP, or lead ID…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9 h-10 text-sm font-semibold"
+            aria-label="Search pipeline leads"
           />
         </div>
         <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
@@ -246,12 +269,13 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
               <TableHead className="w-[120px]">Status</TableHead>
               <TableHead className="w-[120px]">Owner</TableHead>
               <TableHead className="w-[90px] text-right">Age</TableHead>
+              <TableHead className="w-[120px] text-right">Workspace</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredLeads.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-slate-700">
+                <TableCell colSpan={8} className="text-center py-8 text-slate-700">
                   No leads match the current filters.
                 </TableCell>
               </TableRow>
@@ -263,7 +287,7 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
                   <TableRow
                     key={lead.id}
                     className="cursor-pointer hover:bg-muted/50 transition-colors"
-                    onClick={() => setSelectedLead(lead)}
+                    onClick={() => openLead(lead)}
                   >
                     <TableCell>
                       <div className="font-medium text-sm truncate max-w-[220px]">
@@ -274,6 +298,9 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
                           {lead.email}
                         </div>
                       )}
+                      <div onClick={(event) => event.stopPropagation()}>
+                        <LeadIdentity leadId={lead.id} className="mt-1 text-xs font-semibold text-slate-600" />
+                      </div>
                     </TableCell>
                     <TableCell className="font-mono text-sm">
                       {lead.phone_verified ? (lead.phone_e164 ?? "—") : maskPhone(lead.phone_e164)}
@@ -301,6 +328,17 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
                     <TableCell className="text-right text-sm font-semibold text-slate-700 whitespace-nowrap">
                       {timeAgo(lead.created_at)}
                     </TableCell>
+                    <TableCell className="text-right">
+                      <Button asChild variant="outline" size="sm">
+                        <Link
+                          to={`/admin/leads/${lead.id}`}
+                          onClick={(event) => event.stopPropagation()}
+                          aria-label={`Open lead workspace for ${displayName(lead)}`}
+                        >
+                          Open <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
+                        </Link>
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 );
               })
@@ -313,7 +351,7 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
       <LeadDossierSheet
         lead={selectedLead}
         open={!!selectedLead}
-        onOpenChange={(open) => !open && setSelectedLead(null)}
+        onOpenChange={(open) => !open && closeLead()}
       />
     </>
   );

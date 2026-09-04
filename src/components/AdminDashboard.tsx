@@ -11,6 +11,7 @@ import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { AdminShell } from "@/components/admin/shell/AdminShell";
 import { AdminPrimaryTabs } from "@/components/admin/shell/AdminPrimaryTabs";
+import { AdminGlobalNav } from "@/components/admin/shell/AdminGlobalNav";
 
 import { PreviewModeBadge } from "@/components/PreviewModeBadge";
 // Phase 26 — legacy <CommandCenter /> removed. Canonical Mission Control
@@ -535,6 +536,7 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
       eyebrow="Lead Sniper · Admin"
       title="Operator Command Center"
       subtitle={`${leadCountLabel} · ${lastSyncLabel}`}
+      nav={<AdminGlobalNav />}
       belowHeader={
         <div className="flex items-center gap-3">
           {previewBadge}

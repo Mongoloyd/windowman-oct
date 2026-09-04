@@ -6,11 +6,11 @@
  * Lives at /admin/leads and is the default "front door" for operators.
  */
 
-import { useEffect, useMemo, useState, type MouseEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState, type MouseEvent, type ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
-  Search, Filter, Loader2, AlertCircle, ChevronRight, Clock,
+  Search, Filter, Loader2, AlertCircle, ChevronDown, ChevronRight, Clock,
   Phone, MapPin, Inbox, RefreshCcw, Copy, Check, Flame, Save,
 } from "lucide-react";
 import { format, formatDistanceToNow, subDays } from "date-fns";
@@ -26,6 +26,8 @@ import type { CRMLead } from "@/components/admin/types";
 import { FUNNEL_STAGES, getStageDef } from "@/components/admin/leadWorkflow";
 import { formatLatestActivityLabel } from "@/lib/formatLatestActivityLabel";
 import { QuoteViewerButton } from "@/components/admin/QuoteViewerButton";
+import { LeadIdentity } from "@/components/admin/LeadIdentity";
+import { matchesAdminLeadSearch } from "@/lib/adminLeadSearch";
 
 type DateRange = "all" | "24h" | "7d" | "30d";
 type VerifiedFilter = "all" | "verified" | "unverified";
@@ -55,6 +57,13 @@ type InboxLead = CRMLead & {
   admin_disposition_updated_at: string | null;
   last_activity_at: string | null;
   latest_activity_type: string | null;
+};
+
+type RawInboxLead = Omit<Partial<InboxLead>, "qualification_answers_json"> & {
+  id: string;
+  created_at: string;
+  lead_source?: string | null;
+  qualification_answers_json?: unknown;
 };
 
 type LeadDisposition =
@@ -257,7 +266,7 @@ function parsePowerToolDemoIntake(
   };
 }
 
-function toLead(raw: Record<string, any>): InboxLead {
+function toLead(raw: RawInboxLead): InboxLead {
   const source = raw.source ?? raw.lead_source ?? null;
   const qualification_answers_json =
     raw.qualification_answers_json && typeof raw.qualification_answers_json === "object"
@@ -352,8 +361,6 @@ const isLeadStuck = (lead: LeadOpsCountLead): boolean =>
   Boolean(lead.latest_analysis_id) && lead.phone_verified !== true;
 
 export default function LeadInbox() {
-  const navigate = useNavigate();
-
   const [search, setSearch] = useState("");
   const [dateRange, setDateRange] = useState<DateRange>("all");
   const [county, setCounty] = useState<string>("all");
@@ -371,7 +378,7 @@ export default function LeadInbox() {
     queryKey: ["admin", "leads"],
     queryFn: async () => {
       const result = await invokeAdminData("fetch_leads");
-      return (result ?? []) as Record<string, any>[];
+      return (result ?? []) as RawInboxLead[];
     },
     staleTime: 30_000,
   });
@@ -436,14 +443,11 @@ export default function LeadInbox() {
 
       if (q) {
         const intake = l.powerToolDemoIntake;
-        const hay = [
-          l.first_name, l.last_name, l.email, l.phone_e164,
-          l.county, l.city, l.zip, l.id, l.session_id,
-          l.source, l.client_slug, l.funnel_stage,
+        const extraValues = [
           intake?.intake_status, intake?.intake_property, intake?.intake_scope,
           intake?.intake_logistics, intake?.intake_timeline,
-        ].filter(Boolean).join(" ").toLowerCase();
-        if (!hay.includes(q)) return false;
+        ];
+        if (!matchesAdminLeadSearch(l, q, extraValues)) return false;
       }
       return true;
     });
@@ -480,29 +484,32 @@ export default function LeadInbox() {
     return parts.length ? `${base} · ${parts.join(" · ")}` : base;
   }, [filtered.length, leads.length, sourceFilter, demoPriorityCounts]);
 
+  const activeFilterCount = [
+    search.trim() ? "search" : null,
+    dateRange !== "all" ? "date" : null,
+    county !== "all" ? "county" : null,
+    verified !== "all" ? "verification" : null,
+    stage !== "all" ? "stage" : null,
+    sourceFilter !== "all" ? "source" : null,
+    shortcutFilter !== "all" ? "quote" : null,
+    priorityFilter !== "all" ? "priority" : null,
+  ].filter(Boolean).length;
+
   return (
     <AdminShell
       eyebrow="Operator · Triage"
       title="Lead Inbox"
-      subtitle={subtitle}
+      subtitle="Scan-first operator queue"
       nav={<AdminGlobalNav />}
-      belowHeader={
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-800">
-            <span className="inline-flex items-center rounded-md border border-violet-300 bg-violet-50 px-2.5 py-1">
-              Due: {leadOpsCounts.due}
-            </span>
-            <span className="inline-flex items-center rounded-md border border-red-300 bg-red-50 px-2.5 py-1">
-              Hot: {leadOpsCounts.hot}
-            </span>
-            <span className="inline-flex items-center rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1">
-              Stuck: {leadOpsCounts.stuck}
-            </span>
-            <span className="wm-on-canvas-text text-xs font-medium">
-              Kanban v1 — next sprint
-            </span>
-          </div>
-          <FilterBar
+    >
+      <div className="wm-lead-inbox space-y-4">
+        <InboxToolbar
+          counts={leadOpsCounts}
+          resultSummary={`${subtitle} · priority order`}
+          refreshing={isFetching && !isLoading}
+          onRefresh={() => refetch()}
+        />
+        <FilterBar
           search={search} setSearch={setSearch}
           dateRange={dateRange} setDateRange={setDateRange}
           county={county} setCounty={setCounty} counties={counties}
@@ -512,18 +519,15 @@ export default function LeadInbox() {
           shortcutFilter={shortcutFilter} setShortcutFilter={setShortcutFilter}
           priorityFilter={priorityFilter} setPriorityFilter={setPriorityFilter}
           onReset={resetFilters}
-          onRefresh={() => refetch()}
-          refreshing={isFetching && !isLoading}
+          activeFilterCount={activeFilterCount}
         />
-        </div>
-      }
-    >
-      {isLoading ? (
-        <div className="flex items-center justify-center py-20">
+        {isLoading ? (
+        <div className="flex items-center justify-center rounded-2xl border border-slate-700/60 bg-slate-950/30 py-20">
           <Loader2 className="wm-on-canvas-text h-6 w-6 animate-spin" />
+          <span className="sr-only">Loading leads</span>
         </div>
       ) : isError ? (
-        <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+        <div role="alert" className="flex items-start gap-2 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-950">
           <AlertCircle className="h-5 w-5 mt-0.5 shrink-0" />
           <div>
             <p className="font-semibold">Couldn't load leads</p>
@@ -549,9 +553,58 @@ export default function LeadInbox() {
           </Button>
         </div>
       ) : (
-        <LeadTable leads={filtered} onView={(id) => navigate(`/admin/leads/${id}`)} />
+        <LeadList leads={filtered} />
       )}
+      </div>
     </AdminShell>
+  );
+}
+
+function InboxToolbar({
+  counts,
+  resultSummary,
+  refreshing,
+  onRefresh,
+}: {
+  counts: { due: number; hot: number; stuck: number };
+  resultSummary: string;
+  refreshing: boolean;
+  onRefresh: () => void;
+}) {
+  const metricClass = (value: number, activeClass: string) =>
+    value > 0 ? activeClass : "border-slate-300 bg-slate-50 text-slate-700";
+
+  return (
+    <section aria-label="Lead queue summary" className="wm-lead-toolbar rounded-2xl border border-slate-300 bg-white p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-slate-950" aria-live="polite">{resultSummary}</p>
+          <p className="mt-0.5 text-xs font-medium text-slate-600">Focus on overdue follow-ups and urgent leads first.</p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onRefresh}
+          disabled={refreshing}
+          className="wm-lead-control min-h-11 self-start px-4 text-sm font-semibold sm:self-auto"
+        >
+          <RefreshCcw className={`mr-2 h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+          {refreshing ? "Refreshing" : "Refresh"}
+        </Button>
+      </div>
+      <dl className="mt-4 grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
+        {[
+          { label: "Due", value: counts.due, classes: "border-violet-300 bg-violet-50 text-violet-950" },
+          { label: "Hot", value: counts.hot, classes: "border-red-300 bg-red-50 text-red-950" },
+          { label: "Stuck", value: counts.stuck, classes: "border-amber-300 bg-amber-50 text-amber-950" },
+        ].map((metric) => (
+          <div key={metric.label} className={`min-w-0 rounded-lg border px-3 py-2 ${metricClass(metric.value, metric.classes)}`}>
+            <dt className="text-xs font-medium">{metric.label}</dt>
+            <dd className="mt-0.5 text-lg font-bold tabular-nums">{metric.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
   );
 }
 
@@ -565,8 +618,7 @@ interface FilterBarProps {
   shortcutFilter: ShortcutFilter; setShortcutFilter: (v: ShortcutFilter) => void;
   priorityFilter: PriorityFilter; setPriorityFilter: (v: PriorityFilter) => void;
   onReset: () => void;
-  onRefresh: () => void;
-  refreshing: boolean;
+  activeFilterCount: number;
 }
 
 function FilterBar({
@@ -575,99 +627,151 @@ function FilterBar({
   stage, setStage, sourceFilter, setSourceFilter,
   shortcutFilter, setShortcutFilter,
   priorityFilter, setPriorityFilter,
-  onReset, onRefresh, refreshing,
+  onReset, activeFilterCount,
 }: FilterBarProps) {
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <div className="relative flex-1 min-w-[220px] max-w-md">
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-700" />
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search name, email, phone, ZIP, ID…"
-          className="h-10 pl-8 text-sm font-semibold"
-          aria-label="Search leads"
-        />
+    <section aria-label="Lead filters" className="wm-lead-filter-panel rounded-2xl border border-slate-300 bg-white p-4">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end">
+        <label className="min-w-0 flex-1">
+          <span className="mb-1.5 block text-xs font-semibold text-slate-700">Search leads</span>
+          <span className="relative block">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Name, email, phone, ZIP, or ID"
+              className="wm-lead-control h-11 pl-9 text-sm font-medium"
+              aria-label="Search leads"
+            />
+          </span>
+        </label>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            aria-expanded={filtersOpen}
+            aria-controls="lead-secondary-filters"
+            onClick={() => setFiltersOpen((open) => !open)}
+            className="wm-lead-control min-h-11 flex-1 text-sm font-semibold md:hidden"
+          >
+            <Filter className="mr-2 h-4 w-4" />
+            Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+            <ChevronDown className={`ml-auto h-4 w-4 transition-transform ${filtersOpen ? "rotate-180" : ""}`} />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onReset}
+            disabled={activeFilterCount === 0}
+            className="wm-lead-control min-h-11 px-4 text-sm font-semibold"
+            aria-label="Clear all filters and search"
+          >
+            Clear all
+          </Button>
+        </div>
       </div>
-      <Select value={dateRange} onValueChange={(v) => setDateRange(v as DateRange)}>
-        <SelectTrigger className="h-10 w-[120px] text-sm font-semibold"><SelectValue /></SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All time</SelectItem>
-          <SelectItem value="24h">Last 24h</SelectItem>
-          <SelectItem value="7d">Last 7 days</SelectItem>
-          <SelectItem value="30d">Last 30 days</SelectItem>
-        </SelectContent>
-      </Select>
-      <Select value={sourceFilter} onValueChange={(v) => setSourceFilter(v as SourceFilter)}>
-        <SelectTrigger className="h-10 w-[160px] text-sm font-semibold"><SelectValue placeholder="Source" /></SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All sources</SelectItem>
-          <SelectItem value="power-tool-demo">power-tool-demo</SelectItem>
-        </SelectContent>
-      </Select>
-      <Select value={priorityFilter} onValueChange={(v) => setPriorityFilter(v as PriorityFilter)}>
-        <SelectTrigger className="h-10 w-[150px] text-sm font-semibold"><SelectValue placeholder="Priority" /></SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All priorities</SelectItem>
-          <SelectItem value="Quote Holder">Quote Holder</SelectItem>
-          <SelectItem value="Hot">Hot</SelectItem>
-          <SelectItem value="Warm">Warm</SelectItem>
-          <SelectItem value="Researching">Researching</SelectItem>
-          <SelectItem value="Incomplete">Incomplete</SelectItem>
-        </SelectContent>
-      </Select>
-      <Select value={county} onValueChange={setCounty}>
-        <SelectTrigger className="h-10 w-[140px] text-sm font-semibold"><SelectValue placeholder="County" /></SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All counties</SelectItem>
-          {counties.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-        </SelectContent>
-      </Select>
-      <Select value={verified} onValueChange={(v) => setVerified(v as VerifiedFilter)}>
-        <SelectTrigger className="h-10 w-[130px] text-sm font-semibold"><SelectValue /></SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All</SelectItem>
-          <SelectItem value="verified">Verified</SelectItem>
-          <SelectItem value="unverified">Unverified</SelectItem>
-        </SelectContent>
-      </Select>
-      <Select value={stage} onValueChange={setStage}>
-        <SelectTrigger className="h-10 w-[140px] text-sm font-semibold"><SelectValue placeholder="Stage" /></SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All stages</SelectItem>
-          {FUNNEL_STAGES.map((s) => (
-            <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-          ))}
-          {DEMO_FUNNEL_STAGES.map((s) => (
-            <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      {sourceFilter === "power-tool-demo" ? (
-        <Select value={shortcutFilter} onValueChange={(v) => setShortcutFilter(v as ShortcutFilter)}>
-          <SelectTrigger className="h-10 w-[150px] text-sm font-semibold"><SelectValue placeholder="Quote" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All quotes</SelectItem>
-            <SelectItem value="yes">Has quote</SelectItem>
-            <SelectItem value="no">No quote</SelectItem>
-          </SelectContent>
-        </Select>
-      ) : null}
-      <Button type="button" variant="ghost" size="sm" onClick={onReset} className="h-10 text-sm font-bold">
-        <Filter className="h-3.5 w-3.5 mr-1.5" />
-        Clear
-      </Button>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={onRefresh}
-        disabled={refreshing}
-        className="h-10 text-sm font-bold ml-auto"
+
+      <div
+        id="lead-secondary-filters"
+        className={`${filtersOpen ? "grid" : "hidden"} mt-4 gap-3 sm:grid-cols-2 md:grid md:grid-cols-3 xl:grid-cols-6`}
       >
-        <RefreshCcw className={`h-3.5 w-3.5 mr-1.5 ${refreshing ? "animate-spin" : ""}`} />
-        Refresh
-      </Button>
+        <FilterSelect label="Date range">
+          <Select value={dateRange} onValueChange={(v) => setDateRange(v as DateRange)}>
+            <SelectTrigger className="wm-lead-control h-11 w-full text-sm font-medium" aria-label="Date range"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All time</SelectItem>
+              <SelectItem value="24h">Last 24 hours</SelectItem>
+              <SelectItem value="7d">Last 7 days</SelectItem>
+              <SelectItem value="30d">Last 30 days</SelectItem>
+            </SelectContent>
+          </Select>
+        </FilterSelect>
+        <FilterSelect label="Source">
+          <Select value={sourceFilter} onValueChange={(v) => setSourceFilter(v as SourceFilter)}>
+            <SelectTrigger className="wm-lead-control h-11 w-full text-sm font-medium" aria-label="Lead source"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All sources</SelectItem>
+              <SelectItem value="power-tool-demo">Power Tool Demo</SelectItem>
+            </SelectContent>
+          </Select>
+        </FilterSelect>
+        <FilterSelect label="Priority">
+          <Select value={priorityFilter} onValueChange={(v) => setPriorityFilter(v as PriorityFilter)}>
+            <SelectTrigger className="wm-lead-control h-11 w-full text-sm font-medium" aria-label="Lead priority"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All priorities</SelectItem>
+              <SelectItem value="Quote Holder">Quote Holder</SelectItem>
+              <SelectItem value="Hot">Hot</SelectItem>
+              <SelectItem value="Warm">Warm</SelectItem>
+              <SelectItem value="Researching">Researching</SelectItem>
+              <SelectItem value="Incomplete">Incomplete</SelectItem>
+            </SelectContent>
+          </Select>
+        </FilterSelect>
+        <FilterSelect label="County">
+          <Select value={county} onValueChange={setCounty}>
+            <SelectTrigger className="wm-lead-control h-11 w-full text-sm font-medium" aria-label="Lead county"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All counties</SelectItem>
+              {counties.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </FilterSelect>
+        <FilterSelect label="Phone verification">
+          <Select value={verified} onValueChange={(v) => setVerified(v as VerifiedFilter)}>
+            <SelectTrigger className="wm-lead-control h-11 w-full text-sm font-medium" aria-label="Phone verification"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All verification states</SelectItem>
+              <SelectItem value="verified">Phone verified</SelectItem>
+              <SelectItem value="unverified">Phone unverified</SelectItem>
+            </SelectContent>
+          </Select>
+        </FilterSelect>
+        <FilterSelect label="Stage">
+          <Select value={stage} onValueChange={setStage}>
+            <SelectTrigger className="wm-lead-control h-11 w-full text-sm font-medium" aria-label="Lead stage"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All stages</SelectItem>
+              {FUNNEL_STAGES.map((s) => (
+                <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+              ))}
+              {DEMO_FUNNEL_STAGES.map((s) => (
+                <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </FilterSelect>
+        {sourceFilter === "power-tool-demo" ? (
+          <FilterSelect label="Quote status">
+            <Select value={shortcutFilter} onValueChange={(v) => setShortcutFilter(v as ShortcutFilter)}>
+              <SelectTrigger className="wm-lead-control h-11 w-full text-sm font-medium" aria-label="Quote status"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All quote states</SelectItem>
+                <SelectItem value="yes">Has quote</SelectItem>
+                <SelectItem value="no">No quote</SelectItem>
+              </SelectContent>
+            </Select>
+          </FilterSelect>
+        ) : null}
+      </div>
+
+      {activeFilterCount > 0 ? (
+        <div className="mt-3 flex items-center gap-2 border-t border-slate-200 pt-3 text-xs font-medium text-slate-600">
+          <Filter className="h-3.5 w-3.5" />
+          <span>{activeFilterCount} active {activeFilterCount === 1 ? "filter" : "filters"}</span>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function FilterSelect({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div>
+      <span className="mb-1.5 block text-xs font-semibold text-slate-700">{label}</span>
+      {children}
     </div>
   );
 }
@@ -691,9 +795,9 @@ function CopyButton({ value, label }: { value: string; label: string }) {
       type="button"
       onClick={handleCopy}
       aria-label={copied ? `${label} copied` : `Copy ${label}`}
-      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-slate-600 hover:bg-slate-200 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="wm-lead-copy-button inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      {copied ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
+      {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
     </button>
   );
 }
@@ -739,27 +843,20 @@ function IntakeSummaryColumn({ intake }: { intake: PowerToolDemoIntake }) {
 
 function PriorityBadge({ priority }: { priority: FollowUpPriority | null }) {
   if (!priority) {
-    return <span className="text-xs font-medium text-slate-400">—</span>;
+    return <span className="text-sm font-medium text-slate-600">Standard priority</span>;
   }
 
   return (
-    <div className="flex flex-col items-start gap-1">
-      <span
-        className={`inline-flex min-h-7 items-center rounded-full border px-2.5 py-0.5 text-xs font-extrabold uppercase tracking-wider ${PRIORITY_BADGE_CLASS[priority]}`}
-      >
-        {priority}
-      </span>
-      {priority === "Hot" ? (
-        <span className="inline-flex items-center gap-0.5 rounded border border-red-400 bg-red-50 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-widest text-red-800">
-          <Flame className="h-2.5 w-2.5" />
-          Hot
-        </span>
-      ) : null}
-    </div>
+    <span
+      className={`inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold ${PRIORITY_BADGE_CLASS[priority]}`}
+    >
+      {priority === "Hot" ? <Flame className="h-3.5 w-3.5" /> : null}
+      {priority}
+    </span>
   );
 }
 
-function DispositionCell({ lead }: { lead: InboxLead }) {
+function DispositionEditor({ lead, name }: { lead: InboxLead; name: string }) {
   const [disposition, setDisposition] = useState<LeadDisposition>(
     () => normalizeDisposition(lead.admin_disposition),
   );
@@ -777,6 +874,7 @@ function DispositionCell({ lead }: { lead: InboxLead }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [justSaved, setJustSaved] = useState(false);
+  const [open, setOpen] = useState(false);
 
   const dirty =
     disposition !== saved.disposition ||
@@ -805,235 +903,268 @@ function DispositionCell({ lead }: { lead: InboxLead }) {
     }
   };
 
+  const editorId = `workflow-editor-${lead.id}`;
+  const savedFollowUp = saved.followUp ? new Date(saved.followUp) : null;
+  const savedFollowUpLabel = savedFollowUp && !Number.isNaN(savedFollowUp.getTime())
+    ? format(savedFollowUp, "MMM d, h:mm a")
+    : "No follow-up scheduled";
+
   return (
-    <div
-      className="min-w-[190px] space-y-1.5"
-      onClick={(e) => e.stopPropagation()}
-    >
-      <span
-        className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-extrabold uppercase tracking-wide ${DISPOSITION_BADGE_CLASS[saved.disposition]}`}
-      >
-        {DISPOSITION_LABEL[saved.disposition]}
-      </span>
-      <Select value={disposition} onValueChange={(v) => setDisposition(v as LeadDisposition)}>
-        <SelectTrigger className="h-8 w-full text-xs font-semibold" aria-label="Disposition">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {DISPOSITION_OPTIONS.map((o) => (
-            <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Select value={override} onValueChange={(v) => setOverride(v as PriorityOverride)}>
-        <SelectTrigger className="h-8 w-full text-xs font-semibold" aria-label="Priority override">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {PRIORITY_OVERRIDE_OPTIONS.map((o) => (
-            <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Input
-        type="datetime-local"
-        value={followUp}
-        onChange={(e) => setFollowUp(e.target.value)}
-        className="h-8 w-full text-xs font-semibold"
-        aria-label="Follow-up date and time"
-      />
-      <Button
-        type="button"
-        size="sm"
-        variant="outline"
-        onClick={handleSave}
-        disabled={saving || !dirty}
-        className="h-8 w-full text-xs font-bold"
-      >
-        {saving ? (
-          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-        ) : justSaved ? (
-          <Check className="h-3 w-3 mr-1 text-emerald-600" />
-        ) : (
-          <Save className="h-3 w-3 mr-1" />
-        )}
-        {saving ? "Saving…" : justSaved ? "Saved" : "Save"}
-      </Button>
-      {error ? (
-        <p className="flex items-start gap-1 text-[11px] font-semibold text-destructive">
-          <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
-          <span>{error}</span>
-        </p>
+    <div className="border-t border-slate-200 px-4 py-3 sm:px-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 flex-wrap items-center gap-2.5">
+          <span className="text-xs font-semibold text-slate-600">Disposition</span>
+          <span className={`inline-flex min-h-8 items-center rounded-lg border px-2.5 py-1 text-xs font-semibold ${DISPOSITION_BADGE_CLASS[saved.disposition]}`}>
+            {DISPOSITION_LABEL[saved.disposition]}
+          </span>
+          {saved.override !== "none" ? (
+            <span className={`inline-flex min-h-8 items-center rounded-lg border px-2.5 py-1 text-xs font-semibold ${OVERRIDE_BADGE_CLASS[saved.override]}`}>
+              {saved.override.charAt(0).toUpperCase() + saved.override.slice(1)} override
+            </span>
+          ) : null}
+          <span className="text-xs font-medium text-slate-600">{savedFollowUpLabel}</span>
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          aria-expanded={open}
+          aria-controls={editorId}
+          onClick={() => setOpen((value) => !value)}
+          className="wm-lead-control min-h-11 justify-between px-3 text-sm font-semibold sm:justify-center"
+        >
+          {open ? "Close workflow editor" : "Edit workflow"}
+          <ChevronDown className={`ml-2 h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
+        </Button>
+      </div>
+
+      {open ? (
+        <div id={editorId} className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <div className="grid gap-3 md:grid-cols-3">
+            <FilterSelect label="Disposition">
+              <Select value={disposition} onValueChange={(v) => setDisposition(v as LeadDisposition)}>
+                <SelectTrigger className="wm-lead-control h-11 w-full text-sm font-medium" aria-label={`Disposition for ${name}`}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DISPOSITION_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FilterSelect>
+            <FilterSelect label="Priority override">
+              <Select value={override} onValueChange={(v) => setOverride(v as PriorityOverride)}>
+                <SelectTrigger className="wm-lead-control h-11 w-full text-sm font-medium" aria-label={`Priority override for ${name}`}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PRIORITY_OVERRIDE_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FilterSelect>
+            <label>
+              <span className="mb-1.5 block text-xs font-semibold text-slate-700">Follow-up date and time</span>
+              <Input
+                type="datetime-local"
+                value={followUp}
+                onChange={(e) => setFollowUp(e.target.value)}
+                className="wm-lead-control h-11 w-full text-sm font-medium"
+                aria-label={`Follow-up date and time for ${name}`}
+              />
+            </label>
+          </div>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div aria-live="polite" className="min-h-5 text-sm">
+              {error ? (
+                <p role="alert" className="flex items-start gap-1 font-medium text-red-700">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>{error}</span>
+                </p>
+              ) : justSaved ? (
+                <p role="status" className="flex items-center gap-1 font-medium text-emerald-700">
+                  <Check className="h-4 w-4" /> Workflow saved.
+                </p>
+              ) : dirty ? (
+                <p className="font-medium text-slate-600">Unsaved workflow changes</p>
+              ) : null}
+            </div>
+            <Button
+              type="button"
+              onClick={handleSave}
+              disabled={saving || !dirty}
+              variant={dirty ? "default" : "outline"}
+              className="wm-lead-control min-h-11 min-w-32 text-sm font-semibold"
+            >
+              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              {saving ? "Saving" : "Save workflow"}
+            </Button>
+          </div>
+        </div>
       ) : null}
     </div>
   );
 }
 
-function LeadTable({ leads, onView }: { leads: InboxLead[]; onView: (id: string) => void }) {
-  return (
-    <div className="rounded-2xl border border-slate-300 bg-card shadow-sm overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-base">
-          <thead className="bg-muted/50 border-b border-slate-300">
-            <tr className="text-left">
-              <th className="px-4 py-3 text-xs font-extrabold uppercase tracking-wider text-slate-700">Lead</th>
-              <th className="px-4 py-3 text-xs font-extrabold uppercase tracking-wider text-slate-700">Priority</th>
-              <th className="px-4 py-3 text-xs font-extrabold uppercase tracking-wider text-slate-700">Disposition</th>
-              <th className="px-4 py-3 text-xs font-extrabold uppercase tracking-wider text-slate-700">Intake</th>
-              <th className="px-4 py-3 text-xs font-extrabold uppercase tracking-wider text-slate-700">Source · UTM</th>
-              <th className="px-4 py-3 text-xs font-extrabold uppercase tracking-wider text-slate-700">County</th>
-              <th className="px-4 py-3 text-xs font-extrabold uppercase tracking-wider text-slate-700">Verified</th>
-              <th className="px-4 py-3 text-xs font-extrabold uppercase tracking-wider text-slate-700">Stage</th>
-              <th className="px-4 py-3 text-xs font-extrabold uppercase tracking-wider text-slate-700">Latest Activity</th>
-              <th className="px-4 py-3 text-xs font-extrabold uppercase tracking-wider text-slate-700">Created</th>
-              <th className="px-4 py-3" />
-            </tr>
-          </thead>
-          <tbody>
-            {leads.map((l) => {
-              const name = [l.first_name, l.last_name].filter(Boolean).join(" ") || "Unknown";
-              const stageDef = getStageDef(l.funnel_stage ?? "new");
-              const stageLabel = formatStageLabel(l.funnel_stage);
-              const isPowerToolDemo = l.source === POWER_TOOL_DEMO_SOURCE;
-              const priority = computeFollowUpPriority(l);
-              const override = normalizeOverride(l.admin_priority_override);
+function formatSourceLabel(source: string | null): string {
+  if (!source) return "Source not recorded";
+  const knownSources: Record<string, string> = {
+    "truth-gate": "Truth Gate",
+    "windowman-first-quote": "WindowMan First Quote",
+    "power-tool-demo": "Power Tool Demo",
+  };
+  if (knownSources[source]) return knownSources[source];
+  return source
+    .replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
 
-              return (
-                <tr
-                  key={l.id}
-                  className="min-h-[72px] border-b border-slate-300 bg-white last:border-0 hover:bg-blue-50/60 transition-colors cursor-pointer focus-within:bg-blue-50/60"
-                  onClick={() => onView(l.id)}
-                >
-                  <td className="px-4 py-3">
-                    <div className="text-base font-black text-slate-950">{name}</div>
-                    <div className="text-sm font-medium text-slate-700 flex flex-wrap items-center gap-1 mt-0.5">
-                      {l.email ? (
-                        <span className="inline-flex items-center gap-0.5 max-w-[200px]">
-                          <span className="truncate">{l.email}</span>
-                          <CopyButton value={l.email} label="email" />
-                        </span>
-                      ) : null}
-                      {l.phone_e164 ? (
-                        <span className="inline-flex items-center gap-0.5 font-mono">
-                          <Phone className="h-3 w-3 shrink-0" />
-                          <span>{l.phone_e164}</span>
-                          <CopyButton value={l.phone_e164} label="phone" />
-                        </span>
-                      ) : null}
-                      {l.zip ? (
-                        <span className="inline-flex items-center gap-1 font-mono">
-                          <MapPin className="h-3 w-3" />
-                          {l.zip}
-                        </span>
-                      ) : null}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 align-top">
+function formatRelativeTimestamp(value: string | null | undefined): { relative: string; absolute: string } | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return {
+    relative: formatDistanceToNow(date, { addSuffix: true }),
+    absolute: format(date, "MMM d, yyyy h:mm a"),
+  };
+}
+
+function LeadList({ leads }: { leads: InboxLead[] }) {
+  return (
+    <ul aria-label="Lead results" className="space-y-3">
+      {leads.map((lead) => {
+        const name = [lead.first_name, lead.last_name].filter(Boolean).join(" ") || "Unknown lead";
+        const stageDef = getStageDef(lead.funnel_stage ?? "new");
+        const stageLabel = formatStageLabel(lead.funnel_stage);
+        const isPowerToolDemo = lead.source === POWER_TOOL_DEMO_SOURCE;
+        const priority = computeFollowUpPriority(lead);
+        const override = normalizeOverride(lead.admin_priority_override);
+        const latestActivity = formatRelativeTimestamp(lead.last_activity_at);
+        const created = formatRelativeTimestamp(lead.created_at);
+        const followUp = formatRelativeTimestamp(lead.admin_follow_up_at);
+        const followUpDue = lead.admin_follow_up_at
+          ? new Date(lead.admin_follow_up_at).getTime() <= Date.now()
+          : false;
+        const location = [lead.county, lead.state, lead.zip].filter(Boolean).join(", ");
+
+        return (
+          <li key={lead.id}>
+            <article className="wm-lead-card overflow-hidden rounded-2xl border border-slate-300 bg-white">
+              <div className="flex flex-col gap-4 px-4 py-4 sm:px-5 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0">
+                  <Link
+                    to={`/admin/leads/${lead.id}`}
+                    className="inline-flex min-h-11 items-center rounded-md text-lg font-bold tracking-tight text-slate-950 hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    aria-label={`View details for ${name}`}
+                  >
+                    {name}
+                  </Link>
+                  <div className="mt-1 flex flex-col gap-1 text-sm font-medium text-slate-600 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3">
+                    {lead.email ? (
+                      <span className="flex min-w-0 items-center gap-1">
+                        <span className="truncate">{lead.email}</span>
+                        <CopyButton value={lead.email} label={`${name} email`} />
+                      </span>
+                    ) : <span>Email not provided</span>}
+                    {lead.phone_e164 ? (
+                      <span className="flex items-center gap-1 font-mono">
+                        <Phone className="h-4 w-4 shrink-0" />
+                        <span>{lead.phone_e164}</span>
+                        <CopyButton value={lead.phone_e164} label={`${name} phone`} />
+                      </span>
+                    ) : <span>Phone not provided</span>}
+                  </div>
+                  <LeadIdentity leadId={lead.id} className="mt-2 text-xs font-semibold text-slate-600" />
+                </div>
+                <div className="flex flex-wrap gap-2 lg:justify-end">
+                  <QuoteViewerButton leadId={lead.id} className="wm-lead-control min-h-11" />
+                  <Button asChild variant="outline" className="wm-lead-control min-h-11 px-4 text-sm font-semibold">
+                    <Link to={`/admin/pipeline?lead_id=${lead.id}`} aria-label={`Open ${name} in pipeline`}>
+                      Pipeline
+                    </Link>
+                  </Button>
+                  <Button asChild className="wm-lead-control min-h-11 px-4 text-sm font-semibold">
+                    <Link to={`/admin/leads/${lead.id}`} aria-label={`Open lead workspace for ${name}`}>
+                      Open lead <ChevronRight className="ml-1.5 h-4 w-4" />
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid gap-4 border-t border-slate-200 px-4 py-4 sm:grid-cols-2 sm:px-5 xl:grid-cols-4">
+                <section aria-label={`Priority for ${name}`}>
+                  <p className="text-xs font-semibold text-slate-600">Priority</p>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
                     {override !== "none" ? (
-                      <span
-                        className={`inline-flex min-h-7 items-center rounded-full border px-2.5 py-0.5 text-xs font-extrabold uppercase tracking-wider ${OVERRIDE_BADGE_CLASS[override]}`}
-                        title="Manual priority override"
-                      >
-                        {override}
+                      <span className={`inline-flex min-h-8 items-center rounded-lg border px-2.5 py-1 text-xs font-semibold ${OVERRIDE_BADGE_CLASS[override]}`} title="Manual priority override">
+                        {override.charAt(0).toUpperCase() + override.slice(1)} override
                       </span>
-                    ) : (
-                      <PriorityBadge priority={priority} />
-                    )}
-                  </td>
-                  <td className="px-4 py-3 align-top">
-                    <DispositionCell lead={l} />
-                  </td>
-                  <td className="px-4 py-3 align-top text-sm">
-                    {isPowerToolDemo && l.powerToolDemoIntake ? (
-                      <IntakeSummaryColumn intake={l.powerToolDemoIntake} />
-                    ) : (
-                      <span className="text-xs font-medium text-slate-400">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-sm font-medium text-slate-700">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      {l.source ? (
-                        <span className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs font-extrabold uppercase tracking-wide text-indigo-950">
-                          {l.source}
-                        </span>
-                      ) : (
-                        <span>—</span>
-                      )}
-                      {l.client_slug && (
-                        <span className="text-xs font-semibold text-slate-600">{l.client_slug}</span>
-                      )}
-                    </div>
-                    <div className="mt-1">{l.utm_source ?? "—"}</div>
-                    {l.utm_campaign && <div className="font-semibold text-slate-700 truncate max-w-[140px]">{l.utm_campaign}</div>}
-                  </td>
-                  <td className="px-4 py-3 text-sm font-semibold text-slate-700">
-                    {l.county ? (
-                      <span className="inline-flex items-center gap-1 text-slate-700">
-                        <MapPin className="h-3 w-3" />
-                        {l.county}
-                      </span>
-                    ) : <span className="text-slate-700">—</span>}
-                  </td>
-                  <td className="px-4 py-3">
-                    {l.phone_verified ? (
-                      <span className="inline-flex min-h-8 items-center rounded-full border border-emerald-300 bg-emerald-100 px-2.5 py-1 text-sm font-extrabold uppercase tracking-wider text-emerald-950 shadow-sm">
-                        Verified
-                      </span>
-                    ) : (
-                      <span className="inline-flex min-h-8 items-center rounded-full border border-slate-400 bg-white px-2.5 py-1 text-sm font-extrabold uppercase tracking-wider text-slate-950 shadow-sm">
-                        Unverified
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex min-h-8 items-center rounded-full border px-2.5 py-1 text-sm font-extrabold uppercase tracking-wider ${stageDef?.badgeClass ?? (isPowerToolDemo ? "bg-violet-100 text-violet-900 border-violet-200" : "bg-white text-slate-950 border-slate-400")}`}>
+                    ) : <PriorityBadge priority={priority} />}
+                    <span className={`inline-flex min-h-8 items-center rounded-lg border px-2.5 py-1 text-xs font-semibold ${lead.phone_verified ? "border-emerald-300 bg-emerald-50 text-emerald-900" : "border-slate-300 bg-slate-50 text-slate-700"}`}>
+                      {lead.phone_verified ? "Phone verified" : "Phone unverified"}
+                    </span>
+                  </div>
+                </section>
+
+                <section aria-label={`Workflow stage for ${name}`}>
+                  <p className="text-xs font-semibold text-slate-600">Workflow stage</p>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                    <span className={`inline-flex min-h-8 items-center rounded-lg border px-2.5 py-1 text-xs font-semibold ${stageDef?.badgeClass ?? (isPowerToolDemo ? "border-violet-200 bg-violet-50 text-violet-900" : "border-slate-300 bg-slate-50 text-slate-800")}`}>
                       {stageLabel}
                     </span>
-                    {l.report_unlocked_at ? (
-                      <div className="mt-1 text-xs font-semibold text-emerald-800">Report unlocked</div>
-                    ) : null}
-                  </td>
-                  <td className="px-4 py-3 text-sm font-medium text-slate-700">
-                    <div className="font-semibold text-slate-900">
-                      {formatLatestActivityLabel(l.latest_activity_type)}
-                    </div>
-                    {l.last_activity_at ? (
-                      <div className="flex items-center gap-1 mt-0.5 text-xs text-slate-600">
-                        <Clock className="h-3 w-3 shrink-0" />
-                        <span title={format(new Date(l.last_activity_at), "MMM d, yyyy h:mm a")}>
-                          {formatDistanceToNow(new Date(l.last_activity_at), { addSuffix: true })}
-                        </span>
-                      </div>
-                    ) : null}
-                  </td>
-                  <td className="px-4 py-3 text-sm font-medium text-slate-700">
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      <span title={format(new Date(l.created_at), "MMM d, yyyy h:mm a")}>
-                        {formatDistanceToNow(new Date(l.created_at), { addSuffix: true })}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <QuoteViewerButton leadId={l.id} />
-                      <Link
-                        to={`/admin/leads/${l.id}`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="inline-flex items-center gap-1 text-sm font-bold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
-                        aria-label={`View details for ${name}`}
-                      >
-                        View
-                        <ChevronRight className="h-3.5 w-3.5" />
-                      </Link>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
+                    {lead.report_unlocked_at ? <span className="text-xs font-medium text-emerald-700">Report unlocked</span> : null}
+                  </div>
+                </section>
+
+                <section aria-label={`Latest activity for ${name}`}>
+                  <p className="text-xs font-semibold text-slate-600">Latest activity</p>
+                  <p className="mt-1.5 text-sm font-semibold text-slate-950">{formatLatestActivityLabel(lead.latest_activity_type)}</p>
+                  <p className="mt-0.5 flex items-center gap-1 text-xs font-medium text-slate-600">
+                    <Clock className="h-3.5 w-3.5" />
+                    {latestActivity ? <span title={latestActivity.absolute}>{latestActivity.relative}</span> : "No activity recorded"}
+                  </p>
+                </section>
+
+                <section aria-label={`Follow-up for ${name}`}>
+                  <p className="text-xs font-semibold text-slate-600">Next follow-up</p>
+                  <p className={`mt-1.5 text-sm font-semibold ${followUpDue ? "text-red-700" : "text-slate-950"}`}>
+                    {followUp ? <span title={followUp.absolute}>{followUp.relative}</span> : "Not scheduled"}
+                  </p>
+                  <p className="mt-0.5 flex items-center gap-1 text-xs font-medium text-slate-600">
+                    <MapPin className="h-3.5 w-3.5" /> {location || "Location not provided"}
+                  </p>
+                </section>
+              </div>
+
+              <details className="wm-lead-context border-t border-slate-200 px-4 py-2 sm:px-5">
+                <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between rounded-md text-sm font-semibold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  More lead context
+                  <ChevronDown className="h-4 w-4" />
+                </summary>
+                <div className="grid gap-4 border-t border-slate-200 py-4 text-sm text-slate-700 md:grid-cols-2">
+                  <div>
+                    <p className="text-xs font-semibold text-slate-600">Source and attribution</p>
+                    <p className="mt-1 font-semibold text-slate-950">{formatSourceLabel(lead.source)}</p>
+                    <p className="mt-1">UTM source: {lead.utm_source || "Not recorded"}</p>
+                    <p>UTM campaign: {lead.utm_campaign || "Not recorded"}</p>
+                    {lead.client_slug ? <p>Client: {lead.client_slug}</p> : null}
+                    <p className="mt-1">Created: {created ? <span title={created.absolute}>{created.relative}</span> : "Unknown"}</p>
+                  </div>
+                  <div>
+                    <p className="mb-2 text-xs font-semibold text-slate-600">Intake context</p>
+                    {isPowerToolDemo && lead.powerToolDemoIntake
+                      ? <IntakeSummaryColumn intake={lead.powerToolDemoIntake} />
+                      : <p className="font-medium">No structured intake details recorded.</p>}
+                  </div>
+                </div>
+              </details>
+
+              <DispositionEditor lead={lead} name={name} />
+            </article>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
