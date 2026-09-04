@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { EMQValidator } from "@/components/admin/EMQValidator";
 import { fetchSignalDispatchRows, maskId, type SignalEventRow, type SignalPlatform, type SignalSourceAudit, type SignalStatus } from "@/services/signalDispatch";
 
 const PLATFORMS = ["all", "Meta CAPI", "Google Ads", "GTM Server", "CRM Webhook", "Other"] as const;
@@ -163,6 +164,10 @@ export function SignalDispatchTab() {
     };
   }, [rows]);
 
+  const emqError = error ?? (audit?.capiSignalLogsError
+    ? "Meta CAPI signal evidence is unavailable. Check the source audit and retry."
+    : null);
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -185,6 +190,8 @@ export function SignalDispatchTab() {
         <KpiCard label="Purchase/Sold Events Sent" value={kpis.purchaseSold} help="Sent only when a lead is marked sold_closed with a final value." />
         <KpiCard label="Lead Events Sent" value={kpis.leadEvents} help="Top-of-funnel event. Should not be confused with phone verification unless explicitly mapped." />
       </div>
+
+      <EMQValidator error={emqError} events={rows} isLoading={isLoading} />
 
       {audit && (
         <div className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm">
