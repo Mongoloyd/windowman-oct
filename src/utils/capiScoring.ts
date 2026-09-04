@@ -291,6 +291,7 @@ export function aggregateCapiIntelligence(events: readonly SignalEventRow[] | nu
     .sort((a, b) => b.count - a.count || a.code.localeCompare(b.code));
 
   const currentStreaks = (rowCodes[0] ?? [])
+    .filter(isActionable)
     .map((code): CapiReasonStreak => {
       let count = 0;
       for (const codes of rowCodes) {

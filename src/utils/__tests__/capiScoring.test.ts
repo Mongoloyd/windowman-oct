@@ -235,6 +235,16 @@ describe("aggregateCapiIntelligence", () => {
     expect(summary.integrityHealthyCount).toBe(5);
   });
 
+  it("does not label informational observations as current failure streaks", () => {
+    const summary = aggregateCapiIntelligence([
+      makeRow(3, ["CAPI_FBC_MISSING"]),
+      makeRow(2, ["CAPI_FBC_MISSING"]),
+      makeRow(1, ["CAPI_FBC_MISSING"]),
+    ]);
+
+    expect(summary.currentStreaks).toEqual([]);
+  });
+
   it("counts actionable rows separately and excludes informational codes from dominance", () => {
     const summary = aggregateCapiIntelligence([
       makeRow(3, ["CAPI_FBC_MISSING"]),

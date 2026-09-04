@@ -40,6 +40,10 @@ function formatTimestamp(value: unknown): string {
   return timestamp === null ? "Invalid timestamp" : format(new Date(timestamp), "MMM d, h:mm:ss a");
 }
 
+function machineTimestamp(value: unknown): string | undefined {
+  return timestampValue(value) === null || typeof value !== "string" ? undefined : value;
+}
+
 function scoreClasses(score: number | null): string {
   if (score === null) return "border-slate-500 bg-slate-700/70 text-slate-100";
   if (score >= 8) return "border-emerald-300/70 bg-emerald-400/15 text-emerald-200";
@@ -208,7 +212,7 @@ function IntelligencePanel({ summary }: { summary: CapiIntelligenceSummary }) {
         </div>
       ) : null}
 
-      <details className="rounded-xl border border-slate-700 bg-slate-900/70">
+      <details className="group rounded-xl border border-slate-700 bg-slate-900/70">
         <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm font-black text-slate-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-400/40 [&::-webkit-details-marker]:hidden">
           Human-gated recommendation brief
           <ChevronDown aria-hidden className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" />
@@ -313,7 +317,7 @@ function ScoredEventRow({ scored, index }: { scored: ScoredEvent; index: number 
       <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 py-3 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-400/40 [&::-webkit-details-marker]:hidden">
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-black text-slate-100">{typeof row.eventType === "string" && row.eventType.trim() ? row.eventType : "Unknown event"}</p>
-          <time dateTime={typeof row.timestamp === "string" ? row.timestamp : undefined} className="mt-0.5 block text-xs font-semibold text-slate-400">{formatTimestamp(row.timestamp)}</time>
+          <time dateTime={machineTimestamp(row.timestamp)} className="mt-0.5 block text-xs font-semibold text-slate-400">{formatTimestamp(row.timestamp)}</time>
         </div>
         <span aria-label={accessibleScore} className={`inline-flex min-h-8 shrink-0 items-center rounded-lg border px-2.5 py-1 font-mono text-xs font-black ${scoreClasses(result.score)}`}>
           {scoreLabel}

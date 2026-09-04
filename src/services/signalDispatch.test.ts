@@ -159,7 +159,12 @@ describe("rowFromCapi match classifiers", () => {
 
   it.each([
     ["valid IP", "203.0.113.10", "valid"],
+    ["valid IPv6", "2001:db8::1", "valid"],
     ["fallback IP", "0.0.0.0", "fallback"],
+    ["fallback IPv6", "::", "fallback"],
+    ["malformed text IP", "not-an-ip", "malformed"],
+    ["out-of-range IPv4", "203.0.113.999", "malformed"],
+    ["malformed IPv6", "2001:db8::1::2", "malformed"],
     ["missing IP", undefined, "missing"],
     ["whitespace IP", "   ", "missing"],
     ["wrong-type IP", { ip: "203.0.113.10" }, "malformed"],
@@ -233,13 +238,14 @@ describe("rowFromCapi required fields and output contract", () => {
     if (reason) expect(row.capiDiagnostics?.reasonCodes).toContain(reason);
   });
 
-  it("preserves the existing top-level event_id fallback", () => {
+  it("preserves a top-level event_id for display but diagnoses the nested CAPI event ID as missing", () => {
     const raw = payload({}, { event_id: undefined });
     raw.event_id = "top-level-event";
     const row = rowFromCapi(capiRow(raw));
 
     expect(row.eventId).toBe("top-level-event");
-    expect(row.capiDiagnostics?.dispatch.eventId).toBe("valid");
+    expect(row.capiDiagnostics?.dispatch.eventId).toBe("missing");
+    expect(row.capiDiagnostics?.reasonCodes).toContain("CAPI_EVENT_ID_MISSING");
   });
 
   it.each([

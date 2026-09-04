@@ -90,6 +90,7 @@ export interface CapiDiagnostics {
 export interface SignalSourceAudit {
   conversionLogs: "available" | "missing" | "empty";
   capiSignalLogs: "available" | "missing" | "empty";
+  capiSignalLogsError: boolean;
   webhookDeliveries: "available" | "missing" | "empty";
   webhookDeliveryAttempts: "available" | "missing" | "empty";
   leadEvents: "available" | "missing" | "empty";
@@ -232,7 +233,36 @@ function classifyClientIp(value: unknown): CapiPresenceStatus {
   if (typeof value !== "string") return "malformed";
   const candidate = value.trim();
   if (!candidate) return "missing";
-  return candidate === "0.0.0.0" ? "fallback" : "valid";
+  if (candidate === "0.0.0.0" || candidate === "::") return "fallback";
+  return isValidIpv4(candidate) || isValidIpv6(candidate) ? "valid" : "malformed";
+}
+
+function isValidIpv4(value: string): boolean {
+  const parts = value.split(".");
+  return parts.length === 4 && parts.every((part) => {
+    if (!/^\d{1,3}$/.test(part)) return false;
+    const octet = Number(part);
+    return octet >= 0 && octet <= 255;
+  });
+}
+
+function isValidIpv6(value: string): boolean {
+  if (!value.includes(":") || value.includes("%") || value.startsWith("[") || value.endsWith("]")) return false;
+
+  let candidate = value;
+  if (candidate.includes(".")) {
+    const lastColon = candidate.lastIndexOf(":");
+    if (lastColon < 0 || !isValidIpv4(candidate.slice(lastColon + 1))) return false;
+    candidate = `${candidate.slice(0, lastColon)}:0:0`;
+  }
+
+  const halves = candidate.split("::");
+  if (halves.length > 2) return false;
+
+  const groups = halves.flatMap((half) => half ? half.split(":") : []);
+  if (groups.some((group) => !/^[a-f\d]{1,4}$/i.test(group))) return false;
+
+  return halves.length === 2 ? groups.length < 8 : groups.length === 8;
 }
 
 function classifyUserAgent(value: unknown): Exclude<CapiPresenceStatus, "fallback"> {
@@ -457,8 +487,8 @@ export function rowFromCapi(row: CapiSignalLogRow): SignalEventRow {
     : { format: "unavailable", drift: "not_evaluated", reason: null } as const;
   pushReason(reasonCodes, eventTime.reason);
 
-  const eventIdValue = envelope.event?.event_id ?? getPath(payload, ["event_id"]);
-  const eventIdStatus = envelope.event ? classifyRequiredString(eventIdValue) : "unavailable";
+  const nestedEventIdValue = envelope.event?.event_id;
+  const eventIdStatus = envelope.event ? classifyRequiredString(nestedEventIdValue) : "unavailable";
   pushReason(reasonCodes, eventIdStatus === "missing" ? "CAPI_EVENT_ID_MISSING" : eventIdStatus === "wrong_type" ? "CAPI_EVENT_ID_WRONG_TYPE" : null);
 
   const payloadEventName = envelope.event?.event_name;
@@ -478,7 +508,7 @@ export function rowFromCapi(row: CapiSignalLogRow): SignalEventRow {
   }
   pushReason(reasonCodes, actionSourceStatus === "missing" ? "CAPI_ACTION_SOURCE_MISSING" : actionSourceStatus === "wrong_type" ? "CAPI_ACTION_SOURCE_WRONG_TYPE" : actionSourceStatus === "unexpected" ? "CAPI_ACTION_SOURCE_UNEXPECTED" : null);
 
-  const eventId = asString(eventIdValue);
+  const eventId = asString(nestedEventIdValue) ?? asString(getPath(payload, ["event_id"]));
   const status = classifyHttpStatus(row.status_code, null);
   return {
     id: `capi:${row.id}`,
@@ -487,7 +517,7 @@ export function rowFromCapi(row: CapiSignalLogRow): SignalEventRow {
     platform: "Meta CAPI",
     eventType: eventKind(row.event_name),
     leadId: null,
-    sourceCampaign: row.client_slug ?? row.pixel_id ? `client ${row.client_slug ?? "default"} · pixel ${maskId(row.pixel_id)}` : null,
+    sourceCampaign: (row.client_slug ?? row.pixel_id) ? `client ${row.client_slug ?? "default"} · pixel ${maskId(row.pixel_id)}` : null,
     eventId,
     dedupKey: eventId,
     matchKeys: {
@@ -703,6 +733,7 @@ export async function fetchSignalDispatchRows(): Promise<{ rows: SignalEventRow[
     audit: {
       conversionLogs: conversionLogs.state,
       capiSignalLogs: capiLogs.state,
+      capiSignalLogsError: Boolean(capiLogs.error),
       webhookDeliveries: webhookDeliveries.state,
       webhookDeliveryAttempts: webhookAttempts.state,
       leadEvents: leadEvents.state,

@@ -164,6 +164,10 @@ export function SignalDispatchTab() {
     };
   }, [rows]);
 
+  const emqError = error ?? (audit?.capiSignalLogsError
+    ? "Meta CAPI signal evidence is unavailable. Check the source audit and retry."
+    : null);
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -187,7 +191,7 @@ export function SignalDispatchTab() {
         <KpiCard label="Lead Events Sent" value={kpis.leadEvents} help="Top-of-funnel event. Should not be confused with phone verification unless explicitly mapped." />
       </div>
 
-      <EMQValidator error={error} events={rows} isLoading={isLoading} />
+      <EMQValidator error={emqError} events={rows} isLoading={isLoading} />
 
       {audit && (
         <div className="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm">

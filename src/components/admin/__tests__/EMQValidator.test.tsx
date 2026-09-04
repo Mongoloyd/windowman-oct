@@ -164,6 +164,14 @@ describe("EMQValidator latest-20 selection", () => {
 });
 
 describe("EMQValidator row explanations", () => {
+  it("omits invalid machine-readable datetime values while retaining the visible fallback", () => {
+    const { container } = render(<EMQValidator events={[makeRow({ timestamp: "not-a-date" })]} isLoading={false} error={null} />);
+    const time = container.querySelector("time");
+
+    expect(time).toHaveTextContent("Invalid timestamp");
+    expect(time).not.toHaveAttribute("datetime");
+  });
+
   it("preserves green, yellow, red, and unscorable bands", () => {
     const fullKeys = { ...EMPTY_KEYS, emailHash: true, phoneHash: true, fbc: true, fbp: true, externalId: true, clientIpPresent: true, clientUserAgentPresent: true };
     const validMatch = { emailHash: "valid", phoneHash: "valid", fbc: "valid", fbp: "valid", externalId: "valid", clientIp: "valid", clientUserAgent: "valid" } as const;
@@ -240,6 +248,12 @@ describe("EMQValidator row explanations", () => {
 });
 
 describe("EMQValidator global intelligence", () => {
+  it("marks the human-gated recommendation disclosure as a group for chevron state styling", () => {
+    render(<EMQValidator events={[makeRow({ capiDiagnostics: makeDiagnostics(["CAPI_FBP_HASHED"]) })]} isLoading={false} error={null} />);
+    const summary = screen.getByText("Human-gated recommendation brief");
+    expect(summary.closest("details")).toHaveClass("group");
+  });
+
   it("uses the full sample, reports dominant frequency, and shows a seven-row streak", () => {
     const events = rowsWithNewestCodes(["CAPI_FBP_HASHED"], 25);
     render(<EMQValidator events={events} isLoading={false} error={null} />);
