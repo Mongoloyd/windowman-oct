@@ -311,6 +311,118 @@
     border-color: hsl(0 91% 82%);
   }
 
+  /* Lead dossier opt-in surface. Nothing here affects other admin routes. */
+  .wm-lead-dossier {
+    --wm-lead-panel-radius: 0.75rem;
+    --wm-lead-panel-border: 214 30% 76%;
+    --wm-lead-panel-shadow: 0 1px 2px rgb(15 23 42 / 0.06), 0 8px 24px rgb(15 23 42 / 0.05);
+    --wm-lead-inset: 210 40% 96%;
+    --wm-lead-label: 215 25% 27%;
+  }
+
+  .wm-lead-dossier main {
+    min-width: 0;
+  }
+
+  .wm-lead-dossier .wm-lead-dossier-grid {
+    display: grid;
+    min-width: 0;
+    gap: 1rem;
+    grid-template-areas:
+      "intake"
+      "stage"
+      "truth"
+      "context"
+      "tasks"
+      "notes"
+      "timeline";
+  }
+
+  .wm-lead-dossier .wm-lead-dossier-intake { grid-area: intake; }
+  .wm-lead-dossier .wm-lead-dossier-stage { grid-area: stage; min-width: 0; }
+  .wm-lead-dossier .wm-lead-dossier-truth { grid-area: truth; }
+  .wm-lead-dossier .wm-lead-dossier-context { grid-area: context; min-width: 0; }
+  .wm-lead-dossier .wm-lead-dossier-tasks { grid-area: tasks; min-width: 0; }
+  .wm-lead-dossier .wm-lead-dossier-notes { grid-area: notes; min-width: 0; }
+  .wm-lead-dossier .wm-lead-dossier-timeline { grid-area: timeline; min-width: 0; }
+
+  .wm-lead-dossier .wm-lead-dossier-panel {
+    min-width: 0;
+    border: 1px solid hsl(var(--wm-lead-panel-border));
+    border-radius: var(--wm-lead-panel-radius);
+    background: hsl(var(--card));
+    padding: 1rem;
+    box-shadow: var(--wm-lead-panel-shadow);
+    overflow-wrap: anywhere;
+  }
+
+  .wm-lead-dossier .wm-lead-dossier-kicker {
+    color: hsl(var(--wm-lead-label));
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .wm-lead-dossier .wm-lead-dossier-heading {
+    margin-top: 0.25rem;
+    color: hsl(var(--foreground));
+    font-family: var(--wm-font-display);
+    font-size: 1.125rem;
+    font-weight: 700;
+    line-height: 1.5rem;
+    letter-spacing: -0.015em;
+  }
+
+  .wm-lead-dossier .wm-lead-dossier-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+    border-radius: 0.5rem;
+    background: hsl(var(--wm-lead-inset));
+    padding: 0.75rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .wm-lead-dossier :is(a, button, input, textarea, [role="combobox"]):focus-visible {
+    outline: 3px solid hsl(var(--ring));
+    outline-offset: 2px;
+    box-shadow: none;
+  }
+
+  .wm-lead-dossier :is(a, button, [role="button"], [role="combobox"]) {
+    min-height: 2.75rem;
+  }
+
+  .wm-lead-dossier button[aria-label] {
+    min-width: 2.75rem;
+  }
+
+  .wm-lead-dossier :is(.wm-lead-break, a[href^="mailto:"], code) {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  @media (min-width: 1024px) {
+    .wm-lead-dossier .wm-lead-dossier-grid {
+      grid-template-columns: minmax(0, 2fr) minmax(20rem, 1fr);
+      grid-template-areas:
+        "intake stage"
+        "truth tasks"
+        "context notes"
+        "timeline timeline";
+      gap: 1rem;
+      align-items: start;
+    }
+  }
+
+  @media (min-width: 640px) {
+    .wm-lead-dossier .wm-lead-dossier-panel {
+      padding: 1.25rem;
+    }
+  }
+
   /* === Strategic Cobalt Admin Canvas === */
 
   .wm-admin-canvas {

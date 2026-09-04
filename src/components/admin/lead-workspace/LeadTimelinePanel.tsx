@@ -7,7 +7,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Loader2, AlertCircle, Clock, Circle } from "lucide-react";
+import { Loader2, AlertCircle, Clock, ChevronDown } from "lucide-react";
 import { fetchLeadEvents, getErrorMessage } from "@/services/adminDataService";
 import type { LeadEvent } from "../types";
 
@@ -41,15 +41,15 @@ export function LeadTimelinePanel({ leadId }: LeadTimelinePanelProps) {
   });
 
   return (
-    <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+    <section className="wm-lead-dossier-panel">
       <header className="flex items-center justify-between mb-4">
         <div>
-          <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-700">
+          <p className="wm-lead-dossier-kicker">
             Activity
           </p>
-          <h3 className="font-display text-lg font-extrabold tracking-tight text-foreground mt-0.5">
+          <h2 className="wm-lead-dossier-heading">
             Timeline
-          </h3>
+          </h2>
         </div>
         <span className="inline-flex items-center gap-1.5 text-xs text-slate-700">
           <Clock className="h-3.5 w-3.5" />
@@ -86,9 +86,15 @@ export function LeadTimelinePanel({ leadId }: LeadTimelinePanelProps) {
                 {e.event_source && <span className="ml-2 opacity-100">· {e.event_source}</span>}
               </p>
               {e.metadata && Object.keys(e.metadata).length > 0 && (
-                <pre className="mt-1.5 rounded-md bg-muted/40 px-2 py-1.5 text-sm font-mono leading-tight text-slate-700 overflow-x-auto">
-                  {JSON.stringify(e.metadata, null, 2)}
-                </pre>
+                <details className="group mt-2 rounded-md border border-border bg-muted/40">
+                  <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-md px-3 py-2 text-sm font-semibold text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    Event metadata
+                    <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" aria-hidden="true" />
+                  </summary>
+                  <pre className="wm-slim-scrollbar max-w-full overflow-x-auto border-t border-border px-3 py-2 text-sm font-mono leading-relaxed text-slate-700">
+                    {JSON.stringify(e.metadata, null, 2)}
+                  </pre>
+                </details>
               )}
             </li>
           ))}

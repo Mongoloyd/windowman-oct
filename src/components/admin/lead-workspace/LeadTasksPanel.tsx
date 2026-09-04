@@ -14,7 +14,7 @@ import {
 import { format, isPast } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import {
   createLeadTask, deleteLeadTask, getErrorMessage, listLeadTasks, updateLeadTask,
@@ -111,15 +111,15 @@ export function LeadTasksPanel({ leadId }: LeadTasksPanelProps) {
   };
 
   return (
-    <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+    <section className="wm-lead-dossier-panel">
       <header className="flex items-center justify-between mb-4">
         <div>
-          <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-700">
+          <p className="wm-lead-dossier-kicker">
             Workflow
           </p>
-          <h3 className="font-display text-lg font-extrabold tracking-tight text-foreground mt-0.5">
+          <h2 className="wm-lead-dossier-heading">
             Tasks
-          </h3>
+          </h2>
         </div>
         <span className="inline-flex items-center gap-1.5 text-xs text-slate-700">
           <ListChecks className="h-3.5 w-3.5" />
@@ -127,30 +127,41 @@ export function LeadTasksPanel({ leadId }: LeadTasksPanelProps) {
         </span>
       </header>
 
-      <form onSubmit={handleSubmit} className="space-y-2 mb-5">
-        <Input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Follow up with homeowner about quote scope…"
-          maxLength={200}
-          className="h-10"
-        />
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Calendar className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-700" />
-            <Input
-              type="datetime-local"
-              value={dueAt}
-              onChange={(e) => setDueAt(e.target.value)}
-              className="h-9 pl-8 text-xs"
-              aria-label="Due date"
-            />
+      <form onSubmit={handleSubmit} className="mb-5 space-y-3">
+        <div className="space-y-2">
+          <Label htmlFor="lead-task-title" className="text-sm font-semibold text-slate-800">
+            Task
+          </Label>
+          <Input
+            id="lead-task-title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Follow up with homeowner about quote scope…"
+            maxLength={200}
+            className="h-11"
+          />
+        </div>
+        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+          <div className="min-w-0 space-y-2">
+            <Label htmlFor="lead-task-due-at" className="text-sm font-semibold text-slate-800">
+              Due date and time
+            </Label>
+            <div className="relative">
+              <Calendar className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-700" />
+              <Input
+                id="lead-task-due-at"
+                type="datetime-local"
+                value={dueAt}
+                onChange={(e) => setDueAt(e.target.value)}
+                className="h-11 min-w-0 pl-8 text-sm"
+              />
+            </div>
           </div>
           <Button
             type="submit"
             size="sm"
             disabled={!title.trim() || createMutation.isPending}
-            className="h-9"
+            className="h-11 min-h-11"
           >
             {createMutation.isPending ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -229,7 +240,7 @@ function TaskGroup({
 }) {
   return (
     <div>
-      <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-700 mb-2">
+      <p className="wm-lead-dossier-kicker mb-2">
         {label}
       </p>
       <ul className="space-y-1.5">
@@ -257,20 +268,20 @@ function TaskRow({
 }) {
   const overdue = !task.completed && task.due_at && isPast(new Date(task.due_at));
   return (
-    <li className="flex items-start gap-2.5 rounded-lg border border-border bg-background/60 px-3 py-2.5">
+    <li className="flex min-w-0 items-start gap-2 rounded-lg border border-border bg-background/60 p-2">
       <button
         type="button"
         onClick={onToggle}
         disabled={busy}
-        className="mt-0.5 shrink-0"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md hover:bg-muted"
         aria-label={task.completed ? "Mark task incomplete" : "Mark task complete"}
       >
         {busy ? (
-          <Loader2 className="h-4 w-4 animate-spin text-slate-700" />
+          <Loader2 className="h-5 w-5 animate-spin text-slate-700" />
         ) : task.completed ? (
-          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+          <CheckCircle2 className="h-5 w-5 text-emerald-700" />
         ) : (
-          <Circle className="h-4 w-4 text-slate-700 hover:text-foreground transition-colors" />
+          <Circle className="h-5 w-5 text-slate-700 transition-colors hover:text-foreground" />
         )}
       </button>
       <div className="min-w-0 flex-1">
@@ -278,7 +289,7 @@ function TaskRow({
           {task.title}
         </p>
         {task.due_at && (
-          <p className={`mt-0.5 text-sm font-mono ${overdue ? "text-destructive font-semibold" : "text-slate-700"}`}>
+          <p className={`mt-0.5 text-sm font-mono ${overdue ? "font-semibold text-red-800" : "text-slate-700"}`}>
             Due {format(new Date(task.due_at), "MMM d, yyyy h:mm a")}
             {overdue && " · OVERDUE"}
           </p>
@@ -293,7 +304,7 @@ function TaskRow({
         size="icon"
         onClick={onDelete}
         disabled={busy}
-        className="h-7 w-7 text-slate-700 hover:text-destructive shrink-0"
+        className="h-11 w-11 shrink-0 text-slate-700 hover:text-destructive"
         aria-label="Delete task"
       >
         <Trash2 className="h-3.5 w-3.5" />
