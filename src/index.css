@@ -1450,3 +1450,50 @@
     box-shadow: none !important;
   }
 }
+
+@layer components {
+  /* Lead Inbox only: quiet the broad dashboard chrome without changing shared admin surfaces. */
+  .wm-dashboard-surface .wm-lead-inbox {
+    min-width: 0;
+  }
+
+  .wm-dashboard-surface .wm-lead-inbox .wm-lead-toolbar,
+  .wm-dashboard-surface .wm-lead-inbox .wm-lead-filter-panel {
+    border-color: hsl(214 24% 78%);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 8px 22px rgba(15, 23, 42, 0.05);
+  }
+
+  .wm-dashboard-surface .wm-lead-inbox .wm-lead-card {
+    min-width: 0;
+    border-color: hsl(214 24% 78%);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 5px 16px rgba(15, 23, 42, 0.045);
+  }
+
+  .wm-dashboard-surface .wm-lead-inbox .wm-lead-control,
+  .wm-dashboard-surface .wm-lead-inbox .wm-lead-copy-button {
+    min-height: 2.75rem;
+    border-width: 1px;
+    font-weight: 600;
+    box-shadow: none;
+  }
+
+  .wm-dashboard-surface .wm-lead-inbox .wm-lead-copy-button {
+    min-width: 2.75rem;
+  }
+
+  .wm-dashboard-surface .wm-lead-inbox .wm-lead-card .rounded-xl.border {
+    box-shadow: none;
+  }
+
+  .wm-dashboard-surface .wm-lead-inbox .wm-lead-context > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .wm-dashboard-surface .wm-lead-inbox .wm-lead-context > summary svg {
+    transition: transform 160ms ease;
+  }
+
+  .wm-dashboard-surface .wm-lead-inbox .wm-lead-context[open] > summary svg {
+    transform: rotate(180deg);
+  }
+}

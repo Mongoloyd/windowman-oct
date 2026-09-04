@@ -11,7 +11,7 @@ import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   Loader2, AlertCircle, Mail, Phone, MapPin, Hash, DollarSign,
-  CheckCircle2, ExternalLink, FileText, Flag,
+  CheckCircle2, ExternalLink, FileText, Flag, ArrowLeft, GitBranch,
 } from "lucide-react";
 import { format } from "date-fns";
 import { AdminShell } from "@/components/admin/shell/AdminShell";
@@ -27,6 +27,8 @@ import { LeadTimelinePanel } from "@/components/admin/lead-workspace/LeadTimelin
 import { LeadHumanContextPanel } from "@/components/admin/lead-workspace/LeadHumanContextPanel";
 import { QuoteViewerButton } from "@/components/admin/QuoteViewerButton";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { LeadIdentity } from "@/components/admin/LeadIdentity";
 
 interface DossierAnalysisFlag {
   severity?: string;
@@ -139,12 +141,30 @@ export default function AdminLeadDossierPage() {
     <AdminShell
       eyebrow="Operator · Lead Workspace"
       title={name}
-      subtitle={`Lead ID: ${lead.id.slice(0, 8)}… · Created ${format(new Date(lead.created_at), "MMM d, yyyy h:mm a")}`}
+      subtitle={`Created ${format(new Date(lead.created_at), "MMM d, yyyy h:mm a")}`}
       backTo="/admin/leads"
       backLabel="Back to inbox"
       nav={<AdminGlobalNav variant="lead-dossier" />}
       variant="lead-dossier"
     >
+      <div className="mb-5 flex flex-col gap-3 rounded-xl border border-slate-300 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+        <LeadIdentity leadId={lead.id} full className="text-xs font-semibold text-slate-700" />
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline" size="sm">
+            <Link to="/admin/leads" className="inline-flex items-center gap-1.5">
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Lead Inbox
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link to={`/admin/pipeline?lead_id=${lead.id}`} className="inline-flex items-center gap-1.5">
+              <GitBranch className="h-3.5 w-3.5" />
+              Open in Pipeline
+            </Link>
+          </Button>
+        </div>
+      </div>
+
       <div className="wm-lead-dossier-grid">
         <section className="wm-lead-dossier-panel wm-lead-dossier-intake">
           <header className="flex items-center justify-between mb-4">

@@ -5,6 +5,7 @@
  */
 
 import { useEffect, useState, useCallback } from "react";
+import { Link } from "react-router-dom";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from "@/components/ui/sheet";
@@ -36,6 +37,7 @@ import type { VoiceFollowup } from "@/services/adminDataService";
 import { OpportunityRouteTimeline } from "./OpportunityRouteTimeline";
 import ForensicFindingsPanel from "@/components/dossier/ForensicFindingsPanel";
 import { LeadLifecycleTimeline } from "./LeadLifecycleTimeline";
+import { LeadIdentity } from "./LeadIdentity";
 import { useQuery } from "@tanstack/react-query";
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
@@ -293,10 +295,16 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
             )}
           </SheetTitle>
           <SheetDescription>
-            Lead ID: {lead.id.slice(0, 8)}… · Created {format(new Date(lead.created_at), "MMM d, yyyy")}
+            Created {format(new Date(lead.created_at), "MMM d, yyyy")}
           </SheetDescription>
-          {/* ── Handoff Button ── */}
-          <div className="flex items-center gap-2 mt-1">
+          <LeadIdentity leadId={lead.id} className="text-xs font-semibold text-slate-600" />
+          <div className="flex flex-wrap items-center gap-2 mt-1">
+            <Button asChild size="sm" className="gap-1.5 text-xs">
+              <Link to={`/admin/leads/${lead.id}`}>
+                <ExternalLink className="h-3.5 w-3.5" />
+                Open Lead Workspace
+              </Link>
+            </Button>
             {alreadySent ? (
               <Button variant="ghost" size="sm" disabled className="opacity-100 cursor-not-allowed gap-1.5 text-xs">
                 <CheckCircle className="w-3.5 h-3.5 text-green-400" />
