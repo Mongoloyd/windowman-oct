@@ -51,6 +51,7 @@ import ContractorQuestionPacket from "@/components/forensic-report/ContractorQue
 import NextActionCard from "@/components/forensic-report/NextActionCard";
 import CodeComplianceProofSection from "@/components/forensic-report/CodeComplianceProofSection";
 import FinancialIntegritySection from "@/components/forensic-report/FinancialIntegritySection";
+import RevealDiagnosisBridgeCard from "@/components/forensic-report/RevealDiagnosisBridgeCard";
 import WarrantyFinePrintSection from "@/components/forensic-report/WarrantyFinePrintSection";
 import { useV2ReportModules } from "@/hooks/useV2ReportModules";
 import type { V2ReportModulesResult } from "@/hooks/useV2ReportModules";
@@ -258,7 +259,11 @@ interface LabFullData {
   confidence_score: number;
   document_type: string;
   rubric_version: string;
+  report_summary_body: string | null;
 }
+
+const MOCK_AUTHORIZED_REPORT_SUMMARY_BODY =
+  "WindowMan found that this estimate does not document design-pressure ratings or product-approval numbers, and it does not clearly assign permit responsibility. Those gaps make it harder to confirm the quoted products and installation scope before signing. Ask the contractor to add the missing approval references and permit responsibility in writing before comparing this quote with another offer.";
 
 interface LabFullReportAccessResponse {
   ok: true;
@@ -669,6 +674,7 @@ const mockFullReportAccessResponse: LabFullReportAccessResponse = {
     confidence_score: 0.9,
     document_type: "estimate",
     rubric_version: "1.6.0",
+    report_summary_body: MOCK_AUTHORIZED_REPORT_SUMMARY_BODY,
   },
 };
 
@@ -1217,6 +1223,12 @@ export default function DevReportPreview() {
             codeJurisdiction={codeJurisdiction}
             codeJurisdictionSourceLabel={codeJurisdiction ? "benchmark_reference" : null}
             executiveSummaryTeaser={liveFullShell.executiveSummaryTeaser}
+            revealBridgeSlot={
+              <RevealDiagnosisBridgeCard
+                ctaEnabled={false}
+                summaryBody={liveFullRow?.report_summary_body ?? null}
+              />
+            }
             fullEvidenceStack={composeFullEvidenceStack(v2Modules, scopeAdapterNull, openingMix)}
             suppressBuiltInNextAction
           />
@@ -1362,6 +1374,12 @@ export default function DevReportPreview() {
         codeJurisdiction={codeJurisdiction}
         codeJurisdictionSourceLabel={codeJurisdiction ? "benchmark_reference" : null}
         executiveSummaryTeaser={previewData.summary_teaser}
+        revealBridgeSlot={
+          <RevealDiagnosisBridgeCard
+            ctaEnabled={false}
+            summaryBody={fixture.data.report_summary_body}
+          />
+        }
         openingCountSource={readOpeningCountSource(counts?.opening_count_source)}
         quoteMathConfidence={readConfidencePercent(diagnostics?.quote_math_confidence)}
         benchmarkSourceLabel={readOptionalString(countyBenchmark?.source_label)}

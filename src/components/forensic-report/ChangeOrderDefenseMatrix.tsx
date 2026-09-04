@@ -203,7 +203,7 @@ function RiskRowBody({ row }: { row: ChangeOrderRiskRow }) {
   const evidence = isNonEmptyString(row.evidenceText) ? row.evidenceText : EVIDENCE_FALLBACK;
 
   return (
-    <div className="space-y-3 border-t border-white/10 pt-3">
+    <div className="space-y-3 border-t border-[hsl(var(--fr-border))] pt-3">
       <div>
         <p className="fr-text-t3 mb-1 text-[10px] uppercase tracking-wide">Parsed clause evidence</p>
         <p className="fr-text-t3 text-xs leading-relaxed whitespace-pre-wrap">{evidence}</p>

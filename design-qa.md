@@ -106,8 +106,8 @@ final result: passed
 
 ## Truth Report selective Change-Order accordion rebuild (2026-09-03)
 
-- Primary visual reference: `C:\Users\Dell\Desktop\wm-mvp\4 only one that had something that can work if we can condense the non red boxes and keep the red boxes open by default and not accordian the whole component.PNG` (1510 x 12434).
-- Rejected-state references: `C:\Users\Dell\Desktop\wm-mvp\1.png`, `2.png`, `3.png`, and `5.png`. These were used to confirm that major report sections must not become parent accordions.
+- Primary visual reference: local user-supplied QA artifact (1510 x 12434); not committed.
+- Rejected-state references: four local user-supplied QA artifacts; not committed. These were used to confirm that major report sections must not become parent accordions.
 - Implementation route: `http://127.0.0.1:8080/dev/report-preview?v=v3&mode=full&scenario=typical`.
 - Tested state: full-report sanitized development fixture, with WindowMan report chrome intact and the development-only `SANDBOX PREVIEW` label visible.
 
