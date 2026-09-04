@@ -6,12 +6,31 @@
  * Lives at /admin/leads and is the default "front door" for operators.
  */
 
-import { useEffect, useMemo, useState, type MouseEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
-  Search, Filter, Loader2, AlertCircle, ChevronDown, ChevronRight, Clock,
-  Phone, MapPin, Inbox, RefreshCcw, Copy, Check, Flame, Save,
+  Search,
+  Filter,
+  Loader2,
+  AlertCircle,
+  ChevronDown,
+  ChevronRight,
+  Clock,
+  Phone,
+  MapPin,
+  Inbox,
+  RefreshCcw,
+  Copy,
+  Check,
+  Flame,
+  Save,
 } from "lucide-react";
 import { format, formatDistanceToNow, subDays } from "date-fns";
 import { AdminShell } from "@/components/admin/shell/AdminShell";
@@ -19,9 +38,17 @@ import { AdminGlobalNav } from "@/components/admin/shell/AdminGlobalNav";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
-import { invokeAdminData, getErrorMessage, updateLeadDisposition } from "@/services/adminDataService";
+import {
+  invokeAdminData,
+  getErrorMessage,
+  updateLeadDisposition,
+} from "@/services/adminDataService";
 import type { CRMLead } from "@/components/admin/types";
 import { FUNNEL_STAGES, getStageDef } from "@/components/admin/leadWorkflow";
 import { formatLatestActivityLabel } from "@/lib/formatLatestActivityLabel";
@@ -33,7 +60,8 @@ type DateRange = "all" | "24h" | "7d" | "30d";
 type VerifiedFilter = "all" | "verified" | "unverified";
 type SourceFilter = "all" | "power-tool-demo";
 type ShortcutFilter = "all" | "yes" | "no";
-type FollowUpPriority = "Quote Holder" | "Hot" | "Warm" | "Researching" | "Incomplete";
+type FollowUpPriority =
+  "Quote Holder" | "Hot" | "Warm" | "Researching" | "Incomplete";
 type PriorityFilter = "all" | FollowUpPriority;
 
 type PowerToolDemoIntake = {
@@ -85,12 +113,13 @@ const DISPOSITION_OPTIONS: { value: LeadDisposition; label: string }[] = [
   { value: "closed", label: "Closed" },
 ];
 
-const PRIORITY_OVERRIDE_OPTIONS: { value: PriorityOverride; label: string }[] = [
-  { value: "none", label: "Auto priority" },
-  { value: "hot", label: "Hot" },
-  { value: "warm", label: "Warm" },
-  { value: "cold", label: "Cold" },
-];
+const PRIORITY_OVERRIDE_OPTIONS: { value: PriorityOverride; label: string }[] =
+  [
+    { value: "none", label: "Auto priority" },
+    { value: "hot", label: "Hot" },
+    { value: "warm", label: "Warm" },
+    { value: "cold", label: "Cold" },
+  ];
 
 const DISPOSITION_LABEL: Record<LeadDisposition, string> = {
   new: "New",
@@ -102,21 +131,26 @@ const DISPOSITION_LABEL: Record<LeadDisposition, string> = {
 };
 
 const DISPOSITION_BADGE_CLASS: Record<LeadDisposition, string> = {
-  new: "border-slate-300 bg-white text-slate-700",
-  needs_contact: "border-amber-300 bg-amber-100 text-amber-950",
-  contacted: "border-blue-300 bg-blue-100 text-blue-950",
-  follow_up: "border-violet-300 bg-violet-100 text-violet-950",
-  not_qualified: "border-slate-400 bg-slate-100 text-slate-700",
-  closed: "border-emerald-300 bg-emerald-100 text-emerald-950",
+  new: "wm-lead-status--neutral",
+  needs_contact: "wm-lead-status--attention",
+  contacted: "wm-lead-status--attention",
+  follow_up: "wm-lead-status--active",
+  not_qualified: "wm-lead-status--neutral",
+  closed: "wm-lead-status--resolved",
 };
 
-const OVERRIDE_BADGE_CLASS: Record<Exclude<PriorityOverride, "none">, string> = {
-  hot: "border-red-300 bg-red-100 text-red-950",
-  warm: "border-blue-300 bg-blue-100 text-blue-950",
-  cold: "border-slate-400 bg-slate-100 text-slate-700",
+const OVERRIDE_BADGE_CLASS: Record<
+  Exclude<PriorityOverride, "none">,
+  string
+> = {
+  hot: "wm-lead-status--danger",
+  warm: "wm-lead-status--active",
+  cold: "wm-lead-status--neutral",
 };
 
-function normalizeDisposition(value: string | null | undefined): LeadDisposition {
+function normalizeDisposition(
+  value: string | null | undefined,
+): LeadDisposition {
   if (value && value in DISPOSITION_LABEL) return value as LeadDisposition;
   return "new";
 }
@@ -157,12 +191,21 @@ const PRIORITY_RANK: Record<FollowUpPriority, number> = {
 };
 
 const PRIORITY_BADGE_CLASS: Record<FollowUpPriority, string> = {
-  "Quote Holder": "border-amber-300 bg-amber-100 text-amber-950",
-  Hot: "border-red-300 bg-red-100 text-red-950",
-  Warm: "border-blue-300 bg-blue-100 text-blue-950",
-  Researching: "border-slate-400 bg-slate-100 text-slate-800",
-  Incomplete: "border-slate-300 bg-white text-slate-600",
+  "Quote Holder": "wm-lead-status--attention",
+  Hot: "wm-lead-status--danger",
+  Warm: "wm-lead-status--active",
+  Researching: "wm-lead-status--neutral",
+  Incomplete: "wm-lead-status--neutral",
 };
+
+function stageStatusClass(stage: string | null | undefined): string {
+  if (stage === "booked" || stage === "closed")
+    return "wm-lead-status--resolved";
+  if (stage === "contacted" || stage === "routed")
+    return "wm-lead-status--attention";
+  if (stage === "ghost" || stage === "stale") return "wm-lead-status--danger";
+  return "wm-lead-status--active";
+}
 
 function asString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value : null;
@@ -179,17 +222,17 @@ function isHotTimeline(timeline: string | null | undefined): boolean {
 
 function isDemoIntakeComplete(lead: InboxLead): boolean {
   return (
-    lead.funnel_stage === "demo_intake_complete"
-    || lead.funnel_stage === "demo_quote_holder_shortcut"
+    lead.funnel_stage === "demo_intake_complete" ||
+    lead.funnel_stage === "demo_quote_holder_shortcut"
   );
 }
 
 function isQuoteHolderLead(lead: InboxLead): boolean {
   const intake = lead.powerToolDemoIntake;
   return (
-    intake?.quote_holder_shortcut === true
-    || lead.funnel_stage === "demo_quote_holder_shortcut"
-    || intake?.intake_status === "Already have a quote to check"
+    intake?.quote_holder_shortcut === true ||
+    lead.funnel_stage === "demo_quote_holder_shortcut" ||
+    intake?.intake_status === "Already have a quote to check"
   );
 }
 
@@ -223,9 +266,9 @@ function computeFollowUpPriority(lead: InboxLead): FollowUpPriority | null {
   if (isQuoteHolderLead(lead)) return "Quote Holder";
 
   if (
-    hasPhone
-    && isHotTimeline(intake?.intake_timeline)
-    && (intakeComplete || isLargeScope(intake?.intake_scope))
+    hasPhone &&
+    isHotTimeline(intake?.intake_timeline) &&
+    (intakeComplete || isLargeScope(intake?.intake_scope))
   ) {
     return "Hot";
   }
@@ -233,13 +276,17 @@ function computeFollowUpPriority(lead: InboxLead): FollowUpPriority | null {
   if (hasPhone && intakeComplete) return "Warm";
 
   if (
-    intake?.intake_status === "Just researching options"
-    || intake?.intake_timeline === "New Construction / Just Researching"
+    intake?.intake_status === "Just researching options" ||
+    intake?.intake_timeline === "New Construction / Just Researching"
   ) {
     return "Researching";
   }
 
-  if (!hasUsableContact(lead) || !hasMostIntakeFields(intake) || !intakeComplete) {
+  if (
+    !hasUsableContact(lead) ||
+    !hasMostIntakeFields(intake) ||
+    !intakeComplete
+  ) {
     return "Incomplete";
   }
 
@@ -269,7 +316,8 @@ function parsePowerToolDemoIntake(
 function toLead(raw: RawInboxLead): InboxLead {
   const source = raw.source ?? raw.lead_source ?? null;
   const qualification_answers_json =
-    raw.qualification_answers_json && typeof raw.qualification_answers_json === "object"
+    raw.qualification_answers_json &&
+    typeof raw.qualification_answers_json === "object"
       ? (raw.qualification_answers_json as Record<string, unknown>)
       : null;
 
@@ -332,7 +380,10 @@ function toLead(raw: RawInboxLead): InboxLead {
     source,
     client_slug: raw.client_slug ?? null,
     qualification_answers_json,
-    powerToolDemoIntake: parsePowerToolDemoIntake(source, qualification_answers_json),
+    powerToolDemoIntake: parsePowerToolDemoIntake(
+      source,
+      qualification_answers_json,
+    ),
     admin_disposition: raw.admin_disposition ?? null,
     admin_priority_override: raw.admin_priority_override ?? null,
     admin_follow_up_at: raw.admin_follow_up_at ?? null,
@@ -374,7 +425,14 @@ export default function LeadInbox() {
     document.title = "Lead Inbox · WindowMan Admin";
   }, []);
 
-  const { data: rawLeads = [], isLoading, isError, error, refetch, isFetching } = useQuery({
+  const {
+    data: rawLeads = [],
+    isLoading,
+    isError,
+    error,
+    refetch,
+    isFetching,
+  } = useQuery({
     queryKey: ["admin", "leads"],
     queryFn: async () => {
       const result = await invokeAdminData("fetch_leads");
@@ -392,7 +450,8 @@ export default function LeadInbox() {
         if (!lead.admin_follow_up_at) return false;
         return new Date(lead.admin_follow_up_at) <= now;
       }).length,
-      hot: leads.filter((lead) => lead.admin_priority_override === "hot").length,
+      hot: leads.filter((lead) => lead.admin_priority_override === "hot")
+        .length,
       stuck: leads.filter(isLeadStuck).length,
     };
   }, [leads]);
@@ -417,10 +476,13 @@ export default function LeadInbox() {
 
   const filtered = useMemo(() => {
     const cutoff =
-      dateRange === "24h" ? subDays(new Date(), 1)
-      : dateRange === "7d" ? subDays(new Date(), 7)
-      : dateRange === "30d" ? subDays(new Date(), 30)
-      : null;
+      dateRange === "24h"
+        ? subDays(new Date(), 1)
+        : dateRange === "7d"
+          ? subDays(new Date(), 7)
+          : dateRange === "30d"
+            ? subDays(new Date(), 30)
+            : null;
     const q = search.trim().toLowerCase();
 
     const matched = leads.filter((l) => {
@@ -428,7 +490,11 @@ export default function LeadInbox() {
       if (county !== "all" && l.county !== county) return false;
       if (verified === "verified" && !l.phone_verified) return false;
       if (verified === "unverified" && l.phone_verified) return false;
-      if (sourceFilter === "power-tool-demo" && l.source !== POWER_TOOL_DEMO_SOURCE) return false;
+      if (
+        sourceFilter === "power-tool-demo" &&
+        l.source !== POWER_TOOL_DEMO_SOURCE
+      )
+        return false;
       if (stage !== "all" && (l.funnel_stage ?? "new") !== stage) return false;
 
       if (shortcutFilter !== "all") {
@@ -444,8 +510,11 @@ export default function LeadInbox() {
       if (q) {
         const intake = l.powerToolDemoIntake;
         const extraValues = [
-          intake?.intake_status, intake?.intake_property, intake?.intake_scope,
-          intake?.intake_logistics, intake?.intake_timeline,
+          intake?.intake_status,
+          intake?.intake_property,
+          intake?.intake_scope,
+          intake?.intake_logistics,
+          intake?.intake_timeline,
         ];
         if (!matchesAdminLeadSearch(l, q, extraValues)) return false;
       }
@@ -453,11 +522,25 @@ export default function LeadInbox() {
     });
 
     return [...matched].sort((a, b) => {
-      const rankDiff = priorityRank(computeFollowUpPriority(b)) - priorityRank(computeFollowUpPriority(a));
+      const rankDiff =
+        priorityRank(computeFollowUpPriority(b)) -
+        priorityRank(computeFollowUpPriority(a));
       if (rankDiff !== 0) return rankDiff;
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      return (
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
     });
-  }, [leads, dateRange, county, verified, stage, sourceFilter, shortcutFilter, priorityFilter, search]);
+  }, [
+    leads,
+    dateRange,
+    county,
+    verified,
+    stage,
+    sourceFilter,
+    shortcutFilter,
+    priorityFilter,
+    search,
+  ]);
 
   const resetFilters = () => {
     setSearch("");
@@ -480,7 +563,8 @@ export default function LeadInbox() {
     if (sourceFilter !== "power-tool-demo") return base;
     const parts: string[] = [];
     if (demoPriorityCounts.hot > 0) parts.push(`${demoPriorityCounts.hot} hot`);
-    if (demoPriorityCounts.quoteHolder > 0) parts.push(`${demoPriorityCounts.quoteHolder} quote holders`);
+    if (demoPriorityCounts.quoteHolder > 0)
+      parts.push(`${demoPriorityCounts.quoteHolder} quote holders`);
     return parts.length ? `${base} · ${parts.join(" · ")}` : base;
   }, [filtered.length, leads.length, sourceFilter, demoPriorityCounts]);
 
@@ -500,61 +584,121 @@ export default function LeadInbox() {
       eyebrow="Operator · Triage"
       title="Lead Inbox"
       subtitle="Scan-first operator queue"
-      nav={<AdminGlobalNav />}
+      nav={<AdminGlobalNav variant="lead-inbox" />}
+      variant="lead-inbox"
+      fullBleed
     >
-      <div className="wm-lead-inbox space-y-4">
-        <InboxToolbar
-          counts={leadOpsCounts}
-          resultSummary={`${subtitle} · priority order`}
-          refreshing={isFetching && !isLoading}
-          onRefresh={() => refetch()}
-        />
-        <FilterBar
-          search={search} setSearch={setSearch}
-          dateRange={dateRange} setDateRange={setDateRange}
-          county={county} setCounty={setCounty} counties={counties}
-          verified={verified} setVerified={setVerified}
-          stage={stage} setStage={setStage}
-          sourceFilter={sourceFilter} setSourceFilter={setSourceFilter}
-          shortcutFilter={shortcutFilter} setShortcutFilter={setShortcutFilter}
-          priorityFilter={priorityFilter} setPriorityFilter={setPriorityFilter}
-          onReset={resetFilters}
-          activeFilterCount={activeFilterCount}
-        />
-        {isLoading ? (
-        <div className="flex items-center justify-center rounded-2xl border border-slate-700/60 bg-slate-950/30 py-20">
-          <Loader2 className="wm-on-canvas-text h-6 w-6 animate-spin" />
-          <span className="sr-only">Loading leads</span>
+      <div className="wm-lead-inbox">
+        <div className="wm-lead-inbox__layout">
+          <aside
+            className="wm-lead-command-rail"
+            aria-label="Lead Inbox controls"
+          >
+            <div className="wm-lead-command-rail__title">
+              <p className="wm-lead-kicker">Operator · Triage</p>
+              <h1>Lead Inbox</h1>
+              <p>Scan-first operator queue</p>
+            </div>
+            <InboxToolbar counts={leadOpsCounts} />
+            <FilterBar
+              search={search}
+              setSearch={setSearch}
+              dateRange={dateRange}
+              setDateRange={setDateRange}
+              county={county}
+              setCounty={setCounty}
+              counties={counties}
+              verified={verified}
+              setVerified={setVerified}
+              stage={stage}
+              setStage={setStage}
+              sourceFilter={sourceFilter}
+              setSourceFilter={setSourceFilter}
+              shortcutFilter={shortcutFilter}
+              setShortcutFilter={setShortcutFilter}
+              priorityFilter={priorityFilter}
+              setPriorityFilter={setPriorityFilter}
+              onReset={resetFilters}
+              activeFilterCount={activeFilterCount}
+            />
+          </aside>
+
+          <section className="wm-lead-directory" aria-label="Lead directory">
+            <div className="wm-lead-directory__header">
+              <div>
+                <p
+                  className="text-base font-bold text-white"
+                  aria-live="polite"
+                >
+                  {`${subtitle} · priority order`}
+                </p>
+                <p>Focus on overdue follow-ups and urgent leads first.</p>
+              </div>
+              <Button
+                type="button"
+                onClick={() => refetch()}
+                disabled={isFetching && !isLoading}
+                className="wm-lead-primary-control min-h-11 px-4 text-sm font-bold"
+              >
+                <RefreshCcw
+                  className={`mr-2 h-4 w-4 ${isFetching && !isLoading ? "animate-spin" : ""}`}
+                />
+                {isFetching && !isLoading ? "Refreshing" : "Refresh Inbox"}
+              </Button>
+            </div>
+
+            <div className="wm-lead-directory__body">
+              {isLoading ? (
+                <div className="wm-lead-state flex min-h-80 items-center justify-center">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                  <span className="sr-only">Loading leads</span>
+                </div>
+              ) : isError ? (
+                <div
+                  role="alert"
+                  className="wm-lead-state wm-lead-state--error flex items-start gap-2 px-4 py-5 text-sm"
+                >
+                  <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+                  <div>
+                    <p className="font-bold">Couldn't load leads</p>
+                    <p className="mt-0.5">{getErrorMessage(error)}</p>
+                    <button
+                      onClick={() => refetch()}
+                      className="mt-2 min-h-11 text-xs font-bold underline"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                </div>
+              ) : filtered.length === 0 ? (
+                <div className="wm-lead-state px-6 py-16 text-center">
+                  <Inbox className="mx-auto mb-3 h-8 w-8" />
+                  <h2 className="font-display text-lg font-extrabold tracking-tight text-white">
+                    {sourceFilter === "power-tool-demo" &&
+                    powerToolDemoCount === 0
+                      ? "No PowerToolDemo leads yet"
+                      : "No leads match"}
+                  </h2>
+                  <p className="mx-auto mt-1 max-w-lg text-sm font-semibold">
+                    {sourceFilter === "power-tool-demo" &&
+                    powerToolDemoCount === 0
+                      ? "PowerToolDemo captures will appear here once homeowners complete the demo intake."
+                      : "Try clearing filters or widening the date range."}
+                  </p>
+                  <Button
+                    variant="outline"
+                    onClick={resetFilters}
+                    className="wm-lead-control mt-4 min-h-11"
+                  >
+                    Clear filters
+                  </Button>
+                </div>
+              ) : (
+                <LeadList leads={filtered} />
+              )}
+            </div>
+          </section>
         </div>
-      ) : isError ? (
-        <div role="alert" className="flex items-start gap-2 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-950">
-          <AlertCircle className="h-5 w-5 mt-0.5 shrink-0" />
-          <div>
-            <p className="font-semibold">Couldn't load leads</p>
-            <p className="mt-0.5 opacity-90">{getErrorMessage(error)}</p>
-            <button onClick={() => refetch()} className="mt-2 text-xs underline">Retry</button>
-          </div>
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="rounded-2xl border border-slate-300 bg-card p-10 text-center shadow-sm">
-          <Inbox className="mx-auto h-8 w-8 text-slate-700 mb-3" />
-          <h2 className="font-display text-lg font-extrabold tracking-tight text-foreground">
-            {sourceFilter === "power-tool-demo" && powerToolDemoCount === 0
-              ? "No PowerToolDemo leads yet"
-              : "No leads match"}
-          </h2>
-          <p className="mt-1 text-sm font-semibold text-slate-700">
-            {sourceFilter === "power-tool-demo" && powerToolDemoCount === 0
-              ? "PowerToolDemo captures will appear here once homeowners complete the demo intake."
-              : "Try clearing filters or widening the date range."}
-          </p>
-          <Button variant="outline" onClick={resetFilters} className="mt-4">
-            Clear filters
-          </Button>
-        </div>
-      ) : (
-        <LeadList leads={filtered} />
-      )}
       </div>
     </AdminShell>
   );
@@ -562,45 +706,39 @@ export default function LeadInbox() {
 
 function InboxToolbar({
   counts,
-  resultSummary,
-  refreshing,
-  onRefresh,
 }: {
   counts: { due: number; hot: number; stuck: number };
-  resultSummary: string;
-  refreshing: boolean;
-  onRefresh: () => void;
 }) {
-  const metricClass = (value: number, activeClass: string) =>
-    value > 0 ? activeClass : "border-slate-300 bg-slate-50 text-slate-700";
-
   return (
-    <section aria-label="Lead queue summary" className="wm-lead-toolbar rounded-2xl border border-slate-300 bg-white p-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-slate-950" aria-live="polite">{resultSummary}</p>
-          <p className="mt-0.5 text-xs font-medium text-slate-600">Focus on overdue follow-ups and urgent leads first.</p>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onRefresh}
-          disabled={refreshing}
-          className="wm-lead-control min-h-11 self-start px-4 text-sm font-semibold sm:self-auto"
-        >
-          <RefreshCcw className={`mr-2 h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-          {refreshing ? "Refreshing" : "Refresh"}
-        </Button>
-      </div>
-      <dl className="mt-4 grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
+    <section aria-label="Lead queue summary" className="wm-lead-toolbar">
+      <dl className="grid gap-1.5">
         {[
-          { label: "Due", value: counts.due, classes: "border-violet-300 bg-violet-50 text-violet-950" },
-          { label: "Hot", value: counts.hot, classes: "border-red-300 bg-red-50 text-red-950" },
-          { label: "Stuck", value: counts.stuck, classes: "border-amber-300 bg-amber-50 text-amber-950" },
+          {
+            label: "Due follow-ups",
+            value: counts.due,
+            tone: "danger",
+            Icon: Clock,
+          },
+          {
+            label: "Hot leads",
+            value: counts.hot,
+            tone: "danger",
+            Icon: Flame,
+          },
+          {
+            label: "Stuck in workflow",
+            value: counts.stuck,
+            tone: "attention",
+            Icon: AlertCircle,
+          },
         ].map((metric) => (
-          <div key={metric.label} className={`min-w-0 rounded-lg border px-3 py-2 ${metricClass(metric.value, metric.classes)}`}>
-            <dt className="text-xs font-medium">{metric.label}</dt>
-            <dd className="mt-0.5 text-lg font-bold tabular-nums">{metric.value}</dd>
+          <div
+            key={metric.label}
+            className={`wm-lead-metric wm-lead-metric--${metric.value > 0 ? metric.tone : "neutral"}`}
+          >
+            <metric.Icon className="h-4 w-4" aria-hidden="true" />
+            <dt>{metric.label}</dt>
+            <dd>{metric.value}</dd>
           </div>
         ))}
       </dl>
@@ -609,33 +747,57 @@ function InboxToolbar({
 }
 
 interface FilterBarProps {
-  search: string; setSearch: (v: string) => void;
-  dateRange: DateRange; setDateRange: (v: DateRange) => void;
-  county: string; setCounty: (v: string) => void; counties: string[];
-  verified: VerifiedFilter; setVerified: (v: VerifiedFilter) => void;
-  stage: string; setStage: (v: string) => void;
-  sourceFilter: SourceFilter; setSourceFilter: (v: SourceFilter) => void;
-  shortcutFilter: ShortcutFilter; setShortcutFilter: (v: ShortcutFilter) => void;
-  priorityFilter: PriorityFilter; setPriorityFilter: (v: PriorityFilter) => void;
+  search: string;
+  setSearch: (v: string) => void;
+  dateRange: DateRange;
+  setDateRange: (v: DateRange) => void;
+  county: string;
+  setCounty: (v: string) => void;
+  counties: string[];
+  verified: VerifiedFilter;
+  setVerified: (v: VerifiedFilter) => void;
+  stage: string;
+  setStage: (v: string) => void;
+  sourceFilter: SourceFilter;
+  setSourceFilter: (v: SourceFilter) => void;
+  shortcutFilter: ShortcutFilter;
+  setShortcutFilter: (v: ShortcutFilter) => void;
+  priorityFilter: PriorityFilter;
+  setPriorityFilter: (v: PriorityFilter) => void;
   onReset: () => void;
   activeFilterCount: number;
 }
 
 function FilterBar({
-  search, setSearch, dateRange, setDateRange,
-  county, setCounty, counties, verified, setVerified,
-  stage, setStage, sourceFilter, setSourceFilter,
-  shortcutFilter, setShortcutFilter,
-  priorityFilter, setPriorityFilter,
-  onReset, activeFilterCount,
+  search,
+  setSearch,
+  dateRange,
+  setDateRange,
+  county,
+  setCounty,
+  counties,
+  verified,
+  setVerified,
+  stage,
+  setStage,
+  sourceFilter,
+  setSourceFilter,
+  shortcutFilter,
+  setShortcutFilter,
+  priorityFilter,
+  setPriorityFilter,
+  onReset,
+  activeFilterCount,
 }: FilterBarProps) {
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   return (
-    <section aria-label="Lead filters" className="wm-lead-filter-panel rounded-2xl border border-slate-300 bg-white p-4">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end">
-        <label className="min-w-0 flex-1">
-          <span className="mb-1.5 block text-xs font-semibold text-slate-700">Search leads</span>
+    <section aria-label="Lead filters" className="wm-lead-filter-panel">
+      <div className="grid gap-3">
+        <label className="min-w-0">
+          <span className="mb-1.5 block text-xs font-semibold text-slate-700">
+            Search leads
+          </span>
           <span className="relative block">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
             <Input
@@ -658,14 +820,16 @@ function FilterBar({
           >
             <Filter className="mr-2 h-4 w-4" />
             Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
-            <ChevronDown className={`ml-auto h-4 w-4 transition-transform ${filtersOpen ? "rotate-180" : ""}`} />
+            <ChevronDown
+              className={`ml-auto h-4 w-4 transition-transform ${filtersOpen ? "rotate-180" : ""}`}
+            />
           </Button>
           <Button
             type="button"
             variant="ghost"
             onClick={onReset}
             disabled={activeFilterCount === 0}
-            className="wm-lead-control min-h-11 px-4 text-sm font-semibold"
+            className="wm-lead-control min-h-11 flex-1 px-4 text-sm font-semibold"
             aria-label="Clear all filters and search"
           >
             Clear all
@@ -675,11 +839,19 @@ function FilterBar({
 
       <div
         id="lead-secondary-filters"
-        className={`${filtersOpen ? "grid" : "hidden"} mt-4 gap-3 sm:grid-cols-2 md:grid md:grid-cols-3 xl:grid-cols-6`}
+        className={`${filtersOpen ? "grid" : "hidden"} wm-lead-filter-grid mt-4 gap-3 md:grid`}
       >
         <FilterSelect label="Date range">
-          <Select value={dateRange} onValueChange={(v) => setDateRange(v as DateRange)}>
-            <SelectTrigger className="wm-lead-control h-11 w-full text-sm font-medium" aria-label="Date range"><SelectValue /></SelectTrigger>
+          <Select
+            value={dateRange}
+            onValueChange={(v) => setDateRange(v as DateRange)}
+          >
+            <SelectTrigger
+              className="wm-lead-control h-11 w-full text-sm font-medium"
+              aria-label="Date range"
+            >
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All time</SelectItem>
               <SelectItem value="24h">Last 24 hours</SelectItem>
@@ -689,8 +861,16 @@ function FilterBar({
           </Select>
         </FilterSelect>
         <FilterSelect label="Source">
-          <Select value={sourceFilter} onValueChange={(v) => setSourceFilter(v as SourceFilter)}>
-            <SelectTrigger className="wm-lead-control h-11 w-full text-sm font-medium" aria-label="Lead source"><SelectValue /></SelectTrigger>
+          <Select
+            value={sourceFilter}
+            onValueChange={(v) => setSourceFilter(v as SourceFilter)}
+          >
+            <SelectTrigger
+              className="wm-lead-control h-11 w-full text-sm font-medium"
+              aria-label="Lead source"
+            >
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All sources</SelectItem>
               <SelectItem value="power-tool-demo">Power Tool Demo</SelectItem>
@@ -698,8 +878,16 @@ function FilterBar({
           </Select>
         </FilterSelect>
         <FilterSelect label="Priority">
-          <Select value={priorityFilter} onValueChange={(v) => setPriorityFilter(v as PriorityFilter)}>
-            <SelectTrigger className="wm-lead-control h-11 w-full text-sm font-medium" aria-label="Lead priority"><SelectValue /></SelectTrigger>
+          <Select
+            value={priorityFilter}
+            onValueChange={(v) => setPriorityFilter(v as PriorityFilter)}
+          >
+            <SelectTrigger
+              className="wm-lead-control h-11 w-full text-sm font-medium"
+              aria-label="Lead priority"
+            >
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All priorities</SelectItem>
               <SelectItem value="Quote Holder">Quote Holder</SelectItem>
@@ -712,16 +900,33 @@ function FilterBar({
         </FilterSelect>
         <FilterSelect label="County">
           <Select value={county} onValueChange={setCounty}>
-            <SelectTrigger className="wm-lead-control h-11 w-full text-sm font-medium" aria-label="Lead county"><SelectValue /></SelectTrigger>
+            <SelectTrigger
+              className="wm-lead-control h-11 w-full text-sm font-medium"
+              aria-label="Lead county"
+            >
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All counties</SelectItem>
-              {counties.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+              {counties.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {c}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </FilterSelect>
         <FilterSelect label="Phone verification">
-          <Select value={verified} onValueChange={(v) => setVerified(v as VerifiedFilter)}>
-            <SelectTrigger className="wm-lead-control h-11 w-full text-sm font-medium" aria-label="Phone verification"><SelectValue /></SelectTrigger>
+          <Select
+            value={verified}
+            onValueChange={(v) => setVerified(v as VerifiedFilter)}
+          >
+            <SelectTrigger
+              className="wm-lead-control h-11 w-full text-sm font-medium"
+              aria-label="Phone verification"
+            >
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All verification states</SelectItem>
               <SelectItem value="verified">Phone verified</SelectItem>
@@ -731,22 +936,39 @@ function FilterBar({
         </FilterSelect>
         <FilterSelect label="Stage">
           <Select value={stage} onValueChange={setStage}>
-            <SelectTrigger className="wm-lead-control h-11 w-full text-sm font-medium" aria-label="Lead stage"><SelectValue /></SelectTrigger>
+            <SelectTrigger
+              className="wm-lead-control h-11 w-full text-sm font-medium"
+              aria-label="Lead stage"
+            >
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All stages</SelectItem>
               {FUNNEL_STAGES.map((s) => (
-                <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                <SelectItem key={s.value} value={s.value}>
+                  {s.label}
+                </SelectItem>
               ))}
               {DEMO_FUNNEL_STAGES.map((s) => (
-                <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                <SelectItem key={s.value} value={s.value}>
+                  {s.label}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </FilterSelect>
         {sourceFilter === "power-tool-demo" ? (
           <FilterSelect label="Quote status">
-            <Select value={shortcutFilter} onValueChange={(v) => setShortcutFilter(v as ShortcutFilter)}>
-              <SelectTrigger className="wm-lead-control h-11 w-full text-sm font-medium" aria-label="Quote status"><SelectValue /></SelectTrigger>
+            <Select
+              value={shortcutFilter}
+              onValueChange={(v) => setShortcutFilter(v as ShortcutFilter)}
+            >
+              <SelectTrigger
+                className="wm-lead-control h-11 w-full text-sm font-medium"
+                aria-label="Quote status"
+              >
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All quote states</SelectItem>
                 <SelectItem value="yes">Has quote</SelectItem>
@@ -758,19 +980,30 @@ function FilterBar({
       </div>
 
       {activeFilterCount > 0 ? (
-        <div className="mt-3 flex items-center gap-2 border-t border-slate-200 pt-3 text-xs font-medium text-slate-600">
+        <div className="wm-lead-active-filters mt-3 flex items-center gap-2 border-t pt-3 text-xs font-semibold">
           <Filter className="h-3.5 w-3.5" />
-          <span>{activeFilterCount} active {activeFilterCount === 1 ? "filter" : "filters"}</span>
+          <span>
+            {activeFilterCount} active{" "}
+            {activeFilterCount === 1 ? "filter" : "filters"}
+          </span>
         </div>
       ) : null}
     </section>
   );
 }
 
-function FilterSelect({ label, children }: { label: string; children: ReactNode }) {
+function FilterSelect({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
   return (
     <div>
-      <span className="mb-1.5 block text-xs font-semibold text-slate-700">{label}</span>
+      <span className="wm-lead-filter-label mb-1.5 block text-xs font-semibold">
+        {label}
+      </span>
       {children}
     </div>
   );
@@ -795,32 +1028,53 @@ function CopyButton({ value, label }: { value: string; label: string }) {
       type="button"
       onClick={handleCopy}
       aria-label={copied ? `${label} copied` : `Copy ${label}`}
-      className="wm-lead-copy-button inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="wm-lead-copy-button inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+      {copied ? (
+        <Check className="h-4 w-4 text-emerald-600" />
+      ) : (
+        <Copy className="h-4 w-4" />
+      )}
     </button>
   );
 }
 
-function IntakeBadge({ label, value }: { label: string; value: string | null }) {
+function IntakeBadge({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | null;
+}) {
   if (!value) return null;
   return (
     <span
       className="inline-flex max-w-full items-center rounded-md border border-violet-200 bg-violet-50 px-2 py-0.5 text-xs font-semibold text-violet-950"
       title={value}
     >
-      <span className="mr-1 uppercase tracking-wide text-violet-700">{label}:</span>
+      <span className="mr-1 uppercase tracking-wide text-violet-700">
+        {label}:
+      </span>
       <span className="truncate">{value}</span>
     </span>
   );
 }
 
 function IntakeSummaryColumn({ intake }: { intake: PowerToolDemoIntake }) {
-  const hasAny = intake.intake_status || intake.intake_property || intake.intake_scope
-    || intake.intake_logistics || intake.intake_timeline || intake.quote_holder_shortcut;
+  const hasAny =
+    intake.intake_status ||
+    intake.intake_property ||
+    intake.intake_scope ||
+    intake.intake_logistics ||
+    intake.intake_timeline ||
+    intake.quote_holder_shortcut;
 
   if (!hasAny) {
-    return <span className="text-xs font-medium text-slate-500">No intake captured yet</span>;
+    return (
+      <span className="text-xs font-medium text-slate-500">
+        No intake captured yet
+      </span>
+    );
   }
 
   return (
@@ -843,13 +1097,15 @@ function IntakeSummaryColumn({ intake }: { intake: PowerToolDemoIntake }) {
 
 function PriorityBadge({ priority }: { priority: FollowUpPriority | null }) {
   if (!priority) {
-    return <span className="text-sm font-medium text-slate-600">Standard priority</span>;
+    return (
+      <span className="text-sm font-medium text-slate-600">
+        Standard priority
+      </span>
+    );
   }
 
   return (
-    <span
-      className={`inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold ${PRIORITY_BADGE_CLASS[priority]}`}
-    >
+    <span className={`wm-lead-status ${PRIORITY_BADGE_CLASS[priority]}`}>
       {priority === "Hot" ? <Flame className="h-3.5 w-3.5" /> : null}
       {priority}
     </span>
@@ -857,14 +1113,14 @@ function PriorityBadge({ priority }: { priority: FollowUpPriority | null }) {
 }
 
 function DispositionEditor({ lead, name }: { lead: InboxLead; name: string }) {
-  const [disposition, setDisposition] = useState<LeadDisposition>(
-    () => normalizeDisposition(lead.admin_disposition),
+  const [disposition, setDisposition] = useState<LeadDisposition>(() =>
+    normalizeDisposition(lead.admin_disposition),
   );
-  const [override, setOverride] = useState<PriorityOverride>(
-    () => normalizeOverride(lead.admin_priority_override),
+  const [override, setOverride] = useState<PriorityOverride>(() =>
+    normalizeOverride(lead.admin_priority_override),
   );
-  const [followUp, setFollowUp] = useState<string>(
-    () => isoToLocalInput(lead.admin_follow_up_at),
+  const [followUp, setFollowUp] = useState<string>(() =>
+    isoToLocalInput(lead.admin_follow_up_at),
   );
   const [saved, setSaved] = useState(() => ({
     disposition: normalizeDisposition(lead.admin_disposition),
@@ -905,24 +1161,34 @@ function DispositionEditor({ lead, name }: { lead: InboxLead; name: string }) {
 
   const editorId = `workflow-editor-${lead.id}`;
   const savedFollowUp = saved.followUp ? new Date(saved.followUp) : null;
-  const savedFollowUpLabel = savedFollowUp && !Number.isNaN(savedFollowUp.getTime())
-    ? format(savedFollowUp, "MMM d, h:mm a")
-    : "No follow-up scheduled";
+  const savedFollowUpLabel =
+    savedFollowUp && !Number.isNaN(savedFollowUp.getTime())
+      ? format(savedFollowUp, "MMM d, h:mm a")
+      : "No follow-up scheduled";
 
   return (
-    <div className="border-t border-slate-200 px-4 py-3 sm:px-5">
+    <div className="wm-lead-workflow border-t px-4 py-3 sm:px-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 flex-wrap items-center gap-2.5">
-          <span className="text-xs font-semibold text-slate-600">Disposition</span>
-          <span className={`inline-flex min-h-8 items-center rounded-lg border px-2.5 py-1 text-xs font-semibold ${DISPOSITION_BADGE_CLASS[saved.disposition]}`}>
+          <span className="text-xs font-semibold text-slate-600">
+            Disposition
+          </span>
+          <span
+            className={`wm-lead-status ${DISPOSITION_BADGE_CLASS[saved.disposition]}`}
+          >
             {DISPOSITION_LABEL[saved.disposition]}
           </span>
           {saved.override !== "none" ? (
-            <span className={`inline-flex min-h-8 items-center rounded-lg border px-2.5 py-1 text-xs font-semibold ${OVERRIDE_BADGE_CLASS[saved.override]}`}>
-              {saved.override.charAt(0).toUpperCase() + saved.override.slice(1)} override
+            <span
+              className={`wm-lead-status ${OVERRIDE_BADGE_CLASS[saved.override]}`}
+            >
+              {saved.override.charAt(0).toUpperCase() + saved.override.slice(1)}{" "}
+              override
             </span>
           ) : null}
-          <span className="text-xs font-medium text-slate-600">{savedFollowUpLabel}</span>
+          <span className="text-xs font-medium text-slate-600">
+            {savedFollowUpLabel}
+          </span>
         </div>
         <Button
           type="button"
@@ -933,39 +1199,62 @@ function DispositionEditor({ lead, name }: { lead: InboxLead; name: string }) {
           className="wm-lead-control min-h-11 justify-between px-3 text-sm font-semibold sm:justify-center"
         >
           {open ? "Close workflow editor" : "Edit workflow"}
-          <ChevronDown className={`ml-2 h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
+          <ChevronDown
+            className={`ml-2 h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`}
+          />
         </Button>
       </div>
 
       {open ? (
-        <div id={editorId} className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <div
+          id={editorId}
+          className="wm-lead-workflow-editor mt-4 rounded-lg border p-4"
+        >
           <div className="grid gap-3 md:grid-cols-3">
             <FilterSelect label="Disposition">
-              <Select value={disposition} onValueChange={(v) => setDisposition(v as LeadDisposition)}>
-                <SelectTrigger className="wm-lead-control h-11 w-full text-sm font-medium" aria-label={`Disposition for ${name}`}>
+              <Select
+                value={disposition}
+                onValueChange={(v) => setDisposition(v as LeadDisposition)}
+              >
+                <SelectTrigger
+                  className="wm-lead-control h-11 w-full text-sm font-medium"
+                  aria-label={`Disposition for ${name}`}
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {DISPOSITION_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </FilterSelect>
             <FilterSelect label="Priority override">
-              <Select value={override} onValueChange={(v) => setOverride(v as PriorityOverride)}>
-                <SelectTrigger className="wm-lead-control h-11 w-full text-sm font-medium" aria-label={`Priority override for ${name}`}>
+              <Select
+                value={override}
+                onValueChange={(v) => setOverride(v as PriorityOverride)}
+              >
+                <SelectTrigger
+                  className="wm-lead-control h-11 w-full text-sm font-medium"
+                  aria-label={`Priority override for ${name}`}
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {PRIORITY_OVERRIDE_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </FilterSelect>
             <label>
-              <span className="mb-1.5 block text-xs font-semibold text-slate-700">Follow-up date and time</span>
+              <span className="mb-1.5 block text-xs font-semibold text-slate-700">
+                Follow-up date and time
+              </span>
               <Input
                 type="datetime-local"
                 value={followUp}
@@ -978,16 +1267,24 @@ function DispositionEditor({ lead, name }: { lead: InboxLead; name: string }) {
           <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div aria-live="polite" className="min-h-5 text-sm">
               {error ? (
-                <p role="alert" className="flex items-start gap-1 font-medium text-red-700">
+                <p
+                  role="alert"
+                  className="flex items-start gap-1 font-medium text-red-700"
+                >
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                   <span>{error}</span>
                 </p>
               ) : justSaved ? (
-                <p role="status" className="flex items-center gap-1 font-medium text-emerald-700">
+                <p
+                  role="status"
+                  className="flex items-center gap-1 font-medium text-emerald-700"
+                >
                   <Check className="h-4 w-4" /> Workflow saved.
                 </p>
               ) : dirty ? (
-                <p className="font-medium text-slate-600">Unsaved workflow changes</p>
+                <p className="font-medium text-slate-600">
+                  Unsaved workflow changes
+                </p>
               ) : null}
             </div>
             <Button
@@ -997,7 +1294,11 @@ function DispositionEditor({ lead, name }: { lead: InboxLead; name: string }) {
               variant={dirty ? "default" : "outline"}
               className="wm-lead-control min-h-11 min-w-32 text-sm font-semibold"
             >
-              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              {saving ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="mr-2 h-4 w-4" />
+              )}
               {saving ? "Saving" : "Save workflow"}
             </Button>
           </div>
@@ -1020,7 +1321,9 @@ function formatSourceLabel(source: string | null): string {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function formatRelativeTimestamp(value: string | null | undefined): { relative: string; absolute: string } | null {
+function formatRelativeTimestamp(
+  value: string | null | undefined,
+): { relative: string; absolute: string } | null {
   if (!value) return null;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
@@ -1032,10 +1335,11 @@ function formatRelativeTimestamp(value: string | null | undefined): { relative: 
 
 function LeadList({ leads }: { leads: InboxLead[] }) {
   return (
-    <ul aria-label="Lead results" className="space-y-3">
+    <ul aria-label="Lead results" className="wm-lead-results">
       {leads.map((lead) => {
-        const name = [lead.first_name, lead.last_name].filter(Boolean).join(" ") || "Unknown lead";
-        const stageDef = getStageDef(lead.funnel_stage ?? "new");
+        const name =
+          [lead.first_name, lead.last_name].filter(Boolean).join(" ") ||
+          "Unknown lead";
         const stageLabel = formatStageLabel(lead.funnel_stage);
         const isPowerToolDemo = lead.source === POWER_TOOL_DEMO_SOURCE;
         const priority = computeFollowUpPriority(lead);
@@ -1046,11 +1350,28 @@ function LeadList({ leads }: { leads: InboxLead[] }) {
         const followUpDue = lead.admin_follow_up_at
           ? new Date(lead.admin_follow_up_at).getTime() <= Date.now()
           : false;
-        const location = [lead.county, lead.state, lead.zip].filter(Boolean).join(", ");
+        const stageValue = lead.funnel_stage ?? "new";
+        const signalTone = followUpDue
+          ? "attention"
+          : stageValue === "booked" || stageValue === "closed"
+            ? "resolved"
+            : stageValue === "contacted" ||
+                stageValue === "routed" ||
+                stageValue === "ghost" ||
+                stageValue === "stale"
+              ? "attention"
+              : lead.phone_verified
+                ? "active"
+                : "neutral";
+        const location = [lead.county, lead.state, lead.zip]
+          .filter(Boolean)
+          .join(", ");
 
         return (
           <li key={lead.id}>
-            <article className="wm-lead-card overflow-hidden rounded-2xl border border-slate-300 bg-white">
+            <article
+              className={`wm-lead-card wm-lead-card--${signalTone} overflow-hidden`}
+            >
               <div className="flex flex-col gap-4 px-4 py-4 sm:px-5 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0">
                   <Link
@@ -1064,28 +1385,57 @@ function LeadList({ leads }: { leads: InboxLead[] }) {
                     {lead.email ? (
                       <span className="flex min-w-0 items-center gap-1">
                         <span className="truncate">{lead.email}</span>
-                        <CopyButton value={lead.email} label={`${name} email`} />
+                        <CopyButton
+                          value={lead.email}
+                          label={`${name} email`}
+                        />
                       </span>
-                    ) : <span>Email not provided</span>}
+                    ) : (
+                      <span>Email not provided</span>
+                    )}
                     {lead.phone_e164 ? (
                       <span className="flex items-center gap-1 font-mono">
                         <Phone className="h-4 w-4 shrink-0" />
                         <span>{lead.phone_e164}</span>
-                        <CopyButton value={lead.phone_e164} label={`${name} phone`} />
+                        <CopyButton
+                          value={lead.phone_e164}
+                          label={`${name} phone`}
+                        />
                       </span>
-                    ) : <span>Phone not provided</span>}
+                    ) : (
+                      <span>Phone not provided</span>
+                    )}
                   </div>
-                  <LeadIdentity leadId={lead.id} className="mt-2 text-xs font-semibold text-slate-600" />
+                  <LeadIdentity
+                    leadId={lead.id}
+                    className="mt-2 text-xs font-semibold text-slate-600"
+                  />
                 </div>
                 <div className="flex flex-wrap gap-2 lg:justify-end">
-                  <QuoteViewerButton leadId={lead.id} className="wm-lead-control min-h-11" />
-                  <Button asChild variant="outline" className="wm-lead-control min-h-11 px-4 text-sm font-semibold">
-                    <Link to={`/admin/pipeline?lead_id=${lead.id}`} aria-label={`Open ${name} in pipeline`}>
+                  <QuoteViewerButton
+                    leadId={lead.id}
+                    className="wm-lead-control min-h-11"
+                  />
+                  <Button
+                    asChild
+                    variant="outline"
+                    className="wm-lead-control min-h-11 px-4 text-sm font-semibold"
+                  >
+                    <Link
+                      to={`/admin/pipeline?lead_id=${lead.id}`}
+                      aria-label={`Open ${name} in pipeline`}
+                    >
                       Pipeline
                     </Link>
                   </Button>
-                  <Button asChild className="wm-lead-control min-h-11 px-4 text-sm font-semibold">
-                    <Link to={`/admin/leads/${lead.id}`} aria-label={`Open lead workspace for ${name}`}>
+                  <Button
+                    asChild
+                    className="wm-lead-primary-control min-h-11 px-4 text-sm font-bold"
+                  >
+                    <Link
+                      to={`/admin/leads/${lead.id}`}
+                      aria-label={`Open lead workspace for ${name}`}
+                    >
                       Open lead <ChevronRight className="ml-1.5 h-4 w-4" />
                     </Link>
                   </Button>
@@ -1094,45 +1444,84 @@ function LeadList({ leads }: { leads: InboxLead[] }) {
 
               <div className="grid gap-4 border-t border-slate-200 px-4 py-4 sm:grid-cols-2 sm:px-5 xl:grid-cols-4">
                 <section aria-label={`Priority for ${name}`}>
-                  <p className="text-xs font-semibold text-slate-600">Priority</p>
+                  <p className="text-xs font-semibold text-slate-600">
+                    Priority
+                  </p>
                   <div className="mt-1.5 flex flex-wrap items-center gap-2">
                     {override !== "none" ? (
-                      <span className={`inline-flex min-h-8 items-center rounded-lg border px-2.5 py-1 text-xs font-semibold ${OVERRIDE_BADGE_CLASS[override]}`} title="Manual priority override">
-                        {override.charAt(0).toUpperCase() + override.slice(1)} override
+                      <span
+                        className={`wm-lead-status ${OVERRIDE_BADGE_CLASS[override]}`}
+                        title="Manual priority override"
+                      >
+                        {override.charAt(0).toUpperCase() + override.slice(1)}{" "}
+                        override
                       </span>
-                    ) : <PriorityBadge priority={priority} />}
-                    <span className={`inline-flex min-h-8 items-center rounded-lg border px-2.5 py-1 text-xs font-semibold ${lead.phone_verified ? "border-emerald-300 bg-emerald-50 text-emerald-900" : "border-slate-300 bg-slate-50 text-slate-700"}`}>
-                      {lead.phone_verified ? "Phone verified" : "Phone unverified"}
+                    ) : (
+                      <PriorityBadge priority={priority} />
+                    )}
+                    <span
+                      className={`wm-lead-status ${lead.phone_verified ? "wm-lead-status--resolved" : "wm-lead-status--neutral"}`}
+                    >
+                      {lead.phone_verified
+                        ? "Phone verified"
+                        : "Phone unverified"}
                     </span>
                   </div>
                 </section>
 
                 <section aria-label={`Workflow stage for ${name}`}>
-                  <p className="text-xs font-semibold text-slate-600">Workflow stage</p>
+                  <p className="text-xs font-semibold text-slate-600">
+                    Workflow stage
+                  </p>
                   <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                    <span className={`inline-flex min-h-8 items-center rounded-lg border px-2.5 py-1 text-xs font-semibold ${stageDef?.badgeClass ?? (isPowerToolDemo ? "border-violet-200 bg-violet-50 text-violet-900" : "border-slate-300 bg-slate-50 text-slate-800")}`}>
+                    <span
+                      className={`wm-lead-status ${stageStatusClass(lead.funnel_stage ?? (isPowerToolDemo ? "analyzing" : "new"))}`}
+                    >
                       {stageLabel}
                     </span>
-                    {lead.report_unlocked_at ? <span className="text-xs font-medium text-emerald-700">Report unlocked</span> : null}
+                    {lead.report_unlocked_at ? (
+                      <span className="text-xs font-medium text-emerald-700">
+                        Report unlocked
+                      </span>
+                    ) : null}
                   </div>
                 </section>
 
                 <section aria-label={`Latest activity for ${name}`}>
-                  <p className="text-xs font-semibold text-slate-600">Latest activity</p>
-                  <p className="mt-1.5 text-sm font-semibold text-slate-950">{formatLatestActivityLabel(lead.latest_activity_type)}</p>
+                  <p className="text-xs font-semibold text-slate-600">
+                    Latest activity
+                  </p>
+                  <p className="mt-1.5 text-sm font-semibold text-slate-950">
+                    {formatLatestActivityLabel(lead.latest_activity_type)}
+                  </p>
                   <p className="mt-0.5 flex items-center gap-1 text-xs font-medium text-slate-600">
                     <Clock className="h-3.5 w-3.5" />
-                    {latestActivity ? <span title={latestActivity.absolute}>{latestActivity.relative}</span> : "No activity recorded"}
+                    {latestActivity ? (
+                      <span title={latestActivity.absolute}>
+                        {latestActivity.relative}
+                      </span>
+                    ) : (
+                      "No activity recorded"
+                    )}
                   </p>
                 </section>
 
                 <section aria-label={`Follow-up for ${name}`}>
-                  <p className="text-xs font-semibold text-slate-600">Next follow-up</p>
-                  <p className={`mt-1.5 text-sm font-semibold ${followUpDue ? "text-red-700" : "text-slate-950"}`}>
-                    {followUp ? <span title={followUp.absolute}>{followUp.relative}</span> : "Not scheduled"}
+                  <p className="text-xs font-semibold text-slate-600">
+                    Next follow-up
+                  </p>
+                  <p
+                    className={`mt-1.5 text-sm font-semibold ${followUpDue ? "text-red-700" : "text-slate-950"}`}
+                  >
+                    {followUp ? (
+                      <span title={followUp.absolute}>{followUp.relative}</span>
+                    ) : (
+                      "Not scheduled"
+                    )}
                   </p>
                   <p className="mt-0.5 flex items-center gap-1 text-xs font-medium text-slate-600">
-                    <MapPin className="h-3.5 w-3.5" /> {location || "Location not provided"}
+                    <MapPin className="h-3.5 w-3.5" />{" "}
+                    {location || "Location not provided"}
                   </p>
                 </section>
               </div>
@@ -1144,18 +1533,39 @@ function LeadList({ leads }: { leads: InboxLead[] }) {
                 </summary>
                 <div className="grid gap-4 border-t border-slate-200 py-4 text-sm text-slate-700 md:grid-cols-2">
                   <div>
-                    <p className="text-xs font-semibold text-slate-600">Source and attribution</p>
-                    <p className="mt-1 font-semibold text-slate-950">{formatSourceLabel(lead.source)}</p>
-                    <p className="mt-1">UTM source: {lead.utm_source || "Not recorded"}</p>
+                    <p className="text-xs font-semibold text-slate-600">
+                      Source and attribution
+                    </p>
+                    <p className="mt-1 font-semibold text-slate-950">
+                      {formatSourceLabel(lead.source)}
+                    </p>
+                    <p className="mt-1">
+                      UTM source: {lead.utm_source || "Not recorded"}
+                    </p>
                     <p>UTM campaign: {lead.utm_campaign || "Not recorded"}</p>
-                    {lead.client_slug ? <p>Client: {lead.client_slug}</p> : null}
-                    <p className="mt-1">Created: {created ? <span title={created.absolute}>{created.relative}</span> : "Unknown"}</p>
+                    {lead.client_slug ? (
+                      <p>Client: {lead.client_slug}</p>
+                    ) : null}
+                    <p className="mt-1">
+                      Created:{" "}
+                      {created ? (
+                        <span title={created.absolute}>{created.relative}</span>
+                      ) : (
+                        "Unknown"
+                      )}
+                    </p>
                   </div>
                   <div>
-                    <p className="mb-2 text-xs font-semibold text-slate-600">Intake context</p>
-                    {isPowerToolDemo && lead.powerToolDemoIntake
-                      ? <IntakeSummaryColumn intake={lead.powerToolDemoIntake} />
-                      : <p className="font-medium">No structured intake details recorded.</p>}
+                    <p className="mb-2 text-xs font-semibold text-slate-600">
+                      Intake context
+                    </p>
+                    {isPowerToolDemo && lead.powerToolDemoIntake ? (
+                      <IntakeSummaryColumn intake={lead.powerToolDemoIntake} />
+                    ) : (
+                      <p className="font-medium">
+                        No structured intake details recorded.
+                      </p>
+                    )}
                   </div>
                 </div>
               </details>

@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
@@ -17,18 +23,28 @@ const {
 }));
 
 vi.mock("react-router-dom", async () => {
-  const actual = await vi.importActual<typeof import("react-router-dom")>("react-router-dom");
+  const actual =
+    await vi.importActual<typeof import("react-router-dom")>(
+      "react-router-dom",
+    );
   return { ...actual, useNavigate: () => navigateSpy };
 });
 
 vi.mock("@/services/adminDataService", () => ({
   invokeAdminData: invokeAdminDataMock,
   updateLeadDisposition: updateLeadDispositionMock,
-  getErrorMessage: (error: unknown) => error instanceof Error ? error.message : String(error),
+  getErrorMessage: (error: unknown) =>
+    error instanceof Error ? error.message : String(error),
 }));
 
 vi.mock("@/components/admin/shell/AdminShell", () => ({
-  AdminShell: ({ children, belowHeader }: { children: ReactNode; belowHeader?: ReactNode }) => (
+  AdminShell: ({
+    children,
+    belowHeader,
+  }: {
+    children: ReactNode;
+    belowHeader?: ReactNode;
+  }) => (
     <div data-testid="admin-shell">
       <header data-testid="shell-header">{belowHeader}</header>
       <main>{children}</main>
@@ -41,8 +57,18 @@ vi.mock("@/components/admin/shell/AdminGlobalNav", () => ({
 }));
 
 vi.mock("@/components/admin/QuoteViewerButton", () => ({
-  QuoteViewerButton: ({ leadId, className }: { leadId: string; className?: string }) => (
-    <button type="button" className={className} onClick={() => quoteViewerClickSpy(leadId)}>
+  QuoteViewerButton: ({
+    leadId,
+    className,
+  }: {
+    leadId: string;
+    className?: string;
+  }) => (
+    <button
+      type="button"
+      className={className}
+      onClick={() => quoteViewerClickSpy(leadId)}
+    >
       View Quote
     </button>
   ),
@@ -137,26 +163,65 @@ describe("AdminLeadInbox", () => {
   it("keeps the operational toolbar out of the sticky shell header", async () => {
     renderInbox();
     await screen.findByRole("list", { name: "Lead results" });
-    expect(within(screen.getByTestId("shell-header")).queryByRole("textbox", { name: "Search leads" })).not.toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: "Search leads" })).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId("shell-header")).queryByRole("textbox", {
+        name: "Search leads",
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("textbox", { name: "Search leads" }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders the selected command-rail and directory structure", async () => {
+    renderInbox();
+    await screen.findByRole("list", { name: "Lead results" });
+    expect(
+      screen.getByRole("heading", { name: "Lead Inbox", level: 1 }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("complementary", { name: "Lead Inbox controls" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Lead directory" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Refresh Inbox" }),
+    ).toBeInTheDocument();
   });
 
   it("gives every filter an explicit accessible name", async () => {
     renderInbox();
     await screen.findByRole("list", { name: "Lead results" });
-    expect(screen.getByRole("textbox", { name: "Search leads" })).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Date range" })).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Lead source" })).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Lead priority" })).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Lead county" })).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Phone verification" })).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Lead stage" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("textbox", { name: "Search leads" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "Date range" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "Lead source" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "Lead priority" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "Lead county" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "Phone verification" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "Lead stage" }),
+    ).toBeInTheDocument();
   });
 
   it("keeps Clear all disabled until a filter is active and resets search explicitly", async () => {
     renderInbox();
     const search = await screen.findByRole("textbox", { name: "Search leads" });
-    const clear = screen.getByRole("button", { name: "Clear all filters and search" });
+    const clear = screen.getByRole("button", {
+      name: "Clear all filters and search",
+    });
     expect(clear).toBeDisabled();
     fireEvent.change(search, { target: { value: "Jane" } });
     expect(clear).toBeEnabled();
@@ -169,9 +234,13 @@ describe("AdminLeadInbox", () => {
   it("updates the result summary when search narrows the queue", async () => {
     renderInbox();
     const search = await screen.findByRole("textbox", { name: "Search leads" });
-    expect(await screen.findByText(/2 of 2 leads · priority order/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/2 of 2 leads · priority order/),
+    ).toBeInTheDocument();
     fireEvent.change(search, { target: { value: "Jane" } });
-    expect(await screen.findByText(/1 of 2 leads · priority order/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/1 of 2 leads · priority order/),
+    ).toBeInTheDocument();
   });
 
   it.each([
@@ -183,62 +252,103 @@ describe("AdminLeadInbox", () => {
     renderInbox();
     const search = await screen.findByRole("textbox", { name: "Search leads" });
     fireEvent.change(search, { target: { value: query } });
-    expect(screen.getByRole("link", { name: "View details for Jane Doe" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "View details for Alex Rivera" })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "View details for Jane Doe" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "View details for Alex Rivera" }),
+    ).not.toBeInTheDocument();
   });
 
   it("uses real lead links and no mouse-only row navigation", async () => {
     renderInbox();
-    const link = await screen.findByRole("link", { name: "View details for Jane Doe" });
+    const link = await screen.findByRole("link", {
+      name: "View details for Jane Doe",
+    });
     expect(link).toHaveAttribute("href", "/admin/leads/lead-uuid-001");
     link.focus();
     expect(link).toHaveFocus();
     expect(link.closest("tr")).toBeNull();
-    expect(screen.getByRole("link", { name: "Open Jane Doe in pipeline" }))
-      .toHaveAttribute("href", "/admin/pipeline?lead_id=lead-uuid-001");
-    expect(screen.getByRole("button", { name: "Copy lead ID lead-uuid-001" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Open Jane Doe in pipeline" }),
+    ).toHaveAttribute("href", "/admin/pipeline?lead_id=lead-uuid-001");
+    expect(
+      screen.getByRole("button", { name: "Copy lead ID lead-uuid-001" }),
+    ).toBeInTheDocument();
   });
 
   it("keeps workflow editors collapsed and opens each lead independently", async () => {
     renderInbox();
-    const editButtons = await screen.findAllByRole("button", { name: "Edit workflow" });
-    expect(screen.queryByRole("combobox", { name: "Disposition for Jane Doe" })).not.toBeInTheDocument();
+    const editButtons = await screen.findAllByRole("button", {
+      name: "Edit workflow",
+    });
+    expect(
+      screen.queryByRole("combobox", { name: "Disposition for Jane Doe" }),
+    ).not.toBeInTheDocument();
     fireEvent.click(editButtons[0]);
-    expect(screen.getByRole("combobox", { name: "Disposition for Alex Rivera" })).toBeInTheDocument();
-    expect(screen.queryByRole("combobox", { name: "Disposition for Jane Doe" })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "Disposition for Alex Rivera" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: "Disposition for Jane Doe" }),
+    ).not.toBeInTheDocument();
   });
 
   it("announces a successful workflow save", async () => {
     renderInbox();
-    const janeCard = (await screen.findByRole("link", { name: "View details for Jane Doe" })).closest("article");
+    const janeCard = (
+      await screen.findByRole("link", { name: "View details for Jane Doe" })
+    ).closest("article");
     expect(janeCard).not.toBeNull();
-    fireEvent.click(within(janeCard!).getByRole("button", { name: "Edit workflow" }));
-    fireEvent.change(within(janeCard!).getByLabelText("Follow-up date and time for Jane Doe"), {
-      target: { value: "2026-09-05T09:30" },
-    });
-    fireEvent.click(within(janeCard!).getByRole("button", { name: "Save workflow" }));
-    expect(await within(janeCard!).findByRole("status")).toHaveTextContent("Workflow saved");
+    fireEvent.click(
+      within(janeCard!).getByRole("button", { name: "Edit workflow" }),
+    );
+    fireEvent.change(
+      within(janeCard!).getByLabelText("Follow-up date and time for Jane Doe"),
+      {
+        target: { value: "2026-09-05T09:30" },
+      },
+    );
+    fireEvent.click(
+      within(janeCard!).getByRole("button", { name: "Save workflow" }),
+    );
+    expect(await within(janeCard!).findByRole("status")).toHaveTextContent(
+      "Workflow saved",
+    );
     expect(updateLeadDispositionMock).toHaveBeenCalledTimes(1);
   });
 
   it("announces a workflow save failure", async () => {
     updateLeadDispositionMock.mockRejectedValueOnce(new Error("Save failed"));
     renderInbox();
-    const janeCard = (await screen.findByRole("link", { name: "View details for Jane Doe" })).closest("article");
+    const janeCard = (
+      await screen.findByRole("link", { name: "View details for Jane Doe" })
+    ).closest("article");
     expect(janeCard).not.toBeNull();
-    fireEvent.click(within(janeCard!).getByRole("button", { name: "Edit workflow" }));
-    fireEvent.change(within(janeCard!).getByLabelText("Follow-up date and time for Jane Doe"), {
-      target: { value: "2026-09-05T09:30" },
-    });
-    fireEvent.click(within(janeCard!).getByRole("button", { name: "Save workflow" }));
-    expect(await within(janeCard!).findByRole("alert")).toHaveTextContent("Save failed");
+    fireEvent.click(
+      within(janeCard!).getByRole("button", { name: "Edit workflow" }),
+    );
+    fireEvent.change(
+      within(janeCard!).getByLabelText("Follow-up date and time for Jane Doe"),
+      {
+        target: { value: "2026-09-05T09:30" },
+      },
+    );
+    fireEvent.click(
+      within(janeCard!).getByRole("button", { name: "Save workflow" }),
+    );
+    expect(await within(janeCard!).findByRole("alert")).toHaveTextContent(
+      "Save failed",
+    );
   });
 
   it("does not route the lead when quote or copy actions are used", async () => {
     renderInbox();
     await screen.findByRole("list", { name: "Lead results" });
     fireEvent.click(screen.getAllByRole("button", { name: "View Quote" })[0]);
-    fireEvent.click(screen.getByRole("button", { name: "Copy Jane Doe email" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Copy Jane Doe email" }),
+    );
     expect(quoteViewerClickSpy).toHaveBeenCalledTimes(1);
     expect(navigateSpy).not.toHaveBeenCalled();
   });
@@ -246,9 +356,29 @@ describe("AdminLeadInbox", () => {
   it("preserves priority-then-newest ordering", async () => {
     renderInbox();
     const list = await screen.findByRole("list", { name: "Lead results" });
-    const links = within(list).getAllByRole("link", { name: /View details for/ });
-    expect(links.map((link) => link.textContent)).toEqual(["Alex Rivera", "Jane Doe"]);
+    const links = within(list).getAllByRole("link", {
+      name: /View details for/,
+    });
+    expect(links.map((link) => link.textContent)).toEqual([
+      "Alex Rivera",
+      "Jane Doe",
+    ]);
   });
+
+  it.each(["ghost", "stale"] as const)(
+    "uses an attention tone for %s funnel stage cards",
+    async (stage) => {
+      invokeAdminDataMock.mockResolvedValueOnce([
+        { ...baseLead, funnel_stage: stage, phone_verified: true },
+      ]);
+      renderInbox();
+      const card = (
+        await screen.findByRole("link", { name: "View details for Jane Doe" })
+      ).closest("article");
+      expect(card).not.toBeNull();
+      expect(card).toHaveClass("wm-lead-card--attention");
+    },
+  );
 
   it("preserves empty and error lifecycle states", async () => {
     invokeAdminDataMock.mockResolvedValueOnce([]);
@@ -258,6 +388,8 @@ describe("AdminLeadInbox", () => {
 
     invokeAdminDataMock.mockRejectedValueOnce(new Error("Inbox unavailable"));
     renderInbox();
-    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Inbox unavailable"));
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent("Inbox unavailable"),
+    );
   });
 });

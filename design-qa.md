@@ -104,6 +104,68 @@ No actionable P0, P1, or P2 findings remain.
 
 final result: passed
 
+## Admin Lead Inbox — Operator Story Arc overhaul (2026-09-04)
+
+- Selected visual source: `C:\Users\Dell\.codex\generated_images\01a06a3e-7385-7681-9317-217a5a08562c\exec-6b0f1e51-b703-4869-9869-db08b9a974b7.png` (1440 × 1024).
+- Art-direction reference: `C:\Users\Dell\Downloads\light story arc.png`.
+- Implementation route: `http://localhost:8080/admin/leads`.
+- Desktop implementation capture: live in-app-browser QA capture at 1440 × 1024 CSS pixels, device density 1; local QA artifact, not committed.
+- Mobile implementation capture: live in-app-browser QA capture at 390 × 844 CSS pixels, device density 1; local QA artifact, not committed.
+- Tested state: six live local lead projections, no active filters, all operational actions preserved.
+- Density normalization: the selected mock and desktop implementation were inspected at the same 1440 × 1024 viewport and 1× density.
+
+### Source-to-implementation comparison
+
+The selected mock and implementation were compared at equal viewport size. The implementation preserves the approved hierarchy: canonical WindowMan wordmark, dark horizontal operator navigation, compact command rail, lead-count briefing, refresh action, and a dense lead directory. It intentionally uses the real local lead data and the existing application icon family rather than copying illustrative mock values or manufacturing data.
+
+The visual system follows the user's “light has a job” direction without importing homeowner-report drama into the operator console:
+
+- cobalt marks primary navigation and the Open lead action;
+- teal marks verified and resolved states;
+- ember marks contacted or attention states;
+- red is reserved for urgent risk;
+- steel-grey supports neutral information;
+- near-white carries identity, titles, lead metadata, and operational facts.
+
+No grade, gauge, glow, promotional orange button, or cyberpunk treatment was introduced.
+
+### Focused-region comparison evidence
+
+The header, first three lead records, status badges, identity metadata, and command controls were readable in the equal-size desktop comparison. Focused inspection confirmed:
+
+- the top-left mark is the existing homepage `BrandLogo`, not a recreated wordmark or substitute asset;
+- email, phone, lead ID, section titles, and fact values use brighter near-white/steel colors;
+- New, Booked, Contacted, and Phone Verified use firm hairlines and small radii rather than soft pills;
+- the canvas, command rail, directory, alternating rows, controls, and dividers use visibly different dark surfaces;
+- the primary blue button remains the strongest actionable control;
+- disabled Clear all remains a dark control and cannot produce a white slab.
+
+### Required fidelity surfaces
+
+- Fonts and typography: passed. The existing WindowMan display/body typography remains intact, while uppercase operational labels and tabular values preserve scanning rhythm.
+- Spacing and layout: passed. Desktop uses a compact two-column command-and-directory structure. Lead identity, operational facts, context, and workflow remain grouped without the former full-width white-card gaps.
+- Colors and tokens: passed. Solid graphite, navy, slate, cobalt, teal, ember, red, and steel surfaces create intentional contrast without gradients or glow.
+- Logo and icons: passed. The canonical homepage logo component and the existing Lucide icon family are reused.
+- Copy and live content: passed. Existing names, contact facts, stages, activity, follow-up state, actions, and filter behavior remain wired to the current data path.
+- Accessibility and behavior: passed. Controls retain visible focus treatment, status meaning is carried by text as well as color, primary mobile targets remain at least 44 pixels, and the mobile page has no document-level horizontal overflow.
+- Responsive behavior: passed. At 390 × 844 the command rail stacks above the directory, the admin navigation remains horizontally scrollable, the sign-out action remains reachable, and lead content stays within the page width.
+- Runtime: passed. Search-to-empty-state and Clear all restoration were exercised in the live browser. The final browser console contained no application errors.
+
+### Comparison history
+
+1. Initial desktop implementation used correct color intent but lead cards consumed too much vertical space. The records were compacted into an identity/facts row with a separate context/workflow row.
+2. Initial mobile header retained the full role treatment and crowded the available width. The opt-in inbox header now preserves the canonical logo and reachable sign-out action while hiding nonessential identity decoration at phone width.
+3. Browser QA exposed a disabled Clear all control inheriting a bright component surface. The inbox-scoped disabled treatment now uses a dark control background and explicit steel text.
+4. Final desktop and mobile inspection found no actionable P0, P1, or P2 visual differences from the approved direction.
+
+### Scope evidence
+
+- Presentation changes are confined to the Lead Inbox page, opt-in admin-shell/navigation variants, scoped CSS, and directly related tests.
+- No Supabase query, persistence service, schema, Edge Function, phone/CRM/OTP/scanner path, tracking path, or contractor-routing logic changed.
+- Existing loading, error, empty, filtering, copy, quote, pipeline, lead-open, and workflow-edit behavior remains present.
+
+final result: passed
+
 ## Truth Report selective Change-Order accordion rebuild (2026-09-03)
 
 - Primary visual reference: local user-supplied QA artifact (1510 x 12434); not committed.

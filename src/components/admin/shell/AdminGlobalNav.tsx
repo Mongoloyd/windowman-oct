@@ -46,7 +46,11 @@ interface NavItem {
 // Curated operator destinations. Order = importance for daily triage flow.
 const NAV_ITEMS: NavItem[] = [
   { to: "/admin/leads", label: "Lead Inbox", icon: Inbox },
-  { to: "/admin/command-center", label: "Command Center", icon: LayoutDashboard },
+  {
+    to: "/admin/command-center",
+    label: "Command Center",
+    icon: LayoutDashboard,
+  },
   { to: "/admin/pipeline", label: "Pipeline", icon: GitBranch },
   { to: "/admin/routing", label: "Routing", icon: GitBranch },
   { to: "/admin/needs-review", label: "Needs Review", icon: ListChecks },
@@ -71,18 +75,29 @@ const INACTIVE_CLASSES =
 const ACTIVE_CLASSES =
   "border-slate-400 bg-white text-slate-950 font-black shadow-sm";
 
+const INBOX_INACTIVE_CLASSES =
+  "border-transparent bg-transparent text-slate-200 hover:border-slate-600 hover:bg-slate-800/70 hover:text-white";
+
+const INBOX_ACTIVE_CLASSES =
+  "border-blue-500 bg-blue-600/15 text-white font-black shadow-[inset_0_-2px_0_#2f8cff]";
+
 export function AdminGlobalNav({
   variant = "default",
 }: {
-  variant?: "default" | "lead-dossier";
+  variant?: "default" | "lead-dossier" | "lead-inbox";
 }) {
   const isLeadDossier = variant === "lead-dossier";
+  const isLeadInbox = variant === "lead-inbox";
 
   return (
     <nav aria-label="Admin sections">
       <div
-        className={`wm-slim-scrollbar flex max-w-full flex-nowrap items-center gap-2 overflow-x-auto overscroll-x-contain border border-slate-300 bg-white shadow-sm [scrollbar-gutter:stable] ${
-          isLeadDossier ? "rounded-xl p-1.5" : "rounded-2xl p-2"
+        className={`wm-slim-scrollbar flex max-w-full flex-nowrap items-center overflow-x-auto overscroll-x-contain [scrollbar-gutter:stable] ${
+          isLeadInbox
+            ? "gap-1 border-0 bg-transparent p-0 shadow-none"
+            : isLeadDossier
+              ? "gap-2 rounded-xl border border-slate-300 bg-white p-1.5 shadow-sm"
+              : "gap-2 rounded-2xl border border-slate-300 bg-white p-2 shadow-sm"
         }`}
       >
         {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
@@ -91,14 +106,24 @@ export function AdminGlobalNav({
             to={to}
             end={end}
             className={({ isActive }) =>
-              `${BASE_LINK_CLASSES} ${isActive ? ACTIVE_CLASSES : INACTIVE_CLASSES}`
+              `${BASE_LINK_CLASSES} ${
+                isLeadInbox
+                  ? isActive
+                    ? INBOX_ACTIVE_CLASSES
+                    : INBOX_INACTIVE_CLASSES
+                  : isActive
+                    ? ACTIVE_CLASSES
+                    : INACTIVE_CLASSES
+              }`
             }
           >
             {({ isActive }) => (
               <>
                 <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                 <span>{label}</span>
-                {isActive && <span className="sr-only"> (current section)</span>}
+                {isActive && (
+                  <span className="sr-only"> (current section)</span>
+                )}
               </>
             )}
           </NavLink>
