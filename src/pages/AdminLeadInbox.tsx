@@ -1198,7 +1198,7 @@ function DispositionEditor({ lead, name }: { lead: InboxLead; name: string }) {
           onClick={() => setOpen((value) => !value)}
           className="wm-lead-control min-h-11 justify-between px-3 text-sm font-semibold sm:justify-center"
         >
-          {open ? "Close workflow editor" : "Edit workflow"}
+          Edit workflow
           <ChevronDown
             className={`ml-2 h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`}
           />
@@ -1333,6 +1333,20 @@ function formatRelativeTimestamp(
   };
 }
 
+function getPipelineStep(stage: string): number {
+  if (stage === "closed") return 5;
+  if (stage === "booked") return 4;
+  if (stage === "routed" || stage === "contacted") return 3;
+  if (
+    stage === "qualified" ||
+    stage === "analyzing" ||
+    stage.startsWith("demo_")
+  ) {
+    return 2;
+  }
+  return 1;
+}
+
 function LeadList({ leads }: { leads: InboxLead[] }) {
   return (
     <ul aria-label="Lead results" className="wm-lead-results">
@@ -1366,14 +1380,15 @@ function LeadList({ leads }: { leads: InboxLead[] }) {
         const location = [lead.county, lead.state, lead.zip]
           .filter(Boolean)
           .join(", ");
+        const pipelineStep = getPipelineStep(stageValue);
 
         return (
           <li key={lead.id}>
             <article
               className={`wm-lead-card wm-lead-card--${signalTone} overflow-hidden`}
             >
-              <div className="flex flex-col gap-4 px-4 py-4 sm:px-5 lg:flex-row lg:items-start lg:justify-between">
-                <div className="min-w-0">
+              <div className="wm-lead-card__identity-and-actions flex flex-col gap-4 px-4 py-4 sm:px-5 lg:flex-row lg:items-start lg:justify-between">
+                <div className="wm-lead-card__identity min-w-0">
                   <Link
                     to={`/admin/leads/${lead.id}`}
                     className="inline-flex min-h-11 items-center rounded-md text-lg font-bold tracking-tight text-slate-950 hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -1411,23 +1426,11 @@ function LeadList({ leads }: { leads: InboxLead[] }) {
                     className="mt-2 text-xs font-semibold text-slate-600"
                   />
                 </div>
-                <div className="flex flex-wrap gap-2 lg:justify-end">
+                <div className="wm-lead-card__actions flex flex-wrap gap-2">
                   <QuoteViewerButton
                     leadId={lead.id}
                     className="wm-lead-control min-h-11"
                   />
-                  <Button
-                    asChild
-                    variant="outline"
-                    className="wm-lead-control min-h-11 px-4 text-sm font-semibold"
-                  >
-                    <Link
-                      to={`/admin/pipeline?lead_id=${lead.id}`}
-                      aria-label={`Open ${name} in pipeline`}
-                    >
-                      Pipeline
-                    </Link>
-                  </Button>
                   <Button
                     asChild
                     className="wm-lead-primary-control min-h-11 px-4 text-sm font-bold"
@@ -1442,9 +1445,12 @@ function LeadList({ leads }: { leads: InboxLead[] }) {
                 </div>
               </div>
 
-              <div className="grid gap-4 border-t border-slate-200 px-4 py-4 sm:grid-cols-2 sm:px-5 xl:grid-cols-4">
-                <section aria-label={`Priority for ${name}`}>
-                  <p className="text-xs font-semibold text-slate-600">
+              <div className="wm-lead-card__facts grid gap-4 border-t border-slate-200 px-4 py-4 sm:grid-cols-2 sm:px-5 xl:grid-cols-4">
+                <section
+                  className="wm-lead-card__fact wm-lead-card__priority"
+                  aria-label={`Priority for ${name}`}
+                >
+                  <p className="wm-lead-card__label text-xs font-semibold text-slate-600">
                     Priority
                   </p>
                   <div className="mt-1.5 flex flex-wrap items-center gap-2">
@@ -1469,8 +1475,11 @@ function LeadList({ leads }: { leads: InboxLead[] }) {
                   </div>
                 </section>
 
-                <section aria-label={`Workflow stage for ${name}`}>
-                  <p className="text-xs font-semibold text-slate-600">
+                <section
+                  className="wm-lead-card__fact wm-lead-card__pipeline"
+                  aria-label={`Workflow stage for ${name}`}
+                >
+                  <p className="wm-lead-card__label text-xs font-semibold text-slate-600">
                     Workflow stage
                   </p>
                   <div className="mt-1.5 flex flex-wrap items-center gap-2">
@@ -1485,10 +1494,35 @@ function LeadList({ leads }: { leads: InboxLead[] }) {
                       </span>
                     ) : null}
                   </div>
+                  <p className="wm-lead-card__pipeline-copy mt-2 text-xs font-semibold text-slate-600">
+                    Stage {pipelineStep} of 5
+                  </p>
+                  <div
+                    className="wm-lead-card__pipeline-track mt-2"
+                    aria-label={`${stageLabel}: stage ${pipelineStep} of 5`}
+                  >
+                    {Array.from({ length: 5 }, (_, index) => (
+                      <span
+                        key={index}
+                        className={index < pipelineStep ? "is-active" : ""}
+                        aria-hidden="true"
+                      />
+                    ))}
+                  </div>
+                  <Link
+                    to={`/admin/pipeline?lead_id=${lead.id}`}
+                    aria-label={`Open ${name} in pipeline`}
+                    className="wm-lead-card__pipeline-link mt-2 inline-flex min-h-11 items-center text-xs font-bold"
+                  >
+                    Open pipeline <ChevronRight className="ml-1 h-3.5 w-3.5" />
+                  </Link>
                 </section>
 
-                <section aria-label={`Latest activity for ${name}`}>
-                  <p className="text-xs font-semibold text-slate-600">
+                <section
+                  className="wm-lead-card__fact wm-lead-card__activity"
+                  aria-label={`Latest activity for ${name}`}
+                >
+                  <p className="wm-lead-card__label text-xs font-semibold text-slate-600">
                     Latest activity
                   </p>
                   <p className="mt-1.5 text-sm font-semibold text-slate-950">
@@ -1504,10 +1538,16 @@ function LeadList({ leads }: { leads: InboxLead[] }) {
                       "No activity recorded"
                     )}
                   </p>
+                  <p className="mt-1 text-xs font-medium text-slate-600">
+                    {formatSourceLabel(lead.source)}
+                  </p>
                 </section>
 
-                <section aria-label={`Follow-up for ${name}`}>
-                  <p className="text-xs font-semibold text-slate-600">
+                <section
+                  className="wm-lead-card__fact wm-lead-card__follow-up"
+                  aria-label={`Follow-up for ${name}`}
+                >
+                  <p className="wm-lead-card__label text-xs font-semibold text-slate-600">
                     Next follow-up
                   </p>
                   <p

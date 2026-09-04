@@ -265,6 +265,8 @@ describe("AdminLeadInbox", () => {
     const link = await screen.findByRole("link", {
       name: "View details for Jane Doe",
     });
+    const card = link.closest("article");
+    expect(card).not.toBeNull();
     expect(link).toHaveAttribute("href", "/admin/leads/lead-uuid-001");
     link.focus();
     expect(link).toHaveFocus();
@@ -274,6 +276,9 @@ describe("AdminLeadInbox", () => {
     ).toHaveAttribute("href", "/admin/pipeline?lead_id=lead-uuid-001");
     expect(
       screen.getByRole("button", { name: "Copy lead ID lead-uuid-001" }),
+    ).toBeInTheDocument();
+    expect(
+      within(card!).getByLabelText("Qualified: stage 2 of 5"),
     ).toBeInTheDocument();
   });
 

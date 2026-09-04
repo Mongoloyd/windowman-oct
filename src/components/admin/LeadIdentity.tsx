@@ -7,10 +7,12 @@ export function LeadIdentity({
   leadId,
   full = false,
   className = "",
+  variant = "default",
 }: {
   leadId: string;
   full?: boolean;
   className?: string;
+  variant?: "default" | "verdict";
 }) {
   const [copyState, setCopyState] = useState<CopyState>("idle");
   const displayId = full ? leadId : `${leadId.slice(0, 8)}…`;
@@ -33,7 +35,11 @@ export function LeadIdentity({
       <button
         type="button"
         onClick={copyLeadId}
-        className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 transition-colors hover:border-slate-400 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        className={`inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md border transition-colors focus-visible:outline-none focus-visible:ring-2 ${
+          variant === "verdict"
+            ? "border-[#35506a] bg-[#18212E] text-[#9AA7B8] hover:border-[#7DE3FF] hover:text-[#E6EDF3] focus-visible:ring-[#7DE3FF]"
+            : "border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:text-slate-950 focus-visible:ring-primary"
+        }`}
         aria-label={`Copy lead ID ${leadId}`}
         title="Copy full lead ID"
       >
