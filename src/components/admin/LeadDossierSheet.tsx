@@ -68,11 +68,11 @@ function InfoRow({ label, value, icon: Icon }: {
   icon?: React.ElementType;
 }) {
   return (
-    <div className="flex items-start gap-2 py-1.5">
-      {Icon && <Icon className="h-4 w-4 mt-0.5 text-slate-700 shrink-0" />}
+    <div className="wm-verdict-dossier__info flex items-start gap-2 py-1.5">
+      {Icon && <Icon className="mt-0.5 h-4 w-4 shrink-0" />}
       <div className="min-w-0">
-        <p className="text-sm text-slate-700 uppercase tracking-wide">{label}</p>
-        <p className="text-sm font-medium break-all">{value || <span className="text-slate-700">—</span>}</p>
+        <p className="wm-verdict-dossier__label text-xs uppercase">{label}</p>
+        <div className="wm-verdict-dossier__value break-all text-sm font-semibold">{value || <span className="wm-verdict-dossier__empty">—</span>}</div>
       </div>
     </div>
   );
@@ -80,7 +80,7 @@ function InfoRow({ label, value, icon: Icon }: {
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 mt-4 mb-2">
+    <h3 className="wm-verdict-dossier__section-title mb-3 text-xs font-bold uppercase">
       {children}
     </h3>
   );
@@ -245,6 +245,33 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
     (a, b) => (SEVERITY_ORDER[a.severity] ?? 9) - (SEVERITY_ORDER[b.severity] ?? 9)
   );
   const visibleFlags = showAllFlags ? sortedFlags : sortedFlags.slice(0, 5);
+  const severityCounts = sortedFlags.reduce(
+    (counts, flag) => {
+      if (flag.severity === "Critical" || flag.severity === "High") counts.high += 1;
+      else if (flag.severity === "Medium") counts.medium += 1;
+      else counts.other += 1;
+      return counts;
+    },
+    { high: 0, medium: 0, other: 0 },
+  );
+  const flagCount = sortedFlags.length;
+  const confidence = analysis?.confidence_score ?? null;
+  const confidenceWidth = confidence == null
+    ? 0
+    : Math.max(0, Math.min(100, confidence));
+  const dollarDelta = analysis?.dollar_delta;
+  const dollarDeltaLabel = dollarDelta == null
+    ? "—"
+    : `${dollarDelta > 0 ? "+" : ""}$${Math.abs(dollarDelta).toLocaleString()}`;
+  const evidenceNotice = !lead.latest_analysis_id
+    ? { tone: "intel", label: "Analysis pending — evidence file not yet assembled" }
+    : analysisLoading
+    ? { tone: "intel", label: "Assembling evidence projection" }
+    : analysisError
+    ? { tone: "high", label: "Evidence unavailable — review required" }
+    : pillarDetailUnavailable
+    ? { tone: "medium", label: "Limited evidence — detailed review unavailable" }
+    : null;
 
   // ── Top HIGH flags for handoff preview ──
   const topHighFlags = sortedFlags
@@ -284,37 +311,53 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-[48vw] overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle className="flex items-center gap-2">
-            {name}
-            {lead.grade && (
-              <Badge className={`${gradeColor(lead.grade)} text-xs px-2`}>
+      <SheetContent
+        side="right"
+        className="wm-verdict-dossier wm-slim-scrollbar w-full overflow-y-auto border-[#26303D] bg-[#0A0E14] p-0 text-[#E6EDF3] sm:max-w-[min(760px,58vw)]"
+      >
+        <SheetHeader className="wm-verdict-dossier__cover sticky top-0 z-20 space-y-0 px-5 pb-4 pt-5 pr-14 text-left sm:px-6 sm:pr-14">
+          <p className="wm-verdict-dossier__classification">Confidential · Lead verdict file</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <SheetTitle className="font-mono text-2xl font-black tracking-tight text-[#E6EDF3] sm:text-3xl">
+              {name}
+            </SheetTitle>
+            {lead.grade ? (
+              <Badge className={`${gradeColor(lead.grade)} border text-xs px-2`}>
                 Grade {lead.grade}
               </Badge>
-            )}
-          </SheetTitle>
-          <SheetDescription>
-            Created {format(new Date(lead.created_at), "MMM d, yyyy")}
+            ) : null}
+          </div>
+          <SheetDescription className="mt-1 font-mono text-xs text-[#9AA7B8]">
+            Created {format(new Date(lead.created_at), "MMM d, yyyy")} · operator projection
           </SheetDescription>
-          <LeadIdentity leadId={lead.id} className="text-xs font-semibold text-slate-600" />
-          <div className="flex flex-wrap items-center gap-2 mt-1">
-            <Button asChild size="sm" className="gap-1.5 text-xs">
+          <LeadIdentity
+            leadId={lead.id}
+            variant="verdict"
+            className="mt-2 text-xs font-semibold text-[#9AA7B8]"
+          />
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="h-11 gap-1.5 border-[#35506a] bg-[#18212E] text-xs text-[#E6EDF3] hover:border-[#7DE3FF] hover:bg-[#203047] hover:text-white"
+            >
               <Link to={`/admin/leads/${lead.id}`}>
                 <ExternalLink className="h-3.5 w-3.5" />
                 Open Lead Workspace
               </Link>
             </Button>
             {alreadySent ? (
-              <Button variant="ghost" size="sm" disabled className="opacity-100 cursor-not-allowed gap-1.5 text-xs">
-                <CheckCircle className="w-3.5 h-3.5 text-green-400" />
+              <Button variant="outline" size="sm" disabled className="h-11 cursor-not-allowed gap-1.5 border-[#2F6B43] bg-[#12251A] text-xs text-[#8BDBA4] opacity-100">
+                <CheckCircle className="w-3.5 h-3.5 text-[#3FB950]" />
                 Sent to Contractor
               </Button>
             ) : (
               <Button
                 variant="outline"
                 size="sm"
-                className="gap-1.5 text-xs border-amber-300 text-amber-950 hover:bg-amber-50"
+                className="h-11 gap-1.5 border-[#8A641C] bg-[#201B12] text-xs text-[#F5C66A] hover:border-[#F5A623] hover:bg-[#2A2112] hover:text-[#FFD88A]"
                 onClick={() => setHandoffModalOpen(true)}
               >
                 <Send className="w-3.5 h-3.5" />
@@ -322,16 +365,64 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
               </Button>
             )}
             {alreadySent && (
-              <Badge className="bg-violet-100 text-violet-950 border border-violet-200 text-sm">
+              <Badge className="border border-[#2F6B43] bg-[#12251A] text-sm text-[#8BDBA4]">
                 Sent {localSentToContractor ? "just now" : ""}
               </Badge>
             )}
           </div>
+
+          <div className="wm-verdict-dossier__hero mt-4" aria-label="Verdict summary">
+            <div className="wm-verdict-dossier__metric wm-verdict-dossier__metric--primary">
+              <p>Dollar delta</p>
+              <strong>{dollarDeltaLabel}</strong>
+              <span>Quoted-price variance</span>
+            </div>
+            <div className="wm-verdict-dossier__metric">
+              <p>Flag count</p>
+              <strong>{flagCount}</strong>
+              <div
+                className="wm-verdict-dossier__severity-meter"
+                aria-label={`${severityCounts.high} high and ${severityCounts.medium} medium flags`}
+              >
+                {flagCount > 0 ? (
+                  <>
+                    <span className="is-high" style={{ width: `${(severityCounts.high / flagCount) * 100}%` }} />
+                    <span className="is-medium" style={{ width: `${(severityCounts.medium / flagCount) * 100}%` }} />
+                    <span className="is-other" style={{ width: `${(severityCounts.other / flagCount) * 100}%` }} />
+                  </>
+                ) : <span className="is-empty" />}
+              </div>
+            </div>
+            <div className="wm-verdict-dossier__metric">
+              <p>Confidence</p>
+              <strong>{confidence == null ? "—" : `${confidence}%`}</strong>
+              <div
+                className="wm-verdict-dossier__confidence-track"
+                role="progressbar"
+                aria-label="Analysis confidence"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={confidence ?? undefined}
+              >
+                <span style={{ width: `${confidenceWidth}%` }} />
+              </div>
+            </div>
+          </div>
+
+          {evidenceNotice ? (
+            <div className={`wm-verdict-dossier__notice is-${evidenceNotice.tone}`} role="status">
+              <AlertTriangle className="h-4 w-4" />
+              <span>{evidenceNotice.label}</span>
+            </div>
+          ) : null}
         </SheetHeader>
 
-        {/* ── 1. Contact Info ──────────────────────────────────────── */}
+        <div className="wm-verdict-dossier__body px-5 pb-8 pt-5 sm:px-6">
+
+        {/* ── 1. Contact + project cover brief ─────────────────────── */}
+        <section className="wm-verdict-section">
         <SectionTitle>Contact Information</SectionTitle>
-        <div className="space-y-0.5">
+        <div className="grid gap-x-5 gap-y-0.5 sm:grid-cols-2">
           <InfoRow label="Name" value={name} />
           <InfoRow
             label="Email"
@@ -361,7 +452,7 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
           />
         </div>
 
-        <Separator className="my-3" />
+        <Separator className="my-4" />
 
         {/* ── 2. Project Specs ─────────────────────────────────────── */}
         <SectionTitle>Project Specs</SectionTitle>
@@ -371,18 +462,17 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
           <InfoRow label="Quote Range" value={lead.quote_range} />
           <InfoRow label="Quote Amount" icon={DollarSign} value={lead.quote_amount ? `$${Number(lead.quote_amount).toLocaleString()}` : null} />
         </div>
-
-        <Separator className="my-3" />
+        </section>
 
         {/* ── Contractor Delivery (Phase 6) ─────────────────────────── */}
+        <section className="wm-verdict-section">
         <SectionTitle>Contractor Delivery</SectionTitle>
         <OpportunityRouteTimeline opportunityId={lead.latest_opportunity_id} />
-
-        <Separator className="my-3" />
+        </section>
 
         {/* ── 3. Truth Engine Audit ────────────────────────────────── */}
-        <Collapsible open={auditOpen} onOpenChange={setAuditOpen}>
-          <CollapsibleTrigger className="flex items-center justify-between w-full py-1 group">
+        <Collapsible className="wm-verdict-section wm-verdict-dossier__audit" open={auditOpen} onOpenChange={setAuditOpen}>
+          <CollapsibleTrigger className="group flex min-h-11 w-full items-center justify-between py-1 text-left">
             <div className="flex items-center gap-2">
               <h3 className="text-xs font-bold uppercase tracking-widest text-amber-500">
                 Truth Engine Audit
@@ -416,32 +506,7 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
               <p className="text-xs text-destructive">Unable to load Truth Engine audit.</p>
             ) : (
               <>
-                {/* ── Summary Row ── */}
-                <div className="flex items-center gap-4 text-sm">
-                  <div>
-                    <p className="text-sm text-slate-700 uppercase">Confidence</p>
-                    <p className="font-mono font-medium">{analysis?.confidence_score ?? "—"}%</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-700 uppercase">Dollar Delta</p>
-                    <p className="font-bold tabular-nums">
-                      {analysis?.dollar_delta != null
-                        ? `${analysis.dollar_delta > 0 ? "+" : ""}$${Math.abs(analysis.dollar_delta).toLocaleString()}`
-                        : "—"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-700 uppercase">Flags</p>
-                    <p className="font-medium">{analysis?.flags?.length ?? 0}</p>
-                  </div>
-                </div>
-
                 {/* ── Pillar Cards ── */}
-                {pillarDetailUnavailable && (
-                  <p className="text-xs text-slate-700 border border-dashed border-border rounded-md px-3 py-2">
-                    Detailed pillar evidence is not available in this admin projection.
-                  </p>
-                )}
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
                   {PILLAR_CONFIG.map(({ key, label }) => {
                     const score = pillarScores?.[key] ?? null;
@@ -449,7 +514,7 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
                     return (
                       <div
                         key={key}
-                        className="rounded-lg border border-border/50 bg-muted/30 p-3 min-w-0"
+                        className="wm-verdict-dossier__pillar min-w-0 rounded-lg border p-3"
                       >
                         <div className="flex items-start justify-between mb-1">
                           <p className="text-sm uppercase tracking-wide text-slate-700 leading-tight">
@@ -476,7 +541,7 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
                             <p className="text-sm text-slate-700 mt-0.5 font-mono">{score}/100</p>
                           </div>
                         ) : (
-                          <p className="text-sm text-slate-700 mt-1">Not analyzed</p>
+                          <p className="wm-verdict-dossier__redacted mt-2 text-sm">Not analyzed</p>
                         )}
                       </div>
                     );
@@ -500,9 +565,18 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
                       <span className="text-xs text-green-600">No critical flags detected</span>
                     </div>
                   ) : (
-                    <ul className="space-y-1">
+                    <ul className="wm-verdict-dossier__flag-list space-y-1.5">
                       {visibleFlags.map((f, i) => (
-                        <li key={i} className="flex items-start gap-2 text-xs">
+                        <li
+                          key={i}
+                          className={`flex items-start gap-2 rounded-r-md py-1 pl-2 pr-1 text-xs ${
+                            f.severity === "Critical" || f.severity === "High"
+                              ? "is-high"
+                              : f.severity === "Medium"
+                              ? "is-medium"
+                              : "is-other"
+                          }`}
+                        >
                           <Badge
                             className={`text-sm px-1.5 py-0 shrink-0 uppercase font-bold ${
                               f.severity === "Critical" || f.severity === "High"
@@ -572,10 +646,8 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
           </CollapsibleContent>
         </Collapsible>
 
-        <Separator className="my-3" />
-
         {/* ── 3b. Call History ──────────────────────────────────────── */}
-        <div>
+        <section className="wm-verdict-section">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <PhoneCall className="w-4 h-4 text-amber-600" />
@@ -726,11 +798,10 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
               })}
             </div>
           )}
-        </div>
-
-        <Separator className="my-3" />
+        </section>
 
         {/* ── Follow-up Status (Phase 6) ────────────────────────────── */}
+        <section className="wm-verdict-section">
         <SectionTitle>Follow-up Status</SectionTitle>
         <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
           <InfoRow label="Last Call Intent" value={lead.last_call_intent} />
@@ -750,9 +821,9 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
           />
           <InfoRow label="Deal Status" value={lead.deal_status} />
         </div>
+        </section>
 
-        <Separator className="my-3" />
-
+        <section className="wm-verdict-section wm-verdict-dossier__dogtag">
         <SectionTitle>Attribution & Source</SectionTitle>
         <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
           <InfoRow label="UTM Source" icon={Globe} value={lead.utm_source} />
@@ -773,14 +844,16 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
             />
           </div>
         )}
-
-        <Separator className="my-3" />
+        </section>
 
         {/* ── 5. Activity Timeline (Phase 7: real lifecycle) ───────── */}
+        <section className="wm-verdict-section wm-verdict-dossier__custody">
         <SectionTitle>Activity Timeline</SectionTitle>
         <LeadLifecycleTimeline lead={lead} />
+        </section>
 
         <div className="h-8" />
+        </div>
       </SheetContent>
 
       {/* ── Handoff Confirmation Dialog ── */}

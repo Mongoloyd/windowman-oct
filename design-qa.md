@@ -104,6 +104,37 @@ No actionable P0, P1, or P2 findings remain.
 
 final result: passed
 
+## Admin Lead Inbox + Verdict Dossier reconciliation (2026-09-04)
+
+- Approved Lead Inbox reference: `C:\Users\Dell\Desktop\Screenshots\the lead inbox went back to white.png` (1643 × 1183).
+- Regressed dossier reference: `C:\Users\Dell\Desktop\Screenshots\Screenshot 2026-09-04 084150.png`.
+- Implementation routes: `http://localhost:8080/admin/leads` and `http://localhost:8080/admin/pipeline?lead_id=e2015d37-2f99-4129-9ddd-a103a13d63ae`.
+- Tested state: six live local lead projections, the Peter dossier, no active filters, and no data mutation.
+
+### Source-to-implementation comparison
+
+The approved Inbox reference and the implementation were inspected together at the same 1643 × 1183 desktop viewport. The implementation restores the selected structure: a dedicated command rail, compact row directory, bright lead identity, semantic state badges, latest-activity and follow-up columns, five-step pipeline projection, and a four-action control stack. Real local lead values intentionally replace the reference's illustrative names, counts, deadlines, and stages.
+
+The recovered dossier was verified against the previously approved `4988c42b` presentation source. `LeadDossierSheet.tsx` and `LeadIdentity.tsx` exactly match that source blob. The live sheet again renders the Confidential Lead Verdict File cover, high-contrast dollar/flag/confidence strip, limited-evidence notice, layered contact and contractor panels, and semantic red/amber/green/blue evidence treatments.
+
+### Fidelity and behavior
+
+- Visual hierarchy: passed. Near-white identity and operational facts lead; steel metadata recedes; cobalt, teal, ember, and red have distinct state jobs.
+- Density: passed. Desktop rows expose identity, status, activity, follow-up, workflow progress, and actions in one scan without the prior stacked-card whitespace.
+- Surface separation: passed. Canvas, rail, directory, alternating rows, fact columns, action column, drawers, and dossier panels use distinct dark values and hairlines.
+- Controls: passed. Badges use firm edges, primary actions remain cobalt, and all interactive controls retain 44-pixel minimum targets.
+- Responsive behavior: passed at 390 × 844, 1024 × 900, 1440 × 1024, and 1643 × 1183. No document-level horizontal overflow was present.
+- Interactions: passed. Search narrowed the six-lead queue to four Peter records; context and workflow drawers opened independently and remained readable when both were open.
+- Data boundaries: passed. No lead query, persistence, Supabase, phone, CRM, OTP, scanner, routing, or tracking implementation changed.
+- Automated verification: 20 focused Inbox/Dossier tests passed; TypeScript typecheck passed; production build passed; diff whitespace check passed.
+- Baseline lint note: the dossier file retains the same ten pre-existing `no-explicit-any` findings present in the untouched base version; this restoration adds no new lint category or count.
+
+### Findings
+
+No actionable P0, P1, or P2 visual or interaction findings remain.
+
+final result: passed
+
 ## Admin Lead Inbox — Operator Story Arc overhaul (2026-09-04)
 
 - Selected visual source: `C:\Users\Dell\.codex\generated_images\01a06a3e-7385-7681-9317-217a5a08562c\exec-6b0f1e51-b703-4869-9869-db08b9a974b7.png` (1440 × 1024).
