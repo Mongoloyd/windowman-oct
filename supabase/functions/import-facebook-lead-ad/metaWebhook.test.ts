@@ -11,6 +11,25 @@ import {
   verifyMetaWebhookSignature,
 } from "./metaWebhook.ts";
 
+async function signatureForBytes(rawBody: Uint8Array, secret: string) {
+  const signatureInput = new Uint8Array(rawBody).buffer;
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const digest = new Uint8Array(
+    await crypto.subtle.sign("HMAC", key, signatureInput),
+  );
+  const hex = Array.from(
+    digest,
+    (byte) => byte.toString(16).padStart(2, "0"),
+  ).join("");
+  return `sha256=${hex}`;
+}
+
 Deno.test("Meta verification accepts the configured token and returns the challenge", () => {
   const url = new URL(
     "https://example.test/webhook?hub.mode=subscribe&hub.verify_token=verify-me&hub.challenge=123456",
@@ -53,6 +72,27 @@ Deno.test("X-Hub-Signature-256 validation matches the RFC 4231 SHA-256 vector", 
   );
   assert(!(await verifyMetaWebhookSignature(rawBody, "sha1=bad", appSecret)));
   assert(!(await verifyMetaWebhookSignature(rawBody, null, appSecret)));
+});
+
+Deno.test("X-Hub-Signature-256 validation covers only subarray bytes from a larger backing buffer", async () => {
+  const appSecret = "subarray-secret";
+  const backingBytes = new TextEncoder().encode('xx{"ok":true}yy');
+  const rawBody = backingBytes.subarray(2, backingBytes.length - 2);
+
+  assert(
+    await verifyMetaWebhookSignature(
+      rawBody,
+      await signatureForBytes(rawBody, appSecret),
+      appSecret,
+    ),
+  );
+  assert(
+    !(await verifyMetaWebhookSignature(
+      rawBody,
+      await signatureForBytes(backingBytes, appSecret),
+      appSecret,
+    )),
+  );
 });
 
 Deno.test("leadgen extraction accepts page events, normalizes time, and deduplicates retries", () => {

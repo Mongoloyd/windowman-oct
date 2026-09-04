@@ -6,6 +6,7 @@ import {
   fetchMetaGraphLead,
   isMetaWebhookTestMode,
   type JsonRecord,
+  type MetaGraphLeadResult,
   type MetaLeadgenEvent,
   resolveMetaVerification,
   verifyMetaWebhookSignature,
@@ -54,6 +55,7 @@ type NormalizedLeadAdPayload = {
 
 const MAX_TEXT = 500;
 const MAX_REQUEST_BYTES = 1_000_000;
+const META_GRAPH_FETCH_CONCURRENCY = 3;
 const SOURCE = "facebook_lead_ads";
 
 type FunctionSupabaseClient = ReturnType<typeof createClient>;
@@ -494,7 +496,9 @@ function parseJsonObject(
 } {
   let rawBody: unknown;
   try {
-    rawBody = JSON.parse(new TextDecoder().decode(rawBytes));
+    rawBody = JSON.parse(
+      new TextDecoder("utf-8", { fatal: true }).decode(rawBytes),
+    );
   } catch (_error) {
     return { ok: false, error: "invalid_json" };
   }
@@ -516,6 +520,31 @@ function resolveSupabaseClient(
   if (!supabaseUrl || !serviceRoleKey) return null;
 
   return createClient(supabaseUrl, serviceRoleKey);
+}
+
+function createConcurrencyLimiter(limit: number) {
+  let activeCount = 0;
+  const queue: Array<() => void> = [];
+
+  const runNext = () => {
+    if (activeCount >= limit) return;
+    const next = queue.shift();
+    if (!next) return;
+    activeCount += 1;
+    next();
+  };
+
+  return function limitTask<T>(task: () => Promise<T>): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      queue.push(() => {
+        task().then(resolve, reject).finally(() => {
+          activeCount -= 1;
+          runNext();
+        });
+      });
+      runNext();
+    });
+  };
 }
 
 async function recordMetaWebhookReceipts(
@@ -649,15 +678,28 @@ async function handleNativeMetaWebhook(
     );
   }
 
-  const imported: JsonRecord[] = [];
+  const limitMetaGraphFetch = createConcurrencyLimiter(
+    META_GRAPH_FETCH_CONCURRENCY,
+  );
+  const graphRequests = events.map((event) =>
+    limitMetaGraphFetch(async (): Promise<{
+      event: MetaLeadgenEvent;
+      graphResult: MetaGraphLeadResult;
+    }> => ({
+      event,
+      graphResult: await fetchMetaGraphLead(event.leadgenId, {
+        accessToken,
+        apiVersion,
+        fetchImpl: dependencies.fetchImpl,
+      }),
+    }))
+  );
+
+  let importedCount = 0;
   const importPayload = dependencies.importPayload ?? importLeadPayload;
 
-  for (const event of events) {
-    const graphResult = await fetchMetaGraphLead(event.leadgenId, {
-      accessToken,
-      apiVersion,
-      fetchImpl: dependencies.fetchImpl,
-    });
+  for (const graphRequest of graphRequests) {
+    const { event, graphResult } = await graphRequest;
 
     if (!graphResult.ok) {
       await logMetaGraphFailure(
@@ -693,17 +735,24 @@ async function handleNativeMetaWebhook(
         500,
       );
     }
-    imported.push(asRecord(resultBody) ?? { success: true });
+    if (!asRecord(resultBody)) {
+      return jsonResponse(
+        { success: false, error: "invalid_import_response" },
+        500,
+      );
+    }
+    importedCount += 1;
   }
 
-  return jsonResponse({
-    success: true,
-    source: "meta_webhook",
-    received: events.length,
-    imported,
-    test_mode: testMode,
-    downstream_actions: testMode ? "suppressed" : "none_configured",
-  });
+  return testMode
+    ? jsonResponse({
+      success: true,
+      received: events.length,
+      imported: importedCount,
+      test_mode: true,
+      downstream_actions: "suppressed",
+    })
+    : jsonResponse({ success: true });
 }
 
 export async function handleImportFacebookLeadAdRequest(
