@@ -24,8 +24,9 @@ export const PROPHECY_INTENT_OPTIONS: readonly ProphecyIntentOption[] = [
     detail:
       "Upload it and we'll read every line — price, scope, fees, warranty, fine print — then show you exactly what to ask before you sign.",
     imageBase: "/images/prophecy/intent-has-quote",
+    imageFormats: ["avif", "webp"],
     imageAlt:
-      "A printed window estimate on a kitchen table, lit from one side",
+      "Hands holding a printed window proposal and estimate over a stack of documents",
   },
   {
     value: "no_quote",
@@ -34,7 +35,8 @@ export const PROPHECY_INTENT_OPTIONS: readonly ProphecyIntentOption[] = [
     detail:
       "We'll help you get a first one from a contractor worth talking to — then review it free, with no pressure to buy anything.",
     imageBase: "/images/prophecy/intent-needs-quote",
+    imageFormats: ["avif", "webp"],
     imageAlt:
-      "Impact windows in a Florida home with afternoon light coming through",
+      "Two people examining a window frame sample beside a tablet",
   },
 ] as const;
