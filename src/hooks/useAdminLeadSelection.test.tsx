@@ -120,11 +120,17 @@ describe("useAdminLeadSelection history", () => {
   });
 
   it("keeps lead selection operable when collection scroll storage write fails", async () => {
-    const setItem = vi
-      .spyOn(Storage.prototype, "setItem")
-      .mockImplementation(() => {
-        throw new Error("quota");
-      });
+    const setItem = vi.fn(() => {
+      throw new Error("quota");
+    });
+    vi.stubGlobal("sessionStorage", {
+      clear: vi.fn(),
+      getItem: vi.fn(),
+      key: vi.fn(),
+      length: 0,
+      removeItem: vi.fn(),
+      setItem,
+    });
     renderSelection(["/admin/leads?range=7d"]);
     fireEvent.click(screen.getByText("open-first"));
     await waitFor(() => {
@@ -132,7 +138,6 @@ describe("useAdminLeadSelection history", () => {
       expect(screen.getByTestId("query").textContent).toContain(`lead_id=${leads[0].id}`);
     });
     expect(setItem).toHaveBeenCalled();
-    setItem.mockRestore();
   });
 
   it("uses a full-viewport presentation below xl and a sheet at xl", async () => {

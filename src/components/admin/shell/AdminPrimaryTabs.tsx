@@ -43,13 +43,13 @@ export function AdminPrimaryTabs({
 
   return (
     <nav aria-label="Command Center panels" className="wm-admin-local-nav">
-      <label className="flex min-h-[44px] flex-wrap items-center gap-2 text-sm font-semibold text-slate-300">
+      <label className="flex min-h-[44px] flex-wrap items-center gap-2 text-sm font-semibold text-[#cad7e4]">
         <span>Panel</span>
         <select
           aria-label="Command Center panels"
           value={activePanel}
           onChange={(event) => onPanelChange?.(event.target.value)}
-          className="min-h-[44px] rounded-md border border-slate-400 bg-slate-100 px-3 text-sm font-semibold text-slate-900 shadow-none focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
+          className="min-h-[44px] rounded-md border border-[#3b5874] bg-[#091725] px-3 text-sm font-semibold text-[#f7fbff] shadow-none focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
         >
           {groups.map((group) => (
             <optgroup key={group.category} label={group.category}>

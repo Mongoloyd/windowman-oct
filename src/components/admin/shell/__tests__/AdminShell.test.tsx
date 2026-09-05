@@ -55,6 +55,41 @@ describe("AdminShell unified chrome", () => {
     expect(screen.getByRole("main").closest(".wm-admin-canvas")).not.toHaveClass("wm-lead-dossier");
   });
 
+  it("sets the browser document title from the page title", () => {
+    renderShell(<AdminShell title="Pipeline">Pipeline body</AdminShell>);
+    expect(document.title).toBe("Pipeline · WindowMan Admin");
+  });
+
+  it("applies compact inbox chrome classes without legacy commandbar markup", () => {
+    renderShell(
+      <AdminShell
+        title="Lead Inbox"
+        variant="lead-inbox"
+        fullBleed
+        nav={<nav aria-label="Admin sections">Inbox navigation</nav>}
+        leadInboxHeaderTools={
+          <label>
+            Command search
+            <input />
+          </label>
+        }
+      >
+        <div className="wm-lead-inbox">Inbox directory</div>
+      </AdminShell>,
+    );
+
+    expect(screen.getByRole("banner")).toHaveClass("wm-admin-inbox-chrome");
+    expect(screen.getByRole("main")).not.toHaveClass("wm-admin-directory");
+    expect(screen.getByRole("main")).toHaveClass("w-full");
+    expect(document.querySelector(".wm-admin-inbox-commandbar")).toBeNull();
+    expect(document.querySelector(".wm-admin-inbox-nav")).toBeNull();
+  });
+
+  it("applies directory content scoping on padded admin pages", () => {
+    renderShell(<AdminShell title="Pipeline">Pipeline body</AdminShell>);
+    expect(screen.getByRole("main")).toHaveClass("wm-admin-directory");
+  });
+
   it("renders inbox content inside the shared shell without inbox-only command tools", () => {
     renderShell(
       <AdminShell

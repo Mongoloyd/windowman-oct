@@ -148,6 +148,7 @@ function expectDossierShell() {
   expect(shell).toHaveAttribute("data-eyebrow", "Operator · Lead Workspace");
   expect(shell).toHaveAttribute("data-back-to", "/admin/leads");
   expect(shell).toHaveAttribute("data-back-label", "Back to Lead Inbox");
+  expect(shell).toHaveAttribute("data-variant", "lead-dossier");
   expect(screen.getByTestId("shell-back")).toHaveAttribute("href", "/admin/leads");
   expect(screen.getByTestId("shell-back")).toHaveTextContent("Back to Lead Inbox");
 }
@@ -212,7 +213,8 @@ describe("AdminLeadDossierPage", () => {
     expect(screen.queryByRole("link", { name: "Lead Inbox" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Open in Pipeline" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Open Truth Report" })).not.toBeInTheDocument();
-    expect(screen.getByTestId("admin-lead-dossier-page")).toBeInTheDocument();
+    expect(screen.getByTestId("admin-lead-dossier-page")).toHaveClass("wm-lead-dossier-identity");
+    expect(screen.getByTestId("admin-lead-dossier-page")).not.toHaveClass("bg-white");
     expect(screen.getByTestId("admin-shell")).toHaveAttribute("data-variant", "lead-dossier");
     expect(screen.getByRole("navigation")).toHaveAttribute("data-variant", "lead-dossier");
     await waitFor(() => expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1));

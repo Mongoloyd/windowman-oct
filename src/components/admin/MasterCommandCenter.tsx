@@ -138,30 +138,27 @@ interface ReadinessSignal {
 function toneForStatus(status: ReadinessStatus) {
   if (status === "operational") {
     return {
-      badge:
-        "bg-emerald-100 text-emerald-950 border-emerald-300",
+      badge: "wm-lead-status wm-lead-status--resolved",
       dot: "bg-emerald-500",
       icon: CheckCircle2,
     };
   }
   if (status === "critical") {
     return {
-      badge:
-        "bg-red-100 text-red-950 border-red-300",
+      badge: "wm-lead-status wm-lead-status--danger",
       dot: "bg-rose-500",
       icon: XCircle,
     };
   }
   if (status === "attention") {
     return {
-      badge:
-        "bg-amber-100 text-amber-950 border-amber-300",
+      badge: "wm-lead-status wm-lead-status--attention",
       dot: "bg-amber-500",
       icon: AlertTriangle,
     };
   }
   return {
-    badge: "bg-white text-slate-950 border-slate-400",
+    badge: "wm-lead-status wm-lead-status--neutral",
     dot: "bg-muted-foreground/40",
     icon: HelpCircle,
   };
@@ -181,12 +178,12 @@ function KpiTile({ label, metric, hint, icon: Icon, onClick }: KpiTileProps) {
   const { count, delta, deltaPct, convPct } = metric;
   const deltaTone =
     deltaPct === null
-      ? "text-slate-700"
+      ? "text-[#cad7e4]"
       : delta > 0
-      ? "text-emerald-800"
+      ? "text-[#61ebca]"
       : delta < 0
-      ? "text-red-800"
-      : "text-slate-700";
+      ? "text-[#ffaaa6]"
+      : "text-[#cad7e4]";
   const DeltaIcon =
     deltaPct === null || delta === 0
       ? null
@@ -207,15 +204,15 @@ function KpiTile({ label, metric, hint, icon: Icon, onClick }: KpiTileProps) {
       type="button"
       onClick={onClick}
       aria-label={`${label}: ${count.toLocaleString()} leads, ${deltaLabel} vs prior period, ${convLabel}`}
-      className="group relative overflow-hidden rounded-lg border border-slate-300 bg-white backdrop-blur-sm px-3 py-2.5 text-left transition-colors hover:bg-blue-50/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+      className="wm-admin-directory-kpi group relative overflow-hidden px-3 py-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-[#06101a]"
     >
       <div className="flex items-center justify-between mb-1">
-        <span className="text-sm font-semibold uppercase tracking-widest text-slate-700 truncate">
+        <span className="text-sm font-semibold uppercase tracking-widest text-[#cad7e4] truncate">
           {label}
         </span>
-        <Icon className="h-3.5 w-3.5 text-slate-700 shrink-0" />
+        <Icon className="h-3.5 w-3.5 text-[#cad7e4] shrink-0" />
       </div>
-      <div className="text-2xl font-bold tabular-nums tracking-tight leading-none mb-1.5">
+      <div className="text-2xl font-bold tabular-nums tracking-tight leading-none mb-1.5 text-[#f7fbff]">
         {count.toLocaleString()}
       </div>
       <div className="flex items-center gap-1.5 text-sm leading-tight">
@@ -223,8 +220,8 @@ function KpiTile({ label, metric, hint, icon: Icon, onClick }: KpiTileProps) {
           {DeltaIcon ? <DeltaIcon className="h-3 w-3" aria-hidden /> : null}
           {deltaLabel}
         </span>
-        <span className="text-slate-700/60">·</span>
-        <span className="text-slate-700 truncate">{convLabel}</span>
+        <span className="text-[#cad7e4]/60">·</span>
+        <span className="text-[#cad7e4] truncate">{convLabel}</span>
       </div>
     </button>
   );
@@ -233,7 +230,7 @@ function KpiTile({ label, metric, hint, icon: Icon, onClick }: KpiTileProps) {
 function CommandCenterDrilldown({ open, onOpenChange, stage, scope, onJumpToDossier }: { open: boolean; onOpenChange: (open: boolean) => void; stage: StageKey | null; scope: Scope; onJumpToDossier: (row: StageLeadRow) => void }) {
   const q = useQuery<{ leads: StageLeadRow[] }>({ queryKey: ["truth-strip-drilldown", stage, scope], queryFn: () => fetchStageLeads(stage as StageKey, scope, 200), enabled: open && stage != null, staleTime: 30_000 });
   const rows = q.data?.leads ?? [];
-  return <Sheet open={open} onOpenChange={onOpenChange}><SheetContent side="right" className="w-full sm:max-w-[640px] lg:max-w-[820px] bg-card/95 p-0 flex flex-col"><SheetHeader className="px-5 pt-5 pb-3 border-b border-border/60"><SheetTitle>{stage ? STAGE_LABELS[stage] : "Stage"} drilldown</SheetTitle><SheetDescription>{q.isLoading ? "Loading leads…" : q.isError ? "Failed to load stage leads." : `${rows.length.toLocaleString()} leads matched · forensic triage without leaving Mission Control.`} <Badge variant="outline" className="ml-2 text-xs uppercase">{SCOPE_LABEL[scope]}</Badge></SheetDescription></SheetHeader><div className="flex-1 overflow-y-auto px-5 py-4 space-y-2.5">{rows.map((row) => <div key={row.id} className="rounded-lg border border-border/60 bg-card p-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="truncate text-sm font-bold">{[row.first_name, row.last_name].filter(Boolean).join(" ") || "Unnamed lead"}</p><p className="text-xs text-muted-foreground font-mono">Lead {row.id.slice(0, 8)} · Scan {row.latest_scan_session_id ? row.latest_scan_session_id.slice(0, 8) : "—"} · Analysis {row.latest_analysis_id ? row.latest_analysis_id.slice(0, 8) : "—"}</p></div><Badge variant="outline">{row.grade ?? "—"}</Badge></div><div className="mt-3 flex flex-wrap justify-end gap-1.5"><Button asChild variant="outline" size="sm" className="h-7 px-2 text-xs gap-1"><Link to={buildLeadEvidenceHref(row)}>Open Inspector<ScanSearch className="h-3 w-3" /></Link></Button><Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1" onClick={() => onJumpToDossier(row)}>Jump to Dossier<ArrowRight className="h-3 w-3" /></Button></div></div>)}</div></SheetContent></Sheet>;
+  return <Sheet open={open} onOpenChange={onOpenChange}><SheetContent side="right" className="wm-admin-portal w-full sm:max-w-[640px] lg:max-w-[820px] bg-[#0c1b29] p-0 flex flex-col border-[#2b435b] text-[#f7fbff]"><SheetHeader className="px-5 pt-5 pb-3 border-b border-[#2b435b]"><SheetTitle className="text-[#f7fbff]">{stage ? STAGE_LABELS[stage] : "Stage"} drilldown</SheetTitle><SheetDescription className="text-[#cad7e4]">{q.isLoading ? "Loading leads…" : q.isError ? "Failed to load stage leads." : `${rows.length.toLocaleString()} leads matched · forensic triage without leaving Mission Control.`} <Badge variant="outline" className="ml-2 border-[#3b5874] bg-[#102130] text-xs uppercase tracking-wider text-[#e7f0f9]">{SCOPE_LABEL[scope]}</Badge></SheetDescription></SheetHeader><div className="flex-1 overflow-y-auto px-5 py-4 space-y-2.5">{rows.map((row) => <div key={row.id} className="rounded-lg border border-[#2b435b] bg-[#102130] p-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="truncate text-sm font-bold text-[#f7fbff]">{[row.first_name, row.last_name].filter(Boolean).join(" ") || "Unnamed lead"}</p><p className="text-xs text-muted-foreground font-mono">Lead {row.id.slice(0, 8)} · Scan {row.latest_scan_session_id ? row.latest_scan_session_id.slice(0, 8) : "—"} · Analysis {row.latest_analysis_id ? row.latest_analysis_id.slice(0, 8) : "—"}</p></div><Badge variant="outline">{row.grade ?? "—"}</Badge></div><div className="mt-3 flex flex-wrap justify-end gap-1.5"><Button asChild variant="outline" size="sm" className="h-7 px-2 text-xs gap-1"><Link to={buildLeadEvidenceHref(row)}>Open Inspector<ScanSearch className="h-3 w-3" /></Link></Button><Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1" onClick={() => onJumpToDossier(row)}>Jump to Dossier<ArrowRight className="h-3 w-3" /></Button></div></div>)}</div></SheetContent></Sheet>;
 }
 
 /* ─── Helpers ────────────────────────────────────────────────────────── */
@@ -707,7 +704,7 @@ export function MasterCommandCenter({
     <div className="w-full px-2 sm:px-6 pt-4 space-y-6">
       {/* ── Readiness banner (glass) ───────────────────────────────── */}
       <Card
-        className="border-l-4 backdrop-blur-sm bg-card/95"
+        className="wm-admin-directory-panel border-l-4 backdrop-blur-sm"
         style={{ borderLeftColor: "hsl(var(--primary))" }}
       >
         <CardContent className="py-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -719,26 +716,29 @@ export function MasterCommandCenter({
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm font-bold tracking-tight">
+                <span className="wm-on-canvas-title text-sm font-bold tracking-tight">
                   {overallLabel}
                 </span>
-                <Badge variant="outline" className="text-sm uppercase tracking-wider">
+                <Badge
+                  variant="outline"
+                  className="text-sm uppercase tracking-wider border-[#3b5874] bg-[#091725] text-[color:var(--wm-admin-on-canvas-muted)]"
+                >
                   Mission Control · derived
                 </Badge>
                 {overall === "critical" && (
-                  <Badge className="text-sm uppercase tracking-wider bg-rose-500/15 text-red-950 border border-red-300">
+                  <Badge className="text-sm uppercase tracking-wider wm-lead-status wm-lead-status--danger border">
                     <ShieldAlert className="h-3 w-3 mr-1" />
                     Critical
                   </Badge>
                 )}
               </div>
-              <p className="text-sm font-semibold text-slate-700 mt-1">
+              <p className="text-sm font-semibold text-[#cad7e4] mt-1">
                 Roll-up of {signals.length} live signals · Click any chip for the
                 threshold rule and source surface.
               </p>
               {/* Webhook legend */}
               <div className="mt-2 flex flex-wrap items-center gap-1.5 text-sm">
-                <span className="text-slate-700 uppercase tracking-wider">
+                <span className="text-[#cad7e4] uppercase tracking-wider">
                   Webhooks:
                 </span>
                 <Badge variant="secondary" className="font-mono">
@@ -747,12 +747,12 @@ export function MasterCommandCenter({
                 <Badge variant="default" className="font-mono">
                   Delivered {webhook.delivered}
                 </Badge>
-                <Badge variant="outline" className="font-mono border-amber-300 text-amber-950">
+                <Badge variant="outline" className="font-mono border-[#8a5a1c] text-[#ffc06f] bg-[#2b1e10]">
                   Failed {webhook.failed}
                 </Badge>
                 <Badge
                   variant="outline"
-                  className="font-mono border-red-300 text-red-950 bg-red-100"
+                  className="font-mono border-[#7e3540] text-[#ffaaa6] bg-[#30161b]"
                 >
                   Dead-Letter (Critical) {webhook.dead}
                 </Badge>
@@ -779,28 +779,28 @@ export function MasterCommandCenter({
                     <PopoverTrigger asChild>
                       <button
                         type="button"
-                        className="flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2 py-1.5 min-w-0 hover:bg-blue-50/50 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="flex items-center gap-1.5 rounded-md border border-[#2b435b] bg-[#091725] px-2 py-1.5 min-w-0 hover:bg-[#142a3e] transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         <span
                           className={`inline-block h-2 w-2 shrink-0 rounded-full ${tone.dot}`}
                           aria-hidden
                         />
-                        <span className="truncate text-sm font-medium">
+                        <span className="truncate text-sm font-medium text-[color:var(--wm-inbox-body,#e7f0f9)]">
                           {s.label}
                         </span>
                       </button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-72 p-3" align="end">
+                    <PopoverContent className="wm-admin-portal w-72 border-[#2b435b] bg-[#102130] p-3 text-[color:var(--wm-inbox-text,#f7fbff)]" align="end">
                       <div className="flex items-center gap-2 mb-1.5">
                         <Badge variant="outline" className={`text-sm uppercase ${tone.badge}`}>
                           {s.status}
                         </Badge>
-                        <span className="text-sm font-bold">{s.label}</span>
+                        <span className="text-sm font-bold text-[color:var(--wm-inbox-text,#f7fbff)]">{s.label}</span>
                       </div>
-                      <p className="text-xs text-foreground mb-1">{s.detail}</p>
+                      <p className="text-xs text-[color:var(--wm-inbox-muted,#cad7e4)] mb-1">{s.detail}</p>
                       {s.rule && (
-                        <p className="text-sm text-slate-700 mb-2">
-                          <span className="font-semibold">Rule:</span> {s.rule}
+                        <p className="text-sm text-[color:var(--wm-inbox-muted,#cad7e4)] mb-2">
+                          <span className="font-semibold text-[color:var(--wm-inbox-body,#e7f0f9)]">Rule:</span> {s.rule}
                         </p>
                       )}
                       {s.jump && (
@@ -824,55 +824,55 @@ export function MasterCommandCenter({
       </Card>
 
       {/* ── Daily Revenue Target ───────────────────────────────────── */}
-      <Card>
+      <Card className="wm-admin-directory-panel">
         <CardContent className="py-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-2">
             <div className="flex items-center gap-2 min-w-0">
-              <Target className="h-4 w-4 text-slate-700 shrink-0" />
-              <span className="text-sm font-semibold uppercase tracking-widest text-slate-700">
+              <Target className="h-4 w-4 text-[color:var(--wm-inbox-muted,#cad7e4)] shrink-0" />
+              <span className="text-sm font-semibold uppercase tracking-widest text-[color:var(--wm-inbox-muted,#cad7e4)]">
                 Daily Revenue Target
               </span>
               <Button
                 size="sm"
                 variant="ghost"
                 onClick={handleEditGoal}
-                className="h-6 px-1.5 text-sm text-slate-700"
+                className="h-6 px-1.5 text-sm text-[color:var(--wm-inbox-muted,#cad7e4)] hover:text-[color:var(--wm-inbox-text,#f7fbff)]"
                 title="Edit daily goal"
               >
                 <Pencil className="h-3 w-3" />
               </Button>
             </div>
-            <div className="text-sm font-semibold text-slate-700 tabular-nums">
+            <div className="text-sm font-semibold text-[color:var(--wm-inbox-muted,#cad7e4)] tabular-nums">
               {revenueToday.count} {revenueToday.count === 1 ? "deal" : "deals"} closed today
             </div>
           </div>
           <div className="flex items-baseline gap-2 mb-2 flex-wrap">
-            <span className="text-3xl font-bold tabular-nums tracking-tight">
+            <span className="text-3xl font-bold tabular-nums tracking-tight text-[color:var(--wm-inbox-text,#f7fbff)]">
               {fmtMoney(revenueToday.volume)}
             </span>
-            <span className="text-sm text-slate-700">
+            <span className="text-sm text-[color:var(--wm-inbox-muted,#cad7e4)]">
               of {fmtMoney(dailyGoal)} goal
             </span>
             <Badge
               variant="outline"
               className={`text-sm uppercase tracking-wider ${
                 goalPct >= 100
-                  ? "bg-emerald-100 text-emerald-950 border-emerald-300"
+                  ? "wm-lead-status wm-lead-status--resolved"
                   : goalPct >= 50
-                  ? "bg-amber-100 text-amber-950 border-amber-300"
-                  : "bg-muted text-slate-700"
+                  ? "wm-lead-status wm-lead-status--attention"
+                  : "wm-lead-status wm-lead-status--neutral"
               }`}
             >
               {goalPct}%
             </Badge>
           </div>
-          <div className="relative h-3 w-full overflow-hidden rounded-full bg-secondary">
+          <div className="relative h-3 w-full overflow-hidden rounded-full bg-[#091725]">
             <div
               className={`h-full ${goalFillTone} transition-all`}
               style={{ width: `${Math.min(100, goalPct)}%` }}
             />
           </div>
-          <p className="text-sm text-slate-700 mt-2">
+          <p className="text-sm text-[color:var(--wm-inbox-muted,#cad7e4)] mt-2">
             {goalPct >= 100
               ? `Goal hit — ${fmtMoney(revenueToday.volume - dailyGoal)} above target.`
               : `${fmtMoney(Math.max(0, dailyGoal - revenueToday.volume))} remaining to hit goal.`}
@@ -895,7 +895,7 @@ export function MasterCommandCenter({
             <div
               role="group"
               aria-label="Time scope"
-              className="inline-flex rounded-md border border-slate-300 bg-white backdrop-blur-sm p-0.5"
+              className="inline-flex rounded-md border border-[#2b435b] bg-[#091725] backdrop-blur-sm p-0.5"
             >
               {(["today", "7d", "all"] as Scope[]).map((s) => (
                 <button
@@ -905,8 +905,8 @@ export function MasterCommandCenter({
                   aria-pressed={scope === s}
                   className={`px-2.5 py-1 text-sm font-semibold uppercase tracking-wider rounded-sm transition-colors ${
                     scope === s
-                      ? "bg-primary text-primary-foreground"
-                      : "text-slate-700 hover:text-foreground"
+                      ? "bg-[#0757b7] text-[#f7fbff]"
+                      : "text-[#cad7e4] hover:text-[#f7fbff]"
                   }`}
                 >
                   {s === "today" ? "Today" : s === "7d" ? "7D" : "All"}
@@ -934,11 +934,11 @@ export function MasterCommandCenter({
           <MarketOpsFeed leads={leads} />
         </div>
         <div className="min-w-0">
-          <Card className="h-full">
+          <Card className="wm-admin-directory-panel h-full">
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
-                <Target className="h-4 w-4 text-slate-700" />
-                <CardTitle className="text-base font-extrabold text-slate-950 uppercase tracking-wider">
+                <Target className="h-4 w-4 text-[color:var(--wm-inbox-muted,#cad7e4)]" />
+                <CardTitle className="text-base font-extrabold text-[color:var(--wm-inbox-text,#f7fbff)] uppercase tracking-wider">
                   Quick-Action HUD
                 </CardTitle>
               </div>
@@ -952,16 +952,16 @@ export function MasterCommandCenter({
                       key={a.tab}
                       type="button"
                       onClick={() => onNavigateTab(a.tab)}
-                      className="flex flex-col items-start gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-2.5 hover:bg-blue-50/50 transition-colors text-left"
+                      className="flex flex-col items-start gap-1 rounded-md border border-[#2b435b] bg-[#0c1b29] px-2.5 py-2.5 hover:bg-[#142a3e] transition-colors text-left"
                     >
                       <div className="flex items-center gap-1.5 w-full">
-                        <Icon className="h-3.5 w-3.5 text-slate-700 shrink-0" />
-                        <span className="text-sm font-bold truncate flex-1">
+                        <Icon className="h-3.5 w-3.5 text-[#cad7e4] shrink-0" />
+                        <span className="text-sm font-bold truncate flex-1 text-[#f7fbff]">
                           {a.label}
                         </span>
-                        <ArrowRight className="h-3 w-3 text-slate-700 shrink-0" />
+                        <ArrowRight className="h-3 w-3 text-[#cad7e4] shrink-0" />
                       </div>
-                      <span className="text-sm text-slate-700 line-clamp-2">
+                      <span className="text-sm text-[#cad7e4] line-clamp-2">
                         {a.desc}
                       </span>
                     </button>
@@ -975,18 +975,18 @@ export function MasterCommandCenter({
                     <Link
                       key={a.to}
                       to={a.to}
-                      className="flex items-center gap-2.5 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 hover:bg-blue-50/50 transition-colors"
+                      className="flex items-center gap-2.5 rounded-md border border-[#2b435b] bg-[#0c1b29] px-2.5 py-1.5 hover:bg-[#142a3e] transition-colors"
                     >
-                      <Icon className="h-3.5 w-3.5 text-slate-700 shrink-0" />
+                      <Icon className="h-3.5 w-3.5 text-[#cad7e4] shrink-0" />
                       <span className="flex-1 min-w-0">
-                        <span className="block text-sm font-bold truncate">
+                        <span className="block text-sm font-bold truncate text-[#f7fbff]">
                           {a.label}
                         </span>
-                        <span className="block text-sm text-slate-700 truncate">
+                        <span className="block text-sm text-[#cad7e4] truncate">
                           {a.desc}
                         </span>
                       </span>
-                      <ArrowRight className="h-3 w-3 text-slate-700 shrink-0" />
+                      <ArrowRight className="h-3 w-3 text-[#cad7e4] shrink-0" />
                     </Link>
                   );
                 })}
@@ -999,12 +999,12 @@ export function MasterCommandCenter({
       {/* ── Bottom row: Data Quality + Revenue Integrity ──────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Data Quality Snapshot */}
-        <Card>
+        <Card className="wm-admin-directory-panel">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <Database className="h-4 w-4 text-slate-700" />
-                <CardTitle className="text-base font-extrabold text-slate-950 uppercase tracking-wider">
+                <Database className="h-4 w-4 text-[color:var(--wm-inbox-muted,#cad7e4)]" />
+                <CardTitle className="text-base font-extrabold text-[color:var(--wm-inbox-text,#f7fbff)] uppercase tracking-wider">
                   Data Quality Snapshot
                 </CardTitle>
               </div>
@@ -1015,32 +1015,32 @@ export function MasterCommandCenter({
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="grid grid-cols-3 gap-2">
-              <div className="rounded-md border border-slate-300 bg-white p-2.5">
-                <div className="text-sm text-slate-700 uppercase tracking-wider">
+              <div className="rounded-md border border-[#2b435b] bg-[#0c1b29] p-2.5">
+                <div className="text-sm text-[#cad7e4] uppercase tracking-wider">
                   Strong
                 </div>
-                <div className="text-xl font-bold tabular-nums">
+                <div className="text-xl font-bold tabular-nums text-[color:var(--wm-inbox-text,#f7fbff)]">
                   {dataQuality.strong}
                 </div>
               </div>
-              <div className="rounded-md border border-amber-300 bg-amber-100 p-2.5">
-                <div className="text-sm text-amber-950 uppercase tracking-wider">
+              <div className="rounded-md border border-[#8a5a1c] bg-[#2b1e10] p-2.5">
+                <div className="text-sm text-[#ffc06f] uppercase tracking-wider">
                   Partial
                 </div>
-                <div className="text-xl font-bold tabular-nums">
+                <div className="text-xl font-bold tabular-nums text-[color:var(--wm-inbox-text,#f7fbff)]">
                   {dataQuality.partial}
                 </div>
               </div>
-              <div className="rounded-md border border-rose-500/30 bg-red-100 p-2.5">
-                <div className="text-sm text-red-950 uppercase tracking-wider">
+              <div className="rounded-md border border-[#7e3540] bg-[#30161b] p-2.5">
+                <div className="text-sm text-[#ffaaa6] uppercase tracking-wider">
                   Sparse
                 </div>
-                <div className="text-xl font-bold tabular-nums">
+                <div className="text-xl font-bold tabular-nums text-[color:var(--wm-inbox-text,#f7fbff)]">
                   {dataQuality.sparse}
                 </div>
               </div>
             </div>
-            <ul className="text-sm font-semibold text-slate-700 space-y-1">
+            <ul className="text-sm font-semibold text-[color:var(--wm-inbox-muted,#cad7e4)] space-y-1">
               <li className="flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
                   <MapPin className="h-3 w-3" /> Leads missing county fallback
@@ -1071,12 +1071,12 @@ export function MasterCommandCenter({
         </Card>
 
         {/* Revenue Integrity Snapshot */}
-        <Card>
+        <Card className="wm-admin-directory-panel">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <FileBarChart className="h-4 w-4 text-slate-700" />
-                <CardTitle className="text-base font-extrabold text-slate-950 uppercase tracking-wider">
+                <FileBarChart className="h-4 w-4 text-[color:var(--wm-inbox-muted,#cad7e4)]" />
+                <CardTitle className="text-base font-extrabold text-[color:var(--wm-inbox-text,#f7fbff)] uppercase tracking-wider">
                   Revenue Integrity Snapshot
                 </CardTitle>
               </div>
@@ -1087,32 +1087,32 @@ export function MasterCommandCenter({
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="grid grid-cols-3 gap-2">
-              <div className="rounded-md border border-slate-300 bg-white p-2.5">
-                <div className="text-sm text-slate-700 uppercase tracking-wider">
+              <div className="rounded-md border border-[#2b435b] bg-[#0c1b29] p-2.5">
+                <div className="text-sm text-[#cad7e4] uppercase tracking-wider">
                   Booked
                 </div>
-                <div className="text-xl font-bold tabular-nums">
+                <div className="text-xl font-bold tabular-nums text-[color:var(--wm-inbox-text,#f7fbff)]">
                   {outcomeRollup.counts.booked}
                 </div>
               </div>
-              <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 p-2.5">
-                <div className="text-sm text-emerald-950 uppercase tracking-wider">
+              <div className="rounded-md border border-[#23745f] bg-[#082c26] p-2.5">
+                <div className="text-sm text-[#61ebca] uppercase tracking-wider">
                   Closed
                 </div>
-                <div className="text-xl font-bold tabular-nums">
+                <div className="text-xl font-bold tabular-nums text-[color:var(--wm-inbox-text,#f7fbff)]">
                   {outcomeRollup.counts.closed}
                 </div>
               </div>
-              <div className="rounded-md border border-amber-300 bg-amber-100 p-2.5">
-                <div className="text-sm text-amber-950 uppercase tracking-wider">
+              <div className="rounded-md border border-[#8a5a1c] bg-[#2b1e10] p-2.5">
+                <div className="text-sm text-[#ffc06f] uppercase tracking-wider">
                   Stale
                 </div>
-                <div className="text-xl font-bold tabular-nums">
+                <div className="text-xl font-bold tabular-nums text-[color:var(--wm-inbox-text,#f7fbff)]">
                   {outcomeRollup.counts.stale_unresolved}
                 </div>
               </div>
             </div>
-            <ul className="text-sm font-semibold text-slate-700 space-y-1">
+            <ul className="text-sm font-semibold text-[color:var(--wm-inbox-muted,#cad7e4)] space-y-1">
               <li className="flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
                   <Unlock className="h-3 w-3" /> Recent handoffs (24h)

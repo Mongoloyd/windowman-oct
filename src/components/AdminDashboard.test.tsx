@@ -32,14 +32,14 @@ vi.mock("@/lib/trackConversion", () => ({ trackGtmEvent: vi.fn() }));
 // ── Import after mocks ───────────────────────────────────────────────────────
 import AdminDashboard from "./AdminDashboard";
 
-function renderDashboard() {
+function renderDashboard(path = "/") {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   });
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[path]}>
         <AdminDashboard />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -113,6 +113,19 @@ describe("AdminDashboard – operator shell", () => {
     await waitFor(() => {
       const link = screen.getByTitle("Admin Settings");
       expect(link).toHaveAttribute("href", "/admin/settings");
+    });
+  });
+
+  it.each([
+    ["/", "Command Center · WindowMan Admin"],
+    ["/admin/command-center", "Command Center · WindowMan Admin"],
+    ["/admin/pipeline", "Pipeline · WindowMan Admin"],
+    ["/admin/routing", "Routing · WindowMan Admin"],
+    ["/admin/needs-review", "Needs Review · WindowMan Admin"],
+  ] as const)("sets a route-aware document title for %s", async (path, expectedTitle) => {
+    renderDashboard(path);
+    await waitFor(() => {
+      expect(document.title).toBe(expectedTitle);
     });
   });
 
