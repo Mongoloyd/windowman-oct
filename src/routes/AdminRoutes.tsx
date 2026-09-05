@@ -47,7 +47,7 @@ export function AdminRoutes() {
       <Route path="login" element={<AdminLogin />} />
       <Route path="forgot-password" element={<AdminForgotPassword />} />
       <Route path="reset-password" element={<AdminResetPassword />} />
-      <Route path="health" element={<AdminHealth />} />
+      <Route path="health" element={<AdminAuthGate><AdminHealth /></AdminAuthGate>} />
       <Route path="command-center" element={<AdminAuthGate><AdminDashboard initialTab="mission-control" /></AdminAuthGate>} />
       <Route path="launch" element={<AdminAuthGate><AdminDashboard initialTab="launch" /></AdminAuthGate>} />
       <Route path="command" element={<AdminAuthGate><AdminDashboard initialTab="command" /></AdminAuthGate>} />

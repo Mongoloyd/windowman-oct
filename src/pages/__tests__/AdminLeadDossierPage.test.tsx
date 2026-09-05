@@ -116,6 +116,7 @@ describe("AdminLeadDossierPage", () => {
       .toHaveAttribute("href", `/admin/leads/${leadId}/report`);
     expect(screen.getByRole("link", { name: "Homeowner view" }))
       .toHaveAttribute("href", `/report/classic/${scanId}`);
+    expect(screen.getByTestId("admin-lead-dossier-page")).toBeInTheDocument();
     expect(screen.getByTestId("admin-shell")).toHaveAttribute("data-variant", "lead-dossier");
     expect(screen.getByRole("navigation")).toHaveAttribute("data-variant", "lead-dossier");
     await waitFor(() => expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1));

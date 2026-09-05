@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   Table,
   TableBody,
@@ -24,6 +24,7 @@ import { LeadIdentity } from "./LeadIdentity";
 import type { CRMLead, PipelineStatus } from "./types";
 import { derivePipelineStatus } from "./types";
 import { matchesAdminLeadSearch } from "@/lib/adminLeadSearch";
+import { useAdminLeadSelection } from "@/hooks/useAdminLeadSelection";
 
 interface ActivePipelineProps {
   leads: CRMLead[];
@@ -89,35 +90,17 @@ const UNKNOWN_COUNTY = "Unknown County";
 /* ── Component ───────────────────────────────────────────────────────── */
 
 export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [selectedLead, setSelectedLead] = useState<CRMLead | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [ownershipFilter, setOwnershipFilter] = useState<OwnershipFilter>("all");
   const [marketFilter, setMarketFilter] = useState<string>("all");
-  const linkedLeadId = searchParams.get("lead_id");
-
-  const openLead = useCallback((lead: CRMLead) => {
-    setSelectedLead(lead);
-    const nextParams = new URLSearchParams(searchParams);
-    nextParams.set("lead_id", lead.id);
-    setSearchParams(nextParams, { replace: true });
-  }, [searchParams, setSearchParams]);
-
-  const closeLead = useCallback(() => {
-    setSelectedLead(null);
-    const nextParams = new URLSearchParams(searchParams);
-    nextParams.delete("lead_id");
-    setSearchParams(nextParams, { replace: true });
-  }, [searchParams, setSearchParams]);
-
-  useEffect(() => {
-    if (!linkedLeadId) return;
-    const linkedLead = leads.find((lead) => lead.id === linkedLeadId);
-    if (linkedLead && selectedLead?.id !== linkedLead.id) {
-      setSelectedLead(linkedLead);
-    }
-  }, [leads, linkedLeadId, selectedLead?.id]);
+  const {
+    selectedLead,
+    isOpen,
+    presentation,
+    openLead,
+    closeLead,
+  } = useAdminLeadSelection(leads, { isReady: !isLoading });
 
   // Phase 8 — distinct county list for dropdown, with safe Unknown fallback.
   const marketOptions = useMemo(() => {
@@ -287,7 +270,7 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
                   <TableRow
                     key={lead.id}
                     className="cursor-pointer hover:bg-muted/50 transition-colors"
-                    onClick={() => openLead(lead)}
+                    onClick={(event) => openLead(lead.id, event.currentTarget)}
                   >
                     <TableCell>
                       <div className="font-medium text-sm truncate max-w-[220px]">
@@ -350,8 +333,11 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
       {/* Lead Dossier Slide-Out */}
       <LeadDossierSheet
         lead={selectedLead}
-        open={!!selectedLead}
-        onOpenChange={(open) => !open && closeLead()}
+        open={isOpen}
+        presentation={presentation}
+        onOpenChange={(open) => {
+          if (!open) closeLead();
+        }}
       />
     </>
   );

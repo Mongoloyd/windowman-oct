@@ -7,7 +7,8 @@
 import { lazy, Suspense, useEffect, useState, useCallback, useRef } from "react";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Settings } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
+import { getAdminPageTitle } from "@/routes/adminDashboardTabs";
 import { formatDistanceToNow } from "date-fns";
 import { AdminShell } from "@/components/admin/shell/AdminShell";
 import { AdminPrimaryTabs } from "@/components/admin/shell/AdminPrimaryTabs";
@@ -341,6 +342,8 @@ interface DashboardContentProps {
 }
 
 function DashboardContent({ initialTab }: DashboardContentProps) {
+  const location = useLocation();
+  const pageTitle = getAdminPageTitle(location.pathname);
   const [leads, setLeads] = useState<CRMLead[]>([]);
   const [deliveries, setDeliveries] = useState<WebhookDelivery[]>([]);
   const [latestFollowups, setLatestFollowups] = useState<Record<string, VoiceFollowupSummary>>({});
@@ -534,21 +537,29 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
   return (
     <AdminShell
       eyebrow="Lead Sniper · Admin"
-      title="Operator Command Center"
+      title={pageTitle}
       subtitle={`${leadCountLabel} · ${lastSyncLabel}`}
       nav={<AdminGlobalNav />}
-      belowHeader={
+      headerActions={
         <div className="flex items-center gap-3">
           {previewBadge}
           <Link
             to="/admin/settings"
-            className="ml-auto inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-400 bg-white px-4 py-2 text-sm font-extrabold text-slate-950 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 focus-visible:ring-offset-2"
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-400 bg-white px-4 py-2 text-sm font-extrabold text-slate-950 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 focus-visible:ring-offset-2"
             title="Admin Settings"
           >
             <Settings className="h-4 w-4" />
             Settings
           </Link>
         </div>
+      }
+      belowHeader={
+        <AdminPrimaryTabs
+          activePanel={activeTab}
+          onPanelChange={setActiveTab}
+          ghostCount={ghosts.length}
+          needsReviewCount={needsReview.length}
+        />
       }
     >
       <div className="space-y-4">
@@ -559,11 +570,6 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
         />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-5">
-        <AdminPrimaryTabs
-          ghostCount={ghosts.length}
-          needsReviewCount={needsReview.length}
-        />
-
         <Suspense fallback={<div className="flex items-center justify-center py-12 text-sm text-slate-500">Loading…</div>}>
           <TabsContent value="mission-control" className="w-full pt-1">
             <MasterCommandCenter

@@ -17,6 +17,10 @@ vi.mock("@/pages/admin/MetaIntakeLab.tsx", () => ({
   default: () => <div data-testid="meta-intake-lab">Meta Intake Lab</div>,
 }));
 
+vi.mock("@/pages/AdminHealth.tsx", () => ({
+  default: () => <div data-testid="admin-health">Health</div>,
+}));
+
 describe("AdminRoutes Meta Intake Lab route", () => {
   beforeEach(() => {
     guardState.allow = true;
@@ -51,5 +55,42 @@ describe("AdminRoutes Meta Intake Lab route", () => {
 
     expect(await screen.findByTestId("admin-access-denied")).toBeInTheDocument();
     expect(screen.queryByTestId("meta-intake-lab")).not.toBeInTheDocument();
+  });
+});
+
+describe("AdminRoutes Health route", () => {
+  beforeEach(() => {
+    guardState.allow = true;
+  });
+
+  it("renders Health inside the existing admin auth gate", async () => {
+    render(
+      <MemoryRouter initialEntries={["/admin/health"]}>
+        <Suspense fallback={<div>Loading route…</div>}>
+          <Routes>
+            <Route path="/admin/*" element={<AdminRoutes />} />
+          </Routes>
+        </Suspense>
+      </MemoryRouter>,
+    );
+
+    const health = await screen.findByTestId("admin-health");
+    expect(screen.getByTestId("admin-auth-gate")).toContainElement(health);
+  });
+
+  it("does not render Health when the admin auth gate denies access", async () => {
+    guardState.allow = false;
+    render(
+      <MemoryRouter initialEntries={["/admin/health"]}>
+        <Suspense fallback={<div>Loading route…</div>}>
+          <Routes>
+            <Route path="/admin/*" element={<AdminRoutes />} />
+          </Routes>
+        </Suspense>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByTestId("admin-access-denied")).toBeInTheDocument();
+    expect(screen.queryByTestId("admin-health")).not.toBeInTheDocument();
   });
 });

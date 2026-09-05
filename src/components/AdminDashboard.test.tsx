@@ -62,22 +62,24 @@ beforeEach(() => {
 });
 
 describe("AdminDashboard – operator shell", () => {
-  it("renders the Operator Command Center heading and eyebrow", async () => {
+  it("renders the Command Center heading and eyebrow", async () => {
     renderDashboard();
     await waitFor(() => {
-      expect(screen.getByText("Operator Command Center")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { level: 1, name: "Command Center" })).toBeInTheDocument();
       expect(screen.getByText("Lead Sniper · Admin")).toBeInTheDocument();
     });
   });
 
-  it("renders primary route navigation links", async () => {
+  it("renders local Command Center panel navigation without a second global strip", async () => {
     renderDashboard();
     await waitFor(() => {
-      expect(screen.getByRole("link", { name: /^Command\b/i })).toHaveAttribute("href", "/admin/command");
-      expect(screen.getByRole("link", { name: /^Pipeline\b/i })).toHaveAttribute("href", "/admin/pipeline");
-      expect(screen.getByRole("link", { name: /^Ghosts\b/i })).toHaveAttribute("href", "/admin/ghosts");
-      expect(screen.getByRole("link", { name: /^Dialer\b/i })).toHaveAttribute("href", "/admin/dialer");
+      expect(screen.getByRole("combobox", { name: "Command Center panels" })).toHaveValue(
+        "mission-control",
+      );
+      expect(screen.getByRole("option", { name: "Overview" })).toHaveValue("mission-control");
     });
+    expect(screen.queryByRole("link", { name: /^Ghosts\b/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /^Dialer\b/i })).not.toBeInTheDocument();
   });
 
   it("shows settings link to /admin/settings", async () => {

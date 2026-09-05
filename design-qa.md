@@ -104,6 +104,47 @@ No actionable P0, P1, or P2 findings remain.
 
 final result: passed
 
+## Admin Lead Inbox — 1280px six-column directory parity (2026-09-04)
+
+- Selected reference: `C:\Users\Dell\Desktop\Screenshots\lead inbox.png` (1674 × 1186).
+- Implementation route: `http://localhost:8080/admin/leads`.
+- Tested state: six live local lead projections, no active filters, and no data mutation.
+- Comparison evidence: the selected reference and the live in-app-browser implementation were emitted together in one review input. Real local lead values and verified repository routes intentionally replace the reference's illustrative names, counts, deadlines, and navigation labels.
+
+### Structural fidelity
+
+- The desktop directory now switches on at 1280px and presents six scan columns in the approved order: Identity, Status, Latest Activity, Next Follow-up, Pipeline, and Actions.
+- Identity is fixed at 240px and Actions at 230px. Copy affordances keep 44px targets but recede to unboxed icons so contact text remains the identity anchor.
+- The action stack keeps View Quote, Open lead, More lead context, and Edit workflow on one line each. Activity and follow-up use 15px primary operational values and 13px metadata.
+- The Lead Inbox-only shell uses a continuous dark command bar, plain navigation tabs, a cobalt active underline, the canonical homepage `BrandLogo`, and a synchronized header search at wide desktop sizes. Default and dossier shell variants remain unchanged.
+- Cobalt, teal, ember, and steel row rules remain attached to the record whose state they describe. Alternating navy surfaces, fact-cell fills, hairlines, and the darker action column preserve separation without white cards or glow.
+
+### Responsive measurements
+
+| Viewport | Rail | Directory | Identity | Status | Activity | Follow-up | Pipeline | Actions | Result |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| 1674 × 1186 | 280.0px | 1349.5px | 240.0px | 149.2px | 267.7px | 245.8px | 215.0px | 230.0px | Six columns; no document overflow |
+| 1366 × 900 | 200.0px | 1121.7px | 240.0px | 124.0px | 193.3px | 177.5px | 155.3px | 230.0px | Six columns; no document overflow |
+| 1280 × 900 | 200.0px | 1035.5px | 240.0px | 124.0px | 161.6px | 148.4px | 129.8px | 230.0px | Six columns; no card or document overflow |
+| 390 × 845 | stacked | 390.5px | stacked | stacked | stacked | stacked | stacked | stacked | No document overflow; horizontal nav remains scrollable |
+
+At 1280px every operational column label remained a single 16px-high line, all four action labels remained unwrapped, and each lead card reported equal client and scroll widths. At 390px, the directory changes to the deliberate card stack, the document reports equal client and scroll widths, and primary controls measure 43.99 CSS pixels because of fractional browser scaling (the authored minimum remains 44px).
+
+### Verification
+
+- TypeScript: `npm run typecheck` passed.
+- Focused regression suite: 23 tests passed across `AdminLeadInbox.test.tsx`, `AdminShell.test.tsx`, and `AdminLeadDossierVariants.test.tsx`.
+- Focused ESLint: passed with zero findings.
+- Production bundle: `npx vite build` passed (3198 modules transformed).
+- Browser runtime: loading, live six-lead success state, semantic row accents, desktop/laptop directory geometry, and mobile containment were verified in the in-app browser.
+- Scope: no Supabase query, schema, Edge Function, LeadDossierSheet, verification, CAPI, phone, CRM, OTP, scanner, or contractor-routing file changed.
+
+### Findings
+
+No actionable P0, P1, or P2 visual, responsive, interaction, or scope findings remain.
+
+final result: passed
+
 ## Admin Lead Inbox + Verdict Dossier reconciliation (2026-09-04)
 
 - Approved Lead Inbox reference: `C:\Users\Dell\Desktop\Screenshots\the lead inbox went back to white.png` (1643 × 1183).
@@ -243,5 +284,44 @@ final result: passed
 ## Findings
 
 No actionable P0, P1, or P2 findings remain.
+
+final result: passed
+
+## Admin operations shell redesign — Prompt 3 Slice 10 (2026-09-05)
+
+- Implementation routes: `http://localhost:5173/admin/leads`, `/admin/command-center`, `/admin/pipeline`, `/admin/health`.
+- Tested state: local DEV, existing `AdminAuthGate` short-circuit, live `fetch_leads` Inbox.
+- Historical Lead Inbox and Truth Report sections above are unchanged. This section is append-only evidence for the unified admin shell, five-primary navigation, dark Inbox directory, URL filters, hybrid lead detail, and quote viewer.
+
+### Viewport matrix
+
+| Width | Header mode | Primaries | More / drawer | Document overflow | Notes |
+|---|---|---|---|---|---|
+| 1674 / 1366 / 1280 | Desktop command bar + `h1` | Exactly five: Lead Inbox, Command Center, Pipeline, Routing, Needs Review | More visible; hamburger not visible | None on Inbox | Logo → `/admin/leads`. One local Search leads field. |
+| 1024 / 768 | Same command bar; hamburger visible | Desktop primaries hidden | Drawer (`data-testid="admin-mobile-drawer"`) | None | Filters toggle present. |
+| 390 (measured `innerWidth` 431 / `clientWidth` 390) | Hamburger + stacked rail | Drawer destinations | Drawer opened via control; Escape closed and restored focus to Open admin navigation | Toast `ol.w-full` can exceed `clientWidth` by ~41px | Not Inbox card overflow. Historical Inbox note about a horizontally scrollable 12-link nav no longer applies. |
+
+More contents verified at desktop: Contractors, Attribution, OTP Ops, Evidence, Partners, Settings, Health, Meta Intake Lab. Drawer contents verified at 390: the five primaries plus those eight utilities. No Ghosts / Outcomes / Dialer / labs in More.
+
+### Surface checks
+
+- Command Center: one `h1` “Command Center”; local panel select labeled “Command Center panels” begins on Overview (`mission-control`).
+- Pipeline: one `h1` “Pipeline”; admin logo still `/admin/leads`.
+- Health: standalone page, no Admin sections nav, no shell sign-out chrome; “Back to Lead Inbox” → `/admin/leads`. DEV cannot prove production `AdminAuthGate` redirect; route wrap is covered by tests.
+- Inbox loading uses four `wm-lead-card` skeletons (`aria-label="Loading leads"`, `aria-busy`) so rail/directory geometry stays visible. Pulse is `motion-safe`; refresh spinner is `motion-reduce:animate-none`.
+- Blocking Inbox errors keep inline Retry. Empty filtered results keep Clear all. Quote no-file / retry remain explicit. Edit Workflow and More Lead Context stay inline on the card.
+
+### Accessibility
+
+- Sampled Inbox contrast (2026-09-05): `h1` 16.59:1, search 17.4:1, primary Refresh 6.87:1, lead name 17.44:1, fact labels 15.84:1 — all above WCAG AA for the sampled pairs.
+- After a scoped CSS height override, Sign out, hamburger, Filters, and Refresh measure 44px tall. Status meaning remains labeled in text, not color alone.
+- Keyboard: drawer Escape restores the hamburger. List-launched lead Escape / Close restores the launching “View details” control (Slice 8). Quote viewer Escape restores “View uploaded quote” (Slice 9).
+- Visible focus rings remain on logo, nav, Inbox controls, and quote viewer actions.
+
+### Findings
+
+- P2 / non-blocking: mobile-emulation toast viewport vs `clientWidth` overflow at 390. Not an Inbox directory failure.
+- Later Command Center / Health / Pipeline re-checks ran at ~1102 CSS px because the embedded browser panel stopped honoring 1366 overrides. Inbox 1674–390 matrix was completed earlier in the same session.
+- DEV `AdminAuthGate` short-circuit means Health gating is test-proven, not production-runtime-proven.
 
 final result: passed

@@ -128,10 +128,31 @@ describe("LeadDossierSheet verdict-file presentation", () => {
     );
   });
 
+  it("renders a full-viewport inaccessible recovery state", () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <LeadDossierSheet
+            lead={null}
+            open
+            presentation="full-viewport"
+            onOpenChange={vi.fn()}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    const view = screen.getByTestId("admin-lead-quick-view");
+    expect(view).toHaveAttribute("data-presentation", "full-viewport");
+    expect(screen.getByRole("heading", { name: "Lead unavailable" })).toBeInTheDocument();
+  });
+
   it("preserves permanent workspace and lead identity actions", () => {
     renderDossier();
 
-    expect(screen.getByRole("link", { name: "Open Lead Workspace" }))
+    expect(screen.getByRole("link", { name: "Expand to full lead workspace" }))
       .toHaveAttribute("href", `/admin/leads/${leadId}`);
     expect(screen.getByRole("button", { name: `Copy lead ID ${leadId}` }))
       .toHaveClass("bg-[#18212E]");

@@ -18,6 +18,7 @@
  */
 
 import { useMemo, useState, useCallback } from "react";
+import { useAdminLeadSelection } from "@/hooks/useAdminLeadSelection";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -119,8 +120,6 @@ export function RoutingDesk({ leads }: Props) {
   const [selectedContractor, setSelectedContractor] = useState<Record<string, string>>({});
   const [pendingRow, setPendingRow] = useState<string | null>(null);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
-  const [dossierLead, setDossierLead] = useState<CRMLead | null>(null);
-  const [dossierOpen, setDossierOpen] = useState(false);
   const [marketFilter, setMarketFilter] = useState<string>("all");
 
   const oppsQuery = useQuery({
@@ -151,6 +150,13 @@ export function RoutingDesk({ leads }: Props) {
 
   const isLoading = oppsQuery.isLoading || routesQuery.isLoading || contractorsQuery.isLoading;
   const error = oppsQuery.error || routesQuery.error || contractorsQuery.error;
+  const {
+    selectedLead: dossierLead,
+    isOpen: dossierOpen,
+    presentation,
+    openLead,
+    closeLead,
+  } = useAdminLeadSelection(leads, { isReady: !isLoading });
 
   // Map client_slug → resolver row. Falls back gracefully when missing.
   const resolutionBySlug = useMemo(() => {
@@ -324,13 +330,9 @@ export function RoutingDesk({ leads }: Props) {
     }
   }, [leads]);
 
-  const openDossier = useCallback((leadId: string) => {
-    const lead = leads.find((l) => l.id === leadId);
-    if (lead) {
-      setDossierLead(lead);
-      setDossierOpen(true);
-    }
-  }, [leads]);
+  const openDossier = useCallback((leadId: string, launcher?: HTMLElement | null) => {
+    openLead(leadId, launcher);
+  }, [openLead]);
 
   // ── Loading / error ────────────────────────────────────────────────────
   if (isLoading) {
@@ -637,7 +639,7 @@ export function RoutingDesk({ leads }: Props) {
                           size="sm"
                           variant="ghost"
                           className="h-8 gap-1.5 text-xs"
-                          onClick={() => openDossier(row.opportunity.lead_id)}
+                          onClick={(event) => openDossier(row.opportunity.lead_id, event.currentTarget)}
                         >
                           <FileText className="h-3 w-3" />
                           Dossier
@@ -690,7 +692,7 @@ export function RoutingDesk({ leads }: Props) {
                     size="sm"
                     variant="ghost"
                     className="h-8 gap-1.5 text-xs"
-                    onClick={() => openDossier(lc.id)}
+                    onClick={(event) => openDossier(lc.id, event.currentTarget)}
                   >
                     <FileText className="h-3 w-3" />
                     Dossier
@@ -717,7 +719,14 @@ export function RoutingDesk({ leads }: Props) {
       </Tabs>
 
       {/* Dossier sheet */}
-      <LeadDossierSheet lead={dossierLead} open={dossierOpen} onOpenChange={setDossierOpen} />
+      <LeadDossierSheet
+        lead={dossierLead}
+        open={dossierOpen}
+        presentation={presentation}
+        onOpenChange={(open) => {
+          if (!open) closeLead();
+        }}
+      />
     </div>
   );
 }

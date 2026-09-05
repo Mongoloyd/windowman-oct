@@ -147,7 +147,10 @@ export default function AdminLeadDossierPage() {
       nav={<AdminGlobalNav variant="lead-dossier" />}
       variant="lead-dossier"
     >
-      <div className="mb-5 flex flex-col gap-3 rounded-xl border border-slate-300 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+      <div
+        className="mb-5 flex flex-col gap-3 rounded-xl border border-slate-300 bg-white p-3 sm:flex-row sm:items-center sm:justify-between"
+        data-testid="admin-lead-dossier-page"
+      >
         <LeadIdentity leadId={lead.id} full className="text-xs font-semibold text-slate-700" />
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline" size="sm">

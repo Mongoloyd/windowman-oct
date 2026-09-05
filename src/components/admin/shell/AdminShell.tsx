@@ -1,11 +1,11 @@
 /**
- * AdminShell — Shared chrome for every /admin/* page.
+ * AdminShell — Shared chrome for every authenticated /admin/* page.
  *
- * Provides:
- * - sticky top header with eyebrow + display title + subtitle
- * - identity bar (email, role, sign out) on the right
- * - optional back-link slot
- * - consistent max-width content container
+ * Target composition:
+ *   authenticated command bar (logo, navigation slot, account)
+ *   route-aware page header (title, subtitle, contextual actions)
+ *   optional local navigation (`belowHeader`)
+ *   main content
  *
  * Pages compose: <AdminShell title="…" subtitle="…">{content}</AdminShell>
  */
@@ -24,11 +24,17 @@ interface AdminShellProps {
   backLabel?: string;
   /**
    * Optional persistent global navigation (e.g. <AdminGlobalNav />), rendered
-   * directly below the header/identity row and above `belowHeader`. When
-   * undefined, the header layout is unchanged.
+   * in the authenticated command bar. When undefined, the nav slot is empty.
    */
   nav?: ReactNode;
-  /** Optional element rendered between header and content (tabs, filters, …). */
+  /**
+   * @deprecated Inbox-only command-bar search slot. The unified shell ignores
+   * this prop so later Inbox integration can remove the duplicate search.
+   */
+  leadInboxHeaderTools?: ReactNode;
+  /** Contextual actions in the route-aware page header. */
+  headerActions?: ReactNode;
+  /** Optional element rendered between page header and content (local nav). */
   belowHeader?: ReactNode;
   /** Whether the content area gets the standard max-width container.  */
   fullBleed?: boolean;
@@ -37,6 +43,9 @@ interface AdminShellProps {
   children: ReactNode;
 }
 
+const CHROME_FOCUS_CLASSES =
+  "rounded focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 focus-visible:ring-offset-2";
+
 export function AdminShell({
   eyebrow = "Admin",
   title,
@@ -44,13 +53,15 @@ export function AdminShell({
   backTo,
   backLabel = "Back to dashboard",
   nav,
+  leadInboxHeaderTools: _ignoredInboxHeaderTools,
+  headerActions,
   belowHeader,
   fullBleed = false,
   variant = "default",
   children,
 }: AdminShellProps) {
+  void _ignoredInboxHeaderTools;
   const isLeadDossier = variant === "lead-dossier";
-  const isLeadInbox = variant === "lead-inbox";
 
   return (
     <div
@@ -58,82 +69,68 @@ export function AdminShell({
         isLeadDossier ? "wm-lead-dossier" : ""
       }`}
     >
-      <header
-        className={`wm-admin-chrome sticky top-0 z-30 border-b shadow-sm backdrop-blur ${
-          isLeadInbox ? "wm-admin-inbox-chrome" : ""
-        }`}
-      >
+      <header className="wm-admin-chrome sticky top-0 z-30 border-b shadow-sm backdrop-blur">
         <div
           className={
-            isLeadInbox
-              ? "w-full px-4 py-2 sm:px-6 lg:px-8"
-              : isLeadDossier
-                ? "w-full px-4 py-3 sm:px-6 lg:px-8 xl:px-10 2xl:px-12"
-                : "w-full px-4 py-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12"
+            isLeadDossier
+              ? "w-full px-4 py-3 sm:px-6 lg:px-8 xl:px-10 2xl:px-12"
+              : "w-full px-4 py-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12"
           }
         >
-          {isLeadInbox ? (
-            <div className="flex min-w-0 items-center gap-4">
-              <BrandLogo
-                to="/"
-                useRouterLink
-                size="md"
-                ariaLabel="WindowMan home"
-                className="shrink-0"
-                wordmarkClassName="text-white"
-              />
-              {nav ? <div className="min-w-0 flex-1">{nav}</div> : null}
-              <div className="shrink-0">
-                <AdminIdentityBar />
-              </div>
+          <div className="flex min-w-0 items-center gap-4">
+            <BrandLogo
+              to="/admin/leads"
+              useRouterLink
+              size="md"
+              ariaLabel="WindowMan Lead Inbox"
+              className={`shrink-0 ${CHROME_FOCUS_CLASSES}`}
+              wordmarkClassName="text-white"
+            />
+            {nav ? <div className="min-w-0 flex-1">{nav}</div> : null}
+            <div className="shrink-0">
+              <AdminIdentityBar />
             </div>
-          ) : (
-            <>
-              <div
+          </div>
+
+          <div
+            className={
+              isLeadDossier
+                ? "mt-3 flex flex-col gap-2 md:flex-row md:items-end md:justify-between"
+                : "mt-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between"
+            }
+          >
+            <div className="min-w-0">
+              {backTo && (
+                <Link
+                  to={backTo}
+                  className={`mb-2 inline-flex min-h-10 items-center gap-1.5 text-sm font-bold text-slate-300 transition-colors hover:text-white ${CHROME_FOCUS_CLASSES}`}
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  {backLabel}
+                </Link>
+              )}
+              <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-blue-300">
+                {eyebrow}
+              </p>
+              <h1
                 className={
                   isLeadDossier
-                    ? "flex flex-col gap-2 md:flex-row md:items-end md:justify-between"
-                    : "flex flex-col gap-3 md:flex-row md:items-end md:justify-between"
+                    ? "mt-0.5 font-display text-3xl font-extrabold leading-tight tracking-tight text-white md:text-4xl"
+                    : "mt-0.5 font-display text-3xl md:text-4xl font-black leading-tight tracking-tight text-white"
                 }
               >
-                <div className="min-w-0">
-                  {backTo && (
-                    <Link
-                      to={backTo}
-                      className="mb-2 inline-flex min-h-10 items-center gap-1.5 rounded text-sm font-bold text-slate-300 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 focus-visible:ring-offset-2"
-                    >
-                      <ArrowLeft className="h-3.5 w-3.5" />
-                      {backLabel}
-                    </Link>
-                  )}
-                  <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-blue-300">
-                    {eyebrow}
-                  </p>
-                  <h1
-                    className={
-                      isLeadDossier
-                        ? "mt-0.5 font-display text-3xl font-extrabold leading-tight tracking-tight text-white md:text-4xl"
-                        : "mt-0.5 font-display text-3xl md:text-4xl font-black leading-tight tracking-tight text-white"
-                    }
-                  >
-                    {title}
-                  </h1>
-                  {subtitle && (
-                    <p className="mt-0.5 text-base font-bold text-slate-300">
-                      {subtitle}
-                    </p>
-                  )}
-                </div>
-                <div className="shrink-0">
-                  <AdminIdentityBar />
-                </div>
-              </div>
-              {nav && (
-                <div className={isLeadDossier ? "mt-3" : "mt-4"}>{nav}</div>
+                {title}
+              </h1>
+              {subtitle && (
+                <p className="mt-0.5 text-base font-bold text-slate-300">
+                  {subtitle}
+                </p>
               )}
-              {belowHeader && <div className="mt-4">{belowHeader}</div>}
-            </>
-          )}
+            </div>
+            {headerActions ? <div className="shrink-0">{headerActions}</div> : null}
+          </div>
+
+          {belowHeader && <div className="mt-4">{belowHeader}</div>}
         </div>
       </header>
 
