@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { AdminShell } from "@/components/admin/shell/AdminShell";
-import { AdminPrimaryTabs } from "@/components/admin/shell/AdminPrimaryTabs";
+import { AdminGlobalNav } from "@/components/admin/shell/AdminGlobalNav";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -427,7 +427,7 @@ function AdminPartnersContent() {
       eyebrow="Admin · Client Tracking"
       title="Client / Pixel Manager"
       subtitle={`${clients.length} client configs · secret-safe control plane`}
-      belowHeader={<AdminPrimaryTabs />}
+      nav={<AdminGlobalNav />}
     >
       <div className="space-y-6">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">

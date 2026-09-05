@@ -1,12 +1,13 @@
 // ============= Admin deployment health check =============
 // Pings required admin routes against the current origin and reports
 // whether the deployed bundle responds (HTTP 200 + valid HTML shell).
-// Public route by design — no secrets, no data, just route reachability.
+// Standalone authenticated utility — gated by AdminAuthGate, not AdminShell.
 
 import { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, XCircle, Loader2, RefreshCw, AlertTriangle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, XCircle, Loader2, RefreshCw, AlertTriangle } from "lucide-react";
 
 type CheckStatus = "pending" | "pass" | "fail";
 
@@ -107,6 +108,13 @@ export default function AdminHealth() {
 
       <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:py-14">
         <header className="mb-8">
+          <Link
+            to="/admin/leads"
+            className="mb-3 inline-flex min-h-11 items-center gap-1.5 rounded text-sm font-bold text-slate-700 transition-colors hover:text-slate-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 focus-visible:ring-offset-2"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+            Back to Lead Inbox
+          </Link>
           <h1 className="text-3xl font-semibold tracking-tight text-foreground">
             Deployment Health Check
           </h1>

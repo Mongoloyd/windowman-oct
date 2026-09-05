@@ -11,7 +11,7 @@ import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   Loader2, AlertCircle, Mail, Phone, MapPin, Hash, DollarSign,
-  CheckCircle2, ExternalLink, FileText, Flag, ArrowLeft, GitBranch,
+  CheckCircle2, ExternalLink, FileText, Flag,
 } from "lucide-react";
 import { format } from "date-fns";
 import { AdminShell } from "@/components/admin/shell/AdminShell";
@@ -45,6 +45,9 @@ interface DossierLeadContext {
   diagnosis_intake?: HumanContextProps["diagnosisIntake"];
   latest_route?: HumanContextProps["latestRoute"];
 }
+
+const DOSSIER_EYEBROW = "Operator · Lead Workspace";
+const DOSSIER_BACK_LABEL = "Back to Lead Inbox";
 
 function gradeColor(grade: string | null): string {
   switch (grade) {
@@ -93,7 +96,13 @@ export default function AdminLeadDossierPage() {
 
   if (!leadIdValid) {
     return (
-      <AdminShell title="Invalid lead ID" backTo="/admin/leads" backLabel="Back to inbox" nav={<AdminGlobalNav />}>
+      <AdminShell
+        eyebrow={DOSSIER_EYEBROW}
+        title="Invalid lead ID"
+        backTo="/admin/leads"
+        backLabel={DOSSIER_BACK_LABEL}
+        nav={<AdminGlobalNav />}
+      >
         <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           <AlertCircle className="h-5 w-5 mt-0.5 shrink-0" />
           <div>
@@ -110,7 +119,13 @@ export default function AdminLeadDossierPage() {
 
   if (isLoading) {
     return (
-      <AdminShell title="Loading lead…" backTo="/admin/leads" backLabel="Back to inbox" nav={<AdminGlobalNav />}>
+      <AdminShell
+        eyebrow={DOSSIER_EYEBROW}
+        title="Loading lead…"
+        backTo="/admin/leads"
+        backLabel={DOSSIER_BACK_LABEL}
+        nav={<AdminGlobalNav />}
+      >
         <div className="flex items-center justify-center py-20">
           <Loader2 className="wm-on-canvas-text h-6 w-6 animate-spin" />
         </div>
@@ -120,7 +135,13 @@ export default function AdminLeadDossierPage() {
 
   if (isError || !lead) {
     return (
-      <AdminShell title="Couldn't load lead" backTo="/admin/leads" backLabel="Back to inbox" nav={<AdminGlobalNav />}>
+      <AdminShell
+        eyebrow={DOSSIER_EYEBROW}
+        title="Couldn't load lead"
+        backTo="/admin/leads"
+        backLabel={DOSSIER_BACK_LABEL}
+        nav={<AdminGlobalNav />}
+      >
         <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           <AlertCircle className="h-5 w-5 mt-0.5 shrink-0" />
           <div>
@@ -136,33 +157,28 @@ export default function AdminLeadDossierPage() {
   const name = [lead.first_name, lead.last_name].filter(Boolean).join(" ") || "Unknown";
   const flags: DossierAnalysisFlag[] = Array.isArray(analysis?.flags) ? analysis.flags : [];
   const leadContext = lead as DossierLeadContext;
+  const evidenceInspectorHref = `/admin/lead-evidence?lead_id=${encodeURIComponent(leadId!)}`;
+  const evidenceInspectorLink = (
+    <Button asChild variant="outline" size="sm">
+      <Link to={evidenceInspectorHref}>Open Evidence Inspector</Link>
+    </Button>
+  );
 
   return (
     <AdminShell
-      eyebrow="Operator · Lead Workspace"
+      eyebrow={DOSSIER_EYEBROW}
       title={name}
       subtitle={`Created ${format(new Date(lead.created_at), "MMM d, yyyy h:mm a")}`}
       backTo="/admin/leads"
-      backLabel="Back to inbox"
+      backLabel={DOSSIER_BACK_LABEL}
       nav={<AdminGlobalNav variant="lead-dossier" />}
       variant="lead-dossier"
     >
-      <div className="mb-5 flex flex-col gap-3 rounded-xl border border-slate-300 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+      <div
+        className="mb-5 flex flex-col gap-3 rounded-xl border border-slate-300 bg-white p-3 sm:flex-row sm:items-center sm:justify-between"
+        data-testid="admin-lead-dossier-page"
+      >
         <LeadIdentity leadId={lead.id} full className="text-xs font-semibold text-slate-700" />
-        <div className="flex flex-wrap gap-2">
-          <Button asChild variant="outline" size="sm">
-            <Link to="/admin/leads" className="inline-flex items-center gap-1.5">
-              <ArrowLeft className="h-3.5 w-3.5" />
-              Lead Inbox
-            </Link>
-          </Button>
-          <Button asChild variant="outline" size="sm">
-            <Link to={`/admin/pipeline?lead_id=${lead.id}`} className="inline-flex items-center gap-1.5">
-              <GitBranch className="h-3.5 w-3.5" />
-              Open in Pipeline
-            </Link>
-          </Button>
-        </div>
       </div>
 
       <div className="wm-lead-dossier-grid">
@@ -224,7 +240,10 @@ export default function AdminLeadDossierPage() {
               </div>
             </header>
             {!lead.latest_analysis_id ? (
-              <p className="text-sm text-slate-700 italic">No analysis yet for this lead.</p>
+              <div className="space-y-3">
+                <p className="text-sm text-slate-700 italic">No analysis yet for this lead.</p>
+                {evidenceInspectorLink}
+              </div>
             ) : (
               <div className="space-y-3">
                 <div className="wm-lead-dossier-metrics">
@@ -275,8 +294,9 @@ export default function AdminLeadDossierPage() {
                       className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-blue-300 bg-blue-50 px-3 py-1 text-sm font-extrabold text-blue-800 shadow-sm hover:text-blue-950 hover:underline focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
                     >
                       <FileText className="h-3.5 w-3.5" />
-                      Open Truth Report
+                      View analysis evidence
                     </Link>
+                    {evidenceInspectorLink}
                     {isValidScanSessionId(lead.latest_scan_session_id) ? (
                       <Link
                         to={`/report/classic/${lead.latest_scan_session_id}`}

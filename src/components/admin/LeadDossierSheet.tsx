@@ -119,11 +119,17 @@ interface LeadDossierSheetProps {
   lead: CRMLead | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  presentation?: "sheet" | "full-viewport";
 }
 
 /* ── Component ────────────────────────────────────────────────────────── */
 
-export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetProps) {
+export function LeadDossierSheet({
+  lead,
+  open,
+  onOpenChange,
+  presentation = "sheet",
+}: LeadDossierSheetProps) {
   const [analysis, setAnalysis] = useState<LeadAnalysisData | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [analysisError, setAnalysisError] = useState(false);
@@ -228,7 +234,38 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
     staleTime: 60_000,
   });
 
-  if (!lead) return null;
+  const presentationClassName =
+    presentation === "full-viewport"
+      ? "inset-0 h-[100dvh] max-h-[100dvh] w-screen max-w-none border-0 sm:max-w-none"
+      : "sm:max-w-[min(760px,58vw)]";
+
+  if (!lead) {
+    if (!open) return null;
+    return (
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent
+          side={presentation === "full-viewport" ? "bottom" : "right"}
+          className={`wm-verdict-dossier wm-slim-scrollbar w-full overflow-y-auto border-[#26303D] bg-[#0A0E14] p-5 text-[#E6EDF3] ${presentationClassName}`}
+          data-testid="admin-lead-quick-view"
+          data-presentation={presentation}
+        >
+          <SheetHeader className="text-left">
+            <SheetTitle className="text-[#E6EDF3]">Lead unavailable</SheetTitle>
+            <SheetDescription className="text-[#9AA7B8]">
+              This lead is not available in the current collection.
+            </SheetDescription>
+          </SheetHeader>
+          <Button
+            type="button"
+            className="mt-4 min-h-11"
+            onClick={() => onOpenChange(false)}
+          >
+            Close
+          </Button>
+        </SheetContent>
+      </Sheet>
+    );
+  }
 
   const name = [lead.first_name, lead.last_name].filter(Boolean).join(" ") || "Unknown";
   const alreadySent = !!lead.latest_opportunity_id || localSentToContractor;
@@ -312,8 +349,10 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
-        side="right"
-        className="wm-verdict-dossier wm-slim-scrollbar w-full overflow-y-auto border-[#26303D] bg-[#0A0E14] p-0 text-[#E6EDF3] sm:max-w-[min(760px,58vw)]"
+        side={presentation === "full-viewport" ? "bottom" : "right"}
+        className={`wm-verdict-dossier wm-slim-scrollbar w-full overflow-y-auto border-[#26303D] bg-[#0A0E14] p-0 text-[#E6EDF3] ${presentationClassName}`}
+        data-testid="admin-lead-quick-view"
+        data-presentation={presentation}
       >
         <SheetHeader className="wm-verdict-dossier__cover sticky top-0 z-20 space-y-0 px-5 pb-4 pt-5 pr-14 text-left sm:px-6 sm:pr-14">
           <p className="wm-verdict-dossier__classification">Confidential · Lead verdict file</p>
@@ -343,9 +382,9 @@ export function LeadDossierSheet({ lead, open, onOpenChange }: LeadDossierSheetP
               size="sm"
               className="h-11 gap-1.5 border-[#35506a] bg-[#18212E] text-xs text-[#E6EDF3] hover:border-[#7DE3FF] hover:bg-[#203047] hover:text-white"
             >
-              <Link to={`/admin/leads/${lead.id}`}>
+              <Link to={`/admin/leads/${lead.id}`} aria-label="Expand to full lead workspace">
                 <ExternalLink className="h-3.5 w-3.5" />
-                Open Lead Workspace
+                Expand
               </Link>
             </Button>
             {alreadySent ? (

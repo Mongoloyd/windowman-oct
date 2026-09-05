@@ -12,7 +12,7 @@
  * touches storage or signed URLs directly.
  */
 
-import { useState, type MouseEvent } from "react";
+import { useRef, useState, type MouseEvent } from "react";
 import { Button, type ButtonProps } from "@/components/ui/button";
 import { FileImage } from "lucide-react";
 import { QuoteViewerModal } from "@/components/admin/QuoteViewerModal";
@@ -33,16 +33,20 @@ export function QuoteViewerButton({
   className,
 }: QuoteViewerButtonProps) {
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   const handleClick = (e: MouseEvent<HTMLButtonElement>) => {
     // Guard against parent row/card navigation handlers.
     e.stopPropagation();
+    setMounted(true);
     setOpen(true);
   };
 
   return (
     <>
       <Button
+        ref={triggerRef}
         type="button"
         variant={variant}
         size={size}
@@ -53,10 +57,18 @@ export function QuoteViewerButton({
         <FileImage className="mr-1.5 h-3.5 w-3.5" />
         {label}
       </Button>
-      {/* Mounted only once opened so the lazy fetch never fires for every row. */}
-      {open && (
-        <QuoteViewerModal leadId={leadId} open={open} onOpenChange={setOpen} />
-      )}
+      {mounted ? (
+        <QuoteViewerModal
+          leadId={leadId}
+          open={open}
+          onOpenChange={(next) => {
+            setOpen(next);
+            if (!next) {
+              window.setTimeout(() => triggerRef.current?.focus(), 0);
+            }
+          }}
+        />
+      ) : null}
     </>
   );
 }

@@ -15,33 +15,54 @@ describe("lead dossier shell variants", () => {
         <AdminShell title="Default">Content</AdminShell>
       </MemoryRouter>,
     );
-    expect(screen.getByText("Content").closest(".wm-admin-canvas")).not.toHaveClass("wm-lead-dossier");
+    expect(
+      screen.getByText("Content").closest(".wm-admin-canvas"),
+    ).not.toHaveClass("wm-lead-dossier");
 
     rerender(
       <MemoryRouter>
-        <AdminShell title="Dossier" variant="lead-dossier">Content</AdminShell>
+        <AdminShell title="Dossier" variant="lead-dossier">
+          Content
+        </AdminShell>
       </MemoryRouter>,
     );
-    expect(screen.getByText("Content").closest(".wm-admin-canvas")).toHaveClass("wm-lead-dossier");
+    expect(screen.getByText("Content").closest(".wm-admin-canvas")).toHaveClass(
+      "wm-lead-dossier",
+    );
   });
 
-  it("keeps default navigation geometry and applies compact geometry only by opt-in", () => {
+  it("keeps the unified five-primary navigation for default and dossier variants", () => {
     const { rerender } = render(
       <MemoryRouter initialEntries={["/admin/leads"]}>
         <AdminGlobalNav />
       </MemoryRouter>,
     );
-    const defaultStrip = screen.getByRole("navigation").firstElementChild;
-    expect(defaultStrip).toHaveClass("rounded-2xl", "p-2");
-    expect(defaultStrip).not.toHaveClass("rounded-xl", "p-1.5");
+    expect(screen.getByTestId("admin-desktop-nav").className).not.toMatch(/overflow-x-auto/);
+    expect(screen.getByRole("button", { name: /More admin destinations/i })).toBeInTheDocument();
 
     rerender(
       <MemoryRouter initialEntries={["/admin/leads"]}>
         <AdminGlobalNav variant="lead-dossier" />
       </MemoryRouter>,
     );
-    const dossierStrip = screen.getByRole("navigation").firstElementChild;
-    expect(dossierStrip).toHaveClass("rounded-xl", "p-1.5");
-    expect(dossierStrip).not.toHaveClass("rounded-2xl", "p-2");
+    expect(screen.getByTestId("admin-desktop-nav").className).not.toMatch(/overflow-x-auto/);
+    expect(screen.getByRole("button", { name: /More admin destinations/i })).toBeInTheDocument();
+  });
+
+  it("renders dossier page content inside the shared shell title and main", () => {
+    render(
+      <MemoryRouter>
+        <AdminShell title="Dossier" variant="lead-dossier">
+          Dossier body
+        </AdminShell>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Dossier");
+    expect(screen.getByRole("main")).toHaveTextContent("Dossier body");
+    expect(screen.getByRole("link", { name: "WindowMan Lead Inbox" })).toHaveAttribute(
+      "href",
+      "/admin/leads",
+    );
   });
 });

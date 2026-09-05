@@ -1,12 +1,32 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter, RouterProvider, createMemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { ActivePipeline } from "@/components/admin/ActivePipeline";
 import type { CRMLead } from "@/components/admin/types";
 
 vi.mock("@/components/admin/LeadDossierSheet", () => ({
-  LeadDossierSheet: ({ lead, open }: { lead: CRMLead | null; open: boolean }) =>
-    open && lead ? <div data-testid="pipeline-dossier">{lead.id}</div> : null,
+  LeadDossierSheet: ({
+    lead,
+    open,
+    presentation,
+    onOpenChange,
+  }: {
+    lead: CRMLead | null;
+    open: boolean;
+    presentation?: string;
+    onOpenChange: (open: boolean) => void;
+  }) =>
+    open ? (
+      <div
+        data-testid="pipeline-dossier"
+        data-presentation={presentation}
+      >
+        {lead?.id ?? "unavailable"}
+        <button type="button" onClick={() => onOpenChange(false)}>
+          Close lead detail
+        </button>
+      </div>
+    ) : null,
 }));
 
 function lead(overrides: Partial<CRMLead>): CRMLead {
@@ -118,5 +138,50 @@ describe("ActivePipeline lead search and links", () => {
     renderPipeline("/admin/pipeline?lead_id=0621be04-8984-4087-8cec-324e0efd25d4");
     expect(screen.getByTestId("pipeline-dossier"))
       .toHaveTextContent("0621be04-8984-4087-8cec-324e0efd25d4");
+  });
+
+  it("pushes one lead_id entry from a row click and restores filters on close", async () => {
+    const router = createMemoryRouter(
+      [{ path: "/admin/pipeline", element: <ActivePipeline leads={leads} /> }],
+      { initialEntries: ["/admin/pipeline?utm_source=google"] },
+    );
+    render(<RouterProvider router={router} />);
+    fireEvent.click(screen.getByText("Jane Doe"));
+    expect(screen.getByTestId("pipeline-dossier")).toHaveTextContent(
+      "0621be04-8984-4087-8cec-324e0efd25d4",
+    );
+    expect(router.state.location.search).toContain("lead_id=0621be04-8984-4087-8cec-324e0efd25d4");
+    expect(router.state.location.search).toContain("utm_source=google");
+    expect(router.state.historyAction).toBe("PUSH");
+    fireEvent.click(screen.getByRole("button", { name: "Close lead detail" }));
+    await waitFor(() => {
+      expect(screen.queryByTestId("pipeline-dossier")).not.toBeInTheDocument();
+    });
+    expect(router.state.location.search).toContain("utm_source=google");
+    expect(router.state.location.search).not.toContain("lead_id=");
+  });
+
+  it("replaces only lead_id when closing a direct query selection", async () => {
+    const router = createMemoryRouter(
+      [{ path: "/admin/pipeline", element: <ActivePipeline leads={leads} /> }],
+      {
+        initialEntries: [
+          "/other",
+          "/admin/pipeline?utm_source=google&lead_id=0621be04-8984-4087-8cec-324e0efd25d4",
+        ],
+        initialIndex: 1,
+      },
+    );
+    render(<RouterProvider router={router} />);
+    expect(screen.getByTestId("pipeline-dossier")).toHaveTextContent(
+      "0621be04-8984-4087-8cec-324e0efd25d4",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Close lead detail" }));
+    await waitFor(() => {
+      expect(screen.queryByTestId("pipeline-dossier")).not.toBeInTheDocument();
+    });
+    expect(router.state.location.search).toContain("utm_source=google");
+    expect(router.state.location.search).not.toContain("lead_id=");
+    expect(router.state.location.pathname).toBe("/admin/pipeline");
   });
 });

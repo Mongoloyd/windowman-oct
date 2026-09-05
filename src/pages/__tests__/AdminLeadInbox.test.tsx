@@ -27,7 +27,16 @@ vi.mock("react-router-dom", async () => {
     await vi.importActual<typeof import("react-router-dom")>(
       "react-router-dom",
     );
-  return { ...actual, useNavigate: () => navigateSpy };
+  return {
+    ...actual,
+    useNavigate: () => {
+      const navigate = actual.useNavigate();
+      return (to: Parameters<typeof navigate>[0], options?: Parameters<typeof navigate>[1]) => {
+        navigateSpy(to, options);
+        return navigate(to, options);
+      };
+    },
+  };
 });
 
 vi.mock("@/services/adminDataService", () => ({
@@ -40,13 +49,18 @@ vi.mock("@/services/adminDataService", () => ({
 vi.mock("@/components/admin/shell/AdminShell", () => ({
   AdminShell: ({
     children,
+    title,
     belowHeader,
   }: {
     children: ReactNode;
+    title?: string;
     belowHeader?: ReactNode;
   }) => (
     <div data-testid="admin-shell">
-      <header data-testid="shell-header">{belowHeader}</header>
+      <header data-testid="shell-header">
+        {title ? <h1>{title}</h1> : null}
+        {belowHeader}
+      </header>
       <main>{children}</main>
     </div>
   ),
@@ -54,6 +68,34 @@ vi.mock("@/components/admin/shell/AdminShell", () => ({
 
 vi.mock("@/components/admin/shell/AdminGlobalNav", () => ({
   AdminGlobalNav: () => <nav aria-label="Admin navigation" />,
+}));
+
+vi.mock("@/components/admin/LeadDossierSheet", () => ({
+  LeadDossierSheet: ({
+    lead,
+    open,
+    presentation,
+    onOpenChange,
+  }: {
+    lead: { id: string } | null;
+    open: boolean;
+    presentation?: string;
+    onOpenChange: (open: boolean) => void;
+  }) =>
+    open ? (
+      <div
+        role="dialog"
+        data-testid="admin-lead-quick-view"
+        data-presentation={presentation}
+        aria-label={lead ? `Lead detail ${lead.id}` : "Lead unavailable"}
+      >
+        <h2>{lead ? lead.id : "Lead unavailable"}</h2>
+        <button type="button" onClick={() => onOpenChange(false)}>
+          Close lead detail
+        </button>
+        {lead ? <a href={`/admin/leads/${lead.id}`}>Expand</a> : null}
+      </div>
+    ) : null,
 }));
 
 vi.mock("@/components/admin/QuoteViewerButton", () => ({
@@ -133,13 +175,13 @@ const secondLead = {
   },
 };
 
-function renderInbox() {
+function renderInbox(path = "/admin/leads") {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={["/admin/leads"]}>
+      <MemoryRouter initialEntries={[path]}>
         <AdminLeadInbox />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -160,25 +202,40 @@ describe("AdminLeadInbox", () => {
     });
   });
 
-  it("keeps the operational toolbar out of the sticky shell header", async () => {
+  it("keeps exactly one Inbox search input in local component state", async () => {
     renderInbox();
     await screen.findByRole("list", { name: "Lead results" });
+    const searches = screen.getAllByRole("textbox", { name: "Search leads" });
+    expect(searches).toHaveLength(1);
     expect(
-      within(screen.getByTestId("shell-header")).queryByRole("textbox", {
-        name: "Search leads",
-      }),
+      screen.queryByRole("textbox", { name: "Search leads from command bar" }),
     ).not.toBeInTheDocument();
+    fireEvent.change(searches[0], { target: { value: "Jane" } });
     expect(
-      screen.getByRole("textbox", { name: "Search leads" }),
+      screen.getByRole("link", { name: "View details for Jane Doe" }),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "View details for Alex Rivera" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("labels Jane Doe's Open lead control as View lead, not workspace", async () => {
+    renderInbox();
+    const janeCard = (
+      await screen.findByRole("link", { name: "View details for Jane Doe" })
+    ).closest("article");
+    expect(janeCard).not.toBeNull();
+    expect(within(janeCard!).getByRole("link", { name: "View lead for Jane Doe" })).toBeInTheDocument();
+    expect(
+      within(janeCard!).queryByRole("link", { name: "Open lead workspace for Jane Doe" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View details for Jane Doe" })).toBeInTheDocument();
   });
 
   it("renders the selected command-rail and directory structure", async () => {
     renderInbox();
     await screen.findByRole("list", { name: "Lead results" });
-    expect(
-      screen.getByRole("heading", { name: "Lead Inbox", level: 1 }),
-    ).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: "Lead Inbox", level: 1 })).toHaveLength(1);
     expect(
       screen.getByRole("complementary", { name: "Lead Inbox controls" }),
     ).toBeInTheDocument();
@@ -188,6 +245,9 @@ describe("AdminLeadInbox", () => {
     expect(
       screen.getByRole("button", { name: "Refresh Inbox" }),
     ).toBeInTheDocument();
+    expect(document.querySelector(".wm-lead-inbox__layout")).not.toBeNull();
+    expect(document.querySelector(".wm-lead-card__identity-and-actions")).not.toBeNull();
+    expect(document.querySelector(".wm-lead-card__facts")).not.toBeNull();
   });
 
   it("gives every filter an explicit accessible name", async () => {
@@ -225,7 +285,11 @@ describe("AdminLeadInbox", () => {
     expect(clear).toBeDisabled();
     fireEvent.change(search, { target: { value: "Jane" } });
     expect(clear).toBeEnabled();
-    expect(screen.getByText("1 active filter")).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("region", { name: "Lead directory" })).getByText(
+        "1 active filter",
+      ),
+    ).toBeInTheDocument();
     fireEvent.click(clear);
     expect(search).toHaveValue("");
     expect(clear).toBeDisabled();
@@ -267,7 +331,7 @@ describe("AdminLeadInbox", () => {
     });
     const card = link.closest("article");
     expect(card).not.toBeNull();
-    expect(link).toHaveAttribute("href", "/admin/leads/lead-uuid-001");
+    expect(link.getAttribute("href")).toContain("lead_id=lead-uuid-001");
     link.focus();
     expect(link).toHaveFocus();
     expect(link.closest("tr")).toBeNull();
@@ -384,6 +448,63 @@ describe("AdminLeadInbox", () => {
       expect(card).toHaveClass("wm-lead-card--attention");
     },
   );
+
+  it("opens a list-launched lead on the current collection URL and keeps the list mounted", async () => {
+    renderInbox("/admin/leads?range=7d&utm_source=google");
+    fireEvent.click(
+      await screen.findByRole("link", { name: "View details for Jane Doe" }),
+    );
+    const detail = await screen.findByTestId("admin-lead-quick-view");
+    expect(detail).toHaveTextContent("lead-uuid-001");
+    expect(screen.getByRole("list", { name: "Lead results" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Expand" })).toHaveAttribute(
+      "href",
+      "/admin/leads/lead-uuid-001",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Close lead detail" }));
+    await waitFor(() => {
+      expect(screen.queryByTestId("admin-lead-quick-view")).not.toBeInTheDocument();
+    });
+    expect(navigateSpy).toHaveBeenCalledWith(-1, undefined);
+    expect(screen.getByRole("list", { name: "Lead results" })).toBeInTheDocument();
+  });
+
+  it("closes a direct query lead without pushing a closed history entry", async () => {
+    renderInbox("/admin/leads?range=7d&lead_id=lead-uuid-001");
+    expect(await screen.findByTestId("admin-lead-quick-view")).toHaveTextContent(
+      "lead-uuid-001",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Close lead detail" }));
+    await waitFor(() => {
+      expect(screen.queryByTestId("admin-lead-quick-view")).not.toBeInTheDocument();
+    });
+    expect(navigateSpy).not.toHaveBeenCalledWith(-1, undefined);
+    expect(screen.getByRole("list", { name: "Lead results" })).toBeInTheDocument();
+  });
+
+  it("recovers from an inaccessible selected lead", async () => {
+    renderInbox("/admin/leads?lead_id=missing-lead");
+    expect(await screen.findByTestId("admin-lead-quick-view")).toHaveTextContent(
+      "Lead unavailable",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Close lead detail" }));
+    await waitFor(() => {
+      expect(screen.queryByTestId("admin-lead-quick-view")).not.toBeInTheDocument();
+    });
+  });
+
+  it("preserves directory geometry while leads load", async () => {
+    invokeAdminDataMock.mockImplementation(() => new Promise(() => undefined));
+    renderInbox();
+    expect(
+      await screen.findByRole("list", { name: "Loading leads" }),
+    ).toBeInTheDocument();
+    expect(document.querySelector(".wm-lead-inbox__layout")).not.toBeNull();
+    expect(document.querySelector(".wm-lead-card__facts")).not.toBeNull();
+    expect(
+      screen.getByRole("complementary", { name: "Lead Inbox controls" }),
+    ).toBeInTheDocument();
+  });
 
   it("preserves empty and error lifecycle states", async () => {
     invokeAdminDataMock.mockResolvedValueOnce([]);

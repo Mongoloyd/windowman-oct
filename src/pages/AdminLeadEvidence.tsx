@@ -39,14 +39,13 @@ const sanitizeError = (error: unknown) => {
 const formatDate = (value: string | null | undefined) => value ? new Date(value).toLocaleString() : "—";
 const shortId = (value: string | null | undefined) => value ? `${value.slice(0, 8)}…${value.slice(-4)}` : "—";
 const fullName = (lead: Pick<LeadListRow, "first_name" | "last_name">) => [lead.first_name, lead.last_name].filter(Boolean).join(" ") || "Unnamed lead";
-type InspectorContext = { scanSessionId: string | null; analysisId: string | null; hasUrlContext: boolean };
+type InspectorContext = { scanSessionId: string | null; analysisId: string | null };
 
 export default function AdminLeadEvidence() {
   const [searchParams, setSearchParams] = useSearchParams();
   const urlLeadId = searchParams.get("lead_id");
   const contextScanSessionId = searchParams.get("scan_session_id");
   const contextAnalysisId = searchParams.get("analysis_id");
-  const hasUrlContext = Boolean(urlLeadId || contextScanSessionId || contextAnalysisId);
   const [search, setSearch] = useState("");
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(urlLeadId);
 
@@ -55,18 +54,16 @@ export default function AdminLeadEvidence() {
   }, []);
 
   useEffect(() => {
-    if (!urlLeadId || selectedLeadId === urlLeadId) return;
+    if (selectedLeadId === urlLeadId) return;
     setSelectedLeadId(urlLeadId);
   }, [urlLeadId, selectedLeadId]);
 
-  useEffect(() => {
-    if (!urlLeadId) return;
-    setSearch(contextScanSessionId ?? contextAnalysisId ?? urlLeadId);
-  }, [urlLeadId, contextScanSessionId, contextAnalysisId]);
-
   const handleSelectLead = (id: string) => {
-    if (selectedLeadId !== id) setSelectedLeadId(id);
-    setSearchParams({ lead_id: id });
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set("lead_id", id);
+      return next;
+    });
   };
 
   const leadsQuery = useQuery({
@@ -126,7 +123,7 @@ export default function AdminLeadEvidence() {
       ) : (
         <div className="grid gap-5 xl:grid-cols-[minmax(420px,0.85fr)_minmax(0,1.15fr)]">
           <LeadList leads={filteredLeads} selectedLeadId={selectedLeadId} onSelect={handleSelectLead} />
-          <EvidencePanel leadId={selectedLeadId} query={evidenceQuery} context={{ scanSessionId: contextScanSessionId, analysisId: contextAnalysisId, hasUrlContext }} />
+          <EvidencePanel leadId={selectedLeadId} query={evidenceQuery} context={{ scanSessionId: contextScanSessionId, analysisId: contextAnalysisId }} />
         </div>
       )}
     </AdminShell>
@@ -174,13 +171,31 @@ function EvidencePanel({ leadId, query, context }: { leadId: string | null; quer
   if (!query.data) return <EmptyState title="No evidence returned" message="The selected lead returned no evidence payload." />;
 
   const evidence = query.data;
+  const matchingScan = Boolean(
+    context.scanSessionId &&
+      evidence.scan_sessions.some((session) => session.id === context.scanSessionId),
+  );
+  const matchingAnalysis = Boolean(
+    context.analysisId &&
+      evidence.analyses.some((analysis) => analysis.id === context.analysisId),
+  );
+  const showCommandCenterContext = matchingScan || matchingAnalysis;
+  const scanHighlightId = matchingScan ? context.scanSessionId : null;
+  const analysisHighlightId = matchingAnalysis ? context.analysisId : null;
   return (
     <div className="space-y-5">
-      {context.hasUrlContext && <div className="rounded-lg border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-950">Opened from Command Center context.</div>}
+      {showCommandCenterContext ? (
+        <div
+          data-testid="command-center-context"
+          className="rounded-lg border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-950"
+        >
+          Opened from Command Center context.
+        </div>
+      ) : null}
       <LeadSummary evidence={evidence} />
       <QuoteFiles evidence={evidence} />
-      <ScanSessions evidence={evidence} highlightId={context.scanSessionId} />
-      <Analyses evidence={evidence} highlightId={context.analysisId} />
+      <ScanSessions evidence={evidence} highlightId={scanHighlightId} />
+      <Analyses evidence={evidence} highlightId={analysisHighlightId} />
     </div>
   );
 }
@@ -196,7 +211,7 @@ function LeadSummary({ evidence }: { evidence: LeadEvidenceResponse }) {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline" size="sm"><Link to={`/admin/leads/${lead.id}`}>Lead dossier</Link></Button>
-          {lead.latest_analysis_id && <Button asChild size="sm"><Link to={`/admin/leads/${lead.id}/report`}>Report</Link></Button>}
+          {lead.latest_analysis_id && <Button asChild size="sm"><Link to={`/admin/leads/${lead.id}/report`}>View analysis evidence</Link></Button>}
         </div>
       </div>
       <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
@@ -225,12 +240,12 @@ function QuoteFiles({ evidence }: { evidence: LeadEvidenceResponse }) {
 
 function ScanSessions({ evidence, highlightId }: { evidence: LeadEvidenceResponse; highlightId: string | null }) {
   if (evidence.scan_sessions.length === 0) return <EmptySection title="Scan sessions" message="No scan sessions were found for this lead." />;
-  return <EvidenceTable title="Scan sessions"><TableHeader><TableRow><TableHead>ID</TableHead><TableHead>Lead</TableHead><TableHead>Quote file</TableHead><TableHead>Status</TableHead><TableHead>Created</TableHead><TableHead>Updated</TableHead></TableRow></TableHeader><TableBody>{evidence.scan_sessions.map((session) => <TableRow key={session.id} className={session.id === highlightId ? "bg-primary/10 ring-1 ring-primary/30" : undefined}><TableCell className="font-mono text-xs">{shortId(session.id)}</TableCell><TableCell className="font-mono text-xs">{shortId(session.lead_id)}</TableCell><TableCell className="font-mono text-xs">{shortId(session.quote_file_id)}</TableCell><TableCell>{session.status}</TableCell><TableCell>{formatDate(session.created_at)}</TableCell><TableCell>{formatDate(session.updated_at)}</TableCell></TableRow>)}</TableBody></EvidenceTable>;
+  return <EvidenceTable title="Scan sessions"><TableHeader><TableRow><TableHead>ID</TableHead><TableHead>Lead</TableHead><TableHead>Quote file</TableHead><TableHead>Status</TableHead><TableHead>Created</TableHead><TableHead>Updated</TableHead></TableRow></TableHeader><TableBody>{evidence.scan_sessions.map((session) => <TableRow key={session.id} data-highlighted={session.id === highlightId ? "true" : undefined} className={session.id === highlightId ? "bg-primary/10 ring-1 ring-primary/30" : undefined}><TableCell className="font-mono text-xs">{shortId(session.id)}</TableCell><TableCell className="font-mono text-xs">{shortId(session.lead_id)}</TableCell><TableCell className="font-mono text-xs">{shortId(session.quote_file_id)}</TableCell><TableCell>{session.status}</TableCell><TableCell>{formatDate(session.created_at)}</TableCell><TableCell>{formatDate(session.updated_at)}</TableCell></TableRow>)}</TableBody></EvidenceTable>;
 }
 
 function Analyses({ evidence, highlightId }: { evidence: LeadEvidenceResponse; highlightId: string | null }) {
   if (evidence.analyses.length === 0) return <EmptySection title="Analyses" message="No analyses were found for this lead." />;
-  return <EvidenceTable title="Analyses"><TableHeader><TableRow><TableHead>ID</TableHead><TableHead>Scan</TableHead><TableHead>Grade</TableHead><TableHead>Status</TableHead><TableHead>Confidence</TableHead><TableHead>Document</TableHead><TableHead>Flags</TableHead><TableHead>Safe summaries</TableHead><TableHead>Updated</TableHead></TableRow></TableHeader><TableBody>{evidence.analyses.map((analysis) => <TableRow key={analysis.id} className={analysis.id === highlightId ? "bg-primary/10 ring-1 ring-primary/30" : undefined}><TableCell className="font-mono text-xs">{shortId(analysis.id)}</TableCell><TableCell className="font-mono text-xs">{shortId(analysis.scan_session_id)}</TableCell><TableCell>{analysis.grade ?? "—"}</TableCell><TableCell>{analysis.analysis_status}</TableCell><TableCell>{analysis.confidence_score ?? "—"}</TableCell><TableCell>{analysis.document_type ?? "—"} · {analysis.document_is_window_door_related == null ? "unknown" : analysis.document_is_window_door_related ? "window/door" : "other"} · Δ {analysis.dollar_delta ?? "—"}</TableCell><TableCell>{analysis.flags_summary.count} ({Object.entries(analysis.flags_summary.severities).map(([k, v]) => `${k}:${v}`).join(", ") || "none"})</TableCell><TableCell>Preview {analysis.preview_summary.present ? analysis.preview_summary.top_level_keys.join(", ") || "present" : "absent"}; Proof {analysis.proof_summary.present ? analysis.proof_summary.top_level_keys.join(", ") || "present" : "absent"}</TableCell><TableCell>{formatDate(analysis.updated_at)}</TableCell></TableRow>)}</TableBody></EvidenceTable>;
+  return <EvidenceTable title="Analyses"><TableHeader><TableRow><TableHead>ID</TableHead><TableHead>Scan</TableHead><TableHead>Grade</TableHead><TableHead>Status</TableHead><TableHead>Confidence</TableHead><TableHead>Document</TableHead><TableHead>Flags</TableHead><TableHead>Safe summaries</TableHead><TableHead>Updated</TableHead></TableRow></TableHeader><TableBody>{evidence.analyses.map((analysis) => <TableRow key={analysis.id} data-highlighted={analysis.id === highlightId ? "true" : undefined} className={analysis.id === highlightId ? "bg-primary/10 ring-1 ring-primary/30" : undefined}><TableCell className="font-mono text-xs">{shortId(analysis.id)}</TableCell><TableCell className="font-mono text-xs">{shortId(analysis.scan_session_id)}</TableCell><TableCell>{analysis.grade ?? "—"}</TableCell><TableCell>{analysis.analysis_status}</TableCell><TableCell>{analysis.confidence_score ?? "—"}</TableCell><TableCell>{analysis.document_type ?? "—"} · {analysis.document_is_window_door_related == null ? "unknown" : analysis.document_is_window_door_related ? "window/door" : "other"} · Δ {analysis.dollar_delta ?? "—"}</TableCell><TableCell>{analysis.flags_summary.count} ({Object.entries(analysis.flags_summary.severities).map(([k, v]) => `${k}:${v}`).join(", ") || "none"})</TableCell><TableCell>Preview {analysis.preview_summary.present ? analysis.preview_summary.top_level_keys.join(", ") || "present" : "absent"}; Proof {analysis.proof_summary.present ? analysis.proof_summary.top_level_keys.join(", ") || "present" : "absent"}</TableCell><TableCell>{formatDate(analysis.updated_at)}</TableCell></TableRow>)}</TableBody></EvidenceTable>;
 }
 
 function EvidenceTable({ title, children }: { title: string; children: ReactNode }) {
