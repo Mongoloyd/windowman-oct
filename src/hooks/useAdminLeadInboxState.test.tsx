@@ -33,6 +33,9 @@ function FilterControls({ counties = ["Miami-Dade"] }: { counties?: string[] }) 
       <div data-testid="lead">{state.leadId ?? ""}</div>
       <div data-testid="range">{state.filters.range}</div>
       <div data-testid="priority">{state.filters.priority}</div>
+      <div data-testid="source">{state.filters.source}</div>
+      <div data-testid="shortcut">{state.filters.shortcut}</div>
+      <div data-testid="intake">{state.filters.intake}</div>
       <button type="button" onClick={() => state.setRange("7d")}>
         range-7d
       </button>
@@ -48,8 +51,14 @@ function FilterControls({ counties = ["Miami-Dade"] }: { counties?: string[] }) 
       <button type="button" onClick={() => state.setSource("power-tool-demo")}>
         source-demo
       </button>
+      <button type="button" onClick={() => state.setSource("all")}>
+        source-all
+      </button>
       <button type="button" onClick={() => state.setShortcut("yes")}>
         shortcut-yes
+      </button>
+      <button type="button" onClick={() => state.setIntake("Researching")}>
+        intake-researching
       </button>
       <button type="button" onClick={() => state.setCounty("Miami-Dade")}>
         county-miami
@@ -82,6 +91,7 @@ describe("parse and serialize inbox filters", () => {
       source: "power-tool-demo",
       shortcut: "yes",
       priority: "Warm",
+      intake: "all",
     });
     const { filters, shouldReplace } = parseInboxFilters(params, ["Orange"]);
     expect(shouldReplace).toBe(false);
@@ -93,6 +103,7 @@ describe("parse and serialize inbox filters", () => {
       source: "power-tool-demo",
       shortcut: "yes",
       priority: "Warm",
+      intake: "all",
     });
 
     const next = serializeInboxFilters(new URLSearchParams("utm_source=google"), filters);
@@ -103,6 +114,7 @@ describe("parse and serialize inbox filters", () => {
     expect(next.get("source")).toBe("power-tool-demo");
     expect(next.get("shortcut")).toBe("yes");
     expect(next.get("priority")).toBe("Warm");
+    expect(next.get("intake")).toBeNull();
     expect(next.get("utm_source")).toBe("google");
 
     const defaults = serializeInboxFilters(
@@ -116,13 +128,14 @@ describe("parse and serialize inbox filters", () => {
     expect(defaults.get("source")).toBeNull();
     expect(defaults.get("shortcut")).toBeNull();
     expect(defaults.get("priority")).toBeNull();
+    expect(defaults.get("intake")).toBeNull();
     expect(defaults.get("utm_source")).toBe("google");
     expect(defaults.get("lead_id")).toBe("abc-123");
   });
 
   it("reverts invalid recognized values and unknown counties", () => {
     const params = new URLSearchParams(
-      "range=nope&verified=maybe&stage=not-a-stage&source=ads&shortcut=quote&priority=Blazing&county=Atlantis",
+      "range=nope&verified=maybe&stage=not-a-stage&source=ads&shortcut=quote&priority=Blazing&intake=Unknown&county=Atlantis",
     );
     const { filters, shouldReplace } = parseInboxFilters(params, ["Orange"]);
     expect(shouldReplace).toBe(true);
@@ -142,6 +155,62 @@ describe("parse and serialize inbox filters", () => {
     expect(next.get("search")).toBeNull();
     expect(next.get("name")).toBeNull();
     expect(next.get("phone_e164")).toBeNull();
+  });
+
+  it.each([
+    [
+      "Quote Holder",
+      { shortcut: "yes", intake: "all" },
+    ],
+    [
+      "Researching",
+      { shortcut: "all", intake: "Researching" },
+    ],
+    [
+      "Incomplete",
+      { shortcut: "all", intake: "Incomplete" },
+    ],
+  ] as const)(
+    "migrates legacy priority=%s without dropping safe query parameters",
+    (legacyPriority, expected) => {
+      const params = new URLSearchParams(
+        `priority=${encodeURIComponent(legacyPriority)}&lead_id=lead-1&utm_source=google&keep=yes&email=remove@example.com`,
+      );
+      const { filters, shouldReplace } = parseInboxFilters(params);
+      expect(shouldReplace).toBe(true);
+      expect(filters.priority).toBe("all");
+      expect(filters.source).toBe("power-tool-demo");
+      expect(filters.shortcut).toBe(expected.shortcut);
+      expect(filters.intake).toBe(expected.intake);
+
+      const canonical = serializeInboxFilters(params, filters);
+      expect(canonical.get("priority")).toBeNull();
+      expect(canonical.get("source")).toBe("power-tool-demo");
+      expect(canonical.get("shortcut")).toBe(
+        expected.shortcut === "all" ? null : expected.shortcut,
+      );
+      expect(canonical.get("intake")).toBe(
+        expected.intake === "all" ? null : expected.intake,
+      );
+      expect(canonical.get("lead_id")).toBe("lead-1");
+      expect(canonical.get("utm_source")).toBe("google");
+      expect(canonical.get("keep")).toBe("yes");
+      expect(canonical.get("email")).toBeNull();
+    },
+  );
+
+  it("canonicalizes source-specific filters to the demo source", () => {
+    const shortcut = parseInboxFilters(new URLSearchParams("shortcut=yes"));
+    expect(shortcut.shouldReplace).toBe(true);
+    expect(shortcut.filters.source).toBe("power-tool-demo");
+    expect(shortcut.filters.shortcut).toBe("yes");
+
+    const intake = parseInboxFilters(
+      new URLSearchParams("intake=Researching"),
+    );
+    expect(intake.shouldReplace).toBe(true);
+    expect(intake.filters.source).toBe("power-tool-demo");
+    expect(intake.filters.intake).toBe("Researching");
   });
 });
 
@@ -170,6 +239,23 @@ describe("useAdminLeadInboxState history", () => {
     renderState("/admin/leads?county=Atlantis", ["Miami-Dade"]);
     await waitFor(() => {
       expect(screen.getByTestId("query").textContent).not.toContain("county=");
+    });
+  });
+
+  it("clears source-specific filters when leaving the demo source", async () => {
+    renderState(
+      "/admin/leads?source=power-tool-demo&shortcut=yes&intake=Researching",
+    );
+    expect(screen.getByTestId("shortcut")).toHaveTextContent("yes");
+    expect(screen.getByTestId("intake")).toHaveTextContent("Researching");
+
+    fireEvent.click(screen.getByText("source-all"));
+    await waitFor(() => {
+      expect(screen.getByTestId("source")).toHaveTextContent("all");
+      expect(screen.getByTestId("shortcut")).toHaveTextContent("all");
+      expect(screen.getByTestId("intake")).toHaveTextContent("all");
+      expect(screen.getByTestId("query")).not.toHaveTextContent("shortcut=");
+      expect(screen.getByTestId("query")).not.toHaveTextContent("intake=");
     });
   });
 
@@ -239,7 +325,7 @@ describe("inbox scroll hints", () => {
     writeInboxScrollHint(filters, 240);
     expect(readInboxScrollHint(filters)?.offset).toBe(240);
     expect(inboxFilterSignature(filters)).toBe(
-      "range=7d&county=all&verified=all&stage=all&source=all&shortcut=all&priority=all",
+      "range=7d&county=all&verified=all&stage=all&source=all&shortcut=all&priority=all&intake=all",
     );
     expect(inboxFilterSignature(filters)).not.toMatch(/Jane|@|305/);
     expect(sessionStorage.getItem(Object.keys(sessionStorage)[0] ?? "") ?? "").not.toMatch(

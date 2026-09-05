@@ -15,7 +15,7 @@ import {
   type ReactNode,
 } from "react";
 import { Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Search,
   Filter,
@@ -69,9 +69,11 @@ type DateRange = "all" | "24h" | "7d" | "30d";
 type VerifiedFilter = "all" | "verified" | "unverified";
 type SourceFilter = "all" | "power-tool-demo";
 type ShortcutFilter = "all" | "yes" | "no";
-type FollowUpPriority =
+type DerivedIntakeSignal =
   "Quote Holder" | "Hot" | "Warm" | "Researching" | "Incomplete";
-type PriorityFilter = "all" | FollowUpPriority;
+type EffectiveUrgency = "Hot" | "Warm";
+type PriorityFilter = "all" | EffectiveUrgency;
+type IntakeSignalFilter = "all" | "Researching" | "Incomplete";
 
 type PowerToolDemoIntake = {
   intake_status: string | null;
@@ -122,13 +124,14 @@ const DISPOSITION_OPTIONS: { value: LeadDisposition; label: string }[] = [
   { value: "closed", label: "Closed" },
 ];
 
-const PRIORITY_OVERRIDE_OPTIONS: { value: PriorityOverride; label: string }[] =
-  [
-    { value: "none", label: "Auto priority" },
-    { value: "hot", label: "Hot" },
-    { value: "warm", label: "Warm" },
-    { value: "cold", label: "Cold" },
-  ];
+const PRIORITY_OVERRIDE_OPTIONS: {
+  value: Exclude<PriorityOverride, "cold">;
+  label: string;
+}[] = [
+  { value: "none", label: "Auto priority" },
+  { value: "hot", label: "Hot" },
+  { value: "warm", label: "Warm" },
+];
 
 const DISPOSITION_LABEL: Record<LeadDisposition, string> = {
   new: "New",
@@ -184,6 +187,9 @@ const DEMO_FUNNEL_STAGES = [
 ] as const;
 
 const POWER_TOOL_DEMO_SOURCE = "power-tool-demo";
+const ADMIN_LEADS_QUERY_KEY = ["admin", "leads"] as const;
+const WORKFLOW_CONFIRMATION_ERROR =
+  "The server response could not be confirmed. Your changes may not have persisted; refresh and try again.";
 
 const LARGE_SCOPE_OPTIONS = new Set([
   "6 to 10 Openings",
@@ -191,7 +197,7 @@ const LARGE_SCOPE_OPTIONS = new Set([
   "16+ Openings",
 ]);
 
-const PRIORITY_RANK: Record<FollowUpPriority, number> = {
+const PRIORITY_RANK: Record<DerivedIntakeSignal, number> = {
   "Quote Holder": 5,
   Hot: 4,
   Warm: 3,
@@ -199,7 +205,7 @@ const PRIORITY_RANK: Record<FollowUpPriority, number> = {
   Incomplete: 1,
 };
 
-const PRIORITY_BADGE_CLASS: Record<FollowUpPriority, string> = {
+const PRIORITY_BADGE_CLASS: Record<DerivedIntakeSignal, string> = {
   "Quote Holder": "wm-lead-status--attention",
   Hot: "wm-lead-status--danger",
   Warm: "wm-lead-status--active",
@@ -262,10 +268,12 @@ function hasMostIntakeFields(intake: PowerToolDemoIntake | null): boolean {
 }
 
 /**
- * Exclusive priority — first match wins:
+ * Exclusive demo intake signal — first match wins:
  * Quote Holder → Hot → Warm → Researching → Incomplete
  */
-function computeFollowUpPriority(lead: InboxLead): FollowUpPriority | null {
+function computeDerivedIntakeSignal(
+  lead: InboxLead,
+): DerivedIntakeSignal | null {
   if (lead.source !== POWER_TOOL_DEMO_SOURCE) return null;
 
   const intake = lead.powerToolDemoIntake;
@@ -302,9 +310,24 @@ function computeFollowUpPriority(lead: InboxLead): FollowUpPriority | null {
   return "Incomplete";
 }
 
-function priorityRank(priority: FollowUpPriority | null): number {
-  if (!priority) return 0;
-  return PRIORITY_RANK[priority];
+function effectiveUrgency(lead: InboxLead): EffectiveUrgency | null {
+  const override = normalizeOverride(lead.admin_priority_override);
+  if (override === "hot") return "Hot";
+  if (override === "warm") return "Warm";
+  if (override === "cold") return null;
+
+  const derived = computeDerivedIntakeSignal(lead);
+  return derived === "Hot" || derived === "Warm" ? derived : null;
+}
+
+function queuePriorityRank(lead: InboxLead): number {
+  const override = normalizeOverride(lead.admin_priority_override);
+  if (override === "hot") return 4;
+  if (override === "warm") return 3;
+  if (override === "cold") return -1;
+
+  const derived = computeDerivedIntakeSignal(lead);
+  return derived ? PRIORITY_RANK[derived] : 0;
 }
 
 function parsePowerToolDemoIntake(
@@ -435,7 +458,7 @@ export default function LeadInbox() {
     refetch,
     isFetching,
   } = useQuery({
-    queryKey: ["admin", "leads"],
+    queryKey: ADMIN_LEADS_QUERY_KEY,
     queryFn: async () => {
       const result = await invokeAdminData("fetch_leads");
       return (result ?? []) as RawInboxLead[];
@@ -452,8 +475,7 @@ export default function LeadInbox() {
         if (!lead.admin_follow_up_at) return false;
         return new Date(lead.admin_follow_up_at) <= now;
       }).length,
-      hot: leads.filter((lead) => lead.admin_priority_override === "hot")
-        .length,
+      hot: leads.filter((lead) => effectiveUrgency(lead) === "Hot").length,
       stuck: leads.filter(isLeadStuck).length,
     };
   }, [leads]);
@@ -474,6 +496,7 @@ export default function LeadInbox() {
     setSource,
     setShortcut,
     setPriority,
+    setIntake,
     captureScroll,
     restoreScroll,
     resetScroll,
@@ -498,6 +521,7 @@ export default function LeadInbox() {
   const sourceFilter = filters.source;
   const shortcutFilter = filters.shortcut;
   const priorityFilter = filters.priority;
+  const intakeSignalFilter = filters.intake;
 
   useInboxDirectoryScroll({
     filters,
@@ -513,9 +537,9 @@ export default function LeadInbox() {
     let quoteHolder = 0;
     for (const l of leads) {
       if (l.source !== POWER_TOOL_DEMO_SOURCE) continue;
-      const p = computeFollowUpPriority(l);
-      if (p === "Hot") hot += 1;
-      if (p === "Quote Holder") quoteHolder += 1;
+      const derived = computeDerivedIntakeSignal(l);
+      if (effectiveUrgency(l) === "Hot") hot += 1;
+      if (derived === "Quote Holder") quoteHolder += 1;
     }
     return { hot, quoteHolder };
   }, [leads]);
@@ -544,13 +568,17 @@ export default function LeadInbox() {
       if (stage !== "all" && (l.funnel_stage ?? "new") !== stage) return false;
 
       if (shortcutFilter !== "all") {
-        const shortcut = l.powerToolDemoIntake?.quote_holder_shortcut === true;
-        if (shortcutFilter === "yes" && !shortcut) return false;
-        if (shortcutFilter === "no" && shortcut) return false;
+        const hasQuote = isQuoteHolderLead(l);
+        if (shortcutFilter === "yes" && !hasQuote) return false;
+        if (shortcutFilter === "no" && hasQuote) return false;
       }
 
       if (priorityFilter !== "all") {
-        if (computeFollowUpPriority(l) !== priorityFilter) return false;
+        if (effectiveUrgency(l) !== priorityFilter) return false;
+      }
+
+      if (intakeSignalFilter !== "all") {
+        if (computeDerivedIntakeSignal(l) !== intakeSignalFilter) return false;
       }
 
       if (q) {
@@ -568,9 +596,7 @@ export default function LeadInbox() {
     });
 
     return [...matched].sort((a, b) => {
-      const rankDiff =
-        priorityRank(computeFollowUpPriority(b)) -
-        priorityRank(computeFollowUpPriority(a));
+      const rankDiff = queuePriorityRank(b) - queuePriorityRank(a);
       if (rankDiff !== 0) return rankDiff;
       return (
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -585,6 +611,7 @@ export default function LeadInbox() {
     sourceFilter,
     shortcutFilter,
     priorityFilter,
+    intakeSignalFilter,
     search,
   ]);
 
@@ -617,6 +644,7 @@ export default function LeadInbox() {
     sourceFilter !== "all" ? "source" : null,
     shortcutFilter !== "all" ? "quote" : null,
     priorityFilter !== "all" ? "priority" : null,
+    intakeSignalFilter !== "all" ? "intake" : null,
   ].filter(Boolean).length;
 
   const filterSignature = inboxFilterSignature(filters);
@@ -666,6 +694,8 @@ export default function LeadInbox() {
               setShortcutFilter={setShortcut}
               priorityFilter={priorityFilter}
               setPriorityFilter={setPriority}
+              intakeSignalFilter={intakeSignalFilter}
+              setIntakeSignalFilter={setIntake}
               onReset={resetFilters}
               activeFilterCount={activeFilterCount}
             />
@@ -846,6 +876,8 @@ interface FilterBarProps {
   setShortcutFilter: (v: ShortcutFilter) => void;
   priorityFilter: PriorityFilter;
   setPriorityFilter: (v: PriorityFilter) => void;
+  intakeSignalFilter: IntakeSignalFilter;
+  setIntakeSignalFilter: (v: IntakeSignalFilter) => void;
   onReset: () => void;
   activeFilterCount: number;
 }
@@ -868,10 +900,15 @@ function FilterBar({
   setShortcutFilter,
   priorityFilter,
   setPriorityFilter,
+  intakeSignalFilter,
+  setIntakeSignalFilter,
   onReset,
   activeFilterCount,
 }: FilterBarProps) {
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const selectedLegacyStage = DEMO_FUNNEL_STAGES.find(
+    (candidate) => candidate.value === stage,
+  );
 
   return (
     <section aria-label="Lead filters" className="wm-lead-filter-panel">
@@ -972,11 +1009,8 @@ function FilterBar({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All priorities</SelectItem>
-              <SelectItem value="Quote Holder">Quote Holder</SelectItem>
               <SelectItem value="Hot">Hot</SelectItem>
               <SelectItem value="Warm">Warm</SelectItem>
-              <SelectItem value="Researching">Researching</SelectItem>
-              <SelectItem value="Incomplete">Incomplete</SelectItem>
             </SelectContent>
           </Select>
         </FilterSelect>
@@ -1016,11 +1050,11 @@ function FilterBar({
             </SelectContent>
           </Select>
         </FilterSelect>
-        <FilterSelect label="Stage">
+        <FilterSelect label="Lifecycle stage">
           <Select value={stage} onValueChange={setStage}>
             <SelectTrigger
               className="wm-lead-control h-11 w-full text-sm font-medium"
-              aria-label="Lead stage"
+              aria-label="Lead lifecycle stage"
             >
               <SelectValue />
             </SelectTrigger>
@@ -1031,33 +1065,55 @@ function FilterBar({
                   {s.label}
                 </SelectItem>
               ))}
-              {DEMO_FUNNEL_STAGES.map((s) => (
-                <SelectItem key={s.value} value={s.value}>
-                  {s.label}
+              {selectedLegacyStage ? (
+                <SelectItem value={selectedLegacyStage.value} disabled>
+                  {selectedLegacyStage.label} — legacy
                 </SelectItem>
-              ))}
+              ) : null}
             </SelectContent>
           </Select>
         </FilterSelect>
         {sourceFilter === "power-tool-demo" ? (
-          <FilterSelect label="Quote status">
-            <Select
-              value={shortcutFilter}
-              onValueChange={(v) => setShortcutFilter(v as ShortcutFilter)}
-            >
-              <SelectTrigger
-                className="wm-lead-control h-11 w-full text-sm font-medium"
-                aria-label="Quote status"
+          <>
+            <FilterSelect label="Quote status">
+              <Select
+                value={shortcutFilter}
+                onValueChange={(v) => setShortcutFilter(v as ShortcutFilter)}
               >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All quote states</SelectItem>
-                <SelectItem value="yes">Has quote</SelectItem>
-                <SelectItem value="no">No quote</SelectItem>
-              </SelectContent>
-            </Select>
-          </FilterSelect>
+                <SelectTrigger
+                  className="wm-lead-control h-11 w-full text-sm font-medium"
+                  aria-label="Quote status"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All quote states</SelectItem>
+                  <SelectItem value="yes">Has quote</SelectItem>
+                  <SelectItem value="no">No quote</SelectItem>
+                </SelectContent>
+              </Select>
+            </FilterSelect>
+            <FilterSelect label="Intake signal">
+              <Select
+                value={intakeSignalFilter}
+                onValueChange={(v) =>
+                  setIntakeSignalFilter(v as IntakeSignalFilter)
+                }
+              >
+                <SelectTrigger
+                  className="wm-lead-control h-11 w-full text-sm font-medium"
+                  aria-label="Intake signal"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All intake signals</SelectItem>
+                  <SelectItem value="Researching">Researching</SelectItem>
+                  <SelectItem value="Incomplete">Incomplete</SelectItem>
+                </SelectContent>
+              </Select>
+            </FilterSelect>
+          </>
         ) : null}
       </div>
 
@@ -1177,7 +1233,7 @@ function IntakeSummaryColumn({ intake }: { intake: PowerToolDemoIntake }) {
   );
 }
 
-function PriorityBadge({ priority }: { priority: FollowUpPriority | null }) {
+function PriorityBadge({ priority }: { priority: DerivedIntakeSignal | null }) {
   if (!priority) {
     return (
       <span className="text-sm font-medium text-slate-600">
@@ -1194,7 +1250,37 @@ function PriorityBadge({ priority }: { priority: FollowUpPriority | null }) {
   );
 }
 
+function timestampsMatch(
+  actual: string | null | undefined,
+  expected: string | null,
+): boolean {
+  if (!actual || !expected) return !actual && !expected;
+  const actualTime = new Date(actual).getTime();
+  const expectedTime = new Date(expected).getTime();
+  return (
+    Number.isFinite(actualTime) &&
+    Number.isFinite(expectedTime) &&
+    actualTime === expectedTime
+  );
+}
+
+function confirmsWorkflowPersistence(
+  lead: RawInboxLead | undefined,
+  expected: {
+    disposition: LeadDisposition;
+    override: PriorityOverride;
+    followUpIso: string | null;
+  },
+): boolean {
+  return (
+    lead?.admin_disposition === expected.disposition &&
+    normalizeOverride(lead.admin_priority_override) === expected.override &&
+    timestampsMatch(lead.admin_follow_up_at, expected.followUpIso)
+  );
+}
+
 function DispositionEditor({ lead, name }: { lead: InboxLead; name: string }) {
+  const queryClient = useQueryClient();
   const [disposition, setDisposition] = useState<LeadDisposition>(() =>
     normalizeDisposition(lead.admin_disposition),
   );
@@ -1223,19 +1309,57 @@ function DispositionEditor({ lead, name }: { lead: InboxLead; name: string }) {
     setSaving(true);
     setError(null);
     setJustSaved(false);
+    let mutationCompleted = false;
     try {
       const followUpIso = followUp ? new Date(followUp).toISOString() : null;
+      const submission = { disposition, override, followUp, followUpIso };
       await updateLeadDisposition({
         lead_id: lead.id,
-        admin_disposition: disposition,
-        admin_priority_override: override,
-        admin_follow_up_at: followUpIso,
+        admin_disposition: submission.disposition,
+        admin_priority_override: submission.override,
+        admin_follow_up_at: submission.followUpIso,
       });
-      setSaved({ disposition, override, followUp });
+      mutationCompleted = true;
+
+      await queryClient.invalidateQueries({
+        queryKey: ADMIN_LEADS_QUERY_KEY,
+        exact: true,
+        refetchType: "none",
+      });
+      await queryClient.refetchQueries(
+        {
+          queryKey: ADMIN_LEADS_QUERY_KEY,
+          exact: true,
+          type: "active",
+        },
+        { throwOnError: true },
+      );
+
+      const refreshedRows =
+        queryClient.getQueryData<RawInboxLead[]>(ADMIN_LEADS_QUERY_KEY);
+      const refreshedLead = refreshedRows?.find((row) => row.id === lead.id);
+      if (
+        !confirmsWorkflowPersistence(refreshedLead, {
+          disposition: submission.disposition,
+          override: submission.override,
+          followUpIso: submission.followUpIso,
+        })
+      ) {
+        setError(WORKFLOW_CONFIRMATION_ERROR);
+        return;
+      }
+
+      setSaved({
+        disposition: submission.disposition,
+        override: submission.override,
+        followUp: submission.followUp,
+      });
       setJustSaved(true);
       window.setTimeout(() => setJustSaved(false), 1500);
     } catch (err) {
-      setError(getErrorMessage(err));
+      setError(
+        mutationCompleted ? WORKFLOW_CONFIRMATION_ERROR : getErrorMessage(err),
+      );
     } finally {
       setSaving(false);
     }
@@ -1253,7 +1377,7 @@ function DispositionEditor({ lead, name }: { lead: InboxLead; name: string }) {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 flex-wrap items-center gap-2.5">
           <span className="text-xs font-semibold text-slate-600">
-            Disposition
+            Follow-up disposition
           </span>
           <span
             className={`wm-lead-status ${DISPOSITION_BADGE_CLASS[saved.disposition]}`}
@@ -1293,14 +1417,14 @@ function DispositionEditor({ lead, name }: { lead: InboxLead; name: string }) {
           className="wm-lead-workflow-editor mt-4 rounded-lg border p-4"
         >
           <div className="grid gap-3 md:grid-cols-3">
-            <FilterSelect label="Disposition">
+            <FilterSelect label="Follow-up disposition">
               <Select
                 value={disposition}
                 onValueChange={(v) => setDisposition(v as LeadDisposition)}
               >
                 <SelectTrigger
                   className="wm-lead-control h-11 w-full text-sm font-medium"
-                  aria-label={`Disposition for ${name}`}
+                  aria-label={`Follow-up disposition for ${name}`}
                 >
                   <SelectValue />
                 </SelectTrigger>
@@ -1325,6 +1449,11 @@ function DispositionEditor({ lead, name }: { lead: InboxLead; name: string }) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  {override === "cold" ? (
+                    <SelectItem value="cold" disabled>
+                      Cold — legacy
+                    </SelectItem>
+                  ) : null}
                   {PRIORITY_OVERRIDE_OPTIONS.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
@@ -1446,7 +1575,7 @@ function LeadList({
           "Unknown lead";
         const stageLabel = formatStageLabel(lead.funnel_stage);
         const isPowerToolDemo = lead.source === POWER_TOOL_DEMO_SOURCE;
-        const priority = computeFollowUpPriority(lead);
+        const priority = computeDerivedIntakeSignal(lead);
         const override = normalizeOverride(lead.admin_priority_override);
         const latestActivity = formatRelativeTimestamp(lead.last_activity_at);
         const created = formatRelativeTimestamp(lead.created_at);

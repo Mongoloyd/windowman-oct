@@ -6,14 +6,8 @@ export const INBOX_RANGE_VALUES = ["all", "24h", "7d", "30d"] as const;
 export const INBOX_VERIFIED_VALUES = ["all", "verified", "unverified"] as const;
 export const INBOX_SOURCE_VALUES = ["all", "power-tool-demo"] as const;
 export const INBOX_SHORTCUT_VALUES = ["all", "yes", "no"] as const;
-export const INBOX_PRIORITY_VALUES = [
-  "all",
-  "Quote Holder",
-  "Hot",
-  "Warm",
-  "Researching",
-  "Incomplete",
-] as const;
+export const INBOX_PRIORITY_VALUES = ["all", "Hot", "Warm"] as const;
+export const INBOX_INTAKE_VALUES = ["all", "Researching", "Incomplete"] as const;
 
 const DEMO_STAGE_VALUES = ["demo_intake_complete", "demo_quote_holder_shortcut"] as const;
 
@@ -28,6 +22,7 @@ export type InboxVerifiedFilter = (typeof INBOX_VERIFIED_VALUES)[number];
 export type InboxSourceFilter = (typeof INBOX_SOURCE_VALUES)[number];
 export type InboxShortcutFilter = (typeof INBOX_SHORTCUT_VALUES)[number];
 export type InboxPriorityFilter = (typeof INBOX_PRIORITY_VALUES)[number];
+export type InboxIntakeFilter = (typeof INBOX_INTAKE_VALUES)[number];
 export type InboxStageFilter = (typeof INBOX_STAGE_VALUES)[number];
 
 export interface AdminLeadInboxFilters {
@@ -38,6 +33,7 @@ export interface AdminLeadInboxFilters {
   source: InboxSourceFilter;
   shortcut: InboxShortcutFilter;
   priority: InboxPriorityFilter;
+  intake: InboxIntakeFilter;
 }
 
 export const DEFAULT_INBOX_FILTERS: AdminLeadInboxFilters = {
@@ -48,6 +44,7 @@ export const DEFAULT_INBOX_FILTERS: AdminLeadInboxFilters = {
   source: "all",
   shortcut: "all",
   priority: "all",
+  intake: "all",
 };
 
 const RECOGNIZED_KEYS = [
@@ -58,6 +55,7 @@ const RECOGNIZED_KEYS = [
   "source",
   "shortcut",
   "priority",
+  "intake",
 ] as const;
 
 const CONTACT_PII_KEYS = ["q", "search", "name", "email", "phone", "phone_e164"] as const;
@@ -93,9 +91,35 @@ export function parseInboxFilters(
   const range = parseKnown("range", INBOX_RANGE_VALUES, "all");
   const verified = parseKnown("verified", INBOX_VERIFIED_VALUES, "all");
   const stage = parseKnown("stage", INBOX_STAGE_VALUES, "all");
-  const source = parseKnown("source", INBOX_SOURCE_VALUES, "all");
-  const shortcut = parseKnown("shortcut", INBOX_SHORTCUT_VALUES, "all");
-  const priority = parseKnown("priority", INBOX_PRIORITY_VALUES, "all");
+  let source = parseKnown("source", INBOX_SOURCE_VALUES, "all");
+  let shortcut = parseKnown("shortcut", INBOX_SHORTCUT_VALUES, "all");
+  let intake = parseKnown("intake", INBOX_INTAKE_VALUES, "all");
+
+  const rawPriority = params.get("priority");
+  let priority: InboxPriorityFilter;
+  if (rawPriority === "Quote Holder") {
+    priority = "all";
+    source = "power-tool-demo";
+    shortcut = "yes";
+    intake = "all";
+    shouldReplace = true;
+  } else if (rawPriority === "Researching" || rawPriority === "Incomplete") {
+    priority = "all";
+    source = "power-tool-demo";
+    shortcut = "all";
+    intake = rawPriority;
+    shouldReplace = true;
+  } else {
+    priority = parseKnown("priority", INBOX_PRIORITY_VALUES, "all");
+  }
+
+  if (
+    source !== "power-tool-demo" &&
+    (shortcut !== "all" || intake !== "all")
+  ) {
+    source = "power-tool-demo";
+    shouldReplace = true;
+  }
 
   const rawCounty = params.get("county");
   let county = "all";
@@ -111,7 +135,16 @@ export function parseInboxFilters(
   }
 
   return {
-    filters: { range, county, verified, stage, source, shortcut, priority },
+    filters: {
+      range,
+      county,
+      verified,
+      stage,
+      source,
+      shortcut,
+      priority,
+      intake,
+    },
     shouldReplace,
   };
 }
@@ -246,9 +279,15 @@ export function useAdminLeadInboxState(counties: readonly string[]) {
     setCounty: (county: string) => updateFilters({ county }),
     setVerified: (verified: InboxVerifiedFilter) => updateFilters({ verified }),
     setStage: (stage: InboxStageFilter) => updateFilters({ stage }),
-    setSource: (source: InboxSourceFilter) => updateFilters({ source }),
+    setSource: (source: InboxSourceFilter) =>
+      updateFilters(
+        source === "power-tool-demo"
+          ? { source }
+          : { source, shortcut: "all", intake: "all" },
+      ),
     setShortcut: (shortcut: InboxShortcutFilter) => updateFilters({ shortcut }),
     setPriority: (priority: InboxPriorityFilter) => updateFilters({ priority }),
+    setIntake: (intake: InboxIntakeFilter) => updateFilters({ intake }),
     captureScroll,
     restoreScroll,
     resetScroll,

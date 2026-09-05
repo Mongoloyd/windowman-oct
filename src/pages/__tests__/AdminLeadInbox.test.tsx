@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -175,17 +176,89 @@ const secondLead = {
   },
 };
 
-function renderInbox(path = "/admin/leads") {
-  const queryClient = new QueryClient({
+const demoHotLead = {
+  ...baseLead,
+  id: "lead-demo-hot",
+  session_id: "sess-demo-hot",
+  first_name: "Harper",
+  last_name: "Hot",
+  source: "power-tool-demo",
+  funnel_stage: "demo_intake_complete",
+  created_at: "2026-09-01T10:00:00.000Z",
+  qualification_answers_json: {
+    intake_status: "Need help reviewing options",
+    intake_property: "Single-family home",
+    intake_scope: "6 to 10 Openings",
+    intake_logistics: "Owner occupied",
+    intake_timeline: "Immediate - 30 Days",
+    quote_holder_shortcut: false,
+  },
+};
+
+const demoWarmLead = {
+  ...demoHotLead,
+  id: "lead-demo-warm",
+  session_id: "sess-demo-warm",
+  first_name: "Wendy",
+  last_name: "Warm",
+  created_at: "2026-09-02T10:00:00.000Z",
+  qualification_answers_json: {
+    ...demoHotLead.qualification_answers_json,
+    intake_scope: "1 to 5 Openings",
+    intake_timeline: "4-6 Months",
+  },
+};
+
+const demoResearchingLead = {
+  ...demoWarmLead,
+  id: "lead-demo-researching",
+  session_id: "sess-demo-researching",
+  first_name: "Riley",
+  last_name: "Researching",
+  funnel_stage: "new",
+  qualification_answers_json: {
+    ...demoWarmLead.qualification_answers_json,
+    intake_status: "Just researching options",
+  },
+};
+
+const demoIncompleteLead = {
+  ...demoWarmLead,
+  id: "lead-demo-incomplete",
+  session_id: "sess-demo-incomplete",
+  first_name: "Ivy",
+  last_name: "Incomplete",
+  funnel_stage: "new",
+  qualification_answers_json: {
+    intake_status: "Need help reviewing options",
+    quote_holder_shortcut: false,
+  },
+};
+
+function createTestQueryClient() {
+  return new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   });
-  return render(
+}
+
+function renderInbox(
+  path = "/admin/leads",
+  queryClient = createTestQueryClient(),
+) {
+  const view = render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[path]}>
         <AdminLeadInbox />
       </MemoryRouter>
     </QueryClientProvider>,
   );
+  return { ...view, queryClient };
+}
+
+async function chooseSelectOption(trigger: HTMLElement, optionName: string) {
+  fireEvent.keyDown(trigger, { key: "ArrowDown", code: "ArrowDown" });
+  const option = await screen.findByRole("option", { name: optionName });
+  fireEvent.click(option);
 }
 
 describe("AdminLeadInbox", () => {
@@ -199,6 +272,22 @@ describe("AdminLeadInbox", () => {
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
       value: { writeText: vi.fn().mockResolvedValue(undefined) },
+    });
+    Object.defineProperty(HTMLElement.prototype, "hasPointerCapture", {
+      configurable: true,
+      value: () => false,
+    });
+    Object.defineProperty(HTMLElement.prototype, "setPointerCapture", {
+      configurable: true,
+      value: () => undefined,
+    });
+    Object.defineProperty(HTMLElement.prototype, "releasePointerCapture", {
+      configurable: true,
+      value: () => undefined,
+    });
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: () => undefined,
     });
   });
 
@@ -272,8 +361,11 @@ describe("AdminLeadInbox", () => {
       screen.getByRole("combobox", { name: "Phone verification" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("combobox", { name: "Lead stage" }),
+      screen.getByRole("combobox", { name: "Lead lifecycle stage" }),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: "Intake signal" }),
+    ).not.toBeInTheDocument();
   });
 
   it("keeps Clear all disabled until a filter is active and resets search explicitly", async () => {
@@ -352,18 +444,158 @@ describe("AdminLeadInbox", () => {
       name: "Edit workflow",
     });
     expect(
-      screen.queryByRole("combobox", { name: "Disposition for Jane Doe" }),
+      screen.queryByRole("combobox", {
+        name: "Follow-up disposition for Jane Doe",
+      }),
     ).not.toBeInTheDocument();
     fireEvent.click(editButtons[0]);
     expect(
-      screen.getByRole("combobox", { name: "Disposition for Alex Rivera" }),
+      screen.getByRole("combobox", {
+        name: "Follow-up disposition for Alex Rivera",
+      }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("combobox", { name: "Disposition for Jane Doe" }),
+      screen.queryByRole("combobox", {
+        name: "Follow-up disposition for Jane Doe",
+      }),
     ).not.toBeInTheDocument();
   });
 
-  it("announces a successful workflow save", async () => {
+  it("submits exact workflow values and announces success only after confirmed refetch", async () => {
+    const followUp = "2026-09-05T09:30";
+    const followUpIso = new Date(followUp).toISOString();
+    const persistedLead = {
+      ...baseLead,
+      admin_disposition: "follow_up",
+      admin_priority_override: "hot",
+      admin_follow_up_at: followUpIso,
+    };
+    invokeAdminDataMock
+      .mockResolvedValueOnce([baseLead, secondLead])
+      .mockResolvedValueOnce([persistedLead, secondLead]);
+
+    let resolveMutation!: () => void;
+    const mutation = new Promise<void>((resolve) => {
+      resolveMutation = resolve;
+    });
+    updateLeadDispositionMock.mockReturnValueOnce(mutation);
+
+    const queryClient = createTestQueryClient();
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+    const refetchSpy = vi.spyOn(queryClient, "refetchQueries");
+    renderInbox("/admin/leads", queryClient);
+    const janeCard = (
+      await screen.findByRole("link", { name: "View details for Jane Doe" })
+    ).closest("article");
+    expect(janeCard).not.toBeNull();
+    fireEvent.click(
+      within(janeCard!).getByRole("button", { name: "Edit workflow" }),
+    );
+    await chooseSelectOption(
+      within(janeCard!).getByRole("combobox", {
+        name: "Follow-up disposition for Jane Doe",
+      }),
+      "Follow up",
+    );
+    await chooseSelectOption(
+      within(janeCard!).getByRole("combobox", {
+        name: "Priority override for Jane Doe",
+      }),
+      "Hot",
+    );
+    fireEvent.change(
+      within(janeCard!).getByLabelText("Follow-up date and time for Jane Doe"),
+      {
+        target: { value: followUp },
+      },
+    );
+    const saveButton = within(janeCard!).getByRole("button", {
+      name: "Save workflow",
+    });
+    fireEvent.click(saveButton);
+
+    expect(updateLeadDispositionMock).toHaveBeenCalledWith({
+      lead_id: baseLead.id,
+      admin_disposition: "follow_up",
+      admin_priority_override: "hot",
+      admin_follow_up_at: followUpIso,
+    });
+    expect(saveButton).toBeDisabled();
+    expect(within(janeCard!).queryByRole("status")).not.toBeInTheDocument();
+
+    await act(async () => {
+      resolveMutation();
+      await mutation;
+    });
+
+    expect(await within(janeCard!).findByRole("status")).toHaveTextContent(
+      "Workflow saved",
+    );
+    expect(updateLeadDispositionMock).toHaveBeenCalledTimes(1);
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["admin", "leads"],
+      exact: true,
+      refetchType: "none",
+    });
+    expect(refetchSpy).toHaveBeenCalledWith(
+      {
+        queryKey: ["admin", "leads"],
+        exact: true,
+        type: "active",
+      },
+      { throwOnError: true },
+    );
+
+    fireEvent.click(
+      within(janeCard!).getByRole("button", { name: "Edit workflow" }),
+    );
+    expect(
+      within(janeCard!).queryByRole("combobox", {
+        name: "Priority override for Jane Doe",
+      }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(
+      within(janeCard!).getByRole("button", { name: "Edit workflow" }),
+    );
+    expect(
+      within(janeCard!).getByRole("combobox", {
+        name: "Priority override for Jane Doe",
+      }),
+    ).toHaveTextContent("Hot");
+  });
+
+  it("keeps workflow values dirty and recoverable when refreshed data does not match", async () => {
+    const followUp = "2026-09-05T09:30";
+    renderInbox();
+    const janeCard = (
+      await screen.findByRole("link", { name: "View details for Jane Doe" })
+    ).closest("article");
+    expect(janeCard).not.toBeNull();
+    fireEvent.click(
+      within(janeCard!).getByRole("button", { name: "Edit workflow" }),
+    );
+    const followUpInput = within(janeCard!).getByLabelText(
+      "Follow-up date and time for Jane Doe",
+    );
+    fireEvent.change(followUpInput, { target: { value: followUp } });
+    fireEvent.click(
+      within(janeCard!).getByRole("button", { name: "Save workflow" }),
+    );
+
+    expect(await within(janeCard!).findByRole("alert")).toHaveTextContent(
+      "The server response could not be confirmed. Your changes may not have persisted; refresh and try again.",
+    );
+    expect(followUpInput).toHaveValue(followUp);
+    expect(
+      within(janeCard!).getByRole("button", { name: "Save workflow" }),
+    ).toBeEnabled();
+    expect(within(janeCard!).queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("does not claim success when the confirmation refetch fails", async () => {
+    invokeAdminDataMock
+      .mockResolvedValueOnce([baseLead, secondLead])
+      .mockRejectedValueOnce(new Error("Refresh failed"));
     renderInbox();
     const janeCard = (
       await screen.findByRole("link", { name: "View details for Jane Doe" })
@@ -374,17 +606,16 @@ describe("AdminLeadInbox", () => {
     );
     fireEvent.change(
       within(janeCard!).getByLabelText("Follow-up date and time for Jane Doe"),
-      {
-        target: { value: "2026-09-05T09:30" },
-      },
+      { target: { value: "2026-09-05T09:30" } },
     );
     fireEvent.click(
       within(janeCard!).getByRole("button", { name: "Save workflow" }),
     );
-    expect(await within(janeCard!).findByRole("status")).toHaveTextContent(
-      "Workflow saved",
+
+    expect(await within(janeCard!).findByRole("alert")).toHaveTextContent(
+      "The server response could not be confirmed",
     );
-    expect(updateLeadDispositionMock).toHaveBeenCalledTimes(1);
+    expect(within(janeCard!).queryByRole("status")).not.toBeInTheDocument();
   });
 
   it("announces a workflow save failure", async () => {
@@ -432,6 +663,342 @@ describe("AdminLeadInbox", () => {
       "Alex Rivera",
       "Jane Doe",
     ]);
+  });
+
+  it.each([
+    ["Hot", "hot", "Holly Hot"],
+    ["Warm", "warm", "Willow Warm"],
+  ] as const)(
+    "matches a non-demo manual %s override in the Priority filter",
+    async (filter, override, expectedName) => {
+      invokeAdminDataMock.mockResolvedValueOnce([
+        {
+          ...baseLead,
+          id: `lead-${override}`,
+          first_name: expectedName.split(" ")[0],
+          last_name: expectedName.split(" ")[1],
+          admin_priority_override: override,
+        },
+        {
+          ...baseLead,
+          id: "lead-other",
+          first_name: "Other",
+          last_name: "Lead",
+          admin_priority_override: override === "hot" ? "warm" : "hot",
+        },
+      ]);
+      renderInbox(`/admin/leads?priority=${filter}`);
+      expect(
+        await screen.findByRole("link", {
+          name: `View details for ${expectedName}`,
+        }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("link", { name: "View details for Other Lead" }),
+      ).not.toBeInTheDocument();
+    },
+  );
+
+  it("lets a manual Warm override win over a derived Hot signal", async () => {
+    const manualWarmDerivedHot = {
+      ...demoHotLead,
+      admin_priority_override: "warm",
+    };
+    invokeAdminDataMock.mockResolvedValueOnce([manualWarmDerivedHot]);
+    const hotView = renderInbox("/admin/leads?priority=Hot");
+    expect(await screen.findByText("No leads match")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "View details for Harper Hot" }),
+    ).not.toBeInTheDocument();
+    hotView.unmount();
+
+    invokeAdminDataMock.mockResolvedValueOnce([manualWarmDerivedHot]);
+    renderInbox("/admin/leads?priority=Warm");
+    expect(
+      await screen.findByRole("link", { name: "View details for Harper Hot" }),
+    ).toBeInTheDocument();
+  });
+
+  it.each([
+    ["Hot", demoHotLead, "Harper Hot"],
+    ["Warm", demoWarmLead, "Wendy Warm"],
+  ] as const)(
+    "retains derived %s urgency when no manual override exists",
+    async (filter, lead, expectedName) => {
+      invokeAdminDataMock.mockResolvedValueOnce([lead]);
+      renderInbox(`/admin/leads?priority=${filter}`);
+      expect(
+        await screen.findByRole("link", {
+          name: `View details for ${expectedName}`,
+        }),
+      ).toBeInTheDocument();
+    },
+  );
+
+  it("uses effective urgency consistently for the Hot KPI", async () => {
+    invokeAdminDataMock.mockResolvedValueOnce([
+      { ...baseLead, admin_priority_override: "hot" },
+      demoHotLead,
+      { ...demoHotLead, id: "lead-warm-override", admin_priority_override: "warm" },
+      { ...baseLead, id: "lead-cold", admin_priority_override: "cold" },
+    ]);
+    renderInbox();
+    await screen.findByRole("list", { name: "Lead results" });
+    const summary = await screen.findByRole("region", {
+      name: "Lead queue summary",
+    });
+    const hotLabel = within(summary).getByText("Hot leads");
+    expect(hotLabel.parentElement).not.toBeNull();
+    expect(within(hotLabel.parentElement!).getByText("2")).toBeInTheDocument();
+  });
+
+  it("uses effective urgency for the demo-source Hot subtitle", async () => {
+    invokeAdminDataMock.mockResolvedValueOnce([
+      demoHotLead,
+      {
+        ...demoHotLead,
+        id: "lead-demo-manual-warm",
+        first_name: "Manual",
+        last_name: "Warm Demo",
+        admin_priority_override: "warm",
+      },
+    ]);
+    renderInbox("/admin/leads?source=power-tool-demo");
+    expect(
+      await screen.findByText(/2 of 2 leads · 1 hot · priority order/),
+    ).toBeInTheDocument();
+  });
+
+  it("ranks manual overrides first for their lead and keeps newest-first ties", async () => {
+    invokeAdminDataMock.mockResolvedValueOnce([
+      {
+        ...demoHotLead,
+        id: "lead-derived-hot-manual-warm",
+        first_name: "Derived",
+        last_name: "Warm Override",
+        admin_priority_override: "warm",
+        created_at: "2026-09-05T10:00:00.000Z",
+      },
+      {
+        ...baseLead,
+        id: "lead-manual-hot-old",
+        first_name: "Manual",
+        last_name: "Hot Old",
+        admin_priority_override: "hot",
+        created_at: "2026-09-03T10:00:00.000Z",
+      },
+      {
+        ...baseLead,
+        id: "lead-manual-hot-new",
+        first_name: "Manual",
+        last_name: "Hot New",
+        admin_priority_override: "hot",
+        created_at: "2026-09-04T10:00:00.000Z",
+      },
+      {
+        ...secondLead,
+        id: "lead-quote-holder",
+        first_name: "Quinn",
+        last_name: "Quote Holder",
+      },
+      {
+        ...baseLead,
+        id: "lead-legacy-cold",
+        first_name: "Legacy",
+        last_name: "Cold",
+        admin_priority_override: "cold",
+        created_at: "2026-09-06T10:00:00.000Z",
+      },
+    ]);
+    renderInbox();
+    const list = await screen.findByRole("list", { name: "Lead results" });
+    expect(
+      within(list)
+        .getAllByRole("link", { name: /View details for/ })
+        .map((link) => link.textContent),
+    ).toEqual([
+      "Quinn Quote Holder",
+      "Manual Hot New",
+      "Manual Hot Old",
+      "Derived Warm Override",
+      "Legacy Cold",
+    ]);
+  });
+
+  it("shows only All, Hot, and Warm in the visible Priority menu", async () => {
+    renderInbox();
+    const trigger = await screen.findByRole("combobox", {
+      name: "Lead priority",
+    });
+    fireEvent.keyDown(trigger, { key: "ArrowDown", code: "ArrowDown" });
+    expect(
+      (await screen.findAllByRole("option")).map((option) => option.textContent),
+    ).toEqual(["All priorities", "Hot", "Warm"]);
+    expect(screen.queryByRole("option", { name: "Quote Holder" })).toBeNull();
+    expect(screen.queryByRole("option", { name: "Researching" })).toBeNull();
+    expect(screen.queryByRole("option", { name: "Incomplete" })).toBeNull();
+    expect(screen.queryByRole("option", { name: "Cold" })).toBeNull();
+  });
+
+  it("shows Researching and Incomplete in the demo-only Intake signal filter", async () => {
+    invokeAdminDataMock.mockResolvedValueOnce([
+      demoResearchingLead,
+      demoIncompleteLead,
+    ]);
+    renderInbox("/admin/leads?source=power-tool-demo&intake=Researching");
+    const trigger = await screen.findByRole("combobox", {
+      name: "Intake signal",
+    });
+    expect(
+      await screen.findByRole("link", {
+        name: "View details for Riley Researching",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "View details for Ivy Incomplete" }),
+    ).not.toBeInTheDocument();
+    fireEvent.keyDown(trigger, { key: "ArrowDown", code: "ArrowDown" });
+    expect(
+      (await screen.findAllByRole("option")).map((option) => option.textContent),
+    ).toEqual(["All intake signals", "Researching", "Incomplete"]);
+  });
+
+  it("matches every existing Quote Holder condition in Quote Status", async () => {
+    const shortcutLead = {
+      ...demoWarmLead,
+      id: "quote-shortcut",
+      first_name: "Shortcut",
+      last_name: "Match",
+      qualification_answers_json: {
+        ...demoWarmLead.qualification_answers_json,
+        quote_holder_shortcut: true,
+      },
+    };
+    const stageLead = {
+      ...demoWarmLead,
+      id: "quote-stage",
+      first_name: "Stage",
+      last_name: "Match",
+      funnel_stage: "demo_quote_holder_shortcut",
+    };
+    const statusLead = {
+      ...demoWarmLead,
+      id: "quote-status",
+      first_name: "Status",
+      last_name: "Match",
+      qualification_answers_json: {
+        ...demoWarmLead.qualification_answers_json,
+        intake_status: "Already have a quote to check",
+      },
+    };
+    const noQuoteLead = {
+      ...demoWarmLead,
+      id: "no-quote",
+      first_name: "No",
+      last_name: "Quote",
+    };
+    invokeAdminDataMock.mockResolvedValueOnce([
+      shortcutLead,
+      stageLead,
+      statusLead,
+      noQuoteLead,
+    ]);
+    renderInbox("/admin/leads?source=power-tool-demo&shortcut=yes");
+    await screen.findByRole("list", { name: "Lead results" });
+    for (const name of ["Shortcut Match", "Stage Match", "Status Match"]) {
+      expect(
+        screen.getByRole("link", { name: `View details for ${name}` }),
+      ).toBeInTheDocument();
+    }
+    expect(
+      screen.queryByRole("link", { name: "View details for No Quote" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("treats No quote as the inverse of the complete Quote Holder predicate", async () => {
+    const statusLead = {
+      ...demoWarmLead,
+      id: "quote-status",
+      first_name: "Status",
+      last_name: "Match",
+      qualification_answers_json: {
+        ...demoWarmLead.qualification_answers_json,
+        intake_status: "Already have a quote to check",
+      },
+    };
+    const noQuoteLead = {
+      ...demoWarmLead,
+      id: "no-quote",
+      first_name: "No",
+      last_name: "Quote",
+    };
+    invokeAdminDataMock.mockResolvedValueOnce([statusLead, noQuoteLead]);
+    renderInbox("/admin/leads?source=power-tool-demo&shortcut=no");
+    expect(
+      await screen.findByRole("link", { name: "View details for No Quote" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "View details for Status Match" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("offers only canonical lifecycle stages for a normal selection", async () => {
+    renderInbox();
+    const trigger = await screen.findByRole("combobox", {
+      name: "Lead lifecycle stage",
+    });
+    fireEvent.keyDown(trigger, { key: "ArrowDown", code: "ArrowDown" });
+    await screen.findByRole("option", { name: "All stages" });
+    expect(
+      screen.queryByRole("option", { name: /Demo intake complete/ }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("option", { name: /Demo quote shortcut/ }),
+    ).toBeNull();
+  });
+
+  it("keeps demo stages URL-readable without offering them as new lifecycle choices", async () => {
+    invokeAdminDataMock.mockResolvedValueOnce([secondLead]);
+    renderInbox(
+      "/admin/leads?source=power-tool-demo&stage=demo_quote_holder_shortcut",
+    );
+    const trigger = await screen.findByRole("combobox", {
+      name: "Lead lifecycle stage",
+    });
+    expect(trigger).toHaveTextContent("Demo quote shortcut");
+    fireEvent.keyDown(trigger, { key: "ArrowDown", code: "ArrowDown" });
+    const legacy = await screen.findByRole("option", {
+      name: "Demo quote shortcut — legacy",
+    });
+    expect(legacy).toHaveAttribute("data-disabled");
+    expect(
+      screen.queryByRole("option", { name: "Demo intake complete" }),
+    ).toBeNull();
+  });
+
+  it("does not offer Cold for new overrides but keeps persisted Cold readable", async () => {
+    invokeAdminDataMock.mockResolvedValueOnce([
+      { ...baseLead, admin_priority_override: "cold" },
+    ]);
+    renderInbox();
+    const janeCard = (
+      await screen.findByRole("link", { name: "View details for Jane Doe" })
+    ).closest("article");
+    expect(janeCard).not.toBeNull();
+    fireEvent.click(
+      within(janeCard!).getByRole("button", { name: "Edit workflow" }),
+    );
+    const trigger = within(janeCard!).getByRole("combobox", {
+      name: "Priority override for Jane Doe",
+    });
+    expect(trigger).toHaveTextContent("Cold");
+    fireEvent.keyDown(trigger, { key: "ArrowDown", code: "ArrowDown" });
+    const legacy = await screen.findByRole("option", {
+      name: "Cold — legacy",
+    });
+    expect(legacy).toHaveAttribute("data-disabled");
+    fireEvent.click(screen.getByRole("option", { name: "Hot" }));
+    expect(trigger).toHaveTextContent("Hot");
   });
 
   it.each(["ghost", "stale"] as const)(
