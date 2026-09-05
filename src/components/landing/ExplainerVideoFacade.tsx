@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Play } from "lucide-react";
 
 export interface NativeExplainerVideoSource {
@@ -21,6 +21,7 @@ export interface ExplainerVideoFacadeProps {
   readonly posterAvif?: string;
   readonly source: ExplainerVideoSource;
   readonly title: string;
+  readonly onPlay?: () => void;
 }
 
 interface ExplainerVideoSectionProps {
@@ -55,8 +56,22 @@ export function ExplainerVideoFacade({
   posterAvif,
   source,
   title,
+  onPlay,
 }: ExplainerVideoFacadeProps) {
   const [isPlaying, setIsPlaying] = useState(false);
+  const playReportedRef = useRef(false);
+
+  const handlePlay = useCallback(() => {
+    if (!playReportedRef.current) {
+      playReportedRef.current = true;
+      try {
+        onPlay?.();
+      } catch {
+        // Presentation telemetry cannot prevent video playback.
+      }
+    }
+    setIsPlaying(true);
+  }, [onPlay]);
 
   return (
     <div
@@ -112,7 +127,7 @@ export function ExplainerVideoFacade({
             className="group absolute inset-0 flex cursor-pointer items-center justify-center focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-400/80 focus-visible:ring-inset"
             type="button"
             aria-label={`Play ${title}`}
-            onClick={() => setIsPlaying(true)}
+            onClick={handlePlay}
           >
             <span className="flex h-16 w-16 min-h-12 min-w-12 items-center justify-center rounded-full border border-white/15 bg-black/40 text-white shadow-xl backdrop-blur-md transition duration-200 group-hover:scale-105 group-hover:bg-black/55 group-focus-visible:scale-105 motion-reduce:transition-none">
               <Play className="ml-1 h-7 w-7 fill-current" aria-hidden="true" />

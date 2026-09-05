@@ -48,6 +48,8 @@ interface UploadZoneProps {
   isVisible: boolean;
   onScanStart?: (fileName: string, scanSessionId: string) => void;
   onUploadReset?: () => void;
+  onUploadAttempt?: (fileType: string) => void;
+  onUploadFailure?: (fileType: string) => void;
   sessionId?: string;
   /**
    * Contact-owned lead id (Sprint 2A). When a valid UUID is supplied it is
@@ -382,7 +384,15 @@ function UploadErrorPanel({
 
 type UploadRecoveryKind = "storage_conflict_no_context" | null;
 
-const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId, leadId: leadIdProp }: UploadZoneProps) => {
+const UploadZone = ({
+  isVisible,
+  onScanStart,
+  onUploadReset,
+  onUploadAttempt,
+  onUploadFailure,
+  sessionId,
+  leadId: leadIdProp,
+}: UploadZoneProps) => {
   const [file, setFile] = useState<File | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -408,6 +418,11 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId, leadId: 
   // the retry path. Guarantees no duplicate quote_files / scan_sessions
   // rows for the same user intent, even if React state is stale.
   const uploadedOnceRef = useRef(false);
+  const uploadFailureNotifiedRef = useRef(false);
+  const quoteUploadedEventRef = useRef<{
+    scanSessionId: string;
+    eventId: string;
+  } | null>(null);
   const funnel = useScanFunnelSafe();
   const rpc = supabase.rpc.bind(supabase) as unknown as (
     fnName: string,
@@ -494,6 +509,40 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId, leadId: 
     [onScanStart],
   );
 
+  const notifyUploadAttempt = useCallback(
+    (fileType: string) => {
+      try {
+        onUploadAttempt?.(fileType);
+      } catch {
+        // Presentation telemetry cannot interrupt the upload path.
+      }
+    },
+    [onUploadAttempt],
+  );
+
+  const notifyUploadFailureOnce = useCallback(
+    (fileType: string) => {
+      if (uploadFailureNotifiedRef.current) return;
+      uploadFailureNotifiedRef.current = true;
+      try {
+        onUploadFailure?.(fileType);
+      } catch {
+        // Presentation telemetry cannot interrupt the retry path.
+      }
+    },
+    [onUploadFailure],
+  );
+
+  const getQuoteUploadedEventId = useCallback((scanSessionId: string) => {
+    if (quoteUploadedEventRef.current?.scanSessionId === scanSessionId) {
+      return quoteUploadedEventRef.current.eventId;
+    }
+
+    const eventId = makeTransportEventId();
+    quoteUploadedEventRef.current = { scanSessionId, eventId };
+    return eventId;
+  }, []);
+
   const handleStartFreshUpload = useCallback(() => {
     resetUploadSelection();
     uploadedOnceRef.current = false;
@@ -533,7 +582,7 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId, leadId: 
     leadId: string | null,
     quoteFileId: string,
   ): Promise<boolean> => {
-    const quoteUploadedEventId = makeTransportEventId();
+    const quoteUploadedEventId = getQuoteUploadedEventId(scanSessionId);
     const { data: fnData, error: fnError } = await supabase.functions.invoke("scan-quote", {
       body: { scan_session_id: scanSessionId, event_id: quoteUploadedEventId },
     });
@@ -571,6 +620,7 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId, leadId: 
           timestamp: new Date().toISOString(),
         },
       });
+      notifyUploadFailureOnce(file?.type || "");
       return false;
     }
 
@@ -582,6 +632,7 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId, leadId: 
         "This does not appear to be a valid window estimate or quote.";
       setUploadError(msg);
       toast.error(msg);
+      notifyUploadFailureOnce(file?.type || "");
       return false;
     }
 
@@ -613,6 +664,8 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId, leadId: 
     if (inFlightRef.current) return;
     if (uploading) return;
     inFlightRef.current = true;
+    uploadFailureNotifiedRef.current = false;
+    notifyUploadAttempt(file.type);
     setUploading(true);
     setUploadError(null);
     setUploadErrorDiag(null);
@@ -623,6 +676,7 @@ const UploadZone = ({ isVisible, onScanStart, onUploadReset, sessionId, leadId: 
     // exactly one message and one retry button — never a stack of toasts
     // from cascading partial failures (storage / quote_files / scan_sessions).
     const failWith = (stage: string, message: string, err?: unknown) => {
+      notifyUploadFailureOnce(file.type);
       console.error(`[UploadZone] ${stage} failed:`, err);
       setUploadErrorKind(
         stage === "storage_conflict_no_context" ? "storage_conflict_no_context" : null,

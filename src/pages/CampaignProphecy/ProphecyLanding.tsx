@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
 import UniversalIntakeHost from "@/components/intake/universal/UniversalIntakeHost";
@@ -6,10 +6,11 @@ import type {
   IntakeIntentChoice,
   IntakeOpenRequest,
   IntakePersistedSuccess,
+  IntakeSubmitter,
   IntakeValues,
 } from "@/components/intake/universal/intakeTypes";
 import UploadZone from "@/components/UploadZone";
-import { trackEvent } from "@/lib/trackEvent";
+import { pushProphecyLowIntentEvent } from "@/lib/tracking/prophecyEvents";
 import { getOrCreateFirstQuoteSessionId } from "@/services/windowmanFirstQuoteLeadCapture";
 import { useCampaignNqIllumination } from "../CampaignNQ/useCampaignNqIllumination";
 import ProphecyIntakeSkin from "./ProphecyIntakeSkin";
@@ -45,7 +46,7 @@ export default function ProphecyLanding() {
   });
 
   const variant = useProphecyVariant();
-  const [persistLead] = useState(createCampaignProphecyLeadSubmitter);
+  const [basePersistLead] = useState(createCampaignProphecyLeadSubmitter);
   const [sessionId] = useState(getOrCreateFirstQuoteSessionId);
 
   const navigate = useNavigate();
@@ -56,16 +57,26 @@ export default function ProphecyLanding() {
   const [uploadLeadId, setUploadLeadId] = useState<string | null>(null);
   const [uploadSessionId, setUploadSessionId] = useState<string | null>(null);
   const uploadPendingRef = useRef(false);
+  const intakeOpenRef = useRef(false);
   const openerRef = useRef<HTMLElement | null>(null);
 
-  useEffect(() => {
-    trackEvent({
-      event_name: "page_view",
-      session_id: sessionId,
-      route: "/prophecy",
-      metadata: { variant_id: variant.id },
-    });
-  }, [sessionId, variant.id]);
+  const persistLead = useCallback<IntakeSubmitter>(
+    async (values, context) => {
+      const result = await basePersistLead(values, context);
+      if (!result.ok) {
+        pushProphecyLowIntentEvent("form_error", {
+          flow_variant: variant.id,
+          wm_intent:
+            values.intent === "has_quote" || values.intent === "no_quote"
+              ? values.intent
+              : null,
+          step_name: "submission",
+        });
+      }
+      return result;
+    },
+    [basePersistLead, variant.id],
+  );
 
   /**
    * Opens the intake with the fork already answered.
@@ -80,17 +91,22 @@ export default function ProphecyLanding() {
       intent: IntakeIntentChoice,
       entryPoint: "hero_primary" | "footer_primary",
     ) => {
+      if (intakeOpenRef.current) return;
+      intakeOpenRef.current = true;
+
       openerRef.current =
         document.activeElement instanceof HTMLElement
           ? document.activeElement
           : null;
 
-      trackEvent({
-        event_name: "path_selected",
-        session_id: sessionId,
-        route: "/prophecy",
-        metadata: { path: intent, entry_point: entryPoint },
-      });
+      const measurement = {
+        flow_variant: variant.id,
+        wm_intent: intent,
+        cta_location: entryPoint,
+        step_name: "intent" as const,
+      };
+      pushProphecyLowIntentEvent("path_selected", measurement);
+      pushProphecyLowIntentEvent("form_start", measurement);
 
       setOpenRequest({
         requestId: crypto.randomUUID(),
@@ -99,7 +115,7 @@ export default function ProphecyLanding() {
         presetValues: { intent },
       });
     },
-    [sessionId, variant.id],
+    [variant.id],
   );
 
   const handlePersistedSuccess = useCallback(
@@ -108,13 +124,6 @@ export default function ProphecyLanding() {
       const persistedSessionId =
         typeof persisted.sessionId === "string" ? persisted.sessionId : null;
 
-      trackEvent({
-        event_name: "lead_captured",
-        session_id: sessionId,
-        route: "/prophecy",
-        metadata: { path: intent, zip: values.zip },
-      });
-
       // Reveal the upload zone only once the modal is dismissed — UploadZone
       // scrolls itself into view when it becomes visible, which would otherwise
       // happen behind the dialog.
@@ -122,10 +131,11 @@ export default function ProphecyLanding() {
       setUploadSessionId(intent === "has_quote" ? persistedSessionId : null);
       uploadPendingRef.current = intent === "has_quote";
     },
-    [sessionId],
+    [],
   );
 
   const closeIntake = useCallback(() => {
+    intakeOpenRef.current = false;
     setOpenRequest(null);
     if (uploadPendingRef.current) {
       uploadPendingRef.current = false;
@@ -177,7 +187,14 @@ export default function ProphecyLanding() {
               onChooseIntent={(intent) => chooseIntent(intent, "hero_primary")}
             />
             <ProphecyPredictions />
-            <ProphecyExplainer />
+            <ProphecyExplainer
+              onPlay={() =>
+                pushProphecyLowIntentEvent("video_play", {
+                  flow_variant: variant.id,
+                  step_name: "explainer",
+                })
+              }
+            />
             <ProphecyFAQ />
             <ProphecyFinalCTA
               onChooseIntent={(intent) =>
@@ -191,13 +208,23 @@ export default function ProphecyLanding() {
                   isVisible={showUpload}
                   sessionId={uploadSessionId ?? sessionId}
                   leadId={uploadLeadId}
-                  onScanStart={(fileName, scanId) => {
-                    trackEvent({
-                      event_name: "scan_started",
-                      session_id: scanId,
-                      route: "/prophecy",
-                      metadata: { file_name: fileName },
-                    });
+                  onUploadAttempt={(fileType) =>
+                    pushProphecyLowIntentEvent("upload_start", {
+                      flow_variant: variant.id,
+                      wm_intent: "has_quote",
+                      step_name: "upload",
+                      file_type: fileType,
+                    })
+                  }
+                  onUploadFailure={(fileType) =>
+                    pushProphecyLowIntentEvent("upload_error", {
+                      flow_variant: variant.id,
+                      wm_intent: "has_quote",
+                      step_name: "upload",
+                      file_type: fileType,
+                    })
+                  }
+                  onScanStart={(_fileName, scanId) => {
                     // Hand off to the canonical report route rather than
                     // re-implementing scan theatrics, preview polling and the
                     // OTP gate on a campaign page. That route owns the
