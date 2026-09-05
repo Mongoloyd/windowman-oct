@@ -22,6 +22,7 @@ const entries: SitemapEntry[] = [
   { path: "/privacy", changefreq: "yearly", priority: "0.3", lastmod: "2026-08-01" },
   { path: "/terms", changefreq: "yearly", priority: "0.3" },
   { path: "/disclaimer", changefreq: "yearly", priority: "0.3" },
+  { path: "/prophecy", changefreq: "weekly", priority: "0.8" },
   { path: "/how-we-beat-window-quotes", changefreq: "monthly", priority: "0.6" },
   { path: "/contractors", changefreq: "weekly", priority: "0.7" },
   { path: "/contractors2", changefreq: "weekly", priority: "0.7" },

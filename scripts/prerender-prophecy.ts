@@ -5,12 +5,16 @@
  * intake. React replaces it when the application starts.
  *
  * Also injects:
+ * - Route-specific SEO/social metadata (shared with runtime Helmet)
  * - First has_quote intent AVIF preload (LCP candidate)
  * - Manifest-resolved modulepreload for the hashed Prophecy route chunk
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { dirname, resolve } from "path";
 import { fileURLToPath } from "url";
+import {
+  PROPHECY_METADATA,
+} from "../src/content/prophecyMetadata.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const distDir = resolve(__dirname, "../dist");
@@ -33,6 +37,14 @@ type ViteManifestEntry = {
 };
 
 type ViteManifest = Record<string, ViteManifestEntry>;
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
 
 function resolveProphecyChunkHref(manifest: ViteManifest): string {
   const entry = manifest[PROPHECY_ENTRY];
@@ -71,9 +83,45 @@ function loadManifest(): ViteManifest {
   }
 }
 
+function stripInheritedHomepageMetadata(html: string): string {
+  let out = html;
+  out = out.replace(/<title>[\s\S]*?<\/title>\s*/i, "");
+  out = out.replace(/<meta\s+name=["']description["'][^>]*>\s*/gi, "");
+  out = out.replace(/<meta\s+name=["']robots["'][^>]*>\s*/gi, "");
+  out = out.replace(/<link\s+rel=["']canonical["'][^>]*>\s*/gi, "");
+  out = out.replace(/<meta\s+property=["']og:[^"']+["'][^>]*>\s*/gi, "");
+  out = out.replace(/<meta\s+name=["']twitter:[^"']+["'][^>]*>\s*/gi, "");
+  out = out.replace(
+    /<script\s+type=["']application\/ld\+json["']>[\s\S]*?<\/script>\s*/gi,
+    "",
+  );
+  return out;
+}
+
+function buildProphecyMetadataTags(): string {
+  const m = PROPHECY_METADATA;
+  return [
+    `<title>${escapeHtml(m.title)}</title>`,
+    `<meta name="description" content="${escapeHtml(m.description)}" />`,
+    `<meta name="robots" content="${escapeHtml(m.robots)}" />`,
+    `<link rel="canonical" href="${m.canonicalUrl}" />`,
+    `<meta property="og:type" content="${escapeHtml(m.openGraph.type)}" />`,
+    `<meta property="og:site_name" content="${escapeHtml(m.openGraph.siteName)}" />`,
+    `<meta property="og:title" content="${escapeHtml(m.openGraph.title)}" />`,
+    `<meta property="og:description" content="${escapeHtml(m.openGraph.description)}" />`,
+    `<meta property="og:url" content="${m.openGraph.url}" />`,
+    `<meta property="og:image" content="${m.openGraph.image}" />`,
+    `<meta name="twitter:card" content="${escapeHtml(m.twitter.card)}" />`,
+    `<meta name="twitter:title" content="${escapeHtml(m.twitter.title)}" />`,
+    `<meta name="twitter:description" content="${escapeHtml(m.twitter.description)}" />`,
+    `<meta name="twitter:image" content="${m.twitter.image}" />`,
+  ].join("\n  ");
+}
+
 const prophecyChunkHref = resolveProphecyChunkHref(loadManifest());
 
 const prophecyHeadExtras =
+  `  ${buildProphecyMetadataTags()}\n` +
   `  <style data-prophecy-prerender>html,body,#root{background:#070e18;color-scheme:dark}</style>\n` +
   `  <style data-prophecy-prerender-noscript>[data-prophecy-prerender-shell]{display:none!important}</style>\n` +
   `  <link rel="preload" as="image" type="image/avif" href="${FIRST_INTENT_AVIF}" fetchpriority="high" />\n` +
@@ -89,6 +137,7 @@ if (!headClosePattern.test(shell)) {
   throw new Error("prerender: dist/index.html is missing the head close tag");
 }
 
+shell = stripInheritedHomepageMetadata(shell);
 shell = shell.replace(headClosePattern, `${prophecyHeadExtras}</head>`);
 shell = shell.replace(emptyRootPattern, prophecyRoot);
 
