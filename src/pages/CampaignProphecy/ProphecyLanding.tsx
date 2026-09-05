@@ -16,6 +16,11 @@ import { useCampaignNqIllumination } from "../CampaignNQ/useCampaignNqIlluminati
 import ProphecyIntakeSkin from "./ProphecyIntakeSkin";
 import { createCampaignProphecyLeadSubmitter } from "./campaignProphecyLeadCapture";
 import { prophecyIntakeConfig } from "./prophecyIntakeConfig";
+import {
+  clearProphecyUploadResume,
+  readProphecyUploadResume,
+  writeProphecyUploadResume,
+} from "./prophecyUploadResume";
 import { useProphecyVariant } from "./useProphecyVariant";
 import ProphecyExplainer from "./sections/ProphecyExplainer";
 import ProphecyFAQ from "./sections/ProphecyFAQ";
@@ -53,9 +58,16 @@ export default function ProphecyLanding() {
   const [openRequest, setOpenRequest] = useState<IntakeOpenRequest | null>(
     null,
   );
-  const [showUpload, setShowUpload] = useState(false);
-  const [uploadLeadId, setUploadLeadId] = useState<string | null>(null);
-  const [uploadSessionId, setUploadSessionId] = useState<string | null>(null);
+  const [initialUploadResume] = useState(readProphecyUploadResume);
+  const [showUpload, setShowUpload] = useState(
+    initialUploadResume !== null,
+  );
+  const [uploadLeadId, setUploadLeadId] = useState<string | null>(
+    initialUploadResume?.leadId ?? null,
+  );
+  const [uploadSessionId, setUploadSessionId] = useState<string | null>(
+    initialUploadResume?.sessionId ?? null,
+  );
   const uploadPendingRef = useRef(false);
   const intakeOpenRef = useRef(false);
   const openerRef = useRef<HTMLElement | null>(null);
@@ -121,15 +133,36 @@ export default function ProphecyLanding() {
   const handlePersistedSuccess = useCallback(
     (values: IntakeValues, persisted: IntakePersistedSuccess) => {
       const intent = values.intent === "has_quote" ? "has_quote" : "no_quote";
-      const persistedSessionId =
-        typeof persisted.sessionId === "string" ? persisted.sessionId : null;
+
+      if (intent === "no_quote") {
+        clearProphecyUploadResume();
+        uploadPendingRef.current = false;
+        setShowUpload(false);
+        setUploadLeadId(null);
+        setUploadSessionId(null);
+        return;
+      }
+
+      const resume = writeProphecyUploadResume({
+        leadId: persisted.leadId,
+        sessionId: persisted.sessionId,
+      });
+
+      if (!resume) {
+        clearProphecyUploadResume();
+        uploadPendingRef.current = false;
+        setShowUpload(false);
+        setUploadLeadId(null);
+        setUploadSessionId(null);
+        return;
+      }
 
       // Reveal the upload zone only once the modal is dismissed — UploadZone
       // scrolls itself into view when it becomes visible, which would otherwise
       // happen behind the dialog.
-      setUploadLeadId(intent === "has_quote" ? persisted.leadId : null);
-      setUploadSessionId(intent === "has_quote" ? persistedSessionId : null);
-      uploadPendingRef.current = intent === "has_quote";
+      setUploadLeadId(resume.leadId);
+      setUploadSessionId(resume.sessionId);
+      uploadPendingRef.current = true;
     },
     [],
   );
@@ -225,6 +258,7 @@ export default function ProphecyLanding() {
                     })
                   }
                   onScanStart={(_fileName, scanId) => {
+                    clearProphecyUploadResume();
                     // Hand off to the canonical report route rather than
                     // re-implementing scan theatrics, preview polling and the
                     // OTP gate on a campaign page. That route owns the
