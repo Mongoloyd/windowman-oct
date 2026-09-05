@@ -37,7 +37,14 @@ interface ProphecyIntentCardProps {
   option: ProphecyIntentOption;
   selected: boolean;
   onSelect: (value: IntakeIntentChoice) => void;
+  /** Prioritize only cards visible in the initial hero viewport. */
+  priority?: boolean;
 }
+
+const HIGH_FETCH_PRIORITY_ATTR = { fetchpriority: "high" } as Record<
+  string,
+  string
+>;
 
 /**
  * A full-bleed image card the visitor picks with their thumb.
@@ -52,15 +59,15 @@ interface ProphecyIntentCardProps {
  * action, only on the ambient state of an unmade choice.
  *
  * ASSETS
- * `imageBase` resolves to `<base>.avif`, `.webp` and `.jpg`. Until real art
- * lands, the layered gradient beneath the image is what shows — a missing file
- * degrades to a lit panel rather than a broken-image icon, so the page is never
- * blocked on the photography.
+ * `imageBase` resolves to `<base>.avif`, `.webp` and `.jpg`. If an advertised
+ * asset fails, the layered gradient beneath the image remains as a deliberate
+ * fallback rather than showing a broken-image icon.
  */
 export default function ProphecyIntentCard({
   option,
   selected,
   onSelect,
+  priority = false,
 }: ProphecyIntentCardProps) {
   // A card whose art is missing must still look deliberate. On any load failure
   // the image is dropped and the gradient beneath becomes the design, rather
@@ -116,8 +123,11 @@ export default function ProphecyIntentCard({
           <img
             src={`${option.imageBase}.jpg`}
             alt={option.imageAlt}
-            loading="lazy"
+            width={896}
+            height={1200}
+            loading={priority ? "eager" : "lazy"}
             decoding="async"
+            {...(priority ? HIGH_FETCH_PRIORITY_ATTR : {})}
             onError={() => setImageFailed(true)}
             className={cn(
               "absolute inset-0 h-full w-full object-cover",

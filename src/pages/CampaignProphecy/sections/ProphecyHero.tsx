@@ -84,6 +84,7 @@ export default function ProphecyHero({
                 option={option}
                 selected={false}
                 onSelect={onChooseIntent}
+                priority
               />
             ))}
           </div>

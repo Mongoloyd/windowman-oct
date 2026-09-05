@@ -23,6 +23,22 @@ describe("Prophecy intent fork semantics", () => {
     ).toBeInTheDocument();
     expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
     expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("img", {
+        name: /printed window proposal and estimate/i,
+      }),
+    ).toHaveAttribute("loading", "eager");
+    expect(
+      screen.getByRole("img", {
+        name: /window frame sample beside a tablet/i,
+      }),
+    ).toHaveAttribute("fetchpriority", "high");
+    expect(document.querySelectorAll('source[type="image/avif"]')).toHaveLength(
+      2,
+    );
+    expect(document.querySelectorAll('source[type="image/webp"]')).toHaveLength(
+      2,
+    );
   });
 
   it("renders footer intent cards as a button group, not a radio group", () => {
@@ -33,6 +49,16 @@ describe("Prophecy intent fork semantics", () => {
     ).toBeInTheDocument();
     expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
     expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("img", {
+        name: /printed window proposal and estimate/i,
+      }),
+    ).toHaveAttribute("loading", "lazy");
+    expect(
+      screen.getByRole("img", {
+        name: /printed window proposal and estimate/i,
+      }),
+    ).not.toHaveAttribute("fetchpriority");
   });
 
   it("exposes the modal intent choice through pressed button semantics", () => {
