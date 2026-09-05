@@ -15,7 +15,7 @@ export default function ProphecyFinalCTA({
   onChooseIntent,
 }: ProphecyFinalCTAProps) {
   return (
-    <section className="relative px-5 py-16 sm:px-8 sm:py-24">
+    <section className="relative px-5 py-16 [content-visibility:auto] [contain-intrinsic-size:auto_680px] sm:px-8 sm:py-24">
       <div className="mx-auto max-w-3xl text-center">
         <h2 className="text-[28px] font-bold leading-[1.15] text-white sm:text-[36px]">
           Find out what your estimate doesn&apos;t say.

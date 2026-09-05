@@ -40,7 +40,7 @@ const PREDICTIONS: readonly Prediction[] = [
  */
 export default function ProphecyPredictions() {
   return (
-    <section className="relative px-5 py-16 sm:px-8 sm:py-20">
+    <section className="relative px-5 py-16 [content-visibility:auto] [contain-intrinsic-size:auto_720px] sm:px-8 sm:py-20">
       <div className="mx-auto max-w-5xl">
         <p className="font-mono text-[10.5px] font-semibold uppercase tracking-[0.18em] text-amber-200/80">
           The prophecy

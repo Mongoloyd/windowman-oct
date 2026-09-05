@@ -17,7 +17,7 @@ import {
  */
 export default function ProphecyExplainer({ onPlay }: { onPlay?: () => void }) {
   return (
-    <section className="relative px-5 py-16 sm:px-8 sm:py-20">
+    <section className="relative px-5 py-16 [content-visibility:auto] [contain-intrinsic-size:auto_640px] sm:px-8 sm:py-20">
       <div className="mx-auto grid max-w-5xl items-center gap-9 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:gap-14">
         <div>
           <p className="font-mono text-[10.5px] font-semibold uppercase tracking-[0.18em] text-cyan-300/80">
