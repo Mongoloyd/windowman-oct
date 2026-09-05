@@ -460,6 +460,8 @@ describe("dataLayer helper", () => {
       expect(calls[0][1]).not.toHaveProperty("lead_id");
       expect(calls[0][1]).not.toHaveProperty("session_id");
       expect(calls[0][1].event_id).toEqual(expect.stringContaining("lead_magnet_captured"));
+      expect(calls[0][1].event_id).not.toEqual(expect.stringContaining("lead-abc-123"));
+      expect(calls[0][1].event_id).not.toEqual(expect.stringContaining("session-xyz-456"));
     });
 
     it("does not fire before this helper is called (no submit-start fire)", () => {
@@ -549,6 +551,8 @@ describe("dataLayer helper", () => {
       });
       expect(calls[0][1]).not.toHaveProperty("lead_id");
       expect(calls[0][1]).not.toHaveProperty("session_id");
+      expect(calls[0][1].event_id).not.toEqual(expect.stringContaining("lead-upload-1"));
+      expect(calls[0][1].event_id).not.toEqual(expect.stringContaining("session-upload-1"));
       expect(sessionStorage.getItem(HANDOFF_SOURCE_ROUTE_KEY)).toBe("window_price_audit");
     });
 

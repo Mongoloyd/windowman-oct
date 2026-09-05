@@ -359,8 +359,6 @@ export function pushLeadMagnetCaptured(args: LeadMagnetCapturedArgs): void {
   const attribution = buildAttributionDataLayerPayload();
   const eventId = buildCanonicalEventId({
     eventName: "lead_magnet_captured",
-    leadId: args.leadId,
-    scanSessionId: args.sessionId,
   });
 
   pushDataLayerEvent("lead_magnet_captured", {
@@ -419,8 +417,6 @@ export function pushLeadMagnetUploadCtaClicked(
   const attribution = buildAttributionDataLayerPayload();
   const eventId = buildCanonicalEventId({
     eventName: "lead_magnet_upload_cta_clicked",
-    leadId: args.leadId,
-    scanSessionId: args.sessionId,
   });
 
   pushDataLayerEvent("lead_magnet_upload_cta_clicked", {
