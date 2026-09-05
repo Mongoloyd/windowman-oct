@@ -7,8 +7,12 @@
 import { lazy, Suspense, useEffect, useState, useCallback, useRef } from "react";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Settings } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
-import { getAdminPageTitle } from "@/routes/adminDashboardTabs";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import {
+  getAdminPageTitle,
+  isAdminDashboardTab,
+  type AdminDashboardTab,
+} from "@/routes/adminDashboardTabs";
 import { formatDistanceToNow } from "date-fns";
 import { AdminShell } from "@/components/admin/shell/AdminShell";
 import { AdminPrimaryTabs } from "@/components/admin/shell/AdminPrimaryTabs";
@@ -341,8 +345,20 @@ interface DashboardContentProps {
   initialTab?: string;
 }
 
+function tabToCanonicalAdminRoute(tab: AdminDashboardTab): string {
+  switch (tab) {
+    case "mission-control":
+      return "/admin/command-center";
+    case "engine":
+      return "/admin/dialer";
+    default:
+      return `/admin/${tab}`;
+  }
+}
+
 function DashboardContent({ initialTab }: DashboardContentProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const pageTitle = getAdminPageTitle(location.pathname);
   const [leads, setLeads] = useState<CRMLead[]>([]);
   const [deliveries, setDeliveries] = useState<WebhookDelivery[]>([]);
@@ -518,6 +534,16 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
   const leadsCall = backendCalls.find((c) => c.action === "fetch_leads");
   const leadsLoadFailed = leadsCall?.status === "failed";
   const leadsLoadSucceeded = leadsCall?.status === "success";
+  const navigateTab = useCallback(
+    (nextTab: string) => {
+      setActiveTab(nextTab);
+      if (!isAdminDashboardTab(nextTab)) return;
+      const targetPath = tabToCanonicalAdminRoute(nextTab);
+      if (location.pathname === targetPath) return;
+      navigate(targetPath);
+    },
+    [location.pathname, navigate],
+  );
 
   const lastSyncLabel = lastSyncedAt
     ? `Updated ${formatDistanceToNow(lastSyncedAt, { addSuffix: true })}`
@@ -556,7 +582,7 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
       belowHeader={
         <AdminPrimaryTabs
           activePanel={activeTab}
-          onPanelChange={setActiveTab}
+          onPanelChange={navigateTab}
           ghostCount={ghosts.length}
           needsReviewCount={needsReview.length}
         />
@@ -569,7 +595,7 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
           onRetry={fetchAll}
         />
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-5">
+      <Tabs value={activeTab} onValueChange={navigateTab} className="space-y-5">
         <Suspense fallback={<div className="flex items-center justify-center py-12 text-sm text-slate-500">Loading…</div>}>
           <TabsContent value="mission-control" className="w-full pt-1">
             <MasterCommandCenter
@@ -577,25 +603,25 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
               deliveries={deliveries}
               ghosts={ghosts}
               needsReviewCount={needsReview.length}
-              onNavigateTab={setActiveTab}
+              onNavigateTab={navigateTab}
             />
           </TabsContent>
 
           <TabsContent value="surface-map" className="w-full pt-1">
             <AdminInformationArchitectureNavigationSimplificationSurface
-              onNavigateTab={setActiveTab}
+              onNavigateTab={navigateTab}
               activeTab={activeTab}
             />
           </TabsContent>
 
           <TabsContent value="prioritization" className="w-full pt-1">
             <StrategicPrioritizationNextBuildDecisionFrameworkSurface
-              onNavigateTab={setActiveTab}
+              onNavigateTab={navigateTab}
             />
           </TabsContent>
 
           <TabsContent value="launch" className="w-full pt-1">
-            <PilotOpsLaunchControl leads={leads} onNavigateTab={setActiveTab} />
+            <PilotOpsLaunchControl leads={leads} onNavigateTab={navigateTab} />
           </TabsContent>
 
           <TabsContent value="command" className="space-y-6">
@@ -608,7 +634,7 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
               deliveries={deliveries}
               ghosts={ghosts}
               needsReviewCount={needsReview.length}
-              onNavigateTab={setActiveTab}
+              onNavigateTab={navigateTab}
             />
             <MarketOpsFeed leads={leads} />
           </TabsContent>
@@ -634,7 +660,11 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
           </TabsContent>
 
           <TabsContent value="pipeline">
-            <ActivePipeline leads={leads} isLoading={isLoading && !leadsLoadFailed} />
+            <ActivePipeline
+              leads={leads}
+              isLoading={isLoading && !leadsLoadFailed}
+              hasLoadError={leadsLoadFailed}
+            />
           </TabsContent>
 
           <TabsContent value="ghosts">
@@ -665,87 +695,87 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
           </TabsContent>
 
           <TabsContent value="onboarding" className="w-full px-2 sm:px-6 pt-4">
-            <ContractorOnboardingSurface onNavigateTab={setActiveTab} />
+            <ContractorOnboardingSurface onNavigateTab={navigateTab} />
           </TabsContent>
 
           <TabsContent value="outcomes" className="w-full px-2 sm:px-6 pt-4">
-            <OutcomeTrackingReport leads={leads} onNavigateTab={setActiveTab} />
+            <OutcomeTrackingReport leads={leads} onNavigateTab={navigateTab} />
           </TabsContent>
 
           <TabsContent value="reporting" className="w-full px-2 sm:px-6 pt-4">
-            <OperatorReportingSurface leads={leads} onNavigateTab={setActiveTab} />
+            <OperatorReportingSurface leads={leads} onNavigateTab={navigateTab} />
           </TabsContent>
 
           <TabsContent value="lifecycle" className="w-full px-2 sm:px-6 pt-4">
-            <DeadStaleRecoveryWorkflowSurface leads={leads} onNavigateTab={setActiveTab} />
+            <DeadStaleRecoveryWorkflowSurface leads={leads} onNavigateTab={navigateTab} />
           </TabsContent>
 
           <TabsContent value="feedback" className="w-full px-2 sm:px-6 pt-4">
-            <ContractorFeedbackLoopSurface leads={leads} onNavigateTab={setActiveTab} />
+            <ContractorFeedbackLoopSurface leads={leads} onNavigateTab={navigateTab} />
           </TabsContent>
 
           <TabsContent value="shared-market" className="w-full px-2 sm:px-6 pt-4">
-            <SharedMarketManualControlsSurface leads={leads} onNavigateTab={setActiveTab} />
+            <SharedMarketManualControlsSurface leads={leads} onNavigateTab={navigateTab} />
           </TabsContent>
 
           <TabsContent value="report-prep" className="w-full px-2 sm:px-6 pt-4">
-            <ClientFacingReportingPrepSurface leads={leads} onNavigateTab={setActiveTab} />
+            <ClientFacingReportingPrepSurface leads={leads} onNavigateTab={navigateTab} />
           </TabsContent>
 
           <TabsContent value="audit" className="w-full px-2 sm:px-6 pt-4">
-            <PilotToPlatformAuditSurface leads={leads} onNavigateTab={setActiveTab} />
+            <PilotToPlatformAuditSurface leads={leads} onNavigateTab={navigateTab} />
           </TabsContent>
 
           <TabsContent value="readiness" className="w-full px-2 sm:px-6 pt-4">
-            <LaunchReadinessSurface leads={leads} onNavigateTab={setActiveTab} />
+            <LaunchReadinessSurface leads={leads} onNavigateTab={navigateTab} />
           </TabsContent>
 
           <TabsContent value="training" className="w-full px-2 sm:px-6 pt-4">
-            <OperatorTrainingSOPSurface onNavigateTab={setActiveTab} />
+            <OperatorTrainingSOPSurface onNavigateTab={navigateTab} />
           </TabsContent>
 
           <TabsContent value="rollout" className="w-full px-2 sm:px-6 pt-4">
-            <RolloutPlanningReadinessSurface onNavigateTab={setActiveTab} />
+            <RolloutPlanningReadinessSurface onNavigateTab={navigateTab} />
           </TabsContent>
 
           <TabsContent value="data-quality" className="w-full px-2 sm:px-6 pt-4">
-            <DataQualityFieldIntegritySurface leads={leads} onNavigateTab={setActiveTab} />
+            <DataQualityFieldIntegritySurface leads={leads} onNavigateTab={navigateTab} />
           </TabsContent>
 
           <TabsContent value="exceptions" className="w-full px-2 sm:px-6 pt-4">
-            <ExceptionHandlingManualEscalationSurface leads={leads} onNavigateTab={setActiveTab} />
+            <ExceptionHandlingManualEscalationSurface leads={leads} onNavigateTab={navigateTab} />
           </TabsContent>
 
           <TabsContent value="docs" className="w-full px-2 sm:px-6 pt-4">
-            <DocumentationHandoffReadinessSurface onNavigateTab={setActiveTab} />
+            <DocumentationHandoffReadinessSurface onNavigateTab={navigateTab} />
           </TabsContent>
 
           <TabsContent value="learnings" className="w-full px-2 sm:px-6 pt-4">
-            <PostPilotLearningsDecisionSupportSurface leads={leads} onNavigateTab={setActiveTab} />
+            <PostPilotLearningsDecisionSupportSurface leads={leads} onNavigateTab={navigateTab} />
           </TabsContent>
 
           <TabsContent value="change-mgmt" className="w-full px-2 sm:px-6 pt-4">
-            <ChangeManagementSafeUpdateReadinessSurface onNavigateTab={setActiveTab} />
+            <ChangeManagementSafeUpdateReadinessSurface onNavigateTab={navigateTab} />
           </TabsContent>
 
           <TabsContent value="governance" className="w-full px-2 sm:px-6 pt-4">
-            <MinimumViableGovernanceDecisionBoundariesSurface onNavigateTab={setActiveTab} />
+            <MinimumViableGovernanceDecisionBoundariesSurface onNavigateTab={navigateTab} />
           </TabsContent>
 
           <TabsContent value="drills" className="w-full px-2 sm:px-6 pt-4">
-            <OperatorScenarioDrillsSurface onNavigateTab={setActiveTab} />
+            <OperatorScenarioDrillsSurface onNavigateTab={navigateTab} />
           </TabsContent>
 
           <TabsContent value="expansion" className="w-full px-2 sm:px-6 pt-4">
-            <ExpansionPreconditionsMarketEntryReadinessSurface leads={leads} onNavigateTab={setActiveTab} />
+            <ExpansionPreconditionsMarketEntryReadinessSurface leads={leads} onNavigateTab={navigateTab} />
           </TabsContent>
 
           <TabsContent value="tech-debt" className="w-full px-2 sm:px-6 pt-4">
-            <TechnicalDebtRefactorReadinessReviewSurface onNavigateTab={setActiveTab} />
+            <TechnicalDebtRefactorReadinessReviewSurface onNavigateTab={navigateTab} />
           </TabsContent>
 
           <TabsContent value="consistency" className="w-full px-2 sm:px-6 pt-4">
-            <CrossSurfaceConsistencyStatusAlignmentAuditSurface onNavigateTab={setActiveTab} />
+            <CrossSurfaceConsistencyStatusAlignmentAuditSurface onNavigateTab={navigateTab} />
           </TabsContent>
 
           <TabsContent value="attribution">

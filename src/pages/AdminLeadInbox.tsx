@@ -487,7 +487,7 @@ export default function LeadInbox() {
     openLead,
     closeLead,
   } = useAdminLeadSelection(leads, {
-    isReady: !isLoading,
+    isReady: !isLoading && !isError,
     onBeforeOpen: captureScroll,
   });
 

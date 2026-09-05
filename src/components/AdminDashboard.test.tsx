@@ -6,8 +6,8 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter, RouterProvider, createMemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 // ── Hoist mock refs ───────────────────────────────────────────────────────────
@@ -44,6 +44,32 @@ function renderDashboard() {
       </MemoryRouter>
     </QueryClientProvider>,
   );
+}
+
+function renderDashboardAt(pathname: string, initialTab?: string) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: 0 } },
+  });
+  const router = createMemoryRouter(
+    [
+      {
+        path: "/admin/:tab",
+        element: <AdminDashboard initialTab={initialTab} />,
+      },
+      {
+        path: "/admin/command-center",
+        element: <AdminDashboard initialTab="mission-control" />,
+      },
+    ],
+    { initialEntries: [pathname] },
+  );
+
+  render(
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
+  return router;
 }
 
 beforeEach(() => {
@@ -87,6 +113,20 @@ describe("AdminDashboard – operator shell", () => {
     await waitFor(() => {
       const link = screen.getByTitle("Admin Settings");
       expect(link).toHaveAttribute("href", "/admin/settings");
+    });
+  });
+
+  it("navigates to canonical route when panel selection changes from route-owned tabs", async () => {
+    const router = renderDashboardAt("/admin/pipeline", "pipeline");
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { level: 1, name: "Pipeline" })).toBeInTheDocument();
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "Command Center panels" }), {
+      target: { value: "mission-control" },
+    });
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/admin/command-center");
+      expect(screen.getByRole("heading", { level: 1, name: "Command Center" })).toBeInTheDocument();
     });
   });
 });

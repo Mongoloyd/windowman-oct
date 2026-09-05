@@ -175,7 +175,11 @@ export function writeInboxScrollHint(filters: AdminLeadInboxFilters, offset: num
     signature: inboxFilterSignature(filters),
     savedAt: Date.now(),
   };
-  sessionStorage.setItem(scrollStorageKey(filters), JSON.stringify(hint));
+  try {
+    sessionStorage.setItem(scrollStorageKey(filters), JSON.stringify(hint));
+  } catch {
+    // Optional resume hint only; never block inbox behavior.
+  }
 }
 
 export function clearInboxScrollHint(filters: AdminLeadInboxFilters): void {
@@ -261,7 +265,6 @@ export function useInboxDirectoryScroll(options: {
 }) {
   const { filters, search, isReady, captureScroll, restoreScroll, resetScroll } = options;
   const lastSearch = useRef(search);
-  const restoreAttempts = useRef(0);
 
   useEffect(() => {
     if (lastSearch.current === search) return;
@@ -286,17 +289,18 @@ export function useInboxDirectoryScroll(options: {
   }, [captureScroll]);
 
   useEffect(() => {
-    if (!isReady) {
-      restoreAttempts.current = 0;
-      return;
-    }
+    if (!isReady) return;
     let attempts = 0;
     const maxAttempts = 6;
     const tick = () => {
-      if (restoreScroll() || attempts >= maxAttempts) return;
+      if (restoreScroll()) return;
+      if (attempts >= maxAttempts) {
+        resetScroll();
+        return;
+      }
       attempts += 1;
       window.setTimeout(tick, 50);
     };
     tick();
-  }, [filters, isReady, restoreScroll]);
+  }, [filters, isReady, resetScroll, restoreScroll]);
 }

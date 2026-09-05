@@ -119,6 +119,22 @@ describe("useAdminLeadSelection history", () => {
     expect(screen.getByTestId("inaccessible").textContent).toBe("true");
   });
 
+  it("keeps lead selection operable when collection scroll storage write fails", async () => {
+    const setItem = vi
+      .spyOn(Storage.prototype, "setItem")
+      .mockImplementation(() => {
+        throw new Error("quota");
+      });
+    renderSelection(["/admin/leads?range=7d"]);
+    fireEvent.click(screen.getByText("open-first"));
+    await waitFor(() => {
+      expect(screen.getByTestId("selected").textContent).toBe(leads[0].id);
+      expect(screen.getByTestId("query").textContent).toContain(`lead_id=${leads[0].id}`);
+    });
+    expect(setItem).toHaveBeenCalled();
+    setItem.mockRestore();
+  });
+
   it("uses a full-viewport presentation below xl and a sheet at xl", async () => {
     const addEventListener = vi.fn();
     const removeEventListener = vi.fn();
@@ -139,7 +155,7 @@ describe("useAdminLeadSelection history", () => {
     }
 
     const view = render(<PresentationProbe />);
-    await waitFor(() => expect(screen.getByTestId("mode").textContent).toBe("sheet"));
+    expect(screen.getByTestId("mode").textContent).toBe("sheet");
     view.unmount();
 
     Object.defineProperty(window, "matchMedia", {
@@ -155,6 +171,20 @@ describe("useAdminLeadSelection history", () => {
     });
     render(<PresentationProbe />);
     await waitFor(() => expect(screen.getByTestId("mode").textContent).toBe("full-viewport"));
+  });
+
+  it("falls back to full-viewport when matchMedia is unavailable", () => {
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      value: undefined,
+    });
+
+    function PresentationProbe() {
+      return <div data-testid="mode">{useAdminXlPresentation()}</div>;
+    }
+
+    render(<PresentationProbe />);
+    expect(screen.getByTestId("mode").textContent).toBe("full-viewport");
   });
 
   it("restores a matching collection scroll hint", () => {

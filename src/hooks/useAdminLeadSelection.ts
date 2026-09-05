@@ -48,10 +48,14 @@ function safeScrollTo(top: number): void {
 export function captureCollectionScroll(pathname: string, params: URLSearchParams): void {
   const offset = window.scrollY;
   if (!Number.isFinite(offset) || offset < 0) return;
-  sessionStorage.setItem(
-    collectionScrollKey(pathname, params),
-    JSON.stringify({ offset, savedAt: Date.now() }),
-  );
+  try {
+    sessionStorage.setItem(
+      collectionScrollKey(pathname, params),
+      JSON.stringify({ offset, savedAt: Date.now() }),
+    );
+  } catch {
+    // Optional resume hint only; never block lead selection.
+  }
 }
 
 export function restoreCollectionScroll(pathname: string, params: URLSearchParams): boolean {
@@ -81,14 +85,26 @@ export function restoreCollectionScroll(pathname: string, params: URLSearchParam
 }
 
 export function useAdminXlPresentation(): AdminLeadPresentation {
-  const [isXl, setIsXl] = useState(false);
+  const [isXl, setIsXl] = useState(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return false;
+    }
+    return window.matchMedia(ADMIN_XL_MEDIA_QUERY).matches;
+  });
 
   useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return;
+    }
     const media = window.matchMedia(ADMIN_XL_MEDIA_QUERY);
     const sync = () => setIsXl(media.matches);
     sync();
-    media.addEventListener("change", sync);
-    return () => media.removeEventListener("change", sync);
+    if (typeof media.addEventListener === "function") {
+      media.addEventListener("change", sync);
+      return () => media.removeEventListener("change", sync);
+    }
+    media.addListener(sync);
+    return () => media.removeListener(sync);
   }, []);
 
   return isXl ? "sheet" : "full-viewport";
