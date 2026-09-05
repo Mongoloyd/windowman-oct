@@ -17,13 +17,22 @@ export default defineConfig(({ mode }) => ({
     react(),
     mode === "development" && componentTagger(),
     {
-      name: "privacy-prerender-preview",
+      name: "prerendered-routes-preview",
       configurePreviewServer(server) {
         server.middlewares.use((req, _res, next) => {
-          const pathOnly = req.url?.split("?")[0] ?? "";
+          const requestUrl = req.url ?? "";
+          const queryStart = requestUrl.indexOf("?");
+          const pathOnly =
+            queryStart === -1 ? requestUrl : requestUrl.slice(0, queryStart);
+          const query = queryStart === -1 ? "" : requestUrl.slice(queryStart);
 
           if (pathOnly === "/privacy" || pathOnly === "/privacy/") {
-            req.url = "/privacy/index.html";
+            req.url = `/privacy/index.html${query}`;
+          } else if (
+            pathOnly === "/prophecy" ||
+            pathOnly === "/prophecy/"
+          ) {
+            req.url = `/prophecy/index.html${query}`;
           }
 
           next();

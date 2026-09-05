@@ -8,6 +8,10 @@ const uploadZonePropsMock = vi.fn();
 const lowIntentEventMock = vi.fn();
 const persistLeadMock = vi.fn();
 const submitResultMock = vi.fn();
+const LEAD_ID = "11111111-1111-4111-8111-111111111111";
+const SESSION_ID = "22222222-2222-4222-8222-222222222222";
+const PAGE_SESSION_ID = "33333333-3333-4333-8333-333333333333";
+const STORAGE_KEY = "wm_prophecy_upload_resume_v1";
 
 vi.mock("react-router-dom", async () => {
   const actual =
@@ -46,8 +50,8 @@ vi.mock("@/components/intake/universal/UniversalIntakeHost", () => ({
             { intent: "has_quote", zip: "33301" },
             {
               ok: true,
-              leadId: "lead-persisted",
-              sessionId: "session-persisted",
+              leadId: LEAD_ID,
+              sessionId: SESSION_ID,
               reused: false,
             },
           )
@@ -62,7 +66,7 @@ vi.mock("@/components/intake/universal/UniversalIntakeHost", () => ({
             { intent: "has_quote", zip: "33301" },
             {
               ok: true,
-              leadId: "lead-persisted",
+              leadId: LEAD_ID,
               sessionId: 42,
               reused: false,
             },
@@ -70,6 +74,22 @@ vi.mock("@/components/intake/universal/UniversalIntakeHost", () => ({
         }
       >
         Persist has quote invalid session
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          onPersistedSuccess?.(
+            { intent: "no_quote", zip: "33301" },
+            {
+              ok: true,
+              leadId: "44444444-4444-4444-8444-444444444444",
+              sessionId: "55555555-5555-4555-8555-555555555555",
+              reused: false,
+            },
+          )
+        }
+      >
+        Persist no quote
       </button>
       <button type="button" onClick={onClose}>
         Close intake
@@ -121,7 +141,7 @@ vi.mock("./campaignProphecyLeadCapture", () => ({
 }));
 
 vi.mock("@/services/windowmanFirstQuoteLeadCapture", () => ({
-  getOrCreateFirstQuoteSessionId: () => "session-page-local",
+  getOrCreateFirstQuoteSessionId: () => PAGE_SESSION_ID,
 }));
 
 vi.mock("./useProphecyVariant", () => ({
@@ -187,6 +207,7 @@ vi.mock("./sections/ProphecyChrome", () => ({
 
 describe("ProphecyLanding", () => {
   beforeEach(() => {
+    window.sessionStorage.clear();
     navigateMock.mockReset();
     uploadZonePropsMock.mockClear();
     lowIntentEventMock.mockReset();
@@ -194,8 +215,8 @@ describe("ProphecyLanding", () => {
     submitResultMock.mockReset();
     persistLeadMock.mockResolvedValue({
       ok: true,
-      leadId: "lead-default",
-      sessionId: "session-default",
+      leadId: "66666666-6666-4666-8666-666666666666",
+      sessionId: "77777777-7777-4777-8777-777777777777",
       reused: false,
     });
   });
@@ -212,11 +233,18 @@ describe("ProphecyLanding", () => {
 
     const uploadZone = screen.getByTestId("upload-zone");
     expect(uploadZone).toHaveAttribute("data-visible", "yes");
-    expect(uploadZone).toHaveAttribute("data-session-id", "session-persisted");
-    expect(uploadZone).toHaveAttribute("data-lead-id", "lead-persisted");
+    expect(uploadZone).toHaveAttribute("data-session-id", SESSION_ID);
+    expect(uploadZone).toHaveAttribute("data-lead-id", LEAD_ID);
+    expect(
+      JSON.parse(window.sessionStorage.getItem(STORAGE_KEY) ?? "null"),
+    ).toMatchObject({
+      version: 1,
+      leadId: LEAD_ID,
+      sessionId: SESSION_ID,
+    });
   });
 
-  it("falls back to the page sessionId when persisted sessionId is not a string", () => {
+  it("falls back to the page sessionId and skips persistence for malformed callback IDs", () => {
     render(
       <HelmetProvider>
         <ProphecyLanding />
@@ -230,8 +258,70 @@ describe("ProphecyLanding", () => {
 
     const uploadZone = screen.getByTestId("upload-zone");
     expect(uploadZone).toHaveAttribute("data-visible", "yes");
-    expect(uploadZone).toHaveAttribute("data-session-id", "session-page-local");
-    expect(uploadZone).toHaveAttribute("data-lead-id", "lead-persisted");
+    expect(uploadZone).toHaveAttribute("data-session-id", PAGE_SESSION_ID);
+    expect(uploadZone).toHaveAttribute("data-lead-id", LEAD_ID);
+    expect(window.sessionStorage.getItem(STORAGE_KEY)).toBeNull();
+  });
+
+  it("restores the exact persisted UploadZone handoff after remount", () => {
+    const firstRender = render(
+      <HelmetProvider>
+        <ProphecyLanding />
+      </HelmetProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Persist has quote" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close intake" }));
+    firstRender.unmount();
+
+    render(
+      <HelmetProvider>
+        <ProphecyLanding />
+      </HelmetProvider>,
+    );
+
+    expect(screen.getByTestId("upload-zone")).toHaveAttribute(
+      "data-visible",
+      "yes",
+    );
+    expect(screen.getByTestId("upload-zone")).toHaveAttribute(
+      "data-lead-id",
+      LEAD_ID,
+    );
+    expect(screen.getByTestId("upload-zone")).toHaveAttribute(
+      "data-session-id",
+      SESSION_ID,
+    );
+  });
+
+  it("clears an existing upload hint and hides UploadZone after no-quote persistence", () => {
+    window.sessionStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        leadId: LEAD_ID,
+        sessionId: SESSION_ID,
+        expiresAt: Date.now() + 60_000,
+      }),
+    );
+
+    render(
+      <HelmetProvider>
+        <ProphecyLanding />
+      </HelmetProvider>,
+    );
+    expect(screen.getByTestId("upload-zone")).toHaveAttribute(
+      "data-visible",
+      "yes",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Persist no quote" }));
+
+    expect(screen.getByTestId("upload-zone")).toHaveAttribute(
+      "data-visible",
+      "no",
+    );
+    expect(window.sessionStorage.getItem(STORAGE_KEY)).toBeNull();
   });
 
   it("deduplicates rapid intent measurement and resets after close", () => {
@@ -313,9 +403,23 @@ describe("ProphecyLanding", () => {
     expect(lowIntentEventMock.mock.calls.flat(Infinity)).not.toContain(
       failedResult.message,
     );
+    expect(window.sessionStorage.getItem(STORAGE_KEY)).toBeNull();
   });
 
   it("wires safe upload and video callbacks without changing report handoff", () => {
+    window.sessionStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        leadId: LEAD_ID,
+        sessionId: SESSION_ID,
+        expiresAt: Date.now() + 60_000,
+      }),
+    );
+    navigateMock.mockImplementation(() => {
+      expect(window.sessionStorage.getItem(STORAGE_KEY)).toBeNull();
+    });
+
     render(
       <HelmetProvider>
         <ProphecyLanding />
