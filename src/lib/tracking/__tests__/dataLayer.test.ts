@@ -6,10 +6,6 @@ vi.mock("@/lib/trackConversion", () => ({
   trackGtmEvent: (...args: unknown[]) => trackGtmEventMock(...args),
 }));
 
-vi.mock("@/lib/useLeadId", () => ({
-  getLeadId: () => "visitor-uuid-123",
-}));
-
 vi.mock("@/lib/useUtmCapture", () => ({
   captureUtmFromUrl: vi.fn(() => ({
     utm_source: "nextdoor",
@@ -66,13 +62,14 @@ describe("dataLayer helper", () => {
     sessionStorage.clear();
   });
 
-  it("buildAttributionDataLayerPayload includes structured UTMs and visitor_id", () => {
+  it("buildAttributionDataLayerPayload includes attribution without persistent identifiers", () => {
     const payload = buildAttributionDataLayerPayload();
     expect(payload.utm_source).toBe("nextdoor");
     expect(payload.ndclid).toBe("test_ndclid_123");
     expect(payload.wm_intent).toBeNull();
-    expect(payload.visitor_id).toBe("visitor-uuid-123");
-    expect(payload.lead_id).toBe("visitor-uuid-123");
+    expect(payload).not.toHaveProperty("visitor_id");
+    expect(payload).not.toHaveProperty("lead_id");
+    expect(payload).not.toHaveProperty("session_id");
   });
 
   it("pushVirtualPageView sends enriched virtual_page_view without PII", () => {
@@ -97,12 +94,18 @@ describe("dataLayer helper", () => {
       wm_intent: "no_quote",
       email: "secret@example.com",
       phone_e164: "+15551234567",
+      visitor_id: "visitor-id",
+      lead_id: "lead-id",
+      session_id: "session-id",
     });
 
     const payload = trackGtmEventMock.mock.calls[0][1] as Record<string, unknown>;
     expect(payload.event).toBeUndefined();
     expect(payload.email).toBeUndefined();
     expect(payload.phone_e164).toBeUndefined();
+    expect(payload.visitor_id).toBeUndefined();
+    expect(payload.lead_id).toBeUndefined();
+    expect(payload.session_id).toBeUndefined();
   });
 
   it("pushTruthGateViewedOnce fires once per session key", () => {
@@ -435,7 +438,7 @@ describe("dataLayer helper", () => {
   });
 
   describe("pushLeadMagnetCaptured", () => {
-    it("fires once with capture_source, capture_page fields, and the real lead_id", () => {
+    it("fires once with capture fields and a dedup event ID without persistent identifiers", () => {
       pushLeadMagnetCaptured({
         leadId: "lead-abc-123",
         sessionId: "session-xyz-456",
@@ -449,14 +452,19 @@ describe("dataLayer helper", () => {
       );
       expect(calls).toHaveLength(1);
       expect(calls[0][1]).toMatchObject({
-        lead_id: "lead-abc-123",
-        session_id: "session-xyz-456",
         capture_source: "window_price_audit",
         capture_page_path: "/window-price-audit",
         capture_page_url: "/window-price-audit?utm_source=qa",
         utm_source: "nextdoor",
       });
-      expect(calls[0][1].event_id).toEqual(expect.stringContaining("lead_magnet_captured"));
+      expect(calls[0][1]).not.toHaveProperty("lead_id");
+      expect(calls[0][1]).not.toHaveProperty("session_id");
+      expect(typeof calls[0][1].event_id).toBe("string");
+      expect(calls[0][1].event_id).not.toContain("lead-abc-123");
+      expect(calls[0][1].event_id).not.toContain("session-xyz-456");
+      expect(calls[0][1].event_id).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+      );
     });
 
     it("does not fire before this helper is called (no submit-start fire)", () => {
@@ -506,6 +514,41 @@ describe("dataLayer helper", () => {
       expect(calls).toHaveLength(2);
     });
 
+    it("gives different lead/session pairs different event IDs within the same minute", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-09-05T18:41:00.000Z"));
+      try {
+        pushLeadMagnetCaptured({
+          leadId: "lead-minute-1",
+          sessionId: "session-minute-1",
+          captureSource: "window_prices",
+        });
+        pushLeadMagnetCaptured({
+          leadId: "lead-minute-2",
+          sessionId: "session-minute-2",
+          captureSource: "window_prices",
+        });
+      } finally {
+        vi.useRealTimers();
+      }
+
+      const calls = trackGtmEventMock.mock.calls.filter(
+        ([name]) => name === "lead_magnet_captured",
+      );
+      expect(calls).toHaveLength(2);
+
+      const [firstId, secondId] = calls.map(
+        ([, payload]) => (payload as Record<string, unknown>).event_id as string,
+      );
+      expect(firstId).not.toEqual(secondId);
+      for (const eventId of [firstId, secondId]) {
+        expect(eventId).not.toContain("lead-minute-1");
+        expect(eventId).not.toContain("session-minute-1");
+        expect(eventId).not.toContain("lead-minute-2");
+        expect(eventId).not.toContain("session-minute-2");
+      }
+    });
+
     it("never includes email, phone, or full_json", () => {
       pushLeadMagnetCaptured({
         leadId: "lead-pii-check",
@@ -540,12 +583,17 @@ describe("dataLayer helper", () => {
       );
       expect(calls).toHaveLength(1);
       expect(calls[0][1]).toMatchObject({
-        lead_id: "lead-upload-1",
-        session_id: "session-upload-1",
         handoff_source: "window_price_audit",
         capture_source: "window_price_audit",
         destination_url: "/?post_capture=upload&source=window_price_audit",
       });
+      expect(calls[0][1]).not.toHaveProperty("lead_id");
+      expect(calls[0][1]).not.toHaveProperty("session_id");
+      expect(calls[0][1].event_id).not.toContain("lead-upload-1");
+      expect(calls[0][1].event_id).not.toContain("session-upload-1");
+      expect(calls[0][1].event_id).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+      );
       expect(sessionStorage.getItem(HANDOFF_SOURCE_ROUTE_KEY)).toBe("window_price_audit");
     });
 
@@ -567,6 +615,43 @@ describe("dataLayer helper", () => {
         ([name]) => name === "lead_magnet_upload_cta_clicked",
       );
       expect(calls).toHaveLength(1);
+    });
+
+    it("gives different lead/session pairs different event IDs within the same minute", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-09-05T18:41:00.000Z"));
+      try {
+        pushLeadMagnetUploadCtaClicked({
+          leadId: "lead-cta-minute-1",
+          sessionId: "session-cta-minute-1",
+          handoffSource: "window_prices",
+          destinationUrl: "/?post_capture=upload&source=window_prices",
+        });
+        pushLeadMagnetUploadCtaClicked({
+          leadId: "lead-cta-minute-2",
+          sessionId: "session-cta-minute-2",
+          handoffSource: "window_prices",
+          destinationUrl: "/?post_capture=upload&source=window_prices",
+        });
+      } finally {
+        vi.useRealTimers();
+      }
+
+      const calls = trackGtmEventMock.mock.calls.filter(
+        ([name]) => name === "lead_magnet_upload_cta_clicked",
+      );
+      expect(calls).toHaveLength(2);
+
+      const [firstId, secondId] = calls.map(
+        ([, payload]) => (payload as Record<string, unknown>).event_id as string,
+      );
+      expect(firstId).not.toEqual(secondId);
+      for (const eventId of [firstId, secondId]) {
+        expect(eventId).not.toContain("lead-cta-minute-1");
+        expect(eventId).not.toContain("session-cta-minute-1");
+        expect(eventId).not.toContain("lead-cta-minute-2");
+        expect(eventId).not.toContain("session-cta-minute-2");
+      }
     });
   });
 });
