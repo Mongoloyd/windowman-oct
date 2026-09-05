@@ -110,18 +110,73 @@ function isWmChatMeasurementPath(pathname: string): boolean {
   );
 }
 
+function isProphecyMeasurementPath(pathname: string): boolean {
+  const normalizedPathname = pathname.toLowerCase();
+  return (
+    normalizedPathname === "/prophecy" ||
+    normalizedPathname === "/prophecy/"
+  );
+}
+
+const PROPHECY_PAGE_SELECTOR = '[data-page="campaign-prophecy"]';
+
+/**
+ * Prophecy is lazy-loaded and its Helmet title is itself committed in rAF.
+ * Wait for the page root, then schedule one later frame so route measurement
+ * reads the final metadata. The returned cleanup cancels both wait states.
+ */
+function scheduleProphecyRouteMeasurement(callback: () => void): () => void {
+  let cancelled = false;
+  let frameId: number | null = null;
+  let observer: MutationObserver | null = null;
+
+  const scheduleFrame = () => {
+    if (cancelled || frameId !== null) return;
+    frameId = window.requestAnimationFrame(() => {
+      frameId = null;
+      if (!cancelled) callback();
+    });
+  };
+
+  if (document.querySelector(PROPHECY_PAGE_SELECTOR)) {
+    scheduleFrame();
+  } else if (typeof MutationObserver !== "undefined") {
+    observer = new MutationObserver(() => {
+      if (!document.querySelector(PROPHECY_PAGE_SELECTOR)) return;
+      observer?.disconnect();
+      observer = null;
+      scheduleFrame();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+  } else {
+    scheduleFrame();
+  }
+
+  return () => {
+    cancelled = true;
+    observer?.disconnect();
+    if (frameId !== null) window.cancelAnimationFrame(frameId);
+  };
+}
+
 function RouteTracker() {
   const location = useLocation();
   const lastObservedRouteKey = useRef<string | null>(null);
   const lastMetaPageViewRouteKey = useRef<string | null>(null);
   const currentMetaRouteKey = useRef<string>("");
   const currentRouteIsWmChat = useRef(false);
+  const currentRouteMeasurementReady = useRef(
+    !isProphecyMeasurementPath(location.pathname),
+  );
   const hasEligibleOpenAiRoute = useRef(false);
   const wasWmChatRoute = useRef(isWmChatMeasurementPath(location.pathname));
 
   useLayoutEffect(() => {
     const isWmChatRoute = isWmChatMeasurementPath(location.pathname);
     currentRouteIsWmChat.current = isWmChatRoute;
+    currentRouteMeasurementReady.current = !isProphecyMeasurementPath(
+      location.pathname,
+    );
     currentMetaRouteKey.current = isWmChatRoute
       ? "/wmchat"
       : `${location.pathname}${location.search}${location.hash}`;
@@ -139,6 +194,7 @@ function RouteTracker() {
 
   useEffect(() => {
     const handleConsentChanged = () => {
+      if (!currentRouteMeasurementReady.current) return;
       emitMetaPageViewForCommittedRoute();
       if (!currentRouteIsWmChat.current) {
         trackOpenAiAdsPageViewed();
@@ -160,45 +216,57 @@ function RouteTracker() {
   useEffect(() => {
     const routeKey = `${location.pathname}${location.search}${location.hash}`;
     if (lastObservedRouteKey.current === routeKey) return;
-    lastObservedRouteKey.current = routeKey;
 
-    const isWmChatRoute = isWmChatMeasurementPath(location.pathname);
-    const enteredWmChat = isWmChatRoute && !wasWmChatRoute.current;
-    wasWmChatRoute.current = isWmChatRoute;
+    const measureCommittedRoute = () => {
+      if (lastObservedRouteKey.current === routeKey) return;
+      lastObservedRouteKey.current = routeKey;
+      currentRouteMeasurementReady.current = true;
 
-    if (isWmChatRoute) {
-      if (enteredWmChat && hasEligibleOpenAiRoute.current) {
-        markOpenAiAdsPageViewSuppressed();
+      const isWmChatRoute = isWmChatMeasurementPath(location.pathname);
+      const enteredWmChat = isWmChatRoute && !wasWmChatRoute.current;
+      wasWmChatRoute.current = isWmChatRoute;
+
+      if (isWmChatRoute) {
+        if (enteredWmChat && hasEligibleOpenAiRoute.current) {
+          markOpenAiAdsPageViewSuppressed();
+        }
+        emitMetaPageViewForCommittedRoute();
+        return;
+      }
+
+      // Canonical, vendor-agnostic SPA page-view signal — fires on every
+      // eligible route change and eligible initial mount. GTM owns downstream
+      // routing. Passive attribution capture remains mounted above this guard.
+      pushVirtualPageView({
+        page_path: location.pathname,
+        page_search: location.search,
+      });
+
+      pushTruthGateViewedOnce({
+        page_path: location.pathname,
+        page_search: location.search,
+        page_hash: location.hash,
+      });
+
+      // Adapter initialization owns the first eligible page event. This may be
+      // the initial route or the first destination after a suppressed /wmchat
+      // visit. Later eligible routes use the adapters' SPA event functions.
+      if (!hasEligibleOpenAiRoute.current) {
+        hasEligibleOpenAiRoute.current = true;
+        emitMetaPageViewForCommittedRoute();
+        initOpenAiAdsPixel();
+        return;
       }
       emitMetaPageViewForCommittedRoute();
+      trackOpenAiAdsPageViewed();
+    };
+
+    if (!isProphecyMeasurementPath(location.pathname)) {
+      measureCommittedRoute();
       return;
     }
 
-    // Canonical, vendor-agnostic SPA page-view signal — fires on every
-    // eligible route change and eligible initial mount. GTM owns downstream
-    // routing. Passive attribution capture remains mounted above this guard.
-    pushVirtualPageView({
-      page_path: location.pathname,
-      page_search: location.search,
-    });
-
-    pushTruthGateViewedOnce({
-      page_path: location.pathname,
-      page_search: location.search,
-      page_hash: location.hash,
-    });
-
-    // Adapter initialization owns the first eligible page event. This may be
-    // the initial route or the first destination after a suppressed /wmchat
-    // visit. Later eligible routes use the adapters' SPA event functions.
-    if (!hasEligibleOpenAiRoute.current) {
-      hasEligibleOpenAiRoute.current = true;
-      emitMetaPageViewForCommittedRoute();
-      initOpenAiAdsPixel();
-      return;
-    }
-    emitMetaPageViewForCommittedRoute();
-    trackOpenAiAdsPageViewed();
+    return scheduleProphecyRouteMeasurement(measureCommittedRoute);
   }, [
     emitMetaPageViewForCommittedRoute,
     location.pathname,

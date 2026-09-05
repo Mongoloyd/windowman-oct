@@ -15,7 +15,7 @@ import {
  * The facade is poster-first: the video file is only fetched once someone
  * presses play, so this section costs one image on load.
  */
-export default function ProphecyExplainer() {
+export default function ProphecyExplainer({ onPlay }: { onPlay?: () => void }) {
   return (
     <section className="relative px-5 py-16 sm:px-8 sm:py-20">
       <div className="mx-auto grid max-w-5xl items-center gap-9 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:gap-14">
@@ -44,6 +44,7 @@ export default function ProphecyExplainer() {
             posterAvif={EXPLAINER_POSTER_AVIF}
             source={EXPLAINER_VIDEO_SOURCE}
             title="How WindowMan reviews a window estimate"
+            onPlay={onPlay}
           />
         </div>
       </div>

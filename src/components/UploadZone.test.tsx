@@ -262,8 +262,14 @@ describe("UploadZone — idempotency", () => {
 
   it("rapid double-click triggers exactly ONE storage.upload", async () => {
     const onScanStart = vi.fn();
+    const onUploadAttempt = vi.fn();
     render(
-      <UploadZone isVisible sessionId="00000000-0000-0000-0000-000000000001" onScanStart={onScanStart} />
+      <UploadZone
+        isVisible
+        sessionId="00000000-0000-0000-0000-000000000001"
+        onScanStart={onScanStart}
+        onUploadAttempt={onUploadAttempt}
+      />
     );
 
     await selectFile(makeFile("quote.pdf", 1024));
@@ -286,6 +292,8 @@ describe("UploadZone — idempotency", () => {
     await waitFor(() => {
       expect(storageUpload).toHaveBeenCalledTimes(1);
     });
+    expect(onUploadAttempt).toHaveBeenCalledTimes(1);
+    expect(onUploadAttempt).toHaveBeenCalledWith("application/pdf");
   });
 
   it("first upload uses upsert:false (plain INSERT for the private bucket)", async () => {
@@ -302,6 +310,8 @@ describe("UploadZone — idempotency", () => {
 
   it("storage failure surfaces a Retry button and does NOT insert scan_sessions", async () => {
     storageUpload.mockResolvedValueOnce({ error: { message: "boom" }, data: null });
+    const onUploadAttempt = vi.fn();
+    const onUploadFailure = vi.fn();
 
     // scan_sessions and quote_files are no longer written by UploadZone directly
     // (the start-upload-scan-session Edge Function handles those inserts).
@@ -312,7 +322,14 @@ describe("UploadZone — idempotency", () => {
       return buildInsertChain();
     });
 
-    render(<UploadZone isVisible sessionId="00000000-0000-0000-0000-000000000003" />);
+    render(
+      <UploadZone
+        isVisible
+        sessionId="00000000-0000-0000-0000-000000000003"
+        onUploadAttempt={onUploadAttempt}
+        onUploadFailure={onUploadFailure}
+      />,
+    );
     await selectFile(makeFile());
     const btn = await findStartButton();
     await act(async () => { fireEvent.click(btn); });
@@ -323,6 +340,10 @@ describe("UploadZone — idempotency", () => {
     // invokeMock (start-upload-scan-session EF) must NOT have been called —
     // storage failure happens before the bootstrap EF is reached.
     expect(invokeMock).not.toHaveBeenCalled();
+    expect(onUploadAttempt).toHaveBeenCalledTimes(1);
+    expect(onUploadAttempt).toHaveBeenCalledWith("application/pdf");
+    expect(onUploadFailure).toHaveBeenCalledTimes(1);
+    expect(onUploadFailure).toHaveBeenCalledWith("application/pdf");
   });
 
   it("retry path after first success does NOT call storage.upload again", async () => {
@@ -371,7 +392,16 @@ describe("UploadZone — idempotency", () => {
       return Promise.resolve({ data: [], error: null });
     });
 
-    render(<UploadZone isVisible sessionId="00000000-0000-0000-0000-000000000004" />);
+    const onUploadAttempt = vi.fn();
+    const onUploadFailure = vi.fn();
+    render(
+      <UploadZone
+        isVisible
+        sessionId="00000000-0000-0000-0000-000000000004"
+        onUploadAttempt={onUploadAttempt}
+        onUploadFailure={onUploadFailure}
+      />,
+    );
     await selectFile(makeFile());
 
     const btn = await findStartButton();
@@ -395,7 +425,9 @@ describe("UploadZone — idempotency", () => {
       ([name]) => name === "scan-quote",
     );
     expect(scanQuoteCalls).toHaveLength(2);
+    const initialEventId = scanQuoteCalls[0][1].body.event_id;
     const retryEventId = scanQuoteCalls[1][1].body.event_id;
+    expect(retryEventId).toBe(initialEventId);
     expect(pushV3BusinessEvent).toHaveBeenCalledWith("quote_uploaded", {
       eventId: retryEventId,
       parameters: {
@@ -405,6 +437,28 @@ describe("UploadZone — idempotency", () => {
         file_type: "application/pdf",
       },
     });
+    expect(onUploadAttempt).toHaveBeenCalledTimes(2);
+    expect(onUploadFailure).toHaveBeenCalledTimes(1);
+  });
+
+  it("isolates optional callback failures from the canonical upload path", async () => {
+    render(
+      <UploadZone
+        isVisible
+        sessionId="00000000-0000-0000-0000-000000000024"
+        onUploadAttempt={() => {
+          throw new Error("measurement unavailable");
+        }}
+      />,
+    );
+    await selectFile(makeFile());
+
+    await act(async () => {
+      fireEvent.click(await findStartButton());
+    });
+
+    await waitFor(() => expect(storageUpload).toHaveBeenCalledTimes(1));
+    expect(pushV3BusinessEvent).toHaveBeenCalledTimes(1);
   });
 
   it("after invalid retry context, next attempt escapes retry loop and re-enters fresh bootstrap", async () => {
@@ -787,6 +841,82 @@ describe("UploadZone — quote_uploaded V3 envelope", () => {
     expect(scanQuoteEventId).toEqual(expect.any(String));
     expect(pushV3BusinessEvent).toHaveBeenCalledWith("quote_uploaded", {
       eventId: scanQuoteEventId,
+      parameters: {
+        source_tool: "scanner",
+        measurement_source: "native",
+        journey_type: "scanner",
+        file_type: "application/pdf",
+      },
+    });
+  });
+
+  it("rotates the event ID when a new scan session starts in the same mount", async () => {
+    const secondScanSessionId = "00000000-0000-4000-8000-000000000021";
+    const secondQuoteFileId = "00000000-0000-4000-8000-000000000022";
+    let bootstrapCount = 0;
+    invokeMock.mockImplementation((name: string) => {
+      if (name === "start-upload-scan-session") {
+        bootstrapCount += 1;
+        return Promise.resolve({
+          data: {
+            success: true,
+            scan_session_id:
+              bootstrapCount === 1
+                ? DEFAULT_SCAN_SESSION_ID
+                : secondScanSessionId,
+            quote_file_id:
+              bootstrapCount === 1 ? DEFAULT_QUOTE_FILE_ID : secondQuoteFileId,
+            lead_id: null,
+          },
+          error: null,
+        });
+      }
+      return Promise.resolve({
+        data: {
+          analysis_status: "complete",
+          scan_session_status: "preview_ready",
+        },
+        error: null,
+      });
+    });
+
+    render(
+      <UploadZone
+        isVisible
+        sessionId="00000000-0000-0000-0000-000000000026"
+      />,
+    );
+    await selectFile(makeFile("first.pdf", 1024));
+    await act(async () => {
+      fireEvent.click(await findStartButton());
+    });
+    await waitFor(() => expect(pushV3BusinessEvent).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(screen.getByRole("button", { name: /Change file/i }));
+    await selectFile(makeFile("second.pdf", 2048));
+    await act(async () => {
+      fireEvent.click(await findStartButton());
+    });
+    await waitFor(() => expect(pushV3BusinessEvent).toHaveBeenCalledTimes(2));
+
+    const scanQuoteCalls = invokeMock.mock.calls.filter(
+      ([name]) => name === "scan-quote",
+    );
+    expect(scanQuoteCalls).toHaveLength(2);
+    const firstEventId = scanQuoteCalls[0][1].body.event_id;
+    const secondEventId = scanQuoteCalls[1][1].body.event_id;
+    expect(secondEventId).not.toBe(firstEventId);
+    expect(pushV3BusinessEvent).toHaveBeenNthCalledWith(1, "quote_uploaded", {
+      eventId: firstEventId,
+      parameters: {
+        source_tool: "scanner",
+        measurement_source: "native",
+        journey_type: "scanner",
+        file_type: "application/pdf",
+      },
+    });
+    expect(pushV3BusinessEvent).toHaveBeenNthCalledWith(2, "quote_uploaded", {
+      eventId: secondEventId,
       parameters: {
         source_tool: "scanner",
         measurement_source: "native",
