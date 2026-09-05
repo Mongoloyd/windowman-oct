@@ -10,11 +10,10 @@ import {
   isValidZipCode,
   normalizeZipCode,
 } from "@/components/landing/firstQuoteIntakeTypes";
+import type { IntakeIntentChoice } from "@/components/intake/universal/intakeTypes";
 import { readLateFbCookies } from "@/lib/attribution/fbCookies";
 import { buildLeadCaptureConsentRequest } from "@/lib/consent/buildConsentRequest";
-import {
-  buildTruthGateLeadPayload,
-} from "@/services/truthGateLeadCapture";
+import { buildTruthGateLeadPayload } from "@/services/truthGateLeadCapture";
 import { supabase } from "@/integrations/supabase/client";
 import { getAttributionPayload, getUtmData } from "@/lib/useUtmCapture";
 
@@ -23,8 +22,9 @@ export const WINDOWMAN_FIRST_QUOTE_SOURCE = "windowman-first-quote";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+let inMemoryFirstQuoteSessionId: string | null = null;
 
-export type FirstQuoteSourcePath = "/windowman" | "/nq3" | "/nq4";
+export type FirstQuoteSourcePath = "/windowman" | "/nq3" | "/nq4" | "/prophecy";
 
 export type SubmitWindowmanFirstQuoteInput = {
   sessionId: string;
@@ -39,6 +39,10 @@ export type SubmitWindowmanFirstQuoteInput = {
   serviceCommunicationsGranted: boolean;
   marketingConsentPresented: boolean;
   marketingCommunicationsGranted?: boolean;
+  /** The visitor's selected branch on a dual-intent intake. */
+  wmIntent?: IntakeIntentChoice;
+  /** Campaign-specific answers persisted inside query_params. */
+  extraQueryParams?: Record<string, string>;
 };
 
 export type SubmitWindowmanFirstQuoteResult =
@@ -62,7 +66,9 @@ function flattenQueryParams(
 function resolveClientSlug(utmClientSlug: string | null): string | null {
   if (typeof window === "undefined") return utmClientSlug;
 
-  const queryClientSlug = new URLSearchParams(window.location.search).get("client");
+  const queryClientSlug = new URLSearchParams(window.location.search).get(
+    "client",
+  );
   let lsClientSlug: string | null = null;
   try {
     if (typeof localStorage !== "undefined") {
@@ -84,17 +90,54 @@ export function getOrCreateFirstQuoteSessionId(): string {
     if (typeof sessionStorage !== "undefined") {
       const existing = sessionStorage.getItem(FIRST_QUOTE_SESSION_STORAGE_KEY);
       if (existing && UUID_RE.test(existing)) {
+        inMemoryFirstQuoteSessionId = existing;
         return existing;
+      }
+      if (
+        inMemoryFirstQuoteSessionId &&
+        UUID_RE.test(inMemoryFirstQuoteSessionId)
+      ) {
+        sessionStorage.setItem(
+          FIRST_QUOTE_SESSION_STORAGE_KEY,
+          inMemoryFirstQuoteSessionId,
+        );
+        return inMemoryFirstQuoteSessionId;
       }
       const id = crypto.randomUUID();
       sessionStorage.setItem(FIRST_QUOTE_SESSION_STORAGE_KEY, id);
+      inMemoryFirstQuoteSessionId = id;
       return id;
     }
   } catch {
-    // fall through
+    if (
+      inMemoryFirstQuoteSessionId &&
+      UUID_RE.test(inMemoryFirstQuoteSessionId)
+    ) {
+      return inMemoryFirstQuoteSessionId;
+    }
   }
 
-  return crypto.randomUUID();
+  const fallbackId = crypto.randomUUID();
+  inMemoryFirstQuoteSessionId = fallbackId;
+  return fallbackId;
+}
+
+/** Starts a new capture without invalidating an already-persisted handoff. */
+export function rotateFirstQuoteSessionId(): string {
+  if (typeof window === "undefined") {
+    return "00000000-0000-4000-8000-000000000001";
+  }
+
+  const nextId = crypto.randomUUID();
+  inMemoryFirstQuoteSessionId = nextId;
+  try {
+    if (typeof sessionStorage !== "undefined") {
+      sessionStorage.setItem(FIRST_QUOTE_SESSION_STORAGE_KEY, nextId);
+    }
+  } catch {
+    // The in-memory value remains authoritative when storage is unavailable.
+  }
+  return nextId;
 }
 
 /** Builds the capture-truth-gate-lead body (exported for tests). */
@@ -104,7 +147,8 @@ export function buildWindowmanFirstQuoteLeadPayload(
   const utm = getUtmData();
   const attributionPayload = getAttributionPayload();
   const baseQueryParams =
-    (attributionPayload.query_params as Record<string, string | string[]>) ?? {};
+    (attributionPayload.query_params as Record<string, string | string[]>) ??
+    {};
   const { query_params: _queryParams, ...attributionBody } = attributionPayload;
 
   const fb = readLateFbCookies(
@@ -121,10 +165,12 @@ export function buildWindowmanFirstQuoteLeadPayload(
       : null);
 
   const zipCode = normalizeZipCode(input.projectBasics.zipOrCity);
+  const wmIntent: IntakeIntentChoice = input.wmIntent ?? "no_quote";
 
   const queryParams: Record<string, string> = {
     ...flattenQueryParams(baseQueryParams),
-    wm_intent: "no_quote",
+    ...(input.extraQueryParams ?? {}),
+    wm_intent: wmIntent,
     source_path: input.sourcePath ?? "/windowman",
     intake_version: FIRST_QUOTE_INTAKE_VERSION,
     zip_code: zipCode,
@@ -161,7 +207,7 @@ export function buildWindowmanFirstQuoteLeadPayload(
     consent,
   });
 
-  return {
+  const payload: Record<string, unknown> = {
     ...base,
     source: WINDOWMAN_FIRST_QUOTE_SOURCE,
     client_slug: effectiveClientSlug,
@@ -176,13 +222,22 @@ export function buildWindowmanFirstQuoteLeadPayload(
     fbp: fb.fbp,
     landing_page_url: landingPageUrl,
     first_page_path: utm.landing_page,
-    initial_referrer: typeof document !== "undefined" ? document.referrer || null : null,
+    initial_referrer:
+      typeof document !== "undefined" ? document.referrer || null : null,
     attribution: {
       ...attributionBody,
-      wm_intent: "no_quote",
+      wm_intent: wmIntent,
     },
     query_params: queryParams,
   };
+
+  // Prophecy records a range bucket, not an exact count. The range remains in
+  // query_params.openings_bucket and the canonical integer field is omitted.
+  if (input.sourcePath === "/prophecy") {
+    delete payload.window_count;
+  }
+
+  return payload;
 }
 
 export async function submitWindowmanFirstQuoteLead(
@@ -199,9 +254,12 @@ export async function submitWindowmanFirstQuoteLead(
   try {
     const body = buildWindowmanFirstQuoteLeadPayload(input);
 
-    const { data, error } = await supabase.functions.invoke("capture-truth-gate-lead", {
-      body,
-    });
+    const { data, error } = await supabase.functions.invoke(
+      "capture-truth-gate-lead",
+      {
+        body,
+      },
+    );
 
     const response = (data ?? null) as {
       success?: boolean;

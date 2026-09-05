@@ -61,6 +61,7 @@ const CampaignNqLanding = lazy(() => import("./pages/CampaignNQ/CampaignNqLandin
 const CampaignNq2Landing = lazy(() => import("./pages/CampaignNQ2/CampaignNq2Landing.tsx"));
 const CampaignNq3Landing = lazy(() => import("./pages/CampaignNQ3/NoQuoteLanding.tsx"));
 const CampaignNq4Page = lazy(() => import("./pages/CampaignNQ4/CampaignNq4Page.tsx"));
+const ProphecyLanding = lazy(() => import("./pages/CampaignProphecy/ProphecyLanding.tsx"));
 const WmChatPage = lazy(() => import("./pages/WmChat/WmChatPage.tsx"));
 
 // PartnerGuard removed — partner pages render publicly with preview fallback
@@ -138,6 +139,10 @@ class RouteErrorBoundary extends Component<
 
 const queryClient = new QueryClient();
 const isDevMode = import.meta.env.DEV;
+// Prophecy still uses placeholder campaign art. Keep the route available for
+// local review, but require explicit production enablement once final assets land.
+const isProphecyRouteMounted =
+  isDevMode || import.meta.env.VITE_ENABLE_PROPHECY === "true";
 // Presentation-only visibility switch for the Sprint 1 `/scan` visual foundation.
 // Exact lowercase "true" mounts the route; anything else leaves it unmounted.
 // This flag is not authorization and must not gate backend intake or reveal.
@@ -220,6 +225,9 @@ const App = () => (
                 <Route path="/nq2" element={<CampaignNq2Landing />} />
                 <Route path="/nq3" element={<CampaignNq3Landing />} />
                 <Route path="/nq4" element={<CampaignNq4Page />} />
+                {isProphecyRouteMounted && (
+                  <Route path="/prophecy" element={<ProphecyLanding />} />
+                )}
                 <Route path="/wmchat" element={<WmChatPage />} />
                 {isScanRouteMounted && (
                   <Route path="/scan" element={<ScanFunnelPage />} />
