@@ -78,13 +78,13 @@ export default function ProphecyHero({
             aria-labelledby="prophecy-fork-label"
             className="grid gap-3.5 sm:grid-cols-2"
           >
-            {PROPHECY_INTENT_OPTIONS.map((option) => (
+            {PROPHECY_INTENT_OPTIONS.map((option, index) => (
               <ProphecyIntentCard
                 key={option.value}
                 option={option}
                 selected={false}
                 onSelect={onChooseIntent}
-                priority
+                priority={index === 0}
               />
             ))}
           </div>

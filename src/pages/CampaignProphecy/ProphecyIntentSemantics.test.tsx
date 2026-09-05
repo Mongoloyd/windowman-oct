@@ -18,8 +18,11 @@ describe("Prophecy intent fork semantics", () => {
   it("renders hero intent cards as a button group, not a radio group", () => {
     render(<ProphecyHero variant={variant} onChooseIntent={vi.fn()} />);
 
+    const heroIntentGroup = screen.getByRole("group", {
+      name: /start here — pick the one that's true/i,
+    });
     expect(
-      screen.getByRole("group", { name: /start here — pick the one that's true/i }),
+      heroIntentGroup,
     ).toBeInTheDocument();
     expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
     expect(screen.queryByRole("radio")).not.toBeInTheDocument();
@@ -32,13 +35,18 @@ describe("Prophecy intent fork semantics", () => {
       screen.getByRole("img", {
         name: /window frame sample beside a tablet/i,
       }),
-    ).toHaveAttribute("fetchpriority", "high");
-    expect(document.querySelectorAll('source[type="image/avif"]')).toHaveLength(
-      2,
-    );
-    expect(document.querySelectorAll('source[type="image/webp"]')).toHaveLength(
-      2,
-    );
+    ).toHaveAttribute("loading", "lazy");
+    expect(
+      screen.getByRole("img", {
+        name: /window frame sample beside a tablet/i,
+      }),
+    ).not.toHaveAttribute("fetchpriority");
+    expect(
+      heroIntentGroup.querySelectorAll('source[type="image/avif"]'),
+    ).toHaveLength(2);
+    expect(
+      heroIntentGroup.querySelectorAll('source[type="image/webp"]'),
+    ).toHaveLength(2);
   });
 
   it("renders footer intent cards as a button group, not a radio group", () => {
