@@ -27,7 +27,11 @@ const PROPHECY_ENTRY =
 const FIRST_INTENT_AVIF = "/images/prophecy/intent-has-quote.avif";
 
 const emptyRootPattern = /<div id="root">\s*<\/div>/;
+const htmlOpenPattern = /<html\b([^>]*)>/i;
+const headOpenPattern = /<head>/i;
 const headClosePattern = /<\/head>/i;
+const themeColorPattern =
+  /<meta\b(?=[^>]*\bname=["']theme-color["'])[^>]*>/i;
 
 type ViteManifestEntry = {
   file: string;
@@ -120,14 +124,88 @@ function buildProphecyMetadataTags(): string {
 
 const prophecyChunkHref = resolveProphecyChunkHref(loadManifest());
 
+const prophecyCriticalCss = `  <style data-prophecy-critical>
+    html[data-wm-theme="prophecy"],
+    html[data-wm-theme="prophecy"] body,
+    html[data-wm-theme="prophecy"] #root {
+      min-height: 100%;
+      margin: 0;
+      background: #070e18;
+      color: #f1f5f9;
+      color-scheme: dark;
+    }
+    [data-prophecy-prerender-shell] {
+      box-sizing: border-box;
+      display: flex;
+      min-height: 100vh;
+      min-height: 100dvh;
+      align-items: center;
+      justify-content: center;
+      padding: 1.25rem;
+      background: #070e18;
+      color: #f1f5f9;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      text-align: center;
+    }
+    [data-prophecy-prerender-brand] {
+      margin: 0;
+      color: #7dd3fc;
+      font-size: .875rem;
+      font-weight: 700;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+    }
+    [data-prophecy-prerender-message] {
+      margin: .75rem 0 0;
+      color: #cbd5e1;
+      font-size: .875rem;
+    }
+    [data-prophecy-noscript] {
+      box-sizing: border-box;
+      display: flex;
+      min-height: 100vh;
+      min-height: 100dvh;
+      align-items: center;
+      justify-content: center;
+      padding: 1.25rem;
+      background: #070e18;
+      color: #f1f5f9;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      text-align: center;
+    }
+    [data-prophecy-noscript] > div {
+      max-width: 32rem;
+    }
+    [data-prophecy-noscript] h1 {
+      margin: 0;
+      font-size: 1.5rem;
+    }
+    [data-prophecy-noscript] p {
+      margin: .75rem 0 0;
+      color: #cbd5e1;
+      line-height: 1.6;
+    }
+    [data-prophecy-noscript] a {
+      display: inline-flex;
+      min-height: 2.75rem;
+      margin-top: 1.5rem;
+      align-items: center;
+      justify-content: center;
+      padding: .75rem 1.25rem;
+      border: 1px solid #64748b;
+      border-radius: .5rem;
+      color: #f1f5f9;
+      font-weight: 600;
+    }
+  </style>
+`;
+
 const prophecyHeadExtras =
   `  ${buildProphecyMetadataTags()}\n` +
-  `  <style data-prophecy-prerender>html,body,#root{background:#070e18;color-scheme:dark}</style>\n` +
-  `  <style data-prophecy-prerender-noscript>[data-prophecy-prerender-shell]{display:none!important}</style>\n` +
   `  <link rel="preload" as="image" type="image/avif" href="${FIRST_INTENT_AVIF}" fetchpriority="high" />\n` +
   `  <link rel="modulepreload" crossorigin href="${prophecyChunkHref}" />\n`;
 
-const prophecyRoot = `<div id="root"><div data-prophecy-prerender-shell aria-hidden="true" class="flex min-h-screen items-center justify-center bg-[#070e18] px-5 text-slate-100 antialiased"><div class="text-center"><p class="text-sm font-semibold uppercase tracking-[0.2em] text-sky-300">WindowMan</p><p class="mt-3 text-sm text-slate-300">Preparing your independent estimate review…</p></div></div><noscript><div class="flex min-h-screen items-center justify-center bg-[#070e18] px-5 text-slate-100"><div class="max-w-lg text-center"><h1 class="text-2xl font-bold">JavaScript is required</h1><p class="mt-3 text-slate-300">Turn on JavaScript to use the WindowMan estimate review, or return to the WindowMan home page for more information.</p><a class="mt-6 inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-500 px-5 py-3 font-semibold text-slate-100" href="/">Return to WindowMan</a></div></div></noscript></div>`;
+const prophecyRoot = `<div id="root"><div data-prophecy-prerender-shell aria-hidden="true"><div><p data-prophecy-prerender-brand>WindowMan</p><p data-prophecy-prerender-message>Preparing your independent estimate review…</p></div></div><noscript><style>[data-prophecy-prerender-shell]{display:none!important}</style><div data-prophecy-noscript><div><h1>JavaScript is required</h1><p>Turn on JavaScript to use the WindowMan estimate review, or return to the WindowMan home page for more information.</p><a href="/">Return to WindowMan</a></div></div></noscript></div>`;
 
 let shell = readFileSync(indexPath, "utf8");
 if (!emptyRootPattern.test(shell)) {
@@ -136,8 +214,24 @@ if (!emptyRootPattern.test(shell)) {
 if (!headClosePattern.test(shell)) {
   throw new Error("prerender: dist/index.html is missing the head close tag");
 }
+if (!htmlOpenPattern.test(shell) || !headOpenPattern.test(shell)) {
+  throw new Error("prerender: dist/index.html is missing its document shell");
+}
+if (!themeColorPattern.test(shell)) {
+  throw new Error("prerender: dist/index.html is missing theme-color metadata");
+}
 
 shell = stripInheritedHomepageMetadata(shell);
+shell = shell.replace(htmlOpenPattern, (_match, attributes: string) =>
+  attributes.includes("data-wm-theme")
+    ? `<html${attributes}>`
+    : `<html${attributes} data-wm-theme="prophecy">`,
+);
+shell = shell.replace(
+  themeColorPattern,
+  '<meta name="theme-color" content="#070e18" data-default-content="#EBF0F6" />',
+);
+shell = shell.replace(headOpenPattern, `<head>\n${prophecyCriticalCss}`);
 shell = shell.replace(headClosePattern, `${prophecyHeadExtras}</head>`);
 shell = shell.replace(emptyRootPattern, prophecyRoot);
 

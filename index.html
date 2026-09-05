@@ -1,6 +1,14 @@
 <!doctype html>
 <html lang="en">
 <head>
+  <script>
+    (function () {
+      var pathname = window.location.pathname;
+      if (pathname === "/prophecy" || pathname === "/prophecy/") {
+        document.documentElement.setAttribute("data-wm-theme", "prophecy");
+      }
+    })();
+  </script>
   <style>
     html, body, #root { min-height: 100%; }
     html, body {
@@ -11,6 +19,13 @@
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
       text-rendering: optimizeLegibility;
+    }
+    html[data-wm-theme="prophecy"],
+    html[data-wm-theme="prophecy"] body,
+    html[data-wm-theme="prophecy"] #root {
+      background: #070e18;
+      color: #f1f5f9;
+      color-scheme: dark;
     }
   </style>
   <!-- Google Consent Mode default — must run synchronously before GTM -->
@@ -96,7 +111,12 @@
   <meta name="twitter:image:alt" content="WindowMan WMan logo" />
 
   <meta name="robots" content="index, follow" />
-  <meta name="theme-color" content="#EBF0F6" />
+  <meta name="theme-color" content="#EBF0F6" data-default-content="#EBF0F6" />
+  <script>
+    if (document.documentElement.getAttribute("data-wm-theme") === "prophecy") {
+      document.querySelector('meta[name="theme-color"]').content = "#070e18";
+    }
+  </script>
   <link rel="icon" type="image/avif" href="/favicon_wman.avif" />
   <link rel="apple-touch-icon" href="/og-wman.png" />
 

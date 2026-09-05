@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
 import UniversalIntakeHost from "@/components/intake/universal/UniversalIntakeHost";
@@ -21,6 +21,7 @@ import { useCampaignNqIllumination } from "../CampaignNQ/useCampaignNqIlluminati
 import ProphecyIntakeSkin from "./ProphecyIntakeSkin";
 import { createCampaignProphecyLeadSubmitter } from "./campaignProphecyLeadCapture";
 import { prophecyIntakeConfig } from "./prophecyIntakeConfig";
+import { activateProphecyDocumentTheme } from "./prophecyDocumentTheme";
 import {
   clearProphecyUploadResume,
   readProphecyUploadResume,
@@ -50,6 +51,8 @@ const LIT_SECTION_SELECTOR = ":scope > section";
  * boundary are untouched by this route.
  */
 export default function ProphecyLanding() {
+  useLayoutEffect(() => activateProphecyDocumentTheme(), []);
+
   const litPlaneRef = useCampaignNqIllumination<HTMLElement>({
     driver: "pointer",
     sectionSelector: LIT_SECTION_SELECTOR,
