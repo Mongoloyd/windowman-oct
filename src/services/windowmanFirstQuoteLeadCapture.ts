@@ -122,6 +122,24 @@ export function getOrCreateFirstQuoteSessionId(): string {
   return fallbackId;
 }
 
+/** Starts a new capture without invalidating an already-persisted handoff. */
+export function rotateFirstQuoteSessionId(): string {
+  if (typeof window === "undefined") {
+    return "00000000-0000-4000-8000-000000000001";
+  }
+
+  const nextId = crypto.randomUUID();
+  inMemoryFirstQuoteSessionId = nextId;
+  try {
+    if (typeof sessionStorage !== "undefined") {
+      sessionStorage.setItem(FIRST_QUOTE_SESSION_STORAGE_KEY, nextId);
+    }
+  } catch {
+    // The in-memory value remains authoritative when storage is unavailable.
+  }
+  return nextId;
+}
+
 /** Builds the capture-truth-gate-lead body (exported for tests). */
 export function buildWindowmanFirstQuoteLeadPayload(
   input: SubmitWindowmanFirstQuoteInput,

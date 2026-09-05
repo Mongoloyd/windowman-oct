@@ -70,6 +70,7 @@ export default function ProphecyIntentCard({
   return (
     <button
       type="button"
+      aria-pressed={selected}
       data-intake-field="intent"
       data-intent-value={option.value}
       onClick={() => onSelect(option.value)}

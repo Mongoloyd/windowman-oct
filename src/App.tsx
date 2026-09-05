@@ -139,6 +139,10 @@ class RouteErrorBoundary extends Component<
 
 const queryClient = new QueryClient();
 const isDevMode = import.meta.env.DEV;
+// Prophecy still uses placeholder campaign art. Keep the route available for
+// local review, but require explicit production enablement once final assets land.
+const isProphecyRouteMounted =
+  isDevMode || import.meta.env.VITE_ENABLE_PROPHECY === "true";
 // Presentation-only visibility switch for the Sprint 1 `/scan` visual foundation.
 // Exact lowercase "true" mounts the route; anything else leaves it unmounted.
 // This flag is not authorization and must not gate backend intake or reveal.
@@ -221,7 +225,9 @@ const App = () => (
                 <Route path="/nq2" element={<CampaignNq2Landing />} />
                 <Route path="/nq3" element={<CampaignNq3Landing />} />
                 <Route path="/nq4" element={<CampaignNq4Page />} />
-                <Route path="/prophecy" element={<ProphecyLanding />} />
+                {isProphecyRouteMounted && (
+                  <Route path="/prophecy" element={<ProphecyLanding />} />
+                )}
                 <Route path="/wmchat" element={<WmChatPage />} />
                 {isScanRouteMounted && (
                   <Route path="/scan" element={<ScanFunnelPage />} />

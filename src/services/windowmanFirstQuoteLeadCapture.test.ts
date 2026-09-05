@@ -4,6 +4,7 @@ import {
   WINDOWMAN_FIRST_QUOTE_SOURCE,
   buildWindowmanFirstQuoteLeadPayload,
   getOrCreateFirstQuoteSessionId,
+  rotateFirstQuoteSessionId,
   submitWindowmanFirstQuoteLead,
 } from "./windowmanFirstQuoteLeadCapture";
 import {
@@ -233,6 +234,15 @@ describe("windowmanFirstQuoteLeadCapture", () => {
     const first = getOrCreateFirstQuoteSessionId();
     const second = getOrCreateFirstQuoteSessionId();
     expect(second).toBe(first);
+  });
+
+  it("rotates the session ID for a new independent capture", () => {
+    const first = getOrCreateFirstQuoteSessionId();
+    const rotated = rotateFirstQuoteSessionId();
+
+    expect(rotated).not.toBe(first);
+    expect(sessionStorage.getItem(FIRST_QUOTE_SESSION_STORAGE_KEY)).toBe(rotated);
+    expect(getOrCreateFirstQuoteSessionId()).toBe(rotated);
   });
 
   it("reuses an in-memory session ID when sessionStorage throws", () => {

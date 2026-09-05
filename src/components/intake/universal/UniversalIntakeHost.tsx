@@ -257,15 +257,21 @@ export default function UniversalIntakeHost({
     (field: IntakeFieldName, value: string) => {
       setAttempt((current) => {
         if (!current || current.values[field] === value) return current;
+        const values = { ...current.values, [field]: value };
         return {
           ...current,
-          values: { ...current.values, [field]: value },
+          values,
+          stepIndex: clampToActiveIndex(
+            config.steps,
+            values,
+            current.stepIndex,
+          ),
         };
       });
       setValidationError(null);
       setSubmitError(null);
     },
-    [],
+    [config.steps],
   );
 
   const handleSelectAndNext = useCallback(
@@ -276,7 +282,12 @@ export default function UniversalIntakeHost({
         if (!current || current.succeeded) return current;
         if (activeAttemptId.current !== current.captureAttemptId) return current;
 
-        const step = config.steps[current.stepIndex];
+        const currentIndex = clampToActiveIndex(
+          config.steps,
+          current.values,
+          current.stepIndex,
+        );
+        const step = config.steps[currentIndex];
         if (quickSelectFieldForStep(step.id) !== field) return current;
         if (!step.fields.includes(field)) return current;
 
@@ -294,7 +305,7 @@ export default function UniversalIntakeHost({
           values,
           // Evaluated against the NEW values so the choice just made — an
           // intent fork in particular — immediately reshapes what comes next.
-          stepIndex: nextActiveIndex(config.steps, values, current.stepIndex),
+          stepIndex: nextActiveIndex(config.steps, values, currentIndex),
         };
       });
     },
@@ -304,8 +315,13 @@ export default function UniversalIntakeHost({
   const handleNext = useCallback(() => {
     setAttempt((current) => {
       if (!current) return current;
+      const currentIndex = clampToActiveIndex(
+        config.steps,
+        current.values,
+        current.stepIndex,
+      );
       const error = validateStep(
-        config.steps[current.stepIndex],
+        config.steps[currentIndex],
         current.values,
         config.location,
       );
@@ -319,7 +335,7 @@ export default function UniversalIntakeHost({
         stepIndex: nextActiveIndex(
           config.steps,
           current.values,
-          current.stepIndex,
+          currentIndex,
         ),
       };
     });
@@ -328,18 +344,22 @@ export default function UniversalIntakeHost({
   const handleBack = useCallback(() => {
     setValidationError(null);
     setSubmitError(null);
-    setAttempt((current) =>
-      current
-        ? {
-            ...current,
-            stepIndex: previousActiveIndex(
-              config.steps,
-              current.values,
-              current.stepIndex,
-            ),
-          }
-        : current,
-    );
+    setAttempt((current) => {
+      if (!current) return current;
+      const currentIndex = clampToActiveIndex(
+        config.steps,
+        current.values,
+        current.stepIndex,
+      );
+      return {
+        ...current,
+        stepIndex: previousActiveIndex(
+          config.steps,
+          current.values,
+          currentIndex,
+        ),
+      };
+    });
   }, [config.steps]);
 
   const handleSubmit = useCallback(async () => {

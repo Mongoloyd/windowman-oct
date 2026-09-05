@@ -322,5 +322,8 @@ describe("UniversalIntakeHost branching", () => {
 
     expect(stepName()).toBe("contact");
     expect(progress()).toBe("3/3");
+
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Enter your first name.");
   });
 });

@@ -350,7 +350,7 @@ export default function ProphecyIntakeSkin({
               </p>
 
               <div
-                role="radiogroup"
+                role="group"
                 aria-label="Do you already have an estimate?"
                 aria-describedby={
                   fieldError ? "prophecy-modal-error" : undefined

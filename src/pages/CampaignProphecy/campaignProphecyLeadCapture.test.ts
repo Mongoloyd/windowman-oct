@@ -2,17 +2,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { IntakeValues } from "@/components/intake/universal/intakeTypes";
 import { createCampaignProphecyLeadSubmitter } from "./campaignProphecyLeadCapture";
 
-const { firstQuoteSubmitMock } = vi.hoisted(() => ({
+const { firstQuoteSubmitMock, rotateSessionMock } = vi.hoisted(() => ({
   firstQuoteSubmitMock: vi.fn(),
+  rotateSessionMock: vi.fn(),
 }));
 
 vi.mock("@/services/windowmanFirstQuoteLeadCapture", () => ({
   getOrCreateFirstQuoteSessionId: () => "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+  rotateFirstQuoteSessionId: () => rotateSessionMock(),
   submitWindowmanFirstQuoteLead: (...args: unknown[]) =>
     firstQuoteSubmitMock(...args),
 }));
 
 const TEST_SESSION_ID = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+const NEXT_SESSION_ID = "bbbbbbbb-cccc-4ddd-8eee-ffffffffffff";
 const ATTEMPT_ID = "11111111-1111-4111-8111-111111111111";
 
 const context = {
@@ -53,6 +56,8 @@ function noQuoteValues(overrides: Partial<IntakeValues> = {}): IntakeValues {
 describe("Prophecy lead persistence adapter", () => {
   beforeEach(() => {
     firstQuoteSubmitMock.mockReset();
+    rotateSessionMock.mockReset();
+    rotateSessionMock.mockReturnValue(NEXT_SESSION_ID);
     firstQuoteSubmitMock.mockResolvedValue({
       ok: true,
       leadId: "lead-123",
@@ -78,6 +83,38 @@ describe("Prophecy lead persistence adapter", () => {
     expect(sent.extraQueryParams).toEqual({ prophecy_intent: "has_quote" });
     expect(Object.keys(sent)).not.toContain(["has", "Estimate"].join(""));
     expect(Object.keys(sent)).not.toContain(["window", "Count"].join(""));
+    expect(rotateSessionMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("rotates only after success and uses the new ID for the next capture", async () => {
+    const submit = createCampaignProphecyLeadSubmitter();
+
+    const first = await submit(hasQuoteValues(), context);
+    const second = await submit(hasQuoteValues(), {
+      ...context,
+      captureAttemptId: "33333333-3333-4333-8333-333333333333",
+    });
+
+    expect(first).toMatchObject({ ok: true, sessionId: TEST_SESSION_ID });
+    expect(second).toMatchObject({ ok: true, sessionId: NEXT_SESSION_ID });
+    expect(firstQuoteSubmitMock.mock.calls[0][0].sessionId).toBe(TEST_SESSION_ID);
+    expect(firstQuoteSubmitMock.mock.calls[1][0].sessionId).toBe(NEXT_SESSION_ID);
+  });
+
+  it("retains the session ID while a failed capture is retried", async () => {
+    firstQuoteSubmitMock
+      .mockResolvedValueOnce({ ok: false, message: "Try again." })
+      .mockResolvedValueOnce({ ok: true, leadId: "lead-123", reused: false });
+    const submit = createCampaignProphecyLeadSubmitter();
+
+    const failed = await submit(hasQuoteValues(), context);
+    const retried = await submit(hasQuoteValues(), context);
+
+    expect(failed).toEqual({ ok: false, message: "Try again." });
+    expect(retried).toMatchObject({ ok: true, sessionId: TEST_SESSION_ID });
+    expect(firstQuoteSubmitMock.mock.calls[0][0].sessionId).toBe(TEST_SESSION_ID);
+    expect(firstQuoteSubmitMock.mock.calls[1][0].sessionId).toBe(TEST_SESSION_ID);
+    expect(rotateSessionMock).toHaveBeenCalledTimes(1);
   });
 
   it("preserves the openings bucket for the no-estimate branch", async () => {
@@ -139,5 +176,6 @@ describe("Prophecy lead persistence adapter", () => {
     const result = await submit(hasQuoteValues(), context);
 
     expect(result.ok).toBe(false);
+    expect(rotateSessionMock).not.toHaveBeenCalled();
   });
 });

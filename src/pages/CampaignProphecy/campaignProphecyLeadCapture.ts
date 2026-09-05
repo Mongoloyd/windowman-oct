@@ -10,6 +10,7 @@ import type {
 } from "@/components/intake/universal/intakeTypes";
 import {
   getOrCreateFirstQuoteSessionId,
+  rotateFirstQuoteSessionId,
   submitWindowmanFirstQuoteLead,
 } from "@/services/windowmanFirstQuoteLeadCapture";
 import { isProphecyPriority } from "./prophecyIntakeConfig";
@@ -36,7 +37,7 @@ function isIntentChoice(
  * query_params without fabricating an exact opening count.
  */
 export function createCampaignProphecyLeadSubmitter(): IntakeSubmitter {
-  const sessionId = getOrCreateFirstQuoteSessionId();
+  let sessionId = getOrCreateFirstQuoteSessionId();
 
   return async (values, context) => {
     if (!isIntentChoice(values.intent)) {
@@ -97,10 +98,14 @@ export function createCampaignProphecyLeadSubmitter(): IntakeSubmitter {
       return { ok: false, message: FIRST_QUOTE_SAFE_ERROR };
     }
 
+    // Return the persisted ID for UploadZone, then isolate the next intake.
+    const persistedSessionId = sessionId;
+    sessionId = rotateFirstQuoteSessionId();
+
     return {
       ok: true,
       leadId: result.leadId,
-      sessionId,
+      sessionId: persistedSessionId,
       reused: result.reused === true,
     };
   };
