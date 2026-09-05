@@ -9,7 +9,6 @@ import {
 } from "lucide-react";
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { trackEvent } from "@/lib/trackEvent";
 import { pushV3BusinessEvent } from "@/lib/tracking/dataLayer";
 import { useScanPolling } from "@/hooks/useScanPolling";
 import { useScanFunnelSafe } from "@/state/scanFunnel";
@@ -579,8 +578,8 @@ const UploadZone = ({
    */
   const invokeScan = async (
     scanSessionId: string,
-    leadId: string | null,
-    quoteFileId: string,
+    _leadId: string | null,
+    _quoteFileId: string,
   ): Promise<boolean> => {
     const quoteUploadedEventId = getQuoteUploadedEventId(scanSessionId);
     const { data: fnData, error: fnError } = await supabase.functions.invoke("scan-quote", {
@@ -607,19 +606,6 @@ const UploadZone = ({
           : "Scan encountered an issue. Tap retry to try again.";
       setUploadError(msg);
       toast.error(msg);
-      await supabase.from("event_logs").insert({
-        event_name: isRateLimited ? "scan_rate_limited" : "scan_invoke_failed",
-        session_id: sessionId || null,
-        metadata: {
-          scan_session_id: scanSessionId,
-          quote_file_id: quoteFileId,
-          error_code: errorCode,
-          error_message: fnError.message || String(fnError),
-          file_name: file?.name,
-          file_size: file?.size,
-          timestamp: new Date().toISOString(),
-        },
-      });
       notifyUploadFailureOnce(file?.type || "");
       return false;
     }
@@ -675,9 +661,8 @@ const UploadZone = ({
     // Every failure stage funnels through this one helper so the user sees
     // exactly one message and one retry button — never a stack of toasts
     // from cascading partial failures (storage / quote_files / scan_sessions).
-    const failWith = (stage: string, message: string, err?: unknown) => {
+    const failWith = (stage: string, message: string) => {
       notifyUploadFailureOnce(file.type);
-      console.error(`[UploadZone] ${stage} failed:`, err);
       setUploadErrorKind(
         stage === "storage_conflict_no_context" ? "storage_conflict_no_context" : null,
       );
@@ -765,16 +750,13 @@ const UploadZone = ({
           scan_session_id: string | null;
           lead_id: string | null;
         };
-        const { data: retryData, error: retryError } = await rpc("get_upload_retry_context", {
+        const { data: retryData } = await rpc("get_upload_retry_context", {
           p_session_scope: sessionScope,
           p_storage_path: filePath,
         });
         const retryCtx = firstRpcRow<UploadRetryContextRow>(
           retryData as UploadRetryContextRow[] | UploadRetryContextRow | null | undefined,
         );
-        if (retryError) {
-          console.warn("[UploadZone] retry-by-path lookup failed:", retryError);
-        }
         // Only trust the RPC result if both IDs are well-formed UUIDs.
         // A truthy-but-malformed value (e.g. "not-a-uuid") must not reach
         // invokeScan; fall through to the fresh upload path instead.
@@ -797,11 +779,10 @@ const UploadZone = ({
           existingLeadId = retryCtx.lead_id ?? null;
           existingQuoteFileId = retryCtx.quote_file_id;
         }
-      } catch (lookupErr) {
-        // Lookup failure must not block fresh path — log and continue.
+      } catch {
+        // Lookup failure must not block the fresh path.
         // Worst case we'd attempt a fresh upload; storage upsert and the
         // client guards below still keep retry coherent.
-        console.warn("[UploadZone] retry-by-path lookup failed:", lookupErr);
       }
 
       if (isValidUuid(existingScanSessionId) && isValidUuid(existingQuoteFileId)) {
@@ -820,10 +801,6 @@ const UploadZone = ({
         return;
       }
 
-      // ── DIAGNOSTIC: pre-upload structured trace ─────────────────────
-      // Instrumentation-only. No behavior change. Captures the exact
-      // request shape sent to supabase.storage so we can correlate any
-      // failure to the request inputs (path / MIME / upsert / retry).
       const isRetry = uploadedOnceRef.current === true;
       // Use upsert ONLY on retry. The private `quotes` bucket has no anon
       // SELECT policy, so an unconditional upsert (which performs INSERT ...
@@ -833,16 +810,6 @@ const UploadZone = ({
       // anon INSERT policy and succeeds. Retries reuse the deterministic path
       // and need upsert to overwrite the prior object.
       const useUpsert = isRetry || hasPartialRetryQuoteFile;
-      console.info("[UploadZone] storage.upload →", {
-        bucket: "quotes",
-        filePath,
-        upsert: useUpsert,
-        contentType: file.type,
-        fileName: file.name,
-        fileSize: file.size,
-        isRetry,
-        sessionId: sessionScope,
-      });
 
       // Storage upload — first write is a plain INSERT; retries upsert to
       // overwrite the same deterministic path idempotently.
@@ -850,44 +817,7 @@ const UploadZone = ({
         .from("quotes")
         .upload(filePath, file, { upsert: useUpsert, contentType: file.type || undefined });
       if (storageErr) {
-        // ── DIAGNOSTIC: full structured error capture ─────────────────
-        // Surface every field the SDK exposes (message / name / status /
-        // statusCode / nested error / cause) AND the raw object so the
-        // DevTools tree shows anything we missed.
         const anyErr = storageErr as unknown as Record<string, unknown>;
-        console.error("[UploadZone] storage.upload FAILED", {
-          message: storageErr?.message,
-          name: storageErr?.name,
-          statusCode: anyErr?.statusCode,
-          status: anyErr?.status,
-          error: anyErr?.error,
-          cause: anyErr?.cause,
-          raw: storageErr,
-        });
-
-        // ── DIAGNOSTIC: server-side telemetry into event_logs ─────────
-        // Fire-and-forget. trackEvent already swallows its own errors so
-        // it cannot block the existing failWith() toast or retry path.
-        trackEvent({
-          event_name: "storage_upload_failed",
-          session_id: sessionScope,
-          metadata: {
-            message: storageErr?.message ?? null,
-            name: storageErr?.name ?? null,
-            statusCode:
-              (anyErr?.statusCode as number | string | undefined) ??
-              (anyErr?.status as number | string | undefined) ??
-              null,
-            errorBody: anyErr?.error ?? null,
-            bucket: "quotes",
-            filePath,
-            fileName: file.name,
-            fileType: file.type || null,
-            fileSize: file.size,
-            upsert: useUpsert,
-            isRetry,
-          },
-        });
 
         // ── Narrow 409 / object-exists conflict detection ──────────────
         // Only applies to a plain INSERT attempt (!useUpsert). If the SDK
@@ -945,14 +875,13 @@ const UploadZone = ({
             failWith(
               "storage_conflict_no_context",
               "We found an old upload attempt for this file, but couldn't safely reconnect it.",
-              storageErr,
             );
             return;
           }
         } else {
           // Non-409 storage errors (network, permissions, size, etc.) use the
           // original generic failure message unchanged.
-          failWith("storage_upload", "Upload failed. Please try again.", storageErr);
+          failWith("storage_upload", "Upload failed. Please try again.");
           return;
         }
       }
@@ -1024,7 +953,6 @@ const UploadZone = ({
         failWith(
           "scan_sessions_insert",
           "Failed to start scan session. Please try again.",
-          bootstrapError ?? fnDetails,
         );
         return;
       }
@@ -1039,7 +967,6 @@ const UploadZone = ({
         failWith(
           "scan_session_invalid_ids",
           "Failed to start scan session. Please try again.",
-          { newScanSessionId, quoteFileId },
         );
         return;
       }
@@ -1050,29 +977,12 @@ const UploadZone = ({
         if (leadId) funnel.setLeadId(leadId);
       }
 
-      if (import.meta.env.DEV) {
-        console.info("[UploadZone] start-upload-scan-session success", {
-          sessionId: bootstrapSessionId,
-          leadId,
-          quoteFileId,
-          scanSessionId: newScanSessionId,
-          phoneStatus: funnel?.phoneStatus ?? null,
-          clientSlug: funnel?.clientSlug ?? null,
-        });
-      }
-
       // ── Commit identity ──────────────────────────────────────────────
       // Persist scan_session_id locally AND flip uploadedOnceRef BEFORE
       // invokeScan so any race on the same render cycle takes the retry
       // path, not a second fresh upload.
       uploadedOnceRef.current = true;
       setActiveScanSessionId(newScanSessionId);
-
-      trackEvent({
-        event_name: "upload_completed",
-        session_id: sessionId,
-        metadata: { scan_session_id: newScanSessionId, file_name: file.name, file_size: file.size },
-      });
 
       // Gate the UI advance on a successful scan-quote invocation. If the
       // edge function fails, invokeScan has already surfaced uploadError +
@@ -1082,8 +992,8 @@ const UploadZone = ({
       if (ok) {
         notifyScanStart(file.name, newScanSessionId);
       }
-    } catch (err) {
-      failWith("unexpected", "Something went wrong. Please try again.", err);
+    } catch {
+      failWith("unexpected", "Something went wrong. Please try again.");
     } finally {
       setUploading(false);
       inFlightRef.current = false;
@@ -1208,7 +1118,6 @@ const UploadZone = ({
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    trackEvent({ event_name: "photo_option_clicked" });
                     if (inputRef.current) {
                       inputRef.current.value = "";
                       inputRef.current.click();

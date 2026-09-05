@@ -6,10 +6,6 @@ vi.mock("@/lib/trackConversion", () => ({
   trackGtmEvent: (...args: unknown[]) => trackGtmEventMock(...args),
 }));
 
-vi.mock("@/lib/useLeadId", () => ({
-  getLeadId: () => "visitor-uuid-123",
-}));
-
 vi.mock("@/lib/useUtmCapture", () => ({
   captureUtmFromUrl: vi.fn(() => ({
     utm_source: "nextdoor",
@@ -66,13 +62,14 @@ describe("dataLayer helper", () => {
     sessionStorage.clear();
   });
 
-  it("buildAttributionDataLayerPayload includes structured UTMs and visitor_id", () => {
+  it("buildAttributionDataLayerPayload includes attribution without persistent identifiers", () => {
     const payload = buildAttributionDataLayerPayload();
     expect(payload.utm_source).toBe("nextdoor");
     expect(payload.ndclid).toBe("test_ndclid_123");
     expect(payload.wm_intent).toBeNull();
-    expect(payload.visitor_id).toBe("visitor-uuid-123");
-    expect(payload.lead_id).toBe("visitor-uuid-123");
+    expect(payload).not.toHaveProperty("visitor_id");
+    expect(payload).not.toHaveProperty("lead_id");
+    expect(payload).not.toHaveProperty("session_id");
   });
 
   it("pushVirtualPageView sends enriched virtual_page_view without PII", () => {
@@ -97,12 +94,18 @@ describe("dataLayer helper", () => {
       wm_intent: "no_quote",
       email: "secret@example.com",
       phone_e164: "+15551234567",
+      visitor_id: "visitor-id",
+      lead_id: "lead-id",
+      session_id: "session-id",
     });
 
     const payload = trackGtmEventMock.mock.calls[0][1] as Record<string, unknown>;
     expect(payload.event).toBeUndefined();
     expect(payload.email).toBeUndefined();
     expect(payload.phone_e164).toBeUndefined();
+    expect(payload.visitor_id).toBeUndefined();
+    expect(payload.lead_id).toBeUndefined();
+    expect(payload.session_id).toBeUndefined();
   });
 
   it("pushTruthGateViewedOnce fires once per session key", () => {
@@ -435,7 +438,7 @@ describe("dataLayer helper", () => {
   });
 
   describe("pushLeadMagnetCaptured", () => {
-    it("fires once with capture_source, capture_page fields, and the real lead_id", () => {
+    it("fires once with capture fields and a dedup event ID without persistent identifiers", () => {
       pushLeadMagnetCaptured({
         leadId: "lead-abc-123",
         sessionId: "session-xyz-456",
@@ -449,13 +452,13 @@ describe("dataLayer helper", () => {
       );
       expect(calls).toHaveLength(1);
       expect(calls[0][1]).toMatchObject({
-        lead_id: "lead-abc-123",
-        session_id: "session-xyz-456",
         capture_source: "window_price_audit",
         capture_page_path: "/window-price-audit",
         capture_page_url: "/window-price-audit?utm_source=qa",
         utm_source: "nextdoor",
       });
+      expect(calls[0][1]).not.toHaveProperty("lead_id");
+      expect(calls[0][1]).not.toHaveProperty("session_id");
       expect(calls[0][1].event_id).toEqual(expect.stringContaining("lead_magnet_captured"));
     });
 
@@ -540,12 +543,12 @@ describe("dataLayer helper", () => {
       );
       expect(calls).toHaveLength(1);
       expect(calls[0][1]).toMatchObject({
-        lead_id: "lead-upload-1",
-        session_id: "session-upload-1",
         handoff_source: "window_price_audit",
         capture_source: "window_price_audit",
         destination_url: "/?post_capture=upload&source=window_price_audit",
       });
+      expect(calls[0][1]).not.toHaveProperty("lead_id");
+      expect(calls[0][1]).not.toHaveProperty("session_id");
       expect(sessionStorage.getItem(HANDOFF_SOURCE_ROUTE_KEY)).toBe("window_price_audit");
     });
 

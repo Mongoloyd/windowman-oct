@@ -91,10 +91,6 @@ vi.mock("@/state/scanFunnel", () => ({
   }),
 }));
 
-vi.mock("@/lib/trackEvent", () => ({
-  trackEvent: vi.fn(),
-}));
-
 vi.mock("@/lib/tracking/dataLayer", () => ({
   pushV3BusinessEvent: vi.fn(),
 }));
@@ -212,7 +208,6 @@ function setupHappyPath() {
 
   fromMock.mockImplementation((table: string) => {
     if (table === "leads") return buildInsertChain();
-    if (table === "event_logs") return buildInsertChain();
     return {
       insert: vi.fn().mockResolvedValue({ error: null, data: null }),
     };
@@ -317,11 +312,6 @@ describe("UploadZone — idempotency", () => {
     // (the start-upload-scan-session Edge Function handles those inserts).
     // Only verifying that invokeMock (start-upload-scan-session) is NOT called
     // after a storage failure — storage fails before the EF is reached.
-    fromMock.mockImplementation((table: string) => {
-      if (table === "event_logs") return buildInsertChain();
-      return buildInsertChain();
-    });
-
     render(
       <UploadZone
         isVisible
@@ -337,6 +327,7 @@ describe("UploadZone — idempotency", () => {
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /Retry Scan/i })).toBeInTheDocument();
     });
+    expect(fromMock).not.toHaveBeenCalledWith("event_logs");
     // invokeMock (start-upload-scan-session EF) must NOT have been called —
     // storage failure happens before the bootstrap EF is reached.
     expect(invokeMock).not.toHaveBeenCalled();

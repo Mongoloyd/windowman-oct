@@ -6,7 +6,6 @@
  */
 
 import { trackGtmEvent } from "@/lib/trackConversion";
-import { getLeadId } from "@/lib/useLeadId";
 import { captureUtmFromUrl, getUtmData, type WmIntent } from "@/lib/useUtmCapture";
 import { buildCanonicalEventId } from "@/lib/tracking/canonicalEventId";
 
@@ -18,6 +17,9 @@ const FORBIDDEN_DATALAYER_KEYS = new Set([
   "last_name",
   "name",
   "full_name",
+  "visitor_id",
+  "lead_id",
+  "session_id",
   "scan_session_id",
   "quote_id",
   "report_id",
@@ -45,8 +47,6 @@ export type AttributionDataLayerFields = {
   msclkid: string | null;
   wm_intent: WmIntent | null;
   client_slug: string | null;
-  visitor_id: string | null;
-  lead_id: string | null;
 };
 
 const V3_BUSINESS_EVENT_NAMES = [
@@ -129,7 +129,6 @@ function readUtmId(queryParams: Record<string, string | string[]>): string | nul
 /** Fresh attribution snapshot for dataLayer payloads (no PII). */
 export function buildAttributionDataLayerPayload(): AttributionDataLayerFields {
   const data = captureUtmFromUrl();
-  const visitorId = typeof window !== "undefined" ? getLeadId() : null;
 
   return {
     utm_source: data.utm_source,
@@ -147,8 +146,6 @@ export function buildAttributionDataLayerPayload(): AttributionDataLayerFields {
     msclkid: data.msclkid,
     wm_intent: normalizeWmIntentForDataLayer(data.wm_intent),
     client_slug: data.client_slug || "direct",
-    visitor_id: visitorId,
-    lead_id: visitorId,
   };
 }
 
@@ -369,8 +366,6 @@ export function pushLeadMagnetCaptured(args: LeadMagnetCapturedArgs): void {
   pushDataLayerEvent("lead_magnet_captured", {
     ...attribution,
     event_id: eventId,
-    lead_id: args.leadId,
-    session_id: args.sessionId,
     capture_source: args.captureSource,
     capture_page_path: args.capturePagePath ?? null,
     capture_page_url: args.capturePageUrl ?? null,
@@ -431,8 +426,6 @@ export function pushLeadMagnetUploadCtaClicked(
   pushDataLayerEvent("lead_magnet_upload_cta_clicked", {
     ...attribution,
     event_id: eventId,
-    lead_id: args.leadId,
-    session_id: args.sessionId,
     handoff_source: args.handoffSource,
     capture_source: args.captureSource ?? null,
     destination_url: args.destinationUrl,
