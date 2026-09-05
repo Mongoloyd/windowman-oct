@@ -148,20 +148,23 @@ export default function ProphecyLanding() {
         sessionId: persisted.sessionId,
       });
 
-      if (!resume) {
-        clearProphecyUploadResume();
-        uploadPendingRef.current = false;
-        setShowUpload(false);
-        setUploadLeadId(null);
-        setUploadSessionId(null);
-        return;
-      }
-
       // Reveal the upload zone only once the modal is dismissed — UploadZone
       // scrolls itself into view when it becomes visible, which would otherwise
       // happen behind the dialog.
-      setUploadLeadId(resume.leadId);
-      setUploadSessionId(resume.sessionId);
+      //
+      // When the resume hint cannot be persisted (e.g. malformed callback IDs),
+      // still expose UploadZone using the page sessionId fallback — skipping
+      // the resume hint is not a reason to break the has-quote handoff.
+      if (resume) {
+        setUploadLeadId(resume.leadId);
+        setUploadSessionId(resume.sessionId);
+      } else {
+        clearProphecyUploadResume();
+        setUploadLeadId(
+          typeof persisted.leadId === "string" ? persisted.leadId : null,
+        );
+        setUploadSessionId(null);
+      }
       uploadPendingRef.current = true;
     },
     [],

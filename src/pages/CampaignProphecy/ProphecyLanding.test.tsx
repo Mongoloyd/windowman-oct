@@ -244,7 +244,7 @@ describe("ProphecyLanding", () => {
     });
   });
 
-  it("does not expose UploadZone or persist a hint for malformed callback IDs", () => {
+  it("falls back to the page sessionId and skips persistence for malformed callback IDs", () => {
     render(
       <HelmetProvider>
         <ProphecyLanding />
@@ -257,9 +257,9 @@ describe("ProphecyLanding", () => {
     fireEvent.click(screen.getByRole("button", { name: "Close intake" }));
 
     const uploadZone = screen.getByTestId("upload-zone");
-    expect(uploadZone).toHaveAttribute("data-visible", "no");
+    expect(uploadZone).toHaveAttribute("data-visible", "yes");
     expect(uploadZone).toHaveAttribute("data-session-id", PAGE_SESSION_ID);
-    expect(uploadZone).toHaveAttribute("data-lead-id", "");
+    expect(uploadZone).toHaveAttribute("data-lead-id", LEAD_ID);
     expect(window.sessionStorage.getItem(STORAGE_KEY)).toBeNull();
   });
 
