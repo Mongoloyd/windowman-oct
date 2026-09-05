@@ -46,6 +46,9 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
+    // Enables dist/.vite/manifest.json so post-build prerender can resolve
+    // hashed route chunks without hardcoding generated filenames.
+    manifest: true,
     rollupOptions: {
       output: {
         manualChunks(id: string) {

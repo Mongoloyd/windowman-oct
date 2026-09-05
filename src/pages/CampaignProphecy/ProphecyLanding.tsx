@@ -201,8 +201,9 @@ export default function ProphecyLanding() {
         <div className="pointer-events-none fixed inset-0 overflow-hidden">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_15%_20%,rgba(59,130,246,0.16),transparent_58%)]" />
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_88%_12%,rgba(244,162,97,0.20),transparent_55%)]" />
-          <div className="absolute -top-48 right-[12%] h-[620px] w-[620px] rounded-full bg-[#F4A261]/[0.13] blur-[150px]" />
-          <div className="absolute top-[38%] -left-40 h-[560px] w-[560px] rounded-full bg-[#60A5FA]/[0.11] blur-[140px]" />
+          {/* Largest fixed blur orbs: desktop-only. Mobile keeps lightweight gradients. */}
+          <div className="absolute -top-48 right-[12%] hidden h-[620px] w-[620px] rounded-full bg-[#F4A261]/[0.13] blur-[150px] lg:block" />
+          <div className="absolute top-[38%] -left-40 hidden h-[560px] w-[560px] rounded-full bg-[#60A5FA]/[0.11] blur-[140px] lg:block" />
           <div
             className="absolute inset-0 opacity-[0.045] mix-blend-overlay"
             style={{
