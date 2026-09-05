@@ -54,17 +54,6 @@ function isLocalHost(hostname: string): boolean {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
 }
 
-function isLocalOrNonProdHost(hostname: string): boolean {
-  if (isLocalHost(hostname)) {
-    return true;
-  }
-  // Explicit non-production preview patterns only — never production windowman.app.
-  if (/netlify\.app$/i.test(hostname) && /deploy-preview/i.test(hostname)) {
-    return true;
-  }
-  return false;
-}
-
 async function assertNonProductionEnvironment(page: Page): Promise<void> {
   const base =
     test.info().project.use.baseURL ??
@@ -78,9 +67,9 @@ async function assertNonProductionEnvironment(page: Page): Promise<void> {
     throw new Error("BLOCKED_UNKNOWN_ENVIRONMENT: could not parse page base URL");
   }
 
-  if (!isLocalOrNonProdHost(pageHost)) {
+  if (!isLocalHost(pageHost)) {
     throw new Error(
-      `BLOCKED_UNKNOWN_ENVIRONMENT: page host "${pageHost}" is not proven local/non-production`,
+      `BLOCKED_UNKNOWN_ENVIRONMENT: page host "${pageHost}" is not permitted — this suite runs only against local hosts (localhost / 127.0.0.1)`,
     );
   }
 
@@ -129,6 +118,105 @@ async function assertNonProductionEnvironment(page: Page): Promise<void> {
     }
 
     await route.fallback();
+  });
+}
+
+/**
+ * Deterministic scan-backend mocks for local runs where the scanner Edge
+ * Function or its downstream AI/OCR provider lacks the API keys required to
+ * produce a "valid estimate" outcome from a synthetic fixture.
+ *
+ * The mocks preserve the canonical Verify-to-Reveal boundary:
+ *   • scan-quote returns a "valid" preview_ready envelope (no analysis body).
+ *   • get_scan_status returns a non-terminal preview-ready status so
+ *     useAnalysisData proceeds to the preview fetch instead of a terminal
+ *     fallback.
+ *   • report-access returns a safe preview envelope for mode:"preview" and
+ *     the unauthorized envelope for any mode:"full" attempt. The preview
+ *     payload NEVER contains "full_json".
+ *
+ * Registered after assertNonProductionEnvironment's catch-all `**\/*` route,
+ * so these specific handlers match first (Playwright dispatches routes in
+ * reverse registration order).
+ */
+async function installDeterministicScanBackend(page: Page): Promise<void> {
+  await page.route("**/functions/v1/scan-quote", async (route) => {
+    if (route.request().method() !== "POST") {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        analysis_status: "complete",
+        scan_session_status: "preview_ready",
+        grade: "C",
+      }),
+    });
+  });
+
+  await page.route("**/rest/v1/rpc/get_scan_status", async (route) => {
+    if (route.request().method() !== "POST") {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([{ status: "preview_ready" }]),
+    });
+  });
+
+  await page.route("**/functions/v1/report-access", async (route) => {
+    if (route.request().method() !== "POST") {
+      await route.fallback();
+      return;
+    }
+    let mode = "preview";
+    try {
+      const parsed = route.request().postDataJSON() as { mode?: unknown } | null;
+      if (parsed && typeof parsed.mode === "string") {
+        mode = parsed.mode;
+      }
+    } catch {
+      // treat unparseable bodies as preview requests
+    }
+    if (mode === "full") {
+      // Verify-to-Reveal invariant: pre-OTP full requests must never receive
+      // full_json. Return the canonical unauthorized envelope instead.
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: true, authorized: false, mode: "full" }),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ok: true,
+        mode: "preview",
+        data: {
+          analysis_id: "00000000-0000-4000-8000-00000000ab01",
+          grade: "C",
+          flag_count: 2,
+          flag_red_count: 0,
+          flag_amber_count: 2,
+          proof_of_read: {
+            classification: "estimate",
+            vendor: "ABC Impact Windows & Roofing LLC",
+          },
+          preview_json: {
+            headline: "Preview only — verify to reveal",
+          },
+          confidence_score: 0.72,
+          document_type: "estimate",
+          rubric_version: "prophecy-e2e-fixture-v1",
+        },
+      }),
+    });
   });
 }
 
@@ -301,6 +389,7 @@ test.describe("Prophecy funnel — environment and journeys", () => {
     page,
   }) => {
     await assertNonProductionEnvironment(page);
+    await installDeterministicScanBackend(page);
     await page.goto(`/prophecy${ATTR}`);
     await acceptConsentIfPresent(page);
 
