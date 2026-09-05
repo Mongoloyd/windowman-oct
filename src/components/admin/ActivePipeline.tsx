@@ -29,6 +29,7 @@ import { useAdminLeadSelection } from "@/hooks/useAdminLeadSelection";
 interface ActivePipelineProps {
   leads: CRMLead[];
   isLoading?: boolean;
+  hasLoadError?: boolean;
 }
 
 /* ── Helpers ─────────────────────────────────────────────────────────── */
@@ -89,7 +90,7 @@ const UNKNOWN_COUNTY = "Unknown County";
 
 /* ── Component ───────────────────────────────────────────────────────── */
 
-export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
+export function ActivePipeline({ leads, isLoading, hasLoadError = false }: ActivePipelineProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [ownershipFilter, setOwnershipFilter] = useState<OwnershipFilter>("all");
@@ -100,7 +101,7 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
     presentation,
     openLead,
     closeLead,
-  } = useAdminLeadSelection(leads, { isReady: !isLoading });
+  } = useAdminLeadSelection(leads, { isReady: !isLoading && !hasLoadError });
 
   // Phase 8 — distinct county list for dropdown, with safe Unknown fallback.
   const marketOptions = useMemo(() => {

@@ -311,4 +311,28 @@ describe("inbox scroll hints", () => {
     view.rerender(<SearchHarness search="Jane" />);
     expect(resetScroll).toHaveBeenCalled();
   });
+
+  it("resets to top when no matching scroll hint can be restored", () => {
+    vi.useFakeTimers();
+    const resetScroll = vi.fn();
+    const restoreScroll = vi.fn(() => false);
+
+    function RestoreFallbackHarness() {
+      useInboxDirectoryScroll({
+        filters: DEFAULT_INBOX_FILTERS,
+        search: "",
+        isReady: true,
+        captureScroll: () => undefined,
+        restoreScroll,
+        resetScroll,
+      });
+      return null;
+    }
+
+    render(<RestoreFallbackHarness />);
+    vi.advanceTimersByTime(1_000);
+    expect(restoreScroll).toHaveBeenCalled();
+    expect(resetScroll).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
 });
