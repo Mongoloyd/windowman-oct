@@ -40,7 +40,7 @@ export default function ProphecyFinalCTA({
           ))}
         </div>
 
-        <p className="mt-7 text-[13px] text-slate-500">
+        <p className="mt-7 text-[13px] text-slate-400">
           Florida projects only · Free · No obligation · Independent — not a
           contractor
         </p>

@@ -85,7 +85,7 @@ export default function ProphecyPredictions() {
           ))}
         </ol>
 
-        <p className="mt-8 text-[13.5px] leading-relaxed text-slate-500">
+        <p className="mt-8 text-[13.5px] leading-relaxed text-slate-400">
           Illustrative examples, not real estimates. A contractor still needs to
           measure, verify site conditions and provide the final construction
           agreement — WindowMan helps you understand the written estimate before

@@ -36,7 +36,7 @@ const FIELD_BASE =
   "motion-safe:transition-[border-color,box-shadow] motion-safe:duration-150";
 
 const PRIMARY_BUTTON =
-  "inline-flex w-full items-center justify-center rounded-xl px-5 py-3.5 text-[15px] font-semibold text-white " +
+  "inline-flex min-h-11 w-full items-center justify-center rounded-xl px-5 py-3.5 text-[15px] font-semibold text-white " +
   "bg-gradient-to-b from-[#3B82F6] via-[#2563EB] to-[#1E40AF] " +
   "shadow-[0_14px_32px_-10px_rgba(59,130,246,0.7),inset_0_1px_0_rgba(255,255,255,0.32),inset_0_-1px_0_rgba(0,0,0,0.45)] " +
   "hover:from-[#60A5FA] hover:via-[#3B82F6] hover:to-[#1D4ED8] " +
@@ -245,7 +245,7 @@ export default function ProphecyIntakeSkin({
     <button
       type="button"
       onClick={onBack}
-      className="mt-3 w-full rounded-lg px-3 py-2 text-[13px] font-medium text-slate-400 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/60"
+      className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-lg px-3 text-[13px] font-medium text-slate-400 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/60"
     >
       ← Back
     </button>
@@ -320,7 +320,7 @@ export default function ProphecyIntakeSkin({
               type="button"
               aria-label="Close"
               onClick={onClose}
-              className="-mr-1 flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/60"
+              className="-mr-1 flex min-h-11 min-w-11 items-center justify-center rounded-lg text-slate-400 hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/60"
             >
               <span aria-hidden="true" className="text-lg leading-none">
                 ×
@@ -621,7 +621,7 @@ export default function ProphecyIntakeSkin({
               </button>
               {backButton}
 
-              <p className="mt-4 text-[11.5px] leading-relaxed text-slate-500">
+              <p className="mt-4 text-[11.5px] leading-relaxed text-slate-400">
                 By continuing, you request help with your project and authorize
                 WindowMan to contact you by call, text message, or email about
                 that request and related support. This authorization does not

@@ -315,4 +315,15 @@ describe("ConsentBanner", () => {
     expect(screen.getByText(APPROVED_MESSAGE)).toBeInTheDocument();
     expect(screen.queryByText("Privacy settings")).not.toBeInTheDocument();
   });
+
+  it("sizes Accept and Decline to the 44px project hit-target minimum", () => {
+    render(<ConsentBanner />);
+
+    const accept = screen.getByRole("button", { name: "Accept" });
+    const decline = screen.getByRole("button", { name: "Decline" });
+    expect(accept.className).toMatch(/min-h-11/);
+    expect(accept.className).toMatch(/min-w-11/);
+    expect(decline.className).toMatch(/min-h-11/);
+    expect(decline.className).toMatch(/min-w-11/);
+  });
 });
