@@ -1230,11 +1230,13 @@
   /* Lead dossier opt-in surface. Nothing here affects other admin routes. */
   .wm-lead-dossier {
     --wm-lead-panel-radius: 0.75rem;
-    --wm-lead-panel-border: 214 30% 76%;
+    --wm-lead-panel-border: var(--wm-dir-border);
     --wm-lead-panel-shadow:
-      0 1px 2px rgb(15 23 42 / 0.06), 0 8px 24px rgb(15 23 42 / 0.05);
-    --wm-lead-inset: 210 40% 96%;
-    --wm-lead-label: 215 25% 27%;
+      inset 0 1px 0 rgb(255 255 255 / 0.04),
+      0 12px 28px rgb(0 5 12 / 0.28);
+    --wm-lead-inset: var(--wm-dir-elevated);
+    --wm-lead-label: var(--wm-dir-muted);
+    color: var(--wm-dir-text);
   }
 
   .wm-lead-dossier main {
@@ -1284,18 +1286,27 @@
 
   .wm-lead-dossier .wm-lead-dossier-panel {
     min-width: 0;
-    border: 1px solid hsl(var(--wm-lead-panel-border));
+    border: 1px solid var(--wm-lead-panel-border);
     border-radius: var(--wm-lead-panel-radius);
-    background: hsl(var(--card));
+    background: var(--wm-dir-panel);
+    color: var(--wm-dir-body);
     padding: 1rem;
     box-shadow: var(--wm-lead-panel-shadow);
     overflow-wrap: anywhere;
   }
 
-  .wm-lead-dossier .wm-lead-dossier-kicker {
-    color: hsl(var(--wm-lead-label));
+  .wm-lead-dossier .wm-lead-dossier-identity {
+    border-color: var(--wm-dir-border);
+    background: var(--wm-dir-rail);
+    color: var(--wm-dir-muted);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04);
+  }
+
+  .wm-lead-dossier .wm-lead-dossier-kicker,
+  .wm-lead-dossier .wm-lead-dossier-label {
+    color: var(--wm-lead-label);
     font-size: 0.75rem;
-    font-weight: 600;
+    font-weight: 800;
     line-height: 1rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -1303,7 +1314,7 @@
 
   .wm-lead-dossier .wm-lead-dossier-heading {
     margin-top: 0.25rem;
-    color: hsl(var(--foreground));
+    color: var(--wm-dir-text);
     font-family: var(--wm-font-display);
     font-size: 1.125rem;
     font-weight: 700;
@@ -1311,14 +1322,34 @@
     letter-spacing: -0.015em;
   }
 
+  .wm-lead-dossier .wm-lead-dossier-value {
+    color: var(--wm-dir-text);
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.5rem;
+  }
+
   .wm-lead-dossier .wm-lead-dossier-metrics {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.75rem;
+    border: 1px solid var(--wm-dir-border);
     border-radius: 0.5rem;
-    background: hsl(var(--wm-lead-inset));
+    background: var(--wm-lead-inset);
     padding: 0.75rem;
     font-variant-numeric: tabular-nums;
+  }
+
+  .wm-lead-dossier .wm-lead-dossier-action {
+    border-color: var(--wm-dir-cobalt);
+    background: var(--wm-dir-control);
+    color: var(--wm-dir-text);
+  }
+
+  .wm-lead-dossier .wm-lead-dossier-action-quiet {
+    border-color: var(--wm-dir-border-strong);
+    background: var(--wm-dir-control);
+    color: var(--wm-dir-body);
   }
 
   .wm-lead-dossier
@@ -1448,7 +1479,7 @@
    * Remaps apply ONLY under .wm-admin-directory on non-dossier admin canvas.
    * Exclusions (must stay untouched by these remaps):
    *   - .wm-lead-inbox (fullBleed main has no .wm-admin-directory)
-   *   - .wm-lead-dossier (white panels still expect dark ink; later phase)
+   *   - .wm-lead-dossier (owns its own descendant remaps below)
    *   - PartnerLayout (bare .wm-dashboard-surface, no .wm-admin-canvas)
    */
   .wm-dashboard-surface.wm-admin-canvas {
@@ -3027,8 +3058,7 @@
 /*
  * Admin directory typography contrast (unlayered).
  * Scoped to .wm-admin-directory on non-dossier canvas / .wm-admin-portal ONLY.
- * Must never redefine --wm-inbox-* on the canvas or restyle .wm-lead-inbox /
- * .wm-lead-dossier white panels (those keep dark ink until a later phase).
+ * Must never redefine --wm-inbox-* on the canvas or restyle .wm-lead-inbox.
  */
 .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory :is(
   .text-card-foreground,
@@ -3117,6 +3147,187 @@
   border-color: var(--wm-dir-border-strong, #3b5874);
   background-color: var(--wm-dir-elevated, #102130);
   color: var(--wm-dir-body, #e7f0f9);
+}
+
+/*
+ * Lead Workspace dossier (unlayered). Scoped to .wm-lead-dossier only.
+ * Beats .wm-dashboard-surface light remaps and .wm-admin-canvas destructive
+ * light-pink patches. Does not touch .wm-lead-inbox or --vd-*.
+ */
+.wm-dashboard-surface.wm-admin-canvas.wm-lead-dossier :is(
+  .bg-white,
+  .bg-card,
+  .bg-background,
+  .bg-card\/95
+) {
+  background-color: var(--wm-dir-panel);
+  color: var(--wm-dir-body);
+}
+
+.wm-dashboard-surface.wm-admin-canvas.wm-lead-dossier :is(
+  .bg-muted,
+  .bg-muted\/20,
+  .bg-muted\/30,
+  .bg-muted\/40,
+  .bg-muted\/50,
+  .bg-slate-50,
+  .bg-slate-100,
+  .bg-blue-50
+) {
+  background-color: var(--wm-dir-elevated);
+  color: var(--wm-dir-body);
+}
+
+.wm-dashboard-surface.wm-admin-canvas.wm-lead-dossier :is(
+  .bg-sky-100,
+  .bg-sky-50,
+  .bg-blue-100
+) {
+  background-color: var(--wm-dir-control);
+  color: var(--wm-dir-cobalt);
+  border-color: var(--wm-dir-border-strong);
+}
+
+.wm-dashboard-surface.wm-admin-canvas.wm-lead-dossier :is(
+  .text-sky-800,
+  .text-sky-900
+) {
+  color: var(--wm-dir-cobalt);
+}
+
+.wm-dashboard-surface.wm-admin-canvas.wm-lead-dossier button:disabled,
+.wm-dashboard-surface.wm-admin-canvas.wm-lead-dossier [aria-disabled="true"] {
+  background-color: var(--wm-dir-control);
+  border-color: var(--wm-dir-border);
+  color: var(--wm-dir-muted);
+}
+
+.wm-dashboard-surface.wm-admin-canvas.wm-lead-dossier :is(
+  .bg-emerald-100,
+  .bg-emerald-50
+) {
+  background-color: var(--wm-dir-control);
+  color: var(--wm-dir-teal);
+  border-color: var(--wm-dir-border-strong);
+}
+
+.wm-dashboard-surface.wm-admin-canvas.wm-lead-dossier :is(
+  .bg-amber-50,
+  .bg-amber-50\/70,
+  .bg-amber-100
+) {
+  background-color: var(--wm-dir-control);
+  color: var(--wm-dir-ember);
+  border-color: var(--wm-dir-border-strong);
+}
+
+.wm-dashboard-surface.wm-admin-canvas.wm-lead-dossier :is(
+  .bg-rose-100,
+  .bg-red-100
+) {
+  background-color: var(--wm-dir-control);
+  color: var(--wm-dir-danger);
+  border-color: var(--wm-dir-border-strong);
+}
+
+.wm-dashboard-surface.wm-admin-canvas.wm-lead-dossier :is(
+  .bg-destructive\/5,
+  .bg-destructive\/10,
+  .bg-destructive\/20
+) {
+  background-color: var(--wm-dir-control);
+  color: var(--wm-dir-danger);
+}
+
+.wm-dashboard-surface.wm-admin-canvas.wm-lead-dossier input,
+.wm-dashboard-surface.wm-admin-canvas.wm-lead-dossier select,
+.wm-dashboard-surface.wm-admin-canvas.wm-lead-dossier textarea,
+.wm-dashboard-surface.wm-admin-canvas.wm-lead-dossier [role="combobox"] {
+  border-color: var(--wm-dir-border-strong);
+  background-color: var(--wm-dir-control);
+  color: var(--wm-dir-text);
+}
+
+.wm-dashboard-surface.wm-admin-canvas.wm-lead-dossier input::placeholder,
+.wm-dashboard-surface.wm-admin-canvas.wm-lead-dossier textarea::placeholder {
+  color: var(--wm-dir-muted);
+}
+
+.wm-dashboard-surface.wm-admin-canvas.wm-lead-dossier table thead {
+  background-color: var(--wm-dir-rail);
+  color: var(--wm-dir-muted);
+}
+
+.wm-dashboard-surface.wm-admin-canvas.wm-lead-dossier table th {
+  color: var(--wm-dir-muted);
+}
+
+.wm-dashboard-surface.wm-admin-canvas.wm-lead-dossier table td {
+  color: var(--wm-dir-body);
+}
+
+.wm-dashboard-surface.wm-admin-canvas.wm-lead-dossier :is(
+  .text-muted-foreground,
+  .text-slate-700,
+  .text-slate-600,
+  .text-slate-500,
+  .text-slate-400,
+  .text-gray-500,
+  .text-gray-400
+) {
+  color: var(--wm-dir-muted);
+}
+
+.wm-dashboard-surface.wm-admin-canvas.wm-lead-dossier :is(
+  .text-card-foreground,
+  .text-foreground,
+  .text-slate-950,
+  .text-slate-900,
+  .text-slate-800,
+  [class*="text-foreground/"]
+) {
+  color: var(--wm-dir-text);
+}
+
+.wm-dashboard-surface.wm-admin-canvas.wm-lead-dossier :is(
+  .text-primary,
+  .text-blue-800,
+  .text-blue-950
+) {
+  color: var(--wm-dir-cobalt);
+}
+
+.wm-dashboard-surface.wm-admin-canvas.wm-lead-dossier :is(
+  .text-emerald-950,
+  .text-emerald-800
+) {
+  color: var(--wm-dir-teal);
+}
+
+.wm-dashboard-surface.wm-admin-canvas.wm-lead-dossier :is(
+  .text-amber-950,
+  .text-amber-900,
+  .text-amber-800,
+  .text-orange-950
+) {
+  color: var(--wm-dir-ember);
+}
+
+.wm-dashboard-surface.wm-admin-canvas.wm-lead-dossier :is(
+  .text-red-950,
+  .text-red-800,
+  .text-rose-950,
+  .text-rose-700,
+  .text-destructive
+) {
+  color: var(--wm-dir-danger);
+}
+
+.wm-dashboard-surface.wm-admin-canvas.wm-lead-dossier .rounded-xl.border,
+.wm-dashboard-surface.wm-admin-canvas.wm-lead-dossier .rounded-lg.border,
+.wm-dashboard-surface.wm-admin-canvas.wm-lead-dossier .rounded-md.border {
+  border-color: var(--wm-dir-border);
+  box-shadow: none;
 }
 
 /*

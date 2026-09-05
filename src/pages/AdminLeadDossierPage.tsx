@@ -65,10 +65,10 @@ function InfoCell({
 }: { label: string; value: React.ReactNode; icon?: React.ElementType }) {
   return (
     <div className="min-w-0 space-y-1">
-      <p className="text-sm font-extrabold uppercase tracking-[0.16em] text-slate-700">{label}</p>
-      <div className="wm-lead-break flex min-w-0 items-start gap-1.5 text-base font-semibold text-slate-950">
-        {Icon && <Icon className="h-3.5 w-3.5 text-slate-700 shrink-0" />}
-        {value || <span className="text-slate-700">—</span>}
+      <p className="wm-lead-dossier-label">{label}</p>
+      <div className="wm-lead-break wm-lead-dossier-value flex min-w-0 items-start gap-1.5">
+        {Icon && <Icon className="wm-lead-dossier-label h-3.5 w-3.5 shrink-0" />}
+        {value || <span className="wm-lead-dossier-label">—</span>}
       </div>
     </div>
   );
@@ -102,6 +102,7 @@ export default function AdminLeadDossierPage() {
         backTo="/admin/leads"
         backLabel={DOSSIER_BACK_LABEL}
         nav={<AdminGlobalNav />}
+        variant="lead-dossier"
       >
         <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           <AlertCircle className="h-5 w-5 mt-0.5 shrink-0" />
@@ -125,6 +126,7 @@ export default function AdminLeadDossierPage() {
         backTo="/admin/leads"
         backLabel={DOSSIER_BACK_LABEL}
         nav={<AdminGlobalNav />}
+        variant="lead-dossier"
       >
         <div className="flex items-center justify-center py-20">
           <Loader2 className="wm-on-canvas-text h-6 w-6 animate-spin" />
@@ -141,6 +143,7 @@ export default function AdminLeadDossierPage() {
         backTo="/admin/leads"
         backLabel={DOSSIER_BACK_LABEL}
         nav={<AdminGlobalNav />}
+        variant="lead-dossier"
       >
         <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           <AlertCircle className="h-5 w-5 mt-0.5 shrink-0" />
@@ -175,10 +178,10 @@ export default function AdminLeadDossierPage() {
       variant="lead-dossier"
     >
       <div
-        className="mb-5 flex flex-col gap-3 rounded-xl border border-slate-300 bg-white p-3 sm:flex-row sm:items-center sm:justify-between"
+        className="wm-lead-dossier-identity mb-5 flex flex-col gap-3 rounded-xl border p-3 sm:flex-row sm:items-center sm:justify-between"
         data-testid="admin-lead-dossier-page"
       >
-        <LeadIdentity leadId={lead.id} full className="text-xs font-semibold text-slate-700" />
+        <LeadIdentity leadId={lead.id} full className="text-xs font-semibold" />
       </div>
 
       <div className="wm-lead-dossier-grid">
@@ -241,34 +244,34 @@ export default function AdminLeadDossierPage() {
             </header>
             {!lead.latest_analysis_id ? (
               <div className="space-y-3">
-                <p className="text-sm text-slate-700 italic">No analysis yet for this lead.</p>
+                <p className="wm-lead-dossier-label italic">No analysis yet for this lead.</p>
                 {evidenceInspectorLink}
               </div>
             ) : (
               <div className="space-y-3">
                 <div className="wm-lead-dossier-metrics">
                   <div>
-                    <p className="text-sm font-extrabold uppercase tracking-wide text-slate-700">Confidence</p>
-                    <p className="font-mono text-base font-bold text-slate-950">{analysis?.confidence_score ?? lead.confidence_score ?? "—"}%</p>
+                    <p className="wm-lead-dossier-label">Confidence</p>
+                    <p className="wm-lead-dossier-value font-mono">{analysis?.confidence_score ?? lead.confidence_score ?? "—"}%</p>
                   </div>
                   <div>
-                    <p className="text-sm font-extrabold uppercase tracking-wide text-slate-700">Flags</p>
-                    <p className="text-base font-bold text-slate-950">{flags.length || lead.flag_count || 0}</p>
+                    <p className="wm-lead-dossier-label">Flags</p>
+                    <p className="wm-lead-dossier-value">{flags.length || lead.flag_count || 0}</p>
                   </div>
                   <div>
-                    <p className="text-sm font-extrabold uppercase tracking-wide text-slate-700">Critical</p>
+                    <p className="wm-lead-dossier-label">Critical</p>
                     <p className="text-base font-bold text-red-800">{lead.critical_flag_count ?? 0}</p>
                   </div>
                 </div>
 
                 {flags.length > 0 && (
                   <div>
-                    <p className="mb-2 flex items-center gap-1.5 text-sm font-extrabold uppercase tracking-[0.14em] text-slate-700">
+                    <p className="wm-lead-dossier-label mb-2 flex items-center gap-1.5">
                       <Flag className="h-4 w-4" /> Top flags
                     </p>
                     <ul className="space-y-1.5">
                       {flags.slice(0, 5).map((f, i) => (
-                        <li key={i} className="flex items-start gap-2 text-sm font-semibold leading-5 text-slate-950">
+                        <li key={i} className="wm-lead-dossier-value flex items-start gap-2 text-sm font-semibold leading-5">
                           <Badge
                             className={`shrink-0 px-2 py-0.5 text-xs font-extrabold uppercase ${
                               f.severity === "Critical" || f.severity === "High"
@@ -291,7 +294,7 @@ export default function AdminLeadDossierPage() {
                   <div className="flex flex-wrap items-center gap-3 mt-2">
                     <Link
                       to={`/admin/leads/${leadId}/report`}
-                      className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-blue-300 bg-blue-50 px-3 py-1 text-sm font-extrabold text-blue-800 shadow-sm hover:text-blue-950 hover:underline focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
+                      className="wm-lead-dossier-action inline-flex min-h-9 items-center gap-1.5 rounded-lg border px-3 py-1 text-sm font-extrabold hover:underline focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
                     >
                       <FileText className="h-3.5 w-3.5" />
                       View analysis evidence
@@ -302,13 +305,13 @@ export default function AdminLeadDossierPage() {
                         to={`/report/classic/${lead.latest_scan_session_id}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1 text-sm font-bold text-slate-800 shadow-sm hover:text-slate-950 hover:underline focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
+                        className="wm-lead-dossier-action-quiet inline-flex min-h-9 items-center gap-1 rounded-lg border px-3 py-1 text-sm font-bold hover:underline focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
                       >
                         Homeowner view
                         <ExternalLink className="h-3 w-3" />
                       </Link>
                     ) : (
-                      <span className="text-sm font-semibold italic text-slate-700">
+                      <span className="wm-lead-dossier-label italic">
                         No valid homeowner report link
                       </span>
                     )}

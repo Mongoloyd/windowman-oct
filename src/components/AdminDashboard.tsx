@@ -344,6 +344,9 @@ interface DashboardContentProps {
 function DashboardContent({ initialTab }: DashboardContentProps) {
   const location = useLocation();
   const pageTitle = getAdminPageTitle(location.pathname);
+  useEffect(() => {
+    document.title = `${pageTitle} · WindowMan Admin`;
+  }, [pageTitle]);
   const [leads, setLeads] = useState<CRMLead[]>([]);
   const [deliveries, setDeliveries] = useState<WebhookDelivery[]>([]);
   const [latestFollowups, setLatestFollowups] = useState<Record<string, VoiceFollowupSummary>>({});
