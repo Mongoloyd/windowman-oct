@@ -12,7 +12,7 @@ export function ProphecyNavigation() {
             WINDOW<span className="text-cyan-300">MAN</span>
           </span>
         </span>
-        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
           Independent · not a contractor
         </span>
       </div>
@@ -25,23 +25,32 @@ export function ProphecyFooter() {
     <footer className="relative z-10 border-t border-white/8 px-5 py-10 sm:px-8">
       <div className="mx-auto max-w-6xl">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-[12.5px] text-slate-500">
+          <p className="text-[12.5px] text-slate-400">
             © {new Date().getFullYear()} WindowMan. Independent quote
             intelligence.
           </p>
-          <nav className="flex flex-wrap gap-x-5 gap-y-2 text-[12.5px] text-slate-500">
-            <Link className="hover:text-slate-300" to="/privacy">
+          <nav className="flex flex-wrap gap-x-2 gap-y-1 text-[12.5px] text-slate-400">
+            <Link
+              className="inline-flex min-h-11 items-center px-1.5 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/80"
+              to="/privacy"
+            >
               Privacy
             </Link>
-            <Link className="hover:text-slate-300" to="/terms">
+            <Link
+              className="inline-flex min-h-11 items-center px-1.5 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/80"
+              to="/terms"
+            >
               Terms
             </Link>
-            <Link className="hover:text-slate-300" to="/disclaimer">
+            <Link
+              className="inline-flex min-h-11 items-center px-1.5 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/80"
+              to="/disclaimer"
+            >
               Disclaimer
             </Link>
           </nav>
         </div>
-        <p className="mt-6 max-w-4xl text-[11.5px] leading-relaxed text-slate-600">
+        <p className="mt-6 max-w-4xl text-[11.5px] leading-relaxed text-slate-400">
           WindowMan is independent software and is not an installing contractor,
           window manufacturer, law firm, insurance company, government agency or
           building department. Analysis is informational and based on the written

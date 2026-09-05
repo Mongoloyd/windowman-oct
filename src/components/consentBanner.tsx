@@ -104,14 +104,14 @@ export default function ConsentBanner() {
           <button
             type="button"
             onClick={() => saveChoice("granted")}
-            className="rounded-md bg-slate-900 px-2.5 py-2 text-[11px] font-semibold text-white transition-colors hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600 focus-visible:ring-offset-2 sm:px-3 sm:text-xs"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md bg-slate-900 px-3 text-[11px] font-semibold text-white transition-colors hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600 focus-visible:ring-offset-2 sm:text-xs"
           >
             Accept
           </button>
           <button
             type="button"
             onClick={() => saveChoice("denied")}
-            className="border-0 bg-transparent px-1.5 py-2 text-[11px] font-medium text-slate-500 underline decoration-slate-300 underline-offset-2 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600 sm:text-xs"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center border-0 bg-transparent px-3 text-[11px] font-medium text-slate-500 underline decoration-slate-300 underline-offset-2 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600 sm:text-xs"
           >
             Decline
           </button>

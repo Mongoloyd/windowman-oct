@@ -122,4 +122,47 @@ describe("Prophecy intent fork semantics", () => {
       }),
     ).toBeInTheDocument();
   });
+
+  it("sizes modal Close and Back controls to the 44px hit-target minimum", () => {
+    render(
+      <ProphecyIntakeSkin
+        step="location"
+        stepNumber={2}
+        totalSteps={3}
+        location={{
+          marketId: "test",
+          inputLabel: "Project ZIP code",
+          helperText: "Enter a ZIP code.",
+          placeholder: "e.g. 33139",
+          invalidMessage: "Enter a valid ZIP code.",
+          isEligibleZip: () => true,
+        }}
+        values={{
+          intent: "has_quote",
+          zip: "",
+          projectType: "",
+          openings: "",
+          name: "",
+          email: "",
+          phone: "",
+        }}
+        validationError={null}
+        submitError={null}
+        isSubmitting={false}
+        onFieldChange={vi.fn()}
+        onSelectAndNext={vi.fn()}
+        onNext={vi.fn()}
+        onBack={vi.fn()}
+        onSubmit={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Close" }).className).toMatch(
+      /min-h-11/,
+    );
+    expect(screen.getByRole("button", { name: /← Back/i }).className).toMatch(
+      /min-h-11/,
+    );
+  });
 });
