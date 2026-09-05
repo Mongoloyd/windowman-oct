@@ -459,7 +459,7 @@ describe("dataLayer helper", () => {
       });
       expect(calls[0][1]).not.toHaveProperty("lead_id");
       expect(calls[0][1]).not.toHaveProperty("session_id");
-      expect(calls[0][1].event_id).toEqual(expect.stringContaining("lead_magnet_captured"));
+      expect(typeof calls[0][1].event_id).toBe("string");
       expect(calls[0][1].event_id).not.toEqual(expect.stringContaining("lead-abc-123"));
       expect(calls[0][1].event_id).not.toEqual(expect.stringContaining("session-xyz-456"));
     });
@@ -509,6 +509,41 @@ describe("dataLayer helper", () => {
         ([name]) => name === "lead_magnet_captured",
       );
       expect(calls).toHaveLength(2);
+    });
+
+    it("gives different lead/session pairs different event IDs within the same minute", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-09-05T18:41:00.000Z"));
+      try {
+        pushLeadMagnetCaptured({
+          leadId: "lead-minute-1",
+          sessionId: "session-minute-1",
+          captureSource: "window_prices",
+        });
+        pushLeadMagnetCaptured({
+          leadId: "lead-minute-2",
+          sessionId: "session-minute-2",
+          captureSource: "window_prices",
+        });
+      } finally {
+        vi.useRealTimers();
+      }
+
+      const calls = trackGtmEventMock.mock.calls.filter(
+        ([name]) => name === "lead_magnet_captured",
+      );
+      expect(calls).toHaveLength(2);
+
+      const [firstId, secondId] = calls.map(
+        ([, payload]) => (payload as Record<string, unknown>).event_id as string,
+      );
+      expect(firstId).not.toEqual(secondId);
+      for (const eventId of [firstId, secondId]) {
+        expect(eventId).not.toContain("lead-minute-1");
+        expect(eventId).not.toContain("session-minute-1");
+        expect(eventId).not.toContain("lead-minute-2");
+        expect(eventId).not.toContain("session-minute-2");
+      }
     });
 
     it("never includes email, phone, or full_json", () => {
@@ -574,6 +609,43 @@ describe("dataLayer helper", () => {
         ([name]) => name === "lead_magnet_upload_cta_clicked",
       );
       expect(calls).toHaveLength(1);
+    });
+
+    it("gives different lead/session pairs different event IDs within the same minute", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-09-05T18:41:00.000Z"));
+      try {
+        pushLeadMagnetUploadCtaClicked({
+          leadId: "lead-cta-minute-1",
+          sessionId: "session-cta-minute-1",
+          handoffSource: "window_prices",
+          destinationUrl: "/?post_capture=upload&source=window_prices",
+        });
+        pushLeadMagnetUploadCtaClicked({
+          leadId: "lead-cta-minute-2",
+          sessionId: "session-cta-minute-2",
+          handoffSource: "window_prices",
+          destinationUrl: "/?post_capture=upload&source=window_prices",
+        });
+      } finally {
+        vi.useRealTimers();
+      }
+
+      const calls = trackGtmEventMock.mock.calls.filter(
+        ([name]) => name === "lead_magnet_upload_cta_clicked",
+      );
+      expect(calls).toHaveLength(2);
+
+      const [firstId, secondId] = calls.map(
+        ([, payload]) => (payload as Record<string, unknown>).event_id as string,
+      );
+      expect(firstId).not.toEqual(secondId);
+      for (const eventId of [firstId, secondId]) {
+        expect(eventId).not.toContain("lead-cta-minute-1");
+        expect(eventId).not.toContain("session-cta-minute-1");
+        expect(eventId).not.toContain("lead-cta-minute-2");
+        expect(eventId).not.toContain("session-cta-minute-2");
+      }
     });
   });
 });

@@ -7,7 +7,6 @@
 
 import { trackGtmEvent } from "@/lib/trackConversion";
 import { captureUtmFromUrl, getUtmData, type WmIntent } from "@/lib/useUtmCapture";
-import { buildCanonicalEventId } from "@/lib/tracking/canonicalEventId";
 
 const FORBIDDEN_DATALAYER_KEYS = new Set([
   "email",
@@ -357,9 +356,10 @@ export function pushLeadMagnetCaptured(args: LeadMagnetCapturedArgs): void {
   leadMagnetCapturedFiredKeys.add(dedupeKey);
 
   const attribution = buildAttributionDataLayerPayload();
-  const eventId = buildCanonicalEventId({
-    eventName: "lead_magnet_captured",
-  });
+  // Browser-only event with no server-side canonical counterpart. Use an opaque
+  // random UUID so two visitors acting in the same minute get distinct event IDs
+  // (a no-entity minute bucket would collide), without leaking lead/session IDs.
+  const eventId = crypto.randomUUID();
 
   pushDataLayerEvent("lead_magnet_captured", {
     ...attribution,
@@ -415,9 +415,10 @@ export function pushLeadMagnetUploadCtaClicked(
   leadMagnetUploadCtaFiredKeys.add(dedupeKey);
 
   const attribution = buildAttributionDataLayerPayload();
-  const eventId = buildCanonicalEventId({
-    eventName: "lead_magnet_upload_cta_clicked",
-  });
+  // Browser-only event with no server-side canonical counterpart. Use an opaque
+  // random UUID so two visitors acting in the same minute get distinct event IDs
+  // (a no-entity minute bucket would collide), without leaking lead/session IDs.
+  const eventId = crypto.randomUUID();
 
   pushDataLayerEvent("lead_magnet_upload_cta_clicked", {
     ...attribution,
