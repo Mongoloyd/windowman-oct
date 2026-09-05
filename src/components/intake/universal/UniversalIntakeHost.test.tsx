@@ -440,6 +440,12 @@ describe("UniversalIntakeHost", () => {
         email: "sam@example.com",
         phone: "+13055550142",
       }),
+      expect.objectContaining({
+        ok: true,
+        leadId: "lead-1",
+        sessionId: "session-1",
+        reused: false,
+      }),
     );
   });
 

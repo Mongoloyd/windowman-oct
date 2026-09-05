@@ -5,7 +5,11 @@ import {
   normalizeTruthGatePhoneToE164,
 } from "@/lib/validation/truthGateContact";
 import { isValidEmail, isValidName } from "@/utils/formatPhone";
-import { quickSelectFieldForStep } from "./intakeTypes";
+import {
+  activeSteps,
+  isStepActive,
+  quickSelectFieldForStep,
+} from "./intakeTypes";
 import type {
   IntakeFieldName,
   IntakeLocationConfig,
@@ -23,6 +27,14 @@ import type {
 const SAFE_SUBMIT_ERROR =
   "We couldn't submit your request. Please try again.";
 
+/**
+ * `intent` and `priority` are deliberately absent rather than empty strings.
+ * They are optional on `IntakeValues`, and a linear config that never asks for
+ * them should hand its submitter exactly the shape it always has — adding empty
+ * keys would push meaningless values across every existing persistence
+ * boundary. Branching configs populate them via `presetValues` or a field
+ * change; validation treats absent and empty identically.
+ */
 const EMPTY_VALUES: IntakeValues = {
   zip: "",
   projectType: "",
@@ -31,6 +43,55 @@ const EMPTY_VALUES: IntakeValues = {
   email: "",
   phone: "",
 };
+
+/**
+ * Step navigation is skip-aware so a branching config never lands on, counts,
+ * or validates a step that does not apply to the answers given so far. Indices
+ * stay anchored to `config.steps` (the full list) rather than to a filtered
+ * view, so a value change that reshapes the branch cannot silently remap the
+ * visitor to a different step.
+ */
+function nextActiveIndex(
+  steps: readonly IntakeStepConfig[],
+  values: IntakeValues,
+  from: number,
+): number {
+  for (let index = from + 1; index < steps.length; index += 1) {
+    if (isStepActive(steps[index], values)) return index;
+  }
+  return from;
+}
+
+function previousActiveIndex(
+  steps: readonly IntakeStepConfig[],
+  values: IntakeValues,
+  from: number,
+): number {
+  for (let index = from - 1; index >= 0; index -= 1) {
+    if (isStepActive(steps[index], values)) return index;
+  }
+  return from;
+}
+
+/**
+ * Resolve to the nearest applicable step. Going back and changing the branch
+ * can make the step a visitor is standing on inactive; prefer moving forward so
+ * a corrected answer never reads as losing progress.
+ */
+function clampToActiveIndex(
+  steps: readonly IntakeStepConfig[],
+  values: IntakeValues,
+  index: number,
+): number {
+  if (steps[index] && isStepActive(steps[index], values)) return index;
+  for (let forward = index + 1; forward < steps.length; forward += 1) {
+    if (isStepActive(steps[forward], values)) return forward;
+  }
+  for (let back = index - 1; back >= 0; back -= 1) {
+    if (isStepActive(steps[back], values)) return back;
+  }
+  return index;
+}
 
 interface ActiveAttempt {
   request: IntakeOpenRequest;
@@ -55,6 +116,20 @@ function validateStep(
   location: IntakeLocationConfig,
 ): IntakeValidationError | null {
   switch (step.validation) {
+    case "intent_selected":
+      return values.intent === "has_quote" || values.intent === "no_quote"
+        ? null
+        : {
+            field: "intent",
+            message: "Choose the option that describes where you are.",
+          };
+    case "priority_scope":
+      return values.priority?.trim()
+        ? null
+        : {
+            field: "priority",
+            message: "Choose what matters most to you.",
+          };
     case "service_area_zip":
       return location.isEligibleZip(values.zip)
         ? null
@@ -146,6 +221,13 @@ export default function UniversalIntakeHost({
     }
 
     processedRequestId.current = openRequest.requestId;
+
+    const values: IntakeValues = {
+      ...EMPTY_VALUES,
+      ...openRequest.presetValues,
+      zip: openRequest.zipPrefill?.trim() ?? "",
+    };
+
     const requestedIndex = openRequest.startingStep
       ? config.steps.findIndex((step) => step.id === openRequest.startingStep)
       : 0;
@@ -159,11 +241,14 @@ export default function UniversalIntakeHost({
     setAttempt({
       request: openRequest,
       captureAttemptId,
-      stepIndex: requestedIndex >= 0 ? requestedIndex : 0,
-      values: {
-        ...EMPTY_VALUES,
-        zip: openRequest.zipPrefill?.trim() ?? "",
-      },
+      // Seeded values can make the requested step inactive, so resolve against
+      // them rather than trusting the index the caller asked for.
+      stepIndex: clampToActiveIndex(
+        config.steps,
+        values,
+        requestedIndex >= 0 ? requestedIndex : 0,
+      ),
+      values,
       succeeded: false,
     });
   }, [config.steps, openRequest]);
@@ -207,7 +292,9 @@ export default function UniversalIntakeHost({
         return {
           ...current,
           values,
-          stepIndex: Math.min(current.stepIndex + 1, config.steps.length - 1),
+          // Evaluated against the NEW values so the choice just made — an
+          // intent fork in particular — immediately reshapes what comes next.
+          stepIndex: nextActiveIndex(config.steps, values, current.stepIndex),
         };
       });
     },
@@ -229,7 +316,11 @@ export default function UniversalIntakeHost({
       setValidationError(null);
       return {
         ...current,
-        stepIndex: Math.min(current.stepIndex + 1, config.steps.length - 1),
+        stepIndex: nextActiveIndex(
+          config.steps,
+          current.values,
+          current.stepIndex,
+        ),
       };
     });
   }, [config.location, config.steps]);
@@ -239,10 +330,17 @@ export default function UniversalIntakeHost({
     setSubmitError(null);
     setAttempt((current) =>
       current
-        ? { ...current, stepIndex: Math.max(current.stepIndex - 1, 0) }
+        ? {
+            ...current,
+            stepIndex: previousActiveIndex(
+              config.steps,
+              current.values,
+              current.stepIndex,
+            ),
+          }
         : current,
     );
-  }, []);
+  }, [config.steps]);
 
   const handleSubmit = useCallback(async () => {
     if (
@@ -255,6 +353,8 @@ export default function UniversalIntakeHost({
     }
 
     for (let index = 0; index < config.steps.length; index += 1) {
+      // A skipped step was never shown, so it must never block submission.
+      if (!isStepActive(config.steps[index], attempt.values)) continue;
       const error = validateStep(config.steps[index], attempt.values, config.location);
       if (error) {
         setValidationError(error);
@@ -305,7 +405,7 @@ export default function UniversalIntakeHost({
       );
 
       try {
-        onPersistedSuccess?.(values);
+        onPersistedSuccess?.(values, result);
       } catch {
         // Presentation callbacks cannot invalidate confirmed persistence.
       }
@@ -342,17 +442,30 @@ export default function UniversalIntakeHost({
 
   if (!attempt) return null;
 
-  const step = attempt.succeeded
-    ? "success"
-    : config.steps[attempt.stepIndex].id;
+  // Progress reflects the path this visitor is actually walking, so a branch
+  // that drops steps reads as "Step 3 of 4", never "Step 3 of 7".
+  const walkedSteps = activeSteps(config.steps, attempt.values);
+  const currentIndex = clampToActiveIndex(
+    config.steps,
+    attempt.values,
+    attempt.stepIndex,
+  );
+  const currentStep = config.steps[currentIndex];
+  const positionInWalk = walkedSteps.findIndex(
+    (walked) => walked.id === currentStep.id,
+  );
+
+  const step = attempt.succeeded ? "success" : currentStep.id;
 
   return (
     <Skin
       step={step}
       stepNumber={
-        attempt.succeeded ? config.steps.length : attempt.stepIndex + 1
+        attempt.succeeded
+          ? walkedSteps.length
+          : (positionInWalk >= 0 ? positionInWalk : 0) + 1
       }
-      totalSteps={config.steps.length}
+      totalSteps={walkedSteps.length}
       location={config.location}
       values={attempt.values}
       validationError={validationError}

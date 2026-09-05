@@ -35,9 +35,11 @@ const DEFAULT_SUPPORTING_COPY =
 
 const LOW_FETCH_PRIORITY_ATTR = { fetchpriority: "low" } as Record<string, string>;
 
-const EXPLAINER_POSTER = "/images/windowman-explainer-poster.webp";
-const EXPLAINER_POSTER_AVIF = "/images/windowman-explainer-poster.avif";
-const EXPLAINER_VIDEO_SOURCE: NativeExplainerVideoSource = {
+// Exported so other landing surfaces can mount the same 60-second explainer
+// with their own surrounding copy, without duplicating the asset paths.
+export const EXPLAINER_POSTER = "/images/windowman-explainer-poster.webp";
+export const EXPLAINER_POSTER_AVIF = "/images/windowman-explainer-poster.avif";
+export const EXPLAINER_VIDEO_SOURCE: NativeExplainerVideoSource = {
   kind: "native",
   src: "/media/windowman-explainer-60s.mp4",
   mimeType: "video/mp4",

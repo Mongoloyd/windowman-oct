@@ -13,7 +13,13 @@ export const PROPERTY_TYPE_OPTIONS = [
   "Other",
 ] as const;
 
-export const OPENINGS_BUCKET_OPTIONS = ["1–5", "6–10", "11–15", "16+", "Not sure"] as const;
+export const OPENINGS_BUCKET_OPTIONS = [
+  "1–5",
+  "6–10",
+  "11–15",
+  "16+",
+  "Not sure",
+] as const;
 
 export const PRODUCT_SCOPE_OPTIONS = [
   "Impact windows",
@@ -22,13 +28,19 @@ export const PRODUCT_SCOPE_OPTIONS = [
   "Not sure yet",
 ] as const;
 
-export const TIMING_OPTIONS = ["ASAP", "1–3 months", "Planning ahead", "Not sure"] as const;
+export const TIMING_OPTIONS = [
+  "ASAP",
+  "1–3 months",
+  "Planning ahead",
+  "Not sure",
+] as const;
 
 export const HELP_NEEDED_OPTIONS = [
   "I want to know what a strong quote should include.",
   "I want to avoid missing scope.",
   "I want help requesting my first estimate.",
   "I already talked to a contractor but do not have the quote yet.",
+  "I have a written estimate and want it reviewed.",
 ] as const;
 
 export const PREFERRED_CONTACT_OPTIONS = ["Text", "Call", "Email"] as const;

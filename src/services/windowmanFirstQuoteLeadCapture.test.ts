@@ -15,9 +15,7 @@ import {
   isValidZipCode,
   normalizeZipCode,
 } from "@/components/landing/firstQuoteIntakeTypes";
-import {
-  TEST_CONSENT_SUBMISSION_ID,
-} from "@/lib/consent/testConsentFixtures";
+import { TEST_CONSENT_SUBMISSION_ID } from "@/lib/consent/testConsentFixtures";
 
 const invokeMock = vi.fn();
 
@@ -112,15 +110,17 @@ describe("windowmanFirstQuoteLeadCapture", () => {
 
   it("payload includes wm_intent=no_quote in attribution and query_params", () => {
     const payload = buildWindowmanFirstQuoteLeadPayload(sampleInput);
-    expect((payload.attribution as Record<string, unknown>).wm_intent).toBe("no_quote");
-    expect((payload.query_params as Record<string, string>).wm_intent).toBe("no_quote");
+    expect((payload.attribution as Record<string, unknown>).wm_intent).toBe(
+      "no_quote",
+    );
+    expect((payload.query_params as Record<string, string>).wm_intent).toBe(
+      "no_quote",
+    );
   });
 
   it("stores project basics in query_params", () => {
-    const qp = buildWindowmanFirstQuoteLeadPayload(sampleInput).query_params as Record<
-      string,
-      string
-    >;
+    const qp = buildWindowmanFirstQuoteLeadPayload(sampleInput)
+      .query_params as Record<string, string>;
     expect(qp.zip_code).toBe("33301");
     expect(qp.zip_or_city).toBe("33301");
     expect(qp.homeowner_role).toBe("I own the home");
@@ -135,9 +135,8 @@ describe("windowmanFirstQuoteLeadCapture", () => {
   });
 
   it("uses an explicit NQ4 source path without changing the default", () => {
-    const defaultQueryParams = buildWindowmanFirstQuoteLeadPayload(
-      sampleInput,
-    ).query_params as Record<string, string>;
+    const defaultQueryParams = buildWindowmanFirstQuoteLeadPayload(sampleInput)
+      .query_params as Record<string, string>;
     const nq3QueryParams = buildWindowmanFirstQuoteLeadPayload({
       ...sampleInput,
       sourcePath: "/nq3",
@@ -146,17 +145,68 @@ describe("windowmanFirstQuoteLeadCapture", () => {
       ...sampleInput,
       sourcePath: "/nq4",
     }).query_params as Record<string, string>;
+    const prophecyQueryParams = buildWindowmanFirstQuoteLeadPayload({
+      ...sampleInput,
+      sourcePath: "/prophecy",
+      wmIntent: "no_quote",
+      extraQueryParams: {
+        prophecy_intent: "no_quote",
+        prophecy_priority: "Not overpaying",
+      },
+    }).query_params as Record<string, string>;
 
     expect(defaultQueryParams.source_path).toBe("/windowman");
     expect(nq3QueryParams.source_path).toBe("/nq3");
     expect(nq4QueryParams.source_path).toBe("/nq4");
+    expect(prophecyQueryParams.source_path).toBe("/prophecy");
+    expect(prophecyQueryParams.prophecy_intent).toBe("no_quote");
+    expect(prophecyQueryParams.prophecy_priority).toBe("Not overpaying");
+  });
+
+  it("keeps the Prophecy bucket in query_params without sending an exact count", () => {
+    const payload = buildWindowmanFirstQuoteLeadPayload({
+      ...sampleInput,
+      sourcePath: "/prophecy",
+      wmIntent: "no_quote",
+      projectBasics: {
+        ...sampleInput.projectBasics,
+        openingsBucket: "11–15",
+      },
+      extraQueryParams: { prophecy_intent: "no_quote" },
+    });
+    const queryParams = payload.query_params as Record<string, string>;
+    const exactCountKey = ["window", "count"].join("_");
+    const estimateFlagKey = ["has", "estimate"].join("_");
+
+    expect(queryParams.openings_bucket).toBe("11–15");
+    expect(queryParams.prophecy_intent).toBe("no_quote");
+    expect(payload).not.toHaveProperty(exactCountKey);
+    expect(payload).not.toHaveProperty(estimateFlagKey);
+  });
+
+  it("carries has-quote intent without inventing project scope", () => {
+    const payload = buildWindowmanFirstQuoteLeadPayload({
+      ...sampleInput,
+      sourcePath: "/prophecy",
+      wmIntent: "has_quote",
+      projectBasics: {
+        ...sampleInput.projectBasics,
+        openingsBucket: "",
+      },
+      extraQueryParams: { prophecy_intent: "has_quote" },
+    });
+
+    expect((payload.attribution as Record<string, unknown>).wm_intent).toBe(
+      "has_quote",
+    );
+    expect(
+      (payload.query_params as Record<string, string>).prophecy_intent,
+    ).toBe("has_quote");
   });
 
   it("does not include project_type, window_count, or quote_range in query_params", () => {
-    const qp = buildWindowmanFirstQuoteLeadPayload(sampleInput).query_params as Record<
-      string,
-      string
-    >;
+    const qp = buildWindowmanFirstQuoteLeadPayload(sampleInput)
+      .query_params as Record<string, string>;
     expect(qp.project_type).toBeUndefined();
     expect(qp.window_count).toBeUndefined();
     expect(qp.quote_range).toBeUndefined();
@@ -183,6 +233,30 @@ describe("windowmanFirstQuoteLeadCapture", () => {
     const first = getOrCreateFirstQuoteSessionId();
     const second = getOrCreateFirstQuoteSessionId();
     expect(second).toBe(first);
+  });
+
+  it("reuses an in-memory session ID when sessionStorage throws", () => {
+    const getItemSpy = vi
+      .spyOn(Storage.prototype, "getItem")
+      .mockImplementation(() => {
+        throw new Error("sessionStorage unavailable");
+      });
+    const setItemSpy = vi
+      .spyOn(Storage.prototype, "setItem")
+      .mockImplementation(() => {
+        throw new Error("sessionStorage unavailable");
+      });
+
+    const first = getOrCreateFirstQuoteSessionId();
+    const second = getOrCreateFirstQuoteSessionId();
+
+    expect(first).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    );
+    expect(second).toBe(first);
+
+    getItemSpy.mockRestore();
+    setItemSpy.mockRestore();
   });
 
   describe("isValidZipCode", () => {
@@ -222,7 +296,8 @@ describe("windowmanFirstQuoteLeadCapture", () => {
     const result = await submitWindowmanFirstQuoteLead(sampleInput);
     expect(result).toEqual({
       ok: false,
-      message: "We couldn't save your plan yet. Check your details and try again.",
+      message:
+        "We couldn't save your plan yet. Check your details and try again.",
     });
   });
 
@@ -239,13 +314,17 @@ describe("windowmanFirstQuoteLeadCapture", () => {
   it("maps invoke errors to safe error", async () => {
     invokeMock.mockResolvedValue({
       data: null,
-      error: { name: "FunctionsHttpError", message: "500 Internal Server Error" },
+      error: {
+        name: "FunctionsHttpError",
+        message: "500 Internal Server Error",
+      },
     });
 
     const result = await submitWindowmanFirstQuoteLead(sampleInput);
     expect(result).toEqual({
       ok: false,
-      message: "We couldn't save your plan yet. Check your details and try again.",
+      message:
+        "We couldn't save your plan yet. Check your details and try again.",
     });
   });
 
@@ -258,8 +337,17 @@ describe("windowmanFirstQuoteLeadCapture", () => {
     await submitWindowmanFirstQuoteLead(sampleInput);
 
     expect(invokeMock).toHaveBeenCalledTimes(1);
-    expect(invokeMock).toHaveBeenCalledWith("capture-truth-gate-lead", expect.any(Object));
-    expect(invokeMock).not.toHaveBeenCalledWith("scan-quote", expect.anything());
-    expect(invokeMock).not.toHaveBeenCalledWith("start-upload-scan-session", expect.anything());
+    expect(invokeMock).toHaveBeenCalledWith(
+      "capture-truth-gate-lead",
+      expect.any(Object),
+    );
+    expect(invokeMock).not.toHaveBeenCalledWith(
+      "scan-quote",
+      expect.anything(),
+    );
+    expect(invokeMock).not.toHaveBeenCalledWith(
+      "start-upload-scan-session",
+      expect.anything(),
+    );
   });
 });
