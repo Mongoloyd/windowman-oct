@@ -60,7 +60,7 @@ export interface ProphecyLowIntentParameters {
   wm_intent?: ProphecyIntent | null;
   cta_location?: ProphecyCtaLocation | null;
   step_name?: ProphecyStepName | null;
-  file_type?: ProphecyFileType | null;
+  file_type?: string | null;
 }
 
 function sanitizeProphecyParameters(
