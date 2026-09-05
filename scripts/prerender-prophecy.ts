@@ -15,8 +15,10 @@ const outDir = resolve(distDir, "prophecy");
 const outPath = resolve(outDir, "index.html");
 const emptyRootPattern = /<div id="root">\s*<\/div>/;
 const headClosePattern = /<\/head>/i;
+const prophecyHeadStyles =
+  "  <style data-prophecy-prerender>html,body,#root{background:#070e18;color-scheme:dark}</style>\n  <style data-prophecy-prerender-noscript>[data-prophecy-prerender-shell]{display:none!important}</style>\n";
 
-const prophecyRoot = `<div id="root"><div data-prophecy-prerender-shell aria-hidden="true" class="flex min-h-screen items-center justify-center bg-[#070e18] px-5 text-slate-100 antialiased"><div class="text-center"><p class="text-sm font-semibold uppercase tracking-[0.2em] text-sky-300">WindowMan</p><p class="mt-3 text-sm text-slate-300">Preparing your independent estimate review…</p></div></div><noscript><style>[data-prophecy-prerender-shell]{display:none!important}</style><div class="flex min-h-screen items-center justify-center bg-[#070e18] px-5 text-slate-100"><div class="max-w-lg text-center"><h1 class="text-2xl font-bold">JavaScript is required</h1><p class="mt-3 text-slate-300">Turn on JavaScript to use the WindowMan estimate review, or return to the WindowMan home page for more information.</p><a class="mt-6 inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-500 px-5 py-3 font-semibold text-slate-100" href="/">Return to WindowMan</a></div></div></noscript></div>`;
+const prophecyRoot = `<div id="root"><div data-prophecy-prerender-shell aria-hidden="true" class="flex min-h-screen items-center justify-center bg-[#070e18] px-5 text-slate-100 antialiased"><div class="text-center"><p class="text-sm font-semibold uppercase tracking-[0.2em] text-sky-300">WindowMan</p><p class="mt-3 text-sm text-slate-300">Preparing your independent estimate review…</p></div></div><noscript><div class="flex min-h-screen items-center justify-center bg-[#070e18] px-5 text-slate-100"><div class="max-w-lg text-center"><h1 class="text-2xl font-bold">JavaScript is required</h1><p class="mt-3 text-slate-300">Turn on JavaScript to use the WindowMan estimate review, or return to the WindowMan home page for more information.</p><a class="mt-6 inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-500 px-5 py-3 font-semibold text-slate-100" href="/">Return to WindowMan</a></div></div></noscript></div>`;
 
 let shell = readFileSync(indexPath, "utf8");
 if (!emptyRootPattern.test(shell)) {
@@ -28,11 +30,10 @@ if (!headClosePattern.test(shell)) {
 
 shell = shell.replace(
   headClosePattern,
-  "  <style data-prophecy-prerender>html,body,#root{background:#070e18;color-scheme:dark}</style>\n</head>",
+  `${prophecyHeadStyles}</head>`,
 );
 shell = shell.replace(emptyRootPattern, prophecyRoot);
 
 mkdirSync(outDir, { recursive: true });
 writeFileSync(outPath, shell, "utf8");
 console.log(`prerender: wrote ${outPath}`);
-
