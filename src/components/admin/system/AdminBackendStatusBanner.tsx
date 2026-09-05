@@ -84,33 +84,33 @@ export function AdminBackendStatusBanner({
 
   const cardClass =
     tone === "critical"
-      ? "border-rose-300 bg-rose-50"
+      ? "border-[#7e3540] bg-[#30161b]"
       : tone === "warning"
-        ? "border-amber-300 bg-amber-50"
-        : "border-slate-300 bg-slate-50";
+        ? "border-[#8a5a1c] bg-[#2b1e10]"
+        : "border-[#2b435b] bg-[#0c1b29]";
 
   const iconClass =
     tone === "critical"
-      ? "text-rose-700"
+      ? "text-[#ffaaa6]"
       : tone === "warning"
-        ? "text-amber-900"
-        : "text-emerald-700";
+        ? "text-[#ffc06f]"
+        : "text-[#61ebca]";
 
   return (
-    <Card className={`p-3 ${cardClass}`}>
+    <Card className={`wm-admin-directory-panel p-3 ${cardClass}`}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-2 min-w-0">
           <Icon className={`h-4 w-4 mt-0.5 shrink-0 ${iconClass} ${loading ? "animate-spin" : ""}`} />
           <div className="min-w-0 space-y-2">
             <div>
-              <p className="text-sm font-extrabold text-slate-950">{title}</p>
+              <p className="text-sm font-extrabold text-[#f7fbff]">{title}</p>
               {allSuccess && !loading && (
-                <p className="text-xs text-slate-700 mt-0.5">
+                <p className="text-xs text-[#cad7e4] mt-0.5">
                   Tracked admin-data calls completed without reported failures.
                 </p>
               )}
               {failed.length > 0 && !loading && (
-                <p className="text-xs text-slate-700 mt-0.5">
+                <p className="text-xs text-[#cad7e4] mt-0.5">
                   Some panels may show empty counts until the failed calls succeed. Use retry after
                   checking session role and backend deploy health.
                 </p>
@@ -122,20 +122,20 @@ export function AdminBackendStatusBanner({
                 {failed.map((call) => (
                   <li
                     key={call.action}
-                    className="rounded-md border border-slate-200/80 bg-white/70 px-2.5 py-2 text-xs"
+                    className="rounded-md border border-[#3b5874] bg-[#091725] px-2.5 py-2 text-xs"
                   >
-                    <div className="font-bold text-slate-950">
+                    <div className="font-bold text-[#f7fbff]">
                       {call.label}{" "}
-                      <span className="font-mono font-semibold text-slate-600">({call.action})</span>
+                      <span className="font-mono font-semibold text-[#cad7e4]">({call.action})</span>
                     </div>
-                    <div className="text-slate-700 mt-0.5">
+                    <div className="text-[#cad7e4] mt-0.5">
                       {describeFailureKind(call.failureKind)}
                       {call.statusCode != null ? ` · HTTP ${call.statusCode}` : ""}
                       {call.errorCode ? ` · ${call.errorCode}` : ""}
                     </div>
-                    {call.message && <div className="text-slate-700 mt-0.5">{call.message}</div>}
+                    {call.message && <div className="text-[#e7f0f9] mt-0.5">{call.message}</div>}
                     {call.lastCheckedAt && (
-                      <div className="text-slate-600 mt-0.5">
+                      <div className="text-[#cad7e4] mt-0.5">
                         Last checked{" "}
                         {formatDistanceToNow(new Date(call.lastCheckedAt), { addSuffix: true })}
                       </div>
@@ -153,7 +153,7 @@ export function AdminBackendStatusBanner({
           size="sm"
           onClick={onRetry}
           disabled={isRefreshing}
-          className="shrink-0 gap-1.5 border-slate-400 bg-white text-slate-950"
+          className="shrink-0 gap-1.5 border-[#3b5874] bg-[#091725] text-[#e7f0f9] hover:bg-[#142a3e] hover:text-[#f7fbff]"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
           Retry admin data

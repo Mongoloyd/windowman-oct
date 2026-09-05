@@ -59,11 +59,11 @@ function getReasonConfig(lead: NeedsReviewLead) {
   const configs = {
     no_scan: {
       label: "No Scan",
-      className: "bg-white text-slate-950 border-slate-400",
+      className: "wm-lead-status wm-lead-status--neutral",
     },
     parse_failed: {
       label: "Parse Failed",
-      className: "bg-red-100 text-red-950 border-red-300",
+      className: "wm-lead-status wm-lead-status--danger",
     },
     low_confidence: {
       label: `Low Confidence — ${
@@ -71,7 +71,7 @@ function getReasonConfig(lead: NeedsReviewLead) {
           ? Math.round(lead.confidence_score * 100) + "%"
           : "?%"
       }`,
-      className: "bg-amber-100 text-amber-950 border-amber-300",
+      className: "wm-lead-status wm-lead-status--attention",
     },
   };
   return configs[lead.review_reason] ?? configs.no_scan;
@@ -169,10 +169,10 @@ export function NeedsReviewTab({ needsReview, isLoading }: NeedsReviewTabProps) 
 
   return (
     <>
-      <div className="rounded-lg border border-slate-300 bg-white shadow-sm overflow-hidden">
+      <div className="wm-admin-directory-panel rounded-lg overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-300 bg-slate-100 text-sm uppercase tracking-wide text-slate-700">
+            <tr className="border-b border-[#2b435b] bg-[#0b1926] text-sm uppercase tracking-wide text-[#cad7e4]">
               <th className="px-4 py-3 text-left">Lead</th>
               <th className="px-4 py-3 text-left">Reason</th>
               <th className="px-4 py-3 text-left">Image</th>
@@ -196,26 +196,26 @@ export function NeedsReviewTab({ needsReview, isLoading }: NeedsReviewTabProps) 
               return (
                 <tr
                   key={lead.id}
-                  className="min-h-[72px] border-b border-slate-300 bg-white hover:bg-blue-50/60 transition-colors"
+                  className="min-h-[72px] border-b border-[#2b435b] bg-[#0c1b29] hover:bg-[#142a3e] transition-colors"
                 >
                   {/* Lead */}
                   <td className="px-4 py-3">
-                    <p className="text-base font-black text-slate-950">
+                    <p className="text-base font-black text-[#f7fbff]">
                       {[lead.first_name, lead.last_name].filter(Boolean).join(" ") ||
                         `Lead ${lead.id.slice(0, 8)}`}
                     </p>
-                    <p className="text-sm font-semibold text-slate-800 mt-0.5">
+                    <p className="text-sm font-semibold text-[#cad7e4] mt-0.5">
                       {format(new Date(lead.created_at), "MMM d, yyyy 'at' h:mm a")}
                     </p>
                     {(lead.phone_e164 || lead.email) && (
                       <div className="flex flex-col gap-0.5 mt-1">
                         {lead.phone_e164 && (
-                          <span className="text-sm font-medium text-slate-700">
+                          <span className="text-sm font-medium text-[#cad7e4]">
                             {formatPhoneDisplay(stripNonDigits(lead.phone_e164).replace(/^1/, ""))}
                           </span>
                         )}
                         {lead.email && (
-                          <span className="text-sm font-medium text-slate-700 truncate max-w-[160px]" title={lead.email}>
+                          <span className="text-sm font-medium text-[#cad7e4] truncate max-w-[160px]" title={lead.email}>
                             {lead.email}
                           </span>
                         )}
@@ -226,7 +226,7 @@ export function NeedsReviewTab({ needsReview, isLoading }: NeedsReviewTabProps) 
                   {/* Reason Badge */}
                   <td className="px-4 py-3">
                     <span
-                      className={`inline-flex min-h-8 items-center text-sm font-bold px-2.5 py-1 rounded border shadow-sm ${reason.className}`}
+                      className={`inline-flex min-h-8 items-center text-sm font-bold px-2.5 py-1 rounded border ${reason.className}`}
                     >
                       {reason.label}
                     </span>
@@ -239,12 +239,12 @@ export function NeedsReviewTab({ needsReview, isLoading }: NeedsReviewTabProps) 
                         <img
                           src={lead.quote_image_url}
                           alt="Quote"
-                          className="w-12 h-12 rounded object-cover border border-border hover:opacity-100 transition-opacity cursor-zoom-in"
+                          className="w-12 h-12 rounded object-cover border border-[#3b5874] hover:opacity-100 transition-opacity cursor-zoom-in"
                         />
                       </a>
                     ) : (
-                      <div className="w-12 h-12 rounded bg-muted/30 border border-border flex items-center justify-center">
-                        <ImageOff className="w-4 h-4 text-slate-700" />
+                      <div className="w-12 h-12 rounded bg-[#091725] border border-[#2b435b] flex items-center justify-center">
+                        <ImageOff className="w-4 h-4 text-[#cad7e4]" />
                       </div>
                     )}
                   </td>
@@ -252,7 +252,7 @@ export function NeedsReviewTab({ needsReview, isLoading }: NeedsReviewTabProps) 
                   {/* Error Note */}
                   <td className="px-4 py-3">
                     <p
-                      className="text-sm font-semibold text-slate-800 max-w-[220px] truncate"
+                      className="text-sm font-semibold text-[#e7f0f9] max-w-[220px] truncate"
                       title={errorText}
                     >
                       {errorText}
@@ -265,7 +265,7 @@ export function NeedsReviewTab({ needsReview, isLoading }: NeedsReviewTabProps) 
                       <button
                         disabled={isActioning || !lead.latest_scan_session_id}
                         onClick={() => handleRescan(lead)}
-                        className="inline-flex min-h-10 items-center gap-1 px-4 py-2 rounded border-2 border-blue-300 bg-blue-100 text-sm font-extrabold text-blue-950 hover:bg-blue-200 disabled:cursor-not-allowed transition-colors"
+                        className="inline-flex min-h-10 items-center gap-1 px-4 py-2 rounded border border-[#2f6eb9] bg-[#0a2947] text-sm font-extrabold text-[#a9d4ff] hover:bg-[#142a3e] disabled:cursor-not-allowed transition-colors"
                       >
                         {isActioning ? (
                           <Loader2 className="w-3 h-3 animate-spin" />
@@ -286,7 +286,7 @@ export function NeedsReviewTab({ needsReview, isLoading }: NeedsReviewTabProps) 
                             notes: "",
                           });
                         }}
-                        className="inline-flex min-h-10 items-center gap-1 px-4 py-2 rounded border-2 border-orange-300 bg-orange-100 text-sm font-extrabold text-orange-950 hover:bg-orange-200 disabled:cursor-not-allowed transition-colors"
+                        className="inline-flex min-h-10 items-center gap-1 px-4 py-2 rounded border border-[#8a5a1c] bg-[#2b1e10] text-sm font-extrabold text-[#ffc06f] hover:bg-[#142a3e] disabled:cursor-not-allowed transition-colors"
                       >
                         <PenLine className="w-3 h-3" />
                         Manual Entry
@@ -307,7 +307,7 @@ export function NeedsReviewTab({ needsReview, isLoading }: NeedsReviewTabProps) 
                             setActionInFlight(null);
                           }
                         }}
-                        className="inline-flex min-h-10 items-center gap-1 px-4 py-2 rounded border-2 border-emerald-300 bg-emerald-100 text-sm font-extrabold text-emerald-950 hover:bg-emerald-200 disabled:cursor-not-allowed transition-colors"
+                        className="inline-flex min-h-10 items-center gap-1 px-4 py-2 rounded border border-[#23745f] bg-[#082c26] text-sm font-extrabold text-[#61ebca] hover:bg-[#142a3e] disabled:cursor-not-allowed transition-colors"
                       >
                         {isActioning ? (
                           <Loader2 className="w-3 h-3 animate-spin" />
@@ -327,10 +327,10 @@ export function NeedsReviewTab({ needsReview, isLoading }: NeedsReviewTabProps) 
 
       {/* Manual Entry Sheet */}
       <Sheet open={!!manualEntryLead} onOpenChange={(open) => !open && setManualEntryLead(null)}>
-        <SheetContent side="right" className="w-[400px]">
+        <SheetContent side="right" className="wm-admin-portal w-[400px] border-[#2b435b] bg-[#0c1b29] text-[#f7fbff]">
           <SheetHeader>
-            <SheetTitle>Manual Entry</SheetTitle>
-            <SheetDescription>
+            <SheetTitle className="text-[#f7fbff]">Manual Entry</SheetTitle>
+            <SheetDescription className="text-[#cad7e4]">
               {manualEntryLead
                 ? [manualEntryLead.first_name, manualEntryLead.last_name]
                     .filter(Boolean)
@@ -341,7 +341,7 @@ export function NeedsReviewTab({ needsReview, isLoading }: NeedsReviewTabProps) 
 
           <div className="space-y-4 mt-6">
             <div className="space-y-1.5">
-              <label className="text-xs font-extrabold text-slate-700 uppercase tracking-wide">
+              <label className="text-xs font-extrabold text-[color:var(--wm-inbox-muted,#cad7e4)] uppercase tracking-wide">
                 Contractor Name
               </label>
               <Input
@@ -354,7 +354,7 @@ export function NeedsReviewTab({ needsReview, isLoading }: NeedsReviewTabProps) 
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-extrabold text-slate-700 uppercase tracking-wide">
+              <label className="text-xs font-extrabold text-[color:var(--wm-inbox-muted,#cad7e4)] uppercase tracking-wide">
                 Total Price ($)
               </label>
               <Input
@@ -368,7 +368,7 @@ export function NeedsReviewTab({ needsReview, isLoading }: NeedsReviewTabProps) 
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-extrabold text-slate-700 uppercase tracking-wide">
+              <label className="text-xs font-extrabold text-[color:var(--wm-inbox-muted,#cad7e4)] uppercase tracking-wide">
                 Product Brand
               </label>
               <Input
@@ -381,7 +381,7 @@ export function NeedsReviewTab({ needsReview, isLoading }: NeedsReviewTabProps) 
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-extrabold text-slate-700 uppercase tracking-wide">
+              <label className="text-xs font-extrabold text-[color:var(--wm-inbox-muted,#cad7e4)] uppercase tracking-wide">
                 Notes (optional)
               </label>
               <Textarea

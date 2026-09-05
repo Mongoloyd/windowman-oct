@@ -545,7 +545,7 @@ function DashboardContent({ initialTab }: DashboardContentProps) {
           {previewBadge}
           <Link
             to="/admin/settings"
-            className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-400 bg-white px-4 py-2 text-sm font-extrabold text-slate-950 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 focus-visible:ring-offset-2"
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-md border border-[#3b5874] bg-[#091725] px-4 py-2 text-sm font-extrabold text-[#e7f0f9] shadow-none transition-colors hover:bg-[#142a3e] hover:text-[#f7fbff] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 focus-visible:ring-offset-2"
             title="Admin Settings"
           >
             <Settings className="h-4 w-4" />

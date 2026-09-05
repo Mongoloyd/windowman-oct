@@ -83,10 +83,10 @@ const BUCKET_LABEL: Record<OperatorBucket, string> = {
 };
 
 const BUCKET_TONE: Record<OperatorBucket, string> = {
-  ready_to_route: "border-cyan-500/40 text-cyan-950 bg-cyan-500/10",
-  routed: "border-emerald-500/40 text-emerald-950 bg-emerald-500/10",
-  stale_operator_view: "border-amber-500/40 text-amber-950 bg-amber-500/10",
-  reactivation_operator_view: "border-amber-500/40 text-amber-950 bg-amber-500/10",
+  ready_to_route: "wm-lead-status wm-lead-status--active",
+  routed: "wm-lead-status wm-lead-status--resolved",
+  stale_operator_view: "wm-lead-status wm-lead-status--attention",
+  reactivation_operator_view: "wm-lead-status wm-lead-status--attention",
 };
 
 function leadCtxFromCRM(lead: CRMLead): RoutingLeadContext {
@@ -365,8 +365,8 @@ export function RoutingDesk({ leads }: Props) {
       <DispatchHealthCard />
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h2 className="text-lg font-bold">Routing Desk</h2>
-          <p className="text-xs text-slate-700">
+          <h2 className="wm-on-canvas-title text-lg font-bold">Routing Desk</h2>
+          <p className="wm-on-canvas-text text-xs">
             Single-client delivery spine — route verified leads to {activeContractors[0]?.company_name ?? "your contractor"}.
           </p>
         </div>
@@ -434,7 +434,7 @@ export function RoutingDesk({ leads }: Props) {
                 return (
                   <div
                     key={row.opportunity.id}
-                    className="rounded-lg border border-border bg-card overflow-hidden"
+                    className="wm-admin-directory-panel rounded-lg overflow-hidden"
                   >
                     {/* Row header */}
                     <div className="p-3 flex flex-wrap items-center gap-3">
@@ -443,12 +443,12 @@ export function RoutingDesk({ leads }: Props) {
                         className="shrink-0 p-1 hover:bg-muted rounded"
                         aria-label={isExpanded ? "Collapse" : "Expand"}
                       >
-                        {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                        {isExpanded ? <ChevronDown className="h-4 w-4 text-[color:var(--wm-inbox-muted,#cad7e4)]" /> : <ChevronRight className="h-4 w-4 text-[color:var(--wm-inbox-muted,#cad7e4)]" />}
                       </button>
 
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm font-semibold truncate">
+                          <p className="text-sm font-semibold truncate text-[color:var(--wm-inbox-text,#f7fbff)]">
                             {[lead?.first_name, lead?.last_name].filter(Boolean).join(" ") || "Unknown"}
                           </p>
                           {row.opportunity.grade && (
@@ -457,24 +457,24 @@ export function RoutingDesk({ leads }: Props) {
                             </Badge>
                           )}
                           {/* Phase 8 — Always render a county label, with safe fallback. */}
-                          <span className="text-sm text-slate-700">
+                          <span className="text-sm text-[color:var(--wm-inbox-muted,#cad7e4)]">
                             {marketLabel(row.opportunity.county)}
                           </span>
                           {row.opportunity.window_count != null && (
-                            <span className="text-sm text-slate-700">
+                            <span className="text-sm text-[color:var(--wm-inbox-muted,#cad7e4)]">
                               {row.opportunity.window_count} windows
                             </span>
                           )}
                         </div>
                         <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                           {row.contractor && (
-                            <span className="inline-flex items-center gap-1 text-sm text-cyan-950">
+                            <span className="inline-flex items-center gap-1 text-sm text-[#a9d4ff]">
                               <Building2 className="h-3 w-3" />
                               {row.contractor.company_name}
                             </span>
                           )}
                           {row.opportunity.routed_at && (
-                            <span className="inline-flex items-center gap-1 text-sm text-slate-700 font-mono">
+                            <span className="inline-flex items-center gap-1 text-sm text-[color:var(--wm-inbox-muted,#cad7e4)] font-mono">
                               <Clock className="h-3 w-3" />
                               {format(new Date(row.opportunity.routed_at), "MMM d, h:mm a")}
                             </span>
@@ -501,8 +501,8 @@ export function RoutingDesk({ leads }: Props) {
                                     variant="outline"
                                     className={`text-sm ${
                                       tl === "ASAP" || tl === "This month"
-                                        ? "border-orange-400/60 text-orange-700 bg-orange-50"
-                                        : "border-border"
+                                        ? "border-[#8a5a1c] text-[#ffc06f] bg-[#2b1e10]"
+                                        : "border-[#3b5874] text-[color:var(--wm-inbox-muted,#cad7e4)] bg-[#091725]"
                                     }`}
                                     title={`Timeline: ${tl}`}
                                   >
@@ -513,7 +513,7 @@ export function RoutingDesk({ leads }: Props) {
                                   hoa === "hoa_complex" || hoa === "high_rise_engineering") && (
                                   <Badge
                                     variant="outline"
-                                    className="text-sm border-amber-400/60 text-amber-800 bg-amber-50"
+                                    className="text-sm border-[#8a5a1c] text-[#ffc06f] bg-[#2b1e10]"
                                     title="Complex approval path — confirm HOA/engineering before quoting."
                                   >
                                     {propDetail === "high_rise" ? "High-rise" : "Condo / HOA"}
@@ -524,8 +524,8 @@ export function RoutingDesk({ leads }: Props) {
                                     variant="outline"
                                     className={`text-sm ${
                                       isReportOnly
-                                        ? "border-destructive/40 text-destructive bg-destructive/5"
-                                        : "border-emerald-500/40 text-emerald-950 bg-emerald-50"
+                                        ? "border-[#7e3540] text-[#ffaaa6] bg-[#30161b]"
+                                        : "border-[#23745f] text-[#61ebca] bg-[#082c26]"
                                     }`}
                                     title={consent.full}
                                   >
@@ -535,7 +535,7 @@ export function RoutingDesk({ leads }: Props) {
                                 {motiv && (
                                   <Badge
                                     variant="outline"
-                                    className="text-sm border-cyan-500/30 text-cyan-950 bg-cyan-500/5"
+                                    className="text-sm border-[#2f6eb9] text-[#a9d4ff] bg-[#0a2947]"
                                     title={motiv.long}
                                   >
                                     {motiv.short}
@@ -559,7 +559,7 @@ export function RoutingDesk({ leads }: Props) {
                                 <Badge
                                   key={b}
                                   variant="outline"
-                                  className="text-sm border-violet-500/40 text-violet-950 bg-violet-500/10"
+                                  className="text-sm border-[#5b4a8a] text-[#d4c4ff] bg-[#1a1530]"
                                 >
                                   {ownershipBadgeLabel(b)}
                                 </Badge>
@@ -679,12 +679,12 @@ export function RoutingDesk({ leads }: Props) {
             filteredReactivationLeads.map((lc) => {
               const fullLead = leads.find((l) => l.id === lc.id);
               return (
-                <div key={lc.id} className="rounded-lg border border-border bg-card p-3 flex flex-wrap items-center gap-3">
+                <div key={lc.id} className="wm-admin-directory-panel rounded-lg p-3 flex flex-wrap items-center gap-3">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold">
+                    <p className="text-sm font-semibold text-[color:var(--wm-inbox-text,#f7fbff)]">
                       {[lc.first_name, lc.last_name].filter(Boolean).join(" ") || "Unknown"}
                     </p>
-                    <p className="text-sm text-slate-700">
+                    <p className="text-sm text-[color:var(--wm-inbox-muted,#cad7e4)]">
                       {marketLabel(lc.county)} · Unlocked {lc.report_unlocked_at ? format(new Date(lc.report_unlocked_at), "MMM d") : "—"} · Never routed
                     </p>
                   </div>
@@ -734,18 +734,18 @@ export function RoutingDesk({ leads }: Props) {
 function EmptyBucket({ bucket }: { bucket: OperatorBucket }) {
   return (
     <div className="rounded-lg border border-dashed border-border/60 bg-muted/20 p-8 text-center">
-      <p className="text-sm text-slate-700">No leads in {BUCKET_LABEL[bucket]}.</p>
+      <p className="text-sm text-[color:var(--wm-inbox-muted,#cad7e4)]">No leads in {BUCKET_LABEL[bucket]}.</p>
     </div>
   );
 }
 
 function gradeColor(grade: string | null): string {
   switch (grade) {
-    case "A": return "bg-emerald-900 text-white";
-    case "B": return "bg-emerald-100 text-emerald-950 border border-emerald-300";
-    case "C": return "bg-amber-100 text-amber-950 border border-amber-300";
-    case "D": return "bg-orange-100 text-orange-950 border border-orange-300";
-    case "F": return "bg-destructive text-destructive-foreground";
-    default: return "bg-muted text-slate-700";
+    case "A": return "wm-lead-status wm-lead-status--resolved";
+    case "B": return "wm-lead-status wm-lead-status--active";
+    case "C": return "wm-lead-status wm-lead-status--attention";
+    case "D": return "wm-lead-status wm-lead-status--attention";
+    case "F": return "wm-lead-status wm-lead-status--danger";
+    default: return "wm-lead-status wm-lead-status--neutral";
   }
 }

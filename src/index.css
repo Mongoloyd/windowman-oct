@@ -1443,6 +1443,208 @@
     color: hsl(var(--wm-admin-on-canvas-muted));
   }
 
+  /*
+   * Admin directory dark surface hierarchy (Phase 0).
+   * Remaps apply ONLY under .wm-admin-directory on non-dossier admin canvas.
+   * Exclusions (must stay untouched by these remaps):
+   *   - .wm-lead-inbox (fullBleed main has no .wm-admin-directory)
+   *   - .wm-lead-dossier (white panels still expect dark ink; later phase)
+   *   - PartnerLayout (bare .wm-dashboard-surface, no .wm-admin-canvas)
+   */
+  .wm-dashboard-surface.wm-admin-canvas {
+    --wm-dir-canvas: #06101a;
+    --wm-dir-rail: #0b1926;
+    --wm-dir-panel: #0c1b29;
+    --wm-dir-elevated: #102130;
+    --wm-dir-control: #091725;
+    --wm-dir-control-hover: #142a3e;
+    --wm-dir-border: #2b435b;
+    --wm-dir-border-strong: #3b5874;
+    --wm-dir-text: #f7fbff;
+    --wm-dir-body: #e7f0f9;
+    --wm-dir-muted: #cad7e4;
+    --wm-dir-cobalt: #2384ee;
+    --wm-dir-cobalt-dark: #0757b7;
+    --wm-dir-teal: #27d3ad;
+    --wm-dir-ember: #ff9c32;
+    --wm-dir-danger: #ff5d58;
+  }
+
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory {
+    color: var(--wm-dir-text);
+  }
+
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory .bg-background,
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory .bg-card,
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory .bg-white,
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory .bg-card\/95 {
+    background-color: var(--wm-dir-panel);
+    color: var(--wm-dir-body);
+  }
+
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory .bg-slate-50,
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory .bg-slate-100,
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory .bg-muted,
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory .bg-muted\/20,
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory .bg-muted\/30,
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory .bg-muted\/40,
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory .bg-muted\/50 {
+    background-color: var(--wm-dir-elevated);
+    color: var(--wm-dir-body);
+  }
+
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory .bg-card.border,
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory .rounded-xl.border,
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory .rounded-2xl.border,
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory .rounded-lg.border,
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory .rounded-md.border {
+    border-color: var(--wm-dir-border);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.04),
+      0 12px 28px rgb(0 5 12 / 0.28);
+  }
+
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory input,
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory select,
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory textarea,
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory [role="combobox"] {
+    border-color: var(--wm-dir-border-strong);
+    background-color: var(--wm-dir-control);
+    color: var(--wm-dir-text);
+  }
+
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory input::placeholder,
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory textarea::placeholder {
+    color: var(--wm-dir-muted);
+  }
+
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory table thead {
+    background-color: var(--wm-dir-rail);
+    color: var(--wm-dir-muted);
+  }
+
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory table th {
+    color: var(--wm-dir-muted);
+  }
+
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory table td {
+    color: var(--wm-dir-body);
+  }
+
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory table tbody tr:hover {
+    background-color: var(--wm-dir-control-hover);
+  }
+
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory .wm-admin-panel {
+    background-color: var(--wm-dir-panel);
+    border-color: var(--wm-dir-border);
+    color: var(--wm-dir-body);
+    border-radius: 0.5rem;
+  }
+
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory .wm-admin-badge {
+    border-color: var(--wm-dir-border-strong);
+    background-color: var(--wm-dir-elevated);
+    color: var(--wm-dir-body);
+  }
+
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory .wm-dashboard-chip-neutral {
+    border-color: #3b5874;
+    background: #152333;
+    color: #e3edf7;
+  }
+
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory .wm-dashboard-chip-info {
+    border-color: #2f6eb9;
+    background: #0a2947;
+    color: #a9d4ff;
+  }
+
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory .wm-dashboard-chip-success {
+    border-color: #23745f;
+    background: #082c26;
+    color: #61ebca;
+  }
+
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory .wm-dashboard-chip-warning {
+    border-color: #8a5a1c;
+    background: #2b1e10;
+    color: #ffc06f;
+  }
+
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory .wm-dashboard-chip-danger {
+    border-color: #7e3540;
+    background: #30161b;
+    color: #ffaaa6;
+  }
+
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory .text-slate-950,
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory .text-slate-900,
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory .text-slate-800 {
+    color: var(--wm-dir-text);
+  }
+
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory .text-slate-700,
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory .text-slate-600 {
+    color: var(--wm-dir-muted);
+  }
+
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory .hover\:bg-blue-50\/50:hover,
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory .hover\:bg-blue-50\/60:hover,
+  .wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory .hover\:bg-muted\/50:hover {
+    background-color: var(--wm-dir-control-hover);
+  }
+
+  .wm-admin-directory-panel {
+    border: 1px solid var(--wm-dir-border, #2b435b);
+    background: var(--wm-dir-panel, #0c1b29);
+    color: var(--wm-dir-body, #e7f0f9);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.04),
+      0 12px 28px rgb(0 5 12 / 0.28);
+  }
+
+  .wm-admin-directory-kpi {
+    border: 1px solid var(--wm-dir-border, #2b435b);
+    background: var(--wm-dir-panel, #0c1b29);
+    color: var(--wm-dir-body, #e7f0f9);
+    border-radius: 0.5rem;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .wm-admin-directory-kpi:hover {
+    background: var(--wm-dir-control-hover, #142a3e);
+    border-color: var(--wm-dir-border-strong, #3b5874);
+  }
+
+  /* Portaled Radix / floating menus — not under canvas DOM */
+  .wm-admin-portal {
+    --wm-dir-panel: #0c1b29;
+    --wm-dir-elevated: #102130;
+    --wm-dir-control: #091725;
+    --wm-dir-control-hover: #142a3e;
+    --wm-dir-border: #2b435b;
+    --wm-dir-border-strong: #3b5874;
+    --wm-dir-text: #f7fbff;
+    --wm-dir-body: #e7f0f9;
+    --wm-dir-muted: #cad7e4;
+    --wm-dir-cobalt: #2384ee;
+    border-color: var(--wm-dir-border) !important;
+    background-color: var(--wm-dir-elevated) !important;
+    color: var(--wm-dir-text) !important;
+  }
+
+  .wm-admin-portal [role="menuitem"],
+  .wm-admin-portal a {
+    color: var(--wm-dir-body);
+  }
+
+  .wm-admin-portal [role="menuitem"]:hover,
+  .wm-admin-portal a:hover {
+    background-color: var(--wm-dir-control-hover);
+    color: var(--wm-dir-text);
+  }
+
   .wm-slim-scrollbar {
     scrollbar-width: thin;
     scrollbar-color: hsl(215 20% 78%) transparent;
@@ -2443,12 +2645,12 @@
     min-width: 0;
   }
 
+  /* Keep toolbar/filter chrome on locked inbox borders — never light-card chrome. */
   .wm-dashboard-surface .wm-lead-inbox .wm-lead-toolbar,
   .wm-dashboard-surface .wm-lead-inbox .wm-lead-filter-panel {
-    border-color: hsl(214 24% 78%);
-    box-shadow:
-      0 1px 2px rgba(15, 23, 42, 0.05),
-      0 8px 22px rgba(15, 23, 42, 0.05);
+    border-color: var(--wm-inbox-border);
+    box-shadow: none;
+    background: transparent;
   }
 
   .wm-dashboard-surface .wm-lead-inbox .wm-lead-card {
@@ -2820,4 +3022,229 @@
   .wm-verdict-dossier__cover {
     position: relative;
   }
+}
+
+/*
+ * Admin directory typography contrast (unlayered).
+ * Scoped to .wm-admin-directory on non-dossier canvas / .wm-admin-portal ONLY.
+ * Must never redefine --wm-inbox-* on the canvas or restyle .wm-lead-inbox /
+ * .wm-lead-dossier white panels (those keep dark ink until a later phase).
+ */
+.wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory :is(
+  .text-card-foreground,
+  .text-foreground,
+  [class*="text-foreground/"]
+) {
+  color: var(--wm-dir-text, #f7fbff);
+}
+
+.wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory :is(
+  .text-muted-foreground,
+  .text-muted-foreground\/50,
+  .text-slate-700,
+  .text-slate-600,
+  .text-slate-500,
+  .text-slate-400,
+  .text-gray-500,
+  .text-gray-400
+) {
+  color: var(--wm-dir-muted, #cad7e4);
+}
+
+.wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory :is(
+  .text-slate-950,
+  .text-slate-900,
+  .text-slate-800,
+  .text-slate-100
+) {
+  color: var(--wm-dir-text, #f7fbff);
+}
+
+.wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory :is(
+  .text-cyan-950,
+  .text-blue-950,
+  .text-violet-950
+) {
+  color: #a9d4ff;
+}
+
+.wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory :is(
+  .text-emerald-950,
+  .text-emerald-800
+) {
+  color: #61ebca;
+}
+
+.wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory :is(
+  .text-amber-950,
+  .text-orange-950
+) {
+  color: #ffc06f;
+}
+
+.wm-dashboard-surface.wm-admin-canvas:not(.wm-lead-dossier) .wm-admin-directory :is(
+  .text-red-950,
+  .text-rose-950,
+  .text-rose-700
+) {
+  color: #ffaaa6;
+}
+
+.wm-admin-directory-panel,
+.wm-admin-directory-kpi {
+  color: var(--wm-dir-body, #e7f0f9);
+}
+
+.wm-admin-portal :is(
+  .text-card-foreground,
+  .text-foreground,
+  [class*="text-foreground/"]
+) {
+  color: var(--wm-dir-text, #f7fbff);
+}
+
+.wm-admin-portal :is(.text-muted-foreground, .text-slate-700, .text-slate-600) {
+  color: var(--wm-dir-muted, #cad7e4);
+}
+
+.wm-admin-portal :is(button, [role="button"], .border) {
+  border-color: var(--wm-dir-border, #2b435b);
+}
+
+.wm-admin-portal [class*="rounded-full"][class*="border"],
+.wm-admin-portal [class*="rounded-md"][class*="border"][class*="text-xs"],
+.wm-admin-portal [class*="rounded-lg"][class*="border"][class*="text-xs"] {
+  border-color: var(--wm-dir-border-strong, #3b5874);
+  background-color: var(--wm-dir-elevated, #102130);
+  color: var(--wm-dir-body, #e7f0f9);
+}
+
+/*
+ * Lead Inbox lock (unlayered) — restore locked directory body after Phase 0/1.
+ * Beats .wm-dashboard-surface light remaps (white inputs/cards/muted dark ink).
+ */
+.wm-dashboard-surface.wm-admin-canvas .wm-lead-inbox {
+  --wm-inbox-canvas: #06101a;
+  --wm-inbox-rail: #0b1926;
+  --wm-inbox-directory: #081522;
+  --wm-inbox-row: #0c1b29;
+  --wm-inbox-row-alt: #102130;
+  --wm-inbox-control: #091725;
+  --wm-inbox-control-hover: #142a3e;
+  --wm-inbox-border: #2b435b;
+  --wm-inbox-border-strong: #3b5874;
+  --wm-inbox-text: #f7fbff;
+  --wm-inbox-body: #e7f0f9;
+  --wm-inbox-muted: #cad7e4;
+  --wm-inbox-cobalt: #2384ee;
+  --wm-inbox-cobalt-dark: #0757b7;
+  --wm-inbox-teal: #27d3ad;
+  --wm-inbox-ember: #ff9c32;
+  --wm-inbox-danger: #ff5d58;
+  background: var(--wm-inbox-canvas);
+  color: var(--wm-inbox-text);
+}
+
+.wm-dashboard-surface.wm-admin-canvas .wm-lead-inbox .wm-lead-command-rail,
+.wm-dashboard-surface.wm-admin-canvas .wm-lead-inbox .wm-lead-directory {
+  background: var(--wm-inbox-rail);
+  border-color: var(--wm-inbox-border);
+  color: var(--wm-inbox-body);
+}
+
+.wm-dashboard-surface.wm-admin-canvas .wm-lead-inbox .wm-lead-directory {
+  background: var(--wm-inbox-directory);
+}
+
+.wm-dashboard-surface.wm-admin-canvas .wm-lead-inbox .wm-lead-card {
+  background:
+    linear-gradient(100deg, rgb(20 49 72 / 0.26), transparent 42%),
+    var(--wm-inbox-row);
+  color: var(--wm-inbox-body);
+  border-bottom-color: var(--wm-inbox-border-strong);
+}
+
+.wm-dashboard-surface.wm-admin-canvas
+  .wm-lead-inbox
+  .wm-lead-results
+  > li:nth-child(even)
+  .wm-lead-card {
+  background:
+    linear-gradient(100deg, rgb(9 34 54 / 0.34), transparent 46%),
+    var(--wm-inbox-row-alt);
+}
+
+.wm-dashboard-surface.wm-admin-canvas .wm-lead-inbox .wm-lead-control,
+.wm-dashboard-surface.wm-admin-canvas .wm-lead-inbox .wm-lead-copy-button,
+.wm-dashboard-surface.wm-admin-canvas .wm-lead-inbox input.wm-lead-control,
+.wm-dashboard-surface.wm-admin-canvas
+  .wm-lead-inbox
+  button[role="combobox"].wm-lead-control,
+.wm-dashboard-surface.wm-admin-canvas .wm-lead-inbox input,
+.wm-dashboard-surface.wm-admin-canvas .wm-lead-inbox select,
+.wm-dashboard-surface.wm-admin-canvas .wm-lead-inbox textarea,
+.wm-dashboard-surface.wm-admin-canvas .wm-lead-inbox [role="combobox"] {
+  border-color: var(--wm-inbox-border-strong);
+  background: var(--wm-inbox-control);
+  color: var(--wm-inbox-body);
+}
+
+.wm-dashboard-surface.wm-admin-canvas .wm-lead-inbox .wm-lead-primary-control {
+  background: var(--wm-inbox-cobalt-dark);
+  color: #f7fbff;
+}
+
+.wm-dashboard-surface.wm-admin-canvas .wm-lead-inbox .wm-lead-toolbar,
+.wm-dashboard-surface.wm-admin-canvas .wm-lead-inbox .wm-lead-filter-panel {
+  border-color: var(--wm-inbox-border);
+  box-shadow: none;
+  background: transparent;
+}
+
+.wm-dashboard-surface.wm-admin-canvas .wm-lead-inbox :is(.bg-white, .bg-card, .bg-background) {
+  background-color: var(--wm-inbox-control);
+  color: var(--wm-inbox-body);
+}
+
+.wm-dashboard-surface.wm-admin-canvas .wm-lead-inbox :is(
+  .text-muted-foreground,
+  .text-slate-700,
+  .text-slate-600,
+  .text-slate-500,
+  .text-slate-400,
+  .text-gray-500,
+  .text-gray-400
+) {
+  color: var(--wm-inbox-muted);
+}
+
+.wm-dashboard-surface.wm-admin-canvas .wm-lead-inbox :is(
+  .text-slate-950,
+  .text-slate-900,
+  .text-slate-800,
+  .text-foreground,
+  .text-card-foreground,
+  .text-white
+) {
+  color: var(--wm-inbox-text);
+}
+
+.wm-dashboard-surface.wm-admin-canvas .wm-lead-inbox .rounded-xl.border,
+.wm-dashboard-surface.wm-admin-canvas .wm-lead-inbox .rounded-lg.border,
+.wm-dashboard-surface.wm-admin-canvas .wm-lead-inbox .rounded-md.border {
+  border-color: var(--wm-inbox-border);
+  box-shadow: none;
+}
+
+/* Chrome eyebrow stays readable on navy — never dark ink on canvas header. */
+.wm-dashboard-surface.wm-admin-canvas .wm-admin-chrome .text-blue-300 {
+  color: #93c5fd;
+}
+
+.wm-dashboard-surface.wm-admin-canvas .wm-admin-chrome .text-slate-300 {
+  color: #cbd5e1;
+}
+
+.wm-dashboard-surface.wm-admin-canvas .wm-admin-chrome .text-white {
+  color: #ffffff;
 }

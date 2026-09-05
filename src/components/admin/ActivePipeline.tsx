@@ -48,11 +48,11 @@ const STATUS_STYLES: Record<PipelineStatus, { label: string; variant: "default" 
 };
 
 const GRADE_COLORS: Record<string, string> = {
-  A: "bg-emerald-100 text-emerald-950 border border-emerald-300",
-  B: "bg-blue-100 text-blue-950 border border-blue-300",
-  C: "bg-amber-100 text-amber-950 border border-amber-300",
-  D: "bg-orange-100 text-orange-950 border border-orange-300",
-  F: "bg-red-100 text-red-950 border border-red-300",
+  A: "wm-lead-status wm-lead-status--resolved",
+  B: "wm-lead-status wm-lead-status--active",
+  C: "wm-lead-status wm-lead-status--attention",
+  D: "wm-lead-status wm-lead-status--attention",
+  F: "wm-lead-status wm-lead-status--danger",
 };
 
 function gradeClass(grade: string | null): string {
@@ -182,20 +182,20 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
       {/* ── Filter controls ── */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-700" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#cad7e4]" />
           <Input
             placeholder="Search name, phone, email, ZIP, or lead ID…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 h-10 text-sm font-semibold"
+            className="pl-9 h-10 text-sm font-semibold border-[#3b5874] bg-[#091725] text-[#f7fbff]"
             aria-label="Search pipeline leads"
           />
         </div>
         <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
-          <SelectTrigger className="w-[160px] h-10 text-sm font-semibold">
+          <SelectTrigger className="w-[160px] h-10 text-sm font-semibold border-[#3b5874] bg-[#091725] text-[#f7fbff]">
             <SelectValue placeholder="All Statuses" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="wm-admin-portal">
             <SelectItem value="all">All Statuses</SelectItem>
             <SelectItem value="scanning">Scanning</SelectItem>
             <SelectItem value="pending_otp">Pending OTP</SelectItem>
@@ -206,10 +206,10 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
           </SelectContent>
         </Select>
         <Select value={ownershipFilter} onValueChange={(v) => setOwnershipFilter(v as OwnershipFilter)}>
-          <SelectTrigger className="w-[210px] h-10 text-sm font-semibold">
+          <SelectTrigger className="w-[210px] h-10 text-sm font-semibold border-[#3b5874] bg-[#091725] text-[#f7fbff]">
             <SelectValue placeholder="All Ownership" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="wm-admin-portal">
             <SelectItem value="all">All Ownership</SelectItem>
             <SelectItem value="assigned">Assigned</SelectItem>
             <SelectItem value="unassigned">Unassigned</SelectItem>
@@ -221,10 +221,10 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
         {/* Phase 8 — Always exposes an explicit "Unknown County" option as a safe
             fallback for null/empty geography, even when no current leads match. */}
         <Select value={marketFilter} onValueChange={setMarketFilter}>
-          <SelectTrigger className="w-[180px] h-10 text-sm font-semibold">
+          <SelectTrigger className="w-[180px] h-10 text-sm font-semibold border-[#3b5874] bg-[#091725] text-[#f7fbff]">
             <SelectValue placeholder="All Markets" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="wm-admin-portal">
             <SelectItem value="all">All Markets</SelectItem>
             {marketOptions.map(([market, count]) => (
               <SelectItem key={market} value={market}>
@@ -241,51 +241,53 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
         </span>
       </div>
 
-      <div className="rounded-xl border border-slate-300 bg-white shadow-sm overflow-auto">
+      <div className="wm-admin-directory-panel rounded-lg overflow-auto">
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead className="min-w-[180px]">Name / Email</TableHead>
-              <TableHead className="min-w-[130px]">Phone</TableHead>
-              <TableHead className="w-[80px] text-center">Grade</TableHead>
-              <TableHead className="w-[80px] text-center">Windows</TableHead>
-              <TableHead className="w-[120px]">Status</TableHead>
-              <TableHead className="w-[120px]">Owner</TableHead>
-              <TableHead className="w-[90px] text-right">Age</TableHead>
-              <TableHead className="w-[120px] text-right">Workspace</TableHead>
+            <TableRow className="border-[#2b435b] hover:bg-transparent">
+              <TableHead className="min-w-[180px] text-[#cad7e4]">Name / Email</TableHead>
+              <TableHead className="min-w-[130px] text-[#cad7e4]">Phone</TableHead>
+              <TableHead className="w-[80px] text-center text-[#cad7e4]">Grade</TableHead>
+              <TableHead className="w-[80px] text-center text-[#cad7e4]">Windows</TableHead>
+              <TableHead className="w-[120px] text-[#cad7e4]">Status</TableHead>
+              <TableHead className="w-[120px] text-[#cad7e4]">Owner</TableHead>
+              <TableHead className="w-[90px] text-right text-[#cad7e4]">Age</TableHead>
+              <TableHead className="w-[120px] text-right text-[#cad7e4]">Workspace</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredLeads.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-slate-700">
+                <TableCell colSpan={8} className="text-center py-8 text-[#cad7e4]">
                   No leads match the current filters.
                 </TableCell>
               </TableRow>
             ) : (
-              filteredLeads.map((lead) => {
+              filteredLeads.map((lead, index) => {
                 const status = derivePipelineStatus(lead);
                 const style = STATUS_STYLES[status];
                 return (
                   <TableRow
                     key={lead.id}
-                    className="cursor-pointer hover:bg-muted/50 transition-colors"
+                    className={`cursor-pointer border-[#2b435b] transition-colors hover:bg-[#142a3e] ${
+                      index % 2 === 0 ? "bg-[#0c1b29]" : "bg-[#102130]"
+                    }`}
                     onClick={(event) => openLead(lead.id, event.currentTarget)}
                   >
                     <TableCell>
-                      <div className="font-medium text-sm truncate max-w-[220px]">
+                      <div className="font-medium text-sm truncate max-w-[220px] text-[#f7fbff]">
                         {displayName(lead)}
                       </div>
                       {lead.email && lead.first_name && (
-                        <div className="text-sm font-semibold text-slate-700 truncate max-w-[220px]">
+                        <div className="text-sm font-semibold text-[#cad7e4] truncate max-w-[220px]">
                           {lead.email}
                         </div>
                       )}
                       <div onClick={(event) => event.stopPropagation()}>
-                        <LeadIdentity leadId={lead.id} className="mt-1 text-xs font-semibold text-slate-600" />
+                        <LeadIdentity leadId={lead.id} className="mt-1 text-xs font-semibold text-[#cad7e4]" />
                       </div>
                     </TableCell>
-                    <TableCell className="font-mono text-sm">
+                    <TableCell className="font-mono text-sm text-[#e7f0f9]">
                       {lead.phone_verified ? (lead.phone_e164 ?? "—") : maskPhone(lead.phone_e164)}
                     </TableCell>
                     <TableCell className="text-center">
@@ -294,10 +296,10 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
                           {lead.grade}
                         </Badge>
                       ) : (
-                        <span className="text-slate-700 text-xs">—</span>
+                        <span className="text-[#cad7e4] text-xs">—</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-center font-mono">
+                    <TableCell className="text-center font-mono text-[#e7f0f9]">
                       {lead.window_count ?? "—"}
                     </TableCell>
                     <TableCell>
@@ -305,14 +307,19 @@ export function ActivePipeline({ leads, isLoading }: ActivePipelineProps) {
                         {style.label}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-sm text-slate-700">
+                    <TableCell className="text-sm text-[#cad7e4]">
                       {lead.assigned_partner}
                     </TableCell>
-                    <TableCell className="text-right text-sm font-semibold text-slate-700 whitespace-nowrap">
+                    <TableCell className="text-right text-sm font-semibold text-[#cad7e4] whitespace-nowrap">
                       {timeAgo(lead.created_at)}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button asChild variant="outline" size="sm">
+                      <Button
+                        asChild
+                        variant="outline"
+                        size="sm"
+                        className="border-[#3b5874] bg-[#091725] text-[#e7f0f9] hover:bg-[#142a3e] hover:text-[#f7fbff]"
+                      >
                         <Link
                           to={`/admin/leads/${lead.id}`}
                           onClick={(event) => event.stopPropagation()}

@@ -61,18 +61,19 @@ const DESTINATION_ICONS: Record<AdminGlobalDestinationId, ElementType> = {
 };
 
 const LINK_CLASSES = [
-  "inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg",
-  "border px-3 py-1 text-sm font-bold transition-colors",
+  "inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-none",
+  "border-0 border-b-2 px-2.5 py-1 text-sm font-bold transition-colors",
   "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 focus-visible:ring-offset-2",
 ].join(" ");
 
 const INACTIVE_CLASSES =
-  "border-slate-300 bg-slate-50 text-slate-700 hover:border-slate-400 hover:bg-white hover:text-slate-950";
+  "border-b-transparent bg-transparent text-[#cad7e4] hover:bg-[#142a3e] hover:text-[#f7fbff]";
 
-const ACTIVE_CLASSES = "border-slate-400 bg-white text-slate-950 font-black shadow-sm";
+const ACTIVE_CLASSES =
+  "border-b-[#2384ee] bg-transparent text-[#f7fbff] font-black";
 
 const DRAWER_LINK_CLASSES = [
-  "inline-flex min-h-[44px] w-full items-center gap-2 rounded-lg border px-3 text-sm font-bold",
+  "inline-flex min-h-[44px] w-full items-center gap-2 rounded-md border border-[#3b5874] px-3 text-sm font-bold",
   "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 focus-visible:ring-offset-2",
 ].join(" ");
 
@@ -165,7 +166,7 @@ function MoreMenu({
           ref={menuRef}
           role="menu"
           data-testid="admin-more-menu"
-          className="absolute right-0 z-50 mt-1 min-w-56 rounded-md border border-slate-200 bg-white p-1 shadow-md"
+          className="wm-admin-portal absolute right-0 z-50 mt-1 min-w-56 rounded-md border border-[#2b435b] bg-[#102130] p-1 shadow-md"
           onKeyDown={onMenuKeyDown}
         >
           {destinations.map((destination, index) => {
@@ -180,7 +181,11 @@ function MoreMenu({
                   itemRefs.current[index] = node;
                 }}
                 aria-current={isActive ? "page" : undefined}
-                className="flex min-h-[44px] cursor-pointer items-center gap-2 rounded-sm px-2 text-sm font-bold text-slate-800 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
+                className={`flex min-h-[44px] cursor-pointer items-center gap-2 rounded-sm px-2 text-sm font-bold focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 ${
+                  isActive
+                    ? "bg-[#0a2947] text-[#a9d4ff]"
+                    : "text-[#e7f0f9] hover:bg-[#142a3e] hover:text-[#f7fbff]"
+                }`}
                 onClick={closeAndRestore}
               >
                 <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
@@ -280,15 +285,19 @@ export function AdminGlobalNav({
             <span>Menu</span>
           </button>
         </SheetTrigger>
-        <SheetContent side="left" className="wm-admin-mobile-drawer w-80 bg-white p-4" data-testid="admin-mobile-drawer">
+        <SheetContent
+          side="left"
+          className="wm-admin-portal wm-admin-mobile-drawer w-80 border-[#2b435b] bg-[#0c1b29] p-4 text-[#f7fbff]"
+          data-testid="admin-mobile-drawer"
+        >
           <SheetHeader className="mb-4 text-left">
-            <SheetTitle>Admin navigation</SheetTitle>
-            <SheetDescription>
+            <SheetTitle className="text-[#f7fbff]">Admin navigation</SheetTitle>
+            <SheetDescription className="text-[#cad7e4]">
               Primary destinations and More utilities.
             </SheetDescription>
           </SheetHeader>
           <div className="flex flex-col gap-2">
-            <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">
+            <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#85bfff]">
               Primary
             </p>
             {primaryDestinations.map((destination) => (
@@ -300,7 +309,7 @@ export function AdminGlobalNav({
                 className={DRAWER_LINK_CLASSES}
               />
             ))}
-            <p className="mt-3 text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">
+            <p className="mt-3 text-xs font-extrabold uppercase tracking-[0.16em] text-[#85bfff]">
               More
             </p>
             {moreDestinations.map((destination) => (
