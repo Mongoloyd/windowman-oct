@@ -32,6 +32,10 @@ const PILLAR_LABELS: Record<string, string> = {
   warranty: "Warranty Value",
 };
 
+const REPORT_EYEBROW = "Operator · Analysis evidence";
+const WORKSPACE_BACK_LABEL = "Back to lead workspace";
+const INBOX_BACK_LABEL = "Back to Lead Inbox";
+
 function formatConfidence(score: number | null): string {
   if (score == null) return "—";
   const pct = score <= 1 ? Math.round(score * 100) : Math.round(score);
@@ -77,7 +81,13 @@ export default function AdminLeadReport() {
 
   if (!leadIdValid) {
     return (
-      <AdminShell title="Invalid lead ID" backTo="/admin/leads" backLabel="Back to inbox" nav={<AdminGlobalNav />}>
+      <AdminShell
+        eyebrow={REPORT_EYEBROW}
+        title="Invalid lead ID"
+        backTo="/admin/leads"
+        backLabel={INBOX_BACK_LABEL}
+        nav={<AdminGlobalNav />}
+      >
         <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           <AlertCircle className="h-5 w-5 mt-0.5 shrink-0" />
           <div>
@@ -94,7 +104,13 @@ export default function AdminLeadReport() {
 
   if (leadLoading || analysisLoading) {
     return (
-      <AdminShell title="Loading analysis evidence…" backTo={backTo} backLabel="Back to dossier" nav={<AdminGlobalNav />}>
+      <AdminShell
+        eyebrow={REPORT_EYEBROW}
+        title="Loading analysis evidence…"
+        backTo={backTo}
+        backLabel={WORKSPACE_BACK_LABEL}
+        nav={<AdminGlobalNav />}
+      >
         <div className="flex items-center justify-center py-20">
           <Loader2 className="wm-on-canvas-text h-6 w-6 animate-spin" />
         </div>
@@ -104,7 +120,13 @@ export default function AdminLeadReport() {
 
   if (leadErr || !lead) {
     return (
-      <AdminShell title="Couldn't load report" backTo={backTo} backLabel="Back to dossier" nav={<AdminGlobalNav />}>
+      <AdminShell
+        eyebrow={REPORT_EYEBROW}
+        title="Couldn't load report"
+        backTo={backTo}
+        backLabel={WORKSPACE_BACK_LABEL}
+        nav={<AdminGlobalNav />}
+      >
         <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           <AlertCircle className="h-5 w-5 mt-0.5 shrink-0" />
           <div>
@@ -118,7 +140,13 @@ export default function AdminLeadReport() {
 
   if (!analysisId) {
     return (
-      <AdminShell title="Analysis evidence" backTo={backTo} backLabel="Back to dossier" nav={<AdminGlobalNav />}>
+      <AdminShell
+        eyebrow={REPORT_EYEBROW}
+        title="Analysis evidence"
+        backTo={backTo}
+        backLabel={WORKSPACE_BACK_LABEL}
+        nav={<AdminGlobalNav />}
+      >
         <div className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
           <AlertCircle className="h-5 w-5 mt-0.5 shrink-0" />
           <div>
@@ -135,7 +163,13 @@ export default function AdminLeadReport() {
 
   if (analysisErr || !evidenceView) {
     return (
-      <AdminShell title="Analysis evidence" backTo={backTo} backLabel="Back to dossier" nav={<AdminGlobalNav />}>
+      <AdminShell
+        eyebrow={REPORT_EYEBROW}
+        title="Analysis evidence"
+        backTo={backTo}
+        backLabel={WORKSPACE_BACK_LABEL}
+        nav={<AdminGlobalNav />}
+      >
         <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           <AlertCircle className="h-5 w-5 mt-0.5 shrink-0" />
           <div>
@@ -155,9 +189,10 @@ export default function AdminLeadReport() {
 
   return (
     <AdminShell
+      eyebrow={REPORT_EYEBROW}
       title={`Analysis evidence · ${homeownerName}`}
       backTo={backTo}
-      backLabel="Back to dossier"
+      backLabel={WORKSPACE_BACK_LABEL}
       nav={<AdminGlobalNav />}
     >
       <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs text-emerald-950">

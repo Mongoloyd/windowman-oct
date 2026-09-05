@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import { LeadStatusPanel } from "./LeadStatusPanel";
@@ -56,7 +57,9 @@ function renderPanel(currentStage = "new") {
   const invalidate = vi.spyOn(queryClient, "invalidateQueries");
   render(
     <QueryClientProvider client={queryClient}>
-      <LeadStatusPanel leadId="lead-1" currentStage={currentStage} />
+      <MemoryRouter>
+        <LeadStatusPanel leadId="lead-1" currentStage={currentStage} />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
   return { queryClient, invalidate };
@@ -76,6 +79,8 @@ describe("LeadStatusPanel", () => {
 
     expect(updateLeadFunnelStage).not.toHaveBeenCalled();
     expect(screen.queryAllByRole("button")).toHaveLength(0);
+    const pipeline = screen.getByRole("link", { name: "Open New in pipeline" });
+    expect(pipeline).toHaveAttribute("href", "/admin/pipeline?lead_id=lead-1");
   });
 
   it("mutates once, locks while pending, and preserves all invalidations", async () => {

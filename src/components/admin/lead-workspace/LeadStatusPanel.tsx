@@ -6,6 +6,7 @@
  * `funnel_stage_changed` lead_events row (server-side audit).
  */
 
+import { Link } from "react-router-dom";
 import { Loader2, AlertCircle } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -68,6 +69,16 @@ export function LeadStatusPanel({ leadId, currentStage }: LeadStatusPanelProps) 
       </div>
 
       <p className="text-sm text-slate-700 mb-3">{def.description}</p>
+
+      <p className="mb-3">
+        <Link
+          to={`/admin/pipeline?lead_id=${encodeURIComponent(leadId)}`}
+          aria-label={`Open ${def.label} in pipeline`}
+          className="inline-flex min-h-11 items-center text-sm font-bold text-slate-950 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {`Open ${def.label} in pipeline`}
+        </Link>
+      </p>
 
       <div className="space-y-2">
         <Label htmlFor="lead-funnel-stage" className="text-sm font-semibold text-slate-800">

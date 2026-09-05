@@ -219,6 +219,19 @@ describe("AdminLeadInbox", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("labels Jane Doe's Open lead control as View lead, not workspace", async () => {
+    renderInbox();
+    const janeCard = (
+      await screen.findByRole("link", { name: "View details for Jane Doe" })
+    ).closest("article");
+    expect(janeCard).not.toBeNull();
+    expect(within(janeCard!).getByRole("link", { name: "View lead for Jane Doe" })).toBeInTheDocument();
+    expect(
+      within(janeCard!).queryByRole("link", { name: "Open lead workspace for Jane Doe" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View details for Jane Doe" })).toBeInTheDocument();
+  });
+
   it("renders the selected command-rail and directory structure", async () => {
     renderInbox();
     await screen.findByRole("list", { name: "Lead results" });

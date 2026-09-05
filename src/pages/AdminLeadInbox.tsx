@@ -1538,7 +1538,7 @@ function LeadList({
                         event.preventDefault();
                         onOpenLead(lead.id, event.currentTarget);
                       }}
-                      aria-label={`Open lead workspace for ${name}`}
+                      aria-label={`View lead for ${name}`}
                     >
                       Open lead <ChevronRight className="ml-1.5 h-4 w-4" />
                     </Link>
