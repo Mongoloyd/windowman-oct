@@ -8,6 +8,9 @@
  * DB lead-row reads use the existing Node-only supabaseAdmin helper when the
  * service-role key is present; otherwise the suite records
  * NEEDS_RUNTIME_VERIFICATION without inventing a privileged browser query.
+ *
+ * Run locally with:
+ * npx playwright test -c playwright.prophecy.config.ts tests/prophecy-funnel.spec.ts
  */
 
 import { test, expect, type Page, type Request, type Response } from "@playwright/test";
@@ -15,6 +18,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  cleanupTestLead,
   getAdminClient,
   getLeadByEmail,
   SKIP_REASON,
@@ -30,17 +34,28 @@ const PROPHECY_STATIC_HTML = path.resolve(
 );
 const RESUME_KEY = "wm_prophecy_upload_resume_v1";
 const QA_PHONE = "(500) 555-0006";
+const hasExplicitLocalAdminProof = Boolean(
+  process.env.PROPHECY_E2E_LOCAL_SERVICE_ROLE_KEY,
+);
 const ATTR =
   "?utm_source=prophecy_e2e&utm_medium=test&utm_campaign=prophecy_runtime&wm_client_slug=prophecy-e2e";
 
 function uniqueEmail(tag: string): string {
   const ts = Date.now();
   const rand = Math.random().toString(36).slice(2, 8);
-  return `wm-prophecy-${tag}-${ts}-${rand}@windowman-test.local`;
+  const email = `wm-smoke-prophecy-${tag}-${ts}-${rand}@windowman-test.local`;
+  testEmails.add(email);
+  return email;
+}
+
+const testEmails = new Set<string>();
+
+function isLocalHost(hostname: string): boolean {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
 }
 
 function isLocalOrNonProdHost(hostname: string): boolean {
-  if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1") {
+  if (isLocalHost(hostname)) {
     return true;
   }
   // Explicit non-production preview patterns only — never production windowman.app.
@@ -69,52 +84,52 @@ async function assertNonProductionEnvironment(page: Page): Promise<void> {
     );
   }
 
-  // Prove Supabase targeting from observed network traffic (no secret printing).
-  const supabaseHosts = new Set<string>();
-  const onReq = (req: Request) => {
-    try {
-      const u = new URL(req.url());
-      if (
-        u.port === "54321" ||
-        u.pathname.includes("/functions/v1/") ||
-        u.hostname.includes("supabase")
-      ) {
-        supabaseHosts.add(u.hostname);
-      }
-    } catch {
-      /* ignore */
-    }
-  };
-  page.on("request", onReq);
+  const envHints = [
+    process.env.VITE_SUPABASE_URL,
+    process.env.SUPABASE_URL,
+  ].filter((value): value is string => Boolean(value));
+  if (envHints.length === 0) {
+    throw new Error(
+      "BLOCKED_UNKNOWN_ENVIRONMENT: could not prove Supabase host (set SUPABASE_URL/VITE_SUPABASE_URL or use playwright.prophecy.config.ts for the local stack)",
+    );
+  }
 
-  // Trigger a lightweight same-origin navigation already done; wait briefly for
-  // any hydration traffic, then also probe known local functions origin.
-  await page.waitForTimeout(500);
-  page.off("request", onReq);
-
-  const envHint =
-    process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
-  if (envHint) {
+  // This sprint authorizes the disposable local stack only. A remote preview
+  // needs a separately identified and approved Supabase project.
+  for (const envHint of envHints) {
+    let configuredSupabaseHost = "";
     try {
-      supabaseHosts.add(new URL(envHint).hostname);
+      configuredSupabaseHost = new URL(envHint).hostname;
     } catch {
       throw new Error("BLOCKED_UNKNOWN_ENVIRONMENT: invalid Supabase URL in env");
     }
-  }
 
-  if (supabaseHosts.size === 0) {
-    // Page host is local; require at least the process env or a later capture
-    // request to prove DB targeting before treating as blocked.
-    return;
-  }
-
-  for (const host of supabaseHosts) {
-    if (!isLocalOrNonProdHost(host)) {
+    if (!isLocalHost(configuredSupabaseHost)) {
       throw new Error(
-        `BLOCKED_UNKNOWN_ENVIRONMENT: Supabase host "${host}" is not local/non-production`,
+        `BLOCKED_UNKNOWN_ENVIRONMENT: Supabase host "${configuredSupabaseHost}" is not the disposable local stack`,
       );
     }
   }
+
+  // Defense in depth: even if an already-running Vite server was built with a
+  // different env, abort any Supabase request that does not stay local before
+  // it can mutate data.
+  await page.route("**/*", async (route) => {
+    const requestUrl = new URL(route.request().url());
+    const isSupabaseTraffic =
+      requestUrl.port === "54321" ||
+      requestUrl.hostname.includes("supabase") ||
+      /\/(?:functions|storage|rest|auth|realtime)\/v1\//.test(requestUrl.pathname);
+
+    if (isSupabaseTraffic && !isLocalHost(requestUrl.hostname)) {
+      await route.abort("blockedbyclient");
+      throw new Error(
+        `BLOCKED_UNKNOWN_ENVIRONMENT: browser attempted Supabase request to non-local host "${requestUrl.hostname}"`,
+      );
+    }
+
+    await route.fallback();
+  });
 }
 
 async function acceptConsentIfPresent(page: Page): Promise<void> {
@@ -162,10 +177,12 @@ async function fillContactAndSubmit(
 function captureRequests(page: Page): {
   captures: Request[];
   responses: Response[];
+  reportAccessResponses: Response[];
   all: Request[];
 } {
   const captures: Request[] = [];
   const responses: Response[] = [];
+  const reportAccessResponses: Response[] = [];
   const all: Request[] = [];
   page.on("request", (req) => {
     all.push(req);
@@ -177,14 +194,47 @@ function captureRequests(page: Page): {
     if (res.url().includes("capture-truth-gate-lead")) {
       responses.push(res);
     }
+    if (res.url().includes("/functions/v1/report-access")) {
+      reportAccessResponses.push(res);
+    }
   });
-  return { captures, responses, all };
+  return { captures, responses, reportAccessResponses, all };
 }
 
 test.describe("Prophecy funnel — environment and journeys", () => {
+  test.afterEach(async ({}, testInfo) => {
+    if (
+      hasExplicitLocalAdminProof &&
+      testInfo.status === testInfo.expectedStatus
+    ) {
+      for (const email of testEmails) {
+        await cleanupTestLead(email);
+      }
+    }
+    testEmails.clear();
+  });
+
+  test("environment gate fails closed without local Supabase proof", async ({ page }) => {
+    const previousViteUrl = process.env.VITE_SUPABASE_URL;
+    const previousServerUrl = process.env.SUPABASE_URL;
+
+    delete process.env.VITE_SUPABASE_URL;
+    delete process.env.SUPABASE_URL;
+    try {
+      await expect(assertNonProductionEnvironment(page)).rejects.toThrow(
+        /BLOCKED_UNKNOWN_ENVIRONMENT: could not prove Supabase host/,
+      );
+    } finally {
+      if (previousViteUrl === undefined) delete process.env.VITE_SUPABASE_URL;
+      else process.env.VITE_SUPABASE_URL = previousViteUrl;
+      if (previousServerUrl === undefined) delete process.env.SUPABASE_URL;
+      else process.env.SUPABASE_URL = previousServerUrl;
+    }
+  });
+
   test("environment gate proves local/non-production targeting", async ({ page }) => {
-    await page.goto(`/prophecy${ATTR}`);
     await assertNonProductionEnvironment(page);
+    await page.goto(`/prophecy${ATTR}`);
 
     // Browser must not see a service-role key in Vite-exposed globals.
     const leaked = await page.evaluate(() => {
@@ -199,17 +249,21 @@ test.describe("Prophecy funnel — environment and journeys", () => {
   });
 
   test("no_quote: synthetic intake persists exactly one capture", async ({ page }) => {
-    await page.goto(`/prophecy${ATTR}`);
     await assertNonProductionEnvironment(page);
+    await page.goto(`/prophecy${ATTR}`);
     await acceptConsentIfPresent(page);
 
     const email = uniqueEmail("nq");
     const net = captureRequests(page);
+    const captureResponsePromise = page.waitForResponse((response) =>
+      response.url().includes("capture-truth-gate-lead"),
+    );
 
     await openNoQuoteIntake(page);
     await fillZipAndContinue(page);
     await completeNoQuoteExtras(page);
     await fillContactAndSubmit(page, { email, hasQuote: false });
+    const captureResponse = await captureResponsePromise;
 
     await expect(page.getByRole("heading", { name: /You're in\./i })).toBeVisible({
       timeout: 30_000,
@@ -220,18 +274,17 @@ test.describe("Prophecy funnel — environment and journeys", () => {
       page.getByRole("heading", { name: /Drop your quote to start the scan/i }),
     ).toHaveCount(0);
 
-    expect(net.captures.length).toBe(1);
+    await expect.poll(() => net.captures.length).toBe(1);
     const body = net.captures[0].postDataJSON() as Record<string, unknown>;
     expect(JSON.stringify(body)).toMatch(/no_quote|prophecy_intent/);
     expect(JSON.stringify(body)).toMatch(/utm_source|prophecy_e2e|prophecy-e2e|wm_client/);
 
-    const last = net.responses[net.responses.length - 1];
-    expect(last).toBeTruthy();
-    expect(last.status()).toBeLessThan(500);
-    const payload = await last.json().catch(() => null);
+    await expect.poll(() => net.responses.length).toBe(1);
+    expect(captureResponse.status()).toBeLessThan(500);
+    const payload = await captureResponse.json().catch(() => null);
     expect(payload).toBeTruthy();
 
-    const admin = getAdminClient();
+    const admin = hasExplicitLocalAdminProof ? getAdminClient() : null;
     if (!admin) {
       test.info().annotations.push({
         type: "NEEDS_RUNTIME_VERIFICATION",
@@ -247,16 +300,20 @@ test.describe("Prophecy funnel — environment and journeys", () => {
   test("has_quote: upload zone, resume hint, and Verify-to-Reveal boundary", async ({
     page,
   }) => {
-    await page.goto(`/prophecy${ATTR}`);
     await assertNonProductionEnvironment(page);
+    await page.goto(`/prophecy${ATTR}`);
     await acceptConsentIfPresent(page);
 
     const email = uniqueEmail("hq");
     const net = captureRequests(page);
+    const captureResponsePromise = page.waitForResponse((response) =>
+      response.url().includes("capture-truth-gate-lead"),
+    );
 
     await openHasQuoteIntake(page);
     await fillZipAndContinue(page);
     await fillContactAndSubmit(page, { email, hasQuote: true });
+    await captureResponsePromise;
 
     await expect(
       page.getByRole("heading", { name: /You're in\. Now the estimate\./i }),
@@ -267,7 +324,7 @@ test.describe("Prophecy funnel — environment and journeys", () => {
       page.getByRole("heading", { name: /Drop your quote to start the scan/i }),
     ).toBeVisible({ timeout: 15_000 });
 
-    expect(net.captures.length).toBe(1);
+    await expect.poll(() => net.captures.length).toBe(1);
 
     const resumeBefore = await page.evaluate((key) => sessionStorage.getItem(key), RESUME_KEY);
     expect(resumeBefore).toBeTruthy();
@@ -310,8 +367,56 @@ test.describe("Prophecy funnel — environment and journeys", () => {
     const fileInput = page.locator('input[type="file"]').first();
     await fileInput.setInputFiles(FIXTURE);
 
-    // Allow bootstrap/scan traffic to fire; AI scan may be blocked without secrets.
-    await page.waitForTimeout(4000);
+    const scanResponsePromise = page
+      .waitForResponse((response) =>
+        response.url().includes("/functions/v1/scan-quote"),
+      { timeout: 60_000 })
+      .catch(() => null);
+    await page.getByRole("button", { name: /Scan my quote/i }).click();
+    const scanResponse = await scanResponsePromise;
+
+    if (!scanResponse || !scanResponse.ok()) {
+      throw new Error(
+        "BLOCKED_EXTERNAL_ENV: local scan-quote did not return a successful response; preview/reveal was not exercised",
+      );
+    }
+
+    const retryScan = page.getByRole("button", { name: /Retry Scan/i });
+    const scanOutcomeDeadline = Date.now() + 30_000;
+    let scanOutcome: "report" | "terminal" | "unknown" = "unknown";
+    while (Date.now() < scanOutcomeDeadline) {
+      if (/\/report\//.test(page.url())) {
+        scanOutcome = "report";
+        break;
+      }
+      if (await retryScan.isVisible().catch(() => false)) {
+        scanOutcome = "terminal";
+        break;
+      }
+      await page.waitForTimeout(250);
+    }
+
+    if (scanOutcome !== "report") {
+      // The terminal scanner state can leave long-lived browser work pending.
+      // Close the page before surfacing the hard environment blocker so the
+      // failure is reported promptly instead of being obscured by teardown.
+      await page.unrouteAll({ behavior: "ignoreErrors" });
+      await page.close({ runBeforeUnload: false });
+      throw new Error(
+        scanOutcome === "terminal"
+          ? "BLOCKED_EXTERNAL_ENV: repository fixture reached scan-quote but was classified as a terminal non-quote; preview/reveal was not exercised"
+          : "BLOCKED_EXTERNAL_ENV: local scan returned without producing a report preview; preview/reveal was not exercised",
+      );
+    }
+
+    await expect
+      .poll(() => net.reportAccessResponses.length, { timeout: 30_000 })
+      .toBeGreaterThan(0);
+
+    for (const response of net.reportAccessResponses) {
+      const responseBody = await response.text();
+      expect(responseBody).not.toMatch(/"full_json"\s*:/i);
+    }
 
     const fullJsonHits = net.all.filter((r) => {
       const u = r.url().toLowerCase();
@@ -333,19 +438,11 @@ test.describe("Prophecy funnel — environment and journeys", () => {
     });
     expect(persistenceLeak).toBe(false);
 
-    // Safe preview before OTP: if we navigated to a report route, OTP gate must remain.
-    if (/\/report\//.test(page.url())) {
-      await expect(
-        page.getByText(/verify|code|text|sms|phone/i).first(),
-      ).toBeVisible({ timeout: 15_000 });
-      await expect(page.locator("text=full_json")).toHaveCount(0);
-    } else if (bootstrapReqs.length === 0) {
-      test.info().annotations.push({
-        type: "BLOCKED_EXTERNAL_ENV",
-        description:
-          "Upload did not produce scan/bootstrap traffic — local AI/scan secrets may be unavailable for the 1x1 fixture.",
-      });
-    }
+    expect(bootstrapReqs.length).toBeGreaterThan(0);
+    await expect(
+      page.getByText(/verify|code|text|sms|phone/i).first(),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator("text=full_json")).toHaveCount(0);
   });
 
   test("failure paths: duplicate submit, capture retry, back, expired resume, missing assets, noscript", async ({
@@ -353,8 +450,8 @@ test.describe("Prophecy funnel — environment and journeys", () => {
     browser,
   }) => {
     test.setTimeout(120_000);
-    await page.goto(`/prophecy${ATTR}`);
     await assertNonProductionEnvironment(page);
+    await page.goto(`/prophecy${ATTR}`);
     await acceptConsentIfPresent(page);
 
     // Rapid duplicate submit — only one capture should stick.
@@ -366,17 +463,36 @@ test.describe("Prophecy funnel — environment and journeys", () => {
     await page.locator("#prophecy-phone").fill(QA_PHONE);
     await page.locator("#prophecy-email").fill(email);
     const submit = page.getByTestId("prophecy-intake-submit");
+    const duplicateCaptureResponse = page.waitForResponse((response) =>
+      response.url().includes("capture-truth-gate-lead"),
+    );
     await submit.click();
     await submit.click({ force: true }).catch(() => undefined);
+    await duplicateCaptureResponse;
     await expect(page.getByRole("heading", { name: /You're in/i })).toBeVisible({
       timeout: 30_000,
     });
-    expect(net.captures.length).toBeLessThanOrEqual(2);
-    // Deduped persistence: at most one successful capture body with this email.
+    await expect.poll(() => net.captures.length).toBe(1);
+    // Deduped persistence: one browser capture and, when the local Node admin
+    // client is available, exactly one stored row for the synthetic address.
     const withEmail = net.captures.filter((r) =>
       (r.postData() || "").includes(email),
     );
-    expect(withEmail.length).toBeGreaterThanOrEqual(1);
+    expect(withEmail).toHaveLength(1);
+    const admin = hasExplicitLocalAdminProof ? getAdminClient() : null;
+    if (admin) {
+      const { count, error } = await admin
+        .from("leads")
+        .select("id", { count: "exact", head: true })
+        .eq("email", email);
+      expect(error).toBeNull();
+      expect(count).toBe(1);
+    } else {
+      test.info().annotations.push({
+        type: "NEEDS_RUNTIME_VERIFICATION",
+        description: `${SKIP_REASON} Persisted duplicate-row count was not checked.`,
+      });
+    }
 
     // Back navigation preserves recoverable form state on a fresh open.
     await page.getByRole("button", { name: /Upload My Estimate|Close/i }).click();
@@ -414,17 +530,18 @@ test.describe("Prophecy funnel — environment and journeys", () => {
         await route.abort("failed");
         return;
       }
-      await route.continue();
+      await route.fallback();
     });
     const uploadZone = page.getByRole("heading", {
       name: /Drop your quote to start the scan/i,
     });
     if (await uploadZone.isVisible().catch(() => false)) {
       await page.locator('input[type="file"]').first().setInputFiles(FIXTURE);
-      await page.waitForTimeout(1500);
-      // Form/page should remain usable for retry.
-      await page.locator('input[type="file"]').first().setInputFiles(FIXTURE);
-      await page.waitForTimeout(1500);
+      await page.getByRole("button", { name: /Scan my quote/i }).click();
+      await expect.poll(() => blockedOnce).toBe(true);
+      const retry = page.getByRole("button", { name: /Retry Scan/i });
+      await expect(retry).toBeVisible({ timeout: 15_000 });
+      await retry.click();
     }
     await page.unroute("**/storage/v1/**");
 
