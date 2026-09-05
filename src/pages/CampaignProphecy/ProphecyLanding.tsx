@@ -10,6 +10,11 @@ import type {
   IntakeValues,
 } from "@/components/intake/universal/intakeTypes";
 import UploadZone from "@/components/UploadZone";
+import {
+  PROPHECY_DESCRIPTION,
+  PROPHECY_METADATA,
+  PROPHECY_TITLE,
+} from "@/content/prophecyMetadata";
 import { pushProphecyLowIntentEvent } from "@/lib/tracking/prophecyEvents";
 import { getOrCreateFirstQuoteSessionId } from "@/services/windowmanFirstQuoteLeadCapture";
 import { useCampaignNqIllumination } from "../CampaignNQ/useCampaignNqIllumination";
@@ -183,13 +188,29 @@ export default function ProphecyLanding() {
   return (
     <>
       <Helmet>
-        <title>
-          WindowMan — We Can Tell You What&apos;s On Your Window Estimate
-        </title>
+        <title>{PROPHECY_TITLE}</title>
+        <meta name="description" content={PROPHECY_DESCRIPTION} />
+        <meta name="robots" content={PROPHECY_METADATA.robots} />
+        <link rel="canonical" href={PROPHECY_METADATA.canonicalUrl} />
+        <meta property="og:type" content={PROPHECY_METADATA.openGraph.type} />
         <meta
-          name="description"
-          content="Free, independent review of a Florida window or door estimate — price, scope, fees, warranty and fine print. No estimate yet? We'll help you get a first one worth comparing."
+          property="og:site_name"
+          content={PROPHECY_METADATA.openGraph.siteName}
         />
+        <meta property="og:title" content={PROPHECY_METADATA.openGraph.title} />
+        <meta
+          property="og:description"
+          content={PROPHECY_METADATA.openGraph.description}
+        />
+        <meta property="og:url" content={PROPHECY_METADATA.openGraph.url} />
+        <meta property="og:image" content={PROPHECY_METADATA.openGraph.image} />
+        <meta name="twitter:card" content={PROPHECY_METADATA.twitter.card} />
+        <meta name="twitter:title" content={PROPHECY_METADATA.twitter.title} />
+        <meta
+          name="twitter:description"
+          content={PROPHECY_METADATA.twitter.description}
+        />
+        <meta name="twitter:image" content={PROPHECY_METADATA.twitter.image} />
       </Helmet>
 
       <div
