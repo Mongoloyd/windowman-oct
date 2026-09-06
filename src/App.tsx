@@ -1,4 +1,4 @@
-import { lazy, Suspense, Component, ReactNode } from "react";
+import { lazy, Suspense, Component, ReactNode, useLayoutEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate, useParams } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -9,6 +9,11 @@ import ConsentBanner from "@/components/consentBanner";
 import { HelmetProvider } from "react-helmet-async";
 import { ScanFunnelProvider } from "@/state/scanFunnel";
 import { isAdminDashboardTab, PUBLIC_ROOT_ROUTE_DENYLIST } from "@/routes/adminDashboardTabs";
+import {
+  activateProphecyDocumentTheme,
+  isProphecyPath,
+  PROPHECY_CANVAS_COLOR,
+} from "@/pages/CampaignProphecy/prophecyDocumentTheme";
 
 // ── Lazy-loaded routes ──────────────────────────────────────────────────────
 const Index = lazy(() => import("./pages/Index"));
@@ -91,11 +96,47 @@ function DevAdminAliasRedirect() {
 }
 
 function PageLoader() {
+  const isProphecy =
+    typeof window !== "undefined" && isProphecyPath(window.location.pathname);
+  useLayoutEffect(
+    () => (isProphecy ? activateProphecyDocumentTheme() : undefined),
+    [isProphecy],
+  );
+
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center">
+    <div
+      className={
+        isProphecy
+          ? "min-h-screen flex items-center justify-center text-slate-100"
+          : "min-h-screen bg-background flex items-center justify-center"
+      }
+      style={
+        isProphecy
+          ? {
+              minHeight: "100dvh",
+              backgroundColor: PROPHECY_CANVAS_COLOR,
+              color: "#e2e8f0",
+            }
+          : undefined
+      }
+    >
       <div className="flex flex-col items-center gap-3">
-        <div className="h-8 w-8 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
-        <p className="text-xs text-muted-foreground font-mono">Loading…</p>
+        <div
+          className={
+            isProphecy
+              ? "h-8 w-8 rounded-full border-2 border-cyan-300/30 border-t-cyan-300 animate-spin"
+              : "h-8 w-8 rounded-full border-2 border-primary/30 border-t-primary animate-spin"
+          }
+        />
+        <p
+          className={
+            isProphecy
+              ? "text-xs text-slate-300 font-mono"
+              : "text-xs text-muted-foreground font-mono"
+          }
+        >
+          Loading…
+        </p>
       </div>
     </div>
   );
@@ -106,6 +147,8 @@ class RouteErrorBoundary extends Component<
   { children: ReactNode },
   { hasError: boolean }
 > {
+  private cleanupDocumentTheme?: () => void;
+
   constructor(props: { children: ReactNode }) {
     super(props);
     this.state = { hasError: false };
@@ -115,17 +158,59 @@ class RouteErrorBoundary extends Component<
     return { hasError: true };
   }
 
+  componentDidCatch() {
+    if (
+      typeof window !== "undefined" &&
+      isProphecyPath(window.location.pathname)
+    ) {
+      this.cleanupDocumentTheme = activateProphecyDocumentTheme();
+    }
+  }
+
+  componentWillUnmount() {
+    this.cleanupDocumentTheme?.();
+  }
+
   render() {
     if (this.state.hasError) {
+      const isProphecy =
+        typeof window !== "undefined" &&
+        isProphecyPath(window.location.pathname);
+
       return (
-        <div className="min-h-screen bg-background flex items-center justify-center">
+        <div
+          className={
+            isProphecy
+              ? "min-h-screen flex items-center justify-center text-slate-100"
+              : "min-h-screen bg-background flex items-center justify-center"
+          }
+          style={
+            isProphecy
+              ? {
+                  minHeight: "100dvh",
+                  backgroundColor: PROPHECY_CANVAS_COLOR,
+                  color: "#e2e8f0",
+                }
+              : undefined
+          }
+        >
           <div className="flex flex-col items-center gap-4 text-center px-6">
-            <p className="text-sm text-muted-foreground font-mono">
+            <p
+              className={
+                isProphecy
+                  ? "text-sm text-slate-300 font-mono"
+                  : "text-sm text-muted-foreground font-mono"
+              }
+            >
               Something went wrong loading this page.
             </p>
             <button
               onClick={() => window.location.reload()}
-              className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+              className={
+                isProphecy
+                  ? "min-h-11 px-4 py-2 rounded-md bg-sky-600 text-white text-sm font-medium hover:opacity-90 transition-opacity"
+                  : "px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+              }
             >
               Click to reload
             </button>
