@@ -1,9 +1,10 @@
-import { useCallback, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
 import UploadZone from "@/components/UploadZone";
 import { ExplainerVideoSection } from "@/components/landing/ExplainerVideoFacade";
 import UniversalIntakeHost from "@/components/intake/universal/UniversalIntakeHost";
+import { useScanFunnelSafe } from "@/state/scanFunnel";
 import type {
   IntakeEntryPoint,
   IntakeOpenRequest,
@@ -63,9 +64,17 @@ export default function NoQuoteLanding({ onSubmitLead }: NoQuoteLandingProps) {
   const [uploadHandoff, setUploadHandoff] = useState(readNq3UploadResume);
   const [showUpload, setShowUpload] = useState(uploadHandoff !== null);
   const navigate = useNavigate();
+  const funnel = useScanFunnelSafe();
   const intakeOpenRef = useRef(false);
   const uploadPendingRef = useRef(false);
   const openerRef = useRef<HTMLElement | null>(null);
+  const focusFrameRef = useRef<number | null>(null);
+
+  useEffect(() => () => {
+    if (focusFrameRef.current !== null) {
+      window.cancelAnimationFrame(focusFrameRef.current);
+    }
+  }, []);
 
   const openIntake = useCallback((
     entryPoint: IntakeEntryPoint,
@@ -110,19 +119,26 @@ export default function NoQuoteLanding({ onSubmitLead }: NoQuoteLandingProps) {
       return;
     }
 
+    funnel?.setLeadId(persisted.leadId);
+    funnel?.setSessionId(persisted.sessionId);
+    funnel?.setScanSessionId(null);
+    funnel?.setQuoteFileId(null);
+    funnel?.setPhone(values.phone, "screened_valid");
     setUploadHandoff(resume);
     setShowUpload(false);
     uploadPendingRef.current = true;
-  }, []);
+  }, [funnel]);
 
   const closeIntake = useCallback(() => {
+    const shouldRevealUpload = uploadPendingRef.current;
     intakeOpenRef.current = false;
     setOpenRequest(null);
-    if (uploadPendingRef.current) {
-      uploadPendingRef.current = false;
-      setShowUpload(true);
-    }
-    window.requestAnimationFrame(() => openerRef.current?.focus());
+    uploadPendingRef.current = false;
+    focusFrameRef.current = window.requestAnimationFrame(() => {
+      focusFrameRef.current = null;
+      openerRef.current?.focus({ preventScroll: true });
+      if (shouldRevealUpload) setShowUpload(true);
+    });
   }, []);
 
   const submitZip = (
@@ -184,7 +200,11 @@ export default function NoQuoteLanding({ onSubmitLead }: NoQuoteLandingProps) {
               submitZip(event, finalZip, setFinalZipError, "footer_zip")
             }
           />
-          <section className="relative px-5 pb-16 sm:px-8">
+          <section
+            className="relative px-5 pb-16 sm:px-8"
+            data-campaign-shared-ui
+            hidden={!showUpload}
+          >
             <div className="mx-auto max-w-3xl">
               <UploadZone
                 isVisible={showUpload}
@@ -192,7 +212,9 @@ export default function NoQuoteLanding({ onSubmitLead }: NoQuoteLandingProps) {
                 leadId={uploadHandoff?.leadId ?? null}
                 onScanStart={(_fileName, scanSessionId) => {
                   clearNq3UploadResume();
-                  navigate(`/report/classic/${scanSessionId}`);
+                  navigate(`/report/classic/${scanSessionId}`, {
+                    state: { freshScan: true },
+                  });
                 }}
               />
             </div>

@@ -206,6 +206,7 @@ export default function Nq3IntakeSkin({
   const fieldError = validationError?.message ?? "";
   const quickSelectField = quickSelectFieldForStep(step);
   const progressLabel = `Step ${stepNumber} of ${totalSteps}: ${STEP_NAMES[step]}`;
+  const hasQuoteInHand = values.intent === "has_quote";
 
   const errorBlock = fieldError ? (
     <p className="m-err" id="nq3-modal-error" role="alert">
@@ -363,11 +364,19 @@ export default function Nq3IntakeSkin({
             <form onSubmit={submitLead} noValidate aria-busy={isSubmitting}>
               <p className="m-kicker">{`Step ${stepNumber}`}</p>
               <h3 id="nq3-modal-title" ref={headingRef} tabIndex={-1}>
-                Where should we send it?
+                {hasQuoteInHand
+                  ? "Your estimate is next."
+                  : "Where should we send it?"}
               </h3>
               <p className="m-sub" id="nq3-modal-description">
-                We&apos;ll text you the next step for your project in{" "}
-                {values.zip || "your area"}.
+                {hasQuoteInHand ? (
+                  "Add your contact details, then upload your written estimate on this page."
+                ) : (
+                  <>
+                    We&apos;ll text you the next step for your project in{" "}
+                    {values.zip || "your area"}.
+                  </>
+                )}
               </p>
               <div className="field">
                 <label htmlFor="nq3-first-name">First name</label>
@@ -454,7 +463,11 @@ export default function Nq3IntakeSkin({
                 aria-disabled={isSubmitting}
                 data-testid="nq3-intake-submit"
               >
-                {isSubmitting ? "Submitting…" : "Get My Comparison"}
+                {isSubmitting
+                  ? "Submitting…"
+                  : hasQuoteInHand
+                    ? "Continue to Upload"
+                    : "Get My Comparison"}
               </button>
               {backButton}
               <p className="m-legal">
@@ -491,19 +504,25 @@ export default function Nq3IntakeSkin({
                 tabIndex={-1}
                 style={{ textAlign: "center" }}
               >
-                You&apos;re in.
+                {hasQuoteInHand ? "Ready to upload." : "You're in."}
               </h3>
               <p
                 className="m-sub"
                 id="nq3-modal-description"
                 style={{ textAlign: "center" }}
               >
-                Your request for ZIP {values.zip} was saved. A WindowMan team
-                member will text you shortly about the next step toward your
-                estimate.
+                {hasQuoteInHand ? (
+                  "Your details are saved. Upload your written estimate to start the check."
+                ) : (
+                  <>
+                    Your request for ZIP {values.zip} was saved. A WindowMan team
+                    member will text you shortly about the next step toward your
+                    estimate.
+                  </>
+                )}
               </p>
               <button className="btn btn-ghost" type="button" onClick={onClose}>
-                Close
+                {hasQuoteInHand ? "Upload My Estimate" : "Close"}
               </button>
             </div>
           )}

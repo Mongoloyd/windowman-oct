@@ -64,9 +64,9 @@ test.describe("NQ3 landing", () => {
     const escapeHatch = page.getByTestId("nq3-escape-hatch");
     await expect(escapeHatch).toBeVisible();
     await expect(escapeHatch).toHaveText(ESCAPE_HATCH_LABEL);
-    const href = await escapeHatch.getAttribute("href");
-    expect(href).toContain("wm_intent=has_quote");
-    expect(href).toContain("#truth-gate");
+    await expect(escapeHatch).toHaveJSProperty("tagName", "BUTTON");
+    await expect(escapeHatch).toHaveAttribute("type", "button");
+    await expect(escapeHatch).not.toHaveAttribute("href", /.+/);
     expect(await heightOf(page, '[data-testid="nq3-escape-hatch"]')).toBeGreaterThanOrEqual(48);
   });
 
@@ -89,8 +89,11 @@ test.describe("NQ3 landing", () => {
       const gutters = await page.evaluate(() => {
         const wrap = document.querySelector(".hero .wrap");
         if (!wrap) return null;
-        const rect = wrap.getBoundingClientRect();
-        return { left: rect.left, right: window.innerWidth - rect.right };
+        const styles = getComputedStyle(wrap);
+        return {
+          left: Number.parseFloat(styles.paddingLeft),
+          right: Number.parseFloat(styles.paddingRight),
+        };
       });
       expect(gutters, `hero wrap missing at ${width}px`).not.toBeNull();
       expect(gutters!.left, `left gutter at ${width}px`).toBeGreaterThanOrEqual(24);
@@ -109,12 +112,22 @@ test.describe("NQ3 landing", () => {
     await expect(page.getByRole("dialog")).toBeVisible();
   });
 
-  test("escape hatch navigates to the canonical truth gate without opening the intake", async ({ page }) => {
-    await page.goto("/nq3");
+  test("escape hatch preserves the NQ3 URL and opens the written-estimate intake", async ({ page }) => {
+    const originalUrl = "/nq3?utm_source=nq3-smoke&gclid=preserved";
+    await page.goto(originalUrl);
+    const consent = page.getByRole("region", { name: "Cookie consent" });
+    if (await consent.isVisible().catch(() => false)) {
+      await consent.getByRole("button", { name: "Decline" }).click();
+    }
     await page.getByTestId("nq3-escape-hatch").click();
 
-    await expect(page).toHaveURL(/wm_intent=has_quote/);
-    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect
+      .poll(() => page.evaluate(() => location.pathname + location.search))
+      .toBe(originalUrl);
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(
+      page.getByRole("dialog").getByRole("heading", { name: "Where's the project?" }),
+    ).toBeVisible();
   });
 
   test("does not request the explainer MP4 until the play button is clicked", async ({ page }) => {
@@ -135,6 +148,7 @@ test.describe("NQ3 landing", () => {
 
   test("resolves the elevation ladder to multi-layer shadows on every tier", async ({ page }) => {
     await page.goto("/nq3");
+    await expect(page.locator(".chk").first()).toBeVisible();
 
     for (const selector of [
       ".chk",
@@ -347,6 +361,7 @@ test.describe("atmospheric illumination", () => {
 
   test("NQ3 paints one continuous grid plane spanning the whole of main", async ({ page }) => {
     await page.goto("/nq3");
+    await expect(page.locator("main")).toBeVisible();
 
     // A per-section grid would restart its phase at every boundary. Asserting the plane
     // is as tall as main proves the lattice holds a single phase down the whole page.
@@ -371,6 +386,7 @@ test.describe("atmospheric illumination", () => {
   }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto("/nq3");
+    await expect(page.locator("main")).toBeVisible();
 
     const gridBefore = await pseudoStyle(page, "main", "::before", "background-position");
 
@@ -395,6 +411,7 @@ test.describe("atmospheric illumination", () => {
   test("NQ3 writes no illumination state under reduced motion", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/nq3");
+    await expect(page.locator("main")).toBeVisible();
 
     await page.mouse.move(200, 200);
     await page.mouse.move(900, 600);

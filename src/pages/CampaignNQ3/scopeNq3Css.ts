@@ -1,4 +1,17 @@
 const NQ3_PAGE_SELECTOR = '[data-page="campaign-nq3"]';
+const NQ3_SHARED_UI_EXCLUSION =
+  ":not(:where([data-campaign-shared-ui])):not(:where([data-campaign-shared-ui] *))";
+
+function excludeSharedUi(selector: string): string {
+  const pseudoElementIndex = selector.indexOf("::");
+  if (pseudoElementIndex === -1) {
+    return `${selector}${NQ3_SHARED_UI_EXCLUSION}`;
+  }
+
+  return `${selector.slice(0, pseudoElementIndex)}${NQ3_SHARED_UI_EXCLUSION}${selector.slice(
+    pseudoElementIndex,
+  )}`;
+}
 
 function scopeSelectorList(rawSelector: string): string {
   const leading = rawSelector.match(/^(\s*(?:\/\*[\s\S]*?\*\/\s*)*)/)?.[0] ?? "";
@@ -11,12 +24,12 @@ function scopeSelectorList(rawSelector: string): string {
   const scoped = selectorList.split(",").map((selector) => {
     const trimmed = selector.trim();
     if (trimmed === ":root" || trimmed === "html" || trimmed === "body") {
-      return NQ3_PAGE_SELECTOR;
+      return excludeSharedUi(NQ3_PAGE_SELECTOR);
     }
     if (trimmed === "*") {
-      return `${NQ3_PAGE_SELECTOR},${NQ3_PAGE_SELECTOR} *`;
+      return `${excludeSharedUi(NQ3_PAGE_SELECTOR)},${NQ3_PAGE_SELECTOR} ${excludeSharedUi("*")}`;
     }
-    return `${NQ3_PAGE_SELECTOR} ${trimmed}`;
+    return `${NQ3_PAGE_SELECTOR} ${excludeSharedUi(trimmed)}`;
   }).join(",");
 
   return `${leading}${scoped}`;

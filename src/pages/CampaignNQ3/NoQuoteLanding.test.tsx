@@ -8,15 +8,32 @@ import App from "@/App";
 import NoQuoteLanding from "./NoQuoteLanding";
 import { scopeNq3Css } from "./scopeNq3Css";
 
-const { defaultSubmitMock, navigateMock, uploadZonePropsMock } = vi.hoisted(() => ({
+const {
+  defaultSubmitMock,
+  navigateMock,
+  setFunnelLeadIdMock,
+  setFunnelPhoneMock,
+  setFunnelQuoteFileIdMock,
+  setFunnelScanSessionIdMock,
+  setFunnelSessionIdMock,
+  uploadZonePropsMock,
+} = vi.hoisted(() => ({
   defaultSubmitMock: vi.fn(),
   navigateMock: vi.fn(),
+  setFunnelLeadIdMock: vi.fn(),
+  setFunnelPhoneMock: vi.fn(),
+  setFunnelQuoteFileIdMock: vi.fn(),
+  setFunnelScanSessionIdMock: vi.fn(),
+  setFunnelSessionIdMock: vi.fn(),
   uploadZonePropsMock: vi.fn(),
 }));
 
 const LEAD_ID = "11111111-1111-4111-8111-111111111111";
 const SESSION_ID = "22222222-2222-4222-8222-222222222222";
 const NQ3_UPLOAD_RESUME_KEY = "wm_nq3_upload_resume_v1";
+const SHARED_UI_EXCLUSION =
+  ":not(:where([data-campaign-shared-ui])):not(:where([data-campaign-shared-ui] *))";
+const NQ3_PAGE_SELECTOR = '[data-page="campaign-nq3"]';
 
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual<typeof import("react-router-dom")>(
@@ -43,6 +60,13 @@ vi.mock("@/components/consentBanner", () => ({
 
 vi.mock("@/state/scanFunnel", () => ({
   ScanFunnelProvider: ({ children }: { children: ReactNode }) => children,
+  useScanFunnelSafe: () => ({
+    setLeadId: setFunnelLeadIdMock,
+    setPhone: setFunnelPhoneMock,
+    setQuoteFileId: setFunnelQuoteFileIdMock,
+    setScanSessionId: setFunnelScanSessionIdMock,
+    setSessionId: setFunnelSessionIdMock,
+  }),
 }));
 
 vi.mock("@/pages/Index", () => ({
@@ -104,9 +128,7 @@ function fillContactAndSubmit(dialog: HTMLElement) {
   fireEvent.change(within(dialog).getByLabelText("Mobile number"), {
     target: { value: "3055550142" },
   });
-  fireEvent.click(
-    within(dialog).getByRole("button", { name: "Get My Comparison" }),
-  );
+  fireEvent.click(within(dialog).getByTestId("nq3-intake-submit"));
 }
 
 describe("CampaignNQ3 NoQuoteLanding", () => {
@@ -225,16 +247,47 @@ describe("CampaignNQ3 NoQuoteLanding", () => {
         "/* discussing a{b:c} rule */:root{--x:1px}section{padding:var(--x)}",
       );
 
-      expect(scopedWithComment).toContain('[data-page="campaign-nq3"]{--x:1px}');
-      expect(scopedWithComment).toContain('[data-page="campaign-nq3"] section{padding:var(--x)}');
+      expect(scopedWithComment).toContain(
+        `${NQ3_PAGE_SELECTOR}${SHARED_UI_EXCLUSION}{--x:1px}`,
+      );
+      expect(scopedWithComment).toContain(
+        `${NQ3_PAGE_SELECTOR} section${SHARED_UI_EXCLUSION}{padding:var(--x)}`,
+      );
       expect(scopedWithComment).not.toContain("discussing");
+    });
+
+    it("excludes the shared upload boundary and its descendants from every qualified selector", () => {
+      const scopedBoundary = scopeNq3Css(
+        ":root{--x:1px}*{box-sizing:border-box}section,input::placeholder{padding:0}@media(max-width:560px){button:hover{opacity:1}}",
+      );
+
+      expect(scopedBoundary).toContain(
+        `${NQ3_PAGE_SELECTOR}${SHARED_UI_EXCLUSION}{--x:1px}`,
+      );
+      expect(scopedBoundary).toContain(
+        `${NQ3_PAGE_SELECTOR}${SHARED_UI_EXCLUSION},${NQ3_PAGE_SELECTOR} *${SHARED_UI_EXCLUSION}{box-sizing:border-box}`,
+      );
+      expect(scopedBoundary).toContain(
+        `${NQ3_PAGE_SELECTOR} section${SHARED_UI_EXCLUSION},${NQ3_PAGE_SELECTOR} input${SHARED_UI_EXCLUSION}::placeholder{padding:0}`,
+      );
+      expect(scopedBoundary).toContain(
+        `@media(max-width:560px){${NQ3_PAGE_SELECTOR} button:hover${SHARED_UI_EXCLUSION}{opacity:1}}`,
+      );
+      expect(scopedBoundary).not.toContain("!important");
     });
 
     it("still resolves the custom property block after scoping the real stylesheet", () => {
       // The token block is what every colour, contrast, and atmospheric value depends on.
-      expect(scoped).toContain('[data-page="campaign-nq3"]{');
-      expect(scoped).toMatch(/\[data-page="campaign-nq3"\]\{[^}]*--txt-3:/);
-      expect(scoped).toMatch(/\[data-page="campaign-nq3"\]\{[^}]*--atmo-grid-size:/);
+      const rootRuleStart = `${NQ3_PAGE_SELECTOR}${SHARED_UI_EXCLUSION}{`;
+      const rootRuleIndex = scoped.indexOf(rootRuleStart);
+      const rootRule = scoped.slice(
+        rootRuleIndex,
+        scoped.indexOf("}", rootRuleIndex) + 1,
+      );
+
+      expect(rootRuleIndex).toBeGreaterThanOrEqual(0);
+      expect(rootRule).toContain("--txt-3:");
+      expect(rootRule).toContain("--atmo-grid-size:");
     });
 
     it("gives controls a dark recess and never a background gradient", () => {
@@ -280,7 +333,10 @@ describe("CampaignNQ3 NoQuoteLanding", () => {
     const routeStyles = container.querySelector("style[data-nq3-landing-styles]");
     expect(routeStyles).toBeInTheDocument();
     expect(scopeNq3Css("section{padding:1px}@media(max-width:1px){nav{top:0}}"))
-      .toBe('[data-page="campaign-nq3"] section{padding:1px}@media(max-width:1px){[data-page="campaign-nq3"] nav{top:0}}');
+      .toBe(
+        `${NQ3_PAGE_SELECTOR} section${SHARED_UI_EXCLUSION}{padding:1px}` +
+        `@media(max-width:1px){${NQ3_PAGE_SELECTOR} nav${SHARED_UI_EXCLUSION}{top:0}}`,
+      );
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     unmount();
     expect(document.querySelector("style[data-nq3-landing-styles]")).not.toBeInTheDocument();
@@ -357,8 +413,16 @@ describe("CampaignNQ3 NoQuoteLanding", () => {
     const dialog = advanceHasQuoteToContactStep();
 
     expect(
-      within(dialog).getByRole("heading", { name: "Where should we send it?" }),
+      within(dialog).getByRole("heading", { name: "Your estimate is next." }),
     ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        "Add your contact details, then upload your written estimate on this page.",
+      ),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByTestId("nq3-intake-submit")).toHaveTextContent(
+      "Continue to Upload",
+    );
     expect(
       within(dialog).queryByRole("heading", { name: "What are you replacing?" }),
     ).not.toBeInTheDocument();
@@ -410,8 +474,13 @@ describe("CampaignNQ3 NoQuoteLanding", () => {
     renderPage(onSubmitLead);
     const opener = screen.getByTestId("nq3-escape-hatch");
     opener.focus();
+    const focusSpy = vi.spyOn(opener, "focus");
     const dialog = advanceHasQuoteToContactStep();
+    const uploadSection = document.querySelector<HTMLElement>(
+      "section[data-campaign-shared-ui]",
+    );
 
+    expect(uploadSection).toHaveAttribute("hidden");
     expect(screen.getByTestId("nq3-upload-zone")).toHaveAttribute(
       "data-visible",
       "no",
@@ -423,18 +492,28 @@ describe("CampaignNQ3 NoQuoteLanding", () => {
       "data-visible",
       "no",
     );
+    expect(uploadSection).toHaveAttribute("hidden");
     expect(window.sessionStorage.getItem(NQ3_UPLOAD_RESUME_KEY)).toBeNull();
+    expect(setFunnelLeadIdMock).not.toHaveBeenCalled();
+    expect(setFunnelSessionIdMock).not.toHaveBeenCalled();
+    expect(setFunnelScanSessionIdMock).not.toHaveBeenCalled();
+    expect(setFunnelQuoteFileIdMock).not.toHaveBeenCalled();
+    expect(setFunnelPhoneMock).not.toHaveBeenCalled();
 
-    fireEvent.click(
-      within(dialog).getByRole("button", { name: "Get My Comparison" }),
-    );
+    fireEvent.click(within(dialog).getByTestId("nq3-intake-submit"));
     expect(
-      await within(dialog).findByRole("heading", { name: "You're in." }),
+      await within(dialog).findByRole("heading", { name: "Ready to upload." }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        "Your details are saved. Upload your written estimate to start the check.",
+      ),
     ).toBeInTheDocument();
     expect(screen.getByTestId("nq3-upload-zone")).toHaveAttribute(
       "data-visible",
       "no",
     );
+    expect(uploadSection).toHaveAttribute("hidden");
     expect(
       JSON.parse(window.sessionStorage.getItem(NQ3_UPLOAD_RESUME_KEY) ?? "null"),
     ).toMatchObject({
@@ -442,8 +521,23 @@ describe("CampaignNQ3 NoQuoteLanding", () => {
       leadId: LEAD_ID,
       sessionId: SESSION_ID,
     });
+    expect(setFunnelLeadIdMock).toHaveBeenCalledOnce();
+    expect(setFunnelLeadIdMock).toHaveBeenCalledWith(LEAD_ID);
+    expect(setFunnelSessionIdMock).toHaveBeenCalledOnce();
+    expect(setFunnelSessionIdMock).toHaveBeenCalledWith(SESSION_ID);
+    expect(setFunnelScanSessionIdMock).toHaveBeenCalledOnce();
+    expect(setFunnelScanSessionIdMock).toHaveBeenCalledWith(null);
+    expect(setFunnelQuoteFileIdMock).toHaveBeenCalledOnce();
+    expect(setFunnelQuoteFileIdMock).toHaveBeenCalledWith(null);
+    expect(setFunnelPhoneMock).toHaveBeenCalledOnce();
+    expect(setFunnelPhoneMock).toHaveBeenCalledWith(
+      "+13055550142",
+      "screened_valid",
+    );
 
-    fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Upload My Estimate" }),
+    );
 
     await waitFor(() =>
       expect(screen.getByTestId("nq3-upload-zone")).toHaveAttribute(
@@ -459,7 +553,51 @@ describe("CampaignNQ3 NoQuoteLanding", () => {
       "data-session-id",
       SESSION_ID,
     );
+    expect(uploadSection).not.toHaveAttribute("hidden");
+    expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true });
     await waitFor(() => expect(opener).toHaveFocus());
+    const visibleCallIndex = uploadZonePropsMock.mock.calls.findIndex(
+      ([props]) => (props as { isVisible?: boolean }).isVisible === true,
+    );
+    expect(visibleCallIndex).toBeGreaterThanOrEqual(0);
+    const focusInvocationOrder = focusSpy.mock.invocationCallOrder[
+      focusSpy.mock.invocationCallOrder.length - 1
+    ];
+    const revealInvocationOrder =
+      uploadZonePropsMock.mock.invocationCallOrder[visibleCallIndex];
+    expect(typeof focusInvocationOrder).toBe("number");
+    expect(typeof revealInvocationOrder).toBe("number");
+    expect(focusInvocationOrder as number).toBeLessThan(
+      revealInvocationOrder as number,
+    );
+  });
+
+  it("keeps the upload section hidden when the has-quote intake is cancelled", async () => {
+    const { unmount } = renderPage();
+    const opener = screen.getByTestId("nq3-escape-hatch");
+    opener.focus();
+    fireEvent.click(opener);
+    const requestAnimationFrameSpy = vi
+      .spyOn(window, "requestAnimationFrame")
+      .mockReturnValue(917);
+    const cancelAnimationFrameSpy = vi
+      .spyOn(window, "cancelAnimationFrame")
+      .mockImplementation(() => undefined);
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(document.querySelector("section[data-campaign-shared-ui]"))
+      .toHaveAttribute("hidden");
+    expect(screen.getByTestId("nq3-upload-zone")).toHaveAttribute(
+      "data-visible",
+      "no",
+    );
+    unmount();
+    expect(cancelAnimationFrameSpy).toHaveBeenCalledWith(917);
+
+    requestAnimationFrameSpy.mockRestore();
+    cancelAnimationFrameSpy.mockRestore();
   });
 
   it("restores only a valid, unexpired NQ3 upload handoff on remount", () => {
@@ -531,6 +669,7 @@ describe("CampaignNQ3 NoQuoteLanding", () => {
     expect(window.sessionStorage.getItem(NQ3_UPLOAD_RESUME_KEY)).toBeNull();
     expect(navigateMock).toHaveBeenCalledWith(
       "/report/classic/33333333-3333-4333-8333-333333333333",
+      { state: { freshScan: true } },
     );
   });
 
@@ -548,9 +687,11 @@ describe("CampaignNQ3 NoQuoteLanding", () => {
 
     fillContactAndSubmit(dialog);
     expect(
-      await within(dialog).findByRole("heading", { name: "You're in." }),
+      await within(dialog).findByRole("heading", { name: "Ready to upload." }),
     ).toBeInTheDocument();
-    fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Upload My Estimate" }),
+    );
 
     expect(dataLayer).toEqual([{ event: "existing-marker" }]);
     expect(JSON.stringify(dataLayer)).not.toMatch(
