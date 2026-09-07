@@ -1,11 +1,11 @@
 import type { FormEvent } from "react";
-import { buildCanonicalTruthGateHandoffUrl } from "@/components/landing/landingHandoff";
 
 interface HeroSectionProps {
   zip: string;
   zipError: string;
   onZipChange: (value: string) => void;
   onCheckArea: (event: FormEvent<HTMLFormElement>) => void;
+  onHaveWrittenEstimate: () => void;
 }
 
 function ArrowIcon() {
@@ -75,7 +75,13 @@ function EstimateRankCard() {
   );
 }
 
-export default function HeroSection({ zip, zipError, onZipChange, onCheckArea }: HeroSectionProps) {
+export default function HeroSection({
+  zip,
+  zipError,
+  onZipChange,
+  onCheckArea,
+  onHaveWrittenEstimate,
+}: HeroSectionProps) {
   return (
     <header className="hero">
       <div className="wrap hero-in">
@@ -115,13 +121,14 @@ export default function HeroSection({ zip, zipError, onZipChange, onCheckArea }:
           </div>
 
           <div>
-            <a
+            <button
               className="escape-hatch"
-              href={buildCanonicalTruthGateHandoffUrl("has_quote")}
+              type="button"
+              onClick={onHaveWrittenEstimate}
               data-testid="nq3-escape-hatch"
             >
               Already have a written estimate? Upload it for an AI check →
-            </a>
+            </button>
           </div>
         </div>
 

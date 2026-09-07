@@ -1,5 +1,6 @@
 import type {
   IntakeLocationConfig,
+  IntakeValues,
   UniversalIntakeConfig,
 } from "@/components/intake/universal/intakeTypes";
 
@@ -13,10 +14,14 @@ export const nq3FloridaProjectLocation = {
   isEligibleZip: (value: string) => /^3[2-4]\d{3}$/.test(value.trim()),
 } as const satisfies IntakeLocationConfig;
 
+function hasQuoteInHand(values: IntakeValues): boolean {
+  return values.intent === "has_quote";
+}
+
 export const nq3IntakeConfig = {
   route: "/nq3",
   campaignVariant: "nq3",
-  wmIntent: "no_quote",
+  wmIntent: "dual",
   captureSource: "windowman-first-quote",
   location: nq3FloridaProjectLocation,
   steps: [
@@ -29,16 +34,19 @@ export const nq3IntakeConfig = {
       id: "product",
       fields: ["projectType"],
       validation: "product_scope",
+      skipWhen: hasQuoteInHand,
     },
     {
       id: "openings",
       fields: ["openings"],
       validation: "openings_scope",
+      skipWhen: hasQuoteInHand,
     },
     {
       id: "timing",
       fields: ["timing"],
       validation: "timing_scope",
+      skipWhen: hasQuoteInHand,
     },
     {
       id: "contact",

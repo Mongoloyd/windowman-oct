@@ -8,9 +8,25 @@ import App from "@/App";
 import NoQuoteLanding from "./NoQuoteLanding";
 import { scopeNq3Css } from "./scopeNq3Css";
 
-const { defaultSubmitMock } = vi.hoisted(() => ({
+const { defaultSubmitMock, navigateMock, uploadZonePropsMock } = vi.hoisted(() => ({
   defaultSubmitMock: vi.fn(),
+  navigateMock: vi.fn(),
+  uploadZonePropsMock: vi.fn(),
 }));
+
+const LEAD_ID = "11111111-1111-4111-8111-111111111111";
+const SESSION_ID = "22222222-2222-4222-8222-222222222222";
+const NQ3_UPLOAD_RESUME_KEY = "wm_nq3_upload_resume_v1";
+
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual<typeof import("react-router-dom")>(
+    "react-router-dom",
+  );
+  return {
+    ...actual,
+    useNavigate: () => navigateMock,
+  };
+});
 
 vi.mock("./campaignNq3LeadCapture", () => ({
   createCampaignNq3LeadSubmitter: () =>
@@ -31,6 +47,20 @@ vi.mock("@/state/scanFunnel", () => ({
 
 vi.mock("@/pages/Index", () => ({
   default: () => <div>Home</div>,
+}));
+
+vi.mock("@/components/UploadZone", () => ({
+  default: (props: Record<string, unknown>) => {
+    uploadZonePropsMock(props);
+    return (
+      <div
+        data-testid="nq3-upload-zone"
+        data-visible={props.isVisible ? "yes" : "no"}
+        data-session-id={String(props.sessionId ?? "")}
+        data-lead-id={String(props.leadId ?? "")}
+      />
+    );
+  },
 }));
 
 function renderPage(onSubmitLead?: Parameters<typeof NoQuoteLanding>[0]["onSubmitLead"]) {
@@ -54,13 +84,41 @@ function advanceToContactStep() {
   return dialog;
 }
 
+function advanceHasQuoteToContactStep() {
+  fireEvent.click(screen.getByTestId("nq3-escape-hatch"));
+  const dialog = screen.getByRole("dialog");
+  fireEvent.change(within(dialog).getByLabelText("Florida project ZIP code"), {
+    target: { value: "34997" },
+  });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Continue" }));
+  return dialog;
+}
+
+function fillContactAndSubmit(dialog: HTMLElement) {
+  fireEvent.change(within(dialog).getByLabelText("First name"), {
+    target: { value: "Sam" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Email address"), {
+    target: { value: "sam@example.com" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Mobile number"), {
+    target: { value: "3055550142" },
+  });
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Get My Comparison" }),
+  );
+}
+
 describe("CampaignNQ3 NoQuoteLanding", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.sessionStorage.clear();
+    window.history.replaceState({}, "", "/nq3");
+    delete (window as Window & { dataLayer?: unknown[] }).dataLayer;
     defaultSubmitMock.mockResolvedValue({
       ok: true,
-      leadId: "lead-default",
-      sessionId: "session-default",
+      leadId: LEAD_ID,
+      sessionId: SESSION_ID,
       reused: false,
     });
   });
@@ -265,18 +323,239 @@ describe("CampaignNQ3 NoQuoteLanding", () => {
     );
   });
 
-  it("offers an untracked canonical has_quote escape hatch", () => {
+  it("opens the written-estimate handoff as a button without changing /nq3 or its query", () => {
+    window.history.replaceState({}, "", "/nq3?utm_source=partner&gclid=test-click");
     renderPage();
     const escapeHatch = screen.getByTestId("nq3-escape-hatch");
 
-    expect(escapeHatch.tagName).toBe("A");
+    expect(escapeHatch.tagName).toBe("BUTTON");
+    expect(escapeHatch).toHaveAttribute("type", "button");
+    expect(escapeHatch).not.toHaveAttribute("href");
     expect(escapeHatch).toHaveTextContent(
       "Already have a written estimate? Upload it for an AI check",
     );
-    const href = escapeHatch.getAttribute("href") ?? "";
-    expect(href).toContain("wm_intent=has_quote");
-    expect(href).toContain("#truth-gate");
-    expect(href.startsWith("/?")).toBe(true);
+
+    fireEvent.click(escapeHatch);
+
+    expect(window.location.pathname).toBe("/nq3");
+    expect(window.location.search).toBe("?utm_source=partner&gclid=test-click");
+    expect(
+      within(screen.getByRole("dialog")).getByRole("heading", {
+        name: "Where's the project?",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("starts has_quote at location, skips project questions, and preserves hero attribution", async () => {
+    const onSubmitLead = vi.fn().mockResolvedValue({
+      ok: true,
+      leadId: LEAD_ID,
+      sessionId: SESSION_ID,
+      reused: false,
+    });
+    renderPage(onSubmitLead);
+    const dialog = advanceHasQuoteToContactStep();
+
+    expect(
+      within(dialog).getByRole("heading", { name: "Where should we send it?" }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole("heading", { name: "What are you replacing?" }),
+    ).not.toBeInTheDocument();
+    expect(within(dialog).getByTestId("nq3-intake-step-copy")).toHaveTextContent(
+      "Step 2 of 2",
+    );
+
+    fillContactAndSubmit(dialog);
+
+    await waitFor(() => expect(onSubmitLead).toHaveBeenCalledWith({
+      intent: "has_quote",
+      zip: "34997",
+      projectType: "",
+      openings: "",
+      name: "Sam",
+      email: "sam@example.com",
+      phone: "+13055550142",
+    }, expect.objectContaining({
+      captureAttemptId: expect.any(String),
+      landingVisitId: expect.any(String),
+      entryPoint: "hero_primary",
+    })));
+  });
+
+  it("deduplicates rapid written-estimate activations until the intake closes", async () => {
+    renderPage();
+    const opener = screen.getByTestId("nq3-escape-hatch");
+
+    fireEvent.click(opener);
+    fireEvent.click(opener);
+
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    fireEvent.click(opener);
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+  });
+
+  it("keeps the uploader hidden through failure and success, then reveals exact persisted IDs on close", async () => {
+    const onSubmitLead = vi.fn()
+      .mockResolvedValueOnce({ ok: false, message: "Try again." })
+      .mockResolvedValueOnce({
+        ok: true,
+        leadId: LEAD_ID,
+        sessionId: SESSION_ID,
+        reused: false,
+      });
+    renderPage(onSubmitLead);
+    const opener = screen.getByTestId("nq3-escape-hatch");
+    opener.focus();
+    const dialog = advanceHasQuoteToContactStep();
+
+    expect(screen.getByTestId("nq3-upload-zone")).toHaveAttribute(
+      "data-visible",
+      "no",
+    );
+    fillContactAndSubmit(dialog);
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("Try again.");
+    expect(screen.getByTestId("nq3-upload-zone")).toHaveAttribute(
+      "data-visible",
+      "no",
+    );
+    expect(window.sessionStorage.getItem(NQ3_UPLOAD_RESUME_KEY)).toBeNull();
+
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Get My Comparison" }),
+    );
+    expect(
+      await within(dialog).findByRole("heading", { name: "You're in." }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("nq3-upload-zone")).toHaveAttribute(
+      "data-visible",
+      "no",
+    );
+    expect(
+      JSON.parse(window.sessionStorage.getItem(NQ3_UPLOAD_RESUME_KEY) ?? "null"),
+    ).toMatchObject({
+      version: 1,
+      leadId: LEAD_ID,
+      sessionId: SESSION_ID,
+    });
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("nq3-upload-zone")).toHaveAttribute(
+        "data-visible",
+        "yes",
+      ),
+    );
+    expect(screen.getByTestId("nq3-upload-zone")).toHaveAttribute(
+      "data-lead-id",
+      LEAD_ID,
+    );
+    expect(screen.getByTestId("nq3-upload-zone")).toHaveAttribute(
+      "data-session-id",
+      SESSION_ID,
+    );
+    await waitFor(() => expect(opener).toHaveFocus());
+  });
+
+  it("restores only a valid, unexpired NQ3 upload handoff on remount", () => {
+    window.sessionStorage.setItem(
+      NQ3_UPLOAD_RESUME_KEY,
+      JSON.stringify({
+        version: 1,
+        leadId: LEAD_ID,
+        sessionId: SESSION_ID,
+        expiresAt: Date.now() + 60_000,
+      }),
+    );
+    const firstRender = renderPage();
+
+    expect(screen.getByTestId("nq3-upload-zone")).toHaveAttribute(
+      "data-visible",
+      "yes",
+    );
+    expect(screen.getByTestId("nq3-upload-zone")).toHaveAttribute(
+      "data-lead-id",
+      LEAD_ID,
+    );
+    expect(screen.getByTestId("nq3-upload-zone")).toHaveAttribute(
+      "data-session-id",
+      SESSION_ID,
+    );
+    firstRender.unmount();
+
+    window.sessionStorage.setItem(
+      NQ3_UPLOAD_RESUME_KEY,
+      JSON.stringify({
+        version: 1,
+        leadId: LEAD_ID,
+        sessionId: SESSION_ID,
+        expiresAt: Date.now() - 1,
+      }),
+    );
+    renderPage();
+
+    expect(screen.getByTestId("nq3-upload-zone")).toHaveAttribute(
+      "data-visible",
+      "no",
+    );
+    expect(window.sessionStorage.getItem(NQ3_UPLOAD_RESUME_KEY)).toBeNull();
+  });
+
+  it("clears the resume hint and navigates to the classic report on scan start", () => {
+    window.sessionStorage.setItem(
+      NQ3_UPLOAD_RESUME_KEY,
+      JSON.stringify({
+        version: 1,
+        leadId: LEAD_ID,
+        sessionId: SESSION_ID,
+        expiresAt: Date.now() + 60_000,
+      }),
+    );
+    renderPage();
+    const uploadProps = uploadZonePropsMock.mock.calls[
+      uploadZonePropsMock.mock.calls.length - 1
+    ]?.[0] as {
+      onScanStart?: (fileName: string, scanSessionId: string) => void;
+    };
+
+    uploadProps.onScanStart?.(
+      "private-estimate.pdf",
+      "33333333-3333-4333-8333-333333333333",
+    );
+
+    expect(window.sessionStorage.getItem(NQ3_UPLOAD_RESUME_KEY)).toBeNull();
+    expect(navigateMock).toHaveBeenCalledWith(
+      "/report/classic/33333333-3333-4333-8333-333333333333",
+    );
+  });
+
+  it("does not add contact PII to dataLayer during the handoff", async () => {
+    const dataLayer = [{ event: "existing-marker" }];
+    Object.assign(window, { dataLayer });
+    const onSubmitLead = vi.fn().mockResolvedValue({
+      ok: true,
+      leadId: LEAD_ID,
+      sessionId: SESSION_ID,
+      reused: false,
+    });
+    renderPage(onSubmitLead);
+    const dialog = advanceHasQuoteToContactStep();
+
+    fillContactAndSubmit(dialog);
+    expect(
+      await within(dialog).findByRole("heading", { name: "You're in." }),
+    ).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+
+    expect(dataLayer).toEqual([{ event: "existing-marker" }]);
+    expect(JSON.stringify(dataLayer)).not.toMatch(
+      /Sam|sam@example\.com|3055550142|\+13055550142/,
+    );
   });
 
   it("passes the NQ3 explainer headline without altering the shared default copy", () => {
@@ -345,6 +624,11 @@ describe("CampaignNQ3 NoQuoteLanding", () => {
       entryPoint: "navigation_primary",
     })));
     expect(await screen.findByRole("heading", { name: "You're in." })).toBeInTheDocument();
+    expect(screen.getByTestId("nq3-upload-zone")).toHaveAttribute(
+      "data-visible",
+      "no",
+    );
+    expect(window.sessionStorage.getItem(NQ3_UPLOAD_RESUME_KEY)).toBeNull();
   });
 
   it("uses the operational persistence adapter by default", async () => {

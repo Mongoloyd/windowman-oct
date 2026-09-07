@@ -1,11 +1,15 @@
 import { useCallback, useRef, useState, type FormEvent } from "react";
 import { Helmet } from "react-helmet-async";
+import { useNavigate } from "react-router-dom";
+import UploadZone from "@/components/UploadZone";
 import { ExplainerVideoSection } from "@/components/landing/ExplainerVideoFacade";
 import UniversalIntakeHost from "@/components/intake/universal/UniversalIntakeHost";
 import type {
   IntakeEntryPoint,
   IntakeOpenRequest,
+  IntakePersistedSuccess,
   IntakeStepId,
+  IntakeValues,
 } from "@/components/intake/universal/intakeTypes";
 import { useCampaignNqIllumination } from "../CampaignNQ/useCampaignNqIllumination";
 import nqLandingCss from "./nq-landing.css?raw";
@@ -20,6 +24,11 @@ import ReviewCriteria from "./ReviewCriteria";
 import SampleFindings from "./SampleFindings";
 import { createCampaignNq3LeadSubmitter } from "./campaignNq3LeadCapture";
 import { nq3FloridaProjectLocation, nq3IntakeConfig } from "./nq3IntakeConfig";
+import {
+  clearNq3UploadResume,
+  readNq3UploadResume,
+  writeNq3UploadResume,
+} from "./nq3UploadResume";
 import { scopeNq3Css } from "./scopeNq3Css";
 import type { OnSubmitLead } from "./types";
 
@@ -51,24 +60,68 @@ export default function NoQuoteLanding({ onSubmitLead }: NoQuoteLandingProps) {
   const [heroZipError, setHeroZipError] = useState("");
   const [finalZipError, setFinalZipError] = useState("");
   const [openRequest, setOpenRequest] = useState<IntakeOpenRequest | null>(null);
+  const [uploadHandoff, setUploadHandoff] = useState(readNq3UploadResume);
+  const [showUpload, setShowUpload] = useState(uploadHandoff !== null);
+  const navigate = useNavigate();
+  const intakeOpenRef = useRef(false);
+  const uploadPendingRef = useRef(false);
   const openerRef = useRef<HTMLElement | null>(null);
 
   const openIntake = useCallback((
     entryPoint: IntakeEntryPoint,
     startingStep: IntakeStepId,
     zipPrefill = "",
+    presetValues?: IntakeOpenRequest["presetValues"],
   ) => {
+    if (intakeOpenRef.current) return;
+    intakeOpenRef.current = true;
     openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setOpenRequest({
       requestId: crypto.randomUUID(),
       entryPoint,
       startingStep,
       zipPrefill: zipPrefill || undefined,
+      presetValues,
     });
   }, []);
 
+  const handlePersistedSuccess = useCallback((
+    values: IntakeValues,
+    persisted: IntakePersistedSuccess,
+  ) => {
+    if (values.intent !== "has_quote") {
+      clearNq3UploadResume();
+      uploadPendingRef.current = false;
+      setShowUpload(false);
+      setUploadHandoff(null);
+      return;
+    }
+
+    const resume = writeNq3UploadResume({
+      leadId: persisted.leadId,
+      sessionId: persisted.sessionId,
+    });
+
+    if (!resume) {
+      clearNq3UploadResume();
+      uploadPendingRef.current = false;
+      setShowUpload(false);
+      setUploadHandoff(null);
+      return;
+    }
+
+    setUploadHandoff(resume);
+    setShowUpload(false);
+    uploadPendingRef.current = true;
+  }, []);
+
   const closeIntake = useCallback(() => {
+    intakeOpenRef.current = false;
     setOpenRequest(null);
+    if (uploadPendingRef.current) {
+      uploadPendingRef.current = false;
+      setShowUpload(true);
+    }
     window.requestAnimationFrame(() => openerRef.current?.focus());
   }, []);
 
@@ -109,6 +162,11 @@ export default function NoQuoteLanding({ onSubmitLead }: NoQuoteLandingProps) {
             onCheckArea={(event) =>
               submitZip(event, heroZip, setHeroZipError, "hero_zip")
             }
+            onHaveWrittenEstimate={() =>
+              openIntake("hero_primary", "location", "", {
+                intent: "has_quote",
+              })
+            }
           />
           <ExplainerVideoSection
             zipInputId="nq3-hero-zip"
@@ -126,6 +184,19 @@ export default function NoQuoteLanding({ onSubmitLead }: NoQuoteLandingProps) {
               submitZip(event, finalZip, setFinalZipError, "footer_zip")
             }
           />
+          <section className="relative px-5 pb-16 sm:px-8">
+            <div className="mx-auto max-w-3xl">
+              <UploadZone
+                isVisible={showUpload}
+                sessionId={uploadHandoff?.sessionId}
+                leadId={uploadHandoff?.leadId ?? null}
+                onScanStart={(_fileName, scanSessionId) => {
+                  clearNq3UploadResume();
+                  navigate(`/report/classic/${scanSessionId}`);
+                }}
+              />
+            </div>
+          </section>
         </main>
         <Footer />
         <UniversalIntakeHost
@@ -134,6 +205,7 @@ export default function NoQuoteLanding({ onSubmitLead }: NoQuoteLandingProps) {
           submitter={onSubmitLead ?? persistLead}
           skin={Nq3IntakeSkin}
           onClose={closeIntake}
+          onPersistedSuccess={handlePersistedSuccess}
         />
       </div>
     </>
