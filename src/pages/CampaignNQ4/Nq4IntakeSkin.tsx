@@ -111,6 +111,7 @@ export default function Nq4IntakeSkin({
   };
 
   const fieldError = validationError?.message ?? "";
+  const hasQuoteInHand = values.intent === "has_quote";
 
   return (
     <div
@@ -176,7 +177,7 @@ export default function Nq4IntakeSkin({
         <div className="nq4-intake-body">
           {step === "location" ? (
             <form onSubmit={continueToNextStep} noValidate>
-              <p className="nq4-intake-kicker">Step 1</p>
+              <p className="nq4-intake-kicker">{`Step ${stepNumber}`}</p>
               <h2 id="nq4-intake-title" ref={headingRef} tabIndex={-1}>
                 Where is the project?
               </h2>
@@ -222,7 +223,7 @@ export default function Nq4IntakeSkin({
 
           {step === "product" ? (
             <div>
-              <p className="nq4-intake-kicker">Step 2</p>
+              <p className="nq4-intake-kicker">{`Step ${stepNumber}`}</p>
               <h2 id="nq4-intake-title" ref={headingRef} tabIndex={-1}>
                 What are you replacing?
               </h2>
@@ -279,7 +280,7 @@ export default function Nq4IntakeSkin({
 
           {step === "openings" ? (
             <div>
-              <p className="nq4-intake-kicker">Step 3</p>
+              <p className="nq4-intake-kicker">{`Step ${stepNumber}`}</p>
               <h2 id="nq4-intake-title" ref={headingRef} tabIndex={-1}>
                 Roughly how many openings?
               </h2>
@@ -335,7 +336,7 @@ export default function Nq4IntakeSkin({
 
           {step === "timing" ? (
             <div>
-              <p className="nq4-intake-kicker">Step 4</p>
+              <p className="nq4-intake-kicker">{`Step ${stepNumber}`}</p>
               <h2 id="nq4-intake-title" ref={headingRef} tabIndex={-1}>
                 When are you hoping to start?
               </h2>
@@ -391,12 +392,16 @@ export default function Nq4IntakeSkin({
 
           {step === "contact" ? (
             <form onSubmit={submitLead} noValidate>
-              <p className="nq4-intake-kicker">Step 5</p>
+              <p className="nq4-intake-kicker">{`Step ${stepNumber}`}</p>
               <h2 id="nq4-intake-title" ref={headingRef} tabIndex={-1}>
-                Save your project request
+                {hasQuoteInHand
+                  ? "Your estimate is next."
+                  : "Save your project request"}
               </h2>
               <p id="nq4-intake-description">
-                Add your details so WindowMan can follow up about this request.
+                {hasQuoteInHand
+                  ? "Add your contact details, then upload your written estimate on this page."
+                  : "Add your details so WindowMan can follow up about this request."}
               </p>
               <ul
                 className="nq4-intake-trust"
@@ -493,7 +498,13 @@ export default function Nq4IntakeSkin({
                 type="submit"
                 disabled={isSubmitting}
               >
-                {isSubmitting ? "Saving…" : "Save My Project Request"}
+                {isSubmitting
+                  ? hasQuoteInHand
+                    ? "Submitting…"
+                    : "Saving…"
+                  : hasQuoteInHand
+                    ? "Continue to Upload"
+                    : "Save My Project Request"}
               </button>
               <button
                 className="nq4-intake-back"
@@ -518,17 +529,19 @@ export default function Nq4IntakeSkin({
                 ✓
               </div>
               <h2 id="nq4-intake-title" ref={headingRef} tabIndex={-1}>
-                Project request received
+                {hasQuoteInHand ? "Ready to upload." : "Project request received"}
               </h2>
               <p id="nq4-intake-description">
-                Your request was saved for WindowMan follow-up.
+                {hasQuoteInHand
+                  ? "Your details are saved. Upload your written estimate to start the check."
+                  : "Your request was saved for WindowMan follow-up."}
               </p>
               <button
                 className="nq4-intake-primary"
                 type="button"
                 onClick={onClose}
               >
-                Close
+                {hasQuoteInHand ? "Upload My Estimate" : "Close"}
               </button>
             </div>
           ) : null}

@@ -1,6 +1,5 @@
 import { Fragment, useState, type FormEvent, type ReactNode } from "react";
 import { ExplainerVideoSection } from "@/components/landing/ExplainerVideoFacade";
-import { buildCanonicalTruthGateHandoffUrl } from "@/components/landing/landingHandoff";
 import { useCampaignNqIllumination } from "../CampaignNQ/useCampaignNqIllumination";
 import type {
   IntakeEntryPoint,
@@ -28,6 +27,7 @@ export interface CampaignNq4LandingProps {
     startingStep: Nq4StartingStep,
     zipPrefill?: string,
   ) => void;
+  readonly onHaveWrittenEstimate: () => void;
   readonly success?: Nq4SuccessSummary | null;
   readonly intakeSlot?: ReactNode;
 }
@@ -251,6 +251,7 @@ function Nq4SuccessView({ firstName }: Nq4SuccessSummary) {
 
 export function CampaignNq4Landing({
   onStartIntake,
+  onHaveWrittenEstimate,
   success = null,
   intakeSlot = null,
 }: CampaignNq4LandingProps) {
@@ -361,13 +362,14 @@ export function CampaignNq4Landing({
                   ) : null}
                 </form>
                 <p className="nq4-support">{SUPPORT_LINE}</p>
-                <a
+                <button
+                  type="button"
                   className="nq4-escape-hatch"
-                  href={buildCanonicalTruthGateHandoffUrl("has_quote")}
+                  onClick={onHaveWrittenEstimate}
                   data-testid="nq4-escape-hatch"
                 >
                   {ESCAPE_HATCH_LABEL}
-                </a>
+                </button>
               </div>
 
               <MechanismGraphic />

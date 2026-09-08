@@ -18,9 +18,39 @@ import {
   NQ4_STYLE_ELEMENT_ID,
 } from "./scopeNq4Css";
 
-const { defaultSubmitterMock } = vi.hoisted(() => ({
+const {
+  defaultSubmitterMock,
+  navigateMock,
+  setFunnelLeadIdMock,
+  setFunnelPhoneMock,
+  setFunnelQuoteFileIdMock,
+  setFunnelScanSessionIdMock,
+  setFunnelSessionIdMock,
+  uploadZonePropsMock,
+} = vi.hoisted(() => ({
   defaultSubmitterMock: vi.fn(),
+  navigateMock: vi.fn(),
+  setFunnelLeadIdMock: vi.fn(),
+  setFunnelPhoneMock: vi.fn(),
+  setFunnelQuoteFileIdMock: vi.fn(),
+  setFunnelScanSessionIdMock: vi.fn(),
+  setFunnelSessionIdMock: vi.fn(),
+  uploadZonePropsMock: vi.fn(),
 }));
+
+const LEAD_ID = "11111111-1111-4111-8111-111111111111";
+const SESSION_ID = "22222222-2222-4222-8222-222222222222";
+const NQ4_UPLOAD_RESUME_KEY = "wm_nq4_upload_resume_v1";
+
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual<typeof import("react-router-dom")>(
+    "react-router-dom",
+  );
+  return {
+    ...actual,
+    useNavigate: () => navigateMock,
+  };
+});
 
 vi.mock("./campaignNq4LeadCapture", () => ({
   createCampaignNq4LeadSubmitter: () => defaultSubmitterMock,
@@ -36,6 +66,27 @@ vi.mock("@/components/consentBanner", () => ({
 
 vi.mock("@/state/scanFunnel", () => ({
   ScanFunnelProvider: ({ children }: { children: ReactNode }) => children,
+  useScanFunnelSafe: () => ({
+    setLeadId: setFunnelLeadIdMock,
+    setPhone: setFunnelPhoneMock,
+    setQuoteFileId: setFunnelQuoteFileIdMock,
+    setScanSessionId: setFunnelScanSessionIdMock,
+    setSessionId: setFunnelSessionIdMock,
+  }),
+}));
+
+vi.mock("@/components/UploadZone", () => ({
+  default: (props: Record<string, unknown>) => {
+    uploadZonePropsMock(props);
+    return (
+      <div
+        data-testid="nq4-upload-zone"
+        data-visible={props.isVisible ? "yes" : "no"}
+        data-session-id={String(props.sessionId ?? "")}
+        data-lead-id={String(props.leadId ?? "")}
+      />
+    );
+  },
 }));
 
 vi.mock("@/pages/Index", () => ({
@@ -70,6 +121,16 @@ function advanceToContact() {
   return dialog;
 }
 
+function advanceHasQuoteToContact() {
+  fireEvent.click(screen.getByTestId("nq4-escape-hatch"));
+  const dialog = screen.getByRole("dialog");
+  fireEvent.change(within(dialog).getByLabelText("Florida project ZIP code"), {
+    target: { value: "33301" },
+  });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Continue" }));
+  return dialog;
+}
+
 function fillContact(dialog: HTMLElement) {
   fireEvent.change(within(dialog).getByLabelText("First name"), {
     target: { value: " Maria " },
@@ -80,6 +141,11 @@ function fillContact(dialog: HTMLElement) {
   fireEvent.change(within(dialog).getByLabelText("Mobile number"), {
     target: { value: "3055550142" },
   });
+}
+
+function fillContactAndSubmit(dialog: HTMLElement, buttonName: string) {
+  fillContact(dialog);
+  fireEvent.click(within(dialog).getByRole("button", { name: buttonName }));
 }
 
 describe("CampaignNq4Landing", () => {
@@ -183,8 +249,10 @@ describe("CampaignNq4Landing", () => {
   });
 
   beforeEach(() => {
-    defaultSubmitterMock.mockReset();
+    vi.clearAllMocks();
+    window.sessionStorage.clear();
     window.history.replaceState({}, "", "/nq4");
+    delete (window as Window & { dataLayer?: unknown[] }).dataLayer;
     __resetNq4DocumentStateForTests();
   });
 
@@ -264,18 +332,367 @@ describe("CampaignNq4Landing", () => {
     ).toBeInTheDocument();
   });
 
-  it("offers an untracked canonical has_quote escape hatch", () => {
+  it("opens the written-estimate handoff as a button without changing /nq4 or its query", () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/nq4?utm_source=partner&gclid=test-click",
+    );
     renderPage();
     const escapeHatch = screen.getByTestId("nq4-escape-hatch");
 
-    expect(escapeHatch.tagName).toBe("A");
+    expect(escapeHatch.tagName).toBe("BUTTON");
+    expect(escapeHatch).toHaveAttribute("type", "button");
+    expect(escapeHatch).not.toHaveAttribute("href");
     expect(escapeHatch).toHaveTextContent(
       "Already have a written estimate? Upload it for an AI check",
     );
-    const href = escapeHatch.getAttribute("href") ?? "";
-    expect(href).toContain("wm_intent=has_quote");
-    expect(href).toContain("#truth-gate");
-    expect(href.startsWith("/?")).toBe(true);
+
+    fireEvent.click(escapeHatch);
+
+    expect(window.location.pathname).toBe("/nq4");
+    expect(window.location.search).toBe(
+      "?utm_source=partner&gclid=test-click",
+    );
+    expect(
+      within(screen.getByRole("dialog")).getByRole("heading", {
+        name: "Where is the project?",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("starts has_quote at location, skips project questions, and preserves hero attribution", async () => {
+    const submitter = vi.fn().mockResolvedValue({
+      ok: true,
+      leadId: LEAD_ID,
+      sessionId: SESSION_ID,
+      reused: false,
+    });
+    renderPage(submitter);
+    fireEvent.click(screen.getByTestId("nq4-escape-hatch"));
+    const dialog = screen.getByRole("dialog");
+
+    expect(
+      within(dialog).getByRole("progressbar", { name: "Step 1 of 2" }),
+    ).toHaveAttribute("aria-valuenow", "1");
+    fireEvent.change(within(dialog).getByLabelText("Florida project ZIP code"), {
+      target: { value: "33301" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Continue" }));
+
+    expect(
+      within(dialog).getByRole("heading", { name: "Your estimate is next." }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        "Add your contact details, then upload your written estimate on this page.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: "Continue to Upload" }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole("heading", { name: "What are you replacing?" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole("heading", { name: "Roughly how many openings?" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole("heading", { name: "When are you hoping to start?" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("progressbar", { name: "Step 2 of 2" }),
+    ).toHaveAttribute("aria-valuenow", "2");
+    expect(within(dialog).getByText("Step 2")).toBeInTheDocument();
+
+    fillContactAndSubmit(dialog, "Continue to Upload");
+
+    await waitFor(() =>
+      expect(submitter).toHaveBeenCalledWith(
+        {
+          intent: "has_quote",
+          zip: "33301",
+          projectType: "",
+          openings: "",
+          name: "Maria",
+          email: "maria@example.com",
+          phone: "+13055550142",
+        },
+        expect.objectContaining({
+          captureAttemptId: expect.any(String),
+          landingVisitId: expect.any(String),
+          entryPoint: "hero_primary",
+        }),
+      ),
+    );
+  });
+
+  it("deduplicates rapid written-estimate activations until the intake closes", async () => {
+    renderPage();
+    const opener = screen.getByTestId("nq4-escape-hatch");
+
+    fireEvent.click(opener);
+    fireEvent.click(opener);
+
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+
+    fireEvent.click(opener);
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+  });
+
+  it("keeps the uploader hidden through failure and success, then reveals exact persisted IDs after focus restoration", async () => {
+    const submitter = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, message: "Try again." })
+      .mockResolvedValueOnce({
+        ok: true,
+        leadId: LEAD_ID,
+        sessionId: SESSION_ID,
+        reused: false,
+      });
+    renderPage(submitter);
+    const opener = screen.getByTestId("nq4-escape-hatch");
+    opener.focus();
+    const focusSpy = vi.spyOn(opener, "focus");
+    const dialog = advanceHasQuoteToContact();
+    const uploadSection = document.querySelector<HTMLElement>(
+      "section[data-campaign-shared-ui]",
+    );
+
+    expect(uploadSection).toHaveAttribute("hidden");
+    expect(screen.getByTestId("nq4-upload-zone")).toHaveAttribute(
+      "data-visible",
+      "no",
+    );
+    fillContactAndSubmit(dialog, "Continue to Upload");
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "Try again.",
+    );
+    expect(screen.getByTestId("nq4-upload-zone")).toHaveAttribute(
+      "data-visible",
+      "no",
+    );
+    expect(uploadSection).toHaveAttribute("hidden");
+    expect(window.sessionStorage.getItem(NQ4_UPLOAD_RESUME_KEY)).toBeNull();
+    expect(setFunnelLeadIdMock).not.toHaveBeenCalled();
+    expect(setFunnelSessionIdMock).not.toHaveBeenCalled();
+    expect(setFunnelScanSessionIdMock).not.toHaveBeenCalled();
+    expect(setFunnelQuoteFileIdMock).not.toHaveBeenCalled();
+    expect(setFunnelPhoneMock).not.toHaveBeenCalled();
+
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Continue to Upload" }),
+    );
+    expect(
+      await within(dialog).findByRole("heading", { name: "Ready to upload." }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        "Your details are saved. Upload your written estimate to start the check.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("nq4-upload-zone")).toHaveAttribute(
+      "data-visible",
+      "no",
+    );
+    expect(uploadSection).toHaveAttribute("hidden");
+    expect(
+      JSON.parse(
+        window.sessionStorage.getItem(NQ4_UPLOAD_RESUME_KEY) ?? "null",
+      ),
+    ).toMatchObject({
+      version: 1,
+      leadId: LEAD_ID,
+      sessionId: SESSION_ID,
+    });
+    expect(setFunnelLeadIdMock).toHaveBeenCalledOnce();
+    expect(setFunnelLeadIdMock).toHaveBeenCalledWith(LEAD_ID);
+    expect(setFunnelSessionIdMock).toHaveBeenCalledOnce();
+    expect(setFunnelSessionIdMock).toHaveBeenCalledWith(SESSION_ID);
+    expect(setFunnelScanSessionIdMock).toHaveBeenCalledOnce();
+    expect(setFunnelScanSessionIdMock).toHaveBeenCalledWith(null);
+    expect(setFunnelQuoteFileIdMock).toHaveBeenCalledOnce();
+    expect(setFunnelQuoteFileIdMock).toHaveBeenCalledWith(null);
+    expect(setFunnelPhoneMock).toHaveBeenCalledTimes(2);
+    expect(setFunnelPhoneMock).toHaveBeenNthCalledWith(1, "", "none");
+    expect(setFunnelPhoneMock).toHaveBeenNthCalledWith(
+      2,
+      "+13055550142",
+      "screened_valid",
+    );
+    expect(setFunnelPhoneMock.mock.invocationCallOrder[0])
+      .toBeLessThan(setFunnelLeadIdMock.mock.invocationCallOrder[0]);
+
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Upload My Estimate" }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("nq4-upload-zone")).toHaveAttribute(
+        "data-visible",
+        "yes",
+      ),
+    );
+    expect(screen.getByTestId("nq4-upload-zone")).toHaveAttribute(
+      "data-lead-id",
+      LEAD_ID,
+    );
+    expect(screen.getByTestId("nq4-upload-zone")).toHaveAttribute(
+      "data-session-id",
+      SESSION_ID,
+    );
+    expect(uploadSection).not.toHaveAttribute("hidden");
+    expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true });
+    await waitFor(() => expect(opener).toHaveFocus());
+
+    const visibleCallIndex = uploadZonePropsMock.mock.calls.findIndex(
+      ([props]) => (props as { isVisible?: boolean }).isVisible === true,
+    );
+    const focusInvocationOrder = focusSpy.mock.invocationCallOrder.at(-1);
+    const revealInvocationOrder =
+      uploadZonePropsMock.mock.invocationCallOrder[visibleCallIndex];
+    expect(visibleCallIndex).toBeGreaterThanOrEqual(0);
+    expect(focusInvocationOrder).toBeLessThan(revealInvocationOrder);
+  });
+
+  it("keeps the upload section hidden when intake is cancelled and cancels pending focus work on unmount", () => {
+    const { unmount } = renderPage();
+    fireEvent.click(screen.getByTestId("nq4-escape-hatch"));
+    const dialog = screen.getByRole("dialog");
+    const requestAnimationFrameSpy = vi
+      .spyOn(window, "requestAnimationFrame")
+      .mockReturnValue(917);
+    const cancelAnimationFrameSpy = vi
+      .spyOn(window, "cancelAnimationFrame")
+      .mockImplementation(() => undefined);
+
+    fireEvent.keyDown(dialog, { key: "Escape" });
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(document.querySelector("section[data-campaign-shared-ui]"))
+      .toHaveAttribute("hidden");
+    expect(screen.getByTestId("nq4-upload-zone")).toHaveAttribute(
+      "data-visible",
+      "no",
+    );
+    unmount();
+    expect(cancelAnimationFrameSpy).toHaveBeenCalledWith(917);
+
+    requestAnimationFrameSpy.mockRestore();
+    cancelAnimationFrameSpy.mockRestore();
+  });
+
+  it("restores only a valid, unexpired NQ4 upload handoff on remount", async () => {
+    window.sessionStorage.setItem(
+      NQ4_UPLOAD_RESUME_KEY,
+      JSON.stringify({
+        version: 1,
+        leadId: LEAD_ID,
+        sessionId: SESSION_ID,
+        expiresAt: Date.now() + 60_000,
+      }),
+    );
+    const firstRender = renderPage();
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByTestId("nq4-upload-zone")).toHaveAttribute(
+      "data-visible",
+      "yes",
+    );
+    expect(screen.getByTestId("nq4-upload-zone")).toHaveAttribute(
+      "data-lead-id",
+      LEAD_ID,
+    );
+    expect(screen.getByTestId("nq4-upload-zone")).toHaveAttribute(
+      "data-session-id",
+      SESSION_ID,
+    );
+    await waitFor(() => {
+      expect(setFunnelLeadIdMock).toHaveBeenCalledWith(LEAD_ID);
+      expect(setFunnelSessionIdMock).toHaveBeenCalledWith(SESSION_ID);
+      expect(setFunnelScanSessionIdMock).toHaveBeenCalledWith(null);
+      expect(setFunnelQuoteFileIdMock).toHaveBeenCalledWith(null);
+    });
+    expect(setFunnelPhoneMock).toHaveBeenCalledOnce();
+    expect(setFunnelPhoneMock).toHaveBeenCalledWith("", "none");
+    expect(setFunnelPhoneMock.mock.invocationCallOrder[0])
+      .toBeLessThan(setFunnelLeadIdMock.mock.invocationCallOrder[0]);
+    firstRender.unmount();
+
+    window.sessionStorage.setItem(
+      NQ4_UPLOAD_RESUME_KEY,
+      JSON.stringify({
+        version: 1,
+        leadId: LEAD_ID,
+        sessionId: SESSION_ID,
+        expiresAt: Date.now() - 1,
+      }),
+    );
+    renderPage();
+
+    expect(screen.getByTestId("nq4-upload-zone")).toHaveAttribute(
+      "data-visible",
+      "no",
+    );
+    expect(window.sessionStorage.getItem(NQ4_UPLOAD_RESUME_KEY)).toBeNull();
+  });
+
+  it("clears the resume hint and navigates to the fresh classic report on scan start", () => {
+    window.sessionStorage.setItem(
+      NQ4_UPLOAD_RESUME_KEY,
+      JSON.stringify({
+        version: 1,
+        leadId: LEAD_ID,
+        sessionId: SESSION_ID,
+        expiresAt: Date.now() + 60_000,
+      }),
+    );
+    renderPage();
+    const uploadProps = uploadZonePropsMock.mock.calls.at(-1)?.[0] as {
+      onScanStart?: (fileName: string, scanSessionId: string) => void;
+    };
+
+    uploadProps.onScanStart?.(
+      "private-estimate.pdf",
+      "33333333-3333-4333-8333-333333333333",
+    );
+
+    expect(window.sessionStorage.getItem(NQ4_UPLOAD_RESUME_KEY)).toBeNull();
+    expect(navigateMock).toHaveBeenCalledWith(
+      "/report/classic/33333333-3333-4333-8333-333333333333",
+      { state: { freshScan: true } },
+    );
+  });
+
+  it("does not add contact PII to dataLayer during the upload handoff", async () => {
+    const dataLayer = [{ event: "existing-marker" }];
+    Object.assign(window, { dataLayer });
+    const submitter = vi.fn().mockResolvedValue({
+      ok: true,
+      leadId: LEAD_ID,
+      sessionId: SESSION_ID,
+      reused: false,
+    });
+    renderPage(submitter);
+    const dialog = advanceHasQuoteToContact();
+
+    fillContactAndSubmit(dialog, "Continue to Upload");
+    expect(
+      await within(dialog).findByRole("heading", { name: "Ready to upload." }),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Upload My Estimate" }),
+    );
+
+    expect(dataLayer).toEqual([{ event: "existing-marker" }]);
+    expect(JSON.stringify(dataLayer)).not.toMatch(
+      /Maria|maria@example\.com|3055550142|\+13055550142/,
+    );
   });
 
   it.each(["", "12345"])(
