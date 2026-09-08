@@ -2,7 +2,8 @@
  * ReportClassic — Smart Container for the Classic Truth Report route.
  * Route: /report/classic/:sessionId
  *
- * This is the ONLY layer that touches Twilio / usePhonePipeline for the Classic flow.
+ * This route owns the Classic flow gate/reveal UX and may delegate Twilio / usePhonePipeline
+ * work to subcomponents such as ScanTheatrics.
  * Dark forensic V3 is the only report renderer on this route.
  *
  * Data source: useAnalysisData (existing hook, fetches via get_analysis_preview RPC)
@@ -12,14 +13,16 @@
  */
 
 import { useState, useCallback, useEffect, useRef, type ReactNode } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAnalysisData } from "@/hooks/useAnalysisData";
 import { usePhonePipeline } from "@/hooks/usePhonePipeline";
 import { useReportAccess } from "@/hooks/useReportAccess";
 import { useScanFunnelSafe } from "@/state/scanFunnel";
 import { isValidScanSessionId } from "@/lib/routeIdGuards";
+import { maskPhone } from "@/utils/formatPhone";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import ScanTheatrics from "@/components/ScanTheatrics";
 import ReportClassicDarkV2Full from "@/components/forensic-report/ReportClassicDarkV2Full";
 import ReportClassicDarkV2Partial from "@/components/forensic-report/ReportClassicDarkV2Partial";
 import DarkV2ReportRecoveryPanel from "@/components/forensic-report/DarkV2ReportRecoveryPanel";
@@ -38,6 +41,10 @@ const PIPELINE_TO_OUTCOME: Record<string, OtpVerifyOutcome> = {
 };
 
 const LOST_SCAN_SESSION_MESSAGE = "We lost the scan session. Please restart the scan.";
+
+type ReportClassicNavigationState = {
+  freshScan?: unknown;
+};
 
 // ── GateMode derivation ─────────────────────────────────────────────────────
 function deriveGateMode(
@@ -108,7 +115,21 @@ function useCountyForSession(sessionId: string | undefined): string {
 export default function ReportClassic() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const sessionIdValid = isValidScanSessionId(sessionId);
+  const freshScanRequested =
+    (location.state as ReportClassicNavigationState | null)?.freshScan === true;
+  const [completedFreshScanSessionId, setCompletedFreshScanSessionId] =
+    useState<string | null>(null);
+
+  const handleFreshScanRevealComplete = useCallback(() => {
+    if (!sessionId || !sessionIdValid) return;
+    setCompletedFreshScanSessionId(sessionId);
+    navigate(`/report/classic/${sessionId}`, {
+      replace: true,
+      state: {},
+    });
+  }, [navigate, sessionId, sessionIdValid]);
 
   // ── Funnel context (safe — null when outside provider) ─────────────────
   const funnel = useScanFunnelSafe();
@@ -255,6 +276,12 @@ export default function ReportClassic() {
       funnel?.setPhone(result.e164, "otp_sent");
     }
   }, [pipeline, funnel, requireValidReportSession]);
+
+  const handleChangePhone = useCallback(() => {
+    pipeline.reset();
+    setOtpValue("");
+    funnel?.setPhone("", "none");
+  }, [pipeline, funnel]);
 
   const handleResend = useCallback(async () => {
     if (!requireValidReportSession()) return;
@@ -585,6 +612,8 @@ export default function ReportClassic() {
     onPhoneSubmit: handlePhoneSubmit,
     tcpaConsent,
     onTcpaChange: setTcpaConsent,
+    maskedPhone: phoneE164 ? maskPhone(phoneE164) : undefined,
+    onChangePhone: handleChangePhone,
     isLoading: pipeline.phoneStatus === "sending_otp" || pipeline.phoneStatus === "verifying" || isLoadingFull,
     errorMsg: pipeline.errorMsg || fullFetchError || "",
     errorType: pipeline.errorType ?? undefined,
@@ -625,6 +654,11 @@ export default function ReportClassic() {
     !isTerminalNonPreview &&
     !isTerminalShellGrade;
 
+  const showFreshScanTheatrics =
+    freshScanRequested &&
+    completedFreshScanSessionId !== sessionId &&
+    showDarkV2Partial;
+
   if (showDarkV2Full) {
     return (
       <ReportClassicDarkV2Full
@@ -633,6 +667,19 @@ export default function ReportClassic() {
         county={county}
         scanSessionId={sessionId}
         onDiagnosisCta={handleRevealDiagnosisCta}
+      />
+    );
+  }
+
+  if (showFreshScanTheatrics) {
+    return (
+      <ScanTheatrics
+        isActive
+        selectedCounty={county}
+        scanSessionId={sessionId}
+        grade={analysisData.grade}
+        analysisData={null}
+        onRevealComplete={handleFreshScanRevealComplete}
       />
     );
   }

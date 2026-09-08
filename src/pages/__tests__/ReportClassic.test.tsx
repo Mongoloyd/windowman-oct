@@ -30,6 +30,7 @@ const {
   navigateSpy,
   trackGtmEventMock,
   saveReportDiagnosisHandoffMock,
+  scanTheatricsPropsSpy,
 } = vi.hoisted(() => ({
   mockUseAnalysisData: vi.fn(),
   mockUseReportAccess: vi.fn(),
@@ -38,6 +39,7 @@ const {
   navigateSpy: vi.fn(),
   trackGtmEventMock: vi.fn(),
   saveReportDiagnosisHandoffMock: vi.fn(),
+  scanTheatricsPropsSpy: vi.fn(),
 }));
 
 vi.mock("@/hooks/useAnalysisData", () => ({
@@ -125,6 +127,30 @@ vi.mock("@/components/forensic-report/DarkV2ReportRecoveryPanel", () => ({
   ),
 }));
 
+vi.mock("@/components/ScanTheatrics", () => ({
+  default: (props: {
+    grade?: string;
+    analysisData?: unknown;
+    onRevealComplete?: () => void;
+  }) => {
+    scanTheatricsPropsSpy(props);
+    return (
+      <div>
+        <div data-testid="scan-theatrics">scan-theatrics</div>
+        <div data-testid="scan-theatrics-grade">{props.grade ?? ""}</div>
+        <div data-testid="scan-theatrics-analysis">
+          {props.analysisData == null ? "null" : "present"}
+        </div>
+        {props.onRevealComplete ? (
+          <button type="button" onClick={props.onRevealComplete}>
+            theatrics-complete
+          </button>
+        ) : null}
+      </div>
+    );
+  },
+}));
+
 function baseAnalysisReturn(overrides: Record<string, unknown> = {}) {
   return {
     data: MOCK_ANALYSIS_DATA,
@@ -159,9 +185,16 @@ function basePipeline(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function renderReportClassic() {
+function renderReportClassic(
+  initialEntry:
+    | string
+    | {
+        pathname: string;
+        state?: unknown;
+      } = `/report/classic/${VALID_SCAN_SESSION_ID}`,
+) {
   return render(
-    <MemoryRouter initialEntries={[`/report/classic/${VALID_SCAN_SESSION_ID}`]}>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <Routes>
         <Route path="/report/classic/:sessionId" element={<ReportClassic />} />
       </Routes>
@@ -226,5 +259,32 @@ describe("ReportClassic full reveal diagnosis CTA", () => {
       "wm_report_to_diagnosis_click",
       expect.objectContaining({ cta_source: "report_reveal_bridge" }),
     );
+  });
+});
+
+describe("ReportClassic fresh scan preview gate", () => {
+  it("does not pass protected analysis data into ScanTheatrics before verification", () => {
+    mockUseAnalysisData.mockReturnValue(
+      baseAnalysisReturn({
+        isFullLoaded: false,
+      }),
+    );
+    mockUseReportAccess.mockReturnValue("preview");
+
+    renderReportClassic({
+      pathname: `/report/classic/${VALID_SCAN_SESSION_ID}`,
+      state: { freshScan: true },
+    });
+
+    expect(screen.getByTestId("scan-theatrics")).toBeInTheDocument();
+    expect(screen.getByTestId("scan-theatrics-grade")).toHaveTextContent(MOCK_ANALYSIS_DATA.grade);
+    expect(screen.getByTestId("scan-theatrics-analysis")).toHaveTextContent("null");
+    expect(scanTheatricsPropsSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        grade: MOCK_ANALYSIS_DATA.grade,
+        analysisData: null,
+      }),
+    );
+    expect(screen.queryByTestId("partial-report")).not.toBeInTheDocument();
   });
 });
