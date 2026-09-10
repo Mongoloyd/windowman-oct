@@ -1,0 +1,45 @@
+name: Quote Education Preview Preflight
+
+# Credential-free and write-free: waits for the Netlify preview routes, then
+# checks only the Edge Function OPTIONS/CORS contract. It never creates a lead.
+
+on:
+  pull_request:
+    branches: [forensic_report_v2]
+    paths:
+      - "src/components/synthetic-demo/**"
+      - "src/lib/captureQuoteEducationDemoLead*"
+      - "src/pages/CampaignNQ3/**"
+      - "src/pages/CampaignNQ4/**"
+      - "supabase/functions/capture-quote-education-demo-lead/**"
+      - "supabase/functions/_shared/consentCapture.ts"
+      - "supabase/functions/_shared/emitLeadActivity.ts"
+      - "supabase/migrations/20260910063126_add_quote_education_demo_activity_event.sql"
+      - "scripts/qa/check-quote-education-preflight.mjs"
+      - ".github/workflows/quote-education-preflight.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    name: NQ3/NQ4 preview and Edge Function preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    env:
+      PREVIEW_BASE_URL: https://deploy-preview-${{ github.event.pull_request.number }}--windowman.netlify.app
+      FUNCTION_URL: https://zgsofkgddpcntdvpckdq.supabase.co/functions/v1/capture-quote-education-demo-lead
+      MAX_ATTEMPTS: "24"
+      RETRY_DELAY_MS: "10000"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Verify preview routes and quote education CORS
+        run: node scripts/qa/check-quote-education-preflight.mjs

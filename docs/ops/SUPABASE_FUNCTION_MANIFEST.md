@@ -8,7 +8,7 @@
 
 ## 1. Executive Summary
 
-The 2026-06 snapshot inventoried **56 Edge Functions** under `supabase/functions/` (excluding `_shared/` helpers). The 2026-09 `quote-education-capture` sprint adds the repository-only `capture-quote-education-demo-lead` sibling with a matching `verify_jwt = false` config entry; it is intentionally **NOT_DEPLOYED**. Historical inventory totals and unrelated gaps, including `ingest-native-lead`, were not re-audited or repaired in this bounded sprint.
+The 2026-06 snapshot inventoried **56 Edge Functions** under `supabase/functions/` (excluding `_shared/` helpers). The 2026-09 `quote-education-capture` sprint adds `capture-quote-education-demo-lead` with a matching `verify_jwt = false` config entry. It was deployed ACTIVE v1 to `zgsofkgddpcntdvpckdq` on 2026-09-10 after migration `20260910063126`; the separate production inventory and unrelated gaps, including `ingest-native-lead`, were not re-audited or repaired in this bounded recovery.
 
 That means the Supabase API gateway does **not** enforce JWT validation at the edge. Security relies entirely on **in-function auth** (adminAuth, contractor JWT checks, phone-verification RPC gates, cron/webhook secrets, or dev bypass flags). Any caller holding the public anon/publishable key can reach every function URL; only handler logic restricts abuse.
 
@@ -130,7 +130,7 @@ supabase functions list --project-ref wkrcyxcnzhwjtdpmfpaf
 | `calculate-estimate-metrics` | YES | YES | NOT_DEPLOYED | UNKNOWN | UNKNOWN | ACTIVE | 280 | 2026-05-26 13:58:17 | MISSING_ON_STAGING | Standalone deploy; logic also inlined in scan-quote |
 | `capi-event` | YES | YES | ACTIVE | 1 | 2026-06-05 23:34:25 | ACTIVE | 338 | 2026-05-26 13:58:17 | PARITY_OK; VERSION_DIVERGENCE; DATE_DIVERGENCE | Meta CAPI server bridge — deployed on V2 2026-06-05 |
 | `capture-power-tool-demo-lead` | YES | YES | ACTIVE | 1 | 2026-06-11 02:14:31 | NOT_DEPLOYED | UNKNOWN | UNKNOWN | MISSING_ON_PRODUCTION | PowerToolDemo progressive lead capture; `source=power-tool-demo`; never sets `phone_verified` / report unlock |
-| `capture-quote-education-demo-lead` | YES | YES | NOT_DEPLOYED | UNKNOWN | UNKNOWN | NOT_DEPLOYED | UNKNOWN | UNKNOWN | REPO_ONLY | SyntheticDemo progressive capture; `source=quote-education-demo`; deployment intentionally deferred |
+| `capture-quote-education-demo-lead` | YES | YES | ACTIVE | 1 | 2026-09-10 11:11:52 | NOT_DEPLOYED | UNKNOWN | UNKNOWN | MISSING_ON_PRODUCTION | SyntheticDemo progressive capture; `source=quote-education-demo`; CORS and NQ3/NQ4 handoff smoke verified on staging |
 | `capture-truth-gate-lead` | YES | YES | ACTIVE | 22 | 2026-05-17 04:52:05 | ACTIVE | 44 | 2026-05-26 13:58:17 | PARITY_OK; VERSION_DIVERGENCE; DATE_DIVERGENCE | TruthGate lead capture |
 | `compare-quotes` | YES | YES | ACTIVE | 18 | 2026-05-19 04:53:20 | ACTIVE | 204 | 2026-05-26 13:58:17 | PARITY_OK; VERSION_DIVERGENCE; DATE_DIVERGENCE | |
 | `contractor-actions` | YES | YES | ACTIVE | 17 | 2026-05-19 07:46:27 | ACTIVE | 313 | 2026-05-26 13:58:17 | PARITY_OK; VERSION_DIVERGENCE; DATE_DIVERGENCE | |
@@ -578,7 +578,7 @@ Each entry: **Purpose · Category · verify_jwt · Auth · Env vars · Service r
 - **Source discriminator:** `quote-education-demo`; server-owned variant, host-page, entry-point, and fixture metadata are stored in existing JSON fields.
 - **Forbidden writes:** OTP fields, `phone_verified*`, `report_unlocked_at`, scan/analysis/quote fields, external tracking/CAPI
 - **Rate limit:** temporarily matches the classic public demo endpoint (no custom limiter); shared limiter tracked as a P1 follow-up.
-- **Deploy:** **NOT_DEPLOYED** — repository-only in this sprint.
+- **Deploy (staging):** ACTIVE v1 @ 2026-09-10 11:11:52 UTC on `zgsofkgddpcntdvpckdq`; CORS `OPTIONS`, NQ3/NQ4 create + handoff, consent, and activity persistence smoke verified.
 
 ### `capture-arbitrage-lead`
 - **Purpose:** Public homeowner ArbitrageEngine progressive lead capture (About-page arbitrage funnel).
