@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import UploadZone from "@/components/UploadZone";
+import type {
+  IntakeIntentChoice,
+  IntakePersistedSuccessHandler,
+} from "@/components/intake/universal/intakeTypes";
+import { useScanFunnelSafe } from "@/state/scanFunnel";
 import type { LandingIntent } from "./landingTypes";
 import LandingHeader from "./LandingHeader";
 import HeroSection from "./HeroSection";
@@ -16,13 +23,30 @@ import LandingFooter from "./LandingFooter";
 import LandingStickyCta from "./LandingStickyCta";
 import FirstQuoteIntakeModal from "./FirstQuoteIntakeModal";
 import { FIRST_QUOTE_INTAKE_EVENT } from "./landingHandoff";
+import { WINDOWMAN_ANALYZE_QUOTE_EVENT } from "./landingTracking";
+import {
+  clearWindowmanUploadResume,
+  readWindowmanUploadResume,
+  type WindowmanUploadResume,
+  writeWindowmanUploadResume,
+} from "./windowmanUploadResume";
 
 export default function WindowManLandingPage() {
+  const navigate = useNavigate();
+  const funnel = useScanFunnelSafe();
   const [selectedIntent, setSelectedIntent] = useState<LandingIntent>(null);
   const [expandedEducationModules, setExpandedEducationModules] = useState<string[]>([]);
   const [expandedFaqItems, setExpandedFaqItems] = useState<string[]>([]);
   const [stickyCtaVisible, setStickyCtaVisible] = useState(false);
   const [firstQuoteIntakeOpen, setFirstQuoteIntakeOpen] = useState(false);
+  const [intakeIntent, setIntakeIntent] = useState<IntakeIntentChoice>("no_quote");
+  const [uploadHandoff, setUploadHandoff] = useState(readWindowmanUploadResume);
+  const [showUpload, setShowUpload] = useState(uploadHandoff !== null);
+  const intakeOpenRef = useRef(false);
+  const uploadPendingRef = useRef(false);
+  const openerRef = useRef<HTMLElement | null>(null);
+  const focusFrameRef = useRef<number | null>(null);
+  const hydratedHandoffRef = useRef<string | null>(null);
 
   const toggleEducationModule = useCallback((moduleId: string) => {
     setExpandedEducationModules((prev) =>
@@ -36,11 +60,111 @@ export default function WindowManLandingPage() {
     );
   }, []);
 
+  const hydrateFunnelIdentity = useCallback((handoff: WindowmanUploadResume) => {
+    if (!funnel) return;
+
+    const identityKey = `${handoff.leadId}:${handoff.sessionId}`;
+    if (hydratedHandoffRef.current === identityKey) return;
+    hydratedHandoffRef.current = identityKey;
+
+    funnel.setPhone("", "none");
+    funnel.setLeadId(handoff.leadId);
+    funnel.setSessionId(handoff.sessionId);
+    funnel.setScanSessionId(null);
+    funnel.setQuoteFileId(null);
+  }, [funnel]);
+
   useEffect(() => {
-    const openIntake = () => setFirstQuoteIntakeOpen(true);
-    window.addEventListener(FIRST_QUOTE_INTAKE_EVENT, openIntake);
-    return () => window.removeEventListener(FIRST_QUOTE_INTAKE_EVENT, openIntake);
+    if (uploadHandoff) hydrateFunnelIdentity(uploadHandoff);
+  }, [hydrateFunnelIdentity, uploadHandoff]);
+
+  useEffect(() => () => {
+    if (focusFrameRef.current !== null) {
+      window.cancelAnimationFrame(focusFrameRef.current);
+    }
   }, []);
+
+  useEffect(() => {
+    const openIntake = (intent: IntakeIntentChoice) => {
+      setIntakeIntent(intent);
+      if (intakeOpenRef.current) return;
+
+      intakeOpenRef.current = true;
+      uploadPendingRef.current = false;
+      openerRef.current =
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null;
+      setFirstQuoteIntakeOpen(true);
+    };
+    const openFirstQuoteIntake = () => openIntake("no_quote");
+    const openAnalyzeQuoteIntake = (event: Event) => {
+      event.preventDefault();
+      openIntake("has_quote");
+    };
+
+    window.addEventListener(FIRST_QUOTE_INTAKE_EVENT, openFirstQuoteIntake);
+    window.addEventListener(WINDOWMAN_ANALYZE_QUOTE_EVENT, openAnalyzeQuoteIntake);
+    return () => {
+      window.removeEventListener(FIRST_QUOTE_INTAKE_EVENT, openFirstQuoteIntake);
+      window.removeEventListener(WINDOWMAN_ANALYZE_QUOTE_EVENT, openAnalyzeQuoteIntake);
+    };
+  }, []);
+
+  const handlePersistedSuccess = useCallback<IntakePersistedSuccessHandler>((
+    values,
+    persisted,
+  ) => {
+    if (values.intent !== "has_quote") return;
+
+    const resume = writeWindowmanUploadResume({
+      leadId: persisted.leadId,
+      sessionId: persisted.sessionId,
+    });
+
+    if (!resume) {
+      clearWindowmanUploadResume();
+      uploadPendingRef.current = false;
+      setShowUpload(false);
+      setUploadHandoff(null);
+      return;
+    }
+
+    hydrateFunnelIdentity(resume);
+    funnel?.setPhone(values.phone, "screened_valid");
+    setUploadHandoff(resume);
+    setShowUpload(false);
+    uploadPendingRef.current = true;
+  }, [funnel, hydrateFunnelIdentity]);
+
+  const handleIntakeOpenChange = useCallback((nextOpen: boolean) => {
+    if (nextOpen) {
+      intakeOpenRef.current = true;
+      setFirstQuoteIntakeOpen(true);
+      return;
+    }
+
+    const shouldRevealUpload = uploadPendingRef.current;
+    intakeOpenRef.current = false;
+    uploadPendingRef.current = false;
+    setFirstQuoteIntakeOpen(false);
+
+    if (focusFrameRef.current !== null) {
+      window.cancelAnimationFrame(focusFrameRef.current);
+    }
+    focusFrameRef.current = window.requestAnimationFrame(() => {
+      focusFrameRef.current = null;
+      openerRef.current?.focus({ preventScroll: true });
+      if (shouldRevealUpload) setShowUpload(true);
+    });
+  }, []);
+
+  const handleScanStart = useCallback((_fileName: string, scanSessionId: string) => {
+    clearWindowmanUploadResume();
+    navigate(`/report/classic/${scanSessionId}`, {
+      state: { freshScan: true },
+    });
+  }, [navigate]);
 
   useEffect(() => {
     const hero = document.getElementById("hero");
@@ -104,12 +228,28 @@ export default function WindowManLandingPage() {
         <TrustCredibilitySection />
         <LandingFAQSection expandedItems={expandedFaqItems} onToggleItem={toggleFaqItem} />
         <FinalCTASection />
+        <section
+          id="windowman-upload"
+          className="relative px-5 pb-16 sm:px-8"
+          hidden={!showUpload}
+        >
+          <div className="mx-auto max-w-3xl">
+            <UploadZone
+              isVisible={showUpload}
+              sessionId={uploadHandoff?.sessionId}
+              leadId={uploadHandoff?.leadId ?? null}
+              onScanStart={handleScanStart}
+            />
+          </div>
+        </section>
       </main>
       <LandingFooter />
       <LandingStickyCta visible={stickyCtaVisible} />
       <FirstQuoteIntakeModal
         open={firstQuoteIntakeOpen}
-        onOpenChange={setFirstQuoteIntakeOpen}
+        onOpenChange={handleIntakeOpenChange}
+        intent={intakeIntent}
+        onPersistedSuccess={handlePersistedSuccess}
       />
     </div>
   );

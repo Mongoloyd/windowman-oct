@@ -9,11 +9,19 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type {
+  IntakeIntentChoice,
+  IntakePersistedSuccess,
+  IntakePersistedSuccessHandler,
+  IntakeValues,
+} from "@/components/intake/universal/intakeTypes";
+import { isUuid } from "@/lib/routeIdGuards";
 import { cn } from "@/lib/utils";
 import { formatPhoneDisplay, isValidEmail, toE164, isValidUSPhone } from "@/utils/formatPhone";
 import { trackAndHandoffToCanonicalUpload } from "./landingTracking";
 import {
   EMPTY_FIRST_QUOTE_INTAKE,
+  FIRST_QUOTE_SAFE_ERROR,
   HELP_NEEDED_OPTIONS,
   isValidZipCode,
   normalizeZipCode,
@@ -25,6 +33,7 @@ import {
   PROPERTY_TYPE_OPTIONS,
   TIMING_OPTIONS,
   type FirstQuoteIntakeFormState,
+  type FirstQuoteProjectBasics,
   type HelpNeeded,
   type HomeownerRole,
   type OpeningsBucket,
@@ -35,6 +44,7 @@ import {
 } from "./firstQuoteIntakeTypes";
 import {
   getOrCreateFirstQuoteSessionId,
+  rotateFirstQuoteSessionId,
   submitWindowmanFirstQuoteLead,
 } from "@/services/windowmanFirstQuoteLeadCapture";
 import { MarketingConsentCheckbox } from "@/components/consent/MarketingConsentCheckbox";
@@ -45,6 +55,8 @@ import { landingCtaMinH, landingFocusRing } from "./landingTypes";
 type FirstQuoteIntakeModalProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  intent?: IntakeIntentChoice;
+  onPersistedSuccess?: IntakePersistedSuccessHandler;
 };
 
 type Step = 1 | 2 | 3;
@@ -111,7 +123,13 @@ function OptionTiles<T extends string>({
   );
 }
 
-export default function FirstQuoteIntakeModal({ open, onOpenChange }: FirstQuoteIntakeModalProps) {
+export default function FirstQuoteIntakeModal({
+  open,
+  onOpenChange,
+  intent = "no_quote",
+  onPersistedSuccess,
+}: FirstQuoteIntakeModalProps) {
+  const hasQuote = intent === "has_quote";
   const formId = useId();
   const [step, setStep] = useState<Step>(1);
   const [view, setView] = useState<View>("wizard");
@@ -126,6 +144,7 @@ export default function FirstQuoteIntakeModal({ open, onOpenChange }: FirstQuote
   // identical retries; rotated on decision change, on modal reset, and after
   // a completed submission.
   const submissionIdRef = useRef(createUuid());
+  const previousIntentRef = useRef<IntakeIntentChoice>(intent);
   const [marketingCommunicationsConsent, setMarketingCommunicationsConsent] =
     useState(false);
 
@@ -157,6 +176,22 @@ export default function FirstQuoteIntakeModal({ open, onOpenChange }: FirstQuote
     }
   }, [open, resetModal]);
 
+  useEffect(() => {
+    const previousIntent = previousIntentRef.current;
+    previousIntentRef.current = intent;
+    if (!open || previousIntent === intent) return;
+
+    // Switching from the completed first-quote path to quote analysis keeps
+    // reusable contact/location input but starts a fresh submission attempt.
+    setStep(1);
+    setView("wizard");
+    setStep1Errors({});
+    setStep2Error(null);
+    setContactErrors({});
+    setSubmitError(null);
+    submissionIdRef.current = createUuid();
+  }, [intent, open]);
+
   const handleOpenChange = (next: boolean) => {
     if (!next && isSubmitting) return;
     onOpenChange(next);
@@ -169,17 +204,19 @@ export default function FirstQuoteIntakeModal({ open, onOpenChange }: FirstQuote
     if (!isValidZipCode(projectBasics.zipOrCity)) {
       errors.zipOrCity = ZIP_CODE_ERROR;
     }
-    if (!projectBasics.propertyType) {
-      errors.propertyType = "Select a property type.";
-    }
-    if (!projectBasics.openingsBucket) {
-      errors.openingsBucket = "Select an approximate number of openings.";
-    }
-    if (!projectBasics.productScope) {
-      errors.productScope = "Select what you are planning.";
-    }
-    if (!projectBasics.timing) {
-      errors.timing = "Select when you are trying to start.";
+    if (!hasQuote) {
+      if (!projectBasics.propertyType) {
+        errors.propertyType = "Select a property type.";
+      }
+      if (!projectBasics.openingsBucket) {
+        errors.openingsBucket = "Select an approximate number of openings.";
+      }
+      if (!projectBasics.productScope) {
+        errors.productScope = "Select what you are planning.";
+      }
+      if (!projectBasics.timing) {
+        errors.timing = "Select when you are trying to start.";
+      }
     }
 
     setStep1Errors(errors);
@@ -214,7 +251,7 @@ export default function FirstQuoteIntakeModal({ open, onOpenChange }: FirstQuote
   };
 
   const handleStep1Continue = () => {
-    if (validateStep1()) setStep(2);
+    if (validateStep1()) setStep(hasQuote ? 3 : 2);
   };
 
   const handleStep2Continue = () => {
@@ -230,7 +267,7 @@ export default function FirstQuoteIntakeModal({ open, onOpenChange }: FirstQuote
       setStep(1);
       return;
     }
-    if (!validateStep2()) {
+    if (!hasQuote && !validateStep2()) {
       setStep(2);
       return;
     }
@@ -245,20 +282,36 @@ export default function FirstQuoteIntakeModal({ open, onOpenChange }: FirstQuote
     }
 
     const activeSessionId = sessionId ?? getOrCreateFirstQuoteSessionId();
+    const normalizedZip = normalizeZipCode(form.projectBasics.zipOrCity);
+    const projectBasics: FirstQuoteProjectBasics = hasQuote
+      ? {
+          zipOrCity: normalizedZip,
+          homeownerRole: "",
+          propertyType: "",
+          openingsBucket: "",
+          productScope: "",
+          timing: "",
+        }
+      : {
+          ...form.projectBasics,
+          zipOrCity: normalizedZip,
+        };
+    const helpNeeded: HelpNeeded = hasQuote
+      ? "I have a written estimate and want it reviewed."
+      : (form.helpNeeded as HelpNeeded);
     setIsSubmitting(true);
 
     try {
       const result = await submitWindowmanFirstQuoteLead({
         sessionId: activeSessionId,
         submissionId: submissionIdRef.current,
+        sourcePath: "/windowman",
         firstName: form.contact.firstName.trim(),
         email: form.contact.email.trim().toLowerCase(),
         phoneE164,
-        projectBasics: {
-          ...form.projectBasics,
-          zipOrCity: normalizeZipCode(form.projectBasics.zipOrCity),
-        },
-        helpNeeded: form.helpNeeded as HelpNeeded,
+        wmIntent: intent,
+        projectBasics,
+        helpNeeded,
         preferredContact: form.contact.preferredContact || null,
         serviceCommunicationsGranted: true,
         marketingConsentPresented: true,
@@ -268,6 +321,39 @@ export default function FirstQuoteIntakeModal({ open, onOpenChange }: FirstQuote
       if (!result.ok) {
         setSubmitError(result.message);
         return;
+      }
+
+      if (hasQuote) {
+        if (!isUuid(result.leadId) || !isUuid(activeSessionId) || !onPersistedSuccess) {
+          setSubmitError(FIRST_QUOTE_SAFE_ERROR);
+          return;
+        }
+
+        const values: IntakeValues = {
+          intent,
+          zip: normalizedZip,
+          projectType: "",
+          openings: "",
+          timing: "",
+          name: form.contact.firstName.trim(),
+          email: form.contact.email.trim().toLowerCase(),
+          phone: phoneE164,
+        };
+        const persisted: IntakePersistedSuccess = {
+          ok: true,
+          leadId: result.leadId,
+          sessionId: activeSessionId,
+          reused: result.reused === true,
+        };
+
+        try {
+          onPersistedSuccess(values, persisted);
+        } catch {
+          setSubmitError(FIRST_QUOTE_SAFE_ERROR);
+          return;
+        }
+
+        rotateFirstQuoteSessionId();
       }
 
       // Completed submission closes this consent transaction.
@@ -281,11 +367,16 @@ export default function FirstQuoteIntakeModal({ open, onOpenChange }: FirstQuote
   const stepLabel =
     view === "success"
       ? "Complete"
-      : step === 1
-        ? "Step 1 of 3 — Project basics"
-        : step === 2
-          ? "Step 2 of 3 — Help needed"
-          : "Step 3 of 3 — Contact";
+      : hasQuote
+        ? step === 1
+          ? "Step 1 of 2 — Project location"
+          : "Step 2 of 2 — Contact"
+        : step === 1
+          ? "Step 1 of 3 — Project basics"
+          : step === 2
+            ? "Step 2 of 3 — Help needed"
+            : "Step 3 of 3 — Contact";
+  const submitButtonLabel = hasQuote ? "Continue to Upload" : "Build My First-Quote Plan";
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -307,23 +398,42 @@ export default function FirstQuoteIntakeModal({ open, onOpenChange }: FirstQuote
               </span>
               <DialogHeader className="mt-4 space-y-2">
                 <DialogTitle className="font-display text-xl font-bold">
-                  Your first-quote plan is started.
+                  {hasQuote ? "Your upload is ready." : "Your first-quote plan is started."}
                 </DialogTitle>
                 <DialogDescription className="text-sm leading-relaxed">
-                  WindowMan has your project basics. Next, we can help you understand what a strong
-                  first estimate should include before you talk to contractors.
+                  {hasQuote
+                    ? "Your details are saved. Continue to upload your estimate on this page."
+                    : "WindowMan has your project basics. Next, we can help you understand what a strong first estimate should include before you talk to contractors."}
                 </DialogDescription>
               </DialogHeader>
             </div>
 
             <div className="flex flex-col gap-3">
-              <button
-                type="button"
-                className={cn("btn-depth-primary w-full px-6 py-3 text-sm", landingCtaMinH, landingFocusRing)}
-                onClick={() => trackAndHandoffToCanonicalUpload("first_quote_modal_has_quote")}
-              >
-                Analyze a Quote Instead
-              </button>
+              {hasQuote ? (
+                <button
+                  type="button"
+                  className={cn(
+                    "btn-depth-primary w-full px-6 py-3 text-sm",
+                    landingCtaMinH,
+                    landingFocusRing,
+                  )}
+                  onClick={() => handleOpenChange(false)}
+                >
+                  Upload My Estimate
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className={cn(
+                    "btn-depth-primary w-full px-6 py-3 text-sm",
+                    landingCtaMinH,
+                    landingFocusRing,
+                  )}
+                  onClick={() => trackAndHandoffToCanonicalUpload("first_quote_modal_has_quote")}
+                >
+                  Analyze a Quote Instead
+                </button>
+              )}
               <button
                 type="button"
                 className={cn(
@@ -337,10 +447,12 @@ export default function FirstQuoteIntakeModal({ open, onOpenChange }: FirstQuote
               </button>
             </div>
 
-            <p className="text-center text-xs leading-relaxed text-muted-foreground">
-              If you already receive a contractor estimate, come back and upload it for a Truth
-              Report.
-            </p>
+            {hasQuote ? null : (
+              <p className="text-center text-xs leading-relaxed text-muted-foreground">
+                If you already receive a contractor estimate, come back and upload it for a Truth
+                Report.
+              </p>
+            )}
           </div>
         ) : (
           <>
@@ -349,12 +461,12 @@ export default function FirstQuoteIntakeModal({ open, onOpenChange }: FirstQuote
                 {stepLabel}
               </p>
               <DialogTitle className="font-display text-xl font-bold leading-snug">
-                Build your first-quote plan
+                {hasQuote ? "Start your quote analysis" : "Build your first-quote plan"}
               </DialogTitle>
               <DialogDescription className="text-sm leading-relaxed">
-                Start with WindowMan before you talk to contractors. We help you understand what a
-                strong impact-window estimate should include, what to ask, and what scope details
-                should be clear from the beginning.
+                {hasQuote
+                  ? "Tell us where the project is, then add your contact details before uploading the estimate."
+                  : "Start with WindowMan before you talk to contractors. We help you understand what a strong impact-window estimate should include, what to ask, and what scope details should be clear from the beginning."}
               </DialogDescription>
             </DialogHeader>
 
@@ -388,74 +500,78 @@ export default function FirstQuoteIntakeModal({ open, onOpenChange }: FirstQuote
                   ) : null}
                 </div>
 
-                <OptionTiles<HomeownerRole>
-                  legend="Are you the homeowner or decision-maker? (optional)"
-                  options={HOMEOWNER_ROLE_OPTIONS}
-                  value={form.projectBasics.homeownerRole}
-                  onChange={(homeownerRole) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      projectBasics: { ...prev.projectBasics, homeownerRole },
-                    }))
-                  }
-                  groupId={`${formId}-homeowner`}
-                />
+                {hasQuote ? null : (
+                  <>
+                    <OptionTiles<HomeownerRole>
+                      legend="Are you the homeowner or decision-maker? (optional)"
+                      options={HOMEOWNER_ROLE_OPTIONS}
+                      value={form.projectBasics.homeownerRole}
+                      onChange={(homeownerRole) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          projectBasics: { ...prev.projectBasics, homeownerRole },
+                        }))
+                      }
+                      groupId={`${formId}-homeowner`}
+                    />
 
-                <OptionTiles<PropertyType>
-                  legend="Property type"
-                  options={PROPERTY_TYPE_OPTIONS}
-                  value={form.projectBasics.propertyType}
-                  onChange={(propertyType) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      projectBasics: { ...prev.projectBasics, propertyType },
-                    }))
-                  }
-                  error={step1Errors.propertyType}
-                  groupId={`${formId}-property`}
-                />
+                    <OptionTiles<PropertyType>
+                      legend="Property type"
+                      options={PROPERTY_TYPE_OPTIONS}
+                      value={form.projectBasics.propertyType}
+                      onChange={(propertyType) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          projectBasics: { ...prev.projectBasics, propertyType },
+                        }))
+                      }
+                      error={step1Errors.propertyType}
+                      groupId={`${formId}-property`}
+                    />
 
-                <OptionTiles<OpeningsBucket>
-                  legend="Approximate number of openings"
-                  options={OPENINGS_BUCKET_OPTIONS}
-                  value={form.projectBasics.openingsBucket}
-                  onChange={(openingsBucket) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      projectBasics: { ...prev.projectBasics, openingsBucket },
-                    }))
-                  }
-                  error={step1Errors.openingsBucket}
-                  groupId={`${formId}-openings`}
-                />
+                    <OptionTiles<OpeningsBucket>
+                      legend="Approximate number of openings"
+                      options={OPENINGS_BUCKET_OPTIONS}
+                      value={form.projectBasics.openingsBucket}
+                      onChange={(openingsBucket) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          projectBasics: { ...prev.projectBasics, openingsBucket },
+                        }))
+                      }
+                      error={step1Errors.openingsBucket}
+                      groupId={`${formId}-openings`}
+                    />
 
-                <OptionTiles<ProductScope>
-                  legend="What are you planning?"
-                  options={PRODUCT_SCOPE_OPTIONS}
-                  value={form.projectBasics.productScope}
-                  onChange={(productScope) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      projectBasics: { ...prev.projectBasics, productScope },
-                    }))
-                  }
-                  error={step1Errors.productScope}
-                  groupId={`${formId}-scope`}
-                />
+                    <OptionTiles<ProductScope>
+                      legend="What are you planning?"
+                      options={PRODUCT_SCOPE_OPTIONS}
+                      value={form.projectBasics.productScope}
+                      onChange={(productScope) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          projectBasics: { ...prev.projectBasics, productScope },
+                        }))
+                      }
+                      error={step1Errors.productScope}
+                      groupId={`${formId}-scope`}
+                    />
 
-                <OptionTiles<Timing>
-                  legend="When are you trying to start?"
-                  options={TIMING_OPTIONS}
-                  value={form.projectBasics.timing}
-                  onChange={(timing) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      projectBasics: { ...prev.projectBasics, timing },
-                    }))
-                  }
-                  error={step1Errors.timing}
-                  groupId={`${formId}-timing`}
-                />
+                    <OptionTiles<Timing>
+                      legend="When are you trying to start?"
+                      options={TIMING_OPTIONS}
+                      value={form.projectBasics.timing}
+                      onChange={(timing) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          projectBasics: { ...prev.projectBasics, timing },
+                        }))
+                      }
+                      error={step1Errors.timing}
+                      groupId={`${formId}-timing`}
+                    />
+                  </>
+                )}
 
                 <button
                   type="button"
@@ -467,7 +583,7 @@ export default function FirstQuoteIntakeModal({ open, onOpenChange }: FirstQuote
               </div>
             ) : null}
 
-            {step === 2 ? (
+            {!hasQuote && step === 2 ? (
               <div className="space-y-5">
                 <OptionTiles<HelpNeeded>
                   legend="What do you want WindowMan to help you with first?"
@@ -619,7 +735,7 @@ export default function FirstQuoteIntakeModal({ open, onOpenChange }: FirstQuote
                       landingCtaMinH,
                       landingFocusRing,
                     )}
-                    onClick={() => setStep(2)}
+                    onClick={() => setStep(hasQuote ? 1 : 2)}
                     disabled={isSubmitting}
                   >
                     Back
@@ -640,13 +756,13 @@ export default function FirstQuoteIntakeModal({ open, onOpenChange }: FirstQuote
                         Saving…
                       </>
                     ) : (
-                      "Build My First-Quote Plan"
+                      submitButtonLabel
                     )}
                   </button>
                 </div>
 
                 <ServiceAuthorizationDisclosure
-                  buttonLabel="Build My First-Quote Plan"
+                  buttonLabel={submitButtonLabel}
                   className="text-center text-xs leading-relaxed text-muted-foreground"
                 />
               </form>
