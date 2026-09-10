@@ -738,13 +738,70 @@ Use `docs/ops/DOC_STATUS_REGISTRY.md` before trusting historical planning docs.
 
 If a historical doc conflicts with current canonical policy or executable repo truth, do not implement from the stale doc.
 
-## Canonical Local Checkout Policy
+## Canonical Checkout and Parallel Worktree Policy
 
-- The only canonical checkout is `C:\Projects\wm-mvp-github-clean`.
-- Do not create worktrees, sibling clones, temporary repositories, backup branches, or stashes unless the user explicitly overrides this rule.
-- New implementation work uses a short-lived `codex/<feature>` branch in this same folder, based on a clean and current `forensic_report_v2`.
-- Pull requests target `forensic_report_v2`, not stale `main`, unless the user explicitly changes the integration branch.
-- Before editing, verify repository root, branch, clean status, upstream, and `HEAD` parity with `origin/forensic_report_v2`.
-- If the checkout is dirty or has diverged unexpectedly, stop and report it. Do not reset, stash, clean, or preserve work in another folder.
-- `.env.local` and `supabase/functions/.env` remain ignored and local. Never commit, print, or copy their values into another checkout.
-- Use `npm run dev:all` for the standard local Vite, Supabase, and Edge Function environment.
+### Canonical source of truth
+
+- `C:\Projects\wm-mvp-github-clean` is the canonical local checkout.
+- `forensic_report_v2` is the integration branch.
+- Pull requests target `forensic_report_v2` unless the user explicitly names another target.
+- Do not use stale `main` as the starting or target branch.
+
+### When only one coding task is active
+
+- Use the canonical local checkout.
+- Before editing, verify the folder, active branch, uncommitted changes, upstream, and parity with the latest `origin/forensic_report_v2`.
+- Create a short-lived `codex/<feature-name>` branch from the latest `origin/forensic_report_v2`.
+- Do not create another worktree merely because the user opened another chat.
+
+### When coding tasks will run simultaneously
+
+If the user says "work on this separately," "create another tree," "do this while the other task runs," "start a parallel task," or otherwise clearly requests simultaneous work, that request is explicit authorization to create a Codex-managed worktree.
+
+For parallel work:
+
+1. Create a new Codex task using the desktop app's managed **Worktree** environment. Do not ask the user to run Git or PowerShell commands.
+2. Start the worktree from the latest fetched `origin/forensic_report_v2`, unless the user explicitly names another starting point.
+3. Do not import uncommitted changes from the canonical checkout unless the user explicitly says those changes belong to the new task.
+4. Assign one coding task and one active writer to each physical folder.
+5. Do not let two Codex tasks, Cursor, or any combination of agents edit the same physical folder simultaneously.
+6. Do not reuse an unrelated existing worktree.
+7. Do not modify the canonical checkout from a task assigned to a worktree.
+8. Before the first edit, report in plain language:
+   - task name
+   - worktree location
+   - starting branch and commit
+   - whether the worktree is clean
+9. A Codex-managed worktree may initially use a detached checkout. Before committing, create one focused `codex/<feature-name>` branch in that worktree.
+10. Keep that task's files, tests, preview server, commits, push, and pull request inside its assigned worktree.
+11. If Cursor will edit the worktree, open that exact worktree folder in a separate Cursor window. Do not point Cursor at the canonical folder while another writer is using it.
+12. Keep the task pinned until its work is committed, pushed, and safely merged.
+
+### Local environment and previews
+
+- Use the repository-approved local development environment.
+- Use `npm run dev:all` when the full local Vite, Supabase, and Edge Function flow is required.
+- A disconnected UI-only preview may prove appearance and interaction, but it must not be presented as proof of persistence, identity, upload, OTP, or reveal behavior.
+- Do not commit, print, or expose secrets.
+- Do not copy `.env.local` or `supabase/functions/.env` into another checkout.
+- If a worktree requires the approved local environment, access it through the existing safe local setup without displaying or duplicating secret values.
+
+### Dirty-folder handling
+
+- "Dirty" means the folder contains uncommitted or untracked files; it does not mean the work is broken.
+- A dirty canonical checkout is not permission to delete, reset, stash, move, or overwrite its changes.
+- If unrelated work is already present, preserve it and place the newer simultaneous task in an authorized managed worktree.
+- If two writers are discovered in the same folder, stop the newer writer before further edits and move the newer task to a separate managed worktree.
+
+### Finishing a worktree task
+
+- Verify the intended files, focused tests, typecheck, and final diff.
+- Commit and push only the task's intended files.
+- Open a focused pull request targeting `forensic_report_v2`.
+- Do not merge, deploy, delete a branch, delete a worktree, or change production unless the user explicitly requests it.
+- After a merge, report:
+  - pull request number
+  - permanent merge commit
+  - target branch
+  - production verification performed
+  - whether the task and its managed worktree can now be archived
