@@ -235,6 +235,28 @@ const demoIncompleteLead = {
   },
 };
 
+const quoteEducationLargeLead = {
+  ...demoWarmLead,
+  id: "lead-quote-education",
+  session_id: "sess-quote-education",
+  first_name: "Quinn",
+  last_name: "Education",
+  source: "quote-education-demo",
+  latest_activity_type: "quote_education_demo_submitted",
+  qualification_answers_json: {
+    intake_status: "Ready to get estimates soon",
+    quote_holder_shortcut: false,
+    intake_answers_json: {
+      handoff_version: "quote_education_handoff_v1",
+      source_path: "/nq3",
+      wm_intent: "no_quote",
+      product_scope: "Impact windows",
+      openings_bucket: "16+",
+      campaign_timing: "1–3 months",
+    },
+  },
+};
+
 function createTestQueryClient() {
   return new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
@@ -766,6 +788,31 @@ describe("AdminLeadInbox", () => {
     renderInbox("/admin/leads?source=power-tool-demo");
     expect(
       await screen.findByText(/2 of 2 leads · 1 hot · priority order/),
+    ).toBeInTheDocument();
+  });
+
+  it("preserves filtering, priority, activity, and intake context for quote education leads", async () => {
+    invokeAdminDataMock.mockResolvedValueOnce([secondLead, quoteEducationLargeLead]);
+    renderInbox("/admin/leads?source=quote-education-demo");
+
+    const card = (
+      await screen.findByRole("link", { name: "View details for Quinn Education" })
+    ).closest("article");
+    expect(card).not.toBeNull();
+    expect(
+      screen.queryByRole("link", { name: "View details for Alex Rivera" }),
+    ).not.toBeInTheDocument();
+    expect(within(card!).getByText("Quote education demo submitted")).toBeInTheDocument();
+    expect(within(card!).getByText("Hot")).toBeInTheDocument();
+    expect(within(card!).getByText("Impact windows")).toBeInTheDocument();
+    expect(within(card!).getByText("16+")).toBeInTheDocument();
+    expect(within(card!).getByText("1–3 months")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Quote status" })).toBeInTheDocument();
+
+    const source = screen.getByRole("combobox", { name: "Lead source" });
+    fireEvent.keyDown(source, { key: "ArrowDown", code: "ArrowDown" });
+    expect(
+      await screen.findByRole("option", { name: "Quote Education Demo" }),
     ).toBeInTheDocument();
   });
 

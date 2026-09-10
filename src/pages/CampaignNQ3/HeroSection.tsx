@@ -1,4 +1,4 @@
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
 
 interface HeroSectionProps {
   zip: string;
@@ -6,6 +6,7 @@ interface HeroSectionProps {
   onZipChange: (value: string) => void;
   onCheckArea: (event: FormEvent<HTMLFormElement>) => void;
   onHaveWrittenEstimate: () => void;
+  demoSlot?: ReactNode;
 }
 
 function ArrowIcon() {
@@ -81,6 +82,7 @@ export default function HeroSection({
   onZipChange,
   onCheckArea,
   onHaveWrittenEstimate,
+  demoSlot,
 }: HeroSectionProps) {
   return (
     <header className="hero">
@@ -130,6 +132,7 @@ export default function HeroSection({
               Already have a written estimate? Upload it for an AI check →
             </button>
           </div>
+          {demoSlot}
         </div>
 
         <EstimateRankCard />

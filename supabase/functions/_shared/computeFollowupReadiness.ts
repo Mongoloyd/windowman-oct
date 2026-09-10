@@ -13,6 +13,7 @@ const CONTACT_FORM_EVENTS = new Set([
   "nextdoor_lead_captured",
   "arbitrage_completed",
   "power_demo_submitted",
+  "quote_education_demo_submitted",
   "ai_demo_submitted",
 ]);
 

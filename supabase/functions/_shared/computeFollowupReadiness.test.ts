@@ -10,7 +10,10 @@ Deno.test("computeFollowupReadiness quote_uploaded splits on contact", () => {
     "follow_up_ready",
   );
   assertEquals(
-    computeFollowupReadiness({ eventName: "quote_uploaded", hasContact: false }),
+    computeFollowupReadiness({
+      eventName: "quote_uploaded",
+      hasContact: false,
+    }),
     "high_intent_contact_missing",
   );
 });
@@ -26,6 +29,23 @@ Deno.test("computeFollowupReadiness contact forms require contact", () => {
   assertEquals(
     computeFollowupReadiness({
       eventName: "truth_gate_captured",
+      hasContact: false,
+    }),
+    "not_follow_up_ready",
+  );
+});
+
+Deno.test("quote education submissions require contact for follow-up", () => {
+  assertEquals(
+    computeFollowupReadiness({
+      eventName: "quote_education_demo_submitted",
+      hasContact: true,
+    }),
+    "follow_up_ready",
+  );
+  assertEquals(
+    computeFollowupReadiness({
+      eventName: "quote_education_demo_submitted",
       hasContact: false,
     }),
     "not_follow_up_ready",

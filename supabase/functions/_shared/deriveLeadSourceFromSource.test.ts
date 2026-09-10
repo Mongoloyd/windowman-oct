@@ -4,7 +4,14 @@ import { deriveLeadSourceFromSource } from "./deriveLeadSourceFromSource.ts";
 Deno.test("deriveLeadSourceFromSource maps known sources", () => {
   assertEquals(deriveLeadSourceFromSource("truth-gate"), "truth-gate");
   assertEquals(deriveLeadSourceFromSource("nextdoor"), "nextdoor");
-  assertEquals(deriveLeadSourceFromSource("arbitrage-engine"), "arbitrage-engine");
+  assertEquals(
+    deriveLeadSourceFromSource("arbitrage-engine"),
+    "arbitrage-engine",
+  );
+  assertEquals(
+    deriveLeadSourceFromSource("quote-education-demo"),
+    "quote-education-demo",
+  );
 });
 
 Deno.test("deriveLeadSourceFromSource falls back safely", () => {

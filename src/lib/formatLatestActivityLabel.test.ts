@@ -7,6 +7,9 @@ describe("formatLatestActivityLabel", () => {
     expect(formatLatestActivityLabel("truth_gate_captured")).toBe(
       "TruthGate submitted",
     );
+    expect(formatLatestActivityLabel("quote_education_demo_submitted")).toBe(
+      "Quote education demo submitted",
+    );
   });
 
   it("falls back for unknown or empty values", () => {

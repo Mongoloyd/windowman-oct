@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   FIRST_QUOTE_SESSION_STORAGE_KEY,
   WINDOWMAN_FIRST_QUOTE_SOURCE,
+  buildFirstQuoteIntakeConsentRequest,
   buildWindowmanFirstQuoteLeadPayload,
   getOrCreateFirstQuoteSessionId,
   rotateFirstQuoteSessionId,
@@ -107,6 +108,30 @@ describe("windowmanFirstQuoteLeadCapture", () => {
   it("payload includes source=windowman-first-quote", () => {
     const payload = buildWindowmanFirstQuoteLeadPayload(sampleInput);
     expect(payload.source).toBe(WINDOWMAN_FIRST_QUOTE_SOURCE);
+  });
+
+  it("builds the same versioned consent envelope for quote education handoff", () => {
+    const consent = buildFirstQuoteIntakeConsentRequest(
+      {
+        submissionId: TEST_CONSENT_SUBMISSION_ID,
+        serviceCommunicationsGranted: true,
+        marketingConsentPresented: false,
+        marketingCommunicationsGranted: false,
+      },
+      "quote-education-demo",
+    );
+
+    expect(consent).toMatchObject({
+      schemaVersion: "1",
+      submissionId: TEST_CONSENT_SUBMISSION_ID,
+      source: "quote-education-demo",
+      events: [
+        expect.objectContaining({
+          purpose: "service_communications",
+          decision: "granted",
+        }),
+      ],
+    });
   });
 
   it("payload includes wm_intent=no_quote in attribution and query_params", () => {

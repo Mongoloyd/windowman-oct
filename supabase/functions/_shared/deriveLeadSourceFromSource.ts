@@ -8,6 +8,7 @@ const SOURCE_TO_LEAD_SOURCE: Record<string, string> = {
   nextdoor: "nextdoor",
   "arbitrage-engine": "arbitrage-engine",
   "power-tool-demo": "power-tool-demo",
+  "quote-education-demo": "quote-education-demo",
   "ai-demo": "ai-demo",
   direct_upload: "direct_upload",
   paid_upload: "paid_upload",

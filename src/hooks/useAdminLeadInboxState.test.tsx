@@ -51,6 +51,9 @@ function FilterControls({ counties = ["Miami-Dade"] }: { counties?: string[] }) 
       <button type="button" onClick={() => state.setSource("power-tool-demo")}>
         source-demo
       </button>
+      <button type="button" onClick={() => state.setSource("quote-education-demo")}>
+        source-quote-education
+      </button>
       <button type="button" onClick={() => state.setSource("all")}>
         source-all
       </button>
@@ -212,6 +215,16 @@ describe("parse and serialize inbox filters", () => {
     expect(intake.filters.source).toBe("power-tool-demo");
     expect(intake.filters.intake).toBe("Researching");
   });
+
+  it("preserves quote education as its own demo source", () => {
+    const parsed = parseInboxFilters(new URLSearchParams(
+      "source=quote-education-demo&shortcut=yes&intake=Incomplete",
+    ));
+    expect(parsed.shouldReplace).toBe(false);
+    expect(parsed.filters.source).toBe("quote-education-demo");
+    expect(parsed.filters.shortcut).toBe("yes");
+    expect(parsed.filters.intake).toBe("Incomplete");
+  });
 });
 
 describe("useAdminLeadInboxState history", () => {
@@ -256,6 +269,18 @@ describe("useAdminLeadInboxState history", () => {
       expect(screen.getByTestId("intake")).toHaveTextContent("all");
       expect(screen.getByTestId("query")).not.toHaveTextContent("shortcut=");
       expect(screen.getByTestId("query")).not.toHaveTextContent("intake=");
+    });
+  });
+
+  it("keeps demo-specific filters when switching to quote education", async () => {
+    renderState(
+      "/admin/leads?source=power-tool-demo&shortcut=yes&intake=Researching",
+    );
+    fireEvent.click(screen.getByText("source-quote-education"));
+    await waitFor(() => {
+      expect(screen.getByTestId("source")).toHaveTextContent("quote-education-demo");
+      expect(screen.getByTestId("shortcut")).toHaveTextContent("yes");
+      expect(screen.getByTestId("intake")).toHaveTextContent("Researching");
     });
   });
 

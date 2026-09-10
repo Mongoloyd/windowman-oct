@@ -1,4 +1,5 @@
 import { ShieldCheck, Clock3, BadgeCheck } from "lucide-react";
+import type { ReactNode } from "react";
 import type { ProphecyVariant } from "../prophecyVariants";
 import { PROPHECY_INTENT_OPTIONS } from "../prophecyIntentOptions";
 import ProphecyIntentCard from "../ProphecyIntentCard";
@@ -8,6 +9,7 @@ interface ProphecyHeroProps {
   variant: ProphecyVariant;
   /** Opens the intake with the fork already answered. */
   onChooseIntent: (intent: IntakeIntentChoice) => void;
+  demoSlot?: ReactNode;
 }
 
 const TRUST_POINTS = [
@@ -27,6 +29,7 @@ const TRUST_POINTS = [
 export default function ProphecyHero({
   variant,
   onChooseIntent,
+  demoSlot,
 }: ProphecyHeroProps) {
   return (
     <section className="relative overflow-hidden px-5 pb-14 pt-10 sm:px-8 sm:pb-20 sm:pt-16">
@@ -88,6 +91,7 @@ export default function ProphecyHero({
               />
             ))}
           </div>
+          {demoSlot}
         </div>
       </div>
     </section>

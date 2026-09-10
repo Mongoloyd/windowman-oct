@@ -81,6 +81,9 @@ verify_jwt = false
 [functions.capture-power-tool-demo-lead]
 verify_jwt = false
 
+[functions.capture-quote-education-demo-lead]
+verify_jwt = false
+
 [functions.capture-arbitrage-lead]
 verify_jwt = false
 

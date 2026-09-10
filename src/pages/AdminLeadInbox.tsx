@@ -67,7 +67,7 @@ import { LeadDossierSheet } from "@/components/admin/LeadDossierSheet";
 
 type DateRange = "all" | "24h" | "7d" | "30d";
 type VerifiedFilter = "all" | "verified" | "unverified";
-type SourceFilter = "all" | "power-tool-demo";
+type SourceFilter = "all" | "power-tool-demo" | "quote-education-demo";
 type ShortcutFilter = "all" | "yes" | "no";
 type DerivedIntakeSignal =
   "Quote Holder" | "Hot" | "Warm" | "Researching" | "Incomplete";
@@ -75,12 +75,16 @@ type EffectiveUrgency = "Hot" | "Warm";
 type PriorityFilter = "all" | EffectiveUrgency;
 type IntakeSignalFilter = "all" | "Researching" | "Incomplete";
 
-type PowerToolDemoIntake = {
+type DemoIntake = {
   intake_status: string | null;
   intake_property: string | null;
   intake_scope: string | null;
   intake_logistics: string | null;
   intake_timeline: string | null;
+  wm_intent: string | null;
+  product_scope: string | null;
+  openings_bucket: string | null;
+  campaign_timing: string | null;
   quote_holder_shortcut: boolean;
 };
 
@@ -88,7 +92,7 @@ type InboxLead = CRMLead & {
   source: string | null;
   client_slug: string | null;
   qualification_answers_json: Record<string, unknown> | null;
-  powerToolDemoIntake: PowerToolDemoIntake | null;
+  demoIntake: DemoIntake | null;
   admin_disposition: string | null;
   admin_priority_override: string | null;
   admin_follow_up_at: string | null;
@@ -187,6 +191,7 @@ const DEMO_FUNNEL_STAGES = [
 ] as const;
 
 const POWER_TOOL_DEMO_SOURCE = "power-tool-demo";
+const QUOTE_EDUCATION_DEMO_SOURCE = "quote-education-demo";
 const ADMIN_LEADS_QUERY_KEY = ["admin", "leads"] as const;
 const WORKFLOW_CONFIRMATION_ERROR =
   "The server response could not be confirmed. Your changes may not have persisted; refresh and try again.";
@@ -195,6 +200,9 @@ const LARGE_SCOPE_OPTIONS = new Set([
   "6 to 10 Openings",
   "11 to 15 Openings",
   "16+ Openings",
+  "6–10",
+  "11–15",
+  "16+",
 ]);
 
 const PRIORITY_RANK: Record<DerivedIntakeSignal, number> = {
@@ -226,13 +234,25 @@ function asString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value : null;
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function isDemoSource(source: string | null): boolean {
+  return source === POWER_TOOL_DEMO_SOURCE ||
+    source === QUOTE_EDUCATION_DEMO_SOURCE;
+}
+
 function isLargeScope(scope: string | null | undefined): boolean {
   return !!scope && LARGE_SCOPE_OPTIONS.has(scope);
 }
 
 function isHotTimeline(timeline: string | null | undefined): boolean {
   if (!timeline) return false;
-  return timeline.includes("Immediate") || timeline.includes("1-3 Months");
+  return timeline === "ASAP" || timeline === "1–3 months" ||
+    timeline.includes("Immediate") || timeline.includes("1-3 Months");
 }
 
 function isDemoIntakeComplete(lead: InboxLead): boolean {
@@ -243,7 +263,7 @@ function isDemoIntakeComplete(lead: InboxLead): boolean {
 }
 
 function isQuoteHolderLead(lead: InboxLead): boolean {
-  const intake = lead.powerToolDemoIntake;
+  const intake = lead.demoIntake;
   return (
     intake?.quote_holder_shortcut === true ||
     lead.funnel_stage === "demo_quote_holder_shortcut" ||
@@ -255,14 +275,14 @@ function hasUsableContact(lead: InboxLead): boolean {
   return !!(lead.phone_e164?.trim() || lead.email?.trim());
 }
 
-function hasMostIntakeFields(intake: PowerToolDemoIntake | null): boolean {
+function hasMostIntakeFields(intake: DemoIntake | null): boolean {
   if (!intake) return false;
   const filled = [
     intake.intake_status,
-    intake.intake_property,
-    intake.intake_scope,
+    intake.intake_property ?? intake.product_scope,
+    intake.intake_scope ?? intake.openings_bucket,
     intake.intake_logistics,
-    intake.intake_timeline,
+    intake.intake_timeline ?? intake.campaign_timing,
   ].filter(Boolean).length;
   return filled >= 3;
 }
@@ -274,9 +294,9 @@ function hasMostIntakeFields(intake: PowerToolDemoIntake | null): boolean {
 function computeDerivedIntakeSignal(
   lead: InboxLead,
 ): DerivedIntakeSignal | null {
-  if (lead.source !== POWER_TOOL_DEMO_SOURCE) return null;
+  if (!isDemoSource(lead.source)) return null;
 
-  const intake = lead.powerToolDemoIntake;
+  const intake = lead.demoIntake;
   const hasPhone = !!lead.phone_e164?.trim();
   const intakeComplete = isDemoIntakeComplete(lead);
 
@@ -284,8 +304,9 @@ function computeDerivedIntakeSignal(
 
   if (
     hasPhone &&
-    isHotTimeline(intake?.intake_timeline) &&
-    (intakeComplete || isLargeScope(intake?.intake_scope))
+    isHotTimeline(intake?.intake_timeline ?? intake?.campaign_timing) &&
+    (intakeComplete ||
+      isLargeScope(intake?.intake_scope ?? intake?.openings_bucket))
   ) {
     return "Hot";
   }
@@ -330,17 +351,22 @@ function queuePriorityRank(lead: InboxLead): number {
   return derived ? PRIORITY_RANK[derived] : 0;
 }
 
-function parsePowerToolDemoIntake(
+function parseDemoIntake(
   source: string | null,
   qa: Record<string, unknown> | null,
-): PowerToolDemoIntake | null {
-  if (source !== POWER_TOOL_DEMO_SOURCE || !qa) return null;
+): DemoIntake | null {
+  if (!isDemoSource(source) || !qa) return null;
+  const answers = asRecord(qa.intake_answers_json);
   return {
     intake_status: asString(qa.intake_status),
     intake_property: asString(qa.intake_property),
     intake_scope: asString(qa.intake_scope),
     intake_logistics: asString(qa.intake_logistics),
     intake_timeline: asString(qa.intake_timeline),
+    wm_intent: asString(qa.wm_intent ?? answers?.wm_intent),
+    product_scope: asString(qa.product_scope ?? answers?.product_scope),
+    openings_bucket: asString(qa.openings_bucket ?? answers?.openings_bucket),
+    campaign_timing: asString(qa.campaign_timing ?? answers?.campaign_timing),
     quote_holder_shortcut: qa.quote_holder_shortcut === true,
   };
 }
@@ -412,7 +438,7 @@ function toLead(raw: RawInboxLead): InboxLead {
     source,
     client_slug: raw.client_slug ?? null,
     qualification_answers_json,
-    powerToolDemoIntake: parsePowerToolDemoIntake(
+    demoIntake: parseDemoIntake(
       source,
       qualification_answers_json,
     ),
@@ -536,13 +562,14 @@ export default function LeadInbox() {
     let hot = 0;
     let quoteHolder = 0;
     for (const l of leads) {
-      if (l.source !== POWER_TOOL_DEMO_SOURCE) continue;
+      if (!isDemoSource(l.source)) continue;
+      if (sourceFilter !== "all" && l.source !== sourceFilter) continue;
       const derived = computeDerivedIntakeSignal(l);
       if (effectiveUrgency(l) === "Hot") hot += 1;
       if (derived === "Quote Holder") quoteHolder += 1;
     }
     return { hot, quoteHolder };
-  }, [leads]);
+  }, [leads, sourceFilter]);
 
   const filtered = useMemo(() => {
     const cutoff =
@@ -560,11 +587,7 @@ export default function LeadInbox() {
       if (county !== "all" && l.county !== county) return false;
       if (verified === "verified" && !l.phone_verified) return false;
       if (verified === "unverified" && l.phone_verified) return false;
-      if (
-        sourceFilter === "power-tool-demo" &&
-        l.source !== POWER_TOOL_DEMO_SOURCE
-      )
-        return false;
+      if (sourceFilter !== "all" && l.source !== sourceFilter) return false;
       if (stage !== "all" && (l.funnel_stage ?? "new") !== stage) return false;
 
       if (shortcutFilter !== "all") {
@@ -582,13 +605,17 @@ export default function LeadInbox() {
       }
 
       if (q) {
-        const intake = l.powerToolDemoIntake;
+        const intake = l.demoIntake;
         const extraValues = [
           intake?.intake_status,
           intake?.intake_property,
           intake?.intake_scope,
           intake?.intake_logistics,
           intake?.intake_timeline,
+          intake?.wm_intent,
+          intake?.product_scope,
+          intake?.openings_bucket,
+          intake?.campaign_timing,
         ];
         if (!matchesAdminLeadSearch(l, q, extraValues)) return false;
       }
@@ -620,14 +647,16 @@ export default function LeadInbox() {
     updateFilters(DEFAULT_INBOX_FILTERS);
   };
 
-  const powerToolDemoCount = useMemo(
-    () => leads.filter((l) => l.source === POWER_TOOL_DEMO_SOURCE).length,
-    [leads],
+  const selectedDemoSourceCount = useMemo(
+    () => isDemoSource(sourceFilter)
+      ? leads.filter((lead) => lead.source === sourceFilter).length
+      : 0,
+    [leads, sourceFilter],
   );
 
   const subtitle = useMemo(() => {
     const base = `${filtered.length} of ${leads.length} leads`;
-    if (sourceFilter !== "power-tool-demo") return base;
+    if (!isDemoSource(sourceFilter)) return base;
     const parts: string[] = [];
     if (demoPriorityCounts.hot > 0) parts.push(`${demoPriorityCounts.hot} hot`);
     if (demoPriorityCounts.quoteHolder > 0)
@@ -774,15 +803,13 @@ export default function LeadInbox() {
                 <div className="wm-lead-state px-6 py-16 text-center">
                   <Inbox className="mx-auto mb-3 h-8 w-8" />
                   <h2 className="font-display text-lg font-extrabold tracking-tight text-white">
-                    {sourceFilter === "power-tool-demo" &&
-                    powerToolDemoCount === 0
-                      ? "No PowerToolDemo leads yet"
+                    {isDemoSource(sourceFilter) && selectedDemoSourceCount === 0
+                      ? `No ${formatSourceLabel(sourceFilter)} leads yet`
                       : "No leads match"}
                   </h2>
                   <p className="mx-auto mt-1 max-w-lg text-sm font-semibold">
-                    {sourceFilter === "power-tool-demo" &&
-                    powerToolDemoCount === 0
-                      ? "PowerToolDemo captures will appear here once homeowners complete the demo intake."
+                    {isDemoSource(sourceFilter) && selectedDemoSourceCount === 0
+                      ? `${formatSourceLabel(sourceFilter)} captures will appear here once homeowners complete the demo intake.`
                       : "Try clearing filters or widening the date range."}
                   </p>
                   <Button
@@ -993,6 +1020,7 @@ function FilterBar({
             <SelectContent>
               <SelectItem value="all">All sources</SelectItem>
               <SelectItem value="power-tool-demo">Power Tool Demo</SelectItem>
+              <SelectItem value="quote-education-demo">Quote Education Demo</SelectItem>
             </SelectContent>
           </Select>
         </FilterSelect>
@@ -1073,7 +1101,7 @@ function FilterBar({
             </SelectContent>
           </Select>
         </FilterSelect>
-        {sourceFilter === "power-tool-demo" ? (
+        {isDemoSource(sourceFilter) ? (
           <>
             <FilterSelect label="Quote status">
               <Select
@@ -1198,13 +1226,17 @@ function IntakeBadge({
   );
 }
 
-function IntakeSummaryColumn({ intake }: { intake: PowerToolDemoIntake }) {
+function IntakeSummaryColumn({ intake }: { intake: DemoIntake }) {
   const hasAny =
     intake.intake_status ||
     intake.intake_property ||
     intake.intake_scope ||
     intake.intake_logistics ||
     intake.intake_timeline ||
+    intake.wm_intent ||
+    intake.product_scope ||
+    intake.openings_bucket ||
+    intake.campaign_timing ||
     intake.quote_holder_shortcut;
 
   if (!hasAny) {
@@ -1221,9 +1253,12 @@ function IntakeSummaryColumn({ intake }: { intake: PowerToolDemoIntake }) {
         <IntakeBadge label="Status" value={intake.intake_status} />
         <IntakeBadge label="Property" value={intake.intake_property} />
         <IntakeBadge label="Timeline" value={intake.intake_timeline} />
+        <IntakeBadge label="Product" value={intake.product_scope} />
+        <IntakeBadge label="Timing" value={intake.campaign_timing} />
       </div>
       <div className="flex flex-wrap gap-1">
         <IntakeBadge label="Scope" value={intake.intake_scope} />
+        <IntakeBadge label="Openings" value={intake.openings_bucket} />
         <IntakeBadge label="Logistics" value={intake.intake_logistics} />
         <span className="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-950">
           Quote: {intake.quote_holder_shortcut ? "yes" : "no"}
@@ -1525,6 +1560,7 @@ function formatSourceLabel(source: string | null): string {
     "truth-gate": "Truth Gate",
     "windowman-first-quote": "WindowMan First Quote",
     "power-tool-demo": "Power Tool Demo",
+    "quote-education-demo": "Quote Education Demo",
   };
   if (knownSources[source]) return knownSources[source];
   return source
@@ -1574,7 +1610,7 @@ function LeadList({
           [lead.first_name, lead.last_name].filter(Boolean).join(" ") ||
           "Unknown lead";
         const stageLabel = formatStageLabel(lead.funnel_stage);
-        const isPowerToolDemo = lead.source === POWER_TOOL_DEMO_SOURCE;
+        const isDemoLead = isDemoSource(lead.source);
         const priority = computeDerivedIntakeSignal(lead);
         const override = normalizeOverride(lead.admin_priority_override);
         const latestActivity = formatRelativeTimestamp(lead.last_activity_at);
@@ -1692,7 +1728,7 @@ function LeadList({
                         : "Phone unverified"}
                     </span>
                     <span
-                      className={`wm-lead-status ${stageStatusClass(lead.funnel_stage ?? (isPowerToolDemo ? "analyzing" : "new"))}`}
+                      className={`wm-lead-status ${stageStatusClass(lead.funnel_stage ?? (isDemoLead ? "analyzing" : "new"))}`}
                     >
                       {stageLabel}
                     </span>
@@ -1831,8 +1867,8 @@ function LeadList({
                     <p className="mb-2 text-xs font-semibold text-slate-600">
                       Intake context
                     </p>
-                    {isPowerToolDemo && lead.powerToolDemoIntake ? (
-                      <IntakeSummaryColumn intake={lead.powerToolDemoIntake} />
+                    {isDemoLead && lead.demoIntake ? (
+                      <IntakeSummaryColumn intake={lead.demoIntake} />
                     ) : (
                       <p className="font-medium">
                         No structured intake details recorded.

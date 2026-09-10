@@ -2,12 +2,12 @@ import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   consentEventsToRpcJson,
   consentPersistFailureStatus,
+  type ParsedConsentRequest,
   persistConsentBatch,
   persistConsentThenRunSuccessEffects,
   resolveAdvertisingMeasurementConsent,
   validateConsentRequest,
   validateHandoffContractorConsentConsistency,
-  type ParsedConsentRequest,
 } from "./consentCapture.ts";
 
 Deno.test("validateConsentRequest requires service grant for truth-gate", () => {
@@ -324,6 +324,54 @@ function fakeAdmin(error: { code?: string; message?: string } | null) {
     },
   };
 }
+
+Deno.test("quote education handoff persists its append-only consent batch", async () => {
+  const parsed = validateConsentRequest(
+    {
+      schemaVersion: "1",
+      submissionId: "33333333-3333-4333-8333-333333333333",
+      privacyPolicyVersion: "2026-08-01",
+      termsVersion: "2026-04-14",
+      source: "quote-education-demo",
+      events: [
+        {
+          purpose: "service_communications",
+          decision: "granted",
+          disclosureVersion: "2026-08-01",
+        },
+      ],
+    },
+    "quote-education-demo",
+  );
+  assertEquals(parsed.ok, true);
+  if (!parsed.ok) return;
+
+  const admin = fakeAdmin(null);
+  const result = await persistConsentBatch(admin, {
+    leadId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    sessionId: "22222222-2222-4222-8222-222222222222",
+    consent: parsed.consent,
+  });
+
+  assertEquals(result.ok, true);
+  assertEquals(admin.calls, [{
+    fn: "persist_lead_consent_batch",
+    args: {
+      p_lead_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      p_session_id: "22222222-2222-4222-8222-222222222222",
+      p_submission_id: "33333333-3333-4333-8333-333333333333",
+      p_consent_schema_version: "1",
+      p_privacy_policy_version: "2026-08-01",
+      p_terms_version: "2026-04-14",
+      p_source: "quote-education-demo",
+      p_events: [{
+        purpose: "service_communications",
+        decision: "granted",
+        disclosure_version: "2026-08-01",
+      }],
+    },
+  }]);
+});
 
 Deno.test("persistConsentBatch identical duplicate resolves ok (idempotent RPC)", async () => {
   const admin = fakeAdmin(null);

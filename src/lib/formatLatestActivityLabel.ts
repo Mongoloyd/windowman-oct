@@ -7,6 +7,7 @@ const KNOWN_ACTIVITY_LABELS: Record<string, string> = {
   nextdoor_lead_captured: "Nextdoor lead captured",
   arbitrage_completed: "Arbitrage intake completed",
   power_demo_submitted: "Power demo submitted",
+  quote_education_demo_submitted: "Quote education demo submitted",
   ai_demo_submitted: "AI demo submitted",
   quote_uploaded: "Quote uploaded",
   demo_viewed: "Demo viewed",

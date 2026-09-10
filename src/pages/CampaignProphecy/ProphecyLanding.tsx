@@ -2,6 +2,7 @@ import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
 import UniversalIntakeHost from "@/components/intake/universal/UniversalIntakeHost";
+import SyntheticDemoLauncher from "@/components/synthetic-demo/SyntheticDemoLauncher";
 import type {
   IntakeIntentChoice,
   IntakeOpenRequest,
@@ -246,6 +247,14 @@ export default function ProphecyLanding() {
             <ProphecyHero
               variant={variant}
               onChooseIntent={(intent) => chooseIntent(intent, "hero_primary")}
+              demoSlot={<SyntheticDemoLauncher variant="xray"
+                attribution={{ sourcePath: "/prophecy", entryPoint: "prophecy_hero_sample_audit" }}
+                onHasQuote={() => chooseIntent("has_quote", "hero_primary")}
+                onNoQuote={() => chooseIntent("no_quote", "hero_primary")}
+                renderTrigger={(trigger) => <div className="mt-5 text-center">
+                  <button {...trigger} type="button" className="min-h-11 rounded-lg border border-cyan-300/40 bg-slate-900/60 px-5 py-3 text-sm font-semibold text-cyan-200 shadow-lg hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-200">See a sample audit first</button>
+                  <p className="mt-2 text-xs text-slate-400">Optional preview. No quote upload required.</p>
+                </div>} />}
             />
             <ProphecyPredictions />
             <ProphecyExplainer

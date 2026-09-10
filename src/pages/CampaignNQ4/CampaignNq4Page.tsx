@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import UploadZone from "@/components/UploadZone";
+import SyntheticDemoLauncher from "@/components/synthetic-demo/SyntheticDemoLauncher";
+import {
+  prepareQuoteEducationHandoff,
+  selectQuoteEducationHandoffSubmitter,
+} from "@/components/synthetic-demo/quoteEducationHandoff";
+import type { SyntheticDemoHandoffContext } from "@/components/synthetic-demo/types";
 import UniversalIntakeHost from "@/components/intake/universal/UniversalIntakeHost";
 import { useScanFunnelSafe } from "@/state/scanFunnel";
 import type {
@@ -44,6 +50,7 @@ export default function CampaignNq4Page({
   const openerRef = useRef<HTMLElement | null>(null);
   const focusFrameRef = useRef<number | null>(null);
   const hydratedHandoffRef = useRef<string | null>(null);
+  const demoHandoffSubmitterRef = useRef<IntakeSubmitter | null>(null);
 
   const hydrateFunnelIdentity = useCallback((handoff: Nq4UploadResume) => {
     if (!funnel) return;
@@ -77,8 +84,13 @@ export default function CampaignNq4Page({
       startingStep: IntakeStepId,
       zipPrefill = "",
       presetValues?: IntakeOpenRequest["presetValues"],
+      demoContext?: SyntheticDemoHandoffContext,
     ) => {
       if (intakeOpenRef.current) return;
+      const prepared = demoContext
+        ? prepareQuoteEducationHandoff(demoContext, "/nq4")
+        : null;
+      demoHandoffSubmitterRef.current = prepared?.submitter ?? null;
       intakeOpenRef.current = true;
       openerRef.current =
         document.activeElement instanceof HTMLElement
@@ -89,7 +101,9 @@ export default function CampaignNq4Page({
         entryPoint,
         startingStep,
         zipPrefill: zipPrefill || undefined,
-        presetValues,
+        presetValues: prepared
+          ? { ...presetValues, ...prepared.presetValues }
+          : presetValues,
       });
     },
     [],
@@ -98,6 +112,7 @@ export default function CampaignNq4Page({
   const closeIntake = useCallback(() => {
     const shouldRevealUpload = uploadPendingRef.current;
     intakeOpenRef.current = false;
+    demoHandoffSubmitterRef.current = null;
     setOpenRequest(null);
     uploadPendingRef.current = false;
     if (focusFrameRef.current !== null) {
@@ -109,6 +124,15 @@ export default function CampaignNq4Page({
       if (shouldRevealUpload) setShowUpload(true);
     });
   }, []);
+
+  const submitIntake = useCallback<IntakeSubmitter>((values, context) => {
+    const selected = selectQuoteEducationHandoffSubmitter(
+      demoHandoffSubmitterRef.current,
+      onSubmitLead,
+      persistLead,
+    );
+    return selected(values, context);
+  }, [onSubmitLead, persistLead]);
 
   const handlePersistedSuccess = useCallback<IntakePersistedSuccessHandler>((
     values: IntakeValues,
@@ -146,6 +170,14 @@ export default function CampaignNq4Page({
   return (
     <>
       <CampaignNq4Landing
+        demoSlot={<SyntheticDemoLauncher variant="challenge"
+          attribution={{ sourcePath: "/nq4", entryPoint: "nq4_hero_quote_challenge" }}
+          onHasQuote={(context) => openIntake("hero_primary", "location", "", { intent: "has_quote" }, context)}
+          onNoQuote={(context) => openIntake("hero_primary", "location", "", { intent: "no_quote" }, context)}
+          renderTrigger={(trigger) => <div style={{ marginTop: 20 }}>
+            <button {...trigger} type="button" className="nq4-escape-hatch" style={{ minHeight: 44, padding: "10px 14px", border: "1px solid #517da1", borderRadius: 8, background: "#0a2338", color: "#bbdef5" }}>Take the 3-question Quote Challenge</button>
+            <p className="nq4-support" style={{ marginTop: 8 }}>Practice the questions that make a written estimate stronger.</p>
+          </div>} />}
         onStartIntake={openIntake}
         onHaveWrittenEstimate={() =>
           openIntake("hero_primary", "location", "", {
@@ -158,7 +190,7 @@ export default function CampaignNq4Page({
             <UniversalIntakeHost
               config={nq4IntakeConfig}
               openRequest={openRequest}
-              submitter={onSubmitLead ?? persistLead}
+              submitter={submitIntake}
               skin={Nq4IntakeSkin}
               onClose={closeIntake}
               onPersistedSuccess={handlePersistedSuccess}

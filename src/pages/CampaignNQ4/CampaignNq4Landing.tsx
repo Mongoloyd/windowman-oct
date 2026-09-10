@@ -30,6 +30,7 @@ export interface CampaignNq4LandingProps {
   readonly onHaveWrittenEstimate: () => void;
   readonly success?: Nq4SuccessSummary | null;
   readonly intakeSlot?: ReactNode;
+  readonly demoSlot?: ReactNode;
 }
 
 interface MechanismCard {
@@ -254,6 +255,7 @@ export function CampaignNq4Landing({
   onHaveWrittenEstimate,
   success = null,
   intakeSlot = null,
+  demoSlot = null,
 }: CampaignNq4LandingProps) {
   useNq4ScopedCss();
   useNq4NoIndex();
@@ -370,6 +372,7 @@ export function CampaignNq4Landing({
                 >
                   {ESCAPE_HATCH_LABEL}
                 </button>
+                {demoSlot}
               </div>
 
               <MechanismGraphic />

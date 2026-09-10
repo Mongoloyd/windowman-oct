@@ -8,7 +8,7 @@
 
 ## 1. Executive Summary
 
-WindowMan ships **56 Edge Functions** under `supabase/functions/` (excluding `_shared/` helpers) in this inventory, after registering `report-summary-worker`. Directly affected totals: function-directory count **55 → 56**; config-entry count **55 → 56**. `report-summary-worker` has a matching `[functions.report-summary-worker]` block with `verify_jwt = false`. Pre-existing inventory gaps outside this sprint, including `ingest-native-lead`, are unchanged and were not repaired.
+The 2026-06 snapshot inventoried **56 Edge Functions** under `supabase/functions/` (excluding `_shared/` helpers). The 2026-09 `quote-education-capture` sprint adds the repository-only `capture-quote-education-demo-lead` sibling with a matching `verify_jwt = false` config entry; it is intentionally **NOT_DEPLOYED**. Historical inventory totals and unrelated gaps, including `ingest-native-lead`, were not re-audited or repaired in this bounded sprint.
 
 That means the Supabase API gateway does **not** enforce JWT validation at the edge. Security relies entirely on **in-function auth** (adminAuth, contractor JWT checks, phone-verification RPC gates, cron/webhook secrets, or dev bypass flags). Any caller holding the public anon/publishable key can reach every function URL; only handler logic restricts abuse.
 
@@ -50,6 +50,7 @@ Legend — **Auth model:** `app-logic` (handler validation, no gateway JWT); `ad
 | `capi-event` | internal | false | service-role or x-capi-dispatch-secret | yes | none (browser/anon blocked at handler) |
 | `capture-truth-gate-lead` | homeowner public | false | app-logic | yes | `TruthGateFlow.tsx` |
 | `capture-power-tool-demo-lead` | homeowner public | false | app-logic | yes | none (Sprint B: `PowerToolDemo.tsx`) |
+| `capture-quote-education-demo-lead` | homeowner public | false | app-logic | yes | `productionCaptureClient.ts` via `captureQuoteEducationDemoLead.ts` |
 | `capture-arbitrage-lead` | homeowner public | false | app-logic (+ backend flag) | yes | `arbitrageengine.tsx` (via `captureArbitrageLead.ts`) |
 | `compare-quotes` | homeowner public | false | phone-RPC | yes | `PostScanReportSwitcher.tsx` |
 | `contractor-actions` | admin | false | adminAuth | yes | none (no current `src/` invoke; docs reference only) |
@@ -129,6 +130,7 @@ supabase functions list --project-ref wkrcyxcnzhwjtdpmfpaf
 | `calculate-estimate-metrics` | YES | YES | NOT_DEPLOYED | UNKNOWN | UNKNOWN | ACTIVE | 280 | 2026-05-26 13:58:17 | MISSING_ON_STAGING | Standalone deploy; logic also inlined in scan-quote |
 | `capi-event` | YES | YES | ACTIVE | 1 | 2026-06-05 23:34:25 | ACTIVE | 338 | 2026-05-26 13:58:17 | PARITY_OK; VERSION_DIVERGENCE; DATE_DIVERGENCE | Meta CAPI server bridge — deployed on V2 2026-06-05 |
 | `capture-power-tool-demo-lead` | YES | YES | ACTIVE | 1 | 2026-06-11 02:14:31 | NOT_DEPLOYED | UNKNOWN | UNKNOWN | MISSING_ON_PRODUCTION | PowerToolDemo progressive lead capture; `source=power-tool-demo`; never sets `phone_verified` / report unlock |
+| `capture-quote-education-demo-lead` | YES | YES | NOT_DEPLOYED | UNKNOWN | UNKNOWN | NOT_DEPLOYED | UNKNOWN | UNKNOWN | REPO_ONLY | SyntheticDemo progressive capture; `source=quote-education-demo`; deployment intentionally deferred |
 | `capture-truth-gate-lead` | YES | YES | ACTIVE | 22 | 2026-05-17 04:52:05 | ACTIVE | 44 | 2026-05-26 13:58:17 | PARITY_OK; VERSION_DIVERGENCE; DATE_DIVERGENCE | TruthGate lead capture |
 | `compare-quotes` | YES | YES | ACTIVE | 18 | 2026-05-19 04:53:20 | ACTIVE | 204 | 2026-05-26 13:58:17 | PARITY_OK; VERSION_DIVERGENCE; DATE_DIVERGENCE | |
 | `contractor-actions` | YES | YES | ACTIVE | 17 | 2026-05-19 07:46:27 | ACTIVE | 313 | 2026-05-26 13:58:17 | PARITY_OK; VERSION_DIVERGENCE; DATE_DIVERGENCE | |
@@ -304,6 +306,7 @@ Functions reachable by unauthenticated browsers using only the publishable/anon 
 |----------|-----------------|----------------|------------------------|
 | `capture-truth-gate-lead` | TruthGate lead INSERT (RLS-safe) + consent-gated OpenAI Ads `lead_created` | Payload validation; never sets `phone_verified`; server event ID and CAPI only after a new `source=truth-gate` insert | `leads`, `event_logs` |
 | `capture-power-tool-demo-lead` | PowerToolDemo progressive lead capture (`source=power-tool-demo`) | `verify_jwt=false`; source-scoped session lookup; never sets `phone_verified` / report unlock; PII logging banned | `leads`, `event_logs` |
+| `capture-quote-education-demo-lead` | SyntheticDemo progressive lead capture (`source=quote-education-demo`) | `verify_jwt=false`; variant/host/fixture allowlists; source-scoped session lookup; never sets `phone_verified` / report unlock; PII logging banned | `leads`, `event_logs`, `lead_events`; RPC `persist_lead_consent_batch` |
 | `capture-arbitrage-lead` | ArbitrageEngine progressive lead capture (`source=arbitrage-engine`) | `verify_jwt=false`; backend flag `ARBITRAGE_PROGRESSIVE_CAPTURE_ENABLED` (default off); source-scoped `session_id`+`source` lookup; never sets `phone_verified` / report unlock; PII logging banned | `leads`, `event_logs` |
 | `start-upload-scan-session` | Bootstrap lead + quote_file + scan_session | UUID + storage_path contract | `leads`, `quote_files`, `scan_sessions`, `event_logs` |
 | `scan-quote` | Scanner Brain: Gemini extract + TS score | Session existence, rate limits; optional `DEV_BYPASS_SECRET` for dev override | `scan_sessions`, `analyses`, `quote_files`, `quotes`, `leads`, `lead_events` |
@@ -565,6 +568,17 @@ Each entry: **Purpose · Category · verify_jwt · Auth · Env vars · Service r
 - **PII logging:** banned (safe boolean flags only)
 - **Callers:** `PowerToolDemo.tsx` (progressive capture via `create` / `update_zip` / `update_phone` / `update_intake`)
 - **Deploy (V2):** ACTIVE v1 @ 2026-06-11 on `zgsofkgddpcntdvpckdq`
+
+### `capture-quote-education-demo-lead`
+- **Purpose:** Source-isolated public capture for the X-Ray, Quote Lens, and Quote Challenge SyntheticDemo experiences.
+- **Category:** homeowner public · **Auth:** `verify_jwt=false` · app-logic via source-scoped `session_id` + `source=quote-education-demo`
+- **Actions:** `create`, `update_zip`, `update_phone`, `update_intake` (progressive capture and same-lead NQ3/NQ4 handoff)
+- **Env:** `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
+- **Tables / RPC:** `leads`, `lead_events` (`quote_education_demo_submitted`), best-effort `event_logs` audit, and append-only consent via `persist_lead_consent_batch`.
+- **Source discriminator:** `quote-education-demo`; server-owned variant, host-page, entry-point, and fixture metadata are stored in existing JSON fields.
+- **Forbidden writes:** OTP fields, `phone_verified*`, `report_unlocked_at`, scan/analysis/quote fields, external tracking/CAPI
+- **Rate limit:** temporarily matches the classic public demo endpoint (no custom limiter); shared limiter tracked as a P1 follow-up.
+- **Deploy:** **NOT_DEPLOYED** — repository-only in this sprint.
 
 ### `capture-arbitrage-lead`
 - **Purpose:** Public homeowner ArbitrageEngine progressive lead capture (About-page arbitrage funnel).

@@ -35,6 +35,7 @@ const DevTesting = lazy(() => import("./pages/DevTesting.tsx"));
 const PreUploadIntake = lazy(() => import("@/components/forensic-report/PreUploadIntake"));
 const VisualPreUploadIntake = lazy(() => import("./pages/VisualPreUploadIntake.tsx"));
 const VisualOracleLab = lazy(() => import("./pages/VisualOracleLab.tsx"));
+const SyntheticDemoViewer = lazy(() => import("./pages/SyntheticDemoViewer.tsx"));
 const ScoringPlayground = import.meta.env.DEV
   ? lazy(() => import("./pages/debug/ScoringPlayground.tsx"))
   : null;
@@ -264,6 +265,7 @@ const App = () => (
                 <Route path="/visual/intake-preview" element={<WindowManIntakePreview />} />
                 {/* Fixture-only Window Oracle — synthetic data; unlisted; no Supabase. */}
                 <Route path="/visual/oracle-lab" element={<VisualOracleLab />} />
+                <Route path="/visual/synthetic-demo/:variant" element={<SyntheticDemoViewer />} />
                 {isDevMode && (
                   <>
                     <Route path="/dev/report-preview" element={<DevReportPreview />} />

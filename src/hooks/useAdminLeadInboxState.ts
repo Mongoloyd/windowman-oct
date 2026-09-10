@@ -4,7 +4,11 @@ import { FUNNEL_STAGES } from "@/components/admin/leadWorkflow";
 
 export const INBOX_RANGE_VALUES = ["all", "24h", "7d", "30d"] as const;
 export const INBOX_VERIFIED_VALUES = ["all", "verified", "unverified"] as const;
-export const INBOX_SOURCE_VALUES = ["all", "power-tool-demo"] as const;
+export const INBOX_SOURCE_VALUES = [
+  "all",
+  "power-tool-demo",
+  "quote-education-demo",
+] as const;
 export const INBOX_SHORTCUT_VALUES = ["all", "yes", "no"] as const;
 export const INBOX_PRIORITY_VALUES = ["all", "Hot", "Warm"] as const;
 export const INBOX_INTAKE_VALUES = ["all", "Researching", "Incomplete"] as const;
@@ -66,6 +70,10 @@ function isAllowlisted<T extends string>(value: string, allowed: readonly T[]): 
   return allowed.includes(value as T);
 }
 
+function isDemoSource(value: InboxSourceFilter): boolean {
+  return value === "power-tool-demo" || value === "quote-education-demo";
+}
+
 export function inboxFilterSignature(filters: AdminLeadInboxFilters): string {
   return RECOGNIZED_KEYS.map((key) => `${key}=${filters[key]}`).join("&");
 }
@@ -114,7 +122,7 @@ export function parseInboxFilters(
   }
 
   if (
-    source !== "power-tool-demo" &&
+    !isDemoSource(source) &&
     (shortcut !== "all" || intake !== "all")
   ) {
     source = "power-tool-demo";
@@ -281,7 +289,7 @@ export function useAdminLeadInboxState(counties: readonly string[]) {
     setStage: (stage: InboxStageFilter) => updateFilters({ stage }),
     setSource: (source: InboxSourceFilter) =>
       updateFilters(
-        source === "power-tool-demo"
+        isDemoSource(source)
           ? { source }
           : { source, shortcut: "all", intake: "all" },
       ),

@@ -2,6 +2,12 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
 import UploadZone from "@/components/UploadZone";
+import SyntheticDemoLauncher from "@/components/synthetic-demo/SyntheticDemoLauncher";
+import {
+  prepareQuoteEducationHandoff,
+  selectQuoteEducationHandoffSubmitter,
+} from "@/components/synthetic-demo/quoteEducationHandoff";
+import type { SyntheticDemoHandoffContext } from "@/components/synthetic-demo/types";
 import { ExplainerVideoSection } from "@/components/landing/ExplainerVideoFacade";
 import UniversalIntakeHost from "@/components/intake/universal/UniversalIntakeHost";
 import { useScanFunnelSafe } from "@/state/scanFunnel";
@@ -10,6 +16,7 @@ import type {
   IntakeOpenRequest,
   IntakePersistedSuccess,
   IntakeStepId,
+  IntakeSubmitter,
   IntakeValues,
 } from "@/components/intake/universal/intakeTypes";
 import { useCampaignNqIllumination } from "../CampaignNQ/useCampaignNqIllumination";
@@ -69,6 +76,7 @@ export default function NoQuoteLanding({ onSubmitLead }: NoQuoteLandingProps) {
   const uploadPendingRef = useRef(false);
   const openerRef = useRef<HTMLElement | null>(null);
   const focusFrameRef = useRef<number | null>(null);
+  const demoHandoffSubmitterRef = useRef<IntakeSubmitter | null>(null);
 
   useEffect(() => () => {
     if (focusFrameRef.current !== null) {
@@ -81,8 +89,13 @@ export default function NoQuoteLanding({ onSubmitLead }: NoQuoteLandingProps) {
     startingStep: IntakeStepId,
     zipPrefill = "",
     presetValues?: IntakeOpenRequest["presetValues"],
+    demoContext?: SyntheticDemoHandoffContext,
   ) => {
     if (intakeOpenRef.current) return;
+    const prepared = demoContext
+      ? prepareQuoteEducationHandoff(demoContext, "/nq3")
+      : null;
+    demoHandoffSubmitterRef.current = prepared?.submitter ?? null;
     intakeOpenRef.current = true;
     openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setOpenRequest({
@@ -90,7 +103,9 @@ export default function NoQuoteLanding({ onSubmitLead }: NoQuoteLandingProps) {
       entryPoint,
       startingStep,
       zipPrefill: zipPrefill || undefined,
-      presetValues,
+      presetValues: prepared
+        ? { ...presetValues, ...prepared.presetValues }
+        : presetValues,
     });
   }, []);
 
@@ -132,6 +147,7 @@ export default function NoQuoteLanding({ onSubmitLead }: NoQuoteLandingProps) {
   const closeIntake = useCallback(() => {
     const shouldRevealUpload = uploadPendingRef.current;
     intakeOpenRef.current = false;
+    demoHandoffSubmitterRef.current = null;
     setOpenRequest(null);
     uploadPendingRef.current = false;
     focusFrameRef.current = window.requestAnimationFrame(() => {
@@ -140,6 +156,15 @@ export default function NoQuoteLanding({ onSubmitLead }: NoQuoteLandingProps) {
       if (shouldRevealUpload) setShowUpload(true);
     });
   }, []);
+
+  const submitIntake = useCallback<IntakeSubmitter>((values, context) => {
+    const selected = selectQuoteEducationHandoffSubmitter(
+      demoHandoffSubmitterRef.current,
+      onSubmitLead,
+      persistLead,
+    );
+    return selected(values, context);
+  }, [onSubmitLead, persistLead]);
 
   const submitZip = (
     event: FormEvent<HTMLFormElement>,
@@ -172,6 +197,14 @@ export default function NoQuoteLanding({ onSubmitLead }: NoQuoteLandingProps) {
         />
         <main ref={litPlaneRef}>
           <HeroSection
+            demoSlot={<SyntheticDemoLauncher variant="lens"
+              attribution={{ sourcePath: "/nq3", entryPoint: "nq3_hero_quote_lens" }}
+              onHasQuote={(context) => openIntake("hero_primary", "location", "", { intent: "has_quote" }, context)}
+              onNoQuote={(context) => openIntake("hero_primary", "location", "", { intent: "no_quote" }, context)}
+              renderTrigger={(trigger) => <div style={{ marginTop: 20 }}>
+                <button {...trigger} type="button" className="btn" style={{ minHeight: 44, border: "1px solid #478aab", color: "#9adcf2", background: "#0b2536" }}>Try the 25-second Quote Lens</button>
+                <p style={{ marginTop: 8, fontSize: 12, color: "#a8bbcb" }}>See three details a written estimate should make clear.</p>
+              </div>} />}
             zip={heroZip}
             zipError={heroZipError}
             onZipChange={(value) => { setHeroZip(value); setHeroZipError(""); }}
@@ -224,7 +257,7 @@ export default function NoQuoteLanding({ onSubmitLead }: NoQuoteLandingProps) {
         <UniversalIntakeHost
           config={nq3IntakeConfig}
           openRequest={openRequest}
-          submitter={onSubmitLead ?? persistLead}
+          submitter={submitIntake}
           skin={Nq3IntakeSkin}
           onClose={closeIntake}
           onPersistedSuccess={handlePersistedSuccess}

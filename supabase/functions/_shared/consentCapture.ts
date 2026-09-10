@@ -23,6 +23,7 @@ export const SERVICE_COMMUNICATIONS_REQUIRED_SOURCES = new Set<string>([
   "truth-gate",
   "nextdoor",
   "windowman-first-quote",
+  "quote-education-demo",
   "google_window_prices",
   "nextdoor_truth_report",
   "window_price_audit",
@@ -173,8 +174,7 @@ export function validateConsentRequest(
   if (
     SERVICE_COMMUNICATIONS_REQUIRED_SOURCES.has(expectedSource) &&
     !events.some(
-      (e) =>
-        e.purpose === "service_communications" && e.decision === "granted",
+      (e) => e.purpose === "service_communications" && e.decision === "granted",
     )
   ) {
     return {
@@ -270,10 +270,12 @@ function trimMax(v: unknown, max: number): string | null {
 }
 
 export async function persistConsentBatch(
-  admin: { rpc: (
-    fn: string,
-    args: Record<string, unknown>,
-  ) => Promise<{ error: { code?: string; message?: string } | null }> },
+  admin: {
+    rpc: (
+      fn: string,
+      args: Record<string, unknown>,
+    ) => PromiseLike<{ error: { code?: string; message?: string } | null }>;
+  },
   args: {
     leadId: string;
     sessionId: string;

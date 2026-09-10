@@ -49,6 +49,28 @@ export type SubmitWindowmanFirstQuoteResult =
   | { ok: true; leadId?: string; reused?: boolean }
   | { ok: false; message: string };
 
+export type FirstQuoteIntakeConsentInput = Pick<
+  SubmitWindowmanFirstQuoteInput,
+  | "submissionId"
+  | "serviceCommunicationsGranted"
+  | "marketingConsentPresented"
+  | "marketingCommunicationsGranted"
+>;
+
+/** Builds the canonical versioned consent envelope for first-quote intakes. */
+export function buildFirstQuoteIntakeConsentRequest(
+  input: FirstQuoteIntakeConsentInput,
+  source = WINDOWMAN_FIRST_QUOTE_SOURCE,
+) {
+  return buildLeadCaptureConsentRequest({
+    submissionId: input.submissionId,
+    source,
+    serviceCommunicationsGranted: input.serviceCommunicationsGranted,
+    marketingConsentPresented: input.marketingConsentPresented,
+    marketingCommunicationsGranted: input.marketingCommunicationsGranted,
+  });
+}
+
 function flattenQueryParams(
   base: Record<string, string | string[]>,
 ): Record<string, string> {
@@ -191,13 +213,7 @@ export function buildWindowmanFirstQuoteLeadPayload(
     queryParams.preferred_contact = preferred;
   }
 
-  const consent = buildLeadCaptureConsentRequest({
-    submissionId: input.submissionId,
-    source: WINDOWMAN_FIRST_QUOTE_SOURCE,
-    serviceCommunicationsGranted: input.serviceCommunicationsGranted,
-    marketingConsentPresented: input.marketingConsentPresented,
-    marketingCommunicationsGranted: input.marketingCommunicationsGranted,
-  });
+  const consent = buildFirstQuoteIntakeConsentRequest(input);
 
   const base = buildTruthGateLeadPayload({
     sessionId: input.sessionId,
