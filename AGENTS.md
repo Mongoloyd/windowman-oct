@@ -747,6 +747,39 @@ If a historical doc conflicts with current canonical policy or executable repo t
 - Pull requests target `forensic_report_v2` unless the user explicitly names another target.
 - Do not use stale `main` as the starting or target branch.
 
+### Fail-closed session preflight
+
+Every implementation prompt must name:
+
+```text
+assigned absolute worktree
+expected branch
+expected base
+exact allowed paths
+exact protected paths
+```
+
+Set the assigned worktree as the explicit working directory for every command. A prior shell `cd`
+does not authorize later commands to run from another directory.
+
+Before the first edit, run and report:
+
+```powershell
+git rev-parse --show-toplevel
+git branch --show-current
+git rev-parse HEAD
+git status --short --branch --untracked-files=all
+git worktree list --porcelain
+```
+
+Abort without editing if:
+
+- the resolved root or active branch differs from the prompt;
+- any staged, modified, deleted, renamed, or untracked path is unexplained;
+- the expected branch is already assigned to another worktree;
+- another Codex task, Cursor window, or writer is using the same physical folder;
+- the requested starting point cannot be verified from current repository evidence.
+
 ### When only one coding task is active
 
 - Use the canonical local checkout.
@@ -767,15 +800,43 @@ For parallel work:
 5. Do not let two Codex tasks, Cursor, or any combination of agents edit the same physical folder simultaneously.
 6. Do not reuse an unrelated existing worktree.
 7. Do not modify the canonical checkout from a task assigned to a worktree.
-8. Before the first edit, report in plain language:
+8. Do not pre-create empty worktrees for hypothetical tasks. Create one only after a concrete independent workstream is defined.
+9. Give each workstream one exact, unique `codex/<specific-task-slug>` branch. Verify that the branch name is not already present locally or on the remote.
+10. Before the first edit, report in plain language:
    - task name
    - worktree location
    - starting branch and commit
    - whether the worktree is clean
-9. A Codex-managed worktree may initially use a detached checkout. Before committing, create one focused `codex/<feature-name>` branch in that worktree.
-10. Keep that task's files, tests, preview server, commits, push, and pull request inside its assigned worktree.
-11. If Cursor will edit the worktree, open that exact worktree folder in a separate Cursor window. Do not point Cursor at the canonical folder while another writer is using it.
-12. Keep the task pinned until its work is committed, pushed, and safely merged.
+11. A Codex-managed worktree may initially use a detached checkout. Before committing, create the task's one focused branch in that worktree.
+12. Keep that task's files, tests, preview server, commits, push, and pull request inside its assigned worktree.
+13. If Cursor will edit the worktree, open that exact worktree folder in a separate Cursor window. Do not point Cursor at the canonical folder while another writer is using it.
+14. Keep the task pinned until its work is committed, pushed, and safely merged.
+
+### Sequential work inside one workstream
+
+- Dependent phases that will ship in one eventual pull request reuse the same worktree and the same branch.
+- Record each phase as a separate coherent commit; do not create one branch per phase merely for bookkeeping.
+- Switch branches inside a worktree only when the user explicitly requests a different review or integration topology and the worktree is clean.
+- Branches alone do not isolate simultaneous writers. If two tasks will run at the same time, they require separate physical worktrees.
+
+### Active Power Demo V2 reservation
+
+Until the Power Demo V2 work is merged and verified, it owns:
+
+```text
+worktree: C:\Users\Dell\.codex\worktrees\power-demo-v2-scaffold\wm-mvp-github-clean
+branch: codex/power-demo-v2-scaffold
+paths: src/components/power-demo-v2/**
+       src/pages/PowerDemoV2Page*
+       design-qa.md
+```
+
+- Keep all dependent V2 phases on `codex/power-demo-v2-scaffold` as atomic commits for one eventual PR.
+- Do not rerun the historical freeze sequence. The frozen checkpoint is commit `c9e62687`; verify current state before relying on that dated SHA.
+- Reserve the `codex/power-demo-v2-*` namespace for this workstream. Other simultaneous tasks use distinct `codex/<task-slug>` names.
+- Treat `src/App.tsx`, `src/components/PowerToolDemo.tsx`, and `src/components/power-demo/**` as shared coordination surfaces.
+- If another workstream needs a shared coordination surface, land that work in `forensic_report_v2` first, then rebase V2 onto the updated base.
+- Do not merge or cherry-pick sibling feature branches directly into the V2 branch.
 
 ### Local environment and previews
 
@@ -792,6 +853,58 @@ For parallel work:
 - A dirty canonical checkout is not permission to delete, reset, stash, move, or overwrite its changes.
 - If unrelated work is already present, preserve it and place the newer simultaneous task in an authorized managed worktree.
 - If two writers are discovered in the same folder, stop the newer writer before further edits and move the newer task to a separate managed worktree.
+- Never use `git stash`, `git reset --hard`, `git clean -f`, `git clean -fd`, `git restore` to discard work, or `git checkout -- <path>` as an isolation shortcut.
+- Never use `git add .`, `git add -A`, wildcards, or directory-wide staging.
+
+### Exact staging and commit hygiene
+
+Before every commit:
+
+1. Run `git status --short --branch --untracked-files=all` and classify every dirty path.
+2. Stage individually reviewed files with `git add -- <file-1> <file-2>`.
+3. Verify `git diff --cached --name-status`, `git diff --cached --stat`, and `git diff --cached --check`.
+4. If the staged set differs from the approved list, unstage safely and stop for review. Do not reset or discard file content.
+5. Run the task's focused tests, typecheck, build, and protected-path diff review before delivery.
+
+### Integrating parallel work
+
+Independent workstreams integrate through their own PRs into `forensic_report_v2`. A long-running feature branch then updates from the integration branch by rebasing; it does not absorb sibling branches directly.
+
+Before rebasing:
+
+```powershell
+git status --short --branch --untracked-files=all
+git fetch origin forensic_report_v2
+git rev-parse HEAD
+git rev-parse origin/forensic_report_v2
+git merge-base HEAD origin/forensic_report_v2
+git rebase origin/forensic_report_v2
+```
+
+- The worktree must be clean and have only one active writer.
+- Stop on conflicts involving shared or protected files; do not guess or auto-resolve them.
+- After the rebase, rerun focused tests, the complete test command, typecheck, production build, and final diff review.
+- Rebasing synchronizes a feature branch with its base. The eventual PR still targets `forensic_report_v2` and uses the repository's approved PR merge strategy.
+
+If the branch was already pushed, capture its current remote SHA before the rebase and update it only with an explicit lease:
+
+```powershell
+$Branch = "codex/<feature-name>"
+$RemoteLine = git ls-remote --heads origin "refs/heads/$Branch"
+if (-not $RemoteLine) { throw "Remote branch not found: $Branch" }
+$RemoteBefore = ($RemoteLine -split "\s+")[0]
+
+# Perform the clean rebase and verification first.
+
+git push `
+  --force-with-lease="refs/heads/${Branch}:$RemoteBefore" `
+  origin `
+  "HEAD:refs/heads/$Branch"
+```
+
+- Never use bare `--force`.
+- If the explicit lease fails, stop because the remote branch changed after it was inspected.
+- This explicit lease is required when a narrow fetch refspec means the feature branch has no usable local remote-tracking ref.
 
 ### Finishing a worktree task
 
@@ -799,6 +912,7 @@ For parallel work:
 - Commit and push only the task's intended files.
 - Open a focused pull request targeting `forensic_report_v2`.
 - Do not merge, deploy, delete a branch, delete a worktree, or change production unless the user explicitly requests it.
+- Keep the worktree until its PR is merged and the requested verification is complete; then deliberately archive or remove it instead of preserving it indefinitely.
 - After a merge, report:
   - pull request number
   - permanent merge commit
