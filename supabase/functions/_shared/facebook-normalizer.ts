@@ -32,7 +32,20 @@ export type NormalizedLeadAdPayload = {
   email: string | null;
   phoneE164: string | null;
   county: string | null;
+  city: string | null;
+  zip: string | null;
+  projectType: string | null;
+  propertyType: string | null;
+  propertyTypeDetail: string | null;
+  quoteRange: string | null;
+  qualificationOpenings: string | null;
   rawPayload: JsonRecord | null;
+};
+
+export type ApprovedFacebookMapping = {
+  question_label: string;
+  mapping_action: "map" | "ignore";
+  canonical_key: FacebookCanonicalMappingKey | null;
 };
 
 export type FacebookNormalizationResult =
@@ -189,8 +202,17 @@ function getFirstFieldValue(record: JsonRecord): unknown {
   return values.find((entry) => cleanText(entry) !== null);
 }
 
-function getFieldMap(body: JsonRecord): Record<string, string> {
+function getFieldMap(
+  body: JsonRecord,
+  approvedMappings: readonly ApprovedFacebookMapping[] = [],
+): Record<string, string> {
   const fieldMap: Record<string, string> = {};
+  const mappings = new Map(
+    approvedMappings.map((mapping) => [
+      mapping.question_label.trim().toLowerCase(),
+      mapping,
+    ]),
+  );
 
   for (const item of getFieldData(body)) {
     const record = asJsonRecord(item);
@@ -198,7 +220,17 @@ function getFieldMap(body: JsonRecord): Record<string, string> {
     const name = normalizeFieldKey(record.name);
     if (!name) continue;
     const cleaned = cleanText(getFirstFieldValue(record));
-    if (cleaned) fieldMap[name] = cleaned;
+    const label = cleanText(
+      record.question_label ?? record.label ?? record.question ?? record.name,
+      500,
+    )?.toLowerCase();
+    const approved = label ? mappings.get(label) : undefined;
+    if (!cleaned || approved?.mapping_action === "ignore") continue;
+    if (approved?.mapping_action === "map" && approved.canonical_key) {
+      fieldMap[approved.canonical_key] = cleaned;
+    } else {
+      fieldMap[name] = cleaned;
+    }
   }
 
   return fieldMap;
@@ -246,8 +278,11 @@ type NormalizedLeadAdCandidate =
   >
   & { platformLeadId: string | null };
 
-function buildNormalizedCandidate(body: JsonRecord): NormalizedLeadAdCandidate {
-  const fieldMap = getFieldMap(body);
+function buildNormalizedCandidate(
+  body: JsonRecord,
+  approvedMappings: readonly ApprovedFacebookMapping[] = [],
+): NormalizedLeadAdCandidate {
+  const fieldMap = getFieldMap(body, approvedMappings);
   const platformLeadId = cleanText(
     body.platform_lead_id ?? body.platformLeadId ?? body.leadgen_id ??
       body.leadgenId ?? body.id ?? getNested(body, ["lead", "id"]),
@@ -312,15 +347,28 @@ function buildNormalizedCandidate(body: JsonRecord): NormalizedLeadAdCandidate {
     fullName,
     email,
     phoneE164,
-    county: cleanText(body.county, 120),
+    county: pick(body, fieldMap, ["county"], 120),
+    city: pick(body, fieldMap, ["city"], 120),
+    zip: pick(body, fieldMap, ["zip", "postal_code"], 20),
+    projectType: pick(body, fieldMap, ["project_type"], 120),
+    propertyType: pick(body, fieldMap, ["property_type"], 120),
+    propertyTypeDetail: pick(body, fieldMap, ["property_type_detail"], 500),
+    quoteRange: pick(body, fieldMap, ["quote_range"], 120),
+    qualificationOpenings: pick(
+      body,
+      fieldMap,
+      ["qualification_openings"],
+      120,
+    ),
     rawPayload: asJsonRecord(body.raw_payload) ?? body,
   };
 }
 
 export function normalizePayload(
   body: JsonRecord,
+  approvedMappings: readonly ApprovedFacebookMapping[] = [],
 ): FacebookNormalizationResult {
-  const candidate = buildNormalizedCandidate(body);
+  const candidate = buildNormalizedCandidate(body, approvedMappings);
 
   if (!candidate.platformLeadId) {
     return { ok: false, error: "platform_lead_id_required" };
@@ -442,6 +490,13 @@ function toNormalizedLeadPreview(
     email: candidate.email,
     phone_e164: candidate.phoneE164,
     county: candidate.county,
+    city: candidate.city,
+    zip: candidate.zip,
+    project_type: candidate.projectType,
+    property_type: candidate.propertyType,
+    property_type_detail: candidate.propertyTypeDetail,
+    quote_range: candidate.quoteRange,
+    qualification_openings: candidate.qualificationOpenings,
   };
 }
 

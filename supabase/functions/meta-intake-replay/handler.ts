@@ -282,13 +282,12 @@ async function saveMapping(
     canonical_key: canonicalKey as string | null,
   };
 
-  const { data, error } = await supabaseAdmin
-    .from("field_mapping_overrides")
-    .upsert(row, { onConflict: "form_id,question_label" })
-    .select(
-      "id, form_id, question_label, mapping_action, canonical_key, created_at, updated_at",
-    )
-    .single();
+  const { data, error } = await supabaseAdmin.rpc("meta_save_form_mapping", {
+    p_form_id: row.form_id,
+    p_question_label: row.question_label,
+    p_mapping_action: row.mapping_action,
+    p_canonical_key: row.canonical_key,
+  });
 
   if (error) {
     return errorResponse(

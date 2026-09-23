@@ -311,3 +311,35 @@ Deno.test("mapping options reserve bucket answers for qualification_openings", (
   assert(keys.includes("qualification_openings"));
   assertEquals(keys.includes("window_count" as never), false);
 });
+
+Deno.test("approved form revision maps reworded identity and qualification answers live", () => {
+  const result = normalizePayload({
+    id: "meta-41",
+    form_id: "form-41",
+    field_data: [
+      { name: "your_best_email", question_label: "Where can we reach you?", values: [" Owner@Example.com "] },
+      { name: "project_size", question_label: "How many openings?", values: ["6–10"] },
+    ],
+  }, [
+    { question_label: "Where can we reach you?", mapping_action: "map", canonical_key: "email" },
+    { question_label: "How many openings?", mapping_action: "map", canonical_key: "qualification_openings" },
+  ]);
+  assert(result.ok);
+  if (!result.ok) return;
+  assertEquals(result.payload.email, "owner@example.com");
+  assertEquals(result.payload.qualificationOpenings, "6–10");
+});
+
+Deno.test("approved ignore does not leak a known-key answer into identity", () => {
+  const result = normalizePayload({
+    id: "meta-42",
+    field_data: [
+      { name: "email", question_label: "Internal QA only", values: ["not-the-homeowner@example.com"] },
+      { name: "phone", values: ["+13055550123"] },
+    ],
+  }, [{ question_label: "Internal QA only", mapping_action: "ignore", canonical_key: null }]);
+  assert(result.ok);
+  if (!result.ok) return;
+  assertEquals(result.payload.email, null);
+  assertEquals(result.payload.phoneE164, "+13055550123");
+});

@@ -93,6 +93,11 @@ type ActionName =
   // Lead workspace (Sprint 4 + 5)
   | "fetch_lead_detail"
   | "update_lead_funnel_stage"
+  | "meta_replay_lead"
+  | "meta_replay_webhook_receipt"
+  | "meta_replay_outbox"
+  | "meta_reconcile_qualification"
+  | "meta_queue_status"
   | "list_lead_notes"
   | "create_lead_note"
   | "delete_lead_note"
@@ -160,6 +165,11 @@ const ACTION_ROLES: Record<ActionName, AppRole[]> = {
   // Lead workspace
   fetch_lead_detail: ["super_admin", "operator", "viewer"],
   update_lead_funnel_stage: ["super_admin", "operator"],
+  meta_replay_lead: ["super_admin", "operator"],
+  meta_replay_webhook_receipt: ["super_admin", "operator"],
+  meta_replay_outbox: ["super_admin", "operator"],
+  meta_reconcile_qualification: ["super_admin", "operator"],
+  meta_queue_status: ["super_admin", "operator", "viewer"],
   list_lead_notes: ["super_admin", "operator", "viewer"],
   create_lead_note: ["super_admin", "operator"],
   delete_lead_note: ["super_admin", "operator"],
@@ -2727,24 +2737,115 @@ Deno.serve(async (req) => {
           }`,
         );
       }
-      const { data, error } = await supabaseAdmin
-        .from("leads")
-        .update({ funnel_stage, updated_at: now })
-        .eq("id", lead_id)
-        .select("id, funnel_stage, updated_at")
-        .maybeSingle();
+      const { data, error } = await supabaseAdmin.rpc(
+        "meta_set_lead_funnel_stage",
+        {
+          p_lead_id: lead_id,
+          p_funnel_stage: funnel_stage,
+          p_actor_id: userId,
+        },
+      );
       if (error) throw error;
       if (!data) return errorResponse(404, "not_found", "Lead not found");
-
-      // Audit trail in lead_events
-      await supabaseAdmin.from("lead_events").insert({
-        lead_id,
-        event_name: "funnel_stage_changed",
-        event_source: "admin_console",
-        metadata: { funnel_stage, actor: userId },
+      const updated = data as {
+        id: string;
+        funnel_stage: string;
+        updated_at: string;
+      };
+      return successResponse({
+        data: {
+          id: updated.id,
+          funnel_stage: updated.funnel_stage,
+          updated_at: updated.updated_at,
+        },
       });
+    }
 
-      return successResponse({ data });
+    if (action === "meta_replay_lead" || action === "meta_replay_outbox" ||
+        action === "meta_replay_webhook_receipt") {
+      const id = payload.id;
+      if (typeof id !== "string" || !/^[0-9a-f-]{36}$/i.test(id)) {
+        return errorResponse(400, "invalid_id", "A queue record ID is required");
+      }
+      const rpcName = action === "meta_replay_lead"
+        ? "meta_replay_lead_inbox"
+        : action === "meta_replay_webhook_receipt"
+        ? "meta_replay_webhook_receipt"
+        : "meta_replay_integration_outbox";
+      const { data, error } = await supabaseAdmin.rpc(rpcName, { p_id: id });
+      if (error) throw error;
+      return successResponse({ replayed: data === true });
+    }
+
+    if (action === "meta_reconcile_qualification") {
+      const leadId = payload.lead_id;
+      if (typeof leadId !== "string" || !/^[0-9a-f-]{36}$/i.test(leadId)) {
+        return errorResponse(400, "invalid_lead_id", "A lead ID is required");
+      }
+      const { data, error } = await supabaseAdmin.rpc("meta_queue_qualification", {
+        p_lead_id: leadId,
+        p_actor_id: userId,
+      });
+      if (error) throw error;
+      return successResponse({ reconciled: Boolean(data) });
+    }
+
+    if (action === "meta_queue_status") {
+      const receiptStatuses = ["pending", "retry", "processing", "complete", "quarantined", "dead"];
+      const inboxStatuses = ["pending", "retry", "processing", "done", "quarantined", "dead"];
+      const outboxStatuses = ["pending", "retry", "processing", "delivered", "dead"];
+      const [receipts, inbox, outbox, receiptDead, inboxDead, outboxDead, receiptOldest, inboxOldest, outboxOldest] = await Promise.all([
+        Promise.all(receiptStatuses.map((status) =>
+          supabaseAdmin.from("meta_webhook_receipts")
+            .select("id", { count: "exact", head: true }).eq("status", status)
+        )),
+        Promise.all(inboxStatuses.map((status) =>
+          supabaseAdmin.from("meta_lead_inbox")
+            .select("id", { count: "exact", head: true }).eq("status", status)
+        )),
+        Promise.all(outboxStatuses.map((status) =>
+          supabaseAdmin.from("meta_integration_outbox")
+            .select("id", { count: "exact", head: true }).eq("status", status)
+        )),
+        supabaseAdmin.from("meta_webhook_receipts")
+          .select("id,attempt_count,last_error_code,issue_count,updated_at")
+          .in("status", ["dead", "quarantined"])
+          .order("updated_at", { ascending: false }).limit(20),
+        supabaseAdmin.from("meta_lead_inbox")
+          .select("id,attempt_count,last_error_code,updated_at")
+          .eq("status", "dead").order("updated_at", { ascending: false }).limit(20),
+        supabaseAdmin.from("meta_integration_outbox")
+          .select("id,job_kind,attempt_count,last_error_code,updated_at")
+          .eq("status", "dead").order("updated_at", { ascending: false }).limit(20),
+        supabaseAdmin.from("meta_webhook_receipts")
+          .select("received_at")
+          .in("status", ["pending", "retry", "processing"])
+          .order("received_at", { ascending: true }).limit(1).maybeSingle(),
+        supabaseAdmin.from("meta_lead_inbox")
+          .select("received_at")
+          .in("status", ["pending", "retry", "processing"])
+          .order("received_at", { ascending: true }).limit(1).maybeSingle(),
+        supabaseAdmin.from("meta_integration_outbox")
+          .select("created_at")
+          .in("status", ["pending", "retry", "processing"])
+          .order("created_at", { ascending: true }).limit(1).maybeSingle(),
+      ]);
+      if ([...receipts, ...inbox, ...outbox, receiptDead, inboxDead, outboxDead,
+        receiptOldest, inboxOldest, outboxOldest]
+        .some((result) => result.error)) {
+        return errorResponse(503, "queue_status_unavailable", "Queue status is unavailable");
+      }
+      return successResponse({
+        receipts: Object.fromEntries(receiptStatuses.map((status, index) => [status, receipts[index].count ?? 0])),
+        inbox: Object.fromEntries(inboxStatuses.map((status, index) => [status, inbox[index].count ?? 0])),
+        outbox: Object.fromEntries(outboxStatuses.map((status, index) => [status, outbox[index].count ?? 0])),
+        oldest_receipt_work_received_at: receiptOldest.data?.received_at ?? null,
+        oldest_inbox_work_received_at: inboxOldest.data?.received_at ?? null,
+        oldest_outbox_work_created_at: outboxOldest.data?.created_at ?? null,
+        dead_or_quarantined_receipts: receiptDead.data ?? [],
+        dead_inbox: inboxDead.data ?? [],
+        dead_outbox: outboxDead.data ?? [],
+      });
     }
 
     if (action === "list_lead_notes") {

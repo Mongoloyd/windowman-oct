@@ -96,6 +96,11 @@ Do not use `otp_verified` for new browser business events.
 | `public.profiles` auto-create trigger on `auth.users` | Do not remove without full replacement plan |
 | `supabase/config.toml` — blocks `[functions.send-otp]`, `[functions.verify-otp]`, `[functions.report-access]` | Sprint-only: `verify_jwt`, CORS, or function config changes require named sprint approval |
 | `supabase/functions/admin-data/**` | Admin operator API — do not loosen, bypass, or weaken auth for convenience |
+| `supabase/functions/process-meta-lead/**` | Signed Meta inbox worker and canonical lead persistence — sprint-only |
+| `supabase/functions/process-meta-outbox/**` | Qualified-only GHL and Meta delivery worker — sprint-only |
+| `supabase/functions/import-facebook-lead-ad/**` | Meta webhook receipt and trusted import — sprint-only |
+| `supabase/functions/_shared/facebook-normalizer.ts` | Meta form normalization and approved mappings — sprint-only |
+| `supabase/functions/_shared/metaLeadAds*.ts` | Meta/GHL delivery contracts and configuration — sprint-only |
 | `supabase/functions/_shared/adminAuth.ts` | Shared admin JWT / dev-secret gate — sprint-only |
 
 **Admin authority (sprint-only — any file):**

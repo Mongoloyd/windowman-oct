@@ -1,11 +1,7 @@
-import {
-  assert,
-  assertEquals,
-} from "https://deno.land/std@0.168.0/testing/asserts.ts";
+import { assertEquals } from "https://deno.land/std@0.168.0/testing/asserts.ts";
 import {
   type FacebookLeadAdHandlerDependencies,
   handleImportFacebookLeadAdRequest,
-  normalizePayload,
 } from "./index.ts";
 
 const APP_SECRET = "test-meta-app-secret";
@@ -77,18 +73,28 @@ function createLeadgenEnvelope(leadIds: string[]) {
 }
 
 function fakeSupabase(
-  insert: (table: string, payload: unknown) => Promise<{
+  rpc: (name: string, payload: unknown) => Promise<{
     data: unknown;
     error: unknown;
   }>,
 ): NonNullable<FacebookLeadAdHandlerDependencies["supabase"]> {
   return {
+    rpc,
     from(table: string) {
-      return {
-        insert(payload: unknown) {
-          return insert(table, payload);
-        },
+      const result = {
+        data: table === "meta_form_consent_rules" ? [] : null,
+        error: null,
       };
+      const query = {
+        select: () => query,
+        eq: () => query,
+        order: () => query,
+        limit: () => query,
+        maybeSingle: () => Promise.resolve(result),
+        then: (resolve: (value: typeof result) => unknown) =>
+          Promise.resolve(resolve(result)),
+      };
+      return query;
     },
   } as unknown as NonNullable<
     FacebookLeadAdHandlerDependencies["supabase"]
@@ -168,7 +174,27 @@ Deno.test("POST rejects a mismatched X-Hub-Signature-256 with 401", async () => 
   });
 });
 
-Deno.test("native webhook rejects malformed UTF-8 with invalid_json after signature validation", async () => {
+Deno.test("native webhook durably accepts an authenticated empty body", async () => {
+  let storedBody: unknown;
+  const response = await handleImportFacebookLeadAdRequest(
+    new Request("https://example.test/import-facebook-lead-ad", {
+      method: "POST",
+      headers: { "x-hub-signature-256": await signatureFor("") },
+      body: "",
+    }),
+    {
+      env: envReader({ META_APP_SECRET: APP_SECRET }),
+      supabase: fakeSupabase((_name, payload) => {
+        storedBody = (payload as Record<string, unknown>).p_body_base64;
+        return Promise.resolve({ data: crypto.randomUUID(), error: null });
+      }),
+    },
+  );
+  assertEquals(response.status, 200);
+  assertEquals(storedBody, "");
+});
+
+Deno.test("native webhook persists signed malformed UTF-8 before acknowledgment", async () => {
   const rawBody = Uint8Array.from([
     0x7b,
     0x22,
@@ -179,37 +205,7 @@ Deno.test("native webhook rejects malformed UTF-8 with invalid_json after signat
     0x7d,
   ]);
 
-  const response = await handleImportFacebookLeadAdRequest(
-    new Request("https://example.test/import-facebook-lead-ad", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Hub-Signature-256": await signatureFor(rawBody),
-      },
-      body: rawBody,
-    }),
-    { env: envReader({ META_APP_SECRET: APP_SECRET }) },
-  );
-
-  assertEquals(response.status, 400);
-  assertEquals(await response.json(), {
-    success: false,
-    error: "invalid_json",
-  });
-});
-
-Deno.test("native webhook stores its receipt before Graph fetch and uses the trusted importer", async () => {
-  const order: string[] = [];
-  const receiptPayloads: Record<string, unknown>[] = [];
-  const trustedPayloads: Record<string, unknown>[] = [];
-  const rawBody = JSON.stringify(leadgenEnvelope);
-
-  const supabase = fakeSupabase((table, payload) => {
-    order.push(`db:${table}`);
-    receiptPayloads.push(payload as Record<string, unknown>);
-    return Promise.resolve({ data: null, error: null });
-  });
-
+  const calls: string[] = [];
   const response = await handleImportFacebookLeadAdRequest(
     new Request("https://example.test/import-facebook-lead-ad", {
       method: "POST",
@@ -220,374 +216,235 @@ Deno.test("native webhook stores its receipt before Graph fetch and uses the tru
       body: rawBody,
     }),
     {
-      env: envReader({
-        META_APP_SECRET: APP_SECRET,
-        META_PAGE_ACCESS_TOKEN: "page-access-token",
-        META_GRAPH_API_VERSION: "v25.0",
-        META_WEBHOOK_TEST_MODE: "true",
+      env: envReader({ META_APP_SECRET: APP_SECRET }),
+      supabase: fakeSupabase((name) => {
+        calls.push(name);
+        return Promise.resolve({
+          data: "00000000-0000-4000-8000-000000000001",
+          error: null,
+        });
       }),
-      supabase,
-      fetchImpl: (_input, init) => {
-        order.push("graph");
-        assertEquals(
-          new Headers(init?.headers).get("authorization"),
-          "Bearer page-access-token",
-        );
-        return Promise.resolve(
-          new Response(
-            JSON.stringify({
-              id: "lead-123",
-              created_time: "2026-09-04T12:00:00+0000",
-              form_id: "form-456",
-              field_data: [
-                { name: "email", values: ["lead@example.com"] },
-                { name: "full_name", values: ["Test Lead"] },
-              ],
-            }),
-            { status: 200 },
-          ),
-        );
-      },
-      importPayload: (_client, payload) => {
-        order.push("trusted-import");
-        trustedPayloads.push(payload);
-        const normalized = normalizePayload(payload);
-        assert(normalized.ok);
-        if (normalized.ok) {
-          assertEquals(normalized.payload.platformLeadId, "lead-123");
-          assertEquals(normalized.payload.email, "lead@example.com");
-          assertEquals(normalized.payload.fullName, "Test Lead");
-        }
-        return Promise.resolve(
-          new Response(
-            JSON.stringify({
-              success: true,
-              lead_id: "local-lead-id",
-              attribution_id: "local-attribution-id",
-              reused: false,
-            }),
-            {
-              status: 200,
-              headers: { "Content-Type": "application/json" },
-            },
-          ),
-        );
-      },
-      now: () => new Date("2026-09-04T12:00:00.000Z"),
     },
   );
 
   assertEquals(response.status, 200);
-  assertEquals(order, ["db:event_logs", "graph", "trusted-import"]);
-  const receiptPayload = receiptPayloads[0];
-  const trustedPayload = trustedPayloads[0];
-  assert(receiptPayload);
-  assert(trustedPayload);
-  assertEquals(receiptPayload.event_name, "facebook_leadgen_webhook_received");
-  assertEquals(
-    (receiptPayload.metadata as Record<string, unknown>).raw_payload,
-    leadgenEnvelope,
-  );
-  assertEquals(
-    trustedPayload.field_data,
-    [
-      { name: "email", values: ["lead@example.com"] },
-      { name: "full_name", values: ["Test Lead"] },
-    ],
-  );
-  const responseBody = await response.json();
-  assertEquals(responseBody, {
-    success: true,
-    received: 1,
-    imported: 1,
-    test_mode: true,
-    downstream_actions: "suppressed",
-  });
-  assertNoWebhookResponseLeaks(responseBody);
-  assert(
-    !order.some((entry) =>
-      entry.includes("voice_followups") || entry.includes("webhook_deliveries")
-    ),
-  );
+  assertEquals(calls, ["meta_receive_webhook_receipt"]);
+  assertEquals(await response.json(), { success: true, queued: true });
 });
 
-Deno.test("native webhook bounds Graph concurrency at three while keeping persistence sequential", async () => {
+Deno.test("signed webhook stores original bytes before structural parsing", async () => {
   const rawBody = JSON.stringify(batchLeadgenEnvelope);
-  const order: string[] = [];
-  const graphStarts: string[] = [];
-  const importedFieldData: unknown[] = [];
-  let activeGraphFetches = 0;
-  let maxActiveGraphFetches = 0;
-  let activeImports = 0;
-  let maxActiveImports = 0;
-  const graphResolvers = new Map<string, () => void>();
-
-  const supabase = fakeSupabase((table) => {
-    order.push(`db:${table}`);
-    return Promise.resolve({ data: null, error: null });
-  });
-
-  const responsePromise = handleImportFacebookLeadAdRequest(
-    new Request("https://example.test/import-facebook-lead-ad", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Hub-Signature-256": await signatureFor(rawBody),
-      },
-      body: rawBody,
-    }),
-    {
-      env: envReader({
-        META_APP_SECRET: APP_SECRET,
-        META_PAGE_ACCESS_TOKEN: "page-access-token",
-        META_GRAPH_API_VERSION: "v25.0",
-        META_WEBHOOK_TEST_MODE: "true",
-      }),
-      supabase,
-      fetchImpl: (input) => {
-        const leadgenId = new URL(String(input)).pathname.split("/").pop()!;
-        order.push(`graph:start:${leadgenId}`);
-        graphStarts.push(leadgenId);
-        activeGraphFetches += 1;
-        maxActiveGraphFetches = Math.max(
-          maxActiveGraphFetches,
-          activeGraphFetches,
-        );
-
-        return new Promise<Response>((resolve) => {
-          graphResolvers.set(leadgenId, () => {
-            activeGraphFetches -= 1;
-            resolve(
-              new Response(
-                JSON.stringify({
-                  id: leadgenId,
-                  created_time: "2026-09-04T12:00:00+0000",
-                  form_id: `form-${leadgenId}`,
-                  field_data: [
-                    { name: "email", values: [`${leadgenId}@example.com`] },
-                    { name: "full_name", values: [`Lead ${leadgenId}`] },
-                  ],
-                }),
-                { status: 200 },
-              ),
-            );
-          });
-        });
-      },
-      importPayload: async (_client, payload) => {
-        const platformLeadId = String(payload.platform_lead_id);
-        order.push(`trusted-import:start:${platformLeadId}`);
-        activeImports += 1;
-        maxActiveImports = Math.max(maxActiveImports, activeImports);
-        importedFieldData.push(payload.field_data);
-        await Promise.resolve();
-        activeImports -= 1;
-        order.push(`trusted-import:end:${platformLeadId}`);
-        return new Response(JSON.stringify({ success: true, reused: false }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      },
-      now: () => new Date("2026-09-04T12:00:00.000Z"),
-    },
-  );
-
-  for (let attempt = 0; attempt < 5 && graphStarts.length < 3; attempt += 1) {
-    await Promise.resolve();
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  }
-  assertEquals(order.slice(0, 4), [
-    "db:event_logs",
-    "db:event_logs",
-    "db:event_logs",
-    "db:event_logs",
-  ]);
-  assertEquals(graphStarts, ["lead-1", "lead-2", "lead-3"]);
-  assertEquals(maxActiveGraphFetches, 3);
-  assertEquals(activeImports, 0);
-
-  for (const leadgenId of ["lead-1", "lead-2", "lead-3", "lead-4"]) {
-    const resolveGraph = graphResolvers.get(leadgenId);
-    assert(resolveGraph);
-    resolveGraph();
-    await Promise.resolve();
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  }
-
-  const response = await responsePromise;
-
-  assertEquals(response.status, 200);
-  assertEquals(maxActiveGraphFetches, 3);
-  assertEquals(maxActiveImports, 1);
-  assertEquals(
-    order.filter((entry) => entry.startsWith("trusted-import:start:")),
-    [
-      "trusted-import:start:lead-1",
-      "trusted-import:start:lead-2",
-      "trusted-import:start:lead-3",
-      "trusted-import:start:lead-4",
-    ],
-  );
-  assertEquals(importedFieldData, [
-    [
-      { name: "email", values: ["lead-1@example.com"] },
-      { name: "full_name", values: ["Lead lead-1"] },
-    ],
-    [
-      { name: "email", values: ["lead-2@example.com"] },
-      { name: "full_name", values: ["Lead lead-2"] },
-    ],
-    [
-      { name: "email", values: ["lead-3@example.com"] },
-      { name: "full_name", values: ["Lead lead-3"] },
-    ],
-    [
-      { name: "email", values: ["lead-4@example.com"] },
-      { name: "full_name", values: ["Lead lead-4"] },
-    ],
-  ]);
-  const responseBody = await response.json();
-  assertEquals(responseBody, {
-    success: true,
-    received: 4,
-    imported: 4,
-    test_mode: true,
-    downstream_actions: "suppressed",
-  });
-  assertNoWebhookResponseLeaks(responseBody);
-});
-
-Deno.test("receipt failure aborts before Graph retrieval", async () => {
-  let graphCalls = 0;
-  const rawBody = JSON.stringify(leadgenEnvelope);
-  const supabase = fakeSupabase(() =>
-    Promise.resolve({ data: null, error: { message: "write failed" } })
-  );
-
+  const calls: Array<{ name: string; payload: Record<string, unknown> }> = [];
   const response = await handleImportFacebookLeadAdRequest(
     new Request("https://example.test/import-facebook-lead-ad", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Hub-Signature-256": await signatureFor(rawBody),
-      },
+      headers: { "X-Hub-Signature-256": await signatureFor(rawBody) },
       body: rawBody,
     }),
     {
-      env: envReader({
-        META_APP_SECRET: APP_SECRET,
-        META_PAGE_ACCESS_TOKEN: "page-access-token",
-        META_GRAPH_API_VERSION: "v25.0",
+      env: envReader({ META_APP_SECRET: APP_SECRET }),
+      supabase: fakeSupabase((name, payload) => {
+        calls.push({ name, payload: payload as Record<string, unknown> });
+        return Promise.resolve({
+          data: "00000000-0000-4000-8000-000000000001",
+          error: null,
+        });
       }),
-      supabase,
-      fetchImpl: () => {
-        graphCalls += 1;
-        return Promise.resolve(new Response("{}", { status: 200 }));
-      },
     },
   );
+  assertEquals(response.status, 200);
+  const responseBody = await response.json();
+  assertEquals(responseBody, { success: true, queued: true });
+  assertNoWebhookResponseLeaks(responseBody);
+  assertEquals(calls.length, 1);
+  assertEquals(calls[0].name, "meta_receive_webhook_receipt");
+  assertEquals(calls[0].payload.p_global_test_mode, true);
+  assertEquals(atob(calls[0].payload.p_body_base64 as string), rawBody);
+  assertEquals((calls[0].payload.p_body_sha256 as string).length, 64);
+});
 
+Deno.test("signed leadgen change without an ID remains durable", async () => {
+  const rawBody = JSON.stringify({
+    object: "page",
+    entry: [{ changes: [{ field: "leadgen", value: { form_id: "form-1" } }] }],
+  });
+  const response = await handleImportFacebookLeadAdRequest(
+    new Request("https://example.test/import-facebook-lead-ad", {
+      method: "POST",
+      headers: { "X-Hub-Signature-256": await signatureFor(rawBody) },
+      body: rawBody,
+    }),
+    {
+      env: envReader({ META_APP_SECRET: APP_SECRET }),
+      supabase: fakeSupabase(() =>
+        Promise.resolve({
+          data: "00000000-0000-4000-8000-000000000001",
+          error: null,
+        })
+      ),
+    },
+  );
+  assertEquals(response.status, 200);
+  assertEquals(await response.json(), { success: true, queued: true });
+});
+
+Deno.test("receipt failure is not acknowledged", async () => {
+  const rawBody = JSON.stringify(leadgenEnvelope);
+  const response = await handleImportFacebookLeadAdRequest(
+    new Request("https://example.test/import-facebook-lead-ad", {
+      method: "POST",
+      headers: { "X-Hub-Signature-256": await signatureFor(rawBody) },
+      body: rawBody,
+    }),
+    {
+      env: envReader({ META_APP_SECRET: APP_SECRET }),
+      supabase: fakeSupabase(() =>
+        Promise.resolve({ data: null, error: { code: "PGRST000" } })
+      ),
+    },
+  );
   assertEquals(response.status, 500);
   assertEquals((await response.json()).error, "webhook_receipt_failed");
-  assertEquals(graphCalls, 0);
 });
 
-Deno.test("production webhook success response is minimal and does not leak importer data", async () => {
-  const rawBody = JSON.stringify(leadgenEnvelope);
-
+Deno.test("trusted-secret import persists test lead synchronously and returns legacy IDs", async () => {
+  const calls: Array<Record<string, unknown>> = [];
+  const body = {
+    platform_lead_id: "trusted-1",
+    form_id: "form-1",
+    email: "person@example.com",
+    is_test: true,
+  };
   const response = await handleImportFacebookLeadAdRequest(
     new Request("https://example.test/import-facebook-lead-ad", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Hub-Signature-256": await signatureFor(rawBody),
-      },
-      body: rawBody,
+      headers: { "x-import-secret": "trusted-secret" },
+      body: JSON.stringify(body),
     }),
     {
       env: envReader({
-        META_APP_SECRET: APP_SECRET,
-        META_PAGE_ACCESS_TOKEN: "page-access-token",
-        META_GRAPH_API_VERSION: "v25.0",
+        FACEBOOK_LEAD_AD_IMPORT_SECRET: "trusted-secret",
         META_WEBHOOK_TEST_MODE: "false",
       }),
-      supabase: fakeSupabase(() =>
-        Promise.resolve({ data: null, error: null })
-      ),
-      fetchImpl: () =>
-        Promise.resolve(
-          new Response(
-            JSON.stringify({
-              id: "lead-123",
-              created_time: "2026-09-04T12:00:00+0000",
-              field_data: [{ name: "phone", values: ["+15555550123"] }],
-            }),
-            { status: 200 },
-          ),
-        ),
-      importPayload: () =>
-        Promise.resolve(
-          new Response(
-            JSON.stringify({
-              success: true,
-              lead_id: "local-lead-id",
-              attribution_id: "local-attribution-id",
-              email: "lead@example.com",
-              phone: "+15555550123",
-              field_data: [{ name: "phone", values: ["+15555550123"] }],
-              access_token: "page-access-token",
-            }),
-            {
-              status: 200,
-              headers: { "Content-Type": "application/json" },
-            },
-          ),
-        ),
+      supabase: fakeSupabase((_name, payload) => {
+        calls.push(payload as Record<string, unknown>);
+        return Promise.resolve({
+          data: [{
+            lead_id: "lead-uuid",
+            attribution_id: "attr-uuid",
+            reused: false,
+          }],
+          error: null,
+        });
+      }),
     },
   );
-
   assertEquals(response.status, 200);
-  const responseBody = await response.json();
-  assertEquals(responseBody, { success: true });
-  assertNoWebhookResponseLeaks(responseBody);
+  assertEquals(await response.json(), {
+    success: true,
+    lead_id: "lead-uuid",
+    attribution_id: "attr-uuid",
+    reused: false,
+  });
+  assertEquals(calls[0].p_is_test, true);
+  assertEquals(calls[0].p_platform_lead_id, "trusted-1");
+  assertEquals(calls[0].p_graph_payload, body);
 });
 
-Deno.test("the existing trusted-secret import path remains available", async () => {
-  let importedBody: Record<string, unknown> | null = null;
-  const originalPayload = {
-    platform_lead_id: "legacy-123",
-    email: "legacy@example.com",
-  };
-  const supabase = fakeSupabase(() =>
-    Promise.resolve({ data: null, error: null })
-  );
+Deno.test("trusted import without is_test stays live and replay reports reused", async () => {
+  const states: boolean[] = [];
+  for (const reused of [false, true]) {
+    const response = await handleImportFacebookLeadAdRequest(
+      new Request("https://example.test/import-facebook-lead-ad", {
+        method: "POST",
+        headers: { authorization: "Bearer trusted-secret" },
+        body: JSON.stringify({
+          platform_lead_id: "trusted-live",
+          email: "lead@example.com",
+        }),
+      }),
+      {
+        env: envReader({
+          FACEBOOK_LEAD_AD_IMPORT_SECRET: "trusted-secret",
+          META_WEBHOOK_TEST_MODE: "true",
+        }),
+        supabase: fakeSupabase((_name, payload) => {
+          states.push(
+            (payload as Record<string, unknown>).p_is_test as boolean,
+          );
+          return Promise.resolve({
+            data: [{
+              lead_id: "same-lead",
+              attribution_id: "same-attr",
+              reused,
+            }],
+            error: null,
+          });
+        }),
+      },
+    );
+    assertEquals(response.status, 200);
+    assertEquals(await response.json(), {
+      success: true,
+      lead_id: "same-lead",
+      attribution_id: "same-attr",
+      reused,
+    });
+  }
+  assertEquals(states, [false, false]);
+});
 
+Deno.test("signature takes precedence over a valid trusted secret", async () => {
+  let persisted = false;
   const response = await handleImportFacebookLeadAdRequest(
     new Request("https://example.test/import-facebook-lead-ad", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        "x-import-secret": "trusted-import-secret",
+        "x-import-secret": "trusted-secret",
+        "x-hub-signature-256": `sha256=${"0".repeat(64)}`,
       },
-      body: JSON.stringify(originalPayload),
+      body: JSON.stringify(leadgenEnvelope),
     }),
     {
       env: envReader({
-        FACEBOOK_LEAD_AD_IMPORT_SECRET: "trusted-import-secret",
+        FACEBOOK_LEAD_AD_IMPORT_SECRET: "trusted-secret",
+        META_APP_SECRET: APP_SECRET,
       }),
-      supabase,
-      importPayload: (_client, body) => {
-        importedBody = body;
-        return Promise.resolve(
-          new Response(JSON.stringify({ success: true }), {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          }),
-        );
-      },
+      supabase: fakeSupabase(() => {
+        persisted = true;
+        return Promise.resolve({ data: null, error: null });
+      }),
     },
   );
+  assertEquals(response.status, 401);
+  assertEquals(persisted, false);
+});
 
-  assertEquals(response.status, 200);
-  assertEquals(importedBody, originalPayload);
+Deno.test("even an empty signature header cannot fall through to trusted import", async () => {
+  let persisted = false;
+  const response = await handleImportFacebookLeadAdRequest(
+    new Request("https://example.test/import-facebook-lead-ad", {
+      method: "POST",
+      headers: {
+        "x-import-secret": "trusted-secret",
+        "x-hub-signature-256": "",
+      },
+      body: JSON.stringify({
+        platform_lead_id: "lead-1",
+        email: "lead@example.com",
+      }),
+    }),
+    {
+      env: envReader({
+        FACEBOOK_LEAD_AD_IMPORT_SECRET: "trusted-secret",
+        META_APP_SECRET: APP_SECRET,
+      }),
+      supabase: fakeSupabase(() => {
+        persisted = true;
+        return Promise.resolve({ data: null, error: null });
+      }),
+    },
+  );
+  assertEquals(response.status, 401);
+  assertEquals(persisted, false);
 });

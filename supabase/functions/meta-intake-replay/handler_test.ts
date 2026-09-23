@@ -10,7 +10,7 @@ import {
 } from "./handler.ts";
 
 type RecordedOperation = {
-  kind: "select" | "insert" | "update" | "delete" | "upsert";
+  kind: "select" | "insert" | "update" | "delete" | "upsert" | "rpc";
   table: string;
   filters: Record<string, unknown>;
   payload?: unknown;
@@ -104,6 +104,19 @@ function createFakeDatabase(options: FakeDatabaseOptions = {}) {
   const client = {
     from(table: string) {
       return new Query(table);
+    },
+    rpc(name: string, payload: Record<string, unknown>) {
+      operations.push({ kind: "rpc", table: name, filters: {}, payload });
+      return Promise.resolve({
+        data: {
+          id: 1,
+          form_id: payload.p_form_id,
+          question_label: payload.p_question_label,
+          mapping_action: payload.p_mapping_action,
+          canonical_key: payload.p_canonical_key,
+        },
+        error: null,
+      });
     },
   } as unknown as SupabaseClient;
 
@@ -402,7 +415,7 @@ Deno.test("viewer cannot save mapping decisions", async () => {
   assertEquals(operations, []);
 });
 
-Deno.test("operator upserts an allowlisted mapping only in the override table", async () => {
+Deno.test("operator saves an allowlisted mapping through the atomic RPC", async () => {
   const { client, operations } = createFakeDatabase();
   const response = await handleMetaIntakeReplayRequest(
     post({
@@ -417,14 +430,14 @@ Deno.test("operator upserts an allowlisted mapping only in the override table", 
 
   assertEquals(response.status, 200);
   assertEquals(operations, [{
-    kind: "upsert",
-    table: "field_mapping_overrides",
+    kind: "rpc",
+    table: "meta_save_form_mapping",
     filters: {},
     payload: {
-      form_id: "form-1",
-      question_label: "How many openings?",
-      mapping_action: "map",
-      canonical_key: "qualification_openings",
+      p_form_id: "form-1",
+      p_question_label: "How many openings?",
+      p_mapping_action: "map",
+      p_canonical_key: "qualification_openings",
     },
   }]);
 });
@@ -444,14 +457,14 @@ Deno.test("operator can store an ignore decision without a canonical key", async
 
   assertEquals(response.status, 200);
   assertEquals(operations, [{
-    kind: "upsert",
-    table: "field_mapping_overrides",
+    kind: "rpc",
+    table: "meta_save_form_mapping",
     filters: {},
     payload: {
-      form_id: "form-1",
-      question_label: "Unneeded detail",
-      mapping_action: "ignore",
-      canonical_key: null,
+      p_form_id: "form-1",
+      p_question_label: "Unneeded detail",
+      p_mapping_action: "ignore",
+      p_canonical_key: null,
     },
   }]);
 });
@@ -469,8 +482,8 @@ Deno.test("super_admin can save an allowlisted mapping", async () => {
   );
 
   assertEquals(response.status, 200);
-  assertEquals(operations[0].kind, "upsert");
-  assertEquals(operations[0].table, "field_mapping_overrides");
+  assertEquals(operations[0].kind, "rpc");
+  assertEquals(operations[0].table, "meta_save_form_mapping");
 });
 
 Deno.test("non-allowlisted canonical destinations are rejected before write", async () => {

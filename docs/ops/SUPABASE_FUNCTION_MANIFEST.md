@@ -71,6 +71,8 @@ Legend — **Auth model:** `app-logic` (handler validation, no gateway JWT); `ad
 | `get-contractor-document-url` | contractor | false | JWT+role | yes | `PartnerDossier.tsx` |
 | `get-contractor-dossier` | contractor | false | JWT+role | yes | `PartnerDossier.tsx` |
 | `import-facebook-lead-ad` | webhook | false | secret-header | yes | none |
+| `process-meta-lead` | cron | false | `x-meta-worker-secret` | yes | none (local implementation; not deployment-verified) |
+| `process-meta-outbox` | cron | false | `x-meta-worker-secret` | yes | none (local implementation; not deployment-verified) |
 | `lead-reactivation` | cron | false | secret-header | yes | none |
 | `list-contractor-opportunities` | contractor | false | JWT+role | yes | `ContractorOpportunitiesPage.tsx` |
 | `partner-update-disposition` | contractor | false | JWT+role | yes | `PartnerActionCenter.tsx` |
@@ -97,7 +99,7 @@ Legend — **Auth model:** `app-logic` (handler validation, no gateway JWT); `ad
 | `voice-followup` | admin | false | adminAuth | yes | none direct; via `admin-data` action `trigger_voice_followup` |
 | `windowman-concierge` | homeowner public | false | app-logic (Zod + Gemini JSON only) | no | none observed in `src/` (acquisition concierge endpoint) |
 
-**Config reconciliation:** 56 inventoried function directories with `index.ts` ↔ 56 inventoried `[functions.*]` entries in `config.toml` after adding `report-summary-worker`. This sprint does not re-audit or repair pre-existing inventory gaps.
+**Config reconciliation:** the 56-function count is a historical snapshot. The Meta Lead Ads sprint adds two local function directories and matching `config.toml` entries; neither their deployment nor overall current parity is asserted here.
 
 **Deployment projects column:** See [§ Live Deployment Matrix](#live-deployment-matrix) (audited 2026-05-26).
 
@@ -382,7 +384,9 @@ Functions reachable by unauthenticated browsers using only the publishable/anon 
 | `contractor-booking-confirmed` | Booking confirmation hook | `x-contractor-secret` = `CONTRACTOR_CRON_SECRET` | `contractor_leads`, `contractor_followups`, `contractor_activity_log` |
 | `contractor-mark-no-show` | No-show marker | `x-contractor-secret` = `CONTRACTOR_CRON_SECRET` | same family |
 | `contractor-send-followups` | Follow-up email sender | `x-contractor-secret` = `CONTRACTOR_CRON_SECRET` | `contractor_followups`, `contractor_leads`, `contractor_activity_log` |
-| `import-facebook-lead-ad` | Native Meta webhook + trusted Facebook lead ad ingest | Meta GET verify token / POST `X-Hub-Signature-256`, or `x-import-secret` / Bearer = `FACEBOOK_LEAD_AD_IMPORT_SECRET` | `leads`, `lead_attribution_details`, `event_logs` |
+| `import-facebook-lead-ad` | Signed native bytes committed before parsing; authenticated trusted import persists synchronously and returns IDs | Meta GET verify token / POST `X-Hub-Signature-256` (signature takes precedence), or `x-import-secret` / Bearer = `FACEBOOK_LEAD_AD_IMPORT_SECRET` | `meta_webhook_receipts` via `meta_receive_webhook_receipt`; trusted path via `meta_import_trusted_lead` |
+| `process-meta-lead` | Retryable raw-receipt parsing, per-item quarantine, Graph lookup, and WindowMan lead persistence | `x-meta-worker-secret` = `META_WORKER_SECRET` | `meta_webhook_receipts`, `meta_lead_inbox`, `leads`, `lead_attribution_details`, `lead_consent_events`, form mappings via RPCs |
+| `process-meta-outbox` | Independent qualified-only GHL and distinct Meta CRM feedback lanes | `x-meta-worker-secret` = `META_WORKER_SECRET` | `meta_integration_outbox`, `meta_ghl_contact_links`, `capi_signal_logs` via RPCs |
 | `stripe-webhook` | Stripe checkout fulfillment | Stripe `stripe-signature` = `STRIPE_WEBHOOK_SECRET` | `contractor_credit_purchases`; RPC `fulfill_contractor_credit_purchase` |
 
 ---
@@ -421,7 +425,9 @@ Additional secrets found in function code (not all listed in `.env.example`):
 | `CONTRACTOR_CRON_SECRET` | `contractor-booking-confirmed`, `contractor-mark-no-show`, `contractor-send-followups`, `process-webhook`, `refresh-benchmarks`, `lead-reactivation` |
 | `PROCESS_WEBHOOK_SECRET`, `BENCHMARK_CRON_SECRET`, `REACTIVATION_CRON_SECRET` | respective cron functions (fallback to `CONTRACTOR_CRON_SECRET`) |
 | `CRM_WEBHOOK_URL`, `CRM_WEBHOOK_SECRET` | `process-webhook` |
-| `FACEBOOK_LEAD_AD_IMPORT_SECRET`, `META_WEBHOOK_VERIFY_TOKEN`, `META_APP_SECRET`, `META_PAGE_ACCESS_TOKEN`, `META_GRAPH_API_VERSION`, `META_WEBHOOK_TEST_MODE` | `import-facebook-lead-ad` |
+| `FACEBOOK_LEAD_AD_IMPORT_SECRET`, `META_WEBHOOK_VERIFY_TOKEN`, `META_APP_SECRET`, `META_WEBHOOK_TEST_MODE`, `META_TEST_FORM_IDS`, `META_TEST_PAGE_IDS` | `import-facebook-lead-ad` |
+| `META_PAGE_ACCESS_TOKEN`, `META_GRAPH_API_VERSION`, `META_WORKER_SECRET` | `process-meta-lead`; graph version and worker secret also used by `process-meta-outbox` as applicable |
+| `GHL_LOCATION_ID`, `GHL_PRIVATE_INTEGRATION_TOKEN`, `META_GHL_DELIVERY_ENABLED`, `META_CRM_FEEDBACK_ENABLED`, `META_CRM_TEST_EVENT_CODE`, `META_CRM_LIVE_SEND_ENABLED` | `process-meta-outbox` (delivery flags default off) |
 | `LOVABLE_API_KEY` | `dispatch-lead` |
 | `QUOTE_INTELLIGENCE_WORKER_SECRET` | `quote-intelligence-worker` |
 | `REPORT_SUMMARY_WORKER_SECRET` | `report-summary-worker` |
@@ -661,8 +667,9 @@ Each entry: **Purpose · Category · verify_jwt · Auth · Env vars · Service r
 ### `import-facebook-lead-ad`
 - **Category:** webhook · **Auth:** Meta GET verification uses `META_WEBHOOK_VERIFY_TOKEN`; native POST verifies `X-Hub-Signature-256` with `META_APP_SECRET`; the existing trusted importer still accepts `FACEBOOK_LEAD_AD_IMPORT_SECRET`
 - **Callers:** Meta Page `leadgen` webhooks; existing trusted server-side importer
-- **Retrieval:** `leadgen_id` is receipted with the raw signed callback in `event_logs` before a versioned Graph API request using `META_PAGE_ACCESS_TOKEN`
-- **Test mode:** `META_WEBHOOK_TEST_MODE` defaults to enabled unless explicitly set to `false`; this function performs ingestion only and does not invoke PhoneCall.bot or CRM sync
+- **Retrieval:** the exact signed callback bytes are committed to `meta_webhook_receipts` before JSON parsing or acknowledgment; `process-meta-lead` parses each change independently, records bounded issue codes, then retrieves protected Graph data asynchronously using `META_PAGE_ACCESS_TOKEN`. The authenticated trusted-secret path remains synchronous.
+- **Test mode:** `META_WEBHOOK_TEST_MODE` defaults to enabled unless explicitly set to `false`; test leads are marked `is_test` on initial persistence and cannot enqueue outbound jobs
+- **Activation:** the migration prepares, but does not run, Vault-backed worker schedules. Deploy functions, approve one form destination and its consent rules, verify test events, then explicitly activate schedules and enable outbound flags. No deployment is asserted by this manifest edit.
 
 ### `lead-reactivation` / `refresh-benchmarks`
 - **Category:** cron · **Auth:** `x-cron-secret` · **Callers:** none
