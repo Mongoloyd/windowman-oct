@@ -448,3 +448,62 @@ Deno.test("even an empty signature header cannot fall through to trusted import"
   assertEquals(response.status, 401);
   assertEquals(persisted, false);
 });
+
+Deno.test("trusted live Make payload preserves five answers without inventing consent", async () => {
+  const calls: Array<Record<string, unknown>> = [];
+  const customAnswers = {
+    project_stage: 'Comparing "quotes"',
+    qualification_openings: "6-10",
+    property_type: "Single family",
+    time_frame: "Within 3 months",
+    quote_age: "Less than 30 days",
+  };
+  const response = await handleImportFacebookLeadAdRequest(
+    new Request("https://example.test/import-facebook-lead-ad", {
+      method: "POST",
+      headers: { "x-import-secret": "trusted-secret" },
+      body: JSON.stringify({
+        leadgen_id: "make-five-answer-live",
+        page_id: "1288490644343316",
+        form_id: "1436331951156800",
+        email: " Make.Five@Example.invalid ",
+        phone_number: "(202) 555-0187",
+        first_name: "Integration",
+        zip_code: "33101",
+        is_test: false,
+        ...customAnswers,
+      }),
+    }),
+    {
+      env: envReader({ FACEBOOK_LEAD_AD_IMPORT_SECRET: "trusted-secret" }),
+      supabase: fakeSupabase((name, payload) => {
+        assertEquals(name, "meta_import_trusted_lead");
+        calls.push(payload as Record<string, unknown>);
+        return Promise.resolve({
+          data: [{
+            lead_id: "lead-five",
+            attribution_id: "attr-five",
+            reused: false,
+          }],
+          error: null,
+        });
+      }),
+    },
+  );
+  assertEquals(response.status, 200);
+  assertEquals(calls.length, 1);
+  assertEquals(calls[0].p_is_test, false);
+  assertEquals(calls[0].p_consents, []);
+  assertEquals(calls[0].p_lead, {
+    session_id: "fbla_make-five-answer-live",
+    first_name: "Integration",
+    last_name: null,
+    email: "make.five@example.invalid",
+    phone_e164: "+12025550187",
+    county: null,
+    zip: "33101",
+    qualification_answers_json: {
+      native_lead: { custom_answers: customAnswers },
+    },
+  });
+});

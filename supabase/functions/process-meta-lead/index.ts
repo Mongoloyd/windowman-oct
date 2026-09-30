@@ -284,6 +284,9 @@ export async function prepareMetaLeadCompletion(
     Object.entries({
       city: value.city,
       project_type: value.projectType,
+      project_stage: value.projectStage,
+      time_frame: value.timeFrame,
+      quote_age: value.quoteAge,
       property_type: value.propertyType,
       property_type_detail: value.propertyTypeDetail,
       quote_range: value.quoteRange,

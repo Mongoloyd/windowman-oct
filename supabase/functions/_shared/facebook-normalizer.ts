@@ -35,6 +35,9 @@ export type NormalizedLeadAdPayload = {
   city: string | null;
   zip: string | null;
   projectType: string | null;
+  projectStage: string | null;
+  timeFrame: string | null;
+  quoteAge: string | null;
   propertyType: string | null;
   propertyTypeDetail: string | null;
   quoteRange: string | null;
@@ -84,6 +87,13 @@ export const FACEBOOK_CANONICAL_MAPPING_OPTIONS = [
   { canonical_key: "city", label: "City", destination: "lead" },
   { canonical_key: "zip", label: "ZIP code", destination: "lead" },
   { canonical_key: "project_type", label: "Project type", destination: "lead" },
+  {
+    canonical_key: "project_stage",
+    label: "Project stage",
+    destination: "lead",
+  },
+  { canonical_key: "time_frame", label: "Time frame", destination: "lead" },
+  { canonical_key: "quote_age", label: "Quote age", destination: "lead" },
   {
     canonical_key: "property_type",
     label: "Property type",
@@ -349,8 +359,11 @@ function buildNormalizedCandidate(
     phoneE164,
     county: pick(body, fieldMap, ["county"], 120),
     city: pick(body, fieldMap, ["city"], 120),
-    zip: pick(body, fieldMap, ["zip", "postal_code"], 20),
+    zip: pick(body, fieldMap, ["zip", "zip_code", "postal_code"], 20),
     projectType: pick(body, fieldMap, ["project_type"], 120),
+    projectStage: pick(body, fieldMap, ["project_stage"], 120),
+    timeFrame: pick(body, fieldMap, ["time_frame"], 120),
+    quoteAge: pick(body, fieldMap, ["quote_age"], 120),
     propertyType: pick(body, fieldMap, ["property_type"], 120),
     propertyTypeDetail: pick(body, fieldMap, ["property_type_detail"], 500),
     quoteRange: pick(body, fieldMap, ["quote_range"], 120),
@@ -493,6 +506,9 @@ function toNormalizedLeadPreview(
     city: candidate.city,
     zip: candidate.zip,
     project_type: candidate.projectType,
+    project_stage: candidate.projectStage,
+    time_frame: candidate.timeFrame,
+    quote_age: candidate.quoteAge,
     property_type: candidate.propertyType,
     property_type_detail: candidate.propertyTypeDetail,
     quote_range: candidate.quoteRange,
