@@ -919,3 +919,11 @@ git push `
   - target branch
   - production verification performed
   - whether the task and its managed worktree can now be archived
+
+## Cursor Cloud specific instructions
+
+- Install dependencies with `npm ci`. `predev` and `prebuild` call `bunx tsx`. Bun is available as `bun`, and the Edge Function typecheck workflow pins Deno `v1.46.3`.
+- Local development uses the Supabase CLI stack in Docker (`npx supabase start`). Point `VITE_SUPABASE_URL` at `http://127.0.0.1:54321`. The Vite app is `npm run dev` on port 8080.
+- `supabase/config.toml` does not enable the database pooler or image transformation, so `supabase_pooler` and `supabase_imgproxy` stay stopped. The rest of the local stack should be running.
+- If `supabase start` restores an empty database from a backup taken before migrations finished, run `npx supabase stop --no-backup` and start again. That flag deletes local volumes only.
+- Do not point local dev at a hosted Supabase project. Do not commit `.env.local` or `supabase/functions/.env`. Generate those from `npx supabase status -o env` after the local stack is up.
